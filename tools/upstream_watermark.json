@@ -1,0 +1,33 @@
+{
+  "_comment": [
+    "The last commit on this repository's UPSTREAM branch that has been",
+    "carried onto the working branch. Read and written by",
+    "tools/precedent_upstream_check.py, which the SessionStart hook runs so a",
+    "session says, out loud and at the top, that Alex has moved `main` since",
+    "the last carry.",
+    "",
+    "WHY A WATERMARK AND NOT AN ANCESTRY TEST -- the whole reason this file",
+    "exists. `precedent-beta-v01` does not MERGE `main`; it CARRIES it. Alex's",
+    "2026-09-08 check-in (`7d8f5a6`, his PR #139) arrived here as practice",
+    "files in the phase-1 format -- practices/constants-are-risk-inputs.md and",
+    "three others -- not as the PRACTICES.md sections he wrote. His commits are",
+    "therefore not ancestors of this branch and never will be, so",
+    "`git rev-list origin/precedent-beta-v01..origin/main` prints a permanent",
+    "non-zero count that means nothing. A check built on that number fires on",
+    "every session forever and is ignored by the second week, which is the",
+    "failure mode this file was written to avoid rather than discover.",
+    "",
+    "Update it with `python3 tools/precedent_upstream_check.py --record`,",
+    "in the same commit as the carry it records (practice:",
+    "registry-source-of-truth -- this file owns the state, and any document",
+    "that quotes it restates it)."
+  ],
+  "upstream_branch": "main",
+  "working_branch": "precedent-beta-v01",
+  "last_carried": {
+    "sha": "f0689efd9ad9c262984c470611f392b0c71deed5",
+    "recorded": "2026-09-08",
+    "carried_by": "PR #148 -- Carry Alex's 2026-09-08 main check-in onto precedent-beta-v01",
+    "note": "Alex's PR #139 (practices 54-55, the doc_lint anchor check, the model_audit loader fix). Landed here as four practices/*.md files plus the tooling changes; PRACTICES.md itself stays frozen at 53 on this branch."
+  }
+}

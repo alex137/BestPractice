@@ -1,12 +1,21 @@
-<!-- Last updated: 2026-09-03 (Buenos Aires) by a follow-up session -->
-
+---
+title:         Brief — Bringing Mechanical Checks to the Private Sets
+kind:          brief
+status:        blocked
+opened:        2026-09-01
+closed:        null
+superseded_by: null
+supersedes:    []
+audience:      session
+summary:       Bringing mechanical checks to the two private sets' practices, blocked because it cannot be run from this repository.
+---
 # Brief — Bringing Mechanical Checks to the Private Sets
 
 **Read this if you are a session opened against
-`themorgan/precedent-individual` or `themorgan/precedent-team-maintainers`,
+`themorgan/precedent-individual` or `themorgan/precedent-team-repo-maintenance`,
 or against Precedent with one or both of them also attached.** It was
 originally written for exactly one of those sessions at a time — see
-[Why this cannot run from Precedent](#why-this-cannot-run-from-precedent)
+[Why this could not run from Precedent](#why-this-could-not-run-from-precedent-original-reasoning-relaxed-2026-09-01)
 for that original reasoning — but as of 2026-09-01 that isolation is
 relaxed for active development; see
 [decisions/2026-09-01-relax-private-repo-isolation.md](../decisions/2026-09-01-relax-private-repo-isolation.md).
@@ -20,15 +29,36 @@ describes, not here.
 
 ## The gap, stated plainly
 
-Phase 3 populated the two private sets with one practice each. Phase 4 built
-real, tested enforcement for the universal catalogue: 24 of 54 practices now
-carry a `checked_by` backed by a test that plants the exact violation the
-practice exists to prevent and proves it fires (see
-[spec/ENFORCEMENT.md](ENFORCEMENT.md)). **Neither private set has any of
-that.** Both of their practices currently carry `checked_by: null`, and no
-infrastructure exists yet — in either private repo — to change that, because
-the checking engine ([tools/precedent_check.py](../tools/precedent_check.py))
-was built only against this repo's own tree.
+**Most of this section describes a gap that has since been closed. It is
+kept, corrected in place, because the procedure below is still how the work
+is done — and because the numbers it used to assert were wrong by 2026-09-07
+in a way that would send a session to build what already exists.**
+
+Phase 3 populated the two private sets with one practice each, and phase 4
+built real, tested enforcement for the universal catalogue — a `checked_by`
+backed by a test that plants the exact violation the practice exists to
+prevent and proves it fires. This brief then said: *"Neither private set has
+any of that. Both of their practices currently carry `checked_by: null`, and
+no infrastructure exists yet — in either private repo."*
+
+Measured 2026-09-07, across the sources attached then:
+
+| Source | Active practices | With a `checked_by` | Check scripts |
+|---|---|---|---|
+| `precedent` (universal) | 66 | 34 | in `precedent_check.py` |
+| `precedent-team-repo-maintenance` | 40 | 8 | 8 |
+| `precedent-individual` | 15 | 8 | 8 |
+
+So both of the sets this brief was written for now have their own
+`tools/checks/` directories with real, tested check scripts — the procedure
+below was followed and it worked. What is left is the ordinary long tail: 32
+of 40 and 7 of 15 still carry `checked_by: null`, which is not by itself a
+defect, since [checkable-gets-checked](../practices/checkable-gets-checked.md)
+asks for an attempt and a recorded reason, not a check at any cost.
+
+Never re-type these figures — run `python3 tools/catalogue_stats.py`, and see
+[spec/ENFORCEMENT.md](ENFORCEMENT.md). The table above is dated for the same
+reason the original sentence needed correcting.
 
 [practices/checkable-gets-checked.md](../practices/checkable-gets-checked.md)
 already states the standard every practice at every source should meet:
@@ -61,14 +91,14 @@ here:
 
 - **A session cannot hold repositories from two owners with push access at
   once.** The two private sets belong to a different account than this one.
-- **The plan forbids it regardless** ([PRACTICE_ENGINE_PLAN.md](../PRACTICE_ENGINE_PLAN.md#risks)):
+- **The plan forbids it regardless** ([PRACTICE_ENGINE_PLAN.md](PRACTICE_ENGINE_PLAN.md#risks)):
   *"Nothing from an individual or team set may be staged on this branch at
   any point, even transiently."* Reading a private practice's content into a
   session that also holds this branch, even just to write its check, is the
   exposure the whole arrangement exists to prevent.
 
 So: one session, opened only against `precedent-individual` **or**
-`precedent-team-maintainers` — never both at once with push access, and
+`precedent-team-repo-maintenance` — never both at once with push access, and
 never alongside this repo.
 
 ## What to bring with you (public, safe to read from either side)
@@ -205,5 +235,5 @@ same way it never saw the private set's practice content. If the *pattern*
 you land on turns out to be broadly useful — a shape of check other private
 sets would want, or a case for promoting the practice itself toward team or
 universal — that is a separate decision, made the normal way
-([PRACTICE_ENGINE_PLAN.md](../PRACTICE_ENGINE_PLAN.md#stage-4--approval-by-level)),
+([PRACTICE_ENGINE_PLAN.md](PRACTICE_ENGINE_PLAN.md#stage-4--approval-by-level)),
 not a side effect of writing this check.

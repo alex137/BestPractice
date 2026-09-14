@@ -10,6 +10,7 @@ index_clause: "stamp a build code and a manifest; never hand-edit output"
 checked_by:  "tools/precedent_check.py"
 defines:     ["generated artifact"]
 status:      active
+in_force_at: null
 supersedes:  []
 overrides:   null
 added:       null
@@ -27,6 +28,11 @@ content hash) produced it. Outputs are gitignored and marked binary in
 ## Detail
 
 ## Why
+A content-derived build code makes an artifact's identity **a property of its content rather than of when it was built**, which is the only version of the question that survives two builds minutes apart. A timestamp or a commit hash answers "which run produced this"; neither answers "is this the same thing that shipped".
+
+The manifest closes the other half: recording inputs by content hash turns *what exactly shipped* into a lookup rather than an investigation through history.
+
+The prohibition on hand-editing follows from both. A generated file that has been edited is no longer reproducible from its inputs, so the build code lies and the manifest describes something that no longer exists — and nothing about the file's appearance reveals it. Gitignoring outputs and force-adding only what shipped keeps that distinction visible in the tree itself.
 
 ## Story
 Two builds minutes apart, with different content, once had to be
@@ -44,8 +50,8 @@ directory.
 ## Install
 Pattern to apply in your builders; no portable tool (the code
 stamping is builder-specific). The `.gitignore`/`.gitattributes` stanzas are
-in [INSTALL.md](INSTALL.md), which also instantiates a baseline
-`.gitignore` from [templates/gitignore.template](templates/gitignore.template)
+in [INSTALL.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/INSTALL.md), which also instantiates a baseline
+`.gitignore` from [templates/gitignore.template](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/templates/gitignore.template)
 at install time — ordinary tool/interpreter caches (`__pycache__/` and
 friends), so the generated-deliverable globs above have a file to land in
 rather than each install having to remember to create one.

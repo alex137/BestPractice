@@ -1,0 +1,1 @@
+{"slugs": ["name-both-sides-of-ledger"], "reasoning": "The change books a points transfer from pending to available but only implements and increments one side here, relying on a separate function in orders.py to decrement the other side, with no explicit statement of both accounts or a check that the transfer nets to zero across the two files."}

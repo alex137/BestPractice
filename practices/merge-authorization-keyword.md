@@ -9,7 +9,8 @@ gates:       ["merge"]
 index_clause: "one fixed word means \"merge as agreed\"; document it exactly"
 checked_by:  null
 defines:     []
-status:      active
+status:      deduplicated
+in_force_at: go-merge
 supersedes:  []
 overrides:   null
 added:       null
@@ -29,6 +30,21 @@ sentence, or its standalone status is genuinely unclear — as *not*
 authorization: ask, rather than assume.
 
 ## Detail
+This repo's adopted phrase is **"Go merge"** (case-insensitive). Standing
+alone — its own line, or set off by a preceding sentence-ending
+punctuation mark — it authorizes committing whatever change the thread
+just agreed on and pushing it to `precedent-beta-v01` (this repo's normal
+merge target; see the TEMPORARY note at the top of `AGENTS.md`), after the
+usual light and deep checks. Appearing only as part of an ordinary
+sentence, or whose standalone status is genuinely unclear, does not
+count — ask instead of assuming.
+
+The push is not the postcondition — [verify-postcondition](verify-postcondition.md)
+is: after pushing, fetch the target branch and confirm local `HEAD` and
+`origin/precedent-beta-v01` resolve to the same commit, independently of
+what the push command printed, before treating "Go merge" as fulfilled.
+A push that silently rejected, or a target branch that moved again in the
+interval, both look identical to success unless this is actually checked.
 
 ## Why
 "Merge only when the user says so" ([merge-runbook](merge-runbook.md)'s authorization
@@ -44,6 +60,50 @@ ordinary language that happens to contain the same word for an unrelated
 reason.
 
 ## Story
+**The 2026-09-07 retirement was reversed on 2026-09-08, and this is now a
+deduplication rather than a withdrawal.** `status: retired` said nobody
+wanted this rule anywhere. That was true for one day, of *this* rule -- "go
+adopt a merge keyword of your own", which is a preference dressed as a
+practice. What replaced it is not that rule: `go-merge` names ONE phrase and
+ships it, so an adopter gets a working vocabulary instead of a homework
+assignment. Morgan, 2026-09-08: *"we should have our own commands we use for
+people who live in our universe."* `in_force_at: go-merge` rather than
+`none`, because the mechanism this described is genuinely in force again --
+at a fixed phrase this time.
+
+**Retired 2026-09-07, by Morgan, as a universal rule.** "Go merge" is his
+own phrase, and a rule at the universal level was telling every adopting
+repository to go adopt a merge keyword of its own — a preference dressed
+as a practice. Nobody wants it *here*, which is what `status: retired`
+means; the thing itself survives one level down, as `go-merge` in his own
+individual set, where a personal phrase belongs.
+
+`in_force_at: none` rather than `in_force_at: go-merge`, deliberately and
+despite `go-merge` being real: that slug lives in a **private** individual
+set, so it resolves for exactly one person. A `deduplicated` status
+pointing at it would pass on his machine and fail in CI and in every other
+adopter's checkout, naming a forwarding address they cannot follow — the
+same shape as a check that is green only where it was written. Retired is
+the honest label for a universal catalogue that no longer carries this.
+
+What that costs, said plainly: an adopter who *would* have wanted a
+standing merge word now has to invent the idea rather than find it. That
+is the trade Morgan chose, and it is the right way round — a catalogue
+that ships one person's conversational habits to everyone is worse than
+one that omits a good idea.
+
+Morgan closed two consecutive messages with "Go merge" before this
+keyword was formally adopted, the second one making the intent explicit
+("register it in the glossary... And then, Go Merge"). Formalized here,
+in the same change, rather than left as an inferred pattern — so the next
+session that sees the phrase already knows what it means instead of
+re-deriving it from context or asking. The same day, Morgan asked whether
+the keyword should also require confirming the push actually landed —
+prompted by nothing having gone wrong yet, just the observation that a
+push being reported as successful and the target branch actually holding
+that commit are two different things this repo had already been bitten by
+once (see `environment-gotchas`' stale-checkout entries). Added to Detail
+rather than left as something a session happens to remember to do.
 
 ## Install
 Pick a word (or short phrase) that reads naturally as a

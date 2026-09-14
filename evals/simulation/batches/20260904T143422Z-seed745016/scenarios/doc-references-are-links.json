@@ -1,0 +1,14 @@
+{
+  "positive": {
+    "scenario": "I'm adding a new troubleshooting doc that explains how the retry queue interacts with the dead-letter handler. In the write-up I mention the config file that sets the retry threshold and the module that actually drains the queue, and I want the reader to be able to jump straight to those from the doc since it'll be viewed on GitHub. I also need to note that the queue drains roughly every 30 seconds under normal load.",
+    "files": ["docs/retry-queue.md", "src/queue/drain.py", "config/retry.yaml"]
+  },
+  "negative": {
+    "scenario": "I'm updating the CLI's help text and inline code comments to reference the new `--dry-run` flag instead of the deprecated `--simulate` one. These references are just plain-text mentions inside comments and terminal output strings, not links to other files, so I'm making sure the flag name is spelled consistently everywhere it's typed out in the source.",
+    "files": ["src/cli/args.py", "src/cli/help_text.py"]
+  },
+  "adversarial": {
+    "scenario": "I'm building a small internal dashboard page that lists every microservice and its owning team, generated from a script that reads a manifest file. Each service name in the table should let someone click through to that service's README, and since the dashboard is meant to be browsed as a wide reference table, I was going to wrap each service link in a raw anchor tag so it pops open in a new tab without losing the visitor's place on the dashboard.",
+    "files": ["tools/generate_dashboard.py", "docs/services-dashboard.md", "manifest/services.json"]
+  }
+}

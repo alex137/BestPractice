@@ -1,6 +1,6 @@
 ---
 slug:        variant-re-derives
-title:       A variant re-derives what it inherits: limits it must respect, choices it need not keep
+title:       "A variant re-derives what it inherits: limits it must respect, choices it need not keep"
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
@@ -10,6 +10,7 @@ index_clause: "re-derive what a variant inherits; limits bind, choices do not"
 checked_by:  null
 defines:     []
 status:      active
+in_force_at: null
 supersedes:  []
 overrides:   null
 added:       null

@@ -1,0 +1,8 @@
+# Derived materialization output -- written fresh by
+# `python3 tools/practice_simulation.py build-fixture-repo` every time it
+# runs (which calls tools/precedent_sync_views.py under the hood). Never
+# hand-edit or commit these; see README.md.
+/precedent.json
+/AGENTS.md
+/MANIFEST.json
+/practices/

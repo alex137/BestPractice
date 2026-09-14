@@ -1,0 +1,226 @@
+# Repository instructions — read me first
+
+<!-- Template: instantiate per templates/document-project/README.md,
+     which follows Precedent INSTALL.md §0 ("Installing directly onto the
+     Precedent loader"). This is the document-project variant of
+     templates/AGENTS.md.loader.template: the access-restriction and persona
+     content below comes from spec/CONTRIBUTOR_ACCESS.md verbatim
+     (don't re-derive it), and the candidate-capture bullet comes from
+     spec/DOCUMENT_WORK_PRACTICE_CAPTURE.md. Replace <angle-bracket>
+     placeholders with this project's real content; keep the section
+     structure and the generated-block markers exactly as they appear below. -->
+
+**Orientation: read `MAP.md` first** — the repository map. It covers the key
+deliverables and indexes which documents back each part of each one.
+
+<!-- BEGIN GENERATED: precedent-loader -->
+<!-- END GENERATED -->
+
+<!-- The block above is written by `python3 tools/precedent_sync_views.py --repo .`
+     (INSTALL.md §0 step 5) — never hand-edit between the markers; the
+     regeneration check fails loudly on drift. Leave the markers themselves
+     exactly as shown, on their own lines, with nothing between them until
+     the tool fills them in. -->
+
+## Where things are (quick index — check here BEFORE searching the repo)
+
+| Looking for… | Go to |
+|---|---|
+| Canonical names for this project's terms — use these names, don't invent new ones | `GLOSSARY.md` |
+| The document(s) this project is producing | `<path>` |
+| Open items: analyses, verifications, decisions | `TODO.md` |
+| Which practice sources are in force, and where each is vendored or resolved from | `precedent.json` |
+
+## Document workflow
+
+<!-- Fill in with the real project once a document exists: what's being
+     written, where the working drafts live, who reviews. Documents live as
+     plain text/markdown files in this repo, edited through ordinary commits
+     and PRs — the same working method as any other Precedent repo, just
+     applied to prose instead of code. -->
+
+### Build-environment gotchas — do NOT rediscover these
+
+- At session start, run `bash tools/bootstrap.sh` before other work (harnesses
+  with a hook mechanism run it automatically — see `templates/harness/`).
+- **Keep `AGENTS.md`'s generated block current.** Before relying on it,
+  run `python3 tools/precedent_sync_views.py --repo . --check` — it exits non-zero
+  if any declared source (`precedent.json`) has moved since the block was
+  last regenerated. Re-run without `--check` to refresh it, review the
+  diff, and commit.
+
+- **A brand-new session on this repo alone has no git read access to this
+  project's team sets** — session repo access is scoped per session, never
+  inherited just because `precedent.json` names a repo. No token or secret is
+  involved: the tool that grants a session this access rides the same GitHub
+  identity already behind the session, so it only ever succeeds because that
+  person is already a collaborator on the target repo. **At the very start of
+  every session, before running `tools/bootstrap.sh`, call that tool
+  (`add_repo`, read access) for every `precedent-team-*` source
+  [`precedent.json`](precedent.json) declares — silently, with no
+  confirmation needed first.** This is a read-only scope extension, not a
+  credential or production change. Never write this as "if the clone fails,
+  ask to add the repo" — that only works when a human happens to be watching
+  for the failure, and the whole point is that a person only ever attaches
+  the one repo they're actually working in; reaching for the team sources is
+  this session's own job, every time.
+
+  **Read the set names out of [`precedent.json`](precedent.json); never hard-code them here.**
+  This paragraph used to name one set outright, which meant declaring a
+  second one silently required editing two files that nothing kept in
+  agreement — and the failure mode of getting that wrong is not an error but
+  a session that quietly resolves fewer practices than the config promises.
+  A repo declaring several subject-scoped sets is the ordinary case now, not
+  an exception.
+
+## Contributor access
+
+<!-- From spec/CONTRIBUTOR_ACCESS.md, adapted only to name this project's
+     real files. Do not weaken the wording below — see that plan's own note
+     on why. Rewritten 2026-09-11: this section used to give the contributor
+     GitHub's Triage or Read role, which denied them every write, the
+     documents included. -->
+
+**The line, in one sentence: a contributor writes content freely, a protected
+path needs an owner's review, and a practice is suggested by anyone and landed
+only by a listed approver.** Nothing here is keyed to a kind of person, and
+that is the design — a rule keyed to "technical" or "non-technical" needs
+something to decide which a person is, and nothing can
+([technical-describes-people](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/technical-describes-people.md)).
+
+**GitHub role — Write.** The contributor is a **Write** collaborator here.
+They push branches, open pull requests and merge their own document work,
+through Claude, with `Go merge`; they never need to see git vocabulary to do
+it. This binds anything only if they authenticate to GitHub as themselves
+rather than through a shared organisation-wide connection — confirmed once,
+per project, before relying on it.
+
+**Branch protection plus [`.github/CODEOWNERS`](.github/CODEOWNERS) — the
+boundary.** The base branch requires a pull request and a review **from code
+owners**. `CODEOWNERS` names the maintainer against `/.github/`, `/.claude/`,
+`/tools/`, `/precedent/`, `/practices/`, `/local/`, `/precedent.json`,
+`/AGENTS.md`, `/CLAUDE.md`, `/MAP.md` and `/GLOSSARY.md`. Everything else is
+content, and content is the contributor's. **`/.github/` is the one that
+cannot be left out** — a workflow file is executable code holding a token, so
+anyone who can edit one can rewrite every other protection here, `CODEOWNERS`
+itself included.
+
+**Session configuration — the persona, not enforcement.** In the
+contributor's own environment or session settings, never in this repo's
+tracked [`.claude/settings.json`](.claude/settings.json), which binds every
+session here including a maintainer's: `permission_mode` never set to
+`bypassPermissions`, no git or GitHub jargon, no mechanical-rule talk,
+restate their ideas back to them in their own words before acting, and route
+every practice idea through the candidate flow below.
+
+**Candidate-capture flow.** When anyone who is not a listed approver raises a
+practice idea in plain language, Claude:
+
+1. Restates it back to them in their own words to confirm before acting.
+2. Drafts a candidate with [`tools/precedent_candidate.py`](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/precedent_candidate.py).
+   **Because they are not a listed approver
+   (`precedent-team-writing`'s `approvers.json`), this defaults to
+   `precedent_candidate.py --as-issue true` against
+   `precedent-team-writing`** —
+   a quiet `candidates/*.md` file accomplishes nothing when nobody with
+   landing authority is watching it, per
+   [`spec/CANDIDATE_FORMAT.md`](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/CANDIDATE_FORMAT.md#which-one-for-team-file-or-issue)'s
+   rule for team candidates raised by a non-approver. Use a plain individual
+   candidate file instead only if the idea is explicitly just their own
+   working style, not something to share with the team.
+3. Never mentions promotion, resident budgets, `checked_by`, or any other
+   mechanical-rule vocabulary to them — that's an approver's business, not
+   theirs.
+
+## Git / workflow
+
+- Develop on a feature branch; open a PR; merge only when the administrator
+  says so.
+- **Start every thread by merging latest `origin/<default-branch>` into your
+  branch**; avoid two concurrent threads editing the same document.
+
+### Merging a thread branch (runbook — follow, don't improvise)
+
+Conflicts in shared files are EXPECTED. The fast, safe path:
+
+0. **Capture gate — before the merge, in the thread that did the work**:
+   did this thread's work imply anything that must be captured — a document
+   update, a registry entry, a decision record? Fold it now; the thread that
+   built the rationale is the one that knows what to record.
+   **0b. Export gate:** did this thread improve a *generic* practice — one
+   that would hold in an unrelated project, not just this one's own
+   documents? Fold the abstracted form into this repo's own vendored copy
+   of the universal source (`precedent.json`'s `universal` entry — see its
+   `path`) and open it as an ordinary pull request directly against that
+   source's own repo (`https://github.com/alex137/BestPractice`). **There
+   is no local check-in mirror for this yet** — a plain PR against the
+   upstream repo is the real mechanism until one is wired in. Then run
+   `python3 tools/precedent_sync_views.py --repo .` locally to pick your own change
+   back up once it lands upstream.
+1. Fetch and merge the default branch locally.
+2. Resolve by fixed per-file-class rules:
+   - Registries: **union** of both sides — never drop an entry or a status.
+   - Logs / index files: **append-only — keep both sides' additions.**
+   - Same content file edited on both sides: keep both sides' text;
+     reconcile with the administrator if the two edits genuinely conflict.
+   - **Generated outputs: never hand-merge.** Re-run
+     `python3 tools/precedent_sync_views.py --repo .`, never hand-resolving its own
+     conflict markers.
+3. Run the audits — **all must pass before the merge commits**:
+   `python3 tools/precedent_sync_views.py --repo . --check`.
+4. Commit the merge, push, land per this repo's convention.
+
+## Conventions
+
+- **Sections are ordered by the reader's frequency, not the writer's**
+  (practice `section-order-by-frequency`): a
+  document walking through instructions or rules in multiple sections puts
+  common, everyday content first and rare edge cases last.
+- **Doc references are links** (practice `doc-references-are-links`):
+  in-repo docs reference other repo files as
+  relative markdown links, never bare backticked names. Use `≈`, not `~`,
+  for "approximately" — two stray tildes render as strikethrough on GitHub.
+- **Outward-facing documents use the reader's words**
+  (practice `readers-vocabulary`): the deliverable
+  document(s) this project produces are read by an audience outside this
+  repo's own work — every term that names a category is either already the
+  reader's word, a plain equivalent, or glossed inline on first use.
+- **Reply convention** (practice `reply-links-files`, which is resident —
+  this bullet is a pointer, never a second copy to keep in step): every
+  reply that created, modified or deleted files
+  ends with a "Files touched" list — branch link + post-merge link +
+  one-line description per file. A **deleted** file is listed too: its
+  path, why it went, and a link to the commit that removed it, since it is
+  the one entry with nothing left on the branch to open.
+- **Commits are credited to the human driving the session.** Set the git
+  author to the contributor's name and GitHub noreply email, and name
+  yourself in a `Co-Authored-By:` trailer.
+- **Open each session by catching the contributor up.** At session start,
+  fetch the latest default branch and summarize, in plain language, what
+  changed since their last activity.
+
+## Administrator requests you must know how to handle
+
+- **"What's waiting for me?"** — the administrator's review loop: list open
+  PRs and open candidate Issues on `precedent-team-writing`, summarize each in
+  plain language, and take the verdict in chat.
+- **"Add project members"** — same flow as
+  [`templates/AGENTS.md.loader.template`](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/templates/AGENTS.md.loader.template)'s
+  own "Add project members" section, with one addition: grant **Write**, and
+  check that [`.github/CODEOWNERS`](.github/CODEOWNERS) and branch protection
+  are both in place first. Without them, Write is unrestricted — see
+  "Contributor access" above.
+
+## Practice sources — Precedent loader (policy)
+
+- `precedent.json` declares every practice source in force here — see
+  [INSTALL.md §0](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/INSTALL.md#0-installing-directly-onto-the-precedent-loader-new-2026-09-03--read-the-caveat-before-using)
+  for the resolution and precedence rules. The `universal` source is a
+  **real vendored copy** at `precedent/universal/`, not a live reference.
+  The `team` sources resolve live from sibling clones instead — never
+  vendored. Which sets those are is read off `precedent.json` rather than
+  named here, so retiring or adding one is a single edit to that file.
+- `python3 tools/precedent_sync_views.py --repo . --check` is this repo's own drift
+  gate — run it before trusting `AGENTS.md`'s generated block, and after
+  `precedent.json` or a vendored copy changes.
+- Export gate = merge runbook step 0b, above.

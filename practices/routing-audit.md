@@ -10,6 +10,7 @@ index_clause: "run the mechanical coverage check now; roll the deep-read slice f
 checked_by:  "tools/precedent_check.py"
 defines:     ["routing audit"]
 status:      active
+in_force_at: null
 supersedes:  []
 overrides:   null
 added:       null
@@ -18,7 +19,7 @@ approved_by: "pending review"
 ## Rule
 Ask a narrower question than "did we follow every practice": **did every
 practice that should have fired, fire?** Two parts, run with
-[tools/routing_audit.py](tools/routing_audit.py): a mechanical coverage
+[tools/routing_audit.py](../tools/routing_audit.py): a mechanical coverage
 check (`coverage`) — every judgment-only on-demand practice (no
 `checked_by`, no `gates`) whose `applies_to` glob matches the files in
 question, reported as a routing-failure candidate — and a rotating deep
@@ -47,7 +48,7 @@ this practice implements compares "practices that matched" against
 what a past session actually loaded, so `coverage` reports only which
 practices *should* have fired, not whether they did. A match with no
 `checked_by`/`gates` is a candidate, not a proven miss. See
-[spec/UNBUILT_PLAN_ITEMS.md](spec/UNBUILT_PLAN_ITEMS.md).
+[spec/UNBUILT_PLAN_ITEMS.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/UNBUILT_PLAN_ITEMS.md).
 
 ## Why
 The loader's whole architecture accepts a real risk in exchange for not
@@ -73,16 +74,24 @@ audit*") and never built — not tracked in `TODO.md`, not carried forward in
 2026-09-03 session was asked to build a related, human-requested audit
 mechanism and read the plan first rather than building from memory of the
 conversation alone. See
-[spec/UNBUILT_PLAN_ITEMS.md](spec/UNBUILT_PLAN_ITEMS.md) for the
+[spec/UNBUILT_PLAN_ITEMS.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/UNBUILT_PLAN_ITEMS.md) for the
 investigation this gap itself opens: why an approved phase-5 deliverable
 fell through, and what else the plan approved that the tree does not show.
 
 ## Install
-[tools/routing_audit.py](tools/routing_audit.py) implements both parts;
+[tools/routing_audit.py](../tools/routing_audit.py) implements both parts;
 `tools/precedent_check.py`'s `routing-audit` check verifies the tool exists
 and that `tools/routing_audit_state.json`, if present, carries no rotation
 entry for a practice that is no longer active — stale bookkeeping a
-retired or renamed practice would otherwise leave behind silently. On-demand
-only, invoked explicitly; not wired into a commit, push, or merge gate
-until a session validates it is worth the cost (see
-[spec/UNBUILT_PLAN_ITEMS.md](spec/UNBUILT_PLAN_ITEMS.md)).
+retired or renamed practice would otherwise leave behind silently.
+`coverage()`'s glob-matching is itself a planted case in
+`tools/verify_harness.py` (`check_routing_audit_coverage`, added
+2026-09-04) rather than only asserted correct. The rotating slice's
+judgment step shares its mechanism with
+[full-practice-audit](full-practice-audit.md)'s whole sweep, and shares
+that practice's evaluation results — 6 of 6 (100%) on each of two small,
+independent single-judge runs, 2026-09-04 and 2026-09-05, see
+[spec/ATTENTION_CEILING.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/ATTENTION_CEILING.md), "The
+audit-judgment result" and "run 2." On-demand only, invoked explicitly; not wired into
+a commit, push, or merge gate until a session validates it is worth the
+cost (see [spec/UNBUILT_PLAN_ITEMS.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/UNBUILT_PLAN_ITEMS.md)).

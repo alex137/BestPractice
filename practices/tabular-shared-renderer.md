@@ -10,6 +10,7 @@ index_clause: "ship a sortable render from the one shared renderer"
 checked_by:  null
 defines:     []
 status:      active
+in_force_at: null
 supersedes:  []
 overrides:   null
 added:       null
@@ -27,7 +28,7 @@ edit.
 
 **The load-bearing half is singularity.** All table behavior — CSS, JS, sort
 semantics, numeric-aware sort keys — lives in **one** shared renderer with a
-registry of the documents it renders ([tools/doc_html.py](tools/doc_html.py)
+registry of the documents it renders ([tools/doc_html.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/doc_html.py)
 is the reference implementation). A functionality change is made there and
 only there, and the no-argument invocation rebuilds every registered render,
 so the change manifests in every table at once.
@@ -55,10 +56,26 @@ if you catch yourself emitting the same table twice in different orders, the
 document wanted this practice.
 
 ## Story
+No dated incident was recorded for this rule, though half its argument is
+inherited from one that has: **N copied renderers drift independently, and
+the oldest copy is the one a reader eventually trusts** -- the same failure
+`docs-track-models` kills for numbers, and the same one
+`engine-plus-host-shims` paid for in a day of triple-patching.
+
+The other half is about what a static table can and cannot do. A wide
+cross-product is written in one canonical order, but every reader arrives
+with a different question: cheapest rows first, grouped by one factor, or
+looking for the regime boundary in another. **Static markdown forces the
+writer to guess one question and answer only that one.** A sortable render
+answers all of them with no further build.
+
+The cheap test is the useful part of this rule in practice: if you catch
+yourself emitting the same table twice in different orders, the document
+wanted this practice and you are hand-simulating it.
 
 ## Install
 **The behavior contract.** This is what the reference implementation
-([tools/doc_html.py](tools/doc_html.py)) delivers on every table, and what
+([tools/doc_html.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/doc_html.py)) delivers on every table, and what
 any reimplementation on another stack must match — it is the spec a reader
 of this practice is entitled to assume when a repo says
 "[tabular-shared-renderer](tabular-shared-renderer.md) render":

@@ -8,8 +8,9 @@ occasion:    "migrating a repo off an old practice system onto Precedent"
 gates:       []
 index_clause: "scrub the old system's vocabulary the same session, not on request"
 checked_by:  "tools/precedent_check.py"
-defines:     []
+defines:     ["retired vocabulary"]
 status:      active
+in_force_at: null
 supersedes:  []
 overrides:   null
 added:       null
@@ -26,7 +27,7 @@ records, dated brainstorm journals) — declared explicitly, once, never
 decided ad hoc per file.
 
 ## Detail
-"Scrub" here means the same thing [spec/MIGRATING_EXISTING_INSTALLS.md](../spec/MIGRATING_EXISTING_INSTALLS.md)'s
+"Scrub" here means the same thing [spec/MIGRATING_EXISTING_INSTALLS.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/MIGRATING_EXISTING_INSTALLS.md)'s
 own step 5 already asks for the old tree's file *paths* — replace the
 teaching of a dead concept with a statement of current fact, pointing at
 the migration record for anyone who wants the history — generalized past
@@ -68,7 +69,7 @@ about that gap required the second question; the first migration had
 every fact it needed to do the scrub itself, in the same sitting.
 
 ## Story
-`themorgan/WorkingWithAI`'s migration off RepoPersonalPreferences
+the project's own prior notes repository's migration off RepoPersonalPreferences
 (2026-09-02) split the old vendored pack into the new team/individual
 sources correctly, but left the old pack's name, its retired secret
 (`PERSONAL_PACK_TOKEN`), and a paragraph explaining what the old
@@ -81,7 +82,7 @@ migration record's own mentions, trim everywhere else), which is exactly
 why it belongs in the migration pattern itself and behind a real check,
 not in a person's memory of to ask about it eventually.
 
-A second, different migration (`themorgan/HavrutaBrainstorm`, 2026-09-03)
+A second, different migration (a private consumer repo, 2026-09-03)
 ran the check for real and found two bugs in the check itself, not in the
 migration: the check's own `ROOT` resolved wrong once vendored at
 `process/upstream/tools/precedent_check.py` (it silently scanned
@@ -101,7 +102,7 @@ state for a repo that has never migrated off anything) and scans every
 tracked file outside its `exempt_files` list (files and, since 2026-09-03,
 `/`-suffixed directories — see Detail) for any declared term, outside
 `process/upstream/` (a byte-identical vendored copy, never hand-edited
-regardless). [spec/MIGRATING_EXISTING_INSTALLS.md](../spec/MIGRATING_EXISTING_INSTALLS.md)'s
+regardless). [spec/MIGRATING_EXISTING_INSTALLS.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/MIGRATING_EXISTING_INSTALLS.md)'s
 step 5 is where a migration declares the file and runs the check for the
 first time, before the migration is considered done. `ROOT` resolves via
 `git rev-parse --show-toplevel` (matching `doc_lint.py` and

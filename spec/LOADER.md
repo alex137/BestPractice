@@ -1,8 +1,17 @@
-<!-- Last updated: 2026-09-03 (Buenos Aires) by a follow-up session, adding the cross-source consumer-repo generator -->
-
+---
+title:         The Loader (Phase 2)
+kind:          reference
+status:        current
+opened:        2026-08-31
+closed:        null
+superseded_by: null
+supersedes:    []
+audience:      session
+summary:       What phase 2's loader built, how the resident set was curated, and what the behavioural replay does and does not prove.
+---
 # The Loader (Phase 2)
 
-What [PRACTICE_ENGINE_PLAN.md](../PRACTICE_ENGINE_PLAN.md)'s "How an Agent
+What [PRACTICE_ENGINE_PLAN.md](PRACTICE_ENGINE_PLAN.md)'s "How an Agent
 Knows Which Practices to Load" actually builds to, in this repo, and what
 phase 2 did and did not build. Read the plan section first; this is the
 implementation note, not a restatement.
@@ -13,9 +22,9 @@ implementation note, not a restatement.
 |---|---|---|
 | Resident block | The generated block in [AGENTS.md](../AGENTS.md), between `<!-- BEGIN GENERATED: precedent-loader -->` / `<!-- END GENERATED -->` | Built. Regenerate with [tools/build_views.py](../tools/build_views.py); hand-editing fails [tools/verify_harness.py](../tools/verify_harness.py). |
 | Occasion index | Same generated block, grouped by `occasion` | Built, same mechanism. |
-| Standing instruction | Same generated block, one sentence | Built. |
-| Path-triggered | [tools/precedent_paths.py](../tools/precedent_paths.py) | Built as a command; not yet wired into a `PreToolUse` hook in [templates/harness/](../templates/harness/) — that is consumer-repo integration, phase 6 territory, not phase 2's done-when. Its glob matcher was rewritten after the first phase-2 pass shipped a broken one — see [Where this channel was silently broken](#where-this-channel-was-silently-broken-and-what-it-cost-the-numbers) below. |
-| Gate-triggered | — | Not built. Depends on the runbook/gate-receipt machinery the plan describes under "Gate Receipts" and "Decisions" (phase 5). |
+| Standing instruction | Same generated block, one sentence per live channel | Built. Assembled from the channels this source actually fills, not from the channels the engine has — see [Empty channels, and why the block stays silent about them](#empty-channels-and-why-the-block-stays-silent-about-them). |
+| Path-triggered | [tools/precedent_paths.py](../tools/precedent_paths.py) + [templates/harness/claude-code/hooks/precedent-paths.sh](../templates/harness/claude-code/hooks/precedent-paths.sh) | **Built and wired (2026-09-03)** — a `PreToolUse` hook, matching `Edit\|Write\|NotebookEdit`, is now templated in [templates/harness/claude-code/settings.json](../templates/harness/claude-code/settings.json); a fresh install of the Claude Code adapter gets it automatically, closing the consumer-repo-integration gap this row named. See [The PreToolUse hook, and what is confirmed versus assumed](#the-pretooluse-hook-and-what-is-confirmed-versus-assumed) below for what the harness actually proves. Its glob matcher was rewritten after the first phase-2 pass shipped a broken one — see [Where this channel was silently broken](#where-this-channel-was-silently-broken-and-what-it-cost--the-numbers) below. |
+| Gate-triggered | [tools/precedent_gate.py](../tools/precedent_gate.py) | Built later than this document's other rows (see the file's own docstring for why and what it does and does not promise); this row was left saying "Not built" long after that landed. Caught and fixed by the 2026-09-04 gate audit — the same drift class this row itself is an instance of. |
 | Enforced (`checked_by`) | Already exists from phase 1 (8 of 52 practices carry one, naming 4 distinct scripts) | Unchanged by phase 2; phase 4 is "convert checkable practices to scripts." |
 | "One code path" (`precedent show`) | [tools/precedent_show.py](../tools/precedent_show.py) (phase 1) | Unchanged; `precedent_paths.py` calls the same file reader (`split_practices._read_practice_file`), not a second extractor. |
 | Generated views | [tools/build_views.py](../tools/build_views.py) → AGENTS.md's loader block, [MAP.md](../MAP.md), [GLOSSARY.md](../GLOSSARY.md) | Built. All three fail tools/verify_harness.py if hand-edited or stale. |
@@ -23,7 +32,7 @@ implementation note, not a restatement.
 | Premise measured, not assumed | [tools/behavioral_replay.py](../tools/behavioral_replay.py) | Built. See "What the replay measures" below — it is honest about what it can and cannot prove. |
 
 **Generated views are no longer this-repo-only (2026-09-03).** A team or
-individual source repo (e.g. `precedent-team-maintainers`,
+individual source repo (e.g. `precedent-team-repo-maintenance`,
 `precedent-individual`) vendors the same [tools/build_views.py](../tools/build_views.py)
 and runs `python3 tools/build_views.py --agents-only` on its own
 `practices/`, getting the identical resident-block/occasion-index/standing-
@@ -52,6 +61,131 @@ Built and tested against a real four-source fixture
 [tools/verify_harness.py](../tools/verify_harness.py)); not yet exercised
 against a real consumer repo with real content — that's the next test.
 
+## The PreToolUse hook, and what is confirmed versus assumed
+
+The wrapper ([templates/harness/claude-code/hooks/precedent-paths.sh](../templates/harness/claude-code/hooks/precedent-paths.sh))
+reads the tool call's target path off stdin (`tool_input.file_path`, or
+`tool_input.notebook_path` as a fallback — see below), shells out to
+`python3 tools/precedent_paths.py` unchanged, and reshapes a match into a
+`PreToolUse` JSON response naming the matched Rules as
+`hookSpecificOutput.additionalContext`, with `permissionDecision: "allow"`
+so the edit always proceeds — this is advisory context, never a gate. It
+is one code path with `precedent_paths.py` — same matching logic
+`tools/behavioral_replay.py` already drives — so a `## Rule` shown by the
+hook is the same text either channel would print (`code-cites-practice`,
+`tools/precedent_paths.py`; `engine-plus-host-shims`, the wrapper itself).
+
+**What `check_pretooluse_hook_fires` in [tools/verify_harness.py](../tools/verify_harness.py) actually proves**
+(5 stated cases, run against two stable, narrowly-scoped real practices —
+`code-cites-practice`, `applies_to: ["tools/**"]`, and
+`checkable-gets-checked`, `applies_to: ["practices/**", "PRACTICES.md"]`
+— rather than a fixture catalogue): the wrapper parses real Claude Code
+`PreToolUse` stdin shapes, extracts the target path under either field
+name, shells out and reshapes the result into valid, correctly-keyed JSON
+on a match, prints nothing on a miss, and never exits non-zero — not on a
+match, not on a miss, not on malformed stdin, not on a tool call carrying
+no `tool_input` at all (the `matcher` in `settings.json` already scopes
+the hook to `Edit|Write|NotebookEdit`, but the wrapper does not rely on
+that holding).
+
+**What it does not, and cannot, prove from here.** Two things the public
+Claude Code hooks reference leaves unstated *(as of 2026-09-03)*, checked
+against the docs at [code.claude.com/docs/en/hooks.md](https://code.claude.com/docs/en/hooks.md)
+before this was built:
+
+- **Whether `hookSpecificOutput.additionalContext` actually reaches the
+  model's context for that turn**, versus being visible only to the human
+  in a transcript. The documented shape is used here because it is the
+  one the reference names for exactly this purpose (injecting advisory
+  context from a `PreToolUse` hook without blocking), but nothing in this
+  repo can drive a live model turn against a real hook invocation to
+  confirm delivery — that needs an actual Claude Code session exercising
+  an Edit/Write/NotebookEdit call with this hook installed, watched for
+  whether the surfaced Rule text shows up in the model's own reasoning,
+  not just the transcript. Worth doing as part of the phase-6 consumer-repo
+  rehearsal [spec/PHASE5_BRIEF.md](PHASE5_BRIEF.md) already calls for,
+  not assumed here.
+- **The exact `tool_input` field name for `NotebookEdit`.** The reference
+  documents `file_path` for Edit and Write without isolating a
+  `NotebookEdit`-specific field; this wrapper tries `file_path` first,
+  falls back to `notebook_path`, and the harness case above only proves
+  the fallback branch parses correctly — not which field a real
+  `NotebookEdit` call actually sends. Whichever it is, the fallback chain
+  keeps working; nothing here depends on guessing right.
+
+Named plainly rather than smoothed over, per this document's own
+"measured, not assumed" standard elsewhere on this page.
+
+## Empty channels, and why the block stays silent about them
+
+Every section of the generated block is emitted only if this source fills the
+channel it describes. That was not true until 2026-09-06, and the way it broke
+is worth keeping.
+
+[`precedent-team-tms`](https://github.com/themorgan/precedent-team-tms) deleted
+its bootstrap placeholder, which left it with one resident practice and no
+on-demand ones. The block it generated still carried an occasion index —
+rendered as an empty ``` ``` box — and a standing instruction telling every
+session to consult that index and to run four `precedent_gate.py` commands.
+All four exit `FAIL` there, because no practice in that set registers a gate.
+Nothing was wrong with the practice file, the vocabulary, or the vendored
+engine's version: the three sections and the four gate names were emitted
+unconditionally, so the block described **the engine's channels rather than
+the ones the source actually fills**.
+
+The standing instruction is the one part of the block that tells a session
+what to *do*, which is what makes this more than cosmetic. A session that runs
+an advertised command and gets `FAIL` back learns that the block is
+decorative — and that lesson transfers to the parts of it that were true.
+
+What the generator does now:
+
+| If the source has… | The block gets… |
+|---|---|
+| no resident practice | no `## Resident block` heading (rather than a heading with nothing under it) |
+| no on-demand practice with an `occasion` | no `## Occasion index` (rather than an empty fenced block), and no sentence sending a session to it |
+| no on-demand practice at all | no `precedent_paths.py` sentence |
+| no practice registering a gate | no `precedent_gate.py` sentence |
+| a practice registering *some* gates | a `precedent_gate.py` sentence naming **only those gates**, in the vocabulary's own order |
+| no practices at all | one line saying so, rather than three empty headings |
+| a resident practice whose Rule carries a relative link | that link repointed for the directory the block lands in — see below |
+
+**A resident Rule's relative links are placed, not copied** (2026-09-11). The
+Rule is embedded verbatim, and it was written in `practices/` while the block
+lands in [AGENTS.md](../AGENTS.md) at the repository root — so a sibling citation legal in
+the practice file, `[audience-register](audience-register.md)`, resolved to
+nothing from the root and reached a consuming repo as a hard `doc_lint` broken
+link inside a generated region no session there may edit. Reported by a
+consuming repo taking a vendor update.
+[tools/build_views.py](../tools/build_views.py)'s `_place_rule_links` now
+repoints each one against the block's own directory — `practices/…` for the
+instructions file, `../practices/…` for `.precedent/SESSION_PRACTICES.md` — using
+the **materialized** copy's path, since a team or individual practice's text
+comes from a clone outside the consuming repo entirely.
+
+A link it cannot place is **left exactly as its author wrote it** and named on
+standard error. It is never turned into an absolute URL, because that URL
+would publish a private source repository's name into every consumer that
+materializes the practice — the same refusal
+[tools/precedent_materialize.py](../tools/precedent_materialize.py)'s
+`_rewrite_links` already makes, for the same reason: a relative link that does
+not resolve is a smaller failure than a disclosure that cannot be taken back.
+
+The gate list and the moment phrases beside it are both derived — the names
+from the practices that register them, the phrases from
+[tools/routing_scope.json](../tools/routing_scope.json)'s own descriptions.
+The sentence previously hardcoded all four moments as prose, which is exactly
+how it came to claim gates a source did not have.
+
+**This repo cannot test any of it against itself**, because its own catalogue
+fills every channel — which is why the defect survived in a vendored copy as
+long as it did. `check_loader_block_advertises_only_live_channels` in
+[tools/verify_harness.py](../tools/verify_harness.py) builds four fixture
+sources (resident-only, on-demand-only, empty, and one with a gated practice)
+and asserts both directions: an unfilled channel is never advertised, and a
+filled one always is. Each case was confirmed by reverting the fix and
+watching it fail.
+
 ## The catalogue as it stands
 
 Generated — do not hand-edit, and do not restate these figures in the prose
@@ -63,27 +197,33 @@ a number in a sentence. That is `docs-track-models`, happening here.
 <!--gen:catalogue-->
 | | |
 |---|---|
-| Practices in the catalogue | 59 |
-| Resident, loaded every session | 6 of 59 practices |
-| Resident block size | ≈312 tokens of a 2000-token hard cap |
-| `## Rule` share of the catalogue | 26% of the catalogue |
-| Rules still over 150 words | 7 |
-| Carrying a `## Detail` | 21 |
-| Carrying a `## Story` | 26 |
-| Enforced by a check | 27 of 59 practices carry a `checked_by` |
+| Practices in the catalogue | 116 |
+| Resident, loaded every session | 10 of 116 practices |
+| Resident block size | ≈949 tokens of a 2000-token hard cap |
+| `## Rule` share of the catalogue | 20% of the catalogue |
+| Rules still over 150 words | 39 |
+| Carrying a `## Detail` | 80 |
+| Carrying a `## Story` | 116 |
+| Enforced by a check | 46 of 116 practices carry a `checked_by` |
 <!--/gen:catalogue-->
 
 Numbers by: catalogue_stats.py
 
-## The resident set, and why these six
+## The resident set, and the test it has to pass
 
 Phase 1 deliberately left every practice `tier: on-demand` — curating the
 resident set is explicitly phase 2's job, once the budget mechanism exists to
-enforce it (see [spec/PRACTICE_FORMAT.md](PRACTICE_FORMAT.md)). Six
-practices are resident now:
+enforce it (see [spec/PRACTICE_FORMAT.md](PRACTICE_FORMAT.md)). The six it
+curated were `repo-is-memory`, `orientation-map`, `quick-index`,
+`reply-links-files`, `verify-postcondition` and `environment-gotchas`.
 
-`repo-is-memory`, `orientation-map`, `quick-index`, `reply-links-files`,
-`verify-postcondition`, `environment-gotchas`.
+**The set has grown since, and this document deliberately no longer names
+its current members** — a hand-typed list of them went stale within days of
+being written and said "six" while there were ten (`no-stale-counts`). The
+live set is the generated resident block in [AGENTS.md](../AGENTS.md), and
+[MAP.md](../MAP.md) tabulates every practice's tier; both are regenerated by
+[tools/build_views.py](../tools/build_views.py). What belongs here is the
+test a candidate has to pass, not a roster.
 
 The test applied is narrower than "is this important": **does the moment
 this practice fires arrive on essentially every task regardless of what's
@@ -120,8 +260,20 @@ a good citizen of the occasion index instead, which it already has.
 to give GLOSSARY.md real, non-empty content to generate from — a start, not
 a completed pass over all 52.
 
-Adding a seventh resident practice means demoting one of these six, or
-retiring it — mechanically enforced by the token cap, not by discipline.
+**`brainstorm-holds-commits` is the one entry admitted by elimination rather
+than by passing cleanly**, and saying so is the point of recording the test
+at all. It passes the first half easily — whether a
+conversation is exploratory is a property of every task, not of what is
+being touched. It is shaky on the second: recognizing "this is a brainstorm"
+is precisely what a session failed at on the day the practice was written.
+What settles it is that no other channel reaches the moment. There is no
+path glob for a conversation's mood, and its gates fire at push and merge —
+both after the commit the rule exists to prevent. Residency is the only
+channel left, which is a weaker argument than the other entries have and is
+recorded here as such.
+
+Adding another resident practice means demoting one, or retiring it —
+mechanically enforced by the token cap, not by discipline.
 
 ## What the replay measures, and what it deliberately does not
 
@@ -531,7 +683,7 @@ Three changes from the v2 queue worth carrying into phase 4:
 
 ### Why this run happened at all, given the plan says not to
 
-[What Phase 2 Measured](../PRACTICE_ENGINE_PLAN.md#what-phase-2-measured) says
+[What Phase 2 Measured](PRACTICE_ENGINE_PLAN.md#what-phase-2-measured) says
 plainly: *"Do not re-run the eval before enforcement lands."* That instruction
 was written when the loader's inputs were fixed, and its reason was that a
 third run would only refine a direction already measured twice.

@@ -1,9 +1,18 @@
-<!-- Last updated: 2026-09-02 (Buenos Aires) by the phase-5 build session -->
-
+---
+title:         The Candidate File Format (Phase 5, Stage 2)
+kind:          reference
+status:        current
+opened:        2026-09-02
+closed:        null
+superseded_by: null
+supersedes:    []
+audience:      session
+summary:       The candidate file format phase 5 stage 2 defines, and why a universal candidate is a GitHub Issue rather than a file.
+---
 # The Candidate File Format (Phase 5, Stage 2)
 
-What [PRACTICE_ENGINE_PLAN.md](../PRACTICE_ENGINE_PLAN.md)'s
-[Stage 2 — The Candidate](../PRACTICE_ENGINE_PLAN.md#stage-2--the-candidate)
+What [PRACTICE_ENGINE_PLAN.md](PRACTICE_ENGINE_PLAN.md)'s
+[Stage 2 — The Candidate](PRACTICE_ENGINE_PLAN.md#stage-2--the-candidate)
 builds to. Read that section first; this is the implementation note, in the
 same relationship [spec/PRACTICE_FORMAT.md](PRACTICE_FORMAT.md) has to the
 plan's "The Practice File" section.
@@ -17,7 +26,7 @@ level decides which repository it lives in** — [spec/SOURCES.md](SOURCES.md)'s
 | Level | Where |
 |---|---|
 | Individual | Always `candidates/*.md` in that person's own individual-set repo. There's no one else whose approval a candidate could be standing in for — you own the set — so this is for deliberately deferring a decision, never for asking permission. |
-| Team | `candidates/*.md` in that team's own private repo, **by default** — or a GitHub Issue on that same repo, via `precedent_candidate.py create --level team --as-issue true` (added 2026-09-02). See "Which one for team" below for how to choose; it's not a free choice between two equivalent options. |
+| Team | `candidates/*.md` in that team's own private repo, **by default** — or a GitHub Issue on that same repo, via `precedent_candidate.py create --level team --as-issue true`. See "Which one for team" below for how to choose; it's not a free choice between two equivalent options. |
 | Universal | **A GitHub Issue** on `alex137/BestPractice`, labeled `precedent-candidate`, using [.github/ISSUE_TEMPLATE/practice-candidate.md](../.github/ISSUE_TEMPLATE/practice-candidate.md) — never a file. See [spec/SOURCES.md](SOURCES.md#universal-candidates-are-github-issues-not-a-fourth-candidates) for why: `tools/leak_gate.py` already forbids a `candidates/` directory in Precedent, unconditionally, by shape rather than content. |
 
 A `candidates/` directory is exactly as private-shaped as `practices/` and
@@ -29,8 +38,8 @@ goes instead.
 
 **This is a question about authority, not about who has git access.**
 `precedent_land.py`'s own rule for team practices is that a listed
-approver's own say-so lands one directly — no PR, no candidate, no
-waiting (PRACTICE_ENGINE_PLAN.md: *"for a small team ... the session
+approver's own say-so lands one directly — no pull request (PR), no
+candidate, no waiting (PRACTICE_ENGINE_PLAN.md: *"for a small team ... the session
 commits it directly"*). That means the quiet `candidates/*.md` path and
 the noisier `--as-issue` path answer two different situations, not one
 preference:
@@ -46,8 +55,9 @@ preference:
   `candidates/` accomplishes nothing on its own, since nothing is watching
   that directory for it. Use `--as-issue true` instead: it drafts the same
   candidate body, but as a GitHub Issue on that team repo (auto-detecting
-  the repo from the clone's own `origin` remote, or `--github-repo
-  OWNER/REPO` if that can't be determined), labeled `precedent-candidate`
+  the repo from the clone's own `origin` remote, or the GitHub org/user
+  (OWNER) and repository name (REPO) via `--github-repo OWNER/REPO`
+  if that can't be determined), labeled `precedent-candidate`
   the same way universal candidates are. Same reasoning as universal's own
   Issue path, applied to a private repo for a different cause: there, the
   repo structurally can't hold `candidates/` at all; here, the repo could,
@@ -69,7 +79,7 @@ pre-structured for a human filing it by hand can add its own
 One file per candidate, at `candidates/<slug>-<date>.md` (the date suffix
 because a candidate is explicitly allowed to be raised more than once before
 recurrence promotes it — two files, not one file mutated in place, so the
-recurrence count in [Stage 3](../PRACTICE_ENGINE_PLAN.md#stage-3--promotion-criteria)
+recurrence count in [Stage 3](PRACTICE_ENGINE_PLAN.md#stage-3--promotion-criteria)
 is a count of files, not a field a session has to remember to increment):
 
 ```
@@ -91,7 +101,7 @@ proposed_gates:        []
 
 ## Observed
 What happened, in plain prose -- the incident, not the rule. This is the
-evidence [Stage 3](../PRACTICE_ENGINE_PLAN.md#stage-3--promotion-criteria)'s
+evidence [Stage 3](PRACTICE_ENGINE_PLAN.md#stage-3--promotion-criteria)'s
 recurrence-or-cost criterion checks: a commit, a quote, a failing check, a
 review comment. Specific enough that a promotion decision doesn't have to
 re-derive the story from a one-line summary -- the same failure mode
@@ -106,7 +116,7 @@ drafted practice file's `## Rule` if all four criteria pass.
 
 ## Signals
 
-The value `signal:` takes, one per [Stage 1](../PRACTICE_ENGINE_PLAN.md#stage-1--detection)
+The value `signal:` takes, one per [Stage 1](PRACTICE_ENGINE_PLAN.md#stage-1--detection)
 source:
 
 - `session-judgment-at-a-gate` — the existing capture/export/review gates.

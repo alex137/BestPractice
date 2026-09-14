@@ -1,11 +1,20 @@
-<!-- Last updated: 2026-09-01 (Buenos Aires) by a pre-phase-5 slug-citation session, to version 3 -->
-
+---
+title:         The Practice File Format
+kind:          reference
+status:        current
+opened:        2026-08-31
+closed:        null
+superseded_by: null
+supersedes:    []
+audience:      session
+summary:       The per-practice file format phase 1 converted the catalogue into, including where the conversion had to make a call the plan left open.
+---
 # The Practice File Format
 
 This is the format [`tools/split_practices.py`](../tools/split_practices.py) converts BestPractice's
 [`PRACTICES.md`](../PRACTICES.md) into, and the format any future practice (universal, team, or
 individual) is authored in. It implements
-[PRACTICE_ENGINE_PLAN.md](../PRACTICE_ENGINE_PLAN.md)'s "The Practice File"
+[PRACTICE_ENGINE_PLAN.md](PRACTICE_ENGINE_PLAN.md)'s "The Practice File"
 section. Read that first; this document only covers where this
 implementation had to make a call the plan's own illustrative example didn't
 settle, and says so plainly rather than presenting those calls as if they
@@ -17,7 +26,7 @@ One file per practice, at `practices/<slug>.md`:
 
 ```
 ---
-slug:        kebab-case-slug
+slug:        the-slug-hyphenated
 title:       Human-readable title (no leading practice number)
 tier:        on-demand          # resident | on-demand
 severity:    default            # blocking | default | advisory
@@ -27,11 +36,15 @@ gates:       []                  # named moments -- see below
 index_clause: "the one line the occasion index shows"   # see below
 checked_by:  tools/x.py or null
 defines:     []
-status:      active
+command:     null             # OPTIONAL -- the standing phrases this practice defines; see below
+status:      active           # active | deduplicated | retired -- see below
+in_force_at: null             # where the rule lives now; required unless active
+expires:     null             # OPTIONAL, and almost always null -- see below
 supersedes:  []
 overrides:   null
 added:       null                # see "What's deferred" below
 approved_by: "BestPractice (pre-fork)"
+strength:    null             # OPTIONAL -- decided | assented; see below
 source_practice_number: N        # see "Beyond the plan's example" below
 ---
 
@@ -185,7 +198,7 @@ now expected output showing the re-split, not a defect report.
 ## The Rule/Detail Split (Phase 3)
 
 `## Detail` is the fifth body section, added by
-[PRACTICE_ENGINE_PLAN.md](../PRACTICE_ENGINE_PLAN.md) v20 and applied here.
+[PRACTICE_ENGINE_PLAN.md](PRACTICE_ENGINE_PLAN.md) v20 and applied here.
 It holds **normative operational specifics** — numbered policy rules, worked
 procedures, sub-rules with their own tests: text that is binding but is not
 needed to decide *whether* the practice applies. Same machinery as the
@@ -211,9 +224,9 @@ Two constraints from the plan's phase-3 row governed every decision:
 | `## Rule` share of the catalogue | 44% | 40% | **28%** |
 | Practices with `## Rule` over 150 words | 16 | 20 | **7** |
 | Resident block, generated | — | ≈621 tokens | **≈312 tokens** |
-| Words in `## Detail` | — | — | **2,253** |
+| Words in `## Detail` | — | — | **4,347** |
 
-Fifteen of the fifty-two practices carry a Detail. The resident block — the
+Twenty of the fifty-two practices carry a Detail. The resident block — the
 text every session pays for, whatever it is doing — **halved**, which is the
 closest this catalogue has come to the plan's "nine tenths" claim and still
 short of it.
@@ -224,7 +237,30 @@ stay a stable record of what phase 3 delivered rather than drifting every
 time a later practice is added or an inherited one is deliberately rewritten
 (`CHANGES_TO_TELL_ALEX.md`). The "over 150 words" figure moved from 8 to 7
 on 2026-09-01, when `layered-practice-packs`' Rule was shortened as part of
-that rewrite.)*
+that rewrite. The "carries a Detail" figure moved from 15 to 16, and "Words
+in `## Detail`" from 2,253 to 2,778, on 2026-09-05, when `session-bootstrap`
+gained a real Detail — see `CHANGES_TO_TELL_ALEX.md`. It moved again to 17
+practices, 3,243 words, on 2026-09-06, when `merge-authorization-keyword`
+gained a real Detail (updated once more the same day, same practice, when
+its Detail grew a postcondition-check requirement), and to 18 practices,
+3,667 words, on 2026-09-10, when `github-setup-disclosed` gained a Detail
+carrying the owner-only GitHub settings a first install mentions — 3,785
+words later the same day, when that Detail gained the repository's own
+visibility and the note on keeping the whole thing short. It moved once more,
+to 19 practices and 3,876 words, on 2026-09-11, when
+`doc-references-are-links` gained a Detail recording the one exception to its
+own relative-link clause — a practice file links what does not travel with it
+absolutely (`practice-links-travel`) — and to 20 practices and 4,169 words, on
+2026-09-12, when `mistakes-become-rules` gained a Detail explaining the
+catalogue lookup its proportionality guard now requires. It moved again, to 21
+practices and 4,347 words, on 2026-09-13, when `environment-gotchas` gained a
+Detail saying when a gotchas section should split into an index plus a record,
+and what the index line has to carry to stay findable. (The table cell and the
+sentence above it were carried forward from the 2026-09-10 value at the
+2026-09-11 move and are corrected here.) Only the two figures
+`tools/catalogue_stats.py` prints an anchor for — the Rule-share-derived
+counts, not the raw word totals — are mechanically checked against this
+table; the word-count cells are updated by hand alongside them.)*
 
 *(These are the figures after the review pass described in
 [What a Reader Caught That No Check Did](#what-a-reader-caught-that-no-check-did)
@@ -289,7 +325,7 @@ worth saying plainly rather than implying the harness now covers this.
 ### One tension worth recording rather than smoothing over
 
 `verify-postcondition` is the catalogue's most-missed resident practice
-([What Phase 2 Measured](../PRACTICE_ENGINE_PLAN.md#what-phase-2-measured):
+([What Phase 2 Measured](PRACTICE_ENGINE_PLAN.md#what-phase-2-measured):
 judged applicable twice, named by the full-catalogue control **zero** times),
 and this pass moved its two most concrete parts — the pipeline-exit-status
 trap and the explicit-target trap — out of the resident Rule and into Detail.
@@ -303,6 +339,196 @@ keeping 117 more words resident had no measured benefit to protect. The
 answer the plan points at is phase 4 — `verify-postcondition` carries
 `checked_by: null` and is on phase 4's starting queue. Recorded here so that
 whoever runs the routing eval after phase 4 knows this changed underneath it.
+
+## Status
+
+**The format never enumerated the legal values of `status:` until version 4.**
+The shape block showed `status: active` and nothing said what else was
+allowed — which is part of how the meaning drifted, and is recorded here
+rather than quietly fixed.
+
+There are three, and they answer different questions with different evidence:
+
+| `status:` | Means | Requires |
+|---|---|---|
+| `active` | The rule is in force here. | no `in_force_at:` |
+| `deduplicated` | The **copy** here is redundant. The rule itself is fully in force, from another source or from the engine. | `in_force_at:` naming a slug that **resolves in force**, or the literal `engine` |
+| `retired` | Nobody wants this rule anywhere. | `in_force_at: none`, plus a `## Story` line saying why |
+
+**`retired` here is about a RULE, and the file stays.** A practice marked
+`retired` keeps its file, its `## Story` and its reasoning — the loader
+declines to put it in force, and `precedent_show.py` prints it with a
+banner saying so. Nothing deletes it, and being able to re-read a withdrawn
+rule years later is the point.
+
+That matters because two neighbouring things in this system used to be
+called "retired" too, and one of them meant the opposite fate for the file:
+
+| Sense | Where | The file |
+|---|---|---|
+| a **practice** is retired | this table | **kept** |
+| **vocabulary** is retired | [migration-scrubs-vocabulary](../practices/migration-scrubs-vocabulary.md), `process/retired_vocabulary.json` | a banned word, no file of its own |
+| a **mechanism** is *decommissioned* | [decommission-deletes-files](../practices/decommission-deletes-files.md), `process/decommissioned_paths.json` | **deleted** |
+
+The third was called "retired" until 2026-09-07, when Morgan read a
+migration record and asked, reasonably, whether practices had just been
+thrown away. They had not — but nothing in the vocabulary distinguished
+the two, and by then `tools/precedent_retire.py` (proposes a status
+change, never acts) was sitting beside `tools/precedent_retire_path.py`
+(deletes files). The mechanism sense was renamed to **decommission**
+because it was eight days old and narrowly scoped, while `status: retired`
+is load-bearing across this schema and eight tools — and because "retired"
+is the right word for a rule withdrawn but remembered.
+
+### `expires:` — an optional end, in one field, in two shapes
+
+**Almost every practice has no expiry and never will**, which is why the
+field is optional and defaults to `null`. It is for the minority of rules
+that are true *for now* and everybody knows it: a temporary constraint, a
+workaround for something being fixed elsewhere, a rule scoped to one phase
+of a project.
+
+One field takes both shapes, and which one you wrote is decided by whether
+it parses as a date:
+
+| Shape | Example | What happens |
+|---|---|---|
+| **A date** | `expires: "2027-03-01"` | Enforced. Once the date passes and the practice is still `active`, [tools/precedent_check.py](../tools/precedent_check.py) fails until somebody decides. |
+| **A condition** | `expires: "when precedent-beta-v01 is merged into main"` | Never auto-evaluated. [tools/very_deep_check.py](../tools/very_deep_check.py) lists it every run so a person judges whether it has happened. |
+
+**An expiry never withdraws a rule on its own, and that is the whole design
+constraint.** A practice past its date stays `active` and stays binding —
+the field makes NOISE, it does not change `status`. A rule that quietly
+switched itself off would be worse than a stale one: the stale rule is at
+least still being followed, while the silent one has stopped protecting
+anything and nobody has been told. So an expiry forces a decision and
+refuses to make it for you.
+
+**Why a condition is deliberately not evaluated.** No general predicate can
+read an arbitrary English sentence. A check that tried would fail in one of
+two directions — withdrawing a live rule because it guessed the condition
+had been met, or reporting an expired one as current — and both are worse
+than printing the sentence in front of a person once per deep check. Some
+conditions *are* individually checkable, and one of those can grow its own
+check later; the field does not pretend to be that check.
+
+**Writing a good condition:** name an observable event, not a feeling.
+*"when precedent-beta-v01 is merged into main"* is something anyone can go
+and look at. *"when the migration settles down"* is not, and will still be
+sitting there in a year.
+
+`in_force_at:` is the field that did not exist before version 4, and its
+absence is the defect the other two rows exist to fix. `supersedes:` points
+*backwards*, from a replacement to what it replaced. Nothing pointed
+*forwards*: `status:` recorded that a rule stopped applying here but never
+whether anything replaced it, so the forwarding address lived only as English
+prose in `## Story`, which no tool reads. "Deduplicated safely" and "dropped
+and forgotten" were therefore indistinguishable to every check in the system.
+
+### Why the vocabulary changed, which is not a labelling quibble
+
+Every use of the old `status: retired` across this ecosystem, at the point
+the rename landed:
+
+| Practice | What actually happened | Verdict |
+|---|---|---|
+| `bestpractice-sync` | copy dropped; rule in force at individual | correct — a **deduplication** |
+| `header-caps` | copy dropped; rule in force at universal | correct — a **deduplication** |
+| `deep-check` | dropped outright, "very-deep-check covers it" | **wrong; reversed 2026-09-06** |
+
+Every correct use was a deduplication, and the only attempt at a genuine
+retirement was the mistake. **The word invited it.** "Retire" sounds like a
+judgement about whether a rule is still wanted, so the question a session
+asks itself becomes *"does something similar exist?"* — which is answerable
+by reading two files and feeling that they rhyme. That is exactly what
+happened to `deep-check`: a routine per-commit check was dropped on the
+authority of an unrelated, deliberately-rare cross-repo audit, because the
+two resembled each other and resemblance was accepted as coverage.
+
+"Deduplicate" cannot be answered by resemblance. It forces the only question
+that matters: **what is the surviving copy, and does it resolve in force?**
+[`tools/verify_harness.py`](../tools/verify_harness.py)'s
+`check_status_contract` answers it mechanically rather than taking the
+mover's word for it.
+
+### Retirement is demoted, not deleted
+
+Two real cases cannot be expressed as deduplication, and both have occurred,
+so `retired` stays — rare, loud, and no longer reachable by "something
+similar exists":
+
+- **Genuinely obsolete.** A rule about a tool you stopped using has no
+  duplicate anywhere. This is the case the word actually fits, and it is what
+  [`tools/precedent_retire.py`](../tools/precedent_retire.py) exists to find
+  (never cited **and** unreachable). Nothing has hit it yet.
+- **Absorbed into the mechanism.** RepoPersonalPreferences' `bestpractice-wins` said the personal
+  layer beats the generic one; it was dropped because precedence became a
+  property of the resolver. There is no successor *slug* — the successor is
+  code.
+
+**The second is filed under `deduplicated`, with `in_force_at: engine`, not
+under `retired`.** That was a deliberate call and the reasoning is worth
+keeping: the rule is *fully in force*, merely enforced by code instead of by
+prose. Filing an in-force rule under a status that means "nobody wants this
+rule anywhere" would reproduce, one level down, exactly the conflation this
+vocabulary exists to remove. So `deduplicated` means "in force elsewhere, and
+here is where" — whether *elsewhere* is another practice or the engine — and
+`retired` keeps a single legal value, `none`, which is what makes it loud.
+
+### Migrating a record written under the old vocabulary
+
+A practice carrying a non-active status with **no** `in_force_at:` predates
+this field. It does not say which of the two things it meant, and nothing can
+work that out from the file alone — so no tool in this engine treats it as
+either. [`tools/precedent_show.py`](../tools/precedent_show.py) marks it as
+*not in force here* and explicitly declines to call it a withdrawal;
+`status_contract_violation` reports it as unmigrated rather than malformed.
+
+[`tools/precedent_migrate_status.py`](../tools/precedent_migrate_status.py)
+does the migration, and it is vendored into every practice set
+([`ENGINE_FILES`](../tools/precedent_vendor_engine.py)) because the legacy
+records live in the private sets, not in this catalogue. It reports by
+default and writes only what it is told to write:
+
+```
+# always start here -- report only, writes nothing
+python3 tools/precedent_migrate_status.py --repo . --against ../precedent-individual
+
+# then record the decisions, one flag per practice
+python3 tools/precedent_migrate_status.py --repo . --against ../precedent-individual \
+    --set header-caps=headline-capitalization --apply
+```
+
+It proposes only what it can establish: a practice whose **same slug** is
+active in one of the `--against` sources. Anything else comes back
+**UNDETERMINED**, with the practice's own `## Story` printed as evidence —
+because the old convention put the forwarding address there in prose — and
+printed rather than parsed, since a regex over prose is a guess wearing a
+mechanism's clothes.
+
+**A renamed successor is undetermined by construction, and that is the
+point.** `header-caps`'s rule survives at universal as
+`headline-capitalization`; nothing mechanical connects the two names. A
+migration willing to guess there would re-introduce exactly the
+resemblance-based reasoning this rename exists to remove — so it refuses,
+and a person names the target. It also refuses a named target that is not
+active in any source, and refuses `--set ...=none` on a practice with an
+empty `## Story`.
+
+Because `verify_harness.py` is deliberately **not** vendored, this tool is
+also the only compliance signal a practice set has for this: it exits
+non-zero while any legacy record remains, and
+[`precedent_vendor_engine.py`](../tools/precedent_vendor_engine.py)'s
+`refresh` prints a notice naming them — the moment the new vocabulary
+arrives is the moment to say so.
+
+### An unknown status fails closed
+
+[`tools/build_views.py`](../tools/build_views.py)'s `is_in_force` tests for
+`active` rather than testing against the list of known statuses. A practice
+carrying a status this engine does not recognize — a typo, or a newer
+engine's vocabulary — is therefore **not** loaded, and is reported by the
+harness. Failing the other way would load a rule nobody here can vouch for.
 
 ## `gates` (Phase 4)
 
@@ -357,6 +583,37 @@ the resident block, the occasion index and the path channel; a gate fires at a
 moment a commit does not record. No recall figure is attributable to this
 channel, and none is claimed.
 
+## `checked_by` — What The Script It Names Must Do
+
+The field takes a path to a script (`tools/checks/check_x.py`) or `null`.
+What the format never said, and a session went looking for on 2026-09-13
+before concluding nothing documented it, is **what that script owes its
+caller**. It does — in
+[tools/precedent_check.py](../tools/precedent_check.py)'s `_external_checks`
+docstring, which is the code that runs it and therefore the authority. It is
+restated here because this is where somebody writing one looks first:
+
+| Exit | Means | Reported as |
+|---|---|---|
+| `0`, printing nothing | clean | PASS |
+| `1`, printing the finding | violated | VIOLATION |
+| `2` | **could not run** | SKIPPED, never PASS |
+| anything else | the script's own bug | ERROR — neither pass nor violation |
+
+Plus: **no arguments**, and **`ROOT` derived from the script's own location**
+(`<repo>/tools/checks/check_x.py` → `<repo>`), so it audits the repo it was
+materialized *into* rather than the source that published it.
+
+**Exit 2 is the one worth being deliberate about.** A script with nothing to
+check — no files in scope, a config the repo has not declared — must exit 2
+and say why, not exit 0. Exit 0 on an empty input set is the single failure
+this whole module is built against: a scan that checked nothing, reporting
+OK. Real sets do both today, and the inconsistency has a cost beyond
+tidiness: a plain `for f in check_*.py; do ...; done` loop reads that 2 as a
+failure, which cost a session time on 2026-09-13 confirming a pre-existing
+skip was not something it had broken. If you wrap these scripts in a loop of
+your own, treat 2 as "skipped", not "failed".
+
 ## `index_clause`
 
 Not in the plan's frontmatter example, and load-bearing anyway: the occasion
@@ -395,6 +652,76 @@ the mistake.
 | `verify-decomposition` | trusting a model's total without checking its parts | reporting a computed total or a negative feasibility result |
 | `search-by-purpose` | concluding that no prior work exists on a question | starting work the repository may already cover |
 
+## `command:` — The Standing Phrases A Practice Defines
+
+**Optional, and empty for all but a dozen practices.** A practice that
+defines a standing command — a phrase a person types and every session is
+guaranteed to recognize — declares its own trigger phrases here:
+
+```
+command:     {"Go merge": "Save the work, publish it, and tell you where it went."}
+```
+
+An object mapping **each trigger phrase** to **the plain sentence a person
+who is not a developer reads**. Two phrases for one command are two entries
+in one object, never two practices: `Go merge` and `Approved` are one rule
+with two triggers, and splitting them would be the same rule maintained
+twice.
+
+It is a registry, not decoration.
+[`tools/precedent_vocabulary.py`](../tools/precedent_vocabulary.py) collects
+every `command:` field across every resolved source and is what answers the
+`Vocabulary` command; the reader-facing table in
+[`documentation/DAILY_HABITS.md`](../documentation/DAILY_HABITS.md)
+is a generated block built from the same read. Added 2026-09-13, when the
+list of commands lived in two hand-maintained copies and neither was
+complete ([`practices/vocabulary.md`](../practices/vocabulary.md)).
+
+**The gloss is reader-facing prose**, so
+[readers-vocabulary](../practices/readers-vocabulary.md) governs it — not
+`index_clause`'s register, which is written for a session deciding whether
+to open the file. The two say the same thing to different people, and the
+duplication is deliberate.
+
+## `strength:` — How Firmly The Approval Was Given
+
+**Optional, in every source, permanently.** `approved_by:` records *who*
+approved a practice and when. It cannot record *how convinced they were*, and
+until 2026-09-09 nothing in the format could — so a rule the owner shrugged
+at and a rule he fought for arrived in the catalogue looking identical, and
+every session afterwards read both as settled.
+
+`strength:` holds one of two words:
+
+| value | means |
+|---|---|
+| `decided` | they asked for it, chose it from options, or argued and landed here |
+| `assented` | it was proposed to them and they did not object |
+
+The rule for choosing between them, including how to read agreement that
+arrives as *"let's try it"* rather than as either word, is
+[practices/decision-strength.md](../practices/decision-strength.md). The
+phrase a person can say to mark one at the moment they give it is
+[practices/weak-yes.md](../practices/weak-yes.md).
+
+**Absence means unknown, and is not a defect.** The field was added to a
+catalogue whose practices already carried approvals, and **none of them were
+backfilled**: deciding today which of last month's "ok"s was enthusiastic is
+guessing at someone's state of mind, which is exactly what
+[no-invented-specifics](../practices/no-invented-specifics.md) forbids. So an
+unmarked practice is legal forever, `tools/precedent_check.py --only
+decision-strength` never reports absence, and a session citing an unmarked
+approval says what the repository records rather than what the person wanted.
+
+**Writing it out as `null` is also legal**, and is the unknown state said
+aloud rather than left to inference. It carries no claim, so the check's
+"names an approver" requirement does not apply to it.
+
+**Nothing defaults it.** [tools/precedent_land.py](../tools/precedent_land.py)
+takes `--strength` and omits the field when the flag is absent, rather than
+writing `decided` — a tool that assumed enthusiasm would manufacture the
+endorsement this field exists to stop manufacturing.
+
 ## `source_practice_number`
 
 Not in the plan's frontmatter example, and necessary anyway: the Migration
@@ -429,13 +756,13 @@ old way, as bare `practice N` / `practices N and M` text, carried forward
 verbatim by the phase-1 converter's own "move, never invent" rule. A
 catalogue built to let practices be reordered, split, and retired
 independently (this fork's whole reason for moving off fixed numbers — see
-[PRACTICE_ENGINE_PLAN.md](../PRACTICE_ENGINE_PLAN.md), "Practices cited by
+[PRACTICE_ENGINE_PLAN.md](PRACTICE_ENGINE_PLAN.md), "Practices cited by
 position … making insertion a cross-repo sweep") cannot leave its own
 cross-references pointing at position. A pre-phase-5 session (2026-09-01)
 swept every `practices/*.md` file and replaced each cross-reference with a
 slug link, resolved against the practice's actual content rather than just
 its printed number — see
-[CHANGES_TO_TELL_ALEX.md](../CHANGES_TO_TELL_ALEX.md) for the full list,
+[CHANGES_TO_TELL_ALEX.md](CHANGES_TO_TELL_ALEX.md) for the full list,
 including four pre-existing miscitations the sweep found and fixed.
 [`tools/verify_harness.py`](../tools/verify_harness.py) holds this going
 forward with two checks: `check_no_bare_numeric_citations` fails if a bare

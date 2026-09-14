@@ -10,6 +10,7 @@ index_clause: "write the body from the diff; an unchecked box is fine"
 checked_by:  null
 defines:     []
 status:      active
+in_force_at: null
 supersedes:  []
 overrides:   null
 added:       null
@@ -34,11 +35,30 @@ only paired with an explicit instruction that unchecked boxes are fine — the
 alternative trains exactly the behavior the checklist exists to catch.
 
 ## Story
+No dated incident was recorded, and the rule is unusual in that it is
+mostly a warning about its own mechanism.
+
+**A template with a fixed checklist is worth nothing the moment filling it
+in becomes reflex.** "N/A" typed into every box looks exactly like
+verification happened and means nothing did -- and it looks that way to
+reviewers too, which is what makes it worse than an absent template rather
+than merely equal to one.
+
+So the explicit permission is not politeness; it is the load-bearing half.
+The template earns its place only paired with a stated instruction that an
+unchecked box, or a "not applicable" note, is a normal and expected outcome.
+Without that, the form trains exactly the behavior the checklist exists to
+catch, because a reader who believes every box must be ticked will tick
+every box.
+
+The other half -- write the body from the actual diff -- exists for the same
+reason one level up: a template is a layout to populate from what happened,
+never a set of prompts to answer plausibly.
 
 ## Install
-[templates/pull_request_template.md.template](templates/pull_request_template.md.template)
+[templates/pull_request_template.md.template](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/templates/pull_request_template.md.template)
 → `.github/pull_request_template.md` — installed the same way as `AGENTS.md`
 (§1), propagated to existing installs the same way (§2). The "write from the
 diff, unchecked is fine" instruction lives in
-[templates/AGENTS.md.template](templates/AGENTS.md.template) so every
+[templates/AGENTS.md.template](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/templates/AGENTS.md.template) so every
 session opening a PR sees it, not just the template itself.

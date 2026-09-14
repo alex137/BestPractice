@@ -10,6 +10,7 @@ index_clause: "one formatter per quantity kind, declared in one module"
 checked_by:  null
 defines:     []
 status:      active
+in_force_at: null
 supersedes:  []
 overrides:   null
 added:       null
@@ -57,7 +58,20 @@ together, and apply it to every member. Three policy rules with teeth:
   compared; widen it if not), and accept the mild over-precision on the
   large values as the cost of alignment.
 
+**A magnitude suffix is not a unit.** A kind that prints "$2.4M" cannot
+pass the seam check, because the render layer reads a trailing M or k as
+a multiplier (2,400,000) while the printed value is 2.4 — and sorting by
+the multiplied value is correct, so the disagreement is between the
+formatter's declared affix and the grammar, not a bug in either. Put the
+magnitude in the column header ("Cost, $M") and print the bare number;
+the check then holds and the column still sorts.
+
 ## Why
+**An inline format string is a second copy of a policy, and copies diverge.** The policy for a quantity kind is not one number — it is decimal places, thresholds, approximation marking and unit affixes together — so every inline `f"{x:.1f} t"` is a partial restatement that will be updated in one place and not the other.
+
+Routing every emitter through one formatter object is what makes the policy a single thing that can be changed. Discipline cannot substitute: the divergence is invisible in the source, where two format strings sit in different files, and visible only in the output, in one row, to a reader who was not looking for it.
+
+That is also why the rule targets the *mechanism* rather than asking for care. A per-value helper written carefully still breaks the moment the comparison set spans its own threshold, which is the failure the Story records happening twice.
 
 ## Story
 **Origin.** A competitive-comparison table printed an incumbent's

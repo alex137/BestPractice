@@ -1,13 +1,21 @@
-<!-- Last updated: 2026-09-01 (Buenos Aires) by a follow-up session -->
-
+---
+title:         Brief — Populating the Two Private Sets
+kind:          brief
+status:        closed
+opened:        2026-08-31
+closed:        2026-09-01
+superseded_by: null
+supersedes:    []
+audience:      session
+summary:       What populating the two private practice sets was handed, kept for how it was done rather than as a live work list.
+---
 # Brief — Populating the Two Private Sets
 
-**Done, 2026-09-01 — reported by Morgan, from a session opened directly
-against the two private repos. Phase 3 is closed** (see
-[PRACTICE_ENGINE_PLAN.md](../PRACTICE_ENGINE_PLAN.md)'s Sequence table and
-"What Phase 3 Built, and What It Could Not"). Kept below, unaltered, as the
-record of what that session was handed and why it had to run from outside
-Precedent — not as an open task.
+Reported by Morgan, from a session opened directly against the two private
+repos (see [PRACTICE_ENGINE_PLAN.md](PRACTICE_ENGINE_PLAN.md)'s Sequence
+table and "What Phase 3 Built, and What It Could Not"). Kept below,
+unaltered, as the record of what that session was handed and why it had to
+run from outside Precedent.
 
 **Note added 2026-09-01:** the isolation rule this brief was written under is
 relaxed for active development —
@@ -34,7 +42,7 @@ lives in the two repositories this describes.
 |---|---|---|
 | `themorgan/RepoPersonalPreferences` | **read** | The source. Its 46 rules are what gets split. Nothing needs to be written back at this stage. |
 | `themorgan/precedent-individual` | **push** | One of the two destinations. |
-| `themorgan/precedent-team-maintainers` | **push** | The other. |
+| `themorgan/precedent-team-repo-maintenance` | **push** | The other. |
 | `alex137/BestPractice`, branch `precedent-beta-v01` | **read only** | The format spec, the resolver, the harness and the blocklist template all live here, and the work cannot be done without them. |
 
 **The read-only access on the public repo is the whole point of running this
@@ -56,9 +64,9 @@ it sidesteps the question either way.
 
 Split RepoPersonalPreferences' 46 rules into the two private sets, in the
 practice-file format, per the plan's
-[Where Today's Practices Go](../PRACTICE_ENGINE_PLAN.md#where-todays-practices-go).
+[Where Today's Practices Go](PRACTICE_ENGINE_PLAN.md#where-todays-practices-go).
 
-**1. Default every RPP rule to team.** Not because they are all team-shaped —
+**1. Default every RepoPersonalPreferences (RPP) rule to team.** Not because they are all team-shaped —
 several are plainly generic — but because of an asymmetry: promoting a team
 practice to universal is a designed path, while demoting a universal one means
 it has already been published and imposed on everyone using Precedent.
@@ -173,10 +181,10 @@ the budget is refused.
 
 **What's still needed, and can only happen from a session against the real
 private sets** (never from here — see
-[Why this cannot run from Precedent](../spec/PRIVATE_ENFORCEMENT_BRIEF.md#why-this-cannot-run-from-precedent)
+[Why this could not run from Precedent](../spec/PRIVATE_ENFORCEMENT_BRIEF.md#why-this-could-not-run-from-precedent-original-reasoning-relaxed-2026-09-01)
 for the same two structural reasons): run
 `python3 tools/precedent_resolve.py --repo <a consumer repo>` with a real
-`precedent.json` naming `precedent-team-maintainers` and a user config
+`precedent.json` naming `precedent-team-repo-maintenance` and a user config
 naming `precedent-individual`, and see what the real combined resident
 figure comes to. If either private set marked more than a practice or two
 `tier: resident`, this is very likely to actually fire — that's the point
@@ -198,7 +206,7 @@ of running it, not a sign something is wrong.
 - Both private sets hold practices in the format, parsing under the
   catalogue's own parser.
 - The person-specific handful is in `precedent-individual`, everything else in
-  `precedent-team-maintainers`, and `morgan-scope` and `bestpractice-wins`
+  `precedent-team-repo-maintenance`, and `morgan-scope` and `bestpractice-wins`
   are retired rather than moved.
 - A real `leak-blocklist.txt` exists in the individual set and
   `PRECEDENT_LEAK_BLOCKLIST` points at it.

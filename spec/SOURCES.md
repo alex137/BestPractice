@@ -1,11 +1,20 @@
-<!-- Last updated: 2026-08-31 (Buenos Aires) by a phase-3 build session -->
-
+---
+title:         The Three Sources (Phase 3)
+kind:          reference
+status:        current
+opened:        2026-08-31
+closed:        null
+superseded_by: null
+supersedes:    []
+audience:      session
+summary:       "Phase 3's three sources: the resolver, the precedence order, and what could not be built from inside this repository."
+---
 # The Three Sources (Phase 3)
 
-What [PRACTICE_ENGINE_PLAN.md](../PRACTICE_ENGINE_PLAN.md)'s
-"[Source — Who a Practice Belongs To](../PRACTICE_ENGINE_PLAN.md#source--who-a-practice-belongs-to)"
+What [PRACTICE_ENGINE_PLAN.md](PRACTICE_ENGINE_PLAN.md)'s
+"[Source — Who a Practice Belongs To](PRACTICE_ENGINE_PLAN.md#source--who-a-practice-belongs-to)"
 and
-"[Precedence, and the One Case Where the Individual Does Not Win](../PRACTICE_ENGINE_PLAN.md#precedence-and-the-one-case-where-the-individual-does-not-win)"
+"[Precedence, and the One Case Precedence Alone Does Not Decide](PRACTICE_ENGINE_PLAN.md#precedence-and-the-one-case-precedence-alone-does-not-decide)"
 build to in this repo, and — as importantly — what phase 3 could **not** build
 from here and why. Read the plan sections first; this is the implementation
 note.
@@ -21,17 +30,28 @@ current precedence order (team > repo-local > individual > universal — see
 PRACTICE_ENGINE_PLAN.md's "Source" section for the reasoning, noted there
 without belaboring it).
 
+**Repo-local's `path` was tightened from a recommendation to a refusal,
+2026-09-04.** Through the day before, any path inside the declaring repo
+passed validation for a repo-local source, with `path: "local"` merely
+recommended over the bare root. `tools/precedent_resolve.py`'s
+`load_config` now refuses a repo-local source outright unless its `path`
+is exactly `"local"` — see PRACTICE_ENGINE_PLAN.md's "Source" section and
+CHANGES_TO_TELL_ALEX.md's 2026-09-04 entry for what prompted it and what
+it does and does not change.
+
 ## What exists
 
 | Plan's requirement | Built as | Status |
 |---|---|---|
-| Levels are repositories, not directories (with one exception: repo-local, which is a `practices/` directory somewhere in the consuming repo's own tree — recommended at a subdirectory, `path: "local"`, not the bare root, so it never collides with `tools/precedent_materialize.py`'s own output directory; see PRACTICE_ENGINE_PLAN.md's "Source" section) | [tools/precedent_resolve.py](../tools/precedent_resolve.py) resolves N source *directories*, each a checkout of a separate repo, or a path inside the consumer's own root for repo-local | Built. Nothing about a level is a field; it comes from which source a file was loaded from. |
+| Levels are repositories, not directories (with one exception: repo-local, which is a `practices/` directory somewhere in the consuming repo's own tree — **required** at the subdirectory `path: "local"`, never the bare root, so it never collides with `tools/precedent_materialize.py`'s own output directory; see PRACTICE_ENGINE_PLAN.md's "Source" section) | [tools/precedent_resolve.py](../tools/precedent_resolve.py) resolves N source *directories*, each a checkout of a separate repo, or `local` inside the consumer's own root for repo-local, refusing any other path for that level | Built, and tightened 2026-09-04 from a recommendation to a refusal — see CHANGES_TO_TELL_ALEX.md's 2026-09-04 entry. |
 | A consumer repo declares universal + team + repo-local | [precedent.json](../precedent.json), tracked, at the repo root | Built. Precedent carries one for itself: it runs on the universal set it publishes. |
+| **How many sources of each level** | Individual: **exactly one per person, however many teams they belong to** — `~/.config/precedent/config.json` holds a single `individual` key, and the name is fixed to `precedent-individual`, so a second one has nowhere to go. Team: **as many as a repo likes**, and two team sources defining one slug is a loud refusal, never a precedence question. Universal: one. Repo-local: one, at `local`. | Built and tested both ways ([tools/verify_harness.py](../tools/verify_harness.py)'s `check_source_precedence`). Added to this table 2026-09-08, after the singular "team" in the row above read as a one-per-repo limit and cost a session reading the resolver to answer it. |
 | A person declares their own individual set | `~/.config/precedent/config.json`, or `PRECEDENT_USER_CONFIG` | Built. A shared repo naming an individual source is refused **by name**, with the privacy reason in the message. |
 | Precedence: team > repo-local > individual > universal | Sources walked lowest-first; later replaces earlier | Built and tested. |
 | `overrides:` names a lower slug | Same walk, with the named slug as a second target | Built and tested. |
 | `severity: blocking` on any level below the top of precedence cannot be overridden by a source ranked above it | Refused, and the refusal is *reported* | Built and tested. |
 | Degrade gracefully when the individual set is missing | Resolves on what it has, says on stderr what is **not in force** | Built and tested. `--strict` makes it fatal where a caller wants that. |
+| Say whether "no individual practices" is a finding or a silence | `individual_status` in `--json`, and a stderr notice whenever the answer is *unknown* rather than *none* | Built and tested (2026-09-06). A source that was never declared reaches neither `sources` nor `missing`, so the row above covered only *declared* sources: a hosted session with no route to the set printed exactly what a laptop with genuinely no set printed. Four states are now distinguished — no user config on a local machine (definite), a config declaring none (definite), a project shipping no bootstrap hook (unknown), and a hook that ran and produced nothing (unknown). |
 | A retired practice is resolvable but not in force | `status:` filtered at resolve time | Built and tested. |
 | The frozen example set | [examples/practice-set/](../examples/practice-set) | Built — invented content, see below. |
 | The leak gate's vocabulary layer | [tools/leak_gate.py](../tools/leak_gate.py), blocklist from `PRECEDENT_LEAK_BLOCKLIST`, template at [templates/leak-blocklist.txt.template](../templates/leak-blocklist.txt.template) | Built and switched on. |
@@ -52,10 +72,133 @@ is the shortcut the plan forbids, and the leak gate refuses it by path. A
 check whose setup requires switching off another check is a check that ends
 up switching it off.
 
+## Naming
+
+A source's name is fixed by its level, not chosen:
+
+| Level | Name | Where it lives |
+|---|---|---|
+| Universal | `precedent` — no prefix; it is the product, not a set | [alex137/BestPractice](https://github.com/alex137/BestPractice) |
+| Individual | `precedent-individual`, identical in every person's own account | a private repository in that person's account |
+| Team | `precedent-team-<slug>`, slug lowercase and hyphenated | a private repository the team owns |
+| Repo-local | `local`, matching its fixed `path` | the consuming repo's own `local/` directory |
+
+Three reasons, in the order they bite. The `precedent-` prefix makes practice
+sets cluster in a repository listing, and lets tooling find them by pattern
+instead of by configuration. The owner is never repeated in the name, because
+the account already namespaces it — `themorgan/precedent-individual` is
+unambiguous, and every person's set carrying the same name in their own
+account is what keeps the tooling simple. A team is named for its **purpose**,
+never its roster: `precedent-team-morgan-alex` is stale the moment a third
+person joins, and renaming a set breaks every vendored reference to it.
+
+[tools/precedent_resolve.py](../tools/precedent_resolve.py)'s `load_config`
+refuses a `name` that does not match its level's shape, and warns — never
+refuses — when a source's name and the basename of its `path` disagree, since
+a continuous integration checkout or a git worktree can legitimately put a
+conforming source in a differently-named directory.
+[tools/precedent_check.py](../tools/precedent_check.py) checks every
+`precedent.json` in the tree, shipped templates included.
+
+Neither reaches the moment that actually decides a name: a person creating a
+repository, minutes before any of this runs.
+[practices/source-naming.md](../practices/source-naming.md) therefore also
+requires a session to **state the convention** when importing, creating, or
+attaching a practice-holding repository comes up — before a name is picked,
+not after. [spec/SOURCE_NAMING.md](SOURCE_NAMING.md) carries the reasoning,
+the four distinct name layers and why they are enforced differently, and the
+decisions taken.
+
+## Harness adapters travel with the source, since 2026-09-12
+
+**A source publishes three kinds of thing, and until 2026-09-12 only two of
+them travelled mechanically.** The engine moves by
+[tools/precedent_vendor_engine.py](../tools/precedent_vendor_engine.py), a
+sha256 per file in `ENGINE_MANIFEST.json`, so a hand-edit is refused as drift.
+Practices and their check scripts move by
+[tools/precedent_materialize.py](../tools/precedent_materialize.py), recorded
+in `MANIFEST.json`. The third kind — the **harness adapters**, a source's
+`bootstrap/*.sh` that its own practices tell every consuming repo to wire into
+`.claude/hooks/` — moved by somebody remembering to copy them.
+
+**So a repo carrying a copy went silently behind the moment the source's
+script changed.** It cost two sessions in two days in September 2026 — both
+measured in a consuming repo by the session that proposed this change, and
+recorded here from its account rather than re-verified from this repository,
+which cannot reach that one. One was
+briefed with two findings against a freshness guard as open defects in the
+source set; both had been fixed there already, and the findings were true
+statements about the consuming repo's own months-old copy — the first hour of
+that session went on disproving them. Separately, a consuming repo's
+`commit-identity.sh` sat about five kilobytes behind its source, a hundred
+lines present canonically and absent there, with no local adaptation and every
+local check green: each check was reading the stale copy.
+
+**A source now declares them in its own `precedent.json`**, and
+[`precedent_materialize.py`](../tools/precedent_materialize.py) installs them
+on every sync alongside the practices
+and checks:
+
+```json
+"adapters": [
+  {"from": "bootstrap/freshness-guard.sh",
+   "to":   ".claude/hooks/freshness-guard.sh"}
+]
+```
+
+Each copy is recorded in the consuming repo's `MANIFEST.json` with its source,
+its hash and whether it is executable, so it is a **declared derived artifact**
+rather than an untracked hand-copy — which is also what makes a later hand-edit
+a `--check` finding rather than a silence. The registry is the source's
+existing `precedent.json` rather than a new `bootstrap/ADAPTERS.json`, per
+[registry-source-of-truth](../practices/registry-source-of-truth.md): one
+machine-readable registry, and an audit that detects the disagreement.
+
+**What deliberately does not travel is the settings wiring.** A source's
+`bootstrap/*.snippet.json` carries `main` as the base branch and each consuming
+repo substitutes its own, so the install step stays "copy the script; merge the
+snippet by hand, replacing the base branch". Copying a consumer's
+`.claude/settings.json` would silently repoint its base branch — the one
+inference the freshness guard refuses to make for itself. That is a refusal,
+not a paragraph: a declared destination whose basename is `settings.json` or
+`settings.local.json` is rejected, as are an absolute path, a `..` walk, and a
+destination inside the directories materialize deletes and rewrites.
+
+**Three more decisions, each the smaller failure of its pair.** A *destination
+collision* between two sources refuses, exactly as a `tools/checks/` filename
+collision does. A declared adapter whose file is **not in the source tree**
+warns and is skipped rather than refusing — the file is in another repository
+and the ordinary cause is a stale clone, so refusing would break every
+consumer's sync over a state only a `git pull` somewhere else can fix. And an
+adapter a consumer installed that **no source declares any more** is reported
+and left in place, never deleted: `.claude/hooks/` is not materialize's
+directory to empty, a consumer's own hooks live there too, and by the time a
+declaration goes away the file may already be wired into a `settings.json` this
+tool deliberately never reads
+([decommission-deletes-files](../practices/decommission-deletes-files.md) wants
+an audit before a delete, and that audit is not this tool's to run).
+
+**A consumer that edited its copy is overwritten, and told.** The adaptation
+point for an adapter is the wiring, which does not travel; the script itself is
+a derived artifact like every other file materialize writes, and a consumer
+holding a private edit of one is the state this whole mechanism exists to end.
+The first replacement of content the tree never recorded as materialized — a
+hand-copy being adopted, or a local edit being reverted — prints a notice
+naming the file, while an ordinary update from a source that moved stays quiet.
+
+**Not yet done, deliberately: this repository declares no adapters of its own.**
+The six hook templates under
+[templates/harness/claude-code/hooks/](../templates/harness/claude-code/hooks/)
+are still installed by hand, because switching them on would start writing into
+every consuming repo's `.claude/hooks/` — a real behavioural change to every
+install, with wiring implications each repo has to accept deliberately. The
+mechanism is the change here; declaring is a separate decision. Tracked in
+[TODO.md](../TODO.md) as `universal-adapters-undeclared`.
+
 ## What phase 3 did not do, and why it could not be done from here
 
 **The two private sets exist but are still empty.** The plan's phase-3 item 1
-is to populate `precedent-individual` and `precedent-team-maintainers` from
+is to populate `precedent-individual` and `precedent-team-repo-maintenance` from
 RepoPersonalPreferences' 46 rules — default everything to team, promote to
 universal individually, move the person-specific handful to individual, and
 retire `morgan-scope` and `bestpractice-wins` because the structure now says
@@ -75,7 +218,7 @@ current fact:
   against Precedent.
 - **The plan forbids it anyway.** *"Nothing from an individual or team set may
   be staged on this branch at any point, even transiently"*
-  ([Risks](../PRACTICE_ENGINE_PLAN.md#risks)). Every push here is publication
+  ([Risks](PRACTICE_ENGINE_PLAN.md#risks)). Every push here is publication
   into a public repository owned by someone else. Doing the split "from here"
   would mean holding private content in this working tree, which is the
   exposure the whole arrangement exists to prevent.
@@ -193,7 +336,7 @@ lists and creates individual/team candidates by reading the filesystem, but
 for universal it can only draft the Issue body — it does not open the Issue
 itself. Automated Issue creation needs a GitHub credential this tool does
 not carry, which is exactly the gap
-[Per-repo credentials](../PRACTICE_ENGINE_PLAN.md#deferred-speculative--do-not-build-yet)
+[Per-repo credentials](PRACTICE_ENGINE_PLAN.md#deferred-speculative--do-not-build-yet)
 already names as deferred, not day one: "failing gracefully and reporting
 the gap" is the documented behavior, not an oversight here. A person (or a
 session with its own GitHub access, as this one has) files the drafted Issue

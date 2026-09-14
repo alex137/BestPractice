@@ -1,5 +1,14 @@
-<!-- Last updated: 2026-09-03 (Buenos Aires) by the phase-6 pre-fork audit session -->
-
+---
+title:         Pre-Fork Catalogue Audit
+kind:          record
+status:        closed
+opened:        2026-09-03
+closed:        2026-09-03
+superseded_by: null
+supersedes:    []
+audience:      session
+summary:       The verdict recorded for each inherited practice against the architecture the restructuring plan approved.
+---
 # Pre-Fork Catalogue Audit
 
 One row per practice inherited from pre-fork BestPractice (the original 52,
@@ -7,9 +16,14 @@ numbered `PRACTICES.md` catalogue, plus Alex's practice 53 added on `main`
 after the fork point), verdict against this plan's architecture: does it
 still mean and do the same thing, or did something about how it works
 change under Precedent. Named as required before phase 6 starts migrating a
-consumer repo by [What phase 5 should carry forward](../PRACTICE_ENGINE_PLAN.md#what-phase-5-should-carry-forward)
+consumer repo by [What phase 5 should carry forward](PRACTICE_ENGINE_PLAN.md#what-phase-5-should-carry-forward)
 and restated as still not done by [spec/PHASE5_DEEPCHECK.md](PHASE5_DEEPCHECK.md);
 built here, closing that gap.
+
+**A sortable render of the table below** (multi-column sort, per-column
+filters, per [tabular-shared-renderer](../practices/tabular-shared-renderer.md))
+ships alongside this source: [PREFORK_AUDIT.html](PREFORK_AUDIT.html) —
+rebuild with `python3 tools/doc_html.py` after editing the table.
 
 **Practices native to Precedent** (no `source_practice_number:` —
 `disclose-landing`, `checkable-gets-checked`, `code-cites-practice`, and any
@@ -78,7 +92,7 @@ nothing pre-fork to compare them against.
 
 Neither is a single-practice miss — both are a whole *mechanism* that
 landed across many inherited practices at once without ever being logged
-as its own event in [CHANGES_TO_TELL_ALEX.md](../CHANGES_TO_TELL_ALEX.md),
+as its own event in [CHANGES_TO_TELL_ALEX.md](CHANGES_TO_TELL_ALEX.md),
 whose own scope statement says plainly: "changes what its `checked_by`
 actually enforces goes here." Both are now logged there
 (2026-09-03), in full, rather than only summarized here.

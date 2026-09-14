@@ -1,0 +1,164 @@
+#!/bin/bash
+# Claude Code adapter: SessionStart hook that makes a privately-scoped
+# individual practice source resolvable with zero manual steps on Claude
+# Code on the web/remote. Install to
+# .claude/hooks/precedent-individual-bootstrap.sh (see
+# spec/BOOTSTRAP_NEW_SOURCES.md and INSTALL.md step 9's individual-source
+# branch -- tools/precedent_bootstrap_source.py's --write-session-hook
+# instantiates this file for you, substituting the two variables below).
+#
+# All real logic lives in the vendored, harness-neutral
+# tools/precedent_source_bootstrap.py (practice: session-bootstrap;
+# practice: engine-plus-host-shims) -- keep this wrapper free of content,
+# the same discipline templates/harness/claude-code/hooks/session-start.sh
+# already uses for the general-purpose bootstrap, so an improvement to the
+# self-heal mechanism reaches every adopter through the ordinary
+# process/upstream/ sync rather than a hand-edit repeated per repo.
+#
+# WHY A RETRY LOOP IN *THIS HOOK* CANNOT CLOSE THE ACCESS GAP (corrected
+# 2026-09-06 -- an earlier version of this file claimed it could). This
+# hook needs the session to already have git read access to a private
+# repo, and that access is granted per session by the AGENT calling
+# `add_repo` as its own first tool call, in its own turn. A `SessionStart`
+# hook runs *entirely to completion* before that turn starts -- Claude
+# Code's own docs for this hook: synchronous mode "guarantees dependencies
+# are installed before your session starts". That is a strict ordering,
+# not a race with variable odds: on a genuinely fresh session, EVERY
+# attempt this hook could make, at any retry count or delay, runs before
+# `add_repo` can have been called even once. Retrying here was tried and
+# proven inert by direct test, not merely unhelpful in theory -- see
+# tools/precedent_source_bootstrap.py's own docstring for the full
+# incident and correction. What actually closes the gap is
+# tools/precedent_resolve.py's lazy self-heal: it re-invokes this same
+# hook later, from inside the agent's own turn, after `add_repo` has
+# actually run -- at which point this hook's own single attempt succeeds
+# normally.
+set -uo pipefail
+
+ENGINE="${CLAUDE_PROJECT_DIR:-.}/process/upstream/tools/precedent_source_bootstrap.py"
+if [ ! -f "$ENGINE" ]; then
+  # Precedent checking itself, or a repo-root install with no
+  # process/upstream/ vendor tree of its own.
+  ENGINE="${CLAUDE_PROJECT_DIR:-.}/tools/precedent_source_bootstrap.py"
+fi
+
+# WHOSE individual set. An individual set belongs to ONE person, but this
+# hook is committed to a SHARED project -- so the account baked in at
+# instantiation is right for whoever installed it and wrong for everyone
+# else on the same project, who each have their own set under their own
+# account. PRECEDENT_INDIVIDUAL_REPO lets each person point this at theirs
+# without editing a tracked file (and without a second, conflicting hook).
+#
+# The NAME is deliberately not overridable: practice source-naming fixes it
+# as the same string in every person's own account, so only the account --
+# that is, the URL -- can legitimately differ.
+#
+# Set it in whatever your environment uses for per-session variables; on
+# Claude Code Remote that is the environment's own configuration. Leave it
+# unset and you get the project's default, which is the behaviour every
+# install had before this existed.
+# NAMING A PLACEHOLDER IN PROSE. No comment in this file may spell a
+# placeholder out, because the substituter rewrites every occurrence in the
+# file -- comments included -- so an explanation of the placeholder comes
+# out of instantiation as an explanation of the value ("<the URL> is
+# substituted at install time with a real URL"). Prose here calls them the
+# source-repo-url and the substituted-sentinel placeholders instead; the
+# only literal occurrences are the two lines that actually get substituted.
+#
+# RESOLUTION ORDER, and why the baked-in default is LAST rather than the
+# only option. The source-repo-url placeholder is substituted at install
+# time with a real URL, into a file the consuming repo TRACKS. In a public
+# consumer that
+# publishes the existence and location of somebody's private practice set --
+# on the very commit that installs the convenience, and in the same repo
+# whose own AGENTS.md typically states that naming it "would leak its
+# existence and location". Found 2026-09-07 in a real public consumer that
+# said exactly that, five lines from the URL.
+#
+# The private location belongs in the private file. `~/.config/precedent/
+# config.json` is per-person and never tracked anywhere -- it is already
+# where the individual source is declared, for this same reason -- so its
+# `individual.repo_url` is read first, and a public consumer needs no URL in
+# its tree at all.
+#
+# The NAME is deliberately not overridable: practice source-naming fixes it
+# as the same string in every person's own account, so only the account --
+# that is, the URL -- can legitimately differ.
+CFG="$HOME/.config/precedent/config.json"
+CFG_URL=""
+if [ -f "$CFG" ]; then
+  CFG_URL="$(python3 -c 'import json,sys
+try:
+    print(json.load(open(sys.argv[1])).get("individual", {}).get("repo_url", "") or "")
+except Exception:
+    print("")' "$CFG" 2>/dev/null || true)"
+fi
+# HOW THIS FILE KNOWS ITS BAKED-IN DEFAULT IS REAL (corrected 2026-09-10).
+# Until that date the guard below asked whether $REPO_URL still equalled
+# the source-repo-url placeholder. That question can never be answered
+# correctly from inside this file, because the substituter rewrites EVERY
+# occurrence of that placeholder here -- the one inside the guard included.
+# So an instantiated hook compared the real URL against itself, found them
+# equal, and took the "no repository URL" exit on every single session,
+# while holding the correct URL. Every hook ever written with a real
+# --repo-url was silently inert; the resolver's lazy self-heal could not
+# save it either, since the self-heal re-invokes this same hook. Found
+# installing precedent-beta-v01 into a real project.
+#
+# A SEPARATE sentinel fixes it. The substituted-sentinel placeholder on the
+# `if` line below becomes the literal `yes` at instantiation and stays a
+# placeholder in the template, so "has this file been instantiated?" is
+# asked of a value whose two states cannot collide with any URL a person
+# legitimately has. An instantiation that deliberately bakes in NO url (the
+# right shape for a public consumer, per the paragraph above) leaves the
+# default empty and is still correctly instantiated -- which is the second
+# reason the sentinel has to be its own placeholder rather than the URL's
+# own value.
+DEFAULT_REPO_URL=""
+if [ "yes" != "yes" ]; then
+  # Still a raw template: the placeholder above is a literal, not a URL.
+  DEFAULT_REPO_URL=""
+fi
+
+# LAST RESORT, and the reason a public repo need bake in no account at all.
+# The set's NAME is fixed by level -- `precedent-individual` for every
+# person, never chosen (practice: source-naming) -- so the only unknown is
+# the ACCOUNT, and $PRECEDENT_SOURCE_BASE_URL already carries it for the
+# team sets. Deriving the individual set the same way means a tracked hook
+# in a public tree names nobody.
+#
+# THE INCIDENT (2026-09-10). INSTALL.md section 8 states plainly that no
+# tracked file names the account owning the private sets -- that is why the
+# base URL is an environment variable. It was true of the team sets and
+# false of this one: the upstream repo's own instantiated copy of this hook
+# carried a full `https://github.com/<account>/precedent-individual` in a
+# tracked file, on a public branch, five lines from the comment above
+# explaining that a public consumer should bake in no URL. Every repo that
+# instantiated this hook inherited the same shape and published its own
+# owner's account the same way (practice: affordance-is-shared -- the
+# defect was shared exactly as widely as the mechanism).
+# `${VAR:-}` on both reads, not `$VAR`: this hook runs under `set -u`, and
+# the first version of this block took the whole session-start hook down
+# with "PRECEDENT_SOURCE_BASE_URL: unbound variable" on any machine that had
+# not set it -- which is every machine the derivation exists to serve.
+# Caught by verify_harness.py's existing assertion that this hook exits 0
+# when it cannot reach the individual set.
+_pbase="${PRECEDENT_SOURCE_BASE_URL:-}"
+if [ -z "${DEFAULT_REPO_URL:-}" ] && [ -n "$_pbase" ]; then
+  DEFAULT_REPO_URL="${_pbase%/}/precedent-individual"
+fi
+unset _pbase
+
+REPO_URL="${PRECEDENT_INDIVIDUAL_REPO:-${CFG_URL:-$DEFAULT_REPO_URL}}"
+
+if [ -z "$REPO_URL" ]; then
+  echo "individual-source bootstrap: no repository URL. Set PRECEDENT_SOURCE_BASE_URL in the environment (preferred -- it locates the team sets too, and keeps the account out of every tracked file), or individual.repo_url in $CFG, or PRECEDENT_INDIVIDUAL_REPO. Individual practices will not be in force this session; team and universal still resolve normally." >&2
+  exit 0
+fi
+
+exec python3 "$ENGINE" \
+  --level individual \
+  --name "precedent-individual" \
+  --repo-url "$REPO_URL" \
+  --clone "$HOME/precedent-individual" \
+  --config "$HOME/.config/precedent/config.json"

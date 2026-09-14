@@ -10,6 +10,7 @@ index_clause: "state lives in one machine-readable registry; documents derive"
 checked_by:  null
 defines:     []
 status:      active
+in_force_at: null
 supersedes:  []
 overrides:   null
 added:       null
@@ -38,7 +39,7 @@ and the audit flags any later change to content whose status claims it is
 frozen.
 
 ## Install
-`process/manifest.json` (see [INSTALL.md](INSTALL.md)) is itself
+`process/manifest.json` (see [INSTALL.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/INSTALL.md)) is itself
 a registry of this kind, with baseline hashes checked by
-[tools/practice_audit.py](tools/practice_audit.py). Build your own registries
+[tools/practice_audit.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/practice_audit.py). Build your own registries
 the same shape: entries + status + hash, one owner, one audit.

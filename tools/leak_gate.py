@@ -23,21 +23,41 @@ TWO LAYERS, AND ONLY ONE OF THEM CAN LIVE HERE.
   These patterns are safe to publish because they describe SHAPES, not
   anyone's actual vocabulary.
 
-  VOCABULARY (an external blocklist, local only). The real leak gate
-  catches private words -- client names, code words, internal identifiers.
-  **That list cannot live in the repo it protects.** A blocklist of secret
-  terms, committed to a public repo, publishes the secrets it exists to
-  guard. This is the same reason (practice: scrub-gate) keeps the
-  blocklist in the private dependent repo and scans the public vendored
-  tree from there, and it generalizes unchanged.
+  VOCABULARY, in two halves. This layer catches WORDS rather than shapes.
 
-  So the blocklist is named by PRECEDENT_LEAK_BLOCKLIST (a path outside
-  this repo, e.g. in the individual set). When it is set, its patterns are
-  applied and a hit is fatal. When it is NOT set, this gate says so
-  loudly rather than reporting a clean pass it did not earn -- silence
-  about an unrun check is exactly the failure mode the plan's evidence
-  table names ("checkin.py fresh is silent on failure, so unreachable
-  reads as 'current'").
+    The DEFAULT half (tools/leak-blocklist.default.txt) is committed and
+    always applied -- terms that are unsafe to publish and safe to name,
+    profanity first among them, in a repo whose documents are read by
+    people outside the project. Nothing there is a secret, so committing it
+    costs nothing.
+
+    Its second job is the important one: it makes this layer actually RUN.
+    Until 2026-09-06 the whole layer was skipped whenever
+    PRECEDENT_LEAK_BLOCKLIST was unset -- every CI run, every fresh clone --
+    so the code that loads, compiles and scans with patterns was exercised
+    only by the harness, and the gate reported PARTIAL forever. A mechanism
+    that runs only in its own tests is one nobody finds out is broken.
+
+    The PRIVATE half catches private words -- client names, code words,
+    internal identifiers -- and **that list cannot live in the repo it
+    protects.** A blocklist of secret terms, committed to a public repo,
+    publishes the secrets it exists to guard, and load_blocklist() refuses
+    one located inside this repository for exactly that reason. This is the
+    same reason (practice: scrub-gate) keeps the blocklist in the private
+    dependent repo and scans the public vendored tree from there.
+
+    It is named by PRECEDENT_LEAK_BLOCKLIST (a path outside this repo, e.g.
+    in the individual set), and is MERGED with the default, never a
+    replacement for it. With the variable unset the gate looks for
+    `leak-blocklist.txt` in the individual source your user-level config
+    names -- the location INSTALL.md section 8 already puts it -- so the
+    layer runs without anyone exporting anything. The variable is an
+    override, not the only route; --structural-only is still how a caller
+    asks for the structural half by name. When it is not set the gate still reports OK -- the
+    layer did run -- but says plainly that only the publishable half was
+    checked. That sentence is not decoration: a clean scan against
+    publishable terms is not evidence that no private word is present, and
+    dropping it would leave the old silence with better wording.
 
   Once you HAVE a list, an unrun vocabulary layer must not exit 0 like a
   pass. `git config precedent.requireVocabulary true` in your clone (or
@@ -45,8 +65,49 @@ TWO LAYERS, AND ONLY ONE OF THEM CAN LIVE HERE.
   losing the variable in a new shell fails the push instead of quietly
   downgrading it to the structural half.
 
-CI runs the structural layer only, because CI has no access to a private
-blocklist. That is a real limit, stated rather than papered over: CI is
+  WRITE THE STEM, NOT THE WHOLE NAME. The two halves recognise different
+  spellings: the allowlist matches `owner/name`, the patterns match the bare
+  name. So a private repo whose pattern is its FULL name is guarded when
+  written with a slash and naked when written short -- which is how a name
+  leaked on 2026-09-07, as `<repo>-local`. Truncate each pattern to a
+  distinctive head, and MEASURE the hit count against the tree before
+  committing to the cut: a stem short enough to be an ordinary English word
+  fires on innocent text, and a gate that cries wolf is a gate people
+  switch off.
+
+  To make the missing ones visible, a run with an owner declared also
+  surveys the git clones on this disk and NOTES any repository under that
+  owner whose bare name no pattern matches. It notes rather than refuses --
+  a missing stem is latent risk, not a hit, and the content scan already
+  covers what this tree says today. It is silent with no owner declared,
+  which is also what keeps a private name out of a public CI log.
+  `# visibility-audit: stem-notes off -- why` in the blocklist silences it
+  on ordinary runs for the person whose file that is; --survey prints it
+  regardless, and very_deep_check.py's visibility pass asks for it there, so
+  the recommendation arrives inside a review somebody asked for rather than
+  beside every push. A HIT is never silenceable by any of this.
+
+  AND THE OTHER ANSWER TO THE SAME GAP, which refuses instead of reporting:
+  `# visibility-audit: auto-cover-bare-names on -- why` makes every clone on
+  this disk under a private-by-default owner, with no `allow` line, a
+  whole-word pattern of its own. The bare name is then a hit, nobody has to
+  write a stem, and nobody has to be asked to. Whole name only -- truncating
+  to a stem is a judgment call that has to be measured against the tree, and
+  no mechanism can make it. OFF by default, because unlike the note it can
+  fail a push that passed yesterday.
+  very_deep_check.py answers the same question from the other side, for the
+  repositories this tree already NAMES, by asking GitHub which are private.
+
+  WHEN IT FAILS, it also names the clone the private blocklist came from and
+  how far behind its upstream that checkout is. A stale blocklist produces
+  real-looking hits from a correct gate -- 2026-09-11, 30 of them, read as a
+  defect in the tree and written into a pull request before anyone checked
+  the clone's date. It never claims a clone is CURRENT, because an unfetched
+  remote-tracking ref cannot show that, and it never fetches: a gate that
+  reaches the network to grade itself can hang on a push.
+
+CI runs the structural layer and the DEFAULT vocabulary half; it cannot run
+the private half, having no access to a private list. That is a real limit, stated rather than papered over: CI is
 the backstop that cannot be bypassed, the local hook is the one that knows
 the words. Neither alone is the whole gate.
 
@@ -68,10 +129,36 @@ Run:
 Exit: 0 clean, 1 on any hit, on a misconfigured blocklist, or on an unrun
 vocabulary layer this clone declared it needs.
 """
-import os, pathlib, re, subprocess, sys
+import json, os, pathlib, re, subprocess, sys
 
-ROOT = pathlib.Path(__file__).resolve().parents[1]
+# THE CONSUMING REPO, not this file's parent. Vendored at
+# <repo>/process/upstream/tools/, `parents[1]` is process/upstream/ -- so in
+# the repositories that actually hold private content this gate scanned
+# BestPractice's own mirrored tree and reported it clean, while the consuming
+# repo's tracked files were never opened. Found 2026-09-07 refreshing a real
+# consumer: it reported "893 unit(s) ... clean", which is BestPractice's file
+# count, in a repo tracking 1060.
+#
+# precedent_check.py hit exactly this and fixed it the same way, with the
+# same comment, months earlier -- and nobody carried the fix across to the
+# gate whose whole job is keeping private content out of a public push. A
+# false clean here is the one this project can least afford.
+#
+# `git rev-parse --show-toplevel` walks up from wherever this file sits to
+# the enclosing repository, which is right in both layouts without knowing
+# which one it is in. The literal parents[1] stays as the no-git fallback
+# only, matching doc_lint.py and practice_audit.py.
+_toplevel = subprocess.run(['git', 'rev-parse', '--show-toplevel'],
+                           cwd=pathlib.Path(__file__).resolve().parent,
+                           capture_output=True, text=True).stdout.strip()
+ROOT = pathlib.Path(_toplevel) if _toplevel else pathlib.Path(__file__).resolve().parents[1]
 BLOCKLIST_ENV = 'PRECEDENT_LEAK_BLOCKLIST'
+
+# The committed, publishable half of the vocabulary layer. See the header of
+# the file itself for why this one may live inside the repo when the private
+# one may not, and why its existence is what makes the vocabulary layer
+# actually RUN rather than be skipped whenever no private list is configured.
+DEFAULT_BLOCKLIST = pathlib.Path(__file__).resolve().parent / 'leak-blocklist.default.txt'
 
 # Paths that must never exist in Precedent. Levels are repositories, not
 # directories (the plan's "Source -- Who a Practice Belongs To"), so a
@@ -86,6 +173,15 @@ FORBIDDEN_PATHS = [
     (re.compile(r'(^|/)(individual|personal|private)/', re.I),
      'an individual-level directory -- individual practices live in their own '
      'private repo, never in Precedent'),
+    # NOTE, 2026-09-10: this also matches a FILE whose name begins `team-`
+    # or `TEAM_` -- `spec/TEAM_PRACTICE_CAPTURE_DOCUMENT_WORK.md`, a public
+    # planning document about team-level capture, was refused by it on the
+    # commit that created it. That is bluntness, not a bug: the pattern
+    # cannot see whether a segment is a directory, and the alternative --
+    # requiring a trailing `/` -- would pass a vendored set dropped in as a
+    # tarball or a single file. The document was renamed instead, the same
+    # call the individual-bootstrap exemption below made for the same
+    # reason. If you hit this, rename before you loosen.
     (re.compile(r'(^|/)team[-_/]', re.I),
      'a team-level path -- team practices live in one private repo per team'),
     (re.compile(r'(^|/)precedent-(individual|team-)', re.I),
@@ -94,6 +190,31 @@ FORBIDDEN_PATHS = [
      'a candidates/outbox directory -- these hold unreviewed drafts that may '
      'carry private context (plan, Stage 2)'),
 ]
+
+# Exactly one path is exempt from FORBIDDEN_PATHS, by full path, and it is
+# not a loophole: it is the canonical SessionStart hook every consuming
+# project is TOLD to install, at a name tools/precedent_resolve.py fixes in
+# code (INDIVIDUAL_BOOTSTRAP_HOOK) and INSTALL.md publishes. Its basename
+# begins with 'precedent-individual', so the vendored-private-set rule above
+# matched it -- that rule means a DIRECTORY holding a private set's content
+# (its own comment says so), and it was matching a filename that merely
+# starts with the same text.
+#
+# 2026-09-06: this fired the moment BestPractice installed its own copy of
+# that hook, refusing a file the project's own instructions require. Exempting
+# the one known path, rather than loosening the pattern to require a trailing
+# '/', keeps the rule's full strength for every other name -- a file called
+# precedent-individual-notes.md is still refused.
+#
+# The hook contains no private practice content: it is a wrapper naming the
+# set's git remote, which this repository already publishes in a dozen spec
+# documents. Whether THAT wider disclosure is intended is a separate open
+# question (spec/PRELAUNCH_AUDIT.md raises it for the project's own prior notes repository);
+# this exemption does not settle it and does not widen it.
+#
+# verify_harness.py asserts this string still equals precedent_resolve's own
+# constant, so the exemption cannot drift from where the engine looks.
+ALLOWED_PATHS = frozenset({'.claude/hooks/precedent-individual-bootstrap.sh'})
 
 # Content shapes that are private by construction, and safe to name here
 # because they are shapes rather than anyone's actual vocabulary.
@@ -244,18 +365,600 @@ def _blob(spec):
         return None
 
 
+# The default blocklist necessarily CONTAINS the words it bans, so scanning
+# it would hard-fail the gate on its own list -- the same self-match trap the
+# home-directory content rule above already carries a comment about, and the
+# reason the profanity terms were briefly base64-encoded instead. One fixed,
+# committed path, skipped by name.
+#
+# This is NOT the `!path` exemption _parse_blocklist refuses. That one is
+# caller-supplied and arbitrary, and exempting an arbitrary path from a leak
+# scan is how a leak gets out. This is the single file whose entire purpose
+# is to hold these strings, it is reviewed like any other committed file,
+# and it may hold only publishable terms by its own header -- a private term
+# put here would be published by the commit itself, long before any scan.
+SCAN_EXEMPT = {'tools/leak-blocklist.default.txt'}
+
+
 def is_texty(rel):
     p = pathlib.Path(rel)
+    if p.as_posix() in SCAN_EXEMPT:
+        return False
     return p.suffix.lower() in TEXT_SUFFIXES and not any(d in p.parts for d in SKIP_DIRS)
 
 
-def load_blocklist():
-    """-> (patterns, source_description, configured). See the module docstring
-    for why this list lives outside the repo."""
-    raw = os.environ.get(BLOCKLIST_ENV, '').strip()
+# --------------------------------------------------------------------------
+# Repo references: an ALLOWLIST, because a blocklist cannot block what nobody
+# typed into it
+# --------------------------------------------------------------------------
+#
+# The vocabulary layer is a list of literal strings, so it blocks exactly the
+# names somebody remembered. That is the wrong default for repository names
+# specifically, and it failed in both directions on one day, 2026-09-07: it
+# missed a private repository nobody had listed, and it blocked two names
+# that had since become public. Detection after the fact now exists
+# (very_deep_check.py's visibility audit, which asks the GitHub API), but a
+# push gate cannot ask the network -- it has to work offline and in CI.
+#
+# So for repository references the default is inverted. Declare an OWNER
+# whose repositories are private unless stated otherwise, and every
+# `owner/name` mention is refused unless it carries a reason:
+#
+#     # visibility-audit: private-owner <account> -- repos private by default
+#     # visibility-audit: allow <account>/<repo> -- why this one may be named
+#
+# The example uses placeholders on purpose: this file is public, and writing
+# a real account into it would be the rule leaking through its own manual.
+#
+# The set of names you may mention is small, stable and known to you. The set
+# of repositories you might create is unbounded and grows without anyone
+# thinking about the blocklist. Inverting the default puts the work where the
+# knowledge is: naming a new private repo in a public tree now requires one
+# line saying why, instead of requiring that somebody once predicted it.
+#
+# Both declarations live as COMMENTS in the private blocklist file, which is
+# already the per-person place where "which names matter" is decided, and are
+# read by very_deep_check.py's audit from the same file -- one declaration,
+# two consumers, rather than a second file to keep in sync.
+PRIVATE_OWNER_RE = re.compile(
+    r'#\s*visibility-audit:\s*private-owner\s+([A-Za-z0-9][\w-]*)\s*--\s*(.+)$')
+ALLOW_REF_RE = re.compile(
+    r'#\s*visibility-audit:\s*allow\s+([A-Za-z0-9][\w-]*/[\w.-]+)\s*--\s*(.+)$')
+
+# A line that ANNOUNCES itself as a directive and parses as neither is a hard
+# failure, not a comment. Both patterns above are single-line `re.match`
+# against a stripped line -- there is no continuation syntax and never was --
+# so a reason pushed onto the next comment line silently drops the whole
+# directive. On an `allow` line that fails safe (the repository becomes
+# refused). On the `private-owner` line it voids the ENTIRE repo-reference
+# allowlist while the gate still prints OK, which is the fail-open shape this
+# file exists to refuse.
+#
+# Characterized 2026-09-11 (Buenos Aires) by direct test, not by reading:
+# `allow a/b -- reason` parses; `allow a/b -- reason that` followed by a
+# continuation comment line parses with the reason TRUNCATED at the line end;
+# `allow a/b --` with the reason on the next line parses as NOTHING AT ALL.
+# The truncation case is deliberately left alone: it is lossy, not unsafe, and
+# nothing can tell a deliberately terse reason from a wrapped one.
+#
+# The announce pattern is what makes a typo detectable at all. Before it, a
+# misspelled directive was indistinguishable from an ordinary comment -- the
+# file said a rule was configured and the parser saw prose.
+# A third directive, and the only one that turns something OFF. The stem
+# survey below NOTES every private-by-default clone on this disk whose bare
+# name no pattern matches -- latent risk, reported on every run, because the
+# moment to add a stem is while the repository is in front of you. That is
+# right for a person who maintains their own blocklist and wrong for one who
+# does not: Morgan, 2026-09-12, on being offered a stem for the third time --
+# "I feel like I keep on getting errors and warnings and questions about it
+# ... I just want to ignore it, UNTIL I tell you explicitly to add something
+# to a blocklist." The notes do not go away, they MOVE: `--survey` prints
+# them regardless, and very_deep_check.py's visibility pass calls it, so the
+# recommendation arrives during a review somebody asked for instead of
+# beside every push.
+#
+# It lives in the private blocklist because that file is already the
+# per-person place where "which names matter" is decided. One person
+# switching their notes off leaves everybody else's exactly as they were --
+# which a git config could not promise, since a config is per container and
+# dies with it.
+STEM_NOTES_RE = re.compile(
+    r'#\s*visibility-audit:\s*stem-notes\s+(on|off)\s*--\s*(.+)$')
+
+# A fourth directive, and the one that does the work the notes only asked
+# for. With the survey silenced, a private repository's BARE name had
+# nothing covering it until somebody wrote a stem by hand -- which is the
+# request the notes existed to make, and the request Morgan does not want to
+# receive. Turning this on covers those names automatically: every clone on
+# this disk under a private-by-default owner, with no `allow` line, becomes a
+# whole-word pattern of its own, and naming one in the tree is a HIT.
+#
+# Morgan, 2026-09-12, after asking for the notes to stop: "there is ONE THING
+# I want to stop from leaking: private repo names." So the name is refused
+# rather than reported -- a refusal needs no decision from him, which is the
+# whole point.
+#
+# WHOLE NAME, NEVER A TRUNCATION. A hand-written stem is truncated to a
+# distinctive head so it also catches derived spellings, and choosing where
+# to cut is a judgment call that has to be measured against the tree -- an
+# over-short stem fires on ordinary English and a gate that cries wolf gets
+# switched off. Nothing automatic can make that call, so it does not try: the
+# exact repository name, on word boundaries. That covers the form somebody
+# actually types and leaves the truncation to a person who wants one.
+#
+# OPT-IN, because it can fail a push that used to pass. Default off leaves
+# every other person's gate exactly as it was.
+AUTO_COVER_RE = re.compile(
+    r'#\s*visibility-audit:\s*auto-cover-bare-names\s+(on|off)\s*--\s*(.+)$')
+
+VIS_AUDIT_ANNOUNCE_RE = re.compile(r'#\s*visibility-audit:')
+
+
+def repo_policy_errors(path):
+    """-> [(line_no, line, why)] for directive lines that parse as neither.
+
+    Line 0 means a whole-file finding rather than one line. Returns [] for an
+    unreadable file: whether the blocklist exists at all is somebody else's
+    error to report, and raising two errors for one cause helps nobody."""
+    out, n_allow, n_owner = [], 0, 0
+    try:
+        text = path.read_text(encoding='utf-8')
+    except OSError:
+        return out
+    for i, raw in enumerate(text.splitlines(), 1):
+        line = raw.strip()
+        if not VIS_AUDIT_ANNOUNCE_RE.match(line):
+            continue
+        if PRIVATE_OWNER_RE.match(line):
+            n_owner += 1
+        elif ALLOW_REF_RE.match(line):
+            n_allow += 1
+        elif STEM_NOTES_RE.match(line) or AUTO_COVER_RE.match(line):
+            pass
+        elif re.search(r'--\s*$', line):
+            out.append((i, line, 'the reason is empty. A reason must sit on '
+                                 'the SAME line as the directive -- there is '
+                                 'no continuation syntax, so a reason on the '
+                                 'next comment line drops this directive '
+                                 'entirely'))
+        elif '--' not in line:
+            out.append((i, line, 'no ` -- reason` separator. A reason is '
+                                 'mandatory on every directive'))
+        else:
+            out.append((i, line, 'not a recognized directive. Expected '
+                                 '`private-owner <account> -- reason`, '
+                                 '`allow <owner>/<name> -- reason`, '
+                                 '`stem-notes on|off -- reason` or '
+                                 '`auto-cover-bare-names on|off -- reason`'))
+    # Allow lines with nothing switched on are not a weaker configuration --
+    # they are somebody having authorized disclosures under a rule that is not
+    # running. Every one of them reads as deliberate and enforces nothing.
+    if n_allow and not n_owner:
+        out.append((0, '', f'{n_allow} `allow` line(s) are declared but NO '
+                           f'`private-owner` line parses, so the '
+                           f'repo-reference allowlist is INERT and every '
+                           f'allow line is authorizing a rule that never '
+                           f'runs. Declare a private-owner line, or remove '
+                           f'the allow lines'))
+    return out
+
+
+def parse_repo_policy(path):
+    """-> (private_owners, allowed_refs) from a blocklist file's comments."""
+    owners, allowed = {}, {}
+    try:
+        text = path.read_text(encoding='utf-8')
+    except OSError:
+        return owners, allowed
+    for line in text.splitlines():
+        line = line.strip()
+        m = PRIVATE_OWNER_RE.match(line)
+        if m:
+            owners[m.group(1).lower()] = m.group(2).strip()
+            continue
+        m = ALLOW_REF_RE.match(line)
+        if m:
+            allowed[m.group(1).lower()] = m.group(2).strip()
+    return owners, allowed
+
+
+def stem_notes_enabled(path):
+    """-> True unless the blocklist says `stem-notes off`.
+
+    Default ON: a person who has never heard of this directive keeps the
+    behaviour they had. Off is a thing you say on purpose, in your own file,
+    with a reason -- and it silences ONLY the routine notes, never a hit."""
+    try:
+        text = path.read_text(encoding='utf-8')
+    except (OSError, AttributeError):
+        return True
+    for line in text.splitlines():
+        m = STEM_NOTES_RE.match(line.strip())
+        if m:
+            return m.group(1).lower() == 'on'
+    return True
+
+
+def auto_cover_enabled(path):
+    """-> True only if the blocklist says `auto-cover-bare-names on`.
+
+    Default OFF, the opposite of stem_notes_enabled: this one can fail a push
+    that passed yesterday, so it is never switched on under anybody without
+    them writing the line."""
+    try:
+        text = path.read_text(encoding='utf-8')
+    except (OSError, AttributeError):
+        return False
+    for line in text.splitlines():
+        m = AUTO_COVER_RE.match(line.strip())
+        if m:
+            return m.group(1).lower() == 'on'
+    return False
+
+
+def auto_private_name_patterns(refs, owners, allowed):
+    """-> [(compiled pattern, name)] for private clones' bare names.
+
+    Same scope as the survey it replaces -- the checkouts on this disk, which
+    is the only inventory available offline -- and the same two exclusions: a
+    repository under an owner nobody declared private, and one carrying an
+    `allow` line, which is somebody having accepted that the name may appear.
+    """
+    out = []
+    for owner, name in sorted(refs):
+        if owner.lower() not in owners:
+            continue
+        if f'{owner}/{name}'.lower() in allowed:
+            continue
+        out.append((re.compile(r'\b' + re.escape(name) + r'\b', re.I), name))
+    return out
+
+
+def repo_ref_hits(text, owners, allowed):
+    """-> [(line_no, owner/name)] for references that are not allowed."""
+    if not owners:
+        return []
+    alt = '|'.join(re.escape(o) for o in sorted(owners))
+    # Two entry points, and missing the second made the rule nearly useless:
+    # the lookbehind that keeps `a/acct/x` from matching ALSO rejected
+    # `github.com/acct/x`, because the character before the owner is `/`
+    # there too -- and a URL is the likeliest way a repository name ever
+    # appears. Caught by the stated case for it, not by reading.
+    pat = re.compile(r'(?:github\.com/|(?<![\w./-]))(' + alt + r')/([A-Za-z][\w.-]*?)'
+                     r'(?=[\s)\]"\'`,;:]|\.git\b|/|$)', re.I)
+    out = []
+    for m in pat.finditer(text):
+        ref = f'{m.group(1)}/{m.group(2)}'
+        if ref.lower() in allowed:
+            continue
+        out.append((text.count('\n', 0, m.start()) + 1, ref))
+    return out
+
+
+# --- Stem coverage: which private repos have no pattern at all ----------
+#
+# THE GAP THIS CLOSES. The allowlist above catches `owner/name`; the
+# vocabulary patterns catch the BARE name. Only the first works for a
+# repository nobody has written a pattern for -- so a private repo with no
+# stem is guarded in its qualified form and naked in its short one, which is
+# exactly how the 2026-09-07 leak got out: `<repo>-local`, no slash anywhere.
+#
+# WHY THE SCOPE IS "CLONES ON THIS DISK". Enumerating an account's
+# repositories is not available -- `/user/repos` answers "sessions are bound
+# to their configured repositories" -- and very_deep_check.py deliberately
+# scopes its own audit to what the TREE names, on the ground that an unnamed
+# repository is not a leak. Both are right and both miss the same case: a
+# private repo you are working in right now, whose name has not reached this
+# tree YET. A session working in one has it attached, and that is the moment
+# its name is most likely to be typed into a document. So this takes the
+# third scope, the only one that needs no network: the sibling checkouts.
+#
+# IT NOTES, IT DOES NOT REFUSE. A missing stem is latent risk, not a hit --
+# the content scan already covers what this tree actually says, and failing
+# a push over a directory sitting next to it would block work that leaks
+# nothing. practice: fail-gracefully -- report what could not be guaranteed
+# rather than either crying wolf or going quiet.
+#
+# IT CANNOT RUN IN CI, BY CONSTRUCTION, and that is deliberate: it needs the
+# private blocklist's owner declaration, which CI never has. Printing a
+# private repository's name into a public build log would be this rule
+# leaking through its own mechanism.
+_REMOTE_RE = re.compile(
+    r'github\.com[:/]([A-Za-z0-9][\w-]*)/([A-Za-z][\w.-]*?)(?:\.git)?/?$')
+
+
+def _remote_ref(repo_dir):
+    """-> (owner, name) from a clone's origin URL, or None."""
+    try:
+        r = subprocess.run(['git', '-C', str(repo_dir), 'config', '--get',
+                            'remote.origin.url'],
+                           capture_output=True, text=True, timeout=10)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if r.returncode != 0:
+        return None
+    m = _REMOTE_RE.search(r.stdout.strip())
+    return (m.group(1), m.group(2)) if m else None
+
+
+def local_clone_refs(root):
+    """-> {(owner, name)} for this checkout and every sibling git clone.
+
+    Siblings, because that is how a session holds more than one repository:
+    `add_repo` puts each beside the others. A directory that is not a git
+    checkout, or whose remote is not GitHub, is skipped silently -- this is
+    a best-effort survey of what happens to be on disk, not an inventory.
+    """
+    root = pathlib.Path(root)
+    candidates = [root]
+    try:
+        candidates += [d for d in sorted(root.parent.iterdir()) if d.is_dir()]
+    except OSError:
+        pass
+    # SIBLINGS ARE NOT ALL OF THEM, and this container is the proof: a
+    # person's individual practice set is cloned wherever their user-level
+    # config says, which here is $HOME/precedent-individual while this repo
+    # and all three team clones sit under /home/user. Surveying siblings
+    # alone found four of the five repositories on this disk and missed the
+    # private one -- so its name was never auto-blocklisted and never
+    # reported as uncovered, which is the exact shape of the bug this
+    # session was handed in record/GOTCHAS.md#g40 (the session-start
+    # identity block, same wrong assumption, same missed repository).
+    #
+    # Asked of the resolver, which is what knows where the declared sources
+    # actually are. Guarded, because leak_gate.py ships into trees where the
+    # rest of the engine may not be importable, and best-effort, because
+    # this is a survey of what happens to be on disk.
+    try:
+        sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+        import precedent_resolve
+        for src in precedent_resolve.load_config(root):
+            path = src.get('path')
+            if path:
+                candidates.append(pathlib.Path(path).expanduser())
+    except Exception:
+        pass
+    refs = set()
+    for d in candidates:
+        if not (d / '.git').exists():
+            continue
+        ref = _remote_ref(d)
+        if ref:
+            refs.add(ref)
+    return refs
+
+
+def uncovered_repo_stems(refs, owners, allowed, patterns):
+    """-> [(owner, name)] whose BARE name no blocklist pattern matches.
+
+    Only repositories under a declared private-by-default owner, and never
+    one carrying an `allow` line: an allow line is somebody stating that the
+    name may appear, so blocklisting its stem would refuse the exposure they
+    just accepted.
+    """
+    out = []
+    for owner, name in sorted(refs):
+        if owner.lower() not in owners:
+            continue
+        if f'{owner}/{name}'.lower() in allowed:
+            continue
+        if any(p.search(name) for p in patterns):
+            continue
+        out.append((owner, name))
+    return out
+
+
+def declared_visibility(root):
+    """-> ('public'|'private'|None, why) from the repo's own precedent.json.
+
+    THE GATE'S ENTIRE PREMISE IS PUBLICATION -- its own refusal says so: "a
+    push is a publication, and it cannot be taken back." That is true of the
+    upstream repository and false of a private consumer, where nothing in the
+    tree is published by pushing it.
+
+    Found the moment the ROOT fix above started scanning consumers for real,
+    2026-09-07: a private consuming repo lit up with 111 hits for naming the
+    owner's own private repositories inside a repository that is itself
+    private. Shipping the ROOT fix without this would have turned every
+    private consumer's gate red for content that was never at risk -- and a
+    gate that cries wolf in every install is a gate people switch off, which
+    is how the real one stops being read.
+
+    What still guards the export path from a private consumer is
+    practice_audit.py's scrub over the vendored tree: that is the content
+    which actually leaves, and it is gated where it leaves.
+
+    An ABSENT field is not treated as private. Omitting it counts as public
+    everywhere else in the engine (build_views.py's repo_is_public), for the
+    reason that the failure is asymmetric: assuming public costs a few false
+    hits, assuming private costs a permanent publication.
+    """
+    cfg = root / 'precedent.json'
+    if not cfg.exists():
+        return None, 'no precedent.json'
+    try:
+        data = json.loads(cfg.read_text(encoding='utf-8'))
+    except (OSError, ValueError) as e:
+        return None, f'precedent.json unreadable ({e})'
+    v = (data.get('visibility') or '').strip().lower()
+    if v in ('public', 'private'):
+        return v, f'precedent.json declares visibility: {v}'
+    return None, 'precedent.json declares no visibility'
+
+
+def _parse_blocklist(path, allow_inside_repo=False):
+    """Compile one blocklist file to patterns. Shared by both halves so the
+    default list and a private one cannot drift in how they are read."""
+    pats = []
+    for i, line in enumerate(path.read_text(encoding='utf-8').splitlines(), 1):
+        line = line.strip()
+        if not line or line.startswith('#'):
+            continue
+        if line.startswith('!'):
+            sys.exit(f"leak gate FAIL: {path}:{i} starts with '!'. Path "
+                     f"exemptions are a practice_audit.py scrub feature and "
+                     f"are deliberately NOT honoured here -- exempting a path "
+                     f"from a leak scan is how a leak gets out. Remove the "
+                     f"line, or keep the two files separate if the scrub "
+                     f"genuinely needs the exemption.")
+        try:
+            pats.append(re.compile(line, re.I))
+        except re.error as e:
+            sys.exit(f"leak gate FAIL: {path}:{i} is not a valid regex ({e}): {line}")
+    return pats
+
+
+def load_default_blocklist():
+    """The committed, publishable patterns -- always applied.
+
+    A missing or empty default file is FATAL, not a silent downgrade. This
+    file is the reason the vocabulary layer runs at all on an ordinary
+    clone, so losing it would silently restore the exact state it was added
+    to remove: a layer that never runs outside its own tests."""
+    if not DEFAULT_BLOCKLIST.is_file():
+        sys.exit(f"leak gate FAIL: the default blocklist {DEFAULT_BLOCKLIST} is "
+                 f"missing. It is committed and always applied; without it the "
+                 f"vocabulary layer silently stops running on every clone that "
+                 f"has no private list.")
+    pats = _parse_blocklist(DEFAULT_BLOCKLIST)
+    if not pats:
+        sys.exit(f"leak gate FAIL: the default blocklist {DEFAULT_BLOCKLIST} has no "
+                 f"patterns. An empty list reports as a vocabulary-layer pass while "
+                 f"checking nothing.")
+    return pats
+
+
+# Set by load_blocklist() when a PRIVATE list is configured, read only by
+# _stale_blocklist_clone_note() on the failure path. A module global rather
+# than a fourth return value because load_blocklist()'s three-tuple is read
+# by verify_harness.py in two places, and widening a signature to carry a
+# diagnostic is how a diagnostic ends up in everybody's call site.
+_PRIVATE_BLOCKLIST_PATH = None
+
+
+def _stale_blocklist_clone_note():
+    """-> str or None: what to say about the private blocklist's own clone.
+
+    practice: durable-fix, cite-the-incident. 2026-09-11: the leak gate
+    reported 30 undeclared-repo hits against this tree, and a session read
+    them as a real defect in the tree and filed a TODO item for it. The tree
+    was fine. Its clone of the private set was four hours old, from before a
+    repository rename added the allowlist line those 30 references needed --
+    so the gate was right about its input and the input was stale. The same
+    30 hits reproduce exactly by pointing the variable at that file's own
+    previous commit.
+
+    The failure is indistinguishable from a real one by construction: a
+    correct gate, correct output, stale input. So the gate says where its
+    input came from and how old it is, and never guesses which side is
+    wrong -- the sibling-clone gotcha in AGENTS.md is the general case, and
+    its whole lesson is that the reflex ("this tree is wrong") points the
+    expensive way.
+
+    Deliberately does NOT fetch. A gate that reaches the network to grade
+    itself can hang on a push, and this runs on every push. It reports what
+    is knowable locally and names the one command that settles it
+    (practice: fail-gracefully -- a diagnostic that cannot be produced is
+    skipped, never fatal).
+    """
+    path = _PRIVATE_BLOCKLIST_PATH
+    if path is None:
+        return None
+
+    def git(*args):
+        """-> (rc, stdout). Both, always: `rev-parse` prints the ref it was
+        asked for and exits non-zero, so stdout alone answers confidently
+        and wrongly -- the most-repeated bug in this project (AGENTS.md)."""
+        try:
+            r = subprocess.run(['git', '-C', str(path.parent), *args],
+                               capture_output=True, text=True, timeout=15)
+        except (OSError, subprocess.SubprocessError):
+            return 1, ''
+        return r.returncode, r.stdout.strip()
+
+    rc, root = git('rev-parse', '--show-toplevel')
+    if rc != 0 or not root:
+        return None  # not a clone: somebody's loose file, nothing to say
+
+    rc, head = git('log', '-1', '--format=%h %ad', '--date=format:%Y-%m-%d %H:%M')
+    head = head if rc == 0 and head else 'unknown'
+
+    rc, behind = git('rev-list', '--count', 'HEAD..@{u}')
+    if rc == 0 and behind.isdigit() and int(behind) > 0:
+        return (f"  the blocklist came from {root}, whose checkout is "
+                f"{behind} commit(s) BEHIND its upstream (HEAD {head}). A hit "
+                f"naming something renamed or allowed recently is that, not "
+                f"this tree. Run `git -C {root} pull --ff-only` and re-run "
+                f"before treating any of the above as real.")
+    return (f"  the blocklist came from {root}, HEAD {head}. That is the "
+            f"clone's own commit, not proof it is current -- its "
+            f"remote-tracking ref may be as stale as the checkout. If a hit "
+            f"above names something renamed or allowed recently, run "
+            f"`git -C {root} pull --ff-only` and re-run before treating it "
+            f"as real.")
+
+
+INDIVIDUAL_BLOCKLIST_NAME = 'leak-blocklist.txt'
+
+
+def discovered_blocklist_path():
+    """-> the individual source's own leak-blocklist.txt, or None.
+
+    WHY THIS EXISTS. The private list has always been reachable only through
+    PRECEDENT_LEAK_BLOCKLIST, exported by hand -- so every fresh shell, every
+    fresh container and every new session started with the vocabulary layer
+    downgraded, and the remedy was a path somebody had to go find. The list
+    was on disk the whole time, at the location INSTALL.md section 8 already names.
+    Reading it there costs nothing and removes the whole class of "export
+    this variable first" friction that made the gate feel like noise.
+
+    It resolves the user-level config DIRECTLY rather than through
+    precedent_resolve.load_config(), which SELF-HEALS: on a hosted session
+    that helper re-clones the individual source into whatever HOME it is
+    handed, so a fixture built to hold "no private source" turns itself into
+    "a private source resolved" mid-run (AGENTS.md gotcha, 2026-09-08). A
+    gate must observe the environment, never repair it.
+    """
+    cfg = pathlib.Path(os.environ.get('HOME', '~')).expanduser() / '.config' / 'precedent' / 'config.json'
+    if not cfg.is_file():
+        return None
+    import json as _json
+    try:
+        data = _json.loads(cfg.read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return None
+    raw = ((data.get('individual') or {}).get('path') or '').strip()
     if not raw:
-        return [], None, False
-    path = pathlib.Path(raw).expanduser()
+        return None
+    path = pathlib.Path(raw).expanduser() / INDIVIDUAL_BLOCKLIST_NAME
+    return path if path.is_file() else None
+
+
+def resolve_blocklist_path():
+    """-> (path, how) where how is 'env', 'individual source' or None.
+
+    The environment variable still wins, so a caller can point the gate at a
+    different list, and --structural-only still opts out by name."""
+    raw = os.environ.get(BLOCKLIST_ENV, '').strip()
+    if raw:
+        return pathlib.Path(raw).expanduser(), 'env'
+    found = discovered_blocklist_path()
+    if found:
+        return found, 'individual source'
+    return None, None
+
+
+def load_blocklist():
+    """-> (patterns, source_description, private_configured).
+
+    Always includes the committed default patterns; adds the private list
+    when PRECEDENT_LEAK_BLOCKLIST names one. The third value reports whether
+    the PRIVATE half was configured, which is what --require-vocabulary and
+    the reporting below key off -- the default half is never in question."""
+    default_pats = load_default_blocklist()
+    path, how = resolve_blocklist_path()
+    if path is None:
+        return default_pats, f'{DEFAULT_BLOCKLIST.name} ({len(default_pats)} pattern(s))', False
     if not path.exists():
         sys.exit(f"leak gate FAIL: {BLOCKLIST_ENV} points at {path}, which does not "
                  f"exist. A configured-but-missing blocklist is a check that did not "
@@ -271,28 +974,28 @@ def load_blocklist():
                  f"of private terms committed to a public repo publishes the terms it "
                  f"exists to protect. Keep it in the private set "
                  f"(see practice: scrub-gate) and point {BLOCKLIST_ENV} at it there.")
-    pats = []
-    for i, line in enumerate(path.read_text(encoding='utf-8').splitlines(), 1):
-        line = line.strip()
-        if not line or line.startswith('#'):
-            continue
-        try:
-            pats.append(re.compile(line, re.I))
-        except re.error as e:
-            sys.exit(f"leak gate FAIL: {path}:{i} is not a valid regex ({e}): {line}")
+    # practice_audit.py's scrub reads the same file format and honours a
+    # leading `!` as a path exemption. This gate deliberately does NOT --
+    # see _parse_blocklist, which refuses it for both halves.
+    pats = _parse_blocklist(path)
+    global _PRIVATE_BLOCKLIST_PATH
+    _PRIVATE_BLOCKLIST_PATH = path
     if not pats:
         sys.exit(f"leak gate FAIL: the blocklist at {path} contains no patterns. A "
                  f"configured-but-empty blocklist reports as a vocabulary-layer PASS "
                  f"while checking nothing, which is the one outcome this gate must "
                  f"never produce. Add at least one term, or unset {BLOCKLIST_ENV} "
-                 f"deliberately and accept the PARTIAL result.")
-    return pats, str(path), True
+                 f"deliberately and rely on the default list alone.")
+    return (default_pats + pats,
+            f'{DEFAULT_BLOCKLIST.name} ({len(default_pats)}) + {path} ({len(pats)})',
+            True)
 
 
-def scan(units, blocklist):
+def scan(units, blocklist, repo_policy=(None, None), auto_names=()):
+    owners, allowed = repo_policy
     hits = []
     for display, rel, text in units:
-        if rel is not None:
+        if rel is not None and rel not in ALLOWED_PATHS:
             for pat, why in FORBIDDEN_PATHS:
                 if pat.search(rel):
                     hits.append((display, 0, why, rel))
@@ -307,10 +1010,30 @@ def scan(units, blocklist):
                 line_no = text.count('\n', 0, m.start()) + 1
                 hits.append((display, line_no, f'blocklist /{pat.pattern}/',
                              m.group(0).strip()[:70]))
+        # Auto-covered bare names are reported apart from blocklist
+        # patterns on purpose: the remedy differs. A blocklist hit is a term
+        # somebody chose to ban; this one is a private repository's own name,
+        # and the two answers are "scrub the name" or "say it may appear".
+        for pat, name in auto_names:
+            for m in pat.finditer(text):
+                line_no = text.count('\n', 0, m.start()) + 1
+                hits.append((display, line_no,
+                             f'private repository name "{name}" (auto-covered: '
+                             f'a clone under a private-by-default owner, with '
+                             f'no `# visibility-audit: allow` line). Scrub it, '
+                             f'or add an allow line saying why it may appear',
+                             m.group(0).strip()[:70]))
+        for line_no, ref in repo_ref_hits(text, owners or {}, allowed or {}):
+            hits.append((display, line_no,
+                         'undeclared repo reference (owner is private by '
+                         'default; add a `# visibility-audit: allow ' + ref +
+                         ' -- why` line to the blocklist if this may be named)',
+                         ref))
     return hits
 
 
-KNOWN_FLAGS = {'--explain', '--staged', '--range', '--require-vocabulary'}
+KNOWN_FLAGS = {'--explain', '--staged', '--range', '--require-vocabulary',
+               '--structural-only', '--survey'}
 
 
 def _require_vocabulary_configured():
@@ -327,6 +1050,95 @@ def _require_vocabulary_configured():
     person, not about this repository."""
     v = _git('config', '--get', 'precedent.requireVocabulary').strip().lower()
     return v in ('1', 'true', 'yes', 'on')
+
+
+def _private_sources_declared(root=None):
+    """-> True when precedent.json declares a source whose practice text is
+    private -- an individual or team set.
+
+    THE HOLE THIS CLOSES, and it is in the docstring above. That one says the
+    setting lives in git config because "whether a person HAS an individual
+    set is a fact about that person, not about this repository." True, and
+    incomplete: whether THIS REPOSITORY resolves private sources at all is a
+    fact about the repository, it is declared in a tracked file, and it
+    survives a fresh container -- which the git config does not.
+
+    2026-09-08, the incident: a session in a fresh container could not attach
+    either private source, so the vocabulary layer had no blocklist to load.
+    No git config existed to make that fatal, so the gate printed PARTIAL,
+    exited 0, and the push went through with only the structural rules
+    applied -- into a public repository. The session reported it afterwards,
+    accurately and too late. **"The check silently did not run" and "the
+    check passed" were the same exit code**, which is the exact failure the
+    requireVocabulary docstring says must not happen; the setting just was
+    not reachable in the environment where it mattered.
+
+    So the requirement is derived here as well as configured. A repository
+    that declares no private source is unaffected -- it never had a
+    vocabulary layer to lose.
+    """
+    import json as _json
+    cfg = pathlib.Path(root or ROOT) / 'precedent.json'
+    if not cfg.is_file():
+        return False
+    try:
+        data = _json.loads(cfg.read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        # A malformed precedent.json is somebody else's error to report, and
+        # guessing "no private sources" here would fail open in exactly the
+        # direction this function exists to close (practice: fail-gracefully).
+        return True
+    return any((s or {}).get('level') in ('individual', 'team')
+               for s in data.get('sources', []))
+
+
+def _private_sources_resolved(root=None):
+    """-> (any_resolved, names_that_did_not) for the declared private sources.
+
+    THE CORRECTION THIS MAKES, 90 minutes after the first version landed and
+    on a real report from a session it blocked. Requiring the blocklist
+    whenever precedent.json DECLARES a private source refuses every session
+    that could not attach one -- and in this repository that is a live,
+    unexplained, intermittent condition (see AGENTS.md on cross-owner adds).
+
+    **The first version had the threat model backwards.** Private vocabulary
+    reaches a session by the session READING the private sources' text. A
+    session that could not attach them never read a word of it and has
+    nothing from them to leak; the dangerous session is the one that DID
+    attach them and is now writing to a public tree. So resolution, not
+    declaration, is what should require the list.
+
+    What the blanket refusal actually bought was not safety. It relocated the
+    work: the blocked session's remedy was to hand a patch to another session,
+    which is more error-prone than the push it replaced -- and its commit
+    "dies with the container", which is repo-is-memory losing outright.
+
+    The residual risk when the sources did not resolve is a private term that
+    reached the session some other way, typically the person's own messages.
+    That is real, small, unchanged from the behaviour before 2026-09-08, and
+    named out loud in the notice rather than silently accepted.
+    """
+    try:
+        sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+        import precedent_resolve as _pr
+    except ImportError:
+        # Vendored into a source set, where precedent_resolve is deliberately
+        # absent. Fall back to declaration: such a repo has no multi-source
+        # resolve to ask about (practice: fail-gracefully).
+        return _private_sources_declared(root), []
+    try:
+        sources = _pr.load_config(str(root or ROOT))
+        res = _pr.resolve(sources)
+    except Exception:
+        # A resolve that cannot run is not evidence that nothing resolved.
+        # Fail toward the strict side: assume the private text IS in context.
+        return True, []
+    missing = {(m or {}).get('name') for m in res.get('missing', [])}
+    private = [s for s in sources
+               if (s or {}).get('level') in ('individual', 'team')]
+    unresolved = [s.get('name') for s in private if s.get('name') in missing]
+    resolved = [s.get('name') for s in private if s.get('name') not in missing]
+    return bool(resolved), unresolved
 
 
 def main():
@@ -351,10 +1163,118 @@ def main():
         sys.exit(f"leak gate FAIL: unknown option(s) {', '.join(unknown)} -- known "
                  f"options are {', '.join(sorted(KNOWN_FLAGS))}.")
 
-    require_vocab = '--require-vocabulary' in args or _require_vocabulary_configured()
+    # --structural-only is the ONE way to ask for the structural half alone,
+    # and it is deliberately explicit: continuous integration has no private
+    # blocklist and never will, so it opts out BY NAME in a tracked workflow
+    # file rather than every other caller failing open by default. The
+    # workflow that uses it is already called "Leak gate (structural)".
+    structural_only = '--structural-only' in args
+    _priv_resolved, _priv_unresolved = _private_sources_resolved()
+    require_vocab = (not structural_only
+                     and ('--require-vocabulary' in args
+                          or _require_vocabulary_configured()
+                          or _priv_resolved))
     blocklist, source, configured = load_blocklist()
     units = units_to_scan(mode, rev_range)
-    hits = scan(units, blocklist)
+    # The repo-reference allowlist is read from the SAME private file as the
+    # vocabulary patterns, so a clone with no private blocklist configured
+    # gets no owner policy either -- and says so through the existing
+    # PARTIAL reporting, rather than silently enforcing nothing.
+    _bl_path, _bl_how = resolve_blocklist_path()
+    if _bl_path is not None and _bl_path.is_file():
+        _errs = repo_policy_errors(_bl_path)
+        if _errs:
+            for _ln, _txt, _why in _errs:
+                where = f'{_bl_path}:{_ln}' if _ln else str(_bl_path)
+                print(f'leak gate FAIL: {where}: {_why}.'
+                      + (f'\n    {_txt}' if _txt else ''), file=sys.stderr)
+            sys.exit('leak gate FAIL: the repo-reference policy in '
+                     f'{_bl_path} does not parse. This is a hard failure and '
+                     'not a NOTE: a directive that does not parse is '
+                     'indistinguishable from an ordinary comment, so the gate '
+                     'would otherwise print OK while enforcing less than the '
+                     'file says.')
+        _policy = parse_repo_policy(_bl_path)
+    else:
+        _policy = ({}, {})
+    _vis, _why = declared_visibility(ROOT)
+    if _vis == 'private':
+        print(f'leak gate NOT APPLICABLE: {_why}, so pushing this tree '
+              f'publishes nothing and there is no leak for this gate to '
+              f'prevent. This is a stand-down, NOT a pass -- it inspected '
+              f'nothing. What still guards content leaving here is '
+              f'practice_audit.py\'s scrub over the vendored tree, which is '
+              f'where the export actually happens.')
+        return 0
+
+    # The bare-name half, and the one that actually stops a private name
+    # reaching a public tree. It is derived from the clones on this disk
+    # rather than from anything anybody wrote down, which is the point:
+    # nobody has to predict the name of a repository they created today.
+    _auto = (auto_private_name_patterns(local_clone_refs(ROOT), _policy[0],
+                                        _policy[1])
+             if (_policy[0] and _bl_path is not None
+                 and auto_cover_enabled(_bl_path)) else [])
+    hits = scan(units, blocklist, _policy, _auto)
+    # SAY WHEN THE ALLOWLIST IS OFF. It only does anything once somebody
+    # declares an owner private-by-default, and a clone that never did would
+    # otherwise get a clean "OK" covering a rule that inspected nothing --
+    # the fail-open shape this gate's own vocabulary layer already learned to
+    # announce. Printed on every run, pass or fail.
+    if not (_policy[0] or {}):
+        # NAME WHICH STATE THIS IS. The two have opposite remedies and this
+        # notice used to render identically for both (2026-09-10): a session
+        # that could not reach the private blocklist read the committed
+        # default, found no private-owner line in IT, and announced that
+        # none is declared -- which a reader takes as "you never set this
+        # up". A real declaration had been sitting in the private list the
+        # whole time, switched on. The wrong reading cost a TODO entry
+        # asserting the allowlist was unconfigured and a handoff to another
+        # session to go configure it, both written off this one line, while
+        # the run's own summary named the fallback file two lines later
+        # (practice: fail-gracefully -- match the telling to the reader).
+        if not configured:
+            print(f'leak gate NOTE: the repo-reference allowlist is INERT '
+                  f'HERE because this run read {source} -- the committed '
+                  f'fallback -- and not your private blocklist, which was '
+                  f'not reachable in this session. This says NOTHING about '
+                  f'whether you have declared a private owner: that '
+                  f'declaration lives in the list this run could not load. '
+                  f'Export PRECEDENT_LEAK_BLOCKLIST (or set '
+                  f'PRECEDENT_GIT_TOKEN so the sources clone at session '
+                  f'start) and re-run before concluding anything.',
+                  file=sys.stderr)
+        else:
+            print(f'leak gate NOTE: no `# visibility-audit: private-owner '
+                  f'<account>` is declared in {source}, so the '
+                  f'repo-reference allowlist is INERT -- a private '
+                  f'repository named in this tree would not be caught by '
+                  f'it. Declare one there to switch it on.',
+                  file=sys.stderr)
+    else:
+        # The other half of the same question. The allowlist above is on, so
+        # every `owner/name` mention is covered -- these are the repositories
+        # whose BARE name nothing covers, which is the form that actually
+        # leaked. Reported every run, because the moment to add a stem is
+        # while the repository is in front of you.
+        # ROUTINE NOTES ARE OPT-OUT-ABLE, HITS ARE NOT. `stem-notes off` in
+        # the blocklist silences the survey on ordinary runs; --survey asks
+        # for it by name, which is how very_deep_check.py's visibility pass
+        # gets it. Nothing here touches whether a real hit fails the push.
+        _survey = '--survey' in args
+        _notes_on = _survey or _bl_path is None or stem_notes_enabled(_bl_path)
+        _gaps = (uncovered_repo_stems(local_clone_refs(ROOT), _policy[0],
+                                      _policy[1], blocklist)
+                 if _notes_on else [])
+        for _owner, _name in _gaps:
+            print(f'leak gate NOTE: {_owner}/{_name} is a clone on this disk '
+                  f'under a private-by-default owner, and NO blocklist pattern '
+                  f'matches its bare name "{_name}". Its qualified form is '
+                  f'refused by the allowlist; the short form somebody actually '
+                  f'types is not. Add a stem for it -- truncate to a '
+                  f'distinctive head and measure the hit count before '
+                  f'committing to the cut. This is a note, not a hit: nothing '
+                  f'in this tree says the name today.', file=sys.stderr)
 
     for display, line, why, sample in hits:
         where = f"{display}:{line}" if line else display
@@ -366,32 +1286,85 @@ def main():
         print(f"\nleak gate FAIL: {len(hits)} hit(s) in {scope}. Nothing is pushed. "
               f"Precedent is a branch of a PUBLIC repo -- a push is a publication, "
               f"and it cannot be taken back.")
+        note = _stale_blocklist_clone_note()
+        if note:
+            print("Before acting on these:\n" + note)
         return 1
 
+    # The vocabulary layer ALWAYS runs now -- the committed default list is
+    # applied on every invocation, so "the layer did not run" is no longer a
+    # reachable state and is no longer reported as one. What is still worth
+    # saying is which HALVES ran: a clean scan against publishable terms is
+    # not evidence that no PRIVATE word is present, and that sentence has to
+    # survive the change or this is just the old silence with better wording.
+    print(f"leak gate OK: {len(units)} unit(s) in {scope} clean against "
+          f"{len(FORBIDDEN_PATHS)} path rule(s), {len(FORBIDDEN_CONTENT)} content "
+          f"rule(s) and {len(blocklist)} blocklist pattern(s) from {source}.")
     if configured:
-        print(f"leak gate OK: {len(units)} unit(s) in {scope} clean against "
-              f"{len(FORBIDDEN_PATHS)} path rule(s), {len(FORBIDDEN_CONTENT)} content "
-              f"rule(s) and {len(blocklist)} blocklist pattern(s) from {source}.")
         return 0
 
-    print(f"leak gate PARTIAL: {len(units)} unit(s) in {scope} clean against the "
-          f"{len(FORBIDDEN_PATHS)} path and {len(FORBIDDEN_CONTENT)} content rules "
-          f"-- the STRUCTURAL layer only.")
-    print(f"  The vocabulary layer did not run: {BLOCKLIST_ENV} is unset, so no "
-          f"private-term blocklist was applied. This is expected in CI, which has "
-          f"no access to a private list. It is reported rather than passed over "
-          f"silently: a clean structural scan is not evidence that no private word "
+    print(f"  Note: the private half of the vocabulary layer did not run "
+          f"({BLOCKLIST_ENV} is unset), so publishable terms were checked and "
+          f"private ones were not. Expected in CI, which has no access to a "
+          f"private list. Said out loud rather than left to inference: a clean "
+          f"scan against the default list is not evidence that no private word "
           f"is present.")
+    if _priv_unresolved and not _priv_resolved:
+        # The declared-but-unresolved case: allowed, and never quietly. The
+        # session could not read the private text, so it has nothing from
+        # there to leak -- but a private term can still have reached it
+        # another way, most plausibly the person's own messages, and that is
+        # the residual risk somebody should carry knowingly.
+        print(f"  AND: {', '.join(sorted(n for n in _priv_unresolved if n))} "
+              f"did not resolve this session, so no blocklist was reachable "
+              f"at all -- this is not a misconfiguration you can fix from "
+              f"here.\n"
+              f"  The push is allowed BECAUSE the private text was never in "
+              f"context: a session that could not read those sources has "
+              f"nothing from them to leak.\n"
+              f"  What is NOT covered: a private term that reached this "
+              f"session some other way, most plausibly your own messages. "
+              f"Say so in the reply -- somebody should carry that knowingly "
+              f"rather than find it later.")
     if require_vocab:
-        print(f"\nleak gate FAIL: this clone has declared that it HAS a private-term "
-              f"blocklist (`git config precedent.requireVocabulary true`, or "
-              f"--require-vocabulary), and {BLOCKLIST_ENV} is not set. Once you have "
-              f"said you have a list, an unrun vocabulary layer is a failure, not a "
-              f"partial pass -- set {BLOCKLIST_ENV} to your blocklist in your "
-              f"individual set, or unset the git config deliberately.")
+        # Name WHICH of the three triggers fired. The message used to assert
+        # the git-config one unconditionally, so once the requirement could
+        # also be derived from precedent.json it sent a reader to a setting
+        # that was not set and could not be unset -- a guard misreporting its
+        # own reason (practice: control-asserts-which-failure).
+        if '--require-vocabulary' in args:
+            why = ("--require-vocabulary was passed on this run")
+            fix = ("drop the flag, or set " + BLOCKLIST_ENV)
+        elif _require_vocabulary_configured():
+            why = ("this clone has declared that it HAS a private-term "
+                   "blocklist (`git config precedent.requireVocabulary true`)")
+            fix = ("set " + BLOCKLIST_ENV + " to your blocklist in your "
+                   "individual set, or unset the git config deliberately")
+        else:
+            why = ("a private practice source RESOLVED this session, so its "
+                   "text is in context and a private term could reach this "
+                   "tree through it")
+            fix = ("set " + BLOCKLIST_ENV + " to the blocklist in that same "
+                   "source -- you have the repository, so you have the file. "
+                   "Continuous integration, which has no private list by "
+                   "design, passes --structural-only instead")
+        print(f"\nleak gate FAIL: {why}, and {BLOCKLIST_ENV} is not set. "
+              f"An unrun vocabulary layer is a failure, not a partial pass: "
+              f"'the check silently did not run' and 'the check passed' must "
+              f"not be the same exit code on a tree that publishes. To fix it, "
+              f"{fix}.")
         return 1
     return 0
 
 
 if __name__ == '__main__':
+    # `--help` is what anyone types first. Before 2026-09-06 the tools here
+    # split three ways on it: a hard "unknown option" FAIL, a silent
+    # fall-through that ran the whole audit as if nothing had been asked, or
+    # the docstring printed with a non-zero exit. All three are wrong, and
+    # documentation/FOR_DEVELOPERS.md points readers straight at
+    # these commands. The module docstring is the usage text.
+    if any(a in ('--help', '-h') for a in sys.argv[1:]):
+        print((__doc__ or '').strip())
+        sys.exit(0)
     sys.exit(main())

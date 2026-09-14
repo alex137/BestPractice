@@ -52,6 +52,7 @@ import sys
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'tools'))
 import split_practices as sp  # noqa: E402
+import build_views as bv  # noqa: E402
 import precedent_promote as pp  # noqa: E402
 
 # Deliberately specific phrasing, not bare "always"/"never" -- those words
@@ -68,16 +69,62 @@ INSTRUCTION_PATTERNS = [
 _SENT_SPLIT = re.compile(r'(?<=[.!?])\s+')
 
 
-def cmd_explicit_instruction(args):
-    text = args.get('--text')
-    if text is None:
-        sys.exit("precedent_detect FAIL: --text TEXT is required")
+def instruction_hits(text):
+    """-> [(pattern, sentence), ...] for every standing-rule-shaped sentence
+    in `text`.
+
+    Split out of cmd_explicit_instruction on 2026-09-14 so that something
+    other than a person typing the command can reach this signal. Until then
+    every detector here was a printer with its logic inlined in its own
+    subcommand, which is half of why Stage 1 was built and never invoked:
+    there was nothing to call (spec/PRACTICE_DETECTION.md).
+    """
     hits = []
-    for sent in _SENT_SPLIT.split(text):
+    for sent in _SENT_SPLIT.split(text or ''):
         for pat in INSTRUCTION_PATTERNS:
             if pat.search(sent):
                 hits.append((pat.pattern, sent.strip()))
                 break
+    return hits
+
+
+def revert_hits(repo, since=None, since_date=None):
+    """-> [(short_sha, subject), ...] for revert-shaped commits in `repo`.
+
+    `since` is a git revision (REF..HEAD); `since_date` is anything
+    `git log --since` accepts, which is what a session-scoped scan needs --
+    a session knows when it started, not which commit it started from.
+    A repo git cannot read is no hits, never an exception: this feeds a
+    closing prompt, and a prompt that crashes the Stop hook is worse than a
+    signal nobody gets (practice: fail-gracefully).
+    """
+    cmd = ['git', '-C', str(repo), 'log', '--format=%H%x00%s%x00%b%x01']
+    if since:
+        cmd.append(f'{since}..HEAD')
+    if since_date:
+        cmd.append(f'--since={since_date}')
+    try:
+        out = subprocess.run(cmd, capture_output=True, text=True,
+                             check=True).stdout
+    except (subprocess.CalledProcessError, OSError):
+        return []
+    hits = []
+    for entry in out.split('\x01'):
+        entry = entry.strip('\n')
+        if not entry:
+            continue
+        sha, _, rest = entry.partition('\x00')
+        subject, _, body = rest.partition('\x00')
+        if re.match(r'^revert\b', subject, re.I) or 'this reverts commit' in body.lower():
+            hits.append((sha[:12], subject.strip()))
+    return hits
+
+
+def cmd_explicit_instruction(args):
+    text = args.get('--text')
+    if text is None:
+        sys.exit("precedent_detect FAIL: --text TEXT is required")
+    hits = instruction_hits(text)
     if not hits:
         print("no explicit-instruction phrasing detected")
         return 0
@@ -94,19 +141,7 @@ def cmd_reverted(args):
     since = args.get('--since')
     if not repo:
         sys.exit("precedent_detect FAIL: --repo PATH is required")
-    cmd = ['git', '-C', repo, 'log', '--format=%H%x00%s%x00%b%x01']
-    if since:
-        cmd.append(f'{since}..HEAD')
-    out = subprocess.run(cmd, capture_output=True, text=True, check=True).stdout
-    hits = []
-    for entry in out.split('\x01'):
-        entry = entry.strip('\n')
-        if not entry:
-            continue
-        sha, _, rest = entry.partition('\x00')
-        subject, _, body = rest.partition('\x00')
-        if re.match(r'^revert\b', subject, re.I) or 'this reverts commit' in body.lower():
-            hits.append((sha[:12], subject.strip()))
+    hits = revert_hits(repo, since=since)
     if not hits:
         print(f"no revert-shaped commits found in {repo}"
               f"{' since ' + since if since else ''}")
@@ -136,7 +171,11 @@ def cmd_restated(args):
                 fm, sections = sp._read_practice_file(f)
             except sp.PracticeFileError:
                 continue
-            if fm.get('status') == 'retired':
+            # Any practice not in force, not only a retired one. This read
+            # the literal 'retired', so every `deduplicated` practice went
+            # on being offered to the duplicate detector as if it were a
+            # live rule of this source's own.
+            if not bv.is_in_force(fm):
                 continue
             entries[fm.get('slug', f.stem)] = sections.get('rule', '')
         by_source[p] = entries
@@ -178,6 +217,14 @@ COMMANDS = {
 
 
 def _parse_args(argv):
+    # `--help` is the first thing anyone types, and until 2026-09-06 every
+    # tool here answered it with "FAIL: expected --flag value pairs, stuck at
+    # '--help'" -- a hard error, on the exact command documentation/ tells a
+    # new reader to run. The module docstring is already the usage text; print
+    # it and exit 0.
+    if any(a in ('--help', '-h') for a in argv):
+        print((sys.modules['__main__'].__doc__ or __doc__ or '').strip())
+        raise SystemExit(0)
     if not argv or argv[0] not in COMMANDS:
         sys.exit(f"precedent_detect FAIL: first argument must be one of "
                   f"{sorted(COMMANDS)}, got {argv[0] if argv else None!r}")

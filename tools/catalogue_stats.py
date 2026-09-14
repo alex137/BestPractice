@@ -117,12 +117,29 @@ ANCHORS = [
     ('PRACTICE_ENGINE_PLAN.md, "The resident block ... Target ~2,000 tokens"',
      2000, 2000, lambda: (stats()['budget'], stats()['budget'])),
     # spec/PRACTICE_FORMAT.md's phase-3 column records the catalogue as this
-    # session inherited it: 15 practices with a Detail, 8 Rules over 150 words.
-    # Scoped to the original 52 (phase3_snapshot_stats), not the live
-    # directory -- a dated snapshot, not an invariant that should fail every
-    # time a later practice is added. See phase3_snapshot_stats's docstring.
+    # session inherited it: originally 15 practices with a Detail, 8 Rules
+    # over 150 words. Scoped to the original 52 (phase3_snapshot_stats), not
+    # the live directory -- a dated snapshot, not an invariant that should
+    # fail every time a later practice is added -- but a DELIBERATE rewrite
+    # of an original-52 practice still moves it, same as the 8->7 Rules-over-
+    # 150-words correction below: moved 15->16 on 2026-09-05 when
+    # session-bootstrap gained a real Detail, then 16->17 on 2026-09-06 when
+    # merge-authorization-keyword gained a real Detail (see
+    # CHANGES_TO_TELL_ALEX.md), then 17->18 on 2026-09-10 when
+    # github-setup-disclosed gained one, carrying the three owner-only
+    # settings a first install must name, then 18->19 on 2026-09-11 when
+    # doc-references-are-links gained one, recording the practice-file
+    # exception to its own relative-link clause, then 19->20 on 2026-09-12 when
+    # mistakes-become-rules gained one for the catalogue lookup its
+    # proportionality guard now requires, then 20->21 on 2026-09-13 when
+    # environment-gotchas gained one saying when a gotchas section should split
+    # into an index plus a record, and what the index line has to carry,
+    # then 21->22 on 2026-09-14 when capture-gate gained one carrying the
+    # capture-at-discovery sharpening delivered from dependent repo #1
+    # (the turn, not the thread, is the unit of capture).
+    # See phase3_snapshot_stats's docstring.
     ('spec/PRACTICE_FORMAT.md, "The Rule/Detail Split" — practices with a Detail',
-     15, 15, lambda: (phase3_snapshot_stats()['with_detail'], phase3_snapshot_stats()['with_detail'])),
+     22, 22, lambda: (phase3_snapshot_stats()['with_detail'], phase3_snapshot_stats()['with_detail'])),
     ('spec/PRACTICE_FORMAT.md, "The Rule/Detail Split" — Rules over 150 words',
      7, 7, lambda: (phase3_snapshot_stats()['long_rules'], phase3_snapshot_stats()['long_rules'])),
     # PRACTICE_ENGINE_PLAN.md's own phase-3 table restates the SAME figure as
@@ -169,26 +186,63 @@ def block():
     return '\n'.join(out)
 
 
+def merge_back_block():
+    """The two figures the phase-7 merge-back conversation turns on.
+
+    Separate from block() because the audience is: block() is this project
+    explaining itself to itself, and its resident-size and Rule-share rows
+    are about the loader's own design. This one is what somebody DECIDING
+    whether to accept the branch needs, which is a shorter list and a
+    different question -- how much of the catalogue actually enforces
+    itself (practice: computed-numbers-in-scripts).
+    """
+    s = stats()
+    advisory = s['practices'] - s['enforced']
+    rows = [
+        ('Practices in force', f"{s['practices']}"),
+        ('**Enforced by a check**',
+         f"**{s['enforced']} of {s['practices']} practices carry a "
+         f"`checked_by`**"),
+        ('Advisory only', f"{advisory} of {s['practices']} practices"),
+    ]
+    out = ['| | |', '|---|---|']
+    out += [f'| {k} | {v} |' for k, v in rows]
+    return '\n'.join(out)
+
+
 def enforcement_block():
     """The enforced-practice registry, rendered from the registry itself, so
-    a document listing what is enforced cannot drift from what is."""
+    a document listing what is enforced cannot drift from what is.
+
+    tools/precedent_check.py's CHECKS registry is shared infrastructure --
+    it also carries checks for practices/ that live outside the universal
+    catalogue (repo-local, under local/practices/, e.g.
+    merge-target-is-beta-branch). This document is universal Precedent
+    documentation, read by every consumer, so it lists and counts only
+    checks whose slug names one of the universal practices/*.md files --
+    a repo-local check appearing here would misrepresent a BestPractice-only
+    rule as part of the catalogue every Precedent user gets."""
     import importlib.util
     spec = importlib.util.spec_from_file_location(
         '_pc', ROOT / 'tools' / 'precedent_check.py')
     pc = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(pc)
+    universal_slugs = {fm['slug'] for fm, _sections, _f in _load()}
+    universal_checks = {slug: c for slug, c in pc.CHECKS.items()
+                        if slug in universal_slugs}
     s = stats()
     out = ['| practice | scope | what the check asserts |', '|---|---|---|']
-    for slug, c in sorted(pc.CHECKS.items()):
+    for slug, c in sorted(universal_checks.items()):
         out.append(f"| `{slug}` | {c['scope']} | {c['what']} |")
     out.append('')
-    out.append(f"{len(pc.CHECKS)} of {s['practices']} practices are enforced. "
-               f"Run `python3 tools/precedent_check.py --explain` for what each "
-               f"check does **not** catch.")
+    out.append(f"{len(universal_checks)} of {s['practices']} practices are "
+               f"enforced. Run `python3 tools/precedent_check.py --explain` "
+               f"for what each check does **not** catch.")
     return '\n'.join(out)
 
 
-BLOCKS = {'catalogue': lambda: block(), 'enforcement': enforcement_block}
+BLOCKS = {'catalogue': lambda: block(), 'enforcement': enforcement_block,
+          'merge-back': merge_back_block}
 
 
 def main():
@@ -211,4 +265,13 @@ def main():
 
 
 if __name__ == '__main__':
+    # `--help` is what anyone types first. Before 2026-09-06 the tools here
+    # split three ways on it: a hard "unknown option" FAIL, a silent
+    # fall-through that ran the whole audit as if nothing had been asked, or
+    # the docstring printed with a non-zero exit. All three are wrong, and
+    # documentation/FOR_DEVELOPERS.md points readers straight at
+    # these commands. The module docstring is the usage text.
+    if any(a in ('--help', '-h') for a in sys.argv[1:]):
+        print((__doc__ or '').strip())
+        sys.exit(0)
     sys.exit(main())

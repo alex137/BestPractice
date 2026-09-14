@@ -10,6 +10,7 @@ index_clause: "capture the follow-on work in the thread that created the need"
 checked_by:  null
 defines:     ["capture gate"]
 status:      active
+in_force_at: null
 supersedes:  []
 overrides:   null
 added:       null
@@ -20,10 +21,20 @@ source_practice_number: 10
 The thread that develops a capability, a number, a decision, or a
 limit is the thread that understands what follow-on artifact it implies (a
 document update, a registry entry, an exported practice, a decision record).
-Capture it **in that thread, before merging** — as step 0 of the merge
-runbook. Never park it in a "for later review" staging document.
+Capture it **in the turn that discovers it** — the merge-runbook gate is the
+backstop that catches what a thread missed, never the plan. Never park it in
+a "for later review" staging document.
 
 ## Detail
+**Why the unit is the turn, not the thread.** Long sessions are summarized
+when their context fills, and a capture queued "for the merge" survives that
+summary only as one line in a task list with its rationale gone. Fold the
+matter before doing anything else in that turn. A mechanical check that
+fails on "fold before merge" phrasing in task lists closes the loop.
+(Origin: a thread surveyed a record, found four items its own decisions had
+made necessary, queued them "to fold before merge" — correct under the
+merge-gate form of this rule — and the person pointed out that a context
+summary would have erased exactly that queue.)
 
 ## Why
 Deferred capture repeatedly lost both the rationale (the merging
@@ -35,9 +46,27 @@ ended without folding it in. The gate that fixed it: before any merge, ask
 for known parking-lot markers, run at thread end.
 
 ## Story
+**A real miss, and the parking lot that caused it.** Deferred capture
+repeatedly lost two things at once: the rationale, because the thread doing
+the merging did not know why the matter existed, and the timestamp, because
+priority went to whoever wrote it down first rather than to whoever found
+it first.
+
+The specific failure that produced the gate was a "waiting for review"
+staging document. Content staged there sat unrecorded for a full cycle,
+because the thread that put it there ended without folding it in -- and
+nothing about a parking lot forces anyone to come back. The parking lot
+looked like the responsible thing to do, which is why it survived long
+enough to lose something.
+
+The fix is the gate, not a better parking lot: before any merge, ask
+whether this thread's work implied anything that must be captured, and grep
+for the known parking-lot markers at thread end. The prohibition on
+"for later review" staging documents is part of the rule rather than a
+stylistic aside, since re-introducing one re-opens the same hole.
 
 ## Install
 Step 0 of the runbook in
-[templates/AGENTS.md.template](templates/AGENTS.md.template). The
+[templates/AGENTS.md.template](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/templates/AGENTS.md.template). The
 practice-export gate ([practice-export-loop](practice-export-loop.md)) is this same rule applied to process
 improvements.

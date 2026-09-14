@@ -1,15 +1,16 @@
 ---
 slug:        layered-practice-packs
-title:       Layered practice packs: a domain layer between generic and repo-local
+title:       "Layered practice packs: a domain layer between generic and repo-local"
 tier:        on-demand
 severity:    default
 applies_to:  ["practices/**", "PRACTICES.md", "precedent.json"]
 occasion:    "deciding where a new rule belongs"
 gates:       []
 index_clause: "generic, domain, repo-local \u2014 each rule to its own layer"
-checked_by:  null
+checked_by:  "tools/precedent_check.py"
 defines:     ["practice pack"]
 status:      active
+in_force_at: null
 supersedes:  []
 overrides:   null
 added:       null
@@ -29,6 +30,11 @@ The decision rule for any new rule: *would this hold in an unrelated repo?*
 kind of program?* → domain-scoped, on-demand (see Detail). *Only here?* →
 repo-local.
 
+**That axis is about a rule's content, not its home.** Which *set* publishes
+it — repo-local, team, individual or universal — is a separate question with
+its own tests, and
+[rule-level-by-reach](rule-level-by-reach.md) answers it.
+
 ## Detail
 **Superseded, 2026-09-01, for any repo running Precedent's loader: the
 vendored-pack mechanism.** This practice originally routed domain rules by
@@ -41,7 +47,7 @@ practice — Universal or Team — whose `applies_to` / `occasion` / `gates`
 scope it to that domain's work, routed by the same occasion index and
 path-triggered channel as every other on-demand practice. The decision rule
 above still holds; only the *implementation* of the middle tier changed.
-Recorded in [CHANGES_TO_TELL_ALEX.md](CHANGES_TO_TELL_ALEX.md).
+Recorded in [CHANGES_TO_TELL_ALEX.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/CHANGES_TO_TELL_ALEX.md).
 
 **Still open, not solved by the loader: a domain bundle shared across more
 than one team.** The loader routes a single source's own practices; it does
@@ -62,6 +68,11 @@ the domain's rules apply, so an agent loads them exactly when doing that
 domain's work instead of carrying them in every session.
 
 ## Why
+**Both misfilings are silent, which is why a middle scope has to exist rather than being approximated by the two ends.**
+
+A domain rule filed as generic carries its vocabulary into an upstream that may be public, and the scrub gate is the only thing standing between it and publication. A domain rule filed as repo-local is safe but stranded: the next repo running the same kind of program needs every one of those rules and has no way to know they already exist, so it re-derives them, differently.
+
+Neither failure announces itself. The first looks like a generous contribution and the second like tidy scoping, and the cost of each shows up somewhere other than where the decision was made. That is what the single decision question is for — *would this hold in an unrelated repo?* — since it can be answered at the moment of writing, by the person who has the context.
 
 ## Story
 A domain program inside a dependent repo accumulated rules that
@@ -82,7 +93,7 @@ every other on-demand practice.
 
 **Pre-migration (a repo still vendoring BestPractice the old way):** vendor
 the pack tree at `process/<pack>/`; write `process/manifest_<pack>.json`
-(schema of [INSTALL.md](INSTALL.md) §5, plus `upstream.scrub_blocklist` — a
+(schema of [INSTALL.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/INSTALL.md) §5, plus `upstream.scrub_blocklist` — a
 path, or `null` to opt a private pack out of the scrub); instantiate the
 pack's practices in the repo's real files and record the mapping; install its
 harness adapter so the rules load when the domain work happens. The export

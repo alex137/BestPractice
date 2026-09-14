@@ -1,9 +1,18 @@
-<!-- Last updated: 2026-09-03 (Buenos Aires) by the follow-up session that also built INSTALL.md §0 -->
-
+---
+title:         Phase 6 Brief — Migrating Consumer Repos
+kind:          brief
+status:        open
+opened:        2026-09-03
+closed:        null
+superseded_by: null
+supersedes:    []
+audience:      session
+summary:       What phase 6 was handed for migrating consumer repositories, what is closed, and what is blocked on a repository being attached.
+---
 # Phase 6 Brief — Migrating Consumer Repos
 
-**Status: opened 2026-09-03, not closed.** [PRACTICE_ENGINE_PLAN.md](../PRACTICE_ENGINE_PLAN.md)'s
-Sequence row 6 already marks this "underway" from `themorgan/WorkingWithAI`'s
+[PRACTICE_ENGINE_PLAN.md](PRACTICE_ENGINE_PLAN.md)'s
+Sequence row 6 already marks this "underway" from the project's own prior notes repository's
 2026-09-02 migration; this brief is the session that picked phase 6 up
 afterward, closed two of its named gaps for real, and is honest about what
 still needs the actual target repo attached to finish. Read the plan's
@@ -15,7 +24,7 @@ inherits" section first — this brief does not restate them.
 1. **The path-triggered channel's consumer-repo integration.**
    [`spec/LOADER.md`](LOADER.md)'s own status table named this precisely:
    `tools/precedent_paths.py` worked as a command but nothing called it
-   automatically — real cost, not theoretical: `themorgan/WorkingWithAI` hit
+   automatically — real cost, not theoretical: the project's own prior notes repository hit
    a missed `header-caps` practice and patched around it locally, at commit
    time only. Built: `templates/harness/claude-code/hooks/precedent-paths.sh`,
    a `PreToolUse` hook wired into `templates/harness/claude-code/settings.json`,
@@ -29,7 +38,7 @@ inherits" section first — this brief does not restate them.
    model, not just a transcript) — see [TODO.md](../TODO.md) item 11.
 2. **The pre-fork catalogue audit table** —
    [spec/PREFORK_AUDIT.md](PREFORK_AUDIT.md), one row per inherited
-   practice. Named by [What phase 5 should carry forward](../PRACTICE_ENGINE_PLAN.md#what-phase-5-should-carry-forward)
+   practice. Named by [What phase 5 should carry forward](PRACTICE_ENGINE_PLAN.md#what-phase-5-should-carry-forward)
    as required before phase 6 starts migrating a consumer repo; never done
    until now.
 3. **The `WritingWithAI` naming discrepancy**, on this repo's side only —
@@ -53,9 +62,9 @@ inherits" section first — this brief does not restate them.
 ## What this session could not close, and why — needs Morgan
 
 **Two open decisions, explained in full and left for Morgan's judgment**,
-tracked in [PRACTICE_ENGINE_PLAN.md's Open Decisions](../PRACTICE_ENGINE_PLAN.md#open-decisions):
+tracked in [PRACTICE_ENGINE_PLAN.md's Open Decisions](PRACTICE_ENGINE_PLAN.md#open-decisions):
 whether the leak gate's vocabulary blocklist is miscalibrated or has simply
-never run clean, and whether `precedent-team-maintainers`'
+never run clean, and whether `precedent-team-repo-maintenance`'
 `session-trailer` check should accept `Claude-Session:` or every session
 should start writing a literal `Session:` line too. Neither has a right
 answer this session can pick on its own — both are explained at length in
@@ -92,6 +101,20 @@ against `precedent-individual`, approving the specific rebase/force-push
 commands interactively as they run), or explicitly adding a Bash
 permission rule that lets a future session run this unattended. Neither is
 something a session can grant itself.
+
+**Update, 2026-09-03 — all three closed.** Morgan ran a session
+directly against precedent-individual (exactly the path this brief
+names as "what actually closes this"), approving the rebase/force-push
+interactively as it ran. `ac525c9` and `0016903` are rewritten in
+place — correct author (`Morgan F <morgan@westegg\.com>`), correct
+`-0300` offset, wall-clock time unchanged — verified by comparing every
+commit's tree hash before/after (identical throughout) and a fresh
+clone showing both checks exit 0. A follow-up commit cleared the two
+check scripts' now-dead `GRANDFATHERED_SHAS` entries and updated both
+practices' Install text. The five old PR-source branches that still
+held the unrewritten commits were deleted from precedent-individual's
+remote. The two Open Decisions above are closed the same day — see
+[PRACTICE_ENGINE_PLAN.md's Open Decisions](PRACTICE_ENGINE_PLAN.md#open-decisions).
 
 ## The real work still ahead
 

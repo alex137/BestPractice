@@ -1,6 +1,6 @@
 # Repository map — where to find things
 
-<!-- Template: instantiate per BestPractice INSTALL.md §1 (practice 2).
+<!-- Template: instantiate per Precedent INSTALL.md §1 (practice `orientation-map`).
      Purpose: any session reads this FIRST and knows where everything lives.
      Keep it current: a thread that adds a document adds its row. -->
 
@@ -18,7 +18,7 @@ Companions: `CLAUDE.md` (build machinery + workflow — read before touching
 | `GLOSSARY.md` | **Canonical names** — the one list. Use its names; don't invent new ones. |
 | `<deliverable dir>/` | <what it is, its builder, which output is the shippable one> |
 | `<supporting dir>/` | <what it holds> |
-| `process/` | Practice layer (vendored BestPractice + manifest + blocklist) — see `CLAUDE.md` "Practice export". |
+| `process/` | Practice layer (vendored Precedent + manifest + blocklist) — see `CLAUDE.md` "Practice export". |
 | `TODO.md` | Cross-session open items. |
 
 ## <Deliverable 1>

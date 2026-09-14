@@ -66,6 +66,13 @@ sys.path.insert(0, str(ROOT / 'tools'))
 import split_practices as sp
 import precedent_paths as pp
 
+# practice: one-formatter-per-quantity -- every moment in time this project
+# writes down comes from ONE module, in the person's zone, carrying its
+# offset. Never a bare datetime.date.today(): that is the container's UTC.
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+import precedent_time  # noqa: E402
+
+
 
 def _git(args):
     return subprocess.run(['git', *args], cwd=ROOT, capture_output=True,
@@ -97,7 +104,33 @@ def judgment_only_practices():
     return out
 
 
+
+def _declared_base_branch(root):
+    """The branch this repo's work is measured against, as DECLARED in
+    precedent.json's `base_branch` -- not inferred from `origin/HEAD`.
+
+    Those are two different questions with usually the same answer, which is
+    why asking the wrong one survives so long. `origin/HEAD` answers "what
+    does GitHub show first"; callers here mean "what lineage does this work
+    belong to". They diverge the moment a repo pins its work to a branch
+    that is not the configured default -- BestPractice's own
+    `precedent-beta-v01` -- and then every inference is quietly wrong with
+    nothing failing. Returns None when undeclared or unreadable, so callers
+    fall back to the old inference rather than breaking (fail-gracefully).
+    Enforced by precedent_check.py's `declared-base-branch`.
+    """
+    try:
+        import json as _json, pathlib as _pathlib
+        v = _json.loads((_pathlib.Path(root) / 'precedent.json')
+                        .read_text(encoding='utf-8')).get('base_branch')
+        return v if isinstance(v, str) and v.strip() else None
+    except Exception:
+        return None
+
 def _default_branch():
+    declared = _declared_base_branch(ROOT)
+    if declared:
+        return declared
     head = _git(['symbolic-ref', 'refs/remotes/origin/HEAD'])
     if head:
         return head.rsplit('/', 1)[-1]
@@ -165,8 +198,13 @@ def mark_reviewed(slugs):
                  f"practice: {', '.join(unknown)}. Run --list to see the "
                  f"current set.")
     state = _load_state()
-    today = datetime.date.today().isoformat()
-    commit = _git(['rev-parse', 'HEAD']) or '(no commit)'
+    today = precedent_time.today()
+    # --verify --quiet: without it, a failed `rev-parse HEAD` PRINTS 'HEAD' on
+    # stdout and _git() keeps stdout while discarding the exit code, so this
+    # `or '(no commit)'` never fired and routing_audit_state.json recorded a
+    # review as having happened at commit "HEAD". Same hazard audited out of
+    # tools/precedent_vendor_engine.py on 2026-09-06; see AGENTS.md's gotcha.
+    commit = _git(['rev-parse', '--verify', '--quiet', 'HEAD']) or '(no commit)'
     for slug in slugs:
         state[slug] = {'last_reviewed': today, 'commit': commit}
     _save_state(state)
@@ -226,4 +264,13 @@ def main():
 
 
 if __name__ == '__main__':
+    # `--help` is what anyone types first. Before 2026-09-06 the tools here
+    # split three ways on it: a hard "unknown option" FAIL, a silent
+    # fall-through that ran the whole audit as if nothing had been asked, or
+    # the docstring printed with a non-zero exit. All three are wrong, and
+    # documentation/FOR_DEVELOPERS.md points readers straight at
+    # these commands. The module docstring is the usage text.
+    if any(a in ('--help', '-h') for a in sys.argv[1:]):
+        print((__doc__ or '').strip())
+        sys.exit(0)
     sys.exit(main())

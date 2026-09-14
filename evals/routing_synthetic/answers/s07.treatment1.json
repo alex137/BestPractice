@@ -1,0 +1,1 @@
+{"slugs": ["no-version-suffix", "variant-re-derives"], "reasoning": "export_v2.py names a new file by version suffix rather than what it is, and it's a variant of export.py that should re-derive what it inherits (e.g. the fmt parameter) rather than being a copy-paste sibling script."}

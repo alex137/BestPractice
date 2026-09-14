@@ -10,6 +10,7 @@ index_clause: "vendor upstream as tracked files; check improvements back in"
 checked_by:  "tools/precedent_check.py"
 defines:     []
 status:      active
+in_force_at: null
 supersedes:  []
 overrides:   null
 added:       null
@@ -37,12 +38,34 @@ export a local commit; the cross-repo step happens only at deliberate
 check-ins.
 
 ## Story
+No dated incident was recorded; the design is argued from two failure modes
+of the obvious alternative.
+
+**Live coupling breaks sessions exactly when orientation matters most.** A
+submodule read at session start makes the practice layer a runtime
+dependency, so a missing or unreachable remote takes out the very thing a
+cold session opens first.
+
+**It also makes capture a cross-repo operation, and cross-repo operations
+get skipped.** That is the more subtle cost: `capture-gate` asks a session to
+fold in what its work implied before merging, and a gate whose action
+requires touching a second repository is one a session under time pressure
+will defer, then lose.
+
+Vendoring as plain tracked files answers both. Export becomes a local
+commit, and the cross-repo step happens only at deliberate check-ins, when
+somebody has decided to do it.
+
+The adaptive/abstractive pairing follows from that asymmetry: install goes
+generic to specific, so export must go specific to generic, and the mapping
+is recorded in the manifest so neither direction depends on anyone
+remembering what was changed.
 
 ## Install
-[INSTALL.md](INSTALL.md) is the full playbook;
-[tools/practice_audit.py](tools/practice_audit.py) audits the manifest
+[INSTALL.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/INSTALL.md) is the full playbook;
+[tools/practice_audit.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/practice_audit.py) audits the manifest
 (drift between installed files and their recorded baselines) on every run.
-[tools/checkin.py](tools/checkin.py) drives the cross-repo mechanics, and
+[tools/checkin.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/checkin.py) drives the cross-repo mechanics, and
 **both directions of its mirror destroy work, so both are guarded**:
 `update` refuses to overwrite unexported local changes, and `push` refuses
 when the vendored tree is behind upstream — it deletes files it does not

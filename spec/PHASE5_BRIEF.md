@@ -1,9 +1,17 @@
-<!-- Last updated: 2026-09-02 (Buenos Aires) by the phase-5 build session -->
-
+---
+title:         Phase 5 Brief — The Creation Pipeline
+kind:          brief
+status:        closed
+opened:        2026-09-02
+closed:        2026-09-02
+superseded_by: null
+supersedes:    []
+audience:      session
+summary:       What phase 5 was handed for the creation pipeline, what it built stage by stage, and what it deferred to phase 6.
+---
 # Phase 5 Brief — The Creation Pipeline
 
-**Status: phase 5's tooling is built and harness-tested, as of 2026-09-02.**
-Read [PRACTICE_ENGINE_PLAN.md](../PRACTICE_ENGINE_PLAN.md)'s "How a Practice
+Read [PRACTICE_ENGINE_PLAN.md](PRACTICE_ENGINE_PLAN.md)'s "How a Practice
 Comes Into Existence" section first — this brief is the implementation note,
 in the same relationship [spec/ENFORCEMENT.md](ENFORCEMENT.md) has to phase
 4. The done-when this phase actually delivers: **a candidate can be raised,
@@ -18,7 +26,7 @@ criteria is refused with a reason** — proven directly by
 |---|---|---|
 | 2 — Candidate | [tools/precedent_candidate.py](../tools/precedent_candidate.py) | create / list / expire, against the schema [spec/CANDIDATE_FORMAT.md](CANDIDATE_FORMAT.md) documents |
 | 3 — Promotion criteria | [tools/precedent_promote.py](../tools/precedent_promote.py) | the four criteria, each refusing with a named reason |
-| 4 — Approval | [tools/precedent_land.py](../tools/precedent_land.py) (individual/universal), the pre-existing `approvers.json`/`CODEOWNERS` in `precedent-team-maintainers` (team) | see "Stage 4's actual scope" below |
+| 4 — Approval | [tools/precedent_land.py](../tools/precedent_land.py) (individual/universal), the pre-existing `approvers.json`/`CODEOWNERS` in `precedent-team-repo-maintenance` (team) | see "Stage 4's actual scope" below |
 | 5 — Landing | [tools/precedent_land.py](../tools/precedent_land.py) | writes the file, hard-refuses an unregistered `checked_by` |
 | 1 — Detection | [tools/precedent_detect.py](../tools/precedent_detect.py) | the mechanical signals that don't need a live conversation or a trip-log |
 | 6 — Retirement | [tools/precedent_retire.py](../tools/precedent_retire.py) | the periodic report — proposes, never acts |
@@ -37,7 +45,7 @@ Recorded in full in
 with the substantive reasoning living in the artifact each one governs:
 
 1. **Retirement is approval-gated, exactly like creation** —
-   [PRACTICE_ENGINE_PLAN.md, Stage 6](../PRACTICE_ENGINE_PLAN.md#stage-6--the-loop-closes).
+   [PRACTICE_ENGINE_PLAN.md, Stage 6](PRACTICE_ENGINE_PLAN.md#stage-6--the-loop-closes).
 2. **The attention-ceiling connection does not transfer to Stage 1/3**, reasoned
    rather than re-measured —
    [spec/ATTENTION_CEILING.md](ATTENTION_CEILING.md#does-the-ceiling-reach-stage-1-and-stage-3-2026-09-02-reasoned-not-measured).
@@ -53,7 +61,7 @@ new code:
   `precedent_land.py` *is* the approval, per the plan's own text. No pull
   request (PR), no review.
 - **Team** — `approvers.json` and its generated `CODEOWNERS` **already
-  existed** in `precedent-team-maintainers` before this phase started (a
+  existed** in `precedent-team-repo-maintenance` before this phase started (a
   private-repo reconcile session built it, independently, to satisfy the
   plan's own stated requirement ahead of phase 5 actually needing it).
   `precedent_land.py` verifies the named approver against that file before
@@ -72,7 +80,7 @@ new code:
 
 ## What is deferred, not missing
 
-Both traceable to the plan's own [Per-repo credentials](../PRACTICE_ENGINE_PLAN.md#deferred-speculative--do-not-build-yet)
+Both traceable to the plan's own [Per-repo credentials](PRACTICE_ENGINE_PLAN.md#deferred-speculative--do-not-build-yet)
 entry ("failing gracefully and reporting the gap. Real, but not day one"):
 
 - `precedent_candidate.py create --level universal` drafts a GitHub Issue
@@ -111,13 +119,13 @@ rather than let it be read as more than it measured.
   ones. Revisit both if the first several real candidates feel wrong.
 - **The `for_team:`/`in_repos:` individual-practice scoping field is
   designed, not built** —
-  [PRACTICE_ENGINE_PLAN.md's Deferred section](../PRACTICE_ENGINE_PLAN.md#deferred-speculative--do-not-build-yet)
+  [PRACTICE_ENGINE_PLAN.md's Deferred section](PRACTICE_ENGINE_PLAN.md#deferred-speculative--do-not-build-yet)
   carries the frontmatter shape and the resolver's conflict rule. Build it
   when a second team makes `for_team:` testable against a real conflicting
   pair, per that entry's own reasoning.
 - **The pre-fork catalogue audit table** (verdict per inherited practice
   against this plan's architecture) that
-  [What phase 5 should carry forward](../PRACTICE_ENGINE_PLAN.md#what-phase-5-should-carry-forward)
+  [What phase 5 should carry forward](PRACTICE_ENGINE_PLAN.md#what-phase-5-should-carry-forward)
   named is still not done. It is not phase-5-blocking (the plan only
   requires it before phase 6), but phase 6 should not start migrating a
   consumer repo without it — this phase ran out of scope to do both the
@@ -155,7 +163,7 @@ directly, not by reasoning about the code in the abstract:
 Written for the session Morgan opens next, whose job is to test this phase
 against real work rather than fixtures, and close whatever it finds before
 Phase 6 (consumer-repo migration) starts on top of it. **Read
-[PRACTICE_ENGINE_PLAN.md](../PRACTICE_ENGINE_PLAN.md) in full before
+[PRACTICE_ENGINE_PLAN.md](PRACTICE_ENGINE_PLAN.md) in full before
 touching anything** — "How a Practice Comes Into Existence" (Stages 1–6),
 the Sequence table's phase-5 row, and v30 of "Amendments Since Approval" —
 and this whole brief, not just this section. Confirm your local checkouts
@@ -258,7 +266,7 @@ afterward) in [tools/verify_harness.py](../tools/verify_harness.py)'s
 
 - **The pre-fork catalogue audit table** (verdict per inherited practice
   against this plan's architecture, one row each) that
-  [What phase 5 should carry forward](../PRACTICE_ENGINE_PLAN.md#what-phase-5-should-carry-forward)
+  [What phase 5 should carry forward](PRACTICE_ENGINE_PLAN.md#what-phase-5-should-carry-forward)
   named — not done. The plan only requires it before Phase 6, which makes
   this the session to do it, not a future one.
 - **`for_team:`/`in_repos:` is designed, not built** — see the plan's own
@@ -328,7 +336,7 @@ works:
      BestPractice at `precedent-beta-v01`, copy its `practices/` tree into
      the fork at a tracked path of your choosing (e.g. `precedent/universal/`),
      and record the exact commit copied from — the same discipline
-     `precedent-team-maintainers/practices/install.md` already names for
+     `precedent-team-repo-maintenance/practices/install.md` already names for
      the old vendoring model ("record the source repo and the commit it
      was installed from, so a later sync has something real to compare
      against"), ported to this branch rather than `main`. This is committed,
@@ -347,7 +355,7 @@ works:
    migration looks like, and a real migration vendors.
 
 **2. Vendor the team source the same way**, from
-`precedent-team-maintainers`'s own `practices/`, and **wire the individual
+`precedent-team-repo-maintenance`'s own `practices/`, and **wire the individual
 source using the pattern that's already built and already validated** —
 [`precedent-individual`'s own `claude-web-bootstrap.md`](https://github.com/themorgan/precedent-individual/blob/main/practices/claude-web-bootstrap.md)
 names the exact two files to copy in

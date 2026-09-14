@@ -9,7 +9,7 @@
     "tracked precedent.json; the tools refuse a personal set declared there."
   ],
   "individual": {
-    "name": "an-example-personal-set",
-    "path": "~/example-personal-set"
+    "name": "precedent-individual",
+    "path": "~/precedent-individual"
   }
 }

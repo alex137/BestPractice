@@ -1,0 +1,36 @@
+You are helping build a routing-quality simulation for a practice-loading system. Below is one practice's full Rule. Invent THREE SHORT, independent, fictional work scenarios for it, each 3-6 sentences, as if describing a real task someone is partway through in a software repository.
+
+Do not mention the practice's name, slug, or quote its Rule back. A reader must recognize the practice applies (or doesn't) from the situation alone, the way a real session would.
+
+PRACTICE RULE (for your reference only -- do not reveal it in your answer):
+---
+(a) In-repo documents reference other repo files as relative
+markdown links, never bare backticked filenames — docs are read on a web UI
+where a bare name is a dead end. New text always links; any thread touching a
+document fixes the references in the parts it touches. (b) Use `≈` for
+"approximately", never `~` — two stray tildes on a line render as
+strikethrough on GitHub, silently garbling text. (c) Links stay plain
+markdown — don't reach for a raw HTML anchor to control link behavior:
+GitHub's sanitizer strips `target=` (and most other attributes) from
+anchors in rendered markdown, so an "open in new tab" link silently does
+nothing there (*as of 2026-08*).
+---
+
+Write exactly this JSON object and nothing else (no markdown fence, no commentary before or after):
+
+{
+  "positive": {
+    "scenario": "<a situation where this practice's Rule clearly applies>",
+    "files": ["<1-3 plausible file paths this work touches>"]
+  },
+  "negative": {
+    "scenario": "<a situation that superficially RESEMBLES the trigger -- similar words, similar setting -- but where the Rule does NOT actually apply, and a careful reader should say so>",
+    "files": ["<1-3 plausible file paths>"]
+  },
+  "adversarial": {
+    "scenario": "<a situation where the Rule genuinely DOES apply, but framed to look like a different kind of task, or easy to miss on a quick read -- the hardest true positive you can construct>",
+    "files": ["<1-3 plausible file paths>"]
+  }
+}
+
+File paths should look like real paths in a software repository (this repository's own conventions -- practices/, tools/, spec/, docs, etc. -- are fine to draw on, or plausible equivalents). Do not invent a path that would trivially give away the answer by naming the practice.

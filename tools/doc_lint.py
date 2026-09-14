@@ -26,7 +26,17 @@ behavior that GitHub silently neutered):
      deduped to one line per acronym; skipped entirely if there is no GLOSSARY.md
      (a repo without one opts out naturally).
 
-  4. HTML ANCHOR WITH target= (warning). GitHub's sanitizer strips target=
+  4. BROKEN RELATIVE LINK (error). A relative markdown link whose target does
+     not exist, resolved from the linking FILE's own directory (not the repo
+     root — the mistake that produced 96 of them here, in files one level
+     down). A target carrying a `#fragment` is checked twice: the file must
+     exist, and the fragment must match a heading in it -- GitHub's own slug
+     rule, so `## Cost — the numbers` is `#cost--the-numbers`, two hyphens,
+     because the dash is deleted and both of its spaces survive. Skips fenced
+     blocks, code spans and URLs; skips templates/ and deck/, whose links
+     deliberately name a tree that is not this repo's.
+
+  5. HTML ANCHOR WITH target= (warning). GitHub's sanitizer strips target=
      (and most other attributes) from raw HTML anchors in rendered markdown,
      so an "open in new tab" link silently does nothing there (as of 2026-08;
      origin: a thread spent two commits adding target="_blank" and reverting
@@ -48,11 +58,12 @@ explicitly still scans it.
 Requires cmark-gfm for exact detection:  pip install cmarkgfm
 (If absent, the strikethrough check is SKIPPED with a notice rather than guessing.)
 
-Run:  python3 process/upstream/tools/doc_lint.py            # changed-vs-default-branch, gate
-      python3 process/upstream/tools/doc_lint.py --all       # whole repo, report-only
-      python3 process/upstream/tools/doc_lint.py --fix FILE   # rewrite ~ -> ≈ on struck lines
+Run:  python3 tools/doc_lint.py             # changed-vs-default-branch, gate
+      python3 tools/doc_lint.py --all        # whole repo, report-only
+      python3 tools/doc_lint.py --fix FILE   # rewrite ~ -> ≈ on struck lines
+(In a repo that vendors this the classic way, the path is
+process/upstream/tools/doc_lint.py.)
 """
-import html
 import re, sys, subprocess, pathlib
 
 def _git(args, cwd=None):
@@ -61,7 +72,33 @@ def _git(args, cwd=None):
 ROOT = pathlib.Path(_git(['rev-parse', '--show-toplevel'], cwd=pathlib.Path(__file__).resolve().parent)
                     or pathlib.Path(__file__).resolve().parents[2])
 
+
+def _declared_base_branch(root):
+    """The branch this repo's work is measured against, as DECLARED in
+    precedent.json's `base_branch` -- not inferred from `origin/HEAD`.
+
+    Those are two different questions with usually the same answer, which is
+    why asking the wrong one survives so long. `origin/HEAD` answers "what
+    does GitHub show first"; callers here mean "what lineage does this work
+    belong to". They diverge the moment a repo pins its work to a branch
+    that is not the configured default -- BestPractice's own
+    `precedent-beta-v01` -- and then every inference is quietly wrong with
+    nothing failing. Returns None when undeclared or unreadable, so callers
+    fall back to the old inference rather than breaking (fail-gracefully).
+    Enforced by precedent_check.py's `declared-base-branch`.
+    """
+    try:
+        import json as _json, pathlib as _pathlib
+        v = _json.loads((_pathlib.Path(root) / 'precedent.json')
+                        .read_text(encoding='utf-8')).get('base_branch')
+        return v if isinstance(v, str) and v.strip() else None
+    except Exception:
+        return None
+
 def default_branch():
+    declared = _declared_base_branch(ROOT)
+    if declared:
+        return declared
     head = _git(['symbolic-ref', 'refs/remotes/origin/HEAD'], cwd=ROOT)
     if head:
         return head.rsplit('/', 1)[-1]
@@ -92,6 +129,10 @@ def drop_frozen(files):
 
 # ---- acronym check (check 3) ----
 ACRONYM_RE = re.compile(r'\b([A-Z]{2}[A-Z0-9]{0,4})\b')   # 2-6 chars, ≥2 leading letters
+# A dot plus a lowercase extension immediately after the token: the token is
+# a filename stem (LEDGER.md, MAP.md, SETUP.md), never an acronym to gloss.
+FILENAME_STEM_RE = re.compile(r'\.[a-z][a-z0-9]{0,4}\b')
+HTML_COMMENT_RE = re.compile(r'<!--.*?-->', re.S)
 GLOSSARY_PATH = ROOT / 'GLOSSARY.md'
 ACRONYM_SKIP_FILES = {'GLOSSARY.md'}
 # common words / units / universally-known tech that are never worth glossing:
@@ -104,6 +145,21 @@ ACRONYM_STOP = {
     'USA','US','UK','EU','UN','USD','ROI','IRR','NPV','CAGR','CEO','CTO',
     'MJ','MW','MN','GW','KW','KWH','WH','NM','KM','MM','CM','HZ','KHZ','MHZ','GHZ','DB',
     'DBM','PSI','HP','KG','LB','KT','KN','GB','MB','TB','AC','DC','NE','NW','SSE','SSW',
+    # NOTE on what does NOT belong here: ordinary English words this repo
+    # happens to write in caps for emphasis (ONLY, BEGIN, BOTH, FAIL...).
+    # A first pass at the 101-warning problem added about forty of them by
+    # hand, which is a list that grows forever and is wrong the first time
+    # somebody shouts a word nobody thought of. `looks_like_a_word()`
+    # decides that from the repo's own corpus instead -- see its docstring.
+    # This set is only for tokens the corpus CANNOT settle: units, and
+    # acronyms so widely known that expanding them is noise rather than
+    # clarity.
+    #
+    # Universally known in a software repository; expanding them on first
+    # use in every document is noise, not clarity.
+    'PR','PRS','CI','CD','VCS','UTC','YAML','TOML','DOM','JS','TS','LLM','LLMS',
+    'HTML5','REST','SQL','SSH','TLS','SSL','ENV','REPO','REGEX','DIFF','SHA','UUID',
+    'TL','DR','NA','IO','CWD','STDIN','STDOUT','STDERR',
 }
 
 def load_known_acronyms():
@@ -118,6 +174,374 @@ def load_known_acronyms():
             if tok:
                 known.add(tok)
     return known
+
+# ---- broken relative link check (check 4; practice: doc-references-are-links)
+#
+# A link is only a reference if it lands somewhere. 96 links in this repo did
+# not (2026-09-06): the great majority were `practices/*.md` files written
+# with root-relative targets -- `](tools/doc_lint.py)` from a file that lives
+# in `practices/`, resolving to `practices/tools/doc_lint.py` and returning a
+# 404 for every reader of the practice file itself. `doc-references-are-links`
+# asked for links and nothing checked they resolved, so the convention broke
+# quietly for as long as it existed. practice: convention-to-audit.
+LINK_RE = re.compile(r'\[([^\]\n]*)\]\(([^)\s]+?)(?:\s+"[^"]*")?\)')
+CODE_SPAN_RE = re.compile(r'`[^`]*`')
+# Directories whose markdown deliberately links against a tree that is not
+# this repo's own, so an unresolvable target there is correct, not broken:
+#
+#   templates/  -- a skeleton instantiated INTO another repo. Its links name
+#                  files that will exist there (`tools/build_views.py` in a
+#                  bootstrapped practice set, `approvers.json` in a team set),
+#                  never files beside the template.
+#   deck/*/slides/ -- deck/build_deck.py resolves a slide's asset paths from
+#                  the DECK root, not the slide's own directory, so
+#                  `assets/loop.svg` is right for the builder and wrong for a
+#                  reader browsing the raw file. The builder is the audience.
+#   evals/     -- an eval fixture is a RECORD of what a model was shown and
+#                  answered, not this repo's own prose. A prompt embeds a
+#                  snapshot of the generated loader block, whose links are
+#                  written for the repo root the fixture describes, not for
+#                  the fixture's own directory; and the snapshot is frozen at
+#                  the catalogue it was taken from, so a link that has since
+#                  moved is correct history, not rot. Editing one to satisfy
+#                  a link check would falsify the record the eval rests on --
+#                  the same reason a vendored practices/ tree is exempt from
+#                  headline capitalization. Found 2026-09-07: merging one
+#                  such eval put 80 "broken" links into a gate that had been
+#                  clean, none of them fixable without rewriting evidence.
+LINK_CHECK_EXEMPT_DIRS = ('deck/', 'evals/')
+
+# ...and the directories where only the PATH half of that argument holds.
+#
+# The exemption above is about a target that names a tree this repo does not
+# have. It says nothing about a FRAGMENT on a target that resolves right here,
+# and templates/ is full of those: a template's prose links up and out of
+# itself into this repo's own documents, and `../../INSTALL.md` is this repo's
+# INSTALL.md for every reader of the raw template. When the destination
+# resolves, no "it means the instantiated tree" reading saves a fragment that
+# names no heading in it -- the reader lands at the top of the right document
+# and nobody reports it.
+#
+# THE INCIDENT (practice: cite-the-incident). templates/document-project/
+# README.md linked INSTALL.md's old "#1-installing-into-a-repo-that-already-
+# has-its-own-process" after that heading was reworded to "## 1. Install Into
+# a Dependent Repo". Every other reference in the tree was repointed with the
+# rename; this one was not, because it sits under templates/ where the link
+# check returned [] before reading a single link. It was found on 2026-09-11
+# by a person reading the template, from a consuming repo -- which is not a
+# mechanism (practice: convention-to-audit). Measured when this split was
+# written: six fragment links under templates/ resolve to a real file here,
+# one of them broken, and zero links anywhere in the tree carry a fragment
+# INTO templates/ -- so this costs one finding and no false positives.
+#
+# deck/ and evals/ deliberately stay wholly exempt. An eval's frozen snapshot
+# is the case this must not touch: a stale anchor there is correct history,
+# and the fix a gate would demand is rewriting the evidence.
+ANCHOR_CHECKED_EXEMPT_DIRS = ('templates/',)
+
+
+# Anchors. A link's fragment is as breakable as its path and breaks more
+# quietly: editing a heading silently invalidates every link into it, and the
+# reader lands at the top of the right document instead of at a 404, so
+# nobody reports it. Nine were dead here when this was written (2026-09-06),
+# one of them pointing at an INSTALL.md section number that no longer exists
+# and six at headings that had simply been reworded since. practice:
+# convention-to-audit.
+#
+# GitHub's rule (github-slugger): lowercase, drop every character that is not
+# alphanumeric, hyphen, underscore or space, then spaces to hyphens, then
+# `-1`, `-2` for repeats. Note what that does to a dash set off by spaces --
+# the dash goes, its two spaces stay, and the anchor gets a DOUBLE hyphen.
+HEADING_RE = re.compile(r'#{1,6}\s+(.*)')
+HTML_ANCHOR_ID_RE = re.compile(r'<a\s[^>]*(?:name|id)\s*=\s*"([^"]+)"', re.I)
+SETEXT_RE = re.compile(r'^(?:=+|-{2,})\s*$')
+_INLINE_MD = [(re.compile(r'`([^`]*)`'), r'\1'),
+              (re.compile(r'\[([^\]]*)\]\([^)]*\)'), r'\1'),
+              (re.compile(r'\*\*([^*]*)\*\*'), r'\1'),
+              (re.compile(r'\*([^*]*)\*'), r'\1'),
+              (re.compile(r'__([^_]*)__'), r'\1'),
+              (re.compile(r'<[^>]+>'), '')]
+_anchor_cache = {}
+
+
+def heading_slug(text):
+    """GitHub's anchor for one heading's raw markdown text."""
+    for rx, rep in _INLINE_MD:
+        text = rx.sub(rep, text)
+    return re.sub(r'[^\w\- ]', '', text.strip().lower()).replace(' ', '-')
+
+
+def document_anchors(path):
+    """The set of anchors `path` offers, or None if that cannot be known.
+
+    None rather than an empty set for a document using setext headings
+    (`Title` over `=====`), which this does not parse: an unknown anchor set
+    must not read as "the anchor is missing". Nothing in this repo uses
+    them, so the guard costs nothing and stops the check inventing failures
+    in a document written a way it does not understand."""
+    key = str(path)
+    if key in _anchor_cache:
+        return _anchor_cache[key]
+    out, seen, incode, prev = set(), {}, False, ''
+    for line in path.read_text(encoding='utf-8', errors='ignore').splitlines():
+        if line.lstrip().startswith(('```', '~~~')):
+            incode, prev = not incode, ''
+            continue
+        if incode:
+            continue
+        if prev.strip() and SETEXT_RE.match(line):
+            out = None
+            break
+        m = HEADING_RE.match(line)
+        if m:
+            a = heading_slug(m.group(1))
+            n = seen.get(a, 0)
+            seen[a] = n + 1
+            out.add(a if n == 0 else f'{a}-{n}')
+        out.update(x.lower() for x in HTML_ANCHOR_ID_RE.findall(line))
+        prev = line
+    _anchor_cache[key] = out
+    return out
+
+
+def check_broken_links(path):
+    """[(lineno, target, why)] links in `path` that land nowhere.
+
+    Skips fenced blocks and inline code spans (a link written inside
+    backticks is a value being documented, not a reference), absolute URLs
+    and mailto:. A bare `#anchor` is resolved against this file itself."""
+    rel = str(path).replace('\\', '/')
+    if rel.startswith(LINK_CHECK_EXEMPT_DIRS):
+        return []
+    # A MIRRORED tree is exempt too, and it is exempt for a stronger reason
+    # than the directories above: its links are not broken upstream and
+    # cannot be fixed here. An INSTALL.md §0 install vendors the catalogue
+    # to precedent/universal/practices/, verbatim and unrewritten (§1's
+    # materialize() rewrites links; §0's plain copy does not), so every
+    # `../tools/...` and `../spec/...` in a practice file resolves at
+    # <repo>/practices/ and nowhere near where it actually landed. That put
+    # dozens of unactionable findings into every §0 install's light check,
+    # permanently -- reported, correctly, as nobody's to fix, which is a
+    # thing a person reads once and then stops reading.
+    #
+    # Asked of precedent_resolve.mirrored_prefixes() via VENDORED_PREFIXES,
+    # not added to the constant above: that is the one place the question
+    # "what does this repo mirror" is answered, and a second list is how the
+    # first one goes stale (practice: durable-fix, registry-source-of-truth).
+    # Only the LINK check is skipped here -- every other doc_lint finding in
+    # a mirror still prints, split out of the gate by _split_vendored().
+    if _is_vendored(rel):
+        return []
+    # Paths exempt, fragments still checked -- see ANCHOR_CHECKED_EXEMPT_DIRS.
+    anchors_only = rel.startswith(ANCHOR_CHECKED_EXEMPT_DIRS)
+    p = ROOT / path
+    out, incode = [], False
+    for i, line in enumerate(p.read_text(encoding='utf-8', errors='ignore').splitlines(), 1):
+        if line.lstrip().startswith(('```', '~~~')):
+            incode = not incode
+            continue
+        if incode:
+            continue
+        clean = CODE_SPAN_RE.sub(lambda m: ' ' * len(m.group(0)), line)
+        for _label, target in LINK_RE.findall(clean):
+            if target.startswith(('http://', 'https://', 'mailto:')):
+                continue
+            bare, _, frag = target.partition('#')
+            dest = p if not bare else (p.parent / bare)
+            if bare and not dest.exists():
+                if not anchors_only:
+                    out.append((i, target, 'no such file'))
+                continue
+            if not frag or dest.suffix.lower() != '.md':
+                continue
+            # An anchor into a tree that is not this repo's is as
+            # unresolvable-on-purpose as a path into one. A destination
+            # under ANCHOR_CHECKED_EXEMPT_DIRS is NOT that case: it is a
+            # real file here, with real headings, so a fragment naming none
+            # of them is broken whichever document points at it.
+            try:
+                drel = str(dest.resolve().relative_to(ROOT.resolve()))
+            except ValueError:
+                continue
+            drel = drel.replace('\\', '/')
+            if drel.startswith(LINK_CHECK_EXEMPT_DIRS) or _is_vendored(drel):
+                continue
+            have = document_anchors(dest)
+            if have is not None and frag.lower() not in have:
+                out.append((i, target, f'no heading makes #{frag} in {drel}'))
+    return out
+
+
+# The corpus rule. An initialism has no ordinary lowercase form -- nobody
+# writes "ci" or "rpp" mid-sentence -- while a word being SHOUTED for
+# emphasis is a word the same repository writes in lowercase constantly.
+# That difference is measurable from the repository's own prose, and it is
+# what actually separates the two classes; a hand-maintained list of
+# English words is a proxy for it that grows forever and is wrong the first
+# time somebody shouts a word nobody thought of.
+#
+# Measured on this repo, 2026-09-06: NOT appears 22 times in caps and 1,899
+# in lowercase; ONLY 4 and 689; LOADER 38 and 181. Against that, RPP is 45
+# and 0, CI 30 and 0, LLM 11 and 0, VCS 8 and 0. There is no overlap worth
+# arguing about, which is why a plain ratio is enough and a dictionary is
+# not needed.
+LOWERCASE_WORD_RE = re.compile(r'\b([a-z]{2,8})\b')
+# Above this share of lowercase uses, the token is a word being shouted.
+# 0.4 rather than 0.5 because the caps count is inflated by headings and
+# filename stems, which are the same token doing a different job.
+WORD_FORM_RATIO = 0.4
+# Below this many distinct ALL-CAPS tokens, the corpus cannot tell a
+# shouted English word from an initialism -- see corpus_is_decisive().
+# 50 is the smallest round number well clear of what a repo carrying
+# only a README and a template or two produces (single digits), and far
+# below what any repo with a materialized catalogue produces.
+CORPUS_MIN_TOKENS = 50
+_corpus_cache = None
+
+
+def corpus_word_forms():
+    """{TOKEN: lowercase_share} over this repo's own tracked markdown.
+
+    Built once per process, lazily -- it costs ≈0.1s over ≈150 files here,
+    and only the acronym check needs it. Fails to an empty map rather than
+    raising: with no corpus the check simply falls back to the stoplist,
+    which is the behaviour it had before this existed."""
+    global _corpus_cache
+    if _corpus_cache is not None:
+        return _corpus_cache
+    lower, caps = {}, {}
+    # TRACKED markdown alone is not the corpus, and reading it as one broke
+    # a fresh install. `git ls-files` returns only what is committed, so a
+    # repo that has just materialized its `practices/` tree -- 97 files of
+    # real prose, untracked until the install commit -- measures its
+    # vocabulary against whatever two files it happened to start with. The
+    # old `or list(ROOT.rglob(...))` fallback covered "ls-files returned
+    # nothing" and not this, which is the case that actually happens: two
+    # tracked files is not nothing, it is just not a corpus. Union both.
+    paths = []
+    try:
+        listed = _git(['ls-files', '*.md'], cwd=ROOT).splitlines()
+        paths = [ROOT / f for f in listed]
+    except Exception:
+        pass
+    try:
+        seen_paths = {p.resolve() for p in paths}
+        for f in ROOT.rglob('*.md'):
+            if f.resolve() not in seen_paths:
+                paths.append(f)
+    except OSError:
+        pass
+    for f in paths:
+        try:
+            text = f.read_text(encoding='utf-8', errors='ignore')
+        except OSError:
+            continue
+        for w in LOWERCASE_WORD_RE.findall(text):
+            lower[w] = lower.get(w, 0) + 1
+        for w in ACRONYM_RE.findall(text):
+            caps[w] = caps.get(w, 0) + 1
+    _corpus_cache = {tok: lower.get(tok.lower(), 0)
+                     / (lower.get(tok.lower(), 0) + n)
+                     for tok, n in caps.items() if n}
+    return _corpus_cache
+
+
+def corpus_is_decisive():
+    """True when this repo's own prose is a big enough corpus for
+    `looks_like_a_word()` to mean anything.
+
+    An empty or near-empty corpus does not make `looks_like_a_word()`
+    return "don't know" -- it returns False, which is the same answer it
+    gives for a genuine initialism, so every ordinary English word anybody
+    shouted reads as an unglossed acronym. That is not a theoretical
+    degradation: it is what a correct fresh install looked like on
+    2026-09-11, red on words inside the VENDORED catalogue that the adopter
+    did not write and cannot fix. A caller that cannot decide must say so
+    (practice: fail-gracefully) rather than fall back to the behaviour this
+    measurement was built to replace."""
+    return len(corpus_word_forms()) >= CORPUS_MIN_TOKENS
+
+
+def looks_like_a_word(tok):
+    """True when this repository's own prose writes `tok` in lowercase far
+    more often than in caps -- i.e. it is an English word being shouted,
+    not an initialism. See corpus_word_forms() for the measurement."""
+    return corpus_word_forms().get(tok, 0.0) >= WORD_FORM_RATIO
+
+
+def scan_unglossed(text, known, path=None):
+    """[(lineno, TOKEN)] — every ALL-CAPS token in `text` that is not a
+    known acronym, not glossed inline as `LONG FORM (TOK)`, not a filename
+    stem, and not the document's own name.
+
+    THE ONE DETECTOR. tools/precedent_check.py's `acronyms-glossary` check
+    used to carry its own copy of this loop, under a docstring promising
+    "one detector, two callers" — and then drifted from it exactly as that
+    docstring said it must not: two filters added here (filename stems,
+    a document naming itself) fixed doc_lint's report and left the
+    enforced check still failing on `LEDGER.md`. Both callers now go
+    through this function, so a filter added here reaches the gate."""
+    doc_name = pathlib.PurePath(path).stem.upper() if path else None
+    # HTML comments are guidance to whoever edits the file, never content
+    # the document asserts, and no reader ever sees them rendered -- so an
+    # ALL-CAPS word used for emphasis inside one ("use this LOADER variant
+    # for a fresh install", in templates/AGENTS.md.loader.template) is not
+    # an acronym anybody can gloss. Blanked rather than removed so line
+    # numbers still point at the right line.
+    text = HTML_COMMENT_RE.sub(lambda m: '\n' * m.group(0).count('\n'), text or '')
+    out, seen, incode = [], set(), False
+    for i, line in enumerate(text.splitlines(), 1):
+        if line.lstrip().startswith('```'):
+            incode = not incode
+            continue
+        if incode:
+            continue
+        if line.lstrip().startswith('>'):
+            # A blockquote is somebody else's words, quoted verbatim. A
+            # document cannot gloss an acronym inside a quotation without
+            # altering the quote, and shouting inside one is the quoted
+            # person's emphasis, not the document's -- precedent-individual's
+            # name-the-branch practice quotes an all-caps message, and PLEASE,
+            # DO and LIKE were all reported as unglossed acronyms, landing on
+            # whichever consumer repo materialized that practice first. Same
+            # reasoning as the fenced-block skip above; the alternative, a
+            # hand-kept list of ordinary words somebody shouted, is wrong the
+            # first time somebody shouts a word nobody thought of.
+            continue
+        clean = _decontent(line)
+        for m in ACRONYM_RE.finditer(clean):
+            tok = m.group(1)
+            if tok in known or tok in seen:
+                continue
+            if tok == doc_name:
+                # A document naming itself in its own title (SETUP.md's
+                # "# SETUP — guided install"). Not an acronym, and the one
+                # person who cannot fix it is the person editing that file.
+                continue
+            if looks_like_a_word(tok):
+                # An English word this repo shouts for emphasis, not an
+                # initialism. Decided from the corpus, not a wordlist --
+                # see looks_like_a_word().
+                continue
+            if FILENAME_STEM_RE.match(clean, m.end()):
+                # An ALL-CAPS filename stem is a file reference, not an
+                # acronym: LEDGER.md, MAP.md, TODO.md, AGENTS.md. This
+                # repo's own report was 101 "unglossed acronyms", of which
+                # the largest group was file names split at the dot.
+                # Glossing "LEDGER" is not a thing anyone can do; the
+                # reference is already covered by the unlinked-reference
+                # check.
+                continue
+            # Glossed right here — covers THIS use, and every later bare
+            # use in the same document. Recording `seen` only on the
+            # violation branch (the bug this replaces) meant a correctly
+            # glossed first use never protected a second, later mention.
+            seen.add(tok)
+            if f'({tok})' in clean:
+                continue
+            out.append((i, tok))
+    return out
+
 
 def _decontent(line):
     """Strip code spans, self-referential link labels, and link/URL targets so
@@ -228,6 +652,44 @@ def iter_prose_lines(path):
         if not incode:
             yield i, line
 
+# NOT named HEADING_RE: line 189 already defines one, for anchor
+# resolution, and redefining it here silently broke every anchor check
+# in the harness the moment this was added (2026-09-06). A module-level
+# name is a shared namespace; the second definition simply wins.
+HEADING_LEVEL_RE = re.compile(r'^(#{1,6})\s+\S')
+
+
+def scan_heading_skips(path):
+    """[(lineno, from_level, to_level, text)] for every heading that jumps
+    more than one level deeper than the heading before it.
+
+    One detector, two callers -- this function and precedent_check.py's
+    `heading-outline` gate -- the same discipline scan_unglossed() follows,
+    for the same reason: the warning and the gate drifting apart is how a
+    check stops meaning anything.
+
+    WHAT THIS DELIBERATELY DOES NOT CHECK, measured rather than assumed.
+    "The first heading is an H1" is not a rule here: 80 of this repo's 153
+    tracked markdown files open at `##`, so it is not the convention and
+    encoding it would be inventing one. "Siblings share a rank" is not
+    mechanically decidable either -- a section legitimately nests deeper
+    than the one before it. What IS decidable, and is the whole defect
+    worth catching, is the skip: `##` followed by `####` has no `###` to
+    belong to, so the outline it renders is wrong in any table of contents
+    that reads it, and no reader can tell which level was meant."""
+    out = []
+    prev = None
+    for i, line in iter_prose_lines(path):
+        m = HEADING_LEVEL_RE.match(line)
+        if not m:
+            continue
+        level = len(m.group(1))
+        if prev is not None and level > prev + 1:
+            out.append((i, prev, level, line.strip()[:80]))
+        prev = level
+    return out
+
+
 def iter_prose_paragraphs(path):
     """Yield (start_lineno, paragraph_text) for each blank-line-delimited
     span of prose lines outside fenced code blocks. GFM strikethrough (a
@@ -262,8 +724,17 @@ def iter_prose_paragraphs(path):
 def check_file(path, fix=False, known=None):
     strikes, unlinked, unglossed, targeted = [], [], [], []
     changed_lines = {}
-    scan_acronyms = known is not None and path not in ACRONYM_SKIP_FILES
-    seen_acr = set()
+    # No corpus_is_decisive() guard HERE, deliberately: this caller's output
+    # is a WARNING and precedent_check.py's is a gate, and a guard that
+    # suppresses the detector suppresses the controls that prove it works
+    # (three of verify_harness.py's stated cases build tiny fixture repos
+    # whose corpora are small by construction). The gate carries it.
+    if known is not None and path not in ACRONYM_SKIP_FILES:
+        # One detector, shared with precedent_check.py's acronyms-glossary
+        # gate — see scan_unglossed's docstring for the drift this closed.
+        unglossed = scan_unglossed(
+            (ROOT / path).read_text(encoding='utf-8', errors='ignore'),
+            known, path)
     for i, line in iter_prose_lines(path):
         if HAVE_GFM and renders_del(line) and '~~' not in line:
             if fix:
@@ -279,23 +750,6 @@ def check_file(path, fix=False, known=None):
         # code spans stripped first so documenting the rule doesn't trip it
         if TARGET_RE.search(re.sub(r'`[^`]*`', ' ', line)):
             targeted.append((i, line.strip()[:100]))
-        # unglossed acronyms: ALL-CAPS token not known and not defined inline this line
-        if scan_acronyms:
-            clean = _decontent(line)
-            for m in ACRONYM_RE.finditer(clean):
-                tok = m.group(1)
-                if tok in known or tok in seen_acr:
-                    continue
-                if f'({tok})' in clean:
-                    # Glossed right here -- covers THIS use, and every later
-                    # bare use in the same document. Recording seen_acr only
-                    # inside the violation branch below (the bug this
-                    # replaces) meant a correctly-glossed first use never
-                    # actually protected a second, later bare mention.
-                    seen_acr.add(tok)
-                    continue
-                seen_acr.add(tok)
-                unglossed.append((i, tok))
     if fix and changed_lines:
         lines = (ROOT / path).read_text(encoding='utf-8', errors='ignore').splitlines()
         for i, new in changed_lines.items():
@@ -335,7 +789,20 @@ RECORD_NAME_RE = re.compile(
     r"(_diligence|_record|_decision|_notes|_index|_ledger|README|TODO|MAP|"
     r"GLOSSARY|AGENTS|CLAUDE|PRACTICES|INSTALL|SETUP|METHOD|GIT|MOBILE)",
     re.I)
-RECORD_DIR_RE = re.compile(r"(^|/)(process|archive|sent|templates|deck|practices|spec)(/|$)")
+# `decisions` is here for the same reason `practices` and `spec` are: a dated
+# decision record IS the apparatus this check routes things into, so linting
+# one as a deliverable flags it for containing exactly its own subject matter.
+# (practice: deliverables-look-like-output)
+# `evals` joins them for a different reason worth stating: an eval fixture is
+# not a document at all, it is a RECORD of what a model was shown. Its prompts
+# quote the practice catalogue verbatim -- including the catalogue's own words
+# about claims-to-source tables and verification records -- so a residue check
+# reads the QUOTED text as this repo's own apparatus. Editing the quote to
+# satisfy the check would change what the model was shown and invalidate the
+# recorded answers beside it. Found 2026-09-07, merging one such eval: 40
+# residue findings, every one of them inside quoted catalogue text.
+RECORD_DIR_RE = re.compile(
+    r"(^|/)(process|archive|sent|templates|deck|practices|spec|decisions|evals)(/|$)")
 RESIDUE_PATTERNS = [
     (re.compile(r"\[verify\b", re.I),
      "verify-later flag -- verify now, or record the externally-blocked "
@@ -378,8 +845,14 @@ def check_residue(path):
     # thing_decision.md, thing_notes.md, thing_index.md or thing_ledger.md
     # was falsely flagged as residue and failed the gate, since none of
     # those four matched this narrower, separately-maintained pattern.
-    link_re = re.compile(r"\]\([^)]*_(record|diligence|decision|notes|index"
-                         r"|ledger)\.md\)", re.I)
+    # The second alternative covers a repo whose decision records live in a
+    # `decisions/` directory under dated names (`2026-09-06-some-slug.md`)
+    # rather than under a `_decision.md` suffix -- the shape Precedent itself
+    # uses. Without it, a deliverable that correctly links its decision record
+    # instead of restating the decision fails this gate for doing the right
+    # thing. (practice: deliverables-look-like-output)
+    link_re = re.compile(r"\]\([^)]*(?:_(?:record|diligence|decision|notes"
+                         r"|index|ledger)\.md|decisions/[^)]*\.md)\)", re.I)
     for i, line in iter_prose_lines(path):
         if link_re.search(line):
             continue        # the one allowed reference: a link to the record
@@ -408,8 +881,18 @@ def check_residue(path):
 # backlog, so a legacy corpus never blocks.
 # This repo's index documents. AGENTS.md carries the quick index a
 # session actually consults; MAP.md is generated from the practices and
-# indexes those, so a spec document is reachable only through AGENTS.md.
-INDEX_FILES = ["MAP.md", "CLAUDE.md", "AGENTS.md"]
+# indexes those, so a spec document is reachable only through the quick index.
+#
+# WHERE_THINGS_ARE.md joined the list on 2026-09-14, and it had to: the quick
+# index was split that day, with the dozen rows sessions reach for constantly
+# left in AGENTS.md and the other 76 moved there (practice: reduction-pass,
+# step 3). The split immediately turned three wired documents red here --
+# spec/ENFORCEMENT.md, spec/CHANGES_TO_TELL_ALEX.md and
+# documentation/DAILY_HABITS.md -- which was this check working correctly:
+# their rows really had left AGENTS.md. Nothing became less findable, because
+# AGENTS.md's short table links straight to the full one, so the fix is to
+# name both halves of the index rather than to put the rows back.
+INDEX_FILES = ["MAP.md", "CLAUDE.md", "AGENTS.md", "WHERE_THINGS_ARE.md"]
 
 # Where the (document, block, model) registry lives. A document is "carrying
 # generated numbers" if it appears in that registry.
@@ -437,57 +920,6 @@ def wired_docs():
     return []
 
 
-# check 7: in-document anchors resolve. A `[text](#slug)` link in markdown
-# lands on a heading only if slug is GitHub's slug of that heading (or an
-# explicit <a id="slug">); a link written against a heading that was later
-# reworded, or a note anchor that was renamed, is a dead link on GitHub and
-# in the HTML render alike -- and nothing reported it until 2026-09-07,
-# when a reader found two dead section links in a column description.
-# The slug rule is shared with tools/doc_html.py (heading_slug); keep them
-# identical.
-FENCE_RE = re.compile(r'^\s*(```|~~~)')
-HEADING_RE = re.compile(r'^(#{1,6})\s+(.*?)\s*#*\s*$')
-ANCHOR_LINK_RE = re.compile(r'\]\(#([^)\s"]+)(?:\s+"[^"]*")?\)|href="#([^"]+)"')
-EXPLICIT_ID_RE = re.compile(r'<a\s+(?:id|name)="([^"]+)"|\sid="([^"]+)"')
-
-
-def heading_slug(text):
-    """GitHub's heading-anchor slug of a markdown heading's text: link
-    and emphasis markup stripped, lowercased, punctuation dropped (letters,
-    digits, spaces, hyphens, underscores survive), spaces to hyphens."""
-    t = re.sub(r'\[([^\]]*)\]\([^)]*\)', r'\1', text)   # [x](y) -> x
-    t = re.sub(r'<[^>]+>', '', t)
-    t = t.replace('`', '').replace('*', '')
-    t = html.unescape(t).strip().lower()
-    t = re.sub(r'[^\w\s-]', '', t)
-    return re.sub(r'\s', '-', t)
-
-
-def check_anchors(path):
-    """[(line, fragment)] for every in-document link whose fragment is
-    neither a heading's slug (duplicates -1, -2 ...) nor an explicit id."""
-    text = (ROOT / path).read_text(errors='ignore')
-    ids, seen, links, fence = set(), {}, [], False
-    for i, line in enumerate(text.split('\n'), 1):
-        if FENCE_RE.match(line):
-            fence = not fence
-            continue
-        if fence:
-            continue
-        m = HEADING_RE.match(line)
-        if m:
-            slug = heading_slug(m.group(2))
-            n = seen.get(slug, 0)
-            seen[slug] = n + 1
-            ids.add(f"{slug}-{n}" if n else slug)
-        for m in EXPLICIT_ID_RE.finditer(line):
-            ids.add(m.group(1) or m.group(2))
-        # a link quoted inside a code span is text about links, not a link
-        for m in ANCHOR_LINK_RE.finditer(re.sub(r'`[^`]*`', ' ', line)):
-            links.append((i, m.group(1) or m.group(2)))
-    return [(i, frag) for i, frag in links if frag not in ids]
-
-
 def check_findability(docs):
     """Return [(doc, note)] for wired docs linked from no index."""
     blob = ""
@@ -505,6 +937,69 @@ def check_findability(docs):
             out.append((d, "carries generated numbers but is linked from none of "
                         + ", ".join(INDEX_FILES) + ", or its directory README"))
     return out
+
+
+# A consuming repo mirrors this whole upstream tree at process/upstream/, and
+# every file in it belongs to upstream: the consumer may not edit it (the
+# mirror overwrites any change) and cannot fix what is wrong there. So a
+# finding inside it is real information and must never be the thing that
+# fails the consumer's own gate.
+#
+# 2026-09-06, exactly this: an engine refresh shipped the new skipped-heading
+# check into two consumers whose vendored copy of upstream's own AGENTS.md
+# still had the h1 -> h3 that upstream had already fixed five commits
+# earlier. Both repos' doc_lint went red on a heading in a file they are
+# forbidden to touch, with no action available except waiting for a catalogue
+# mirror that is deliberately on hold. Reported loudly, counted separately,
+# never fatal -- practice fail-gracefully: keep going, and tell the person.
+# WHICH prefixes are mirrors is not this file's question to answer, and
+# hardcoding the answer got it wrong for half the install models. The literal
+# below is INSTALL.md §1's layout. A §0 install mirrors somewhere else
+# entirely -- the vendored catalogue sits at whatever path precedent.json's
+# `universal` source names -- so a §0 consumer taking a routine catalogue
+# update went red on 109 broken relative links, every one of them inside a
+# mirror and pointing at a file that exists upstream and not in the consumer.
+# Exactly the failure the paragraph above says must never happen, caused by
+# the constant meant to prevent it. Ask the engine instead; the constant
+# survives only as the fallback for a tree with no importable engine.
+# (practice: durable-fix -- the fix is asking the one authority, not adding a
+# second path to the list and waiting for the third.)
+_VENDORED_PREFIXES_FALLBACK = ('process/upstream/',)
+
+
+def _vendored_prefixes():
+    """-> tuple of repo-relative prefixes whose contents this repo mirrors.
+
+    precedent_resolve.mirrored_prefixes() is THE place this is answered
+    (its own docstring carries the reasoning). It never raises, so the only
+    thing guarded here is the import: doc_lint.py ships into trees where the
+    rest of the engine may not be present."""
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_resolve as pr
+    except Exception:
+        return _VENDORED_PREFIXES_FALLBACK
+    # An empty answer is honoured, not second-guessed: mirrored_prefixes()
+    # returns () for a repo that genuinely mirrors nothing (a source set, a
+    # fresh repo), and substituting the fallback there would re-assert the
+    # §1 layout in exactly the repos that do not have it.
+    return tuple(pr.mirrored_prefixes(ROOT))
+
+
+VENDORED_PREFIXES = _vendored_prefixes()
+
+
+def _is_vendored(rel):
+    return str(rel).startswith(VENDORED_PREFIXES)
+
+
+def _split_vendored(lines):
+    """-> (ours, theirs). A finding line starts '  <path>:<line>: ...'."""
+    ours, theirs = [], []
+    for line in lines:
+        (theirs if _is_vendored(line.strip().split(':', 1)[0]) else ours
+         ).append(line)
+    return ours, theirs
 
 
 def main():
@@ -552,15 +1047,18 @@ def main():
     known = None if fix else load_known_acronyms()
     total_strikes = total_unlinked = total_unglossed = total_targeted = total_fixed = 0
     strike_lines, unlinked_lines, unglossed_lines, target_lines = [], [], [], []
-    unsourced_lines, residue_lines, anchor_lines = [], [], []
+    unsourced_lines, residue_lines, broken_link_lines = [], [], []
+    skip_lines = []
     for f in files:
         if not (ROOT / f).exists():
             continue
         for i, why in check_residue(f):
             residue_lines.append(f"  {f}:{i}: {why}")
-        for i, frag in check_anchors(f):
-            anchor_lines.append(f"  {f}:{i}: #{frag} matches no heading slug "
-                                "or explicit id in this document")
+        for i, target, why in check_broken_links(f):
+            broken_link_lines.append(f"  {f}:{i}: -> {target}  ({why})")
+        for i, frm, to, txt in scan_heading_skips(f):
+            skip_lines.append(f"  {f}:{i}: h{frm} -> h{to} (no h{frm + 1} "
+                              f"between them): {txt}")
         s, u, g, t, nf = check_file(f, fix=fix, known=known)
         total_fixed += nf
         for i, txt in s:
@@ -605,6 +1103,12 @@ def main():
         if total_targeted > 40:
             print(f"  … and {total_targeted - 40} more")
 
+    if skip_lines:
+        print(f"\nSKIPPED HEADING LEVELS — {len(skip_lines)} (FAIL; a heading "
+              "more than one level below the one before it has no parent, so the "
+              "outline it renders is wrong):")
+        print('\n'.join(skip_lines[:40]))
+
     if unsourced_lines:
         print(f"\nUNSOURCED QUANTITIES — {len(unsourced_lines)} in documents that "
               f"opted in with {GATE_MARKER} (FAIL; generate it, cite it, or mark "
@@ -612,9 +1116,11 @@ def main():
         print('\n'.join(unsourced_lines[:40]))
 
     if (not strike_lines and not unlinked_lines and not unglossed_lines
-            and not target_lines and not unsourced_lines):
+            and not target_lines and not unsourced_lines and not broken_link_lines
+            and not skip_lines):
         print(f"doc_lint OK: {len(files)} file(s) checked — no accidental strikethrough, "
-              f"no unlinked references, no unglossed acronyms, no target= anchors.")
+              f"no broken relative links, no unlinked references, no unglossed "
+              f"acronyms, no target= anchors, no skipped heading levels.")
 
     # check 5: findability. Gate mode checks only documents in scope, so a new
     # analysis must be indexed; --all reports the legacy backlog.
@@ -633,6 +1139,16 @@ def main():
         if len(findability) > 40:
             print(f"  … and {len(findability) - 40} more")
 
+    if broken_link_lines:
+        print(f"\nBROKEN RELATIVE LINKS — {len(broken_link_lines)} link(s) "
+              f"land nowhere ({'FAIL' if gate else 'backlog report'}; a "
+              "reference that 404s is not a reference — check the path is "
+              "relative to THIS file's directory, not the repo root, and "
+              "that a #fragment still matches a heading):")
+        print('\n'.join(broken_link_lines[:40]))
+        if len(broken_link_lines) > 40:
+            print(f"  … and {len(broken_link_lines) - 40} more")
+
     if residue_lines:
         print(f"\nPROCESS RESIDUE IN DELIVERABLES — {len(residue_lines)} "
               f"line(s) ({'FAIL' if gate else 'backlog report'}; a "
@@ -643,23 +1159,50 @@ def main():
         if len(residue_lines) > 40:
             print(f"  … and {len(residue_lines) - 40} more")
 
-    if anchor_lines:
-        print(f"\nBROKEN IN-DOCUMENT ANCHORS — {len(anchor_lines)} link(s) "
-              f"({'FAIL' if gate else 'backlog report'}; a `[x](#slug)` link "
-              "must name a heading's GitHub slug or an explicit <a id>; the "
-              "HTML render stamps the same slugs):")
-        print('\n'.join(anchor_lines[:40]))
-        if len(anchor_lines) > 40:
-            print(f"  … and {len(anchor_lines) - 40} more")
-
     # gate: strikethrough always fails in scope; unsourced quantities fail only
     # in documents that explicitly opted in, so the legacy corpus never blocks;
-    # process residue (check 6) and broken anchors (check 7) fail on any
-    # document in scope.
-    if gate and (strike_lines or unsourced_lines or findability or residue_lines
-                 or anchor_lines):
+    # process residue (check 6) fails on any deliverable in scope. Skipped
+    # heading levels fail too: the whole tracked tree had exactly one when the
+    # check was written (in generated output, since fixed), so there is no
+    # legacy backlog to grandfather and nothing to soften this to a warning.
+    #
+    # Findings inside the vendored upstream tree are split out here rather
+    # than filtered at the scan: the consumer still SEES them (they are
+    # printed above, in full) and can report them upstream, but they cannot
+    # fail a gate in the one repo that has no way to act on them. See
+    # VENDORED_PREFIXES for the incident.
+    fatal = []
+    # EVERY fail-class group, listed exhaustively. The first version of this
+    # loop omitted skip_lines, which silently disarmed the skipped-heading
+    # check for the repo's own content too -- the finding still printed
+    # "FAIL" and the run still exited 0. Caught by the negative control that
+    # plants a real heading skip here; without that control it would have
+    # shipped as a passing gate that checks nothing.
+    for group in (strike_lines, unsourced_lines, residue_lines,
+                  broken_link_lines, skip_lines):
+        ours, theirs = _split_vendored(group)
+        fatal.extend(ours)
+        if theirs:
+            print(f"\n  NOTE: {len(theirs)} further finding(s) of this kind "
+                  f"are inside the vendored upstream tree "
+                  f"({', '.join(VENDORED_PREFIXES)}). They are upstream's to "
+                  f"fix and this repo may not edit them, so they do not fail "
+                  f"this gate -- report them upstream if they look real:")
+            print('\n'.join(theirs[:10]))
+            if len(theirs) > 10:
+                print(f"  … and {len(theirs) - 10} more")
+    if gate and (fatal or findability):
         return 1
     return 0
 
 if __name__ == '__main__':
+    # `--help` is what anyone types first. Before 2026-09-06 the tools here
+    # split three ways on it: a hard "unknown option" FAIL, a silent
+    # fall-through that ran the whole audit as if nothing had been asked, or
+    # the docstring printed with a non-zero exit. All three are wrong, and
+    # documentation/FOR_DEVELOPERS.md points readers straight at
+    # these commands. The module docstring is the usage text.
+    if any(a in ('--help', '-h') for a in sys.argv[1:]):
+        print((__doc__ or '').strip())
+        sys.exit(0)
     sys.exit(main())

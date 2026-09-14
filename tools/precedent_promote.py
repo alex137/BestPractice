@@ -135,7 +135,11 @@ def _catalogue_slugs_and_rules(against_paths):
             except sp.PracticeFileError:
                 continue
             slug = fm.get('slug', f.stem)
-            if fm.get('status') == 'retired':
+            # Any practice not in force, not only a retired one -- a
+            # `deduplicated` practice is just as absent from what this
+            # source actually imposes, and comparing against the literal
+            # 'retired' silently counted every one of them as competition.
+            if not bv.is_in_force(fm):
                 continue
             out[slug] = (sections.get('rule', ''), str(f))
     return out
@@ -259,6 +263,14 @@ def default_against(candidate_path, level):
 
 
 def _parse_args(argv):
+    # `--help` is the first thing anyone types, and until 2026-09-06 every
+    # tool here answered it with "FAIL: expected --flag value pairs, stuck at
+    # '--help'" -- a hard error, on the exact command documentation/ tells a
+    # new reader to run. The module docstring is already the usage text; print
+    # it and exit 0.
+    if any(a in ('--help', '-h') for a in argv):
+        print((sys.modules['__main__'].__doc__ or __doc__ or '').strip())
+        raise SystemExit(0)
     args = {}
     i = 0
     while i < len(argv):

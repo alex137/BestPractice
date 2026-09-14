@@ -40,6 +40,33 @@
 # name. A term that only ever appears one way in your notes today will appear
 # another way the first time it matters.
 #
+# FOR A REPOSITORY NAME, WRITE THE STEM RATHER THAN THE WHOLE NAME, and end
+# it `[\w-]*` rather than `\b`:
+#
+#     \bexamplename[\w-]*          not     \bExampleNameProject\b
+#
+# Upstream lost a name to exactly this on 2026-09-07. The full name was on
+# the list; what reached a public branch was `<repo>-local`, the name a
+# practice source had been given after the repository -- a SHORT form the
+# full-name pattern does not begin to cover. (The trailing suffix was never
+# the problem: `\bExampleNameProject\b` already matches
+# `ExampleNameProject-local`, since a hyphen is a word boundary. The
+# truncation is what does the work.) A private repository leaks through what
+# is named AFTER it: a source, a branch, a directory, a tag, a check.
+#
+# CUT ONLY AS FAR AS THE EVIDENCE ALLOWS. Run the gate against the tree
+# after each cut and read the hit count. A stem that is an ordinary English
+# word matches innocent text everywhere, and a gate that fires on innocent
+# text the day you install it is a gate you uninstall. Stop at the last cut
+# that scores zero -- and reject even a zero-scoring cut that is short
+# enough for a camelCase identifier to produce by accident. Record the
+# counts beside the entry so the next person argues from evidence rather
+# than re-deriving them.
+#
+# The gate helps: with an owner declared below, a run also NOTES any
+# repository cloned on your disk, under that owner, whose bare name no
+# pattern here matches. That note is the reminder to write this line.
+#
 # The entries below are placeholders, and are here to show the shape. Replace
 # them with your own terms.
 #
@@ -55,3 +82,42 @@
 \bexample-client-name-goes-here\b
 \bexample-code-word-goes-here\b
 \bEXAMPLE-TICKET-\d+\b
+
+# --- REPOSITORY REFERENCES: an allowlist, and you must switch it on --------
+#
+# The patterns above are a BLOCKLIST: they block the terms you remembered to
+# write down. That is the wrong default for repository names, and it failed
+# in both directions in a single day (2026-09-07, upstream): a private
+# repository nobody had listed was named in a public tree, and two names on a
+# blocklist had since become public, forcing dozens of hits clearable only by
+# deleting content about public files.
+#
+# So repository references are an ALLOWLIST instead. Uncomment the line below
+# and put YOUR OWN GitHub account in it. Until you do, this half of the gate
+# does nothing at all -- and it says so on every run rather than passing
+# quietly, because a check that is off and silent is worse than one that is
+# absent.
+#
+# visibility-audit: private-owner YOUR-GITHUB-ACCOUNT -- personal account; every repo under it is private unless allowed below
+#
+# With that line, every `YOUR-ACCOUNT/<name>` mention in a scanned tree is
+# refused unless an allow line permits it, with a reason:
+#
+#   # visibility-audit: allow YOUR-ACCOUNT/precedent-team-NAME -- declared as a team source in precedent.json
+#
+# (Doubly commented so the parser skips it: a `# visibility-audit:` line
+# that does not parse is now a hard failure, and the `<name>` placeholder
+# this line used to carry does not parse -- angle brackets are not legal in
+# a repository name. Left as a live directive it would fail the gate on a
+# fresh copy of this template, which is the one moment nobody can debug it.)
+#
+# WHAT NOT TO PUT HERE, and it is the one that looks like it belongs.
+# Do NOT pre-allow your INDIVIDUAL source. A shared repository is forbidden
+# from declaring one -- tools/precedent_resolve.py refuses it by name, because
+# naming it tells everyone with read access that it exists -- so an allow line
+# for it hands out permission for the exact thing the architecture refuses.
+# Add one only if a specific repository genuinely has to name it (upstream
+# does, because it documents the model), and write the reason down.
+#
+# A REASON IS MANDATORY on every allow line. An accepted exposure nobody
+# argued for is the same silence this whole file exists to replace.

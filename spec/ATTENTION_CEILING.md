@@ -1,5 +1,14 @@
-<!-- Last updated: 2026-09-01 (Buenos Aires) by the follow-up session that ran the gloss-tier and two-hop-review experiments -->
-
+---
+title:         The Attention Ceiling — What Six Runs Measured, and What To Do About It
+kind:          record
+status:        closed
+opened:        2026-08-31
+closed:        2026-09-04
+superseded_by: null
+supersedes:    []
+audience:      session
+summary:       What six simulation runs measured about the practice miss rate, and what the plan for it is.
+---
 # The Attention Ceiling — What Six Runs Measured, and What To Do About It
 
 Written for the session that takes this on next. It carries a finding, the
@@ -77,7 +86,7 @@ What the finding does kill is the belief that more routing will fix this.
 **Tested below and falsified — kept here as the argument that was tested,
 not as current guidance.** See
 [The review-arm result](#the-review-arm-result-2026-08-31) for the verdict
-and the [supporting moves](#the-supporting-moves-whatever-the-experiment-says)
+and the [supporting moves](#the-supporting-moves-now-the-primary-recommendation)
 for what to do instead.
 
 **Move the decision point from before the work to after it.**
@@ -599,7 +608,8 @@ run in this document followed.
 ### External precedent
 
 [OpenViking](https://github.com/volcengine/OpenViking) — a context database
-for AI agents (memory management, RAG, and agent-framework retrieval,
+for AI agents (memory management, retrieval-augmented generation (RAG),
+and agent-framework retrieval,
 unrelated to this project) — independently arrived at a shape worth knowing
 about, solving a structurally similar problem: surfacing relevant material to
 an LLM without paying full-corpus cost. Its README (verified 2026-08-31)
@@ -701,7 +711,7 @@ rather than by preference. The first of these fired:
 
 ## Does the ceiling reach Stage 1 and Stage 3? (2026-09-02, reasoned not measured)
 
-[PRACTICE_ENGINE_PLAN.md](../PRACTICE_ENGINE_PLAN.md) flags, right before
+[PRACTICE_ENGINE_PLAN.md](PRACTICE_ENGINE_PLAN.md) flags, right before
 Stage 1, that this document's finding might undercut two pieces of the
 creation pipeline: Stage 1's "session judgment at a gate" and Stage 3's
 promotion criteria (recurrence, non-duplication) both ask a session to judge
@@ -760,7 +770,138 @@ actually happened. If that later comparison goes badly, *that* is the
 measured result this section does not have, and revisits this reasoning on
 its own terms rather than on precedent from a differently-shaped eval.
 
+## The audit-judgment result (2026-09-04)
+
+Pre-registered as
+[evals/routing/PREDICTION_AUDIT_JUDGMENT.md](../evals/routing/PREDICTION_AUDIT_JUDGMENT.md)
+and run against the judgment mechanism
+[full-practice-audit](../practices/full-practice-audit.md) and
+[routing-audit](../practices/routing-audit.md)'s rotating slice share:
+full Rule text, one judgment-only practice at a time, closed question
+("does it apply; if so, is it satisfied"), against the actual current repo
+state rather than a frozen diff. This is not another arm of the review-arm
+lineage above — it deliberately tests the framing
+["Does the ceiling reach Stage 1 and Stage 3?"](#does-the-ceiling-reach-stage-1-and-stage-3-2026-09-02-reasoned-not-measured)
+argued but did not measure: one candidate, its own attached evidence, a
+closed question, structurally closer to the oracle than to the falsified
+review arm.
+
+**Method.** Six judgment-only practices from the universal catalogue, in an
+isolated `git worktree`, judged by a freshly spawned agent with no memory of
+this conversation or of writing the prediction. Three carried a real seeded
+violation (`registry-source-of-truth`, `volatile-rules-carry-dates`,
+`lead-with-what-it-is`); three were judged in their real, unmodified state
+with ground truth established by inspection before the run
+(`check-source-architecture`, `build-buy-decompose` — grep-confirmed no
+matching content exists in this repo — and `one-formatter-per-quantity`,
+already named not-applicable-here by this document's own earlier pass). See
+the prediction document for the seeded content and the full ground-truth
+table.
+
+**Result: 6 of 6 correct (100%).** All three seeded violations were found
+and correctly flagged, with the specific seeded file cited as evidence
+each time; all three real practices judged in their unmodified state were
+correctly called not-applicable/satisfied, with no false positive. This
+clears the pre-registered ≥83% validating band with room to spare, and is
+nowhere near the ≤67% falsifying band. **Verdict: validated, on this run.**
+
+**What this does and does not establish.** N=6, one judge, one run — a
+first, coarse signal for a single-session turn budget, explicitly not the
+routing eval's 20-case, multi-run, noise-floor-calibrated discipline (see
+["The catalogue re-run"](#the-catalogue-re-run-2026-09-02) above for how
+much a single run of *that* eval can swing on judge variance alone — 15-25
+points between otherwise-identical runs). A 100% score on 6 cases is
+consistent with the true rate being anywhere from roughly 60% up once
+sampling uncertainty is accounted for; it is evidence for the prediction,
+not proof at the review-arm chain's own standard. Should this mechanism's
+reliability start to matter for something higher-stakes than an on-demand,
+human-invoked backstop, it still needs the fuller multi-run discipline
+before being trusted at that level — this run does not substitute for it,
+it only makes the prediction worth that investment rather than a guess.
+
+**An unplanned finding, disclosed rather than acted on unilaterally.** The
+same judge, working through all 21 judgment-only practices (not just the 6
+scored above) against this repo's real, unmodified state, flagged four more
+as genuinely violated: `parallel-artifact-ledger` (no dated ledger exists
+for the `templates/harness/` adapter family despite a real cross-adapter
+change having landed), `pr-template-honest-gates` (this repo — which
+teaches the practice — has no `.github/pull_request_template.md` of its
+own), `section-order-by-frequency` (`INSTALL.md`'s §0, the rare and
+unrehearsed install path, sits before §1, which `SETUP.md` itself calls
+"the right default for essentially every install today"), and
+`tabular-shared-renderer` (`tools/doc_html.py`'s `DOCS` registry is empty
+and no `.html` render exists anywhere in the repo, despite several
+genuine multi-column tables). Each was independently spot-checked before
+being recorded here (file existence, an empty `DOCS = []`, a grep for any
+ledger file) and held up. These were not pre-registered, so they are not
+part of the scored result and not fixed by this session — recorded here as
+real audit output worth someone's attention, per this practice's own
+disclosure-over-silent-fix discipline, not as a fourth eval arm.
+
+## The audit-judgment result, run 2 (2026-09-05)
+
+Pre-registered as
+[evals/routing/PREDICTION_AUDIT_JUDGMENT_RUN2.md](../evals/routing/PREDICTION_AUDIT_JUDGMENT_RUN2.md):
+a second, independent run toward the multi-run discipline run 1 explicitly
+said it still needed — a different judge, three new seeded cases
+(`quote-discipline`, `verify-decomposition`, `readers-vocabulary`), and,
+notably, three of run 1's own real-world findings *after they were fixed*
+(`pr-template-honest-gates`, `section-order-by-frequency`,
+`parallel-artifact-ledger`), checked blind by a judge with no memory of
+making those fixes.
+
+**Raw result against the pre-registered ground truth: 5 of 6 (83%).** The
+three seeded violations were all found correctly. Two of the three "now
+fixed" controls were confirmed satisfied correctly
+(`pr-template-honest-gates`, `section-order-by-frequency`). The third,
+`parallel-artifact-ledger`, was flagged — against a ground truth that said
+it shouldn't be.
+
+**Investigated per this document's own standing rule (check the cause
+before counting a mismatch as a plain miss) — and the mismatch is real,
+but it is not the judge's error. It is the prediction document's.** The
+judge's stated reason: `templates/harness/LEDGER.md` existed and correctly
+recorded per-member verdicts, but the practice's own Rule requires more
+than the table — "a small **audit that fails any change date lacking a
+complete row**" — and no such audit existed yet. `LEDGER.md`'s own closing
+line at the time said so explicitly ("No mechanical audit wired yet"). The
+ground truth in `PREDICTION_AUDIT_JUDGMENT_RUN2.md` marked this case
+`should_flag: false` because a ledger table now existed; it should have
+been `true`, because the practice was still only half-satisfied. **The
+judge read the Rule correctly. The session that wrote the prediction
+document did not re-read it carefully enough before grading its own
+fix as complete.**
+
+**Corrected score: 6 of 6 (100%).** Consistent with run 1's 6/6, on
+different cases and a different judge — the first real inter-run
+consistency signal this line of work has, small as it still is. The
+`PREDICTION_AUDIT_JUDGMENT_RUN2.md` document itself is left exactly as
+originally committed, per this document's own no-tuning-after-seeing-
+the-result discipline — the correction lives here, in the results write-up,
+not by quietly editing the pre-registration to have said the right thing
+first. The missing audit itself was built the same session this result was
+scored (`tools/precedent_check.py`'s `parallel-artifact-ledger` check,
+`templates/harness/LEDGER.md` backfilled against it), which is the more
+useful outcome of the two possible reactions to this finding — fixing the
+real gap the judge (correctly) found, not arguing the judge down.
+
+**What this adds to run 1's reading.** N is still small (6+6=12 across two
+runs, not a real sample), but two independent runs landing at 100% once
+graded correctly is modestly stronger evidence than one — and the one
+"miss" this run produced was itself a genuine, useful finding rather than
+noise, which is a good property for this mechanism to have in practice:
+even a wrong pre-registered expectation didn't survive contact with an
+actual blind check.
+
 ## For the session that picks this up
+
+**A related but distinct result exists for a different question — the
+audit-judgment mechanism, not the review-arm lineage below**: see
+[The audit-judgment result](#the-audit-judgment-result-2026-09-04) and
+[run 2](#the-audit-judgment-result-run-2-2026-09-05) — 6/6 and 6/6
+(corrected) across two small (N=6), independent single-judge runs. It does
+not change anything below, which is about the review-arm chain
+specifically.
 
 **Three experiments in this line have now been run; do not re-run any of
 them to see if the number moves.** Review (one hop, clause only): 54%.
@@ -783,7 +924,11 @@ either run and falsified, or predicted null on falsified siblings' direct
 evidence.** [The supporting moves](#the-supporting-moves-now-the-primary-recommendation)
 have already been pushed as far as they honestly go for now: **24 enforced,
 10 more gate-only (see the 2026-09-01 correction above), 20 genuinely
-resistant**, each of the 20 broken down by *why* in that section — not a stopping point chosen
+resistant** — a dated split, over the 54-practice catalogue as it stood on
+2026-09-03, not a live figure; run `python3 tools/catalogue_stats.py` for
+what it is today (28 of 61 enforced as of 2026-09-06, with 12 gate-only and
+21 resistant, so the shape held as the catalogue grew). Each of the 20 is
+broken down by *why* in that section — not a stopping point chosen
 for convenience, but a second full pass through every remaining practice
 that converted two more (`two-check-levels`, `index-remembers-past`) and
 demonstrated, rather than assumed, why the rest resist (`volatile-rules-carry-dates`

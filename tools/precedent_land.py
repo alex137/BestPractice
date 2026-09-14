@@ -37,11 +37,18 @@ amendment generalizes the same table to removal):
                 should be able to grant that to itself. Commit the drafted
                 file to a branch and open a PR.
 
+--strength decided|assented records HOW FIRMLY the approval was given
+(practice: decision-strength). Omit it and the field is left out, which
+means unknown -- never `decided` by default, since a tool that assumed
+enthusiasm would be manufacturing exactly the endorsement that practice
+exists to stop.
+
 Usage:
   precedent_land.py --file CANDIDATE.md --level individual|team
-      --path REPO --approved-by NAME [--against PATH[,PATH...]]
-  precedent_land.py --file CANDIDATE.md --level universal
+      --path REPO --approved-by NAME [--strength decided|assented]
       [--against PATH[,PATH...]]
+  precedent_land.py --file CANDIDATE.md --level universal
+      [--strength decided|assented] [--against PATH[,PATH...]]
 """
 import datetime
 import json
@@ -52,7 +59,15 @@ import sys
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'tools'))
 import precedent_promote as pp  # noqa: E402
+import split_practices as sp  # noqa: E402
 import precedent_candidate as pc  # noqa: E402
+
+# practice: one-formatter-per-quantity -- every moment in time this project
+# writes down comes from ONE module, in the person's zone, carrying its
+# offset. Never a bare datetime.date.today(): that is the container's UTC.
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+import precedent_time  # noqa: E402
+
 
 
 class LandRefused(Exception):
@@ -98,13 +113,18 @@ def _verify_checked_by_private(repo_path, checked_by):
             f"check_{name}.py by name -- it is not actually testing this check.")
 
 
-def _render_practice(fm, proposed_rule, observed, approved_by, level):
-    today = datetime.date.today().isoformat()
+# practice: decision-strength -- the two words an approval can carry.
+STRENGTHS = ('decided', 'assented')
+
+
+def _render_practice(fm, proposed_rule, observed, approved_by, level,
+                     strength=None):
+    today = precedent_time.today()
     index_clause = fm.get('index_clause') or (
         proposed_rule[:76] + ('...' if len(proposed_rule) > 76 else ''))
     lines = ['---']
     lines.append(f"slug:        {fm['slug']}")
-    lines.append(f"title:       {fm['title']}")
+    lines.append(f"title:       {sp._yaml_scalar(fm['title'])}")
     lines.append(f"tier:        {fm.get('tier_requested', 'on-demand')}")
     lines.append("severity:    default")
     applies_to = fm.get('proposed_applies_to') or ['**']
@@ -118,11 +138,20 @@ def _render_practice(fm, proposed_rule, observed, approved_by, level):
     lines.append(f"checked_by:  {checked_by if checked_by else 'null'}")
     lines.append("defines:     []")
     lines.append("status:      active")
+    # Null while active; required the moment `status:` becomes
+    # `deduplicated` or `retired` (spec/PRACTICE_FORMAT.md, "Status").
+    lines.append("in_force_at: null")
     lines.append("supersedes:  []")
     overrides = fm.get('overrides')
     lines.append(f"overrides:   {json.dumps(overrides) if overrides else 'null'}")
     lines.append(f"added:       {today}")
     lines.append(f"approved_by: {json.dumps(f'{approved_by}, {today}')}")
+    # practice: decision-strength -- how firmly the approval was given.
+    # OMITTED when the caller did not say, rather than defaulted to
+    # `decided`: absence means unknown, and a default here would be this
+    # tool asserting an enthusiasm nobody expressed.
+    if strength:
+        lines.append(f"strength:    {strength}")
     lines.append("source_practice_number: null")
     lines.append("---")
     lines.append("## Rule")
@@ -149,7 +178,10 @@ def _render_practice(fm, proposed_rule, observed, approved_by, level):
     return '\n'.join(lines)
 
 
-def land(candidate_path, level, repo_path, approved_by, against):
+def land(candidate_path, level, repo_path, approved_by, against,
+         strength=None):
+    if strength is not None and strength not in STRENGTHS:
+        raise LandRefused(f'--strength must be one of {sorted(STRENGTHS)}, not {strength!r}')
     result = pp.promote(candidate_path, level, against)  # raises PromoteRefused on failure
     fm = result['fm']
     checked_by = fm.get('proposed_checked_by')
@@ -186,7 +218,9 @@ def land(candidate_path, level, repo_path, approved_by, against):
     dest = dest_dir / f"{fm['slug']}.md"
     if dest.exists():
         raise LandRefused(f'{dest} already exists -- refusing to overwrite')
-    dest.write_text(_render_practice(fm, result['proposed_rule'], observed, approved_by, level), encoding='utf-8')
+    dest.write_text(_render_practice(fm, result['proposed_rule'], observed,
+                                     approved_by, level, strength),
+                    encoding='utf-8')
     if level in ('individual', 'team'):
         # Mark the source candidate promoted so it stops reading as still
         # open -- an already-landed candidate left at `status: open` would
@@ -227,6 +261,14 @@ def land(candidate_path, level, repo_path, approved_by, against):
 
 
 def _parse_args(argv):
+    # `--help` is the first thing anyone types, and until 2026-09-06 every
+    # tool here answered it with "FAIL: expected --flag value pairs, stuck at
+    # '--help'" -- a hard error, on the exact command documentation/ tells a
+    # new reader to run. The module docstring is already the usage text; print
+    # it and exit 0.
+    if any(a in ('--help', '-h') for a in argv):
+        print((sys.modules['__main__'].__doc__ or __doc__ or '').strip())
+        raise SystemExit(0)
     args = {}
     i = 0
     while i < len(argv):
@@ -250,7 +292,8 @@ def main():
 
     try:
         dest, level = land(candidate_path, level, args.get('--path'),
-                            args.get('--approved-by'), against)
+                            args.get('--approved-by'), against,
+                            args.get('--strength'))
     except (pp.PromoteRefused, LandRefused) as e:
         if isinstance(e, pp.PromoteRefused):
             n, name, reason = e.args
