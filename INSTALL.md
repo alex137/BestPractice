@@ -713,10 +713,13 @@ subject matter, so until then nothing here had been tested against an
 adopter adapting the templates to their own work. It found three more
 defects, all of them in this engine and none in the steps:
 
-- two checks the individual set supplies crashed on a repository with **no
-  commits** — which a fresh install is, exactly — and the traceback was
-  reported as a violation of the practice itself. They skip now, saying
-  there is no history yet;
+- two checks an individual practice source supplies crash on a repository
+  with **no commits** — which a fresh install is, exactly — and the
+  traceback is reported as a violation of the practice itself. The fix
+  (skip, saying there is no history yet) is written and tested but lives in
+  a private source a session rooted here cannot push to;
+  [TODO.md's `no-history-checks-unpushed` item](TODO.md#no-history-checks-unpushed)
+  carries it in full and says what closes it;
 - a repo declaring its own `fallback_timezone` in `precedent.json` — the
   documented rung-5 override — was reported as drift by
   `timestamps-carry-offset`, which compared it against the engine constant

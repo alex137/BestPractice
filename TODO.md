@@ -6039,3 +6039,39 @@ which is the failure this repointing exists to end — write
 
     **Disposition:** wait (2026-09-14) — the costed options reached Morgan on
     2026-09-14; it now waits on his pick, and nobody chases it here.
+
+98. <a id="no-history-checks-unpushed"></a>**Two individual-set checks crash
+    on a repo with no commits; the fix is written and cannot be pushed from a
+    session rooted here.** `tools/checks/check_commit_author.py` and
+    `tools/checks/check_buenos_aires_dates.py` call `git log` with
+    `check=True`. An unborn HEAD makes git log exit 128, the
+    `CalledProcessError` escapes `find_violations()`, and
+    [tools/precedent_check.py](tools/precedent_check.py) prints the traceback
+    as a VIOLATION of the practice itself. **A fresh install is exactly a repo
+    with no commits**, so every [INSTALL.md](INSTALL.md) §0 install hits both,
+    and it is invisible from inside a practice set, which has years of
+    history. Reported from the first real §0 install into a project with
+    subject matter of its own, 2026-09-14.
+
+    The fix, reproduced and tested here: read the log through a
+    `_git_log_lines()` helper that drops `check=True`, and on a non-zero exit
+    raise the file's own `NotApplicable` — *"this repository has no commits
+    yet"* when `git rev-parse --verify --quiet HEAD` fails, *"not a git
+    repository"* when `rev-parse --git-dir` does, and otherwise what git
+    said. Each suite gets a two-direction case: the empty repo is SKIPPED
+    **and the message says "no commits yet"** (exit 2 alone would pass
+    against a skip for the wrong reason — that is also what a repo declaring
+    no identity gets), and the same fixture, once it carries one commit by
+    the declared person, runs clean. Both suites are green against it.
+
+    **Blocked on:** a session rooted in the individual set. Same wall as
+    [`close-detect-declaration-unpushed`](TODO.md#close-detect-declaration-unpushed):
+    the git proxy refuses to inject a credential across owners (*"not in this
+    session's authorized repository set"*), and `add_repo` refused the
+    cross-owner add. The work exists as a local commit on
+    `claude/no-history-skips-cleanly` in a clone that dies with the
+    container; the paragraph above is the whole of it. Close this when a
+    fresh repo (`git init`, nothing committed) runs both checks and gets
+    SKIPPED rather than a traceback.
+
+    **Disposition:** ask (2026-09-14, the session that hit the refusal)
