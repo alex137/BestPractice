@@ -5341,6 +5341,53 @@ which is the failure this repointing exists to end — write
   waiting for, and a turn that reports a red check with no closing list is
   worse than one that repeats itself.
 
+- <a id="team-sets-carry-no-engine-refresh-workflow"></a>**None of the three
+  team sets has a channel that reports a stale vendored engine, so all three
+  are behind and nothing said so.**
+  **Disposition:** wait
+
+  **Found 2026-09-14**, checking the laggards at the end of an `Update
+  Vendors` run in a consuming repo, which
+  [vendor-update-runbook](practices/vendor-update-runbook.md)'s step 3
+  requires: note the tip before starting, check every repo against it at the
+  end, and roll the laggard forward. The consumer went to `9d15675`.
+  `precedent-team-writing`, `precedent-team-working-style` and
+  `precedent-team-repo-maintenance` all vendor `a114836`, one commit behind.
+  `precedent-individual` vendors `03f4e1e`, further behind still.
+
+  **The gap is the workflow, not the commit.** One commit of drift is
+  nothing; a set with no way to notice drift is the thing worth recording.
+  `practice-set-engine-refresh` — an individual practice, unlinked on purpose,
+  since a private set's contents do not belong in a public tree — says a practice-set
+  repo of Morgan's carries `.github/workflows/engine-refresh.yml`, a weekly
+  job that refreshes the engine and opens a pull request only if that produced
+  a diff. Its occasion is *"creating a practice-set repo of mine, **or finding
+  its vendored engine stale**"*, which is exactly this. All three team sets
+  carry `precedent-check.yml` and `views-drift.yml` and neither of those looks
+  at `ENGINE_MANIFEST.json`. `precedent-individual` is the only one of the four
+  that has the workflow, and is also the most stale — which says something
+  about the workflow's health worth checking before copying it anywhere.
+
+  **Each set has a `precedent/engine-refresh` branch, and it is not evidence
+  of a scheduled job.** It is a spent working branch from the last manual
+  refresh, already merged. This session read it as the workflow and said so in
+  a pull request body before checking `.github/workflows/`; that is the
+  specific mistake worth not repeating, because the branch name is exactly
+  what a scheduled job's branch would be called.
+
+  **Not done here, and the reason is scope rather than difficulty:** the work
+  is four `precedent_vendor_engine.py refresh` runs and a copied workflow
+  file, but this session's designated repositories were one consuming project
+  and this one, and a request to attach a set with push access was refused.
+  Recorded so the
+  finding survives the window that found it
+  ([findings-return-through-repo](practices/findings-return-through-repo.md)).
+
+  **What a fix decides:** whether the workflow goes into the three team sets
+  as it stands, or whether the individual set being both the only carrier and
+  the most stale means the job has been failing or disabled, and wants looking
+  at before it is copied three more times.
+
 90. <a id="engine-root-in-a-vendored-tree"></a>**Five engine tools read the
   wrong repo when vendored, and five more have not been checked.** Fixed
   2026-09-14 for the five a consuming repo actually runs —
