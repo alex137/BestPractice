@@ -278,5 +278,63 @@
       "name": "local",
       "path": "local"
     }
+  ],
+  "_adapters_comment": [
+    "The harness adapters this source installs into every consuming repo's",
+    ".claude/hooks/ on each sync (spec/SOURCES.md, 'Harness adapters travel",
+    "with the source'). Declared 2026-09-14, closing TODO.md's",
+    "universal-adapters-undeclared: until then these seven were installed by",
+    "hand and drifted silently, which is the whole failure the mechanism was",
+    "built for.",
+    "",
+    "SEVEN, NOT EIGHT. templates/harness/claude-code/hooks/ holds eight files",
+    "and the eighth is individual-source-bootstrap.sh.template, which is NOT",
+    "an adapter: it carries variables that",
+    "tools/precedent_bootstrap_source.py --write-session-hook substitutes at",
+    "install time, so copying it verbatim would install a hook with",
+    "placeholders where its values belong. A template is not a derived",
+    "artifact until something derives it.",
+    "",
+    "THE WIRING DOES NOT TRAVEL AND CANNOT. materialize writes the script and",
+    "refuses to touch a consumer's settings.json -- copying that would",
+    "silently repoint its base branch. So a repo that does not want one of",
+    "these ends up holding an unwired script, which is a legitimate state and",
+    "is declared rather than argued about: declined_adapters, with a reason,",
+    "read by precedent_check.py's hooks-on-disk-are-reachable.",
+    "",
+    "precedent-universal-catalogue.sh is the one that will be declined most.",
+    "It puts the universal catalogue in front of a session rooted in a",
+    "practice SET, and an ordinary consuming repo has no such job -- it should",
+    "decline that one and say so, rather than wire a hook with nothing to do."
+  ],
+  "adapters": [
+    {
+      "from": "templates/harness/claude-code/hooks/commit-identity.sh",
+      "to": ".claude/hooks/commit-identity.sh"
+    },
+    {
+      "from": "templates/harness/claude-code/hooks/freshness-guard.sh",
+      "to": ".claude/hooks/freshness-guard.sh"
+    },
+    {
+      "from": "templates/harness/claude-code/hooks/precedent-paths.sh",
+      "to": ".claude/hooks/precedent-paths.sh"
+    },
+    {
+      "from": "templates/harness/claude-code/hooks/precedent-universal-catalogue.sh",
+      "to": ".claude/hooks/precedent-universal-catalogue.sh"
+    },
+    {
+      "from": "templates/harness/claude-code/hooks/reply-gate.sh",
+      "to": ".claude/hooks/reply-gate.sh"
+    },
+    {
+      "from": "templates/harness/claude-code/hooks/session-start.sh",
+      "to": ".claude/hooks/session-start.sh"
+    },
+    {
+      "from": "templates/harness/claude-code/hooks/stop-git-check.sh",
+      "to": ".claude/hooks/stop-git-check.sh"
+    }
   ]
 }
