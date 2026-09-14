@@ -5703,6 +5703,51 @@ which is the failure this repointing exists to end — write
   decision 1 above; the fixed one is obviously preferable and neither blocks
   the other.
 
+  **REVERSED 2026-09-14, later the same day: Morgan wants the cron killed.**
+  In his own words — *"we have a cron that we want to kill"* — so
+  **strength: decided (2026-09-14, Morgan)** on killing it. Everything the
+  decisions above turn on changes with it:
+
+  - **Decision 1 is VOID.** Installing a scheduled workflow in three
+    repositories while removing the schedule from the fourth is incoherent.
+    Nothing is to be installed in the team sets, and there is nothing to kill
+    there either: measured, none of the three has ever had
+    `.github/workflows/engine-refresh.yml`, so they have no scheduled action
+    at all.
+  - **The template fork is moot in the form it was asked.** *"So they go into
+    future ones"* has no content once there is no cron to inherit. If the
+    opt-in-flag route is ever wanted it is for a different artefact.
+  - **The superseded-pull-request closer recommended above loses its
+    urgency.** Its whole case was competing SCHEDULED runs stacking pull
+    requests nobody arbitrates. Without a schedule they stop competing, and
+    it drops from a fix to a nicety — worth keeping only if the on-demand
+    path turns out to stack them too.
+
+  **The shape of "kill the cron" is a reading, not his words**, and it is
+  reversible either way: remove the `schedule:` block and keep
+  `workflow_dispatch`, so the job stays available on request and simply never
+  fires on a clock. Deleting the workflow outright is the other reading, and
+  it throws away a working one-click refresh for no stated gain.
+
+  **This is not a one-line YAML edit, and that is the part worth not
+  forgetting.** The individual practice `practice-set-engine-refresh` REQUIRES
+  the weekly workflow — that is what it says, and it carries a Story about the
+  set going two hundred commits stale. Deleting the `schedule:` block without
+  retiring or revising that practice leaves the set failing its own rule, with
+  nothing to catch it (the practice declares no mechanical check, on purpose).
+  Both halves land together or neither does. Both are in
+  `precedent-individual`; `git push --dry-run` from here returns 403 from the
+  git proxy, re-measured today, so a session rooted there does the work.
+
+  **What killing it costs, said plainly rather than argued away:** the set
+  loses its only channel that reports a stale engine without somebody looking,
+  which is the exact 2026-09-06 condition the practice was written to end.
+  What makes that defensible is this item's own measurement — the unattended
+  channel fired twice and landed zero times, while sessions refreshed that set
+  three times in the same week. The attended path is the one that works. The
+  practice's revision should say that, rather than deleting its Why and
+  leaving the reasoning unanswered.
+
 91. <a id="engine-root-in-a-vendored-tree"></a>**Five engine tools read the
   wrong repo when vendored, and five more have not been checked.** Fixed
   2026-09-14 for the five a consuming repo actually runs —
