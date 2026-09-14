@@ -18,16 +18,28 @@ back into `process/upstream/` in generic form); a **manifest** records the
 mapping both ways and an **audit** makes drift and private-vocabulary
 leakage loud instead of silent.
 
-Two paths, and most projects still take the first:
+Two paths, and since 2026-09-14 the default is the first:
 
-- **[INSTALL.md §1](../INSTALL.md#1-install-into-a-dependent-repo)** — the
-  classic vendored model. The right default today.
 - **[INSTALL.md §0](../INSTALL.md#0-installing-directly-onto-the-precedent-loader-new-2026-09-03--read-the-caveat-before-using)**
-  — straight onto Precedent's three-source loader, no `process/upstream/`
-  at all. Newer, and carries its own caveat; read it before choosing it.
-  A project that *already* vendored BestPractice the old way wants
-  [spec/MIGRATING_EXISTING_INSTALLS.md](../spec/MIGRATING_EXISTING_INSTALLS.md)
-  instead of either.
+  — straight onto Precedent's three-source loader: the practice catalogue
+  vendored at `precedent/universal/`, the engine at `tools/`, and
+  `AGENTS.md`'s generated block (resident practices, occasion index,
+  enforced checks). **One command does it**, from a sibling clone of
+  Precedent:
+
+  ```
+  python3 tools/precedent_install.py <project path> --project-name "<name>"
+  ```
+
+  It prints the placeholders it left for you to adapt and stops before
+  committing. What it does step by step is §0's numbered list.
+- **[INSTALL.md §1](../INSTALL.md#1-install-into-a-dependent-repo)** — the
+  classic vendored model (`process/upstream/`, a manifest, the check-in
+  loop). It installs the practice *prose* and none of the loader; take it
+  only if the project specifically wants the export-and-check-in loop. A
+  project that *already* vendored BestPractice this way and wants the
+  loader takes
+  [spec/MIGRATING_EXISTING_INSTALLS.md](../spec/MIGRATING_EXISTING_INSTALLS.md).
 
 The §1 sequence, in short — each step is spelled out in full at the link:
 

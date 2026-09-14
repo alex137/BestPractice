@@ -347,6 +347,48 @@ previous runs gave: it is `full-practice-audit`'s own on-request job and
 reporting it done on a skim is the failure that practice exists to prevent.
 **The private sets' backlogs were not swept**, same as before.
 
+### Morgan's four questions, answered the same day
+
+Asked after the run's reply, with *"anything you think we should do, just
+do it and Go Merge"*; each answer is recorded here because the next run
+will ask the same things.
+
+1. **Updates to the check itself.** Three, all landed: the fresh-eyes
+   rehearsal method is now a pass-1 bullet in the practice (below); the
+   pass-1 read ends by comparing what landed against the pitch, not only
+   against the install document; and step 1 of the order of operations
+   says to re-read the instructions file after a fast-forward, because the
+   copy in context predates it. The tool's checklist reprint was already
+   cheapened in the run.
+2. **Should the rehearsal method be part of the predefined process?** Yes,
+   and it is: one subagent per install path, no prior context, playing the
+   person the document is written for, reporting path-and-line findings and
+   the real output of the result's own checks. It found 65 defects where
+   the previous run's session-built fixtures found five, and the difference
+   is the reader, not the fixture.
+3. **Bigger ways to make installing and migrating smoother.** The install
+   is now one command — [tools/precedent_install.py](../tools/precedent_install.py)
+   performs INSTALL.md §0 and prints the placeholders it left — and
+   [SETUP.md](../SETUP.md) runs it, so a non-technical administrator now
+   receives the loader the pitch describes (TODO 102, closed; `strength:
+   assented`). Its fixture installs into a scratch project on every
+   harness run and runs that project's own checks, which is what stops the
+   nine prose steps drifting again. What is still not smooth, and still
+   recorded rather than built: the migration remains a document rather than
+   a tool (a `precedent_migrate.py` doing steps 3, 7 and 8 would take the
+   same shape, and most of this run's migration findings were the
+   document flipping between two tools/ trees); a repository with no
+   `origin` yet is refused its first write and lints nothing ([TODO 104](../TODO.md#no-origin-is-not-stale));
+   and the engine's own messages still send a consumer to `templates/` and
+   `spec/` it does not have ([TODO 105](../TODO.md#consumer-hears-about-files-it-does-not-have)).
+4. **Alex's commits on `main`.** Merged into `precedent-beta-v01` the same
+   day: `git merge origin/main` was a clean merge that changed no file
+   (the trees were identical at PR #367's merge base, and the eight
+   `main`-only commits are the merge itself, a revert-and-reapply pair, and
+   one commit whose content the carry audit had already found here). The
+   histories are joined now, so the next fold-in is an ordinary merge and
+   the base-branch scan lists nothing. The watermark was already at PR #367.
+
 ## What Each Part of the Check Returned, and What It Cost
 
 Every run appends itself to

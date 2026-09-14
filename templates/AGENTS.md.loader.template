@@ -360,9 +360,8 @@ Conflicts in shared files are EXPECTED. The fast, safe path:
   clone instead (never vendored — see INSTALL.md §0 step 3).
 - **Public-safe invariant, if this repo is public and the universal
   source's upstream is too:** nothing proprietary may appear under the
-  vendored universal path, ever — the same invariant the old
-  `process/upstream/` model enforced with `practice_audit.py`, ported
-  here. No enforcement script for this exists yet in the loader model;
+  vendored universal path, ever — the same invariant the classic vendored
+  model enforced with `practice_audit.py`, ported here. No enforcement script for this exists yet in the loader model;
   review changes under the vendored path by hand until one does.
 - `python3 tools/precedent_sync_views.py --repo . --check` is this repo's own
   drift gate — run it before trusting `AGENTS.md`'s generated block, and

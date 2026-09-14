@@ -47,10 +47,8 @@ down makes anyone follow it. It measurably does not.
 
 This is the common case and it should be the shortest. **You do not do
 these steps yourself**: paste [SETUP.md](../SETUP.md) to your assistant and
-it does them as a conversation. What lands in your project today is the
-layout SETUP.md installs (the library and its tools under one `process/`
-folder, plus a few files at the top); the three-step shape below is the
-idea, not a checklist to follow by hand.
+it does them as a conversation, with one command doing the file work. The
+three-step shape below is the idea, not a checklist to follow by hand.
 
 1. Copy Precedent's practice library into your project, as ordinary files
    kept alongside everything else there. It becomes part of the project,

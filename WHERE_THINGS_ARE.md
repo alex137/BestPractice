@@ -96,6 +96,7 @@ not it is read.
 | Install / update / check-in playbook (dependent repos) | [INSTALL.md](INSTALL.md) — the assistant-facing runbook; the person-facing routes are [SETUP.md](SETUP.md) (guided, non-technical) and [documentation/FOR_DEVELOPERS.md](documentation/FOR_DEVELOPERS.md) (short form plus what actually bites) |
 | What each person sets on each machine (individual source, leak blocklist, the optional overrides) | [PER_MACHINE_SETUP.md](PER_MACHINE_SETUP.md) |
 | Guided-install entry point admins paste to their agent | [SETUP.md](SETUP.md) |
+| The one-command loader install (INSTALL.md §0 performed mechanically; prints the placeholders it left) | [tools/precedent_install.py](tools/precedent_install.py) — `--help`; its fixture in [tools/verify_harness.py](tools/verify_harness.py) installs into a scratch project on every run |
 | Member onboarding page (template + rendered sample) | [templates/GETTING_STARTED.md](templates/GETTING_STARTED.md) |
 | Git/GitHub concepts for this workflow | [GIT.md](GIT.md) |
 | The working method (branches, plain text, critique, prompts) | [METHOD.md](METHOD.md) |

@@ -274,7 +274,11 @@ cannot tell a drift this run introduced from one that was there before. So:
    so an attached sibling has never been checked by anything. The
    liveness half runs in the same breath and is a finding rather than a
    refusal: a deleted, renamed or archived repo in force does not make the
-   reading below wrong, it makes the writing above it pointless.
+   reading below wrong, it makes the writing above it pointless. **And if
+   the checkout moved under you here, re-read the instructions file**: a
+   session is handed `AGENTS.md` before any guard can fast-forward the
+   tree, so after a fast-forward the copy in context is the stale one
+   (2026-09-14: 983 lines behind the tip, for a whole first turn).
 2. **Run the deep check suite as it stands** — the five gates
    [AGENTS.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/AGENTS.md) names ([two-check-levels](two-check-levels.md))
    — and fix what it reports, before this check reads a line. `0 failed` and
@@ -340,6 +344,27 @@ audit came from **building the thing the document describes and running the
 checks on it** ([spec/PRELAUNCH_AUDIT.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/PRELAUNCH_AUDIT.md), "The
 method"). Build the fixtures.
 
+- **Rehearse each install path with fresh eyes, as the person it is
+  written for.** Not a fixture built by the session that knows the
+  documents: a session with no prior context — a subagent, told which
+  document to follow, whom to play, and to report every point where the
+  document is ambiguous, self-contradictory, names something that does not
+  exist, or asks a question the person cannot answer, with path and line —
+  one per path, in parallel. Four paths: the guided install
+  ([SETUP.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/SETUP.md), as a non-technical administrator),
+  the loader install ([INSTALL.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/INSTALL.md) §0, as a developer — both by
+  running `tools/precedent_install.py` as an adopter would and by reading
+  the numbered steps against what it did), the migration, and the update
+  below. Each rehearsal ends by running the result's own checks and
+  reporting the real output. **Then ask one more question of each: is what
+  landed what the pitch promised?** Read the result against
+  [documentation/ADOPTING.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/documentation/ADOPTING.md) and the README, not
+  only against the install document — on 2026-09-14 every sentence of the
+  guided install was correct and the person following it received a
+  system without the loader the pitch describes, which no single-document
+  reading could see. Fresh eyes are what made the difference: the
+  2026-09-14 run found 65 defects this way where the previous run's
+  session-built fixtures found five.
 - **A real from-scratch install.** A scratch repository with nothing in it,
   installed per [INSTALL.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/INSTALL.md) §0 against `precedent-beta-v01`
   alone — no team set, no individual set, none of the sibling clones this

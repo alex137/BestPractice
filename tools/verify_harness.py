@@ -17400,6 +17400,115 @@ def check_no_engine_tool_hardcodes_a_mirror_path():
           '; '.join(bad))
 
 
+def check_installer_produces_a_clean_install():
+    """tools/precedent_install.py, run against a scratch project as SETUP.md
+    now runs it, yields a repo whose own gates come back clean -- and
+    refuses to run twice.
+
+    WHY (practice: cite-the-incident). The 2026-09-14 very deep check
+    rehearsed INSTALL.md section 0 as written, four times over, and every
+    roadblock was a document describing file operations that had drifted
+    from the operations: a template's dead links, a workflow name no install
+    creates, a check firing on a file the adopter never wrote. The installer
+    performs the operations; this fixture is what keeps its output honest,
+    by running the same checks a real adopter's first session would.
+
+    The fixture owns its environment (practice: fixture-owns-its-state): no
+    individual source, no hosted-session self-heal, no leak blocklist, and
+    the global commit backstop waved for the fixture's own commit."""
+    import shutil, tempfile
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-installer-'))
+    cases = []
+    env = dict(os.environ, PRECEDENT_ALLOW_ANY_AUTHOR='1',
+               PRECEDENT_USER_CONFIG=str(tmp / 'no-such-user-config.json'))
+    for k in ('CLAUDE_CODE_REMOTE', 'PRECEDENT_LEAK_BLOCKLIST'):
+        env.pop(k, None)
+
+    def run(args, cwd):
+        return subprocess.run(args, cwd=str(cwd), capture_output=True, text=True, env=env)
+
+    def git(cwd, *args):
+        r = subprocess.run(['git', '-C', str(cwd), *args], capture_output=True,
+                           text=True, env=env)
+        if r.returncode != 0:
+            raise RuntimeError(f"git {' '.join(args)}: {r.stderr.strip()}")
+        return r.stdout
+
+    try:
+        proj = tmp / 'proj'
+        proj.mkdir()
+        git(proj.parent, 'init', '-q', '-b', 'main', str(proj))
+        git(proj, 'config', 'user.email', 'harness@example.com')
+        git(proj, 'config', 'user.name', 'Fixture')
+        (proj / 'README.md').write_text('# Field Notes\n\nA newsletter about birds.\n',
+                                        encoding='utf-8')
+        git(proj, 'add', '-A')
+        git(proj, 'commit', '-qm', 'the project before Precedent')
+
+        tool = str(ROOT / 'tools' / 'precedent_install.py')
+        r = run([sys.executable, tool, str(proj), '--project-name', 'Field Notes',
+                 '--admin', 'dana'], ROOT)
+        out = r.stdout + r.stderr
+        cases.append(('the installer exits 0 on a fresh project', r.returncode == 0, out[-1500:]))
+        cases.append(('it says the light check on the files it wrote passed',
+                      'the light check on the written files: OK' in out, out[-800:]))
+        cases.append(('it names the placeholders it left rather than pretending there are none',
+                      'placeholder(s) to adapt' in out, out[-800:]))
+        pj = proj / 'precedent.json'
+        doc = json.loads(pj.read_text(encoding='utf-8')) if pj.is_file() else {}
+        cases.append(('precedent.json declares the base branch and the visibility explicitly',
+                      doc.get('base_branch') == 'main' and doc.get('visibility') == 'private',
+                      str(doc)[:300]))
+        agents = (proj / 'AGENTS.md').read_text(encoding='utf-8') if (proj / 'AGENTS.md').is_file() else ''
+        cases.append(('AGENTS.md carries the generated loader block with the resident set in it',
+                      bv.BEGIN_MARKER in agents and 'verify-postcondition' in agents, agents[:300]))
+        gs = (proj / 'GETTING_STARTED.md').read_text(encoding='utf-8') if (proj / 'GETTING_STARTED.md').is_file() else ''
+        cases.append(('GETTING_STARTED.md has the project name, the administrator and the upstream '
+                      'docs filled in, and names the workflow file the install actually wrote',
+                      'Field Notes' in gs and '@dana' in gs and '<upstream-docs>' not in gs
+                      and 'bestpractice-docs.yml' in gs
+                      and (proj / '.github' / 'workflows' / 'bestpractice-docs.yml').is_file(),
+                      gs[:400]))
+        settings = proj / '.claude' / 'settings.json'
+        stext = settings.read_text(encoding='utf-8') if settings.is_file() else ''
+        cases.append(('the adapter is wired with no classic-layout allowlist entry, and every '
+                      'hook it names is on disk',
+                      bool(stext) and 'process/upstream' not in stext
+                      and all((proj / '.claude' / 'hooks' / n).is_file() for n in
+                              ('session-start.sh', 'freshness-guard.sh', 'commit-identity.sh',
+                               'reply-gate.sh', 'precedent-paths.sh', 'stop-git-check.sh')),
+                      stext[:200]))
+
+        git(proj, 'add', '-A')
+        git(proj, 'commit', '-qm', 'Install Precedent')
+        r = run([sys.executable, 'tools/precedent_sync_views.py', '--repo', '.', '--check'], proj)
+        cases.append(('the committed tree is byte-identical to a fresh sync',
+                      r.returncode == 0 and 'byte-identical' in r.stdout, r.stdout + r.stderr))
+        r = run([sys.executable, 'tools/precedent_check.py'], proj)
+        cases.append(("the project's own enforced checks come back 0 violated on the install",
+                      r.returncode == 0 and ' 0 violated' in r.stdout,
+                      '\n'.join(l for l in r.stdout.splitlines() if l.startswith(('VIOLATION', 'precedent_check:')))))
+
+        r = run([sys.executable, tool, str(proj), '--project-name', 'Field Notes'], ROOT)
+        cases.append(('a second run without --force is refused, naming the update path',
+                      r.returncode == 1 and 'ENGINE_MANIFEST.json exists' in r.stderr
+                      and 'INSTALL.md' in r.stderr, r.stderr[:300]))
+        bare = tmp / 'not-a-repo'
+        bare.mkdir()
+        r = run([sys.executable, tool, str(bare), '--project-name', 'X'], ROOT)
+        cases.append(('a directory that is not a git repository is refused with its own message',
+                      r.returncode == 1 and 'not the root of a git repository' in r.stderr,
+                      r.stderr[:300]))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    failed = [c for c in cases if not c[1]]
+    check(f'tools/precedent_install.py yields a project whose own gates come back clean '
+          f'({len(cases)} stated cases)', not failed,
+          '; '.join(f'{n}: {d}' for n, _ok, d in failed))
+
+
 def check_declared_identity_has_a_passing_state_in_a_shared_repo():
     """`commit-author` and `buenos-aires-dates` have to be able to PASS in
     a repo many people commit to.
@@ -21067,6 +21176,7 @@ def main():
     check_not_binding_actually_exempts_a_check()
     check_mirrored_prefixes_answers_both_install_models()
     check_no_engine_tool_hardcodes_a_mirror_path()
+    check_installer_produces_a_clean_install()
     check_declared_identity_has_a_passing_state_in_a_shared_repo()
     check_instantiated_template_links_survive_the_copy()
     check_tools_answer_help_without_writing()

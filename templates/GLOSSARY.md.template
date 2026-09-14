@@ -20,4 +20,4 @@ disagree with this file, this file wins — fix the documents.
 
 | Name | What it is | Defined in |
 |---|---|---|
-| <Name> | <one-line role/description, key parameters> | [<doc>](<path>) |
+| <Name> | <one-line role/description, key parameters> | <link to the document that defines it> |

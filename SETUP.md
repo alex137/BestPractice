@@ -6,18 +6,16 @@ Precedent into that repository while guiding them in plain language.
 Assume they are not a programmer — explain simply, ask little, and do all
 technical work yourself.
 
-This conversation installs [INSTALL.md](INSTALL.md) §1, the proven,
-classic model. **Know what that does and does not give them**: the vendored
-practice prose, the instantiated files, the audit and the check-in loop — and
-not the Precedent loader (the resident block, the occasion index, the
-enforced checks), which only [INSTALL.md](INSTALL.md) §0 turns on. A project
-that wants the loader later takes
-[spec/MIGRATING_EXISTING_INSTALLS.md](spec/MIGRATING_EXISTING_INSTALLS.md).
-§0 was rehearsed against a real project on 2026-09-14; whether it should
-become this conversation's default is
-[TODO.md's `setup-default-is-the-loader` item](TODO.md#setup-default-is-the-loader),
-and until that is decided, follow §0 only when the administrator asks for
-it by name.
+This conversation installs [INSTALL.md](INSTALL.md) §0 — the Precedent
+loader: the practice catalogue, the resident block and occasion index every
+session reads, and the enforced checks — with one command,
+[tools/precedent_install.py](tools/precedent_install.py), which does the file
+work and then lists what is left for you to adapt. **Since 2026-09-14 this is
+the default** (Morgan, on the very deep check's recommendation; `strength:
+assented`): until then this page installed §1, the classic vendored model,
+which turns on none of the loader the rest of this repository describes. §1
+is still there for a project that specifically wants the classic check-in
+loop; say so and follow §1 instead.
 
 ## The Conversation
 
@@ -39,34 +37,34 @@ it by name.
      projects have neither yet — that's a complete answer on its own — but
      it costs nothing to offer setting one up in the same conversation, so
      ask rather than assume no.
-3. **Install without further questions.** Fetch the public repo
-   `https://github.com/alex137/BestPractice` (add it to the session or
-   clone it) **on its `precedent-beta-v01` branch** — the branch this file
-   lives on, and where the current install documents are; `main` took the
-   same tree on 2026-09-14 but everything after that lands here first —
-   copy its working tree into `process/upstream/`, then follow
-   [process/upstream/INSTALL.md](INSTALL.md) §1 using their answers:
-   instantiate `AGENTS.md`, `MAP.md`, `TODO.md`, `GLOSSARY.md`,
-   `GETTING_STARTED.md`, `VOICE.md`, and `STYLEGUIDE.md` from the
-   templates; insert the README agent-entry block — but the project comes
-   first (INSTALL.md §1 step 2, practice
-   [lead-with-what-it-is](practices/lead-with-what-it-is.md)): if the repo
-   has no README
-   yet, write its opening from their first answer (*what is this project
-   about?*) before the entry block, so a reader learns what the project is
-   before anything about how it's maintained; apply the harness adapter(s)
-   for the agent(s) in use; create `tools/bootstrap.sh`; write
-   `process/manifest.json`; create `process/scrub_blocklist.txt` from
-   their second answer — always, whether or not the repository is private
-   (read that from the remote yourself; it is not a fourth question, and
-   the file is harmless on a public repo); install the Actions check from
-   `templates/github-actions/doc-lint.yml.template` as
-   `.github/workflows/bestpractice-docs.yml`; and install
-   `templates/pull_request_template.md.template` as
-   `.github/pull_request_template.md`. `GETTING_STARTED.md`'s
-   `<OWNER/REPOSITORY>` comes from the remote, its
-   `<administrator contact>` is the administrator's own GitHub handle, and
-   `<install date>` is today — none of them is a question.
+3. **Install without further questions.** Clone the public repo
+   `https://github.com/alex137/BestPractice` beside the project (a sibling
+   directory, not inside it) **on its `precedent-beta-v01` branch** — the
+   branch this file lives on; `main` took the same tree on 2026-09-14 but
+   everything after that lands here first — and run, from that clone:
+
+   ```
+   python3 tools/precedent_install.py <path to the project> \
+       --project-name "<the project's name>" \
+       --about "<their first answer, one sentence>" \
+       --visibility <private or public, read from the repository, never asked> \
+       --admin <the administrator's GitHub handle>
+   ```
+
+   It vendors the catalogue and the engine, writes `precedent.json`,
+   instantiates `AGENTS.md`, `MAP.md`, `TODO.md`, `GLOSSARY.md`,
+   `GETTING_STARTED.md`, `VOICE.md` and `STYLEGUIDE.md`, the README entry
+   block, the Claude Code hooks, `tools/bootstrap.sh`, the Actions check
+   and the pull-request template, runs the sync, lints what it wrote, and
+   then prints **the placeholders it left** — each is a `<…>` in a file it
+   names, to be filled with the project's own subject matter from their
+   first answer (the README opening and `MAP.md`'s deliverables first; a
+   `GLOSSARY.md` row can be deleted rather than invented). The project
+   comes first ([lead-with-what-it-is](practices/lead-with-what-it-is.md)):
+   the README opens with what the project *is*, and the entry block sits
+   under that. Their second answer goes into the leak blocklist the
+   per-machine page describes — it protects what leaves the project, and
+   the loader install has no `process/scrub_blocklist.txt`.
    If they answered yes to the third question, follow INSTALL.md §1 step 9
    for what to actually do with a team or individual repo (a team source
    goes in a new `precedent.json`; an individual source is never touched
@@ -82,11 +80,14 @@ it by name.
    `VOICE.md` and `STYLEGUIDE.md` install as the templates' near-empty
    skeletons and **stay that way** — filling them in is not part of an
    install (see "What an install does not do" below).
-   Respect the root-hygiene rule (INSTALL.md §1): nothing from
-   Precedent lands at the repo root except the instantiated files —
-   all upstream docs stay under `process/upstream/`.
-   Run `python3 process/upstream/tools/practice_audit.py` — it must pass.
-   Commit everything on a branch.
+   Respect the root-hygiene rule (INSTALL.md §0 step 7): nothing from
+   Precedent lands loose at the repo root except the instantiated files,
+   `precedent.json`, and the sync's own `practices/` and `MANIFEST.json`.
+   Then `python3 tools/precedent_check.py` from the project — it must say
+   `0 violated` — and commit everything on a branch. If the repository has
+   no `origin` yet, it needs one before the first working session: the
+   freshness guard refuses a session's first write while it cannot reach
+   one.
 4. **Walk them through what you made — don't just list files.** Show
    `GETTING_STARTED.md` (what their members will see) and summarize the
    instructions file (the contract future AI sessions work under) in two
@@ -188,7 +189,7 @@ where the decision is genuinely theirs rather than yours; everything not on
 it runs inside your ordinary work. The section references are to
 [INSTALL.md](INSTALL.md), which you are following and they are not.
 
-- **At install (§1).** They answer the three questions in step 2 — what
+- **At install (§0).** They answer the three questions in step 2 — what
   the project is about, what private names or code words must never go
   public, and whether a team or personal practices repo exists or should be
   set up now (§1 step 9; most projects have neither yet, and saying so is a
@@ -197,20 +198,19 @@ it runs inside your ordinary work. The section references are to
   `STYLEGUIDE.md` are **not** walked through and nobody is asked about a
   brand guideline: both ship empty, stay local to the project, and are
   filled in whenever they later ask an assistant to.
-- **At every check-in (§4) — and only if the project gives back at all,
-  since §3 and §4 are both optional.** They review the plain-language
-  summary of what is being proposed back to the public Precedent project,
-  and approve it, adjust it, or hold it back. **This is the one recurring
-  moment where content leaves the project's boundary**, so it is the one
-  worth actually reading rather than rubber-stamping.
-- **When the audit flags something (§6).** A failed automatic check is you
+- **When a practice is proposed** (a rule their assistant noticed and
+  wrote down). They say yes or no, at the level it belongs — theirs, the
+  team's, or the public library, where it goes up for a visible review.
+  This is the one recurring moment where content may leave the project's
+  boundary, so it is the one worth actually reading rather than
+  rubber-stamping.
+- **When a check flags something.** A failed automatic check is you
   catching a problem before it reached them, not something they fix by
   hand. Explain what failed, fix it, and let them confirm the fix makes
   sense.
-- **Nowhere else.** Updates (§2), the day-to-day export gate (§3), and the
-  manifest and audit internals (§5–§6) run inside your normal work and
-  need no sign-off unless you specifically flag a conflict or a judgment
-  call.
+- **Nowhere else.** Updates (`Update Vendors`, §2) run inside your normal
+  work and need no sign-off unless you specifically flag a conflict or a
+  judgment call.
 
 ## What an Install Does Not Do
 

@@ -6805,6 +6805,16 @@ which is the failure this repointing exists to end — write
     item). **Blocked on:** Morgan's decision — it changes what every new
     adopter receives. **Disposition:** ask (2026-09-14, the very deep check)
 
+    **CLOSED 2026-09-14 — flipped, the same day.** Morgan, on the check's
+    reply: *"anything you think we should do, just do it and Go Merge"*
+    (`strength: assented` — the recommendation was the session's, and he
+    delegated rather than chose). [SETUP.md](SETUP.md) now installs §0
+    through [tools/precedent_install.py](tools/precedent_install.py), a
+    one-command install added in the same change so that the nine prose
+    steps a rehearsal had just found drifting stop being steps a person
+    follows. §1 stays documented for a project that wants the classic
+    check-in loop.
+
 103. <a id="classic-install-wires-loader-hooks"></a>**A §1 install ends
     every turn with `precedent gate FAIL`, because the Claude Code adapter
     wires two hooks the hook table says are loader-only.** Measured
@@ -6819,7 +6829,9 @@ which is the failure this repointing exists to end — write
     default the §1 adapter shrinks to what §1 uses; if not, ship a §1
     variant of `settings.json` or make the gate stay quiet under the
     `process/upstream` layout. **Disposition:** wait (2026-09-14, the very
-    deep check)
+    deep check). *Narrowed the same day*: §0 is the default now, so this
+    reaches only a project that chooses §1 by name; the fix is the §1
+    variant of `settings.json`, when somebody next installs §1.
 
 104. <a id="no-origin-is-not-stale"></a>**A repository with no `origin` at
     all reads as a stale checkout and as a repo with nothing changed, and

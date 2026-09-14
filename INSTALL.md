@@ -596,20 +596,37 @@ appended to the baseline `.gitignore` instantiated above from
 
 ## 0. Installing Directly Onto the Precedent Loader (New, 2026-09-03 — Read the Caveat Before Using)
 
-**Most projects should still use §1.** This is the alternative, for a
-project that has never installed BestPractice before and wants to start on
-the three-source model (universal + team + individual) directly rather than
-installing the older single-source model and migrating later. **It is the
-only install that turns the loader on** — the resident block, the occasion
-index, the enforced checks; §1 installs the vendored prose and none of
-that, so a §1 project that wants Precedent later takes
+**This is the default install since 2026-09-14, and it is one command.**
+It is the only install that turns the loader on — the resident block, the
+occasion index, the enforced checks; §1 installs the vendored prose and none
+of that, so a §1 project that wants Precedent later takes
 [spec/MIGRATING_EXISTING_INSTALLS.md](spec/MIGRATING_EXISTING_INSTALLS.md).
-Rehearsed against a real project on 2026-09-14 (the closing paragraph of
-this section says what it found). [SETUP.md](SETUP.md)'s guided
-conversation still uses §1 by default; whether that default should flip
-is [TODO.md's `setup-default-is-the-loader` item](TODO.md#setup-default-is-the-loader),
-and until it is decided, take this path when the administrator asks for it
-by name.
+[SETUP.md](SETUP.md)'s guided conversation runs this path (until 2026-09-14
+it ran §1 — flipped on the very deep check's recommendation; `strength:
+assented`).
+
+From a sibling clone of Precedent, on `precedent-beta-v01`:
+
+```
+python3 tools/precedent_install.py <project path> --project-name "<name>" \
+    [--about "<one sentence, for a README that does not exist yet>"] \
+    [--visibility private|public] [--base-branch main] \
+    [--output-paths docs,site] [--admin <github handle>] [--team NAME=PATH]
+```
+
+[tools/precedent_install.py](tools/precedent_install.py) does steps 1, 2,
+4, 5 and 6 below exactly as written, lints the files it wrote, and prints
+what it could not decide: the `<…>` placeholders left in the instantiated
+files (the project's own subject matter), any line still naming a layout
+the project does not have, and the two things that stay a conversation —
+step 3's team-and-individual question, and giving the repository an
+`origin`. It never commits. **The numbered steps stay here because they
+are what the tool does**, in the order it does it, and because a repo
+that wants to deviate from one of them needs to know what it is deviating
+from. Rehearsed against a real project on 2026-09-14 (the closing paragraph
+of this section says what it found); the tool's own fixture in
+[tools/verify_harness.py](tools/verify_harness.py) installs into a scratch
+project and runs that project's checks on every harness run.
 
 **When to use this instead of §1**: a genuinely fresh repo, never
 BestPractice-vendored before. A repo that already vendored BestPractice
