@@ -13,6 +13,7 @@ Built from every practice's `defines:` frontmatter field -- the terms that pract
 | Brainstorm | [brainstorm-holds-commits](practices/brainstorm-holds-commits.md) |
 | capture gate | [capture-gate](practices/capture-gate.md) |
 | capture sweep | [second-pass-capture](practices/second-pass-capture.md) |
+| Chief of Staff | [chief-of-staff](practices/chief-of-staff.md) |
 | conservative corner | [constants-are-risk-inputs](practices/constants-are-risk-inputs.md) |
 | cross-source rollout | [cross-source-rollout](practices/cross-source-rollout.md) |
 | decided | [decision-strength](practices/decision-strength.md) |
@@ -43,7 +44,9 @@ Built from every practice's `defines:` frontmatter field -- the terms that pract
 | skipped heading level | [heading-outline](practices/heading-outline.md) |
 | Spawn session | [spawn-session](practices/spawn-session.md) |
 | speculative document | [speculation-is-marked](practices/speculation-is-marked.md) |
+| the desk | [chief-of-staff](practices/chief-of-staff.md) |
 | the origin artifact | [fix-the-original](practices/fix-the-original.md) |
+| the sweeper | [chief-of-staff](practices/chief-of-staff.md) |
 | Three Things | [three-things](practices/three-things.md) |
 | Todo reminder | [todo-reminder](practices/todo-reminder.md) |
 | Update Vendors | [vendor-update-runbook](practices/vendor-update-runbook.md) |
