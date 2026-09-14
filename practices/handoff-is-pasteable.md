@@ -55,6 +55,19 @@ earlier. Their numbering and yours will not match, and the block itself
 cannot say which one is right, because the session reading it has no view of
 either.
 
+**A version in a handoff carries its reason, or it does not appear.** Name
+the repository and the branch — the lineage is always said out loud, and
+dropping *that* is a worse failure than anything else here. But do not name
+the commit, tag or release sitting on it: write *"take the current tip of
+`<branch>`"* and let the other session resolve it at the moment it reads.
+A handoff is read later than it is written, by a gap nobody controls, so a
+hash pasted into one is stale by construction — and the session reading it
+cannot tell whether you meant *this exact commit matters* or *this is what I
+happened to be looking at*. Where the exact commit really is the point —
+reproducing a bug against an older engine, or landing a diff somebody
+actually reviewed — say which of those it is in the same sentence. That is
+the only thing that separates a deliberate pin from a stale copy-paste.
+
 ## Detail
 A handoff that describes the task in prose and leaves the person to compose
 the prompt has moved the work, not delegated it.
@@ -129,6 +142,22 @@ session."* It was right. The repository name was in the heading and the
 ordinal beat it, because an ordinal looks like an address and a heading looks
 like a title.
 
+**The version clause was added 2026-09-14, after this repo got it backwards
+first.** A four-set engine rollout ended with one set a commit behind the
+other three, and the session that noticed wrote a runbook rule telling future
+rollouts to pin one commit across every repo so they land level. Morgan read
+it and asked: *"but do we want to install that specific version we told it?
+Why not install the most recent version?"* He was right, and that rollout is
+the proof against the rule it produced: the lagging set was missing the reply
+gate, and the only reason anyone looked was that it DIFFERED from the other
+three — pinning would have put the same staleness in four repositories behind
+a clean-looking table. The runbook was corrected the same day (#337), and he
+generalized it from there, in his own words: *"when we spawn session or we
+write wording to give another session -- we never tell it which particular one
+to use, but force it to take the most recent version (unless you're
+specifically instructed otherwise)."* **Strength:** decided (2026-09-14,
+Morgan).
+
 **The link clause was added 2026-09-11**, when Morgan asked for the check
 that precedes this rule — *"first look to see if it should be in a different
 session... then you should create a link to the new session, rooted in the
@@ -139,3 +168,11 @@ allows that.
 
 ## Install
 Nothing to configure. It fires when a reply asks the person to go elsewhere.
+
+**Mechanically checked: no, and the attempt is recorded rather than left
+unsaid.** What this rule governs is a chat reply or a seeded prompt, and
+neither is a file in any repository, so there is nothing for
+[precedent_check.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/precedent_check.py)
+to read. The reply gate carries it instead: this practice is registered on
+`reply`, so it prints at the moment a handoff is being written rather than
+after it has been sent.
