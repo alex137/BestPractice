@@ -5811,11 +5811,14 @@ which is the failure this repointing exists to end — write
     it drops from a fix to a nicety — worth keeping only if the on-demand
     path turns out to stack them too.
 
-  **The shape of "kill the cron" is a reading, not his words**, and it is
-  reversible either way: remove the `schedule:` block and keep
-  `workflow_dispatch`, so the job stays available on request and simply never
-  fires on a clock. Deleting the workflow outright is the other reading, and
-  it throws away a working one-click refresh for no stated gain.
+  **The shape was a reading when it was written and is his words now.**
+  Confirmed 2026-09-14, same day, asked and answered rather than assumed:
+  *"I meant to kill the scheduled crons, not workflow dispatch."* So: remove
+  the `schedule:` block, keep `workflow_dispatch`, and the job stays available
+  on request while never firing on a clock. **Strength: decided (2026-09-14,
+  Morgan)** on the shape as well as on the kill. Deleting the workflow
+  outright is explicitly NOT what was asked, and a later session should not
+  re-derive it as the tidier reading.
 
   **This is not a one-line YAML edit, and that is the part worth not
   forgetting.** The individual practice `practice-set-engine-refresh` REQUIRES
