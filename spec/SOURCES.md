@@ -208,7 +208,7 @@ mean the declaration has come loose from the tree: a decline naming a file that
 is not there, and a decline sitting beside a hook that something actually
 calls. It reports; it never wires anything, and it never unwires anything.
 
-**Done 2026-09-14: this repository declares seven adapters of its own.** Until
+**Done 2026-09-14: this repository declares five adapters of its own.** Until
 then the hook templates under
 [templates/harness/claude-code/hooks/](../templates/harness/claude-code/hooks/)
 were installed by hand and drifted silently, which is the failure this whole
@@ -217,13 +217,28 @@ starts writing into every consuming repo's `.claude/hooks/`, and a repo that
 did not want one had no way to say so — the decline above is what unblocked it,
 and the two landed in that order on purpose.
 
-**Seven, not eight.** That directory holds eight files and the eighth,
-`individual-source-bootstrap.sh.template`, is not an adapter: it carries
+**Five, not eight, and the two that are missing are the interesting part.**
+That directory holds eight files.
+
+`individual-source-bootstrap.sh.template` is not an adapter at all: it carries
 variables that
 [`precedent_bootstrap_source.py`](../tools/precedent_bootstrap_source.py)
 substitutes at install time, so copying it verbatim installs a hook with
 placeholders where its values belong. A template is not a derived artifact
 until something derives it.
+
+`commit-identity.sh` and `freshness-guard.sh` are real adapters and are still
+undeclared here, because **the individual source already declares the same two
+destinations, and a destination collision is a refusal** — the rule two
+paragraphs down, applied to this repository's own declaration. Declaring them
+here would not compete for the file; it would stop the sync of every repo
+holding both sources. Measured 2026-09-14 against the real four-source
+pipeline, by declaring all seven and watching the consumer case fail.
+
+The individual set is also their right owner: both write a *person's* identity
+or their clone's freshness, and the individual set is where a person's own
+values live. Universal keeps the five that are about the engine rather than
+about whoever is running it.
 
 **One of the seven will be declined by most repos, and that is the expected
 outcome rather than a mistake.** `precedent-universal-catalogue.sh` puts the

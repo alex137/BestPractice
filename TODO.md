@@ -4223,12 +4223,22 @@ which is the failure this repointing exists to end — write
     **CLOSED 2026-09-14.** The item's stated condition was a deliberate call
     about a behavioural change to every consuming repo, and Morgan made it:
     *"Approved - declare the eight adapters"* (`decided` — he chose it from
-    options laid out for him). `precedent.json` now declares **seven**, not
-    eight: the eighth file in that directory is
-    `individual-source-bootstrap.sh.template`, which carries variables
-    substituted at install time, so copying it verbatim would install a hook
-    with placeholders where its values belong. The number in this item was
-    wrong, counted off `ls`.
+    options laid out for him). `precedent.json` now declares **five**, not
+    eight, and the two subtractions are both worth reading.
+
+    `individual-source-bootstrap.sh.template` is not an adapter: it carries
+    variables substituted at install time, so copying it verbatim would
+    install a hook with placeholders where its values belong. The number in
+    this item was wrong, counted off `ls`.
+
+    `commit-identity.sh` and `freshness-guard.sh` are real adapters and are
+    deliberately left undeclared: the individual source already declares the
+    same two destinations, and `precedent_materialize.py` REFUSES a
+    destination collision outright. Declaring them here would have stopped
+    the sync of every repo holding both sources. Found by declaring all
+    seven and running the deep check, which failed the vendored-consumer
+    case against the real four-source pipeline — the only place this was
+    visible, since nothing in this repository alone collides.
 
     The decline mechanism landed first, on purpose — it is what makes this
     safe, since a repo that does not want one of the seven can now say so

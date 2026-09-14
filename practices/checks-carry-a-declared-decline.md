@@ -3,7 +3,7 @@ slug:        checks-carry-a-declared-decline
 title:       A check a repo cannot legitimately clear carries a declared decline
 tier:        on-demand
 severity:    default
-applies_to:  ["tools/**/*.py", "practices/**"]
+applies_to:  ["tools/precedent_check.py", "tools/checks/**/*.py"]
 occasion:    "writing or changing a check that can report a deliberate state"
 gates:       ["review"]
 index_clause: "a check reporting a state a repo chose needs a declared decline, with a reason"
@@ -87,10 +87,10 @@ source. It fires at the `review` gate instead —
 writing or changing a check is handed this Rule at the moment it matters.
 
 The worked example is in this repository and is the shape to copy:
-`declined_adapters` in [precedent.json](../precedent.json), read by
+`declined_adapters` in [precedent.json](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/precedent.json), read by
 `hooks-on-disk-are-reachable` in
 [tools/precedent_check.py](../tools/precedent_check.py), with its four
-planted cases in [tools/verify_harness.py](../tools/verify_harness.py) —
+planted cases in [tools/verify_harness.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/verify_harness.py) —
 the declared decline passing, and each of the three loose-declaration
 states firing.
 
