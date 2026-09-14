@@ -30,9 +30,21 @@ WHAT IT DELIBERATELY DOES NOT DO. It never pushes and never opens a pull
 request. `--apply` refreshes the vendored files and regenerates the views,
 and `--commit` will commit that on a branch in the target repo; publishing
 it stays a person's (or a session's) explicit act, per that repo's own
-merge rules, which this tool has no way to know. The unattended path is the
-scheduled workflow the source templates now ship, which runs in the source
-repo itself where its own rules apply.
+merge rules, which this tool has no way to know.
+
+THERE IS NO UNATTENDED PATH, AND THAT IS THE DECISION (2026-09-14). This
+paragraph used to end by naming one -- "the scheduled workflow the source
+templates now ship" -- which was wrong twice over: the templates never
+shipped one (added 2026-09-06, pulled the same day), and as of 2026-09-14
+no repository runs a scheduled engine refresh at all. Morgan, in his own
+words: "I think that engine-refresh.yml is now doing an automatic update
+weekly. Let's stop that. No weekly updates. I had that weeks ago, but we're
+not doing that anymore; this is now really complex and deserves hand
+attention and issues come up every time and I'm on it every day anyway."
+The replacement channel is a person saying "Update Vendors" in a session
+(practices/vendor-update-runbook.md). So this tool's report, and the
+session-start line it prints, are the whole notification story -- if
+nobody is looking, nothing tells anybody.
 
 A SECOND THING THIS COVERS, AND WHY IT IS THE SAME TOOL (added
 2026-09-09). A source set also carries its own session hooks -- the

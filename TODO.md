@@ -1125,12 +1125,23 @@ which is the failure this repointing exists to end — write
   that was added to both source templates on 2026-09-06 and **removed the
   same day, deliberately**: a cron job phoning a remote weekly, spending an
   adopter's Actions minutes and opening pull requests in their repository, is
-  not something a universal template gets to decide on their behalf. It is an
-  individual-level preference now, and
+  not something a universal template gets to decide on their behalf.
   [spec/BOOTSTRAP_NEW_SOURCES.md](spec/BOOTSTRAP_NEW_SOURCES.md) records the
-  shape in full so nobody re-derives it. **Blocked on:** nothing mechanical,
-  and that is the point — reopening this means someone arguing the imposition
-  is worth it for every adopter, which is a decision rather than a task.
+  shape in full so nobody re-derives it.
+
+  **SUPERSEDED 2026-09-14 in its second half.** This item used to end "it is
+  an individual-level preference now", which was true for eight days. Morgan
+  killed the weekly refresh outright — *"No weekly updates. I had that weeks
+  ago, but we're not doing that anymore; this is now really complex and
+  deserves hand attention and issues come up every time and I'm on it every
+  day anyway."* **Strength:** decided
+  ([decision-strength](practices/decision-strength.md)). So there is no
+  individual-level copy to point at either, and the replacement channel is a
+  person saying `Update Vendors`
+  ([vendor-update-runbook](practices/vendor-update-runbook.md)). **Blocked
+  on:** nothing — this is no longer an open question. A set nobody touches
+  for a month still goes a month unwarned, and that is now the accepted cost
+  rather than a gap awaiting a cron.
 
 38. <a id="gates-absent-from-main"></a>**Put the leak gate on `main`; the deep
     check cannot go there until the merge-back.** **Deferred by Morgan
@@ -5570,7 +5581,7 @@ which is the failure this repointing exists to end — write
   [tools/precedent_bootstrap_source.py](tools/precedent_bootstrap_source.py)'s
   `WORKFLOW_TEMPLATES` for that reason — recorded in
   [spec/BOOTSTRAP_NEW_SOURCES.md](spec/BOOTSTRAP_NEW_SOURCES.md)'s "The
-  scheduled channel, and why it is not shipped here". The individual set was
+  scheduled channel, and why there is not one". The individual set was
   the one place that took the cron anyway, on the ground that it was the
   owner's own preference about his own repositories. He has now withdrawn that
   preference, so the exception closes and nothing anywhere schedules a vendor
@@ -5736,7 +5747,7 @@ which is the failure this repointing exists to end — write
   this one is deliberately not in it; that exclusion was a 2026-09-06 call
   about what a STRANGER's repository inherits, recorded in
   [spec/BOOTSTRAP_NEW_SOURCES.md](spec/BOOTSTRAP_NEW_SOURCES.md)'s "The
-  scheduled channel, and why it is not shipped here"; and
+  scheduled channel, and why there is not one"; and
   `precedent-team-repo-maintenance` predates the workflow outright (founded
   2026-08-31 against the workflow's 2026-09-06) while the other two were
   founded 2026-09-09 and bootstrapped from that same list. Sessions edited all
