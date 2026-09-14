@@ -45,11 +45,11 @@ credential draws on it, so the one that gets refused is rarely the one that
 spent it. **The lever is fewer simultaneous sessions and cheaper tools**, not
 a retry.
 
-**Take the answer from the cheapest place that has it.** The local clone
-before the API; a repo-scoped `list_*` before a `search_*`. **Search is 30
-requests per MINUTE**, shared across every session running at once — the
-tightest allowance on the account by a wide margin, and the first one a busy
-fleet exhausts.
+**What to do instead of spending an allowance is
+[grep-before-search](grep-before-search.md)'s** — the clone on disk first, a
+repo-scoped `list_*` before a `search_*`, and fewer windows working at once.
+This practice measures and budgets the spend; that one is the habit that
+keeps it low, and the two are not repeated into each other.
 
 **Report, never refuse.** A tool that stopped because somebody else's session
 had spent the pool would be the wrong remedy for the right finding.

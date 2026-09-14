@@ -46,6 +46,7 @@ Built from every practice's `defines:` frontmatter field -- the terms that pract
 | retired vocabulary | [migration-scrubs-vocabulary](practices/migration-scrubs-vocabulary.md) |
 | role: | [session-tags](practices/session-tags.md) |
 | routing audit | [routing-audit](practices/routing-audit.md) |
+| search allowance | [grep-before-search](practices/grep-before-search.md) |
 | session load | [session-load-budget](practices/session-load-budget.md) |
 | skipped heading level | [heading-outline](practices/heading-outline.md) |
 | Spawn session | [spawn-session](practices/spawn-session.md) |
