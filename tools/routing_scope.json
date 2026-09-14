@@ -546,6 +546,17 @@
       "why": "Domain-specific to work this repo does not do; no locus here.",
       "decided": "phase 4 routing pass"
     },
+    "next-steps-after-commit": {
+      "globs": [
+        "**"
+      ],
+      "why": "A moment, not a place \u2014 routed by the `reply` gate instead.",
+      "decided": "Morgan, 2026-09-14",
+      "gates": [
+        "reply"
+      ],
+      "gates_why": "Its occasion is the end of a reply; tools/precedent_reply_check.py measures it from the transcript at the stop hook."
+    },
     "no-invented-specifics": {
       "globs": [
         "**/*.md"

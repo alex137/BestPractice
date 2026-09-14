@@ -7,5 +7,15 @@
     ],
     "require_when_context_grew_tokens": 100000,
     "why": "so a long session hears the offer instead of the rule quietly not firing for hours"
+  },
+  {
+    "practice": "next-steps-after-commit",
+    "require_heading_matching": "next step",
+    "require_one_of": [
+      "You can archive this session",
+      "Don't archive this session"
+    ],
+    "why": "Long replies bury the trailing detail -- a question that was asked, a step still on the person -- and a real heading is the only thing that survives skimming. One of the two closing sentences is the only thing that tells 'nothing is outstanding' apart from 'the session forgot'. Declared in this person's individual set 2026-09-13 and moved here 2026-09-14 (Morgan: \"I think we should move the next steps at the end to be universal\"), so it now binds every repository that runs Precedent rather than one person. The mechanism is tools/precedent_reply_check.py, which checks whatever a source declares and has no requirements of its own.",
+    "checks_practice_at": "practices/next-steps-after-commit.md"
   }
 ]

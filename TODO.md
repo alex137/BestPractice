@@ -6161,7 +6161,23 @@ which is the failure this repointing exists to end — write
   `python3 tools/precedent_close_detect.py --explain` names the individual
   source from a fresh session here.
 
-  **Disposition:** ask (2026-09-14, the session that hit the refusal)
+  **CLOSED 2026-09-14 — resolved one level UP, and the stated condition was
+  the wrong one to wait for.** The blocker was never the declaration's
+  content; it was that the phrase it fires on (*"You can archive this
+  session"*) belonged to a private set, so the declaration had to live there
+  too. Moving [next-steps-after-commit](practices/next-steps-after-commit.md)
+  to universal the same day took that phrase with it, and once the sentence
+  is universal the declaration that keys off it can be too. `close_detect.json`
+  now sits at the root of THIS repository, next to `reply_check.json`, and
+  `python3 tools/precedent_close_detect.py --explain` reports
+  `universal/precedent` rather than the individual source — so it names no
+  individual source and never will, which is a better outcome than the
+  condition asked for: close detection is live for every adopter running
+  Precedent, not for one person, and nothing about it is blocked on a
+  repository under another owner. **Recording that explicitly rather than
+  ticking the box**, per
+  [item-closes-on-its-condition](practices/item-closes-on-its-condition.md):
+  the literal condition written here was not met and cannot now be met.
 
 95. <a id="one-unrelated-item-at-the-close"></a>**`closing-items-are-this-thread`
     forbids every unrelated item; Morgan asked for exactly one, and only at

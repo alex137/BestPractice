@@ -20,23 +20,39 @@ log, final assistant message included, on disk, before the hook runs
 model and the turn continues -- so a reply that broke the rule is rewritten
 before the person ever sees it. That is enforcement, not a reminder.
 
-WHAT IT CHECKS, AND WHY NOT ONE WORD OF IT IS IN THIS FILE. The requirement
-this was built for is an INDIVIDUAL practice -- one person's standing rule
-about how replies to him close. Compiling his two sentences into the
-universal engine would bind every adopter of Precedent to one person's reply
-convention, which is exactly the reach mistake practices/rule-level-by-reach
-exists to stop. So the engine ships the MECHANISM and every source declares
-its own requirements, in a `reply_check.json` at the source root:
+WHAT IT CHECKS, AND WHY NOT ONE WORD OF IT IS IN THIS FILE. Nothing here
+says how a reply should end. The engine ships the MECHANISM, and every
+source declares its own requirements, in a `reply_check.json` at the source
+root. The shape, with an invented requirement so the example is not
+mistaken for a live declaration:
 
     {
-      "practice": "next-steps-after-commit",
-      "require_heading_matching": "next step",
-      "require_one_of": ["You can close this session",
-                         "Don't close this session"],
-      "why": "so I never have to re-read a reply to find out what is on me"
+      "practice": "<the slug this enforces>",
+      "require_heading_matching": "what I need from you",
+      "require_one_of": ["Nothing is blocked", "Blocked on:"],
+      "why": "<what goes wrong when the reply omits it>"
     }
 
 A source may declare one requirement (an object) or several (a list).
+
+THAT SPLIT IS STILL THE POINT, AND ONE REQUIREMENT HAS SINCE CROSSED IT.
+`next-steps-after-commit` -- the closing `## Next Steps` heading and one of
+two session-disposition sentences -- was an INDIVIDUAL practice when this
+file was written, and this docstring used it as the worked example of
+something the engine must not compile into itself: binding every adopter of
+Precedent to one person's reply convention is exactly the reach mistake
+practices/rule-level-by-reach exists to stop. Morgan moved it to universal
+on 2026-09-14 (*"I think we should move the next steps at the end to be
+universal"*), so it is now declared in THIS repository's own
+reply_check.json and does bind every adopter -- deliberately, and said out
+loud in the pull request that moved it rather than left to be discovered.
+
+That changes which source declares one requirement. It changes nothing
+about the mechanism: this file still has no requirement of its own, reads
+every source's declaration the same way, and a repo where no source
+declares one checks nothing and says nothing. A source that wants different
+wording than the universal declaration has no override key yet; that is
+real follow-up work, not a property of the split.
 
 WHAT A REQUIREMENT MAY BE CONDITIONED ON. `require_when_context_grew_tokens`
 makes a requirement fire only once the conversation has grown by that many
