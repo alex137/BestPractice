@@ -54,7 +54,8 @@ assume a session has:
   skeleton gained after that set was built**, and `pronouns` (2026-09-12) is
   the first: a migrated set holds no `pronouns` key at all rather than an
   unfilled `{{PERSON_PRONOUNS}}`, so the placeholder sweep cannot see it and
-  `--verify` names the absent key directly. Its remedy is not a file edit
+  `--verify` names the absent key directly. `register` (2026-09-14) is the
+  second, found the same way. Its remedy is not a file edit
   you can make alone — **ask the person whose set it is and write their
   answer in** ([practices/declared-pronouns.md](../practices/declared-pronouns.md)).
 - **Installs the session hooks, including the one that makes the person's
@@ -471,7 +472,12 @@ case documented above.
    person gives you (`he/him`, `she/her`, `they/them`). An unfilled
    `timezone` silently downgrades the commit-identity check to a guess; an
    unfilled `pronouns` silently falls back to they/them for someone who may
-   have wanted otherwise and was never asked. `--verify` reports both.
+   have wanted otherwise and was never asked. **`register` (2026-09-14) is
+   the third of the same shape**: how technical their replies should be, in
+   their own words — nothing else can tell, on purpose
+   ([practices/technical-describes-people.md](../practices/technical-describes-people.md)).
+   Unfilled, a team-level default may decide it for them. `--verify` reports
+   all three.
    **`relayed_authorization` (2026-09-14) is the same shape and also has to be
    asked**: the skeleton ships `"refused"`, which is a real answer rather than
    a placeholder, so nothing will ever report it as unfilled — and a person

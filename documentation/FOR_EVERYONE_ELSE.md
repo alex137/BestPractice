@@ -180,11 +180,18 @@ guess on its behalf.
 
 ## What You Can't Do (on Purpose)
 
-Your access is deliberately limited so nothing you do can break the
-project or publish something by accident — you can comment and propose,
-but you can't push changes live or approve them yourself. This isn't
-about trust in you personally; it just means a mistake, including the
-assistant's, stops at a wall instead of reaching anyone else.
+The line is drawn by *what* a change touches, never by who you are. **The
+documents are yours**: you write them, change them, and — where your
+project is set up that way — merge your own document changes without
+waiting for anyone. **The machinery is not**: the project's settings, its
+automatic checks, and the rules everyone follows need the person who
+maintains the project to look before a change to them lands, whoever asks
+for it. And **a new rule is suggested by anyone and made official only by
+someone on the approvers' list**. Your assistant tells you before it
+proposes anything which side of the line the change falls on, so the wall
+is never a surprise. This isn't about trust in you personally; it just
+means a mistake, including the assistant's, stops at a wall instead of
+reaching anyone else.
 
 ## Learn More
 

@@ -1600,7 +1600,7 @@ def render_map_md(practices, withdrawn=()):
 TOOLS_DESCRIPTIONS = {
     'behavioral_replay.py': "Measures the path-triggered loader against this repo's own commit history",
     'build_views.py': "This file, GLOSSARY.md, and AGENTS.md's loader block — generated views",
-    'build_codeowners.py': "A team practice set's CODEOWNERS, generated from its own approvers.json",
+    'build_codeowners.py': "CODEOWNERS, generated -- a practice set's from its approvers.json, a project's from the maintainers and owned_paths in its precedent.json",
     'catalogue_stats.py': "The figures about the catalogue that other documents cite, computed rather than hand-typed",
     'checkin.py': "Drives the periodic check-in (INSTALL.md §4) mechanically",
     'doc_html.py': "The one sortable-table HTML renderer for repo documents",
@@ -1623,6 +1623,8 @@ TOOLS_DESCRIPTIONS = {
     'precedent_source_credentials.py': "Whether this environment can reach its private practice sources, and the git credential helper that lets a SessionStart hook clone them without add_repo",
     'github_budget.py': "What this account has left of GitHub's API allowances and what each tool spent -- read off the X-RateLimit headers of calls already being made, because /rate_limit answers a pristine window from inside a session",
     'precedent_source_names.py': "Whether each declared source repository is still CALLED what this repo calls it -- a rename redirects forever, so only the GitHub API can answer it",
+    'precedent_boundary_check.py': "Whether a document project's contributor boundary is actually ON -- branch protection shaped as spec/CONTRIBUTOR_ACCESS.md needs, read from the GitHub API; UNVERIFIED when it could not ask, which is not a pass",
+    'precedent_owned_paths.py': "Before a pull request: which changed files will wait for a code owner's review, and the plain-words sentence to say to the contributor about it",
     'precedent_candidate.py': "Stage 2 (phase 5) — raise, list and expire creation-pipeline candidates",
     'precedent_detect.py': "Stage 1 (phase 5) — the mechanical half of candidate detection",
     'precedent_land.py': "Stage 5 (phase 5) — writes an approved candidate into practices/, enforcing the registered-check invariant",
