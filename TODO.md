@@ -1423,17 +1423,37 @@ which is the failure this repointing exists to end — write
   correction to the declining repo's reasoning when someone next works
   there.
 
-- **Four unmerged branches across three repos need a merge-or-close
-  verdict.** Listed by name, with what each is ahead by, in
-  [spec/VERY_DEEP_CHECK.md](spec/VERY_DEEP_CHECK.md)'s pass 4. Two of them
-  are `claude/pre-launch-audit-fixes-7wumzx`, the same branch name in
-  `precedent-individual` (19 unlanded) and `precedent-team-repo-maintenance` (16
-  unlanded), both last moved 2026-09-06. Either a real body of fixes that
-  never landed, or branches whose work reached `main` by another route — the
-  diffs do not say which.
-  **Blocked on:** Alex or Morgan. The practice is explicit that a session
-  which cannot tell says so by name and asks rather than guessing, because
-  waving one through trains the reader to wave the whole list through.
+- <a id="branch-merge-or-close-verdicts"></a>**The unmerged-branch verdicts are acted on; three branch deletions are
+  the only part left, and no session can do them.** Morgan delegated the
+  four, 2026-09-14. This item replaces an earlier version that named
+  `claude/pre-launch-audit-fixes-7wumzx` in two private sets — that
+  description was already stale against
+  [spec/VERY_DEEP_CHECK.md](spec/VERY_DEEP_CHECK.md)'s own pass 4, which is
+  the record, and reading the item instead of the record is what kept it
+  stale.
+
+  - `alex137/BestPractice: philosophy-bidirectional-slugs` — **merged**
+    2026-09-11, zero commits ahead. No verdict was ever owed on its content;
+    only the branch remains.
+  - `alex137/BestPractice: claude/sync-practices-54-55-x2w4n3` — **CLOSE**
+    stands, and it is now checked rather than assumed: its tip `7d8f5a6` is
+    an ancestor of `origin/main`, so nothing is discarded with it.
+  - `alex137/BestPractice: claude/file-sharing-service-spec-0m9c7p` —
+    **raised with Alex as [issue #394](https://github.com/alex137/BestPractice/issues/394)**,
+    2026-09-14, with the three answers laid out. That closes the drift two
+    runs recorded (recommending the ask, never making it). Its 41 commits
+    exist on no other branch, so it is the one branch here whose closure
+    would really discard something.
+  - `themorgan/precedent-individual: precedent/engine-refresh-c6c885033a9f` —
+    **CLOSE** as decided 2026-09-08; it pins an engine commit since
+    superseded, so merging it would refresh that set backwards.
+
+  **Blocked on:** Morgan, for three branch deletions, and nothing else. A
+  session cannot make them: `git push origin --delete` is refused by the
+  permission classifier as `[Git Destructive]` before it reaches GitHub —
+  a different wall from the 403 [record/GOTCHAS.md](record/GOTCHAS.md#g39)
+  describes, and one no retry or alternate tool gets around. Links were
+  handed to him 2026-09-14.
 
 - **Two published commits carry the wrong timezone offset, and
   `precedent_refresh_sources.py --commit` writes a commit with no session

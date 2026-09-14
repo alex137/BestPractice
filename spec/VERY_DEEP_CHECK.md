@@ -257,13 +257,19 @@ safe merge measured — not a new finding.
   `7d8f5a6`, already on `main`, and `git cherry` calls it unique only because
   it compares against `precedent-beta-v01`. Its diff against this branch
   deletes 28,119 lines because it forked before the restructuring. It is also
-  the direct cause of the two phase-7 conflicts above.
+  the direct cause of the two phase-7 conflicts above. **Re-checked
+  2026-09-14**: `7d8f5a6` is still an ancestor of `origin/main`, so closing
+  it discards nothing — measured now, not inferred from the earlier
+  reading.
 - `alex137/BestPractice: claude/file-sharing-service-spec-0m9c7p` — 3
   commits, last moved 2026-07-26, a `share/` spec existing nowhere on this
   branch. **Unchanged from the previous run's verdict: it reads as
   superseded, and it is Alex's repository and his call.** Raise it with him.
-  Two runs have now recorded the same recommendation without it being put to
-  him, which is itself the drift. **What it actually holds, read 2026-09-13
+  Two runs recorded the same recommendation without it being put to him,
+  which was itself the drift. **Ended 2026-09-14: it is now
+  [issue #394](https://github.com/alex137/BestPractice/issues/394)**, with
+  the three answers named, so the next run reads his answer rather than
+  re-recommending the ask. **What it actually holds, read 2026-09-13
   so the ask can stand on its own:** three commits, forked off `main` at
   `12b7b3c` (2026-07-22), adding `share/SPEC.md` (482 lines), `share/PLAN.md`
   (170) and one line in `AGENTS.md`. The spec designs **Share** — a small
@@ -273,15 +279,27 @@ safe merge measured — not a new finding.
   review — nothing here is implemented yet"*. It is a design nobody has
   built, written before the Precedent restructuring, and none of the four
   months since has touched it.
-- `alex137/BestPractice: philosophy-bidirectional-slugs` — 2 commits, last
-  moved **today**, adding `tools/philosophy_backlinks.py` and bidirectional
-  cross-references across `philosophy/`. **Live work from a parallel session;
-  no verdict is owed yet.** Re-check next run.
+- `alex137/BestPractice: philosophy-bidirectional-slugs` — 2 commits adding
+  `tools/philosophy_backlinks.py` and bidirectional cross-references across
+  `philosophy/`. Live work from a parallel session when this pass ran, so no
+  verdict was owed. **It merged 2026-09-11** and is zero commits ahead of
+  this branch; only the branch itself is left to delete.
 - `themorgan/precedent-individual: precedent/engine-refresh-c6c885033a9f` —
   **CLOSE**, as the previous run already decided. It pins a commit that is now
   days stale, so merging it would refresh that set's engine to something
   already superseded. The verdict was recorded 2026-09-08 and not executed;
-  it needs a session rooted in that set.
+  it needs a session rooted in that set, or Morgan deleting the branch
+  himself.
+
+**The three CLOSE verdicts cannot be executed by any session here, and the
+reason is not the one [record/GOTCHAS.md](../record/GOTCHAS.md#g39)
+records.** That entry has a session able to push a branch but not delete
+one, the 403 disguised as a dropped connection. What happens now is earlier
+and flatter: `git push origin --delete` is refused by the permission
+classifier as `[Git Destructive]` before any request reaches GitHub, and a
+`git switch -c` chained behind `&&` is refused with it. So branch deletion
+is a thing to hand to Morgan with a link, not a thing to retry — recorded
+here 2026-09-14 so the next run does not spend the attempt.
 - **Merged and not deleted**: 6 branches in this checkout are merged and more
   than 30 days finished, and 60-odd more are merged within the window. Every
   one is safe by the ancestor test. The deletions are a GitHub-side chore, not
