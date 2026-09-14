@@ -87,6 +87,9 @@ def _budget(key, default):
 
 
 RESIDENT_BUDGET_TOKENS = _budget('resident_block_tokens', 2000)
+# code-cites-practice: session-load-budget -- the generated occasion index
+# grew unbudgeted to 29% of AGENTS.md; see OccasionIndexBudgetExceeded.
+OCCASION_INDEX_BUDGET_TOKENS = _budget('occasion_index_tokens', 4000)
 
 
 def surface_budget(name, default):
@@ -130,6 +133,57 @@ class ResidentBudgetExceeded(Exception):
         self.tokens, self.budget = tokens, budget
         super().__init__(f'resident block is ~{tokens} tokens, over the '
                          f'{budget}-token hard cap')
+class OccasionIndexBudgetExceeded(Exception):
+    """The generated occasion index is over its declared ceiling.
+
+    code-cites-practice: session-load-budget
+
+    WHY THIS EXISTS, and why the resident cap alone was not enough. The
+    resident block has been capped since phase 2; the occasion index never
+    was. Measured 2026-09-14: the index had grown every single day -- 1,136
+    tokens on 08-31, 2,753 on 09-11, 3,377 on 09-14, about 160 a day over the
+    fortnight -- which is 29% of AGENTS.md accruing with nobody deciding it.
+    Four times in two days the file crossed its ceiling and a session that
+    had come to do something else paid a reduction pass, trimming PROSE to
+    make room for generated text it was not allowed to touch.
+
+    Capped so the cost lands on the session ADDING a practice, at the moment
+    it adds one, as a decision about the thing that actually grew.
+
+    Raised, never exited, for the same reason as ResidentBudgetExceeded above:
+    build_views' own CLI is a gate and exits, but precedent_session_practices
+    runs from a SessionStart hook, where exiting means the session gets no
+    practices at all (practice: fail-gracefully).
+
+    WHAT A SESSION SHOULD DO when it fires -- and the order matters, because
+    the cheap move is not the obvious one:
+
+      1. Give the new practice a REAL `applies_to` glob or a `gates:` entry
+         and drop its `occasion:`. It then loads when it is relevant instead
+         of in every session, which is usually what was wanted anyway.
+      2. Shorten `index_clause` on the practices whose lines are longest.
+      3. Only then ask the person to raise the ceiling, which is a decision
+         they take on purpose with the reason recorded in the registry.
+
+    Never drop an `occasion:` from a practice whose `applies_to` is `["**"]`
+    and which declares no gate: that glob matches everything and therefore
+    routes nothing, so the index is its ONLY channel and dropping the line
+    un-routes the rule silently. 33 of 113 active practices were in exactly
+    that position when this cap landed.
+    """
+
+    def __init__(self, tokens, budget):
+        self.tokens, self.budget = tokens, budget
+        super().__init__(
+            f'the generated occasion index is ~{tokens} tokens, over the '
+            f'{budget}-token cap. Give a practice a real applies_to glob or '
+            f'a gate and drop its occasion: (never one whose applies_to is '
+            f'["**"] with no gate -- the index is its only channel), or '
+            f'shorten the longest index_clause values. Raising '
+            f'occasion_index_tokens in tools/session_load_budgets.json is a '
+            f'decision for the person, with the reason recorded there.')
+
+
 WORD_RE = re.compile(r"\S+")
 
 
@@ -688,7 +742,7 @@ def _place_rule_links(text, practice_file, block_dir, repo_root=None,
 
 def build_loader_block(practices, source_levels=None, omits_private=False,
                        block_dir=None, repo_root=None, planned=(),
-                       budget_tokens=None):
+                       budget_tokens=None, occasion_budget_tokens=None):
     """practices: (fm, sections, file) triples, exactly as load_practices()
     returns for this repo's own single-source catalogue. source_levels:
     optional {slug: level} for a caller resolving MULTIPLE sources (e.g.
@@ -762,6 +816,14 @@ def build_loader_block(practices, source_levels=None, omits_private=False,
         for slug, clause in sorted(by_occasion[occasion]):
             index_lines.append(f"  {slug} — {clause}")
     index_text = '\n'.join(index_lines)
+    # The generated half of what every session loads is capped too, not just
+    # the resident block (practice: session-load-budget). A caller may pass
+    # its own budget the same way the resident one does.
+    occ_budget = (OCCASION_INDEX_BUDGET_TOKENS if occasion_budget_tokens is None
+                  else occasion_budget_tokens)
+    occ_tokens = _approx_tokens(index_text)
+    if occ_tokens > occ_budget:
+        raise OccasionIndexBudgetExceeded(occ_tokens, occ_budget)
 
     lines = [BEGIN_MARKER, '']
     # The command named here has to EXIST in the repo this block is being
