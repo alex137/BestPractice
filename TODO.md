@@ -5534,10 +5534,57 @@ which is the failure this repointing exists to end — write
   finding survives the window that found it
   ([findings-return-through-repo](practices/findings-return-through-repo.md)).
 
-  **What a fix decides:** whether the workflow goes into the three team sets
-  as it stands, or whether the individual set being both the only carrier and
-  the most stale means the job has been failing or disabled, and wants looking
-  at before it is copied three more times.
+  **MEASURED 2026-09-14, and it answers this item's own doubt: the workflow is
+  healthy.** The suspicion above — that the only carrier being the most stale
+  might mean the job was failing or disabled — is false, checked against
+  `precedent-individual`'s own history rather than inferred. Its cron is
+  Mondays, and it fired on Monday 2026-09-07 (`aec5ed5`, authored
+  `github-actions[bot]`, pushing `precedent/engine-refresh-c6c885033a9f`) and
+  again on Monday 2026-09-14 (`1eb647e`, landed as that set's pull request
+  #128), producing a correct refresh both times. A third refresh on Thursday
+  2026-09-10 (`b80210c`) is off the cron day, so it was dispatched or run by
+  hand. All four sets vendor `74eb776` as of this writing, so the staleness
+  figures above are the state on the morning they were taken, not now.
+
+  **What it was stale from is the LANDING, not the job.** The 2026-09-07
+  branch is still unmerged — `git merge-base --is-ancestor` says so, and
+  [spec/VERY_DEEP_CHECK.md](spec/VERY_DEEP_CHECK.md) already names it an
+  unlanded attempt. One of the two scheduled refreshes was offered and never
+  taken, and a weekly job leaves up to seven days of drift in a set whose
+  upstream moves dozens of commits a day. Both are arguments for giving the
+  other three sets the same channel, not for holding it back.
+
+  **Why the three team sets never got it, established rather than assumed:**
+  three causes, none of them a decision anybody made about these
+  repositories.
+  [tools/precedent_bootstrap_source.py](tools/precedent_bootstrap_source.py)
+  installs workflows from an explicit two-entry `WORKFLOW_TEMPLATES` list and
+  this one is deliberately not in it; that exclusion was a 2026-09-06 call
+  about what a STRANGER's repository inherits, recorded in
+  [spec/BOOTSTRAP_NEW_SOURCES.md](spec/BOOTSTRAP_NEW_SOURCES.md)'s "The
+  scheduled channel, and why it is not shipped here"; and
+  `precedent-team-repo-maintenance` predates the workflow outright (founded
+  2026-08-31 against the workflow's 2026-09-06) while the other two were
+  founded 2026-09-09 and bootstrapped from that same list. Sessions edited all
+  three sets' `.github/workflows/` on 2026-09-11, 09-12 and 09-13 without
+  adding it — which is what an exclusion nobody ever restated looks like from
+  the inside.
+
+  **No upstream template is needed, and adding one would re-open a settled
+  question.** The 2026-09-06 decision made the individual set the canonical
+  home for this workflow on purpose, and the spec section above already
+  records its full shape in prose for anyone rebuilding it. A team set copies
+  the file from the individual set, which IS the original — so
+  [fix-the-original](practices/fix-the-original.md) is satisfied without a
+  `templates/github-actions/` entry that would put the mechanism back in the
+  one place 2026-09-06 decided it should not live.
+
+  **What is left to decide is one word, and it is Morgan's:** whether a
+  `precedent-team-*` set counts as "a practice-set repo of mine" under the
+  individual practice that requires this workflow. If it does, that practice
+  wants one word widened and three repositories are out of compliance with a
+  rule approved 2026-09-06. If it does not, the team level needs a rule of its
+  own. The mechanism is right either way; only its level is open.
 
 91. <a id="engine-root-in-a-vendored-tree"></a>**Five engine tools read the
   wrong repo when vendored, and five more have not been checked.** Fixed
