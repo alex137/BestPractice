@@ -5492,10 +5492,67 @@ which is the failure this repointing exists to end — write
   waiting for, and a turn that reports a red check with no closing list is
   worse than one that repeats itself.
 
-- <a id="team-sets-carry-no-engine-refresh-workflow"></a>**None of the three
-  team sets has a channel that reports a stale vendored engine, so all three
-  are behind and nothing said so.**
-  **Disposition:** wait
+- <a id="team-sets-carry-no-engine-refresh-workflow"></a>**The weekly
+  engine-refresh cron is retired; what is left is removing it from
+  `precedent-individual`, the one repository that still runs it.**
+  **Disposition:** wait (2026-09-14 — the decision is made; what is left is
+  one change in `precedent-individual`, which no session rooted here can push)
+
+  **CLOSED 2026-09-14 — THE SCHEDULED CHANNEL IS RETIRED, NOT EXTENDED.**
+  Read this first: everything below it was written toward rolling the weekly
+  job out to three more repositories, and that is no longer the plan.
+  Morgan, 2026-09-14, in his own words: *"I think that engine-refresh.yml is
+  now doing an automatic update weekly. Let's stop that. No weekly updates. I
+  had that weeks ago, but we're not doing that anymore; this is now really
+  complex and deserves hand attention and issues come up every time and I'm on
+  it every day anyway."* **Strength:** decided (2026-09-14, Morgan) — he asked
+  for it outright rather than accepting a proposal
+  ([decision-strength](practices/decision-strength.md)).
+
+  **What that settles, item by item.** Decision 1 below (*install it in the
+  three team sets*) is **withdrawn** — no set gets a weekly cron, so the gap
+  this item opened on is no longer a gap. The `WORKFLOW_TEMPLATES` fork below
+  (*put it in the templates, leave it, or ship it behind an opt-in flag*) is
+  **closed with no change**: a mechanism nobody is going to run does not need
+  a distribution question. The superseded-pull-request fix below is **moot**
+  by the same route — the pull-request path it was fixing goes away with the
+  schedule. Decisions 2, 3 and 4 were already withdrawn and stay that way.
+  Nothing here reopens 2026-09-06's reasoning; it ends one repository's
+  exception to it.
+
+  **The 2026-09-06 reasoning survives intact and is now universal in
+  practice.** That decision said a scheduled workflow inherited by every
+  adopter is a cron job phoning a remote weekly on a schedule nobody picked,
+  and kept it out of
+  [tools/precedent_bootstrap_source.py](tools/precedent_bootstrap_source.py)'s
+  `WORKFLOW_TEMPLATES` for that reason — recorded in
+  [spec/BOOTSTRAP_NEW_SOURCES.md](spec/BOOTSTRAP_NEW_SOURCES.md)'s "The
+  scheduled channel, and why it is not shipped here". The individual set was
+  the one place that took the cron anyway, on the ground that it was the
+  owner's own preference about his own repositories. He has now withdrawn that
+  preference, so the exception closes and nothing anywhere schedules a vendor
+  update.
+
+  **What replaces it: the phrase, by hand.** `Update Vendors` is the channel —
+  [vendor-update-runbook](practices/vendor-update-runbook.md), which since
+  2026-09-14 carries the merge as well as the update, so the thing a scheduled
+  job was bad at (landing: **two runs, two abandoned branches**, a 100% report
+  rate against a 0% landing rate, all measured below) is the half the phrase
+  actually does. The evidence in this item was always pointing here: the
+  channel never leaked at the reporting step.
+
+  **NOT DONE FROM THIS REPO, and this is the live residue.**
+  `.github/workflows/engine-refresh.yml` lives in `precedent-individual`,
+  which is the sole carrier; the practice requiring it,
+  `practice-set-engine-refresh`, lives in that same private set. Neither file
+  is in this repository. Measured, not assumed:
+  `git push --dry-run` to `themorgan/precedent-individual` came back
+  *"access denied by the git proxy: themorgan/precedent-individual is not in
+  this session's authorized repository set"*, and `add_repo` with push access
+  was refused by this session's own permission layer. A session rooted in that
+  set removes the `schedule:` block (keeping `workflow_dispatch`, so the job
+  stays runnable on request) or deletes the workflow outright, and retires or
+  rewrites `practice-set-engine-refresh` to match.
 
   **Found 2026-09-14**, checking the laggards at the end of an `Update
   Vendors` run in a consuming repo, which
