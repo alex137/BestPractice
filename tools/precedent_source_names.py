@@ -289,7 +289,17 @@ def report(rows, out=sys.stdout):
 
 def main():
     ap = argparse.ArgumentParser(add_help=False)
-    ap.add_argument('--repo', default=str(ROOT))
+    # Vendored-layout default (see precedent_source_credentials's
+    # consuming_repo_root): on the process/upstream/ layout, ROOT is the
+    # VENDORED tree, whose own precedent.json declares BestPractice's
+    # sources at paths nothing in the consumer resolves -- three sources
+    # silently UNVERIFIED on 2026-09-14, in the runbook step that exists
+    # to stop a source going unchecked. Falls back to ROOT verbatim where
+    # the credentials module is absent, which is a vendored tree old
+    # enough not to have it.
+    ap.add_argument('--repo', default=str(
+        psc.consuming_repo_root(ROOT) if hasattr(psc, 'consuming_repo_root')
+        else ROOT))
     ap.add_argument('--user-config', default=None)
     ap.add_argument('--check', action='store_true')
     ap.add_argument('--help', '-h', action='store_true')

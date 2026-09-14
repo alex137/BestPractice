@@ -15266,6 +15266,96 @@ def check_source_credentials():
           not bad, '; '.join(f"{n} -- {d[:600]}" for n, d in bad))
 
 
+def check_vendored_engine_reads_the_consumer_root():
+    """An engine copy vendored INSIDE another repo reads that repo's
+    precedent.json -- not the vendored tree's own copy of BestPractice's.
+
+    THE INCIDENT (practice: cite-the-incident). 2026-09-14, `Update Vendors`
+    in a consumer on the classic layout: engine at `process/upstream/tools/`,
+    the consumer's precedent.json two levels above it. Both runbook steps that
+    reconcile sources default `--repo` to the engine's own parent, and the
+    vendored tree -- being a whole copy of this repository -- HAS a
+    precedent.json there. So step 7 reported three declared team sources
+    missing, by name, at `<consumer>/process/precedent-team-*`, and step 8
+    left the same three UNVERIFIED. Both readings were false, both were
+    specific enough to be believed, and the runbook passes no --repo.
+
+    Hermetic: every path below is a directory this test created, and the
+    helper is called with an explicit engine_root, so nothing reads this
+    container's own layout (practice: fixture-owns-its-state).
+
+    NEGATIVE CONTROL, RUN 2026-09-14 rather than assumed
+    (practice: control-asserts-which-failure). `consuming_repo_root` was
+    replaced with its own pre-fix behaviour -- return the engine root
+    unconditionally -- and case 1 went red against the same fixture, printing
+    `<consumer>/process/upstream` as its detail. So the case can fail, it
+    fails on the condition it claims to watch rather than on an absent
+    fixture, and its failure detail names the wrong root out loud."""
+    import shutil, tempfile
+
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_source_credentials as psc
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-vendored-root-'))
+    cases = []
+    try:
+        consumer = tmp / 'consumer'
+        engine = consumer / 'process' / 'upstream'
+        (engine / 'tools').mkdir(parents=True)
+        (consumer / 'process' / 'manifest.json').write_text(json.dumps(
+            {'upstream': {'vendored_at': 'process/upstream'}}), encoding='utf-8')
+        # Both precedent.json files exist, which is the whole trap: the wrong
+        # one parses fine and declares sources at paths nothing resolves.
+        (consumer / 'precedent.json').write_text(json.dumps(
+            {'format_version': 1, 'sources': []}), encoding='utf-8')
+        (engine / 'precedent.json').write_text(json.dumps(
+            {'format_version': 1, 'sources': []}), encoding='utf-8')
+
+        got = psc.consuming_repo_root(engine)
+        cases.append(('a vendored engine resolves to the CONSUMING repo root, '
+                      'not to the vendored tree it sits in',
+                      got == consumer.resolve(), str(got)))
+
+        # --- 2: a repo that is not a vendoring consumer is untouched --------
+        plain = tmp / 'plain'
+        (plain / 'tools').mkdir(parents=True)
+        got = psc.consuming_repo_root(plain / 'tools')
+        cases.append(('a repo with no vendoring manifest keeps the old '
+                      'default, so a practice set behaves exactly as before',
+                      got == (plain / 'tools').resolve(), str(got)))
+
+        # --- 3: a manifest that does NOT claim this tree is not believed ----
+        other = tmp / 'other'
+        other_engine = other / 'process' / 'upstream'
+        (other_engine / 'tools').mkdir(parents=True)
+        (other / 'process' / 'manifest.json').write_text(json.dumps(
+            {'upstream': {'vendored_at': 'process/somewhere-else'}}),
+            encoding='utf-8')
+        got = psc.consuming_repo_root(other_engine)
+        cases.append(('a manifest whose vendored_at points somewhere else is '
+                      'not read as a claim on this tree',
+                      got == other_engine.resolve(), str(got)))
+
+        # --- 4: a malformed manifest fails soft rather than raising ---------
+        bad = tmp / 'bad'
+        bad_engine = bad / 'process' / 'upstream'
+        (bad_engine / 'tools').mkdir(parents=True)
+        (bad / 'process' / 'manifest.json').write_text('{not json',
+                                                       encoding='utf-8')
+        got = psc.consuming_repo_root(bad_engine)
+        cases.append(('an unreadable manifest degrades to the old default '
+                      'instead of taking the tool down',
+                      got == bad_engine.resolve(), str(got)))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad_cases = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'a vendored engine copy reads the consuming repo\'s sources '
+          f'({len(cases)} stated cases)',
+          not bad_cases,
+          '; '.join(f'{n} -- {d[:400]}' for n, d in bad_cases))
+
+
 def check_source_clone_keeps_its_credential():
     """A synced source clone carries the credential helper in its OWN config,
     so git commands run inside it later can authenticate too.
@@ -19866,6 +19956,7 @@ def main():
     check_source_supplied_checks_run()
     check_individual_source_bootstrap_self_heals()
     check_source_credentials()
+    check_vendored_engine_reads_the_consumer_root()
     check_source_clone_keeps_its_credential()
     check_source_credentials_reach_clones_nothing_syncs()
     check_fixtures_own_the_credential_environment()

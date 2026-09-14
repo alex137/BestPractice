@@ -151,6 +151,60 @@ HERE = pathlib.Path(__file__).resolve().parent
 ROOT = HERE.parent
 
 
+def consuming_repo_root(engine_root=None):
+    """-> the repo whose precedent.json this engine copy should read, which is
+    NOT `HERE.parent` when the engine is vendored inside another repository.
+
+    THE INCIDENT (practice: cite-the-incident). 2026-09-14, running the
+    `Update Vendors` runbook in a consumer on the classic vendoring layout --
+    the engine at `process/upstream/tools/`, the consumer's own precedent.json
+    two levels up. `ROOT` there is `process/upstream`, and the vendored tree is
+    a whole copy of THIS repository, precedent.json included. So the default
+    root found a precedent.json, parsed it, resolved its `../precedent-team-*`
+    paths against `process/upstream/` -- and reported three team sources
+    missing, by name, at paths like `<consumer>/process/precedent-team-writing`
+    that nothing has ever put anything at.
+
+    That reading is the worst shape a wrong answer can take here, and it is
+    worth being explicit about why. This module's whole job is to make "your
+    private practices are silently absent" a sentence somebody can trust, and
+    `precedent_source_names.py` imports it for the same reason. A false
+    POSITIVE on that alarm is not a cosmetic bug: it is the alarm teaching its
+    reader to ignore it (practice: checkable-gets-checked), on the one layout
+    the runbook's own steps 7 and 8 are most often run on, by a session that
+    passed no --repo because the runbook does not tell it to.
+
+    HOW THE VENDORED CASE IS RECOGNISED, and why not by guessing. Not by
+    looking for a parent that happens to contain a precedent.json -- in a
+    workspace of sibling practice sets, every ancestor might. The consuming
+    repo SAYS it vendored this tree: checkin.py records it in
+    `<consumer>/process/manifest.json` as `upstream.vendored_at`, and that
+    field resolving to this very directory is the claim, made by the consumer,
+    that this engine copy belongs to it. Nothing is inferred from layout.
+
+    Fails soft in every direction (practice: fail-gracefully): an unreadable
+    manifest, an absent one, or a `vendored_at` pointing somewhere else all
+    leave the old default untouched, so a repo that is not a vendoring
+    consumer behaves exactly as before.
+    """
+    root = pathlib.Path(engine_root or ROOT).resolve()
+    for ancestor in list(root.parents)[:6]:
+        manifest = ancestor / 'process' / 'manifest.json'
+        try:
+            recorded = (json.loads(manifest.read_text(encoding='utf-8'))
+                        .get('upstream', {}).get('vendored_at'))
+        except (OSError, ValueError, AttributeError):
+            continue
+        if not recorded:
+            continue
+        try:
+            if (ancestor / str(recorded)).resolve() == root:
+                return ancestor
+        except OSError:
+            continue
+    return root
+
+
 def have_token(env=None):
     return token_var(env) is not None
 
@@ -551,7 +605,7 @@ def main(argv=None):
     ap = argparse.ArgumentParser(
         description=(__doc__ or '').splitlines()[0],
         formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument('--repo', default=str(ROOT),
+    ap.add_argument('--repo', default=str(consuming_repo_root()),
                     help='the repository whose precedent.json declares the '
                          'sources (default: this one)')
     ap.add_argument('--check', action='store_true',
