@@ -4033,6 +4033,44 @@ def check_session_practices_load_without_publishing():
                       'Why these are here rather than in the tracked block'
                       in psp.render(_extra, _levels,
                                     [('deferred', 'precedent deferred to it')])))
+
+        # WHAT THE FILE SAYS ABOUT THE REPO IT IS IN HAS TO BE TRUE. The
+        # header explains why the file is untracked, and until 2026-09-14
+        # every CONSUMER got "this repository is public" -- measured in a
+        # private repo whose precedent.json declares `visibility: private`,
+        # where a session opening the file read a false claim about the
+        # repository it was working in. A practice set was already carved
+        # out for exactly this reason; a private consumer had not been.
+        pub = psp.render(_extra, _levels, [], repo=str(repo))
+        cases.append(('a PUBLIC consumer still says so -- the reason is true '
+                      'there and is what makes the instruction land',
+                      'this repository is public' in pub))
+        priv = tmp / 'private-repo'
+        priv.mkdir()
+        (priv / 'precedent.json').write_text(_json.dumps({
+            'format_version': 1, 'visibility': 'private',
+            'sources': [{'level': 'universal', 'name': 'precedent',
+                         'path': '.'}]}), encoding='utf-8')
+        privtxt = psp.render(_extra, _levels, [], repo=str(priv))
+        cases.append(('a PRIVATE consumer is never told its repository is '
+                      'public, and still gets a reason and the same '
+                      '"never commit it" instruction',
+                      'this repository is public' not in privtxt
+                      and 'goes stale' in privtxt
+                      and 'Never commit it' in privtxt))
+        # An ABSENT visibility keeps reading as public, matching
+        # build_views.visibility_is_declared -- this file must not
+        # contradict the tree it is generated beside.
+        nov = tmp / 'undeclared-repo'
+        nov.mkdir()
+        (nov / 'precedent.json').write_text(_json.dumps({
+            'format_version': 1,
+            'sources': [{'level': 'universal', 'name': 'precedent',
+                         'path': '.'}]}), encoding='utf-8')
+        cases.append(('an UNDECLARED visibility still reads as public here, '
+                      'as it does everywhere else in the engine',
+                      'this repository is public'
+                      in psp.render(_extra, _levels, [], repo=str(nov))))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 

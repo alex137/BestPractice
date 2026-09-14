@@ -44,6 +44,7 @@ Run:
   python3 tools/precedent_session_practices.py --check    # report, write nothing
   python3 tools/precedent_session_practices.py --repo DIR
 """
+import json
 import pathlib
 import sys
 
@@ -139,6 +140,23 @@ def _from_deferred_source(practice, deferred_paths):
     return any(str(f).startswith(d.rstrip('/') + '/') for d in deferred_paths)
 
 
+def _declares_private(repo):
+    """Whether this repo's own precedent.json says `visibility: private`.
+
+    Only an explicit declaration counts. An ABSENT visibility is read as
+    public everywhere else in the engine (build_views.visibility_is_declared
+    documents why, and warns), and reading it any other way here would have
+    this file contradict the tree it is generated beside."""
+    if not repo:
+        return False
+    try:
+        return json.loads(
+            (pathlib.Path(repo) / 'precedent.json').read_text(
+                encoding='utf-8')).get('visibility') == 'private'
+    except (ValueError, OSError):
+        return False
+
+
 def render(extra, levels, notes, repo=None):
     # WHY THIS FILE IS UNTRACKED differs by repo kind, and saying the wrong
     # reason is worse than saying none: a practice set reading "this
@@ -158,6 +176,26 @@ def render(extra, levels, notes, repo=None):
             "and a committed copy of it here would be a second copy to keep "
             "in step.")
         title = '# Practices in force here from the sources this set declares'
+    elif _declares_private(repo):
+        # A PRIVATE consumer. The reason above is false here and the file
+        # says so to every session that opens it -- measured 2026-09-14 in a
+        # private repo whose precedent.json declares `visibility: private`,
+        # where this rendered "this repository is public" about a repository
+        # that is not. What stays true is the instruction, so only the
+        # clause explaining it changes: the file is regenerated at session
+        # start from sources that move on their own, so a committed copy is
+        # a copy that goes stale.
+        why_untracked = (
+            'it is regenerated at session start from sources that change on '
+            'their own, so a committed copy is one that goes stale')
+        intro = (
+            "These are **in addition to** the universal catalogue already in "
+            "[AGENTS.md](../AGENTS.md)'s generated block. They bind work in "
+            "this repository exactly as those do; they are here rather than "
+            "there because their text belongs to the sources it came from, "
+            "which move on their own.")
+        title = ('# Practices in force here from the team, individual and '
+                 'repo-local sources')
     else:
         why_untracked = (
             'it carries practice text from private team and individual '
