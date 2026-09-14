@@ -572,6 +572,57 @@ def _occasion_clause(rule_text, max_len=90):
 # channels rather than the ones this source actually fills. A standing
 # instruction that names a command which fails is worse than no standing
 # instruction, because it teaches the session that the block is decorative.
+# code-cites-practice: session-load-budget -- the occasion index is loaded in
+# full by every session, so a line that routes nothing is paid for every turn.
+INDEX_REQUIRED_FIELD = 'index_required'
+
+
+def _routes_by_path(fm):
+    """True when `applies_to` names REAL paths, so precedent_paths.py fires.
+
+    A bare `["**"]` matches everything and therefore routes nothing -- it is
+    the signature of a practice that has no file trigger at all, not of one
+    that applies everywhere usefully."""
+    globs = _json_list(fm.get('applies_to', '')) or []
+    return bool(globs) and globs != ['**']
+
+
+def index_is_redundant(fm):
+    """True when this practice reaches a session WITHOUT costing an index line.
+
+    THE RULE. A practice is routed if a real `applies_to` glob fires on the
+    files its occasion is about, or a `gates:` entry fires at the moment its
+    occasion describes. Either way the index line is a second copy of a
+    channel that already works, and every session pays for it in tokens
+    before it does any work.
+
+    THE EXCEPTION, and it is the whole reason this is not a one-liner. Neither
+    channel can fire on something a PERSON SAYS. A file glob needs a file; a
+    gate needs a moment, and the moments are merge/review/push/reply -- all of
+    which arrive at the END of the work the phrase was supposed to redirect.
+    `Go merge` is the worked example: it must be understood in the incoming
+    message, and the reply gate does not fire until the turn is already over.
+    That practice's own history is the citation (practice: cite-the-incident)
+    -- while its definition sat in a private set a session could not read, one
+    went and asked what the phrase meant, generating the exact interruption the
+    phrase exists to prevent. The index is the ONLY channel for a spoken
+    trigger, so a spoken trigger is never dropped from it.
+
+    A practice declares that by carrying `index_required: true`, or by
+    defining a `command:`, which is a spoken trigger by construction.
+    tools/precedent_check.py's `index-required-is-declared` reads occasion
+    text for the shapes a spoken trigger takes and fails any practice that
+    looks like one without the field -- so the judgment is made once, by a
+    person, in the practice file, rather than re-guessed by a regex here."""
+    if fm.get('command') not in (None, '', 'null'):
+        return False
+    if _json_str(fm.get(INDEX_REQUIRED_FIELD, '')).lower() == 'true' \
+       or str(fm.get(INDEX_REQUIRED_FIELD, '')).strip().lower() in ('true', '"true"'):
+        return False
+    gates = _json_list(fm.get('gates', '')) or []
+    return _routes_by_path(fm) or bool(gates)
+
+
 def _live_gates(practices):
     """Gate names to advertise: in the engine's own closed vocabulary AND
     holding at least one in-force practice in THIS source.
@@ -804,9 +855,13 @@ def build_loader_block(practices, source_levels=None, defers_sources=False,
 
     on_demand = [(fm, sections) for fm, sections, _f in practices if fm.get('tier') == 'on-demand']
     by_occasion = collections.defaultdict(list)
+    routed_out = []
     for fm, sections in on_demand:
         occasion = _json_str(fm.get('occasion', ''))
         if not occasion:
+            continue
+        if index_is_redundant(fm):
+            routed_out.append(fm['slug'])
             continue
         by_occasion[occasion].append((fm['slug'], _index_clause(fm, sections)))
 
@@ -815,6 +870,24 @@ def build_loader_block(practices, source_levels=None, defers_sources=False,
         index_lines.append(f"When {occasion}:")
         for slug, clause in sorted(by_occasion[occasion]):
             index_lines.append(f"  {slug} — {clause}")
+    if routed_out:
+        # Say what is NOT here, and how to reach it. A session that cannot see
+        # the omission reads a short index as the whole catalogue.
+        index_lines.append('')
+        # Deliberately no COUNT here. The count would be a second computation
+        # of the same set, made from a practice list this function was handed
+        # and printed for a reader who will go run the tool -- which resolves
+        # the set again, its own way. The two disagreed by three on the first
+        # build (2026-09-14, this repo's local/practices/ counted by one and
+        # not the other), which is the shape of drift that makes a reader
+        # stop believing generated text. One source of truth: the flag.
+        index_lines.append(
+            "(More on-demand practices are not listed here: one whose "
+            "applies_to names real paths, or which declares a gate, is "
+            "reached by those channels instead -- `precedent_paths.py FILE` "
+            "and `precedent_gate.py MOMENT`. A trigger a PERSON SAYS cannot "
+            "be reached that way and is always listed above. "
+            "`precedent_show.py --index-omitted` names the omitted ones.)")
     index_text = '\n'.join(index_lines)
     # The generated half of what every session loads is capped too, not just
     # the resident block (practice: session-load-budget) -- but ONLY for a

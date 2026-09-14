@@ -6297,6 +6297,28 @@ def check_precedent_check_fires():
             # deliberately NOT `git add`ed -- that is the whole violation
         case('tracked-practice-files', _plant_tpf)
 
+        # index-required-is-declared -- a practice whose occasion reads as a
+        # SPOKEN trigger ("when a person says ...") while a glob and a gate
+        # route it, and which declares no index_required either way. That is
+        # the exact shape whose index line build_views would drop, silently
+        # un-routing a phrase no glob or gate can ever fire on.
+        def _plant_ird(repo):
+            (repo / 'practices' / 'zzz-spoken-trigger.md').write_text(
+                '---\nslug:        zzz-spoken-trigger\n'
+                'title:       A spoken trigger\n'
+                'tier:        on-demand\nseverity:    default\n'
+                'applies_to:  ["docs/**"]\n'
+                'occasion:    "a person says \\"Wind It Back\\""\n'
+                'gates:       ["reply"]\n'
+                'index_clause: "a planted case"\nchecked_by:  null\n'
+                'defines:     []\nstatus:      active\nsupersedes:  []\n'
+                'overrides:   null\nadded:       "2026-09-14"\n'
+                'approved_by: "fixture"\n---\n\n## Rule\nPlanted.\n\n'
+                '## Why\nPlanted.\n\n## Story\nPlanted for the harness.\n',
+                encoding='utf-8')
+        case('index-required-is-declared', _plant_ird)
+
+
         # docs-track-models -- an owned figure restated in the prose
         #
         # THE FIGURE IS DERIVED, not typed. This plant used to hardcode
@@ -8122,6 +8144,11 @@ def check_loader_tools_are_repo_relocatable():
             '---\nslug: fixture-only-slug\ntitle: Fixture\ntier: on-demand\n'
             'severity: default\napplies_to: ["fixture-only/**"]\n'
             'occasion: "testing --repo relocation"\ngates: ["merge"]\n'
+            # This fixture asserts the slug lands in the rendered block, so it
+            # must declare its index line rather than inherit one: it carries a
+            # real glob AND a gate, which is exactly the shape build_views now
+            # omits from the occasion index (practice: fixture-owns-its-state).
+            'index_required: true\n'
             'index_clause: "x"\nchecked_by: null\ndefines: []\nstatus: active\n'
             'supersedes: []\noverrides: null\nadded: 2026-09-05\n'
             'approved_by: "harness, 2026-09-05"\nsource_practice_number: null\n'
@@ -12536,7 +12563,13 @@ def check_bootstrap_source_engine_is_functional():
             '---\nslug: engine-fixture-slug\ntitle: Fixture\ntier: on-demand\n'
             'severity: default\napplies_to: ["fixture-only/**"]\n'
             'occasion: "testing the bootstrapped engine is functional"\n'
-            'gates: []\nindex_clause: "engine-fixture-slug — a bootstrap-harness fixture"\n'
+            'gates: []\n'
+            # Asserts the slug lands in the rendered block, so it declares
+            # its index line rather than inheriting one: its applies_to names
+            # real paths, which is the shape build_views now omits from the
+            # occasion index (practice: fixture-owns-its-state).
+            'index_required: true\n'
+            'index_clause: "engine-fixture-slug — a bootstrap-harness fixture"\n'
             'checked_by: null\ndefines: []\nstatus: active\nsupersedes: []\n'
             'overrides: null\nadded: 2026-09-05\n'
             'approved_by: "harness, 2026-09-05"\nsource_practice_number: null\n'
@@ -14301,12 +14334,13 @@ def check_loader_block_covers_every_declared_source():
             if (fm.get('status') or 'active').strip('" ') == 'active':
                 publishable.add(fm.get('slug', f.stem))
 
+    import build_views as _bv
     missing, leaked = [], []
     for s in declared:
         d = pathlib.Path(s['path']) / 'practices'
         if not d.is_dir():
             continue                       # unreachable here; not evidence
-        active = []
+        active, expected_in_block = [], []
         for f in sorted(d.glob('*.md')):
             try:
                 fm, _sec = sp._read_practice_file(f)
@@ -14314,14 +14348,25 @@ def check_loader_block_covers_every_declared_source():
                 continue
             if (fm.get('status') or 'active').strip('" ') == 'active':
                 active.append(fm.get('slug', f.stem))
+                # A practice routed by a real applies_to glob or a gate is
+                # deliberately NOT named in the block -- build_views omits it
+                # from the occasion index because those channels already reach
+                # it. A source whose practices are ALL routed therefore
+                # contributes nothing to the rendered text while having
+                # resolved perfectly, so requiring its name here would be a
+                # false failure. Only a source with at least one practice that
+                # should appear is evidence of anything either way.
+                if not _bv.index_is_redundant(fm):
+                    expected_in_block.append(fm.get('slug', f.stem))
         if not active:
             continue
         present = [a for a in active if a in named]
         if public and s['level'] in ('team', 'individual'):
             leaked += [a for a in present if a not in publishable]
-        elif not present:
-            missing.append(f"{s['level']}/{s['name']} ({len(active)} active "
-                           f"practices, none in {name})")
+        elif not present and expected_in_block:
+            missing.append(f"{s['level']}/{s['name']} ({len(expected_in_block)} of "
+                           f"{len(active)} active practices should be named in "
+                           f"{name}, none is)")
 
     check('the loader block renders every publishable source '
           'precedent.json declares', not missing, '; '.join(missing))

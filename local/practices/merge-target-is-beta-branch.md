@@ -5,6 +5,7 @@ tier:        on-demand
 severity:    blocking
 applies_to:  ["**"]
 occasion:    "opening or merging a pull request in this repository"
+index_required: true
 gates:       ["merge"]
 index_clause: "Alex approves only major main merges; precedent-beta-v01 is unrestricted"
 checked_by:  "tools/checks/check_merge_target_is_beta_branch.py"

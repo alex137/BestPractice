@@ -5,6 +5,7 @@ tier:        on-demand
 severity:    default
 applies_to:  ["AGENTS.md", "MAP.md", "GLOSSARY.md"]
 occasion:    "asked to add, change or remove something in a generated file"
+index_required: false
 gates:       []
 index_clause: "change the input the file is built from, never the file -- and say which input"
 checked_by:  "tools/precedent_check.py"

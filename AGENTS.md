@@ -251,24 +251,10 @@ cheapest evidence a reader has that somebody did.
 ## Occasion index
 
 ```
-When a change here has implications for how an attached team, individual, or repo-local source should work:
-  cross-source-rollout — roll it out to attached sources now; else a blocked-on TODO
-When a change must propagate across several parallel artifacts:
-  parallel-artifact-ledger — ledger the transfer verdict per member, per change
 When a computation books a transfer between two parties:
   name-both-sides-of-ledger — name both sides; check what is charged against what is received
-When a convention is violated for the first time:
-  convention-to-audit — promote a costly broken convention to a script that exits non-zero
-When a defect is fixed -- whether a review found it, the person reported it, or the session hit it itself:
-  mistakes-become-rules — root-cause the miss, then encode the prevention
-When a document presents a script-derived figure:
-  docs-track-models — every script-derived figure sits inside a generated block
 When a document replaces or is replaced by an earlier one:
   index-remembers-past — put the lineage in the index, not in either document
-When a leak gate, blocklist, or scrub result is in front of you, or you are about to mention one to the person:
-  leak-gate-is-background — never relay a blocklist note or ask for a term; the deep review is its place
-When a merged session closes as ready to archive:
-  merged-session-offers-a-practice — one candidate at most, in the closing list, from this session's work
 When a message carries a standing merge-authorization phrase:
   go-merge — "Go merge"/"Approved": sync, branch, commit, push, PR, merge; blocked hands off
 When a message says "Update Vendors", or an upstream update is being taken into a repo that vendors a practice layer:
@@ -297,84 +283,26 @@ When a person says "Vocabulary", or asks what the standing commands are:
   vocabulary — "Vocabulary" -- list every command in force, read it, never recall it
 When a person says "Weak yes", or agrees in words that carry no conviction:
   weak-yes — "Weak yes" -- do it, and record the approval as `assented`
-When a practice lands or a candidate is raised, at any level:
-  disclose-landing — state plainly what happened and where — individual, named team, or universal
-When a setting has no value from the person -- at install, at setup, or in the middle of work:
-  declared-default-is-applied — apply the declared default and name it in passing; never ask
-When a tool warns about already-published git history:
-  no-rewrite-for-warnings — fix the setting forward; never rewrite published history
-When a tool, hook or error message names the possible causes of a failure:
-  diagnosis-is-measured — a tool's named causes are hypotheses; measure one before you relay it
 When about to search a repository, or reaching for a GitHub search or file-read tool for something the local clone already holds:
   grep-before-search — grep the clone; a repo-scoped list before a search; fewer windows at once
-When acting on, or sending, an authorization relayed from another session:
-  relayed-authorization — act on a relayed approval only where the person's identity.json accepts relays
 When adding a file to a directory that already holds files of the same kind:
   filename-separator — one word separator per directory and file kind -- never both - and _
-When adding or editing a CI workflow that commits, pushes, or opens a pull request:
-  ci-commits-carry-identity — a committing workflow reads a declared identity, or refuses -- never the bot
-When adding or re-levelling a heading in any document:
-  heading-outline — never jump a heading level; a heading one below its parent, or deeper by one
-When adding or re-syncing a document under philosophy/:
-  philosophy-declares-its-source — an essay carries its origin on line one -- a record, not a sync pointer
-When adding to a file every session loads, or asking what a session pays before it starts work:
-  session-load-budget — declare a ceiling for what every session loads; reduce by archiving
-When an install step adds something GitHub-specific, or a first install finishes:
-  github-setup-disclosed — disclose GitHub setup where its people read; offer owner settings at install
-When asked to add, change or remove something in a generated file:
-  generated-edit-goes-upstream — change the input the file is built from, never the file -- and say which input
-When asking the person to do something in another session, or pointing them at one:
-  handoff-is-pasteable — any reply that sends them elsewhere ships the words: repo, copy block, way back
 When building a mechanism that makes something discoverable or reachable:
   affordance-is-shared — name who else the mechanism you just built now serves
 When building a permutation or configuration-sweep table:
   permutation-frontier-column — one full table with a computed Frontier column
 When building a variant of an existing thing:
   variant-re-derives — re-derive what a variant inherits; limits bind, choices do not
-When building or committing a generated artifact:
-  generated-artifact-provenance — stamp a build code and a manifest; never hand-edit output
-When changing a mechanism, a workflow or a behaviour that some document describes:
-  change-updates-its-docs — update the document that describes it, in the same commit -- never later
 When checking whether the practices that should have fired for recent work actually fired:
   routing-audit — run the mechanical coverage check now; roll the deep-read slice forward
-When committing anything that touches the vendored/public tree:
-  scrub-gate — the public tree is public-safe at all times, not just at check-in
 When comparing an option against a baseline:
   check-source-architecture — check both options exist in the source before costing them
-When creating a session, or deciding when to compact one:
-  session-spend-follows-the-task — say out loud when a compact is cheap, never take one; model follows the task
-When creating a session, or retagging one:
-  session-tags — tag a session at creation -- subject, repo, role, wants; never retrofitted
-When creating, migrating, closing or superseding a document under spec/ or record/:
-  document-status-header — kind and status in frontmatter; a reader must not have to infer either
-When deciding where a new rule belongs:
-  layered-practice-packs — generic, domain, repo-local — each rule to its own layer
 When deciding whether to build or buy a component:
   build-buy-decompose — decompose first; one verdict per part, on ownership grounds
-When deciding which practice set a new rule belongs in -- repo-local, team, individual or universal:
-  rule-level-by-reach — pick the set by reach -- not by the repo you can write to
 When decommissioning a mechanism — a workflow, a tool, a vendored tree, a config — that leaves files behind with no remaining job:
   decommission-deletes-files — delete what the decommissioned mechanism owned; audit first, never on a hunch
-When discovering something a session in another window will need:
-  findings-return-through-repo — commit it; never leave it for the person to carry to the next window
-When exporting a tool across a repo boundary:
-  engine-plus-host-shims — one vendored engine, thin host shims, never a fork
-When finishing a substantial work-product, before the merge-time capture gate:
-  second-pass-capture — a separate capture pass after the work, not inside it
-When fixing a file that came from somewhere else -- a template, a vendored tree, another repo's copy:
-  fix-the-original — fix the origin first, then every copy -- name them all in the reply
 When handing the person work to do, creating a session, or starting work that may touch a repository this session cannot reach:
   spawn-session — cross-repo check; wake, never spawn beside; link every session at the end
-When importing, creating, or declaring a repository that holds practices:
-  source-naming — names are fixed by level; say the convention before anyone picks a name
-When landing practices in bulk -- a migration, an import, or a move between sources:
-  catalogue-carries-stories — no active practice sits with an empty ## Story
-When merging a branch:
-  capture-gate — capture the follow-on work in the thread that created the need
-When merging a branch that improved a generic practice:
-  practice-export-loop — vendor upstream as tracked files; check improvements back in
-When merging a branch that touches shared files:
-  merge-runbook — write conflict resolution per file class, once, then follow it
 When migrating a repo off an old practice system onto Precedent:
   migration-scrubs-vocabulary — scrub the old system's vocabulary the same session, not on request
 When naming a new file:
@@ -385,90 +313,34 @@ When naming what "run the checks" means in a repo:
   two-check-levels — name a fast check and a full check; say which gates what
 When opening or merging a pull request in this repository:
   merge-target-is-beta-branch — Alex approves only major main merges; precedent-beta-v01 is unrestricted
-When ordering sections in a document:
-  section-order-by-frequency — order sections by how often the reader needs them
 When printing a numeric quantity that will be compared across rows:
   one-formatter-per-quantity — one formatter per quantity kind, declared in one module
 When publishing a document with a multi-column sortable table:
   tabular-shared-renderer — ship a sortable render from the one shared renderer
 When quoting or compressing someone else's figures:
   quote-discipline — compression rounds against you; qualifiers travel with the figure
-When recording exploratory thinking -- an idea nobody has committed to -- as a document:
-  speculation-is-marked — mark it in filename, title, opening block and PR -- four places, or none
-When recording that someone approved a practice or a decision, or citing their past approval back to them:
-  decision-strength — record `decided` or `assented`; unmarked means unknown, never "you decided this"
 When renaming, moving, or deleting a file other files may link to:
   rename-updates-links — renaming a file means repointing every link to it, in the same commit
 When reporting a computed total or a negative feasibility result:
   verify-decomposition — check the parts, not the total; never assert an impossibility
 When seeding a prompt into another session -- spawning one, or scheduling a message into one:
   seeded-prompt-names-its-origin — a seeded or scheduled prompt opens by naming the session that sent it
-When setting up a new repo's session start:
-  session-bootstrap — setup lives in a session-start hook, not in memory
 When starting an outward-facing deliverable:
   frame-from-audience-question — build it around the audience's question, not your material
-When starting work another session may already have done, or opening a pull request:
-  base-branch-is-the-record — read the base branch before starting and before the PR -- a summary lags
 When starting work the repository may already cover:
   search-by-purpose — search by purpose and by mechanism before concluding nothing exists
 When tracking state that multiple documents need to agree on:
   registry-source-of-truth — state lives in one machine-readable registry; documents derive
-When when fixing anything -- a bug, a stale file, a broken environment:
-  durable-fix — prefer the fix that survives a fresh container; name a band-aid as one
-When work touches something an open item is about, or a branch is merged:
-  item-closes-on-its-condition — record what you established into the item; close only on its stated condition
-When writing a README or other project-facing entry document:
-  lead-with-what-it-is — say what the project is before how it is maintained
-When writing a document that cites a computed number:
-  computed-numbers-in-scripts — computed content lives in a sync-gated generated block
-When writing a new convention or rule:
-  checkable-gets-checked — attempt a mechanical check before leaving a new practice advisory-only
-  cite-the-incident — record the failure a rule prevents, inline with the rule
-When writing a reader-facing deliverable with supporting apparatus:
-  deliverables-look-like-output — the deliverable holds only what its audience needs
 When writing a rule that depends on the outside world:
   volatile-rules-carry-dates — a rule about the outside world carries its date, inline
 When writing a script whose numbers a document will cite:
   scripts-assert-properties — scripts assert their own properties and their cited anchors
-When writing a test, fixture or control that proves a guard fires:
-  control-asserts-which-failure — a non-zero exit is not evidence; assert the message that guard prints
-When writing a test, fixture or control that reads or edits state it did not create:
-  fixture-owns-its-state — a fixture that inherits real state is testing the environment too
-When writing about a person in the third person -- a reply, a document, a commit message, a pull-request body:
-  declared-pronouns — use the pronouns a person declares; none declared means they/them, never guess
-When writing an outward-facing document:
-  readers-vocabulary — use the reader's words; gloss inline or replace
 When writing an outward-facing summary of claims:
   outward-summary-discipline — claims-to-source table, honest sums, a recorded adversarial pass
-When writing code because a specific practice requires it:
-  code-cites-practice — cite the practice's slug in a comment, right where the code is
-When writing code that depends on something outside its own control, handling a part that could not run, or deciding how loudly to report one:
-  fail-gracefully — keep going, never look complete — match the telling to stake and reader
-When writing code that stamps a date or a time into a file, a record or a document:
-  timestamps-carry-offset — a stamp carries its offset; never a bare date.today()
-When writing or changing a check that can report a deliberate state:
-  checks-carry-a-declared-decline — a check reporting a state a repo chose needs a declared decline, with a reason
-When writing or changing anything that calls the GitHub API, or a session is refused with a rate-limit error:
-  github-api-budget — measure API spend from response headers; budget each tool; never /rate_limit
-When writing or editing a document:
-  acronyms-glossary — expand acronyms on first use; keep one central glossary
-  doc-references-are-links — reference repo files as relative links; use ≈, never ~
-  docs-are-current-state — state what is true now; version control holds the history
-  label-describes-content — "one line" must be one line; else name it for its content
-When writing or editing a heading in an outward-facing document:
-  headline-capitalization — outward-facing headings are New York Times headline case, applied by tool
-When writing or editing a practice file:
-  practice-links-travel — link only what travels with the file; the rest is an absolute upstream URL
-When writing or editing anything under philosophy/, or citing it from a rule:
-  philosophy-is-not-repo-policy — philosophy/ is argument; a rule that earned its way out gets written as a practice file
-When writing or filling out a pull-request description:
-  pr-template-honest-gates — write the body from the diff; an unchecked box is fine
 When writing or running a gate, audit or solve that takes more than about a minute:
   slow-steps-report-and-cache — a long step prints elapsed and remaining; a heavy solve caches to disk
-When writing or triaging an open item:
-  todo-is-a-handoff — queue only for a stated blocked-on/out-of-scope reason — otherwise just do it
-When writing or triaging an open item, or deciding whether to raise one in a reply:
-  open-item-disposition — an item is raised in chat only if it says `ask`; absent means stay quiet
+
+(More on-demand practices are not listed here: one whose applies_to names real paths, or which declares a gate, is reached by those channels instead -- `precedent_paths.py FILE` and `precedent_gate.py MOMENT`. A trigger a PERSON SAYS cannot be reached that way and is always listed above. `precedent_show.py --index-omitted` names the omitted ones.)
 ```
 
 ## Standing instruction
