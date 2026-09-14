@@ -5542,17 +5542,48 @@ which is the failure this repointing exists to end — write
   channel never leaked at the reporting step.
 
   **NOT DONE FROM THIS REPO, and this is the live residue.**
-  `.github/workflows/engine-refresh.yml` lives in `precedent-individual`,
-  which is the sole carrier; the practice requiring it,
-  `practice-set-engine-refresh`, lives in that same private set. Neither file
-  is in this repository. Measured, not assumed:
+  `.github/workflows/engine-refresh.yml` and the practice requiring it,
+  `practice-set-engine-refresh`, both live in the private practice sets.
+  Neither file is in this repository. Measured, not assumed:
   `git push --dry-run` to `themorgan/precedent-individual` came back
   *"access denied by the git proxy: themorgan/precedent-individual is not in
   this session's authorized repository set"*, and `add_repo` with push access
-  was refused by this session's own permission layer. A session rooted in that
-  set removes the `schedule:` block (keeping `workflow_dispatch`, so the job
-  stays runnable on request) or deletes the workflow outright, and retires or
-  rewrites `practice-set-engine-refresh` to match.
+  was refused by this session's own permission layer. A session rooted in
+  those sets removes the `schedule:` block (keeping `workflow_dispatch`, so
+  the job stays runnable on request) or deletes the workflow outright, and
+  retires or rewrites `practice-set-engine-refresh` to match.
+
+  **THE SCOPE IS FOUR REPOSITORIES, NOT ONE — corrected 2026-09-14 by Morgan**
+  (*"I think we need to remove it from the 4 practice level repos"*), against
+  the paragraph above, which named `precedent-individual` as the sole carrier.
+  That was true when this item was written and the decision recorded below
+  changed it: decision 1 approved putting the workflow INTO the three team
+  sets, so if any session acted on that approval before he reversed it, the
+  cron now exists in all four. **Unverified from here and deliberately left
+  that way** — no session rooted in this repository can read
+  `themorgan/precedent-team-*` at all, so "are they carrying it?" is a
+  question only a session holding those sets can answer, and guessing at it
+  is what [diagnosis-is-measured](practices/diagnosis-is-measured.md) exists
+  to stop. The removal is idempotent either way: a set without the file needs
+  nothing done to it.
+
+  **Owned, as of 2026-09-14, by the one session holding all four sets:**
+  `session_01Cp6E5dkxdjqej9C6YDUjZU` ("Engine-refresh cron removal"). Recorded
+  here rather than left in a chat thread
+  ([findings-return-through-repo](practices/findings-return-through-repo.md)),
+  because the next session to read this item will otherwise start a fifth
+  branch on the same four files.
+
+  **A SEPARATE ONE-LINE CHANGE IN `precedent-individual`, same day, same
+  wall:** `identity.json` has no `relayed_authorization` field, so
+  [relayed-authorization](practices/relayed-authorization.md) reads `refused`
+  and every cross-repository handoff costs Morgan a second approval in a
+  second window. He asked for `accepted` on 2026-09-14 (*"yes that should be
+  in both precedent-individual as well as the template"*). **Strength:**
+  decided. The template half is already done — `relayed_authorization` ships
+  in [templates/practice-set-individual/identity.json.template](templates/practice-set-individual/identity.json.template)
+  set to `refused`, with the trade written out, so an adopter chooses it
+  rather than inheriting it. Only his own set's value is outstanding.
 
   **Found 2026-09-14**, checking the laggards at the end of an `Update
   Vendors` run in a consuming repo, which
