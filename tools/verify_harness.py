@@ -14,6 +14,7 @@ Run:  python3 tools/verify_harness.py
 Exit: 0 if every applicable check passes, 1 otherwise.
 """
 import collections, hashlib, json, os, pathlib, re, shutil, subprocess, sys, time
+import importlib.util
 
 # A FIXTURE COMMIT IS NOT A PERSON'S COMMIT. Since 2026-09-07 the commit
 # identity hook installs a backstop at core.hooksPath -- global, because that
@@ -20570,7 +20571,41 @@ def check_assumed_visibility_never_deletes_practices():
               not failed, '; '.join(failed) if failed else '')
 
 
+# practice: environment-gotchas -- the trap this guards is record/GOTCHAS.md#g1.
+#
+# Several checks below need a package that is not in the standard library:
+# doc_lint's strikethrough case suite and the `doc-references-are-links`
+# planted violation both need cmarkgfm, and the --help sweep runs
+# tools/doc_html.py, which imports markdown. Without them those checks FAIL,
+# and they fail describing what they were testing rather than what is
+# missing -- on 2026-09-14 that read as "3 failed" on a tree whose diff was
+# two markdown files, and cost two full re-runs to attribute. The packages
+# are installed by .claude/hooks/session-start.sh and by both CI workflows;
+# a session whose hooks never ran (record/GOTCHAS.md#g17) has neither.
+DOC_PACKAGES = ('cmarkgfm', 'markdown')
+
+
+def missing_doc_packages():
+    """-> [name] for each DOC_PACKAGES entry this interpreter cannot import."""
+    return [n for n in DOC_PACKAGES if importlib.util.find_spec(n) is None]
+
+
+def _report_missing_doc_packages(where):
+    missing = missing_doc_packages()
+    if not missing:
+        return missing
+    print(f'verify_harness {where}: {", ".join(missing)} not installed. '
+          f'Checks that need them FAIL for that reason alone, not because of '
+          f'anything in the tree -- install with: pip install '
+          f'{" ".join(missing)}  (record/GOTCHAS.md#g1)')
+    print('  and run: python3 tools/precedent_session_check.py -- these '
+          'packages are installed by the SessionStart hook, so missing ones '
+          'usually mean NO hook ran, and the hooks guarantee more than this')
+    return missing
+
+
 def main():
+    _report_missing_doc_packages('PREFLIGHT')
     if not PRACTICES_DIR.exists():
         sys.exit("verify_harness FAIL: practices/ does not exist -- run "
                  "tools/split_practices.py split first")
@@ -20753,6 +20788,10 @@ def main():
         print("\nFAILED CHECKS:")
         for name, detail in FAILED:
             print(f"  - {name}" + (f" -- {detail}" if detail else ""))
+        # The tail is what anyone actually reads, so the environment cause
+        # is named again HERE rather than only in the preflight line, which
+        # by now is hundreds of lines above.
+        _report_missing_doc_packages('NOTE')
     print(f"\n{len(PASSED)} passed, {len(FAILED)} failed, {len(NA)} not yet applicable.")
     return 1 if FAILED else 0
 
