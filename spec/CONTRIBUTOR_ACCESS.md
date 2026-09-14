@@ -93,7 +93,7 @@ The paths to own, in a repository built from
 
 | Path | Why it is owned |
 |---|---|
-| `/.github/` | Workflow files are executable code holding a token. Anyone who can edit one can rewrite everything else here, so leaving this out defeats the whole arrangement. It also holds `CODEOWNERS` itself. |
+| `/.github/` | Workflow files are executable code holding a token. Anyone who can edit one can rewrite everything else here, so leaving this out defeats the whole arrangement. It also holds `CODEOWNERS` itself. **Owning it gates the merge, not the run** — see finding 3 in the 2026-09-14 review below. |
 | `/.claude/` | Session configuration and hooks — the harness runs these. |
 | `/tools/` | The vendored Precedent engine. |
 | `/precedent/` | The vendored universal practice catalogue. |
@@ -201,6 +201,113 @@ state, then test it independently of what any command printed.
   conversation.
 - **"The boundary survives them."** They cannot edit `.github/CODEOWNERS`
   without an owner's review.
+
+## Review, 2026-09-14 — what the plan still lacks
+
+Morgan asked, 2026-09-14, whether anything about contributors with limited
+technical ability still needed building, and how such people should be
+defined, managed, limited and controlled. This section is that session's
+answer, written up on his instruction — `strength: assented`, per
+[decision-strength](../practices/decision-strength.md): the framing and the
+findings were the session's, and he approved the write-up without choosing
+among them. Nothing here was run against a real person or repository
+either; that is finding 7.
+
+### Define, manage, limit, control — the four answers
+
+- **Define by list, never by label.** Three roles, each one a file or a
+  GitHub setting: a **collaborator** (invited, Write), a **maintainer**
+  (named in `CODEOWNERS`), an **approver** (named in `approvers.json`).
+  Nobody is stored as technical or non-technical anywhere. The one place a
+  skill level legitimately lives is the person's own `register` field in
+  their `identity.json`, self-declared, which the team-level
+  `default-register` practice already reads. That field is still absent
+  from the individual-set template, so a person bootstrapped today falls to
+  the non-technical default without ever being asked —
+  [TODO.md](../TODO.md)'s open item on the missing `register` placeholder.
+- **Manage from one registry.** A practice set generates its `CODEOWNERS`
+  from `approvers.json`. The document project hand-writes its own. That is
+  two mechanisms for one question, and the hand-written one is the one a
+  maintainer forgets to update. The fix is a `maintainers` field in the
+  project's `precedent.json` and [tools/build_codeowners.py](../tools/build_codeowners.py)
+  generating the project file from it, as it does the set's
+  ([registry-source-of-truth](../practices/registry-source-of-truth.md)).
+  Onboarding is then one invite plus one line.
+- **Limit at GitHub, not in the session.** Paths and lists at the platform,
+  persona in the session, no deny lists. Unchanged from the layers above.
+- **Control by checks and a rehearsal.** A mechanical check that the
+  boundary is actually on, a session-side warning before a pull request
+  crosses it, and one real pilot. Findings 5, 6 and 7.
+
+### Seven findings, ranked
+
+1. **The three assumptions above are still the biggest risk, and one of
+   them may sink the design.** As of 2026-09-14, read from nobody's
+   documentation: the session's understanding is that GitHub's branch
+   protection on a *private* repository owned by a personal account is a
+   paid-plan feature, and that the documents-only-mergeable behaviour needs
+   the required-approvals count set to zero alongside "require review from
+   code owners". Both are one throwaway repository away from settled.
+   Morgan opened that repository the same day, a throwaway under his own
+   account, and this session could not attach it
+   (`add_repo` refuses a cross-owner add) or read GitHub's documentation
+   (blocked by the network proxy), so the measurement is seeded into
+   [a session rooted there](https://claude.ai/code/session_01DqP5TjkampkhpW3DEvVi7Z),
+   which writes its answers to a `RESULTS.md` in that repository. The
+   "Verify these first" section above closes against that file, not
+   against this paragraph.
+2. **[MAP.md](../templates/MAP.md.template) is an owned path, and
+   [orientation-map](../practices/orientation-map.md) says every thread that
+   adds a document adds its row.** So every "write me a new document" pull
+   request touches an owned file and waits for the maintainer — the exact
+   bottleneck this plan exists to avoid. Two ways out: unown the map and
+   [the glossary](../templates/GLOSSARY.md.template) in the document-project `CODEOWNERS`, since in a document
+   project they index content and are content; or regenerate them in
+   continuous integration after merge, so no contributor commit ever
+   touches them. Either is a decision, not a fix, and it waits on Morgan.
+3. **`CODEOWNERS` gates the merge, not the run.** A Write collaborator who
+   edits a workflow file on their own branch gets that workflow executed on
+   push, with whatever the repository's secrets are, before any review
+   happens — as the session understands GitHub's behaviour for same-repository
+   branches, as of 2026-09-14, unverified. Owning `/.github/` stops the
+   change from landing; it does not stop it from running once. The
+   mitigation is policy rather than protection: a document project's
+   workflows carry no secret beyond the default `GITHUB_TOKEN`, with the
+   workflow's `permissions` block read-only, so a rewritten workflow has
+   nothing to take. The templates under
+   [templates/github-actions/](../templates/github-actions/) already declare
+   `permissions` blocks; whether each is read-only has not been audited.
+4. **The reader-facing documents contradict this plan.**
+   [documentation/FOR_EVERYONE_ELSE.md](../documentation/FOR_EVERYONE_ELSE.md)'s
+   "What You Can't Do (on Purpose)" and
+   [templates/GETTING_STARTED.md](../templates/GETTING_STARTED.md)'s step 5
+   both still say the contributor proposes and an administrator merges. This
+   plan says they merge their own documents. Whichever is true depends on
+   finding 1, so the wording waits for that answer rather than being fixed
+   to match a plan that has not been run.
+5. **Nothing checks that the boundary is on.** A forgotten instantiation
+   step 6 turns Write into unrestricted write, silently, and every document
+   here goes on describing a boundary that does not exist. The check is the
+   same shape as [tools/precedent_source_names.py](../tools/precedent_source_names.py):
+   ask the GitHub API whether the base branch requires a pull request and a
+   code-owner review, print `UNVERIFIED` rather than a pass when offline.
+6. **The session should say, before opening a pull request, when a change
+   will wait for review.** Diff the touched paths against `CODEOWNERS` and
+   tell the contributor in plain words — *"this touches the project's
+   settings, so Alex has to look at it before it lands; want me to split the
+   document part out so that goes in now?"* It is user experience, not
+   enforcement, and it removes the "worse error" case
+   [TODO.md](../TODO.md)'s `review-skill-level-permissions` item names. The
+   hooks' own refusals are the other half of the same problem: the freshness
+   guard and the gates print exit codes and git vocabulary, which
+   [fail-gracefully](../practices/fail-gracefully.md) says a non-technical
+   reader must never be handed raw, and nothing translates them yet.
+7. **The pilot is the test, and it still does not exist.** The cheapest
+   version is Morgan himself as the contributor, from a second GitHub
+   account, following [FOR_EVERYONE_ELSE.md](../documentation/FOR_EVERYONE_ELSE.md) literally — the way pass 1 of
+   [VERY_DEEP_CHECK.md](VERY_DEEP_CHECK.md) rehearsed the install as the
+   person it was written for. Every line of "Verify by postcondition" above
+   is a one-sentence check there.
 
 ## What this does not cover
 
