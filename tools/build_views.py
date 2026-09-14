@@ -817,13 +817,25 @@ def build_loader_block(practices, source_levels=None, omits_private=False,
             index_lines.append(f"  {slug} — {clause}")
     index_text = '\n'.join(index_lines)
     # The generated half of what every session loads is capped too, not just
-    # the resident block (practice: session-load-budget). A caller may pass
-    # its own budget the same way the resident one does.
-    occ_budget = (OCCASION_INDEX_BUDGET_TOKENS if occasion_budget_tokens is None
-                  else occasion_budget_tokens)
-    occ_tokens = _approx_tokens(index_text)
-    if occ_tokens > occ_budget:
-        raise OccasionIndexBudgetExceeded(occ_tokens, occ_budget)
+    # the resident block (practice: session-load-budget) -- but ONLY for a
+    # caller that asks, which is the opposite default from the resident cap
+    # above, and deliberately.
+    #
+    # The resident block is a CURATED set of about ten practices and does not
+    # grow when a repo resolves more sources, so one number binds every
+    # caller. The occasion index is every on-demand practice in force, so a
+    # consumer resolving four sources legitimately has a far bigger one than
+    # this repository's own catalogue. Enforcing this repo's number there
+    # refuses a consumer's correct block: precedent_sync_views.py crashed on
+    # exactly that in the harness's four-source consumer fixture, 2026-09-14,
+    # within an hour of the cap landing.
+    #
+    # So the gate passes its budget explicitly (see the CLI below) and nobody
+    # else is capped by a number that was never about them.
+    if occasion_budget_tokens is not None:
+        occ_tokens = _approx_tokens(index_text)
+        if occ_tokens > occasion_budget_tokens:
+            raise OccasionIndexBudgetExceeded(occ_tokens, occasion_budget_tokens)
 
     lines = [BEGIN_MARKER, '']
     # The command named here has to EXIST in the repo this block is being
@@ -1245,7 +1257,10 @@ def render_agents_md(practices, agents_md=None, source_levels=None,
     try:
         block, tokens, n_resident = build_loader_block(
             practices, source_levels=source_levels,
-            omits_private=omits_private, block_dir=agents_md.parent)
+            omits_private=omits_private, block_dir=agents_md.parent,
+            occasion_budget_tokens=OCCASION_INDEX_BUDGET_TOKENS)
+    except OccasionIndexBudgetExceeded as e:
+        sys.exit(f"build_views FAIL: {e}")
     except ResidentBudgetExceeded as e:
         sys.exit(f"build_views FAIL: resident block is ~{e.tokens} tokens, "
                  f"over the {e.budget}-token hard cap -- demote or "
