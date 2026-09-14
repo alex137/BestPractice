@@ -2970,6 +2970,19 @@ which is the failure this repointing exists to end — write
    It carries no disposition, so it is `wait`
    ([open-item-disposition](practices/open-item-disposition.md)).
 
+   **Still open, and now measured against a hook that MATTERS: 2026-09-14,
+   all four sets carry a `freshness-guard.sh` with no `_deepen_if_shallow`.**
+   That is the shallow-clone phantom-divergence fix
+   ([record/GOTCHAS.md#g37](record/GOTCHAS.md#g37)), so a session rooted in
+   any of the four meets the full trap — the guard refuses to update a
+   checkout that is merely behind, and the session then works from a stale
+   tree without knowing. The same day's engine refresh across all four sets
+   did not carry it, which is the point of this item: the engine has a repair
+   path and the hooks do not. This raises the stake on the question above
+   without answering it — "a set may be sitting on an older build for a
+   reason" is still true, and is now weighed against a guard that misreports
+   staleness.
+
 51. <a id="sync-refuses-a-rewind"></a>**Make `precedent_sync_views.py` refuse a sync that would rewind a
    practice's content, not just one that would remove the practice
    outright.** It already refuses at practice granularity: `_lost_practices`
@@ -4984,3 +4997,43 @@ which is the failure this repointing exists to end — write
     `strength: decided` — he asked for it in his own words rather than
     accepting a proposal. Nothing here is waiting on a decision; it is
     waiting on a session that can push.
+
+85. <a id="vendor-engine-ref-not-on-cli"></a>**Expose
+    [tools/precedent_vendor_engine.py](tools/precedent_vendor_engine.py)'s
+    `ref` parameter on the command line.** `refresh` fetches
+    `origin <SOURCE_BRANCH>` and then resolves `origin/<SOURCE_BRANCH>`, so it
+    always vendors whatever the branch tip is at that moment. The function
+    already accepts a `ref` naming an exact commit — `seed()` passes the
+    calling checkout's own HEAD — but no CLI flag reaches it, so from the
+    command line there is no way to vendor a commit that has been reviewed
+    once the branch has moved past it.
+    Found 2026-09-14 during the four-set engine refresh: that session was
+    asked to pin `e7442211c826`, tried twice (checking the commit out, then
+    forcing the local branch), and the tool's own fetch overwrote both
+    attempts. It landed on the live tip and said so rather than falsifying a
+    remote-tracking ref, which was the right call.
+    **Blocked-on: not the code — `ref` exists and works.** What is undecided
+    is whether vendoring a commit the branch has moved past should be offered
+    at all, given that a set pinned to an ancestor is stale the moment it
+    lands. Decide that before adding the flag.
+
+86. <a id="set-ci-skips-vendored-tests"></a>**No practice set's CI runs the
+    vendored checks' own test suite, so a red suite sits under a green pull
+    request.** Verified 2026-09-14: none of the three workflow templates a set
+    is bootstrapped with —
+    [doc-lint](templates/github-actions/doc-lint.yml.template),
+    [precedent-check](templates/github-actions/precedent-check.yml.template),
+    [views-drift](templates/github-actions/views-drift.yml.template) —
+    references `tools/checks/tests/run_all.sh`, and the same day a sweep of
+    all four private sets' workflows found no reference either.
+    The cost is already real: `precedent-team-writing`'s engine-refresh PR
+    showed every check green while `run_all.sh` exited 1 with two failures
+    (*"fixture bug: this case requires NO engine"*). They reproduce on that
+    set's pre-refresh `main`, so they predate the refresh — and the only
+    reason anyone knows is that the session ran the suite by hand and wrote it
+    into the PR body.
+    **Blocked-on** two calls: whether the suite belongs in the
+    `precedent-check` workflow or its own, and what it should do in a set
+    whose checks want a BestPractice clone CI does not have — the same gap
+    that turns real answers into `SKIPPED` unless
+    `PRECEDENT_BESTPRACTICE_CLONE` is set.

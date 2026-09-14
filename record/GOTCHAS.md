@@ -851,3 +851,39 @@ container's clock — and past a declared limit (`stale_checkout_hours` in
 wanting the time and not the count, 2026-09-13: over a missed hour *"chances
 are not much changed"*, over a few days *"chances are a lot did, thus
 increasing the risk of problems."*
+
+**It fired again on 2026-09-14, and the cause is not unknown: the fix could
+not run, because the fix was not in the tree that was running.** A session
+opened here and the guard refused its first tool call with
+`'precedent-beta-v01' has diverged (132 local, 162 remote)`. A bounded
+`git fetch --depth=500` recounted it as **0 local and 212 behind**, and the
+branch fast-forwarded cleanly — the same phantom this entry is about, on a
+checkout that already had `_deepen_if_shallow` committed upstream.
+
+**The obvious reading is that the fix fired and failed, and that reading is
+wrong.** A second session checked the file afterwards, found
+`_deepen_if_shallow` present, ran its fetch command by hand, got exit 0, and
+concluded the guard had refused with a working fix installed — cause unknown.
+That is true of the file and false of the run: by the time it looked, the
+fast-forward had already replaced the file. `git show <the checked-out
+commit>:.claude/hooks/freshness-guard.sh` settles it — **zero occurrences of
+`_deepen_if_shallow`** in the copy that actually executed. The commit carrying
+the fix is an ancestor of the current tip and **not** of the commit that was
+checked out; it was one of the 212 the session did not have.
+
+**The generalization is the part to keep: this hook runs from the working
+tree, so it cannot repair a checkout too stale to contain it.** Every fix to
+the freshness guard is delivered by the mechanism the fix is about, and the
+case it most needs to handle — a badly stale checkout — is exactly the case
+where the pre-fix copy is the one executing. **A session's own first fetch is
+the only thing that closes that loop**, which is why the four commands under
+"Reproduce it" stay worth running by hand when the counts look like a
+divergence. Do not read "the fix is installed" as "the fix ran": ask what the
+file looked like at the commit that was checked out, not at the one you are
+standing on now.
+
+**Measured the same day: all four private practice sets still carry a pre-fix
+guard**, so a session rooted in any of them meets the original trap at full
+force. Their vendored engines were refreshed to current that day and did
+**not** bring the hook with them — the engine and the hooks go stale
+independently ([g20](#g20)), and only the engine has a repair path.
