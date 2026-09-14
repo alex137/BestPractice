@@ -235,6 +235,16 @@ import split_practices as sp  # noqa: E402
 import build_views as bv  # noqa: E402
 import leak_gate  # noqa: E402
 
+# Optional, and deliberately so: this engine is vendored into trees older
+# than github_budget.py, and a visibility audit that refused to run there
+# would be a regression dressed as a fix (practice: fail-gracefully). Where
+# it IS present, every API call this tool makes goes through it -- one
+# implementation, one cache, one counter.
+try:
+    import github_budget as gh_budget  # noqa: E402
+except Exception:                      # noqa: BLE001 -- reported, never raised
+    gh_budget = None
+
 # practice: one-formatter-per-quantity -- every moment in time this project
 # writes down comes from ONE module, in the person's zone, carrying its
 # offset. Never a bare datetime.date.today(): that is the container's UTC.
@@ -2783,15 +2793,19 @@ def _api_token():
 def _api_json(path, timeout=20, auth=True):
     """-> (parsed, error). Never raises: the caller reports, it does not crash.
 
-    AUTHENTICATES WHEN A TOKEN IS SET, because unauthenticated is not a
-    milder version of the same question -- it is a different question. The
-    API answers `Not Found` for a private repository and for a deleted one
-    alike, so a caller asking anonymously about this project's own private
-    sources learns nothing at all about whether they still exist. The token
-    is passed through a curl config on STDIN rather than an `-H` argument:
-    an argument list is world-readable in /proc on a shared machine, and
-    this one would carry the credential itself.
+    DELEGATES TO github_budget.call, which is the one implementation of "ask
+    GitHub something" in this engine. It caches within a run and counts what
+    the run spent, so the GITHUB API BUDGET section below can report this
+    tool's own bill rather than guessing at it -- and the second ask about a
+    repository two of these trees both mention costs nothing.
+
+    Degrades to the older uncached path where the module is absent: this
+    engine is vendored into trees older than it, and a visibility audit that
+    refused to run there would be a regression dressed as a fix.
     """
+    if gh_budget is not None:
+        return gh_budget.call(path, timeout=timeout, auth=auth)
+
     token, _var = _api_token() if auth else (None, None)
     argv = ['curl', '-s', '--max-time', str(timeout),
             '-H', 'Accept: application/vnd.github+json']
@@ -5013,6 +5027,31 @@ def _main(box):
                     extra_seconds=_endgame_secs)
     elif led:
         led.skipped('ENDGAME MERGE', '--skip-endgame-merge')
+
+    # WHAT THIS RUN COST, AND WHAT THE ACCOUNT HAS LEFT (practice:
+    # github-api-budget). Last, deliberately: the spend figure is only
+    # complete once every section that calls the API has finished, and the
+    # headroom figure is read off the headers those calls already returned
+    # rather than bought with one more (probe=False below).
+    #
+    # It reports and never refuses. A run that stopped because somebody
+    # else's session had spent the pool would be the wrong remedy for the
+    # right finding -- the remedy is fewer simultaneous sessions and cheaper
+    # tools, and neither is this tool's to apply mid-run.
+    if gh_budget is not None:
+        if led:
+            led.start('GITHUB API BUDGET')
+        print('\nGITHUB API BUDGET -- what the account has left, and what '
+              'this run spent\n')
+        _bf, _bn, _brows = gh_budget.audit(tool='very_deep_check.py',
+                                           probe=False)
+        gh_budget.render(_bf, _bn, _brows)
+        print()
+        if led:
+            led.end(findings=len(_bf))
+    elif led:
+        led.skipped('GITHUB API BUDGET',
+                    'tools/github_budget.py is not present in this tree')
 
     if led:
         led.report()

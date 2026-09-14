@@ -172,7 +172,7 @@ plan's premise.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block; `python3 tools/build_views.py --check` exits non-zero on drift. Source: practices/ -- edit the practice file, never this block. -->
 
-## Resident block (~949 of 2000 token budget, 10 of 119 practices (10 universal))
+## Resident block (~949 of 2000 token budget, 10 of 120 practices (10 universal))
 
 **bold-key-phrases.** People don't read; they skim, and bolding makes skimming easy. Bold the key phrases in a document by default, without being asked, scaling with length -- a long paragraph or document is where a skimmer most needs a spine to follow, a short note usually needs little or none.
 
@@ -444,6 +444,8 @@ When writing code that depends on something outside its own control, handling a 
   fail-gracefully — keep going, never look complete — match the telling to stake and reader
 When writing code that stamps a date or a time into a file, a record or a document:
   timestamps-carry-offset — a stamp carries its offset; never a bare date.today()
+When writing or changing anything that calls the GitHub API, or a session is refused with a rate-limit error:
+  github-api-budget — measure API spend from response headers; budget each tool; never /rate_limit
 When writing or editing a document:
   acronyms-glossary — expand acronyms on first use; keep one central glossary
   doc-references-are-links — reference repo files as relative links; use ≈, never ~
@@ -487,7 +489,7 @@ that skips them in this repo of all places is the joke writing itself.
 ## Where things are (quick index — check here BEFORE searching)
 
 **The dozen rows sessions reach for constantly are below. The full
-88-row index is [WHERE_THINGS_ARE.md](WHERE_THINGS_ARE.md)** — check it
+index is [WHERE_THINGS_ARE.md](WHERE_THINGS_ARE.md)** — check it
 before searching the repo, and add new rows there rather than here.
 
 | Looking for… | Go to |
@@ -504,7 +506,7 @@ before searching the repo, and add new rows there rather than here.
 | Install / update / check-in playbook (dependent repos) | [INSTALL.md](INSTALL.md) — the assistant-facing runbook; the person-facing routes are [SETUP.md](SETUP.md) (guided, non-technical) and [documentation/FOR_DEVELOPERS.md](documentation/FOR_DEVELOPERS.md) (short form plus what actually bites) |
 | Upstream open items / roadmap | [TODO.md](TODO.md) |
 | The full story behind any line in the gotchas index, unabridged | [record/GOTCHAS.md](record/GOTCHAS.md) |
-| Anything else — the full 88-row index | [WHERE_THINGS_ARE.md](WHERE_THINGS_ARE.md) |
+| Anything else — the full index | [WHERE_THINGS_ARE.md](WHERE_THINGS_ARE.md) |
 
 
 ## Build-environment gotchas — do NOT rediscover these
@@ -681,6 +683,11 @@ retired it. Nothing is ever deleted.
 - **The session-start identity block reached every Precedent repo except the
   individual set it read the identity from, so that one set kept committing as
   the container's bot.** [story](record/GOTCHAS.md#g40)
+
+- **`/rate_limit` reports a pristine window from inside a session while the
+  `X-RateLimit-*` headers on an ordinary call report the truth — and there is
+  more than one allowance pool, keyed by repository.**
+  [story](record/GOTCHAS.md#g41)
 
 ## Working in this repo
 

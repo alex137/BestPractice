@@ -5449,6 +5449,155 @@ def _session_load_budget(ctx):
     return out
 
 
+# code-cites-practice: github-api-budget
+GITHUB_API_BUDGETS = 'tools/github_api_budgets.json'
+_API_URL_RE = re.compile(r'https://api\.github\.com/')
+
+
+def _api_callers(ctx):
+    """-> tracked .py files that both build a GitHub API URL and send it.
+
+    Building the URL is not enough: a test fixture or a harness asserting on a
+    recorded response has the string and makes no request. The distinguishing
+    mark is a request verb in the same file. A file that has both and is still
+    not a caller says so in the registry's `unrouted_callers` -- the check
+    cannot tell a fixture URL from a live one by reading, and one that guessed
+    would be worse than one that asks for a line.
+    """
+    r = _git('ls-files', '-z')
+    if r.returncode != 0:
+        raise NotApplicable('git ls-files failed, so the tools that call the '
+                            'API could not be enumerated')
+    found = []
+    for rel in r.stdout.split('\0'):
+        if not rel.endswith('.py') or rel == 'tools/github_budget.py':
+            continue
+        path = ROOT / rel
+        if not path.is_file():
+            continue
+        try:
+            text = path.read_text(encoding='utf-8')
+        except (UnicodeDecodeError, OSError):
+            continue
+        if _API_URL_RE.search(text) and re.search(
+                r"curl|urlopen|opener\.open|requests\.", text):
+            found.append(rel)
+    return found
+
+
+@check('github-api-budget', 'tree',
+       'every tool that builds a GitHub API URL is routed through '
+       'tools/github_budget.py or declared in tools/github_api_budgets.json '
+       'with a reason, the registry declares a core floor and a budget per '
+       'tool that still exists, and nothing has quietly gone back to reading '
+       '/rate_limit',
+       'what anything actually spent. It reads declarations, not traffic: a '
+       'routed tool whose budget is generous enough to hide a runaway loop '
+       'passes here, and the figure that would catch it is the GITHUB API '
+       "BUDGET section of very_deep_check.py, printed per run. It also "
+       'cannot see the calls that matter most -- the harness-side '
+       'mcp__github__* tools spend the same account allowances and no file '
+       'in this repo describes them.')
+def _github_api_budget(ctx):
+    reg_path = ROOT / GITHUB_API_BUDGETS
+    callers = _api_callers(ctx)
+    if not reg_path.is_file():
+        # A repo with no registry AND no caller has nothing to declare, and a
+        # check that fired there would be noise in every consumer that never
+        # touches GitHub's API. A repo with a caller and no registry is the
+        # finding itself -- it is spending an allowance it has not named,
+        # which is the state this whole practice was written out of.
+        if not callers:
+            raise NotApplicable(f'this repo has no {GITHUB_API_BUDGETS} and '
+                                f'nothing here calls the GitHub API, so there '
+                                f'is no spend to declare')
+        return [Finding(rel, f'calls the GitHub API, and this repo has no '
+                             f'{GITHUB_API_BUDGETS} declaring what that '
+                             f'should cost. Copy one from upstream and give '
+                             f'this tool a run budget, or declare it under '
+                             f'"unrouted_callers" with the reason')
+                for rel in callers]
+    try:
+        reg = json.loads(reg_path.read_text(encoding='utf-8'))
+    except ValueError as e:
+        return [Finding(GITHUB_API_BUDGETS, f'is not valid JSON ({e}), so '
+                                            f'every floor and budget in it is '
+                                            f'unreadable and nothing is '
+                                            f'judged against anything')]
+    out = []
+    floors = {k: v for k, v in (reg.get('floors') or {}).items()
+              if not k.startswith('_')}
+    if not isinstance(floors.get('core'), (int, float)):
+        out.append(Finding(GITHUB_API_BUDGETS,
+                           'declares no numeric "core" floor. The core pool is '
+                           'the one a session can actually measure, so a '
+                           'registry without a floor for it reports numbers '
+                           'and judges nothing'))
+    budgets = {k: v for k, v in (reg.get('run_budgets') or {}).items()
+               if not k.startswith('_')}
+    for tool, value in sorted(budgets.items()):
+        if not isinstance(value, int):
+            out.append(Finding(GITHUB_API_BUDGETS,
+                               f'the run budget for {tool} is not a whole '
+                               f'number of calls ({value!r})'))
+        if not (ROOT / 'tools' / tool).is_file():
+            out.append(Finding(GITHUB_API_BUDGETS,
+                               f'declares a run budget for tools/{tool}, which '
+                               f'does not exist here. A budget for a deleted '
+                               f'tool is never compared against anything, and '
+                               f'reads as coverage'))
+    for name, row in sorted((reg.get('unmeasurable') or {}).items()):
+        if name.startswith('_') or not isinstance(row, dict):
+            continue
+        if not row.get('why'):
+            out.append(Finding(GITHUB_API_BUDGETS,
+                               f'`{name}` is listed as unmeasurable with no '
+                               f'"why". An allowance nobody can measure is '
+                               f'worth recording only with the reason beside '
+                               f'it'))
+        if row.get('limit') is not None and not row.get('published_figure_read'):
+            out.append(Finding(GITHUB_API_BUDGETS,
+                               f'`{name}` carries a published limit with no '
+                               f'"published_figure_read" date. A figure about '
+                               f'the outside world carries the date it was '
+                               f'read (practice: volatile-rules-carry-dates)'))
+
+    declared = {k for k, v in (reg.get('unrouted_callers') or {}).items()
+                if not k.startswith('_') and v}
+    for rel in callers:
+        text = (ROOT / rel).read_text(encoding='utf-8', errors='replace')
+        if 'import github_budget' in text or rel in declared:
+            continue
+        out.append(Finding(rel, 'calls the GitHub API directly. Route it '
+                                'through tools/github_budget.py so its calls '
+                                'are counted and cached, or declare it in '
+                                f'{GITHUB_API_BUDGETS} under '
+                                '"unrouted_callers" with the reason it cannot '
+                                'be. An uncounted caller is exactly what makes '
+                                '"what is spending our allowance" unanswerable'))
+
+    if (ROOT / 'tools' / 'github_budget.py').is_file():
+        gb = (ROOT / 'tools' / 'github_budget.py').read_text(encoding='utf-8')
+        # Everything after the module docstring: the docstring's whole job is
+        # to explain why /rate_limit is not used, so finding the word there is
+        # the rule working rather than breaking.
+        body = gb.split('"""', 2)[-1]
+        # A REQUEST to it, not a mention of it. This module's own prose names
+        # the endpoint constantly -- explaining why it is not used is half of
+        # what the file is for -- and a check that fired on the word would be
+        # unfixable without deleting the explanation.
+        if re.search(r"""(?:call|urlopen|get|open)\(\s*['"]/?rate_limit"""
+                     r"""|api\.github\.com/rate_limit""", body):
+            out.append(Finding('tools/github_budget.py',
+                               'requests /rate_limit. Measured 2026-09-14, that '
+                               'endpoint answers a pristine window from inside '
+                               'a session while the response headers on an '
+                               'ordinary call report the truth -- a budget read '
+                               'from it is green on the day the account runs '
+                               'out'))
+    return out
+
+
 def run(slugs, ctx, scopes, exempt=None):
     exempt = exempt or {}
     results = []

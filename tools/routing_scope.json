@@ -55,7 +55,7 @@
       "globs": [
         "**"
       ],
-      "why": "A moment, not a place \u2014 routed by the `merge` gate instead.",
+      "why": "A moment, not a place — routed by the `merge` gate instead.",
       "decided": "phase 4 routing pass",
       "gates": [
         "merge"
@@ -115,7 +115,7 @@
         ".github/workflows/**",
         "templates/github-actions/**"
       ],
-      "why": "The narrowest possible locus: a workflow file is the only place this can be got wrong. Deliberately NOT the whole of .github/** -- an issue template or a CODEOWNERS edit commits nothing, and firing there would teach a session to skip the rule on the files that matter. templates/github-actions/ is included because a workflow template published from here becomes somebody else\u2019s workflow, and the rule has to reach it before it is copied rather than after.",
+      "why": "The narrowest possible locus: a workflow file is the only place this can be got wrong. Deliberately NOT the whole of .github/** -- an issue template or a CODEOWNERS edit commits nothing, and firing there would teach a session to skip the rule on the files that matter. templates/github-actions/ is included because a workflow template published from here becomes somebody else’s workflow, and the rule has to reach it before it is copied rather than after.",
       "decided": "2026-09-10, on the incident that created the practice"
     },
     "cite-the-incident": {
@@ -169,7 +169,7 @@
       "globs": [
         "**"
       ],
-      "why": "A moment \u2014 routed by the `review` gate instead.",
+      "why": "A moment — routed by the `review` gate instead.",
       "decided": "phase 4 routing pass",
       "gates": [
         "review"
@@ -240,7 +240,7 @@
       "globs": [
         "**"
       ],
-      "why": "A moment \u2014 routed by the `reply` gate instead.",
+      "why": "A moment — routed by the `reply` gate instead.",
       "decided": "follow-up session, 2026-09-03",
       "gates": [
         "reply"
@@ -280,13 +280,13 @@
       "globs": [
         "**"
       ],
-      "why": "A moment, not a file class \u2014 it fires while deciding WHERE a fix goes, which is before any particular file is chosen, and applies to every kind of fix (code, document, config, container state). Routed by the `review` and `reply` gates instead.",
+      "why": "A moment, not a file class — it fires while deciding WHERE a fix goes, which is before any particular file is chosen, and applies to every kind of fix (code, document, config, container state). Routed by the `review` and `reply` gates instead.",
       "decided": "2026-09-08, when the practice landed",
       "gates": [
         "review",
         "reply"
       ],
-      "gates_why": "`review` catches it while the fix is being chosen; `reply` catches the half that is about what gets REPORTED \u2014 a temporary fix must be called temporary in the reply, which is a reply-time obligation, not a file-time one."
+      "gates_why": "`review` catches it while the fix is being chosen; `reply` catches the half that is about what gets REPORTED — a temporary fix must be called temporary in the reply, which is a reply-time obligation, not a file-time one."
     },
     "engine-plus-host-shims": {
       "globs": [
@@ -492,7 +492,7 @@
       "globs": [
         "**"
       ],
-      "why": "A moment \u2014 routed by the `merge` gate instead.",
+      "why": "A moment — routed by the `merge` gate instead.",
       "decided": "phase 4 routing pass",
       "gates": [
         "merge"
@@ -503,7 +503,7 @@
       "globs": [
         "**"
       ],
-      "why": "A moment, not a place \u2014 routed by the `reply` gate instead.",
+      "why": "A moment, not a place — routed by the `reply` gate instead.",
       "decided": "Morgan F, 2026-09-14",
       "gates": [
         "reply"
@@ -521,7 +521,7 @@
       "globs": [
         "**"
       ],
-      "why": "A moment \u2014 routed by the `review` gate instead. Its proportionality guard is also why it has no check.",
+      "why": "A moment — routed by the `review` gate instead. Its proportionality guard is also why it has no check.",
       "decided": "phase 4 routing pass",
       "gates": [
         "review"
@@ -561,7 +561,7 @@
       "globs": [
         "**"
       ],
-      "why": "A moment \u2014 routed by the `push` gate, and enforced by a turn-end check.",
+      "why": "A moment — routed by the `push` gate, and enforced by a turn-end check.",
       "decided": "phase 4 routing pass",
       "gates": [
         "push"
@@ -684,7 +684,7 @@
       "globs": [
         "**"
       ],
-      "why": "Genuinely unroutable \u2014 see spec/LOADER.md. A registry is recognised by what it is for, and this repo's are .json, .py and .md alike.",
+      "why": "Genuinely unroutable — see spec/LOADER.md. A registry is recognised by what it is for, and this repo's are .json, .py and .md alike.",
       "decided": "phase 4 routing pass"
     },
     "relayed-authorization": {
@@ -774,7 +774,7 @@
       "globs": [
         "**"
       ],
-      "why": "A moment \u2014 routed by the `merge` gate instead.",
+      "why": "A moment — routed by the `merge` gate instead.",
       "decided": "phase 4 routing pass",
       "gates": [
         "merge"
@@ -913,7 +913,7 @@
       "globs": [
         "TODO.md"
       ],
-      "why": "The distinguishing condition is writing or triaging an entry in the TODO file itself \u2014 the only place the practice's rule is ever violated.",
+      "why": "The distinguishing condition is writing or triaging an entry in the TODO file itself — the only place the practice's rule is ever violated.",
       "decided": "post-phase-4, converting Alex's practice 53",
       "gates": [
         "merge"
@@ -946,7 +946,7 @@
       "globs": [
         "**"
       ],
-      "why": "A moment, not a file class \u2014 it fires when an update is being taken, and the files it touches are a vendored tree whose paths differ in every consuming repo. Routed by the `merge` gate.",
+      "why": "A moment, not a file class — it fires when an update is being taken, and the files it touches are a vendored tree whose paths differ in every consuming repo. Routed by the `merge` gate.",
       "decided": "2026-09-08, when the practice landed",
       "gates": [
         "merge"
@@ -1026,6 +1026,15 @@
       ],
       "why": "`**` because this is a standing COMMAND, not a rule about a kind of file. \"Reduction pass\" can be said in any turn, about any repository's always-loaded surfaces, and the session has to already know what it means -- the same reasoning as go-merge, park-it and three-things, which are all at `**` for being phrases rather than file-shaped rules. The occasion index is the channel that matters here; a path trigger could not fire on a sentence. The second half of the occasion (\"an always-loaded surface is near its ceiling\") is served by tools/precedent_gate.py's merge and push gates, which print the headroom notice, rather than by any glob.",
       "decided": "2026-09-14, when the practice was added"
+    },
+    "github-api-budget": {
+      "globs": [
+        "tools/github_budget.py",
+        "tools/github_api_budgets.json",
+        "**/*github*.py"
+      ],
+      "why": "Its own applies_to, and a real locus: the module that makes the calls, the registry that declares what they should cost, and any new file whose name says it talks to GitHub. Deliberately NOT `**` -- a rule about API spend has nothing to say to a session editing a practice file. What the glob cannot reach is a tool that calls the API under an unrelated name, which is exactly why the mechanical check enumerates every tracked .py rather than trusting this list.",
+      "decided": "2026-09-14, when the practice was written"
     }
   },
   "gates": {
@@ -1034,7 +1043,7 @@
     ],
     "merge": "merging a branch",
     "review": "reviewing work, or a review finding a defect",
-    "push": "before pushing \u2014 the pre-push hook",
-    "reply": "ending a turn and writing the reply \u2014 the stop hook"
+    "push": "before pushing — the pre-push hook",
+    "reply": "ending a turn and writing the reply — the stop hook"
   }
 }

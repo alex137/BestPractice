@@ -309,6 +309,15 @@ is written by
 [../tools/very_deep_check.py](../tools/very_deep_check.py), and a figure
 typed into it by hand is a figure nothing measured.
 
+**GITHUB API BUDGET is the newest section, added 2026-09-14** on Morgan's
+request, after a session was refused by GitHub with a rate-limit error. It
+prints last — the run's own API bill is only complete once every section that
+calls the API has finished — and it costs nothing extra to take, because the
+headroom it reports is read off the `X-RateLimit-*` headers of calls the run
+already made. It has no entry in the table below yet and should not get one
+until it has run quiet across several runs; the practice behind it is
+[github-api-budget](../practices/github-api-budget.md).
+
 **Record each pass here as you finish it, and in the ledger**:
 
 ```

@@ -5880,6 +5880,26 @@ def check_precedent_check_fires():
                     e['ceiling'] = 10
                 return json.dumps(d, indent=2) + '\n'
             rewrite(repo, 'tools/session_load_budgets.json', _lower)
+        # github-api-budget -- a new tool starts calling the API directly,
+        # which is the shape that made "what is spending our allowance"
+        # unanswerable in the first place: one uncounted caller, and the
+        # figures every other tool reports are no longer the whole bill.
+        # control-asserts-which-failure: the exit code alone would pass if
+        # the check fired for any other reason, so the message is asserted.
+        def _plant_api_caller(repo):
+            (repo / 'tools' / 'gh_thing.py').write_text(
+                "import subprocess\n"
+                "subprocess.run(['curl', 'https://api.github.com/user'])\n",
+                encoding='utf-8')
+            subprocess.run(['git', '-C', str(repo), 'add', 'tools/gh_thing.py'],
+                           capture_output=True, text=True)
+
+        case('github-api-budget', _plant_api_caller)
+        cases.append(('github-api-budget: the planted violation names the '
+                      'uncounted caller and the way out of it',
+                      'tools/gh_thing.py' in planted['github-api-budget'][1]
+                      and 'unrouted_callers' in planted['github-api-budget'][1]))
+
         case('session-load-budget', _plant_load_budget)
         cases.append(('session-load-budget: the planted violation names the '
                       'ceiling it is over, not just that something is big',

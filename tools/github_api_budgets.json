@@ -1,0 +1,41 @@
+{
+  "_comment": "The declared floors and per-tool call budgets tools/github_budget.py judges against, and the allowances a session cannot measure for itself. One registry rather than a number inside each tool (practice: registry-source-of-truth, constants-are-risk-inputs): a floor nobody decided is not doctrine, and a budget that lives in the tool it constrains is a budget the tool's own author moves without saying so.",
+  "floors": {
+    "_comment": "Percent of an allowance that must still be REMAINING. Below it, tools/github_budget.py reports a finding. `core` is the account-wide hourly REST pool every session, hook and tool on this credential draws on. 20% chosen 2026-09-14 (strength: assented -- proposed by the session, not by Morgan) as the first value with a reason rather than a measurement: on a 15,000/hour pool that leaves 3,000 calls of headroom, which is more than a day of this project's own measured tooling spend, and it fires early enough that the finding reaches a person before the refusals do. Move it with a reason written beside it.",
+    "core": 20
+  },
+  "run_budgets": {
+    "_comment": "How many API calls one run of a named tool may make before tools/github_budget.py reports it. NOT a limit the tool enforces on itself -- it prints and carries on (practice: fail-gracefully). The point is that a tool's bill is watched at all: an uncached loop that doubled overnight is invisible without a declared figure to compare against.",
+    "very_deep_check.py": 120,
+    "_very_deep_check_note": "Measured 2026-09-14, one full run in this workspace: 45 calls -- the repository-visibility audit over this tree's own references, one liveness call per repo in force, and one `user` probe. 120 leaves room for a larger workspace and for the audit to run per source, without leaving a runaway loop unreported."
+  },
+  "unmeasurable": {
+    "_comment": "Allowances this project's own sessions CANNOT measure, listed so they are reported as unmeasured rather than omitted as clean. Established 2026-09-14 from inside a Claude Code container: the agent proxy answers 403 `This GitHub API path is not available: sessions are bound to their configured repositories` for /search/* and /graphql before the request reaches GitHub. Every figure here is GitHub's PUBLISHED figure, read 2026-09-14, not a measurement taken here (practice: volatile-rules-carry-dates, no-invented-specifics).",
+    "search": {
+      "limit": 30,
+      "window": "minute",
+      "why": "the agent proxy refuses /search/* from a session",
+      "spent_by": "Every mcp__github__search_code / search_issues / search_pull_requests / search_repositories / search_users call spends one, account-wide and shared across every session running at once -- which makes this the tightest allowance on the account by a wide margin, and the one a fleet of sessions exhausts first.",
+      "published_figure_read": "2026-09-14"
+    },
+    "graphql": {
+      "limit": null,
+      "window": "hour",
+      "why": "the agent proxy refuses /graphql from a session, and the published allowance is counted in points rather than requests and differs by account type -- so no figure is recorded here rather than a guessed one",
+      "spent_by": "Harness-side tooling that queries GraphQL on this account's behalf.",
+      "published_figure_read": "2026-09-14"
+    },
+    "content_creation_secondary": {
+      "limit": 80,
+      "window": "minute",
+      "why": "a secondary rate limit: GitHub publishes it but exposes no endpoint or header reporting how much of it is spent, so nothing can measure it anywhere -- it is known only by the 403 it eventually returns",
+      "spent_by": "Anything that CREATES content through the API -- a commit, a branch, a pull request, a comment, a review, a merge. GitHub publishes 80 per minute and 500 per hour for these. Several sessions each opening pull requests and posting review replies is the shape that reaches it.",
+      "published_figure_read": "2026-09-14"
+    }
+  },
+  "unrouted_callers": {
+    "_comment": "Tools that build a GitHub API URL without going through tools/github_budget.py, each with the reason. Declared rather than fixed: an exception with a reason beside it is checkable, and an undeclared one is how 'what is spending our allowance' stops having an answer. Adding a name here is a decision; leaving one out is a violation.",
+    "tools/precedent_source_names.py": "It must see a 301 REDIRECT rather than follow it -- a redirect on /repos/{owner}/{name} is the whole finding, a source repository renamed underneath us -- and it reads the Location header to recover the new name. github_budget.call uses curl without -L and returns the body alone, so routing it there would lose the one signal the tool exists for, which was field-tested against a real rename on 2026-09-14. Its spend is one call per declared source per run, and it is the smallest caller here.",
+    "tools/verify_harness.py": "Not a caller at all: the api.github.com URLs in it are FIXTURE data for its tests of precedent_source_names.py, handed to a patched opener. It makes no live request, so there is nothing for a counter to count. Listed because the check cannot tell a fixture URL from a real one by reading the file, and a check that guessed would be worse than one that asks for a line here."
+  }
+}
