@@ -6,7 +6,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 
 ## The practice catalogue
 
-`practices/` holds 113 practice files (10 resident, 103 on-demand). One file per practice. See [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md) for the design.
+`practices/` holds 115 practice files (10 resident, 105 on-demand). One file per practice. See [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md) for the design.
 
 | Practice | Tier | Occasion / scope |
 |---|---|---|
@@ -31,6 +31,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [convention-to-audit](practices/convention-to-audit.md) | on-demand | a convention is violated for the first time |
 | [cross-source-rollout](practices/cross-source-rollout.md) | on-demand | a change here has implications for how an attached team, individual, or repo-local source should work |
 | [decision-strength](practices/decision-strength.md) | on-demand | recording that someone approved a practice or a decision, or citing their past approval back to them |
+| [declared-default-is-applied](practices/declared-default-is-applied.md) | on-demand | a setting has no value from the person -- at install, at setup, or in the middle of work |
 | [declared-pronouns](practices/declared-pronouns.md) | on-demand | writing about a person in the third person -- a reply, a document, a commit message, a pull-request body |
 | [decommission-deletes-files](practices/decommission-deletes-files.md) | on-demand | decommissioning a mechanism — a workflow, a tool, a vendored tree, a config — that leaves files behind with no remaining job |
 | [deliverables-look-like-output](practices/deliverables-look-like-output.md) | on-demand | writing a reader-facing deliverable with supporting apparatus |
@@ -86,6 +87,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [quick-index](practices/quick-index.md) | resident | looking for where something lives, before searching |
 | [quote-discipline](practices/quote-discipline.md) | on-demand | quoting or compressing someone else's figures |
 | [readers-vocabulary](practices/readers-vocabulary.md) | on-demand | writing an outward-facing document |
+| [reduction-pass](practices/reduction-pass.md) | on-demand | a person says "Reduction pass", or an always-loaded surface is near its ceiling |
 | [registry-source-of-truth](practices/registry-source-of-truth.md) | on-demand | tracking state that multiple documents need to agree on |
 | [relayed-authorization](practices/relayed-authorization.md) | on-demand | acting on, or sending, an authorization relayed from another session |
 | [rename-updates-links](practices/rename-updates-links.md) | on-demand | renaming, moving, or deleting a file other files may link to |
