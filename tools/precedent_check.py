@@ -2221,11 +2221,27 @@ def _hooks_on_disk_are_reachable(ctx):
 
     WHY THIS EXISTS (practice: cite-the-incident). The forward direction — a
     settings entry naming a file that is not there — is
-    declared-hooks-exist above. This is the other end, and it cost a real
-    consuming repo: on 2026-09-14 an `Update Vendors` pass found two hooks
-    sitting in its .claude/hooks/ with nothing naming them, one of them the
-    reply gate, so replies there had closed ungated for as long as the files
-    had been present. Nothing failed, which is the whole problem.
+    declared-hooks-exist above. This is the other end, and it was found in a
+    real consuming repo: on 2026-09-14 an `Update Vendors` pass there found
+    two hooks sitting in .claude/hooks/ with nothing naming them --
+    freshness-guard.sh and commit-identity.sh, both written minutes earlier
+    by precedent_refresh_sources.py --apply, which drops hook files in and
+    deliberately will not edit a settings.json. Nothing failed, which is the
+    whole problem: the session found them by listing the directory and
+    reading settings.json against it, not because anything said so.
+
+    TWO THINGS THIS INCIDENT IS NOT, corrected 2026-09-14 against the
+    repo's own history after the first version of this docstring got both
+    wrong (practice: no-invented-specifics -- a cited incident is a claim,
+    and a rule argued from a false one cannot be judged). Neither orphan was
+    the reply gate: that repo had never carried reply-gate.sh at all, tracked
+    or untracked, so its replies were ungated by absence and this check would
+    have reported nothing. And the exposure was minutes inside one session,
+    not "as long as the files had been present" -- the same session wired
+    both before it merged. The real cost is the one still worth citing: a
+    tool that installs hook files but cannot wire them leaves orphans by
+    design, and until this check nothing but a person reading the directory
+    would ever say so.
 
     Reachability deliberately includes engine tools, not only settings.
     tools/precedent_resolve.py invokes
