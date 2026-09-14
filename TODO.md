@@ -5663,6 +5663,40 @@ which is the failure this repointing exists to end — write
   because the next session to read this item will otherwise start a fifth
   branch on the same four files.
 
+  **NOW MEASURED, AND THE CRON QUESTION IS CLOSED — 2026-09-14, later the
+  same day.** The paragraph above left the four-repository scope deliberately
+  unverified; the session-start hook then cloned all four sets into this
+  container, so it became answerable from here and was answered by looking
+  rather than by reasoning.
+
+  - **The three team sets never carried the workflow.**
+    `precedent-team-repo-maintenance`, `precedent-team-writing` and
+    `precedent-team-working-style` each hold exactly `precedent-check.yml` and
+    `views-drift.yml` in `.github/workflows/`, and nothing else. So decision 1
+    below — install it in the three team sets — was approved and never acted
+    on, which is the only reading that fits. `precedent-individual` really was
+    the sole carrier, and the four-repository scope was a precaution rather
+    than a finding.
+  - **`precedent-individual`'s cron is dead.** Its pull request #129 (*"kill
+    the engine-refresh cron, and revise the rule with it"*) is on that set's
+    `main`, and the workflow there now reads `on: workflow_dispatch:` with the
+    comment *"the only trigger. Nothing here fires on a clock."* The practice
+    that required the weekly job was revised in the same change. Verified on
+    `origin/main` by content, not by a report
+    ([verify-postcondition](practices/verify-postcondition.md)).
+
+  **What remains of this item is one line in one file**, and it is the
+  `relayed_authorization` change below, not the cron.
+
+  **A duplicate branch this session caused, named so nobody re-derives it:**
+  `claude/quirky-pasteur-e997ei` in `precedent-individual` carries a second,
+  unmerged retirement of the same cron, superseded by #129. It exists because
+  a session woke a `precedent-individual`-only window on this subject while a
+  window holding all four sets was already on it — `list_sessions` had been
+  run, and the four-set session was created after that enumeration and before
+  the wake. **Enumerating once is not enough when the work is queued rather
+  than immediate**; the check has to be close to the wake.
+
   **A SEPARATE ONE-LINE CHANGE IN `precedent-individual`, same day, same
   wall:** `identity.json` has no `relayed_authorization` field, so
   [relayed-authorization](practices/relayed-authorization.md) reads `refused`
