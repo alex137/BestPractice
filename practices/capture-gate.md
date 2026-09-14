@@ -21,10 +21,20 @@ source_practice_number: 10
 The thread that develops a capability, a number, a decision, or a
 limit is the thread that understands what follow-on artifact it implies (a
 document update, a registry entry, an exported practice, a decision record).
-Capture it **in that thread, before merging** — as step 0 of the merge
-runbook. Never park it in a "for later review" staging document.
+Capture it **in the turn that discovers it** — the merge-runbook gate is the
+backstop that catches what a thread missed, never the plan. Never park it in
+a "for later review" staging document.
 
 ## Detail
+**Why the unit is the turn, not the thread.** Long sessions are summarized
+when their context fills, and a capture queued "for the merge" survives that
+summary only as one line in a task list with its rationale gone. Fold the
+matter before doing anything else in that turn. A mechanical check that
+fails on "fold before merge" phrasing in task lists closes the loop.
+(Origin: a thread surveyed a record, found four items its own decisions had
+made necessary, queued them "to fold before merge" — correct under the
+merge-gate form of this rule — and the person pointed out that a context
+summary would have erased exactly that queue.)
 
 ## Why
 Deferred capture repeatedly lost both the rationale (the merging

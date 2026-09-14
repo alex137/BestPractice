@@ -13331,7 +13331,11 @@ def check_rendered_docs_are_current():
                        'no render to compare')
         return
 
-    STAMP = _re.compile(r'<div class="renderstamp">[^<]*</div>')
+    # the stamp is a <time> element since 2026-09-14 (reader-local rewrite,
+    # dependent repo #1's check-in); the old <div> form is still masked so the
+    # check stays green across the boundary commit.
+    STAMP = _re.compile(
+        r'<(?:div|time) class="renderstamp"[^>]*>[^<]*</(?:div|time)>')
     stale, missing = [], []
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='render-check-'))
     try:
