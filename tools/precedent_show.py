@@ -59,7 +59,23 @@ import json, pathlib, re, sys
 # ROOT from `__file__` breaks the moment this script is relocated or
 # vendored somewhere other than <repo>/tools/whatever.py.
 _ENGINE_DIR = pathlib.Path(__file__).resolve().parent
-ROOT = _ENGINE_DIR.parent  # unchanged default when --repo is omitted
+# practice: fix-the-original -- ROOT is the repo whose CONTENT this reads, and
+# `_ENGINE_DIR.parent` is the wrong answer for exactly one layout: an engine
+# copy vendored inside a consuming repo at process/upstream/tools/. There ROOT
+# lands on the VENDORED tree, whose practices/ is the universal catalogue
+# alone, so every team and individual practice reads as absent -- silently,
+# which is the one failure mode this project exists to prevent. Reproduced
+# 2026-09-14 in a real consumer: `precedent_show.py default-register` answered
+# "unknown slug", for a team practice that repo has in force.
+# consuming_repo_root() returns _ENGINE_DIR.parent unchanged everywhere else.
+try:                                            # noqa: E402
+    import sys as _sys
+    _sys.path.insert(0, str(_ENGINE_DIR))
+    from precedent_source_credentials import consuming_repo_root as _consuming
+except Exception:                  # a vendored tree older than that module --
+    def _consuming(engine_root):   # keep the historical default rather than
+        return engine_root         # fail (practice: fail-gracefully)
+ROOT = _consuming(_ENGINE_DIR.parent)  # unchanged default when --repo is omitted
 PRACTICES_DIR = ROOT / 'practices'
 
 sys.path.insert(0, str(_ENGINE_DIR))

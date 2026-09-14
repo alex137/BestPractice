@@ -106,6 +106,20 @@ every step's answer is wrong if the one before it was skipped.
    is in the shared `ENGINE_FILES`, because a session rooted in a practice
    set needs the person's own individual set exactly as much as a consumer
    does.
+   **Read both tools' answers as answers about THIS repo, and check that
+   they are.** Until 2026-09-14 they were not, on the commonest consuming
+   layout of all: an engine vendored at `process/upstream/tools/` defaulted
+   its root to the vendored tree, which carries a `precedent.json` of its
+   own, so step 7 named three declared team sources as missing at paths
+   nothing had ever written to, and step 8 left the same three
+   `UNVERIFIED`. Both readings were specific enough to be believed and both
+   were about the wrong repository. Fixed at the root rather than in the
+   runbook — `consuming_repo_root()` in
+   [tools/precedent_source_credentials.py](../tools/precedent_source_credentials.py)
+   — so these steps need no `--repo` and no caveat. **If either step names a
+   path inside `process/`, the engine copy you are running predates that
+   fix: pass `--repo .` and take the answer from that run.**
+
 9. **Verify by content on the remote**, never by ref equality
    ([verify-postcondition](verify-postcondition.md)).
 10. **Publish it, without asking again.** Run [go-merge](go-merge.md)'s

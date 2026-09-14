@@ -1656,6 +1656,23 @@ which is the failure this repointing exists to end — write
   - **`PRECEDENT_FRESHNESS_ALSO`** in the environment, which is not in any
     repository and so could not be changed from here. See the next item.
 
+  **One consuming repo was missed, and it went unnoticed for three days.**
+  A consuming repo's own `precedent.json` still declared
+  `precedent-team-maintainers`, at `../precedent-team-maintainers`, until
+  2026-09-14. "Three repositories" above counted the practice sets; the
+  repo that CONSUMES them was not among them, and nothing in the rewrite
+  pass would have pointed at it, because the rename was driven from the
+  sets outward. The consequence is worse than a stale string: the
+  session-start clone lands a set under its CURRENT name, so that sibling
+  path resolved to nothing on disk and the repo silently ran without
+  twenty-one team practices. Its own session-start freshness work does not
+  catch it either — a source that fails to resolve is a NOTE, not a
+  failure. **The general shape, worth a rule if it recurs: a rename is a
+  fan-out to every repo that declares the thing, and the declaring repos
+  are not discoverable from the renamed one.** `cross-source-rollout`
+  covers rolling a change out to attached sources; nothing yet covers
+  rolling one out to attached CONSUMERS.
+
   **What is NOT done, and cannot be done from a session:** the GitHub
   repository itself. No tool here renames a repository — the GitHub Model
   Context Protocol (MCP) surface has `create_repository` and nothing that patches one — and
@@ -5323,3 +5340,56 @@ which is the failure this repointing exists to end — write
   — the background turn is often the one carrying the result the person was
   waiting for, and a turn that reports a red check with no closing list is
   worse than one that repeats itself.
+
+90. <a id="engine-root-in-a-vendored-tree"></a>**Five engine tools read the
+  wrong repo when vendored, and five more have not been checked.** Fixed
+  2026-09-14 for the five a consuming repo actually runs —
+  [tools/precedent_source_credentials.py](tools/precedent_source_credentials.py),
+  [tools/precedent_source_names.py](tools/precedent_source_names.py),
+  [tools/precedent_gate.py](tools/precedent_gate.py),
+  [tools/precedent_show.py](tools/precedent_show.py) and
+  [tools/precedent_paths.py](tools/precedent_paths.py) — by a shared
+  `consuming_repo_root()` that recognises the `process/upstream/tools/`
+  layout from the consumer's own `process/manifest.json`. Harness case:
+  `check_vendored_engine_reads_the_consumer_root`.
+
+  **Still carrying the bare `_ENGINE_DIR.parent` default:**
+  [tools/build_views.py](tools/build_views.py),
+  [tools/build_codeowners.py](tools/build_codeowners.py),
+  [tools/precedent_refresh_sources.py](tools/precedent_refresh_sources.py),
+  [tools/precedent_session_check.py](tools/precedent_session_check.py) and
+  [tools/todo_progress.py](tools/todo_progress.py). Deliberately not changed
+  in the same pass: these are publisher- and session-side rather than
+  reader-side, and for at least `build_views.py` the vendored tree arguably
+  IS the right root — it has its own views to build. **The open question is
+  per tool, not one verdict**, which is why this is an item rather than a
+  finished sweep.
+
+  **Why the reader-side five were worth fixing on sight.** The symptom is
+  the one this whole project exists to prevent: in a real consumer,
+  `process/upstream/tools/precedent_show.py default-register` answered
+  *"unknown slug"* for a team practice that repo has in force, and the push
+  gate printed a NOTE saying three team sources "did NOT resolve" at paths
+  under `process/` that nothing has ever written to. Every one of those
+  readings is confident, specific, and about the wrong repository — the
+  shape of wrongness that gets believed.
+
+91. <a id="sync-views-blames-a-dropped-source-for-a-retirement"></a>**A
+  retired practice is reported as one whose SOURCE was dropped, and a
+  renamed source would read identically.** On 2026-09-14
+  [tools/precedent_sync_views.py](tools/precedent_sync_views.py) removed four
+  practices from a consumer and explained them as *"removing 4 practice(s)
+  whose source is no longer declared in precedent.json, which is what
+  dropping a source means"*, naming a source name that had been renamed
+  three days earlier. The removals were correct — all four are `status:
+  retired` at source, which
+  [tools/precedent_resolve.py](tools/precedent_resolve.py) reports
+  accurately — but the reason given was not, because the check is against
+  the name recorded in the materialized `MANIFEST.json`, and a RENAME makes
+  every one of that source's files look orphaned.
+
+  **The hazard is the counterfactual, not this run.** Had those four not
+  been retired, the same rename would have deleted them from the consumer
+  under the same reassuring sentence. The fix is to distinguish the two
+  states before writing the message: a practice whose source resolves but
+  whose `status` is `retired`, versus one whose source is genuinely gone.
