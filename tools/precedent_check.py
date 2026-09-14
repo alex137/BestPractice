@@ -1769,6 +1769,11 @@ def _practice_is_reachable(ctx):
         session_channel_levels = ()
 
     exempted, blocked_exemptions, via_session = [], [], []
+    try:
+        sys.path.insert(0, str(ROOT / 'tools'))
+        import build_views as _bv_index
+    except Exception:                                     # noqa: BLE001
+        _bv_index = None     # path channel unknown here; fall through as before
     for slug, (fm, s) in sorted(in_force.items()):
         if slug in not_binding:
             # `severity: blocking` may not be exempted -- the same rule the
@@ -1787,6 +1792,22 @@ def _practice_is_reachable(ctx):
             continue
         if (fm.get('gates') or '[]').strip('" ') not in ('[]', ''):
             continue                       # fires at a named moment
+        # THE PATH CHANNEL IS A CHANNEL. precedent_paths.py prints a practice's
+        # Rule when an edited file matches its applies_to, so a real glob
+        # reaches a session exactly as a gate does.
+        #
+        # Added 2026-09-14, when build_views began OMITTING a routed practice
+        # from the occasion index. Before that every on-demand practice was
+        # named in the block, so this model never had to know about the third
+        # channel and was right by accident; the moment the index stopped
+        # naming them, four correctly routed practices read as reachable by
+        # nothing. The check found a hole in its own model, not in the tree
+        # (practice: cite-the-incident).
+        #
+        # A bare ["**"] is NOT a route -- it matches every file and so
+        # distinguishes nothing. Same reading build_views takes.
+        if _bv_index is not None and _bv_index._routes_by_path(fm):
+            continue                       # fires when a matching file is edited
         cb = (fm.get('checked_by') or 'null').strip('" ')
         if cb and cb != 'null':
             # A check only counts if something here can RUN it.
@@ -2679,6 +2700,84 @@ def _tracked_practice_files(ctx):
                                'git -- every local check reads it and passes, '
                                'and the pushed repository does not have it '
                                '(`git add` it, or delete it)'))
+    return out
+
+
+# code-cites-practice: session-load-budget -- build_views.index_is_redundant
+# drops a routed practice's occasion line; this is the guard on the one case
+# where dropping it would un-route the rule instead of de-duplicating it.
+SPOKEN_TRIGGER_RE = re.compile(r"""(?ix)
+    \b(?:person|member|user|someone|he|she|they|morgan|i)\b[^,;]{0,40}?
+        \b(?:says?|asks?|hands?|tells?)\b
+  | \bmessage\b[^,;]{0,40}?\b(?:says|starts|ends|is\s+only)\b
+  | \b(?:asks?|asked)\s+(?:me\s+)?(?:for|to)\b
+  | \bby\s+name\b
+  | \bexplicitly\s+asks\b
+  | \bstanding\s+\w+\s+phrase\b
+""")
+
+
+@check('index-required-is-declared', 'tree',
+       'a practice whose occasion reads as a SPOKEN trigger -- something a '
+       'person says or asks for -- either carries index_required, or has been '
+       'reviewed and says so with index_required: false',
+       'whether the judgment recorded is CORRECT. It reads occasion text, so '
+       'it cannot tell a phrase the session must recognize in an incoming '
+       'message from one that merely mentions asking; both halves are '
+       'declared by a person in the practice file and this only insists that '
+       'somebody decided. It is also blind to the reverse error -- a spoken '
+       'trigger whose occasion is worded so it does not read as one -- which '
+       'no text test can reach.',
+       practice_backed=False)
+def _index_required_is_declared(ctx):
+    """WHY: a real applies_to glob or a gates: entry routes a practice without
+    an index line, so build_views drops it from the occasion index -- the
+    index is loaded in full by every session before it does any work, and a
+    line that duplicates a working channel is paid for every turn.
+
+    Neither channel can fire on something a PERSON SAYS. A glob needs a file;
+    a gate needs a moment, and merge/review/push/reply all arrive at the end
+    of the work a phrase was meant to redirect. `Go merge` is the worked case
+    and its own history is the citation: while its definition sat in a private
+    set a session could not read, one went and asked what the phrase meant --
+    the exact interruption the phrase exists to prevent.
+
+    So the index is the ONLY channel for a spoken trigger, and this check
+    refuses to let that be decided by a regex at build time. It finds the
+    shapes a spoken trigger takes and insists a person settle each one in the
+    practice file: `index_required: true` keeps the line, `false` records that
+    the glob or gate really does route it."""
+    try:
+        sys.path.insert(0, str(ROOT / 'tools'))
+        import build_views as bv
+    except Exception as e:                                   # noqa: BLE001
+        raise NotApplicable(f'build_views is not importable here ({e})')
+    practices_dir = ROOT / 'practices'
+    if not practices_dir.is_dir():
+        raise NotApplicable('no practices/ tree in this repo')
+    out = []
+    for fm, _sections, f in bv.load_practices(practices_dir):
+        occasion = bv._json_str(fm.get('occasion', ''))
+        if not occasion or not SPOKEN_TRIGGER_RE.search(occasion):
+            continue
+        if fm.get('command') not in (None, '', 'null'):
+            continue                      # a command is a spoken trigger by construction
+        declared = str(fm.get(bv.INDEX_REQUIRED_FIELD, '')).strip().strip('"').lower()
+        if declared in ('true', 'false'):
+            continue
+        rel = f.relative_to(ROOT) if hasattr(f, 'relative_to') else f
+        routed = bv.index_is_redundant(fm)
+        out.append(Finding(
+            str(rel),
+            f'its occasion reads as a spoken trigger ("{occasion[:60]}...") and '
+            f'it declares no {bv.INDEX_REQUIRED_FIELD}. '
+            + ('It is currently DROPPED from the occasion index because a glob '
+               'or gate routes it -- if the trigger is really something a '
+               'person says, that drop un-routes the rule silently. '
+               if routed else
+               'It is currently kept in the index. ')
+            + f'Set {bv.INDEX_REQUIRED_FIELD}: true to keep its index line, or '
+              f'false to record that the glob or gate really does route it'))
     return out
 
 
