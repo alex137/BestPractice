@@ -740,7 +740,7 @@ def _place_rule_links(text, practice_file, block_dir, repo_root=None,
     return _RULE_LINK_RE.sub(sub, text), unplaced
 
 
-def build_loader_block(practices, source_levels=None, omits_private=False,
+def build_loader_block(practices, source_levels=None, defers_sources=False,
                        block_dir=None, repo_root=None, planned=(),
                        budget_tokens=None, occasion_budget_tokens=None):
     """practices: (fm, sections, file) triples, exactly as load_practices()
@@ -933,22 +933,34 @@ def build_loader_block(practices, source_levels=None, omits_private=False,
     # is a pointer to another file. Caught by the check that the loader
     # block advertises only the channels a source actually fills.
     #
-    # `omits_private` is the condition, NOT "was this rendered from a single
-    # source". The first version tested `not source_levels` on the reasoning
-    # that a multi-source render already carries the team and individual
-    # practices inline -- which stopped being true the moment a public repo
-    # began rendering multi-source with the PRIVATE levels deliberately
-    # excluded. That guard then suppressed the pointer in the one repo that
-    # needs it, silently, and the pointer simply vanished from AGENTS.md.
-    # Keyed off the same repo_is_public() the exclusion itself uses, so the
-    # two cannot drift apart again.
-    if instruction and omits_private:
+    # THE CONDITION IS "DID ANYTHING GET DEFERRED", and it has been wrong
+    # twice in the narrowing direction. First it tested `not source_levels`,
+    # on the reasoning that a multi-source render already carries the team and
+    # individual practices inline -- which stopped being true the moment a
+    # public repo began rendering multi-source with the PRIVATE levels
+    # deliberately excluded, and the pointer silently vanished from AGENTS.md.
+    # It was then keyed off repo_is_public(), which is only ONE of the two
+    # reasons sources_for_tracked_block() defers a source: a practice SET
+    # defers the universal catalogue because committing it would be a second
+    # copy of another repository's text, and a set is private, so
+    # repo_is_public() was False and the pointer was suppressed in all four
+    # sets. Measured 2026-09-14 in precedent-individual: the hook wrote
+    # .precedent/SESSION_PRACTICES.md with universal's whole catalogue in it
+    # and the standing instruction never told the session to read it, so a
+    # session rooted in a practice set ran on that set's own practices alone.
+    # Morgan named the cause: sessions open on a practice repo and "most of
+    # the rules I want aren't loaded".
+    #
+    # So the caller now passes whether sources_for_tracked_block() actually
+    # deferred anything, which is the question, and the two reasons cannot
+    # drift apart from it again.
+    if instruction and defers_sources:
         instruction.append(
             "If `.precedent/SESSION_PRACTICES.md` exists, read it too: it carries the "
-            "practices in force from this repo's team, individual and repo-local "
-            "sources, which are NOT in this block and bind work here exactly as these "
-            "do. It is regenerated at session start and is deliberately untracked — "
-            "never commit it or quote it into a pull request.")
+            "practices in force from the other sources this repo declares, which are "
+            "NOT in this block and bind work here exactly as these do. It is "
+            "regenerated at session start and is deliberately untracked — never commit "
+            "it or quote it into a pull request.")
 
     if instruction:
         lines.append("## Standing instruction")
@@ -1103,6 +1115,38 @@ def sources_for_tracked_block(root, declared):
     return list(declared), [], notes
 
 
+def defers_any_source(root):
+    """True when this repo's TRACKED loader block cannot carry everything
+    precedent.json declares, so the standing instruction has to point at
+    .precedent/SESSION_PRACTICES.md instead.
+
+    Asked of sources_for_tracked_block() rather than re-derived, because
+    there are two unrelated reasons a source gets deferred and keying the
+    pointer off either one alone has already suppressed it in a whole class
+    of repository -- see the comment at the pointer itself in
+    build_loader_block(). (practice: registry-source-of-truth -- the split is
+    decided in one place; this only reads its answer.)
+
+    Never raises: a config that will not load leaves the block to this repo's
+    own practices, which is exactly the case where nothing was deferred
+    (practice: fail-gracefully)."""
+    config = root / 'precedent.json'
+    if not config.is_file():
+        return False
+    try:
+        sys.path.insert(0, str(_ENGINE_DIR))
+        import precedent_resolve as _pr
+        declared = _pr.load_config(root)
+    except Exception as e:
+        print(f"build_views NOTICE: could not read the declared sources "
+              f"({e}), so the standing instruction cannot say whether any of "
+              f"them is deferred to .precedent/SESSION_PRACTICES.md.",
+              file=sys.stderr)
+        return False
+    _tracked, deferred, _notes = sources_for_tracked_block(root, declared)
+    return bool(deferred)
+
+
 def source_levels_from_manifest(root):
     """{slug: level} read back out of a consuming repo's MANIFEST.json, or
     None where there is no such file.
@@ -1232,7 +1276,7 @@ def loader_practices(root, own_practices):
 
 
 def render_agents_md(practices, agents_md=None, source_levels=None,
-                     omits_private=False):
+                     defers_sources=False):
     """-> (text, stats), where stats is (resident_tokens, n_resident,
     n_total) FROM THE BLOCK THIS RETURNED -- not re-derived.
 
@@ -1257,7 +1301,7 @@ def render_agents_md(practices, agents_md=None, source_levels=None,
     try:
         block, tokens, n_resident = build_loader_block(
             practices, source_levels=source_levels,
-            omits_private=omits_private, block_dir=agents_md.parent,
+            defers_sources=defers_sources, block_dir=agents_md.parent,
             occasion_budget_tokens=OCCASION_INDEX_BUDGET_TOKENS)
     except OccasionIndexBudgetExceeded as e:
         sys.exit(f"build_views FAIL: {e}")
@@ -1714,11 +1758,13 @@ def main():
                  "incomplete source set -- that would silently drop every "
                  "practice the unreachable sources contribute. Make them "
                  "resolvable, then re-run.")
-    # A public repo's block deliberately omits the private levels, so the
-    # standing instruction has to point at what carries them instead.
+    # Whatever the tracked block could not carry -- a private source in a
+    # public repo, or another repository's catalogue in a practice set --
+    # reaches the session only through the untracked file, so the standing
+    # instruction has to point at it.
     new_agents, (block_tokens, n_resident, n_total) = render_agents_md(
         block_practices, agents_md, source_levels=levels,
-        omits_private=repo_is_public(root))
+        defers_sources=defers_any_source(root))
     targets = [(agents_md, new_agents)]
     if not agents_only:
         # Load a SECOND time without the in-force filter: load_practices()

@@ -4934,6 +4934,19 @@ which is the failure this repointing exists to end — write
     enforcement half is open as
     [`source-set-runs-no-universal-checks`](TODO.md#source-set-runs-no-universal-checks)**,
     and rolling the change out to the four sets is still to do.
+
+    **The reading half was NOT finished on 2026-09-13, and the gap was in this
+    repository rather than in any set.** The hook wrote
+    `.precedent/SESSION_PRACTICES.md` correctly and **nothing told the session
+    to read it**: the standing instruction's pointer at that file was
+    conditional on `repo_is_public()`, which is one of the two reasons
+    `build_views.sources_for_tracked_block()` defers a source, and a set defers
+    universal for the other one. Every set is private, so the pointer was
+    suppressed in all four. Fixed 2026-09-14 (`build_views.defers_any_source`),
+    found by Morgan from the symptom — sessions open on a practice repo and
+    most of the rules he wants are not loaded. **The measurement that missed it
+    checked that the file was written, never that a session is told to read
+    it.**
     **Disposition:** wait
 
 81. <a id="wire-individual-hook-in-existing-sets"></a>**Wire
