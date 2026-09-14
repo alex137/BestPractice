@@ -227,7 +227,19 @@ def _norm(s):
 
 
 def violations(text, reqs, timeline=None):
-    """-> list of human-readable failures, one per unmet requirement.
+    """-> list of records, one per unmet requirement:
+
+        {'kind': 'heading' | 'sentence', 'message': <human-readable>}
+
+    The KIND is the reason this returns records rather than the plain strings
+    it used to. A reply that is missing the HEADING has to write the whole
+    closing section; a reply that already carries the heading and is missing
+    only a SENTENCE must add one line and nothing else. Told the same thing in
+    both cases -- "output only the missing closing section(s)" -- sessions
+    wrote the section again, and the person read two near-identical `## Next
+    Steps` blocks. main() composes a different instruction per kind; nothing
+    else reads this field. (practice: cite-the-incident -- the incident is in
+    main().)
 
     `timeline` is assistant_timeline()'s output, needed only by a requirement
     that declares `require_when_context_grew_tokens`. Absent (the --text path,
@@ -251,23 +263,33 @@ def violations(text, reqs, timeline=None):
                 f"this conversation is at ≈{ctx_now:,} tokens of context and "
                 f"has grown ≈{since:,} since the last time this was said"))
         pat = r.get('require_heading_matching')
-        if pat and not any(re.search(pat, h, re.I) for h in headings):
-            out.append(
+        # None when this requirement declares no heading at all, so the
+        # sentence message below can tell "you already wrote the heading"
+        # apart from "there is no heading in play here".
+        heading_present = None
+        if pat:
+            heading_present = any(re.search(pat, h, re.I) for h in headings)
+        if pat and not heading_present:
+            out.append({'kind': 'heading', 'message': (
                 f"[{r.get('_source', '?')}] this reply has no MARKDOWN HEADING "
                 f"matching /{pat}/i. Bold text is not a heading -- the closing "
                 f"list has to be a real `## ` heading, or it is exactly as "
                 f"skimmable as the rest of the reply."
-                + (f" (practice: {r['practice']})" if r.get('practice') else ''))
+                + (f" (practice: {r['practice']})" if r.get('practice') else ''))})
         one_of = r.get('require_one_of') or []
         if one_of and not any(_norm(o) in _norm(text) for o in one_of):
-            out.append(
+            out.append({'kind': 'sentence', 'message': (
                 f"[{r.get('_source', '?')}] this reply says none of: "
                 + '; '.join(f'"{o}"' for o in one_of)
                 + ". One of them has to be there, in those words -- an absent "
                   "line and a 'nothing is outstanding' line look identical on "
                   "the page and mean opposite things."
+                + (" Your reply ALREADY CARRIES the heading this belongs "
+                   "under, so add the sentence as one more line there -- do "
+                   "NOT write that section a second time."
+                   if heading_present else '')
                 + (f" ({r['_context_note']})" if r.get('_context_note') else '')
-                + (f" (practice: {r['practice']})" if r.get('practice') else ''))
+                + (f" (practice: {r['practice']})" if r.get('practice') else ''))})
     return out
 
 
@@ -339,13 +361,33 @@ def main():
     # it twice, which is what happened on 2026-09-13 when this message said
     # only "rewrite the closing" and the session rewrote everything.
     # practice: durable-fix, label-describes-content.
-    print('The reply gate blocked this turn. The person has ALREADY SEEN the '
-          'reply above, so do NOT write it again: output ONLY the missing '
-          'closing section(s) named below, as a short addition to what you '
-          'already said. Nothing else -- no summary, no restatement, no '
-          'apology.', file=sys.stderr)
+    #
+    # THE SECOND INCIDENT, 2026-09-14, is why there are two messages. The
+    # individual set revised its required sentence that morning from "close
+    # this session" to "archive this session". Every reply already carrying a
+    # `## Next Steps` heading and the OLD sentence was refused for the
+    # sentence alone -- and the message above, which says "the missing closing
+    # SECTION(S)", got what it asked for: the session wrote a whole second
+    # `## Next Steps` block. Morgan: *"In various recent sessions of the last
+    # few minutes, you repeated the 'next steps' section two times."* A
+    # sentence-only failure now says sentence-only, in the imperative, and
+    # names the repeat as the thing not to do.
+    if any(b['kind'] == 'heading' for b in bad):
+        print('The reply gate blocked this turn. The person has ALREADY SEEN '
+              'the reply above, so do NOT write it again: output ONLY the '
+              'missing closing section(s) named below, as a short addition to '
+              'what you already said. Nothing else -- no summary, no '
+              'restatement, no apology.', file=sys.stderr)
+    else:
+        print('The reply gate blocked this turn. The person has ALREADY SEEN '
+              'the reply above, and it ALREADY CARRIES every closing heading '
+              'it needs -- what is missing is a SENTENCE. Output that one line '
+              'and nothing else. Do NOT repeat the closing section you just '
+              'wrote: a second copy of it is the exact failure this message '
+              'exists to prevent. No new heading, no summary, no restatement, '
+              'no apology.', file=sys.stderr)
     for b in bad:
-        print(f'  - {b}', file=sys.stderr)
+        print(f"  - {b['message']}", file=sys.stderr)
     print('  Full rules: `python3 tools/precedent_gate.py reply`.', file=sys.stderr)
     return 2
 

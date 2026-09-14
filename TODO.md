@@ -5315,6 +5315,19 @@ which is the failure this repointing exists to end — write
   2026-09-13 failure it was written for. It worked here: the refused turn
   emitted the closing alone.
 
+  **A THIRD door was found and closed 2026-09-14, and it is not this one
+  either.** That block message asked for *"the missing closing section(s)"*
+  whatever was actually missing. The individual set revised its required
+  closing sentence that morning -- close a session to archive one -- so every
+  reply already carrying the heading was refused for the SENTENCE alone, and
+  got exactly what the message asked for: a whole second `## Next Steps` block
+  written under the first. Morgan: *"In various recent sessions of the last few
+  minutes, you repeated the 'next steps' section two times."* A sentence-only
+  failure now says sentence-only, in the imperative, and names the repeat as
+  the thing not to do; three harness cases hold it, each with its control.
+  **The door below is still open** -- a machine-opened turn restates the list
+  in full, and nothing in that fix touches it.
+
   **The second copy came from a different door.** A continuous-integration
   notification arrived as its own turn, and the individual practice governing
   the closing list requires the outstanding items be restated **in full on
