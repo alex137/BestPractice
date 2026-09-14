@@ -359,6 +359,35 @@ def main():
                 print(f"{line}\n")
         except ImportError:
             pass
+
+    # EVERY gate, not one of them: a session whose SessionStart hooks never
+    # ran is working under rules it cannot see, with an identity it did not
+    # choose, and nothing in its own output says so.
+    #
+    # tools/precedent_session_check.py has answered this since 2026-09-08,
+    # and its own docstring names its two routes: AGENTS.md's opening banner,
+    # and somebody remembering to run it. On 2026-09-14 a session read that
+    # banner, did not run it, and spent hours with four guarantees down --
+    # noticing only when two uninstalled packages surfaced as three
+    # unrelated-looking verify_harness failures (record/GOTCHAS.md#g1,
+    # #g17). Guidance a session can skip is not a mechanism. A gate is
+    # something it runs at a named moment, so the gate is where this belongs.
+    #
+    # Offline, so it costs a tenth of a second and never fetches; silent
+    # when every guarantee holds, which is the normal case and prints
+    # nothing at all. Never fatal: the gate's job is the practices, and a
+    # session with a broken environment still needs them (fail-gracefully).
+    try:
+        sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+        import precedent_session_check as psck
+        block = psck.remind(prefix='precedent gate')
+        if block:
+            print(f"{block}\n")
+    except Exception:
+        # This tool reads git config and the filesystem; on a repo shape it
+        # does not expect it may raise, and a gate that dies because its
+        # ADVISORY block failed would be worse than one that stays quiet.
+        pass
     # A session about to PUBLISH is the last point at which the always-loaded
     # surfaces can still be looked at cheaply, and the only point at which
     # somebody is certainly paying attention to gates. The ceiling check is

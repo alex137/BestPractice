@@ -145,6 +145,11 @@ times you try. A session rooted one directory ABOVE this repo runs NONE of its
 hooks, silently, including the one that writes
 `.precedent/SESSION_PRACTICES.md` — see the gotcha "The session's PRIMARY repo
 does not run its SessionStart hooks either" below.
+**Since 2026-09-14 you also get told without asking**: every
+[tools/precedent_gate.py](tools/precedent_gate.py) moment prints any guarantee
+that is down, because a session that skipped this paragraph is exactly the
+session that needs it — that is how four guarantees stayed down for hours on
+the day the print was added.
 
 On the `add_repo` route nothing else can do it for you:
 `.claude/hooks/precedent-individual-bootstrap.sh` runs to completion *before*

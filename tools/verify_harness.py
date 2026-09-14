@@ -7648,10 +7648,61 @@ def check_gate_channel():
                   and 0 < len(r_brief.stdout.split()) < len(r_full.stdout.split()) / 2,
                   f'{len(r_brief.stdout.split())} words vs {len(r_full.stdout.split())}'))
 
+    # The session-guarantee reminder, added 2026-09-14. A session whose
+    # SessionStart hooks never ran reads instructions it cannot satisfy, and
+    # tools/precedent_session_check.py has been able to say so since
+    # 2026-09-08 -- via AGENTS.md's banner, which a session can skip, and did
+    # (record/GOTCHAS.md#g1). The gate is the route it cannot skip, so these
+    # cases assert the PRINTED TEXT in both directions rather than the call
+    # (practice: control-asserts-which-failure).
+    spec_c = importlib.util.spec_from_file_location(
+        '_psck', ROOT / 'tools' / 'precedent_session_check.py')
+    psck = importlib.util.module_from_spec(spec_c)
+    spec_c.loader.exec_module(psck)
+
+    real_checks = psck.checks
+    try:
+        psck.checks = lambda offline=True: [
+            ('a guarantee that holds', True, ''),
+            ('a guarantee that does not', False, 'the effect is absent. More.'),
+            ('a guarantee nobody could measure', None, 'undetermined'),
+        ]
+        block = psck.remind(prefix='precedent gate')
+        cases.append(('remind() names the broken guarantee, its first sentence '
+                      'and the full-report command',
+                      'a guarantee that does not' in block
+                      and 'the effect is absent' in block
+                      and 'precedent_session_check.py' in block,
+                      block[:120]))
+        cases.append(('remind() stays silent about a guarantee that HOLDS and '
+                      'about one nobody could measure -- a nag that fires on '
+                      '"cannot tell" is a nag that gets ignored',
+                      'a guarantee that holds' not in block
+                      and 'nobody could measure' not in block, block[:120]))
+        psck.checks = lambda offline=True: [('all fine', True, '')]
+        cases.append(('remind() prints NOTHING when every guarantee is in '
+                      'effect -- the control, and the normal case',
+                      psck.remind() == '', repr(psck.remind())[:80]))
+    finally:
+        psck.checks = real_checks
+
+    # ...and the gate actually carries it, asserted against whatever this
+    # container's real state is, so the case is meaningful in both a healthy
+    # session and a broken one.
+    broken = psck.failing_guarantees()
+    r_gate = subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_gate.py'), 'push'],
+                            capture_output=True, text=True, cwd=str(ROOT))
+    said = 'SessionStart guarantee(s) NOT in effect' in r_gate.stdout
+    cases.append(('a gate reports broken SessionStart guarantees, and says '
+                  'nothing when there are none',
+                  said == bool(broken),
+                  f'{len(broken)} broken, gate {"did" if said else "did not"} say so'))
+
     bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
     check(f'gate-triggered channel ({len(cases)} stated cases: closed vocabulary, '
           f'no empty gate, every gate resolves, unknown gates fail loudly, '
-          f'push and reply actually wired)',
+          f'push and reply actually wired, and a gate reports a session whose '
+          f'SessionStart guarantees are down)',
           not bad,
           '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad))
 
