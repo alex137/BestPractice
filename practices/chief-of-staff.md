@@ -78,16 +78,20 @@ routing them to the right window to say it is the whole job.
 **The desk** is the standing session the person talks to. It answers the
 phrase, routes, and spawns.
 
-**The sweeper** is a scheduled Routine firing a fresh session, which lists the
-fleet, keeps the rows the filter above calls blocked, and notifies. It is
+**The sweeper** is a scheduled Routine that wakes the desk to list the fleet,
+keep the rows the filter above calls blocked, and notify. **It must wake a
+standing session rather than fire a fresh one**: a fresh session fired by a
+Routine has none of the session-management tools, so it cannot read the fleet
+at all — and it reports the run as succeeded anyway
+(https://github.com/alex137/BestPractice/blob/precedent-beta-v01/record/GOTCHAS.md#g38). It is
 deliberately dumb: no memory between firings, no judgment beyond *is this row
 blocked on him*. **It exists because nothing pushes.** No session signals
 anywhere when it finishes, blocks, or goes idle, and peer messaging does not
 reach a cloud session — so the missing piece is a clock, not a signal.
 
-They are separate for a mechanical reason: **notifications are available only
-to a Routine that starts a fresh session on each firing**, and a standing desk
-is bound to an existing one by definition.
+**The notification lives in the desk's prompt, not on the Routine.** A Routine
+bound to an existing session is refused notifications; a session can send one
+itself. That is the whole reason the two are still described separately.
 
 ## Why
 Work spreads across many open sessions, and **no session can see another from

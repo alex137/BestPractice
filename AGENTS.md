@@ -726,6 +726,10 @@ retired it. Nothing is ever deleted.
   freshness guard refuses to update it and the session works from a day-old
   tree.** [story](record/GOTCHAS.md#g37)
 
+- **A Routine that fires a FRESH session gets none of the session-management
+  tools, and the run still records SUCCEEDED — so a scheduled job that reads
+  the fleet quietly does nothing.** [story](record/GOTCHAS.md#g38)
+
 ## Working in this repo
 
 - **Default branch is `main`; work on a feature branch; PRs are the norm**
