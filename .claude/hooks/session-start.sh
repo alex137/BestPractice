@@ -189,7 +189,16 @@ fi
 
 if [ -n "$_ident_script" ]; then
   _here="$(pwd -P)"
-  for _repo in "$_here" "$_here"/../*/; do
+  # `$_indiv` IS IN THIS LIST, and leaving it out was a real bug (2026-09-14,
+  # record/GOTCHAS.md#g40). An individual set does not have to be a sibling of
+  # the primary repo -- `~/.config/precedent/config.json` puts it wherever it
+  # was cloned, which on this container is `$HOME/precedent-individual` while
+  # the primary repo and every team clone sit under a different parent. The
+  # glob below then covers all of those and misses the individual set, so the
+  # one repo this block reads the identity FROM was the one repo it never
+  # applied it TO. The script is idempotent, so naming a path twice (when the
+  # set IS a sibling) costs nothing.
+  for _repo in "$_here" "$_indiv" "$_here"/../*/; do
     [ -d "$_repo/.git" ] || continue
     _abs="$(cd "$_repo" 2>/dev/null && pwd -P)" || continue
     # Only repos this system actually owns the identity rule for. Never a
