@@ -5145,6 +5145,44 @@ def check_precedent_check_fires():
         # messages the check prints, not by the exit status
         # (practice: control-asserts-which-failure).
         def _plant_practice_links(repo):
+            # A sibling practice that is NOT in force. It is WRITTEN here
+            # rather than borrowed from the tree: pointing the link at
+            # whichever real practice happens to carry a withdrawn status
+            # today would make this control lapse silently the day somebody
+            # changes that file's status, and a control that has stopped
+            # testing reads exactly like one that is passing
+            # (practice: fixture-owns-its-state).
+            (repo / 'practices' / 'zzz-withdrawn.md').write_text(
+                '---\nslug:        zzz-withdrawn\ntitle:       Withdrawn\n'
+                'tier:        on-demand\nseverity:    default\n'
+                'applies_to:  ["**"]\noccasion:    "testing"\n'
+                'index_clause: "a planted case"\nchecked_by:  null\n'
+                'defines:     []\nstatus:      deduplicated\n'
+                'in_force_at: repo-is-memory\nsupersedes:  []\n'
+                'overrides:   null\nadded:       null\n'
+                'approved_by: "harness"\n---\n\n'
+                '## Rule\nSee [s](zzz-withdrawn-two.md).\n\n'
+                # A link that DOES fail the travel half -- the identical
+                # shape planted into the active practice above, where it is
+                # reported. Without it the "not reported" case below would
+                # be asserting an absence nothing could have produced, which
+                # passes forever and tests nothing
+                # (practice: control-asserts-which-failure).
+                '## Detail\nSee [x](../spec/LOADER.md).\n\n## Why\nBecause.'
+                '\n\n## Story\nPlanted.\n\n## Install\nNone.\n',
+                encoding='utf-8')
+            (repo / 'practices' / 'zzz-withdrawn-two.md').write_text(
+                '---\nslug:        zzz-withdrawn-two\ntitle:       Withdrawn\n'
+                'tier:        on-demand\nseverity:    default\n'
+                'applies_to:  ["**"]\noccasion:    "testing"\n'
+                'index_clause: "a planted case"\nchecked_by:  null\n'
+                'defines:     []\nstatus:      retired\n'
+                'in_force_at: none\nsupersedes:  []\n'
+                'overrides:   null\nadded:       null\n'
+                'approved_by: "harness"\n---\n\n'
+                '## Rule\nDo the thing.\n\n## Detail\n\n## Why\nBecause.'
+                '\n\n## Story\nPlanted.\n\n## Install\nNone.\n',
+                encoding='utf-8')
             f = repo / 'practices' / 'repo-is-memory.md'
             f.write_text(f.read_text(encoding='utf-8') +
                          '\nPlanted: [a](../spec/LOADER.md), '
@@ -5152,7 +5190,8 @@ def check_precedent_check_fires():
                          'main/TODO.md), '
                          '[c](https://github.com/alex137/BestPractice/blob/'
                          'precedent-beta-v01/no-such-planted-path.md), '
-                         '[d](../tools/checks/check_not_here.py).\n',
+                         '[d](../tools/checks/check_not_here.py), '
+                         '[e](zzz-withdrawn.md).\n',
                          encoding='utf-8')
         # The fixture is a `git init` copy with no remote, and the
         # upstream-URL half of the check asks origin which repository this
@@ -5200,9 +5239,42 @@ def check_precedent_check_fires():
         for _frag, _what in (
                 ('does not travel with this file', 'the relative link'),
                 ('precedent.json declares', 'the wrong-branch URL'),
-                ('no such path exists here', 'the dead-path URL')):
+                ('no such path exists here', 'the dead-path URL'),
+                ('`status: deduplicated`', 'the withdrawn sibling')):
             cases.append((f'practice-links-travel: {_what} is named in the '
                           f'finding, not merely counted', _frag in _plt))
+        # The withdrawn-sibling half is the shape no check in this system
+        # could see before 2026-09-14: the target file IS in practices/, so
+        # every local check passes, and the link breaks only in the consumer,
+        # which never receives the withdrawn file. The successor has to be
+        # NAMED -- a finding that only says "this does not travel" sends the
+        # reader back to the same dead file to work out what replaced it.
+        cases.append(('practice-links-travel: a link to a withdrawn sibling '
+                      'names the successor, not just the breakage',
+                      'link `repo-is-memory.md` instead' in _plt))
+        # ...and the opposite direction, which keeps the clause above from
+        # reporting links nobody receives: neither a withdrawn practice nor
+        # its target is materialized, so a link between two of them is sound.
+        # ...and the opposite direction for the WITHDRAWN-SIBLING half
+        # specifically: zzz-withdrawn.md links zzz-withdrawn-two.md, the
+        # identical shape that IS reported from the active file above. Neither
+        # file is materialized, so nothing a consumer receives is broken by
+        # it. Asserting both halves in one case is what keeps it from passing
+        # vacuously the day the planted link stops being planted.
+        cases.append(('practice-links-travel: a withdrawn-sibling link FROM a '
+                      'withdrawn practice is not reported, though the '
+                      'identical shape in an active practice is',
+                      'links `zzz-withdrawn-two.md`' not in _plt
+                      and 'links `zzz-withdrawn.md`' in _plt))
+        # The BOUNDARY of that silence, pinned deliberately: only the
+        # withdrawn-sibling finding is suppressed. The travel half still
+        # reports a non-travelling link in a withdrawn practice, exactly as it
+        # did before 2026-09-14 -- this change narrows nothing that was
+        # already enforced, and a future session widening the guard to the
+        # whole check should have to change this line to do it.
+        cases.append(('practice-links-travel: the travel half still reports a '
+                      'non-travelling link in a WITHDRAWN practice',
+                      'practices/zzz-withdrawn.md:' in _plt))
 
         # technical-describes-people -- a DIRECTORY named for a person's
         # skill level. The person-noun form (`nontechnical-contributor-*`)

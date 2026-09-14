@@ -5057,3 +5057,46 @@ which is the failure this repointing exists to end — write
     whose checks want a BestPractice clone CI does not have — the same gap
     that turns real answers into `SKIPPED` unless
     `PRECEDENT_BESTPRACTICE_CLONE` is set.
+
+- <a id="leak-gate-misses-a-bare-undeclared-repo-name"></a>**The leak gate
+  refuses a private repo named as `owner/name`, and lets the same repo through
+  under its BARE name when no line in the blocklist has ever mentioned it.**
+  No disposition, so it is `wait` — it needs a decision from Morgan, and
+  [open-item-disposition](practices/open-item-disposition.md) reserves `ask`
+  for him to set rather than for the session raising the item to claim. It was
+  put to him once, in the reply that landed this item; that is the raise, not
+  a standing licence for every later session to bring it up again.
+
+  **Measured 2026-09-14**, in the session that landed this file's
+  `practice-links-travel` change. Writing a consuming repository's bare name
+  into a practice file's `## Story` passed the gate clean — 973 units, 0 hits.
+  Planting the qualified form of the same repository into a tracked file was
+  refused on the next run, naming the private-owner rule and the `allow` line
+  that would accept it. So the owner-is-private-by-default rule works exactly
+  as documented for the qualified form, and the bare form of a repository
+  nobody has ever written down reaches a public tree with nothing in its way.
+
+  **`# visibility-audit: auto-cover-bare-names on` is not this case**, which
+  is what makes it easy to read as covered: it covers the bare form of names
+  the blocklist already knows, and a repo that has never appeared in an
+  `allow` line is not one of those. The session caught its own reference by
+  reading the blocklist by hand and removed the name; nothing mechanical
+  would have stopped the push.
+
+  **Why this is queued rather than fixed here** ([todo-is-a-handoff](practices/todo-is-a-handoff.md)):
+  the two candidate fixes are both somebody else's call. Adding a deny line
+  for the repository is a one-line change to a blocklist that lives in a
+  PRIVATE set this session cannot push to — `add_repo` refuses across owners.
+  And the general fix is a design question with a real cost: a gate that
+  refuses arbitrary capitalized words because one of them MIGHT be a private
+  repo name would false-positive on ordinary prose, which is the failure mode
+  that got the blocklist approach replaced by an allowlist in the first place.
+  A narrower shape worth costing: derive the bare-name patterns from the repos
+  the environment can actually see — declared sources, attached clones, the
+  session's own remotes — rather than from what the blocklist happens to name.
+
+  **What it is not.** Not the stale-blocklist gotcha: this clone was 28
+  commits behind at session start, and re-reading the current file by hand
+  showed no line covering the name either way. Not a finding about the three
+  items already recorded upstream in the consuming repo's own
+  `upstream-findings` file.

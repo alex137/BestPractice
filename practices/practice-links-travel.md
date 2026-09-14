@@ -20,14 +20,23 @@ strength:    assented
 ## Rule
 **A practice file is published into every repository that adopts the
 catalogue, so a relative link in one only works if the target travels with
-it.** Three things do: **another practice file in the same directory**, cited
-the normal way as a markdown link to its own `<slug>.md`; **the vendored
+it.** Three things do: **another practice file in the same directory that is
+still in force**, cited the normal way as a markdown link to its own
+`<slug>.md`; **the vendored
 engine files under `../tools/`** that every consumer receives; and **a
 source's own check scripts and their tests under `../tools/checks/`**, which
 materialization copies alongside the practices — the `check_*.py` scripts
 and the `test_*.sh` files under `tests/` — a practice citing the script that
 enforces it is the most common cross-reference a private set makes, and it is
 a correct one.
+
+**A sibling that is no longer in force does not travel either**, and this is
+the one shape that looks correct from inside the publishing repository. A
+practice whose `status:` is anything but `active` is dropped by the resolver
+before materialization, so the consumer receives the file doing the linking
+and never the file being linked. **Link the successor instead** — `in_force_at:`
+names it — or, where the rule was absorbed into the engine or is in force
+nowhere, drop the link and say in prose what it covered.
 
 **Everything else in the publishing repository does not travel** — `spec/`,
 `templates/`, root documents, decisions, records, hooks. Link one of those
@@ -54,10 +63,14 @@ upstream can name its own repository in a URL freely; an individual or team
 set cannot, and pays for the reference with a path the reader has to resolve
 by hand.
 
-**A sibling practice link is the one reference that always survives**, in
-both directions and at every level, because materialization writes every
+**A sibling practice link is the one reference that survives in both
+directions and at every level**, because materialization writes every
 source's practices into one directory. Prefer it: a rule that can make its
-point by citing another rule needs no URL at all.
+point by citing another rule needs no URL at all. **It survives only while
+the sibling is in force**, though — materialization writes the practices the
+resolver resolved, and the resolver drops every non-active one — so the
+sibling link is the safest reference in the file and the only one whose
+target can stop travelling without anybody touching either file.
 
 **The worst shape of this bug is not a dead link — it is a live one pointing
 at the wrong file.** `../bootstrap/x` at least 404s, and a markdown lint can
@@ -158,6 +171,38 @@ rather than done silently. The text here was written fresh rather than
 carried across, for the same reason: nobody in that session could read the
 original.
 
+**The withdrawn-sibling shape, found 2026-09-14, after it bit the same
+practice file twice.** `themorgan/precedent-individual`'s
+`closing-items-are-this-thread.md` linked `half-the-words.md` from its Story;
+`half-the-words` is `status: retired`, superseded by `reply-fits-one-screen`.
+That set's own `precedent_check.py` reported **16 passed, 0 violated both with
+the broken link and with it fixed** — the target file is sitting right there
+in `practices/`, so nothing local is wrong and no local check could ever say
+otherwise. It surfaced as a Markdown-lint failure in a repository consuming
+that set, and only after that repo re-vendored and picked up the retirement —
+which is to say the one repository that could see the defect was the one with
+no way to fix it.
+
+**The same file had already done it once**, and that set's `MAP.md` records
+the first time: its first version linked `audience-register` as a sibling,
+*"correct inside practices/, and broken the moment a consuming repository
+materialized it."* Twice in one file with no check seeing either time is a gap
+in the check rather than a slip in authoring
+([mistakes-become-rules](mistakes-become-rules.md)) — and it is the same
+lesson the 2026-09-06 incident above taught about prose: a note that a
+previous session wrote prevented neither repeat
+([checkable-gets-checked](checkable-gets-checked.md)).
+
+**Why no check could see it, stated mechanically**, because this is the part
+that makes the shape worth a rule rather than a reminder:
+[precedent_resolve.py](../tools/precedent_resolve.py)'s `resolve()` skips any
+practice whose status is not `active` before materialization is handed the
+set, so a withdrawn practice is never written into a consumer's `practices/`.
+Both halves of the link are correct in the publishing repository and exactly
+one half arrives anywhere else. Every other shape this rule catches is
+detectable where it is written; this one is detectable only by reading the
+target's own frontmatter, which is what the check now does.
+
 ## Install
 [tools/precedent_check.py](../tools/precedent_check.py) enforces it, as a
 tree-scope check over the practice files this repository owns. It reads
@@ -166,6 +211,18 @@ which engine files travel from
 `CONSUMER_ENGINE_FILES` rather than keeping a second list, and it holds the
 other half too: an absolute upstream URL must use the branch
 `precedent.json` declares and must name a path that actually exists in the
-tree. **In a materializing consumer the check reports SKIPPED with its
+tree. **For a sibling link it reads the target's own `status:`**, through
+[build_views.py](../tools/build_views.py)'s `is_in_force` rather than a second
+copy of the vocabulary, so it fails closed the same way the loader does: a
+status this engine does not recognize counts as not in force. The finding
+names the successor when `in_force_at:` gives one, because a finding that only
+says the link is broken sends the reader back to the dead file to work out what
+replaced it. **A withdrawn-sibling link between two withdrawn practices is
+not reported** — neither file reaches a consumer, so nothing anybody receives
+is broken. Only that finding is suppressed: the rest of the rule still applies
+to a withdrawn practice's links, which are read in the publishing repository
+whether or not they travel out of it.
+
+**In a materializing consumer the check reports SKIPPED with its
 reason** — `practices/` there is generated output, and the links have to be
 right in the publishing source or not at all.
