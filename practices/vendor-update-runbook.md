@@ -44,6 +44,27 @@ every step's answer is wrong if the one before it was skipped.
    pinned to** — not the source's default branch. A stale source makes
    every later step confidently wrong: the diff is against the wrong
    lineage, and "already up to date" is the answer you get.
+
+   **You do not have to name that branch, and you must not check it out.**
+   The pin is compiled into the vendored tool as `SOURCE_BRANCH` in
+   [tools/precedent_vendor_engine.py](../tools/precedent_vendor_engine.py),
+   and `refresh` fetches it and reads `tools/` out of it **by blob** —
+   `git show <commit>:tools/<file>` — so the clone's own `HEAD`, branch and
+   working tree are never touched. A fresh clone satisfies this step; so
+   does an existing clone, because the fetch is the tool's first move.
+
+   **So do not preface this sequence with a `git switch` onto the pinned
+   branch.** In a consuming repo that branch does not exist at all — the pin
+   names a branch of the SOURCE, not of the repo being updated — and in a
+   clone of the source it reintroduces exactly the behaviour that was taken
+   out of the tool on purpose: the old code ran `git checkout` plus
+   `git pull` in the clone, which moved a person off whatever branch they
+   were on, and in CI moved the job's own workspace so that every later step
+   silently ran against the pinned branch instead of the commit under test,
+   with `git status` clean throughout. That cost several sessions on pull
+   request #110, and `_source_tools_at`'s docstring carries the finding.
+   Asked by Morgan, 2026-09-14 — *"Maybe it should even preface that command
+   with `git switch precedent-beta-v01`"* — and answered no, for this reason.
 2. **Read every vendored layer separately.** A repo usually vendors more
    than one — the loader *engine* and the practice *catalogue* are
    different trees with different manifests, and **they move
