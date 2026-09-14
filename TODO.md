@@ -4187,6 +4187,26 @@ which is the failure this repointing exists to end — write
     `.claude/settings.json` wiring to match, which does not travel and cannot.
     The mechanism landing is not the same decision as pointing it at every
     install.
+
+    **Measured 2026-09-14: the reporting half of this is already built, and
+    the residue is narrower than it reads.** A proposal reached this repo for
+    an `adapters-are-wired` check — the complement to
+    `declared-hooks-exist`, reporting an adapter that sits on disk wired by
+    no `settings.json`. That check exists:
+    `hooks-on-disk-are-reachable` in
+    [tools/precedent_check.py](tools/precedent_check.py) sweeps
+    `.claude/hooks/` (and any directory a `settings*.json` names) for files
+    nothing that could run them names, and its own docstring cites the same
+    consuming-repo incident the proposal cites. **What it does not have is a
+    way to DECLINE one.** A repo that left an adapter unwired on purpose —
+    the consuming repo whose `AGENTS.md` records declining
+    `freshness-guard.sh` because its own bootstrap already fast-forwards —
+    has no way to say so that the check reads, because prose is deliberately
+    not searched. So it reports a correct decision as an orphan, permanently,
+    and the only way to clear it is to wire a hook the repo does not want.
+    The open work is a declared decline carrying a reason, satisfied by the
+    reason rather than by the wiring — not a new check.
+
     **Blocked on / out of scope:** a deliberate call about a behavioural
     change to every consuming repo, which the session that built the
     mechanism should not make by convenience on the way past.
