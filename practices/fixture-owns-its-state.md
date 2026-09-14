@@ -50,6 +50,27 @@ looks like a clean room — and the clone brings the real `identity.json` and
 the real history with it. Isolation is about what the assertion depends on,
 not about where the files sit.
 
+**Owning your scratch directory is not the same as owning what you assert
+on.** A fixture can build a perfectly clean room and still reach into a file
+whose internals belong to somebody else — a vendored hook, a template, any
+copy that arrives from upstream — and anchor on its *shape*: a function name,
+a `case`/`esac` branch, "the second line mentioning `HOME`", an exact count of
+matching lines. None of that is a contract. Upstream renames the function,
+splits the `case` into an `if`/`elif`, grows two substitutions into four, and
+the fixture now asserts on a tree where the thing under test and the thing
+reached into are both correct. **Anchor on the behaviour the code under test
+actually consumes** — the messages a guard prints, the exit codes it returns —
+because that is what it was run for, and it is the only part upstream owes
+anyone.
+
+**A plant that cannot find its anchor reports SKIPPED with the reason; it
+never fails.** That distinction matters more than it sounds. A failure names
+the check under test as broken, and that is the wrong culprit: the check was
+fine and the plant went stale. A skip naming the anchor it could not find
+sends the next reader to the fixture, which is where the work is. A skip is
+still not a pass and must never be counted as one — the same discipline the
+check runners already print in their own summary lines.
+
 ## Why
 This is the third instance in two days of one shape, which is what promoted
 it from a habit to a rule
@@ -63,6 +84,31 @@ downstream of it — a green gate, a red one, a measurement — is then about
 something nobody meant to ask.
 
 ## Story
+**The second way in was found 2026-09-14, in a repository that vendors this
+repo's harness.** Its test fixtures planted deliberate breakage into
+`freshness-guard.sh` by indexing into the guard's internal shape — find two
+`case` lines mentioning a particular shell function; expect exactly two lines
+mentioning `HOME` and `path=`. Upstream had since replaced that function and
+its `case`/`esac` with an `if`/`elif`, and grown the tilde handling from two
+substitutions to four. Three plants asserted and reported the check under test
+as broken, on a tree where the check and the guard were both correct; six more
+of the same shape were passing only by luck. The fix was to anchor on the
+guard's user-facing messages, which is what the check consumes — it *runs* the
+guard rather than pattern-matching its source.
+
+**The guard was deliberately not changed to hold its internals still.** A
+vendored file's internals are upstream's to move; depending on them is the
+fixture's bug, and freezing them to protect one downstream fixture would turn
+every future fix into a breaking change.
+
+**Upstream was swept the same day and carries no instance of this shape.**
+Three things make it immune rather than lucky, and a future sweep should
+re-check all three: this repo has no `tools/checks/` and ships no test
+template, so there is no vendored suite here to write such a plant in; the two
+harness checks that exercise `freshness-guard.sh` run it as a subprocess and
+assert on exit code and stderr; and no fixture anywhere reads a foreign file's
+source to locate a shell function, a `case` branch, or a line count.
+
 **2026-09-08, the instance that named the rule.** `precedent-individual`'s
 `test_buenos_aires_dates.sh` and `test_commit_author.sh` each plant a bad
 commit, then write
