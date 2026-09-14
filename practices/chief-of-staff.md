@@ -88,9 +88,14 @@ wrong. That is worse than a wrong number, because nothing on the page says
 which one you are holding.
 
 **Bound the sweep by recency, and say the bound out loud**: every non-archived
-session updated within the last N days, with N named in the report. Seven days
-is a sensible default and is not the rule — the rule is that the report states
-the window it read. Page until the rows fall outside it, then stop.
+session updated within the last N days, with N named in the report. Page until
+the rows fall outside the window, then stop.
+
+**Seven days, chosen by Morgan on 2026-09-14** — *"yes keep seven days"* —
+when the alternative on the table was any other number. It is his default, not
+the session's guess, and a different reader's set may want a different one. **The
+rule is the naming, not the number**: a report that does not state its window is
+wrong however far back it read.
 
 **The long tail is its own finding, not part of the count.** A fleet carrying
 dozens of ancient blocked sessions is telling the person to archive, and that
