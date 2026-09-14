@@ -6156,5 +6156,61 @@ which is the failure this repointing exists to end — write
     Morgan can be quoted choosing an option, `assented` for a bare "ok" to the
     recommendation above.
 
-    **Disposition:** wait (2026-09-14) — the costed options reached Morgan on
-    2026-09-14; it now waits on his pick, and nobody chases it here.
+    **CLOSED 2026-09-14 — Morgan picked B, C and D**, from the menu above:
+    *"I think we should do B, C, and D. now"*. **Strength:** decided — he
+    chose rows rather than approving a proposal, and the recommendation he
+    was answering was D+B, so C is his own addition.
+
+    **C, the split.** The quick index had grown to **88 rows, 2,671 tokens**.
+    The full table moved to [WHERE_THINGS_ARE.md](WHERE_THINGS_ARE.md) and the
+    twelve rows sessions reach for constantly stayed inline, with a pointer
+    row. **No row was dropped** and nothing was rewritten. The trap worth
+    recording: [quick-index](practices/quick-index.md) is a *resident*
+    practice and is mechanically checked for **at least five rows in the
+    instructions file**, so moving the whole table would have broken a live
+    check and the practice's own intent — the short-table split satisfies
+    both. **11,590 → 9,336.**
+
+    **D, the cap.** `occasion_index_tokens` in
+    [tools/session_load_budgets.json](tools/session_load_budgets.json), set at
+    **3,600** against 3,377 measured, enforced by
+    [tools/build_views.py](tools/build_views.py)'s
+    `OccasionIndexBudgetExceeded` — **the first budget the generated half has
+    ever had.** Deliberately tight: the cap is meant to be met often, because
+    meeting it is the decision it exists to force. Its message names the fix
+    *and* the trap — never drop an `occasion:` from a practice whose
+    `applies_to` is `["**"]` with no gate, since the index is then its only
+    channel. Adding `reduction-pass` below took the index to 3,421, so **179
+    tokens remain**, which is the cap working as intended.
+
+    **B did not come out as expected, and the ceiling is UNCHANGED at
+    12,000.** C reclaimed 2,254 tokens and took headroom from 3.4% to 22.2%,
+    so there was no pressure left for a raise to relieve. What B asked for was
+    a number chosen on purpose rather than a ratchet artifact, and that is
+    what it now is: **12,000 = 5,600 generated cap** (resident 2,000 +
+    occasion 3,600, the most the generated half can ever be) **+ 6,400
+    declared prose allowance**, against 4,996 of prose today. **The guarantee
+    that buys:** if the generated half filled both caps the file would reach
+    10,596, so **generated growth alone can no longer push it over**. Every
+    future crossing is prose somebody chose to write — visible, attributable
+    and trimmable, which the four crossings on 09-13/14 were not. Raising it
+    above 12,000 stays Morgan's call and nothing here needs it; this was
+    flagged to him in the reply rather than decided quietly.
+
+    **The menu is documented and has a command.** Morgan asked for both in the
+    same message — *"And document these options, it's a good list for reducing
+    it in the future. Do we have a command to do a 'reduction' pass listing
+    what you did?"* — so the five options became the six-step menu in
+    [practices/reduction-pass.md](practices/reduction-pass.md), a **universal**
+    practice defining the standing command **"Reduction pass"**.
+    [session-load-budget](practices/session-load-budget.md) points at it
+    rather than carrying a second copy.
+    `python3 tools/session_load_trend.py --since <ref>` computes the
+    before/after ledger the report needs, excluding any surface that has no
+    `before` rather than booking it as growth.
+
+    **What is NOT claimed:** that the short quick index is as good as the full
+    one was. A session that needs a long-tail row now follows one link where
+    it used to read the row inline, and nothing measures what that costs —
+    the same honest gap [82](TODO.md#session-load-under-20k) recorded for the
+    gotchas split. **Disposition:** parked (2026-09-14, closed as done)

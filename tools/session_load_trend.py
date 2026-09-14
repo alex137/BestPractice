@@ -171,6 +171,76 @@ def catalogue_size():
     return n
 
 
+def _ledger(ref, reg, as_json):
+    """Before/after per surface against `ref` -- what a reduction pass moved.
+
+    code-cites-practice: reduction-pass -- the report has to say what each
+    move cost, and a figure typed from memory is the half that drifts. This
+    computes it from the two trees.
+
+    Silent about WHY a surface changed: that is the reading the person writes.
+    It reports the delta and nothing else, so it cannot be mistaken for an
+    account of what happened.
+    """
+    surfaces = reg.get('surfaces') or {}
+    out, rc = _git('rev-parse', '--verify', '--quiet', f'{ref}^{{commit}}')
+    sha = out.strip()
+    # environment-gotchas: --verify --quiet exits 0 and echoes back ANY
+    # well-formed 40-hex string, present in the clone or not, so ask the
+    # object database rather than trusting the name resolved.
+    if rc != 0 or not sha:
+        print(f"session_load_trend: cannot resolve {ref!r} in this clone.")
+        return 1
+    _, rc2 = _git('cat-file', '-e', f'{sha}^{{commit}}')
+    if rc2 != 0:
+        print(f"session_load_trend: {ref!r} names a commit this clone does "
+              f"not have (shallow?). Fetch deeper and retry.")
+        return 1
+
+    rows = []
+    for rel in SURFACES:
+        f = ROOT / rel
+        after = approx_tokens(f.read_text(encoding='utf-8', errors='replace')) \
+            if f.is_file() else 0
+        blob, brc = _git('show', f'{sha}:{rel}')
+        before = approx_tokens(blob) if brc == 0 else None
+        ceiling = (surfaces.get(rel) or {}).get('ceiling')
+        rows.append((rel, before, after, ceiling))
+
+    if as_json:
+        print(json.dumps({'since': ref, 'sha': sha, 'surfaces': [
+            {'file': r, 'before': b, 'after': a, 'ceiling': c,
+             'delta': (None if b is None else a - b)} for r, b, a, c in rows]},
+            indent=2))
+        return 0
+
+    print(f"REDUCTION LEDGER -- always-loaded surfaces, {ref} ({sha[:8]}) -> working tree\n")
+    tb = ta = 0
+    skipped = []
+    for rel, before, after, ceiling in rows:
+        if before is None:
+            # Not in the tree at `ref` -- an untracked surface like
+            # .precedent/SESSION_PRACTICES.md, which is generated per session
+            # and deliberately never committed. Counting its `after` against a
+            # `before` it cannot have would book a reduction as a growth
+            # (practice: name-both-sides-of-ledger).
+            skipped.append((rel, after))
+            continue
+        tb += before
+        ta += after
+        d = after - before
+        cap = f" of {ceiling:,}" if ceiling else ""
+        print(f"  {rel}: {before:,} -> {after:,}{cap}   {d:+,}")
+    print(f"\n  TOTAL {tb:,} -> {ta:,}   {ta - tb:+,}   (comparable surfaces only)")
+    for rel, after in skipped:
+        print(f"  NOT IN THE TOTAL -- {rel}: not tracked at {ref}, "
+              f"so it has no before. It is {after:,} now.")
+    print("\n  Figures only. What moved and where it went is the report's own")
+    print("  to say, and so is what was considered and not done "
+          "(practice: reduction-pass).")
+    return 0
+
+
 def headroom_notice(root=None, floor_pct=None):
     """One line per always-loaded surface that is close to its ceiling, or None.
 
@@ -228,6 +298,10 @@ def main():
                     help='history window in days (default 14)')
     ap.add_argument('--cap', type=int, default=80,
                     help='max commits to read per surface (default 80)')
+    ap.add_argument('--since', metavar='REF',
+                    help='before/after ledger against a git ref -- the figures '
+                         'a "Reduction pass" report needs, measured rather '
+                         'than typed (practice: reduction-pass)')
     ap.add_argument('--json', action='store_true', help='machine-readable')
     args = ap.parse_args()
 
@@ -235,6 +309,8 @@ def main():
     if reg is None:
         print('session_load_trend: no tools/session_load_budgets.json here.')
         return 0
+    if args.since:
+        return _ledger(args.since, reg, args.json)
     surfaces = reg.get('surfaces') or {}
 
     # timestamps-carry-offset
