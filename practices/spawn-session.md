@@ -6,7 +6,7 @@ severity:    default
 applies_to:  ["**"]
 occasion:    "handing the person work to do, creating a session, or starting work that may touch a repository this session cannot reach"
 gates:       ["reply"]
-index_clause: "cross-repo check; list_sessions before spawning; wake, never spawn beside"
+index_clause: "cross-repo check; wake, never spawn beside; link every session at the end"
 checked_by:  null
 defines:     ["Spawn session"]
 command:     {"Spawn session": "Check whether this work belongs in a different conversation — usually because it needs a project this one cannot reach — and hand you a link to that one, ready to go."}
@@ -35,7 +35,10 @@ approved_by: "Morgan, 2026-09-11 -- coined and placed at universal in the same m
   \"by default you don't; only if I explicitly tell you to spawn a session and
   go merge. If I only saw 'spawn session' then assume I need to manually
   approve the merge.\" (strength: decided). The both-phrases case is unchanged;
-  what changed is what silence means."
+  what changed is what silence means. Amended 2026-09-14, Morgan -- every session
+  spawned or woken is listed again, with its link, in the reply's closing list:
+  \"make sure that list always includes sessions you've spawned and the links to
+  them, so I can see there that they were spawned and I can keep my eye on them.\""
 strength:    decided
 source_practice_number: null
 ---
@@ -130,6 +133,18 @@ not describe the handoff. Create the session** — rooted in the right repositor
 already carrying the prompt you would have given it — **and put its link
 near the top of the reply, on its own line, telling the person plainly to
 click it.**
+
+**Then name it again at the end, in whatever closing list of outstanding
+items the reply carries — one line per session, with the link.** This holds
+for a session you woke as much as one you created, and whether the person
+asked for it or you decided on it yourself. The link at the top is for
+someone reading the whole reply; the closing list is for someone reading only
+the end, **and that is most people most of the time.** A long reply buries a
+link in its own middle, and a session nobody can find again is a session
+nobody is watching — which is the one thing a spawner owes, since the person
+cannot see that conversation from where they are standing. Say in the line
+what the session was asked to do, so the list reads without scrolling back
+up.
 
 **The seeded prompt carries a merge authorization only when the person gave
 one for the spawn.** The default is the other way round: a session spawned
@@ -424,6 +439,32 @@ whatever this session is holding, and the spawned work is by definition not
 that. Said in one message with the spawn, the authorization is plainly about
 the work being spawned for, so it travels rather than expiring in the window
 where the work has just left.
+
+**The closing-list clause was added 2026-09-14, and the incident is this
+rule's own output going unread.** A session had done everything above
+correctly: refused `add_repo` across owners, found no live session to wake,
+seeded one with the work and the relayed authorization, and put the link in
+its reply. Morgan never found it -- *"your link to the session you seeded was
+lost in your sea of information"* -- and asked for the fix in the one place
+he actually reads: *"make sure that list always includes sessions you've
+spawned and the links to them, so I can see there that they were spawned and
+I can keep my eye on them. (Remember that many times I only read those next
+steps and nothing more, since you still give me too much text, it's
+overwhelming.)"* He named both cases in the same breath, *"whether I
+instructed you to or not and you just did it, either is fine"*, which is why
+the clause covers the spawn nobody asked for.
+
+**Placement near the top was never wrong; it was never sufficient.** The
+top-of-reply link is what makes a person click through to a session they are
+being asked to authorize, and it is read only by a person reading from the
+top. Nothing in the catalogue said the link had to survive to the end of the
+reply, so it survived only in replies that happened to be short -- and the
+replies that spawn sessions are exactly the long ones. Universal, on
+[rule-level-by-reach](rule-level-by-reach.md)'s third test: nothing in it is
+about this repository's subject, this team, or one person's way of working --
+anybody who spawns a session has to be able to find it again. **What the
+reply's closing list is CALLED stays with whoever owns that convention**;
+this clause says only that the sessions belong in it.
 
 **Prior art, and deliberately not copied:** the individual set
 `themorgan/precedent-individual` closed the same gap in its own catalogue
