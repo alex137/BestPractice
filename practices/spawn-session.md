@@ -118,6 +118,13 @@ this rule wrongly claimed all of them were stranded.
 session reuses what it already holds where a new one re-reads its repository
 from nothing. That reason was always the real one.
 
+**Whatever you create, tag it in the `create_session` call itself** —
+`subject:`, `repo:`, `role:`, `wants:`, per
+[session-tags](session-tags.md). The `subject:` tag is what lets the NEXT
+spawner's enumeration above answer "is anyone already on this?", and it is
+the one tag that cannot be usefully added later: a collision found after both
+sessions have run is not a collision caught.
+
 **Where no live session fits, and only then: do not start the work and do
 not describe the handoff. Create the session** — rooted in the right repository,
 already carrying the prompt you would have given it — **and put its link
