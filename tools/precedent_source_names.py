@@ -34,9 +34,12 @@ could reach:
 
 so the body carries the canonical name whether the request was redirected or
 merely spelled differently, and reading the body makes the redirect question
-irrelevant to correctness. NOT verified here: the 301 a genuine rename
-returns, because this session could reach no renamed repository to try it
-on. It does not change what this reads.
+irrelevant to correctness. The 301 a genuine rename returns WAS unverified
+here until 2026-09-14, when a session measured it against a source
+repository renamed three days earlier and found that the tool reported it
+UNVERIFIED -- the one input it exists to recognise. api_full_name's
+docstring carries the measurement; the fix is to stop following the
+redirect, because the redirect itself is the answer.
 
 The whole tool was run end to end against that same repository on the same
 day, through a fixture source whose clone fetched `alex137/bestpractice`: it
@@ -135,40 +138,91 @@ def parse_remote(url):
     return (m.group('owner'), m.group('name')) if m else (None, None)
 
 
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    """An opener that reports a redirect instead of quietly following it.
+
+    A 301 on this endpoint IS the finding -- see api_full_name."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
 def api_full_name(owner, name, env=None):
-    """-> (full_name, None) or (None, why-it-could-not-be-read).
+    """-> (full_name, why-it-could-not-be-read, renamed).
 
     Reads `full_name` out of the response BODY. The status code says only
     that an answer came back; the body says what the repository is called
-    now."""
+    now.
+
+    `renamed` is True only when GitHub answered a REDIRECT for this name,
+    which is conclusive on its own: a repository still called that does not
+    redirect. Reporting the rename is the job; recovering the new name is a
+    detail, and the two are separated here because the second one fails in
+    the field while the first does not.
+
+    Measured 2026-09-14 against `themorgan/precedent-team-maintainers`, a
+    source repository genuinely renamed three days earlier -- the case the
+    module docstring used to record as unreachable and therefore untested.
+    GitHub answers 301 with `Location: .../repositories/<numeric id>`, and
+    `urlopen` follows redirects by default, so the tool used to make a second
+    request that some proxies refuse outright (403: "Numeric-ID repository
+    paths are not supported through this proxy"). It then caught the
+    HTTPError and reported UNVERIFIED -- "could not check" -- on precisely
+    the input the tool exists to recognise, and `--check` exited 0.
+    """
     env = os.environ if env is None else env
-    req = urllib.request.Request(
-        API.format(owner=owner, name=name),
-        headers={'Accept': 'application/vnd.github+json',
-                 'User-Agent': 'precedent-source-names'})
-    # The token is read into a header in this process and never printed,
-    # logged or written to disk -- the same standing rule as
-    # precedent_source_credentials.py's git helper, which keeps it out of a
-    # command line and out of a clone's config. An HTTP header is neither.
-    token = _api_token(env)
-    if token:
-        req.add_header('Authorization', f'Bearer {token}')
+
+    def _get(url, follow):
+        req = urllib.request.Request(url, headers={
+            'Accept': 'application/vnd.github+json',
+            'User-Agent': 'precedent-source-names'})
+        # The token is read into a header in this process and never printed,
+        # logged or written to disk -- the same standing rule as
+        # precedent_source_credentials.py's git helper, which keeps it out of
+        # a command line and out of a clone's config. An HTTP header is
+        # neither.
+        token = _api_token(env)
+        if token:
+            req.add_header('Authorization', f'Bearer {token}')
+        opener = (urllib.request.build_opener() if follow
+                  else urllib.request.build_opener(_NoRedirect))
+        with opener.open(req, timeout=TIMEOUT) as r:
+            return json.load(r)
+
     try:
-        with urllib.request.urlopen(req, timeout=TIMEOUT) as r:
-            body = json.load(r)
+        body = _get(API.format(owner=owner, name=name), follow=False)
     except urllib.error.HTTPError as e:
+        if e.code in (301, 302, 307, 308):
+            loc = e.headers.get('Location') or ''
+            try:
+                moved = _get(loc, follow=True)
+                full = (moved or {}).get('full_name')
+                if full:
+                    return full, None, True
+            except Exception:                                # noqa: BLE001
+                pass
+            ident = loc.rsplit('/', 1)[-1] if loc else 'unknown'
+            return None, (
+                f'GitHub answered HTTP {e.code} for {owner}/{name}: that name '
+                f'is a redirect, so it is NOT what this repository is called '
+                f'now. The current name could not be read -- the redirect '
+                f'points at the numeric-ID form (repository id {ident}), '
+                f'which some proxies refuse. Open '
+                f'https://github.com/{owner}/{name} in a browser; GitHub '
+                f'lands on the current name.'), True
         detail = ''
         try:
             detail = (json.loads(e.read() or b'{}') or {}).get('message', '')
         except Exception:                                    # noqa: BLE001
             pass
-        return None, f'GitHub answered HTTP {e.code}' + (f': {detail}' if detail else '')
+        return None, (f'GitHub answered HTTP {e.code}'
+                      + (f': {detail}' if detail else '')), False
     except Exception as e:                                   # noqa: BLE001
-        return None, f'the API could not be reached ({type(e).__name__}: {e})'
+        return None, f'the API could not be reached ({type(e).__name__}: {e})', False
     full = body.get('full_name')
     if not full:
-        return None, 'the API answered without a full_name field'
-    return full, None
+        return None, 'the API answered without a full_name field', False
+    return full, None, False
 
 
 def _api_token(env):
@@ -246,9 +300,14 @@ def assess(repo, env=None, user_config=None):
             row['declared_drift'] = (
                 f'precedent.json (or the user config) declares {src["name"]!r} '
                 f'while the clone fetches from {owner}/{name}')
-        full, why = api_full_name(owner, name, env)
+        full, why, renamed = api_full_name(owner, name, env)
         if full is None:
             row['detail'] = why
+            # A redirect is conclusive even when the new name cannot be read:
+            # this is a RENAMED row with an incomplete detail, never an
+            # UNVERIFIED one, and --check has to fail on it.
+            if renamed:
+                row['verdict'] = 'RENAMED'
             continue
         row['current'] = full
         cur_name = full.split('/', 1)[-1]

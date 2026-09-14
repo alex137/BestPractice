@@ -95,7 +95,19 @@ that against what this repo declares and against the clone's own remote, and
 [practices/vendor-update-runbook.md](../practices/vendor-update-runbook.md)
 runs it at step 8 — the one moment a session is already online and already
 reconciling its sources. A name it could not check reports `UNVERIFIED`, never
-`OK`. Row 3 is a string in a tracked configuration file the engine
+`OK`.
+
+**A redirect is itself the answer, since 2026-09-14.** Reading the body is
+still how the *new* name is learned, but it stopped being how a rename is
+*detected*: GitHub answers `301` for the old name, its `Location` is the
+numeric-ID form (`/repositories/<id>`), and a hosted session's proxy refuses
+that form outright — so the tool followed the redirect, caught a `403`, and
+reported `UNVERIFIED` on the one input it exists to recognise. Measured
+against a source repository genuinely renamed three days earlier; the
+incident above was still found by a person, not by the tool. It no longer
+follows the redirect: a repository still called that does not redirect, so a
+`301` is `RENAMED` whether or not the new name can be read, and `--check`
+exits non-zero on it. Row 3 is a string in a tracked configuration file the engine
 already parses and validates for `level` and `path`, so refusing a malformed
 name there costs one branch in `load_config` and the message can teach the
 convention at the moment it is being broken. That asymmetry, not a general
