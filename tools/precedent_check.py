@@ -2213,7 +2213,9 @@ def _settings_hook_dirs():
        'an invocation, so documents are deliberately not searched. It says '
        'nothing about a repo with no .claude/hooks/ at all, which is '
        "session-bootstrap's question, nor about what a hook does once it "
-       'runs.',
+       'runs. A hook the repo DECLINED on purpose is satisfied by its '
+       "declared reason in precedent.json's declined_adapters, never by "
+       'wiring it.',
        practice_backed=False)
 def _hooks_on_disk_are_reachable(ctx):
     """A hook nothing names is off, and from inside a session that looks
@@ -2248,7 +2250,31 @@ def _hooks_on_disk_are_reachable(ctx):
     .claude/hooks/precedent-individual-bootstrap.sh by path rather than
     through any settings entry, so a check that read settings alone would
     report this repo's own working bootstrap hook as dead — measured here
-    before this check shipped, which is why the clause exists."""
+    before this check shipped, which is why the clause exists.
+
+    DECLINING A HOOK IS A DECISION, and until 2026-09-14 there was no way
+    to record one. A source declares its harness adapters and every
+    consuming repo's sync writes them into .claude/hooks/; the sync will
+    not edit that repo's settings.json, deliberately, so a repo that does
+    not want a particular adapter has no way to end up wired. This check
+    then reported a correct decision as an orphan, permanently, and the
+    only way to clear it was to wire a hook the repo had decided against.
+    Measured in a real consuming repo the same day: its AGENTS.md recorded
+    declining freshness-guard.sh because its own bootstrap already fetches
+    and fast-forwards, and prose is deliberately not searched here, so
+    nothing could read it.
+
+    So a repo may declare `declined_adapters` in its precedent.json, each
+    entry a `path` and a `reason` — the same shape, and the same
+    requirement, as `filename_separator_exempt` above. THE REASON IS WHAT
+    SATISFIES IT. A decline with no reason is not a decision, it is a
+    silenced check, and it is reported as one. Two further states are
+    reported rather than silently accepted, because both mean the
+    declaration has come loose from what is on disk: a decline naming a
+    file that is not there (the adapter went, and the note outlived it),
+    and a decline for a hook that something DOES call (the repo changed its
+    mind and wired it, and the stale note now misdescribes the repo to the
+    next reader)."""
     hooks_dir = ROOT / '.claude' / 'hooks'
     # A practice set created by precedent_bootstrap_source.py wires its hooks
     # out of a tracked `bootstrap/` instead, on purpose, so one copy exists
@@ -2297,7 +2323,37 @@ def _hooks_on_disk_are_reachable(ctx):
             texts.append((c, c.read_text(encoding='utf-8', errors='ignore')))
         except OSError:                          # practice: fail-gracefully
             continue
+    # practice: code-cites-practice -- checkable-gets-checked. The declared
+    # declines, read the same way filename_separator_exempt is: an entry
+    # without a reason buys nothing.
+    declined, reasonless = {}, []
+    try:
+        cfg = json.loads((ctx.root / 'precedent.json').read_text(encoding='utf-8'))
+    except (OSError, ValueError):                # practice: fail-gracefully
+        cfg = {}
+    for e in cfg.get('declined_adapters') or []:
+        if not isinstance(e, dict) or not e.get('path'):
+            continue
+        # NOT lstrip('./') -- that strips CHARACTERS, so a path beginning
+        # `.claude/` loses its leading dot and matches nothing. Measured
+        # here by the decline cases failing before this shipped.
+        path = str(e['path'])
+        while path.startswith('./'):
+            path = path[2:]
+        if str(e.get('reason') or '').strip():
+            declined[path] = e['reason']
+        else:
+            reasonless.append(path)
+
     found = []
+    for path in sorted(reasonless):
+        found.append(Finding(
+            'precedent.json',
+            f'declines {path} with no reason. A decline carries the reason '
+            'it was declined for, because the reason is the whole thing '
+            'that separates a decision from a silenced check -- the next '
+            'reader has to be able to disagree with it'))
+
     for hook in hooks:
         # A PATH reference, not a bare mention. Every real caller names a
         # hook the only way it can be run -- `hooks/<name>`, whether that is
@@ -2313,15 +2369,42 @@ def _hooks_on_disk_are_reachable(ctx):
         # only form that can actually run one, never a bare filename.
         ref = (f'hooks/{hook.name}' if hook.parent == hooks_dir
                else f'{hook.parent.name}/{hook.name}')
-        if any(ref in t for c, t in texts if c != hook):
+        rel = str(hook.relative_to(ROOT))
+        reachable = any(ref in t for c, t in texts if c != hook)
+        if reachable:
+            # A decline that no longer describes the repo. Reported, not
+            # ignored: the note is what the next reader trusts, and one
+            # saying "we deliberately do not run this" beside a hook that
+            # runs is worse than no note at all.
+            if rel in declined:
+                found.append(Finding(
+                    'precedent.json',
+                    f'declines {rel}, and something does call it. The '
+                    'decline is stale -- drop the entry, or unwire the '
+                    'hook; leaving both says the opposite of what the repo '
+                    'does'))
+            continue
+        if rel in declined:
             continue
         found.append(Finding(
-            str(hook.relative_to(ROOT)),
+            rel,
             f'sits in {hook.parent.relative_to(ROOT)}/ and nothing that '
             'could run it names it — '
             'no settings*.json entry, no other hook, no engine tool. An '
             'orphaned hook is off, and from inside a session that is '
-            'indistinguishable from one that works'))
+            'indistinguishable from one that works. If that is deliberate, '
+            "declare it in precedent.json's declined_adapters with the "
+            'reason'))
+
+    # A decline naming nothing on disk. The adapter went and the note
+    # outlived it, which quietly exempts a path that may come back later.
+    on_disk = {str(h.relative_to(ROOT)) for h in hooks}
+    for path in sorted(set(declined) - on_disk):
+        found.append(Finding(
+            'precedent.json',
+            f'declines {path}, and no such file is here. Either the adapter '
+            'went and this note outlived it, or the path is wrong -- both '
+            'leave a standing exemption for something nobody can see'))
     return found
 
 

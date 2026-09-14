@@ -5973,6 +5973,80 @@ def check_precedent_check_fires():
                       'does not just walk every directory',
                       _bs2_rc == 0 and _BS_ORPHAN not in _bs2_out))
 
+        # ...and the DECLINE, since 2026-09-14. A source declares its
+        # harness adapters and the consuming repo's sync writes them into
+        # .claude/hooks/ without touching settings.json, on purpose -- so a
+        # repo that does not want one cannot end up wired, and before this
+        # the check reported that correct decision as an orphan forever.
+        # Four states, because a decline is only worth having if the three
+        # ways it can be wrong are reported too: no reason, no such file,
+        # and a decline sitting beside a hook that actually runs.
+        # Same spelling discipline as the block above -- the declined path
+        # is joined at runtime, never written here as a path literal, or
+        # this source (which the check reads as a possible caller) would
+        # make its own planted orphan reachable.
+        _DECLINED = 'zzz-declined.sh'
+        _hook_ref = lambda n: '.claude/' + 'hooks' + '/' + n
+
+        def _plant_decline(repo, reason=None, path=None, also_wire=False):
+            (repo / '.claude' / 'hooks' / _DECLINED).write_text(
+                '#!/bin/sh\necho declined\n', encoding='utf-8')
+            if also_wire:
+                sp = repo / '.claude' / 'settings.json'
+                d = json.loads(sp.read_text(encoding='utf-8'))
+                d.setdefault('hooks', {}).setdefault('SessionStart', []).append(
+                    {'hooks': [{'type': 'command',
+                                'command': '$CLAUDE_PROJECT_DIR/'
+                                           + _hook_ref(_DECLINED)}]})
+                sp.write_text(json.dumps(d, indent=2), encoding='utf-8')
+            cp = repo / 'precedent.json'
+            cfg = json.loads(cp.read_text(encoding='utf-8'))
+            entry = {'path': path if path is not None
+                     else _hook_ref(_DECLINED)}
+            if reason is not None:
+                entry['reason'] = reason
+            cfg['declined_adapters'] = [entry]
+            cp.write_text(json.dumps(cfg, indent=2), encoding='utf-8')
+
+        _d1 = fresh('hooks-decline-declared')
+        _plant_decline(_d1, reason='our own bootstrap already does this')
+        _d1_rc, _d1_out = run(_d1, 'hooks-on-disk-are-reachable')
+        cases.append(('hooks-on-disk-are-reachable: a hook declined WITH a '
+                      'reason is satisfied by the reason, not by wiring it',
+                      _d1_rc == 0 and _DECLINED not in _d1_out))
+
+        _d2 = fresh('hooks-decline-reasonless')
+        _plant_decline(_d2, reason=None)
+        _d2_rc, _d2_out = run(_d2, 'hooks-on-disk-are-reachable')
+        cases.append(('hooks-on-disk-are-reachable: a decline with NO reason '
+                      'is a silenced check and is reported as one',
+                      _d2_rc == 1 and 'with no reason' in _d2_out
+                      and _DECLINED in _d2_out))
+
+        _d3 = fresh('hooks-decline-stale-path')
+        _plant_decline(_d3, reason='we do not want it',
+                       path=_hook_ref('zzz-not-here.sh'))
+        _d3_rc, _d3_out = run(_d3, 'hooks-on-disk-are-reachable')
+        cases.append(('hooks-on-disk-are-reachable: a decline naming a file '
+                      'that is not there is reported, so an exemption cannot '
+                      'outlive what it exempted',
+                      _d3_rc == 1 and 'no such file is here' in _d3_out))
+        # The plant above ALSO leaves a real orphan on disk, undeclined.
+        # Asserting only the stale-path message would pass on the orphan
+        # finding alone (practice: control-asserts-which-failure).
+        cases.append(('hooks-on-disk-are-reachable: ...and that case reports '
+                      'the stale declaration separately from the orphan it '
+                      'failed to cover',
+                      'zzz-not-here.sh' in _d3_out and _DECLINED in _d3_out))
+
+        _d4 = fresh('hooks-decline-contradicted')
+        _plant_decline(_d4, reason='we decided against it', also_wire=True)
+        _d4_rc, _d4_out = run(_d4, 'hooks-on-disk-are-reachable')
+        cases.append(('hooks-on-disk-are-reachable: a decline for a hook '
+                      'something DOES call is reported, because the note is '
+                      'what the next reader trusts',
+                      _d4_rc == 1 and 'something does call it' in _d4_out))
+
         # engine-plus-host-shims -- a host-tree fork of a vendored module
         def _setup_vendored(repo):
             up = repo / 'process' / 'upstream' / 'tools'
