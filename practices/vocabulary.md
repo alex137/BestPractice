@@ -41,6 +41,23 @@ short list and an incomplete list look identical.
 did not resolve this session, it is not in the vocabulary this session has;
 say what is in force, not what exists somewhere.
 
+**"Nothing else" governs the BODY, not whatever closing section the reply
+gate requires.** Where a source in force mandates a closing block on every
+reply, that block still appears -- a rule this answer cannot satisfy is not
+thereby suspended, and a stop hook will refuse the turn without it. What
+"nothing else" forbids is the material a session adds *of its own accord*:
+a preamble, an offer to go deeper, advice about which command to use, and
+above all **an unsolicited diagnosis of something the session noticed while
+assembling the list.**
+
+**The unresolved-source note is the one thing that is NOT an aside.** Saying
+which sources did not resolve is required above. Saying what you think went
+wrong with them is not, and it is where this answer goes astray: the note is
+a fact about the list's completeness, and any theory about its cause is a
+separate investigation the person did not ask for
+([diagnosis-is-measured](diagnosis-is-measured.md) governs that theory if it
+is ever offered).
+
 ## Detail
 **The field is the registry** (practice:
 [registry-source-of-truth](registry-source-of-truth.md)). A command practice
@@ -99,6 +116,17 @@ the reader-facing table in
 had ten of the eleven, missing the practice check, and the prose in the
 project instructions ran to several paragraphs per command. The table is
 generated from the practice files now.
+
+**First violated the day after it was written, 2026-09-14**, by a session
+answering this exact command. Three team sources had not finished cloning, so
+the tool printed its unresolved-source note correctly -- and the session then
+appended a theory about *why* they had not resolved, plus a recommendation to
+check whether the repositories still existed and delete their declarations if
+not. Both named causes were wrong (the clone simply had not run yet), and
+none of it had been asked for. The listing itself was correct and complete;
+everything that went wrong was in the part this rule already said not to
+write. That is what sharpened "nothing else" into the clause above, and what
+[diagnosis-is-measured](diagnosis-is-measured.md) was written out of.
 
 ## Install
 The tool ships with the engine as `tools/precedent_vocabulary.py`, and

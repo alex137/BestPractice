@@ -6,7 +6,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 
 ## The practice catalogue
 
-`practices/` holds 111 practice files (10 resident, 101 on-demand). One file per practice. See [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md) for the design.
+`practices/` holds 112 practice files (10 resident, 102 on-demand). One file per practice. See [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md) for the design.
 
 | Practice | Tier | Occasion / scope |
 |---|---|---|
@@ -34,6 +34,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [declared-pronouns](practices/declared-pronouns.md) | on-demand | writing about a person in the third person -- a reply, a document, a commit message, a pull-request body |
 | [decommission-deletes-files](practices/decommission-deletes-files.md) | on-demand | decommissioning a mechanism — a workflow, a tool, a vendored tree, a config — that leaves files behind with no remaining job |
 | [deliverables-look-like-output](practices/deliverables-look-like-output.md) | on-demand | writing a reader-facing deliverable with supporting apparatus |
+| [diagnosis-is-measured](practices/diagnosis-is-measured.md) | on-demand | a tool, hook or error message names the possible causes of a failure |
 | [disclose-landing](practices/disclose-landing.md) | on-demand | a practice lands or a candidate is raised, at any level |
 | [doc-references-are-links](practices/doc-references-are-links.md) | on-demand | writing or editing a document |
 | [docs-are-current-state](practices/docs-are-current-state.md) | on-demand | writing or editing a document |
