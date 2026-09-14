@@ -1046,6 +1046,13 @@
       ],
       "why": "Its own applies_to, and a real locus: the module that makes the calls, the registry that declares what they should cost, and any new file whose name says it talks to GitHub. Deliberately NOT `**` -- a rule about API spend has nothing to say to a session editing a practice file. What the glob cannot reach is a tool that calls the API under an unrelated name, which is exactly why the mechanical check enumerates every tracked .py rather than trusting this list.",
       "decided": "2026-09-14, when the practice was written"
+    },
+    "grep-before-search": {
+      "globs": [
+        "**"
+      ],
+      "why": "No locus, and deliberately `**`. What the rule governs is a session's choice of TOOL in the moment it goes looking for something -- a local grep against a GitHub search call -- which happens before any file is opened and leaves no artifact in the tree at all. There is no path whose editing means the choice was made badly, so a narrower glob would only make the rule invisible at the moment it fires.",
+      "decided": "2026-09-14, when the practice was written"
     }
   },
   "gates": {
