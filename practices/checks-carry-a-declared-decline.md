@@ -38,6 +38,25 @@ entry naming something **not present**, and an entry that **contradicts
 what the repo does**. Report all three. An exemption that outlives what it
 exempted is a standing hole nobody can see.
 
+## Why
+A check earns its place by being read, and the thing that stops it being read
+is not noise in general — it is a repository that **cannot win**. Noise you
+can clean up. A finding with no legitimate clear state is permanent, and the
+person learns the fastest thing available: skip this one. From then on the
+check is dead weight that still costs a run, and it is dead on the day it is
+finally right about something.
+
+The asymmetry is what makes the escape hatch cheap. Writing one costs a list
+and a reason field; not writing one costs the check's credibility across
+every repository that adopts it, and nobody is watching for that failure
+because a check nobody reads reports nothing.
+
+**A reason field, specifically, is what keeps this from being a mute
+button.** An exemption list with no reasons is indistinguishable from
+suppression, and the thing a reviewer needs is not the fact that somebody
+opted out — it is the argument they opted out on, so they can say it is
+wrong.
+
 ## Story
 `hooks-on-disk-are-reachable` reported every harness adapter a consuming
 repo had deliberately left unwired. The mechanism that writes adapters in
@@ -58,3 +77,22 @@ reason satisfies the check, never the wiring — with the three broken states
 above each reported. Raised as a universal candidate the same day and
 approved by Morgan, who had asked for exactly this before the wider
 adapter rollout rather than after it.
+
+## Install
+No check exists for this practice itself, and it is not obvious one can:
+whether a given check reports a state a repository can legitimately choose
+is a judgment about that check's subject matter, not a property of its
+source. It fires at the `review` gate instead —
+[tools/precedent_gate.py](../tools/precedent_gate.py) review — so a session
+writing or changing a check is handed this Rule at the moment it matters.
+
+The worked example is in this repository and is the shape to copy:
+`declined_adapters` in [precedent.json](../precedent.json), read by
+`hooks-on-disk-are-reachable` in
+[tools/precedent_check.py](../tools/precedent_check.py), with its four
+planted cases in [tools/verify_harness.py](../tools/verify_harness.py) —
+the declared decline passing, and each of the three loose-declaration
+states firing.
+
+An adopting repository installs nothing: the practice reaches every session
+through the generated occasion index.
