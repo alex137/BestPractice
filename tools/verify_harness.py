@@ -4607,6 +4607,26 @@ def check_session_practices_load_without_publishing():
                       'rather than matching everything',
                       bv._same_repository(d_no_remote, d_no_remote)
                       and not bv._same_repository(d_no_remote, a)))
+        # A git-tracked SUBDIRECTORY with no .git of its own -- what
+        # process/upstream/ is in a consumer that vendors this catalogue as
+        # plain files rather than a submodule (practice-export-loop). `git -C
+        # <subdir> remote get-url origin` does not stop at the subdirectory;
+        # it walks up to the ENCLOSING repo and answers with ITS origin, so
+        # before the repo-root check the subdir wrongly read as its
+        # enclosing repo's own top-level checkout. Reported against a real
+        # vendored tree, 2026-09-15.
+        e = dup / 'e'
+        e.mkdir()
+        subprocess.run(['git', 'init', '-q', str(e)], check=False)
+        subprocess.run(['git', '-C', str(e), 'remote', 'add', 'origin',
+                        'https://github.com/acct/consumer-repo.git'], check=False)
+        e_vendored = e / 'process' / 'upstream'
+        e_vendored.mkdir(parents=True)
+        cases.append(("a git-tracked subdirectory with no .git of its own is "
+                      "never mistaken for its enclosing repository's own "
+                      "top-level checkout, even though its `origin` resolves "
+                      "to the enclosing repo's",
+                      not bv._same_repository(e_vendored, e)))
     finally:
         shutil.rmtree(dup, ignore_errors=True)
 

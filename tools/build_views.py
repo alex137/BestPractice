@@ -1115,12 +1115,37 @@ def _same_repository(path, root):
     differences: a trailing .git, a trailing slash, and case, since a clone
     URL is routinely lowercased by the harness while the canonical spelling
     is not (record/GOTCHAS.md's entry on the lowercased clone URL).
+
+    Only trusts the origin URL for a directory that is itself a repository
+    ROOT. `git -C <dir> remote get-url origin` does not stop at `<dir>` --
+    a git-tracked SUBDIRECTORY with no `.git` of its own (e.g. a vendored
+    tree mirrored into a consumer's own history, not a submodule) makes git
+    walk up to the ENCLOSING repository and answer with ITS origin. Without
+    this check, a consumer's vendored source directory reads as though it
+    were that source's own top-level checkout, which wrongly matches on the
+    origin-URL comparison below (reported against a real vendored tree,
+    2026-09-15).
     """
     path, root = pathlib.Path(path), pathlib.Path(root)
     if path.resolve() == root.resolve():
         return True
 
+    def _is_repo_root(d):
+        try:
+            r = subprocess.run(['git', '-C', str(d), 'rev-parse', '--show-toplevel'],
+                               capture_output=True, text=True, timeout=10)
+        except (OSError, subprocess.SubprocessError):
+            return False
+        if r.returncode != 0:
+            return False
+        try:
+            return pathlib.Path(r.stdout.strip()).resolve() == pathlib.Path(d).resolve()
+        except (OSError, ValueError):
+            return False
+
     def _origin(d):
+        if not _is_repo_root(d):
+            return ''
         try:
             r = subprocess.run(['git', '-C', str(d), 'remote', 'get-url', 'origin'],
                                capture_output=True, text=True, timeout=10)
