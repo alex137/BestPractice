@@ -19915,6 +19915,112 @@ def check_merged_branches_carry_a_date_and_a_staleness_verdict():
               not failed, '; '.join(failed) if failed else '')
 
 
+def check_branch_report_writes_delete_links_to_a_committable_file():
+    """The branch sweep's own write-up lands in a committable file with a
+    real, clickable link on every row -- not only in whichever session's
+    transcript happened to print it (practice: very-deep-check, pass 4;
+    repo-is-memory).
+
+    THE GAP (Morgan, reading a Sunday run: "I don't remember getting that").
+    scan_branches() and _branch_url() already compute everything the list
+    needs; nothing wrote it anywhere but stdout, which is exactly the run
+    that happened and was never seen again. _write_branch_report() is the
+    fix, and this proves both halves: the merged-and-stale row carries a
+    working delete link, and the unmerged row carries both a branches-page
+    link and a compare-view link -- the actual owner/repo slug parsed from
+    origin, not a placeholder.
+    """
+    import very_deep_check as vdc
+    import tempfile, datetime
+
+    def _git(d, *a):
+        return subprocess.run(['git', '-C', str(d), *a],
+                              capture_output=True, text=True)
+
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp = pathlib.Path(tmp)
+        up, work = tmp / 'up', tmp / 'work'
+        up.mkdir()
+        _git(up, 'init', '-q', '-b', 'main')
+        _git(up, 'config', 'user.email', 'harness@example.com')
+        _git(up, 'config', 'user.name', 'Harness')
+        (up / 'base.txt').write_text('base\n')
+        _git(up, 'add', '-A'); _git(up, 'commit', '-qm', 'base')
+
+        # A branch merged long enough ago to land on the STALE side, so the
+        # test exercises the row this feature exists for -- the safest
+        # deletions, the ones a bare name never got acted on (see the
+        # neighbouring check's own Story).
+        when = (datetime.datetime.now(datetime.timezone.utc)
+                - datetime.timedelta(days=200)).strftime('%Y-%m-%dT%H:%M:%S%z')
+        _git(up, 'checkout', '-q', '-b', 'old-merged')
+        (up / 'a.txt').write_text('a\n')
+        _git(up, 'add', '-A')
+        subprocess.run(['git', '-C', str(up), 'commit', '-qm', 'old work'],
+                       capture_output=True, text=True,
+                       env={**os.environ, 'GIT_AUTHOR_DATE': when,
+                            'GIT_COMMITTER_DATE': when,
+                            'PRECEDENT_ALLOW_ANY_AUTHOR': '1'})
+        _git(up, 'checkout', '-q', 'main')
+        _git(up, 'merge', '-q', '--no-ff', '-m', 'merge old', 'old-merged')
+
+        _git(up, 'checkout', '-q', '-b', 'wip-unmerged')
+        (up / 'b.txt').write_text('b\n')
+        _git(up, 'add', '-A'); _git(up, 'commit', '-qm', 'unlanded work')
+        _git(up, 'checkout', '-q', 'main')
+
+        subprocess.run(['git', 'clone', '-q', f'file://{up}', str(work)],
+                       capture_output=True, text=True)
+        # A REAL GitHub slug, parsed from origin -- the assertions below
+        # check for this exact URL, so a version that hardcoded a link or
+        # dropped the parse silently would not pass.
+        _git(work, 'remote', 'set-url', 'origin',
+             'https://github.com/alex137/fixture-repo.git')
+
+        scan = vdc.scan_branches(work, 'main', stale_days=90) or {}
+        out_path = tmp / 'record' / 'stale-branches.md'
+        vdc._write_branch_report({'checkout': scan}, out_path, work)
+        text = out_path.read_text(encoding='utf-8')
+
+        results = [
+            ('the file exists at the path asked for',
+             out_path.is_file()),
+            ('the merged-and-stale branch is listed',
+             'old-merged' in text),
+            ('its row carries a real GitHub delete link, not a placeholder',
+             'https://github.com/alex137/fixture-repo/branches/all?query=old-merged'
+             in text),
+            ('the unmerged branch is listed with its verdict',
+             'wip-unmerged' in text and 'CARRIES 1 unlanded commit' in text),
+            ('the unmerged row carries a compare-view link',
+             'https://github.com/alex137/fixture-repo/compare/main...wip-unmerged'
+             in text),
+            ('the file says plainly that it is generated, never hand-edited',
+             'GENERATED' in text and 'never hand-edit' in text),
+        ]
+
+        # NEGATIVE CONTROL: a non-GitHub origin gets no link at all --
+        # _branch_url and _compare_url both return None for it, and a
+        # version that silently fell back to a hardcoded or empty link
+        # instead of omitting the row's link entirely is what this catches.
+        _git(work, 'remote', 'set-url', 'origin', 'https://example.com/x/y.git')
+        scan2 = vdc.scan_branches(work, 'main', stale_days=90) or {}
+        out2 = tmp / 'record' / 'stale-branches-2.md'
+        vdc._write_branch_report({'checkout': scan2}, out2, work)
+        text2 = out2.read_text(encoding='utf-8')
+        results.append(
+            ('a non-GitHub origin gets no delete or compare link at all, '
+             'rather than a wrong one',
+             'old-merged' in text2 and 'https://' not in text2))
+
+        failed = [name for name, ok in results if not ok]
+        check(f'the branch sweep writes a committable report carrying real '
+              f'delete and compare links ({len(results)} stated cases, a '
+              f'non-GitHub origin producing no link at all being the '
+              f'negative control)',
+              not failed, '; '.join(failed) if failed else '')
+
+
 def check_public_consumer_does_not_materialize_private_text():
     """A public consumer repo's TRACKED practices/ tree must not carry a
     private source's practice text (practice: very-deep-check, found by it).
@@ -21779,6 +21885,7 @@ def main():
     check_branch_scan_sees_every_branch()
     check_base_branch_drift_ignores_carried_work()
     check_merged_branches_carry_a_date_and_a_staleness_verdict()
+    check_branch_report_writes_delete_links_to_a_committable_file()
     check_branch_sweep_sees_work_landed_on_the_base_branch()
     check_session_sweep_reports_the_repo_half()
     check_very_deep_check_authenticates_its_own_fetches()
