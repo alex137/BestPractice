@@ -95,6 +95,29 @@
         "spec/SOURCE_NAMING.md"
       ],
       "why": "It explains the three-source model to someone deciding whether to adopt it; the source model changing is what dates it."
+    },
+    "documentation/GITHUB_SETTINGS.md": {
+      "describes": [
+        "tools/build_codeowners.py",
+        "tools/precedent_owned_paths.py",
+        "tools/precedent_boundary_check.py",
+        "templates/document-project/precedent.json",
+        "GITHUB_ACTIONS.md",
+        "PER_MACHINE_SETUP.md"
+      ],
+      "why": "It is the one-page account of every GitHub setting Precedent depends on: roles, branch protection, CODEOWNERS and the tokens. A change to how CODEOWNERS is generated, which paths a project owns, or which token a workflow needs is what dates it."
+    },
+    "documentation/TEN_THINGS.md": {
+      "describes": [
+        "documentation/DAILY_HABITS.md",
+        "documentation/FOR_EVERYONE_ELSE.md",
+        "documentation/FOR_DEVELOPERS.md",
+        "documentation/ADOPTING.md",
+        "spec/SOURCES.md",
+        "spec/LOADER.md",
+        "tools/leak_gate.py"
+      ],
+      "why": "It is the ten-point summary of how the system works, each point linking into a longer document. It goes stale when any of those documents changes its account of the mechanism it points at."
     }
   },
   "must_mention": {
