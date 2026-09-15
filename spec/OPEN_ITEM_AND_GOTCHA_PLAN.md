@@ -72,7 +72,7 @@ noted:             2026-09-14
 closed:            null
 blocked_on:        "a session rooted in each practice set"
 waiting_on:        null
-project:           source-sets
+batch:             source-sets
 disposition:       wait
 decision:          null
 decision_strength: null
@@ -93,10 +93,10 @@ decision_strength: null
 | `closed` | `YYYY-MM-DD` or `null` | when `status` became `done` or `dropped` |
 | `blocked_on` | free text or `null` | the stated reason it isn't done now — required unless `status: open` and `kind: analysis` with no blocker, which is itself a finding (see Part 3) |
 | `waiting_on` | a person's name, or `null` | who has to act next — a **label**, not a filing location, and not necessarily the person who will eventually do the work (see **Why Kind, Not Waiting-On** below) |
-| `project` | free text, or `null` | groups items that are really one job, so they can be swept together |
+| `batch` | free text, or `null` | groups items that are really one job, so they can be swept together — never "project," which this repository (and GitHub itself, via Projects boards) already uses for something else |
 | `disposition` | `wait` \| `ask` \| `parked` | unchanged from [open-item-disposition](../practices/open-item-disposition.md) — whether a session may raise it unprompted |
 | `decision` | free text, or `null` | for `kind: decision` items only — what was decided, in prose, written when `status` becomes `done` (see **When an Item Closes** below) |
-| `decision_strength` | `decided-strong` \| `decided-weak` \| `assented` \| `null` | only set where the item records an approval — see **Decision Strength** below |
+| `decision_strength` | `strong` \| `weak` \| `assented` \| `null` | only set where the item records an approval — see **Decision Strength** below |
 
 ### The Body Sections
 
@@ -238,61 +238,71 @@ separate, deliberate act.
 
 ### Decision Strength
 
-**Extending this to the universal [decision-strength](../practices/decision-strength.md)
-practice itself was raised in review, and it reopens a question that
-practice's own Story records as already settled — against it:**
+**Settled 2026-09-16 (`decided`): extend the universal
+[decision-strength](../practices/decision-strength.md) practice, not just
+this format.** Raised in the prior review as reopening a question that
+practice's own Story appeared to record as already settled, against it — a
+three-or-five-level scale "considered and rejected" for inviting a session to
+split hairs about someone's state of mind. **Put to the person the citation
+was about, the citation didn't hold up**, and re-reading the Story confirms
+why: every other claim in it is a direct quote — *"if I say things imply
+it's a test..."*, the cue table — but the scale-rejection sentence carries
+none. It's the session's own reasoning, written in the session's own voice,
+with nothing attributed. Exactly the thing
+[decision-strength](../practices/decision-strength.md) itself warns about:
+*"Unmarked is neither. It may be cited as what the repository records, and
+not as what the person wanted."* A claim about a rejection, unmarked, cited
+back nine days later as if it had been decided — is a small, live example of
+the very failure this whole document exists to prevent, caught by the person
+it was attributed to rather than by any check.
 
-> A scale of three or five levels was considered and rejected in the same
-> conversation: more resolution than the evidence supports, and an
-> invitation for a session to split hairs about someone's state of mind —
-> which is the invention this rule exists to stop.
+**The vocabulary itself is also revised, from review.** `decided-strong` /
+`decided-weak` next to a bare `assented` puts two of three values in one
+naming pattern and the third in another. Fixed by moving the shared idea into
+the field's name instead of repeating it in every value:
 
-`decided-strong` / `decided-weak` / `assented` is a three-level scale in
-exactly the shape that passage describes. This isn't a reason not to do it —
-the person who rejected it once is free to want it now, for a stated reason
-— but it's the kind of thing that has to be seen before it's decided, not
-discovered afterward. **So this is written up as the fourth Open Decision
-below, not as settled**, with the plan ready to run the moment it's
-confirmed.
+**Field key `decision_strength`, unified across the universal practice and
+this format — the same key, the same values, everywhere.** Not just the
+same vocabulary under two different keys (the prior draft's `strength:` /
+`decision_strength:` split) — one key. Values: `strong` \| `weak` \|
+`assented` \| `null`.
 
-**Sized, so the decision is made with real numbers:** `strength:` appears in
-the frontmatter of **23 practice files**, and as an inline citation in
-**49 files repo-wide** — `TODO.md` alone carries roughly two dozen. It is
-also a *universal* practice, vendored into every dependent repository and
-all four attached practice sets, so a change here propagates the way the
-`todo`/`gotchas` format itself does (Part 4.2).
+**Sized, so the migration is understood before it runs:** `strength:`
+appears in the frontmatter of **23 practice files**, and as an inline
+citation in **49 files repo-wide** — `TODO.md` alone carries roughly two
+dozen. It is a *universal* practice, vendored into every dependent
+repository and all four attached practice sets, so it propagates the way the
+`todo`/`gotchas` format itself does (Part 4.2). Unifying the key means the
+migration touches the key as well as the values — a marginal cost on top of
+a pass the vocabulary change already requires, not a second pass.
 
-**If confirmed, the safe migration is a rename, not a re-judgment — and
-that distinction is what keeps it from violating the practice's own
-anti-backfill rule.** [decision-strength](../practices/decision-strength.md)
-already refuses to backfill strength onto old *unmarked* approvals, because
-guessing a past state of mind is exactly what
-[no-invented-specifics](../practices/no-invented-specifics.md) forbids. That
-rule is not violated by this migration, because nothing here requires a new
-judgment about the past:
+**The migration is a rename, not a re-judgment — the distinction that keeps
+it from violating the practice's own anti-backfill rule.**
+[decision-strength](../practices/decision-strength.md) refuses to backfill
+strength onto old *unmarked* approvals, because guessing a past state of
+mind is exactly what
+[no-invented-specifics](../practices/no-invented-specifics.md) forbids. This
+migration doesn't do that — nothing in it requires a new judgment about the
+past:
 
-- **Every existing `decided` becomes `decided-strong`.** The universal
-  practice's own definition of `decided` — *"they asked for it, chose it
+- **Every existing `strength: decided` becomes `decision_strength: strong`.**
+  The practice's own definition of `decided` — *"they asked for it, chose it
   from options you laid out, or pushed back and the thing landed where it
-  landed"* — already describes conviction, not ambivalence. Relabeling it is
-  a mechanical rename, not a new read of anyone's state of mind.
-- **Every existing `assented` is untouched.**
-- **`decided-weak` is forward-only.** Nothing in the historical record was
-  ever assessed against a category that didn't exist yet, so nothing is
-  reclassified into it. It starts being used the day this lands, for a "sure,
-  I guess" that today gets written down as a plain `decided` it wasn't.
-- **The field key stays `strength:`.** Only the legal values widen. Renaming
-  the key too would double the migration surface (23 frontmatter blocks, 49
-  files of prose) for no benefit this format's own `decision_strength` key
-  doesn't already get from being new.
+  landed"* — already describes conviction. Relabeling it is mechanical, not
+  a new read of anyone's state of mind.
+- **Every existing `strength: assented` becomes `decision_strength:
+  assented`.** Value unchanged, key renamed.
+- **`weak` is forward-only.** Nothing in the historical record was ever
+  assessed against a category that didn't exist, so nothing is reclassified
+  into it. It starts being used the day this lands, for a "sure, I guess"
+  that today gets written down as a plain `decided`/`strong` it wasn't.
 
-**In this format**, `decision_strength` uses the same four-value vocabulary
-(a distinct key, per the naming-collision reasoning above). It is set only
-on items that actually record an approval; most items are findings nobody
-approved, and writing a decision strength on those would be recording an
-approval that never happened. It is set going forward, when an item is
-touched, never backfilled in bulk against old items — the same rule as the
-universal practice, unchanged either way this is decided.
+**In this format**, `decision_strength` is the identical field — not a
+refinement or a superset, the same vocabulary. It is set only on items that
+actually record an approval; most items are findings nobody approved, and
+writing a decision strength on those would be recording an approval that
+never happened. It is set going forward, when an item is touched, never
+backfilled in bulk against old items.
 
 ### Generated Views
 
@@ -533,7 +543,10 @@ explicitly as the field to cut first if this proves too heavy in practice.
 
 ## Open Decisions
 
-Four things this plan does not settle, each independent:
+Three things this plan does not settle, each independent — a fourth,
+whether to extend `decision-strength` and under what vocabulary, was
+resolved in review and is recorded in Part 1's **Decision Strength**
+section rather than listed here:
 
 1. **The rule for items with `kind: analysis`, `status: open`, and no
    `blocked_on`.** Today these exist and nothing says what should happen to
@@ -551,18 +564,6 @@ Four things this plan does not settle, each independent:
    removing visible numbers) and deferring the file-per-item split. Steps 1–3
    are reversible and useful regardless of the rest of this plan; steps 4
    onward are the commitment.
-4. **Whether to extend the universal [decision-strength](../practices/decision-strength.md)
-   practice to `decided-strong` / `decided-weak` / `assented`, and migrate
-   all 49 files that currently use it** (Part 1, **Decision Strength**).
-   Raised in this review; sized and a safe migration mechanism proposed
-   (relabel `decided` → `decided-strong`, leave `assented` alone,
-   `decided-weak` forward-only — no historical case is re-judged). **The one
-   thing that has to be weighed knowingly:** the practice's own Story records
-   a three-to-five-level scale being considered and rejected in the
-   2026-09-09 conversation that created it, for a stated reason — more
-   resolution than the evidence supports, inviting a session to split hairs
-   about someone's state of mind. This proposal is exactly that shape. Worth
-   doing for a reason that holds up against that history, not by default.
 
 ---
 
