@@ -1347,3 +1347,7 @@ covers the user-level config, the leak blocklist, `identity.json`, and the
 hosted session reach a private practice source without an `add_repo` dance
 — and, optionally, `PRECEDENT_GITHUB_TOKEN`, the token §0 step 10's boundary
 check needs to read a repository's protection settings.
+
+**Most people set this up on Claude Code on the web, not a local
+checkout** — [CLOUD_SETUP.md](CLOUD_SETUP.md) is the fast path for exactly
+that case; `PER_MACHINE_SETUP.md` is the complete reference underneath it.

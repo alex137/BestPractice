@@ -2,7 +2,7 @@
 
 **Looking for something in this repository? Check here before searching it.**
 Every row is *looking for X → go to Y*, and the table below is the complete
-one: 88 rows.
+one: 89 rows.
 
 [AGENTS.md](AGENTS.md) carries a short version of this table — the dozen rows
 sessions reach for constantly — and links here for the rest. **That split is
@@ -63,7 +63,7 @@ not it is read.
 | Whether a document project's contributor boundary is actually ON — branch protection shaped as the plan needs, and a CODEOWNERS file to give it something to require; UNVERIFIED when it could not ask GitHub, which is not a pass | [tools/precedent_boundary_check.py](tools/precedent_boundary_check.py), design at [spec/CONTRIBUTOR_ACCESS.md](spec/CONTRIBUTOR_ACCESS.md)'s 2026-09-14 review, finding 5 |
 | Which changed files will wait for a code owner's review before a pull request exists, and the plain-words sentence to say to the contributor about it | [tools/precedent_owned_paths.py](tools/precedent_owned_paths.py), wired into [templates/document-project/AGENTS.md](templates/document-project/AGENTS.md)'s contributor section |
 | Generating a project's `.github/CODEOWNERS` from `maintainers` and `owned_paths` in its `precedent.json` (a practice set's from `approvers.json`) | [tools/build_codeowners.py](tools/build_codeowners.py) — `--repo PATH`, `--check` |
-| Whether this session can reach its PRIVATE practice sources at all, and the credential that removes the `add_repo` dance | [tools/precedent_source_credentials.py](tools/precedent_source_credentials.py), setup in [PER_MACHINE_SETUP.md](PER_MACHINE_SETUP.md) |
+| Whether this session can reach its PRIVATE practice sources at all, and the credential that removes the `add_repo` dance | [tools/precedent_source_credentials.py](tools/precedent_source_credentials.py), setup in [CLOUD_SETUP.md](CLOUD_SETUP.md) (hosted) or [PER_MACHINE_SETUP.md](PER_MACHINE_SETUP.md) (everything, including local) |
 | Whether an attached practice-set source's vendored engine has gone stale, or is missing the session hooks a source is created with, and repairing either | [tools/precedent_refresh_sources.py](tools/precedent_refresh_sources.py) — reports at session start; `--apply` refreshes and restores hooks, `--commit` commits |
 | Why a source clone on disk, with the token set, still fails every `git` command with `could not read Username` — and what repairs it at session start | [tools/precedent_source_credentials.py](tools/precedent_source_credentials.py)'s `persist_credential_helper`, called on every sync by [tools/precedent_source_bootstrap.py](tools/precedent_source_bootstrap.py) |
 | Whether a hook this repo *declares* actually exists on disk and is executable — the failure the harness reports as nothing at all | [tools/precedent_check.py](tools/precedent_check.py) — `--only declared-hooks-exist` |
@@ -98,6 +98,7 @@ not it is read.
 | Loader premise, measured against this repo's own history | [tools/behavioral_replay.py](tools/behavioral_replay.py) |
 | Install / update / check-in playbook (dependent repos) | [INSTALL.md](INSTALL.md) — the assistant-facing runbook; the person-facing routes are [SETUP.md](SETUP.md) (guided, non-technical) and [documentation/FOR_DEVELOPERS.md](documentation/FOR_DEVELOPERS.md) (short form plus what actually bites) |
 | What each person sets on each machine (individual source, leak blocklist, the optional overrides) | [PER_MACHINE_SETUP.md](PER_MACHINE_SETUP.md) |
+| Setting up a hosted session on Claude Code on the web — most people's way in, and just the environment variables it needs | [CLOUD_SETUP.md](CLOUD_SETUP.md) |
 | Guided-install entry point admins paste to their agent | [SETUP.md](SETUP.md) |
 | The one-command loader install (INSTALL.md §0 performed mechanically; prints the placeholders it left) | [tools/precedent_install.py](tools/precedent_install.py) — `--help`; its fixture in [tools/verify_harness.py](tools/verify_harness.py) installs into a scratch project on every run |
 | Member onboarding page (template + rendered sample) | [templates/GETTING_STARTED.md](templates/GETTING_STARTED.md) |
