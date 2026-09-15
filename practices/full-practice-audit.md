@@ -3,6 +3,7 @@ slug:        full-practice-audit
 title:       A full practice audit — an on-demand, whole-catalogue sweep, on request only
 tier:        on-demand
 severity:    advisory
+scope:       engine-dev
 applies_to:  ["**"]
 occasion:    "a person explicitly asks for a full practice audit (or \"practice check\") across the whole catalogue"
 gates:       []
