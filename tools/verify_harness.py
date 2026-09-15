@@ -8025,6 +8025,20 @@ def check_gate_channel():
                       f'{stop_hook.relative_to(ROOT)}',
                       'precedent_reply_check' in stop_hook.read_text(errors='ignore')))
 
+    # 2026-09-15: the Stop hook's own advisory print of the reply gate went
+    # unbriefed for over a year -- `precedent_gate.py reply` with no
+    # `--brief`, printing every reply-gate practice's full text on every
+    # single Stop, unconditionally, on top of the SAME list reply-gate.sh
+    # already prints in brief form at the START of the turn. Nothing above
+    # caught it: 'precedent_gate' and 'precedent_reply_check' are both
+    # substrings of the un-briefed call too. Found from a person describing
+    # the result plainly -- a wall of text at the end of every session.
+    for stop_hook in (ROOT / 'templates' / 'harness' / 'claude-code' / 'hooks' / 'stop-git-check.sh',
+                      ROOT / '.claude' / 'hooks' / 'stop-git-check.sh'):
+        cases.append((f'{stop_hook.relative_to(ROOT)} calls the reply gate '
+                      f'--brief, not the full Rules, on every Stop',
+                      'precedent_gate.py" reply --brief' in stop_hook.read_text(errors='ignore')))
+
     # --brief is the per-turn form, and its promise is that it is CHEAP. A
     # regression that printed full Rules there would not fail any case above.
     r_full = subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_gate.py'), 'reply'],
