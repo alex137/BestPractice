@@ -7202,3 +7202,9 @@ which is the failure this repointing exists to end — write
     deep check for an unrelated change; not this session's commit and not
     fixed here — writing the row needs the per-member transfer verdict for
     that specific commit, which this session did not investigate.
+    **CLOSED 2026-09-15 — backfilled by a concurrent commit.**
+    [`7c674fa`](https://github.com/alex137/BestPractice/commit/7c674fa)
+    landed a `templates/harness/LEDGER.md` row for `4b19b04` while this
+    session's own PR was in flight; `precedent_check.py --only
+    parallel-artifact-ledger` passes clean on `precedent-beta-v01`'s current
+    tip.
