@@ -7179,3 +7179,26 @@ which is the failure this repointing exists to end — write
     four private practice sets' vendored copies still need
     `tools/precedent_refresh_sources.py --apply` by hand, tracked
     separately at [g20](record/GOTCHAS.md#g20) rather than duplicated here.
+116. <a id="go-merge-direct-edit-narrowing-check"></a>**A mechanical check
+    could narrow the trivial/substantial judgment `Go merge` now makes, and
+    it is not built.** [go-merge](practices/go-merge.md) forks on a
+    session's own read of whether a pending change is trivial
+    (direct-push-eligible) or substantial (needs the full PR chain) — a
+    judgment call, the same shape as the phrase-recognition it has always
+    made. One slice of that judgment is mechanical and isn't wired up:
+    whether a push straight to a repo's own working branch, with no open
+    pull request, touches only content that repo's own convention already
+    allows direct edits to. For BestPractice that is
+    [this repo's own rule](AGENTS.md#working-in-this-repo) — README,
+    practice wording, engine code, never an incoming abstracted lesson — and
+    a check could fail a direct push that lands outside that set. Not built
+    here; out of scope for drafting the rule itself.
+117. <a id="ledger-gap-shallow-clone-hardening"></a>**`parallel-artifact-ledger`
+    is red on `precedent-beta-v01` itself, pre-existing.**
+    `python3 tools/precedent_check.py --only parallel-artifact-ledger` fails:
+    `templates/harness/LEDGER.md` has no row for `4b19b04` ("Harden the
+    shallow-clone self-heal", 2026-09-15, the fix item 115 above closed),
+    which touched `templates/harness/claude-code`. Found while running the
+    deep check for an unrelated change; not this session's commit and not
+    fixed here — writing the row needs the per-member transfer verdict for
+    that specific commit, which this session did not investigate.
