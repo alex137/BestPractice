@@ -113,7 +113,8 @@ loop; say so and follow §1 instead.
    None of these can be done from here, none is urgent, and each fails
    quietly rather than loudly — so offer them as things worth doing rather
    than as a gate, keep it brief, and **say you can give more specific
-   instructions for any of them if they want**. Written out, in this order
+   instructions for any of them if they want** — the reference you would
+   draw them from is [documentation/GITHUB_SETTINGS.md](documentation/GITHUB_SETTINGS.md). Written out, in this order
    (click-paths as of 2026-09-10):
    1. **If the project's repository is being created now, make it
       private** unless it is meant to be public — that choice is made at

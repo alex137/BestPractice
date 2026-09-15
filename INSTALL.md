@@ -576,7 +576,8 @@ list.)
     is needed by anything that opens a pull request for the project. Worth
     repeating in `GETTING_STARTED.md`, where they survive the conversation.
     The plain-language, step-by-step version is [SETUP.md](SETUP.md)
-    step 7. *(Click-paths as of 2026-09-10.)*
+    step 7, and the reference for every GitHub setting Precedent depends
+    on is [documentation/GITHUB_SETTINGS.md](documentation/GITHUB_SETTINGS.md). *(Click-paths as of 2026-09-10.)*
 
 `.gitignore` / `.gitattributes` stanzas for generated artifacts
 ([generated-artifact-provenance](practices/generated-artifact-provenance.md)),
@@ -820,7 +821,10 @@ not this section.
     button refuses them. Three GitHub behaviours the design rests on are
     unverified as of 2026-09-14 — the spec's "Verify these first" section
     names them, and the very deep check's `CONTRIBUTOR BOUNDARY` section
-    reads the setting on every run.
+    reads the setting on every run. **Every GitHub setting this step
+    touches — roles, branch protection, what CODEOWNERS does and how this
+    system generates it, Actions permissions and secrets — is explained in
+    one place, [documentation/GITHUB_SETTINGS.md](documentation/GITHUB_SETTINGS.md).**
 
 **What has and has not been rehearsed, stated plainly rather than left to
 be discovered.** Every step here has been walked end to end against a

@@ -190,7 +190,8 @@ maintains the project to look before a change to them lands, whoever asks
 for it. And **a new rule is suggested by anyone and made official only by
 someone on the approvers' list**. Your assistant tells you before it
 proposes anything which side of the line the change falls on, so the wall
-is never a surprise. This isn't about trust in you personally; it just
+is never a surprise. (Whoever administers the project sets that line up on
+GitHub; [GITHUB_SETTINGS.md](GITHUB_SETTINGS.md) is their page, not yours.) This isn't about trust in you personally; it just
 means a mistake, including the assistant's, stops at a wall instead of
 reaching anyone else.
 

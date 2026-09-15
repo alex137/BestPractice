@@ -15,3 +15,7 @@ install, so expect commands rather than explanations.
 
 **Setting up your own machine** rather than a repository is a separate
 page: [PER_MACHINE_SETUP.md](../PER_MACHINE_SETUP.md).
+
+**Setting up the repository on GitHub** — who gets which role, branch
+protection, what CODEOWNERS does and how Precedent generates it, Actions
+permissions and secrets — is [GITHUB_SETTINGS.md](GITHUB_SETTINGS.md).

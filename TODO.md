@@ -381,7 +381,12 @@ which is the failure this repointing exists to end — write
     FOR_DEVELOPERS.md's "Who May Change What", and the very deep check's
     `CONTRIBUTOR BOUNDARY` section (pass 2, question 16), which reads the
     generated file against its registry and the protection setting against
-    the plan on every run.
+    the plan on every run. **Plus, on Morgan's follow-up the same day**:
+    [documentation/GITHUB_SETTINGS.md](documentation/GITHUB_SETTINGS.md),
+    the GitHub side in one place — roles, the owner-only settings, branch
+    protection with the four values, what GitHub does with CODEOWNERS and
+    how this system generates it, Actions permissions and secrets, the
+    practice-set repositories — linked from every install path and guide.
 16. <a id="team-repo-and-document-template"></a>~~**Build the team practice repo and reusable document-project template    for document work.**~~ **Done (2026-09-05)** —
     [spec/DOCUMENT_WORK_PRACTICE_CAPTURE.md](spec/DOCUMENT_WORK_PRACTICE_CAPTURE.md)'s
     Steps 1-2 executed: `themorgan/precedent-team-tms` bootstrapped per

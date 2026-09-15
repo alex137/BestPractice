@@ -239,7 +239,7 @@ Once the workflow has run successfully at least once, add its **Markdown lint** 
 
 That changes the rule from advice into enforcement: a pull request cannot merge while the Markdown gate is failing, regardless of whether the change came from ChatGPT, Claude Code, Codex, another agent, or a human editing GitHub directly.
 
-Repository rules vary by account and organization. Use the repository's current **Settings → Rules** or branch-protection controls and select the status check produced by this workflow.
+Repository rules vary by account and organization. Use the repository's current **Settings → Rules** or branch-protection controls and select the status check produced by this workflow. The rest of what belongs on that same page — a pull request required, review from code owners, no bypass — and what each setting does for a Precedent project is [documentation/GITHUB_SETTINGS.md](documentation/GITHUB_SETTINGS.md).
 
 ## Updating an Installed Repository
 

@@ -357,7 +357,10 @@ either; that is finding 7.
 step 10 is the install step; [FOR_DEVELOPERS.md](../documentation/FOR_DEVELOPERS.md)'s
 "Who May Change What" is the technical summary;
 [FOR_EVERYONE_ELSE.md](../documentation/FOR_EVERYONE_ELSE.md)'s "What You
-Can't Do (on Purpose)" is the contributor's version; and the very deep
+Can't Do (on Purpose)" is the contributor's version;
+[documentation/GITHUB_SETTINGS.md](../documentation/GITHUB_SETTINGS.md) is
+the GitHub side — roles, branch protection, what CODEOWNERS does and how it
+is generated here, Actions permissions — in one place; and the very deep
 check's `CONTRIBUTOR BOUNDARY` section reads the setting on every run.
 
 ## What this does not cover

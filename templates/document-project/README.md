@@ -82,7 +82,10 @@ rules instead of living and dying inside one document.
    unrestricted write** — the two are one step, not two. No tool in this
    repo's GitHub toolset creates a collaborator invite, so this stays a human
    step; confirm the auth-binding model the spec's layer 1 names while you
-   are there. **Keep the workflows secret-free**: `CODEOWNERS` gates the
+   are there. Every setting in this step, and what GitHub does with the
+   generated CODEOWNERS, is explained in
+   [documentation/GITHUB_SETTINGS.md](../../documentation/GITHUB_SETTINGS.md).
+   **Keep the workflows secret-free**: `CODEOWNERS` gates the
    merge of an edited workflow, not its first run, and a Write collaborator's
    branch runs its workflows with whatever secrets the repository holds. Every
    template under [templates/github-actions/](../github-actions/) declares a
