@@ -784,6 +784,44 @@ def _write_engine_files(dest_tools, engine_dir, source_commit, kind=DEFAULT_KIND
     return written
 
 
+def _adapter_claimed_paths(dest_root):
+    """Destination paths (relative to dest_root, e.g.
+    '.claude/hooks/freshness-guard.sh') that a declared source's OWN
+    `adapters` mechanism claims -- read from precedent_materialize.py's
+    MANIFEST.json, the record of what its last run actually wrote. Maps
+    path -> the claiming source's name.
+
+    THE BUG THIS CLOSES. A consuming repo can declare a source
+    (precedent_materialize.py's ADAPTER_DECL_KEY) that maintains its own
+    copy of a file this engine ALSO vendors under the same destination --
+    `.claude/hooks/freshness-guard.sh` is the concrete case:
+    precedent-individual ships its own bootstrap/freshness-guard.sh,
+    declared as an adapter to that exact path, independent of
+    BestPractice's own bundled
+    templates/harness/claude-code/hooks/freshness-guard.sh. Before this
+    check existed, `status`/`refresh` compared the on-disk file --
+    legitimately overwritten by that source's adapter -- against this
+    engine's OWN `hooks_sha256` and reported the divergence as a hand-edit;
+    `refresh` refused outright, and its own suggested `--force` fixed
+    nothing durably, since the next materialize run would just overwrite the
+    file right back to the adapter's content. Reproduced verbatim in a real
+    consumer repo, 2026-09-15 (see the source's own trace for the repro).
+
+    Returns {} if MANIFEST.json does not exist or cannot be parsed -- a repo
+    that has never run precedent_materialize.py has no adapters to know
+    about, and that is not this function's failure to report
+    (practice: fail-gracefully)."""
+    path = pathlib.Path(dest_root) / 'MANIFEST.json'
+    if not path.is_file():
+        return {}
+    try:
+        data = json.loads(path.read_text(encoding='utf-8'))
+    except (ValueError, OSError):
+        return {}
+    return {a['path']: a.get('source') for a in (data.get('adapters') or [])
+            if isinstance(a, dict) and a.get('path')}
+
+
 def _write_hook_files(dest_root, hooks_src_dir):
     """Copy every hook script in `hooks_src_dir` into
     <dest_root>/.claude/hooks/, and record them in the SAME
@@ -806,11 +844,18 @@ def _write_hook_files(dest_root, hooks_src_dir):
     Scoped to _wired_hook_names(dest_root) -- see that function's docstring.
     Vendoring everything HOOK_SOURCE_DIR ships, unconditionally, is the bug
     it exists to prevent: this repo's own verify_harness.py caught it before
-    it shipped."""
+    it shipped. Also excludes any name a declared source's own adapter
+    already claims at this destination (_adapter_claimed_paths) -- that
+    source maintains the file independently, and this engine vendoring its
+    own bundled copy over the same path is exactly the double-maintenance
+    that reads as a hand-edit later. See _adapter_claimed_paths' docstring."""
     available = set(_hook_file_names(hooks_src_dir))
     wired = _wired_hook_names(dest_root)
-    names = sorted(available & wired)
-    skipped = sorted(available - wired)
+    claimed = _adapter_claimed_paths(dest_root)
+    adapter_owned = {n for n in available
+                     if f'{HOOK_DEST_DIR}/{n}' in claimed}
+    names = sorted((available & wired) - adapter_owned)
+    skipped = sorted(available - wired - adapter_owned)
     if skipped:
         print(f"NOTE: precedent_vendor_engine: {len(skipped)} hook script(s) "
               f"BestPractice ships are not wired in this repo's own "
@@ -818,6 +863,13 @@ def _write_hook_files(dest_root, hooks_src_dir):
               f"That is expected for a hook only a different repo kind wires "
               f"(a practice set vs. a consumer), or one this repo declined on "
               f"purpose.", file=sys.stderr)
+    for n in sorted(adapter_owned & wired):
+        source_name = claimed[f'{HOOK_DEST_DIR}/{n}']
+        print(f"NOTE: precedent_vendor_engine: {n} is not vendored by this "
+              f"engine -- {source_name!r}'s own adapters mechanism owns "
+              f"{HOOK_DEST_DIR}/{n} in this repo (see precedent_materialize.py's "
+              f"MANIFEST.json). That copy is maintained independently; this "
+              f"engine's own bundled {n} is not applied here.", file=sys.stderr)
     if not names:
         return []
     dest_hooks = dest_root / HOOK_DEST_DIR
@@ -847,9 +899,20 @@ def _hook_drift(dest_root, manifest):
     that has gone missing. A manifest with no `hook_files` yet (vendored
     before this mechanism existed) reports no drift -- there is nothing
     recorded to have drifted from, and that state is handled by refresh()
-    choosing to vendor hooks for the first time, not by this function."""
+    choosing to vendor hooks for the first time, not by this function.
+
+    A name a declared source's own adapter now claims at this destination
+    (_adapter_claimed_paths) is never reported here, missing or mismatched:
+    that divergence is that source maintaining its own file, not a hand-edit
+    of this engine's copy. A manifest can still carry hooks_sha256 for such a
+    name from before the source's adapter took the path over -- the next
+    `refresh` drops it from tracking entirely once this check stops flagging
+    it (_write_hook_files excludes it from what it (re)vendors)."""
+    claimed = _adapter_claimed_paths(dest_root)
     drifted = []
     for name, recorded_hash in (manifest.get('hooks_sha256') or {}).items():
+        if f'{HOOK_DEST_DIR}/{name}' in claimed:
+            continue
         path = dest_root / HOOK_DEST_DIR / name
         if not path.is_file():
             drifted.append((name, 'missing'))
@@ -1121,6 +1184,14 @@ def status(clone):
     hook_drift = _hook_drift(ROOT, manifest)
     for name, why in hook_drift:
         print(f"  LOCAL DRIFT: {HOOK_DEST_DIR}/{name} -- {why}")
+    claimed = _adapter_claimed_paths(ROOT)
+    adapter_owned = sorted(n for n in (manifest.get('hook_files') or [])
+                           if f'{HOOK_DEST_DIR}/{n}' in claimed)
+    for name in adapter_owned:
+        print(f"  NOTE: {HOOK_DEST_DIR}/{name} is now owned by "
+              f"{claimed[f'{HOOK_DEST_DIR}/{name}']!r}'s own adapters "
+              f"mechanism, not this engine -- expected divergence, not a "
+              f"hand-edit; `refresh` will stop vendoring and tracking it.")
     if not manifest.get('hook_files'):
         print(f"  NOTE: this manifest has no hook_files recorded yet -- vendored before hook "
               f"scripts were tracked. `refresh` will pick them up on the next run.")

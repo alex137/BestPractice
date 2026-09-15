@@ -13962,6 +13962,144 @@ def check_vendor_engine_consumer_case():
           '; '.join(f"{n} -- {d[:800]}" for n, d in bad))
 
 
+def check_vendor_engine_hook_drift_respects_adapters():
+    """A declared source can own a hook file at the same destination this
+    engine vendors -- precedent-individual declaring its own
+    `bootstrap/freshness-guard.sh` as an adapter to
+    `.claude/hooks/freshness-guard.sh` is the real case
+    (precedent_materialize.py's ADAPTER_DECL_KEY). Before
+    `_adapter_claimed_paths` existed, `status`/`refresh` compared that
+    on-disk file -- legitimately overwritten by the source's own adapter --
+    against this engine's OWN `hooks_sha256` and reported the divergence as
+    a hand-edit; `refresh` refused outright. Reproduced verbatim in a real
+    consumer repo, 2026-09-15.
+
+    Fixture is deliberately NOT a full `seed` run (network/git resolution
+    this property does not need): only precedent_vendor_engine.py itself is
+    copied to `<consumer>/tools/`, so ROOT inside the copy resolves to
+    `<consumer>` (practice: fixture-owns-its-state -- nothing here reads a
+    real clone's git history, so nothing needs one).
+
+    Each scenario below gets its OWN fresh consumer directory rather than
+    reusing one across mutations: `refresh` really does rewrite the whole
+    vendored tools/ tree from this checkout, and running it in a directory a
+    later CONTROL case still reads from made that case's own
+    `precedent_vendor_engine.py` copy read as untracked -- fixture
+    contamination masquerading as a result (practice: fixture-owns-its-state
+    again, one level up: the STATE a later case reads must be what THAT case
+    set up, not what an earlier case left behind)."""
+    import shutil, tempfile
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-hook-adapter-'))
+    cases = []
+    try:
+        engine_tool_bytes = (ROOT / 'tools' / 'precedent_vendor_engine.py').read_bytes()
+        engine_tool_hash = hashlib.sha256(engine_tool_bytes).hexdigest()
+        # The hook as this engine last vendored it, and the hash it recorded.
+        engine_hook_text = '#!/bin/sh\n# BestPractice-bundled freshness-guard\n'
+        engine_hash = hashlib.sha256(engine_hook_text.encode('utf-8')).hexdigest()
+        # The source's own adapter copy actually on disk -- different bytes,
+        # different hash, exactly what precedent_materialize.py's adapters
+        # mechanism writes on its next sync.
+        adapter_hook_text = '#!/bin/sh\n# precedent-individual bootstrap/freshness-guard\n'
+        adapter_hash16 = hashlib.sha256(adapter_hook_text.encode('utf-8')).hexdigest()[:16]
+
+        def make_consumer(name, adapters):
+            """A fresh consumer directory: this engine's own vendor tool
+            (recorded in its manifest, so it is never itself flagged
+            UNTRACKED ENGINE FILE and does not confound the assertions
+            below), the mismatched hook, and precedent_materialize.py's own
+            MANIFEST.json with the given `adapters` list (or no MANIFEST.json
+            at all when `adapters` is None)."""
+            consumer = tmp / name
+            (consumer / 'tools').mkdir(parents=True)
+            (consumer / '.claude' / 'hooks').mkdir(parents=True)
+            (consumer / 'tools' / 'precedent_vendor_engine.py').write_bytes(engine_tool_bytes)
+            (consumer / 'tools' / 'ENGINE_MANIFEST.json').write_text(json.dumps({
+                'kind': 'consumer', 'source_commit': 'deadbeef',
+                'files': ['precedent_vendor_engine.py'],
+                'sha256': {'precedent_vendor_engine.py': engine_tool_hash},
+                'hook_files': ['freshness-guard.sh'],
+                'hooks_sha256': {'freshness-guard.sh': engine_hash},
+            }), encoding='utf-8')
+            (consumer / '.claude' / 'hooks' / 'freshness-guard.sh').write_text(
+                adapter_hook_text, encoding='utf-8')
+            if adapters is not None:
+                (consumer / 'MANIFEST.json').write_text(json.dumps({
+                    'generated_by': 'tools/precedent_materialize.py',
+                    'sources': [], 'resident': {}, 'practices': [], 'checks': [],
+                    'adapters': adapters, 'withheld': [], 'excluded_engine_dev': [],
+                }), encoding='utf-8')
+            return consumer
+
+        def vendor_status(consumer):
+            r = subprocess.run(
+                [sys.executable, str(consumer / 'tools' / 'precedent_vendor_engine.py'),
+                 'status', str(ROOT)],
+                capture_output=True, text=True, cwd=str(consumer))
+            return r.returncode, r.stdout + r.stderr
+
+        # -- claimed: a declared source's adapter owns this exact path --
+        claimed_adapters = [
+            {'path': '.claude/hooks/freshness-guard.sh', 'source': 'precedent-individual',
+             'sha256_16': adapter_hash16, 'executable': True},
+        ]
+        consumer_claimed = make_consumer('claimed', claimed_adapters)
+        rc_claimed, out_claimed = vendor_status(consumer_claimed)
+        cases.append(("a hook a declared source's adapter owns is not reported as LOCAL "
+                      "DRIFT even though its bytes differ from this engine's own record",
+                      'LOCAL DRIFT' not in out_claimed, out_claimed[:500]))
+        cases.append(("...and status still exits 0 on that divergence alone",
+                      rc_claimed == 0, out_claimed[:500]))
+        cases.append(("...and status names the claiming source instead of staying silent",
+                      'precedent-individual' in out_claimed and 'freshness-guard.sh' in out_claimed,
+                      out_claimed[:500]))
+
+        # -- refresh: a SEPARATE fresh consumer, since a real refresh rewrites
+        # the whole vendored tools/ tree from this checkout --
+        consumer_refresh = make_consumer('refresh', claimed_adapters)
+        r_refresh = subprocess.run(
+            [sys.executable, str(consumer_refresh / 'tools' / 'precedent_vendor_engine.py'),
+             'refresh', str(ROOT)],
+            capture_output=True, text=True, cwd=str(consumer_refresh))
+        out_refresh = r_refresh.stdout + r_refresh.stderr
+        cases.append(('refresh does not refuse over an adapter-owned divergence -- no '
+                      '"hand-edited" FAIL demanding --force',
+                      'hand-edited since the last seed/refresh' not in out_refresh,
+                      out_refresh[:500]))
+
+        # -- CONTROL: same mismatched bytes, no declared claim on the path.
+        # Restores the exact pre-fix behavior, proving the assertions above
+        # test the adapter check and not something that never fires
+        # (practice: control-asserts-which-failure).
+        consumer_bare = make_consumer('bare', [])
+        rc_bare, out_bare = vendor_status(consumer_bare)
+        cases.append(('CONTROL: the same mismatched hook, with no adapter claiming it, IS '
+                      'reported as LOCAL DRIFT -- proves the exemption above is keyed on '
+                      'the claim, not on hook files in general',
+                      rc_bare == 1 and 'LOCAL DRIFT' in out_bare
+                      and 'hand-edited' in out_bare, out_bare[:500]))
+
+        # -- CONTROL: no MANIFEST.json at all (never materialized) behaves
+        # the same as "no claim" -- the pre-existing behavior for a repo
+        # that has not adopted the adapters mechanism.
+        consumer_none = make_consumer('none', None)
+        rc_none, out_none = vendor_status(consumer_none)
+        cases.append(('CONTROL: with no MANIFEST.json at all, the same mismatch is still '
+                      'reported as LOCAL DRIFT -- absence of the file is not mistaken for '
+                      'a claim',
+                      rc_none == 1 and 'LOCAL DRIFT' in out_none
+                      and 'hand-edited' in out_none, out_none[:500]))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f"a declared source's own adapter, not this engine, owns a hook it claims -- "
+          f"status/refresh stop reading that as a hand-edit ({len(cases)} stated cases)",
+          not bad,
+          '; '.join(f"{n} -- {d[:800]}" for n, d in bad))
+
+
 def check_rule_rewrite_detection():
     """cite-the-incident asks "did somebody WRITE this rule", so it has to
     tell an authorship event from an edit.
@@ -21977,6 +22115,7 @@ def main():
     check_views_drift_gate_reaches_a_source_set()
     check_precedent_check_degrades_in_a_source_set()
     check_vendor_engine_consumer_case()
+    check_vendor_engine_hook_drift_respects_adapters()
     check_rule_rewrite_detection()
     check_source_shape_is_verified()
     check_machine_readable_files_parse()
