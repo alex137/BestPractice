@@ -473,10 +473,22 @@ def sync(repo, user_config=None, check=False, allow_missing=False,
     # every private source's practice look like it lived outside the repo,
     # so a sibling citation in a resident Rule was left dead at the root:
     # exactly the 2026-09-11 report this handling exists for.
+    # A second exclusion axis, same shape as `withheld` above but simpler:
+    # scope: engine-dev practices are dropped by materialize() before it
+    # writes practices/, and this render must agree or the file the
+    # documented install step just wrote reports as hand-edited with no
+    # state of the repo able to satisfy it -- the exact failure the withheld
+    # case above already names. Skip here, not a re-resolve: unlike a
+    # private practice, an engine-dev one never wins a slug a publishable
+    # source also needs, so there is no runner-up to lose.
     _placed_dir = pathlib.Path(repo) / 'practices'
+    _engine_dev_scoped = {slug for slug, p in res['practices'].items()
+                          if pm._is_engine_dev_scoped(p)}
     triples = [(p['fm'], p['sections'], _placed_dir / f'{slug}.md')
-               for slug, p in res['practices'].items()]
-    levels = {slug: p['level'] for slug, p in res['practices'].items()}
+               for slug, p in res['practices'].items()
+               if slug not in _engine_dev_scoped]
+    levels = {slug: p['level'] for slug, p in res['practices'].items()
+             if slug not in _engine_dev_scoped}
     # omits_private must match what this run actually left out, or the
     # standing instruction disagrees with build_views.py's own render of the
     # same repo -- and `generated-artifact-provenance` then reports the file
