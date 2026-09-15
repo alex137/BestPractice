@@ -426,14 +426,28 @@ _session_start_one() {
     echo "WARN: freshness-guard: could not fetch origin/$branch -- freshness NOT verified. Everything below is measured against a possibly stale remote-tracking ref; a silent result here means 'not checked', never 'in sync'." >&2
   fi
 
+  # TODO.md's shallow-clone-self-heal-hardening item, g37's third recurrence.
+  # Used to run only when the counts already looked diverged (ahead != 0) --
+  # which is exactly the case a shallow clone gets WRONG on its own, and left
+  # a checkout that was merely shallow-and-behind with no second chance if
+  # session-start.sh's own attempt had failed. _deepen_if_shallow returns fast
+  # (its own first line is `_is_shallow || return 1`) when there is nothing to
+  # do, so calling it unconditionally, before the counts below are trusted at
+  # all, costs nothing on an already-complete clone.
+  _deepen_if_shallow "$branch" || true
+  if _is_shallow; then
+    _shallow_marker="$(_git rev-parse --absolute-git-dir 2>/dev/null || true)"
+    [ -n "$_shallow_marker" ] && [ -f "$_shallow_marker/PRECEDENT_SHALLOW_UNRESOLVED" ] && \
+      echo "WARN: freshness-guard: this checkout is STILL shallow after session-start.sh's own two attempts and this guard's own retry -- treat history-reading tools (behavioral_replay.py, doc_lint's changed-files scope, precedent_check.py's tree checks) as unverified. Remedy by hand: git fetch --unshallow" >&2
+  else
+    _shallow_marker="$(_git rev-parse --absolute-git-dir 2>/dev/null || true)"
+    [ -n "$_shallow_marker" ] && rm -f "$_shallow_marker/PRECEDENT_SHALLOW_UNRESOLVED" 2>/dev/null
+  fi
+
   if _have_ref "origin/$branch"; then
     local behind ahead
     behind="$(_git rev-list --count "HEAD..origin/$branch" 2>/dev/null || echo 0)"
     ahead="$(_git rev-list --count "origin/$branch..HEAD" 2>/dev/null || echo 0)"
-    if [ "$ahead" != "0" ] && _deepen_if_shallow "$branch"; then
-      behind="$(_git rev-list --count "HEAD..origin/$branch" 2>/dev/null || echo 0)"
-      ahead="$(_git rev-list --count "origin/$branch..HEAD" 2>/dev/null || echo 0)"
-    fi
     if [ "$behind" != "0" ]; then
       if _dirty; then
         echo "WARN: freshness-guard: '$branch' is $behind commit(s) behind origin/$branch, and the working tree has uncommitted changes -- NOT updating it automatically.$(_age_phrase "$branch") Commit or stash, then: git merge --ff-only origin/$branch" >&2
@@ -616,14 +630,15 @@ _pre_write_one() {
     fi
   fi
 
+  # Unconditional now, same reasoning as _session_start_one's copy of this
+  # comment: a shallow-but-merely-behind checkout used to get no deepen
+  # attempt here at all, only when the counts already looked diverged.
+  _deepen_if_shallow "$branch" || true
+
   if _have_ref "origin/$branch"; then
     local behind ahead
     behind="$(_git rev-list --count "HEAD..origin/$branch" 2>/dev/null || echo 0)"
     ahead="$(_git rev-list --count "origin/$branch..HEAD" 2>/dev/null || echo 0)"
-    if [ "$ahead" != "0" ] && _deepen_if_shallow "$branch"; then
-      behind="$(_git rev-list --count "HEAD..origin/$branch" 2>/dev/null || echo 0)"
-      ahead="$(_git rev-list --count "origin/$branch..HEAD" 2>/dev/null || echo 0)"
-    fi
     if [ "$behind" != "0" ]; then
       if _dirty; then
         _block "'$branch' is $behind commit(s) behind origin/$branch and the working tree is dirty.$(_age_phrase "$branch") Commit or stash first, then: git merge --ff-only origin/$branch"
