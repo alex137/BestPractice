@@ -62,6 +62,34 @@ it.
   you, in a new session, whether the variables arrived at all before you
   start chasing the token itself.
 
+## Keep the Checkout From Going Stale
+
+A session's container can start from cached state instead of a genuinely
+fresh clone. **Verified 2026-09-15:** one environment, running since
+2026-04-17, had every session start from a container frozen at a single
+commit days old — diverged from live origin — which then tripped the
+freshness guard and the Stop hook on every session as if real unpushed work
+existed. Recreating the environment cleared it that one time; whether the
+same environment drifts again on a schedule is still open
+([TODO.md's `check-default-cc-environment-staleness` item](TODO.md#check-default-cc-environment-staleness)).
+
+Add a fetch-and-reset to the environment's **Setup command** field — same
+screen as the environment variables above — to force the checkout current
+on start, regardless of the container's cached state:
+
+```sh
+b="$(git branch --show-current)"; git fetch origin "$b" && git reset --hard "origin/$b"
+```
+
+Deliberately generic: no repo name, no branch name. It reads both from the
+checkout it's run against, so the same line works whatever repository and
+branch the environment happens to open — not just this one.
+
+**Unconfirmed as of 2026-09-15: whether a Setup command re-runs on every
+session start, or only once when the environment's image is built.** If
+it's the latter, this doesn't help — verify by starting two sessions a few
+days apart in the same environment and comparing `git log -1`.
+
 ## Verify It Worked
 
 In a new session, in this project:
