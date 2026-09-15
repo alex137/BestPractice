@@ -268,7 +268,7 @@ When a computation books a transfer between two parties:
 When a document replaces or is replaced by an earlier one:
   index-remembers-past — put the lineage in the index, not in either document
 When a message carries a standing merge-authorization phrase:
-  go-merge — "Go merge"/"Approved"/"Go update": trivial -> direct push; else sync, branch, PR, merge
+  go-merge — "Go merge"/"Approved"/"Go update": trivial -> push; else sync, branch, PR, merge
 When a message says "Update Vendors", or an upstream update is being taken into a repo that vendors a practice layer:
   vendor-update-runbook — "Update Vendors" -- source clone first, both layers move separately, then merge
 When a model, study or comparison table rests on an operating constant nobody decided — a margin, a cap, a rate, a floor:
