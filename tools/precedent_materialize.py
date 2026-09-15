@@ -76,15 +76,18 @@ class MaterializeError(Exception):
 # line for a trigger it could never say. THIS TOOL WRITES WHAT A SOURCE
 # PUBLISHES, NOT THE ENGINE (see module docstring) -- so an engine-dev
 # practice is withheld here, at the boundary where a source's content
-# becomes a consumer's tree, rather than at resolve() (a session developing
-# the engine itself still needs these in its OWN occasion index) or at
-# build_views.py (which has no notion of "who is this repo for"). See the
+# becomes a consumer's tree. ENGINE_DEV_SCOPE and the predicate itself live
+# in build_views.py now (relocated 2026-09-15, not duplicated: this module
+# already imports it as `pr.bv` for `_json_str`), because build_views.py's
+# own loader_practices() resolves the identical multi-source set a SECOND
+# time, independently, for a repo's AGENTS.md -- and disagreed with what
+# this tool writes until it had the same predicate to filter with. See the
 # `scope` field: spec/PRACTICE_FORMAT.md.
-ENGINE_DEV_SCOPE = 'engine-dev'
+ENGINE_DEV_SCOPE = pr.bv.ENGINE_DEV_SCOPE
 
 
 def _is_engine_dev_scoped(practice):
-    return pr.bv._json_str(practice['fm'].get('scope', '')) == ENGINE_DEV_SCOPE
+    return pr.bv._is_engine_dev_scoped(practice['fm'])
 
 
 def _self_referential_sources(sources, out_dir):

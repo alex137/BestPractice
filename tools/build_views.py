@@ -504,6 +504,27 @@ def _json_str(raw):
     return raw.strip('"')
 
 
+# Relocated here 2026-09-15 from precedent_materialize.py, which declared
+# the same constant and predicate and reached back into this module (as
+# `pr.bv._json_str`) to decode `scope:` -- so this module always had
+# everything the predicate needed except the two lines themselves. That
+# split cost more than tidiness: precedent_materialize.py applies the
+# filter to what it writes into a consumer's materialized tree, but
+# loader_practices() below resolves the identical multi-source set a
+# SECOND time, independently, for the AGENTS.md loader block -- and had no
+# copy of the predicate to apply it with. A practice whose occasion can
+# only ever fire inside the engine's own repository (auditing the loader,
+# the routing table, the harness adapter tree) still reached a
+# 2+-source consumer's generated block, disagreeing permanently with what
+# precedent_sync_views.py actually produces for the same repo (practice:
+# session-load-budget). See the `scope` field: spec/PRACTICE_FORMAT.md.
+ENGINE_DEV_SCOPE = 'engine-dev'
+
+
+def _is_engine_dev_scoped(fm):
+    return _json_str(fm.get('scope', '')) == ENGINE_DEV_SCOPE
+
+
 # A handful of practices carry a non-canonical rule-opening label kept as
 # literal content by split_practices.py (e.g. "**The practice.**" -- see its
 # _label_to_section: only the exact canonical words rule/why/install get
@@ -1342,9 +1363,32 @@ def loader_practices(root, own_practices):
               "confirmed current nor reported stale here. Re-run where every "
               "declared source resolves.", file=sys.stderr)
         raise _BlockNotVerifiable()
+    resolved = res['practices']
+    # scope: engine-dev practices (very-deep-check, full-practice-audit,
+    # routing-audit -- an occasion that can only ever fire inside the
+    # engine's own repository) are withheld from a CONSUMER's materialized
+    # tree by precedent_materialize.py's own _is_engine_dev_scoped filter.
+    # This in-memory multi-source resolve is the same resolve() over the
+    # same declared sources, for the repo whose AGENTS.md is actually being
+    # written -- and every 2+-source repo takes it, this repo's own included
+    # (it declares repo-local alongside universal, so `len(declared) > 1`
+    # here is not by itself "is this a consumer"). What distinguishes them
+    # is whether one of the declared sources' own content directory IS this
+    # repo: only there does practices/ physically hold the engine-dev files,
+    # and only there is the session actually able to run what they describe
+    # (practice: session-load-budget). Filtering unconditionally would have
+    # dropped all three from this repo's own occasion index the moment it
+    # took this branch; not filtering at all is the bug this guards --
+    # without it, a real consumer's AGENTS.md disagreed permanently with
+    # what precedent_sync_views.py (materialize.py + build_views.py
+    # --agents-only) actually produces for the same tree.
+    if not any(s['level'] == 'universal' and _same_repository(s['path'], root)
+               for s in declared):
+        resolved = {slug: v for slug, v in resolved.items()
+                    if not _is_engine_dev_scoped(v['fm'])}
     practices = [(v['fm'], v['sections'], v['file'])
-                 for v in res['practices'].values()]
-    levels = {slug: v['level'] for slug, v in res['practices'].items()}
+                 for v in resolved.values()]
+    levels = {slug: v['level'] for slug, v in resolved.items()}
     return practices, levels
 
 
@@ -1532,6 +1576,41 @@ def _render_withdrawn(withdrawn):
     return lines
 
 
+def _engine_scope_files():
+    """-> the vendored engine's own *.py filenames sitting in `_ENGINE_DIR`,
+    or None when `_ENGINE_DIR` IS the engine's home (no ENGINE_MANIFEST.json
+    -- see repo_is_practice_source()'s own note: that file is the only
+    durable signal a vendored copy carries about itself; its absence means
+    every *.py here really is this project's own tooling, same as always).
+
+    render_map_md()'s "no TOOLS_DESCRIPTIONS entry" assertion below used to
+    run over every *.py sitting beside this script (`_ENGINE_DIR.glob`),
+    which cannot tell the vendored engine apart from a CONSUMER's own local
+    scripts living in that identical directory -- `tools/` in a consumer
+    repo holds both, side by side, and the glob has no way to know which is
+    which. Reported 2026-09-15: a vendor update made
+    generated-artifact-provenance start running this in full mode for a
+    real four-source consumer for the first time (previously only its
+    AGENTS.md loader block was checked there), and it hard-exited on that
+    consumer's own build_business_html.py, light_check.py,
+    voice_pack_sync.py and report_automation_issue.py -- files this table
+    was never responsible for describing; MAP.md's "## The engine" table
+    documents the engine's own code inventory, and a repo's local tools are
+    out of scope for it by definition. ENGINE_MANIFEST.json's own `files`
+    list is what precedent_vendor_engine.py actually wrote into this
+    directory for this install's `kind` (source or consumer), so reading it
+    back is the authoritative answer rather than a second copy of
+    ENGINE_FILES/CONSUMER_ENGINE_FILES that could drift from it."""
+    mf = _ENGINE_DIR / 'ENGINE_MANIFEST.json'
+    if not mf.is_file():
+        return None
+    try:
+        files = json.loads(mf.read_text(encoding='utf-8')).get('files', [])
+    except (OSError, ValueError):
+        return None
+    return {f for f in files if f.endswith('.py')}
+
+
 def render_map_md(practices, withdrawn=()):
     by_tier = collections.Counter(fm.get('tier') for fm, _s, _f in practices)
     lines = [
@@ -1573,7 +1652,11 @@ def render_map_md(practices, withdrawn=()):
         "| Path | What it is |",
         "|---|---|",
     ]
-    for name in sorted(p.name for p in _ENGINE_DIR.glob('*.py')):
+    engine_scope = _engine_scope_files()
+    engine_names = sorted(p.name for p in _ENGINE_DIR.glob('*.py'))
+    if engine_scope is not None:
+        engine_names = [n for n in engine_names if n in engine_scope]
+    for name in engine_names:
         try:
             desc = TOOLS_DESCRIPTIONS[name]
         except KeyError:

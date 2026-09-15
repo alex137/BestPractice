@@ -542,15 +542,22 @@ def apply_to(entry, commit=False, branch=None):
     # SET's views ARE its own practices/, so build_views.py is the whole job
     # there. A CONSUMER's views are materialized from several sources first,
     # and its entry point for that is precedent_sync_views.py; running plain
-    # build_views.py against one renders MAP.md's "## The engine" table over
-    # the consumer's tools/ directory, which holds the consumer's OWN scripts
-    # alongside the vendored engine -- and that table asserts every file
-    # beside the script has a TOOLS_DESCRIPTIONS entry, which a script this
-    # repo wrote can never have for a script it has never seen. Found
-    # 2026-09-14 against a real consumer, on `tools/check_file_mention_links.py`:
-    # the refresh had already written the new engine and then hard-failed
-    # before regenerating anything, leaving exactly the engine-ahead-of-its-
-    # output state the comment above exists to prevent.
+    # build_views.py against one used to render MAP.md's "## The engine"
+    # table over the consumer's whole tools/ directory, which holds the
+    # consumer's OWN scripts alongside the vendored engine, and hard-fail
+    # the moment one of them had no TOOLS_DESCRIPTIONS entry -- a script
+    # this repo wrote can never have one for a script it has never seen.
+    # Found 2026-09-14 against a real consumer, on
+    # `tools/check_file_mention_links.py`: the refresh had already written
+    # the new engine and then hard-failed before regenerating anything,
+    # leaving exactly the engine-ahead-of-its-output state the comment above
+    # exists to prevent. build_views.py's own table-building
+    # (_engine_scope_files()) now scopes that assertion to the files
+    # ENGINE_MANIFEST.json actually recorded as vendored here, so running it
+    # against a consumer no longer hard-fails on the consumer's own
+    # scripts -- but MAP.md and GLOSSARY.md are still not what a consumer's
+    # views should be (see build_views.py's own --agents-only note), so the
+    # routing below is unchanged.
     sync = repo / 'tools' / 'precedent_sync_views.py'
     if entry.get('kind') == 'consumer' and sync.is_file():
         cmd = [sys.executable, 'tools/precedent_sync_views.py', '--repo', '.']
