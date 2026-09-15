@@ -82,7 +82,11 @@ approved_by: "extended 2026-09-14, Morgan F -- after a session was refused by
   beside every run -- \"you look to see if anything is being leaked that you
   think shouldn't be and you make the recommendation to me ... but only when
   I ask for it as part of a very thorough review I'm in the mindset of
-  doing\""
+  doing\"; extended 2026-09-14, Morgan F (strength: decided), so pass 1
+  rehearses a practice moved between levels and pass 3 reads every document
+  that describes a mechanism against what that mechanism does now -- \"does
+  very deep check do a read of the documentation to make sure it's
+  consistent with how it works now? If not add that too\""
 ---
 ## Rule
 When a person explicitly asks for a "very deep check", or after work that
@@ -630,6 +634,28 @@ first so this pass spends its attention on what they cannot see.
 
 - **Contradictions** — two rules, or two documents, that can't both be
   followed; a rule whose own carve-outs have eaten it.
+- **Documents against the mechanisms they describe.** A document that
+  says what a tool, hook, workflow or check DOES is a set of claims about
+  behaviour, and behaviour moves under it. For each such document — the
+  install and setup routes, the specs that describe a tool (the loader,
+  moving practices, the candidate pipeline, enforcement), the
+  developer-facing documentation, the README's pitch, and the messages the
+  tools themselves print, which are documents a person reads at the moment
+  they most need them to be true — take each claim of behaviour and test it
+  against the mechanism as it is now: run the command, or read the code
+  path that would have to produce the claimed result. Not a read for
+  broken links or stale names; those are the bullets below. A sentence
+  that was true when written and is false now is a finding, and the fix
+  is the sentence unless the behaviour is the thing that drifted. *(Added
+  2026-09-14, the day a run found three in one afternoon without a bullet
+  asking for them: a tool's post-landing line said the private sets carried
+  no generated views, months after bootstrap started generating them; a
+  spec said "the check can resolve it against the real sources" for a
+  check nothing outside this repo's harness ran; and the guided install's
+  every sentence was correct while the system it produced was not the one
+  the pitch described. Each was found by rehearsal, which is pass 1's job
+  and expensive; this is the cheap read that should have found them
+  first.)*
 - **Rules we ship somewhere else** — the contradiction this pass kept
   missing, and it is missed for a structural reason rather than
   carelessness. **A template is inert here and binding there.** Read as a

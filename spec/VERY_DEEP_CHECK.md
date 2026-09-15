@@ -445,6 +445,13 @@ became:
   nowhere, in a consumer that never recorded it — the manifest guard is
   the baseline, and a fresh install has none. The practice now lists a
   moved practice as a fifth rehearsal path, so the next run rehearses it.
+- **Two extensions to the check, same evening, both Morgan's** (`strength:
+  decided`): the move rehearsal named as pass 1's fifth path, and a pass-3
+  bullet that reads every document describing a mechanism — the install
+  routes, the tool specs, the tools' own printed messages — against what
+  the mechanism does now. Three findings of this run were of that kind and
+  were found the expensive way, by rehearsal; the bullet is the cheap read
+  that should have found them first.
 
 ## What Each Part of the Check Returned, and What It Cost
 
