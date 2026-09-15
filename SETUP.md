@@ -204,6 +204,15 @@ it runs inside your ordinary work. The section references are to
   This is the one recurring moment where content may leave the project's
   boundary, so it is the one worth actually reading rather than
   rubber-stamping.
+- **When they add a person to the project.** Everyone invited gets the
+  same Write role; what a person may land is decided by what the change
+  touches, never by who they are — the documents are any contributor's,
+  the project's settings and checks wait for its maintainer, and a new
+  rule is landed only by a listed approver. Drawing that line is
+  [INSTALL.md §0 step 10](INSTALL.md#0-installing-directly-onto-the-precedent-loader-new-2026-09-03--read-the-caveat-before-using),
+  a decision about people made after the install, not part of this
+  conversation: say once that it exists and that the branch-protection
+  clicks are theirs to make.
 - **When a check flags something.** A failed automatic check is you
   catching a problem before it reached them, not something they fix by
   hand. Explain what failed, fix it, and let them confirm the fix makes

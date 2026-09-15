@@ -3267,6 +3267,100 @@ def access_audit(repo_root, sources=(), out=None):
     return rows, notes
 
 
+def boundary_audit(repo_root, sources=(), skip_api=False, out=None):
+    """-> (findings, notes). One row per repo in force that draws a
+    contributor boundary, plus the document-project skeleton.
+
+    A boundary is a SETTING, not a document (practice: very-deep-check,
+    pass 2, "is a boundary a setting or a document?"). spec/CONTRIBUTOR_ACCESS.md
+    keeps a contributor out of the machinery with two things that can each
+    silently stop being true while every document goes on describing them:
+    a generated CODEOWNERS that a hand-edit or a stale registry can leave
+    saying something other than its source, and branch protection that
+    lives on a GitHub settings page nothing in the tree can see. So this
+    reads both, per repo:
+
+      - build_codeowners --check: is the generated file current with the
+        registry that owns it (a project's `owned_paths` + `maintainers` in
+        precedent.json, a practice set's approvers.json)?
+      - precedent_boundary_check: is the base branch protected the way the
+        plan needs? PASS is a row, FAIL is a finding, and UNVERIFIED is a
+        NOTE and never a pass -- a session without a token that can read
+        protection settings learns here that it could not look, which is
+        different from learning that the boundary is off
+        (practice: fail-gracefully).
+
+    A repo with neither registry draws no boundary and says so in one line;
+    that is the normal state of this repository and of an individual set.
+    The document-project skeleton under templates/ gets the generator check
+    only -- its origin is this repository's, so asking GitHub about "its"
+    protection would answer a question about the wrong repo.
+    """
+    import contextlib
+    out = out if out is not None else sys.stdout
+    findings, notes = [], []
+    try:
+        import build_codeowners as bco
+        import precedent_boundary_check as pbc
+    except ImportError as exc:  # an engine vendored without the pair
+        notes.append(f'not checked: {exc}')
+        return findings, notes
+    root = pathlib.Path(repo_root)
+    targets = [('this checkout', root, True)]
+    for s in sources or ():
+        targets.append((f"{s['level']} source {s['name']!r}",
+                        pathlib.Path(s['path']), True))
+    skeleton = root / 'templates' / 'document-project'
+    if (skeleton / 'precedent.json').is_file():
+        targets.append(('templates/document-project (skeleton: generator only)',
+                        skeleton, False))
+    for label, path, ask_github in targets:
+        cfg, approvers = path / 'precedent.json', path / 'approvers.json'
+        draws = False
+        if cfg.is_file():
+            try:
+                draws = json.loads(cfg.read_text(encoding='utf-8')).get(
+                    'owned_paths') is not None
+            except ValueError as exc:
+                findings.append(f'{label}: precedent.json does not parse ({exc})')
+                print(f'  FINDING    {label} -- precedent.json does not parse',
+                      file=out)
+                continue
+        if not draws and not approvers.is_file():
+            print(f'  none       {label} -- draws no boundary (no owned_paths, '
+                  f'no approvers.json)', file=out)
+            continue
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            rc = bco.main(check_only=True, root=path)
+        text = buf.getvalue().strip()
+        line = text.splitlines()[-1] if text else '(no output)'
+        if rc != 0:
+            findings.append(f'{label}: {line}')
+            print(f'  FINDING    {label} -- {line}', file=out)
+        else:
+            print(f'  current    {label} -- {line}', file=out)
+        if not draws or not ask_github:
+            continue
+        if skip_api:
+            notes.append(f'{label}: protection not asked (--skip-liveness); '
+                         f'not a pass')
+            print(f'  not asked  {label} -- --skip-liveness', file=out)
+            continue
+        r = pbc.assess(path)
+        why = '; '.join(r['reasons'])
+        if r['verdict'] == 'FAIL':
+            findings.append(f'{label}: protection FAIL -- {why}')
+            print(f'  FINDING    {label} -- protection FAIL -- {why}', file=out)
+        elif r['verdict'] == 'UNVERIFIED':
+            notes.append(f'{label}: protection UNVERIFIED -- {why} -- not a pass')
+            print(f'  UNVERIFIED {label} -- {why}', file=out)
+        else:
+            print(f'  PASS       {label} -- protection on, shaped as the plan '
+                  f'needs, CODEOWNERS in the tree', file=out)
+    return findings, notes
+
+
 def repos_in_force_audit(repo_root, sources=(), missing=(), base_url=None,
                          out=None):
     """-> (findings, notes). One API call per repo in force."""
@@ -4029,6 +4123,28 @@ def _main(box):
     elif led and skip_liveness:
         led.skipped('REPOS IN FORCE -- still there, still writable',
                     '--skip-liveness')
+
+    # CONTRIBUTOR BOUNDARY (practice: very-deep-check, pass 2). Right after
+    # ACCESS, because it answers the next question about the same repos: not
+    # whether THIS session can land work there, but whether the repository's
+    # own line between content and machinery is enforced by a setting or
+    # merely described by a document. Findings are a stale generated
+    # CODEOWNERS or protection that is off; "could not ask GitHub" is a note
+    # and is never counted as clean.
+    if not as_json:
+        if led:
+            led.start('CONTRIBUTOR BOUNDARY -- CODEOWNERS current, protection on')
+        print("CONTRIBUTOR BOUNDARY -- is each repo's boundary a setting, or "
+              "only a document\n")
+        _cb, _cn = boundary_audit(repo_root, data['sources'],
+                                  skip_api=skip_liveness)
+        for n in _cn:
+            print(f'  note: {n}')
+        if not _cb and not _cn:
+            print('  clean -- every boundary drawn here is current and on')
+        print()
+        if led:
+            led.end(findings=len(_cb))
 
     # EVERY source precedent.json declares, not only the private ones.
     # This used to be gated on FATAL_MISSING_LEVELS ('team', 'individual'),

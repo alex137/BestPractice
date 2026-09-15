@@ -43,7 +43,10 @@ nobody has to hope that everyone else's assistant remembers the same things.
 A rule can **stay just yours, apply to your whole team, or join the public
 library** everyone using Precedent starts from — you choose which, and a
 rule that starts narrow can move to a wider level later if it turns out to
-matter beyond where it began.
+matter beyond where it began. Who may change what in a project is decided
+the same way, by what a change touches rather than by a label on a person:
+the documents are any contributor's, the project's machinery waits for its
+maintainer, and a rule is made official only by a listed approver.
 
 ### Automatically Merges Substantial Changes to the Same Document by Different Collaborators Simultaneously
 

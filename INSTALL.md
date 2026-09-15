@@ -780,6 +780,47 @@ not this section.
    project is exactly the repo with none (measured 2026-09-14).
 9. **Mention the same optional owner-only settings** as §1 step 10 — this
    path installs a different layout, not a different GitHub account.
+10. **Draw the contributor boundary, when the project has people who should
+    write its content and not its machinery** — a document project is the
+    usual case, and a project whose every collaborator is a maintainer can
+    skip this. `precedent_install.py` does not do this step; it is a
+    decision about people, made after the install. The line is
+    [spec/CONTRIBUTOR_ACCESS.md](spec/CONTRIBUTOR_ACCESS.md)'s: **content is
+    any contributor's; a protected path needs a maintainer's review; a
+    practice is suggested by anyone and landed only by a listed approver.**
+    Nothing in it is keyed to what kind of person somebody is
+    ([technical-describes-people](practices/technical-describes-people.md)).
+    Four moves, in order:
+    1. Declare `maintainers` and `owned_paths` in `precedent.json` — who
+       reviews the machinery, and which paths are the machinery, each with
+       its reason. [templates/document-project/precedent.json](templates/document-project/precedent.json)
+       carries the filled-in registry a document project starts from;
+       `MAP.md` and `GLOSSARY.md` are deliberately not on it, because a
+       thread that adds a document adds its row to the map.
+    2. Run `python3 tools/build_codeowners.py` and commit the generated
+       `.github/CODEOWNERS`. Never hand-edit it; edit the registry and
+       regenerate.
+    3. On GitHub, give each contributor the **Write** role, and in the same
+       sitting protect the base branch: require a pull request, required
+       approvals **0**, require review from code owners, do not allow
+       bypassing. Write without that protection is unrestricted write.
+       Neither setting has a tool in this repository's GitHub toolset; both
+       are a person's clicks.
+    4. Run `python3 tools/precedent_boundary_check.py` with a token that can
+       read the repository's settings (`PRECEDENT_GITHUB_TOKEN`, per
+       [PER_MACHINE_SETUP.md](PER_MACHINE_SETUP.md)). Only `PASS` means the
+       boundary is on; `UNVERIFIED` means this run could not look, which is
+       not the same thing, and `--check` refuses it.
+    Two things to keep true afterwards: **workflows carry no secret** beyond
+    the read-only default token, since `CODEOWNERS` gates the merge of an
+    edited workflow and not its first run on a collaborator's branch; and
+    **before every pull request a session runs
+    `python3 tools/precedent_owned_paths.py`** and relays its sentence, so a
+    contributor hears which files will wait for review before the merge
+    button refuses them. Three GitHub behaviours the design rests on are
+    unverified as of 2026-09-14 — the spec's "Verify these first" section
+    names them, and the very deep check's `CONTRIBUTOR BOUNDARY` section
+    reads the setting on every run.
 
 **What has and has not been rehearsed, stated plainly rather than left to
 be discovered.** Every step here has been walked end to end against a
@@ -1299,4 +1340,6 @@ axis — what a person sets on each computer they work from, none of which
 lives in any repository and most of which fails quietly when absent. It
 covers the user-level config, the leak blocklist, `identity.json`, and the
 `PRECEDENT_GIT_TOKEN` / `PRECEDENT_SOURCE_BASE_URL` credential that lets a
-hosted session reach a private practice source without an `add_repo` dance.
+hosted session reach a private practice source without an `add_repo` dance
+— and, optionally, `PRECEDENT_GITHUB_TOKEN`, the token §0 step 10's boundary
+check needs to read a repository's protection settings.

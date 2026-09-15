@@ -3931,6 +3931,98 @@ def check_boundary_check_never_passes_unread():
           not bad, '; '.join(f"{n}: {d}" for n, d in bad))
 
 
+def check_very_deep_check_boundary_audit_reads_the_setting():
+    """very_deep_check.py's CONTRIBUTOR BOUNDARY section reports a stale
+    generated CODEOWNERS as a finding, a repo with no registry as drawing no
+    boundary, and GitHub's answer -- or its absence -- in its own words.
+
+    Added 2026-09-14 with the section (practice: very-deep-check, pass 2:
+    a boundary is a setting, not a document). The API is stubbed at the
+    module boundary of precedent_boundary_check, and each case asserts the
+    printed row for that case (practice: control-asserts-which-failure);
+    the fixture owns the three token variables the tool reads
+    (practice: fixture-owns-its-state)."""
+    import contextlib, io, shutil, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import very_deep_check as vdc
+    import precedent_boundary_check as pbc
+    import build_codeowners as bco
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-vdc-boundary-'))
+    cases = []
+    real_fetch = pbc.fetch_protection
+    saved = {k: os.environ.get(k) for k in ('PRECEDENT_GITHUB_TOKEN', 'GITHUB_TOKEN', 'GH_TOKEN')}
+    good = {'required_pull_request_reviews': {'require_code_owner_reviews': True,
+                                              'required_approving_review_count': 0},
+            'enforce_admins': {'enabled': True}}
+    try:
+        for k in saved:
+            os.environ.pop(k, None)
+        project = tmp / 'project'
+        project.mkdir()
+        subprocess.run(['git', 'init', '-q', str(project)], capture_output=True)
+        subprocess.run(['git', '-C', str(project), 'remote', 'add', 'origin',
+                        'https://github.com/example/doc-project.git'], capture_output=True)
+        (project / 'precedent.json').write_text(json.dumps({
+            'base_branch': 'main',
+            'maintainers': [{'name': 'M', 'github': 'maint'}],
+            'owned_paths': [{'path': '/.github/', 'why': 'workflows'}]}), encoding='utf-8')
+        bare = tmp / 'bare'
+        bare.mkdir()
+        (bare / 'precedent.json').write_text('{"base_branch": "main"}', encoding='utf-8')
+        sources = [{'level': 'team', 'name': 'fixture-team', 'path': str(bare)}]
+
+        def run(root, skip_api=False):
+            out = io.StringIO()
+            f, n = vdc.boundary_audit(root, sources, skip_api=skip_api, out=out)
+            return f, n, out.getvalue()
+
+        f, n, out = run(project)
+        cases.append(('a project whose registry has no generated CODEOWNERS yet is a finding',
+                      any('does not exist' in x for x in f) and 'FINDING' in out, out))
+        cases.append(('a repo with no registry is reported as drawing no boundary, never as clean',
+                      'draws no boundary' in out and not any('fixture-team' in x for x in f), out))
+
+        with contextlib.redirect_stdout(io.StringIO()):
+            bco.main(check_only=False, root=project)
+        (project / '.github' / 'CODEOWNERS').write_text('/.github/ @someone-else\n', encoding='utf-8')
+        f, n, out = run(project, skip_api=True)
+        cases.append(('a hand-edited CODEOWNERS is a finding naming the mismatch',
+                      any('does not match' in x for x in f), out))
+        cases.append(('--skip-liveness leaves protection unasked and says so as a note, not a pass',
+                      any('not asked' in x for x in n) and 'not asked' in out, out))
+
+        with contextlib.redirect_stdout(io.StringIO()):
+            bco.main(check_only=False, root=project)
+        f, n, out = run(project)
+        cases.append(('a current CODEOWNERS with no token is UNVERIFIED -- a note, never a finding',
+                      not f and any('UNVERIFIED' in x for x in n) and 'not a pass' in ''.join(n), out))
+
+        os.environ['GITHUB_TOKEN'] = 'ghp_NOTAREALTOKEN' + 'y' * 8
+        pbc.fetch_protection = lambda o, nm, b, tok: (200, good)
+        f, n, out = run(project)
+        cases.append(('protection on and CODEOWNERS current is a PASS row with no finding',
+                      not f and 'PASS' in out and 'shaped as the plan needs' in out, out))
+        pbc.fetch_protection = lambda o, nm, b, tok: (404, {'message': 'Branch not protected'})
+        f, n, out = run(project)
+        cases.append(('an unprotected base branch is a finding naming it',
+                      any('NOT protected' in x for x in f), out))
+    finally:
+        pbc.fetch_protection = real_fetch
+        for k, v in saved.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
+    check(f'very_deep_check.py\'s CONTRIBUTOR BOUNDARY reads the setting, not the '
+          f'document ({len(cases)} stated cases: missing file, no registry, '
+          f'hand-edited file, --skip-liveness, no token, PASS, unprotected)',
+          not bad, '; '.join(f"{n}: {d[:300]}" for n, d in bad))
+
+
 def check_build_views_summary_matches_what_it_wrote():
     """build_views.py's summary line reports the block it actually wrote.
 
@@ -21618,6 +21710,7 @@ def main():
     check_source_names_detects_a_rename()
     check_owned_paths_previews_the_boundary()
     check_boundary_check_never_passes_unread()
+    check_very_deep_check_boundary_audit_reads_the_setting()
     check_default_blocklist_runs_the_vocabulary_layer()
     check_session_practices_load_without_publishing()
     check_not_binding_cannot_be_abused()
