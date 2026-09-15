@@ -23,7 +23,13 @@
 #
 #   freshness-guard.sh session-start [BASE]
 #       A SessionStart hook. Fetches, fast-forwards the current branch when
-#       that is provably lossless, and warns about anything it cannot fix.
+#       that is provably lossless, and reconciles it to origin when it has
+#       diverged and the tree is clean -- safe here specifically because
+#       SessionStart runs before this session's first turn, so nothing
+#       reachable from local HEAD can be this session's own work yet. The
+#       old tip is kept under refs/freshness-guard/pre-reset/, never just
+#       discarded. Warns about anything it cannot fix that way (a dirty
+#       tree, or the rescue-ref-then-reset sequence itself failing).
 #       ALWAYS exits 0: a hook that can wedge a session over a freshness
 #       question is a worse failure than the staleness it is guarding
 #       against (fail-gracefully, same contract as
@@ -452,7 +458,23 @@ _session_start_one() {
       if _dirty; then
         echo "WARN: freshness-guard: '$branch' is $behind commit(s) behind origin/$branch, and the working tree has uncommitted changes -- NOT updating it automatically.$(_age_phrase "$branch") Commit or stash, then: git merge --ff-only origin/$branch" >&2
       elif [ "$ahead" != "0" ]; then
-        echo "WARN: freshness-guard: '$branch' has diverged from origin/$branch ($ahead local commit(s), $behind remote) -- NOT updating it automatically.$(_age_phrase "$branch") Reconcile deliberately; do not discard either side." >&2
+        # This is SessionStart, before this session's first turn -- nothing
+        # reachable from local HEAD can be this session's own work yet, so a
+        # diverged-but-CLEAN checkout here is safe to reconcile automatically,
+        # unlike the identical-looking check in mode_pre_write (which runs
+        # mid-session, where a local commit really could be this session's).
+        # "Do not discard either side" still holds: the old tip is kept under
+        # a dedicated ref, never just left to reflog expiry, before origin's
+        # history replaces it.
+        local rescue_ref old_sha
+        old_sha="$(_git rev-parse HEAD 2>/dev/null)"
+        rescue_ref="refs/freshness-guard/pre-reset/${branch}-${old_sha:0:12}"
+        if [ -n "$old_sha" ] && _git update-ref "$rescue_ref" "$old_sha" >/dev/null 2>&1 && \
+           _git reset --hard "origin/$branch" >/dev/null 2>&1; then
+          echo "NOTE: freshness-guard: '$branch' had diverged from origin/$branch ($ahead local commit(s), $behind remote) -- reconciled it to origin/$branch (SessionStart, before this session's first turn, so nothing local could be this session's own work). The old tip is kept at $rescue_ref ($old_sha); nothing was discarded.$(_age_phrase "$branch")" >&2
+        else
+          echo "WARN: freshness-guard: '$branch' has diverged from origin/$branch ($ahead local commit(s), $behind remote) -- could not reconcile it automatically (rescue ref or reset failed), so leaving it as-is.$(_age_phrase "$branch") Reconcile deliberately; do not discard either side." >&2
+        fi
       elif [ "$fetched" -eq 0 ]; then
         echo "WARN: freshness-guard: '$branch' looks $behind commit(s) behind, but the fetch failed -- not acting on an unverified comparison.$(_age_phrase "$branch")" >&2
       else
