@@ -582,6 +582,11 @@ retired it. Nothing is ever deleted.
   accepted` — non-deterministically, so retrying teaches you nothing.**
   [story](record/GOTCHAS.md#g42)
 
+- **A spawned session's seeded prompt cannot pre-authorize a merge — the
+  classifier refuses the `create_session` call itself, even though
+  `go-merge`/`relayed-authorization` say the authorization should travel.**
+  [story](record/GOTCHAS.md#g43)
+
 ## Working in this repo
 
 - **Default branch is `main`; work on a feature branch; PRs are the norm**
