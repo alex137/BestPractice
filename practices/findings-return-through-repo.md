@@ -4,8 +4,8 @@ title:       A finding goes into the repo, not into a message the person relays
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
-occasion:    "discovering something a session in another window will need"
-index_clause: "commit it; never leave it for the person to carry to the next window"
+occasion:    "discovering something a session in another window will need, or the person adopts a recommendation you gave in chat"
+index_clause: "commit it, an adopted plan included; never leave it for the person to carry"
 gates:       ["reply"]
 checked_by:  null
 defines:     []
@@ -43,6 +43,19 @@ temptation to just say it is strongest and the loss is fastest.
 explained yet is still worth committing — the next session needs the number,
 not the conclusion.
 
+**An adopted recommendation is a finding, and the easiest one to lose.** When
+the person asks *"should we do A first or B first?"*, the session answers,
+and the person proceeds on that answer, a plan has just been made — but no
+file was open, nothing was being edited, and the answer arrived in the shape
+of advice rather than work. That is exactly the moment this rule does not
+feel like it applies, and exactly the moment the next session most needs the
+record: the *reason* for the ordering lives only in the exchange that
+produced it. So the turn in which work starts on the adopted path writes the
+decision into the open item it governs — what was chosen, why, who adopted
+it, when, and its [decision-strength](decision-strength.md) (proceeding on a
+recommendation without choosing it from options is `assented`). A plan made
+by proceeding is still a plan; the repository records it or nobody does.
+
 ## Why
 Parallel windows are good for measuring and bad for relaying. Two sessions
 measuring the same environment independently produce genuinely stronger
@@ -66,6 +79,21 @@ time but it returns a bug - same one in the other session etc etc."*
 The findings that were committed the same day — the gotchas, the open items
 — cost nothing to transfer. The ones that stayed in chat cost a paste each
 time, and the count of pastes is the whole argument.
+
+**2026-09-15, the adopted-recommendation case.** A session in a dependent
+repository was asked which of two migrations to take first — the upstream
+practice-system upgrade, or a planned restructuring of the repository — and
+recommended the upgrade first, with the deeper half of it folded into a later
+restructuring phase so a root instruction file would be migrated once rather
+than twice. The person proceeded on that answer; the upgrade landed, then a
+restructuring phase landed on top of it, all recorded in detail. The
+sequencing decision itself — the reason the deeper migration was waiting, and
+what phase it was waiting for — appeared in no file. A day later the person
+asked *"is this planned path documented?"* and the honest answer was no: the
+open item that should have carried it still described the pre-upgrade
+world. Both of this repository's rules about memory were in force and loaded
+that whole time; neither fired, because the decision had arrived as an
+answer to a question, not as a finding.
 
 ## Install
 Nothing to configure. When a session finds something durable, the finding
