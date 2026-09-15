@@ -27,7 +27,7 @@ problems have the same shape, so both get the same fix.
 ## The Fix, in One Paragraph
 
 **One item is one file. The file is created once, is named for what it is and
-when it opened, and never moves or gets renamed again.** Everything that
+when it was first noted, and never moves or gets renamed again.** Everything that
 changes about the item — whether it's done, who it's waiting on, how strongly
 it was decided — is a field inside the file, not a change to its name or
 location. Every list a person reads (open items by kind, all open decisions,
@@ -47,7 +47,7 @@ todo/todo-2026-09-14-source-set-push-triggers.md
 
 - **Directory:** `todo/`, replacing [TODO.md](../TODO.md).
 - **Filename:** `todo-<YYYY-MM-DD>-<slug>.md`. The date is the day the item was
-  opened, at the front, so the directory sorts oldest-first with no tool
+  first noted, at the front, so the directory sorts oldest-first with no tool
   involved (`ls todo/` alone shows age).
 - **The `todo-` prefix is mandatory and marks the file as non-binding.**
   A practice file ([practices/verify-postcondition.md](../practices/verify-postcondition.md)) has no prefix,
@@ -65,34 +65,61 @@ todo/todo-2026-09-14-source-set-push-triggers.md
 ---
 slug:              todo-2026-09-14-source-set-push-triggers
 kind:              analysis
+domain:            mechanism
+severity:          notable
 status:            open
-opened:            2026-09-14
-opened_precision:  exact
+noted:             2026-09-14
+noted_precision:   exact
 closed:            null
 blocked_on:        "a session rooted in each practice set"
-owner:             null
+waiting_on:        null
 project:           source-sets
 disposition:       wait
-strength:          null
+decision:          null
+decision_strength: null
 ---
 ## What
-## Why it is not done
-## How it closes
+## How It Closes
+## Notes
 ```
 
 | Field | Values | Meaning |
 |---|---|---|
 | `slug` | matches the filename, no `.md` | the item's permanent identity |
-| `kind` | `analysis` \| `verify` \| `physical` \| `decision` | what KIND of work closes it — see below |
+| `kind` | `analysis` \| `verify` \| `manual` \| `decision` | what KIND of work closes it — see **The Four Kinds** below |
+| `domain` | `content` \| `mechanism` \| `null` | is this about the actual deliverable (a practice, a document) or about the machinery that manages it (a check, a hook, a workflow) — see **Domain** below |
+| `severity` | `blocking` \| `notable` \| `minor` \| `null` | optional; how much this matters, for sorting the unblocked-work view — the first field to drop if the frontmatter gets too heavy |
 | `status` | `open` \| `done` \| `dropped` | is it finished |
-| `opened` | `YYYY-MM-DD` | must match the date in the filename; a check enforces this |
-| `opened_precision` | `exact` \| `at-or-before` | see **Undatable Items** below |
+| `noted` | `YYYY-MM-DD` | the day this was first written down; must match the date in the filename, checked mechanically — **not** the day anyone reads or reopens the file |
+| `noted_precision` | `exact` \| `at-or-before` | see **Every Item Has a Date** below |
 | `closed` | `YYYY-MM-DD` or `null` | when `status` became `done` or `dropped` |
 | `blocked_on` | free text or `null` | the stated reason it isn't done now — required unless `status: open` and `kind: analysis` with no blocker, which is itself a finding (see Part 3) |
-| `owner` | a person's name, or `null` | who has to act — a **label**, not a filing location (see "Why Kind, Not Owner" below) |
+| `waiting_on` | a person's name, or `null` | who has to act next — a **label**, not a filing location, and not necessarily the person who will eventually do the work (see **Why Kind, Not Waiting-On** below) |
 | `project` | free text, or `null` | groups items that are really one job, so they can be swept together |
 | `disposition` | `wait` \| `ask` \| `parked` | unchanged from [open-item-disposition](../practices/open-item-disposition.md) — whether a session may raise it unprompted |
-| `strength` | `decided` \| `assented` \| `null` | only set where the item records an approval — see **Decision Strength** below |
+| `decision` | free text, or `null` | for `kind: decision` items only — what was decided, in prose, written when `status` becomes `done` (see **When an Item Closes** below) |
+| `decision_strength` | `decided-strong` \| `decided-weak` \| `assented` \| `null` | only set where the item records an approval — see **Decision Strength** below |
+
+### The Body Sections
+
+Three, always, in this order:
+
+- **`## What`** — what the item is, written once, rarely touched again.
+- **`## How It Closes`** — the static condition: what has to be true for
+  `status` to become `done`. This is `blocked_on` elaborated in prose.
+- **`## Notes`** — an append-only, dated log. **Any session whose work
+  touches this item without closing it adds a line here** — what it found,
+  what it did, what changed. This is
+  [item-closes-on-its-condition](../practices/item-closes-on-its-condition.md)
+  given an actual place to write: that practice says work bearing on an item
+  gets recorded into it, and until now nothing in the old format said
+  *where*. A line looks like:
+
+  ```
+  2026-09-16: confirmed the API still returns the old shape; blocked_on unchanged.
+  ```
+
+  Notes are never edited or removed, only appended — the log is the point.
 
 ### The Four Kinds
 
@@ -104,25 +131,72 @@ the first thing to actually use it.
 |---|---|---|
 | **`analysis`** | Work a session can do from its own desk — read code, write code, run a check, write a document. | A session does the work. |
 | **`verify`** | A claim that needs checking against something outside this repository — a live API, another repo's real state, a platform's current behavior. | The check is run and the result is recorded. |
-| **`physical`** | Needs something this session cannot provide — hardware, a vendor, a real end-to-end rehearsal with a human. | The external thing happens. |
-| **`decision`** | Needs a person to choose between options this session has already laid out. | The person decides. |
+| **`manual`** | Needs a person to actually DO something this session cannot — hardware, a vendor, a real end-to-end rehearsal. | The person does the thing. |
+| **`decision`** | Needs a person to CHOOSE between options this session has already laid out. | The person decides. |
 
-**Why kind, not owner, is the filing axis:** an earlier draft of this plan
-filed items by "who can clear it" and got it wrong in the same breath — four
-of five groups named a kind of work, not a person, and the one group that did
-name a person ("Alex needs to decide this") was sometimes wrong about which
-person. `owner` is kept as a field precisely because it needs correcting
-without anyone renaming a file. `kind` doesn't have that problem: whether a
-task is analysis, verification, a physical dependency, or a decision is a
-fact about the task, and it doesn't change hands.
+`manual` and `decision` are easy to confuse and worth separating cleanly:
+`decision` is closed by a choice; `manual` is closed by an action. "Which
+naming convention should we use" is a decision. "Run this on real hardware
+and report what happened" is manual, even though a person is doing both.
 
-### Undatable Items
+**Why kind, not waiting-on, is the filing axis:** an earlier draft of this
+plan filed items by "who can clear it" and got it wrong in the same breath —
+four of five groups named a kind of work, not a person, and the one group
+that did name a person ("Alex needs to decide this") was sometimes wrong
+about which person. `waiting_on` is kept as a field precisely because it
+needs correcting without anyone renaming a file. `kind` doesn't have that
+problem: whether a task is analysis, verification, a manual action, or a
+decision is a fact about the task, and it doesn't change hands.
 
-Some items being migrated in have no true creation date — their anchor is
-already present at the earliest commit this repository's history reaches, so
-the honest statement is *at or before that date*, not a specific day.
+### Domain
 
-- **`opened_precision: at-or-before`** records this.
+A second, independent axis: is this item about the actual deliverable, or
+about the machinery that manages the deliverable?
+
+| `domain` | Meaning |
+|---|---|
+| **`content`** | The item is about the thing itself — a practice's wording, a document's accuracy, a missing piece of the catalogue. |
+| **`mechanism`** | The item is about the tooling, checks, hooks, or workflow that build, enforce, or ship the content. |
+| **`null`** | Genuinely both, or neither — not every item needs a domain. |
+
+**Why this isn't folded into `kind`:** `kind` says what closes an item;
+`domain` says what it's about. A `content` item and a `mechanism` item can
+both be `kind: analysis` — "fix this practice's wording" and "fix this
+check's bug" are both a session doing the work from its desk, and knowing
+that is useful independently of knowing which one it is. Cramming both facts
+into one field would mean either doubling `kind`'s values (eight instead of
+four) or losing one axis. Keeping them separate keeps `kind`'s meaning exact.
+
+### Severity
+
+Optional, and the field most likely to be cut if the frontmatter proves too
+heavy in practice:
+
+| `severity` | Meaning |
+|---|---|
+| **`blocking`** | Something else can't proceed until this closes. |
+| **`notable`** | Worth attention, not urgent. |
+| **`minor`** | Low cost either way. |
+| **`null`** | Not assessed. |
+
+Severity decays faster than `kind` or `domain` — what's blocking today may
+not be next week — so it's the one field a session should feel free to leave
+`null` rather than force a guess on. It exists for one purpose: letting the
+unblocked-work view (Part 1, **Generated Views**) sort by something other
+than age.
+
+### Every Item Has a Date
+
+**No item is ever dateless.** Every `todo/*.md` and `gotchas/*.md` file
+carries a real date in its name, always — this is a hard rule, not a
+default that some items opt out of.
+
+For the items being migrated in that have no true creation date — their
+anchor is already present at the earliest commit this repository's history
+reaches — the honest statement is *at or before that date*, not a specific
+day:
+
+- **`noted_precision: at-or-before`** records this.
 - **The filename still uses the floor date** — the earliest date the item is
   known to have existed — because a name must be assigned; it is a lower
   bound, not a guess.
@@ -130,24 +204,60 @@ the honest statement is *at or before that date*, not a specific day.
   date, `open ≥ 12 days` for a floor. Never invent a specific date where none
   is known.
 
+### When an Item Closes
+
+**The file never moves.** Nothing in this format ever moves once created —
+closing an item is a change to its fields, not to its name or location.
+
+Setting `status: done` (or `dropped`) also sets `closed` to that day. For a
+`kind: decision` item, it also sets `decision` — one or two sentences of
+prose recording what was actually decided, written into the file, not left
+implicit in the fact that `status` flipped.
+
+**This repository also keeps [decisions/](../decisions/)** — a
+longer-standing, higher-ceremony ledger for decisions with lasting,
+citable weight, unrelated to this format and not being changed by it. The
+two aren't duplicates: a `kind: decision` todo item answers "was this
+settled," and a `decisions/` entry is "here is the record other documents
+point back to." Most closed decisions need only their own `decision` field.
+A decision significant enough to warrant the second treatment gets both —
+same as today, where a session writing a `decisions/` entry is already a
+separate, deliberate act.
+
 ### Decision Strength
 
-`strength` follows [decision-strength](../practices/decision-strength.md)
-unchanged: `decided` only where the person's own choice can be quoted,
-`assented` where a proposal went unopposed, and `null` — never a guess —
-everywhere else. It is set only on items that actually record an approval;
-most items are findings nobody approved, and writing a strength on those
-would be recording an approval that never happened. It is set going forward,
-when an item is touched, never backfilled in bulk against old items.
+`decision_strength` is a refinement of
+[decision-strength](../practices/decision-strength.md)'s vocabulary, scoped
+to this format: `decided-strong` and `decided-weak` are both subtypes of
+that universal practice's `decided`, `assented` is unchanged, and `null` —
+never a guess — is everywhere else. **A session summarizing a decision in
+prose outside this file still says "decided," never the finer word**; the
+universal practice's own rule (an approval is `decided` or `assented`, never
+guessed) is unchanged by this — this format just records a distinction the
+universal one doesn't need.
+
+It is set only on items that actually record an approval; most items are
+findings nobody approved, and writing a decision strength on those would be
+recording an approval that never happened. It is set going forward, when an
+item is touched, never backfilled in bulk against old items.
 
 ### Generated Views
 
-`todo/INDEX.md`, generated the way [MAP.md](../MAP.md) is — never hand-edited,
-rebuilt by a script, checked for drift the same way. It carries at minimum:
+**`todo/TODO.md`** — same familiar name as today's root-level file, now
+inside the directory it indexes, generated the way [MAP.md](../MAP.md) is
+from `practices/*.md`. Its own first line says so, so nobody mistakes it for
+something to hand-edit:
 
-- **One table per `kind`.**
-- **Age**, computed from `opened` (or printed as a floor where
-  `opened_precision: at-or-before`), sorted oldest first.
+```
+<!-- GENERATED by tools/build_todo_index.py — do not edit. Edit the item
+     files in todo/ instead; this file is rebuilt from their fields. -->
+```
+
+It carries at minimum:
+
+- **One table per `kind`**, with `domain` and `severity` as columns.
+- **Age**, computed from `noted` (or printed as a floor where
+  `noted_precision: at-or-before`), sorted oldest first.
 - **Unblocked work** — every `open`, `kind: analysis` item with no
   `blocked_on`. This is the list that should be closest to empty.
 - **Open decisions** — every `open`, `kind: decision` item, the one list a
@@ -178,12 +288,13 @@ Same rule as `todo-`: dated, prefixed, permanent once created.
 
 ```yaml
 ---
-slug:          gotcha-2026-09-13-shallow-clone-reads-as-diverged
-status:        live
-opened:        2026-09-13
-opened_precision: exact
-retired:       null
-retires_when:  "the fix reaches every checkout that can go stale, including the four practice-set sources"
+slug:            gotcha-2026-09-13-shallow-clone-reads-as-diverged
+status:          live
+noted:           2026-09-13
+noted_precision: exact
+severity:        notable
+retired:         null
+retires_when:    null
 ---
 ## Symptom
 ## Story
@@ -193,13 +304,21 @@ retires_when:  "the fix reaches every checkout that can go stale, including the 
 | Field | Values | Meaning |
 |---|---|---|
 | `status` | `live` \| `retired` | replaces the separate [record/GOTCHAS_ARCHIVE.md](../record/GOTCHAS_ARCHIVE.md) file — a retired entry is the same file, `status` flipped, never moved |
-| `retires_when` | free text | **new** — the condition under which this entry stops being worth a session's attention |
+| `severity` | `blocking` \| `notable` \| `minor` \| `null` | optional, same three values as the open-item format — here it means how costly the trap is when hit, not how urgent it is to fix |
+| `retires_when` | free text, or `null` | the condition under which this entry stops being worth a session's attention — declared in the schema now, **populated later**; see below |
 
-### `retires_when`, the One New Idea Here
+### `retires_when` Is Declared Now, Built Later
 
 Today nothing states what would retire a gotcha; an entry is archived only
-when a person happens to re-read it and judge it dead. Three shapes cover
-nearly every case:
+when a person happens to re-read it and judge it dead. The field is part of
+the schema from the start — so no gotcha file needs a second migration later
+— but it is **not populated as part of this migration**. Writing it on the
+42 live entries, and wiring the sweep in Part 3 to read it, becomes the
+first real `kind: analysis` item filed in the new `todo/` system once it
+exists — a fitting first use, and a small, well-scoped task rather than
+something this migration has to carry.
+
+When it is built, three shapes should cover nearly every case:
 
 ```
 retires_when: "a mechanical check refuses this — <name the check>"
@@ -209,18 +328,14 @@ retires_when: "nothing has hit this since <date> and the mechanism
                that caused it no longer exists"
 ```
 
-This is written for every entry going forward, and backfilled on the entries
-that already claim a fix landed — a mechanical scan for entries whose body
-contains a phrase like "fixed" or "resolved" finds these; there is no need to
-re-read all 42 by hand to find the candidates.
-
 ### Generated View
 
 The gotcha index inside [AGENTS.md](../AGENTS.md) stays exactly as it is
 today — one line per live entry, symptom plus link, loaded every session. It
 is generated from `gotchas/*.md` where `status: live`, instead of hand-kept.
-`retires_when` is deliberately **not** shown there: it's read by whoever is
-auditing the catalogue, not by every session that pays for the index.
+`retires_when` is deliberately **not** shown there even once it's built:
+it's read by whoever is auditing the catalogue, not by every session that
+pays for the index.
 
 ---
 
@@ -285,6 +400,17 @@ step is deferred.
    from this point on. Without this the migration decays within a week.
 8. **Wire the two sweeps into `very_deep_check.py`** (Part 3), last, because
    they read fields the migration creates.
+9. **File `retires_when` on the 42 live gotchas as the new system's own first
+   `todo/` item.** Not part of this migration (Part 2, **`retires_when` Is
+   Declared Now, Built Later**) — its natural home is the system it will run
+   in.
+
+**`domain` and `severity` are not required at migration time.** The migration
+script sets `kind`, `status`, `noted`, `blocked_on`, `waiting_on`, and
+`disposition` from what the old item already states — those are read off the
+existing text. `domain` and `severity` are left `null` on every migrated item
+rather than guessed at for 114 items in bulk; a session sets them when it
+next touches an item, the same rule as `decision_strength`.
 
 ### 4.2 — Dependent Repositories
 
@@ -321,12 +447,17 @@ collection under the same format, not a copy of this one's.
 
 ## Part 5 — Cost, and What Was Deliberately Left Out
 
-**Per-item overhead goes up.** A one-line open item becomes a file with ten
-lines of frontmatter. The median live item today runs to a few hundred words,
-where this costs nothing; the shortest is under thirty words, where the
-frontmatter is most of the file. Taken anyway, because the alternative — one
-file no tool can slice, that every session reads in full — is worse at the
-current and growing size (114 items, 42 gotchas).
+**Per-item overhead goes up, and this revision made it heavier.** A one-line
+open item becomes a file with fourteen frontmatter fields. Four of them
+(`domain`, `severity`, `decision`, `decision_strength`) are optional and can
+sit `null`, so the mandatory core is closer to the original ten — but every
+field in the schema is a field a reader scans past on every file, whether or
+not it is set. The median live item today runs to a few hundred words, where
+this costs nothing; the shortest is under thirty words, where the frontmatter
+is most of the file. Taken anyway, because the alternative — one file no tool
+can slice, that every session reads in full — is worse at the current and
+growing size (114 items, 42 gotchas). `severity` (see Part 1) is named
+explicitly as the field to cut first if this proves too heavy in practice.
 
 **Left out of this plan on purpose:**
 
@@ -334,15 +465,17 @@ current and growing size (114 items, 42 gotchas).
   ([very-deep-check](../practices/very-deep-check.md)'s own standing rule),
   not on a timer. This repository has no periodic-schedule mechanism, and
   building one is a separate decision.
-- **Four physical files instead of a generated index.** A variant worth
+- **Four hand-kept files instead of a generated index.** A variant worth
   naming: keep `todo/decisions.md`, `todo/unblocked.md`, etc. as real,
-  hand-visible files rather than one generated `INDEX.md`. Not taken here,
-  because a hand-kept file whose `blocked_on` has cleared lies until someone
-  moves the item — but it is a legitimate choice if the generator turns out
-  to be more friction than it's worth in practice.
+  hand-visible files rather than one generated `todo/TODO.md`. Not taken
+  here, because a hand-kept file whose `blocked_on` has cleared lies until
+  someone moves the item — but it is a legitimate choice if the generator
+  turns out to be more friction than it's worth in practice.
 - **Auto-closing items or gotchas from a sweep.** Both sweeps report only;
   closing stays a human or an active-session judgment
   ([item-closes-on-its-condition](../practices/item-closes-on-its-condition.md)).
+- **Populating `retires_when` on the existing 42 gotchas now.** Deferred to
+  a follow-up item filed in the new system itself (Part 4.1, step 9).
 
 ---
 
@@ -359,7 +492,7 @@ Three things this plan does not settle, each independent:
    that keeps the unblocked-work list meaningfully close to empty; the cost is
    that it turns every audit finding into an unplanned detour, and some of
    these are real multi-hour jobs, not quick fixes.
-2. **Whether `todo/INDEX.md` is one generated file or several hand-kept
+2. **Whether `todo/TODO.md` is one generated file or several hand-kept
    ones** (Part 5, second bullet).
 3. **Whether the full migration (Part 4) is worth doing now**, versus doing
    only steps 1–3 of §4.1 (fixing broken references, pruning done items,
