@@ -68,14 +68,14 @@ kind:              analysis
 domain:            mechanism
 severity:          notable
 status:            open
-noted:             2026-09-14
-closed:            null
-blocked_on:        "a session rooted in each practice set"
-waiting_on:        null
-batch:             source-sets
 disposition:       wait
+blocked_on:        "a session rooted in each practice set"
+batch:             source-sets
 decision:          null
 decision_strength: null
+waiting_on:        null
+noted:             2026-09-14
+closed:            null
 ---
 ## What
 ## How It Closes
@@ -89,14 +89,14 @@ decision_strength: null
 | `domain` | `content` \| `mechanism` \| `null` | is this about the actual deliverable (a practice, a document) or about the machinery that manages it (a check, a hook, a workflow) — see **Domain** below |
 | `severity` | `blocking` \| `notable` \| `minor` \| `null` | optional; how much this matters, for sorting the unblocked-work view — the first field to drop if the frontmatter gets too heavy |
 | `status` | `open` \| `done` \| `dropped` | is it finished |
-| `noted` | `YYYY-MM-DD` | the day this was first written down; must match the date in the filename, checked mechanically — **not** the day anyone reads or reopens the file. Where the true date is unknown, this is a floor (earliest known), and the file's own `## Notes` says so — see **Every Item Has a Date** below |
-| `closed` | `YYYY-MM-DD` or `null` | when `status` became `done` or `dropped` |
-| `blocked_on` | free text or `null` | the stated reason it isn't done now — required unless `status: open` and `kind: analysis` with no blocker, which is itself a finding (see Part 3) |
-| `waiting_on` | a person's name, or `null` | who has to act next — a **label**, not a filing location, and not necessarily the person who will eventually do the work (see **Why Kind, Not Waiting-On** below) |
-| `batch` | free text, or `null` | groups items that are really one job, so they can be swept together — never "project," which this repository (and GitHub itself, via Projects boards) already uses for something else |
 | `disposition` | `wait` \| `ask` \| `parked` | unchanged from [open-item-disposition](../practices/open-item-disposition.md) — whether a session may raise it unprompted |
+| `blocked_on` | free text or `null` | the stated reason it isn't done now — required unless `status: open` and `kind: analysis` with no blocker, which is itself a finding (see Part 3) |
+| `batch` | free text, or `null` | groups items that are really one job, so they can be swept together — never "project," which this repository (and GitHub itself, via Projects boards) already uses for something else |
 | `decision` | free text, or `null` | for `kind: decision` items only — what was decided, in prose, written when `status` becomes `done` (see **When an Item Closes** below) |
 | `decision_strength` | `strong` \| `weak` \| `assented` \| `null` | only set where the item records an approval — see **Decision Strength** below |
+| `waiting_on` | a person's name, or `null` | who has to act next — a **label**, not a filing location, and not necessarily the person who will eventually do the work (see **Why Kind, Not Waiting-On** below) |
+| `noted` | `YYYY-MM-DD` | the day this was first written down; must match the date in the filename, checked mechanically — **not** the day anyone reads or reopens the file. Where the true date is unknown, this is a floor (earliest known), and the file's own `## Notes` says so — see **Every Item Has a Date** below |
+| `closed` | `YYYY-MM-DD` or `null` | when `status` became `done` or `dropped` |
 
 ### The Body Sections
 
