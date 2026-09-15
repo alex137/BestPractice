@@ -45,7 +45,13 @@ approved_by: "Morgan, 2026-09-11 -- coined and placed at universal in the same m
   happen again, fix the tempalte or whatever in precedent\" (strength: decided).
   That the mechanism is a session-start probe, and that the existing
   can_land_here moves down into a vendored file so it reaches adopters at all,
-  were the session's judgement -- he asked for the outcome, not the shape."
+  were the session's judgement -- he asked for the outcome, not the shape.
+  Amended 2026-09-15, Morgan, after a container that had been baking `Go
+  merge` into spawned sessions' seeded prompts started hitting the harness's
+  own classifier -- \"maybe we remove that BUT we have it say very very
+  prominent, bold capitalized, that I need to manually say to merge it,\"
+  confirmed with \"Yes, do both\" once the default above was shown to already
+  cover the removal half (strength: decided)."
 strength:    decided
 source_practice_number: null
 ---
@@ -183,6 +189,24 @@ request and says whose call the merge is. Morgan, 2026-09-13, setting this
 default in his own words -- *"by default you don't; only if I explicitly
 tell you to spawn a session and go merge. If I only saw 'spawn session' then
 assume I need to manually approve the merge."*
+
+**Say the default boundary out loud in the prompt, not just by its
+absence.** A seeded prompt that simply never mentions merging still reads as
+ambiguous to whoever opens it — the receiving session, and the person who
+clicks the link — rather than as a bounded stop. The default-case prompt
+states it directly:
+
+> **DO NOT MERGE — STOP AT THE PULL REQUEST. Wait for the word "Go merge"
+> in this session before merging.**
+
+This is not only a clarity fix. A prompt that bakes in a merge instruction —
+explicit or implied — is what
+[record/GOTCHAS.md#g43](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/record/GOTCHAS.md#g43)
+found the harness's own permission classifier refusing outright, before the
+spawned session ever starts: `[Merge Without Review]`. Stating the stop point
+in the prompt costs nothing extra and happens to sidestep that wall too,
+since there is then genuinely no merge instruction in it to trip the
+classifier on.
 
 **Why the opposite reading is tempting and wrong.** Work somebody asked for
 is usually work they want landed, so a stop at a finished branch looks like
@@ -536,6 +560,22 @@ new phrase names what the command does, where the old one named a property of
 the destination that the person saying it cannot check from where they are
 standing. The rule, the gate and the routing are untouched; only the words
 moved.
+
+**The explicit stop-point line, 2026-09-15.** A container had been baking a
+full merge instruction into `create_session`'s seeded prompt, on the reading
+that a spawned session should carry the same authorization it would have had
+inline. The harness's own permission classifier refused the `create_session`
+call itself over it -- `[Merge Without Review]`, recorded in full as
+[record/GOTCHAS.md#g43](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/record/GOTCHAS.md#g43)
+-- which is what prompted Morgan to ask about it: *"Could it be related to
+the fact that you, in spawning new sessions, a day or two ago, we had it
+include 'go merge'?"* His proposed fix, in his own words: *"maybe we remove
+that BUT we have it say very very prominent, bold capitalized, that I need to
+manually say to merge it."* The session that read this rule found the removal
+half already covered by the 2026-09-13 default above -- nothing needed
+un-baking, since the default was already not to bake it in -- so what was
+missing was only the explicit statement, which he confirmed with *"Yes, do
+both"* once that was shown to him (strength: decided).
 
 ## Install
 Nothing to configure. The occasion index entry above is generated, so an
