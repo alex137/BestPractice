@@ -575,6 +575,41 @@ print((d.get("tool_input") or {}).get("command") or "")' 2>/dev/null || true)"
   sentinel="${TMPDIR:-/tmp}/precedent-freshness-${key}"
   [ -f "$sentinel" ] && exit 0
 
+  # THE RACE THIS CLOSES. `key` is keyed on session_id alone when one
+  # resolves -- which is the normal case -- so every tool call in one turn
+  # computes the SAME sentinel path. When the harness dispatches two calls
+  # concurrently, both processes read `[ -f "$sentinel" ]` as false before
+  # either has written it, and both fall through to `_pre_write_one`, which
+  # runs `git fetch`/`--deepen` against the same `.git` directory at once.
+  # Reproduced 2026-09-15: one of two parallel Bash calls blocked on a
+  # false "diverged" reading (a shallow-clone artifact, record/GOTCHAS.md#g37)
+  # while its sibling call, racing the same checkout, read the correct
+  # counts and passed clean -- same session, same instant, two different
+  # verdicts, because nothing serialized them. flock turns the race into a
+  # queue: a second caller that has to wait re-checks the sentinel on
+  # waking and, finding the first caller already finished it, exits clean
+  # instead of repeating the same git work against a checkout the first
+  # caller may have just changed. Held on an fd, not in a subshell, so a
+  # later `_block`'s plain `exit 2` still releases it as the process exits
+  # normally -- no explicit unlock needed, and no lock this script must
+  # remember to drop on every exit path. Absent `flock` (non-Linux, or a
+  # trimmed container), this falls back to the pre-existing race rather
+  # than blocking the tool call outright -- a guard that cannot lock is not
+  # a guard that must therefore refuse (practice: fail-gracefully).
+  if command -v flock >/dev/null 2>&1; then
+    # `2>/dev/null` on the `exec` line itself is the trap, not the fix: bash
+    # applies an `exec` with no command's redirections to the CURRENT SHELL,
+    # permanently -- not scoped to this statement -- so it would silence
+    # every later `echo ... >&2` in the rest of this process for the rest of
+    # its run, not just a failed lock open. Proven with a two-line repro
+    # where a stderr line AFTER the function that ran `exec 2>/dev/null`
+    # inside it also went missing. `flock`'s own `2>/dev/null` is a normal
+    # external command's redirection and stays scoped to that command.
+    exec 9>"${sentinel}.lock"
+    flock -x -w 30 9 2>/dev/null
+    [ -f "$sentinel" ] && exit 0
+  fi
+
   _in_git || { : > "$sentinel"; exit 0; }
 
   if [ "$(_git config --get precedent.freshness.override 2>/dev/null || true)" = "true" ]; then
