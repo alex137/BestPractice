@@ -55,9 +55,58 @@ The supplied workflow:
 
 The linter determines which Markdown files changed relative to the repository's default branch. A full-history checkout is therefore required.
 
+## Controlling Actions Minutes
+
+**`precedent_install.py` does not install this workflow by default (2026-09-15).**
+GitHub Actions minutes are metered per PRIVATE repository and billed per
+run, rounded up to the minute. Vendoring Precedent into many private repos
+and committing the way a save button gets used means paying for a workflow
+run on every one of those saves, whether the check was wanted or not — and
+that adds up fastest for exactly the person most likely to be running it
+everywhere.
+
+So the installer resolves `"ci_workflows"` from the individual or team
+source it can reach ([tools/precedent_identity.py](tools/precedent_identity.py)'s
+`ci_preference()`, same resolution order as `relayed_authorization`: the
+repo's own `identity.json` when it IS an individual source, else the one
+the user-level config names) and installs the workflow only when that
+value is exactly `"enabled"`. Nothing declared resolves to disabled — the
+engine's own default, applied silently
+([declared-default-is-applied](practices/declared-default-is-applied.md)) —
+and the install log and the project's own `GETTING_STARTED.md` both say so,
+naming the field and where to set it. **This only changes what
+`precedent_install.py` writes by default.** The template is always there to
+copy in by hand, on any one repo, whatever the field says.
+
+**Two more levers, once the workflow is installed at all:**
+
+- **`concurrency` with `cancel-in-progress: true`** ships in
+  [doc-lint.yml.template](templates/github-actions/doc-lint.yml.template)
+  itself now: if a second run starts on the same branch while an earlier
+  one is still going, GitHub cancels the earlier one instead of billing
+  both. It only helps the *overlap* case — two pushes closer together than
+  one run takes (well under a minute here) — so it is a real but small
+  saving for a steady stream of spaced-out saves, not the fix for that
+  case.
+- **A scheduled cadence instead of per-push billing** —
+  [doc-lint-scheduled.yml.template](templates/github-actions/doc-lint-scheduled.yml.template) —
+  is the actual fix for a repo pushed to constantly, direct to its default
+  branch, with no pull request in the loop: however many saves land in one
+  window, they cost one run. It is **not** installed by either default —
+  `precedent_install.py` never writes it, and turning `ci_workflows` on
+  does not choose it over the per-push template — because a `schedule:`
+  is a clock in somebody else's repository that they never picked (this
+  file's own Limits section says the same about an inherited schedule).
+  Copy it over `bestpractice-docs.yml` deliberately, and set your own cron
+  cadence in it; its header explains why it gates the whole tracked
+  Markdown corpus each run rather than "what changed", and what that
+  trades away.
+
 ## Install in a Dependent Repository
 
-During Precedent installation, copy:
+`precedent_install.py` (INSTALL.md §0) does this automatically, when it is
+this repo's turn per "Controlling Actions Minutes" above. For a manual or
+§1-style install, copy:
 
 ```text
 process/upstream/templates/github-actions/doc-lint.yml.template

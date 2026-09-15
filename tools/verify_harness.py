@@ -17864,12 +17864,22 @@ def check_installer_produces_a_clean_install():
         cases.append(('AGENTS.md carries the generated loader block with the resident set in it',
                       bv.BEGIN_MARKER in agents and 'verify-postcondition' in agents, agents[:300]))
         gs = (proj / 'GETTING_STARTED.md').read_text(encoding='utf-8') if (proj / 'GETTING_STARTED.md').is_file() else ''
-        cases.append(('GETTING_STARTED.md has the project name, the administrator and the upstream '
-                      'docs filled in, and names the workflow file the install actually wrote',
-                      'Field Notes' in gs and '@dana' in gs and '<upstream-docs>' not in gs
-                      and 'bestpractice-docs.yml' in gs
-                      and (proj / '.github' / 'workflows' / 'bestpractice-docs.yml').is_file(),
+        cases.append(('GETTING_STARTED.md has the project name and the administrator filled in, '
+                      'and no dead upstream-docs placeholder',
+                      'Field Notes' in gs and '@dana' in gs and '<upstream-docs>' not in gs,
                       gs[:400]))
+        # No individual source resolves here (PRECEDENT_USER_CONFIG points at
+        # a file that does not exist), so ci_preference() has nothing to read
+        # and the engine's own default -- disabled -- applies (practice:
+        # declared-default-is-applied). Minutes cost money on a private repo;
+        # nothing declared should not silently opt an adopter into paying for
+        # a workflow they never asked for.
+        cases.append(('nothing declares ci_workflows, so the installer does NOT write the '
+                      'GitHub Actions workflow, and says so in GETTING_STARTED.md',
+                      not (proj / '.github' / 'workflows' / 'bestpractice-docs.yml').exists()
+                      and 'No GitHub Actions workflow was installed' in gs
+                      and 'ci_workflows' in gs,
+                      gs[:600]))
         settings = proj / '.claude' / 'settings.json'
         stext = settings.read_text(encoding='utf-8') if settings.is_file() else ''
         cases.append(('the adapter is wired with no classic-layout allowlist entry, and every '
@@ -17900,6 +17910,63 @@ def check_installer_produces_a_clean_install():
         cases.append(('a directory that is not a git repository is refused with its own message',
                       r.returncode == 1 and 'not the root of a git repository' in r.stderr,
                       r.stderr[:300]))
+
+        # The other direction (practice: control-asserts-which-failure -- a
+        # guard that can only say no is not proven by the no-case alone).
+        # A declared individual source with ci_workflows: enabled should get
+        # the workflow installed, with the concurrency block in it, and
+        # GETTING_STARTED.md should carry the "on" paragraph instead.
+        indiv = tmp / 'indiv-ci-on'
+        indiv.mkdir()
+        (indiv / 'practices').mkdir()
+        (indiv / 'practices' / 'fixture-only.md').write_text(
+            '---\n'
+            'slug:        fixture-only\n'
+            'title:       "Fixture only"\n'
+            'tier:        on-demand\n'
+            'severity:    default\n'
+            'applies_to:  []\n'
+            'occasion:    "never -- this source exists only to give this fixture a '
+            'non-empty practices/ directory"\n'
+            'gates:       []\n'
+            'index_clause: "fixture only, never routed for real"\n'
+            'checked_by:  null\n'
+            'defines:     []\n'
+            'status:      active\n'
+            'in_force_at: null\n'
+            'supersedes:  []\n'
+            'overrides:   null\n'
+            'added:       null\n'
+            'approved_by: "fixture"\n'
+            '---\n'
+            '## Rule\n'
+            'Fixture only; never loaded for real.\n',
+            encoding='utf-8')
+        (indiv / 'identity.json').write_text(json.dumps({
+            'format_version': 1, 'name': 'Dana', 'email': 'dana@example.com',
+            'ci_workflows': 'enabled',
+        }), encoding='utf-8')
+        user_cfg = tmp / 'user-config-ci-on.json'
+        user_cfg.write_text(json.dumps({'individual': {'path': str(indiv)}}), encoding='utf-8')
+        proj2 = tmp / 'proj2'
+        proj2.mkdir()
+        git(proj2.parent, 'init', '-q', '-b', 'main', str(proj2))
+        git(proj2, 'config', 'user.email', 'harness@example.com')
+        git(proj2, 'config', 'user.name', 'Fixture')
+        (proj2 / 'README.md').write_text('# Second Notes\n', encoding='utf-8')
+        git(proj2, 'add', '-A')
+        git(proj2, 'commit', '-qm', 'the second project before Precedent')
+        env2 = dict(env, PRECEDENT_USER_CONFIG=str(user_cfg))
+        r = subprocess.run([sys.executable, tool, str(proj2), '--project-name', 'Second Notes',
+                            '--admin', 'dana'], cwd=str(ROOT), capture_output=True, text=True, env=env2)
+        wf2 = proj2 / '.github' / 'workflows' / 'bestpractice-docs.yml'
+        gs2 = (proj2 / 'GETTING_STARTED.md').read_text(encoding='utf-8') if (proj2 / 'GETTING_STARTED.md').is_file() else ''
+        cases.append(('a declared ci_workflows: enabled installs the workflow WITH its '
+                      'concurrency block, and GETTING_STARTED.md carries the "on" paragraph',
+                      r.returncode == 0 and wf2.is_file()
+                      and 'concurrency:' in wf2.read_text(encoding='utf-8')
+                      and 'A Markdown check runs on every pull request' in gs2,
+                      (r.stdout + r.stderr)[-500:]))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 

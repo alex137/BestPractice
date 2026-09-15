@@ -35,6 +35,16 @@ the team/individual question is a conversation with the administrator
 first. And it does not run the freshness guard or any session hook -- those
 run in the project's own sessions from then on.
 
+IT DOES NOT INSTALL THE GITHUB ACTIONS WORKFLOW EITHER, unless the
+individual or team source it resolves declares `"ci_workflows": "enabled"`
+in identity.json (2026-09-15, reversing the previous unconditional
+install). GitHub Actions minutes are metered per PRIVATE repository and
+billed per run, rounded up to the minute; installing the workflow into
+every dependent repo by default charges an adopter who vendors Precedent
+into many private repos for checks they never asked to run. Nothing
+declared resolves to disabled -- the tool still names the reason in its
+output and in the project's own GETTING_STARTED.md. See GITHUB_ACTIONS.md.
+
 Exit 0 when the install completed and the lint of the written files passed;
 exit 1 when it refused (already installed, not a git repository) or a step
 failed; the message says which.
@@ -51,6 +61,7 @@ import sys
 ROOT = pathlib.Path(__file__).resolve().parents[1]      # the Precedent clone
 sys.path.insert(0, str(ROOT / 'tools'))
 import precedent_time  # noqa: E402  (practice: timestamps-carry-offset)
+import precedent_identity  # noqa: E402
 TEMPLATES = ROOT / 'templates'
 UPSTREAM_URL = 'https://github.com/alex137/BestPractice'
 UPSTREAM_DOCS = f'{UPSTREAM_URL}/blob/main'
@@ -178,13 +189,58 @@ def _write_precedent_json(dest, base_branch, visibility, output_paths, teams, fo
     return path
 
 
+def _ci_preference(dest):
+    """(enabled: bool, note: str) -- whether precedent_install.py should
+    write the GitHub Actions workflow, and a one-line reason for the log.
+    practice: declared-default-is-applied -- nothing here asks; absent
+    resolves to the engine's own default, which is disabled."""
+    try:
+        pref = precedent_identity.ci_preference(dest)
+    except precedent_identity.NoDeclaredIdentity:
+        return False, ('no individual source declares ci_workflows -- '
+                        "disabled by default (GITHUB_ACTIONS.md)")
+    if pref['enabled']:
+        return True, f"ci_workflows: enabled ({pref['source']})"
+    shown = pref['value'] or '(absent)'
+    return False, f"ci_workflows: {shown} ({pref['source']})"
+
+
 def _substitute(text, subs):
     for old, new in subs.items():
         text = text.replace(old, new)
     return text
 
 
-def _instantiate_root_files(dest, project, owner_repo, admin, base_branch, force):
+_CI_PARAGRAPH_ON = (
+    "- **A Markdown check runs on every pull request** (the GitHub Actions\n"
+    "  workflow `bestpractice-docs.yml`) and catches a couple of specific formatting mistakes before\n"
+    "  they reach the shared project. It needs no maintenance. If it doesn't\n"
+    "  appear on a pull request's checks, GitHub Actions may be disabled for\n"
+    "  this repository — an administrator can turn it on at repository\n"
+    "  **Settings → Actions**. Details:\n"
+    f"  [GITHUB_ACTIONS.md]({UPSTREAM_DOCS}/GITHUB_ACTIONS.md)."
+)
+
+
+def _ci_paragraph_off():
+    # practice: github-setup-disclosed -- the workflow this install did NOT
+    # write is exactly the kind of GitHub-specific fact this section exists
+    # to name, not just log internally.
+    return (
+        "- **No GitHub Actions workflow was installed.** Precedent's Markdown\n"
+        "  check ships as a template but is off by default — GitHub Actions\n"
+        "  minutes are metered per private repository and billed in whole-minute\n"
+        "  increments per run, so installing it unconditionally charges every\n"
+        "  adopter for a check they may not want on every push. Turn it on by\n"
+        "  declaring `\"ci_workflows\": \"enabled\"` in the individual or team\n"
+        "  source this project resolves, then re-run the installer with `--force`\n"
+        "  — or copy the template in by hand any time. Details, including a\n"
+        "  lower-cost scheduled variant for a project pushed to very frequently:\n"
+        f"  [GITHUB_ACTIONS.md]({UPSTREAM_DOCS}/GITHUB_ACTIONS.md)."
+    )
+
+
+def _instantiate_root_files(dest, project, owner_repo, admin, base_branch, ci_enabled, force):
     written, skipped = [], []
     today = precedent_time.today(ROOT)  # practice: timestamps-carry-offset
     common = {
@@ -213,6 +269,7 @@ def _instantiate_root_files(dest, project, owner_repo, admin, base_branch, force
         },
         'VOICE.md': {'process/upstream/': 'the upstream Precedent repository '},
         'STYLEGUIDE.md': {'process/upstream/': 'the upstream Precedent repository '},
+        'GETTING_STARTED.md': {} if ci_enabled else {_CI_PARAGRAPH_ON: _ci_paragraph_off()},
     }
     for name, tmpl in ROOT_FILES.items():
         target = dest / name
@@ -310,7 +367,7 @@ def _harness(dest, base_branch, force):
     return note, sorted(set(wired))
 
 
-def _bootstrap_and_ci(dest, force):
+def _bootstrap_and_ci(dest, ci_enabled, ci_note, force):
     out = []
     tools = dest / 'tools'
     tools.mkdir(exist_ok=True)
@@ -319,11 +376,15 @@ def _bootstrap_and_ci(dest, force):
         shutil.copy2(TEMPLATES / 'bootstrap.sh', b)
         os.chmod(b, 0o755)
         out.append('tools/bootstrap.sh: written')
+    (dest / '.github').mkdir(exist_ok=True)
     wf = dest / '.github' / 'workflows' / 'bestpractice-docs.yml'
-    wf.parent.mkdir(parents=True, exist_ok=True)
-    if not wf.exists() or force:
-        shutil.copy2(TEMPLATES / 'github-actions' / 'doc-lint.yml.template', wf)
-        out.append('.github/workflows/bestpractice-docs.yml: written')
+    if ci_enabled:
+        wf.parent.mkdir(parents=True, exist_ok=True)
+        if not wf.exists() or force:
+            shutil.copy2(TEMPLATES / 'github-actions' / 'doc-lint.yml.template', wf)
+            out.append(f'.github/workflows/bestpractice-docs.yml: written ({ci_note})')
+    else:
+        out.append(f'.github/workflows/bestpractice-docs.yml: NOT written -- {ci_note}')
     pr = dest / '.github' / 'pull_request_template.md'
     if not pr.exists() or force:
         text = (TEMPLATES / 'pull_request_template.md.template').read_text(encoding='utf-8')
@@ -395,6 +456,7 @@ def install(dest, project, about=None, base_branch=None, visibility='private',
     owner, repo = _remote_owner_repo(dest)
     owner_repo = f'{owner}/{repo}' if owner else None
     admin = admin or owner
+    ci_enabled, ci_note = _ci_preference(dest)
 
     say(f'installing Precedent into {dest}')
     say(f'  base branch: {branch} ({how})')
@@ -405,13 +467,13 @@ def install(dest, project, about=None, base_branch=None, visibility='private',
     say(f'  {_seed_engine(dest)}')
     _write_precedent_json(dest, branch, visibility, output_paths, teams, force)
     say('  wrote precedent.json')
-    written, skipped = _instantiate_root_files(dest, project, owner_repo, admin, branch, force)
+    written, skipped = _instantiate_root_files(dest, project, owner_repo, admin, branch, ci_enabled, force)
     say(f'  instantiated: {", ".join(written)}' + (f' (kept existing: {", ".join(skipped)})' if skipped else ''))
     say(f'  {_readme(dest, project, about)}')
     say(f'  {_gitignore(dest)}')
     note, wired = _harness(dest, branch, force)
     say(f'  {note}; hooks: {", ".join(wired)}')
-    for line in _bootstrap_and_ci(dest, force):
+    for line in _bootstrap_and_ci(dest, ci_enabled, ci_note, force):
         say(f'  {line}')
 
     r = _run([sys.executable, 'tools/precedent_sync_views.py', '--repo', '.'], dest)
