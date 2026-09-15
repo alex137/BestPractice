@@ -6,7 +6,7 @@ severity:    default
 applies_to:  ["**"]
 occasion:    "a message carries a standing merge-authorization phrase"
 gates:       ["merge"]
-index_clause: "\"Go merge\"/\"Approved\"/\"Go update\": trivial -> direct push; else sync, branch, PR, merge"
+index_clause: "\"Go merge\"/\"Approved\"/\"Go update\": trivial -> push; else sync, branch, PR, merge"
 checked_by:  null
 defines:     ["Go merge", "Approved", "Go update"]
 command:     {"Go merge": "Save the work, publish it, and tell you where it went — without asking anything further.", "Approved": "The same as **Go merge**: save the work, publish it, and tell you where it went.", "Go update": "The same as **Go merge**: save the work, publish it, and tell you where it went."}
