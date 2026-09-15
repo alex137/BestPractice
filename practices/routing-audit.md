@@ -3,6 +3,7 @@ slug:        routing-audit
 title:       The routing audit checks coverage, not content
 tier:        on-demand
 severity:    default
+scope:       engine-dev
 applies_to:  ["**"]
 occasion:    "checking whether the practices that should have fired for recent work actually fired"
 gates:       []
