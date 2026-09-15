@@ -187,6 +187,12 @@ Run:
   python3 tools/very_deep_check.py --ledger PATH
       -- read and write the run ledger somewhere else (a fixture, or a
       second repository's own ledger).
+  python3 tools/very_deep_check.py --branch-report PATH
+      -- write the branch sweep's committable Markdown (every merged,
+      merged-elsewhere and unmerged branch, one clickable delete or
+      compare link per row) somewhere other than the checked repo's own
+      record/stale-branches.md. Written on every run that does not pass
+      --skip-branch-scan; this only relocates it.
 Exit: 1 if any repo in force is not provably current (unless --allow-stale),
 or if a declared team/individual source is missing (unless
 --allow-missing-sources); 0 otherwise.
@@ -651,6 +657,30 @@ def _merge_base_resolves(repo_dir, target_ref, ref):
     return rc == 0 and bool(out.strip())
 
 
+def _github_slug(repo_dir):
+    """-> 'owner/repo' for repo_dir's origin, or None when it is not GitHub.
+
+    Shared by every URL-builder below -- _branch_url and _compare_url both
+    need exactly this parse and used to each carry their own copy."""
+    rc, url, _ = _run_git(repo_dir, 'config', '--get', 'remote.origin.url')
+    if rc != 0 or not url:
+        return None
+    url = url.strip()
+    if url.endswith('.git'):
+        url = url[:-4]
+    if 'github.com' not in url:
+        return None
+    # Both remote forms -- the https one, and the SSH one whose host is
+    # written with a user@ prefix and a colon before the owner. Spelled
+    # out rather than shown: the literal example is email-shaped, and
+    # the leak gate's secret-scan correctly refuses it in a tracked file.
+    tail = url.split('github.com', 1)[1].lstrip(':/')
+    parts = [x for x in tail.split('/') if x]
+    if len(parts) >= 2:
+        return f'{parts[0]}/{parts[1]}'
+    return None
+
+
 def _branch_url(repo_dir, branch):
     """-> a URL that lands on GitHub's branches page filtered to `branch`,
     where the Delete button is, or None when the remote is not GitHub.
@@ -664,26 +694,30 @@ def _branch_url(repo_dir, branch):
 
     Parsed from the remote rather than assumed: a repository whose origin is
     not GitHub gets no link instead of a wrong one."""
-    rc, url, _ = _run_git(repo_dir, 'config', '--get', 'remote.origin.url')
-    if rc != 0 or not url:
-        return None
-    url = url.strip()
-    if url.endswith('.git'):
-        url = url[:-4]
-    slug = None
-    if 'github.com' in url:
-        # Both remote forms -- the https one, and the SSH one whose host is
-        # written with a user@ prefix and a colon before the owner. Spelled
-        # out rather than shown: the literal example is email-shaped, and
-        # the leak gate's secret-scan correctly refuses it in a tracked file.
-        tail = url.split('github.com', 1)[1].lstrip(':/')
-        parts = [x for x in tail.split('/') if x]
-        if len(parts) >= 2:
-            slug = f'{parts[0]}/{parts[1]}'
+    slug = _github_slug(repo_dir)
     if not slug:
         return None
     return (f'https://github.com/{slug}/branches/all?query='
             + urllib.parse.quote(branch, safe=''))
+
+
+def _compare_url(repo_dir, target, branch):
+    """-> a GitHub compare-view URL for `branch` against `target`, or None
+    when the remote is not GitHub.
+
+    Pass 4's spec (item 2 of the four things an unmerged branch is written up
+    with, practice: very-deep-check) wants a link on every unmerged row: its
+    most recent pull request when one exists, else "the branch's own compare
+    view". This offline scan has no GitHub API access to look up a PR (see
+    scan_branches' own docstring), so it can only ever produce the fallback
+    -- the compare view is what it links, always, rather than silently
+    omitting the row's link because the better one is out of reach."""
+    slug = _github_slug(repo_dir)
+    if not slug:
+        return None
+    return (f'https://github.com/{slug}/compare/'
+            + urllib.parse.quote(target, safe='')
+            + '...' + urllib.parse.quote(branch, safe=''))
 
 
 def _orphan_scan(repo_dir):
@@ -3863,6 +3897,153 @@ def _record_pass(value, path=None, repo=None):
     return 0
 
 
+# Where the branch sweep's own write-up lands, same reasoning and same
+# per-repo anchoring as LEDGER_RELPATH just above: the file describes the
+# REPO BEING CHECKED, not this engine's own checkout, so a fixture that
+# points --repo at a scratch directory must write there, never here.
+BRANCH_REPORT_RELPATH = pathlib.Path('record') / 'stale-branches.md'
+
+
+def branch_report_path_for(repo_root=None):
+    return pathlib.Path(repo_root or ROOT) / BRANCH_REPORT_RELPATH
+
+
+def _write_branch_report(branch_scans, out_path, repo_root):
+    """Write `branch_scans` (the same dict the console BRANCHES section
+    prints, and --json's 'branches' key) to `out_path` as committable
+    Markdown, with a real clickable link on every row.
+
+    WHY A FILE, NOT JUST THE PRINTED SECTION (practice: very-deep-check,
+    pass 4). The console section already lists every merged-and-stale,
+    merged-and-recent, merged-elsewhere and unmerged branch, one repo at a
+    time, with a link under each row -- everything asked for is already
+    computed. What is missing is durability: a run's stdout lives in that
+    session's chat transcript, which is disposable (practice:
+    repo-is-memory), so a person who wants the list later has to ask a
+    session to re-run the whole check and scroll to find it again, or hope
+    it was pasted somewhere. A committed file is a page they can open and
+    click links on directly.
+
+    Every branch is written here exactly as the console prints it --
+    whoever last touched it, not filtered to the person running the check
+    (practice: very-deep-check's `_branch_meta` docstring: "you do not
+    delete somebody else's branch" is why the author is named, never why a
+    row is dropped)."""
+    out_path = pathlib.Path(out_path)
+    lines = []
+    lines.append('# Stale and unmerged branches')
+    lines.append('')
+    lines.append('<!-- GENERATED by tools/very_deep_check.py -- never '
+                 'hand-edit. Regenerated on every `very_deep_check.py` run '
+                 'that does not pass --skip-branch-scan; run it again and '
+                 'commit the result to refresh this file. Source: '
+                 'practices/very-deep-check.md, pass 4. -->')
+    lines.append('')
+    lines.append(f'Generated {precedent_time.stamp_iso(repo_root)}, '
+                 f'sweeping this checkout plus every source its '
+                 f'`precedent.json` declares. A repo-local source living '
+                 f'inside the parent checkout shares its parent\'s '
+                 f'branches and is not swept separately; every other '
+                 f'declared source that is its own git checkout is -- '
+                 f'whoever last touched a branch, not only the person who '
+                 f'ran this check.')
+    lines.append('')
+
+    def _row(r, path, show_into):
+        age = (f"last commit {r['last']}, {r['age_days']} day(s) old"
+               if r['last'] else "last commit date unreadable in this clone")
+        who = f", last touched by {r['author']}" if r.get('author') else ''
+        into = (f", merged into `{r['into']}`"
+                if show_into and r.get('into') else '')
+        lines.append(f"- **`{r['name']}`** -- {age}{who}{into}")
+        url = _branch_url(path, r['name'])
+        if url:
+            lines.append(f"  [Delete branch →]({url})")
+
+    def _section(title, rows, empty_note, path, show_into=False):
+        lines.append(f'### {title}')
+        lines.append('')
+        if not rows:
+            lines.append(empty_note)
+            lines.append('')
+            return
+        for r in rows:
+            _row(r, path, show_into)
+        lines.append('')
+
+    for name, scan in branch_scans.items():
+        lines.append(f'## {name}')
+        lines.append('')
+        if scan is None:
+            lines.append('Not its own git checkout, or its integration '
+                         'branch could not be resolved -- skipped.')
+            lines.append('')
+            continue
+        path = scan.get('path')
+        lines.append(f"Repository: `{path}`  \nIntegration branch: "
+                     f"`{scan['target']}`")
+        lines.append('')
+        incomplete = scan.get('unreachable') or scan.get('unfetched')
+        empty = ('(none)' if not incomplete
+                 else '(CANNOT TELL -- see the incomplete-scan note below)')
+        sd = scan.get('stale_days') or STALE_DAYS_DEFAULT
+        stale = [r for r in scan['merged'] if r.get('stale')]
+        recent = [r for r in scan['merged'] if not r.get('stale')]
+
+        _section(f'Merged and STALE (>= {sd} days) -- safest deletions '
+                 f'here', stale, empty, path)
+        _section(f'Merged, not deleted, still recent (< {sd} days) -- '
+                 f'same proof, but someone may still have it checked out',
+                 recent, empty, path)
+
+        others = [b for b in scan.get('protected', []) if b != scan['target']]
+        elsewhere = scan.get('merged_elsewhere') or []
+        if others:
+            _section(f"Merged into {', '.join(f'`{o}`' for o in others)} "
+                     f"but NOT into `{scan['target']}` -- equally proven "
+                     f"safe to delete; their work is finished elsewhere",
+                     elsewhere, empty, path, show_into=len(others) > 1)
+
+        lines.append('### NOT merged anywhere -- needs a verdict (merge or '
+                     'close), not a deletion')
+        lines.append('')
+        if scan['unmerged']:
+            for r in scan['unmerged']:
+                ahead = f", {r['ahead']} commit(s) ahead" if r.get('ahead') is not None else ''
+                who = f", last touched by {r['author']}" if r.get('author') else ''
+                age = f", last commit {r['last']}" if r['last'] else ''
+                lines.append(f"- **`{r['name']}`**{ahead}{age}{who}")
+                lines.append(f"  {r['verdict']}")
+                for label, url in (('Branches page', _branch_url(path, r['name'])),
+                                   ('Compare view',
+                                    _compare_url(path, scan['target'], r['name']))):
+                    if url:
+                        lines.append(f"  [{label} →]({url})")
+        else:
+            lines.append(empty)
+        lines.append('')
+
+        if scan.get('unreachable'):
+            lines.append(f"**INCOMPLETE SCAN:** {scan['unreachable']}. "
+                         f"Treat every list above as partial, not as clean.")
+            lines.append('')
+        elif scan.get('unfetched'):
+            n = len(scan['unfetched'])
+            shown = ', '.join(scan['unfetched'][:5])
+            more = f' (+{n - 5} more)' if n > 5 else ''
+            lines.append(f"**INCOMPLETE SCAN:** {n} branch(es) on origin "
+                         f"were never fetched into this clone and so were "
+                         f"NOT judged: {shown}{more}. Treat every list "
+                         f"above as partial, not as clean. Run "
+                         f"`git -C {path} fetch --depth=50 origin` and "
+                         f"re-run this check.")
+            lines.append('')
+
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_text('\n'.join(lines).rstrip() + '\n', encoding='utf-8')
+    return out_path
+
+
 def _exit(message):
     print(message, file=sys.stderr)
     return 1
@@ -3935,6 +4116,13 @@ def _main(box):
         if i + 1 >= len(args):
             sys.exit("very deep check FAIL: --ledger needs a path.")
         ledger_path = pathlib.Path(args[i + 1])
+        args = args[:i] + args[i + 2:]
+    branch_report_path = None   # default: the checked repo's own report
+    if '--branch-report' in args:
+        i = args.index('--branch-report')
+        if i + 1 >= len(args):
+            sys.exit("very deep check FAIL: --branch-report needs a path.")
+        branch_report_path = pathlib.Path(args[i + 1])
         args = args[:i] + args[i + 2:]
     if record_pass is not None:
         return _record_pass(record_pass, ledger_path, repo)
@@ -4173,6 +4361,7 @@ def _main(box):
     # added to that section's row, so the ledger's cost column is about the
     # work and not about where the text happened to be printed.
     _scan_secs = 0.0
+    _branch_report_path = None
     if not skip_branch_scan:
         _scan_t0 = time.monotonic()
         _, checkout_branch, _ = _run_git(repo_root, 'rev-parse', '--abbrev-ref', 'HEAD')
@@ -4194,6 +4383,12 @@ def _main(box):
                 s['path'], exclude=(src_branch,) if src_branch else (),
                 stale_days=stale_days)
         _scan_secs = round(time.monotonic() - _scan_t0, 2)
+        # Written every time the scan runs, --json included, so the
+        # committable list is never behind whatever the console happened to
+        # print (practice: very-deep-check, pass 4; repo-is-memory).
+        _branch_report_path = _write_branch_report(
+            branch_scans, branch_report_path or branch_report_path_for(repo_root),
+            repo_root)
 
     # THE REPO SIDE of the live-session sweep, gathered here beside the
     # branch scan because it reads the same clones and asks the neighbouring
@@ -4908,6 +5103,10 @@ def _main(box):
               "clutter; an unmerged branch nobody decided about is lost work, and\n"
               "the second costs more. Every branch below needs a verdict -- see\n"
               "practices/very-deep-check.md:\n")
+        if _branch_report_path:
+            print(f"Also written, with a clickable delete link on every row, to "
+                  f"{_branch_report_path} -- commit it, then work from that page "
+                  f"instead of this transcript.\n")
         for name, scan in branch_scans.items():
             if scan is None:
                 print(f"{name}: not its own git checkout, or integration "

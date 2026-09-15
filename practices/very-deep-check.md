@@ -87,7 +87,12 @@ approved_by: "extended 2026-09-14, Morgan F -- after a session was refused by
   rehearses a practice moved between levels and pass 3 reads every document
   that describes a mechanism against what that mechanism does now -- \"does
   very deep check do a read of the documentation to make sure it's
-  consistent with how it works now? If not add that too\""
+  consistent with how it works now? If not add that too\";
+  extended 2026-09-15, Morgan (strength: decided), so the branch sweep's
+  list is written to a committable file with a clickable link on every row
+  instead of only being printed, after two Sunday runs produced it and he
+  never saw it -- \"it should put those links in the document it creates
+  so I can just go there and click - it shouldn't live in the chat\""
 ---
 ## Rule
 When a person explicitly asks for a "very deep check", or after work that
@@ -947,6 +952,20 @@ Last because none of it strands an adopter, and none of it is cheap.
   settles by looking, not the source's level. A vendored tree inside the
   parent has no branches of its own; a sibling clone has plenty.
 
+  **The list is also written to a file, not only printed.** A run's stdout
+  is that session's chat transcript, which [repo-is-memory](repo-is-memory.md)
+  already names as disposable — a person reading a run days later had
+  nothing to open but a scrollback nobody kept. `_write_branch_report()`
+  writes the same sweep, one clickable delete link (or, for an unmerged
+  branch, a branches-page link and a compare-view link) per row, to
+  `record/stale-branches.md` in the checked repo — regenerated on every run
+  that does not pass `--skip-branch-scan`, and relocatable with
+  `--branch-report PATH`. Commit the result so the links are live on the
+  branch a person actually opens, the same way `MAP.md` and the ledger are
+  committed rather than left as a run's private output (Morgan, reading a
+  Sunday run that had produced the list twice and shown it neither time:
+  *"it shouldn't live in the chat"*).
+
   *Merged and not deleted* — every branch fully merged into that repo's
   integration branch and still sitting there: a mechanical, offline fact
   (`git merge-base --is-ancestor`), true whether or not GitHub's own
@@ -1612,3 +1631,18 @@ different form: building a fresh install and a migration and then judging
 what the documents failed to say is not a thing a script can assert about
 itself, and a scripted install would test the script rather than the
 instructions an adopter actually follows.
+
+**The report file was Morgan's, 2026-09-15**, and it named a run that had
+already happened twice without it: he asked for the branch sweep across
+this repo and every vendored one, "including links... so I can delete
+them," and could not point to having received it from the Sunday run —
+"I don't remember getting that when we ran it on Sunday (and I ran it
+twice on Sunday — the second one short but the first time long)." The
+sweep and its links were not missing; the ANSWER was, because it existed
+only in that Sunday session's own transcript and nobody carried it
+forward. **The fix is not a smarter sweep — `scan_branches` and
+`_branch_url` already computed everything asked for — it is a place for
+the answer to live that isn't a chat window**: `_write_branch_report()`
+writes the same rows to `record/stale-branches.md`, committed like
+`MAP.md` or the run ledger, so the next person who wants the list opens a
+page instead of asking a session to reproduce one.
