@@ -81,7 +81,7 @@ that.** The test is whether a session has to run it to land work. Something
 that gates a commit, a push, or a merge is one of these two levels and must
 fold into one of the two names; something a person asks for by name, that no
 gate ever waits on, is a separate mechanism and gets its own name — this
-repo's own [very-deep-check](very-deep-check.md) is exactly that, and is
+repo's own [very-deep-check](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/very-deep-check.md) is exactly that, and is
 named separately for exactly that reason. What this rule forbids is a third
 *gate*, because that is what puts a session in the position of guessing which
 checks it must run before it can commit.

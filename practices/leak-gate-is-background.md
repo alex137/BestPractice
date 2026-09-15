@@ -33,7 +33,7 @@ Two things this does not cover, and both still get said plainly:
 
 - **A real hit.** A gate failing a push is a finding, not a reminder — say
   what it caught, and stop.
-- **The deep review.** [very-deep-check](very-deep-check.md)'s
+- **The deep review.** [very-deep-check](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/very-deep-check.md)'s
   repository-visibility pass is where the recommendations belong, and its
   `RECOMMENDATION:` lines are meant to be read there.
 

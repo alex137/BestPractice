@@ -19896,10 +19896,18 @@ def check_public_consumer_does_not_materialize_private_text():
         # merge-authorization-keyword), reporting a real, intended omission
         # as private-text filtering. (practice: verify-decomposition -- the
         # count was right, what it counted was not.)
+        # Same reasoning as the status exclusion above, one axis over:
+        # scope: engine-dev is a SECOND, deliberate reason a practice never
+        # materializes into a consumer, orthogonal to status. Added when
+        # that field landed -- this assertion would otherwise fail the
+        # moment any practice declared it, exactly as it did for the first
+        # retired/deduplicated practice.
         universal = sorted(
             f.name for f in PRACTICES_DIR.glob('*.md')
             if not re.search(r'^status:\s*(retired|deduplicated)\s*$',
-                             f.read_text(encoding='utf-8'), re.M))
+                             f.read_text(encoding='utf-8'), re.M)
+            and not re.search(r'^scope:\s*engine-dev\s*$',
+                              f.read_text(encoding='utf-8'), re.M))
 
         results.append(('a public consumer materializes no private practice file',
                         'private-only.md' not in pub_tree))
