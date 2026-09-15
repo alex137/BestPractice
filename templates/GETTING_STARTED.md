@@ -88,8 +88,31 @@ The most complete experience, on web, desktop, or phone. *(As of
 3. Ask your first question, e.g.: *"Review the project context, then tell
    me what needs my attention."*
 
-Claude Code reads the project's instruction files automatically. Nothing
-else to set up.
+Claude Code reads the project's instruction files automatically — nothing
+else to set up for that. **Two things are per-person, though, and neither
+happens on its own:**
+
+- **Your own settings.** Your name and timezone on the commits Claude
+  makes for you, and — if you or your team have one — your own practices
+  repository. [PER_MACHINE_SETUP.md](<upstream-docs>/PER_MACHINE_SETUP.md)
+  is the full copy-paste list; the short version is **environment
+  variables** (settings that live on your Claude account, not in this
+  repository), added at `claude.ai/code` → the environment this project
+  runs in → its **environment variables** page. *(Click-path as of
+  2026-09-11 — Anthropic's own guide at
+  [code.claude.com/docs/en/claude-code-on-the-web](https://code.claude.com/docs/en/claude-code-on-the-web)
+  is the place to check if it's moved.)*
+- **If you'd rather not set those, ask Claude directly instead.** In your
+  first message, say something like: *"Please connect to `<your team's or
+  your own practices repository>`."* Claude can attach read access to it
+  for that one session — the same thing the environment variables do
+  automatically, every session, without asking. This only works when that
+  repository is owned by the same GitHub account as this project; a
+  repository under a different account needs the environment-variable
+  route above instead. Skipping both isn't loud about it — your team's
+  and your own rules simply won't apply that session — so ask if Claude's
+  answers don't seem to reflect something you know your team has agreed
+  on.
 
 ### Codex Users
 
