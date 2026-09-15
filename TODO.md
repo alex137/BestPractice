@@ -7156,10 +7156,26 @@ which is the failure this repointing exists to end — write
        four private practice sets' vendored copies need the same refresh
        `tools/precedent_refresh_sources.py` already does for other hook
        drift.
-    **Recommendation:** build it — the cost of getting a hook edit wrong here
-    is real (a past incident locked every tool for the session that merged a
-    conflict into `freshness-guard.sh`), so this is worth a second pair of
-    eyes before it lands rather than a silent direct edit. **Blocked on:**
-    Alex saying go ahead on editing `.claude/hooks/session-start.sh` and
-    `.claude/hooks/freshness-guard.sh` specifically. **Disposition:** ask
-    (2026-09-15, this session, at Alex's own request to plan a real fix).
+    **CLOSED 2026-09-15 — built and merged.** Morgan: *"Yes, please build
+    that. GO merge."* (`strength: decided`). Built exactly the three items
+    above: `.claude/hooks/session-start.sh`'s unshallow block now retries
+    once more on failure and leaves `PRECEDENT_SHALLOW_UNRESOLVED` in the
+    git dir when both attempts fail; `freshness-guard.sh` (identical in
+    `.claude/hooks/` and `templates/harness/claude-code/hooks/`, kept in
+    sync) now calls `_deepen_if_shallow` unconditionally, before either
+    function trusts its ahead/behind counts, and surfaces a loud `WARN` at
+    session-start when the marker is still there; `templates/bootstrap.sh`
+    (the consumer-repo equivalent of the session-start block, not originally
+    scoped but the same class of fix, named here rather than left as a
+    silent gap) got the same retry-and-marker treatment. Verified against
+    fixtures reproducing g37's exact shape (a shallow clone whose disjoint
+    graft reads as `0 behind, 0 ahead` before deepening, so the OLD code
+    path skipped the update entirely rather than merely misreporting it) —
+    the fixed code deepens first and fast-forwards correctly; a genuinely
+    diverged branch still blocks as before, confirmed as a regression
+    check. Rolls out to dependent repos the next time each runs `Update
+    Vendors`, per
+    [vendor-update-runbook](practices/vendor-update-runbook.md); the
+    four private practice sets' vendored copies still need
+    `tools/precedent_refresh_sources.py --apply` by hand, tracked
+    separately at [g20](record/GOTCHAS.md#g20) rather than duplicated here.

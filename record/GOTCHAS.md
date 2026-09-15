@@ -1018,6 +1018,27 @@ is **not** guaranteed to run on every new session either, let alone on a
 resumed one. It would add a second unreliable path, not close the one gap
 that matters.
 
+**Built 2026-09-15**, same session, same day, on Morgan's go-ahead. Both
+`.claude/hooks/session-start.sh`'s single `timeout 90` attempt and
+`freshness-guard.sh`'s divergence-gated `_deepen_if_shallow` were the
+narrower gaps this entry always said were still open — not the
+bootstrapping trap itself, which stays exactly as described above.
+`session-start.sh` now retries once more on failure and leaves a
+`PRECEDENT_SHALLOW_UNRESOLVED` marker in the git dir when both attempts
+fail; `freshness-guard.sh` now calls the deepen unconditionally, before
+either of its two callers trusts an ahead/behind count, and surfaces a
+loud `WARN` at session-start when that marker is still there. A fixture
+built to reproduce this entry's exact shape turned up something worth
+recording precisely because it is not what the "reads as diverged"
+framing above predicts: on the git version this container runs, the
+disjoint shallow graft read as **`0 behind, 0 ahead`**, not as a false
+divergence — so the OLD code, gated on `ahead != "0"`, never even
+attempted a deepen and silently treated a checkout that was five real
+commits stale as fully up to date. The new unconditional call fixes
+that shape too, not only the one this entry names. Full detail:
+[TODO.md's `shallow-clone-self-heal-hardening` item](../TODO.md#shallow-clone-self-heal-hardening),
+closed.
+
 ## 38. <a id="g38"></a>A Routine that fires a FRESH session gets none of the session-management tools, so a scheduled job that reads the fleet cannot run there
 
 **Measured 2026-09-14**, twice, in opposite directions on the same afternoon.
