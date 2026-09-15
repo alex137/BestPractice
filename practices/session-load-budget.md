@@ -105,7 +105,7 @@ where it was has to follow it.
 
 **This does not license trimming a source you do not own.** A team or
 individual source over its ceiling is a finding to report to whoever owns it
-([cross-source-rollout](cross-source-rollout.md)), not an edit to make from
+([cross-source-rollout](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/cross-source-rollout.md)), not an edit to make from
 here.
 
 ## Why

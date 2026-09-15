@@ -3,6 +3,7 @@ slug:        cross-source-rollout
 title:       A change with cross-source implications rolls out now, or queues with why
 tier:        on-demand
 severity:    default
+scope:       engine-dev
 applies_to:  ["**"]
 occasion:    "a change here has implications for how an attached team, individual, or repo-local source should work"
 gates:       ["merge"]
