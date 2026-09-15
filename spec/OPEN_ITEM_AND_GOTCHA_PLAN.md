@@ -505,6 +505,52 @@ describes traps in *this* codebase's tooling; a dependent repository's own
 environment gotchas (if it keeps any) are a separate, repository-local
 collection under the same format, not a copy of this one's.
 
+### 4.4 — Migration Is Not One Moment: Ordinary Work Doesn't Stop for It
+
+**The cutover in 4.1 is a single commit; the migration isn't.** Every step
+above assumes `TODO.md` holds still long enough to convert. It won't. This
+repository runs many branches and sessions in parallel, and, as of
+2026-09-16, `precedent-beta-v01` is expected to stay deliberately out of
+sync with `main` for days or weeks more. Ordinary PRs keep merging into
+`precedent-beta-v01` throughout that window and after it, and some of them
+will add a new item to `TODO.md` the old way — a branch forked before the
+cutover, a session that hasn't seen this document, a check-in PR from a
+dependent repository that hasn't migrated yet (4.2). **A plan that only
+covers the cutover moment will be stale again within a week of landing**,
+the same failure this whole document exists to fix.
+
+**The fix is a rule for ordinary merging, not a bigger one-time step.**
+
+1. **A tenth step, appended to 4.1's list:** extend the stale-reference
+   check from step 7 so it also fails on *new* content added to `TODO.md`
+   after the cutover commit — not a bare presence check (the file may need
+   to exist briefly as a redirect stub), a check on the diff. A PR that
+   tries to add an old-format item is refused at the same gate that already
+   catches a stale `#gN` anchor; it names `todo/` as where the item belongs
+   instead. This is what actually holds the line — a rule stated in prose
+   gets missed by the one PR that predates it, a check does not.
+2. **A line added to [AGENTS.md](../AGENTS.md)'s existing "Working in this
+   repo" section** — where the repository's routine-merge instructions
+   already live, right beside the note about carrying commits from `main`
+   and the check-in-PR review convention — the moment 4.1 actually runs:
+
+   ```
+   - **A pull request touching `TODO.md` after the todo/ migration is
+     refused by CI.** File the item under `todo/` instead
+     (spec/OPEN_ITEM_AND_GOTCHA_PLAN.md).
+   ```
+
+   This is documentation, not enforcement — the check in step 1 above is
+   what actually stops a bad merge. The line in [AGENTS.md](../AGENTS.md)
+   is what tells a person *why* it was refused and where to look, since a
+   red check with no pointer just gets retried.
+3. **Check-in PRs from a dependent repository get the same treatment as any
+   other PR** — reviewed against the same gate, per the existing
+   second-scrub-line convention in [AGENTS.md](../AGENTS.md)'s "Working in
+   this repo." A dependent repo's own migration timeline (4.2) is its own
+   business; what it sends here still has to land in the format this
+   repository has already moved to.
+
 ---
 
 ## Part 5 — Cost, and What Was Deliberately Left Out
