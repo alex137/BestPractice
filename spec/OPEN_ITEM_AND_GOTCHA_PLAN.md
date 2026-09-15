@@ -69,7 +69,6 @@ domain:            mechanism
 severity:          notable
 status:            open
 noted:             2026-09-14
-noted_precision:   exact
 closed:            null
 blocked_on:        "a session rooted in each practice set"
 waiting_on:        null
@@ -90,8 +89,7 @@ decision_strength: null
 | `domain` | `content` \| `mechanism` \| `null` | is this about the actual deliverable (a practice, a document) or about the machinery that manages it (a check, a hook, a workflow) — see **Domain** below |
 | `severity` | `blocking` \| `notable` \| `minor` \| `null` | optional; how much this matters, for sorting the unblocked-work view — the first field to drop if the frontmatter gets too heavy |
 | `status` | `open` \| `done` \| `dropped` | is it finished |
-| `noted` | `YYYY-MM-DD` | the day this was first written down; must match the date in the filename, checked mechanically — **not** the day anyone reads or reopens the file |
-| `noted_precision` | `exact` \| `at-or-before` | see **Every Item Has a Date** below |
+| `noted` | `YYYY-MM-DD` | the day this was first written down; must match the date in the filename, checked mechanically — **not** the day anyone reads or reopens the file. Where the true date is unknown, this is a floor (earliest known), and the file's own `## Notes` says so — see **Every Item Has a Date** below |
 | `closed` | `YYYY-MM-DD` or `null` | when `status` became `done` or `dropped` |
 | `blocked_on` | free text or `null` | the stated reason it isn't done now — required unless `status: open` and `kind: analysis` with no blocker, which is itself a finding (see Part 3) |
 | `waiting_on` | a person's name, or `null` | who has to act next — a **label**, not a filing location, and not necessarily the person who will eventually do the work (see **Why Kind, Not Waiting-On** below) |
@@ -191,18 +189,32 @@ than age.
 carries a real date in its name, always — this is a hard rule, not a
 default that some items opt out of.
 
-For the items being migrated in that have no true creation date — their
-anchor is already present at the earliest commit this repository's history
-reaches — the honest statement is *at or before that date*, not a specific
-day:
+**No dedicated field for precision.** An earlier draft carried
+`noted_precision: exact | at-or-before` for this, and on review it isn't
+worth a permanent field: the distinction matters for exactly one thing — the
+batch of items migrated in with no true creation date — and every item
+created from this point on has an exact date by construction (a session
+creates the file today, dates it today). A field that is `exact` on every
+future file forever, to serve a fixed, shrinking batch of legacy ones, is
+the wrong trade.
 
-- **`noted_precision: at-or-before`** records this.
-- **The filename still uses the floor date** — the earliest date the item is
-  known to have existed — because a name must be assigned; it is a lower
-  bound, not a guess.
-- **The generated index prints the difference**: `open 12 days` for an exact
-  date, `open ≥ 12 days` for a floor. Never invent a specific date where none
-  is known.
+**Instead: the file's own `## Notes` carries the caveat, once, at
+migration.** For the items being migrated in whose anchor is already present
+at the earliest commit this repository's history reaches — so the honest
+statement is *at or before that date*, not a specific day — the filename
+still uses that floor date (a name must be assigned; it's a lower bound, not
+a guess), and the migration writes one line into `## Notes`:
+
+```
+2026-09-16: noted date is a floor, not exact — this item predates anchor
+tracking and its true creation date is unknown. Migrated from TODO.md.
+```
+
+The generated index shows age the same way for every item, computed
+straight from `noted`. For the legacy batch this slightly overstates
+precision in the index; anyone who needs the caveat finds it in the one
+place that actually states it, rather than the whole schema carrying a
+field that means something for a few dozen files and nothing for the rest.
 
 ### When an Item Closes
 
@@ -226,20 +238,61 @@ separate, deliberate act.
 
 ### Decision Strength
 
-`decision_strength` is a refinement of
-[decision-strength](../practices/decision-strength.md)'s vocabulary, scoped
-to this format: `decided-strong` and `decided-weak` are both subtypes of
-that universal practice's `decided`, `assented` is unchanged, and `null` —
-never a guess — is everywhere else. **A session summarizing a decision in
-prose outside this file still says "decided," never the finer word**; the
-universal practice's own rule (an approval is `decided` or `assented`, never
-guessed) is unchanged by this — this format just records a distinction the
-universal one doesn't need.
+**Extending this to the universal [decision-strength](../practices/decision-strength.md)
+practice itself was raised in review, and it reopens a question that
+practice's own Story records as already settled — against it:**
 
-It is set only on items that actually record an approval; most items are
-findings nobody approved, and writing a decision strength on those would be
-recording an approval that never happened. It is set going forward, when an
-item is touched, never backfilled in bulk against old items.
+> A scale of three or five levels was considered and rejected in the same
+> conversation: more resolution than the evidence supports, and an
+> invitation for a session to split hairs about someone's state of mind —
+> which is the invention this rule exists to stop.
+
+`decided-strong` / `decided-weak` / `assented` is a three-level scale in
+exactly the shape that passage describes. This isn't a reason not to do it —
+the person who rejected it once is free to want it now, for a stated reason
+— but it's the kind of thing that has to be seen before it's decided, not
+discovered afterward. **So this is written up as the fourth Open Decision
+below, not as settled**, with the plan ready to run the moment it's
+confirmed.
+
+**Sized, so the decision is made with real numbers:** `strength:` appears in
+the frontmatter of **23 practice files**, and as an inline citation in
+**49 files repo-wide** — `TODO.md` alone carries roughly two dozen. It is
+also a *universal* practice, vendored into every dependent repository and
+all four attached practice sets, so a change here propagates the way the
+`todo`/`gotchas` format itself does (Part 4.2).
+
+**If confirmed, the safe migration is a rename, not a re-judgment — and
+that distinction is what keeps it from violating the practice's own
+anti-backfill rule.** [decision-strength](../practices/decision-strength.md)
+already refuses to backfill strength onto old *unmarked* approvals, because
+guessing a past state of mind is exactly what
+[no-invented-specifics](../practices/no-invented-specifics.md) forbids. That
+rule is not violated by this migration, because nothing here requires a new
+judgment about the past:
+
+- **Every existing `decided` becomes `decided-strong`.** The universal
+  practice's own definition of `decided` — *"they asked for it, chose it
+  from options you laid out, or pushed back and the thing landed where it
+  landed"* — already describes conviction, not ambivalence. Relabeling it is
+  a mechanical rename, not a new read of anyone's state of mind.
+- **Every existing `assented` is untouched.**
+- **`decided-weak` is forward-only.** Nothing in the historical record was
+  ever assessed against a category that didn't exist yet, so nothing is
+  reclassified into it. It starts being used the day this lands, for a "sure,
+  I guess" that today gets written down as a plain `decided` it wasn't.
+- **The field key stays `strength:`.** Only the legal values widen. Renaming
+  the key too would double the migration surface (23 frontmatter blocks, 49
+  files of prose) for no benefit this format's own `decision_strength` key
+  doesn't already get from being new.
+
+**In this format**, `decision_strength` uses the same four-value vocabulary
+(a distinct key, per the naming-collision reasoning above). It is set only
+on items that actually record an approval; most items are findings nobody
+approved, and writing a decision strength on those would be recording an
+approval that never happened. It is set going forward, when an item is
+touched, never backfilled in bulk against old items — the same rule as the
+universal practice, unchanged either way this is decided.
 
 ### Generated Views
 
@@ -256,8 +309,7 @@ something to hand-edit:
 It carries at minimum:
 
 - **One table per `kind`**, with `domain` and `severity` as columns.
-- **Age**, computed from `noted` (or printed as a floor where
-  `noted_precision: at-or-before`), sorted oldest first.
+- **Age**, computed from `noted`, sorted oldest first.
 - **Unblocked work** — every `open`, `kind: analysis` item with no
   `blocked_on`. This is the list that should be closest to empty.
 - **Open decisions** — every `open`, `kind: decision` item, the one list a
@@ -291,7 +343,6 @@ Same rule as `todo-`: dated, prefixed, permanent once created.
 slug:            gotcha-2026-09-13-shallow-clone-reads-as-diverged
 status:          live
 noted:           2026-09-13
-noted_precision: exact
 severity:        notable
 retired:         null
 retires_when:    null
@@ -350,7 +401,7 @@ anything:
 - Every `open`, `kind: analysis` item with no `blocked_on` — these should
   either be done now or have a real reason written down.
 - Every item whose `blocked_on` names something that no longer exists.
-- The oldest few items by age, `at-or-before` items flagged separately.
+- The oldest few items by age.
 
 **Gotcha sweep.** [tools/very_deep_check.py](../tools/very_deep_check.py)
 already has a gotcha-currency pass that follows the index into the record and
@@ -389,8 +440,9 @@ step is deferred.
    [record/GOTCHAS.md](../record/GOTCHAS.md) and
    [record/GOTCHAS_ARCHIVE.md](../record/GOTCHAS_ARCHIVE.md) becomes a
    `gotchas/gotcha-<date>-<slug>.md` file, `status: retired` for the archived
-   ones. The migration commit includes a full old-slug → new-filename mapping
-   table.
+   ones. Every item with no true creation date gets its floor date and the
+   one-line `## Notes` caveat (**Every Item Has a Date**). The migration
+   commit includes a full old-slug → new-filename mapping table.
 6. **Repoint every existing reference** using that mapping table
    ([rename-updates-links](../practices/rename-updates-links.md)) — the
    `TODO.md#slug` links, the `#gN` gotcha anchors, everywhere they appear in
@@ -481,7 +533,7 @@ explicitly as the field to cut first if this proves too heavy in practice.
 
 ## Open Decisions
 
-Three things this plan does not settle, each independent:
+Four things this plan does not settle, each independent:
 
 1. **The rule for items with `kind: analysis`, `status: open`, and no
    `blocked_on`.** Today these exist and nothing says what should happen to
@@ -499,6 +551,18 @@ Three things this plan does not settle, each independent:
    removing visible numbers) and deferring the file-per-item split. Steps 1–3
    are reversible and useful regardless of the rest of this plan; steps 4
    onward are the commitment.
+4. **Whether to extend the universal [decision-strength](../practices/decision-strength.md)
+   practice to `decided-strong` / `decided-weak` / `assented`, and migrate
+   all 49 files that currently use it** (Part 1, **Decision Strength**).
+   Raised in this review; sized and a safe migration mechanism proposed
+   (relabel `decided` → `decided-strong`, leave `assented` alone,
+   `decided-weak` forward-only — no historical case is re-judged). **The one
+   thing that has to be weighed knowingly:** the practice's own Story records
+   a three-to-five-level scale being considered and rejected in the
+   2026-09-09 conversation that created it, for a stated reason — more
+   resolution than the evidence supports, inviting a session to split hairs
+   about someone's state of mind. This proposal is exactly that shape. Worth
+   doing for a reason that holds up against that history, not by default.
 
 ---
 
