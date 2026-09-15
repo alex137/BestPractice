@@ -7,7 +7,7 @@ closed:        null
 superseded_by: null
 supersedes:    []
 audience:      contributor
-summary:       "TODO.md and the gotchas index both capture mechanically and drain by hand, so both only grow. This is the specification for the replacement: one item is one permanently-named file, typed by kind, dated in its name, with every list generated rather than hand-kept — plus the ordered migration plan for this repo and for every repo that vendors this format."
+summary:       "TODO.md and the gotchas index both capture mechanically and drain by hand, so both only grow. This is the specification for the replacement: one item is one permanently-named file, typed by kind, dated in its name, with every list generated rather than hand-kept — including a native, date-gated Reminders mechanism with no scheduled trigger — plus the ordered migration plan for this repo and for every repo that vendors this format."
 ---
 # Open Items and Gotchas: The New Format and Migration Plan
 
@@ -69,6 +69,7 @@ domain:            mechanism
 severity:          notable
 status:            open
 disposition:       wait
+remind_on:         null
 blocked_on:        "a session rooted in each practice set"
 batch:             source-sets
 decision:          null
@@ -90,6 +91,7 @@ closed:            null
 | `severity` | `blocking` \| `notable` \| `minor` \| `null` | optional; how much this matters, for sorting the unblocked-work view — the first field to drop if the frontmatter gets too heavy |
 | `status` | `open` \| `done` \| `dropped` | is it finished |
 | `disposition` | `wait` \| `ask` \| `parked` | unchanged from [open-item-disposition](../practices/open-item-disposition.md) — whether a session may raise it unprompted |
+| `remind_on` | `YYYY-MM-DD` or `null` | the day an `ask` item becomes eligible to surface unprompted — `null` means eligible immediately (today's behavior), a date makes it a Reminder — see **Reminders** below |
 | `blocked_on` | free text or `null` | the stated reason it isn't done now — required unless `status: open` and `kind: analysis` with no blocker, which is itself a finding (see Part 3) |
 | `batch` | free text, or `null` | groups items that are really one job, so they can be swept together — never "project," which this repository (and GitHub itself, via Projects boards) already uses for something else |
 | `decision` | free text, or `null` | for `kind: decision` items only — what was decided, in prose, written when `status` becomes `done` (see **When an Item Closes** below) |
@@ -304,6 +306,91 @@ writing a decision strength on those would be recording an approval that
 never happened. It is set going forward, when an item is touched, never
 backfilled in bulk against old items.
 
+### Reminders
+
+**A Reminder is an `ask` item with a date it becomes eligible.** Nothing new
+in the schema beyond one field:
+
+```yaml
+disposition: ask
+remind_on:   2026-10-01
+```
+
+`remind_on` (`YYYY-MM-DD` or `null`) is the day an `ask` item may start being
+surfaced unprompted. Before that day it behaves like `wait` — recorded, and
+no session raises it. On or after it, it behaves like a normal `ask` item:
+eligible, not mandatory, exactly as
+[open-item-disposition](../practices/open-item-disposition.md) already
+governs every other `ask` item.
+
+**Every Reminder has a date — this is a hard rule, the same shape as "every
+item has a date" in **Every Item Has a Date** above.** `remind_on: null` is
+legal, and means *not a Reminder*: an ordinary `ask` item, eligible the
+moment `disposition` is set, exactly as today. **Where the person doesn't
+name a date, `remind_on` defaults to `noted`** — the day the item was
+written — which reproduces today's behavior exactly (eligible immediately)
+while still satisfying the rule that a Reminder always carries a real date,
+never an absent one standing in for "sometime."
+
+**This extends [todo-reminder](../practices/todo-reminder.md), rather than
+replacing it — one thing changes, the rest is preserved on purpose.** That
+practice already establishes the two things this format keeps word for
+word:
+
+- **"It is a reminder, not a deadline. Nothing fires on a schedule."** This
+  is not a new principle for this document to invent — it's already the
+  rule, and `remind_on` doesn't change it. `remind_on` sets *earliest*, not
+  *when*; nothing runs at that timestamp, because nothing runs on a timer
+  at all. A Reminder is still only ever surfaced by a session that happens
+  to be working here, at a moment that session already reaches for
+  independent reasons.
+- **The two places that look stay the two places that look**:
+  [three-things](../practices/three-things.md), which weighs marked items
+  when answering "Three Things," and the closing **Next Steps** section
+  [next-steps-after-commit](../practices/next-steps-after-commit.md)
+  already requires on every committing reply. A due Reminder is exactly the
+  kind of outstanding item that section exists to surface; this document
+  doesn't add a third channel, it gives the two that already exist
+  something dated to filter on. (A consumer's own practice sources may
+  narrow *where in that section* an unrelated item is allowed to appear —
+  that's a layering question for that source, not something this format
+  needs to settle.)
+
+**What's actually new: eligibility is computed, not manual.**
+[tools/todo_progress.py](../tools/todo_progress.py) lists every
+`**Remind:**`-marked item unconditionally today, with no date test — any
+session skimming that output sees a reminder set for six months out mixed
+in with one due today. The generator built for this format
+(**Generated Views** below) adds a **Due Reminders** view: every
+`disposition: ask` item where `remind_on` has arrived, and only those. A
+Reminder not yet due doesn't appear there at all — it's in the file,
+findable, simply not yet eligible to interrupt anyone.
+
+**Explicitly not built on a scheduled trigger — this is the part worth
+stating firmly, because the natural engineering instinct is to reach for
+one.** No `CronCreate`-style job, no GitHub Actions scheduled workflow, no
+external push of any kind checks whether a Reminder has come due. The
+mechanism is **pull, not push**: a generated view a session reads because
+it's already reading the repo, the same way `todo/TODO.md`'s other
+sections are read. This is what "native to Precedent" means in practice —
+the reminder mechanism is a fact about committed files and existing session
+touchpoints, the same substance as everything else in this document, not a
+piece of infrastructure bolted on beside it. A scheduled trigger would also
+contradict the practice this extends: "nothing fires on a schedule" is
+already the rule, and a `CronCreate` job checking for due reminders would
+be exactly that, wearing a different name.
+
+**Creating one:** saying "Todo reminder" — the existing command, unchanged
+— writes or updates a `todo/*.md` item with `disposition: ask` and
+`remind_on` set together, in the same turn, mirroring
+[todo-reminder](../practices/todo-reminder.md)'s own "both lines, not one"
+rule exactly: setting one field without the other leaves an item that is
+either an ordinary `ask` with no reminder behavior, or a date with nothing
+telling a session it may act on it. **The content goes in `## What`, in the
+person's own words** — no separate `**Remind:**` line is needed in this
+format, because `## What` already is that line; a Reminder is not a
+different kind of item, only an `ask` item with a date.
+
 ### Generated Views
 
 **Settled 2026-09-16 (`decided`): closed items get their own file, never
@@ -336,6 +423,11 @@ It carries at minimum:
   `blocked_on`. This is the list that should be closest to empty.
 - **Open decisions** — every `open`, `kind: decision` item, the one list a
   person is actually asked to read regularly.
+- **Due Reminders** — every `open`, `disposition: ask` item whose
+  `remind_on` has arrived. Not yet due doesn't appear here at all
+  (**Reminders**, above); this is the section
+  [three-things](../practices/three-things.md) and the closing
+  **Next Steps** section actually read from.
 
 **`todo/CLOSED.md`** — every `status: done` or `status: dropped` item, one
 line each, newest first. Generated the same way, for the same reason: a
@@ -437,6 +529,10 @@ anything:
   either be done now or have a real reason written down.
 - Every item whose `blocked_on` names something that no longer exists.
 - The oldest few items by age.
+- **Every Reminder whose `remind_on` is well past** — a safety net, not the
+  primary mechanism. `todo/TODO.md`'s Due Reminders view (**Generated
+  Views**) is what a session normally reads; this is what catches one that
+  arrived and nobody happened to be working here to see it.
 
 **Gotcha sweep.** [tools/very_deep_check.py](../tools/very_deep_check.py)
 already has a gotcha-currency pass that follows the index into the record and
@@ -476,8 +572,14 @@ step is deferred.
    [record/GOTCHAS_ARCHIVE.md](../record/GOTCHAS_ARCHIVE.md) becomes a
    `gotchas/gotcha-<date>-<slug>.md` file, `status: retired` for the archived
    ones. Every item with no true creation date gets its floor date and the
-   one-line `## Notes` caveat (**Every Item Has a Date**). The migration
-   commit includes a full old-slug → new-filename mapping table.
+   one-line `## Notes` caveat (**Every Item Has a Date**). **The 5 items
+   `TODO.md` already marks `**Remind:**` become Reminders**: `disposition:
+   ask`, `remind_on` set to that item's `noted` date (an old `**Remind:**`
+   carried no date of its own, so the honest mapping is "eligible
+   immediately," which is what it already was under
+   [todo-reminder](../practices/todo-reminder.md)'s pre-date behavior — not
+   a new date invented for it). The migration commit includes a full
+   old-slug → new-filename mapping table.
 6. **Repoint every existing reference** using that mapping table
    ([rename-updates-links](../practices/rename-updates-links.md)) — the
    `TODO.md#slug` links, the `#gN` gotcha anchors, everywhere they appear in
