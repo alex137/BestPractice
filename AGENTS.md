@@ -587,6 +587,11 @@ retired it. Nothing is ever deleted.
   `go-merge`/`relayed-authorization` say the authorization should travel.**
   [story](record/GOTCHAS.md#g43)
 
+- **A PreToolUse hook's once-per-session sentinel is not proof against two
+  tool calls the harness dispatches at once — both read it as absent before
+  either writes it, and both run `git fetch` against the same `.git` at
+  the same time.** [story](record/GOTCHAS.md#g44)
+
 ## Working in this repo
 
 - **Default branch is `main`; work on a feature branch; PRs are the norm**
