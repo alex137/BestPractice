@@ -396,6 +396,8 @@ as landing one.
 
 ## Where to Go Next
 
+[TEN_THINGS.md](TEN_THINGS.md) is the one-page map of the ideas above,
+each linked to its section here and in the plain-language guide.
 [DAILY_HABITS.md](DAILY_HABITS.md) for the
 working habits and the standing command vocabulary — short, and worth
 reading even if everything above was obvious.

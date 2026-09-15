@@ -141,7 +141,8 @@ questions instead of trying to remember the answers.
 
 ## Learn More
 
-[What This Is (and Why Explore Using
+[Ten Things to Know About How Precedent Works](TEN_THINGS.md) for the
+ideas underneath these habits, one page. [What This Is (and Why Explore Using
 Precedent)](WHY_PRECEDENT.md) for the bigger picture. [How to
 Use This — A Guide for Everyone
 Else](FOR_EVERYONE_ELSE.md) for how an idea becomes an

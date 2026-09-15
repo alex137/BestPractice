@@ -197,6 +197,9 @@ reaching anyone else.
 
 ## Learn More
 
+[Ten Things to Know About How Precedent Works](TEN_THINGS.md) is the one
+page with the ideas underneath all of this, each linked back into the
+section here that says more.
 [How to Use This Day to Day](DAILY_HABITS.md) is the
 companion to this page: this one is how an idea becomes a rule, that one
 is what an ordinary working day looks like. [What This Is (and Why Explore

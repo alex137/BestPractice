@@ -178,6 +178,10 @@ PowerPoint deck goes in at the start and comes back out at the end.
 
 ## Learn More
 
+[Ten Things to Know About How Precedent Works](TEN_THINGS.md) is the one
+page that turns the pitch above into the ten ideas underneath it, each
+linked to where the guides say more.
+
 The philosophy behind all of this lives in
 [philosophy/](../philosophy/). For how to actually use Precedent: [a how-to for
 developers](FOR_DEVELOPERS.md), [a how-to for everyone
