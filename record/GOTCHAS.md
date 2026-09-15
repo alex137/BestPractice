@@ -978,6 +978,80 @@ force. Their vendored engines were refreshed to current that day and did
 **not** bring the hook with them — the engine and the hooks go stale
 independently ([g20](#g20)), and only the engine has a repair path.
 
+**A third occurrence, 2026-09-15, finally answers "can this be prevented
+outright" — and the answer is narrower than either fix so far assumed.**
+This session's checkout came up shallow at a commit hundreds behind tip
+(`b3040c6`), the freshness guard refused the first tool call with
+`132 local, 479 remote`, and `git show b3040c6:.claude/hooks/session-start.sh`
+and `...freshness-guard.sh` both came back with **zero** occurrences of the
+unshallow/deepen code. Same trap, third time.
+
+**Anthropic's own docs settle why, as of 2026-09-15**
+([claude-code-on-the-web](https://code.claude.com/docs/en/claude-code-on-the-web),
+[cloud-environments](https://code.claude.com/docs/en/cloud-environments)):
+*"Cloud sessions start from a fresh clone"* is true of a session's **first**
+turn only. Every later turn **resumes the same virtual machine (VM) and the
+same checkout** —
+nothing re-clones, and *"resuming an existing session never re-runs the
+setup script."* SessionStart hooks do fire on every resume, but they run
+**whatever copy of themselves is already checked out**. A session opened
+before a hook fix merged, and kept alive since, can never pick that fix up
+by resuming — the hook that would fetch the fix is the one artifact resuming
+cannot refresh. This is not a bug in the hook; it is what "resume" means.
+
+**So there is no committed file that closes this for a session already
+running old code.** The only way in is from inside that session:
+`git fetch --unshallow` (or a bounded `--deepen`), run once, by hand or by
+the hook succeeding on that session's own first chance to run current code.
+Once it succeeds, the repo is no longer shallow at all, so the class of bug
+cannot recur for that checkout again — this is a one-time threshold per
+already-open session, not a recurring one.
+
+**What a committed fix *can* still do, and where today's copy falls short:**
+it already self-heals every **brand-new** session correctly (a fresh clone
+gets the current, fixed hook) — the gap is only in already-resumed sessions,
+and in how loudly a failed attempt reports itself. Today's `session-start.sh`
+gives the unshallow exactly one `timeout 90` try and, on failure, writes a
+single `WARN` line to stderr that nothing re-surfaces later. And
+`freshness-guard.sh`'s `_deepen_if_shallow` only fires from the
+divergence-detection branch (`ahead != "0"`) — a checkout that is shallow but
+merely *behind*, never mis-read as diverged, gets no second attempt from the
+guard at all if SessionStart's own try failed. Proposed hardening (not yet
+built) is tracked at
+[TODO.md's `shallow-clone-self-heal-hardening` item](../TODO.md#shallow-clone-self-heal-hardening).
+
+**A setup script does not close the gap either, and is worth ruling out
+explicitly so nobody re-proposes it.** Setup scripts are the one mechanism
+that lives outside the git tree (environment config, not a committed file),
+which looks at first glance like the way around the bootstrapping trap. But
+per the same docs, a setup script *"runs the first time you start a session
+in an environment"* and is *"skipped when a cached environment exists"* —
+the environment filesystem is cached for roughly a week, so a setup script
+is **not** guaranteed to run on every new session either, let alone on a
+resumed one. It would add a second unreliable path, not close the one gap
+that matters.
+
+**Built 2026-09-15**, same session, same day, on Morgan's go-ahead. Both
+`.claude/hooks/session-start.sh`'s single `timeout 90` attempt and
+`freshness-guard.sh`'s divergence-gated `_deepen_if_shallow` were the
+narrower gaps this entry always said were still open — not the
+bootstrapping trap itself, which stays exactly as described above.
+`session-start.sh` now retries once more on failure and leaves a
+`PRECEDENT_SHALLOW_UNRESOLVED` marker in the git dir when both attempts
+fail; `freshness-guard.sh` now calls the deepen unconditionally, before
+either of its two callers trusts an ahead/behind count, and surfaces a
+loud `WARN` at session-start when that marker is still there. A fixture
+built to reproduce this entry's exact shape turned up something worth
+recording precisely because it is not what the "reads as diverged"
+framing above predicts: on the git version this container runs, the
+disjoint shallow graft read as **`0 behind, 0 ahead`**, not as a false
+divergence — so the OLD code, gated on `ahead != "0"`, never even
+attempted a deepen and silently treated a checkout that was five real
+commits stale as fully up to date. The new unconditional call fixes
+that shape too, not only the one this entry names. Full detail:
+[TODO.md's `shallow-clone-self-heal-hardening` item](../TODO.md#shallow-clone-self-heal-hardening),
+closed.
+
 ## 38. <a id="g38"></a>A Routine that fires a FRESH session gets none of the session-management tools, so a scheduled job that reads the fleet cannot run there
 
 **Measured 2026-09-14**, twice, in opposite directions on the same afternoon.
@@ -1272,3 +1346,97 @@ repository.
   rule. It was caught only by counting the files in the pull request diff —
   one expected, six present. **Count the files before merging**, every time a
   branch has been rebuilt by hand.
+
+## 43. <a id="g43"></a>A spawned session's seeded prompt cannot pre-authorize a merge — the classifier refuses the `create_session` call itself
+
+**The symptom.** [go-merge](../practices/go-merge.md) and
+[spawn-session](../practices/spawn-session.md) both say a relayed `Go merge`
+travels with a seeded prompt: the receiving session merges without asking
+again, bounded by
+[relayed-authorization](../practices/relayed-authorization.md)'s check on the
+target repository's own `identity.json`. A `create_session` call seeding a
+cross-owner repository with a prompt that said, in effect, "commit, push,
+open the pull request, and merge it" was refused before the new session ever
+started:
+
+```
+Permission for this action was denied by the Claude Code auto mode
+classifier. Reason: [Merge Without Review]
+```
+
+**What was measured, 2026-09-15.** The identical `create_session` call,
+same target repository, same content otherwise, with only the merge
+instruction removed and replaced with "stop at the pull request — do not
+merge," succeeded immediately. The spawned session then did the work, opened
+its pull request, and — later, on its own, inside its own turn — went on to
+merge that pull request itself, with no refusal reported back.
+
+**Why it fires is a hypothesis, not a finding**
+([diagnosis-is-measured](../practices/diagnosis-is-measured.md)): the two
+data points only distinguish *baking a merge instruction into another
+session's seed* from *a session merging its own pull request live, in its
+own turn*. Nothing here establishes which part of the classifier's model
+draws that line, only that it does.
+
+**What does not work.** Writing the merge authorization into the seeded
+prompt, however precisely it cites `relayed_authorization: accepted` and
+quotes the practice — the call is refused before the target session reads
+any of it.
+
+**What works.** Seed the spawned session with everything through opening
+the pull request, and stop the prompt there. Whether the merge then happens
+live in that session's own turn is up to what happens inside it (the
+person approving it there, or the session's own permission mode allowing
+it) — not something the spawning session can hand over in advance.
+
+## 44. <a id="g44"></a>A PreToolUse hook's once-per-session sentinel is not proof against two tool calls the harness dispatches at once — and the trap that made the first attempt at fixing it worse
+
+**The symptom.** `freshness-guard.sh`'s `pre-write` mode keys its
+once-per-session sentinel on `session_id` alone when one resolves — which is
+the normal case — so every tool call in one turn computes the identical
+sentinel path. Two Bash calls sent in the same message, both their first
+tool call of the session, both read `[ -f "$sentinel" ]` as false before
+either has written it, and both fall through to `_pre_write_one`, which runs
+`git fetch`/`--deepen` against the same `.git` directory at once.
+
+**What was measured.** One of two parallel calls this session blocked with a
+false "diverged" reading — `record/GOTCHAS.md#g37`'s shallow-clone artifact
+— while its sibling call, touching the same checkout at the same instant,
+read the correct counts and passed clean. Same session, same moment, two
+different verdicts, because nothing serialized them. Confirmed with an
+instrumented A/B fixture: two copies of the hook, one with the fix below and
+one without, each with a marker-plus-`sleep 2` planted at the top of
+`_pre_write_one`. Unpatched, both processes' markers, tagged with each
+one's process ID (PID), appear interleaved in the shared log — genuine
+concurrent execution touching git at once. Patched, only one PID's markers
+ever appear; the other call exits clean off the sentinel the first one
+wrote, without touching git itself.
+
+**The fix, and the trap inside fixing it.** `flock` on an fd opened by
+`exec`, re-checking the sentinel after acquiring it — a second caller that
+had to wait finds the first one already finished and exits immediately
+instead of repeating the same git work. Held on the fd rather than in a
+subshell, so a later `_block`'s plain `exit 2` still releases it when the
+process exits normally, with no unlock path to remember.
+
+**The first attempt at this fix put `2>/dev/null` on the same line as
+`exec 9>file`, and that is a distinct, separate trap from the race itself.**
+`exec` with no command applies its redirections to the *current shell*,
+permanently — not scoped to that one statement, and not undone when the
+enclosing function returns. Proven in two lines: a function that runs
+`exec 9>/tmp/x 2>/dev/null` internally, called, then followed by an
+ordinary `echo ... >&2` *outside* the function and *after* it returned —
+that line went silent too. Every later `echo ... >&2` for the rest of the
+script's run went to `/dev/null` with it, which is exactly why two existing
+`verify_harness.py` cases caught the bug: their expected stderr text came
+back empty, not wrong. `flock`'s own `2>/dev/null` on its own line is a
+normal external command's redirection and stays scoped to that command —
+the fix was moving the suppression there, not removing it.
+
+**The generalization worth keeping.** A `[ -f sentinel ] && exit 0` /
+`: > sentinel` pair with no lock between the check and the write is a
+check-then-act race the moment two processes can run it at once — true of
+any "once per session" guard a PreToolUse hook keeps this way, not just
+this one. And separately: never put a stderr redirect on a bare `exec`
+line meant only to open a persistent fd — the redirect persists exactly as
+much as the fd does.

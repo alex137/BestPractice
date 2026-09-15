@@ -4607,6 +4607,26 @@ def check_session_practices_load_without_publishing():
                       'rather than matching everything',
                       bv._same_repository(d_no_remote, d_no_remote)
                       and not bv._same_repository(d_no_remote, a)))
+        # A git-tracked SUBDIRECTORY with no .git of its own -- what
+        # process/upstream/ is in a consumer that vendors this catalogue as
+        # plain files rather than a submodule (practice-export-loop). `git -C
+        # <subdir> remote get-url origin` does not stop at the subdirectory;
+        # it walks up to the ENCLOSING repo and answers with ITS origin, so
+        # before the repo-root check the subdir wrongly read as its
+        # enclosing repo's own top-level checkout. Reported against a real
+        # vendored tree, 2026-09-15.
+        e = dup / 'e'
+        e.mkdir()
+        subprocess.run(['git', 'init', '-q', str(e)], check=False)
+        subprocess.run(['git', '-C', str(e), 'remote', 'add', 'origin',
+                        'https://github.com/acct/consumer-repo.git'], check=False)
+        e_vendored = e / 'process' / 'upstream'
+        e_vendored.mkdir(parents=True)
+        cases.append(("a git-tracked subdirectory with no .git of its own is "
+                      "never mistaken for its enclosing repository's own "
+                      "top-level checkout, even though its `origin` resolves "
+                      "to the enclosing repo's",
+                      not bv._same_repository(e_vendored, e)))
     finally:
         shutil.rmtree(dup, ignore_errors=True)
 
@@ -8024,6 +8044,20 @@ def check_gate_channel():
         cases.append((f'the BLOCKING reply check is called from '
                       f'{stop_hook.relative_to(ROOT)}',
                       'precedent_reply_check' in stop_hook.read_text(errors='ignore')))
+
+    # 2026-09-15: the Stop hook's own advisory print of the reply gate went
+    # unbriefed for over a year -- `precedent_gate.py reply` with no
+    # `--brief`, printing every reply-gate practice's full text on every
+    # single Stop, unconditionally, on top of the SAME list reply-gate.sh
+    # already prints in brief form at the START of the turn. Nothing above
+    # caught it: 'precedent_gate' and 'precedent_reply_check' are both
+    # substrings of the un-briefed call too. Found from a person describing
+    # the result plainly -- a wall of text at the end of every session.
+    for stop_hook in (ROOT / 'templates' / 'harness' / 'claude-code' / 'hooks' / 'stop-git-check.sh',
+                      ROOT / '.claude' / 'hooks' / 'stop-git-check.sh'):
+        cases.append((f'{stop_hook.relative_to(ROOT)} calls the reply gate '
+                      f'--brief, not the full Rules, on every Stop',
+                      'precedent_gate.py" reply --brief' in stop_hook.read_text(errors='ignore')))
 
     # --brief is the per-turn form, and its promise is that it is CHEAP. A
     # regression that printed full Rules there would not fail any case above.
@@ -13928,6 +13962,144 @@ def check_vendor_engine_consumer_case():
           '; '.join(f"{n} -- {d[:800]}" for n, d in bad))
 
 
+def check_vendor_engine_hook_drift_respects_adapters():
+    """A declared source can own a hook file at the same destination this
+    engine vendors -- precedent-individual declaring its own
+    `bootstrap/freshness-guard.sh` as an adapter to
+    `.claude/hooks/freshness-guard.sh` is the real case
+    (precedent_materialize.py's ADAPTER_DECL_KEY). Before
+    `_adapter_claimed_paths` existed, `status`/`refresh` compared that
+    on-disk file -- legitimately overwritten by the source's own adapter --
+    against this engine's OWN `hooks_sha256` and reported the divergence as
+    a hand-edit; `refresh` refused outright. Reproduced verbatim in a real
+    consumer repo, 2026-09-15.
+
+    Fixture is deliberately NOT a full `seed` run (network/git resolution
+    this property does not need): only precedent_vendor_engine.py itself is
+    copied to `<consumer>/tools/`, so ROOT inside the copy resolves to
+    `<consumer>` (practice: fixture-owns-its-state -- nothing here reads a
+    real clone's git history, so nothing needs one).
+
+    Each scenario below gets its OWN fresh consumer directory rather than
+    reusing one across mutations: `refresh` really does rewrite the whole
+    vendored tools/ tree from this checkout, and running it in a directory a
+    later CONTROL case still reads from made that case's own
+    `precedent_vendor_engine.py` copy read as untracked -- fixture
+    contamination masquerading as a result (practice: fixture-owns-its-state
+    again, one level up: the STATE a later case reads must be what THAT case
+    set up, not what an earlier case left behind)."""
+    import shutil, tempfile
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-hook-adapter-'))
+    cases = []
+    try:
+        engine_tool_bytes = (ROOT / 'tools' / 'precedent_vendor_engine.py').read_bytes()
+        engine_tool_hash = hashlib.sha256(engine_tool_bytes).hexdigest()
+        # The hook as this engine last vendored it, and the hash it recorded.
+        engine_hook_text = '#!/bin/sh\n# BestPractice-bundled freshness-guard\n'
+        engine_hash = hashlib.sha256(engine_hook_text.encode('utf-8')).hexdigest()
+        # The source's own adapter copy actually on disk -- different bytes,
+        # different hash, exactly what precedent_materialize.py's adapters
+        # mechanism writes on its next sync.
+        adapter_hook_text = '#!/bin/sh\n# precedent-individual bootstrap/freshness-guard\n'
+        adapter_hash16 = hashlib.sha256(adapter_hook_text.encode('utf-8')).hexdigest()[:16]
+
+        def make_consumer(name, adapters):
+            """A fresh consumer directory: this engine's own vendor tool
+            (recorded in its manifest, so it is never itself flagged
+            UNTRACKED ENGINE FILE and does not confound the assertions
+            below), the mismatched hook, and precedent_materialize.py's own
+            MANIFEST.json with the given `adapters` list (or no MANIFEST.json
+            at all when `adapters` is None)."""
+            consumer = tmp / name
+            (consumer / 'tools').mkdir(parents=True)
+            (consumer / '.claude' / 'hooks').mkdir(parents=True)
+            (consumer / 'tools' / 'precedent_vendor_engine.py').write_bytes(engine_tool_bytes)
+            (consumer / 'tools' / 'ENGINE_MANIFEST.json').write_text(json.dumps({
+                'kind': 'consumer', 'source_commit': 'deadbeef',
+                'files': ['precedent_vendor_engine.py'],
+                'sha256': {'precedent_vendor_engine.py': engine_tool_hash},
+                'hook_files': ['freshness-guard.sh'],
+                'hooks_sha256': {'freshness-guard.sh': engine_hash},
+            }), encoding='utf-8')
+            (consumer / '.claude' / 'hooks' / 'freshness-guard.sh').write_text(
+                adapter_hook_text, encoding='utf-8')
+            if adapters is not None:
+                (consumer / 'MANIFEST.json').write_text(json.dumps({
+                    'generated_by': 'tools/precedent_materialize.py',
+                    'sources': [], 'resident': {}, 'practices': [], 'checks': [],
+                    'adapters': adapters, 'withheld': [], 'excluded_engine_dev': [],
+                }), encoding='utf-8')
+            return consumer
+
+        def vendor_status(consumer):
+            r = subprocess.run(
+                [sys.executable, str(consumer / 'tools' / 'precedent_vendor_engine.py'),
+                 'status', str(ROOT)],
+                capture_output=True, text=True, cwd=str(consumer))
+            return r.returncode, r.stdout + r.stderr
+
+        # -- claimed: a declared source's adapter owns this exact path --
+        claimed_adapters = [
+            {'path': '.claude/hooks/freshness-guard.sh', 'source': 'precedent-individual',
+             'sha256_16': adapter_hash16, 'executable': True},
+        ]
+        consumer_claimed = make_consumer('claimed', claimed_adapters)
+        rc_claimed, out_claimed = vendor_status(consumer_claimed)
+        cases.append(("a hook a declared source's adapter owns is not reported as LOCAL "
+                      "DRIFT even though its bytes differ from this engine's own record",
+                      'LOCAL DRIFT' not in out_claimed, out_claimed[:500]))
+        cases.append(("...and status still exits 0 on that divergence alone",
+                      rc_claimed == 0, out_claimed[:500]))
+        cases.append(("...and status names the claiming source instead of staying silent",
+                      'precedent-individual' in out_claimed and 'freshness-guard.sh' in out_claimed,
+                      out_claimed[:500]))
+
+        # -- refresh: a SEPARATE fresh consumer, since a real refresh rewrites
+        # the whole vendored tools/ tree from this checkout --
+        consumer_refresh = make_consumer('refresh', claimed_adapters)
+        r_refresh = subprocess.run(
+            [sys.executable, str(consumer_refresh / 'tools' / 'precedent_vendor_engine.py'),
+             'refresh', str(ROOT)],
+            capture_output=True, text=True, cwd=str(consumer_refresh))
+        out_refresh = r_refresh.stdout + r_refresh.stderr
+        cases.append(('refresh does not refuse over an adapter-owned divergence -- no '
+                      '"hand-edited" FAIL demanding --force',
+                      'hand-edited since the last seed/refresh' not in out_refresh,
+                      out_refresh[:500]))
+
+        # -- CONTROL: same mismatched bytes, no declared claim on the path.
+        # Restores the exact pre-fix behavior, proving the assertions above
+        # test the adapter check and not something that never fires
+        # (practice: control-asserts-which-failure).
+        consumer_bare = make_consumer('bare', [])
+        rc_bare, out_bare = vendor_status(consumer_bare)
+        cases.append(('CONTROL: the same mismatched hook, with no adapter claiming it, IS '
+                      'reported as LOCAL DRIFT -- proves the exemption above is keyed on '
+                      'the claim, not on hook files in general',
+                      rc_bare == 1 and 'LOCAL DRIFT' in out_bare
+                      and 'hand-edited' in out_bare, out_bare[:500]))
+
+        # -- CONTROL: no MANIFEST.json at all (never materialized) behaves
+        # the same as "no claim" -- the pre-existing behavior for a repo
+        # that has not adopted the adapters mechanism.
+        consumer_none = make_consumer('none', None)
+        rc_none, out_none = vendor_status(consumer_none)
+        cases.append(('CONTROL: with no MANIFEST.json at all, the same mismatch is still '
+                      'reported as LOCAL DRIFT -- absence of the file is not mistaken for '
+                      'a claim',
+                      rc_none == 1 and 'LOCAL DRIFT' in out_none
+                      and 'hand-edited' in out_none, out_none[:500]))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f"a declared source's own adapter, not this engine, owns a hook it claims -- "
+          f"status/refresh stop reading that as a hand-edit ({len(cases)} stated cases)",
+          not bad,
+          '; '.join(f"{n} -- {d[:800]}" for n, d in bad))
+
+
 def check_rule_rewrite_detection():
     """cite-the-incident asks "did somebody WRITE this rule", so it has to
     tell an authorship event from an edit.
@@ -17864,12 +18036,22 @@ def check_installer_produces_a_clean_install():
         cases.append(('AGENTS.md carries the generated loader block with the resident set in it',
                       bv.BEGIN_MARKER in agents and 'verify-postcondition' in agents, agents[:300]))
         gs = (proj / 'GETTING_STARTED.md').read_text(encoding='utf-8') if (proj / 'GETTING_STARTED.md').is_file() else ''
-        cases.append(('GETTING_STARTED.md has the project name, the administrator and the upstream '
-                      'docs filled in, and names the workflow file the install actually wrote',
-                      'Field Notes' in gs and '@dana' in gs and '<upstream-docs>' not in gs
-                      and 'bestpractice-docs.yml' in gs
-                      and (proj / '.github' / 'workflows' / 'bestpractice-docs.yml').is_file(),
+        cases.append(('GETTING_STARTED.md has the project name and the administrator filled in, '
+                      'and no dead upstream-docs placeholder',
+                      'Field Notes' in gs and '@dana' in gs and '<upstream-docs>' not in gs,
                       gs[:400]))
+        # No individual source resolves here (PRECEDENT_USER_CONFIG points at
+        # a file that does not exist), so ci_preference() has nothing to read
+        # and the engine's own default -- disabled -- applies (practice:
+        # declared-default-is-applied). Minutes cost money on a private repo;
+        # nothing declared should not silently opt an adopter into paying for
+        # a workflow they never asked for.
+        cases.append(('nothing declares ci_workflows, so the installer does NOT write the '
+                      'GitHub Actions workflow, and says so in GETTING_STARTED.md',
+                      not (proj / '.github' / 'workflows' / 'bestpractice-docs.yml').exists()
+                      and 'No GitHub Actions workflow was installed' in gs
+                      and 'ci_workflows' in gs,
+                      gs[:600]))
         settings = proj / '.claude' / 'settings.json'
         stext = settings.read_text(encoding='utf-8') if settings.is_file() else ''
         cases.append(('the adapter is wired with no classic-layout allowlist entry, and every '
@@ -17900,6 +18082,63 @@ def check_installer_produces_a_clean_install():
         cases.append(('a directory that is not a git repository is refused with its own message',
                       r.returncode == 1 and 'not the root of a git repository' in r.stderr,
                       r.stderr[:300]))
+
+        # The other direction (practice: control-asserts-which-failure -- a
+        # guard that can only say no is not proven by the no-case alone).
+        # A declared individual source with ci_workflows: enabled should get
+        # the workflow installed, with the concurrency block in it, and
+        # GETTING_STARTED.md should carry the "on" paragraph instead.
+        indiv = tmp / 'indiv-ci-on'
+        indiv.mkdir()
+        (indiv / 'practices').mkdir()
+        (indiv / 'practices' / 'fixture-only.md').write_text(
+            '---\n'
+            'slug:        fixture-only\n'
+            'title:       "Fixture only"\n'
+            'tier:        on-demand\n'
+            'severity:    default\n'
+            'applies_to:  []\n'
+            'occasion:    "never -- this source exists only to give this fixture a '
+            'non-empty practices/ directory"\n'
+            'gates:       []\n'
+            'index_clause: "fixture only, never routed for real"\n'
+            'checked_by:  null\n'
+            'defines:     []\n'
+            'status:      active\n'
+            'in_force_at: null\n'
+            'supersedes:  []\n'
+            'overrides:   null\n'
+            'added:       null\n'
+            'approved_by: "fixture"\n'
+            '---\n'
+            '## Rule\n'
+            'Fixture only; never loaded for real.\n',
+            encoding='utf-8')
+        (indiv / 'identity.json').write_text(json.dumps({
+            'format_version': 1, 'name': 'Dana', 'email': 'dana@example.com',
+            'ci_workflows': 'enabled',
+        }), encoding='utf-8')
+        user_cfg = tmp / 'user-config-ci-on.json'
+        user_cfg.write_text(json.dumps({'individual': {'path': str(indiv)}}), encoding='utf-8')
+        proj2 = tmp / 'proj2'
+        proj2.mkdir()
+        git(proj2.parent, 'init', '-q', '-b', 'main', str(proj2))
+        git(proj2, 'config', 'user.email', 'harness@example.com')
+        git(proj2, 'config', 'user.name', 'Fixture')
+        (proj2 / 'README.md').write_text('# Second Notes\n', encoding='utf-8')
+        git(proj2, 'add', '-A')
+        git(proj2, 'commit', '-qm', 'the second project before Precedent')
+        env2 = dict(env, PRECEDENT_USER_CONFIG=str(user_cfg))
+        r = subprocess.run([sys.executable, tool, str(proj2), '--project-name', 'Second Notes',
+                            '--admin', 'dana'], cwd=str(ROOT), capture_output=True, text=True, env=env2)
+        wf2 = proj2 / '.github' / 'workflows' / 'bestpractice-docs.yml'
+        gs2 = (proj2 / 'GETTING_STARTED.md').read_text(encoding='utf-8') if (proj2 / 'GETTING_STARTED.md').is_file() else ''
+        cases.append(('a declared ci_workflows: enabled installs the workflow WITH its '
+                      'concurrency block, and GETTING_STARTED.md carries the "on" paragraph',
+                      r.returncode == 0 and wf2.is_file()
+                      and 'concurrency:' in wf2.read_text(encoding='utf-8')
+                      and 'A Markdown check runs on every pull request' in gs2,
+                      (r.stdout + r.stderr)[-500:]))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
@@ -19814,6 +20053,112 @@ def check_merged_branches_carry_a_date_and_a_staleness_verdict():
               not failed, '; '.join(failed) if failed else '')
 
 
+def check_branch_report_writes_delete_links_to_a_committable_file():
+    """The branch sweep's own write-up lands in a committable file with a
+    real, clickable link on every row -- not only in whichever session's
+    transcript happened to print it (practice: very-deep-check, pass 4;
+    repo-is-memory).
+
+    THE GAP (Morgan, reading a Sunday run: "I don't remember getting that").
+    scan_branches() and _branch_url() already compute everything the list
+    needs; nothing wrote it anywhere but stdout, which is exactly the run
+    that happened and was never seen again. _write_branch_report() is the
+    fix, and this proves both halves: the merged-and-stale row carries a
+    working delete link, and the unmerged row carries both a branches-page
+    link and a compare-view link -- the actual owner/repo slug parsed from
+    origin, not a placeholder.
+    """
+    import very_deep_check as vdc
+    import tempfile, datetime
+
+    def _git(d, *a):
+        return subprocess.run(['git', '-C', str(d), *a],
+                              capture_output=True, text=True)
+
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp = pathlib.Path(tmp)
+        up, work = tmp / 'up', tmp / 'work'
+        up.mkdir()
+        _git(up, 'init', '-q', '-b', 'main')
+        _git(up, 'config', 'user.email', 'harness@example.com')
+        _git(up, 'config', 'user.name', 'Harness')
+        (up / 'base.txt').write_text('base\n')
+        _git(up, 'add', '-A'); _git(up, 'commit', '-qm', 'base')
+
+        # A branch merged long enough ago to land on the STALE side, so the
+        # test exercises the row this feature exists for -- the safest
+        # deletions, the ones a bare name never got acted on (see the
+        # neighbouring check's own Story).
+        when = (datetime.datetime.now(datetime.timezone.utc)
+                - datetime.timedelta(days=200)).strftime('%Y-%m-%dT%H:%M:%S%z')
+        _git(up, 'checkout', '-q', '-b', 'old-merged')
+        (up / 'a.txt').write_text('a\n')
+        _git(up, 'add', '-A')
+        subprocess.run(['git', '-C', str(up), 'commit', '-qm', 'old work'],
+                       capture_output=True, text=True,
+                       env={**os.environ, 'GIT_AUTHOR_DATE': when,
+                            'GIT_COMMITTER_DATE': when,
+                            'PRECEDENT_ALLOW_ANY_AUTHOR': '1'})
+        _git(up, 'checkout', '-q', 'main')
+        _git(up, 'merge', '-q', '--no-ff', '-m', 'merge old', 'old-merged')
+
+        _git(up, 'checkout', '-q', '-b', 'wip-unmerged')
+        (up / 'b.txt').write_text('b\n')
+        _git(up, 'add', '-A'); _git(up, 'commit', '-qm', 'unlanded work')
+        _git(up, 'checkout', '-q', 'main')
+
+        subprocess.run(['git', 'clone', '-q', f'file://{up}', str(work)],
+                       capture_output=True, text=True)
+        # A REAL GitHub slug, parsed from origin -- the assertions below
+        # check for this exact URL, so a version that hardcoded a link or
+        # dropped the parse silently would not pass.
+        _git(work, 'remote', 'set-url', 'origin',
+             'https://github.com/alex137/fixture-repo.git')
+
+        scan = vdc.scan_branches(work, 'main', stale_days=90) or {}
+        out_path = tmp / 'record' / 'stale-branches.md'
+        vdc._write_branch_report({'checkout': scan}, out_path, work)
+        text = out_path.read_text(encoding='utf-8')
+
+        results = [
+            ('the file exists at the path asked for',
+             out_path.is_file()),
+            ('the merged-and-stale branch is listed',
+             'old-merged' in text),
+            ('its row carries a real GitHub delete link, not a placeholder',
+             'https://github.com/alex137/fixture-repo/branches/all?query=old-merged'
+             in text),
+            ('the unmerged branch is listed with its verdict',
+             'wip-unmerged' in text and 'CARRIES 1 unlanded commit' in text),
+            ('the unmerged row carries a compare-view link',
+             'https://github.com/alex137/fixture-repo/compare/main...wip-unmerged'
+             in text),
+            ('the file says plainly that it is generated, never hand-edited',
+             'GENERATED' in text and 'never hand-edit' in text),
+        ]
+
+        # NEGATIVE CONTROL: a non-GitHub origin gets no link at all --
+        # _branch_url and _compare_url both return None for it, and a
+        # version that silently fell back to a hardcoded or empty link
+        # instead of omitting the row's link entirely is what this catches.
+        _git(work, 'remote', 'set-url', 'origin', 'https://example.com/x/y.git')
+        scan2 = vdc.scan_branches(work, 'main', stale_days=90) or {}
+        out2 = tmp / 'record' / 'stale-branches-2.md'
+        vdc._write_branch_report({'checkout': scan2}, out2, work)
+        text2 = out2.read_text(encoding='utf-8')
+        results.append(
+            ('a non-GitHub origin gets no delete or compare link at all, '
+             'rather than a wrong one',
+             'old-merged' in text2 and 'https://' not in text2))
+
+        failed = [name for name, ok in results if not ok]
+        check(f'the branch sweep writes a committable report carrying real '
+              f'delete and compare links ({len(results)} stated cases, a '
+              f'non-GitHub origin producing no link at all being the '
+              f'negative control)',
+              not failed, '; '.join(failed) if failed else '')
+
+
 def check_public_consumer_does_not_materialize_private_text():
     """A public consumer repo's TRACKED practices/ tree must not carry a
     private source's practice text (practice: very-deep-check, found by it).
@@ -19896,10 +20241,18 @@ def check_public_consumer_does_not_materialize_private_text():
         # merge-authorization-keyword), reporting a real, intended omission
         # as private-text filtering. (practice: verify-decomposition -- the
         # count was right, what it counted was not.)
+        # Same reasoning as the status exclusion above, one axis over:
+        # scope: engine-dev is a SECOND, deliberate reason a practice never
+        # materializes into a consumer, orthogonal to status. Added when
+        # that field landed -- this assertion would otherwise fail the
+        # moment any practice declared it, exactly as it did for the first
+        # retired/deduplicated practice.
         universal = sorted(
             f.name for f in PRACTICES_DIR.glob('*.md')
             if not re.search(r'^status:\s*(retired|deduplicated)\s*$',
-                             f.read_text(encoding='utf-8'), re.M))
+                             f.read_text(encoding='utf-8'), re.M)
+            and not re.search(r'^scope:\s*engine-dev\s*$',
+                              f.read_text(encoding='utf-8'), re.M))
 
         results.append(('a public consumer materializes no private practice file',
                         'private-only.md' not in pub_tree))
@@ -21670,6 +22023,7 @@ def main():
     check_branch_scan_sees_every_branch()
     check_base_branch_drift_ignores_carried_work()
     check_merged_branches_carry_a_date_and_a_staleness_verdict()
+    check_branch_report_writes_delete_links_to_a_committable_file()
     check_branch_sweep_sees_work_landed_on_the_base_branch()
     check_session_sweep_reports_the_repo_half()
     check_very_deep_check_authenticates_its_own_fetches()
@@ -21761,6 +22115,7 @@ def main():
     check_views_drift_gate_reaches_a_source_set()
     check_precedent_check_degrades_in_a_source_set()
     check_vendor_engine_consumer_case()
+    check_vendor_engine_hook_drift_respects_adapters()
     check_rule_rewrite_detection()
     check_source_shape_is_verified()
     check_machine_readable_files_parse()

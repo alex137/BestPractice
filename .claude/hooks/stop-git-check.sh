@@ -48,10 +48,18 @@ fi
 reasons=()
 
 # The REPLY gate — the gate-triggered channel's other real invocation point,
-# alongside templates/hooks/pre-push's `push` gate. Printing is advisory and
-# costs nothing when the Rules are already being followed.
+# alongside templates/hooks/pre-push's `push` gate. --brief, not the full
+# Rules: this fires on every single Stop, unconditionally, and the un-briefed
+# form prints every reply-gate practice's entire text, every time, whether or
+# not anything is wrong. reply-gate.sh (UserPromptSubmit) already prints the
+# same list in brief form at the START of the turn -- this call was
+# reprinting it in full at the END of every turn, on top of that, which is
+# what "printing is advisory and costs nothing" missed: it costs the person
+# reading it. Found 2026-09-15 from a person describing the result plainly --
+# the same wall of text at the close of every session, unrelated to whatever
+# it happened to be reporting that day.
 if [[ -n "$tools" ]]; then
-  python3 "$tools/precedent_gate.py" reply >&2 || true
+  python3 "$tools/precedent_gate.py" reply --brief >&2 || true
 
   # …and the BLOCKING half (2026-09-13). The advisory print above goes to
   # stderr on a clean exit, which Claude Code does not feed back to the

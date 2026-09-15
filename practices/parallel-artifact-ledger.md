@@ -3,6 +3,7 @@ slug:        parallel-artifact-ledger
 title:       "Parallel-artifact families: transfer verdicts are per-mechanism, per-change, and ledgered"
 tier:        on-demand
 severity:    default
+scope:       engine-dev
 applies_to:  ["templates/harness/**"]
 occasion:    "a change must propagate across several parallel artifacts"
 gates:       []

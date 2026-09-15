@@ -129,4 +129,4 @@ Two questions before any fix is reported, and one line in the reply.
 - **Where the origin is out of reach**, say so in those words and queue it
   per [todo-is-a-handoff](todo-is-a-handoff.md) with the repository named —
   the same `blocked-on` reasoning
-  [cross-source-rollout](cross-source-rollout.md) already uses.
+  [cross-source-rollout](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/cross-source-rollout.md) already uses.

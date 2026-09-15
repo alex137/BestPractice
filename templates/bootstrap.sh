@@ -87,7 +87,23 @@ if [ -n "$branch" ] && [ "$branch" != "HEAD" ]; then
   git_dir="$(git rev-parse --git-dir 2>/dev/null || true)"
   fetch_ok=1
   if [ -n "$git_dir" ] && [ -f "$git_dir/shallow" ]; then
-    git fetch --quiet --depth=1000 origin "$branch" 2>/dev/null || fetch_ok=0
+    # TODO.md's shallow-clone-self-heal-hardening item (BestPractice
+    # record/GOTCHAS.md#g37, third occurrence): one bounded attempt used to
+    # be the whole mechanism, and a failure here surfaced as nothing more
+    # than a WARN line. A second, independently-bounded attempt costs
+    # nothing when the first succeeds; a marker file left behind on total
+    # failure means a later run of this same script (or this adapter's
+    # freshness-guard.sh, where that hook is also installed) has a second,
+    # independent chance to notice and say so loudly instead of silently
+    # inheriting a still-truncated history.
+    if timeout 90 git fetch --quiet --depth=1000 origin "$branch" 2>/dev/null \
+       || timeout 60 git fetch --quiet --depth=1000 origin "$branch" 2>/dev/null; then
+      [ -n "$git_dir" ] && rm -f "$git_dir/PRECEDENT_SHALLOW_UNRESOLVED" 2>/dev/null || true
+    else
+      fetch_ok=0
+      echo "WARN: could not deepen this shallow clone after two attempts -- history-reading checks may see far less than the real history. Remedy by hand: git fetch --unshallow" >&2
+      [ -n "$git_dir" ] && : > "$git_dir/PRECEDENT_SHALLOW_UNRESOLVED" 2>/dev/null || true
+    fi
   else
     git fetch --quiet origin "$branch" 2>/dev/null || fetch_ok=0
   fi

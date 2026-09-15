@@ -426,14 +426,28 @@ _session_start_one() {
     echo "WARN: freshness-guard: could not fetch origin/$branch -- freshness NOT verified. Everything below is measured against a possibly stale remote-tracking ref; a silent result here means 'not checked', never 'in sync'." >&2
   fi
 
+  # TODO.md's shallow-clone-self-heal-hardening item, g37's third recurrence.
+  # Used to run only when the counts already looked diverged (ahead != 0) --
+  # which is exactly the case a shallow clone gets WRONG on its own, and left
+  # a checkout that was merely shallow-and-behind with no second chance if
+  # session-start.sh's own attempt had failed. _deepen_if_shallow returns fast
+  # (its own first line is `_is_shallow || return 1`) when there is nothing to
+  # do, so calling it unconditionally, before the counts below are trusted at
+  # all, costs nothing on an already-complete clone.
+  _deepen_if_shallow "$branch" || true
+  if _is_shallow; then
+    _shallow_marker="$(_git rev-parse --absolute-git-dir 2>/dev/null || true)"
+    [ -n "$_shallow_marker" ] && [ -f "$_shallow_marker/PRECEDENT_SHALLOW_UNRESOLVED" ] && \
+      echo "WARN: freshness-guard: this checkout is STILL shallow after session-start.sh's own two attempts and this guard's own retry -- treat history-reading tools (behavioral_replay.py, doc_lint's changed-files scope, precedent_check.py's tree checks) as unverified. Remedy by hand: git fetch --unshallow" >&2
+  else
+    _shallow_marker="$(_git rev-parse --absolute-git-dir 2>/dev/null || true)"
+    [ -n "$_shallow_marker" ] && rm -f "$_shallow_marker/PRECEDENT_SHALLOW_UNRESOLVED" 2>/dev/null
+  fi
+
   if _have_ref "origin/$branch"; then
     local behind ahead
     behind="$(_git rev-list --count "HEAD..origin/$branch" 2>/dev/null || echo 0)"
     ahead="$(_git rev-list --count "origin/$branch..HEAD" 2>/dev/null || echo 0)"
-    if [ "$ahead" != "0" ] && _deepen_if_shallow "$branch"; then
-      behind="$(_git rev-list --count "HEAD..origin/$branch" 2>/dev/null || echo 0)"
-      ahead="$(_git rev-list --count "origin/$branch..HEAD" 2>/dev/null || echo 0)"
-    fi
     if [ "$behind" != "0" ]; then
       if _dirty; then
         echo "WARN: freshness-guard: '$branch' is $behind commit(s) behind origin/$branch, and the working tree has uncommitted changes -- NOT updating it automatically.$(_age_phrase "$branch") Commit or stash, then: git merge --ff-only origin/$branch" >&2
@@ -561,6 +575,41 @@ print((d.get("tool_input") or {}).get("command") or "")' 2>/dev/null || true)"
   sentinel="${TMPDIR:-/tmp}/precedent-freshness-${key}"
   [ -f "$sentinel" ] && exit 0
 
+  # THE RACE THIS CLOSES. `key` is keyed on session_id alone when one
+  # resolves -- which is the normal case -- so every tool call in one turn
+  # computes the SAME sentinel path. When the harness dispatches two calls
+  # concurrently, both processes read `[ -f "$sentinel" ]` as false before
+  # either has written it, and both fall through to `_pre_write_one`, which
+  # runs `git fetch`/`--deepen` against the same `.git` directory at once.
+  # Reproduced 2026-09-15: one of two parallel Bash calls blocked on a
+  # false "diverged" reading (a shallow-clone artifact, record/GOTCHAS.md#g37)
+  # while its sibling call, racing the same checkout, read the correct
+  # counts and passed clean -- same session, same instant, two different
+  # verdicts, because nothing serialized them. flock turns the race into a
+  # queue: a second caller that has to wait re-checks the sentinel on
+  # waking and, finding the first caller already finished it, exits clean
+  # instead of repeating the same git work against a checkout the first
+  # caller may have just changed. Held on an fd, not in a subshell, so a
+  # later `_block`'s plain `exit 2` still releases it as the process exits
+  # normally -- no explicit unlock needed, and no lock this script must
+  # remember to drop on every exit path. Absent `flock` (non-Linux, or a
+  # trimmed container), this falls back to the pre-existing race rather
+  # than blocking the tool call outright -- a guard that cannot lock is not
+  # a guard that must therefore refuse (practice: fail-gracefully).
+  if command -v flock >/dev/null 2>&1; then
+    # `2>/dev/null` on the `exec` line itself is the trap, not the fix: bash
+    # applies an `exec` with no command's redirections to the CURRENT SHELL,
+    # permanently -- not scoped to this statement -- so it would silence
+    # every later `echo ... >&2` in the rest of this process for the rest of
+    # its run, not just a failed lock open. Proven with a two-line repro
+    # where a stderr line AFTER the function that ran `exec 2>/dev/null`
+    # inside it also went missing. `flock`'s own `2>/dev/null` is a normal
+    # external command's redirection and stays scoped to that command.
+    exec 9>"${sentinel}.lock"
+    flock -x -w 30 9 2>/dev/null
+    [ -f "$sentinel" ] && exit 0
+  fi
+
   _in_git || { : > "$sentinel"; exit 0; }
 
   if [ "$(_git config --get precedent.freshness.override 2>/dev/null || true)" = "true" ]; then
@@ -616,14 +665,15 @@ _pre_write_one() {
     fi
   fi
 
+  # Unconditional now, same reasoning as _session_start_one's copy of this
+  # comment: a shallow-but-merely-behind checkout used to get no deepen
+  # attempt here at all, only when the counts already looked diverged.
+  _deepen_if_shallow "$branch" || true
+
   if _have_ref "origin/$branch"; then
     local behind ahead
     behind="$(_git rev-list --count "HEAD..origin/$branch" 2>/dev/null || echo 0)"
     ahead="$(_git rev-list --count "origin/$branch..HEAD" 2>/dev/null || echo 0)"
-    if [ "$ahead" != "0" ] && _deepen_if_shallow "$branch"; then
-      behind="$(_git rev-list --count "HEAD..origin/$branch" 2>/dev/null || echo 0)"
-      ahead="$(_git rev-list --count "origin/$branch..HEAD" 2>/dev/null || echo 0)"
-    fi
     if [ "$behind" != "0" ]; then
       if _dirty; then
         _block "'$branch' is $behind commit(s) behind origin/$branch and the working tree is dirty.$(_age_phrase "$branch") Commit or stash first, then: git merge --ff-only origin/$branch"

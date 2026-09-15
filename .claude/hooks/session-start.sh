@@ -76,13 +76,34 @@ fi
 # some git policy hooks refuse `--unshallow` outright. A failure reports and
 # continues: a session with a short history is worse off than one without,
 # and far better off than a session that does not start.
+# TODO.md's shallow-clone-self-heal-hardening item, g37's third recurrence.
+# ONE bounded attempt used to be the whole mechanism: on failure this printed
+# a WARN nothing re-surfaced, and the next chance to fix it was whatever this
+# checkout's freshness-guard.sh happened to do on its own (previously: only
+# when it looked diverged, never for a checkout that was merely shallow and
+# behind). A second, independently-bounded attempt costs nothing when the
+# first succeeds, and turns a single transient network hiccup through this
+# container's proxy into a recoverable one instead of a silent WARN.
 if git rev-parse --git-dir >/dev/null 2>&1 \
    && [ "$(git rev-parse --is-shallow-repository 2>/dev/null)" = "true" ]; then
+  _shallow_fixed=0
   if timeout 90 git fetch --quiet --unshallow 2>/dev/null \
      || timeout 90 git fetch --quiet --deepen=1000 2>/dev/null; then
+    _shallow_fixed=1
+  elif timeout 60 git fetch --quiet --deepen=1000 2>/dev/null; then
+    _shallow_fixed=1
+  fi
+  _shallow_gitdir="$(git rev-parse --absolute-git-dir 2>/dev/null || true)"
+  if [ "$_shallow_fixed" = "1" ]; then
     echo "NOTE: this clone carried only the most recent commits; fetched the rest of the history so history-reading tools do not silently degrade. (See AGENTS.md gotchas g6, g8, g37.)" >&2
+    [ -n "$_shallow_gitdir" ] && rm -f "$_shallow_gitdir/PRECEDENT_SHALLOW_UNRESOLVED" 2>/dev/null || true
   else
-    echo "WARN: could not deepen this shallow clone -- behavioral_replay.py, doc_lint.py's changed-files scope and precedent_check.py's tree checks may report success while checking little or nothing. Remedy: git fetch --unshallow" >&2
+    # A marker, not just a log line: freshness-guard.sh checks for this on
+    # every session-start, throttled prompt, and first tool call, and says so
+    # out loud if it is STILL shallow after its own retry too -- instead of
+    # this WARN sitting in stdout nobody reads back.
+    echo "WARN: could not deepen this shallow clone after two attempts -- behavioral_replay.py, doc_lint.py's changed-files scope and precedent_check.py's tree checks may report success while checking little or nothing. freshness-guard.sh will keep retrying. Remedy by hand: git fetch --unshallow" >&2
+    [ -n "$_shallow_gitdir" ] && : > "$_shallow_gitdir/PRECEDENT_SHALLOW_UNRESOLVED" 2>/dev/null || true
   fi
 fi
 

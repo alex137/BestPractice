@@ -101,6 +101,7 @@ each one saves you a paragraph of explaining:
 | **Brainstorm** | Think it through with you and write nothing down — no files, no edits, nothing saved — until you say to. |
 | **Chief of Staff** | Stop and route this: tell you what every open session is blocked on and what is colliding, with a clickable link to each. |
 | **Go merge** | Save the work, publish it, and tell you where it went — without asking anything further. |
+| **Go update** | The same as **Go merge**: save the work, publish it, and tell you where it went. |
 | **My options** | Lay out the real choices in plainer words, the good and the bad of each, and tell you which one it recommends and why. |
 | **Park it** | Mark the open question as parked and drop the subject. It won't be raised again unless you raise it. |
 | **Plain words** | Drop the formal register and explain it the way somebody would say it out loud — same answer, plainer telling. |

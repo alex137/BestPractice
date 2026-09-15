@@ -3,6 +3,7 @@ slug:        cross-source-rollout
 title:       A change with cross-source implications rolls out now, or queues with why
 tier:        on-demand
 severity:    default
+scope:       engine-dev
 applies_to:  ["**"]
 occasion:    "a change here has implications for how an attached team, individual, or repo-local source should work"
 gates:       ["merge"]
@@ -39,7 +40,7 @@ implication in another, and "the other repo isn't open right now" is a
 real, nameable `blocked-on` reason — distinct from the convenience
 deferral `todo-is-a-handoff` already rules out.
 
-It is also distinct from [parallel-artifact-ledger](parallel-artifact-ledger.md): that practice's family
+It is also distinct from [parallel-artifact-ledger](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/parallel-artifact-ledger.md): that practice's family
 members are independent implementations of *one design* (three harness
 adapters, same architecture). These four sources are not parallel copies
 of each other at all — individual, team, and repo-local practices are
@@ -49,7 +50,7 @@ the *mechanism* a source relies on (an engine tool's behavior, a
 merge/push/deep-check convention, a resolver rule) — not every change to
 this repo's own prose.
 
-[very-deep-check](very-deep-check.md) is this same gap seen from the other side, on-demand rather
+[very-deep-check](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/very-deep-check.md) is this same gap seen from the other side, on-demand rather
 than at every merge: run against the checkout plus every attached
 team/individual source, it should read whether a check, tool, or
 convention this repo changed has left an attached source assuming the old

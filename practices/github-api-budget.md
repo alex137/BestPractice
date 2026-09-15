@@ -75,7 +75,7 @@ instrumentation will see it coming. The registry records them so the next
 session reading an opaque refusal has the candidate list in front of it.
 
 **The very deep check reads the budget last, and reports it as a section**
-([very-deep-check](very-deep-check.md)). Last, because the run's own spend is
+([very-deep-check](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/very-deep-check.md)). Last, because the run's own spend is
 only complete once every section that calls the API has finished — and the
 headroom figure costs nothing extra, because it is read off the headers those
 calls already returned rather than bought with one more.
@@ -115,7 +115,7 @@ no registry at all is the finding, not a skip. A repo that calls the API
 nowhere gets a named NOT APPLICABLE.
 
 Per-run spend and headroom print as the last section of
-[very-deep-check](very-deep-check.md).
+[very-deep-check](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/very-deep-check.md).
 
 ## Why
 A rate-limit error arrives as one sentence with no number in it, and every

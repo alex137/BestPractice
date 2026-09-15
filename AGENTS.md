@@ -32,12 +32,18 @@ fixed thing, and each is a universal practice: the trigger and the meaning are
 here, and the rule, the argument and the story of its coining are in the
 practice file — `python3 tools/precedent_show.py SLUG` for any of them.
 
-- **"Go merge"**, and **"Approved"** ([go-merge](practices/go-merge.md)) —
-  sync, say which branch out loud, commit, push, open the pull request, merge,
-  **without asking again.** A step this session cannot perform hands off
-  rather than coming back as a question: the authorization travels with the
-  work. One rule, two triggers — and `Approved` is also an ordinary
-  adjective, so *"the approved plan of record"* is not the command.
+- **"Go merge"**, **"Approved"**, and **"Go update"** ([go-merge](practices/go-merge.md)) —
+  classify first: **trivial** (wording, a typo, a dead link — content this
+  repo already allows a direct edit to) commits and pushes straight to the
+  branch, no PR; **substantial** (anything that changes what a document
+  requires or what code does) syncs, says the branch out loud, commits,
+  pushes, opens the pull request, and merges — **without asking again.**
+  Unsure which it is? Substantial. A step this session cannot perform hands
+  off rather than coming back as a question: the authorization travels with
+  the work. One rule, three triggers — `Approved` is also an ordinary
+  adjective, so *"the approved plan of record"* is not the command, and
+  `Go update` is not the command when "update" has its own object, as in
+  *"go update the branch, then look at the diff."*
 - **"Park it"** ([park-it](practices/park-it.md)) — write
   `**Disposition:** parked (<date>, <who said it>)` into the item meant, in
   that same turn, say which item was marked, and **never raise it unprompted
@@ -262,7 +268,7 @@ When a computation books a transfer between two parties:
 When a document replaces or is replaced by an earlier one:
   index-remembers-past — put the lineage in the index, not in either document
 When a message carries a standing merge-authorization phrase:
-  go-merge — "Go merge"/"Approved": sync, branch, commit, push, PR, merge; blocked hands off
+  go-merge — "Go merge"/"Approved"/"Go update": trivial -> push; else sync, branch, PR, merge
 When a message says "Update Vendors", or an upstream update is being taken into a repo that vendors a practice layer:
   vendor-update-runbook — "Update Vendors" -- source clone first, both layers move separately, then merge
 When a model, study or comparison table rests on an operating constant nobody decided — a margin, a cap, a rate, a floor:
@@ -577,6 +583,16 @@ retired it. Nothing is ever deleted.
   very practice set whose `identity.json` declares `relayed_authorization:
   accepted` — non-deterministically, so retrying teaches you nothing.**
   [story](record/GOTCHAS.md#g42)
+
+- **A spawned session's seeded prompt cannot pre-authorize a merge — the
+  classifier refuses the `create_session` call itself, even though
+  `go-merge`/`relayed-authorization` say the authorization should travel.**
+  [story](record/GOTCHAS.md#g43)
+
+- **A PreToolUse hook's once-per-session sentinel is not proof against two
+  tool calls the harness dispatches at once — both read it as absent before
+  either writes it, and both run `git fetch` against the same `.git` at
+  the same time.** [story](record/GOTCHAS.md#g44)
 
 ## Working in this repo
 

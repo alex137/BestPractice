@@ -3157,6 +3157,26 @@ which is the failure this repointing exists to end — write
    open is the general question: whether `--apply` should keep hook content
    current by default.
 
+   **The general question now has an answer on the CONSUMER side, 2026-09-15,
+   which is directly relevant precedent here even though it does not close
+   this item.** `precedent_vendor_engine.py` now vendors `.claude/hooks/*.sh`
+   the same way it vendors `tools/` — tracked in `ENGINE_MANIFEST.json`
+   (`hook_files`/`hooks_sha256`), refreshed by `refresh`, refused on
+   hand-edit unless `--force`, scoped to what a repo's own `settings.json`
+   actually wires (`_wired_hook_names`, added after a first version vendored
+   everything unconditionally and planted an orphan hook in every plain
+   consumer install — caught by `hooks-on-disk-are-reachable` before it
+   shipped). That answers "should hook content join the vendored engine as
+   something kept current" for a consumer repo: yes, drift-checked, never
+   silent. **It does not answer it for an attached practice-set source** —
+   `precedent_refresh_sources.py` is a different tool, a different
+   destination shape (a sibling clone, not a vendored copy), and this item's
+   own blocked-on (a session rooted under the sets' own owner) still holds.
+   Whoever picks this item up should read `_wired_hook_names`'s docstring in
+   `tools/precedent_vendor_engine.py` before designing the source-side
+   answer — the orphan-hook failure mode it describes applies just as much
+   to a set's `bootstrap/` layout as to a consumer's `.claude/hooks/`.
+
 50. <a id="sync-refuses-a-rewind"></a>**Make `precedent_sync_views.py` refuse a sync that would rewind a
    practice's content, not just one that would remove the practice
    outright.** It already refuses at practice granularity: `_lost_practices`
@@ -7112,3 +7132,96 @@ which is the failure this repointing exists to end — write
     sync should never materialise a source the target's own `precedent.json`
     does not declare. **Disposition:** ask (2026-09-14, the evening very
     deep check)
+115. <a id="shallow-clone-self-heal-hardening"></a>**Harden the shallow-clone
+    self-heal so a failed attempt is loud, and so a merely-behind (not
+    falsely-diverged) shallow checkout gets a second try.** Full incident and
+    the platform research behind it:
+    [record/GOTCHAS.md g37](record/GOTCHAS.md#g37), third occurrence,
+    2026-09-15. This is scoped narrower than "prevent
+    shallow clones" — that part is closed: a brand-new session already
+    self-heals correctly, and a resumed session that predates the fix can
+    only be reached from inside itself, once, which is not something a
+    committed file can do. What is left to build:
+    1. `session-start.sh`'s unshallow attempt gets one `timeout 90` try and,
+       on failure, only a `WARN` line nothing re-surfaces. Retry once more
+       with a second bounded window, and on a second failure write a marker
+       (e.g. `.git/PRECEDENT_SHALLOW_UNRESOLVED`) that a later hook pass can
+       see and surface loudly, instead of a line in stdout nobody reads back.
+    2. `freshness-guard.sh`'s `_deepen_if_shallow` only fires from the
+       divergence branch (`ahead != "0"`). Make the guard check `is_shallow`
+       unconditionally on its own first run each session too, independent of
+       whether the counts look diverged — a second, independent path to the
+       same repair, so a SessionStart failure isn't the only chance.
+    3. Fold both into [record/GOTCHAS.md g37](record/GOTCHAS.md#g37) once built, and check whether the
+       four private practice sets' vendored copies need the same refresh
+       `tools/precedent_refresh_sources.py` already does for other hook
+       drift.
+    **CLOSED 2026-09-15 — built and merged.** Morgan: *"Yes, please build
+    that. GO merge."* (`strength: decided`). Built exactly the three items
+    above: `.claude/hooks/session-start.sh`'s unshallow block now retries
+    once more on failure and leaves `PRECEDENT_SHALLOW_UNRESOLVED` in the
+    git dir when both attempts fail; `freshness-guard.sh` (identical in
+    `.claude/hooks/` and `templates/harness/claude-code/hooks/`, kept in
+    sync) now calls `_deepen_if_shallow` unconditionally, before either
+    function trusts its ahead/behind counts, and surfaces a loud `WARN` at
+    session-start when the marker is still there; `templates/bootstrap.sh`
+    (the consumer-repo equivalent of the session-start block, not originally
+    scoped but the same class of fix, named here rather than left as a
+    silent gap) got the same retry-and-marker treatment. Verified against
+    fixtures reproducing g37's exact shape (a shallow clone whose disjoint
+    graft reads as `0 behind, 0 ahead` before deepening, so the OLD code
+    path skipped the update entirely rather than merely misreporting it) —
+    the fixed code deepens first and fast-forwards correctly; a genuinely
+    diverged branch still blocks as before, confirmed as a regression
+    check. Rolls out to dependent repos the next time each runs `Update
+    Vendors`, per
+    [vendor-update-runbook](practices/vendor-update-runbook.md); the
+    four private practice sets' vendored copies still need
+    `tools/precedent_refresh_sources.py --apply` by hand, tracked
+    separately at [g20](record/GOTCHAS.md#g20) rather than duplicated here.
+116. <a id="go-merge-direct-edit-narrowing-check"></a>**A mechanical check
+    could narrow the trivial/substantial judgment `Go merge` now makes, and
+    it is not built.** [go-merge](practices/go-merge.md) forks on a
+    session's own read of whether a pending change is trivial
+    (direct-push-eligible) or substantial (needs the full PR chain) — a
+    judgment call, the same shape as the phrase-recognition it has always
+    made. One slice of that judgment is mechanical and isn't wired up:
+    whether a push straight to a repo's own working branch, with no open
+    pull request, touches only content that repo's own convention already
+    allows direct edits to. For BestPractice that is
+    [this repo's own rule](AGENTS.md#working-in-this-repo) — README,
+    practice wording, engine code, never an incoming abstracted lesson — and
+    a check could fail a direct push that lands outside that set. Not built
+    here; out of scope for drafting the rule itself.
+117. <a id="ledger-gap-shallow-clone-hardening"></a>**`parallel-artifact-ledger`
+    is red on `precedent-beta-v01` itself, pre-existing.**
+    `python3 tools/precedent_check.py --only parallel-artifact-ledger` fails:
+    `templates/harness/LEDGER.md` has no row for `4b19b04` ("Harden the
+    shallow-clone self-heal", 2026-09-15, the fix item 115 above closed),
+    which touched `templates/harness/claude-code`. Found while running the
+    deep check for an unrelated change; not this session's commit and not
+    fixed here — writing the row needs the per-member transfer verdict for
+    that specific commit, which this session did not investigate.
+    **CLOSED 2026-09-15 — backfilled by a concurrent commit.**
+    [`7c674fa`](https://github.com/alex137/BestPractice/commit/7c674fa)
+    landed a `templates/harness/LEDGER.md` row for `4b19b04` while this
+    session's own PR was in flight; `precedent_check.py --only
+    parallel-artifact-ledger` passes clean on `precedent-beta-v01`'s current
+    tip.
+118. <a id="check-default-cc-environment-staleness"></a>**Check whether the
+    "Default CC" environment is still cloning fresh in a few days.**
+    "Default AA" (created 2026-04-17) had every session start from a
+    container frozen at a Sept-11 commit — 132 commits it had never pushed,
+    ~500 behind live `origin/precedent-beta-v01` — which the freshness
+    guard then blocked on and the Stop hook read as real unpushed work.
+    Recreating the environment as "Default CC" cleared the symptom
+    immediately (checked 2026-09-15: fresh clone, `HEAD` at that day's real
+    tip). Whether "Default AA" was a one-time staleness or "Default CC" will
+    drift the same way after enough days is unmeasured.
+    **Remind:** check a session running in "Default CC" around 2026-09-18 —
+    `git log -1 --format='%cI %s'`, or read its session-start output for a
+    `STALE`/`UPSTREAM MOVED` notice — and confirm it's still tracking live
+    `origin/precedent-beta-v01` rather than resuming a frozen container. If
+    it's stale again, that's a platform caching bug, not something this repo
+    can fix. (2026-09-15, Morgan)
+    **Disposition:** ask (2026-09-15, Morgan)

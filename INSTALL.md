@@ -296,7 +296,9 @@ list.)
    `AGENTS.md` (plus a harness pointer such as `CLAUDE.md`), `MAP.md`,
    `TODO.md`, `GLOSSARY.md`, `GETTING_STARTED.md`, `VOICE.md`,
    `STYLEGUIDE.md`, `.gitignore`, and the README entry-block edit — plus
-   `tools/bootstrap.sh`, `.github/workflows/bestpractice-docs.yml`, and
+   `tools/bootstrap.sh`, `.github/workflows/bestpractice-docs.yml` (only
+   when the individual or team source resolved declares `"ci_workflows":
+   "enabled"` — disabled is the default; see GITHUB_ACTIONS.md), and
    `.github/pull_request_template.md`. Everything else that ships
    with Precedent (INSTALL.md, PRACTICES.md, SETUP.md,
    GITHUB_ACTIONS.md, MOBILE.md, METHOD.md, GIT.md, templates/, tools/,
@@ -736,7 +738,7 @@ not this section.
 
    | Artifact | What a §0 install needs |
    |---|---|
-   | [templates/github-actions/doc-lint.yml.template](templates/github-actions/doc-lint.yml.template) | **Nothing — already handled.** It discovers `doc_lint.py` at either `process/upstream/tools/` or `tools/` and watches both. Install it verbatim. |
+   | [templates/github-actions/doc-lint.yml.template](templates/github-actions/doc-lint.yml.template) | **Nothing — already handled.** It discovers `doc_lint.py` at either `process/upstream/tools/` or `tools/` and watches both. Install it verbatim — but only when you actually want it installed: `precedent_install.py` writes it by default only when the individual or team source resolved declares `"ci_workflows": "enabled"` (GITHUB_ACTIONS.md), and a §0 install manually copying this template is opting in explicitly regardless of that field. |
    | [templates/github-actions/views-drift.yml.template](templates/github-actions/views-drift.yml.template) | **Not this repo's — skip it.** It gates the generated views of a repo that AUTHORS its `practices/` (an individual or team practice set). A consuming repo materializes `practices/` from sources a CI runner cannot reach, so there is nothing on the runner to check the views against, and the workflow exits non-zero saying so rather than passing blind. See [GITHUB_ACTIONS.md](GITHUB_ACTIONS.md)'s Limits. |
    | [templates/GETTING_STARTED.md](templates/GETTING_STARTED.md) | Replace the `<upstream-docs>` placeholder with `https://github.com/alex137/BestPractice/blob/main` — the upstream URL, because §0 leaves no local copy of `MOBILE.md`, `METHOD.md` or `GITHUB_ACTIONS.md` to point at. (§1 replaces it with `process/upstream`.) |
    | [templates/VOICE.md.template](templates/VOICE.md.template) and [templates/pull_request_template.md.template](templates/pull_request_template.md.template) | Both mention `process/upstream/` in prose — the export-gate route in one, a review-grouping hint in the other. Neither breaks anything, and both name a directory your repo does not have, so a reader follows a dead path. Reword or drop those lines. |
