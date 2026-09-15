@@ -181,6 +181,41 @@ running in the other. The ping separates "the variables do not arrive" from
 never reaches a session already running, so test in a NEW one. Full sequence:
 [record/GOTCHAS_ARCHIVE.md](record/GOTCHAS_ARCHIVE.md) entry 29.
 
+## The Setup Command — Keeping the Checkout Itself Current
+
+**A different field on the same environment screen** as the variables
+above: a shell command, not a variable, that Claude Code on the web runs
+when preparing a session's container. Where the variables reach your
+private practices, this one reaches something more basic — whether the
+project's own checkout is current at all.
+
+**Verified 2026-09-15: a container can start from cached state instead of a
+genuinely fresh clone.** One environment, running since 2026-04-17, had
+every session start from a checkout frozen at a single commit days old —
+diverged from live `origin`, which then tripped the freshness guard and the
+Stop hook on every session as if real unpushed work existed. Recreating the
+environment cleared it that one time; whether it recurs on a schedule is
+still open ([TODO.md's `check-default-cc-environment-staleness`
+item](TODO.md#check-default-cc-environment-staleness)).
+
+Add this to the Setup command field to force the checkout current on every
+run, regardless of the container's cached state:
+
+```sh
+b="$(git branch --show-current)"; git fetch origin "$b" && git reset --hard "origin/$b"
+```
+
+Deliberately generic: no repo name, no branch name. It reads both from the
+checkout it runs against, so the same line works whatever repository and
+branch the environment happens to open.
+
+**Unconfirmed as of 2026-09-15: whether the Setup command re-runs on every
+session start, or only once when the environment's image is built.** If
+it's the latter, this doesn't help — verify by starting two sessions a few
+days apart in the same environment and comparing `git log -1`. The short
+version of this same fix is also in
+[CLOUD_SETUP.md](CLOUD_SETUP.md#keep-the-checkout-from-going-stale).
+
 ## Hosted Sessions — The Credential That Replaces `add_repo`
 
 **On a hosted, ephemeral session there is a second way to reach your
