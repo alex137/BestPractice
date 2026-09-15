@@ -73,6 +73,19 @@ every step's answer is wrong if the one before it was skipped.
 3. **Refresh the engine, and take the branch tip.** Expect two passes when
    the tool replaces itself; the second is not a retry, it is the new copy
    running its own corrected file list.
+   **Since 2026-09-15 this also refreshes `.claude/hooks/*.sh`**, drift-checked
+   and tracked in the same `ENGINE_MANIFEST.json` as `tools/`
+   (`hook_files`/`hooks_sha256`) — before that date the hook scripts were
+   copied once at initial install and never refreshed again, so a fix
+   landing in one (the `freshness-guard.sh` shallow-clone false-positive,
+   `record/GOTCHAS.md#g12`, is the incident that prompted this) never
+   reached an already-vendored repo no matter how many times "Update
+   Vendors" ran. A repo vendored before this date has no `hook_files` in
+   its manifest yet; its first refresh after taking this change prints a
+   one-time catch-up notice and vendors all of them, even though the
+   `tools/` commit may already match. `.claude/settings.json` is still never
+   touched — only the hook scripts it calls are vendored engine code, and a
+   consumer's own hook wiring is its own.
    **When the same update is going into more than one repo, note the tip
    before you start and check every repo against it at the end.** Each refresh
    resolves the tip at the moment it runs, so two repos updated an hour apart

@@ -116,6 +116,17 @@ existed, or was extended to the consumer kind); this tool just makes that
 trim mechanical instead of a fact only the session that did it once
 remembered.
 
+SINCE 2026-09-15, the .claude/hooks/*.sh adapter scripts travel with the
+engine too -- seed/status/refresh all cover them alongside tools/, tracked
+in the same ENGINE_MANIFEST.json (see the HOOK_SOURCE_DIR block below for
+why they are a second, smaller mechanism rather than folded into
+ENGINE_FILES). Before this date they were installed once by
+precedent_install.py and never refreshed, so a fix landing in a hook script
+-- the freshness-guard.sh shallow-clone false-positive, record/GOTCHAS.md#g12,
+is the incident that prompted this -- never reached an already-vendored
+repo no matter how many times it ran `refresh`. .claude/settings.json itself
+is still never touched by this tool, on purpose; see that block.
+
 Four subcommands:
 
   seed <dest-dir> [--kind source|consumer]
@@ -516,6 +527,64 @@ RETIRED_ENGINE_FILES = {
 }
 _SECOND_PASS_ENV = 'PRECEDENT_VENDOR_ENGINE_SECOND_PASS'
 
+# --- Hook files: the .claude/hooks/*.sh adapter scripts --------------------
+# Distinct from ENGINE_FILES above in two ways: they live in a different
+# source directory (templates/harness/claude-code/hooks/, not tools/) and a
+# different destination (.claude/hooks/, not tools/). Until now they were
+# installed once by precedent_install.py's _harness() and never refreshed --
+# "Update Vendors" refreshed tools/ and the catalogue and silently left the
+# hook scripts wherever initial install had put them. That is the same gap
+# ENGINE_FILES closed for tools/precedent_reply_check.py and
+# tools/precedent_close_detect.py (see this file's docstring above): a fix
+# that lands upstream and never reaches an already-vendored repo because
+# nothing carries it there. The freshness-guard.sh shallow-clone false-
+# positive (record/GOTCHAS.md#g12) is the concrete incident this closes --
+# every consumer that vendored before that fix landed would otherwise keep
+# hitting it, forever, no matter how many times it ran "Update Vendors".
+#
+# Deliberately NOT folded into ENGINE_FILES/KINDS: that machinery assumes one
+# shared source dir and one shared dest dir (both `tools/`). Reusing it here
+# would mean smuggling a relative `../` path into a manifest key to reach
+# outside tools/ -- workable, but a trap for the next reader who assumes
+# every name in `files` resolves inside tools/. A second, smaller, explicitly
+# separate mechanism is the honest shape, tracked in the SAME
+# ENGINE_MANIFEST.json under its own `hook_files`/`hooks_sha256` keys so
+# there is still one provenance record per repo, not two.
+#
+# WHAT THIS DELIBERATELY DOES NOT DO YET, said out loud rather than silently
+# missing (same discipline as the "what is deliberately in neither list"
+# passage above). No RETIRED_HOOK_FILES tombstone and no per-kind file list:
+# both kinds run the same Claude Code adapter, so every hook applies to
+# both. No untracked-hand-copy detector (_untracked_engine_files's hook
+# analog) -- a stray hand-copied hook is a real but unmeasured risk, not
+# something this pass closes. If a hook is ever renamed or dropped upstream,
+# the old copy is left behind in a consumer's .claude/hooks/, the same way
+# an engine file used to be before _remove_dropped_engine_files existed --
+# a known gap, not a silent one, closed properly if and when it happens.
+#
+# .claude/settings.json is deliberately NOT vendored here.
+# precedent_install.py's _harness() already leaves it alone once it exists,
+# on purpose -- a consumer may have wired its own extra hooks alongside the
+# vendored ones -- and a routine refresh has no business overwriting a
+# repo's own hook wiring. Only the hook SCRIPTS are vendored engine code;
+# the settings that call them are the consumer's own.
+HOOK_SOURCE_DIR = 'templates/harness/claude-code/hooks'
+HOOK_DEST_DIR = '.claude/hooks'
+
+
+def _hook_file_names(hooks_dir):
+    """The real (non-template) hook scripts BestPractice ships, read off
+    disk rather than hardcoded -- the same reasoning precedent_install.py's
+    _harness() already applies by parsing settings.json for the commands it
+    wires: a hook added upstream should not also require a matching edit
+    here before it can be vendored. `.template` files (e.g.
+    individual-source-bootstrap.sh.template) are a different mechanism
+    (rendered per-source, not copied verbatim) and are excluded by the
+    glob."""
+    if not hooks_dir.is_dir():
+        return []
+    return sorted(p.name for p in hooks_dir.glob('*.sh'))
+
 
 def _sha256(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
@@ -666,6 +735,66 @@ def _write_engine_files(dest_tools, engine_dir, source_commit, kind=DEFAULT_KIND
     return written
 
 
+def _write_hook_files(dest_root, hooks_src_dir):
+    """Copy every hook script in `hooks_src_dir` into
+    <dest_root>/.claude/hooks/, and record them in the SAME
+    ENGINE_MANIFEST.json _write_engine_files just wrote (one provenance
+    record per repo, not two) under `hook_files`/`hooks_sha256`.
+
+    Read-modify-write on the manifest rather than folding this into
+    _write_engine_files itself: that function's `manifest` dict is built
+    fresh every call and knows nothing about a destination directory outside
+    dest_tools, and giving it a second, differently-rooted output would blur
+    what "dest_tools" means at every one of its call sites. This runs
+    strictly AFTER _write_engine_files, so the manifest it reads back always
+    exists.
+
+    `hooks_src_dir` may not exist (an old commit predating HOOK_SOURCE_DIR,
+    or a working tree with no templates/ at all in a bootstrapped source
+    set) -- then this writes nothing and leaves the manifest's hook keys as
+    they were, rather than erasing a previously-vendored record."""
+    names = _hook_file_names(hooks_src_dir)
+    if not names:
+        return []
+    dest_hooks = dest_root / HOOK_DEST_DIR
+    dest_hooks.mkdir(parents=True, exist_ok=True)
+    written = []
+    hashes = {}
+    for name in names:
+        src = hooks_src_dir / name
+        out = dest_hooks / name
+        shutil.copy2(src, out)
+        out.chmod(0o755)
+        written.append(out)
+        hashes[name] = _sha256(out)
+
+    manifest_path = dest_root / 'tools' / MANIFEST_NAME
+    manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
+    manifest['hook_files'] = names
+    manifest['hooks_sha256'] = hashes
+    manifest_path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + '\n',
+                             encoding='utf-8')
+    return written
+
+
+def _hook_drift(dest_root, manifest):
+    """Hook-file analog of _local_drift: [(name, why)] for a vendored hook
+    whose on-disk sha256 no longer matches what the manifest recorded, or
+    that has gone missing. A manifest with no `hook_files` yet (vendored
+    before this mechanism existed) reports no drift -- there is nothing
+    recorded to have drifted from, and that state is handled by refresh()
+    choosing to vendor hooks for the first time, not by this function."""
+    drifted = []
+    for name, recorded_hash in (manifest.get('hooks_sha256') or {}).items():
+        path = dest_root / HOOK_DEST_DIR / name
+        if not path.is_file():
+            drifted.append((name, 'missing'))
+            continue
+        if _sha256(path) != recorded_hash:
+            drifted.append((name, 'hand-edited (sha256 differs from manifest)'))
+    return drifted
+
+
 def _git(cwd, *args):
     """Run git and return stdout, DISCARDING the exit code.
 
@@ -725,8 +854,12 @@ def _head_commit(repo_dir):
     return _rev(repo_dir, 'HEAD')
 
 
-def _seed_write(dest_tools, engine_dir, stamp, kind):
-    """_write_engine_files, plus the cleanup seed never did.
+def _seed_write(dest_tools, engine_dir, stamp, kind, hooks_dir=None):
+    """_write_engine_files, plus the cleanup seed never did, plus the hook
+    scripts when `hooks_dir` is given -- seed()'s two branches source hooks
+    from different places (the working tree vs. an extracted commit), so the
+    directory is resolved by the caller rather than derived from `engine_dir`
+    here.
 
     RESEEDING IS THE DOCUMENTED RECOVERY from a bricked refresh -- a
     consumer whose vendored copy predates the removed-file fix cannot
@@ -769,6 +902,8 @@ def _seed_write(dest_tools, engine_dir, stamp, kind):
     written = _write_engine_files(dest_tools, engine_dir, stamp, kind)
     if previous:
         _remove_dropped_engine_files(dest_tools, previous, kind)
+    if hooks_dir is not None:
+        written += _write_hook_files(dest_tools.parent, hooks_dir)
     return written
 
 
@@ -820,7 +955,8 @@ def seed(dest, kind=DEFAULT_KIND):
                   f"{commit[:12]}+dirty. Commit and re-seed for a clean "
                   f"provenance record.", file=sys.stderr)
         stamp = commit if commit == 'unknown' else f'{commit}+dirty'
-        return _seed_write(dest / 'tools', ENGINE_DIR, stamp, kind)
+        return _seed_write(dest / 'tools', ENGINE_DIR, stamp, kind,
+                           hooks_dir=ROOT / HOOK_SOURCE_DIR)
     _c, engine_dir = _source_tools_at(ROOT, kind=kind, ref=commit, fetch=False)
     try:
         dirty = [n for n in wanted
@@ -832,7 +968,8 @@ def seed(dest, kind=DEFAULT_KIND):
                   f"changes to {', '.join(dirty)} are NOT in what was "
                   f"written; commit them and re-run to ship them.",
                   file=sys.stderr)
-        return _seed_write(dest / 'tools', engine_dir, commit, kind)
+        return _seed_write(dest / 'tools', engine_dir, commit, kind,
+                           hooks_dir=engine_dir / 'hooks')
     finally:
         shutil.rmtree(engine_dir, ignore_errors=True)
 
@@ -917,6 +1054,13 @@ def status(clone):
     drift = _local_drift(dest_tools, manifest)
     for name, why in drift:
         print(f"  LOCAL DRIFT: {name} -- {why}")
+    hook_drift = _hook_drift(ROOT, manifest)
+    for name, why in hook_drift:
+        print(f"  LOCAL DRIFT: {HOOK_DEST_DIR}/{name} -- {why}")
+    if not manifest.get('hook_files'):
+        print(f"  NOTE: this manifest has no hook_files recorded yet -- vendored before hook "
+              f"scripts were tracked. `refresh` will pick them up on the next run.")
+    drift = drift + hook_drift
     untracked = _untracked_engine_files(dest_tools, manifest)
     for name in untracked:
         print(f"  UNTRACKED ENGINE FILE: {name} is an engine file this "
@@ -1060,6 +1204,40 @@ def _source_tools_at(clone, kind=DEFAULT_KIND, ref=None, fetch=True):
         out.write_bytes(blob.stdout)          # bytes, not text: no newline munging
         if modes.get(name, '').endswith('755'):
             out.chmod(0o755)
+
+    # Hook scripts, into tmp/hooks/ -- same commit, same read-only blob
+    # discipline, listed from THIS commit's tree rather than from disk so a
+    # hook added or removed upstream is picked up without a code change here
+    # (practice: durable-fix -- see _hook_file_names). No skip-and-converge
+    # dance for a missing one: hooks have no self-reference problem the way
+    # this tool's own file does, so a hook name from this commit's own tree
+    # listing cannot fail to `git show` from the same commit.
+    hook_ok, hook_tree = _git_read(clone, 'ls-tree', f'{commit}:{HOOK_SOURCE_DIR}')
+    if hook_ok:
+        hook_modes = {}
+        hook_names = []
+        for line in hook_tree.splitlines():
+            meta, _tab, name = line.partition('\t')
+            if meta and name and name.endswith('.sh'):
+                hook_modes[name] = meta.split()[0]
+                hook_names.append(name)
+        hooks_tmp = tmp / 'hooks'
+        hooks_tmp.mkdir(exist_ok=True)
+        for name in hook_names:
+            blob = subprocess.run(
+                ['git', '-C', str(clone), 'show', f'{commit}:{HOOK_SOURCE_DIR}/{name}'],
+                capture_output=True)
+            if blob.returncode != 0:
+                continue  # listed but unreadable -- treat like any other transient git failure
+            out = hooks_tmp / name
+            out.write_bytes(blob.stdout)
+            if hook_modes.get(name, '').endswith('755'):
+                out.chmod(0o755)
+    # else: this commit predates HOOK_SOURCE_DIR, or the clone cannot list it
+    # -- tmp/hooks/ is simply absent, and callers treat "no hooks dir" as
+    # "nothing to vendor" rather than an error (fail-gracefully: a repo
+    # vendoring from an old commit should not lose its tools/ refresh over a
+    # directory that commit never had).
     return commit, tmp
 
 
@@ -1190,14 +1368,15 @@ def refresh(clone, force=False, ref=None):
     kind = manifest.get('kind', DEFAULT_KIND)  # older manifests predate 'kind' -- 'source'
 
     if not force:
-        drift = _local_drift(dest_tools, manifest)
+        drift = _local_drift(dest_tools, manifest) + _hook_drift(ROOT, manifest)
         if drift:
             for name, why in drift:
                 print(f"  {name}: {why}")
-            sys.exit("precedent_vendor_engine FAIL: a vendored engine file was hand-edited "
-                     "since the last seed/refresh -- refreshing would silently discard that "
-                     "edit. Move the edit upstream into BestPractice instead (this engine has "
-                     "no local variance by design), or pass --force to overwrite anyway.")
+            sys.exit("precedent_vendor_engine FAIL: a vendored engine or hook file was "
+                     "hand-edited since the last seed/refresh -- refreshing would silently "
+                     "discard that edit. Move the edit upstream into BestPractice instead "
+                     "(this engine has no local variance by design), or pass --force to "
+                     "overwrite anyway.")
 
     new_commit, engine_dir = _source_tools_at(clone, kind, ref=ref,
                                               fetch=ref is None)
@@ -1255,8 +1434,22 @@ def refresh(clone, force=False, ref=None):
                   f"({', '.join(set_orphaned)}) -- removing them.")
             _remove_dropped_engine_files(dest_tools, manifest, kind)
             _rewrite_manifest_file_list(dest_tools, kind)
+
+        # Hook analog of set_incomplete, above -- but the "wanted" hook names
+        # are read from THIS commit's own tools listing (_hook_file_names on
+        # the just-extracted engine_dir/hooks), not from a static KINDS
+        # entry: unlike tools/, which files a hook run is unbounded on is not
+        # known until the commit is read. No hook analog of set_orphaned --
+        # see HOOK_SOURCE_DIR's own comment on the deliberately-missing
+        # tombstone/removal mechanism.
+        new_hook_names = _hook_file_names(engine_dir / 'hooks')
+        hooks_incomplete = sorted(
+            n for n in new_hook_names
+            if n not in set(manifest.get('hook_files') or [])
+            or not (ROOT / HOOK_DEST_DIR / n).is_file())
+
         if new_commit == manifest.get('source_commit') and not force \
-                and not set_incomplete:
+                and not set_incomplete and not hooks_incomplete:
             print(f"precedent_vendor_engine refresh: already current with {SOURCE_BRANCH} "
                   f"@ {new_commit[:12]} -- nothing to do.")
             # Reported here too, and this is the case that matters MOST: a
@@ -1274,6 +1467,13 @@ def refresh(clone, force=False, ref=None):
                   f"repo's vendored engine is missing {len(set_incomplete)} "
                   f"file(s) this kind now includes "
                   f"({', '.join(set_incomplete)}) -- refreshing anyway.")
+        if hooks_incomplete and new_commit == manifest.get('source_commit'):
+            print(f"NOTICE: the recorded commit already matches, but this "
+                  f"repo's vendored hooks are missing {len(hooks_incomplete)} "
+                  f"file(s) BestPractice now ships "
+                  f"({', '.join(hooks_incomplete)}) -- refreshing anyway. This is the "
+                  f"one-time catch-up for a repo vendored before hooks were tracked "
+                  f"at all (manifest has no 'hook_files' yet).")
 
         self_before = _sha256(HERE) if HERE.is_file() else None
         written = _write_engine_files(dest_tools, engine_dir, new_commit, kind)
@@ -1283,6 +1483,7 @@ def refresh(clone, force=False, ref=None):
         # is nothing left to find it by. `manifest` is the copy loaded at the
         # top of this function, which is the one that still remembers.
         _remove_dropped_engine_files(dest_tools, manifest, kind)
+        written += _write_hook_files(ROOT, engine_dir / 'hooks')
     finally:
         shutil.rmtree(engine_dir, ignore_errors=True)
     print(f"precedent_vendor_engine refresh OK ({kind}): {len(written)} file(s) refreshed "
