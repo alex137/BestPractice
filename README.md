@@ -24,9 +24,12 @@ behind both live in your own GitHub repository.
 > Precedent too, and Morgan merges this branch into `main` regularly; work
 > still lands here, on this branch.
 
-**New here?** Start with [What This Is (and Why Explore Using
+**New here?** [Ten Things to Know About How Precedent
+Works](documentation/TEN_THINGS.md) is the one page to read first — the
+ideas underneath everything, each linked to where both guides say more.
+Then [What This Is (and Why Explore Using
 Precedent)](documentation/WHY_PRECEDENT.md) for
-the pitch, then jump to the how-to guide for your situation:
+the pitch, and the how-to guide for your situation:
 [if you write code](documentation/FOR_DEVELOPERS.md), or
 [if you don't](documentation/FOR_EVERYONE_ELSE.md).
 
