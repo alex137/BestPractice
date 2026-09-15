@@ -893,6 +893,21 @@ Last because none of it strands an adopter, and none of it is cheap.
   line each; pass 2's *read each enforced practice's check against its own
   Rule* is where those get their real read, so the two
   together are what "every single practice was looked at" actually means.
+- **Every universal, on-demand practice's `scope`.** The same read as the
+  bullet above, one axis over: for each one, ask whether it could ever fire
+  in an adopter repo, or only inside this repository's own mechanism (the
+  loader, the routing table, the harness adapter tree, the philosophy tree).
+  A wrong answer in either direction is a real cost — `any-adopter` on
+  something that can only ever fire here is the token tax every adopter was
+  paying before this field existed; `engine-dev` on something an adopter
+  genuinely needs silently starves every adopter of a real practice, which
+  is the worse of the two and the reason this is a judgment pass, not a
+  regex. Fix drift in place, the same as any other catalogue finding here,
+  and check that a newly `engine-dev`-scoped practice carries no relative
+  link from a still-traveling sibling — [practice-links-travel](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/practice-links-travel.md)'s
+  own check catches this mechanically, but only once the mismatch already
+  exists; this pass is what catches a practice that *should* be re-scoped
+  before that.
 - **Private names in a public tree, and the leak recommendations.**
   [tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/very_deep_check.py)'s
   `REPOSITORY VISIBILITY` section asks two questions that neither the push
