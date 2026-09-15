@@ -943,6 +943,12 @@ def drift(sources, res, out_dir, withheld=None):
     out_dir = pathlib.Path(out_dir)
     written, checks_written, adapters_written, rstats = materialize(
         sources, res, out_dir, withheld=withheld, dry_run=True)
+    # Derived from res alone, so -- unlike withheld -- it is safe to
+    # recompute here rather than thread through: the same bug shape as the
+    # withheld one above, caught the same way, by --check refusing to agree
+    # with itself.
+    excluded_engine_dev = sorted(slug for slug, practice in res['practices'].items()
+                                  if _is_engine_dev_scoped(practice))
     found = []
 
     def _compare(rel_dir, planned, label):
@@ -996,7 +1002,8 @@ def drift(sources, res, out_dir, withheld=None):
     # every run report drift against itself.
     mf = out_dir / 'MANIFEST.json'
     want = _build_manifest(sources, written, checks_written, rstats,
-                           adapters_written, withheld=withheld)
+                           adapters_written, withheld=withheld,
+                           excluded_engine_dev=excluded_engine_dev)
     if not mf.is_file():
         found.append('MANIFEST.json is missing -- a fresh sync writes it')
     else:
