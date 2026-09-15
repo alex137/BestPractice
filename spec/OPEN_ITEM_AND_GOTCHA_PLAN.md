@@ -615,28 +615,27 @@ explicitly as the field to cut first if this proves too heavy in practice.
 
 ---
 
-## Open Decisions
+## Decisions
 
-One thing left genuinely open. Two more that were open as of the last
-review are now settled or resolved, and stay here only long enough to say
-how.
+All three settled 2026-09-16. Kept here, past tense, as the record of what
+was decided and how firmly — not as a checklist to work through.
 
-1. **OPEN — the rule for items with `kind: analysis`, `status: open`, and no
-   `blocked_on`.** Today these exist and nothing says what should happen to
-   them. **Recommendation:** fix it now if fixing it doesn't materially
-   expand the scope of the work already in front of you; if it does, file it
-   properly — a real `todo/` item, `severity` actually set rather than left
-   `null` — instead of leaving a vague note. The open-item sweep (Part 3)
-   then does what it already does for everything else: it *reports* items
-   sitting unblocked with nothing happening to them; a person or a session
-   reads that report and decides, case by case, whether to act. **This
-   corrects a contradiction in the previous draft**, which said the sweep
-   itself "closes anything left with no stated blocker" — Part 3 is
-   explicit that neither sweep closes anything on its own, and that stays
-   true here too. What actually creates pressure isn't an auto-closer; it's
-   that unblocked, unfixed work becomes visible every time the sweep runs,
-   rather than invisible inside 114 items nobody re-reads.
-2. **SETTLED 2026-09-16 (`decided`) — closed items live in their own
+1. **`decision_strength: assented` — the rule for items with
+   `kind: analysis`, `status: open`, and no `blocked_on`.** Fix it now if
+   fixing it doesn't materially expand the scope of the work already in
+   front of you; if it does, file it properly — a real `todo/` item,
+   `severity` actually set rather than left `null` — instead of leaving a
+   vague note. The open-item sweep (Part 3) then does what it already does
+   for everything else: it *reports* items sitting unblocked with nothing
+   happening to them; a person or a session reads that report and decides,
+   case by case, whether to act. **This also corrected a contradiction in
+   the previous draft**, which said the sweep itself "closes anything left
+   with no stated blocker" — Part 3 is explicit that neither sweep closes
+   anything on its own, and that stays true here too. What actually creates
+   pressure isn't an auto-closer; it's that unblocked, unfixed work becomes
+   visible every time the sweep runs, rather than invisible inside 114
+   items nobody re-reads.
+2. **`decision_strength: strong` — closed items live in their own
    generated file, never interleaved with open ones.** Stated as the actual
    problem with today's file: 37 of 114 items are done and still crowd
    every read. `todo/TODO.md` now carries `status: open` items only;
@@ -646,18 +645,29 @@ how.
    that information, so "source-set work" and "engine defects" are views
    over the real fields rather than a second set of hand-kept files that
    could drift from them. Full detail in Part 1's **Generated Views**.
-3. **RESOLVED 2026-09-16 — the migration runs in two passes, with a review
-   between them.** Steps 1–4 of §4.1 first (fix the broken references,
-   prune done items, delete the visible numbers, build the migration tool
-   and the generator) — nothing here touches a real item yet. **Stop. Spend
-   a few minutes reviewing** — and specifically, run the migration tool
-   against a handful of real items and read its output by hand before step
-   5 runs it against all 114 items and 42 gotchas and repoints every
-   reference. That's the one step in this plan that isn't cheap to undo, so
-   it's the one worth a deliberate look at real output first, not just a
-   read of the plan. If that looks right, continue straight through steps
-   5–10 in the same session — no reason to introduce a second pause once
-   the tool has proven itself on real data.
+3. **`decision_strength: strong` — the migration runs in two passes, with a
+   review between them.** Steps 1–4 of §4.1 first (fix the broken
+   references, prune done items, delete the visible numbers, build the
+   migration tool and the generator) — nothing here touches a real item
+   yet. **Stop. Spend a few minutes reviewing** — and specifically, run the
+   migration tool against a handful of real items and read its output by
+   hand before step 5 runs it against all 114 items and 42 gotchas and
+   repoints every reference. That's the one step in this plan that isn't
+   cheap to undo, so it's the one worth a deliberate look at real output
+   first, not just a read of the plan. If that looks right, continue
+   straight through steps 5–10 in the same session — no reason to
+   introduce a second pause once the tool has proven itself on real data.
+
+   **Step 5 itself — "run the migration" — is announced by name when it
+   starts, separately from the pause above.** The pause after step 4 is a
+   review of a dry run; step 5 is the moment the real, mostly-irreversible
+   conversion actually happens, against every live item and gotcha at
+   once. Whoever is executing this plan says so explicitly — *"starting
+   step 5 now: converting all 114 items and 42 gotchas"* — right before
+   running it, and reports the result right after. This is a requirement
+   of the plan, not a courtesy left to whoever happens to be driving:
+   written here so a session with no memory of this conversation still
+   knows to do it.
 
 ---
 
