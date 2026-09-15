@@ -7225,3 +7225,16 @@ which is the failure this repointing exists to end — write
     it's stale again, that's a platform caching bug, not something this repo
     can fix. (2026-09-15, Morgan)
     **Disposition:** ask (2026-09-15, Morgan)
+119. <a id="execute-open-item-gotcha-migration"></a>**Execute the open-item and
+    gotcha migration.** [spec/OPEN_ITEM_AND_GOTCHA_PLAN.md](spec/OPEN_ITEM_AND_GOTCHA_PLAN.md)
+    (merged 2026-09-16, PR #421) specifies the full replacement for this
+    file and the gotchas index — one item per file, `todo/`/`gotchas/`
+    directories, generated views, a native date-gated Reminders mechanism —
+    and records three decisions as settled. Nothing has been executed: no
+    `todo/` or `gotchas/` directory exists yet, this file is unchanged, and
+    the migration tooling (`tools/todo_migrate.py`,
+    `tools/build_todo_index.py`) has not been written. **Blocked on:** a
+    session running the document's own Part 4.1 sequence — steps 1–4, a
+    review pause with a dry run against real items, then steps 5–10,
+    announcing step 5 explicitly when it starts, per the document's own
+    requirement.
