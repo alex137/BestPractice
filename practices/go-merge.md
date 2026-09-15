@@ -1,15 +1,15 @@
 ---
 slug:        go-merge
-title:       "\"Go merge\" -- and \"Approved\" -- authorize sync, confirm branch, commit, push, PR, and merge (or a direct push, when it's trivial)"
+title:       "\"Go merge\", \"Approved\", and \"Go update\" -- authorize sync, confirm branch, commit, push, PR, and merge (or a direct push, when it's trivial)"
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
 occasion:    "a message carries a standing merge-authorization phrase"
 gates:       ["merge"]
-index_clause: "\"Go merge\"/\"Approved\": trivial -> direct push; else sync, branch, PR, merge"
+index_clause: "\"Go merge\"/\"Approved\"/\"Go update\": trivial -> direct push; else sync, branch, PR, merge"
 checked_by:  null
-defines:     ["Go merge", "Approved"]
-command:     {"Go merge": "Save the work, publish it, and tell you where it went — without asking anything further.", "Approved": "The same as **Go merge**: save the work, publish it, and tell you where it went."}
+defines:     ["Go merge", "Approved", "Go update"]
+command:     {"Go merge": "Save the work, publish it, and tell you where it went — without asking anything further.", "Approved": "The same as **Go merge**: save the work, publish it, and tell you where it went.", "Go update": "The same as **Go merge**: save the work, publish it, and tell you where it went."}
 status:      active
 in_force_at: null
 supersedes:  ["merge-authorization-keyword"]
@@ -21,7 +21,9 @@ approved_by: "Morgan, 2026-09-08 -- moved up from his individual set to
   blocked-step handoff himself out of a refusal he had just hit; second phrase
   added 2026-09-13, Morgan -- \"if I say 'approved', that also means the same as
   go merge\"; trivial/substantial split added 2026-09-15, Morgan -- \"Sold.
-  Let's do it. Go merge\", choosing it over a rename to a new command"
+  Let's do it. Go merge\", choosing it over a rename to a new command; third
+  phrase added later the same day, Morgan, reconsidering the rename he had
+  just set aside -- \"I think the solution is to allow BOTH words to be used\""
 strength:    decided
 ---
 ## Rule
@@ -71,6 +73,14 @@ chain, and the identical branch-naming step. There is no weaker reading of
 it: it is not "noted", it is not "go ahead and I will merge it later", and it
 does not become a question about whether he meant the command.
 
+**`Go update` means the same thing too, permanently, alongside `Go merge`
+rather than instead of it.** It exists for the reading where "merge"
+sounds like a promise the phrase might not keep -- a trivial fix goes
+straight to the branch with no merge in sight -- and "update" names what
+actually happens either way: the work is saved and published. Both
+phrases stay live; neither retires the other, and using one over the other
+carries no different meaning or weaker authorization.
+
 **Say the target branch before merging, every time.** It is spelled out
 here rather than left inside "usual conventions" because that is the step
 whose silent failure is expensive: a merge into the wrong branch looks
@@ -115,6 +125,16 @@ you can tell what would be merged and the word is being said about it,
 merge it.** A message that says `approved` about work you have not yet shown
 him, where nothing is pending, is the one case worth a question -- and the
 question is *which* work, never whether the word meant what it said.
+
+**`Go update` collides with ordinary language in the same way, because
+"update" names a routine action all over this repository -- a branch, a
+dependency, a document, a stale clone.** "Go update the branch, then look at
+the diff", "can you update TODO.md first", "go update your local clone
+before you start" are not the command -- there `update` has an object of its
+own, exactly like `merge` above. "Go update it", "go update, no PR needed
+for this one", and a lone line reading `GO UPDATE` do count. Same test:
+if you can tell what would be merged and the word is being said about it,
+merge it.
 
 **"Blocked" means a call came back refused, not that you expect one to.**
 `Go merge` is not an invitation to go looking for reasons the merge might
@@ -251,6 +271,21 @@ phrase already propagated to every source that vendors this file, for a
 problem that was never about the name. What was missing was the
 classification step itself, so it went into the existing chain rather than
 a new one. *"Sold. Let's do it. Go merge."*
+
+**A third phrase, `Go update`, added later the same day, on Morgan's
+decision, after he reconsidered the rename he had just set aside.** He came
+back to it directly: *"I thought about it, and I'd like to do it anyway
+despite your reasoning... I think the solution is to allow BOTH words to be
+used! If we treat Go Merge and Go Update as the same, then it's easier to
+justify to people like Alex... it's a secondary synonym in case people say
+the wrong thing, but it really is a 'go update it', not necessarily
+merge."* This is not the rename that was set aside hours earlier -- that
+would have broken a phrase already propagated to every source vendoring
+this file, for a problem that was never about the name. A synonym breaks
+nothing: `Go merge` keeps meaning exactly what it always meant, and `Go
+update` now means the same thing beside it. Same shape as `Approved`'s
+addition two days earlier -- one command, now three triggers, maintained
+once.
 
 ## Install
 No mechanical check, and not for lack of trying: this governs how a chat
