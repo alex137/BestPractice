@@ -1,19 +1,26 @@
 # GitHub Actions templates
 
-Three templates, for two different kinds of repository. All are read-only:
+Four templates, for two different kinds of repository. All are read-only:
 they report, and none holds a token that could write
 ([ci-commits-carry-identity](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/ci-commits-carry-identity.md)).
 
 | Template | Install as | In which repo |
 |---|---|---|
-| [`doc-lint.yml.template`](doc-lint.yml.template) | `.github/workflows/bestpractice-docs.yml` | any dependent repository |
+| [`doc-lint.yml.template`](doc-lint.yml.template) | `.github/workflows/bestpractice-docs.yml` | any dependent repository — but only when `ci_workflows: enabled` is declared; see below |
+| [`doc-lint-scheduled.yml.template`](doc-lint-scheduled.yml.template) | `.github/workflows/bestpractice-docs.yml` (in place of the row above, never alongside it) | a dependent repository pushed to its default branch very frequently, where per-push billing adds up |
 | [`views-drift.yml.template`](views-drift.yml.template) | `.github/workflows/views-drift.yml` | one that GENERATES its own views — an individual or team practice set, or any repo whose `practices/` it authors itself |
 | [`precedent-check.yml.template`](precedent-check.yml.template) | `.github/workflows/precedent-check.yml` | a practice SET only (its own header says why); a consuming repo skips it |
 
 ## The Markdown lint template
 
 Copy [`doc-lint.yml.template`](doc-lint.yml.template) to
-`.github/workflows/bestpractice-docs.yml` in the dependent repository.
+`.github/workflows/bestpractice-docs.yml` in the dependent repository —
+`tools/precedent_install.py` does this automatically once `ci_workflows:
+enabled` is declared in the individual or team source it resolves; absent
+resolves to disabled, the engine's own default, since GitHub Actions
+minutes are metered per private repository. See
+[GITHUB_ACTIONS.md](../../GITHUB_ACTIONS.md), "Controlling Actions
+Minutes".
 
 The installed workflow **discovers** the vendored linter rather than naming
 one path: `process/upstream/tools/doc_lint.py` in an
@@ -24,10 +31,32 @@ one, which has no `process/upstream/` at all. Both are watched in its
 triggers, so it installs verbatim under either model — before 2026-09-10 it
 was hard-coded to §1's path and a §0 install's very first check went red.
 It requires a full-history checkout so the linter can find Markdown changed
-relative to the default branch.
+relative to the default branch. Its `concurrency` block cancels an
+in-flight run when a second push on the same branch arrives before it
+finishes, so an overlapping pair of pushes bills once rather than twice.
 
 See [GitHub Actions checks](../../GITHUB_ACTIONS.md) for installation,
 permissions, verification, required-check, update, and manifest guidance.
+
+## The scheduled Markdown lint template
+
+Copy [`doc-lint-scheduled.yml.template`](doc-lint-scheduled.yml.template) to
+`.github/workflows/bestpractice-docs.yml` **in place of**
+`doc-lint.yml.template` — never alongside it, which would bill both. Where
+the default template bills roughly once per push, this one bills on a
+fixed cadence: however many saves land in one window, they cost one run.
+
+**Never installed automatically**, by either the installer or the
+`ci_workflows` field: a `schedule:` is a clock in somebody else's
+repository that they never picked
+([GITHUB_ACTIONS.md](../../GITHUB_ACTIONS.md)'s Limits section). Copying it
+in is a deliberate, per-repository choice, and its header cron line is a
+starting point to edit, not a shipped default to keep. It gates the
+**whole tracked Markdown corpus** on each run rather than "what changed
+since the default branch" — its own header explains why the latter is a
+silent no-op on a repo pushed straight to its default branch, and what
+gating the full corpus trades away on a repo with an existing backlog of
+violations.
 
 ## The generated-views drift template
 
