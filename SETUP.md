@@ -166,9 +166,10 @@ loop; say so and follow §1 instead.
       not said. **A change here never reaches a session already open** —
       start a new one to test it. And **if their account has two
       environments with the same name, the values go on the one they are
-      not using**, so give the environments distinct names first. The
-      full list of variables and what each does is
-      [PER_MACHINE_SETUP.md](PER_MACHINE_SETUP.md).
+      not using**, so give the environments distinct names first. This
+      walkthrough, cloud-only, is also written out at
+      [CLOUD_SETUP.md](CLOUD_SETUP.md); the full list of every variable and
+      what each does is [PER_MACHINE_SETUP.md](PER_MACHINE_SETUP.md).
 
    Put the same five into `GETTING_STARTED.md` so they are findable after
    this conversation closes.

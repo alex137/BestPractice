@@ -12,6 +12,12 @@ found the individual source's clone URL living in a public repository's
 tracked hook, moved it to the private per-person config where it belongs,
 and then had nowhere to say so.
 
+**Setting up a hosted session on Claude Code on the web — most people's way
+in — only ever needs the first copy-paste block below, the environment
+variables.** [CLOUD_SETUP.md](CLOUD_SETUP.md) walks through just that part,
+cloud-first; come back here for `identity.json`, the leak gate's vocabulary
+layer, or anything you're running locally instead.
+
 ## What Applies Until You Set Any of It
 
 **Nothing here is asked of you** — not at install, not at setup, not by a
