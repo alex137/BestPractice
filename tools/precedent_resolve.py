@@ -799,8 +799,33 @@ def resolve(sources):
                         f"one to a different level.")
                 shadowed.append({'slug': slug, 'shadowed': prior_own, 'by': practice})
             resolved[slug] = practice
+    # A non-active practice's forwarding address, checked against what this
+    # resolution actually put in force -- the callable build_views'
+    # status_contract_violation asks for and, until 2026-09-14, only the
+    # harness ever passed. Every set and consumer ran the shape check alone,
+    # so `in_force_at:` naming a slug that resolved nowhere was reported by
+    # nothing they could run (practice: verify-postcondition). This is the
+    # state a rule is in when it was withdrawn at one level and the landing
+    # at the other never reached this repo: a copy-and-delete, a destination
+    # set not declared here, or a universal landing this consumer has not
+    # taken yet.
+    # Deduplicated ones only: a retirement's own contract (a Story saying
+    # why nobody wants the rule) is the publishing set's to keep, and its
+    # own check reports it there; repeating it into every consumer's sync
+    # would be noise nobody downstream can act on.
+    dangling = []
+    for practice in retired:
+        if bv.practice_status(practice['fm']) != bv.DEDUPLICATED_STATUS:
+            continue
+        msg = bv.status_contract_violation(
+            practice['fm'], practice.get('sections'),
+            slug_in_force=lambda s: s in resolved)
+        if msg:
+            dangling.append({'slug': practice['slug'], 'source': practice['source'],
+                             'level': practice['level'], 'file': practice['file'],
+                             'why': msg})
     return {'practices': resolved, 'shadowed': shadowed, 'blocked': blocked,
-            'missing': missing, 'retired': retired}
+            'missing': missing, 'retired': retired, 'dangling': dangling}
 
 
 def _is_blocking(practice):
@@ -869,6 +894,9 @@ def _report(res, sources, out=sys.stdout):
     for r in res['retired']:
         print(f"  not in force: {r['slug']} ({r['source']}) is status: "
               f"{bv._json_str(r['fm'].get('status'))}", file=out)
+    for d in res.get('dangling', ()):
+        print(f"  IN FORCE NOWHERE: {d['slug']} ({d['source']}) -- {d['why']}",
+              file=out)
     rstats = resident_stats(res)
     if rstats['practices']:
         who = ', '.join(f"{p['slug']} ({p['level']})" for p in rstats['practices'])
@@ -962,6 +990,8 @@ def main():
             'blocked': [{'slug': b['slug'], 'kept': b['kept']['level'],
                          'refused': b['refused']['level']} for b in res['blocked']],
             'missing': res['missing'],
+            'dangling': [{'slug': d['slug'], 'source': d['source'],
+                          'why': d['why']} for d in res.get('dangling', ())],
             # None when an individual source was declared (its fate is then
             # in 'missing' like any other source's). Otherwise says whether
             # "no individual practices" is a finding or merely a silence.

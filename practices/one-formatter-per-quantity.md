@@ -58,6 +58,14 @@ together, and apply it to every member. Three policy rules with teeth:
   compared; widen it if not), and accept the mild over-precision on the
   large values as the cost of alignment.
 
+**A magnitude suffix is not a unit.** A kind that prints "$2.4M" cannot
+pass the seam check, because the render layer reads a trailing M or k as
+a multiplier (2,400,000) while the printed value is 2.4 — and sorting by
+the multiplied value is correct, so the disagreement is between the
+formatter's declared affix and the grammar, not a bug in either. Put the
+magnitude in the column header ("Cost, $M") and print the bare number;
+the check then holds and the column still sorts.
+
 ## Why
 **An inline format string is a second copy of a policy, and copies diverge.** The policy for a quantity kind is not one number — it is decimal places, thresholds, approximation marking and unit affixes together — so every inline `f"{x:.1f} t"` is a partial restatement that will be updated in one place and not the other.
 

@@ -42,12 +42,13 @@ Three things follow from this that are worth knowing:
   same time** without waiting for each other or overwriting each other,
   because each is on its own copy. This is the thing a shared live document
   cannot do.
-- **Whose yes it is depends on the project.** Most people here can propose
-  freely and cannot merge — see [What you can't do (on
-  purpose)](#what-you-cant-do-on-purpose) below, which is a deliberate
-  wall, not a comment on you. **If you are one of the people who can say
-  yes**, and you want the assistant to stop asking every time, say **"Go
-  merge"** — a standing phrase this project understands to mean *do all of
+- **Whose yes it is depends on what the change touches.** Your own
+  documents are usually yours to merge; the project's settings, its
+  automatic checks and its rules wait for whoever maintains the project —
+  see [What you can't do (on purpose)](#what-you-cant-do-on-purpose)
+  below, which is a deliberate wall, not a comment on you. **When the yes
+  is yours**, and you want the assistant to stop asking every time, say
+  **"Go merge"** — a standing phrase this project understands to mean *do all of
   it, including the merge, without checking back.*
 
 There are a few more of those standing phrases — **"Park it"**, **"Plain
@@ -128,6 +129,35 @@ Either way: nothing you suggest is ever adopted without a real yes from
 whoever it actually affects, and nothing you say is ever quietly
 forgotten. An idea nobody has acted on yet stays on record, not lost.
 
+## What It Knows About You, and How to Change It
+
+A handful of small things about you are used by every assistant working on
+the project, and **you will never be asked for any of them.** Each one has a
+sensible answer that applies until you say otherwise:
+
+- **Your name and email address**, which go on everything saved in your
+  name. Taken from the account you signed in with.
+- **The timezone dates and times are stamped in.** New York, unless your own
+  settings say different. (It has to be *some* real place — otherwise records
+  made by people in different countries can't be put in order.)
+- **How you're referred to in writing** — he, she, or they. **They**, until
+  you say which you prefer; nobody guesses from a name.
+- **Your own personal rules**, if you keep a set of them — the habits that
+  follow you between projects rather than belonging to this one. You don't
+  need one, and most people start without.
+
+**To change any of it, just say so** — *"my timezone is Madrid"*, *"refer to
+me as he"*, *"my work email is the other one"* — at any moment, in the middle
+of anything else. The assistant knows where each one is written down and puts
+it there. **You can also ask what it currently has**, the same way.
+
+**None of this is worth a wrong-footed setup conversation**, which is why
+nobody raises it on day one: a date stamped in the wrong city's time is a
+small, visible, one-sentence fix whenever you happen to notice it. If you
+want the technical version — what each setting is called and what breaks
+without it — it is
+[Per-Machine Setup](../PER_MACHINE_SETUP.md).
+
 ## Two Things You Can Fill in Whenever You Like
 
 Whoever set this project up was told to do the essentials and stop, so two
@@ -151,14 +181,25 @@ guess on its behalf.
 
 ## What You Can't Do (on Purpose)
 
-Your access is deliberately limited so nothing you do can break the
-project or publish something by accident — you can comment and propose,
-but you can't push changes live or approve them yourself. This isn't
-about trust in you personally; it just means a mistake, including the
-assistant's, stops at a wall instead of reaching anyone else.
+The line is drawn by *what* a change touches, never by who you are. **The
+documents are yours**: you write them, change them, and — where your
+project is set up that way — merge your own document changes without
+waiting for anyone. **The machinery is not**: the project's settings, its
+automatic checks, and the rules everyone follows need the person who
+maintains the project to look before a change to them lands, whoever asks
+for it. And **a new rule is suggested by anyone and made official only by
+someone on the approvers' list**. Your assistant tells you before it
+proposes anything which side of the line the change falls on, so the wall
+is never a surprise. (Whoever administers the project sets that line up on
+GitHub; [GITHUB_SETTINGS.md](GITHUB_SETTINGS.md) is their page, not yours.) This isn't about trust in you personally; it just
+means a mistake, including the assistant's, stops at a wall instead of
+reaching anyone else.
 
 ## Learn More
 
+[Ten Things to Know About How Precedent Works](TEN_THINGS.md) is the one
+page with the ideas underneath all of this, each linked back into the
+section here that says more.
 [How to Use This Day to Day](DAILY_HABITS.md) is the
 companion to this page: this one is how an idea becomes a rule, that one
 is what an ordinary working day looks like. [What This Is (and Why Explore

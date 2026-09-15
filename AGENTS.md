@@ -6,9 +6,10 @@
      has its own instantiated AGENTS.md at ITS root. -->
 
 **TEMPORARY, read before opening or merging any pull request (PR) here:
-every PR in this repository targets `precedent-beta-v01`, never `main`, until Alex reviews
-and merges `precedent-beta-v01` into `main` for real — a deliberate,
-phase-7 act, not something any routine PR does incidentally. Merging a PR
+every PR in this repository targets `precedent-beta-v01`, never `main`.
+Alex merged the branch into `main` on 2026-09-14 and Morgan merges it there
+regularly; **that does not retire this rule** — work still lands here, and
+`main` takes it by those merges only (Morgan, 2026-09-14). Merging a PR
 into `precedent-beta-v01` needs no sign-off from Alex — once its deep
 check passes, a session may merge it directly; that branch is where
 routine work lands, not a gate he sits behind. Alex's approval is reserved
@@ -145,13 +146,19 @@ times you try. A session rooted one directory ABOVE this repo runs NONE of its
 hooks, silently, including the one that writes
 `.precedent/SESSION_PRACTICES.md` — see the gotcha "The session's PRIMARY repo
 does not run its SessionStart hooks either" below.
+**Since 2026-09-14 you also get told without asking**: every
+[tools/precedent_gate.py](tools/precedent_gate.py) moment prints any guarantee
+that is down, because a session that skipped this paragraph is exactly the
+session that needs it — that is how four guarantees stayed down for hours on
+the day the print was added.
 
 On the `add_repo` route nothing else can do it for you:
 `.claude/hooks/precedent-individual-bootstrap.sh` runs to completion *before*
-the first turn, so it cannot call `add_repo` — its own header says why a retry
-loop there was tried and proven inert — and
-[tools/precedent_resolve.py](tools/precedent_resolve.py) re-invoking it later
-in the turn only helps if the access exists by then.
+the first turn **wherever a settings.json wires it — this repo's does not** —
+so it cannot call `add_repo`; its header says why a retry loop there was
+proven inert. Here
+[tools/precedent_resolve.py](tools/precedent_resolve.py)'s mid-turn self-heal
+is the only thing that runs it.
 
 **This repo is becoming Precedent, a restructuring of BestPractice — read
 [spec/PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md) first, in full, before
@@ -171,7 +178,7 @@ plan's premise.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block; `python3 tools/build_views.py --check` exits non-zero on drift. Source: practices/ -- edit the practice file, never this block. -->
 
-## Resident block (~949 of 2000 token budget, 10 of 116 practices (10 universal))
+## Resident block (~949 of 2000 token budget, 10 of 123 practices (10 universal))
 
 **bold-key-phrases.** People don't read; they skim, and bolding makes skimming easy. Bold the key phrases in a document by default, without being asked, scaling with length -- a long paragraph or document is where a skimmer most needs a spine to follow, a short note usually needs little or none.
 
@@ -250,22 +257,10 @@ cheapest evidence a reader has that somebody did.
 ## Occasion index
 
 ```
-When a change here has implications for how an attached team, individual, or repo-local source should work:
-  cross-source-rollout — roll it out to attached sources now; else a blocked-on TODO
-When a change must propagate across several parallel artifacts:
-  parallel-artifact-ledger — ledger the transfer verdict per member, per change
 When a computation books a transfer between two parties:
   name-both-sides-of-ledger — name both sides; check what is charged against what is received
-When a convention is violated for the first time:
-  convention-to-audit — promote a costly broken convention to a script that exits non-zero
-When a defect is fixed -- whether a review found it, the person reported it, or the session hit it itself:
-  mistakes-become-rules — root-cause the miss, then encode the prevention
-When a document presents a script-derived figure:
-  docs-track-models — every script-derived figure sits inside a generated block
 When a document replaces or is replaced by an earlier one:
   index-remembers-past — put the lineage in the index, not in either document
-When a leak gate, blocklist, or scrub result is in front of you, or you are about to mention one to the person:
-  leak-gate-is-background — never relay a blocklist note or ask for a term; the deep review is its place
 When a message carries a standing merge-authorization phrase:
   go-merge — "Go merge"/"Approved": sync, branch, commit, push, PR, merge; blocked hands off
 When a message says "Update Vendors", or an upstream update is being taken into a repo that vendors a practice layer:
@@ -284,6 +279,8 @@ When a person says "Park it" about an open item or a question:
   park-it — "Park it" -- mark the item `parked` now; never raise it unprompted again
 When a person says "Plain words":
   plain-words — "Plain words" -- say it as you would out loud; same substance
+When a person says "Reduction pass", or an always-loaded surface is near its ceiling:
+  reduction-pass — "Reduction pass" -- work the menu in order, move never delete, report what moved
 When a person says "Three Things":
   three-things — "Three Things" -- the three that matter now, one bold phrase and two lines each
 When a person says "Todo reminder", or asks to be reminded of something:
@@ -292,80 +289,26 @@ When a person says "Vocabulary", or asks what the standing commands are:
   vocabulary — "Vocabulary" -- list every command in force, read it, never recall it
 When a person says "Weak yes", or agrees in words that carry no conviction:
   weak-yes — "Weak yes" -- do it, and record the approval as `assented`
-When a practice lands or a candidate is raised, at any level:
-  disclose-landing — state plainly what happened and where — individual, named team, or universal
-When a tool warns about already-published git history:
-  no-rewrite-for-warnings — fix the setting forward; never rewrite published history
-When a tool, hook or error message names the possible causes of a failure:
-  diagnosis-is-measured — a tool's named causes are hypotheses; measure one before you relay it
-When acting on, or sending, an authorization relayed from another session:
-  relayed-authorization — act on a relayed approval only where the person's identity.json accepts relays
+When about to search a repository, or reaching for a GitHub search or file-read tool for something the local clone already holds:
+  grep-before-search — grep the clone; a repo-scoped list before a search; fewer windows at once
 When adding a file to a directory that already holds files of the same kind:
   filename-separator — one word separator per directory and file kind -- never both - and _
-When adding or editing a CI workflow that commits, pushes, or opens a pull request:
-  ci-commits-carry-identity — a committing workflow reads a declared identity, or refuses -- never the bot
-When adding or re-levelling a heading in any document:
-  heading-outline — never jump a heading level; a heading one below its parent, or deeper by one
-When adding or re-syncing a document under philosophy/:
-  philosophy-declares-its-source — an essay carries its origin on line one -- a record, not a sync pointer
-When adding to a file every session loads, or asking what a session pays before it starts work:
-  session-load-budget — declare a ceiling for what every session loads; reduce by archiving
-When an install step adds something GitHub-specific, or a first install finishes:
-  github-setup-disclosed — disclose GitHub setup where its people read; offer owner settings at install
-When asked to add, change or remove something in a generated file:
-  generated-edit-goes-upstream — change the input the file is built from, never the file -- and say which input
-When asking the person to do something in another session:
-  handoff-is-pasteable — name the repo, give the exact text to paste, end with the way back
 When building a mechanism that makes something discoverable or reachable:
   affordance-is-shared — name who else the mechanism you just built now serves
 When building a permutation or configuration-sweep table:
   permutation-frontier-column — one full table with a computed Frontier column
 When building a variant of an existing thing:
   variant-re-derives — re-derive what a variant inherits; limits bind, choices do not
-When building or committing a generated artifact:
-  generated-artifact-provenance — stamp a build code and a manifest; never hand-edit output
-When changing a mechanism, a workflow or a behaviour that some document describes:
-  change-updates-its-docs — update the document that describes it, in the same commit -- never later
 When checking whether the practices that should have fired for recent work actually fired:
   routing-audit — run the mechanical coverage check now; roll the deep-read slice forward
-When committing anything that touches the vendored/public tree:
-  scrub-gate — the public tree is public-safe at all times, not just at check-in
 When comparing an option against a baseline:
   check-source-architecture — check both options exist in the source before costing them
-When creating a session, or deciding when to compact one:
-  session-spend-follows-the-task — say out loud when a compact is cheap, never take one; model follows the task
-When creating a session, or retagging one:
-  session-tags — tag a session at creation -- subject, repo, role, wants; never retrofitted
-When creating, migrating, closing or superseding a document under spec/ or record/:
-  document-status-header — kind and status in frontmatter; a reader must not have to infer either
-When deciding where a new rule belongs:
-  layered-practice-packs — generic, domain, repo-local — each rule to its own layer
 When deciding whether to build or buy a component:
   build-buy-decompose — decompose first; one verdict per part, on ownership grounds
-When deciding which practice set a new rule belongs in -- repo-local, team, individual or universal:
-  rule-level-by-reach — pick the set by reach -- not by the repo you can write to
 When decommissioning a mechanism — a workflow, a tool, a vendored tree, a config — that leaves files behind with no remaining job:
   decommission-deletes-files — delete what the decommissioned mechanism owned; audit first, never on a hunch
-When discovering something a session in another window will need:
-  findings-return-through-repo — commit it; never leave it for the person to carry to the next window
-When exporting a tool across a repo boundary:
-  engine-plus-host-shims — one vendored engine, thin host shims, never a fork
-When finishing a substantial work-product, before the merge-time capture gate:
-  second-pass-capture — a separate capture pass after the work, not inside it
-When fixing a file that came from somewhere else -- a template, a vendored tree, another repo's copy:
-  fix-the-original — fix the origin first, then every copy -- name them all in the reply
 When handing the person work to do, creating a session, or starting work that may touch a repository this session cannot reach:
   spawn-session — cross-repo check; wake, never spawn beside; link every session at the end
-When importing, creating, or declaring a repository that holds practices:
-  source-naming — names are fixed by level; say the convention before anyone picks a name
-When landing practices in bulk -- a migration, an import, or a move between sources:
-  catalogue-carries-stories — no active practice sits with an empty ## Story
-When merging a branch:
-  capture-gate — capture the follow-on work in the thread that created the need
-When merging a branch that improved a generic practice:
-  practice-export-loop — vendor upstream as tracked files; check improvements back in
-When merging a branch that touches shared files:
-  merge-runbook — write conflict resolution per file class, once, then follow it
 When migrating a repo off an old practice system onto Precedent:
   migration-scrubs-vocabulary — scrub the old system's vocabulary the same session, not on request
 When naming a new file:
@@ -376,91 +319,39 @@ When naming what "run the checks" means in a repo:
   two-check-levels — name a fast check and a full check; say which gates what
 When opening or merging a pull request in this repository:
   merge-target-is-beta-branch — Alex approves only major main merges; precedent-beta-v01 is unrestricted
-When ordering sections in a document:
-  section-order-by-frequency — order sections by how often the reader needs them
 When printing a numeric quantity that will be compared across rows:
   one-formatter-per-quantity — one formatter per quantity kind, declared in one module
 When publishing a document with a multi-column sortable table:
   tabular-shared-renderer — ship a sortable render from the one shared renderer
 When quoting or compressing someone else's figures:
   quote-discipline — compression rounds against you; qualifiers travel with the figure
-When recording exploratory thinking -- an idea nobody has committed to -- as a document:
-  speculation-is-marked — mark it in filename, title, opening block and PR -- four places, or none
-When recording that someone approved a practice or a decision, or citing their past approval back to them:
-  decision-strength — record `decided` or `assented`; unmarked means unknown, never "you decided this"
 When renaming, moving, or deleting a file other files may link to:
   rename-updates-links — renaming a file means repointing every link to it, in the same commit
 When reporting a computed total or a negative feasibility result:
   verify-decomposition — check the parts, not the total; never assert an impossibility
 When seeding a prompt into another session -- spawning one, or scheduling a message into one:
   seeded-prompt-names-its-origin — a seeded or scheduled prompt opens by naming the session that sent it
-When setting up a new repo's session start:
-  session-bootstrap — setup lives in a session-start hook, not in memory
 When starting an outward-facing deliverable:
   frame-from-audience-question — build it around the audience's question, not your material
-When starting work another session may already have done, or opening a pull request:
-  base-branch-is-the-record — read the base branch before starting and before the PR -- a summary lags
 When starting work the repository may already cover:
   search-by-purpose — search by purpose and by mechanism before concluding nothing exists
 When tracking state that multiple documents need to agree on:
   registry-source-of-truth — state lives in one machine-readable registry; documents derive
-When when fixing anything -- a bug, a stale file, a broken environment:
-  durable-fix — prefer the fix that survives a fresh container; name a band-aid as one
-When work touches something an open item is about, or a branch is merged:
-  item-closes-on-its-condition — record what you established into the item; close only on its stated condition
-When writing a README or other project-facing entry document:
-  lead-with-what-it-is — say what the project is before how it is maintained
-When writing a document that cites a computed number:
-  computed-numbers-in-scripts — computed content lives in a sync-gated generated block
-When writing a new convention or rule:
-  checkable-gets-checked — attempt a mechanical check before leaving a new practice advisory-only
-  cite-the-incident — record the failure a rule prevents, inline with the rule
-When writing a reader-facing deliverable with supporting apparatus:
-  deliverables-look-like-output — the deliverable holds only what its audience needs
 When writing a rule that depends on the outside world:
   volatile-rules-carry-dates — a rule about the outside world carries its date, inline
 When writing a script whose numbers a document will cite:
   scripts-assert-properties — scripts assert their own properties and their cited anchors
-When writing a test, fixture or control that proves a guard fires:
-  control-asserts-which-failure — a non-zero exit is not evidence; assert the message that guard prints
-When writing a test, fixture or control that reads or edits state it did not create:
-  fixture-owns-its-state — a fixture that inherits real state is testing the environment too
-When writing about a person in the third person -- a reply, a document, a commit message, a pull-request body:
-  declared-pronouns — use the pronouns a person declares; none declared means they/them, never guess
-When writing an outward-facing document:
-  readers-vocabulary — use the reader's words; gloss inline or replace
 When writing an outward-facing summary of claims:
   outward-summary-discipline — claims-to-source table, honest sums, a recorded adversarial pass
-When writing code because a specific practice requires it:
-  code-cites-practice — cite the practice's slug in a comment, right where the code is
-When writing code that depends on something outside its own control, handling a part that could not run, or deciding how loudly to report one:
-  fail-gracefully — keep going, never look complete — match the telling to stake and reader
-When writing code that stamps a date or a time into a file, a record or a document:
-  timestamps-carry-offset — a stamp carries its offset; never a bare date.today()
-When writing or editing a document:
-  acronyms-glossary — expand acronyms on first use; keep one central glossary
-  doc-references-are-links — reference repo files as relative links; use ≈, never ~
-  docs-are-current-state — state what is true now; version control holds the history
-  label-describes-content — "one line" must be one line; else name it for its content
-When writing or editing a heading in an outward-facing document:
-  headline-capitalization — outward-facing headings are New York Times headline case, applied by tool
-When writing or editing a practice file:
-  practice-links-travel — link only what travels with the file; the rest is an absolute upstream URL
-When writing or editing anything under philosophy/, or citing it from a rule:
-  philosophy-is-not-repo-policy — philosophy/ is argument; a rule that earned its way out gets written as a practice file
-When writing or filling out a pull-request description:
-  pr-template-honest-gates — write the body from the diff; an unchecked box is fine
 When writing or running a gate, audit or solve that takes more than about a minute:
   slow-steps-report-and-cache — a long step prints elapsed and remaining; a heavy solve caches to disk
-When writing or triaging an open item:
-  todo-is-a-handoff — queue only for a stated blocked-on/out-of-scope reason — otherwise just do it
-When writing or triaging an open item, or deciding whether to raise one in a reply:
-  open-item-disposition — an item is raised in chat only if it says `ask`; absent means stay quiet
+
+(More on-demand practices are not listed here: one whose applies_to names real paths, or which declares a gate, is reached by those channels instead -- `precedent_paths.py FILE` and `precedent_gate.py MOMENT`. A trigger a PERSON SAYS cannot be reached that way and is always listed above. `precedent_show.py --index-omitted` names the omitted ones.)
 ```
 
 ## Standing instruction
 
-Before starting work of a kind named in the occasion index above, run `python3 tools/precedent_show.py SLUG` for each listed slug to load its Rule. When editing a file, `python3 tools/precedent_paths.py FILE` prints any on-demand practice whose `applies_to` matches it, without needing the index at all. At a named moment — merging a branch, reviewing work, before pushing, ending a turn and writing the reply — run `python3 tools/precedent_gate.py merge|review|push|reply`: some practices fire at a moment rather than in a file, and no path glob reaches those. If `.precedent/SESSION_PRACTICES.md` exists, read it too: it carries the practices in force from this repo's team, individual and repo-local sources, which are NOT in this block and bind work here exactly as these do. It is regenerated at session start and is deliberately untracked — never commit it or quote it into a pull request.
+Before starting work of a kind named in the occasion index above, run `python3 tools/precedent_show.py SLUG` for each listed slug to load its Rule. When editing a file, `python3 tools/precedent_paths.py FILE` prints any on-demand practice whose `applies_to` matches it, without needing the index at all. At a named moment — merging a branch, reviewing work, before pushing, ending a turn and writing the reply — run `python3 tools/precedent_gate.py merge|review|push|reply`: some practices fire at a moment rather than in a file, and no path glob reaches those. If `.precedent/SESSION_PRACTICES.md` exists, read it too: it carries the practices in force from the other sources this repo declares, which are NOT in this block and bind work here exactly as these do. It is regenerated at session start and is deliberately untracked — never commit it or quote it into a pull request.
 
 <!-- END GENERATED -->
 
@@ -479,118 +370,45 @@ that skips them in this repo of all places is the joke writing itself.
 
 ## Where things are (quick index — check here BEFORE searching)
 
+**The dozen rows sessions reach for constantly are below. The full
+index is [WHERE_THINGS_ARE.md](WHERE_THINGS_ARE.md)** — check it
+before searching the repo, and add new rows there rather than here.
+
 | Looking for… | Go to |
 |---|---|
 | The restructuring plan (read this first) | [spec/PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md) |
 | Whether an open item may be raised with Morgan at all, and what "Park it" writes | [practices/open-item-disposition.md](practices/open-item-disposition.md), phrase at [practices/park-it.md](practices/park-it.md) |
-| Running many sessions at once — the proposed Chief of Staff session, what `list_sessions` can and cannot do, and the tag namespaces | [spec/CHIEF_OF_STAFF.md](spec/CHIEF_OF_STAFF.md) — **drafted, not decided**; open item at [TODO.md's `chief-of-staff-session`](TODO.md#chief-of-staff-session) |
-| Inherited practices whose meaning or mechanism changed under Precedent (Alex needs to hear about these) | [spec/CHANGES_TO_TELL_ALEX.md](spec/CHANGES_TO_TELL_ALEX.md) |
-| The phase-1 per-practice file format | [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) |
-| Why a practice file's references to `spec/`, `templates/` or a root document are full `https://github.com/...` URLs rather than relative links | [practices/practice-links-travel.md](practices/practice-links-travel.md) — the catalogue is copied into every adopting repo, and a relative link out of `practices/` dies there |
-| The phase-2 loader (resident set, replay measurement) | [spec/LOADER.md](spec/LOADER.md) |
-| The phase-3 brief (what phase 3 was handed) | [spec/PHASE3_BRIEF.md](spec/PHASE3_BRIEF.md) |
-| The phase-3 sources: resolver, precedence, what could not be built here | [spec/SOURCES.md](spec/SOURCES.md) |
-| How many practice sets of each level a person or a repo can have — one individual set per person however many teams they are on, as many team sets as a repo declares | [spec/SOURCES.md](spec/SOURCES.md)'s "How many sources of each level" row, reasoning at [spec/PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md#one-individual-set-per-person-not-per-team) |
-| How a practice-set source is named — the convention, what refuses vs. warns, and what a session must say before anyone picks a name | [spec/SOURCE_NAMING.md](spec/SOURCE_NAMING.md), rule at [practices/source-naming.md](practices/source-naming.md) |
-| The phase-4 enforced channel: what is checked, and what each check is blind to | [spec/ENFORCEMENT.md](spec/ENFORCEMENT.md) |
-| The phase-5 creation pipeline: what got built stage by stage, what's deferred, what phase 6 inherits | [spec/PHASE5_BRIEF.md](spec/PHASE5_BRIEF.md) |
-| The phase-5 candidate file format (Stage 2) and why universal candidates are GitHub Issues, not files | [spec/CANDIDATE_FORMAT.md](spec/CANDIDATE_FORMAT.md) |
-| The phase-5 deep-check before phase 6: real bugs found and fixed, real candidates landed, open questions for Morgan | [spec/PHASE5_DEEPCHECK.md](spec/PHASE5_DEEPCHECK.md) |
-| The phase-6 brief: what's closed, what's blocked and needs Morgan, what's still ahead and needs the target repo attached | [spec/PHASE6_BRIEF.md](spec/PHASE6_BRIEF.md) |
-| The pre-launch audit (2026-09-06): what a real from-scratch install, a real migration and a real two-team resolve actually broke, what got fixed, and the list of what is still open — **read this before the next audit pass** | [spec/PRELAUNCH_AUDIT.md](spec/PRELAUNCH_AUDIT.md) |
-| The pre-fork catalogue audit: verdict per inherited practice against this plan's architecture | [spec/PREFORK_AUDIT.md](spec/PREFORK_AUDIT.md) |
-| Populating the two private sets (done 2026-09-01, closing phase 3 — brief kept for how it was done) | [spec/PRIVATE_SETS_BRIEF.md](spec/PRIVATE_SETS_BRIEF.md) |
-| Bootstrapping a brand-new individual or team set from zero — the generalized procedure any adopter follows, plus the tool and skeletons it uses | [spec/BOOTSTRAP_NEW_SOURCES.md](spec/BOOTSTRAP_NEW_SOURCES.md), tool at [tools/precedent_bootstrap_source.py](tools/precedent_bootstrap_source.py), skeletons at [templates/practice-set-individual/](templates/practice-set-individual/) and [templates/practice-set-team/](templates/practice-set-team/) |
-| Bringing mechanical checks to the two private sets' practices (open; cannot run from here) | [spec/PRIVATE_ENFORCEMENT_BRIEF.md](spec/PRIVATE_ENFORCEMENT_BRIEF.md) |
-| How a session rooted in an individual or team set gets the universal practices, and why its checks still do not run there | [spec/SOURCE_SET_PROSE_GAP.md](spec/SOURCE_SET_PROSE_GAP.md), open half at [TODO.md](TODO.md#source-set-runs-no-universal-checks) |
-| How a repo that already had BestPractice installed migrates to Precedent's three-source model (the recommended pattern, from the first real dependent-repo test) | [spec/MIGRATING_EXISTING_INSTALLS.md](spec/MIGRATING_EXISTING_INSTALLS.md) |
-| Deleting a file or directory a decommissioned mechanism left behind — the audit that has to pass first, and the record of what went | [practices/decommission-deletes-files.md](practices/decommission-deletes-files.md), audit at [tools/precedent_decommission.py](tools/precedent_decommission.py) |
-| Moving an existing, still-wanted practice from one level to another (team ↔ individual, team ↔ team) — distinct from creating one or retiring one outright | [spec/MOVING_PRACTICES.md](spec/MOVING_PRACTICES.md) |
-| Why the miss rate is what it is, and the plan for it (read before phase 5) | [spec/ATTENTION_CEILING.md](spec/ATTENTION_CEILING.md) |
-| Who may write what in a project repo, and who may land a practice — Write role plus CODEOWNERS on the protected paths, suggestions through the candidate flow, no technical/non-technical user type at all — drafted, not yet executed, and three GitHub behaviours in it are unverified | [spec/CONTRIBUTOR_ACCESS.md](spec/CONTRIBUTOR_ACCESS.md) |
-| Team-level practice capture for document work at scale (a shared editorial team repo + a reusable document-project template — the "alternative to Google Docs" use case) — the template is built and live at [templates/document-project/](templates/document-project/); the pilot itself deliberately still not done, and the team set bootstrapped for it was retired 2026-09-10 unused | [spec/DOCUMENT_WORK_PRACTICE_CAPTURE.md](spec/DOCUMENT_WORK_PRACTICE_CAPTURE.md) |
-| The reusable document-project template a future pilot instantiates from | [templates/document-project/](templates/document-project/) |
-| What zone a date or time gets stamped in, why an unidentified person's records still carry a real offset, and where the fallback is declared | [practices/timestamps-carry-offset.md](practices/timestamps-carry-offset.md), engine at [tools/precedent_time.py](tools/precedent_time.py) — run it bare to see which rung answered; the value is `fallback_timezone` in [precedent.json](precedent.json) |
 | What a session pays before its first turn, the declared ceiling on each always-loaded file, and how to reduce one without deleting what still bites | [practices/session-load-budget.md](practices/session-load-budget.md), registry at [tools/session_load_budgets.json](tools/session_load_budgets.json) — `python3 tools/precedent_check.py --only session-load-budget` |
-| Why each practice is routed the way it is (every glob, and every `**`) | [tools/routing_scope.json](tools/routing_scope.json) |
-| The routing audit: coverage check + rotating deep read, on-demand, never a routine gate | [practices/routing-audit.md](practices/routing-audit.md), engine at [tools/routing_audit.py](tools/routing_audit.py) |
-| The full practice audit: manual, whole-catalogue sweep across every source, on request only | [practices/full-practice-audit.md](practices/full-practice-audit.md), engine at [tools/full_practice_audit.py](tools/full_practice_audit.py) |
-| The very deep check: four ordered passes over every repo in force — adopter installs, whether the mechanisms tell the truth, the coherence read, then catalogue and housekeeping — on request only, distinct from the full practice audit above | [practices/very-deep-check.md](practices/very-deep-check.md), engine at [tools/very_deep_check.py](tools/very_deep_check.py), run record at [spec/VERY_DEEP_CHECK.md](spec/VERY_DEEP_CHECK.md) |
-| What each part of the very deep check returned and cost, run after run — and which parts have found nothing and are owed a keep/cheapen/retire answer | [record/very-deep-check-ledger.json](record/very-deep-check-ledger.json), written by [tools/very_deep_check.py](tools/very_deep_check.py) on every run (never hand-edit it); the answers go in [spec/VERY_DEEP_CHECK.md](spec/VERY_DEEP_CHECK.md) |
-| Gaps between what the plan approved and what got built (routing audit's own history, and what else to check) | [spec/UNBUILT_PLAN_ITEMS.md](spec/UNBUILT_PLAN_ITEMS.md) |
-| Whether every declared practice-source repository is still CALLED what this repo calls it — a rename redirects forever, so git never notices | [tools/precedent_source_names.py](tools/precedent_source_names.py), run at [vendor-update-runbook](practices/vendor-update-runbook.md)'s step 8; `UNVERIFIED` is not a pass |
-| Whether this session can reach its PRIVATE practice sources at all, and the credential that removes the `add_repo` dance | [tools/precedent_source_credentials.py](tools/precedent_source_credentials.py), setup in [PER_MACHINE_SETUP.md](PER_MACHINE_SETUP.md) |
-| Whether an attached practice-set source's vendored engine has gone stale, or is missing the session hooks a source is created with, and repairing either | [tools/precedent_refresh_sources.py](tools/precedent_refresh_sources.py) — reports at session start; `--apply` refreshes and restores hooks, `--commit` commits |
-| Why a source clone that is on disk, with the token set, still fails every `git` command inside it with `could not read Username` — and what now repairs it at session start | [tools/precedent_source_credentials.py](tools/precedent_source_credentials.py)'s `persist_credential_helper`, called from [tools/precedent_source_bootstrap.py](tools/precedent_source_bootstrap.py)'s `_try_sync` on every sync and from [tools/precedent_refresh_sources.py](tools/precedent_refresh_sources.py) for a clone nothing syncs |
-| Whether a hook this repo *declares* actually exists on disk and is executable — the failure the harness reports as nothing at all | [tools/precedent_check.py](tools/precedent_check.py) — `--only declared-hooks-exist` |
-| Whether this session's SessionStart hooks actually ran, and repairing them if not | [tools/precedent_session_check.py](tools/precedent_session_check.py) — `--apply` runs them by hand |
-| Whether `PRECEDENT_FRESHNESS_ALSO` names repositories that are actually there, and what to set it to on this container | [tools/precedent_session_check.py](tools/precedent_session_check.py) — the row prints the corrected value; a dead entry is skipped silently by design, so nothing else reports it |
-| Whether Alex has moved `main` since the last carry onto this branch, and what changed | [tools/precedent_upstream_check.py](tools/precedent_upstream_check.py) — printed at session start; the watermark it compares against is [tools/upstream_watermark.json](tools/upstream_watermark.json), moved with `--record` in the carry's own commit |
 | Practices that fire at a moment rather than in a file | [tools/precedent_gate.py](tools/precedent_gate.py) — `merge`, `review`, `push`, `reply` |
-| Why the closing **Next Steps** section of a reply is not optional, and what refuses a turn without one | [tools/precedent_reply_check.py](tools/precedent_reply_check.py) — the requirement is a `reply_check.json` in whichever practice source declares it, never in the engine; `--explain` says what is declared here. The same requirements are printed at the START of every turn by [tools/precedent_gate.py](tools/precedent_gate.py)'s reply gate, because a Stop hook refusing a reply cannot un-show the one it refused |
-| Why a long conversation is refused a reply that never says whether this is a cheap point to compact, and the number that decides "long" | [reply_check.json](reply_check.json) — this repo's own declaration, read by [tools/precedent_reply_check.py](tools/precedent_reply_check.py); the rule is [practices/session-spend-follows-the-task.md](practices/session-spend-follows-the-task.md), and the size is read from the transcript's `usage` records, never from its byte count |
-| Why a team or individual practice registered to a gate used to load nothing | [tools/precedent_gate.py](tools/precedent_gate.py)'s `resolved_gate_practices` — the gate read one directory until 2026-09-13, so only universal practices ever reached it |
+| Why the closing **Next Steps** section of a reply is not optional, and what refuses a turn without one | [tools/precedent_reply_check.py](tools/precedent_reply_check.py) — `--explain` says what is declared here; the same requirements are printed at the start of every turn by [tools/precedent_gate.py](tools/precedent_gate.py)'s reply gate |
 | Which practices are enforced, and running one check | [tools/precedent_check.py](tools/precedent_check.py) — `--list`, `--explain`, `--only SLUG` |
-| The catalogue's own figures (resident size, Rule share, coverage) | [tools/catalogue_stats.py](tools/catalogue_stats.py) — never hand-type these into prose |
-| Precedent explained for someone adopting it (not a developer) | [documentation/ADOPTING.md](documentation/ADOPTING.md) |
-| Public-facing pitch and how-to guides, for people outside the project (marketing, a how-to for developers, a how-to for everyone else) | [documentation/](documentation/) |
-| What a normal working day looks like once Precedent is installed — the four habits and the standing command vocabulary, for someone who is not a developer | [documentation/DAILY_HABITS.md](documentation/DAILY_HABITS.md) |
-| The theory this project is built on — the essays, the brainstorm, the rules being tried in real work, and what is still unsettled. **The only copy; argument, not rules that bind anything here** | [philosophy/](philosophy/), start at [philosophy/README.md](philosophy/README.md) |
-| Why every item in a `philosophy/` essay carries a slug, why a citation is answered in the cited item's own prose rather than by a generated list, and what checks that both directions exist — **an experiment, merged 2026-09-11; reverting is a revert** | [philosophy/doc-recipes/backlinks.recipe.md](philosophy/doc-recipes/backlinks.recipe.md), engine at [tools/philosophy_backlinks.py](tools/philosophy_backlinks.py) |
-| Why `philosophy/` binds nothing outside itself, and the checks that hold that line | [local/practices/philosophy-is-not-repo-policy.md](local/practices/philosophy-is-not-repo-policy.md), [local/practices/philosophy-declares-its-source.md](local/practices/philosophy-declares-its-source.md) |
-| How a practice source's harness adapters (its `bootstrap/*.sh`) reach a consuming repo's `.claude/hooks/` without anyone hand-copying them, and why the settings wiring deliberately does not travel | [spec/SOURCES.md](spec/SOURCES.md)'s "Harness adapters travel with the source", mechanism at [tools/precedent_materialize.py](tools/precedent_materialize.py) |
 | Which practice libraries are in force in this repo | [precedent.json](precedent.json) |
-| An example personal practice set | [examples/practice-set/](examples/practice-set/) |
-| The private-term blocklist template (copy into your own private set) | [templates/leak-blocklist.txt.template](templates/leak-blocklist.txt.template) |
-| The leak gate (push-time; both layers live) | [tools/leak_gate.py](tools/leak_gate.py) — `--explain` for what it does and does not check |
-| The editorial section split, as reviewable data | [tools/section_split.json](tools/section_split.json), applied by [tools/resplit_sections.py](tools/resplit_sections.py) |
-| The converted practice files (phase 1) | [practices/](practices/) |
 | What each practice is and why — **the live catalogue** | [practices/](practices/), indexed by [MAP.md](MAP.md); one rule at a time with `python3 tools/precedent_show.py SLUG` |
-| Practices no longer in force, and why each was withdrawn | [MAP.md](MAP.md)'s "Withdrawn practices" table — generated; the files are kept, never deleted |
-| The pre-fork single-file catalogue — **superseded, frozen at 53 practices since 2026-08-31**; kept for its prose and its numbering | [PRACTICES.md](PRACTICES.md) |
 | Repo map, generated (phase 2) | [MAP.md](MAP.md) — regenerate with `tools/build_views.py`, never hand-edit |
-| Canonical names, generated (phase 2) | [GLOSSARY.md](GLOSSARY.md) — built from every practice's `defines:` field |
-| The loader — resident block, occasion index, path-trigger channel | This file's generated block above; engine at [tools/build_views.py](tools/build_views.py), [tools/precedent_paths.py](tools/precedent_paths.py) |
-| Loader premise, measured against this repo's own history | [tools/behavioral_replay.py](tools/behavioral_replay.py) |
 | Install / update / check-in playbook (dependent repos) | [INSTALL.md](INSTALL.md) — the assistant-facing runbook; the person-facing routes are [SETUP.md](SETUP.md) (guided, non-technical) and [documentation/FOR_DEVELOPERS.md](documentation/FOR_DEVELOPERS.md) (short form plus what actually bites) |
-| What each person sets on each machine (individual source, leak blocklist, the optional overrides) | [PER_MACHINE_SETUP.md](PER_MACHINE_SETUP.md) |
-| Guided-install entry point admins paste to their agent | [SETUP.md](SETUP.md) |
-| Member onboarding page (template + rendered sample) | [templates/GETTING_STARTED.md](templates/GETTING_STARTED.md) |
-| Git/GitHub concepts for this workflow | [GIT.md](GIT.md) |
-| The working method (branches, plain text, critique, prompts) | [METHOD.md](METHOD.md) |
-| Phone / ChatGPT / Grok workflows + assistant reliability status | [MOBILE.md](MOBILE.md) |
-| A brainstormed chat bridge — reaching a Claude session by voice through the app someone already uses, with a private thread per person; who may change content against the repo's own machinery, and why the bot's single credential removes the platform-enforced half of [spec/CONTRIBUTOR_ACCESS.md](spec/CONTRIBUTOR_ACCESS.md)'s two layers. Telegram as the proof of concept, WhatsApp as the destination, with what each platform requires and what it costs. **Speculative: nobody has decided to build it, and no claim in it was read from a primary source** | [spec/SPECULATIVE_WHATSAPP_BRIDGE.md](spec/SPECULATIVE_WHATSAPP_BRIDGE.md) |
-| CI checks for shell-less agents (install, require) | [GITHUB_ACTIONS.md](GITHUB_ACTIONS.md) |
-| Whether anything catches a drifted `MAP.md`, `GLOSSARY.md` or loader block in a practice SET (two things do: the workflow since 2026-09-11, and `precedent_check.py`'s own provenance check since `binds_publishers` ended its skip on 2026-09-12) | [templates/github-actions/views-drift.yml.template](templates/github-actions/views-drift.yml.template) and [templates/github-actions/precedent-check.yml.template](templates/github-actions/precedent-check.yml.template), both installed by [tools/precedent_bootstrap_source.py](tools/precedent_bootstrap_source.py); whether a set needs both is [TODO.md's `views-drift-vs-suite-workflow`](TODO.md#views-drift-vs-suite-workflow) |
 | Upstream open items / roadmap | [TODO.md](TODO.md) |
-| The full story behind any line in the gotchas index — all 36 live entries, unabridged | [record/GOTCHAS.md](record/GOTCHAS.md) |
-| Gotchas that were shortened or retired, with the verdict that moved each one | [record/GOTCHAS_ARCHIVE.md](record/GOTCHAS_ARCHIVE.md) |
-| GitAround — the reading view this work spun out | [alex137/GitAround](https://github.com/alex137/GitAround), a separate product since 2026-08-14; a branch here still staging it under proposals/ is superseded, and its documents live there now |
-| Slide-deck engine + deck conventions | [deck/](deck/) — engine [build_deck.py](deck/build_deck.py), practice in [deck/README.md](deck/README.md) |
-| Portable audits | [tools/](tools/) — [doc_lint.py](tools/doc_lint.py), [practice_audit.py](tools/practice_audit.py), [checkin.py](tools/checkin.py) |
-| Skeletons dependent repos instantiate | [templates/](templates/) (+ per-agent adapters in [templates/harness/](templates/harness/)) |
+| The full story behind any line in the gotchas index, unabridged | [record/GOTCHAS.md](record/GOTCHAS.md) |
+| Anything else — the full index | [WHERE_THINGS_ARE.md](WHERE_THINGS_ARE.md) |
+
 
 ## Build-environment gotchas — do NOT rediscover these
 
-**One line per trap; the story of what failed is one click away**, in
-[record/GOTCHAS.md](record/GOTCHAS.md). The story is where the value is — a fix
-with no account of what failed is a fact you cannot judge, and the next session
-undoes it the moment it looks wrong. **Open the entry before acting on the
-line**: several of these describe mechanisms that have since been fixed, and
-only the entry says which.
+One line per trap; the story is in [record/GOTCHAS.md](record/GOTCHAS.md).
+The split itself is [environment-gotchas](practices/environment-gotchas.md)'s,
+carried in full in the resident block above, so it is not restated here.
 
-**When a symptom below matches what you are seeing, stop and open it.** That is
-the whole design of the split: every session pays for this index, and only the
-session that has actually hit a trap pays for its story.
+**When a symptom below matches what you are seeing, stop and open its entry
+before acting on the line** — several describe mechanisms that have since been
+fixed, and only the entry says which.
 
-**Adding one?** Write it in full in [record/GOTCHAS.md](record/GOTCHAS.md) —
-what failed, not just the fix — and put its one-line symptom here. A trap that
-can no longer fire moves on to
+**Adding one?** A trap that can no longer fire moves on to
 [record/GOTCHAS_ARCHIVE.md](record/GOTCHAS_ARCHIVE.md) with the verdict that
 retired it. Nothing is ever deleted.
 
-- **`pip install cmarkgfm`, or [tools/doc_lint.py](tools/doc_lint.py)'s
-  strikethrough check silently stops running.** [story](record/GOTCHAS.md#g1)
+- **`pip install cmarkgfm markdown`, or two gates degrade in silence and
+  [verify_harness.py](tools/verify_harness.py) fails three checks that have
+  nothing to do with your diff — and a container missing them is telling you
+  no SessionStart hook ran.** [story](record/GOTCHAS.md#g1)
 
 - **A git helper that returns stdout and drops the exit code will hand you a
   confident wrong answer — this is the most-repeated bug in the project.**
@@ -741,6 +559,24 @@ retired it. Nothing is ever deleted.
 - **A Routine that fires a FRESH session gets none of the session-management
   tools, and the run still records SUCCEEDED — so a scheduled job that reads
   the fleet quietly does nothing.** [story](record/GOTCHAS.md#g38)
+
+- **A session can push a branch but not delete one: the 403 wears a
+  dropped-connection message, so it reads as a flake.**
+  [story](record/GOTCHAS.md#g39)
+
+- **The session-start identity block reached every Precedent repo except the
+  individual set it read the identity from, so that one set kept committing as
+  the container's bot.** [story](record/GOTCHAS.md#g40)
+
+- **`/rate_limit` reports a pristine window from inside a session while the
+  `X-RateLimit-*` headers on an ordinary call report the truth — and there is
+  more than one allowance pool, keyed by repository.**
+  [story](record/GOTCHAS.md#g41)
+
+- **The permission classifier refuses `git commit` and the checks inside the
+  very practice set whose `identity.json` declares `relayed_authorization:
+  accepted` — non-deterministically, so retrying teaches you nothing.**
+  [story](record/GOTCHAS.md#g42)
 
 ## Working in this repo
 

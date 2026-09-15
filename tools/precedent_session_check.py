@@ -31,10 +31,18 @@ exotic, it is what Precedent's own source resolution requires.
 WHY THIS IS A TOOL AND NOT A HOOK. It cannot be a hook. The failure IS that
 hooks do not run, so anything that waits to be triggered is the one thing
 guaranteed not to fire (the same shape AGENTS.md records for a freshness
-guard shipped inside the checkout it guards). It is reachable two ways
+guard shipped inside the checkout it guards). It is reachable three ways
 instead: AGENTS.md names it in the first-tool-call banner a session reads
-before anything else, and `--apply` makes the repair one command rather than
-three remembered ones.
+before anything else, `--apply` makes the repair one command rather than
+three remembered ones, and `remind()` below is printed by every
+tools/precedent_gate.py moment.
+
+THE THIRD ROUTE EXISTS BECAUSE THE FIRST TWO ARE SKIPPABLE, 2026-09-14. A
+session read that banner, did not run this tool, and worked for hours with
+four guarantees down -- no session-practices file, no commit backstop, two
+uninstalled packages -- noticing only when the packages surfaced as three
+unrelated-looking verify_harness failures (record/GOTCHAS.md#g1). Guidance a
+session can skip is not a mechanism; a gate it runs at a named moment is.
 
 Exit 0 when every guarantee holds, 1 otherwise, so it can gate a run.
 """
@@ -91,12 +99,18 @@ def _identity_is_declared():
     return (pathlib.Path(path).expanduser() / 'identity.json').exists()
 
 
-def checks():
+def checks(offline=False):
     """-> [(name, ok, detail)]. Each is a guarantee a SessionStart hook is
     supposed to have established, tested by its EFFECT rather than by
     whether some hook reported success -- a hook that never ran reports
     nothing at all, which is exactly the state being detected
-    (practice: verify-postcondition)."""
+    (practice: verify-postcondition).
+
+    `offline=True` drops the one row that talks to the network -- the
+    freshness comparison, which fetches -- so a caller on a hot path can
+    afford to ask. Everything else is local file and git-config reads.
+    A dropped row is simply absent from the list, never reported as OK:
+    a guarantee nobody measured is not a guarantee that holds."""
     out = []
 
     # 1. The project dir the harness actually handed the hooks.
@@ -161,6 +175,39 @@ def checks():
                 f'account. Commits made now are wrong-author commits, and '
                 f'this repo\'s own check refuses them'))
 
+    # 3b. The same question for every PRACTICE SOURCE on this disk, which is
+    # a different question from row 3 and was answered wrongly for months.
+    #
+    # Row 3 asks about THIS checkout. The session-start hook's identity block
+    # applies commit-identity.sh to a LIST of repositories, and until
+    # 2026-09-14 that list was the primary repo plus its siblings -- which
+    # silently excluded an individual set cloned somewhere else, i.e. the one
+    # repository the block reads the identity FROM (record/GOTCHAS.md#g40).
+    # Nothing reported it, because nothing had ever asked the question of any
+    # repo but this one, and a normal session never commits to a source set.
+    #
+    # Deliberately reads `git config user.email` rather than
+    # `--local user.email`: an unset local value is not a clean state here, it
+    # is the state that falls through to the container's global bot identity,
+    # which is exactly what a commit would then be authored as.
+    offenders = []
+    for _written, _base in _attachable_sources():
+        _path = pathlib.Path(_expand_source_path(_written))
+        if not (_path / '.git').exists():
+            continue
+        _code, _email, _ = _run('git', '-C', str(_path), 'config',
+                                'user.email')
+        if _code == 0 and _email in BOT_EMAILS:
+            offenders.append(f'{_written} ({_email})')
+    out.append(('every practice source on this disk commits as a person too',
+                not offenders,
+                '' if not offenders else
+                ', '.join(offenders) + ' -- a commit made in that source would '
+                'be a wrong-author commit, and the global backstop will refuse '
+                'it. The session-start identity block is meant to have covered '
+                'it; a source outside the primary repo\'s own parent directory '
+                'is how it gets missed (record/GOTCHAS.md#g40)'))
+
     # 4. The global backstop reaches repositories attached later.
     #
     # WHY THIS ROW NAMES ITS OWN REMEDY INSTEAD OF LEANING ON --apply.
@@ -210,7 +257,13 @@ def checks():
                 '' if not missing else
                 f'missing {", ".join(missing)} -- doc_lint\'s strikethrough '
                 f'check and tools/doc_html.py degrade rather than fail, so '
-                f'they pass while checking less than they claim'))
+                f'they pass while checking less than they claim. '
+                f'verify_harness does NOT degrade: it fails the checks that '
+                f'need them, naming what each was testing and never what is '
+                f'absent, which cost two full re-runs to attribute on '
+                f'2026-09-14. Remedy: pip install {" ".join(missing)} -- '
+                f'--apply re-runs the hook that installs them, which is the '
+                f'same fix only when the hook can run at all'))
 
     # 6. A single-branch clone's refspec, without which every branch reads
     #    as unpushed forever (AGENTS.md's add_repo entry).
@@ -265,9 +318,10 @@ def checks():
 
     # 8. Freshness. Reported, never repaired here: discarding work is worse
     #    than a stale tree, so this only ever tells (practice: fail-gracefully).
+    #    The only row that fetches, so the only one `offline` drops.
     branch = _declared_branch()
     rc, cur, _ = _git('rev-parse', '--abbrev-ref', 'HEAD')
-    if branch and rc == 0:
+    if branch and rc == 0 and not offline:
         _git('fetch', '--quiet', 'origin', branch)
         rc2, behind, _ = _git('rev-list', '--count', f'HEAD..origin/{branch}')
         if rc2 == 0 and behind.isdigit():
@@ -327,6 +381,48 @@ def checks():
                     'design -- the variable reads as coverage and covers '
                     'nothing. ' + suggestion))
     return out
+
+
+
+def failing_guarantees(offline=True):
+    """-> [(name, detail)] for every guarantee measured as NOT in effect.
+
+    For callers that are not this tool: a gate, a runbook step, anything a
+    session actually runs. `None` (undetermined) is deliberately not
+    included -- a nag that fires on "cannot tell" is a nag that gets
+    ignored, and the rows that matter here report False with certainty.
+    """
+    return [(name, detail) for name, ok, detail in checks(offline=offline)
+            if ok is False]
+
+
+def remind(offline=True, prefix='precedent'):
+    """-> a short block naming the broken guarantees, or '' when none are.
+
+    WHY THIS EXISTS, 2026-09-14. The module docstring above says this tool
+    is reachable two ways: AGENTS.md's opening banner, and `--apply`. A
+    session that day read that banner, did not run the tool, and worked for
+    hours with FOUR guarantees down -- no session-practices file, no commit
+    backstop, two uninstalled packages -- noticing only when the packages
+    surfaced as three unrelated-looking harness failures. Guidance a session
+    can skip is not a mechanism. So the tool now also speaks from somewhere
+    a session cannot skip: the gates it runs at named moments
+    (tools/precedent_gate.py), which is the third route
+    (practice: checkable-gets-checked).
+    """
+    bad = failing_guarantees(offline=offline)
+    if not bad:
+        return ''
+    lines = [f'{prefix}: {len(bad)} SessionStart guarantee(s) NOT in effect '
+             f'-- this session is not set up the way its instructions assume:']
+    for name, detail in bad:
+        lines.append(f'  - {name}')
+        if detail:
+            first = detail.split('. ')[0].strip()
+            lines.append(f'      {first}')
+    lines.append('  full report: python3 tools/precedent_session_check.py '
+                 '(--apply repairs most, unless a row names its own remedy)')
+    return '\n'.join(lines)
 
 
 def _expand_source_path(path):

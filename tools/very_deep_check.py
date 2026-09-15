@@ -24,8 +24,10 @@ gives for enumerating practices instead of leaving that to the session too.
 Reading the enumerated scope for contradiction, staleness, repetition,
 disproportion, formatting drift, self-application gaps, and backlog drift
 is the part only a session can do -- see practices/very-deep-check.md's
-Detail section for the fixed checklist, printed again at the end of this
-tool's own output so it travels with the enumeration.
+Detail section for the fixed checklist. A pointer to it closes this tool's
+output; `--checklist` prints it in full beside the enumeration (off by
+default since 2026-09-14 -- it was 46% of every run's output, and a session
+that has loaded the practice already holds it).
 
 READ practices/very-deep-check.md's Why section before trusting this
 mechanism's own reliability -- it has not been evaluated the way
@@ -135,7 +137,12 @@ session records what one cost with --record-pass, from its own measurement.
 
 Run:
   python3 tools/very_deep_check.py [--repo PATH] [--user-config PATH]
-      -- the scope to read, plus the checklist, as plain text.
+      -- the scope to read, as plain text, with a pointer to the checklist.
+  python3 tools/very_deep_check.py --checklist
+      -- also print the four passes in full (practices/very-deep-check.md's
+      Detail, ~10,000 tokens). Off by default since 2026-09-14: the ledger
+      measured it at 46% of every run's output, and a session that has
+      loaded the practice already holds it.
   python3 tools/very_deep_check.py --json [--repo PATH] [--user-config PATH]
       -- the same enumeration as structured data.
   python3 tools/very_deep_check.py --target BRANCH
@@ -234,6 +241,16 @@ import precedent_bootstrap_source as bootstrap_source  # noqa: E402
 import split_practices as sp  # noqa: E402
 import build_views as bv  # noqa: E402
 import leak_gate  # noqa: E402
+
+# Optional, and deliberately so: this engine is vendored into trees older
+# than github_budget.py, and a visibility audit that refused to run there
+# would be a regression dressed as a fix (practice: fail-gracefully). Where
+# it IS present, every API call this tool makes goes through it -- one
+# implementation, one cache, one counter.
+try:
+    import github_budget as gh_budget  # noqa: E402
+except Exception:                      # noqa: BLE001 -- reported, never raised
+    gh_budget = None
 
 # practice: one-formatter-per-quantity -- every moment in time this project
 # writes down comes from ONE module, in the person's zone, carrying its
@@ -767,16 +784,20 @@ def _last_commit(repo_dir, path):
 
 
 def _spoken_commands(repo_dir):
-    """-> sorted [(phrase, slug)] for every active practice defining a phrase
-    that begins with a capital letter.
+    """-> sorted [(phrase, slug)] for every active practice that declares a
+    `command:` field -- the phrases a person SAYS.
 
-    The capital is the whole test, and it is a convention rather than a
-    field: a `defines:` entry is either a term this catalogue names
-    ("capture gate", "negative control") or a phrase a person SAYS
-    ("Go merge", "Park it"). Only the second kind is capitalized, because
-    only the second kind is quoted back in a sentence. Measured against the
-    catalogue when this was written: 23 active practices define something,
-    4 of them capitalized, and those 4 are exactly the standing commands.
+    The field is the test, and it is the same field tools/precedent_vocabulary.py
+    reads to build the page this scan checks. Until 2026-09-14 this function
+    used a different test -- any capitalized `defines:` entry -- on the
+    reasoning that only a spoken phrase is capitalized. That held for the four
+    commands that existed when it was written and failed the first time a
+    practice defined a capitalized TERM ("API budget", "Relayed authorization"):
+    this scan reported two commands missing from DAILY_HABITS.md while
+    doc_sync, reading the real field, reported the page current. Two
+    definitions of one thing, one of them wrong (practice: very-deep-check,
+    pass 2 question 8). A phrase in `command:` and nowhere else is still a
+    command; a capitalized term in `defines:` alone is not.
     """
     found = []
     for sub in ('practices', 'local/practices'):
@@ -790,12 +811,20 @@ def _spoken_commands(repo_dir):
             fm = sp.parse_frontmatter_fields(text.split('---', 2)[1], decode=True)
             if (fm.get('status') or 'active').strip() != 'active':
                 continue
-            defines = fm.get('defines') or []
-            if isinstance(defines, str):
-                defines = [defines]
-            for phrase in defines:
-                if isinstance(phrase, str) and phrase[:1].isupper():
-                    found.append((phrase, fm.get('slug', f.stem)))
+            raw = fm.get('command')
+            if not raw or raw == 'null':
+                continue
+            if isinstance(raw, str):
+                try:
+                    raw = json.loads(raw)
+                except ValueError:
+                    # A malformed field is precedent_vocabulary.py's to
+                    # report; here it is simply not a readable command.
+                    continue
+            phrases = raw.keys() if isinstance(raw, dict) else raw
+            for phrase in phrases:
+                if isinstance(phrase, str) and phrase.strip():
+                    found.append((phrase.strip(), fm.get('slug', f.stem)))
     return sorted(set(found))
 
 
@@ -1909,7 +1938,7 @@ def _bootstrap_drift_one(level, name, path, collect=None):
             if not gen_path.is_file():
                 continue
             rel = str(gen_path.relative_to(gen_root))
-            # practices/ is the set's own content, and example-starter is
+            # practices/ is the set's own content, and example-starter-<level> is
             # the one file an adopter is told to delete.
             if rel.split(os.sep)[0] == 'practices':
                 continue
@@ -2783,15 +2812,19 @@ def _api_token():
 def _api_json(path, timeout=20, auth=True):
     """-> (parsed, error). Never raises: the caller reports, it does not crash.
 
-    AUTHENTICATES WHEN A TOKEN IS SET, because unauthenticated is not a
-    milder version of the same question -- it is a different question. The
-    API answers `Not Found` for a private repository and for a deleted one
-    alike, so a caller asking anonymously about this project's own private
-    sources learns nothing at all about whether they still exist. The token
-    is passed through a curl config on STDIN rather than an `-H` argument:
-    an argument list is world-readable in /proc on a shared machine, and
-    this one would carry the credential itself.
+    DELEGATES TO github_budget.call, which is the one implementation of "ask
+    GitHub something" in this engine. It caches within a run and counts what
+    the run spent, so the GITHUB API BUDGET section below can report this
+    tool's own bill rather than guessing at it -- and the second ask about a
+    repository two of these trees both mention costs nothing.
+
+    Degrades to the older uncached path where the module is absent: this
+    engine is vendored into trees older than it, and a visibility audit that
+    refused to run there would be a regression dressed as a fix.
     """
+    if gh_budget is not None:
+        return gh_budget.call(path, timeout=timeout, auth=auth)
+
     token, _var = _api_token() if auth else (None, None)
     argv = ['curl', '-s', '--max-time', str(timeout),
             '-H', 'Accept: application/vnd.github+json']
@@ -3187,67 +3220,20 @@ def _repos_in_force(repo_root, sources=(), missing=(), base_url=None):
     return rows
 
 
-def can_land_here(repo_dir):
-    """-> (verdict, detail). Can THIS session put work into this repo?
-
-    verdict is 'land', 'handoff' or 'unknown'.
-
-    A DIFFERENT QUESTION from the liveness audit below, and the difference is
-    the whole point. That one asks whether the REPOSITORY accepts work -- is
-    it archived, disabled, renamed. This asks whether this SESSION can put
-    work into it, which is a fact about the credentials in this container and
-    not about the repository at all. A repo can be perfectly live, writable by
-    its owner, and unreachable from here.
-
-    MEASURED, not inferred, because a guess here is the expensive kind.
-    `git push --dry-run` to a ref name nothing uses asks the server and
-    changes nothing: the server answers before any object is written, so a
-    'land' verdict is a real permission answer and a 403 is quotable. The
-    alternative -- reasoning from the owner in the URL -- is exactly the
-    inference spawn-session says to stop making
-    (https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/spawn-session.md).
-
-    WHY THE CHECK NEEDS THIS AT ALL. On 2026-09-13 a very deep check read 200
-    practice files across six sources; 89 of them were in four repos this
-    session got 403 on, and nothing in the output said so. Every finding in
-    those 89 files was a finding the reading session could not act on without
-    a handoff it would only discover at the moment of trying to fix it -- the
-    cost paid after the reading, the reasoning and the context, which is the
-    failure spawn-session already names. Morgan, that day: "There's no point
-    in including in the very deep check a repo that you don't have access to
-    suggest changes to nor to make changes to."
-
-    NOT USED TO DROP A REPO FROM SCOPE, deliberately. A finding is as likely
-    to sit in the seam between two repos as inside one, and a set's practice
-    contradicting universal's is a finding about BOTH -- dropping the set
-    loses it. And a repo this session cannot push to is not unactionable, only
-    more expensive: it needs a woken session, which is a route that works.
-    So the verdict LABELS the repo and groups the findings; --landable-only
-    is there for the person who wants the narrow run, and is never the default.
-    """
-    if not repo_dir or not pathlib.Path(repo_dir).is_dir():
-        return 'unknown', 'no local clone to probe'
-    probe = 'refs/heads/precedent-access-probe-do-not-use'
-    # _run_git(repo_dir, *args) -- the repo is the FIRST positional and it
-    # inserts `-C` itself; passing '-C' again puts it in the arg list where
-    # git reads it as a refspec.
-    code, stdout, stderr = _run_git(repo_dir, 'push', '--dry-run',
-                                    '--porcelain', 'origin', f'HEAD:{probe}')
-    out = f'{stdout}\n{stderr}'.strip()
-    if code == 0:
-        return 'land', 'push --dry-run accepted'
-    low = out.lower()
-    if ('403' in low or 'permission' in low or 'denied' in low
-            or 'read-only' in low or 'not authorized' in low):
-        first = next((l.strip() for l in out.splitlines() if l.strip()),
-                     'no message')
-        return 'handoff', first[:160]
-    # Could not reach the server, or something else entirely. NOT 'handoff':
-    # reporting a network blip as "you have no access here" sends somebody to
-    # spawn a session they did not need (practice: fail-gracefully).
-    first = next((l.strip() for l in out.splitlines() if l.strip()),
-                 'git said nothing')
-    return 'unknown', first[:160]
+# THE PROBE MOVED, 2026-09-14, and this import is the point of the move.
+# `can_land_here` was defined here from 2026-09-13 and was correct. But this
+# file is in neither ENGINE_FILES nor CONSUMER_ENGINE_FILES, so it reaches no
+# adopting repo -- and the probe was wanted at SESSION START, where it would
+# have saved a session four days and about a hundred dollars (see
+# precedent_access_check's own docstring). A session-start step importing THIS
+# module would have worked in the upstream repo and silently WARNed in every
+# repo that actually vendors the engine.
+#
+# So the definition went DOWN into the small file that travels, and the big
+# on-request audit imports it (practice: fix-the-original). Keeping a copy
+# here is how two probes drift apart; `access_audit` below is unchanged and
+# still owns the TABLE, which is this tool's own presentation concern.
+from precedent_access_check import can_land_here  # noqa: E402
 
 
 def access_audit(repo_root, sources=(), out=None):
@@ -3279,6 +3265,100 @@ def access_audit(repo_root, sources=(), out=None):
             f'(practice: spawn-session). Group them that way when you report.')
         print('  ' + notes[-1], file=out)
     return rows, notes
+
+
+def boundary_audit(repo_root, sources=(), skip_api=False, out=None):
+    """-> (findings, notes). One row per repo in force that draws a
+    contributor boundary, plus the document-project skeleton.
+
+    A boundary is a SETTING, not a document (practice: very-deep-check,
+    pass 2, "is a boundary a setting or a document?"). spec/CONTRIBUTOR_ACCESS.md
+    keeps a contributor out of the machinery with two things that can each
+    silently stop being true while every document goes on describing them:
+    a generated CODEOWNERS that a hand-edit or a stale registry can leave
+    saying something other than its source, and branch protection that
+    lives on a GitHub settings page nothing in the tree can see. So this
+    reads both, per repo:
+
+      - build_codeowners --check: is the generated file current with the
+        registry that owns it (a project's `owned_paths` + `maintainers` in
+        precedent.json, a practice set's approvers.json)?
+      - precedent_boundary_check: is the base branch protected the way the
+        plan needs? PASS is a row, FAIL is a finding, and UNVERIFIED is a
+        NOTE and never a pass -- a session without a token that can read
+        protection settings learns here that it could not look, which is
+        different from learning that the boundary is off
+        (practice: fail-gracefully).
+
+    A repo with neither registry draws no boundary and says so in one line;
+    that is the normal state of this repository and of an individual set.
+    The document-project skeleton under templates/ gets the generator check
+    only -- its origin is this repository's, so asking GitHub about "its"
+    protection would answer a question about the wrong repo.
+    """
+    import contextlib
+    out = out if out is not None else sys.stdout
+    findings, notes = [], []
+    try:
+        import build_codeowners as bco
+        import precedent_boundary_check as pbc
+    except ImportError as exc:  # an engine vendored without the pair
+        notes.append(f'not checked: {exc}')
+        return findings, notes
+    root = pathlib.Path(repo_root)
+    targets = [('this checkout', root, True)]
+    for s in sources or ():
+        targets.append((f"{s['level']} source {s['name']!r}",
+                        pathlib.Path(s['path']), True))
+    skeleton = root / 'templates' / 'document-project'
+    if (skeleton / 'precedent.json').is_file():
+        targets.append(('templates/document-project (skeleton: generator only)',
+                        skeleton, False))
+    for label, path, ask_github in targets:
+        cfg, approvers = path / 'precedent.json', path / 'approvers.json'
+        draws = False
+        if cfg.is_file():
+            try:
+                draws = json.loads(cfg.read_text(encoding='utf-8')).get(
+                    'owned_paths') is not None
+            except ValueError as exc:
+                findings.append(f'{label}: precedent.json does not parse ({exc})')
+                print(f'  FINDING    {label} -- precedent.json does not parse',
+                      file=out)
+                continue
+        if not draws and not approvers.is_file():
+            print(f'  none       {label} -- draws no boundary (no owned_paths, '
+                  f'no approvers.json)', file=out)
+            continue
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            rc = bco.main(check_only=True, root=path)
+        text = buf.getvalue().strip()
+        line = text.splitlines()[-1] if text else '(no output)'
+        if rc != 0:
+            findings.append(f'{label}: {line}')
+            print(f'  FINDING    {label} -- {line}', file=out)
+        else:
+            print(f'  current    {label} -- {line}', file=out)
+        if not draws or not ask_github:
+            continue
+        if skip_api:
+            notes.append(f'{label}: protection not asked (--skip-liveness); '
+                         f'not a pass')
+            print(f'  not asked  {label} -- --skip-liveness', file=out)
+            continue
+        r = pbc.assess(path)
+        why = '; '.join(r['reasons'])
+        if r['verdict'] == 'FAIL':
+            findings.append(f'{label}: protection FAIL -- {why}')
+            print(f'  FINDING    {label} -- protection FAIL -- {why}', file=out)
+        elif r['verdict'] == 'UNVERIFIED':
+            notes.append(f'{label}: protection UNVERIFIED -- {why} -- not a pass')
+            print(f'  UNVERIFIED {label} -- {why}', file=out)
+        else:
+            print(f'  PASS       {label} -- protection on, shaped as the plan '
+                  f'needs, CODEOWNERS in the tree', file=out)
+    return findings, notes
 
 
 def repos_in_force_audit(repo_root, sources=(), missing=(), base_url=None,
@@ -3862,6 +3942,7 @@ def _main(box):
     as_json = '--json' in args
     allow_missing = '--allow-missing-sources' in args
     skip_branch_scan = '--skip-branch-scan' in args
+    print_checklist = '--checklist' in args
     skip_visibility = '--skip-visibility' in args
     skip_liveness = '--skip-liveness' in args
     # Narrow the read to repos this session can actually land work in. NOT the
@@ -4042,6 +4123,28 @@ def _main(box):
     elif led and skip_liveness:
         led.skipped('REPOS IN FORCE -- still there, still writable',
                     '--skip-liveness')
+
+    # CONTRIBUTOR BOUNDARY (practice: very-deep-check, pass 2). Right after
+    # ACCESS, because it answers the next question about the same repos: not
+    # whether THIS session can land work there, but whether the repository's
+    # own line between content and machinery is enforced by a setting or
+    # merely described by a document. Findings are a stale generated
+    # CODEOWNERS or protection that is off; "could not ask GitHub" is a note
+    # and is never counted as clean.
+    if not as_json:
+        if led:
+            led.start('CONTRIBUTOR BOUNDARY -- CODEOWNERS current, protection on')
+        print("CONTRIBUTOR BOUNDARY -- is each repo's boundary a setting, or "
+              "only a document\n")
+        _cb, _cn = boundary_audit(repo_root, data['sources'],
+                                  skip_api=skip_liveness)
+        for n in _cn:
+            print(f'  note: {n}')
+        if not _cb and not _cn:
+            print('  clean -- every boundary drawn here is current and on')
+        print()
+        if led:
+            led.end(findings=len(_cb))
 
     # EVERY source precedent.json declares, not only the private ones.
     # This used to be gated on FATAL_MISSING_LEVELS ('team', 'individual'),
@@ -4777,7 +4880,24 @@ def _main(box):
 
     if led:
         led.start('CHECKLIST -- the four passes a session works', kind='read')
-    print(checklist())
+    if print_checklist:
+        print(checklist())
+    else:
+        # CHEAPENED 2026-09-14, on the component ledger's own reading: this
+        # section printed ~9,900 tokens a run, 46% of the whole output, and it
+        # is a verbatim copy of a section the session loads anyway with
+        # `precedent_show.py very-deep-check --detail` before it can work a
+        # single pass. The pointer is the section now; `--checklist` prints
+        # the text for a session that wants it beside the enumeration.
+        print('CHECKLIST -- the four passes a session works')
+        print()
+        print('  Not printed here (pass --checklist to print it). Read it from '
+              'the practice:\n'
+              '  python3 tools/precedent_show.py very-deep-check --detail\n'
+              '  Pass 1 — adopter installs; Pass 2 — mechanisms; Pass 3 — '
+              'coherence read;\n  Pass 4 — catalogue, backlog and branches. '
+              'Work them in order.')
+        print()
     if led:
         led.end()
 
@@ -5013,6 +5133,31 @@ def _main(box):
                     extra_seconds=_endgame_secs)
     elif led:
         led.skipped('ENDGAME MERGE', '--skip-endgame-merge')
+
+    # WHAT THIS RUN COST, AND WHAT THE ACCOUNT HAS LEFT (practice:
+    # github-api-budget). Last, deliberately: the spend figure is only
+    # complete once every section that calls the API has finished, and the
+    # headroom figure is read off the headers those calls already returned
+    # rather than bought with one more (probe=False below).
+    #
+    # It reports and never refuses. A run that stopped because somebody
+    # else's session had spent the pool would be the wrong remedy for the
+    # right finding -- the remedy is fewer simultaneous sessions and cheaper
+    # tools, and neither is this tool's to apply mid-run.
+    if gh_budget is not None:
+        if led:
+            led.start('GITHUB API BUDGET')
+        print('\nGITHUB API BUDGET -- what the account has left, and what '
+              'this run spent\n')
+        _bf, _bn, _brows = gh_budget.audit(tool='very_deep_check.py',
+                                           probe=False)
+        gh_budget.render(_bf, _bn, _brows)
+        print()
+        if led:
+            led.end(findings=len(_bf))
+    elif led:
+        led.skipped('GITHUB API BUDGET',
+                    'tools/github_budget.py is not present in this tree')
 
     if led:
         led.report()

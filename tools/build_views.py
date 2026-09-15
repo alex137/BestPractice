@@ -87,6 +87,9 @@ def _budget(key, default):
 
 
 RESIDENT_BUDGET_TOKENS = _budget('resident_block_tokens', 2000)
+# code-cites-practice: session-load-budget -- the generated occasion index
+# grew unbudgeted to 29% of AGENTS.md; see OccasionIndexBudgetExceeded.
+OCCASION_INDEX_BUDGET_TOKENS = _budget('occasion_index_tokens', 4000)
 
 
 def surface_budget(name, default):
@@ -130,6 +133,57 @@ class ResidentBudgetExceeded(Exception):
         self.tokens, self.budget = tokens, budget
         super().__init__(f'resident block is ~{tokens} tokens, over the '
                          f'{budget}-token hard cap')
+class OccasionIndexBudgetExceeded(Exception):
+    """The generated occasion index is over its declared ceiling.
+
+    code-cites-practice: session-load-budget
+
+    WHY THIS EXISTS, and why the resident cap alone was not enough. The
+    resident block has been capped since phase 2; the occasion index never
+    was. Measured 2026-09-14: the index had grown every single day -- 1,136
+    tokens on 08-31, 2,753 on 09-11, 3,377 on 09-14, about 160 a day over the
+    fortnight -- which is 29% of AGENTS.md accruing with nobody deciding it.
+    Four times in two days the file crossed its ceiling and a session that
+    had come to do something else paid a reduction pass, trimming PROSE to
+    make room for generated text it was not allowed to touch.
+
+    Capped so the cost lands on the session ADDING a practice, at the moment
+    it adds one, as a decision about the thing that actually grew.
+
+    Raised, never exited, for the same reason as ResidentBudgetExceeded above:
+    build_views' own CLI is a gate and exits, but precedent_session_practices
+    runs from a SessionStart hook, where exiting means the session gets no
+    practices at all (practice: fail-gracefully).
+
+    WHAT A SESSION SHOULD DO when it fires -- and the order matters, because
+    the cheap move is not the obvious one:
+
+      1. Give the new practice a REAL `applies_to` glob or a `gates:` entry
+         and drop its `occasion:`. It then loads when it is relevant instead
+         of in every session, which is usually what was wanted anyway.
+      2. Shorten `index_clause` on the practices whose lines are longest.
+      3. Only then ask the person to raise the ceiling, which is a decision
+         they take on purpose with the reason recorded in the registry.
+
+    Never drop an `occasion:` from a practice whose `applies_to` is `["**"]`
+    and which declares no gate: that glob matches everything and therefore
+    routes nothing, so the index is its ONLY channel and dropping the line
+    un-routes the rule silently. 33 of 113 active practices were in exactly
+    that position when this cap landed.
+    """
+
+    def __init__(self, tokens, budget):
+        self.tokens, self.budget = tokens, budget
+        super().__init__(
+            f'the generated occasion index is ~{tokens} tokens, over the '
+            f'{budget}-token cap. Give a practice a real applies_to glob or '
+            f'a gate and drop its occasion: (never one whose applies_to is '
+            f'["**"] with no gate -- the index is its only channel), or '
+            f'shorten the longest index_clause values. Raising '
+            f'occasion_index_tokens in tools/session_load_budgets.json is a '
+            f'decision for the person, with the reason recorded there.')
+
+
 WORD_RE = re.compile(r"\S+")
 
 
@@ -518,6 +572,57 @@ def _occasion_clause(rule_text, max_len=90):
 # channels rather than the ones this source actually fills. A standing
 # instruction that names a command which fails is worse than no standing
 # instruction, because it teaches the session that the block is decorative.
+# code-cites-practice: session-load-budget -- the occasion index is loaded in
+# full by every session, so a line that routes nothing is paid for every turn.
+INDEX_REQUIRED_FIELD = 'index_required'
+
+
+def _routes_by_path(fm):
+    """True when `applies_to` names REAL paths, so precedent_paths.py fires.
+
+    A bare `["**"]` matches everything and therefore routes nothing -- it is
+    the signature of a practice that has no file trigger at all, not of one
+    that applies everywhere usefully."""
+    globs = _json_list(fm.get('applies_to', '')) or []
+    return bool(globs) and globs != ['**']
+
+
+def index_is_redundant(fm):
+    """True when this practice reaches a session WITHOUT costing an index line.
+
+    THE RULE. A practice is routed if a real `applies_to` glob fires on the
+    files its occasion is about, or a `gates:` entry fires at the moment its
+    occasion describes. Either way the index line is a second copy of a
+    channel that already works, and every session pays for it in tokens
+    before it does any work.
+
+    THE EXCEPTION, and it is the whole reason this is not a one-liner. Neither
+    channel can fire on something a PERSON SAYS. A file glob needs a file; a
+    gate needs a moment, and the moments are merge/review/push/reply -- all of
+    which arrive at the END of the work the phrase was supposed to redirect.
+    `Go merge` is the worked example: it must be understood in the incoming
+    message, and the reply gate does not fire until the turn is already over.
+    That practice's own history is the citation (practice: cite-the-incident)
+    -- while its definition sat in a private set a session could not read, one
+    went and asked what the phrase meant, generating the exact interruption the
+    phrase exists to prevent. The index is the ONLY channel for a spoken
+    trigger, so a spoken trigger is never dropped from it.
+
+    A practice declares that by carrying `index_required: true`, or by
+    defining a `command:`, which is a spoken trigger by construction.
+    tools/precedent_check.py's `index-required-is-declared` reads occasion
+    text for the shapes a spoken trigger takes and fails any practice that
+    looks like one without the field -- so the judgment is made once, by a
+    person, in the practice file, rather than re-guessed by a regex here."""
+    if fm.get('command') not in (None, '', 'null'):
+        return False
+    if _json_str(fm.get(INDEX_REQUIRED_FIELD, '')).lower() == 'true' \
+       or str(fm.get(INDEX_REQUIRED_FIELD, '')).strip().lower() in ('true', '"true"'):
+        return False
+    gates = _json_list(fm.get('gates', '')) or []
+    return _routes_by_path(fm) or bool(gates)
+
+
 def _live_gates(practices):
     """Gate names to advertise: in the engine's own closed vocabulary AND
     holding at least one in-force practice in THIS source.
@@ -686,9 +791,9 @@ def _place_rule_links(text, practice_file, block_dir, repo_root=None,
     return _RULE_LINK_RE.sub(sub, text), unplaced
 
 
-def build_loader_block(practices, source_levels=None, omits_private=False,
+def build_loader_block(practices, source_levels=None, defers_sources=False,
                        block_dir=None, repo_root=None, planned=(),
-                       budget_tokens=None):
+                       budget_tokens=None, occasion_budget_tokens=None):
     """practices: (fm, sections, file) triples, exactly as load_practices()
     returns for this repo's own single-source catalogue. source_levels:
     optional {slug: level} for a caller resolving MULTIPLE sources (e.g.
@@ -750,9 +855,13 @@ def build_loader_block(practices, source_levels=None, omits_private=False,
 
     on_demand = [(fm, sections) for fm, sections, _f in practices if fm.get('tier') == 'on-demand']
     by_occasion = collections.defaultdict(list)
+    routed_out = []
     for fm, sections in on_demand:
         occasion = _json_str(fm.get('occasion', ''))
         if not occasion:
+            continue
+        if index_is_redundant(fm):
+            routed_out.append(fm['slug'])
             continue
         by_occasion[occasion].append((fm['slug'], _index_clause(fm, sections)))
 
@@ -761,7 +870,45 @@ def build_loader_block(practices, source_levels=None, omits_private=False,
         index_lines.append(f"When {occasion}:")
         for slug, clause in sorted(by_occasion[occasion]):
             index_lines.append(f"  {slug} — {clause}")
+    if routed_out:
+        # Say what is NOT here, and how to reach it. A session that cannot see
+        # the omission reads a short index as the whole catalogue.
+        index_lines.append('')
+        # Deliberately no COUNT here. The count would be a second computation
+        # of the same set, made from a practice list this function was handed
+        # and printed for a reader who will go run the tool -- which resolves
+        # the set again, its own way. The two disagreed by three on the first
+        # build (2026-09-14, this repo's local/practices/ counted by one and
+        # not the other), which is the shape of drift that makes a reader
+        # stop believing generated text. One source of truth: the flag.
+        index_lines.append(
+            "(More on-demand practices are not listed here: one whose "
+            "applies_to names real paths, or which declares a gate, is "
+            "reached by those channels instead -- `precedent_paths.py FILE` "
+            "and `precedent_gate.py MOMENT`. A trigger a PERSON SAYS cannot "
+            "be reached that way and is always listed above. "
+            "`precedent_show.py --index-omitted` names the omitted ones.)")
     index_text = '\n'.join(index_lines)
+    # The generated half of what every session loads is capped too, not just
+    # the resident block (practice: session-load-budget) -- but ONLY for a
+    # caller that asks, which is the opposite default from the resident cap
+    # above, and deliberately.
+    #
+    # The resident block is a CURATED set of about ten practices and does not
+    # grow when a repo resolves more sources, so one number binds every
+    # caller. The occasion index is every on-demand practice in force, so a
+    # consumer resolving four sources legitimately has a far bigger one than
+    # this repository's own catalogue. Enforcing this repo's number there
+    # refuses a consumer's correct block: precedent_sync_views.py crashed on
+    # exactly that in the harness's four-source consumer fixture, 2026-09-14,
+    # within an hour of the cap landing.
+    #
+    # So the gate passes its budget explicitly (see the CLI below) and nobody
+    # else is capped by a number that was never about them.
+    if occasion_budget_tokens is not None:
+        occ_tokens = _approx_tokens(index_text)
+        if occ_tokens > occasion_budget_tokens:
+            raise OccasionIndexBudgetExceeded(occ_tokens, occasion_budget_tokens)
 
     lines = [BEGIN_MARKER, '']
     # The command named here has to EXIST in the repo this block is being
@@ -859,22 +1006,34 @@ def build_loader_block(practices, source_levels=None, omits_private=False,
     # is a pointer to another file. Caught by the check that the loader
     # block advertises only the channels a source actually fills.
     #
-    # `omits_private` is the condition, NOT "was this rendered from a single
-    # source". The first version tested `not source_levels` on the reasoning
-    # that a multi-source render already carries the team and individual
-    # practices inline -- which stopped being true the moment a public repo
-    # began rendering multi-source with the PRIVATE levels deliberately
-    # excluded. That guard then suppressed the pointer in the one repo that
-    # needs it, silently, and the pointer simply vanished from AGENTS.md.
-    # Keyed off the same repo_is_public() the exclusion itself uses, so the
-    # two cannot drift apart again.
-    if instruction and omits_private:
+    # THE CONDITION IS "DID ANYTHING GET DEFERRED", and it has been wrong
+    # twice in the narrowing direction. First it tested `not source_levels`,
+    # on the reasoning that a multi-source render already carries the team and
+    # individual practices inline -- which stopped being true the moment a
+    # public repo began rendering multi-source with the PRIVATE levels
+    # deliberately excluded, and the pointer silently vanished from AGENTS.md.
+    # It was then keyed off repo_is_public(), which is only ONE of the two
+    # reasons sources_for_tracked_block() defers a source: a practice SET
+    # defers the universal catalogue because committing it would be a second
+    # copy of another repository's text, and a set is private, so
+    # repo_is_public() was False and the pointer was suppressed in all four
+    # sets. Measured 2026-09-14 in precedent-individual: the hook wrote
+    # .precedent/SESSION_PRACTICES.md with universal's whole catalogue in it
+    # and the standing instruction never told the session to read it, so a
+    # session rooted in a practice set ran on that set's own practices alone.
+    # Morgan named the cause: sessions open on a practice repo and "most of
+    # the rules I want aren't loaded".
+    #
+    # So the caller now passes whether sources_for_tracked_block() actually
+    # deferred anything, which is the question, and the two reasons cannot
+    # drift apart from it again.
+    if instruction and defers_sources:
         instruction.append(
             "If `.precedent/SESSION_PRACTICES.md` exists, read it too: it carries the "
-            "practices in force from this repo's team, individual and repo-local "
-            "sources, which are NOT in this block and bind work here exactly as these "
-            "do. It is regenerated at session start and is deliberately untracked — "
-            "never commit it or quote it into a pull request.")
+            "practices in force from the other sources this repo declares, which are "
+            "NOT in this block and bind work here exactly as these do. It is "
+            "regenerated at session start and is deliberately untracked — never commit "
+            "it or quote it into a pull request.")
 
     if instruction:
         lines.append("## Standing instruction")
@@ -1029,6 +1188,38 @@ def sources_for_tracked_block(root, declared):
     return list(declared), [], notes
 
 
+def defers_any_source(root):
+    """True when this repo's TRACKED loader block cannot carry everything
+    precedent.json declares, so the standing instruction has to point at
+    .precedent/SESSION_PRACTICES.md instead.
+
+    Asked of sources_for_tracked_block() rather than re-derived, because
+    there are two unrelated reasons a source gets deferred and keying the
+    pointer off either one alone has already suppressed it in a whole class
+    of repository -- see the comment at the pointer itself in
+    build_loader_block(). (practice: registry-source-of-truth -- the split is
+    decided in one place; this only reads its answer.)
+
+    Never raises: a config that will not load leaves the block to this repo's
+    own practices, which is exactly the case where nothing was deferred
+    (practice: fail-gracefully)."""
+    config = root / 'precedent.json'
+    if not config.is_file():
+        return False
+    try:
+        sys.path.insert(0, str(_ENGINE_DIR))
+        import precedent_resolve as _pr
+        declared = _pr.load_config(root)
+    except Exception as e:
+        print(f"build_views NOTICE: could not read the declared sources "
+              f"({e}), so the standing instruction cannot say whether any of "
+              f"them is deferred to .precedent/SESSION_PRACTICES.md.",
+              file=sys.stderr)
+        return False
+    _tracked, deferred, _notes = sources_for_tracked_block(root, declared)
+    return bool(deferred)
+
+
 def source_levels_from_manifest(root):
     """{slug: level} read back out of a consuming repo's MANIFEST.json, or
     None where there is no such file.
@@ -1158,7 +1349,7 @@ def loader_practices(root, own_practices):
 
 
 def render_agents_md(practices, agents_md=None, source_levels=None,
-                     omits_private=False):
+                     defers_sources=False):
     """-> (text, stats), where stats is (resident_tokens, n_resident,
     n_total) FROM THE BLOCK THIS RETURNED -- not re-derived.
 
@@ -1183,7 +1374,10 @@ def render_agents_md(practices, agents_md=None, source_levels=None,
     try:
         block, tokens, n_resident = build_loader_block(
             practices, source_levels=source_levels,
-            omits_private=omits_private, block_dir=agents_md.parent)
+            defers_sources=defers_sources, block_dir=agents_md.parent,
+            occasion_budget_tokens=OCCASION_INDEX_BUDGET_TOKENS)
+    except OccasionIndexBudgetExceeded as e:
+        sys.exit(f"build_views FAIL: {e}")
     except ResidentBudgetExceeded as e:
         sys.exit(f"build_views FAIL: resident block is ~{e.tokens} tokens, "
                  f"over the {e.budget}-token hard cap -- demote or "
@@ -1406,7 +1600,7 @@ def render_map_md(practices, withdrawn=()):
 TOOLS_DESCRIPTIONS = {
     'behavioral_replay.py': "Measures the path-triggered loader against this repo's own commit history",
     'build_views.py': "This file, GLOSSARY.md, and AGENTS.md's loader block — generated views",
-    'build_codeowners.py': "A team practice set's CODEOWNERS, generated from its own approvers.json",
+    'build_codeowners.py': "CODEOWNERS, generated -- a practice set's from its approvers.json, a project's from the maintainers and owned_paths in its precedent.json",
     'catalogue_stats.py': "The figures about the catalogue that other documents cite, computed rather than hand-typed",
     'checkin.py': "Drives the periodic check-in (INSTALL.md §4) mechanically",
     'doc_html.py': "The one sortable-table HTML renderer for repo documents",
@@ -1423,10 +1617,14 @@ TOOLS_DESCRIPTIONS = {
     'precedent_check.py': "The ENFORCED loading channel — runs every practice's `checked_by` script",
     'precedent_gate.py': "The GATE-TRIGGERED loading channel — Rules for a named moment (merge, review, push, reply)",
     'precedent_reply_check.py': "The reply gate's BLOCKING half — refuses a stop when the reply missed what a source's reply_check.json requires",
+    'precedent_close_detect.py': "Stage 1's trigger — at the close of a session that merged and is ready to archive, offers at most one practice candidate found in that session's own material",
     'precedent_bootstrap_source.py': "Instantiates a brand-new individual or team practice set from a skeleton, for an adopter who has neither yet",
     'precedent_source_bootstrap.py': "Clone-or-pull for a privately-scoped individual or team source, used by its SessionStart hook and by precedent_resolve.py's own lazy self-heal",
     'precedent_source_credentials.py': "Whether this environment can reach its private practice sources, and the git credential helper that lets a SessionStart hook clone them without add_repo",
+    'github_budget.py': "What this account has left of GitHub's API allowances and what each tool spent -- read off the X-RateLimit headers of calls already being made, because /rate_limit answers a pristine window from inside a session",
     'precedent_source_names.py': "Whether each declared source repository is still CALLED what this repo calls it -- a rename redirects forever, so only the GitHub API can answer it",
+    'precedent_boundary_check.py': "Whether a document project's contributor boundary is actually ON -- branch protection shaped as spec/CONTRIBUTOR_ACCESS.md needs, read from the GitHub API; UNVERIFIED when it could not ask, which is not a pass",
+    'precedent_owned_paths.py': "Before a pull request: which changed files will wait for a code owner's review, and the plain-words sentence to say to the contributor about it",
     'precedent_candidate.py': "Stage 2 (phase 5) — raise, list and expire creation-pipeline candidates",
     'precedent_detect.py': "Stage 1 (phase 5) — the mechanical half of candidate detection",
     'precedent_land.py': "Stage 5 (phase 5) — writes an approved candidate into practices/, enforcing the registered-check invariant",
@@ -1443,6 +1641,7 @@ TOOLS_DESCRIPTIONS = {
     'precedent_migrate_status.py': "Classifies practices written under the old status vocabulary, where `retired` meant two different things; proposes, and refuses to guess a renamed successor",
     'precedent_retire.py': "Stage 6 (phase 5) — the periodic removal report; proposes, never acts",
     'precedent_session_practices.py': "Writes the team/individual/repo-local practices in force into an untracked .precedent/ file at session start, since this repo is public and their text may not be committed",
+    'precedent_access_check.py': "Probes, at session start, which repos in force this session can actually push to -- so work destined for one it cannot reach is discovered before it is done, not after",
     'precedent_session_check.py': "Reports whether this session's SessionStart guarantees are actually in effect -- practices file, commit identity, backstop, packages, refspec, freshness, and the branch it started on -- and `--apply` runs the hooks by hand when the harness never did",
     'precedent_upstream_check.py': "Says whether the upstream branch has moved since the last commit carried onto this one, comparing against tools/upstream_watermark.json rather than git ancestry -- this branch carries `main` instead of merging it, so an ancestry test reports a permanent, meaningless gap; prints and never merges, and `--record` moves the watermark after a carry",
     'precedent_vocabulary.py': "Lists every standing command in force -- each phrase and the plain sentence a person reads -- collected from the `command:` field of every practice across every resolved source; answers the \"Vocabulary\" command and emits the reader-facing table",
@@ -1450,12 +1649,15 @@ TOOLS_DESCRIPTIONS = {
     'precedent_time.py': "The ONE emitter for every date and time this repo writes down — resolves whose zone, always carries the offset; run it bare to see which rung answered",
     'precedent_simulate.py': "One command over the reach/mechanical-correctness and synthetic-batch tiers, plus the running trend log",
     'precedent_sync_views.py': "One command for a consuming repo: precedent_materialize.py + build_views.py --agents-only, glued together",
+    'precedent_move.py': "Moves an existing practice between levels in the one safe order: lands it at the destination with its text and approval carried, then deduplicates the source copy and regenerates both sets' views; refuses the unsafe states by name",
+    'precedent_install.py': "Installs Precedent into a project in one command (INSTALL.md section 0 performed mechanically: catalogue, engine, precedent.json, templates, sync, lint) and prints the placeholders it left for a person to adapt",
     'precedent_vendor_engine.py': "Vendors the minimal source-repo engine (this file, precedent_gate/paths/show.py, split_practices.py, a trimmed routing_scope.json) into an individual or team set, and keeps it refreshable",
     'resplit_sections.py': "The editorial Rule/Detail/Why/Story/Install split, applied from tools/section_split.json",
     'todo_progress.py': 'which open items a change may have moved, and which name a file that is gone -- reports a resemblance, never a verdict',
     'routing_audit.py': "The routing audit — mechanical coverage check plus a rotating deep-read slice",
     'routing_eval.py': "Measures whether trigger-based loading actually beats carrying the whole catalogue",
     'routing_eval_synthetic.py': "Stress-tests the occasion-index channel alone, on hand-written synthetic tasks rather than real commits",
+    'session_load_trend.py': "How much room every always-loaded surface has left and how fast it is going -- headroom, the hand-written/generated split, and the growth rate; its headroom_notice() is what the merge and push gates print",
     'split_practices.py': "PRACTICES.md ↔ practices/ converter",
     'table_fmt.py': "One formatter per quantity kind — the engine",
     'title_case.py': "Headline (New York Times) capitalization for markdown headings — --check to gate, --write to fix",
@@ -1634,11 +1836,13 @@ def main():
                  "incomplete source set -- that would silently drop every "
                  "practice the unreachable sources contribute. Make them "
                  "resolvable, then re-run.")
-    # A public repo's block deliberately omits the private levels, so the
-    # standing instruction has to point at what carries them instead.
+    # Whatever the tracked block could not carry -- a private source in a
+    # public repo, or another repository's catalogue in a practice set --
+    # reaches the session only through the untracked file, so the standing
+    # instruction has to point at it.
     new_agents, (block_tokens, n_resident, n_total) = render_agents_md(
         block_practices, agents_md, source_levels=levels,
-        omits_private=repo_is_public(root))
+        defers_sources=defers_any_source(root))
     targets = [(agents_md, new_agents)]
     if not agents_only:
         # Load a SECOND time without the in-force filter: load_practices()

@@ -44,8 +44,8 @@ a frontier axis pull-down on every table with a Frontier column
 (practice: permutation-frontier-column; see below); header
 cells link their definition notes with mouse-over tooltips, and each
 note's return link lands back on the header cell it defines; the build
-timestamp renders in the page header (the .html is the versioned product;
-the source carries none); includes expanded, relative repo links
+timestamp renders in the page header, in the reader's local time (the
+.html is the versioned product; the source carries none); includes expanded, relative repo links
 rewritten to the hosted view, wide tables scrolling in their own
 container.
 
@@ -98,6 +98,7 @@ Requires: pip install markdown.
 
 import pathlib
 import html as html_mod  # heading_slug unescapes entities the render emits
+import os
 import re
 import sys
 from pathlib import Path
@@ -111,7 +112,6 @@ import datetime
 # writes down comes from ONE module, in the person's zone, carrying its
 # offset. Never a bare datetime.date.today(): that is the container's UTC.
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
-import precedent_time  # noqa: E402
 
 
 
@@ -202,7 +202,7 @@ DOCS = [
 RENDER_URLS = {}
 
 CSS = """
-.renderstamp { color: var(--muted); font-size: 12px; margin: -0.6rem 0 1.6rem; }
+.renderstamp { display: block; color: var(--muted); font-size: 12px; margin: -0.6rem 0 1.6rem; }
 td span[data-view] { display: none; }
 td span[data-view].von { display: inline; }
 .viewtoggle { font-size: 12px; color: var(--muted); display: inline-flex; align-items: center; gap: 4px; margin-right: 6px; cursor: pointer; user-select: none; }
@@ -269,6 +269,10 @@ code { font: 0.86em ui-monospace, "Cascadia Mono", Menlo, monospace;
        background: var(--stripe); padding: 0.08em 0.3em; border-radius: 3px; }
 hr { border: 0; border-top: 1px solid var(--hairline); margin: 2.5rem 0 1.5rem; }
 .tablewrap { overflow-x: auto; margin: 1rem 0 0.5rem; }
+/* Wide tables break out of the reading column to the viewport edge:
+   a permutation table wants the whole window, the prose does not. */
+.tablewrap.bleed { width: calc(100vw - 2rem); position: relative;
+  left: 50%; margin-left: calc(-50vw + 1rem); }
 table {
   border-collapse: collapse; background: var(--surface);
   font-size: 0.8rem; line-height: 1.35;
@@ -503,6 +507,11 @@ JS = """
     bar.appendChild(resetBtn);
     bar.appendChild(label);
     var wrap = tbl.closest(".tablewrap") || tbl;
+    // A table wider than the reading column takes the whole window
+    // (the .bleed breakout); narrow tables stay in the column.
+    if (wrap !== tbl && tbl.scrollWidth > wrap.clientWidth + 4) {
+      wrap.classList.add("bleed");
+    }
     wrap.parentNode.insertBefore(bar, wrap);
 
     // Per-column filters: EVERY column gets a button (no distinct-value
@@ -1297,17 +1306,38 @@ JS = """
 INCLUDE_RE = re.compile(r"<!--include:([\w./-]+)-->")
 
 
+INCLUDED = set()      # resolved paths of files included into the current render
+
+
 def expand_includes(md_text, src_dir):
     """Replace <!--include:file.md--> markers with the named file's markdown,
     headings demoted one level (its H1 becomes an H2 of the including
-    document) and its Numbers-by footer kept."""
+    document) and its Numbers-by footer kept. Included files are recorded
+    so a link to one of them resolves to its in-page anchor."""
+    link_re = re.compile(r"\]\(([^)\s]+)\)")
+    INCLUDED.clear()
+
     def sub(m):
-        inc = (src_dir / m.group(1)).read_text(encoding="utf-8")
+        inc_path = (src_dir / m.group(1))
+        INCLUDED.add(inc_path.resolve())
+        inc = inc_path.read_text(encoding="utf-8")
+        inc_dir = inc_path.parent
+
+        def relink(lm):
+            # The included file's relative links are written for ITS
+            # directory; re-base them on the including document's so
+            # they resolve wherever the text is rendered.
+            href = lm.group(1)
+            if href.startswith(("http://", "https://", "#", "mailto:")):
+                return lm.group(0)
+            path, frag = (href.split("#", 1) + [""])[:2]
+            rel = os.path.relpath((inc_dir / path).resolve(), src_dir.resolve())
+            return f"]({rel}{'#' + frag if frag else ''})"
         out = []
         for line in inc.splitlines():
             if line.startswith("#"):
                 line = "#" + line
-            out.append(line)
+            out.append(link_re.sub(relink, line))
         return "\n".join(out)
     return INCLUDE_RE.sub(sub, md_text)
 
@@ -1322,6 +1352,8 @@ def rewrite_links(body, src_dir):
         path, frag = (href.split("#", 1) + [""])[:2]
         frag = f"#{frag}" if frag else ""
         target = (src_dir / path).resolve()
+        if target in INCLUDED and frag:
+            return f'href="{frag}"'   # the included text is on this page
         try:
             rel = target.relative_to(ROOT).as_posix()
         except ValueError:
@@ -1410,6 +1442,25 @@ def _add_heading_ids(body):
     return _HEADING_RE.sub(sub, body)
 
 
+# Rewrites the build stamp into the reader's local time (zone abbreviated
+# as the browser names it); leaves the UTC text alone if anything fails.
+STAMP_JS = r"""(function(){
+  var t = document.querySelector('time.renderstamp');
+  if (!t) return;
+  var d = new Date(t.getAttribute('datetime'));
+  if (isNaN(d)) return;
+  var p = function(n){ return String(n).padStart(2, '0'); };
+  var tz = '';
+  try {
+    tz = new Intl.DateTimeFormat(undefined, {timeZoneName: 'short'})
+      .formatToParts(d).filter(function(x){ return x.type === 'timeZoneName'; })
+      .map(function(x){ return x.value; })[0] || '';
+  } catch (e) {}
+  t.textContent = d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate())
+    + ' ' + p(d.getHours()) + ':' + p(d.getMinutes()) + (tz ? ' ' + tz : '');
+})();"""
+
+
 def render(src, out_path, title):
     """Render one markdown document to its sortable-table HTML product."""
     src, out_path = Path(src), Path(out_path)
@@ -1430,9 +1481,16 @@ def render(src, out_path, title):
     body = body.replace("<table>", '<div class="tablewrap"><table>')
     body = body.replace("</table>", "</table></div>")
     body = _wire_frontier_specs(body)
-    stamp = precedent_time.stamp()
+    # the build stamp: a <time> carrying the instant in UTC, which the
+    # page rewrites into the reader's local time on load (the UTC text is
+    # what a reader with scripts off, or a text extract, sees).
+    # practice: timestamps-carry-offset -- the instant is timezone-aware
+    # UTC; the reader-local rendering happens client-side.
+    now = datetime.datetime.now(datetime.timezone.utc).replace(microsecond=0)
     body = body.replace(
-        "</h1>", f'</h1>\n<div class="renderstamp">Built {stamp}</div>', 1)
+        "</h1>",
+        f'</h1>\n<time class="renderstamp" datetime="{now.isoformat()}">'
+        f'{now.strftime("%Y-%m-%d %H:%M UTC")}</time>', 1)
     out = f"""<title>{title}</title>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -1443,6 +1501,7 @@ def render(src, out_path, title):
 {body}
 </main>
 <script>{JS}</script>
+<script>{STAMP_JS}</script>
 """
     out_path.write_text(out, encoding="utf-8")
     n_tables = body.count("<table>")

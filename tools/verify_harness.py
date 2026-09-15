@@ -14,6 +14,7 @@ Run:  python3 tools/verify_harness.py
 Exit: 0 if every applicable check passes, 1 otherwise.
 """
 import collections, hashlib, json, os, pathlib, re, shutil, subprocess, sys, time
+import importlib.util
 
 # A FIXTURE COMMIT IS NOT A PERSON'S COMMIT. Since 2026-09-07 the commit
 # identity hook installs a backstop at core.hooksPath -- global, because that
@@ -414,6 +415,19 @@ def check_checked_by_targets_exist(files):
 
 
 def check_reachability(files):
+    """A GATE counts, and it did not until 2026-09-14. This check was written
+    before gates existed and knew three channels: a check, a narrow glob, an
+    occasion-index line. tools/routing_scope.json's own note has called gates
+    "the fourth loading channel" since phase 4, and tools/build_views.py's
+    over-budget message names step 1 of its reduction menu as "give the
+    practice a REAL applies_to glob or a `gates:` entry and drop its
+    `occasion:`" -- a move this check then refused, so the menu's cheapest
+    step was unreachable. Found by taking it: landing
+    next-steps-after-commit put the occasion index 33 tokens over its
+    ceiling, dropping its occasion: was step 1, and the harness called a
+    practice the stop hook refuses every turn over "unreachable". A gate is a
+    real invocation point (tools/precedent_gate.py resolves and prints it),
+    which is the whole test this check applies to the other three."""
     ok = True
     for stem, (fm, sections, f) in files.items():
         if fm.get('tier') != 'on-demand':
@@ -421,14 +435,16 @@ def check_reachability(files):
         checked_by = fm.get('checked_by', 'null')
         applies_to = fm.get('applies_to', '[]')
         occasion = fm.get('occasion', '""')
+        gates = fm.get('gates', '[]')
         has_checked_by = checked_by not in ('null', '')
         has_narrow_applies = applies_to not in ('[]', '["**"]', '')
         has_occasion = occasion not in ('""', "''", '')
-        if not (has_checked_by or has_narrow_applies or has_occasion):
+        has_gate = gates.strip() not in ('[]', 'null', '')
+        if not (has_checked_by or has_narrow_applies or has_occasion or has_gate):
             ok = False
             print(f"  UNREACHABLE: {f.name} (slug={stem}) has no checked_by, "
-                  f"no narrower-than-** applies_to, and no occasion")
-    check('reachability (every on-demand practice has checked_by / narrow applies_to / occasion)', ok)
+                  f"no narrower-than-** applies_to, no occasion and no gate")
+    check('reachability (every on-demand practice has checked_by / narrow applies_to / occasion / gate)', ok)
 
 
 # ---------------------------------------------------------------------------
@@ -3618,6 +3634,395 @@ def check_source_names_detects_a_rename():
           not bad, '; '.join(f"{n}: {d}" for n, d in bad))
 
 
+def check_owned_paths_previews_the_boundary():
+    """precedent_owned_paths.py names every touched owned path with its
+    owner, says the rest is the contributor's, and never reads a missing
+    CODEOWNERS as a clean change.
+
+    The tool is spec/CONTRIBUTOR_ACCESS.md's finding 6 (2026-09-14): the
+    contributor cannot see the CODEOWNERS line, so the session says before
+    the pull request what will wait for review. Each case asserts the words
+    the tool prints for THAT case, not that something was printed (practice:
+    control-asserts-which-failure); the no-CODEOWNERS case is the one that
+    matters most, since a boundary that is missing must not render as a
+    change that is clean (practice: fail-gracefully)."""
+    import contextlib, io, shutil, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_owned_paths as pop
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-owned-'))
+    cases = []
+
+    def git(*args):
+        return subprocess.run(['git', '-C', str(tmp), '-c', 'user.name=fixture',
+                               '-c', 'user.email=fixture@example.com', *args],
+                              capture_output=True, text=True)
+
+    try:
+        git('init', '-q')
+        git('checkout', '-q', '-b', 'main')
+        (tmp / '.github').mkdir()
+        (tmp / 'docs').mkdir()
+        (tmp / '.github' / 'CODEOWNERS').write_text(
+            '/.github/ @maint\n/settings.md @maint\n*.secret @maint @other\n'
+            '/docs/generated/ @maint\n/docs/generated/free.md\n', encoding='utf-8')
+        (tmp / 'docs' / 'hello.md').write_text('hi\n', encoding='utf-8')
+        (tmp / 'settings.md').write_text('s\n', encoding='utf-8')
+        (tmp / 'precedent.json').write_text('{"base_branch": "main"}', encoding='utf-8')
+        git('add', '-A')
+        git('commit', '-q', '-m', 'init')
+        git('checkout', '-q', '-b', 'work')
+        (tmp / 'docs' / 'hello.md').write_text('hi\nmore\n', encoding='utf-8')
+        (tmp / 'settings.md').write_text('s\nx\n', encoding='utf-8')
+        (tmp / 'docs' / 'key.secret').write_text('k\n', encoding='utf-8')
+        (tmp / 'docs' / 'generated').mkdir()
+        (tmp / 'docs' / 'generated' / 'free.md').write_text('f\n', encoding='utf-8')
+        (tmp / 'docs' / 'generated' / 'index.md').write_text('i\n', encoding='utf-8')
+        git('add', '-A')
+        git('commit', '-q', '-m', 'work')
+
+        r = pop.assess(tmp, base='main')
+        owned = {p: (o, pat) for p, o, pat in r['owned']}
+        cases.append(('an owned path is named with its owner and the rule that owns it',
+                      owned.get('settings.md') == (['@maint'], '/settings.md'), str(owned)))
+        cases.append(('a basename pattern owns a file at any depth, with every listed owner',
+                      owned.get('docs/key.secret') == (['@maint', '@other'], '*.secret'), str(owned)))
+        cases.append(('a directory pattern owns what is under it',
+                      'docs/generated/index.md' in owned, str(owned)))
+        cases.append(('the LAST matching rule wins, so a later line with no owner frees a file',
+                      'docs/generated/free.md' in r['free'], str(r['free'])))
+        cases.append(('an unowned document is reported free',
+                      'docs/hello.md' in r['free'], str(r['free'])))
+        words = pop.plain_words(r)
+        cases.append(('the sentence names who has to look and which files, and offers the split',
+                      '@maint and @other have to look' in words and 'settings.md' in words
+                      and 'yours to merge' in words and 'go in on their own now' in words, words))
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            code = pop.main(['--repo', str(tmp), '--base', 'main', '--check'])
+        cases.append(('--check exits 1 when an owned path is touched, and the report names it',
+                      code == 1 and 'OWNED  settings.md' in out.getvalue(), out.getvalue()))
+
+        # A docs-only change: the sentence says it is theirs, and --check passes.
+        git('checkout', '-q', 'main')
+        git('checkout', '-q', '-b', 'docs-only')
+        (tmp / 'docs' / 'hello.md').write_text('hi\nz\n', encoding='utf-8')
+        git('commit', '-q', '-am', 'docs')
+        r = pop.assess(tmp, base='main')
+        words = pop.plain_words(r)
+        cases.append(('a documents-only change is reported as the contributor\'s to merge',
+                      not r['owned'] and 'yours to merge' in words
+                      and 'nothing here needs anyone else' in words, words))
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            code = pop.main(['--repo', str(tmp), '--base', 'main', '--check'])
+        cases.append(('--check exits 0 on a documents-only change', code == 0, out.getvalue()))
+
+        # An uncommitted edit is in the preview too.
+        (tmp / 'settings.md').write_text('s\nuncommitted\n', encoding='utf-8')
+        r = pop.assess(tmp, base='main')
+        cases.append(('an uncommitted edit to an owned path is in the preview',
+                      any(p == 'settings.md' for p, _, _ in r['owned']), str(r['owned'])))
+        git('checkout', '-q', '--', 'settings.md')
+
+        # No base ref: the preview says so instead of reporting a clean change.
+        r = pop.assess(tmp, base='no-such-ref')
+        cases.append(('an unresolvable base is said out loud, never read as clean',
+                      r['base'] is None and 'no base ref resolved' in r['note']
+                      and 'NOT in this preview' in r['note'], r['note']))
+
+        # A pattern the tool cannot match is reported, not skipped.
+        (tmp / '.github' / 'CODEOWNERS').write_text('/settings.md @maint\n!/never.md @x\n',
+                                                     encoding='utf-8')
+        r = pop.assess(tmp, base='main')
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            pop.report(r)
+        cases.append(('an untranslatable pattern is reported by line, never silently skipped',
+                      r['untranslatable'] == [('!/never.md', 2)]
+                      and "pattern '!/never.md' is not one this tool can match" in out.getvalue(),
+                      out.getvalue()))
+
+        # THE ONE THAT MATTERS: no CODEOWNERS is NO BOUNDARY, not a clean change.
+        (tmp / '.github' / 'CODEOWNERS').unlink()
+        r = pop.assess(tmp, base='main')
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            pop.report(r)
+        cases.append(('a missing CODEOWNERS is reported as NO BOUNDARY, never as a clean change',
+                      r['codeowners'] is None and 'NO BOUNDARY' in out.getvalue()
+                      and 'boundary is missing, not that the change is clean' in out.getvalue(),
+                      out.getvalue()))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
+    check(f'precedent_owned_paths.py previews the CODEOWNERS boundary in the '
+          f'contributor\'s words ({len(cases)} stated cases: owner named, basename '
+          f'pattern, directory pattern, last-match-wins, free file, the sentence, '
+          f'--check red, docs-only sentence, --check green, uncommitted edit, '
+          f'unresolvable base, untranslatable pattern, no CODEOWNERS)',
+          not bad, '; '.join(f"{n}: {d}" for n, d in bad))
+
+
+def check_boundary_check_never_passes_unread():
+    """precedent_boundary_check.py reports PASS only for protection shaped
+    the way the plan needs, FAIL for each way it can be wrong, and
+    UNVERIFIED -- never PASS -- when it could not ask GitHub.
+
+    The tool is spec/CONTRIBUTOR_ACCESS.md's finding 5 (2026-09-14): a
+    forgotten branch-protection step leaves Write as unrestricted write
+    with nothing saying so. The API call is stubbed -- a harness case may
+    not depend on the network, and no protected repository is reachable
+    from a hosted session anyway. Each verdict asserts its own printed
+    words (practice: control-asserts-which-failure); the token never
+    appears in what is printed, and the fixture owns every environment
+    variable the tool reads (practice: fixture-owns-its-state)."""
+    import contextlib, io, shutil, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_boundary_check as pbc
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-boundary-'))
+    cases = []
+    # Assembled so the leak gate does not read `<anything>@github.com` as an
+    # address; the value is what must NOT come back out.
+    token = 'ghp_NOTAREALTOKEN' + 'x' * 8
+    env_with = {'GITHUB_TOKEN': token}
+    calls = []
+
+    def stub(status, body):
+        def fetch(owner, name, branch, tok):
+            calls.append((owner, name, branch, tok))
+            return status, body
+        return fetch
+
+    good = {'required_pull_request_reviews': {'require_code_owner_reviews': True,
+                                              'required_approving_review_count': 0},
+            'enforce_admins': {'enabled': True}}
+
+    def run(env, fetch, branch=None):
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            r = pbc.assess(tmp, branch=branch, env=env, fetch=fetch)
+            pbc.report(r)
+        return r, out.getvalue()
+
+    try:
+        subprocess.run(['git', 'init', '-q', str(tmp)], capture_output=True)
+        subprocess.run(['git', '-C', str(tmp), 'remote', 'add', 'origin',
+                        'https://github.com/example/doc-project.git'], capture_output=True)
+        (tmp / '.github').mkdir()
+        (tmp / '.github' / 'CODEOWNERS').write_text('/.github/ @maint\n', encoding='utf-8')
+        (tmp / 'precedent.json').write_text('{"base_branch": "trunk"}', encoding='utf-8')
+
+        r, out = run({}, stub(200, good))
+        cases.append(('no token is UNVERIFIED and says which variables to set, and GitHub is not called',
+                      r['verdict'] == 'UNVERIFIED' and 'no token in the environment' in out
+                      and 'UNVERIFIED is not a pass' in out and not calls, out))
+
+        r, out = run(env_with, stub(200, good))
+        cases.append(('protection shaped as the plan needs, plus CODEOWNERS in the tree, is PASS',
+                      r['verdict'] == 'PASS' and 'boundary-check: PASS' in out
+                      and 'merge their own documents and nothing else' in out, out))
+        cases.append(('the declared base branch is what gets asked about, and the token is passed',
+                      calls and calls[-1][:3] == ('example', 'doc-project', 'trunk')
+                      and calls[-1][3] == token, str(calls)))
+        cases.append(('the token is never printed', token not in out, out))
+
+        r, out = run(env_with, stub(200, good), branch='other')
+        cases.append(('--branch overrides the declared base', calls[-1][2] == 'other', str(calls[-1])))
+
+        r, out = run(env_with, stub(404, {'message': 'Branch not protected'}))
+        cases.append(('an unprotected base branch is FAIL and says what to turn on',
+                      r['verdict'] == 'FAIL' and 'NOT protected' in out
+                      and 'require review from code owners' in out, out))
+
+        r, out = run(env_with, stub(403, {'message': 'Upgrade to GitHub Pro or make this repository public to enable this feature.'}))
+        cases.append(('protection unavailable on the plan is FAIL, not UNVERIFIED -- it is an answer',
+                      r['verdict'] == 'FAIL' and 'not available on this repository\'s plan' in out, out))
+
+        r, out = run(env_with, stub(403, {'message': 'Resource not accessible by integration'}))
+        cases.append(('a 403 that is a refusal to answer is UNVERIFIED and names the scope needed',
+                      r['verdict'] == 'UNVERIFIED' and 'administration read' in out, out))
+
+        r, out = run(env_with, stub(401, {'message': 'Bad credentials'}))
+        cases.append(('a refused token is UNVERIFIED', r['verdict'] == 'UNVERIFIED'
+                      and 'refused the token (401)' in out, out))
+
+        r, out = run(env_with, stub(None, 'timed out'))
+        cases.append(('an unreachable network is UNVERIFIED with the error',
+                      r['verdict'] == 'UNVERIFIED' and 'could not reach GitHub: timed out' in out, out))
+
+        body = {'required_pull_request_reviews': {'require_code_owner_reviews': True,
+                                                  'required_approving_review_count': 1}}
+        r, out = run(env_with, stub(200, body))
+        cases.append(('required approvals above 0 is FAIL and names the bottleneck',
+                      r['verdict'] == 'FAIL' and 'required approvals is 1, not 0' in out, out))
+
+        body = {'required_pull_request_reviews': {'require_code_owner_reviews': False,
+                                                  'required_approving_review_count': 0}}
+        r, out = run(env_with, stub(200, body))
+        cases.append(('code-owner review not required is FAIL',
+                      r['verdict'] == 'FAIL' and 'review from code owners is not required' in out, out))
+
+        r, out = run(env_with, stub(200, {'enforce_admins': {'enabled': False}}))
+        cases.append(('no pull-request requirement is FAIL, and admin bypass is a note beside it',
+                      r['verdict'] == 'FAIL' and 'a pull request is not required' in out
+                      and 'note: administrators can bypass' in out, out))
+
+        (tmp / '.github' / 'CODEOWNERS').unlink()
+        r, out = run(env_with, stub(200, good))
+        cases.append(('good protection with no CODEOWNERS in the tree is FAIL',
+                      r['verdict'] == 'FAIL' and 'no CODEOWNERS file in the tree' in out
+                      and r['codeowners'] is None, out))
+
+        subprocess.run(['git', '-C', str(tmp), 'remote', 'set-url', 'origin',
+                        'https://git.example.com/example/doc-project.git'], capture_output=True)
+        before = len(calls)
+        r, out = run(env_with, stub(200, good))
+        cases.append(('a non-github remote is UNVERIFIED and GitHub is not asked',
+                      r['verdict'] == 'UNVERIFIED' and 'not a github.com remote' in out
+                      and len(calls) == before, out))
+
+        # main() --check: UNVERIFIED and FAIL exit 1, PASS exits 0. The module's
+        # fetch and the process environment are both owned here and restored.
+        subprocess.run(['git', '-C', str(tmp), 'remote', 'set-url', 'origin',
+                        'https://github.com/example/doc-project.git'], capture_output=True)
+        (tmp / '.github' / 'CODEOWNERS').write_text('/.github/ @maint\n', encoding='utf-8')
+        real_fetch = pbc.fetch_protection
+        saved = {k: os.environ.get(k) for k in ('PRECEDENT_GITHUB_TOKEN', 'GITHUB_TOKEN', 'GH_TOKEN')}
+        try:
+            for k in saved:
+                os.environ.pop(k, None)
+            pbc.fetch_protection = stub(200, good)
+            out = io.StringIO()
+            with contextlib.redirect_stdout(out):
+                code = pbc.main(['--repo', str(tmp), '--check'])
+            cases.append(('--check exits 1 on UNVERIFIED (no token), and 0 without --check',
+                          code == 1 and 'UNVERIFIED' in out.getvalue(), out.getvalue()))
+            with contextlib.redirect_stdout(io.StringIO()):
+                code0 = pbc.main(['--repo', str(tmp)])
+            cases.append(('without --check an UNVERIFIED run exits 0', code0 == 0, str(code0)))
+            os.environ['GITHUB_TOKEN'] = token
+            with contextlib.redirect_stdout(io.StringIO()):
+                code = pbc.main(['--repo', str(tmp), '--check'])
+            cases.append(('--check exits 0 on PASS', code == 0, str(code)))
+            pbc.fetch_protection = stub(404, {'message': 'Branch not protected'})
+            with contextlib.redirect_stdout(io.StringIO()):
+                code = pbc.main(['--repo', str(tmp)])
+            cases.append(('a FAIL exits 1 with or without --check', code == 1, str(code)))
+        finally:
+            pbc.fetch_protection = real_fetch
+            for k, v in saved.items():
+                if v is None:
+                    os.environ.pop(k, None)
+                else:
+                    os.environ[k] = v
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
+    check(f'precedent_boundary_check.py passes only protection shaped as the plan '
+          f'needs and never reads "could not look" as a pass ({len(cases)} stated '
+          f'cases: no token, PASS, declared branch, token unprinted, --branch, '
+          f'unprotected, plan, refused 403, 401, network, approvals, no code-owner '
+          f'review, no PR requirement, no CODEOWNERS, non-github remote, and the '
+          f'four exit codes)',
+          not bad, '; '.join(f"{n}: {d}" for n, d in bad))
+
+
+def check_very_deep_check_boundary_audit_reads_the_setting():
+    """very_deep_check.py's CONTRIBUTOR BOUNDARY section reports a stale
+    generated CODEOWNERS as a finding, a repo with no registry as drawing no
+    boundary, and GitHub's answer -- or its absence -- in its own words.
+
+    Added 2026-09-14 with the section (practice: very-deep-check, pass 2:
+    a boundary is a setting, not a document). The API is stubbed at the
+    module boundary of precedent_boundary_check, and each case asserts the
+    printed row for that case (practice: control-asserts-which-failure);
+    the fixture owns the three token variables the tool reads
+    (practice: fixture-owns-its-state)."""
+    import contextlib, io, shutil, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import very_deep_check as vdc
+    import precedent_boundary_check as pbc
+    import build_codeowners as bco
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-vdc-boundary-'))
+    cases = []
+    real_fetch = pbc.fetch_protection
+    saved = {k: os.environ.get(k) for k in ('PRECEDENT_GITHUB_TOKEN', 'GITHUB_TOKEN', 'GH_TOKEN')}
+    good = {'required_pull_request_reviews': {'require_code_owner_reviews': True,
+                                              'required_approving_review_count': 0},
+            'enforce_admins': {'enabled': True}}
+    try:
+        for k in saved:
+            os.environ.pop(k, None)
+        project = tmp / 'project'
+        project.mkdir()
+        subprocess.run(['git', 'init', '-q', str(project)], capture_output=True)
+        subprocess.run(['git', '-C', str(project), 'remote', 'add', 'origin',
+                        'https://github.com/example/doc-project.git'], capture_output=True)
+        (project / 'precedent.json').write_text(json.dumps({
+            'base_branch': 'main',
+            'maintainers': [{'name': 'M', 'github': 'maint'}],
+            'owned_paths': [{'path': '/.github/', 'why': 'workflows'}]}), encoding='utf-8')
+        bare = tmp / 'bare'
+        bare.mkdir()
+        (bare / 'precedent.json').write_text('{"base_branch": "main"}', encoding='utf-8')
+        sources = [{'level': 'team', 'name': 'fixture-team', 'path': str(bare)}]
+
+        def run(root, skip_api=False):
+            out = io.StringIO()
+            f, n = vdc.boundary_audit(root, sources, skip_api=skip_api, out=out)
+            return f, n, out.getvalue()
+
+        f, n, out = run(project)
+        cases.append(('a project whose registry has no generated CODEOWNERS yet is a finding',
+                      any('does not exist' in x for x in f) and 'FINDING' in out, out))
+        cases.append(('a repo with no registry is reported as drawing no boundary, never as clean',
+                      'draws no boundary' in out and not any('fixture-team' in x for x in f), out))
+
+        with contextlib.redirect_stdout(io.StringIO()):
+            bco.main(check_only=False, root=project)
+        (project / '.github' / 'CODEOWNERS').write_text('/.github/ @someone-else\n', encoding='utf-8')
+        f, n, out = run(project, skip_api=True)
+        cases.append(('a hand-edited CODEOWNERS is a finding naming the mismatch',
+                      any('does not match' in x for x in f), out))
+        cases.append(('--skip-liveness leaves protection unasked and says so as a note, not a pass',
+                      any('not asked' in x for x in n) and 'not asked' in out, out))
+
+        with contextlib.redirect_stdout(io.StringIO()):
+            bco.main(check_only=False, root=project)
+        f, n, out = run(project)
+        cases.append(('a current CODEOWNERS with no token is UNVERIFIED -- a note, never a finding',
+                      not f and any('UNVERIFIED' in x for x in n) and 'not a pass' in ''.join(n), out))
+
+        os.environ['GITHUB_TOKEN'] = 'ghp_NOTAREALTOKEN' + 'y' * 8
+        pbc.fetch_protection = lambda o, nm, b, tok: (200, good)
+        f, n, out = run(project)
+        cases.append(('protection on and CODEOWNERS current is a PASS row with no finding',
+                      not f and 'PASS' in out and 'shaped as the plan needs' in out, out))
+        pbc.fetch_protection = lambda o, nm, b, tok: (404, {'message': 'Branch not protected'})
+        f, n, out = run(project)
+        cases.append(('an unprotected base branch is a finding naming it',
+                      any('NOT protected' in x for x in f), out))
+    finally:
+        pbc.fetch_protection = real_fetch
+        for k, v in saved.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
+    check(f'very_deep_check.py\'s CONTRIBUTOR BOUNDARY reads the setting, not the '
+          f'document ({len(cases)} stated cases: missing file, no registry, '
+          f'hand-edited file, --skip-liveness, no token, PASS, unprotected)',
+          not bad, '; '.join(f"{n}: {d[:300]}" for n, d in bad))
+
+
 def check_build_views_summary_matches_what_it_wrote():
     """build_views.py's summary line reports the block it actually wrote.
 
@@ -5852,11 +6257,26 @@ def check_precedent_check_fires():
                 "`STYLEGUIDE.md` from.\n"))
         case('install-declares-its-scope', _plant_idis)
 
-        # environment-gotchas -- an entry that is a bare fix
+        # environment-gotchas -- an entry that is a bare fix.
+        #
+        # Anchored on the SECTION HEADING, never on the wording of any one
+        # entry. The first spelling matched the literal string
+        # "- **`pip install cmarkgfm`", and stopped planting anything the day
+        # that entry was reworded to name a second package (2026-09-14) --
+        # `str.replace` of an absent needle is a silent no-op, so the plant
+        # vanished and the check "failed" by passing. A fixture keyed on
+        # prose rots the first time somebody improves the prose; this one
+        # asserts its anchor instead (practice: fixture-owns-its-state).
         def _plant_eg(repo):
-            rewrite(repo, 'AGENTS.md', lambda t: t.replace(
-                '- **`pip install cmarkgfm`',
-                '- `pip install cmarkgfm`.\n\n- **`pip install cmarkgfm`', 1))
+            def _insert(t):
+                m = re.search(r'(?m)^#{1,4}[^\n]*rediscover these[^\n]*$', t)
+                if not m:
+                    raise AssertionError(
+                        'environment-gotchas plant: no "do NOT rediscover '
+                        'these" heading in the fixture AGENTS.md, so nothing '
+                        'was planted and the case below would assert nothing')
+                return t[:m.end()] + '\n\n- `pip install cmarkgfm`.\n' + t[m.end():]
+            rewrite(repo, 'AGENTS.md', _insert)
         case('environment-gotchas', _plant_eg)
 
         # session-bootstrap -- setup named in prose, no hook to run it
@@ -5880,6 +6300,26 @@ def check_precedent_check_fires():
                     e['ceiling'] = 10
                 return json.dumps(d, indent=2) + '\n'
             rewrite(repo, 'tools/session_load_budgets.json', _lower)
+        # github-api-budget -- a new tool starts calling the API directly,
+        # which is the shape that made "what is spending our allowance"
+        # unanswerable in the first place: one uncounted caller, and the
+        # figures every other tool reports are no longer the whole bill.
+        # control-asserts-which-failure: the exit code alone would pass if
+        # the check fired for any other reason, so the message is asserted.
+        def _plant_api_caller(repo):
+            (repo / 'tools' / 'gh_thing.py').write_text(
+                "import subprocess\n"
+                "subprocess.run(['curl', 'https://api.github.com/user'])\n",
+                encoding='utf-8')
+            subprocess.run(['git', '-C', str(repo), 'add', 'tools/gh_thing.py'],
+                           capture_output=True, text=True)
+
+        case('github-api-budget', _plant_api_caller)
+        cases.append(('github-api-budget: the planted violation names the '
+                      'uncounted caller and the way out of it',
+                      'tools/gh_thing.py' in planted['github-api-budget'][1]
+                      and 'unrouted_callers' in planted['github-api-budget'][1]))
+
         case('session-load-budget', _plant_load_budget)
         cases.append(('session-load-budget: the planted violation names the '
                       'ceiling it is over, not just that something is big',
@@ -5894,11 +6334,189 @@ def check_precedent_check_fires():
         # to be the one asking.
         def _plant_declared_hook(repo):
             (repo / '.claude' / 'hooks' / 'commit-identity.sh').unlink()
+        # access-probe-is-wired -- the tool is vendored and nothing runs it.
+        # Same family as the two hook cases around it, and the same reason a
+        # machine has to ask: a wiring line that was deleted and a wiring line
+        # that was never added look identical, and both leave a session
+        # unable to discover it cannot push somewhere until after the work is
+        # done. The plant swaps the invocation for a different script, which
+        # is the realistic shape -- the `[ -f ... ]` guard around it still
+        # names the file, so a check testing for a MENTION rather than an
+        # INVOCATION passes this plant. That false pass was measured on the
+        # first version of the check, which is why the plant is written this
+        # way rather than by deleting the whole block.
+        def _plant_unwired_probe(repo):
+            for rel in (pathlib.Path('.claude') / 'hooks' / 'session-start.sh',
+                        pathlib.Path('templates') / 'bootstrap.sh'):
+                f = repo / rel
+                if not f.exists():
+                    continue
+                f.write_text(
+                    f.read_text(encoding='utf-8').replace(
+                        'python3 tools/precedent_access_check.py',
+                        'python3 tools/some_other_tool.py'),
+                    encoding='utf-8')
+
+        case('access-probe-is-wired', _plant_unwired_probe)
+        cases.append(('access-probe-is-wired: the planted violation names the '
+                      'wiring files it looked in and the line to add',
+                      'no session-start wiring invokes it'
+                      in planted['access-probe-is-wired'][1]
+                      and 'python3 tools/precedent_access_check.py .'
+                      in planted['access-probe-is-wired'][1]))
+
         case('declared-hooks-exist', _plant_declared_hook)
         cases.append(('declared-hooks-exist: the planted violation names the '
                       'hook that went missing, not just that something did',
                       'commit-identity.sh does not exist'
                       in planted['declared-hooks-exist'][1]))
+
+        # hooks-on-disk-are-reachable -- the other end of the same failure.
+        # declared-hooks-exist above plants a settings entry whose file is
+        # gone; this plants a file no settings entry, no other hook and no
+        # engine tool names. Both are a hook that does not run, and neither
+        # is visible from inside a session: an orphaned hook and a working
+        # one look identical, which is what cost a consuming repo its reply
+        # gate on 2026-09-14.
+        def _plant_orphan_hook(repo):
+            (repo / '.claude' / 'hooks' / 'zzz-orphan.sh').write_text(
+                '#!/bin/sh\necho orphan\n', encoding='utf-8')
+        case('hooks-on-disk-are-reachable', _plant_orphan_hook)
+        cases.append(('hooks-on-disk-are-reachable: the planted violation '
+                      'names the orphaned hook and says nothing that could '
+                      'run it names it',
+                      'zzz-orphan.sh' in planted['hooks-on-disk-are-reachable'][1]
+                      and 'nothing that could run it names it'
+                      in planted['hooks-on-disk-are-reachable'][1]))
+
+        # ...and the same failure in the OTHER hook layout. A practice set
+        # created by precedent_bootstrap_source.py wires its hooks out of a
+        # tracked `bootstrap/` and has no .claude/hooks/ at all, so sweeping
+        # only the conventional directory declined as NotApplicable there
+        # while five real hooks sat unchecked -- measured 2026-09-14 against
+        # a real individual set. Two plants, because the sweep is driven by
+        # what settings*.json actually wires: the directory is in scope only
+        # when a hook is declared out of it.
+        # The planted names are spelled `<dir>/<name>` NOWHERE in this
+        # file, and that is load-bearing rather than fussy. The check reads
+        # tools/*.py for callers, this source sits in tools/, and a path
+        # reference written here would make the planted orphan reachable --
+        # the same unfalsifiability that made the first version of this
+        # check pass its own plant, caught then by matching a bare filename
+        # and reintroduced here by an assertion string. So the directory is
+        # joined at runtime and only the bare basename is ever a literal.
+        _BS_ORPHAN = 'zzz-bootstrap-orphan.sh'
+        _BS_LIVE = 'zzz-bootstrap-live.sh'
+        _bs_ref = lambda n: 'bootstrap' + '/' + n
+
+        def _plant_bootstrap(repo, wire):
+            (repo / 'bootstrap').mkdir(exist_ok=True)
+            for n in (_BS_LIVE, _BS_ORPHAN):
+                (repo / 'bootstrap' / n).write_text('#!/bin/sh\necho x\n',
+                                                    encoding='utf-8')
+            if wire:
+                sp = repo / '.claude' / 'settings.json'
+                d = json.loads(sp.read_text(encoding='utf-8'))
+                d.setdefault('hooks', {}).setdefault('SessionStart', []).append(
+                    {'hooks': [{'type': 'command',
+                                'command': '$CLAUDE_PROJECT_DIR/'
+                                           + _bs_ref(_BS_LIVE)}]})
+                sp.write_text(json.dumps(d, indent=2), encoding='utf-8')
+
+        _bs = fresh('hooks-reachable-bootstrap')
+        _plant_bootstrap(_bs, wire=True)
+        _bs_rc, _bs_out = run(_bs, 'hooks-on-disk-are-reachable')
+        cases.append(('hooks-on-disk-are-reachable: an orphan in a '
+                      'bootstrap/ a settings entry wires hooks out of is '
+                      'found, so a source set is not silently unswept',
+                      _bs_rc == 1 and _bs_ref(_BS_ORPHAN) in _bs_out))
+        cases.append(('hooks-on-disk-are-reachable: THE DISCRIMINATING CASE '
+                      '-- the hook that settings entry DECLARES is not '
+                      'reported alongside it',
+                      _bs_ref(_BS_LIVE) not in _bs_out))
+
+        _bs2 = fresh('hooks-reachable-bootstrap-unwired')
+        _plant_bootstrap(_bs2, wire=False)
+        _bs2_rc, _bs2_out = run(_bs2, 'hooks-on-disk-are-reachable')
+        cases.append(('hooks-on-disk-are-reachable: THE DISCRIMINATING CASE '
+                      '-- a bootstrap/ no settings entry wires hooks out of '
+                      'is not swept, so the sweep follows declarations and '
+                      'does not just walk every directory',
+                      _bs2_rc == 0 and _BS_ORPHAN not in _bs2_out))
+
+        # ...and the DECLINE, since 2026-09-14. A source declares its
+        # harness adapters and the consuming repo's sync writes them into
+        # .claude/hooks/ without touching settings.json, on purpose -- so a
+        # repo that does not want one cannot end up wired, and before this
+        # the check reported that correct decision as an orphan forever.
+        # Four states, because a decline is only worth having if the three
+        # ways it can be wrong are reported too: no reason, no such file,
+        # and a decline sitting beside a hook that actually runs.
+        # Same spelling discipline as the block above -- the declined path
+        # is joined at runtime, never written here as a path literal, or
+        # this source (which the check reads as a possible caller) would
+        # make its own planted orphan reachable.
+        _DECLINED = 'zzz-declined.sh'
+        _hook_ref = lambda n: '.claude/' + 'hooks' + '/' + n
+
+        def _plant_decline(repo, reason=None, path=None, also_wire=False):
+            (repo / '.claude' / 'hooks' / _DECLINED).write_text(
+                '#!/bin/sh\necho declined\n', encoding='utf-8')
+            if also_wire:
+                sp = repo / '.claude' / 'settings.json'
+                d = json.loads(sp.read_text(encoding='utf-8'))
+                d.setdefault('hooks', {}).setdefault('SessionStart', []).append(
+                    {'hooks': [{'type': 'command',
+                                'command': '$CLAUDE_PROJECT_DIR/'
+                                           + _hook_ref(_DECLINED)}]})
+                sp.write_text(json.dumps(d, indent=2), encoding='utf-8')
+            cp = repo / 'precedent.json'
+            cfg = json.loads(cp.read_text(encoding='utf-8'))
+            entry = {'path': path if path is not None
+                     else _hook_ref(_DECLINED)}
+            if reason is not None:
+                entry['reason'] = reason
+            cfg['declined_adapters'] = [entry]
+            cp.write_text(json.dumps(cfg, indent=2), encoding='utf-8')
+
+        _d1 = fresh('hooks-decline-declared')
+        _plant_decline(_d1, reason='our own bootstrap already does this')
+        _d1_rc, _d1_out = run(_d1, 'hooks-on-disk-are-reachable')
+        cases.append(('hooks-on-disk-are-reachable: a hook declined WITH a '
+                      'reason is satisfied by the reason, not by wiring it',
+                      _d1_rc == 0 and _DECLINED not in _d1_out))
+
+        _d2 = fresh('hooks-decline-reasonless')
+        _plant_decline(_d2, reason=None)
+        _d2_rc, _d2_out = run(_d2, 'hooks-on-disk-are-reachable')
+        cases.append(('hooks-on-disk-are-reachable: a decline with NO reason '
+                      'is a silenced check and is reported as one',
+                      _d2_rc == 1 and 'with no reason' in _d2_out
+                      and _DECLINED in _d2_out))
+
+        _d3 = fresh('hooks-decline-stale-path')
+        _plant_decline(_d3, reason='we do not want it',
+                       path=_hook_ref('zzz-not-here.sh'))
+        _d3_rc, _d3_out = run(_d3, 'hooks-on-disk-are-reachable')
+        cases.append(('hooks-on-disk-are-reachable: a decline naming a file '
+                      'that is not there is reported, so an exemption cannot '
+                      'outlive what it exempted',
+                      _d3_rc == 1 and 'no such file is here' in _d3_out))
+        # The plant above ALSO leaves a real orphan on disk, undeclined.
+        # Asserting only the stale-path message would pass on the orphan
+        # finding alone (practice: control-asserts-which-failure).
+        cases.append(('hooks-on-disk-are-reachable: ...and that case reports '
+                      'the stale declaration separately from the orphan it '
+                      'failed to cover',
+                      'zzz-not-here.sh' in _d3_out and _DECLINED in _d3_out))
+
+        _d4 = fresh('hooks-decline-contradicted')
+        _plant_decline(_d4, reason='we decided against it', also_wire=True)
+        _d4_rc, _d4_out = run(_d4, 'hooks-on-disk-are-reachable')
+        cases.append(('hooks-on-disk-are-reachable: a decline for a hook '
+                      'something DOES call is reported, because the note is '
+                      'what the next reader trusts',
+                      _d4_rc == 1 and 'something does call it' in _d4_out))
 
         # engine-plus-host-shims -- a host-tree fork of a vendored module
         def _setup_vendored(repo):
@@ -6052,9 +6670,19 @@ def check_precedent_check_fires():
         # search-by-purpose -- a document carrying generated numbers, indexed
         # from nothing a reader consults
         def _plant_sbp(repo):
-            rewrite(repo, 'AGENTS.md', lambda t: t.replace('spec/LOADER.md', 'spec/x.md'))
-            rewrite(repo, 'MAP.md', lambda t: t.replace('spec/LOADER.md', 'spec/x.md'))
-            rewrite(repo, 'CLAUDE.md', lambda t: t.replace('spec/LOADER.md', 'spec/x.md'))
+            # Scrub the reference from EVERY index file the check reads, taken
+            # from doc_lint's own list rather than named here. The three were
+            # hardcoded until 2026-09-14, when the quick index was split and
+            # WHERE_THINGS_ARE.md became a fourth: the plant then left the
+            # reference standing in a file the check consults, so the planted
+            # violation stopped firing and this control silently passed while
+            # proving nothing (practice: fixture-owns-its-state -- whatever a
+            # fixture asserts on, it must own).
+            import doc_lint as _dl
+            for _idx in _dl.INDEX_FILES:
+                if (repo / _idx).exists():
+                    rewrite(repo, _idx,
+                            lambda t: t.replace('spec/LOADER.md', 'spec/x.md'))
             rewrite(repo, 'spec/LOADER.md', lambda t: t + '\n')
         case('search-by-purpose', _plant_sbp)
 
@@ -6088,6 +6716,28 @@ def check_precedent_check_fires():
                 encoding='utf-8')
             # deliberately NOT `git add`ed -- that is the whole violation
         case('tracked-practice-files', _plant_tpf)
+
+        # index-required-is-declared -- a practice whose occasion reads as a
+        # SPOKEN trigger ("when a person says ...") while a glob and a gate
+        # route it, and which declares no index_required either way. That is
+        # the exact shape whose index line build_views would drop, silently
+        # un-routing a phrase no glob or gate can ever fire on.
+        def _plant_ird(repo):
+            (repo / 'practices' / 'zzz-spoken-trigger.md').write_text(
+                '---\nslug:        zzz-spoken-trigger\n'
+                'title:       A spoken trigger\n'
+                'tier:        on-demand\nseverity:    default\n'
+                'applies_to:  ["docs/**"]\n'
+                'occasion:    "a person says \\"Wind It Back\\""\n'
+                'gates:       ["reply"]\n'
+                'index_clause: "a planted case"\nchecked_by:  null\n'
+                'defines:     []\nstatus:      active\nsupersedes:  []\n'
+                'overrides:   null\nadded:       "2026-09-14"\n'
+                'approved_by: "fixture"\n---\n\n## Rule\nPlanted.\n\n'
+                '## Why\nPlanted.\n\n## Story\nPlanted for the harness.\n',
+                encoding='utf-8')
+        case('index-required-is-declared', _plant_ird)
+
 
         # docs-track-models -- an owned figure restated in the prose
         #
@@ -7009,13 +7659,23 @@ def check_source_sets_can_learn_they_are_stale():
     #    pulled back out the same day: a cron job that phones a remote every
     #    week and opens pull requests is a real imposition on every adopter
     #    who inherits it, and a universal template is exactly the wrong place
-    #    to make that choice for people. It lives at the individual level
-    #    now, for whoever wants it. This case exists so the file cannot
+    #    to make that choice for people. This case exists so the file cannot
     #    reappear here without someone deciding to put it back.
+    #
+    #    The 2026-09-06 comment here used to end "it lives at the individual
+    #    level now, for whoever wants it". SUPERSEDED 2026-09-14: it lives
+    #    nowhere. Morgan killed the weekly refresh outright -- "No weekly
+    #    updates ... this is now really complex and deserves hand attention"
+    #    -- after two scheduled runs produced two abandoned branches, a 100%
+    #    report rate against a 0% landing rate. The replacement is a person
+    #    saying "Update Vendors" by hand. So this assertion is no longer the
+    #    narrow "not in a TEMPLATE" claim it was written as; it is now the
+    #    universal one, and the individual-level copy it used to point at is
+    #    being removed in the practice sets (not reachable from this repo).
     for level in ('individual', 'team'):
         wf = ROOT / 'templates' / f'practice-set-{level}' / '.github' / 'workflows' / 'engine-refresh.yml'
         cases.append((f'the {level} source template ships no scheduled workflow '
-                      f'(a per-person choice, not a universal default)',
+                      f'(no repository runs one, decided 2026-09-14)',
                       not wf.exists(), str(wf.relative_to(ROOT)) if wf.exists() else ''))
 
     # 2. The bootstrap tool warns when the clone it is seeding FROM is behind.
@@ -7377,10 +8037,61 @@ def check_gate_channel():
                   and 0 < len(r_brief.stdout.split()) < len(r_full.stdout.split()) / 2,
                   f'{len(r_brief.stdout.split())} words vs {len(r_full.stdout.split())}'))
 
+    # The session-guarantee reminder, added 2026-09-14. A session whose
+    # SessionStart hooks never ran reads instructions it cannot satisfy, and
+    # tools/precedent_session_check.py has been able to say so since
+    # 2026-09-08 -- via AGENTS.md's banner, which a session can skip, and did
+    # (record/GOTCHAS.md#g1). The gate is the route it cannot skip, so these
+    # cases assert the PRINTED TEXT in both directions rather than the call
+    # (practice: control-asserts-which-failure).
+    spec_c = importlib.util.spec_from_file_location(
+        '_psck', ROOT / 'tools' / 'precedent_session_check.py')
+    psck = importlib.util.module_from_spec(spec_c)
+    spec_c.loader.exec_module(psck)
+
+    real_checks = psck.checks
+    try:
+        psck.checks = lambda offline=True: [
+            ('a guarantee that holds', True, ''),
+            ('a guarantee that does not', False, 'the effect is absent. More.'),
+            ('a guarantee nobody could measure', None, 'undetermined'),
+        ]
+        block = psck.remind(prefix='precedent gate')
+        cases.append(('remind() names the broken guarantee, its first sentence '
+                      'and the full-report command',
+                      'a guarantee that does not' in block
+                      and 'the effect is absent' in block
+                      and 'precedent_session_check.py' in block,
+                      block[:120]))
+        cases.append(('remind() stays silent about a guarantee that HOLDS and '
+                      'about one nobody could measure -- a nag that fires on '
+                      '"cannot tell" is a nag that gets ignored',
+                      'a guarantee that holds' not in block
+                      and 'nobody could measure' not in block, block[:120]))
+        psck.checks = lambda offline=True: [('all fine', True, '')]
+        cases.append(('remind() prints NOTHING when every guarantee is in '
+                      'effect -- the control, and the normal case',
+                      psck.remind() == '', repr(psck.remind())[:80]))
+    finally:
+        psck.checks = real_checks
+
+    # ...and the gate actually carries it, asserted against whatever this
+    # container's real state is, so the case is meaningful in both a healthy
+    # session and a broken one.
+    broken = psck.failing_guarantees()
+    r_gate = subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_gate.py'), 'push'],
+                            capture_output=True, text=True, cwd=str(ROOT))
+    said = 'SessionStart guarantee(s) NOT in effect' in r_gate.stdout
+    cases.append(('a gate reports broken SessionStart guarantees, and says '
+                  'nothing when there are none',
+                  said == bool(broken),
+                  f'{len(broken)} broken, gate {"did" if said else "did not"} say so'))
+
     bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
     check(f'gate-triggered channel ({len(cases)} stated cases: closed vocabulary, '
           f'no empty gate, every gate resolves, unknown gates fail loudly, '
-          f'push and reply actually wired)',
+          f'push and reply actually wired, and a gate reports a session whose '
+          f'SessionStart guarantees are down)',
           not bad,
           '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad))
 
@@ -7507,6 +8218,43 @@ def check_reply_gate_sees_every_source():
         r5 = replycheck(good)
         cases.append(('a reply that meets the requirement is not blocked',
                       r5.returncode == 0, r5.stderr[:160]))
+
+        # 2026-09-14: the block message has to say SENTENCE when only a
+        # sentence is missing. A source revised its required closing sentence
+        # that morning, so every reply already carrying the heading was
+        # refused for the sentence alone -- and a message that asked for "the
+        # missing closing section(s)" got a whole second `## Next Steps`
+        # block written under the first. Morgan: *"you repeated the 'next
+        # steps' section two times."* The two messages are asserted against
+        # each other below, so neither can quietly become the other.
+        has_heading = tmp / 'has-heading.md'
+        has_heading.write_text('Some work.\n\n## Next Steps\n\n- **Merge it**\n\n'
+                               'Nothing about the session either way.\n', encoding='utf-8')
+        r7 = replycheck(has_heading)
+        cases.append(('a reply with the heading but not the sentence is still '
+                      'blocked', r7.returncode == 2, f'exit {r7.returncode}'))
+        cases.append(('...and the block says the heading is already there and '
+                      'must not be written again -- the whole point, since the '
+                      'refused reply has already been shown',
+                      'ALREADY CARRIES every closing heading' in r7.stderr
+                      and 'Do NOT repeat the closing section' in r7.stderr,
+                      r7.stderr[:240]))
+        cases.append(('...and the per-requirement line says where the sentence '
+                      'goes instead of implying a new section',
+                      'do NOT write that section a second time' in r7.stderr,
+                      r7.stderr[:240]))
+        cases.append(('...and it does NOT ask for a closing SECTION, which is '
+                      'the wording that produced the duplicate',
+                      'closing section(s)' not in r7.stderr, r7.stderr[:240]))
+        # The negative control for the case above: the same check on a reply
+        # that really is missing the heading must still ask for the section,
+        # so "closing section(s) is absent" is a real distinction and not a
+        # string that left the file altogether.
+        cases.append(('the control: a reply missing the HEADING is still asked '
+                      'for the whole closing section',
+                      'closing section(s)' in r4.stderr
+                      and 'ALREADY CARRIES every closing heading' not in r4.stderr,
+                      r4.stderr[:240]))
 
         # A blocking gate may never refuse a reply that FOLLOWED the rule, so
         # the apostrophe the terminal renders and the one a person types have
@@ -7667,6 +8415,174 @@ def check_compaction_offer_fires_on_context_growth():
           '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad_cases))
 
 
+def check_close_detection_fires_only_when_all_conditions_hold():
+    """precedent_close_detect.py: the noticing end of the engine, and every
+    one of its four conditions, each with the control that proves the
+    condition is doing the work.
+
+    Morgan, 2026-09-14, set all four: a merge happened, the reply closes as
+    ready to archive, one per session, and the signal came from this
+    session's own material. The failure this guards against is not a missed
+    detection -- it is a hook that fires on ordinary sessions and trains
+    everyone to ignore it.
+
+    Every case owns its own transcript (practice: fixture-owns-its-state).
+    """
+    import tempfile
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-close-'))
+    cases = []
+    try:
+        fx = tmp / 'repo'
+        (fx / 'practices').mkdir(parents=True)
+        (fx / 'precedent.json').write_text(json.dumps({'sources': [
+            {'level': 'universal', 'name': 'precedent', 'path': '.'}]}), encoding='utf-8')
+
+        def transcript(name, turns):
+            """turns: [('user'|'assistant'|'tool', payload), ...], oldest first.
+            A 'tool' turn is an assistant turn carrying one Bash tool_use."""
+            path = tmp / name
+            lines = []
+            for kind, payload in turns:
+                if kind == 'user':
+                    rec = {'type': 'user', 'timestamp': '2026-09-14T12:00:00Z',
+                           'message': {'role': 'user',
+                                       'content': [{'type': 'text', 'text': payload}]}}
+                elif kind == 'tool':
+                    rec = {'type': 'assistant', 'timestamp': '2026-09-14T12:00:00Z',
+                           'message': {'content': [
+                               {'type': 'tool_use', 'name': 'Bash',
+                                'input': {'command': payload}}]}}
+                else:
+                    rec = {'type': 'assistant', 'timestamp': '2026-09-14T12:00:00Z',
+                           'message': {'content': [{'type': 'text', 'text': payload}]}}
+                lines.append(json.dumps(rec))
+            path.write_text('\n'.join(lines) + '\n', encoding='utf-8')
+            return path
+
+        def run(path):
+            return subprocess.run(
+                [sys.executable, str(ROOT / 'tools' / 'precedent_close_detect.py'),
+                 '--repo', str(fx)],
+                input=json.dumps({'transcript_path': str(path)}),
+                capture_output=True, text=True, cwd=str(tmp),
+                env={**os.environ,
+                     'PRECEDENT_USER_CONFIG': str(tmp / 'no-such-config.json')})
+
+        SAID = 'From now on always run the deep check before pushing.'
+        MERGED = 'git merge --no-ff feature-branch'
+        CLOSE = 'Done and merged.\n\n## Next Steps\n\n- **Nothing.**\n\nYou can archive this session.'
+        full = [('user', SAID), ('tool', MERGED), ('assistant', CLOSE)]
+
+        # The honest default, first: an engine with no declaration has no
+        # opinion about anybody's closing convention (rule-level-by-reach).
+        r0 = run(transcript('undeclared.jsonl', full))
+        cases.append(('with no close_detect.json declared, nothing is detected '
+                      'and nothing is blocked', r0.returncode == 0, r0.stderr[:200]))
+
+        (fx / 'close_detect.json').write_text(json.dumps({
+            'practice': 'fixture-close-detect',
+            'archive_ready_one_of': ['You can archive this session'],
+            'closing_heading_matching': 'next step',
+            'candidate_marker': 'Practice candidate',
+        }), encoding='utf-8')
+
+        r1 = run(transcript('all.jsonl', full))
+        cases.append(('all four conditions holding blocks the close',
+                      r1.returncode == 2, f'exit {r1.returncode}: {r1.stderr[:200]}'))
+        # control-asserts-which-failure: a non-zero exit is not evidence.
+        cases.append(('...and the message names the signal it found',
+                      'explicit-instruction' in r1.stderr, r1.stderr[:240]))
+        cases.append(('...and quotes what he actually said, so the session '
+                      'judges the evidence rather than the label',
+                      'deep check before pushing' in r1.stderr, r1.stderr[:240]))
+        cases.append(('...and says plainly that a one-off is a valid answer, '
+                      'because a hook that only accepts a candidate manufactures '
+                      'candidates', 'NOT A RULE' in r1.stderr, r1.stderr[:400]))
+        cases.append(('...and names the practice that asked for it',
+                      'fixture-close-detect' in r1.stderr, r1.stderr[:400]))
+
+        # Condition 1: a merge. "If there wasn't, we were just talking."
+        r2 = run(transcript('no-merge.jsonl',
+                            [('user', SAID), ('assistant', CLOSE)]))
+        cases.append(('a session that merged NOTHING is left alone, however '
+                      'much it said', r2.returncode == 0, r2.stderr[:200]))
+        # …and `git merge-base` is not a merge. The freshness guard runs one at
+        # the start of every session, so a pattern that counts it reports a
+        # merge on every session there has ever been.
+        r3 = run(transcript('merge-base.jsonl',
+                            [('user', SAID),
+                             ('tool', 'git merge-base HEAD origin/main'),
+                             ('assistant', CLOSE)]))
+        cases.append(('`git merge-base` is not a merge -- the check that '
+                      'separates the freshness guard from real work',
+                      r3.returncode == 0, r3.stderr[:200]))
+
+        # Condition 2: the session is closing as ready to archive. A session
+        # still in flight is one somebody is working in.
+        mid = 'Merged it.\n\n## Next Steps\n\n- **Keep going.**\n\nDon\'t archive this session.'
+        r4 = run(transcript('mid.jsonl', [('user', SAID), ('tool', MERGED),
+                                          ('assistant', mid)]))
+        cases.append(('a session that is NOT ready to archive is never '
+                      'interrupted with a suggestion', r4.returncode == 0,
+                      r4.stderr[:200]))
+
+        # Condition 3: the cap. One per session, not one per reply.
+        spent = [('user', SAID), ('tool', MERGED),
+                 ('assistant', 'Practice candidate: run the deep check first.'),
+                 ('assistant', CLOSE)]
+        r5 = run(transcript('spent.jsonl', spent))
+        cases.append(('a session that already offered one is not asked again '
+                      '-- the cap is per SESSION, not per reply',
+                      r5.returncode == 0, r5.stderr[:200]))
+
+        # Condition 4: there is actually something to offer. This is the case
+        # that keeps the mechanism from becoming filler -- the ordinary
+        # session, which is most of them.
+        quiet = [('user', 'Can you fix the typo in the README?'),
+                 ('tool', MERGED), ('assistant', CLOSE)]
+        r6 = run(transcript('quiet.jsonl', quiet))
+        cases.append(('an ordinary session with nothing to offer is silent, '
+                      'and is not asked to SAY it found nothing either',
+                      r6.returncode == 0, r6.stderr[:200]))
+
+        # The engine's own injected text is written in exactly the standing-
+        # rule phrasing the detector looks for, and it comes back through the
+        # transcript as a `user` record. Reading those as the person's words
+        # would fire this on every session forever.
+        injected = [('user', '<system-reminder>\nnever guess; always read the '
+                     'file first\n</system-reminder>'),
+                    ('tool', MERGED), ('assistant', CLOSE)]
+        r7 = run(transcript('injected.jsonl', injected))
+        cases.append(("a hook's own injected rule text is not mistaken for "
+                      'something the person said', r7.returncode == 0,
+                      r7.stderr[:200]))
+
+        # A gate that blocks the same reply twice is a loop.
+        r8 = subprocess.run(
+            [sys.executable, str(ROOT / 'tools' / 'precedent_close_detect.py'),
+             '--repo', str(fx)],
+            input=json.dumps({'transcript_path': str(transcript('again.jsonl', full)),
+                              'stop_hook_active': True}),
+            capture_output=True, text=True, cwd=str(tmp),
+            env={**os.environ,
+                 'PRECEDENT_USER_CONFIG': str(tmp / 'no-such-config.json')})
+        cases.append(('a turn this hook already blocked is not blocked twice',
+                      r8.returncode == 0, r8.stderr[:200]))
+
+        # Blindness never blocks.
+        r9 = run(tmp / 'no-such-transcript.jsonl')
+        cases.append(('an unreadable transcript blocks nothing',
+                      r9.returncode == 0, r9.stderr[:200]))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad_cases = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
+    check(f'close detection fires on all four conditions and on none of them '
+          f'alone ({len(cases)} stated cases, each with its control)',
+          not bad_cases,
+          '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad_cases))
+
+
 def check_loader_tools_are_repo_relocatable():
     """precedent_show.py, precedent_paths.py, precedent_gate.py and
     build_views.py used to compute their working root as `pathlib.Path(
@@ -7699,6 +8615,11 @@ def check_loader_tools_are_repo_relocatable():
             '---\nslug: fixture-only-slug\ntitle: Fixture\ntier: on-demand\n'
             'severity: default\napplies_to: ["fixture-only/**"]\n'
             'occasion: "testing --repo relocation"\ngates: ["merge"]\n'
+            # This fixture asserts the slug lands in the rendered block, so it
+            # must declare its index line rather than inherit one: it carries a
+            # real glob AND a gate, which is exactly the shape build_views now
+            # omits from the occasion index (practice: fixture-owns-its-state).
+            'index_required: true\n'
             'index_clause: "x"\nchecked_by: null\ndefines: []\nstatus: active\n'
             'supersedes: []\noverrides: null\nadded: 2026-09-05\n'
             'approved_by: "harness, 2026-09-05"\nsource_practice_number: null\n'
@@ -8573,17 +9494,66 @@ def check_sync_refuses_to_lose_a_recorded_practice():
                       r.returncode == 0
                       and not (repo / 'practices' / 'team-x-rule.md').exists()))
 
-        # 4. DROPPING the source is a decision already made -- report, allow.
+        # 4. DROPPING the source: refused too, since 2026-09-14. This used
+        #    to assert returncode == 0 on the reasoning that a drop is a
+        #    decision somebody just made -- and the matching is by NAME, so
+        #    a RENAME is indistinguishable from a drop here and would have
+        #    been written under the same reassuring message. Case 5 is the
+        #    one that could not be told apart; this one is its twin.
         repo2, team2, user2 = _repo(tmp / 'b')
         _sync(repo2, user2); _commit(repo2)
         cfg = json.loads((repo2 / 'precedent.json').read_text())
         cfg['sources'] = [s for s in cfg['sources'] if s['level'] != 'team']
         (repo2 / 'precedent.json').write_text(json.dumps(cfg), encoding='utf-8')
         r = _sync(repo2, user2)
-        cases.append(('dropping a source from precedent.json is allowed, not '
-                      'refused', r.returncode == 0))
-        cases.append(('and it says which practices went with it',
+        cases.append(('an undeclared recorded source REFUSES rather than '
+                      'deleting', r.returncode != 0))
+        # practice: control-asserts-which-failure -- a non-zero exit proves
+        # nothing about WHICH guard fired, and the fixture above can trip at
+        # least two others. Assert the three states this message names.
+        cases.append(('and the refusal names all three states it cannot '
+                      'tell apart',
+                      all(w in r.stderr for w in ('DROPPED', 'RENAMED',
+                                                  'RETIRED'))))
+        cases.append(('and it says which practices are at stake',
                       'team-x-rule' in r.stderr))
+        cases.append(('and the practice files survive the refusal',
+                      (repo2 / 'practices' / 'team-x-rule.md').exists()))
+        r = _sync(repo2, user2, '--allow-removals')
+        cases.append(('--allow-removals proceeds once you know which it is',
+                      r.returncode == 0
+                      and not (repo2 / 'practices' / 'team-x-rule.md').exists()))
+
+        # 5. THE INCIDENT ITSELF, and it takes two changes to reproduce.
+        #    A rename ALONE deletes nothing: the source still resolves and
+        #    still produces the same slugs, so nothing is lost and the guard
+        #    has no occasion to fire -- asserted below, because a fixture
+        #    that cannot tell a safe rename from a dangerous one would make
+        #    this whole case unfalsifiable. The damage needs a rename PLUS a
+        #    practice that really does go: then the slug is lost, the
+        #    recorded source name matches nothing, and before 2026-09-14
+        #    that was written and reported as the person having dropped the
+        #    source on purpose. The 2026-09-14 removals were correct only
+        #    because the four practices were retired upstream as well.
+        repo3, team3, user3 = _repo(tmp / 'c2')
+        _sync(repo3, user3); _commit(repo3)
+        cfg = json.loads((repo3 / 'precedent.json').read_text())
+        for s in cfg['sources']:
+            if s['level'] == 'team':
+                s['name'] = 'precedent-team-x-renamed'
+        (repo3 / 'precedent.json').write_text(json.dumps(cfg), encoding='utf-8')
+        r = _sync(repo3, user3)
+        cases.append(('a rename ALONE loses nothing and is not refused',
+                      r.returncode == 0
+                      and (repo3 / 'practices' / 'team-x-rule.md').exists()))
+        _commit(repo3)
+        (team3 / 'practices' / 'team-x-rule.md').unlink()
+        r = _sync(repo3, user3)
+        cases.append(('a rename PLUS a real removal refuses instead of '
+                      'deleting under a dropped-source message',
+                      r.returncode != 0))
+        cases.append(('and the practice survives that refusal',
+                      (repo3 / 'practices' / 'team-x-rule.md').exists()))
 
     failed = [n for n, ok in cases if not ok]
     check(f'a sync refuses to lose a practice the committed manifest records '
@@ -9707,13 +10677,147 @@ def _declared_fallback_tz():
     """This repository's declared last-resort timezone, read from the engine
     rather than typed into a test.
 
-    precedent_check.py's `timestamps-carry-offset` already asserts that
-    precedent.json, precedent_time.FALLBACK_TZ and both copies of
-    commit-identity.sh agree, so reading any one of them is reading all four
-    -- and reading beats restating, which is what turned a one-line value
-    change into two mystery failures once already."""
+    precedent_check.py's `timestamps-carry-offset` asserts that
+    precedent_time.FALLBACK_TZ and both copies of commit-identity.sh agree,
+    so reading any one of them is reading all three -- and reading beats
+    restating, which is what turned a one-line value change into two mystery
+    failures once already.
+
+    NOT precedent.json, since 2026-09-14: a repo's own `fallback_timezone`
+    is the rung that OVERRIDES these three, and is free to differ. The
+    fixtures below run where no repo-level value applies, so the engine
+    constant is the right thing to read for them."""
     import precedent_time
     return precedent_time.FALLBACK_TZ
+
+
+def check_doc_lint_exempts_links_in_a_mirrored_tree():
+    """A vendored catalogue's relative links are not this repo's to fix, and
+    since 2026-09-14 doc_lint does not report them -- while the repo's own
+    broken link in the same run still is.
+
+    Both directions in one fixture, because the failure mode of a blanket
+    exemption is silence in the half that matters (practice:
+    control-asserts-which-failure). An INSTALL.md §0 install copies the
+    catalogue to precedent/universal/practices/ verbatim, so every
+    `../tools/...` in a practice file lands nowhere -- dozens of findings
+    per run, in files the adopter must not edit.
+    """
+    import shutil, tempfile, json as _json
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-mirror-lint-'))
+    try:
+        repo = tmp / 'repo'
+        repo.mkdir()
+        shutil.copytree(ROOT / 'tools', repo / 'tools')
+        (repo / 'precedent.json').write_text(_json.dumps({
+            'format_version': 1, 'visibility': 'private',
+            'sources': [{'level': 'universal', 'name': 'precedent',
+                         'path': 'precedent/universal'}]}), encoding='utf-8')
+        mirror = repo / 'precedent' / 'universal' / 'practices'
+        mirror.mkdir(parents=True)
+        (mirror / 'some-practice.md').write_text(
+            # The heading skip is deliberate: with its links exempt, a
+            # mirror file carrying nothing else would produce no findings
+            # at all, and the third case below could not tell "scanned,
+            # links exempt" from "never scanned".
+            '# X\n\n### Skipped level\n\nSee [the engine](../tools/very_deep_check.py).\n',
+            encoding='utf-8')
+        (repo / 'docs').mkdir()
+        (repo / 'docs' / 'mine.md').write_text(
+            '# Mine\n\nSee [nothing](../nowhere/absent.md).\n', encoding='utf-8')
+        for args in (['init', '-q'], ['add', '-A']):
+            subprocess.run(['git', '-C', str(repo), *args], check=True,
+                           capture_output=True)
+        subprocess.run(['git', '-C', str(repo), '-c', 'user.email=h@example.com',
+                        '-c', 'user.name=harness', 'commit', '-qm', 'baseline'],
+                       check=True, capture_output=True)
+        r = subprocess.run([sys.executable, str(repo / 'tools' / 'doc_lint.py'),
+                            '--all'], capture_output=True, text=True, cwd=str(repo))
+        out = r.stdout + r.stderr
+        broken = [l for l in out.splitlines() if '(no such file)' in l]
+        check('doc_lint reports no broken relative link inside a mirrored '
+              'tree (a vendored catalogue nobody here may edit)',
+              not any('precedent/universal/' in l for l in broken),
+              '; '.join(broken)[:300])
+        check('doc_lint still reports the repo\'s OWN broken relative link '
+              'in the same run',
+              any('docs/mine.md' in l for l in broken),
+              '; '.join(broken)[:300] or 'no broken-link findings at all')
+        check('a mirrored tree is still scanned for everything else (the '
+              'exemption is the link check alone)',
+              'precedent/universal/practices/some-practice.md' in out
+              or 'vendored upstream tree' in out,
+              out.strip()[-300:])
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def check_repo_may_declare_its_own_fallback_zone():
+    """A repo's own `fallback_timezone` overrides the engine's; drift BETWEEN
+    the engine files is still a violation.
+
+    Both directions, because only one of them was ever wrong and the wrong
+    one looks exactly like the right one from inside the check. Until
+    2026-09-14 `timestamps-carry-offset` compared FOUR holders as one
+    equality set -- precedent.json plus the three engine files -- and so
+    reported a repo exercising the documented rung-5 override as "the
+    declared fallback zone disagrees". Reproduced in a private consumer
+    declaring America/Argentina/Buenos_Aires against untouched engine files:
+    red check, correct runtime behaviour.
+
+    A control that only planted the drift would have passed before the fix
+    too (practice: control-asserts-which-failure), so the override case is
+    the one that carries this.
+    """
+    import shutil, tempfile, json as _json
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-tz-rung-'))
+    try:
+        repo = tmp / 'repo'
+        shutil.copytree(ROOT, repo, symlinks=True,
+                        ignore=shutil.ignore_patterns('.git', '__pycache__',
+                                                      '*.pyc', 'prompts'))
+        subprocess.run(['git', '-C', str(repo), 'init', '-q'], check=True)
+        subprocess.run(['git', '-C', str(repo), 'add', '-A'], check=True,
+                       capture_output=True)
+        subprocess.run(['git', '-C', str(repo), '-c', 'user.email=h@example.com',
+                        '-c', 'user.name=harness', 'commit', '-qm', 'baseline'],
+                       check=True, capture_output=True)
+
+        def run():
+            env = dict(os.environ)
+            env.pop('PRECEDENT_LEAK_BLOCKLIST', None)
+            env['PRECEDENT_USER_CONFIG'] = str(repo / '.no-user-config.json')
+            r = subprocess.run(
+                [sys.executable, str(repo / 'tools' / 'precedent_check.py'),
+                 '--only', 'timestamps-carry-offset'],
+                capture_output=True, text=True, cwd=str(repo), env=env)
+            return r.returncode, r.stdout + r.stderr
+
+        cfg = repo / 'precedent.json'
+        data = _json.loads(cfg.read_text(encoding='utf-8'))
+        data['fallback_timezone'] = 'America/Argentina/Buenos_Aires'
+        cfg.write_text(_json.dumps(data, indent=2) + '\n', encoding='utf-8')
+        rc_override, out_override = run()
+        check('a repo declaring its own fallback_timezone, with the engine '
+              'files untouched, passes timestamps-carry-offset (rung 5 '
+              'overrides rung 6 -- it is not drift)',
+              rc_override == 0, out_override.strip()[-400:])
+
+        eng = repo / 'tools' / 'precedent_time.py'
+        eng.write_text(eng.read_text(encoding='utf-8').replace(
+            "FALLBACK_TZ = 'America/New_York'",
+            "FALLBACK_TZ = 'Europe/Madrid'"), encoding='utf-8')
+        rc_drift, out_drift = run()
+        check('the engine\'s own fallback zone drifting between '
+              'precedent_time.py and the commit hooks IS still reported, by '
+              'that name',
+              rc_drift != 0 and 'engine' in out_drift.lower()
+              and 'fallback zone disagrees' in out_drift,
+              out_drift.strip()[-400:])
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
 
 
 def check_session_check_reports_a_dead_also_list_entry():
@@ -10240,7 +11344,28 @@ def check_commit_identity_copies_are_identical():
     # the global identity fix) while this check reported every copy
     # identical. A check that names the copies it compares is only as good
     # as that list, so the list is now discovered rather than written down.
-    for sib in sorted(ROOT.parent.glob('precedent-team-*')):
+    #
+    # SIBLINGS ARE NOT THE WHOLE LIST EITHER (2026-09-14). A declared source
+    # lives wherever its config says -- this repo's own container keeps the
+    # individual set at $HOME while everything else sits under another
+    # parent -- so the glob is UNIONED with what the resolver declares
+    # rather than trusted on its own. Same assumption, same failure shape as
+    # record/GOTCHAS.md#g40, which is what sent somebody looking for the
+    # rest of them.
+    team_dirs = list(ROOT.parent.glob('precedent-team-*'))
+    try:
+        import precedent_resolve as _pr
+        team_dirs += [pathlib.Path(x['path']).expanduser()
+                      for x in _pr.load_config(ROOT)
+                      if x.get('level') == 'team' and x.get('path')]
+    except Exception:
+        pass
+    seen_dirs = set()
+    for sib in sorted(team_dirs):
+        real = str(sib.resolve())
+        if real in seen_dirs:
+            continue
+        seen_dirs.add(real)
         cand = sib / '.claude' / 'hooks' / 'commit-identity.sh'
         if cand.exists():
             digests[cand] = _h.sha256(cand.read_bytes()).hexdigest()
@@ -11715,11 +12840,16 @@ def check_bootstrap_source_produces_resolvable_set():
 
     Fixture: bootstrap one individual set and one team set into a scratch
     dir, point a synthetic consumer repo's precedent.json (team) and
-    PRECEDENT_USER_CONFIG (individual) at them, and resolve. Both skeletons'
-    example-starter.md intentionally share a slug -- that also exercises the
-    precedence resolver for real (team must win over individual, per
+    PRECEDENT_USER_CONFIG (individual) at them, and resolve. A fixture
+    practice with ONE slug is then planted into both sets, which exercises
+    the precedence resolver for real (team must win over individual, per
     tools/precedent_resolve.py's documented order) rather than only proving
-    the sources load."""
+    the sources load. Until 2026-09-14 the two skeletons' own placeholder
+    files shared the slug `example-starter` and this case leaned on that --
+    and a real migration that bootstrapped both sets then had its first
+    sync REFUSED: the team placeholder overrode the individual one, so the
+    individual set "contributed no practices at all". The skeletons carry
+    distinct slugs now; the collision this case needs is planted here."""
     import shutil, tempfile
 
     def pyrun(*args, env_extra=None):
@@ -11740,7 +12870,7 @@ def check_bootstrap_source_produces_resolvable_set():
         rc, out = pyrun(bootstrap_tool, '--level', 'individual',
                         '--name', 'precedent-individual', '--dest', str(indiv_dest))
         cases.append(('bootstrapping an individual set succeeds and writes its files',
-                      rc == 0 and (indiv_dest / 'practices' / 'example-starter.md').is_file()
+                      rc == 0 and (indiv_dest / 'practices' / 'example-starter-individual.md').is_file()
                       and (indiv_dest / 'config.json.sample').is_file(), out))
 
         rc, out = pyrun(bootstrap_tool, '--level', 'team',
@@ -11779,6 +12909,19 @@ def check_bootstrap_source_produces_resolvable_set():
             'individual': {'name': 'precedent-individual', 'path': str(indiv_dest)},
         }), encoding='utf-8')
 
+        # The deliberate collision: one slug in both sets.
+        for dest, level in ((indiv_dest, 'individual'), (team_dest, 'team')):
+            (dest / 'practices' / 'zz-shared-slug.md').write_text(
+                '---\nslug:        zz-shared-slug\n'
+                f'title:       A {level} practice sharing a slug\n'
+                'tier:        on-demand\nseverity:    default\n'
+                'applies_to:  ["**"]\noccasion:    "fixture"\n'
+                'index_clause: "fixture"\nchecked_by:  null\n'
+                'defines:     []\nstatus:      active\nin_force_at: null\n'
+                'supersedes:  []\noverrides:   null\nadded:       null\n'
+                'approved_by: "fixture"\n---\n\n## Rule\nPlanted.\n\n'
+                '## Why\nPlanted.\n\n## Story\nPlanted for the harness.\n',
+                encoding='utf-8')
         rc, out = pyrun(str(ROOT / 'tools' / 'precedent_resolve.py'),
                         '--repo', str(consumer), '--json',
                         env_extra={'PRECEDENT_USER_CONFIG': str(user_config)})
@@ -11791,9 +12934,14 @@ def check_bootstrap_source_produces_resolvable_set():
         cases.append(('the resulting consumer repo resolves cleanly -- no missing, '
                       'no blocked sources',
                       rc == 0 and not resolved.get('missing') and not resolved.get('blocked'), out))
-        cases.append(('example-starter resolves, won by the team set over the '
-                      'individual set (real precedence, not just presence)',
-                      slugs.get('example-starter', {}).get('level') == 'team', out))
+        cases.append(('the planted shared slug resolves, won by the team set over '
+                      'the individual set (real precedence, not just presence)',
+                      slugs.get('zz-shared-slug', {}).get('level') == 'team', out))
+        cases.append(('and the two skeletons\' own placeholders no longer collide: '
+                      'both resolve, each from its own level',
+                      slugs.get('example-starter-team', {}).get('level') == 'team'
+                      and slugs.get('example-starter-individual', {}).get('level')
+                      == 'individual', out))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
@@ -11909,7 +13057,13 @@ def check_bootstrap_source_engine_is_functional():
             '---\nslug: engine-fixture-slug\ntitle: Fixture\ntier: on-demand\n'
             'severity: default\napplies_to: ["fixture-only/**"]\n'
             'occasion: "testing the bootstrapped engine is functional"\n'
-            'gates: []\nindex_clause: "engine-fixture-slug — a bootstrap-harness fixture"\n'
+            'gates: []\n'
+            # Asserts the slug lands in the rendered block, so it declares
+            # its index line rather than inheriting one: its applies_to names
+            # real paths, which is the shape build_views now omits from the
+            # occasion index (practice: fixture-owns-its-state).
+            'index_required: true\n'
+            'index_clause: "engine-fixture-slug — a bootstrap-harness fixture"\n'
             'checked_by: null\ndefines: []\nstatus: active\nsupersedes: []\n'
             'overrides: null\nadded: 2026-09-05\n'
             'approved_by: "harness, 2026-09-05"\nsource_practice_number: null\n'
@@ -12570,14 +13724,31 @@ def check_vendor_engine_consumer_case():
         # vendor from committed HEAD, so between the rename and its commit the
         # refresh legitimately fails, and this line turned that into a total
         # outage (practice: fail-gracefully).
-        missing = [f for f in manifest.get('sha256', {})
+        # THE MANIFEST TO CHECK IS THE ONE ON DISK NOW, not the snapshot taken
+        # at line ~12486 before any of the refreshes above ran. Reading the
+        # stale copy asserted "the pre-refresh shas describe the post-refresh
+        # files", which is true only while the refresh changes nothing -- and
+        # went red the first time a commit actually changed an engine file
+        # (2026-09-14, adding precedent_close_detect.py to ENGINE_FILES),
+        # naming precedent_vendor_engine.py, which the refresh had correctly
+        # replaced and correctly re-recorded. The property worth checking is
+        # the engine's postcondition: whatever the manifest records, the file
+        # beside it matches (practice: fixture-owns-its-state).
+        current = json.loads(manifest_path.read_text(encoding='utf-8'))
+        missing = [f for f in current.get('sha256', {})
                    if not (consumer / 'tools' / f).is_file()]
-        mismatched = [f for f, h in manifest.get('sha256', {}).items()
+        mismatched = [f for f, h in current.get('sha256', {}).items()
                       if (consumer / 'tools' / f).is_file()
                       and hashlib.sha256((consumer / 'tools' / f).read_bytes()).hexdigest() != h]
         cases.append(('every recorded sha256 matches the file actually written',
-                      bool(manifest.get('sha256')) and not mismatched and not missing,
+                      bool(current.get('sha256')) and not mismatched and not missing,
                       f'mismatched={mismatched} missing={missing}'))
+        # …and the tool that rewrites itself is covered by it, which is the
+        # one entry a stale read could never have caught.
+        cases.append(('…including the vendoring tool, which the refresh '
+                      'replaces with a copy of itself',
+                      'precedent_vendor_engine.py' in current.get('sha256', {}),
+                      f"recorded: {sorted(current.get('sha256', {}))[:4]}…"))
 
         # -- status(), run from the consumer's OWN vendored copy, against
         # this real checkout, finds zero drift right after seeding --
@@ -12890,6 +14061,11 @@ def check_source_shape_is_verified():
             # writes.
             bss.ensure_universal_source(d)
             bss.ensure_precedent_gitignore(d)
+            # And the set's own AGENTS.md with the loader markers, written
+            # by bootstrap() since 2026-09-14 (a set without one fails its
+            # own build_views.py). Written here without the generator run,
+            # which a fixture with no tools/ cannot do.
+            bss._write_instructions_and_views(d, level, 'a-fixture-set')
             for rel, text in edits.items():
                 if text is None:
                     (d / rel).unlink(missing_ok=True)
@@ -12901,6 +14077,12 @@ def check_source_shape_is_verified():
                       bss.verify('team', fixture('team')) == []))
         cases.append(('a complete individual set is well-formed',
                       bss.verify('individual', fixture('individual')) == []))
+        cases.append(('a set with no AGENTS.md is reported, naming what fails without it',
+                      any('AGENTS.md' in f and 'build_views' in f for f in bss.verify(
+                          'team', fixture('team', **{'AGENTS.md': None})))))
+        cases.append(('an AGENTS.md without the loader markers is reported too',
+                      any('BEGIN GENERATED' in f for f in bss.verify(
+                          'team', fixture('team', **{'AGENTS.md': '# notes, no markers\n'})))))
         cases.append(('a source with no session hooks is reported -- they are '
                       'the one part of a source\'s shape that does not live '
                       'in the skeleton',
@@ -13026,7 +14208,11 @@ def check_rendered_docs_are_current():
                        'no render to compare')
         return
 
-    STAMP = _re.compile(r'<div class="renderstamp">[^<]*</div>')
+    # the stamp is a <time> element since 2026-09-14 (reader-local rewrite,
+    # dependent repo #1's check-in); the old <div> form is still masked so the
+    # check stays green across the boundary commit.
+    STAMP = _re.compile(
+        r'<(?:div|time) class="renderstamp"[^>]*>[^<]*</(?:div|time)>')
     stale, missing = [], []
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='render-check-'))
     try:
@@ -13054,6 +14240,46 @@ def check_rendered_docs_are_current():
           '; '.join(
               ([f'stale: {", ".join(stale)}'] if stale else [])
               + ([f'missing: {", ".join(missing)}'] if missing else [])))
+
+
+def check_install_names_every_not_vendored_dir():
+    """INSTALL.md §1 step 1 names every directory checkin.py refuses to vendor.
+
+    These are two halves of one rule kept in two files, which is the shape
+    that drifts. tools/checkin.py's NOT_VENDORED is what the tooling acts
+    on; INSTALL.md step 1 is what a person copying the tree by hand reads.
+    A directory added to one and not the other means either a consumer
+    hand-copies a tree the tooling then reports as drifted, or the prose
+    promises an exclusion nothing performs.
+
+    Found when philosophy/ was excluded on 2026-09-14 and nothing would have
+    caught the doc being left behind (practice: checkable-gets-checked).
+    Name-only: the paragraph's wording is nobody's business but its author's.
+    """
+    install = ROOT / 'INSTALL.md'
+    if not install.is_file():
+        not_applicable('INSTALL.md names every not-vendored directory',
+                       'INSTALL.md does not exist -- not a pass')
+        return
+    try:
+        sys.path.insert(0, str(ROOT / 'tools'))
+        import checkin as _checkin
+        excluded = set(_checkin.NOT_VENDORED)
+    except Exception as exc:                       # pragma: no cover
+        not_applicable('INSTALL.md names every not-vendored directory',
+                       f'could not read checkin.NOT_VENDORED: {exc}')
+        return
+    text = install.read_text(encoding='utf-8')
+    # The step is the one that says "Skip"; scoping to it stops an incidental
+    # mention elsewhere in a 1000-line document from passing this.
+    i = text.find('**Skip ')
+    step = text[i:i + 2000] if i != -1 else ''
+    missing = sorted(d for d in excluded if f'{d}/' not in step)
+    check(f'INSTALL.md §1 step 1 names every not-vendored directory '
+          f'({len(excluded)} excluded)',
+          not missing,
+          f'not named in the vendor step: {", ".join(missing)}' if missing
+          else '')
 
 
 def check_philosophy_readme_lists_every_file():
@@ -13653,12 +14879,13 @@ def check_loader_block_covers_every_declared_source():
             if (fm.get('status') or 'active').strip('" ') == 'active':
                 publishable.add(fm.get('slug', f.stem))
 
+    import build_views as _bv
     missing, leaked = [], []
     for s in declared:
         d = pathlib.Path(s['path']) / 'practices'
         if not d.is_dir():
             continue                       # unreachable here; not evidence
-        active = []
+        active, expected_in_block = [], []
         for f in sorted(d.glob('*.md')):
             try:
                 fm, _sec = sp._read_practice_file(f)
@@ -13666,14 +14893,25 @@ def check_loader_block_covers_every_declared_source():
                 continue
             if (fm.get('status') or 'active').strip('" ') == 'active':
                 active.append(fm.get('slug', f.stem))
+                # A practice routed by a real applies_to glob or a gate is
+                # deliberately NOT named in the block -- build_views omits it
+                # from the occasion index because those channels already reach
+                # it. A source whose practices are ALL routed therefore
+                # contributes nothing to the rendered text while having
+                # resolved perfectly, so requiring its name here would be a
+                # false failure. Only a source with at least one practice that
+                # should appear is evidence of anything either way.
+                if not _bv.index_is_redundant(fm):
+                    expected_in_block.append(fm.get('slug', f.stem))
         if not active:
             continue
         present = [a for a in active if a in named]
         if public and s['level'] in ('team', 'individual'):
             leaked += [a for a in present if a not in publishable]
-        elif not present:
-            missing.append(f"{s['level']}/{s['name']} ({len(active)} active "
-                           f"practices, none in {name})")
+        elif not present and expected_in_block:
+            missing.append(f"{s['level']}/{s['name']} ({len(expected_in_block)} of "
+                           f"{len(active)} active practices should be named in "
+                           f"{name}, none is)")
 
     check('the loader block renders every publishable source '
           'precedent.json declares', not missing, '; '.join(missing))
@@ -16562,6 +17800,322 @@ def check_no_engine_tool_hardcodes_a_mirror_path():
           '; '.join(bad))
 
 
+def check_installer_produces_a_clean_install():
+    """tools/precedent_install.py, run against a scratch project as SETUP.md
+    now runs it, yields a repo whose own gates come back clean -- and
+    refuses to run twice.
+
+    WHY (practice: cite-the-incident). The 2026-09-14 very deep check
+    rehearsed INSTALL.md section 0 as written, four times over, and every
+    roadblock was a document describing file operations that had drifted
+    from the operations: a template's dead links, a workflow name no install
+    creates, a check firing on a file the adopter never wrote. The installer
+    performs the operations; this fixture is what keeps its output honest,
+    by running the same checks a real adopter's first session would.
+
+    The fixture owns its environment (practice: fixture-owns-its-state): no
+    individual source, no hosted-session self-heal, no leak blocklist, and
+    the global commit backstop waved for the fixture's own commit."""
+    import shutil, tempfile
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-installer-'))
+    cases = []
+    env = dict(os.environ, PRECEDENT_ALLOW_ANY_AUTHOR='1',
+               PRECEDENT_USER_CONFIG=str(tmp / 'no-such-user-config.json'))
+    for k in ('CLAUDE_CODE_REMOTE', 'PRECEDENT_LEAK_BLOCKLIST'):
+        env.pop(k, None)
+
+    def run(args, cwd):
+        return subprocess.run(args, cwd=str(cwd), capture_output=True, text=True, env=env)
+
+    def git(cwd, *args):
+        r = subprocess.run(['git', '-C', str(cwd), *args], capture_output=True,
+                           text=True, env=env)
+        if r.returncode != 0:
+            raise RuntimeError(f"git {' '.join(args)}: {r.stderr.strip()}")
+        return r.stdout
+
+    try:
+        proj = tmp / 'proj'
+        proj.mkdir()
+        git(proj.parent, 'init', '-q', '-b', 'main', str(proj))
+        git(proj, 'config', 'user.email', 'harness@example.com')
+        git(proj, 'config', 'user.name', 'Fixture')
+        (proj / 'README.md').write_text('# Field Notes\n\nA newsletter about birds.\n',
+                                        encoding='utf-8')
+        git(proj, 'add', '-A')
+        git(proj, 'commit', '-qm', 'the project before Precedent')
+
+        tool = str(ROOT / 'tools' / 'precedent_install.py')
+        r = run([sys.executable, tool, str(proj), '--project-name', 'Field Notes',
+                 '--admin', 'dana'], ROOT)
+        out = r.stdout + r.stderr
+        cases.append(('the installer exits 0 on a fresh project', r.returncode == 0, out[-1500:]))
+        cases.append(('it says the light check on the files it wrote passed',
+                      'the light check on the written files: OK' in out, out[-800:]))
+        cases.append(('it names the placeholders it left rather than pretending there are none',
+                      'placeholder(s) to adapt' in out, out[-800:]))
+        pj = proj / 'precedent.json'
+        doc = json.loads(pj.read_text(encoding='utf-8')) if pj.is_file() else {}
+        cases.append(('precedent.json declares the base branch and the visibility explicitly',
+                      doc.get('base_branch') == 'main' and doc.get('visibility') == 'private',
+                      str(doc)[:300]))
+        agents = (proj / 'AGENTS.md').read_text(encoding='utf-8') if (proj / 'AGENTS.md').is_file() else ''
+        cases.append(('AGENTS.md carries the generated loader block with the resident set in it',
+                      bv.BEGIN_MARKER in agents and 'verify-postcondition' in agents, agents[:300]))
+        gs = (proj / 'GETTING_STARTED.md').read_text(encoding='utf-8') if (proj / 'GETTING_STARTED.md').is_file() else ''
+        cases.append(('GETTING_STARTED.md has the project name, the administrator and the upstream '
+                      'docs filled in, and names the workflow file the install actually wrote',
+                      'Field Notes' in gs and '@dana' in gs and '<upstream-docs>' not in gs
+                      and 'bestpractice-docs.yml' in gs
+                      and (proj / '.github' / 'workflows' / 'bestpractice-docs.yml').is_file(),
+                      gs[:400]))
+        settings = proj / '.claude' / 'settings.json'
+        stext = settings.read_text(encoding='utf-8') if settings.is_file() else ''
+        cases.append(('the adapter is wired with no classic-layout allowlist entry, and every '
+                      'hook it names is on disk',
+                      bool(stext) and 'process/upstream' not in stext
+                      and all((proj / '.claude' / 'hooks' / n).is_file() for n in
+                              ('session-start.sh', 'freshness-guard.sh', 'commit-identity.sh',
+                               'reply-gate.sh', 'precedent-paths.sh', 'stop-git-check.sh')),
+                      stext[:200]))
+
+        git(proj, 'add', '-A')
+        git(proj, 'commit', '-qm', 'Install Precedent')
+        r = run([sys.executable, 'tools/precedent_sync_views.py', '--repo', '.', '--check'], proj)
+        cases.append(('the committed tree is byte-identical to a fresh sync',
+                      r.returncode == 0 and 'byte-identical' in r.stdout, r.stdout + r.stderr))
+        r = run([sys.executable, 'tools/precedent_check.py'], proj)
+        cases.append(("the project's own enforced checks come back 0 violated on the install",
+                      r.returncode == 0 and ' 0 violated' in r.stdout,
+                      '\n'.join(l for l in r.stdout.splitlines() if l.startswith(('VIOLATION', 'precedent_check:')))))
+
+        r = run([sys.executable, tool, str(proj), '--project-name', 'Field Notes'], ROOT)
+        cases.append(('a second run without --force is refused, naming the update path',
+                      r.returncode == 1 and 'ENGINE_MANIFEST.json exists' in r.stderr
+                      and 'INSTALL.md' in r.stderr, r.stderr[:300]))
+        bare = tmp / 'not-a-repo'
+        bare.mkdir()
+        r = run([sys.executable, tool, str(bare), '--project-name', 'X'], ROOT)
+        cases.append(('a directory that is not a git repository is refused with its own message',
+                      r.returncode == 1 and 'not the root of a git repository' in r.stderr,
+                      r.stderr[:300]))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    failed = [c for c in cases if not c[1]]
+    check(f'tools/precedent_install.py yields a project whose own gates come back clean '
+          f'({len(cases)} stated cases)', not failed,
+          '; '.join(f'{n}: {d}' for n, _ok, d in failed))
+
+
+def check_move_tool_lands_then_deduplicates():
+    """tools/precedent_move.py does spec/MOVING_PRACTICES.md's two steps in
+    the one safe order, records the move at both ends, and refuses the
+    states the procedure says never to produce.
+
+    WHY (practice: cite-the-incident). The procedure told a mover to feed an
+    existing practice's four sections through precedent_candidate.py, which
+    takes one --proposed-rule string; every move was a hand copy and the
+    deduplication was done from memory. Morgan, 2026-09-14: "I've had bumps
+    doing that." The fixture owns its environment (practice:
+    fixture-owns-its-state): no individual source, no hosted-session
+    self-heal, the commit backstop waved."""
+    import shutil, tempfile
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-move-'))
+    cases = []
+    env = dict(os.environ, PRECEDENT_ALLOW_ANY_AUTHOR='1',
+               PRECEDENT_USER_CONFIG=str(tmp / 'no-such-user-config.json'))
+    env.pop('CLAUDE_CODE_REMOTE', None)
+
+    def run(args, cwd=ROOT):
+        return subprocess.run([sys.executable, *args], cwd=str(cwd),
+                              capture_output=True, text=True, env=env)
+
+    def practice(slug, story='A dated incident.'):
+        return ('---\nslug:        ' + slug + '\n'
+                'title:       A fixture practice\n'
+                'tier:        on-demand\nseverity:    default\n'
+                'applies_to:  ["fixture/**"]\noccasion:    "fixture"\n'
+                'gates:       []\nindex_clause: "fixture"\nchecked_by:  null\n'
+                'defines:     []\nstatus:      active\nin_force_at: null\n'
+                'supersedes:  []\noverrides:   null\nadded:       "2026-09-14"\n'
+                'approved_by: "Fixture, 2026-09-14"\n---\n\n## Rule\nDo the thing.\n\n'
+                '## Why\nBecause.\n\n## Story\n' + story + '\n')
+
+    try:
+        tool = str(ROOT / 'tools' / 'precedent_move.py')
+        boot = str(ROOT / 'tools' / 'precedent_bootstrap_source.py')
+        team, indiv = tmp / 'precedent-team-fixture', tmp / 'precedent-individual'
+        r1 = run([boot, '--level', 'team', '--name', 'precedent-team-fixture',
+                  '--dest', str(team), '--approver', 'Fixture Approver:fixture-gh'])
+        r2 = run([boot, '--level', 'individual', '--name', 'precedent-individual',
+                  '--dest', str(indiv)])
+        cases.append(('both fixture sets bootstrap', r1.returncode == 0 and r2.returncode == 0,
+                      (r1.stdout + r1.stderr + r2.stdout + r2.stderr)[-600:]))
+        (indiv / 'practices' / 'zz-moves.md').write_text(practice('zz-moves'), encoding='utf-8')
+        (indiv / 'practices' / 'zz-no-story.md').write_text(practice('zz-no-story', ''), encoding='utf-8')
+
+        # -- the move, individual -> team --
+        r = run([tool, '--slug', 'zz-moves', '--from', 'individual', '--from-path', str(indiv),
+                 '--to', 'team', '--to-path', str(team), '--approved-by', 'Fixture Approver',
+                 '--strength', 'decided'])
+        cases.append(('individual -> team completes', r.returncode == 0, r.stdout + r.stderr))
+        dest = (team / 'practices' / 'zz-moves.md')
+        src = (indiv / 'practices' / 'zz-moves.md')
+        dtext = dest.read_text(encoding='utf-8') if dest.is_file() else ''
+        stext = src.read_text(encoding='utf-8')
+        cases.append(('the destination copy is active, carries the Rule and Story verbatim, '
+                      'the approval, and its strength',
+                      'status:      active' in dtext and 'Do the thing.' in dtext
+                      and 'A dated incident.' in dtext and 'Fixture Approver' in dtext
+                      and 'strength: decided' in dtext, dtext[:600]))
+        cases.append(('the source copy is deduplicated, points at the slug, and its Story '
+                      'says where it went',
+                      'status:      deduplicated' in stext and 'in_force_at: zz-moves' in stext
+                      and 'Moved to the team set `precedent-team-fixture`' in stext, stext[-400:]))
+        cases.append(('the disclosure names both sets and the level',
+                      'DISCLOSE TO THE HUMAN' in r.stdout and 'team set precedent-team-fixture' in r.stdout
+                      and 'individual set precedent-individual' in r.stdout, r.stdout[-400:]))
+
+        # -- a consumer resolving both sets sees the practice from the team, once --
+        consumer = tmp / 'consumer'
+        consumer.mkdir()
+        (consumer / 'precedent.json').write_text(json.dumps({
+            'format_version': 1, 'visibility': 'private',
+            'sources': [{'level': 'universal', 'name': 'precedent', 'path': str(ROOT)},
+                        {'level': 'team', 'name': 'precedent-team-fixture', 'path': str(team)}],
+        }), encoding='utf-8')
+        cfg = tmp / 'user-config.json'
+        cfg.write_text(json.dumps({'individual': {'name': 'precedent-individual',
+                                                  'path': str(indiv)}}), encoding='utf-8')
+        r = subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_resolve.py'),
+                            '--repo', str(consumer), '--json'],
+                           capture_output=True, text=True,
+                           env=dict(env, PRECEDENT_USER_CONFIG=str(cfg)))
+        try:
+            resolved = json.loads(r.stdout)
+        except json.JSONDecodeError:
+            resolved = {}
+        levels = {p['slug']: p['level'] for p in resolved.get('practices', [])}
+        cases.append(('a consumer resolving both sets gets the moved practice from the '
+                      'team, once, and the deduplicated copy is not reported as a collision',
+                      levels.get('zz-moves') == 'team'
+                      and not resolved.get('blocked'), (r.stdout + r.stderr)[:600]))
+
+        # -- the resolver names a forwarding address that resolves nowhere --
+        # (the rehearsal of 2026-09-14 found that only this harness ever
+        # asked; a set or a consumer ran the shape check alone)
+        ipath = indiv / 'practices' / 'zz-moves.md'
+        itext = ipath.read_text(encoding='utf-8')
+        ipath.write_text(itext.replace('in_force_at: zz-moves', 'in_force_at: zz-nowhere'),
+                         encoding='utf-8')
+        r = subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_resolve.py'),
+                            '--repo', str(consumer), '--json'],
+                           capture_output=True, text=True,
+                           env=dict(env, PRECEDENT_USER_CONFIG=str(cfg)))
+        try:
+            dangling = json.loads(r.stdout).get('dangling') or []
+        except json.JSONDecodeError:
+            dangling = []
+        cases.append(('a deduplicated copy whose in_force_at resolves nowhere is reported '
+                      'by the resolver itself, not only by this harness',
+                      any(d.get('slug') == 'zz-moves' and 'does not resolve IN FORCE' in d.get('why', '')
+                          for d in dangling), (r.stdout + r.stderr)[-500:]))
+        ipath.write_text(itext, encoding='utf-8')
+
+        # -- a copy-and-delete, the thing the procedure says never to do, is named by sync --
+        (consumer / 'AGENTS.md').write_text('# notes\n\n<!-- BEGIN GENERATED: precedent-loader -->\n'
+                                            '<!-- END GENERATED -->\n', encoding='utf-8')
+        (team / 'practices' / 'zz-copied.md').write_text(practice('zz-copied'), encoding='utf-8')
+        cenv = dict(env, PRECEDENT_USER_CONFIG=str(cfg))
+        subprocess.run(['git', 'init', '-q'], cwd=str(consumer), capture_output=True)
+        sync_tool = str(ROOT / 'tools' / 'precedent_sync_views.py')
+        r = subprocess.run([sys.executable, sync_tool, '--repo', str(consumer)],
+                           capture_output=True, text=True, env=cenv)
+        subprocess.run(['git', 'add', '-A'], cwd=str(consumer), capture_output=True)
+        subprocess.run(['git', '-c', 'user.name=fx', '-c', 'user.email=fx',
+                        'commit', '-q', '-m', 'sync'], cwd=str(consumer),
+                       capture_output=True, env=cenv)
+        cases.append(('the consumer committed a synced MANIFEST.json recording zz-copied from the team',
+                      r.returncode == 0 and 'zz-copied' in (consumer / 'MANIFEST.json').read_text(encoding='utf-8'),
+                      (r.stdout + r.stderr)[-400:]))
+        shutil.copy(team / 'practices' / 'zz-copied.md', indiv / 'practices' / 'zz-copied.md')
+        (team / 'practices' / 'zz-copied.md').unlink()
+        r = subprocess.run([sys.executable, sync_tool, '--repo', str(consumer)],
+                           capture_output=True, text=True, env=cenv)
+        cases.append(('copying the file to the other set and deleting the original is named '
+                      'as a copy-and-delete by the next sync, and the sync still writes',
+                      r.returncode == 0 and 'copy-and-delete' in r.stderr
+                      and 'zz-copied was recorded from precedent-team-fixture' in r.stderr,
+                      (r.stdout + r.stderr)[-500:]))
+        (team / 'practices' / 'zz-copied.md').write_text(
+            (indiv / 'practices' / 'zz-copied.md').read_text(encoding='utf-8')
+            .replace('status:      active', 'status:      deduplicated')
+            .replace('in_force_at: null', 'in_force_at: zz-copied'), encoding='utf-8')
+        r = subprocess.run([sys.executable, sync_tool, '--repo', str(consumer)],
+                           capture_output=True, text=True, env=cenv)
+        cases.append(('and a deduplicated copy left at the source, pointing across, is a record: '
+                      'the same sync says nothing',
+                      r.returncode == 0 and 'copy-and-delete' not in r.stderr,
+                      (r.stdout + r.stderr)[-500:]))
+
+        # -- refusals, each by its own message --
+        r = run([tool, '--slug', 'zz-no-story', '--from', 'individual', '--from-path', str(indiv),
+                 '--to', 'team', '--to-path', str(team), '--approved-by', 'Fixture Approver'])
+        cases.append(('an empty Story is refused, naming the fill-it-first rule',
+                      r.returncode == 1 and 'empty ## Story' in r.stderr, r.stderr[:300]))
+        cases.append(('and the refusal wrote nothing',
+                      not (team / 'practices' / 'zz-no-story.md').exists(), ''))
+        r = run([tool, '--slug', 'zz-moves', '--from', 'team', '--from-path', str(team),
+                 '--to', 'individual', '--to-path', str(indiv), '--approved-by', 'Anyone'])
+        cases.append(('a destination that already carries the slug is refused',
+                      r.returncode == 1 and 'already exists' in r.stderr, r.stderr[:300]))
+        (team / 'practices' / 'zz-team-only.md').write_text(practice('zz-team-only'), encoding='utf-8')
+        (indiv / 'practices' / 'zz-second.md').write_text(practice('zz-second'), encoding='utf-8')
+        r = run([tool, '--slug', 'zz-second', '--from', 'individual', '--from-path', str(indiv),
+                 '--to', 'team', '--to-path', str(team), '--approved-by', 'Nobody'])
+        cases.append(('an approver not listed in the team set is refused by name',
+                      r.returncode == 1 and 'not in' in r.stderr and 'approver' in r.stderr,
+                      r.stderr[:300]))
+        r = run([tool, '--slug', 'zz-moves', '--from', 'universal', '--from-path', str(ROOT),
+                 '--to', 'team', '--to-path', str(team), '--approved-by', 'Fixture Approver'])
+        cases.append(('moving OUT of universal is refused as the undesigned direction',
+                      r.returncode == 1 and 'OUT of universal' in r.stderr, r.stderr[:300]))
+
+        # -- team -> universal drafts, leaves the source active, and dedupes on request --
+        clone = tmp / 'precedent-clone'
+        clone.mkdir()
+        (clone / 'practices').mkdir()
+        r = run([tool, '--slug', 'zz-team-only', '--from', 'team', '--from-path', str(team),
+                 '--to', 'universal', '--to-path', str(clone), '--approved-by', 'Fixture Approver'])
+        ttext = (team / 'practices' / 'zz-team-only.md').read_text(encoding='utf-8')
+        cases.append(('team -> universal drafts into the clone and leaves the source ACTIVE',
+                      r.returncode == 0 and (clone / 'practices' / 'zz-team-only.md').is_file()
+                      and 'status:      active' in ttext and 'DRAFTED' in r.stdout,
+                      r.stdout + r.stderr))
+        cases.append(('the draft says the clone\'s own generated surfaces were (or here could not be) '
+                      'regenerated, and when it is safe to --dedupe-only: after the merge AND '
+                      'after every consumer has taken the catalogue',
+                      'tools/build_views.py' in r.stdout and 'doc_sync.py' in r.stdout
+                      and 'every repository consuming' in r.stdout, r.stdout[-700:]))
+        r = run([tool, '--slug', 'zz-team-only', '--from', 'team', '--from-path', str(team),
+                 '--to', 'universal', '--to-path', str(clone), '--approved-by', 'Fixture Approver',
+                 '--dedupe-only'])
+        ttext = (team / 'practices' / 'zz-team-only.md').read_text(encoding='utf-8')
+        cases.append(('--dedupe-only afterwards withdraws the source copy',
+                      r.returncode == 0 and 'status:      deduplicated' in ttext
+                      and 'in_force_at: zz-team-only' in ttext, r.stdout + r.stderr))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    failed = [c for c in cases if not c[1]]
+    check(f'tools/precedent_move.py lands first, deduplicates second, and refuses the '
+          f'unsafe states by name ({len(cases)} stated cases)', not failed,
+          '; '.join(f'{n}: {d}' for n, _ok, d in failed))
+
+
 def check_declared_identity_has_a_passing_state_in_a_shared_repo():
     """`commit-author` and `buenos-aires-dates` have to be able to PASS in
     a repo many people commit to.
@@ -18572,7 +20126,7 @@ def check_unlanded_work_is_reported_before_the_passes():
                    PRECEDENT_USER_CONFIG=str(tmp / 'no-such-user-config.json'))
         r = subprocess.run(
             [sys.executable, str(ROOT / 'tools' / 'very_deep_check.py'),
-             '--repo', str(work)],
+             '--repo', str(work), '--checklist'],
             capture_output=True, text=True, cwd=str(work), env=env)
         out = r.stdout
 
@@ -18887,7 +20441,7 @@ def check_shallow_clone_never_fabricates_unlanded_work():
                    PRECEDENT_USER_CONFIG=str(tmp / 'no-such-user-config.json'))
         r = subprocess.run(
             [sys.executable, str(ROOT / 'tools' / 'very_deep_check.py'),
-             '--repo', str(work)],
+             '--repo', str(work), '--checklist'],
             capture_output=True, text=True, cwd=str(work), env=env)
         # THE UNLANDED WORK BLOCK ONLY, not everything printed before the
         # checklist. This used to slice at 'Pass 1 --' and assert that a
@@ -19681,7 +21235,8 @@ def check_doc_currency_finds_a_stale_document():
         'tier:        on-demand\nseverity:    default\n'
         'applies_to:  ["**"]\noccasion:    "testing"\n'
         'index_clause: "a fixture"\nchecked_by:  null\n'
-        'defines:     ["Zorp It"]\nstatus:      active\nsupersedes:  []\n'
+        'defines:     []\ncommand:     {"Zorp It": "do the thing"}\n'
+        'status:      active\nsupersedes:  []\n'
         'overrides:   null\nadded:       null\napproved_by: "fixture"\n'
         '---\n\n## Rule\nSay it.\n')
     PAGE_WITH = '# Page\n\nSay **Zorp It** to do the thing.\n'
@@ -19938,7 +21493,148 @@ def check_assumed_visibility_never_deletes_practices():
               not failed, '; '.join(failed) if failed else '')
 
 
+def check_access_probe_separates_refusal_from_silence():
+    """`can_land_here` must answer 'handoff' ONLY for a real permission
+    refusal, and 'unknown' for everything else (practice: spawn-session).
+
+    THE INCIDENT THE PROBE EXISTS FOR (2026-09-10): a session rooted in a
+    private practice set built a seven-commit patch for a repo it could not
+    push to, and sat blocked four days having spent about a hundred dollars
+    reaching a branch nobody could land. The probe now runs at session start
+    so nobody has to remember to ask.
+
+    THE DISTINCTION THIS CHECK DEFENDS is the one that makes the answer worth
+    printing. A network blip classified as 'handoff' tells a session it has no
+    access where it has plenty -- and the remedy it then reaches for is
+    spawning a session nobody needed. Collapsing 'unknown' into 'handoff'
+    would make every case below still "work", which is exactly why the
+    negative control is here: case 5 neuters the refusal vocabulary and
+    asserts the verdict FLIPS, so a classifier that answered 'handoff'
+    unconditionally could not pass this.
+
+    Case 1 is a real end-to-end push --dry-run over file://, so the probe is
+    measured doing its actual job rather than only its string handling."""
+    import tempfile, subprocess as _sp
+    import precedent_access_check as pac
+
+    results = []
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+
+        # fixture-owns-its-state: this fixture asserts on what git can reach,
+        # so it owns the credential environment rather than inheriting the
+        # container's. A real token here would send the probe at the network.
+        env = dict(os.environ)
+        for var in ('PRECEDENT_GIT_TOKEN', 'PRECEDENT_SOURCE_BASE_URL'):
+            env.pop(var, None)
+
+        # 1. A genuinely writable remote answers 'land'. file:// (not a bare
+        # path) because git only treats it as a transport that way.
+        bare = tmp / 'origin.git'
+        _sp.run(['git', 'init', '--quiet', '--bare', str(bare)], check=True, env=env)
+        work = tmp / 'work'
+        work.mkdir()
+        for cmd in (['git', 'init', '--quiet', '-b', 'main'],
+                    ['git', 'remote', 'add', 'origin', f'file://{bare}']):
+            _sp.run(cmd, cwd=work, check=True, env=env)
+        (work / 'f.txt').write_text('x', encoding='utf-8')
+        _sp.run(['git', 'add', '.'], cwd=work, check=True, env=env)
+        _sp.run(['git', '-c', 'user.name=t', '-c', 'user.email=t@e',
+                 '-c', 'commit.gpgsign=false', 'commit', '--quiet', '-m', 'c'],
+                cwd=work, check=True,
+                env={**env, 'PRECEDENT_ALLOW_ANY_AUTHOR': '1'})
+        verdict, detail = pac.can_land_here(str(work))
+        results.append(('a writable remote answers land', verdict == 'land', detail))
+
+        # 2. A directory that is not a repo at all: 'unknown', and the detail
+        # says which failure (practice: control-asserts-which-failure).
+        plain = tmp / 'not-a-repo'
+        plain.mkdir()
+        v2, d2 = pac.can_land_here(str(plain))
+        results.append(('a non-repo answers unknown', v2 == 'unknown', d2))
+
+        # 3. A path with no clone at all names its own reason, verbatim.
+        v3, d3 = pac.can_land_here(str(tmp / 'nothing-here'))
+        results.append(('a missing clone says "no local clone to probe"',
+                        v3 == 'unknown' and d3 == 'no local clone to probe', d3))
+
+        # 4/5. The classifier, driven with canned git output so the two
+        # branches are measured rather than hoped for. Restored in a finally:
+        # a monkeypatch left installed would silently rewire every later check.
+        real = pac._run_git
+        try:
+            pac._run_git = lambda repo, *a: (
+                1, '', "remote: Permission to x/y denied to z.\nfatal: 403")
+            v4, d4 = pac.can_land_here(str(work))
+            results.append(('a 403 answers handoff and quotes the server',
+                            v4 == 'handoff' and 'denied' in d4.lower(), d4))
+
+            pac._run_git = lambda repo, *a: (
+                1, '', 'fatal: unable to access: Could not resolve host: github.com')
+            v5, d5 = pac.can_land_here(str(work))
+            results.append(('an unreachable host answers unknown, NOT handoff',
+                            v5 == 'unknown', f'{v5}: {d5}'))
+
+            # NEGATIVE CONTROL. Same failure, refusal vocabulary removed: the
+            # verdict must move off 'handoff'. If this case passes as
+            # 'handoff', the classifier is not reading the message at all and
+            # case 4 above proves nothing.
+            pac._run_git = lambda repo, *a: (1, '', 'fatal: something else entirely')
+            v6, d6 = pac.can_land_here(str(work))
+            results.append(('a refusal with no refusal words is NOT handoff',
+                            v6 != 'handoff', f'{v6}: {d6}'))
+        finally:
+            pac._run_git = real
+
+        # 6. very_deep_check must be using THIS definition, not a second copy.
+        # The probe was moved down into the vendored file precisely so one
+        # definition serves both; a re-added local copy would pass every case
+        # above while drifting from what adopters actually run.
+        import very_deep_check as _vdc
+        results.append(('very_deep_check imports the probe rather than copying it',
+                        _vdc.can_land_here is pac.can_land_here,
+                        repr(getattr(_vdc.can_land_here, '__module__', '?'))))
+
+    failed = [f'{n} [{d}]' for n, ok, d in results if not ok]
+    check(f'the access probe separates a refusal from silence '
+          f'({len(results)} stated cases, including a negative control that '
+          f'flips the verdict)',
+          not failed, '; '.join(failed) if failed else '')
+# practice: environment-gotchas -- the trap this guards is record/GOTCHAS.md#g1.
+#
+# Several checks below need a package that is not in the standard library:
+# doc_lint's strikethrough case suite and the `doc-references-are-links`
+# planted violation both need cmarkgfm, and the --help sweep runs
+# tools/doc_html.py, which imports markdown. Without them those checks FAIL,
+# and they fail describing what they were testing rather than what is
+# missing -- on 2026-09-14 that read as "3 failed" on a tree whose diff was
+# two markdown files, and cost two full re-runs to attribute. The packages
+# are installed by .claude/hooks/session-start.sh and by both CI workflows;
+# a session whose hooks never ran (record/GOTCHAS.md#g17) has neither.
+DOC_PACKAGES = ('cmarkgfm', 'markdown')
+
+
+def missing_doc_packages():
+    """-> [name] for each DOC_PACKAGES entry this interpreter cannot import."""
+    return [n for n in DOC_PACKAGES if importlib.util.find_spec(n) is None]
+
+
+def _report_missing_doc_packages(where):
+    missing = missing_doc_packages()
+    if not missing:
+        return missing
+    print(f'verify_harness {where}: {", ".join(missing)} not installed. '
+          f'Checks that need them FAIL for that reason alone, not because of '
+          f'anything in the tree -- install with: pip install '
+          f'{" ".join(missing)}  (record/GOTCHAS.md#g1)')
+    print('  and run: python3 tools/precedent_session_check.py -- these '
+          'packages are installed by the SessionStart hook, so missing ones '
+          'usually mean NO hook ran, and the hooks guarantee more than this')
+    return missing
+
+
 def main():
+    _report_missing_doc_packages('PREFLIGHT')
     if not PRACTICES_DIR.exists():
         sys.exit("verify_harness FAIL: practices/ does not exist -- run "
                  "tools/split_practices.py split first")
@@ -19965,6 +21661,8 @@ def main():
     check_leak_gate_fires()
     check_practice_audit_fires()
     check_freshness_gate_fires()
+    check_doc_lint_exempts_links_in_a_mirrored_tree()
+    check_repo_may_declare_its_own_fallback_zone()
     check_session_check_reports_a_dead_also_list_entry()
     check_freshness_guard_checks_attached_repositories()
     check_freshness_guard_waves_through_a_branch_origin_never_saw()
@@ -19980,6 +21678,7 @@ def main():
     check_public_tree_bakes_in_no_owner_account()
     check_public_consumer_does_not_materialize_private_text()
     check_assumed_visibility_never_deletes_practices()
+    check_access_probe_separates_refusal_from_silence()
     check_sync_refuses_to_write_from_incomplete_sources()
     check_unlanded_work_is_reported_before_the_passes()
     check_very_deep_check_records_its_components()
@@ -20009,6 +21708,9 @@ def main():
     check_build_views_summary_matches_what_it_wrote()
     check_resident_rule_links_are_placed_for_the_block()
     check_source_names_detects_a_rename()
+    check_owned_paths_previews_the_boundary()
+    check_boundary_check_never_passes_unread()
+    check_very_deep_check_boundary_audit_reads_the_setting()
     check_default_blocklist_runs_the_vocabulary_layer()
     check_session_practices_load_without_publishing()
     check_not_binding_cannot_be_abused()
@@ -20026,6 +21728,7 @@ def main():
     check_gate_channel()
     check_reply_gate_sees_every_source()
     check_compaction_offer_fires_on_context_growth()
+    check_close_detection_fires_only_when_all_conditions_hold()
     check_loader_block_advertises_only_live_channels()
     check_source_sets_can_learn_they_are_stale()
     check_loader_tools_are_repo_relocatable()
@@ -20083,6 +21786,8 @@ def main():
     check_not_binding_actually_exempts_a_check()
     check_mirrored_prefixes_answers_both_install_models()
     check_no_engine_tool_hardcodes_a_mirror_path()
+    check_installer_produces_a_clean_install()
+    check_move_tool_lands_then_deduplicates()
     check_declared_identity_has_a_passing_state_in_a_shared_repo()
     check_instantiated_template_links_survive_the_copy()
     check_tools_answer_help_without_writing()
@@ -20097,6 +21802,7 @@ def main():
     check_leak_gate_names_a_stale_blocklist_clone()
     check_visibility_audit_reads_the_blocklist_as_patterns()
     check_rendered_docs_are_current()
+    check_install_names_every_not_vendored_dir()
     check_philosophy_readme_lists_every_file()
 
     # RECAP THE FAILURES BY NAME, immediately before the summary line.
@@ -20118,6 +21824,10 @@ def main():
         print("\nFAILED CHECKS:")
         for name, detail in FAILED:
             print(f"  - {name}" + (f" -- {detail}" if detail else ""))
+        # The tail is what anyone actually reads, so the environment cause
+        # is named again HERE rather than only in the preflight line, which
+        # by now is hundreds of lines above.
+        _report_missing_doc_packages('NOTE')
     print(f"\n{len(PASSED)} passed, {len(FAILED)} failed, {len(NA)} not yet applicable.")
     return 1 if FAILED else 0
 

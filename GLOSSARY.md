@@ -6,7 +6,9 @@ Built from every practice's `defines:` frontmatter field -- the terms that pract
 
 | Term | Defined in |
 |---|---|
+| allowance pool | [github-api-budget](practices/github-api-budget.md) |
 | always-loaded surface | [session-load-budget](practices/session-load-budget.md) |
+| API budget | [github-api-budget](practices/github-api-budget.md) |
 | Approved | [go-merge](practices/go-merge.md) |
 | assented | [decision-strength](practices/decision-strength.md) |
 | bet-relevant | [constants-are-risk-inputs](practices/constants-are-risk-inputs.md) |
@@ -38,11 +40,13 @@ Built from every practice's `defines:` frontmatter field -- the terms that pract
 | practice pack | [layered-practice-packs](practices/layered-practice-packs.md) |
 | practice-set source | [source-naming](practices/source-naming.md) |
 | pronouns | [declared-pronouns](practices/declared-pronouns.md) |
+| Reduction pass | [reduction-pass](practices/reduction-pass.md) |
 | Relayed authorization | [relayed-authorization](practices/relayed-authorization.md) |
 | repo: | [session-tags](practices/session-tags.md) |
 | retired vocabulary | [migration-scrubs-vocabulary](practices/migration-scrubs-vocabulary.md) |
 | role: | [session-tags](practices/session-tags.md) |
 | routing audit | [routing-audit](practices/routing-audit.md) |
+| search allowance | [grep-before-search](practices/grep-before-search.md) |
 | session load | [session-load-budget](practices/session-load-budget.md) |
 | skipped heading level | [heading-outline](practices/heading-outline.md) |
 | Spawn session | [spawn-session](practices/spawn-session.md) |

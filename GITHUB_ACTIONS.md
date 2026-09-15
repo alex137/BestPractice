@@ -51,7 +51,7 @@ The supplied workflow:
 2. installs Python and `cmarkgfm`;
 3. runs the Precedent Markdown linter;
 4. reports warnings in the job log; and
-5. fails the pull request only when changed Markdown contains accidental strikethrough.
+5. fails the pull request when changed Markdown contains accidental strikethrough or a relative link that lands nowhere.
 
 The linter determines which Markdown files changed relative to the repository's default branch. A full-history checkout is therefore required.
 
@@ -239,7 +239,7 @@ Once the workflow has run successfully at least once, add its **Markdown lint** 
 
 That changes the rule from advice into enforcement: a pull request cannot merge while the Markdown gate is failing, regardless of whether the change came from ChatGPT, Claude Code, Codex, another agent, or a human editing GitHub directly.
 
-Repository rules vary by account and organization. Use the repository's current **Settings → Rules** or branch-protection controls and select the status check produced by this workflow.
+Repository rules vary by account and organization. Use the repository's current **Settings → Rules** or branch-protection controls and select the status check produced by this workflow. The rest of what belongs on that same page — a pull request required, review from code owners, no bypass — and what each setting does for a Precedent project is [documentation/GITHUB_SETTINGS.md](documentation/GITHUB_SETTINGS.md).
 
 ## Updating an Installed Repository
 
@@ -315,6 +315,27 @@ of running. What covers a consuming repo today is a session running
 do resolve; [TODO.md](TODO.md)'s
 `consumer-views-drift-uncheckable-in-ci` item holds the question of whether
 anything better is possible.
+
+**Workflow runs do NOT spend your account's API allowance, and believing
+they do sends you fixing the wrong thing.** A workflow authenticates as
+`GITHUB_TOKEN`, which draws on a per-repository hourly pool that CI has to
+itself; a session's `mcp__github__*` calls and any `curl` a tool makes draw
+on the account's pools. Measured 2026-09-14 while chasing a rate-limit
+refusal: 75 workflow runs in the busiest hour on this repository, and 133
+calls of a 15,000/hour account pool spent in the same window. The runs were
+not it. **The allowances a busy fleet of sessions actually exhausts are
+`search` (30 requests a MINUTE, shared by every open session) and the
+secondary limit on creating content (a commit, a branch, a pull request, a
+comment, a merge).** [tools/github_budget.py](tools/github_budget.py) prints
+what is left and what a tool spent; the rule is
+[github-api-budget](practices/github-api-budget.md).
+
+Two things about workflow triggers are still worth getting right for their
+own reasons, and both are about wasted runs rather than wasted allowance:
+`pull_request:` alongside `push:` fires two runs of the same tree for every
+push on a branch with an open pull request (measured here over 13 paired
+runs, never once disagreeing), and a `schedule:` inherited by every adopter
+is a clock in somebody else's repository that they never picked.
 
 Precedent itself ships no committing workflow — its three
 ([deep-check](.github/workflows/deep-check.yml),

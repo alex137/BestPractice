@@ -133,10 +133,13 @@ ANCHORS = [
     # mistakes-become-rules gained one for the catalogue lookup its
     # proportionality guard now requires, then 20->21 on 2026-09-13 when
     # environment-gotchas gained one saying when a gotchas section should split
-    # into an index plus a record, and what the index line has to carry.
+    # into an index plus a record, and what the index line has to carry,
+    # then 21->22 on 2026-09-14 when capture-gate gained one carrying the
+    # capture-at-discovery sharpening delivered from dependent repo #1
+    # (the turn, not the thread, is the unit of capture).
     # See phase3_snapshot_stats's docstring.
     ('spec/PRACTICE_FORMAT.md, "The Rule/Detail Split" — practices with a Detail',
-     21, 21, lambda: (phase3_snapshot_stats()['with_detail'], phase3_snapshot_stats()['with_detail'])),
+     22, 22, lambda: (phase3_snapshot_stats()['with_detail'], phase3_snapshot_stats()['with_detail'])),
     ('spec/PRACTICE_FORMAT.md, "The Rule/Detail Split" — Rules over 150 words',
      7, 7, lambda: (phase3_snapshot_stats()['long_rules'], phase3_snapshot_stats()['long_rules'])),
     # PRACTICE_ENGINE_PLAN.md's own phase-3 table restates the SAME figure as

@@ -5,16 +5,19 @@
      different reason, and the distinction is worth holding: general writing
      rules were DELETED from it (2026-09-08) because the practice catalogue
      already carries them, whereas nothing generic was ever possible here.
-     At install, ask the
-     administrator directly: does the project have a visual identity yet
-     (colors, logo, fonts), and if there's a formal brand guideline (a PDF,
-     a slide deck, a style manual from a design team), offer to read it and
-     transcribe the relevant rules into the sections below.
+     Copied EMPTY at install, and left that way: an install does the
+     essentials and stops (INSTALL.md, "Essentials only"), so nobody asks
+     at install whether a brand guideline exists. Whenever somebody later
+     says "help me fill in STYLEGUIDE.md", ask them then: does the project
+     have a visual identity (colors, logo, fonts), and if there is a formal
+     brand guideline (a PDF, a slide deck, a style manual from a design
+     team), offer to read it and transcribe the relevant rules into the
+     sections below.
 
      Never import the source document itself. A brand-guideline PDF or PPTX
      is typically a large binary, often has its own copyright/distribution
      terms, and can't be diffed or reviewed the way this repo's other files
-     are (see deck/README.md's reasoning against binary sources). Read it,
+     are (see the upstream deck/README.md's reasoning against binary sources). Read it,
      extract the rules that matter for what this repo produces, and write
      them here in plain text. If no such document exists yet, leave sections
      marked <undecided> rather than inventing values.
@@ -27,7 +30,8 @@
 # Style Guide
 
 Visual rules for anything this project produces — decks, documents,
-diagrams, images. Read this before generating a deck ([deck/](deck/)),
+diagrams, images. Read this before generating a deck (the upstream
+[deck/](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/deck/) engine),
 a chart, or any other visual artifact; when a rule here conflicts with a
 tool's default, this file wins.
 
@@ -73,8 +77,9 @@ here: <e.g., "never use the corporate stock-photo handshake image">.
 ## Formats This Project Produces
 
 <List the recurring outputs and where their conventions live, e.g.:>
-- **Slide decks:** built with [deck/build_deck.py](deck/build_deck.py);
-  engine-level conventions in [deck/README.md](deck/README.md); this
+- **Slide decks:** built with the upstream
+  [deck/build_deck.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/deck/build_deck.py);
+  engine-level conventions in [deck/README.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/deck/README.md); this
   section covers only this project's palette/type choices, not the deck
   mechanics.
 - **<other format>:** <convention or tool>

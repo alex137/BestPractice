@@ -34,6 +34,7 @@ applies_to:  ["**"]             # path globs
 occasion:    "prose trigger"
 gates:       []                  # named moments -- see below
 index_clause: "the one line the occasion index shows"   # see below
+index_required: null          # OPTIONAL -- true keeps the index line; see below
 checked_by:  tools/x.py or null
 defines:     []
 command:     null             # OPTIONAL -- the standing phrases this practice defines; see below
@@ -47,6 +48,39 @@ approved_by: "BestPractice (pre-fork)"
 strength:    null             # OPTIONAL -- decided | assented; see below
 source_practice_number: N        # see "Beyond the plan's example" below
 ---
+
+### `index_required` — who still earns a line in the occasion index
+
+The occasion index is loaded **in full by every session before it does any
+work**, so a line in it is paid for on every turn. A practice that already has
+a channel does not need one: a real `applies_to` glob fires through
+`precedent_paths.py` when the file is edited, and a `gates:` entry fires
+through `precedent_gate.py` at the moment it names. `build_views.py` therefore
+**omits a practice from the index when it declares either one**, and the
+generated block says so and points at `precedent_show.py --index-omitted`.
+
+Two things are never omitted:
+
+- **`applies_to: ["**"]` with no gate.** That glob matches everything and so
+  routes nothing; the index is the practice's only channel, and dropping the
+  line would un-route the rule silently.
+- **A spoken trigger** — something the *person* says. Neither channel can
+  reach one: a glob needs a file, and every gate moment
+  (`merge`/`review`/`push`/`reply`) arrives at the **end** of the work the
+  phrase was meant to redirect. `Go merge` is the worked case, and its own
+  history is the citation: while its definition sat in a private set a session
+  could not read, one went and asked what the phrase meant — the exact
+  interruption the phrase exists to prevent.
+
+A `command:` is a spoken trigger by construction and needs no extra field.
+Anything else that is spoken sets **`index_required: true`**.
+`tools/precedent_check.py --only index-required-is-declared` reads occasion
+text for the shapes a spoken trigger takes and fails any practice that looks
+like one and has not declared the field either way — so the judgment is made
+**once, by a person, in the practice file**, rather than re-guessed by a
+regular expression at every build. Setting **`index_required: false`** records
+the opposite finding: this reads as spoken, and the glob or gate really does
+route it.
 
 ## Rule
 ...

@@ -50,6 +50,42 @@ if git rev-parse --git-dir >/dev/null 2>&1; then
   fi
 fi
 
+# Make this checkout's HISTORY complete, not just its files.
+#
+# practice: durable-fix. The container clones this repo `--depth 1`, so every
+# file of the branch is present and current and almost none of the past is.
+# The files are what a person notices; the past is what the TOOLS read, and
+# three of them degrade on a truncated one without ever failing:
+# behavioral_replay.py has nothing to replay, doc_lint.py silently narrows
+# from "the files changed against the base branch" to "the files not
+# committed yet", and precedent_check.py's `scope: tree` checks read an empty
+# `git log` as `0 violated` rather than as "could not check"
+# (record/GOTCHAS.md#g6, #g8). Git itself is not immune: a branch that is
+# merely BEHIND reads as diverged when the two truncated stretches do not
+# overlap, which cost a whole session on 2026-09-14 (#g37) before the
+# freshness guard learned to deepen before believing its own counts.
+#
+# Measured 2026-09-14 against this remote through this container's proxy, in
+# exactly the order below (refspec widened first, so the deepen reaches every
+# branch rather than one): 2.7 MB of history before, 9.5 MB after, 4 seconds.
+# That is the whole cost, once per session, which is why this is
+# unconditional rather than clever about which sessions need it.
+#
+# Bounded and never fatal. `timeout` caps a slow or hanging network so a
+# session cannot be held at the door, and `--deepen` is the fallback because
+# some git policy hooks refuse `--unshallow` outright. A failure reports and
+# continues: a session with a short history is worse off than one without,
+# and far better off than a session that does not start.
+if git rev-parse --git-dir >/dev/null 2>&1 \
+   && [ "$(git rev-parse --is-shallow-repository 2>/dev/null)" = "true" ]; then
+  if timeout 90 git fetch --quiet --unshallow 2>/dev/null \
+     || timeout 90 git fetch --quiet --deepen=1000 2>/dev/null; then
+    echo "NOTE: this clone carried only the most recent commits; fetched the rest of the history so history-reading tools do not silently degrade. (See AGENTS.md gotchas g6, g8, g37.)" >&2
+  else
+    echo "WARN: could not deepen this shallow clone -- behavioral_replay.py, doc_lint.py's changed-files scope and precedent_check.py's tree checks may report success while checking little or nothing. Remedy: git fetch --unshallow" >&2
+  fi
+fi
+
 # FRESHNESS LIVES IN .claude/hooks/freshness-guard.sh, NOT HERE.
 # This file briefly carried its own fetch-and-fast-forward block (added
 # 2026-09-06). A parallel session had meanwhile built freshness-guard.sh,
@@ -189,7 +225,16 @@ fi
 
 if [ -n "$_ident_script" ]; then
   _here="$(pwd -P)"
-  for _repo in "$_here" "$_here"/../*/; do
+  # `$_indiv` IS IN THIS LIST, and leaving it out was a real bug (2026-09-14,
+  # record/GOTCHAS.md#g40). An individual set does not have to be a sibling of
+  # the primary repo -- `~/.config/precedent/config.json` puts it wherever it
+  # was cloned, which on this container is `$HOME/precedent-individual` while
+  # the primary repo and every team clone sit under a different parent. The
+  # glob below then covers all of those and misses the individual set, so the
+  # one repo this block reads the identity FROM was the one repo it never
+  # applied it TO. The script is idempotent, so naming a path twice (when the
+  # set IS a sibling) costs nothing.
+  for _repo in "$_here" "$_indiv" "$_here"/../*/; do
     [ -d "$_repo/.git" ] || continue
     _abs="$(cd "$_repo" 2>/dev/null && pwd -P)" || continue
     # Only repos this system actually owns the identity rule for. Never a
@@ -208,6 +253,33 @@ if [ -n "$_ident_script" ]; then
         echo "WARN: commit-identity could not be applied to $_abs -- commits there may carry the container's identity" >&2
     fi
   done
+fi
+
+# WHICH REPOS IN FORCE THIS SESSION CAN ACTUALLY LAND WORK IN.
+#
+# practice: spawn-session, which has said "settle who merges before the work
+# starts" since 2026-09-12 -- and the sentence alone did not carry. On
+# 2026-09-10 a session rooted in a private practice set migrated twelve
+# repositories and built a seven-commit patch for THIS repo that it could not
+# push, because a session holding one owner's repositories is refused
+# another's. It sat blocked four days on "root session at alex137/BestPractice
+# to land the team-set declaration in precedent.json", having spent about a
+# hundred dollars to reach a branch nobody could land. The rule was right; the
+# MOMENT was missing, and the session least likely to stop and read a practice
+# file is the one already deep enough in the work for this to cost the most.
+#
+# So the question is asked here, where nobody has to remember it and the
+# answer lands before the first turn. The probe is
+# tools/very_deep_check.py's `can_land_here` -- imported, never copied, since
+# two copies is how one silently stops matching the other (the freshness block
+# above was deleted for exactly that reason).
+#
+# Reports and never gates, like everything else here, and bounded: the tool
+# caps its own probing so an unreachable remote cannot hold a session at the
+# door. A repo it could not reach is printed as unanswered, never as refused.
+if [ -f tools/precedent_access_check.py ]; then
+  python3 tools/precedent_access_check.py . || \
+    echo "WARN: access check did not run -- whether this session can land work in each repo in force is unknown" >&2
 fi
 
 # Say whether Alex has moved `main` since the last time somebody carried it

@@ -1,44 +1,42 @@
-# CODEOWNERS -- the path boundary for this project.
+# DERIVED from precedent.json (sha256 980af14ea9a5) -- a hash of that
+# file's own content, NOT a commit: an unchanged registry
+# regenerates byte-identically, so --check has a stable answer.
+# Recipe: tools/build_codeowners.py
+# Regenerate with: python3 tools/build_codeowners.py
+# edits here are safe to make but not durable -- regeneration replaces this file;
+# to make a change stick, edit the source or the recipe.
 #
-# spec/CONTRIBUTOR_ACCESS.md layer 2. Replace {{MAINTAINER_GITHUB}} with the
-# maintainer's GitHub username (keep the @), and turn on branch protection
-# for the base branch: require a pull request, require review FROM CODE
-# OWNERS, and do not allow bypassing for non-administrators. Without that
-# protection this file is documentation, not a boundary.
-#
-# HOW TO READ IT. Everything not listed here is content, and content is any
-# contributor's to write and merge. What is listed is what a contributor
-# should not change alone: the machinery the project runs on. A pull request
-# touching one of these waits for the maintainer's review.
-#
-# NOT hand-generated from approvers.json. That generator
-# (tools/build_codeowners.py) writes the CODEOWNERS of a PRACTICE SET, where
-# the owned thing is the practice text and the owners are its approvers. This
-# is a document project: different question, different file, written by hand.
+# The path boundary for this project (spec/CONTRIBUTOR_ACCESS.md, layer 2).
+# Everything listed here waits for a maintainer's review; everything NOT
+# listed is content, and content is any contributor's to write and merge.
+# The paths are `owned_paths` in precedent.json and the owners are its
+# `maintainers`. This file is a boundary only with branch protection on
+# the base branch -- python3 tools/precedent_boundary_check.py says
+# whether that is on.
 
-# /.github/ IS THE ONE THAT CANNOT BE LEFT OUT. A workflow file is executable
-# code holding a token, so anyone who can edit one can rewrite every other
-# protection here -- including this file, which lives under it.
-/.github/          @{{MAINTAINER_GITHUB}}
+# Workflow files are executable code holding a token; anyone who can edit one can rewrite every other protection here -- including CODEOWNERS, which lives under it. The one path that cannot be left out.
+/.github/        @{{MAINTAINER_GITHUB}}
 
 # Session configuration and hooks: the harness executes these.
-/.claude/          @{{MAINTAINER_GITHUB}}
+/.claude/        @{{MAINTAINER_GITHUB}}
 
-# The vendored Precedent engine and catalogue.
-/tools/            @{{MAINTAINER_GITHUB}}
-/precedent/        @{{MAINTAINER_GITHUB}}
+# The vendored Precedent engine.
+/tools/          @{{MAINTAINER_GITHUB}}
+
+# The vendored universal practice catalogue.
+/precedent/      @{{MAINTAINER_GITHUB}}
 
 # Practice text, wherever this install materializes it.
-/practices/        @{{MAINTAINER_GITHUB}}
-/local/            @{{MAINTAINER_GITHUB}}
+/practices/      @{{MAINTAINER_GITHUB}}
 
-# Declares the sources in force, the visibility and the base branch.
-/precedent.json    @{{MAINTAINER_GITHUB}}
+# Repo-local practice text.
+/local/          @{{MAINTAINER_GITHUB}}
+
+# Declares the sources in force, the visibility, the base branch -- and this boundary.
+/precedent.json  @{{MAINTAINER_GITHUB}}
 
 # The instructions every session loads.
-/AGENTS.md         @{{MAINTAINER_GITHUB}}
-/CLAUDE.md         @{{MAINTAINER_GITHUB}}
+/AGENTS.md       @{{MAINTAINER_GITHUB}}
 
-# Generated views -- a hand edit here is an edit to a generated file.
-/MAP.md            @{{MAINTAINER_GITHUB}}
-/GLOSSARY.md       @{{MAINTAINER_GITHUB}}
+# The instructions every session loads.
+/CLAUDE.md       @{{MAINTAINER_GITHUB}}

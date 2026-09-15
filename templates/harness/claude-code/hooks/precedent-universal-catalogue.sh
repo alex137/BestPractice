@@ -48,4 +48,24 @@ if [ -f "$P/tools/precedent_source_bootstrap.py" ]; then
 fi
 python3 "$P/tools/precedent_session_practices.py" --repo "$P" || true
 
+# THIRD STEP, added 2026-09-14: which repos in force can this session actually
+# push to? (practice: spawn-session.)
+#
+# A practice SET is the sharpest case for this and the reason it is wired here
+# rather than only in a consuming repo. A set normally belongs to a different
+# owner than the project a session is working on, and that is exactly the wall:
+# on 2026-09-10 a session rooted in a set built a seven-commit patch for the
+# upstream repo it could not push to, and sat blocked for four days -- about a
+# hundred dollars -- on a branch nobody could land. spawn-session already said
+# to settle who merges before starting. The sentence was there; the MOMENT was
+# not, and the session least likely to stop and read a practice file is the one
+# already deep enough in the work for this to cost the most.
+#
+# Guarded like the steps above, and the guard is load-bearing here too: the
+# tool is vendored by ENGINE_FILES, so a set whose engine predates it simply
+# does not have it and must still start.
+if [ -f "$P/tools/precedent_access_check.py" ]; then
+  python3 "$P/tools/precedent_access_check.py" "$P" || true
+fi
+
 exit 0

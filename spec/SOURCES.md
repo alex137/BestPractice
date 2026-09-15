@@ -186,14 +186,65 @@ The first replacement of content the tree never recorded as materialized — a
 hand-copy being adopted, or a local edit being reverted — prints a notice
 naming the file, while an ordinary update from a source that moved stays quiet.
 
-**Not yet done, deliberately: this repository declares no adapters of its own.**
-The six hook templates under
+**A consumer can DECLINE an adapter, since 2026-09-14, and the reason is what
+satisfies the check.** The sync writes an adapter in and deliberately will not
+touch the consumer's `settings.json`, so a repo that does not want one cannot
+end up wired — and `hooks-on-disk-are-reachable` then reported that correct
+decision as an orphaned hook, permanently, with no way to clear it but to wire
+a hook the repo had decided against. So the consumer declares it:
+
+```json
+"declined_adapters": [
+  {"path": ".claude/hooks/freshness-guard.sh",
+   "reason": "tools/bootstrap.sh already fetches and fast-forwards"}
+]
+```
+
+Same shape and same requirement as `filename_separator_exempt`: **a decline
+with no reason is reported**, because the reason is the whole thing separating
+a decision from a silenced check — the next reader has to be able to disagree
+with it. Two more states are reported rather than quietly accepted, since both
+mean the declaration has come loose from the tree: a decline naming a file that
+is not there, and a decline sitting beside a hook that something actually
+calls. It reports; it never wires anything, and it never unwires anything.
+
+**Done 2026-09-14: this repository declares five adapters of its own.** Until
+then the hook templates under
 [templates/harness/claude-code/hooks/](../templates/harness/claude-code/hooks/)
-are still installed by hand, because switching them on would start writing into
-every consuming repo's `.claude/hooks/` — a real behavioural change to every
-install, with wiring implications each repo has to accept deliberately. The
-mechanism is the change here; declaring is a separate decision. Tracked in
-[TODO.md](../TODO.md) as `universal-adapters-undeclared`.
+were installed by hand and drifted silently, which is the failure this whole
+mechanism exists for. Declaring them was held back deliberately because it
+starts writing into every consuming repo's `.claude/hooks/`, and a repo that
+did not want one had no way to say so — the decline above is what unblocked it,
+and the two landed in that order on purpose.
+
+**Five, not eight, and the two that are missing are the interesting part.**
+That directory holds eight files.
+
+`individual-source-bootstrap.sh.template` is not an adapter at all: it carries
+variables that
+[`precedent_bootstrap_source.py`](../tools/precedent_bootstrap_source.py)
+substitutes at install time, so copying it verbatim installs a hook with
+placeholders where its values belong. A template is not a derived artifact
+until something derives it.
+
+`commit-identity.sh` and `freshness-guard.sh` are real adapters and are still
+undeclared here, because **the individual source already declares the same two
+destinations, and a destination collision is a refusal** — the rule two
+paragraphs down, applied to this repository's own declaration. Declaring them
+here would not compete for the file; it would stop the sync of every repo
+holding both sources. Measured 2026-09-14 against the real four-source
+pipeline, by declaring all seven and watching the consumer case fail.
+
+The individual set is also their right owner: both write a *person's* identity
+or their clone's freshness, and the individual set is where a person's own
+values live. Universal keeps the five that are about the engine rather than
+about whoever is running it.
+
+**One of the seven will be declined by most repos, and that is the expected
+outcome rather than a mistake.** `precedent-universal-catalogue.sh` puts the
+universal catalogue in front of a session rooted in a practice SET; an ordinary
+consuming repo has no such job and should decline it with that as the reason,
+rather than wire a hook with nothing to do.
 
 ## What phase 3 did not do, and why it could not be done from here
 

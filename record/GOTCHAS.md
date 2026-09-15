@@ -37,12 +37,46 @@ describe mechanisms that have since been fixed, and say so.
 
 ## 1. <a id="g1"></a>pip install cmarkgfm, or tools/doc_lint.py's strikethrough check silently stops ...
 
-**`pip install cmarkgfm`, or [tools/doc_lint.py](../tools/doc_lint.py)'s
-strikethrough check silently stops running.** Without it the check does not
-fail — it prints a one-line notice and scans for everything else, so a
-document that renders an unintended `<del>` on GitHub passes the gate.
-[.claude/hooks/session-start.sh](../.claude/hooks/session-start.sh) installs it,
-but only when `CLAUDE_CODE_REMOTE=true`; a local shell has to do it.
+**`pip install cmarkgfm markdown`, or two gates degrade and a third fails
+for reasons that have nothing to do with the tree.** Neither is in the
+standard library, and the two behave differently, which is what makes this
+worth reading twice.
+
+**cmarkgfm — silent.** Without it
+[tools/doc_lint.py](../tools/doc_lint.py)'s strikethrough check does not
+fail: it prints a one-line notice and scans for everything else, so a
+document that renders an unintended `<del>` on GitHub passes the gate. The
+`doc-references-are-links` check in
+[tools/precedent_check.py](../tools/precedent_check.py) skips for the same
+reason and says so in one line among fifty.
+
+**markdown — one tool, one exit code.** [tools/doc_html.py](../tools/doc_html.py)
+imports it at module level, so `--help` exits 1 and the deck engine cannot
+render `.md` slides.
+
+**Where it actually bites is [tools/verify_harness.py](../tools/verify_harness.py),
+which does NOT degrade.** It fails the checks that need them, and each failure
+describes what it was *testing* — strikethrough cases, a planted
+`doc-references-are-links` violation, a `--help` sweep across 56 tools — never
+what is missing. On 2026-09-14 that read as `3 failed` on a branch whose entire
+diff was two markdown files, and took two full harness re-runs to attribute:
+install `cmarkgfm`, down to 1 failed; install `markdown`, `202 passed, 0
+failed`. The harness now names the missing packages in a preflight line and
+again in the closing recap, so the shortest reading of its output says
+"environment", not "your diff".
+
+**Both are installed by
+[.claude/hooks/session-start.sh](../.claude/hooks/session-start.sh)** (only
+when `CLAUDE_CODE_REMOTE=true` — a local shell has to do it), and by both CI
+workflows. **So a container missing them is telling you the hook never ran**,
+which is a much larger fact than two absent packages: the same session had
+neither the generated session-practices file the private sources write, nor
+the commit backstop. That session
+was rooted one directory ABOVE this repository — see [g17](#g17) — so none of
+its hooks fired, silently. [`python3 tools/precedent_session_check.py`](../tools/precedent_session_check.py) reports
+all of those guarantees at once, and its packages row now names `pip install`
+as the remedy rather than `--apply`, because `--apply` re-runs the hook that
+could not run.
 
 
 ## 2. <a id="g2"></a>A git helper that returns stdout and drops the exit code will hand you a confident ...
@@ -152,6 +186,17 @@ changed-vs-default-branch scope quietly becomes changed-vs-`HEAD`: it checks
 your uncommitted files and nothing else. Fix both with a bounded `git fetch
 --depth=500 origin <branch>`; some git policy hooks block `--unshallow`, and a
 bounded fetch works either way.
+
+**Since 2026-09-14 the primary repo does this for you**, in
+[.claude/hooks/session-start.sh](../.claude/hooks/session-start.sh): a shallow
+clone is deepened at session start, before anything reads history, bounded by
+`timeout` and falling back to `--deepen` where `--unshallow` is refused.
+Measured against this remote: 2.7 MB of history before, 9.5 MB after, 4
+seconds. **What it does NOT cover is every case this entry is about** — a
+sibling attached mid-session runs none of its own hooks
+([g15](#g15)), a CI checkout is its own shallow clone, and a source set has no
+such hook at all. In any of those, the manual fetch above is still the fix, and
+a tool reporting a suspiciously clean result is still the symptom.
 
 
 ## 7. <a id="g7"></a>git clone --depth 1 /some/path is ignored; git only honours --depth over a ...
@@ -749,7 +794,23 @@ that cross-owner attachments may still be refused. **The useful half is what
 it hands you anyway**: a session rooted anywhere, under any owner, can
 `GIT_LFS_SKIP_SMUDGE=1 git clone --depth 1` this public repository with
 nothing attached — which is how a session working in a private source set
-reads the upstream tree. Allow ≈10 minutes and do not interrupt the clone.
+reads the upstream tree.
+
+**This entry said "allow ≈10 minutes" until 2026-09-14, and that figure does
+not reproduce.** Measured on a hosted container that day, both clones landing
+on `precedent-beta-v01` with all 116 practice files present: `--depth 1` took
+**1 second** for 14 MB and 1 commit, and a FULL clone — which is what
+[tools/precedent_source_bootstrap.py](../tools/precedent_source_bootstrap.py)
+actually runs for a universal source, with no `--depth` — took **3 seconds**
+for 20 MB and all 1,394 commits. This repository is almost entirely prose, so
+there is very little to transfer. Nobody knows what the ten minutes on
+2026-09-09 was; a cold proxy and a Git Large File Storage (LFS) fetch are both candidates and
+neither was measured. **What matters is not to cost a design decision against
+it** — the ≈10 minutes was quoted in a 2026-09-14 session as the reason not to
+put the universal catalogue in front of every session, and the real number is
+three seconds (practice: diagnosis-is-measured — a relayed figure is a
+hypothesis until this container measures it).
+
 What that checkout cannot do: push, reach the GitHub tools (its web
 application programming interface, and the Model Context Protocol server that
 fronts it), or fetch Git Large File Storage objects.
@@ -957,3 +1018,257 @@ phone. So the notification moves from the Routine into the prompt.
 capabilities of the session that scheduled it.** Test the fired session's
 tools, in its opening turn, before building anything on top of it — and read
 what the test run actually *said*, never its exit code.
+
+## 39. <a id="g39"></a>A session can push branches but cannot DELETE a remote branch — the refusal is a 403 that reads like a network failure
+
+**Measured 2026-09-14**, after a session had spent a whole conversation
+offering to delete merged branches and never once trying.
+
+`git push origin --delete <branch>` fails:
+
+```
+error: RPC failed; HTTP 403 curl 22 The requested URL returned error: 403
+send-pack: unexpected disconnect while reading sideband packet
+fatal: the remote end hung up unexpectedly
+```
+
+**The second and third lines are what make this waste an hour.** They are the
+symptoms of a dropped connection, so the obvious reading is "the network
+blipped, retry" — and a retry produces the same three lines, which reads as a
+flaky remote rather than a settled answer. Only the first line, which scrolls
+past first, says what actually happened.
+
+**It is a capability limit, not a transient.** Proved by running both halves
+back to back: the delete failed twice, and an ordinary `git push -u origin
+<new-branch>` in the same working tree, seconds later, succeeded and printed
+the pull-request URL. So the credential carries write access to *create* refs
+and not to *remove* them, and nothing in the tooling says so up front.
+
+**What this costs is credibility rather than work.** A session that offers
+"say the word and I'll delete those branches" is promising something it cannot
+do, and the person finds out only when they take it up. Offer to *list* merged
+branches; leave the deletion to the person, who has a one-click Delete branch
+button on every merged pull request page.
+
+**Do not probe this with a throwaway branch.** The obvious test — push a
+scratch branch to prove pushes still work — leaves behind a branch that,
+by the very limit being tested, cannot then be removed. The session that
+wrote this entry did exactly that and added `claude/push-capability-probe`
+to the remote permanently.
+
+## 40. <a id="g40"></a>The session-start identity block reaches every Precedent repo EXCEPT the individual set it reads the identity from
+
+**Measured 2026-09-14**, during a four-set `Update Vendors` rollout — the
+first work in months that commits to all four practice sets in one session,
+which is the only reason anybody saw it.
+
+Three team sets and BestPractice committed normally. The fourth, the
+individual set, refused:
+
+```
+commit refused: it would be authored by the container's own agent account
+(noreply@anthropic.com), not by a person.
+  This is the GLOBAL backstop -- it fires in every repository, including one
+  attached mid-session.
+```
+
+**The backstop was working.** It caught exactly what it exists to catch. What
+was broken is the thing that should have made the backstop unnecessary.
+
+`.claude/hooks/session-start.sh` applies the individual set's own
+`bootstrap/commit-identity.sh` to each Precedent repo in the session. It found
+them with:
+
+```sh
+for _repo in "$_here" "$_here"/../*/; do
+```
+
+— the primary repo, and its **siblings**. An individual set is not
+necessarily either. `~/.config/precedent/config.json` records wherever it was
+cloned, and on this container that is `$HOME/precedent-individual`, while the
+primary repo and all three team clones sit under a different parent entirely.
+So the glob covered four repositories and missed the fifth.
+
+**The sharp part is that the block already had the path.** It resolves
+`$_indiv` a dozen lines earlier — that is how it locates the script it runs —
+and then never passes it to the loop. The one repository it reads the identity
+*from* was the one repository it never applied that identity *to*.
+
+**Why it stayed hidden for so long.** A normal session reads the individual
+set and commits to the consuming repo; it has no reason to commit to the set
+itself. Only a rollout that writes to every source at once puts a commit in
+front of the gap.
+
+**What it costs is the mechanism, not the commit.** Setting `user.email` by
+hand fixes the one commit in front of you, and that hand-fix is precisely the
+"instruction competing with a default, on every commit, forever" that
+`commit-identity.sh`'s own header says never to rely on. Left alone it would
+have come back on every future session, in the one repository where a
+wrong-author commit is least likely to be noticed.
+
+**Fixed the same day** by naming `$_indiv` in the loop. Proved by A/B rather
+than by reasoning: with the old loop, unsetting the set's local `user.name`
+and `user.email` and re-running the hook left both unset; with `$_indiv` in
+the list, the same sequence restored the person's declared name and address
+from their individual set's `identity.json`. The
+script is idempotent, so a set that IS a sibling being named twice costs
+nothing.
+
+**Do not verify this by unsetting the set's LOCAL user.email and looking at
+what git resolves.** That reads through to the global config, and the global
+config is not a fixed background here: re-running `commit-identity.sh` by hand
+during the investigation rewrote the container's global identity from the bot
+account to the person, so the same unset-and-check that reproduced the bug
+earlier in the session quietly stopped reproducing it later — and the new
+guard row sat green against a state that could no longer go red. A control
+that cannot fail is not a control (practice: `control-asserts-which-failure`,
+`fixture-owns-its-state`). Set a bot `user.email` LOCALLY in the source clone
+instead: that is the failure state, it owns its own state, and the row goes
+red on it.
+
+[tools/precedent_session_check.py](../tools/precedent_session_check.py) now carries that row — *every practice
+source on this disk commits as a person too* — so the next occurrence is
+reported rather than discovered by a refused commit.
+
+**Swept for the same assumption, 2026-09-14**, because one mechanism getting
+a repo list wrong is a bug and four mechanisms deriving the list four ways is
+the actual problem. Four walk repositories on disk, and they did not agree:
+
+- `tools/precedent_refresh_sources.py` already asks the resolver for the
+  declared paths and adds siblings to them — its own docstring records
+  learning this the hard way. Correct, untouched.
+- `tools/precedent_session_check.py` scans `$HOME` **and** the parent, so it
+  reached both. Correct, untouched.
+- `tools/leak_gate.py`'s `local_clone_refs()` surveyed siblings only, and on
+  this container that found four of the five clones on disk — **missing the
+  private one**. Measured, not reasoned: it returned `alex137/BestPractice`
+  and the three team sets, and no individual set. So the repository whose
+  name most needs auto-blocklisting was the one the survey never saw. Fixed
+  by unioning the resolver's declared paths in.
+- `tools/verify_harness.py`'s commit-identity copy check globbed
+  `precedent-team-*` beside this repo. It happens to find all three here;
+  it is now the union with what `precedent.json` declares, so it will keep
+  finding them when one moves.
+
+**The rule the sweep suggests**, for anything that needs to know what
+repositories are on this disk: ask the resolver what is DECLARED, then add
+siblings — never siblings alone. The individual set is the one that breaks
+it, every time, because it is the only one whose location is a person's own
+config rather than the session's layout.
+
+## 41. <a id="g41"></a>`/rate_limit` lies from inside a session — it reports a pristine window while the response headers report the truth
+
+**The symptom.** You want to know how much of the GitHub API allowance this
+account has already spent, so you ask the endpoint built for exactly that.
+It answers `core: 0 used of 15000`, with a reset always about an hour away,
+and it answers that every time you ask — the reset moves forward on each
+call. Nothing looks broken.
+
+**What is actually true.** Measured 2026-09-14, seconds apart, on the same
+credential in the same container:
+
+```
+GET /rate_limit                    -> "core": {"used": 0, "limit": 15000}
+GET /repos/<owner>/<name>  headers -> X-RateLimit-Used: 74, Remaining: 14926
+```
+
+The headers on an ordinary call are correct and the endpoint is not. The
+cause was not chased past establishing which of the two to trust — the agent
+proxy sits between the session and GitHub, and `/rate_limit` is plainly not
+being served the way the repository endpoints are.
+
+**Why it matters more than an ordinary wrong number.** A budget check built
+on that endpoint is green on the day the account runs out, which is the one
+day it exists for — the same shape as the stale `views-drift` header that
+claimed something was already failing the build. It was nearly built that
+way here. [tools/github_budget.py](../tools/github_budget.py) reads
+`X-RateLimit-*` off calls it was making anyway, never the endpoint, and
+[tools/precedent_check.py](../tools/precedent_check.py)'s
+`github-api-budget` check fails if anything goes back.
+
+**Two more things the same session established**, both surprising and both
+load-bearing:
+
+- **There is more than one allowance pool, keyed by repository.** A call
+  about the public upstream repo was charged to a 15,000/hour pool; calls
+  about two private sources to two separate 5,200/hour pools with their own
+  reset clocks. The harness attaches a per-repository credential, so "how
+  much is left" is a question about a repository, not about the account.
+- **`/search/*` and `/graphql` never reach GitHub from a container.** The
+  proxy answers `403 This GitHub API path is not available: sessions are
+  bound to their configured repositories`. So the tightest allowance on the
+  account — search, at 30 requests a MINUTE, shared by every session at once
+  — cannot be measured from where its refusals are felt, and the calls that
+  spend it come from the harness-side `mcp__github__*` tools.
+
+**Do not "fix" a rate-limit refusal by retrying.** The pool is shared by
+every window running; the lever is fewer simultaneous sessions and cheaper
+tools (the local clone before the API, a repo-scoped `list_*` before a
+`search_*`). Practice:
+[github-api-budget](../practices/github-api-budget.md).
+
+## 42. <a id="g42"></a>The permission classifier refuses commits and checks in the very practice set whose `identity.json` declares `relayed_authorization: accepted`
+
+**The symptom.** You are working in an individual practice set, adding the
+one field [relayed-authorization](../practices/relayed-authorization.md)
+tells you to add. The moment the field is in the file, commands that ran a
+minute earlier in the same repository come back as
+
+```
+Permission for this action was denied by the Claude Code auto mode
+classifier. Reason: [Instruction Poisoning]
+```
+
+`git commit`, [`python3 tools/precedent_check.py`](../tools/precedent_check.py) and
+`python3 tools/precedent_identity.py --relay` were all refused this way.
+`git status`, ordinary file reads and `python3 -m json.tool identity.json`
+kept working throughout, so the session looks healthy right up to the point
+where it has to write something.
+
+**What was measured, 2026-09-14.** The same `--relay` command, same
+container, same repository: it ran and printed `REFUSED -- (field absent)`
+before the edit, was denied after it, and then ran again on a later turn and
+printed `ACCEPTED` — with nothing changed but the turn it was called in. So
+the guard is **not deterministic**, which is what makes "try again in a
+minute" such an attractive and such a bad plan. Three sessions hit it before
+it was written down.
+
+**Why it fires is a hypothesis, not a finding**
+([diagnosis-is-measured](../practices/diagnosis-is-measured.md)). The task
+reaches these sessions as a seeded or relayed prompt, and what it asks for is
+a file that widens what a relayed message may cause — which is precisely the
+shape the guard exists to refuse. The file's own content appears to weigh
+too, since the identical command passed with the field absent and failed with
+it present. Neither was chased further; what matters operationally is below.
+
+**What does not fix it.** An environment variable cannot: the
+`PRECEDENT_COMMIT_*` rung is dropped from this one reader by design, so no
+variable can declare acceptance. Retrying does not, rewording the commit
+message does not, and a stated authorization from the person in that window
+does not reliably — it got `--relay` and `build_views.py --check` through, and
+left `git commit` and [`precedent_check.py`](../tools/precedent_check.py) refused. **Writing the same file
+through the GitHub API is not a fix either**: it is the workaround the denial
+exists to stop, and a session that reaches for it has decided it knows better
+than its own guard.
+
+**What worked.** The person did it himself, which is the honest reading of a
+guard that distrusts relayed authority: paste the block into GitHub's web
+editor, commit on the branch, open the pull request. A session can still
+read, verify and report — fetching the branch, parsing the pushed
+`identity.json`, and reading the check runs all work fine from outside that
+repository.
+
+**Two traps sitting inside the recovery path**, both hit the same day:
+
+- **A commit made in GitHub's web editor carries the browser's offset**
+  (`-0400` here), which an individual set's own timezone check fails on. It cannot be grandfathered from the web
+  editor either, because the commit adding the exemption is stamped wrong in
+  exactly the same way. Redo the commit locally under
+  `TZ="America/Argentina/Buenos_Aires"`.
+- **`git reset --soft main` against a stale local `main` silently reverts
+  whatever landed in between.** Re-committing an old tree on a new parent
+  produced a one-line change that also rolled back a merged pull request, and
+  nothing complained: CI was green, because undoing someone's merge breaks no
+  rule. It was caught only by counting the files in the pull request diff —
+  one expected, six present. **Count the files before merging**, every time a
+  branch has been rebuilt by hand.

@@ -21,7 +21,7 @@ to everyone else who can read that project.
 | File | What it's for |
 |---|---|
 | [`config.json.sample`](config.json.sample) | Copy this to `~/.config/precedent/config.json` (or wherever `$PRECEDENT_USER_CONFIG` points) so your tools know where to find this repo. |
-| [`practices/example-starter.md`](practices/example-starter.md) | One real, minimal practice file, so you have something working to copy and edit. Delete it once you've written your own. |
+| [`practices/example-starter-individual.md`](practices/example-starter-individual.md) | One real, minimal practice file, so you have something working to copy and edit. Delete it once you've written your own. |
 | [`leak-blocklist.txt`](leak-blocklist.txt) | The private-term blocklist for Precedent's leak gate — client names, code words, anything that must never reach a public repo. Fill it in; see the file's own header for the format and the two environment/git settings that switch it on. |
 | `tools/` | The vendored engine (`build_views.py`, `precedent_gate.py`, `precedent_paths.py`, `precedent_show.py`, `split_practices.py`, `routing_scope.json`, `precedent_vendor_engine.py`) — never hand-edit these; refresh them with `python3 tools/precedent_vendor_engine.py refresh <bestpractice-clone>` (see `tools/ENGINE_MANIFEST.json` and [`spec/BOOTSTRAP_NEW_SOURCES.md`](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/BOOTSTRAP_NEW_SOURCES.md#the-vendored-engine)'s "The vendored engine"). The engine files are named rather than linked because they arrive when the set is bootstrapped; nothing under `tools/` exists in this skeleton yet. |
 | `.github/workflows/` | The two CI gates this set gets at bootstrap. `precedent-check.yml` runs the whole check suite over your catalogue on every pull request. `views-drift.yml` fails a pull request whose `AGENTS.md` loader block, `MAP.md` or `GLOSSARY.md` has drifted from a fresh `python3 tools/build_views.py`. Refresh either from [`templates/github-actions/`](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/templates/github-actions) upstream. |
@@ -61,7 +61,7 @@ Each practice is one file under `practices/`, in Precedent's phase-1
 format — frontmatter plus `## Rule` / `## Detail` / `## Why` / `## Story` /
 `## Install`. The full spec is
 [Precedent's `spec/PRACTICE_FORMAT.md`](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/PRACTICE_FORMAT.md);
-`practices/example-starter.md` in this repo shows the shape directly, which
+`practices/example-starter-individual.md` in this repo shows the shape directly, which
 is usually enough to start from without reading the spec first.
 
 You write a personal practice once here, and it follows you into every

@@ -53,9 +53,9 @@ Before the list: **how much of this catalogue enforces itself.**
 <!--gen:merge-back-->
 | | |
 |---|---|
-| Practices in force | 113 |
-| **Enforced by a check** | **46 of 113 practices carry a `checked_by`** |
-| Advisory only | 67 of 113 practices |
+| Practices in force | 120 |
+| **Enforced by a check** | **47 of 120 practices carry a `checked_by`** |
+| Advisory only | 73 of 120 practices |
 <!--/gen:merge-back-->
 
 **Advisory means a session is told the rule and may still not follow it**, and
@@ -850,6 +850,26 @@ substance: [practices/todo-is-a-handoff.md](../practices/todo-is-a-handoff.md).
 Noted here because it's the kind of drift this file exists to catch — `main`
 had moved 3 commits past the fork point (this practice plus two unrelated
 tooling fixes) before a session checked.
+
+### Two clauses, delivered straight to this branch — 2026-09-14
+
+Dependent repo #1 held two vendored additions that postdate PR #139 and
+never reached `main` (its sessions froze `main` check-ins for the phase-7
+merge): a sharpening of the capture gate — **capture at the moment of
+discovery, not at the merge checkpoint**, because a context summary strips
+a queued fold of its rationale — and a formatter clause — **a magnitude
+suffix is not a unit** ("$2.4M" fails the formatter↔renderer seam check;
+the magnitude belongs in the column header). Both were folded directly
+into [capture-gate](../practices/capture-gate.md) and
+[one-formatter-per-quantity](../practices/one-formatter-per-quantity.md)
+per the temporary all-PRs-target-this-branch rule, so the phase-7 tree
+carries them without a separate carry. The same check-in ported the
+dependent repo's doc_html engine features (reader-local render stamp via a
+UTC `<time>` element, wide-table breakout, included-file anchor
+resolution), three-way merged into this branch's
+[tools/doc_html.py](../tools/doc_html.py) — the render stamp keeps a
+timezone-aware UTC instant, per
+[timestamps-carry-offset](../practices/timestamps-carry-offset.md).
 
 ### Practices 54 and 55, and two clauses on inherited practices — 2026-09-08
 

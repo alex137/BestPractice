@@ -1,4 +1,4 @@
-<!-- Last updated: 2026-09-03 (Buenos Aires) by a follow-up session, rewriting "What happens as you work" as "How an idea becomes a practice" -->
+<!-- Last updated: 2026-09-14 (Buenos Aires), correcting the precedence paragraph under "Sharing Practices With a Team" to the order the engine actually applies -->
 
 # Precedent
 
@@ -45,7 +45,10 @@ down makes anyone follow it. It measurably does not.
 
 ## Adding It to a Project You Already Have
 
-This is the common case and it should be the shortest.
+This is the common case and it should be the shortest. **You do not do
+these steps yourself**: paste [SETUP.md](../SETUP.md) to your assistant and
+it does them as a conversation, with one command doing the file work. The
+three-step shape below is the idea, not a checklist to follow by hand.
 
 1. Copy Precedent's practice library into your project, as ordinary files
    kept alongside everything else there. It becomes part of the project,
@@ -136,14 +139,16 @@ permission, and offering it to the team is a separate step you can take
 whenever. An approval queue slows down *sharing* a practice, never *using*
 one.
 
-**When two practices disagree**, the more specific one wins: yours beats your
-team's, your team's beats the general library. There is one deliberate
-exception. A team can mark a practice as one that **cannot be overridden** —
-and then it cannot, including by you. Your preference for a casual tone is
-about how you work; your team's rule that anything going to a client is
-formal is about what you all ship, and the second one has to win. Whenever
-that happens, you are told which practice is in force and which one was set
-aside. Nothing is dropped quietly.
+**When two practices disagree, the order is fixed**: your team's rule wins
+over a rule that belongs to the one project, which wins over your own, which
+wins over the general library. The team sits above you on purpose. Your
+preference for a casual tone is about how you work; your team's rule that
+anything going to a client is formal is about what you all ship, and the
+second one has to win. Below the team, your own rules still beat the general
+library, so a personal habit is never overridden by a public default. A
+practice marked as one that **cannot be overridden** stays in force whatever
+sits above it. Whenever two disagree, you are told which practice is in
+force and which one was set aside. Nothing is dropped quietly.
 
 ## How an Idea Becomes a Practice
 
@@ -226,5 +231,5 @@ you have already decided. It has no opinion about whether you decided well.
 | The full design, and why each part is the way it is | [PRACTICE_ENGINE_PLAN.md](../spec/PRACTICE_ENGINE_PLAN.md) |
 | What a practice file looks like | [spec/PRACTICE_FORMAT.md](../spec/PRACTICE_FORMAT.md) |
 | How the right practices get picked out, and what was measured | [spec/LOADER.md](../spec/LOADER.md) |
-| How the three libraries combine, and which wins | [spec/SOURCES.md](../spec/SOURCES.md) |
+| How the four sources combine — team, this project's own, yours, the general library — and which wins | [spec/SOURCES.md](../spec/SOURCES.md) |
 | An example of a personal set | [examples/practice-set/](../examples/practice-set) |

@@ -38,7 +38,14 @@ approved_by: "Morgan, 2026-09-11 -- coined and placed at universal in the same m
   what changed is what silence means. Amended 2026-09-14, Morgan -- every session
   spawned or woken is listed again, with its link, in the reply's closing list:
   \"make sure that list always includes sessions you've spawned and the links to
-  them, so I can see there that they were spawned and I can keep my eye on them.\""
+  them, so I can see there that they were spawned and I can keep my eye on them.\"
+  Amended 2026-09-14, Morgan -- the who-merges half gets a mechanism, after a
+  Chief of Staff sweep surfaced the four-day-blocked session that the sentence
+  alone had not saved: \"I also want to make a change so that issue doesn't
+  happen again, fix the tempalte or whatever in precedent\" (strength: decided).
+  That the mechanism is a session-start probe, and that the existing
+  can_land_here moves down into a vendored file so it reaches adopters at all,
+  were the session's judgement -- he asked for the outcome, not the shape."
 strength:    decided
 source_practice_number: null
 ---
@@ -73,6 +80,29 @@ there either, so it can open nothing and land nothing in that repository —
 and a finished pull request with nobody able to merge it is a discovery made
 at the end, when the work is already spent. Name whoever will land it at the
 same moment you name the repositories.
+
+**Since 2026-09-14 the session tells you this before your first turn, and you
+do not have to remember to ask.**
+[tools/precedent_access_check.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/precedent_access_check.py)
+runs from the session-start hook and prints, per repo in force, whether this
+session can push to it: `LAND`, `HANDOFF`, or `UNKNOWN`. It is a real
+`git push --dry-run`, so a `HANDOFF` line is a quotable refusal and satisfies
+the "establish it, never infer it" test below on its own.
+
+**Read `UNKNOWN` as unanswered, never as refused.** It means the probe could
+not reach the server — a network blip, not a permission verdict — and treating
+it as a wall sends you to spawn a session you did not need.
+
+**What made this worth a mechanism rather than a firmer sentence**: on
+2026-09-10 a session rooted in a private practice set migrated twelve
+repositories and built a seven-commit patch for `alex137/BestPractice` that it
+could not push. It sat blocked for four days on *"root session at
+alex137/BestPractice to land the team-set declaration in precedent.json"*,
+having spent about a hundred dollars to reach a branch nobody could land. This
+rule was already in force and already correct. **The session most likely to
+skip a practice file is the one already deep enough in the work for this to
+cost the most**, so the question moved to the one moment nobody has to choose
+to visit.
 
 **Where a different session is needed, wake a live one before creating a new
 one.** A message into an existing session reuses the context it already

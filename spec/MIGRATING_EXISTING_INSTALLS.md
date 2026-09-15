@@ -42,20 +42,51 @@ per that repo's own conventions.
 
 ## When this applies
 
-A repo whose `process/manifest.json` records an `upstream.repo` pointing at
-BestPractice, **and** which has some second vendored tree for
-domain/team/personal rules that did not come from BestPractice itself (a
+**Any repo whose `process/manifest.json` records an `upstream.repo` pointing
+at BestPractice and that wants the three-source loader** — the resident
+block, the occasion index, `precedent_check.py`'s enforced channel — which
+[INSTALL.md §1](../INSTALL.md#1-install-into-a-dependent-repo) does not
+install. That is the common case, and until 2026-09-14 this section read as
+if it were the rare one.
+
+Steps 2, 5 and 6 apply only where there is **also** a second vendored tree
+for domain/team/personal rules that did not come from BestPractice itself (a
 "personal pack," a compliance pack, anything installed under
 [layered-practice-packs](../PRACTICES.md#23-layered-practice-packs-a-domain-layer-between-generic-and-repo-local)'s
-old pack mechanism) — where that second tree's *source* repo has since
-split, or is splitting, into Precedent-shaped team/individual sets. If the
-second tree's source repo has no plans to split, there's nothing to
-migrate: the pack mechanism, described in
-[layered-practice-packs](../PRACTICES.md#23-layered-practice-packs-a-domain-layer-between-generic-and-repo-local)'s
-own Install section, is still supported for a repo that hasn't migrated to
-the loader.
+old pack mechanism). A repo with no such tree skips those three and does the
+rest. A pack whose *source* repo has no plans to split into
+Precedent-shaped team/individual sets can stay a pack — the mechanism,
+described in that practice's own Install section, is still supported — and
+the repo still migrates the rest of the way onto the loader.
+
+**Which copy of a tool each step runs.** Steps 1–6 run the copies already
+vendored under `process/upstream/tools/`; the consuming repo's own `tools/`
+is empty until step 7 seeds it, and from step 7 on every command below is
+the consumer's own `tools/` copy. One exception in both halves:
+`tools/precedent_bootstrap_source.py` (steps 3 and 4) is **not** in the
+consumer engine, so run it from a sibling Precedent clone
+(`../BestPractice/tools/precedent_bootstrap_source.py`), never from
+`process/upstream/tools/` — the vendored copy records the *consuming* repo's
+commit as the new set's engine provenance, which reads as an engine vendored
+from a repository that has no engine. Measured 2026-09-14, on a rehearsal
+that did exactly that.
 
 ## The pattern
+
+**Step 0, before any of it: ask which practice sources this repo should
+declare.** Not which it declares now — which it *should*. Ask the person,
+in the conversation, and write the answer into `precedent.json` as part of
+the migration rather than leaving it for later. A migration is the cheapest
+moment this question will ever have: somebody is already deciding what
+binds this repo.
+
+**It has to be asked, not detected.** An undeclared source throws no error,
+writes no file and leaves nothing missing — the repo simply resolves fewer
+practices than its owner believes, and no check will ever say so, because
+the sets a repo *could* declare are not derivable from the sets it *does*.
+[practices/vendor-update-runbook.md](../practices/vendor-update-runbook.md)
+carries the same question as a numbered step, for every update after this
+one.
 
 1. **Re-vendor `process/upstream/`.** If tracking a real, released
    BestPractice branch (the normal case once a Precedent-carrying branch
@@ -65,11 +96,15 @@ the loader.
    — as the project's own prior notes repository deliberately did, to beta-test this exact pattern —
    the repo is pinning a **named non-default branch** ahead of its merge,
    read "The default-branch gotcha" below first: this step is a one-off
-   manual mirror instead, and the scheduled sync workflow stays paused for
-   the duration. `checkin.py`'s commands *can* track a named branch as of
-   2026-09-06 — they read `upstream.branch` from the manifest now — but the
-   manual procedure is held in place deliberately while that fix settles,
-   for the reason that section gives.
+   manual mirror instead. (This used to add "and the scheduled sync workflow
+   stays paused for the duration". Since 2026-09-14 there is no schedule to
+   pause: step 6 below and "The default-branch gotcha" both say what
+   replaced it.) `checkin.py`'s `fresh`, `status` and `record` *can* track a
+   named branch as of 2026-09-06 — they read `upstream.branch` from the
+   manifest now — and `update` refuses outright while that field names a
+   branch other than the clone's default (the hold, below). **Add
+   `upstream.branch` before running anything here**: without it `update`
+   mirrors whatever the clone's default branch is, silently.
 
 2. **Confirm the second tree's source has actually split**, and where each
    half landed, before touching anything local. Read that source's own
@@ -82,6 +117,12 @@ the loader.
    path; demoting a universal practice back down is not).
 
 3. **Add `precedent.json`** at the repo root, declaring:
+   - `"visibility"` (`"public"` or `"private"`) and `"base_branch"`, both
+     read from the repo rather than assumed. Omitting `visibility` counts as
+     public, and a private repo that omits it silently loses its team and
+     individual practices from the materialized tree
+     ([INSTALL.md §0 step 2](../INSTALL.md#0-installing-directly-onto-the-precedent-loader-new-2026-09-03--read-the-caveat-before-using)
+     has both keys).
    - `level: "universal"` pointing at `process/upstream` — **stays a real
      vendored copy**, not a live path reference, even though Precedent's
      own self-hosted `precedent.json` uses `path: "."`. A dependent repo
@@ -141,7 +182,12 @@ the loader.
    **4a. Does the person have an individual set at all?** A migration is
    the first moment anyone asks. If they do not, create one now —
    [BOOTSTRAP_NEW_SOURCES.md](BOOTSTRAP_NEW_SOURCES.md) is the procedure,
-   `tools/precedent_bootstrap_source.py --level individual` the tool. If
+   `tools/precedent_bootstrap_source.py --level individual` the tool (from
+   a sibling Precedent clone, per "Which copy of a tool each step runs"
+   above). **Before step 8, replace the placeholder practice in every set
+   created here** — `practices/example-starter-<level>.md` — with one real
+   practice, or delete it: the sync refuses a declared source that
+   contributes nothing. If
    they decline, say plainly what that costs: their personal practices are
    silently absent from every session, and the identity below has to come
    from the environment instead.
@@ -190,9 +236,14 @@ the loader.
    --write-session-hook <target repo path> --repo-url <the set's git URL>`
    (see [BOOTSTRAP_NEW_SOURCES.md](BOOTSTRAP_NEW_SOURCES.md)), which writes
    the target repo's tracked `.claude/hooks/precedent-individual-bootstrap.sh`
-   for you, and merge its `bootstrap/settings.snippet.json` into the
-   target's own `.claude/settings.json` (append to an existing
-   `SessionStart` array, don't replace it). This makes the individual
+   for you. Then wire it yourself — the tool writes the hook and nothing
+   else: add a `SessionStart` entry running
+   `bash $CLAUDE_PROJECT_DIR/.claude/hooks/precedent-individual-bootstrap.sh`
+   to the target's own `.claude/settings.json`, **first in the array, ahead
+   of `commit-identity.sh`** (which reads the set it clones), appending to
+   an existing `SessionStart` array rather than replacing it. (Until
+   2026-09-14 this step named a `bootstrap/settings.snippet.json` to merge;
+   no such file has ever been written.) This makes the individual
    source resolvable without ever naming it in the repo's own tracked
    config — but on its own it is **not** zero manual steps on a hosted
    agent platform, which is the next part of this step, not a separate
@@ -342,11 +393,16 @@ the loader.
    restatement of it is a second copy
    ([registry-source-of-truth](../practices/registry-source-of-truth.md)).
 
-   **Mentions are fine and should stay.** A provenance note, a decision
-   record, a backlog entry naming the old pack is history worth keeping —
+   **Mentions survive only in files you list.** A provenance note, a
+   decision record, a backlog entry naming the old pack is history worth
+   keeping — but the check that enforces
    [migration-scrubs-vocabulary](../practices/migration-scrubs-vocabulary.md)
-   exempts exactly those. What goes is the tree, the *use* of it, and the
-   citations that depend on it; not the memory that it existed.
+   reads whole files, not lines: a mention survives only in a file named in
+   `exempt_files` below, and a provenance line in the instructions file or a
+   practice's Story is flagged like any other (measured 2026-09-14). Put the
+   history in the migration record and exempt that; reword the rest. What
+   goes is the tree, the *use* of it, and the citations that depend on it;
+   not the memory that it existed.
 
    `python3 process/upstream/tools/precedent_check.py --only
    migration-scrubs-vocabulary` now finds a leftover without being told to:
@@ -370,7 +426,9 @@ the loader.
 
    **Delete through the audit, not by hand**
    ([decommission-deletes-files](../practices/decommission-deletes-files.md)):
-   `python3 tools/precedent_decommission.py process/<old-pack-tree>` reports
+   `python3 tools/precedent_decommission.py process/<old-pack-tree> process/manifest_<pack>.json`
+   (both — the pack's manifest references the tree, so the audit refuses
+   until it goes too) reports
    every tracked file that still references the tree — including the ones
    this step's own list does not name — and refuses while any remain, which
    is the same property `rename-updates-links` will otherwise fail on after
@@ -397,6 +455,13 @@ the loader.
      "exempt_files": ["process/PRECEDENT_MIGRATION.md", "TODO.md", "<any file that is explicitly a historical log by its own stated purpose>"]
    }
    ```
+   `process/PRECEDENT_MIGRATION.md` is **yours to write** — a short record
+   of what this migration moved where, which pack section became which
+   practice — and it is the one file where the old names may stay in full.
+   ```json
+   {
+   }
+   ```
    — then run `python3 process/upstream/tools/precedent_check.py --only migration-scrubs-vocabulary` and don't call this step done until it passes. The exempt list is deliberately short: the migration record itself, plus files whose *own stated purpose* is a historical log (a decision-record directory, a dated brainstorm journal) — never a file merely because it happens to still mention the old system. Leaving that config in place afterward means the check keeps watching: any *new* mention that creeps back in during a later edit fails the same way.
 
    **A `/`-suffixed `exempt_files` entry exempts a whole directory**, not
@@ -409,8 +474,10 @@ the loader.
    for a directory exemption anywhere else; a retired term in this repo's
    own hand-authored tree is real, unfinished migration work.
 
-6. **Retire the old sync workflow entirely — the file is deleted, not
-   disabled** (there is nothing left to vendor-and-sync for the
+6. **Retire the old PACK's sync workflow entirely — the file is deleted,
+   not disabled** (the workflow that vendored the second tree; the
+   consuming repo's own `bestpractice-upstream-sync.yml` is a different
+   file and stays — see below. There is nothing left to vendor-and-sync for the
    team/individual sources — they resolve live). Keeping the sibling
    clones themselves fresh becomes a session-start concern (a best-effort
    `git pull --ff-only` for the team clone; the individual clone's own
@@ -425,15 +492,29 @@ the loader.
    retire a workflow whose `on:` block carries any trigger but
    `workflow_dispatch`, so a retirement is never the first thing that
    stops a running job), let one cycle pass, then run the same audit-then-
-   `--apply` sequence step 5 describes. **Not every paused workflow is
+   `--apply` sequence step 5 describes. **Not every stood-down workflow is
    being retired:** a consuming repo's `bestpractice-upstream-sync.yml`
-   stays, paused deliberately, for the reason
-   [TODO.md](../TODO.md#relax-the-pinned-branch-hold)'s own item gives — a hold
-   with a stated condition for lifting it, which is exactly what
-   distinguishes one from a leftover.
+   stays, on `workflow_dispatch` only, so a person can still run it by hand.
+
+   **What changed 2026-09-14:** this used to read "stays, paused
+   deliberately", pointing at
+   [TODO.md](../TODO.md#relax-the-pinned-branch-hold)'s hold as a pause with
+   a stated condition for lifting it. The condition no longer lifts
+   anything. Morgan killed every scheduled vendor update — *"No weekly
+   updates. I had that weeks ago, but we're not doing that anymore; this is
+   now really complex and deserves hand attention and issues come up every
+   time and I'm on it every day anyway."* **Strength:** decided
+   ([decision-strength](../practices/decision-strength.md)). So the
+   `schedule:` block is **deleted, not commented out**, and the workflow
+   keeps only its manual trigger. The distinction the old wording drew — a
+   hold versus a leftover — still matters for the *file*, which stays; it
+   just no longer applies to the schedule, which is gone.
 
 7. **Rewrite the consuming repo's own instructions file** (`AGENTS.md` or
-   equivalent) with the same `<!-- BEGIN GENERATED: precedent-loader -->` /
+   equivalent) from
+   [templates/AGENTS.md.loader.template](../templates/AGENTS.md.loader.template)
+   — the loader template, not the classic `AGENTS.md.template`, which has
+   no markers — keeping the same `<!-- BEGIN GENERATED: precedent-loader -->` /
    `<!-- END GENERATED -->` markers this repo's own `AGENTS.md` uses. Before
    running it, vendor the whole engine at the consuming repo's own `tools/`
    — not nested under `process/upstream/tools/`, which stays reserved for
@@ -472,7 +553,19 @@ the loader.
    moving on: the vendoring manifest proves the bytes arrived, not that
    they run here.
 
-8. **Validate for real**, not against a fixture: `python3
+8. **Validate for real**, not against a fixture. **What a clean migrated
+   run needs, beyond the sync**: a plain `python3 tools/precedent_check.py`
+   on a migrated repo is red for reasons no step above creates and none
+   warns about (measured 2026-09-14: five violations on a by-the-book
+   rehearsal). Each has a one-line declaration: instantiate `MAP.md` from
+   its template (`orientation-map`); instantiate `tools/bootstrap.sh` from
+   [templates/bootstrap.sh](../templates/bootstrap.sh), which invokes the
+   access probe (`access-probe-is-wired`); either wire or decline each
+   harness adapter the universal source installs into `.claude/hooks/` —
+   `precedent-universal-catalogue.sh` is for practice sets and a consumer
+   declines it in `precedent.json`'s `declined_adapters` with the reason
+   (`hooks-on-disk-are-reachable`); and create `process/scrub_blocklist.txt`
+   if the manifest names one (`scrub-gate`). Then: `python3
    tools/precedent_sync_views.py --repo .` from the consuming repo, with
    its `precedent.json` and a real user-level individual config in place.
    Check the reported precedence, any `overridden`/`blocked` entries, the
@@ -620,12 +713,17 @@ the tool defends the pin from then on.
   field; the schema doesn't have one by default, but the field costs
   nothing and every subsequent session needs to see it) alongside a `_note`
   explaining why automated sync is paused and when to lift it.
-- Pause the scheduled sync workflow's schedule (comment it out; leave
-  `workflow_dispatch` for a manual run) with a header comment pointing at
-  the same note, and guard any unattended prompt text so a manual trigger
-  stands down rather than silently assuming default-branch semantics.
-- Re-enable once the branch merges to the default branch and
-  `process/manifest.json` is repointed there.
+- Delete the sync workflow's `schedule:` block, leaving `workflow_dispatch`
+  for a manual run, with a header comment pointing at the same note, and
+  guard any unattended prompt text so a manual trigger stands down rather
+  than silently assuming default-branch semantics.
+- **Nothing gets re-enabled.** This bullet used to read *"re-enable once the
+  branch merges to the default branch and `process/manifest.json` is
+  repointed there"*, which made the schedule a pause. **Superseded
+  2026-09-14:** no repository runs a scheduled vendor update at all, so
+  repointing the manifest lifts the *pin*, not a clock. The replacement
+  channel is a person saying `Update Vendors`
+  ([vendor-update-runbook](../practices/vendor-update-runbook.md)).
 
 ## A real finding: the scrub check has no notion of "already public upstream"
 

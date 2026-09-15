@@ -41,7 +41,10 @@ pip install --quiet cmarkgfm 2>/dev/null || \
 # refs, and re-running it is a no-op. Doing it here means the freshness
 # block below can actually resolve origin/<branch> on a feature branch,
 # which on a single-branch clone it silently could not.
-if git rev-parse --git-dir >/dev/null 2>&1; then
+# Only where an origin exists at all: a repo that has not been pushed yet has
+# nothing to widen, and the NOTE below would be false there (measured on two
+# fresh installs, 2026-09-14).
+if git rev-parse --git-dir >/dev/null 2>&1 && git remote get-url origin >/dev/null 2>&1; then
   if ! git config --get-all remote.origin.fetch 2>/dev/null | grep -q 'refs/heads/\*'; then
     git config --add remote.origin.fetch '+refs/heads/*:refs/remotes/origin/*' 2>/dev/null && \
       echo "NOTE: this clone fetched only one branch; widened remote.origin.fetch so other branches resolve. (See AGENTS.md gotchas: a single-branch clone makes every other branch read as 'unpushed' forever.)" >&2
@@ -133,6 +136,28 @@ if [ -f tools/precedent_sync_views.py ] && [ -f precedent.json ]; then
   if ! python3 tools/precedent_sync_views.py --repo . --check >/dev/null 2>&1; then
     echo "WARN: AGENTS.md's generated loader block is out of date with precedent.json's sources. Fix: python3 tools/precedent_sync_views.py --repo ., review the diff, commit." >&2
   fi
+fi
+
+# WHICH REPOS IN FORCE THIS SESSION CAN ACTUALLY LAND WORK IN.
+#
+# practice: spawn-session, which has said "settle who merges before the work
+# starts" since 2026-09-12 -- and the sentence alone did not carry. On
+# 2026-09-10 a session rooted in a private practice set migrated twelve
+# repositories and built a seven-commit patch for the upstream repo that it
+# could not push, because a session holding one owner's repositories is
+# refused another's. It sat blocked four days, having spent about a hundred
+# dollars to reach a branch nobody could land. The rule was right; the MOMENT
+# was missing, and the session least likely to stop and read a practice file
+# is the one already deep enough in the work for this to cost the most.
+#
+# Guarded like every other step here, and the guard matters: this tool is
+# vendored (ENGINE_FILES), so a tree older than 2026-09-14 does not have it
+# and must start anyway. Reports and never gates; bounded internally so an
+# unreachable remote cannot hold a session at the door. A repo it could not
+# reach is printed as unanswered, never as refused.
+if [ -f tools/precedent_access_check.py ]; then
+  python3 tools/precedent_access_check.py . || \
+    echo "WARN: access check did not run -- whether this session can land work in each repo in force is unknown" >&2
 fi
 
 # Precedent upstream freshness notice, for a repo on the CLASSIC

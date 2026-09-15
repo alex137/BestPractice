@@ -12,6 +12,27 @@ found the individual source's clone URL living in a public repository's
 tracked hook, moved it to the private per-person config where it belongs,
 and then had nowhere to say so.
 
+## What Applies Until You Set Any of It
+
+**Nothing here is asked of you** — not at install, not at setup, not by a
+session mid-work. Every setting on this page either has a declared default or
+degrades to one, and a session applies it and carries on rather than
+interrupting you for a value you can change in one sentence later
+([declared-default-is-applied](practices/declared-default-is-applied.md)).
+
+| If you set nothing | What you get |
+|---|---|
+| `PRECEDENT_COMMIT_NAME` / `_EMAIL`, and `identity.json`'s `name`/`email` | Resolved from the GitHub account the session is authenticated as — which is why this half usually *looks* fine |
+| `PRECEDENT_COMMIT_TZ`, and `identity.json`'s `timezone` | This repository's declared `fallback_timezone`, `America/New_York`, and the author-date check downgrades from enforced to guessed |
+| `identity.json`'s `pronouns` | `they/them`, never inferred from your name ([declared-pronouns](practices/declared-pronouns.md)) |
+| `identity.json`'s `relayed_authorization` | `refused` — your approval does not travel to a session you are not typing in |
+| `PRECEDENT_GIT_TOKEN` / `PRECEDENT_SOURCE_BASE_URL` | No private set resolves, so your own and your team's practices are silently absent — **the one row here whose default is genuinely bad**, and the reason the rest of this page exists |
+
+**The defaults are cheap to be wrong about; the last row is not.** A record
+stamped in the wrong city's time is visible and one sentence to fix. A session
+that never loaded your practices applies the wrong rules all day and cannot
+tell.
+
 ## Copy-Paste Setup
 
 **The whole of this page, as four blocks to paste and edit.** Everything
@@ -138,6 +159,7 @@ session into every repository it touches.
 | `PRECEDENT_COMMIT_TZ` | Recommended, alongside the name — without it a fallback zone is used and commit timestamps carry the wrong offset | `America/Argentina/Buenos_Aires` |
 | `PRECEDENT_FRESHNESS_ALSO` | Recommended if practice sources are cloned beside your project | `~/precedent-individual=main;~/precedent-team-writing=main` |
 | `PRECEDENT_GIT_TOKEN_USER` | Optional; defaults to `x-access-token` | `x-access-token` |
+| `PRECEDENT_GITHUB_TOKEN` | Optional; read only by `python3 tools/precedent_boundary_check.py`, which asks GitHub whether a project's base branch is protected the way [INSTALL.md §0 step 10](INSTALL.md#0-installing-directly-onto-the-precedent-loader-new-2026-09-03--read-the-caveat-before-using) needs. Reading protection settings takes **administration read** on the repository (a classic token with `repo`, or a fine-grained one with Administration: read); without it the tool answers `UNVERIFIED`, which is honest and is not a pass. `GITHUB_TOKEN` and `GH_TOKEN` are read too, in that order after this one | `github_pat_<a token with Administration: read on the project>` |
 | `PRECEDENT_INDIVIDUAL_REPO` | Optional; only if your individual set is under a different account than the team sets | `https://github.com/another-account/precedent-individual` |
 
 **Give your environments distinct names, and set a throwaway

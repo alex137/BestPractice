@@ -11,7 +11,35 @@ documents had already cited items as "TODO.md item N" (found 2026-09-06),
 which is the failure this repointing exists to end — write
 `[TODO.md's \`slug\` item](TODO.md#slug)` instead.
 
-1. <a id="actions-as-enforcement-layer"></a>**Lean further into GitHub Actions as the enforcement layer.** The
+1. <a id="agents-md-over-its-ceiling"></a>**AGENTS.md is over its declared ceiling, and it is a decision, not a
+   bug.** Measured 2026-09-14 on an untouched checkout of
+   `precedent-beta-v01`: 12,019 tokens against the 12,000 in
+   [tools/session_load_budgets.json](tools/session_load_budgets.json), so
+   `python3 tools/precedent_check.py --only session-load-budget` is red on
+   the branch itself and will be red for every session's deep check until
+   somebody acts. Nothing did this wrong — the catalogue grew (an occasion
+   index line, which is generated and cannot be hand-trimmed, plus gotchas
+   g37–g39), which is exactly the drift the ceiling exists to surface.
+   [session-load-budget](practices/session-load-budget.md) forbids raising
+   the number to clear the red and names the alternative: delete what is
+   duplicated, retire what cannot happen any more, split what is still live
+   and still long. The registry's own `why` already says the next raise
+   should come with a reduction pass rather than another re-measurement.
+   **CLOSED 2026-09-14 — Morgan picked the reduction pass** (`strength:
+   decided`, from *"Let's do a reduction pass as you recommend"*), and the
+   ceiling was never raised. Two passes ran, deliberately separate: the
+   session that broke it cut the gotchas preamble, which spent three
+   paragraphs restating [environment-gotchas](practices/environment-gotchas.md)
+   that every session already loads in full in the resident block
+   (12,026 → 11,917, PR #357); then this one cut the quick index, where 14
+   rows had grown into abstracts of the documents they only need to point at
+   (11,917 → 11,538). Both cuts were duplication, not content — every fact
+   dropped was verified present in the file the row links to, or in this
+   file. **462 tokens of headroom now**, which is the real close condition:
+   a ceiling met exactly is one the next honest addition breaks, and that is
+   precisely how this happened.
+
+2. <a id="actions-as-enforcement-layer"></a>**Lean further into GitHub Actions as the enforcement layer.** The
    markdown-lint workflow ([GITHUB_ACTIONS.md](GITHUB_ACTIONS.md)) proves
    the pattern: checks run in CI, so they bind every contributor — human,
    Claude Code, ChatGPT, anyone — regardless of whether the agent has a
@@ -24,34 +52,34 @@ which is the failure this repointing exists to end — write
    audits — never ran, and every commit landed authored as the agent.
    Runbook gates bind only sessions that run the runbook; required CI
    checks bind every path to the default branch.
-2. <a id="github-issues-for-open-items"></a>**Evaluate GitHub Issues for open items.** Mirroring or replacing
+3. <a id="github-issues-for-open-items"></a>**Evaluate GitHub Issues for open items.** Mirroring or replacing
    TODO-file items with Issues would let shell-less assistants and phone
    users browse, discuss, and close work items natively. Needs a
    convention for keeping Issues and the repo-is-the-memory principle
    consistent (an Issue is not on `main`).
-3. <a id="plain-chatgpt-write-support"></a>**Re-verify plain-ChatGPT write support.** As of 2026-08,
+4. <a id="plain-chatgpt-write-support"></a>**Re-verify plain-ChatGPT write support.** As of 2026-08,
    [MOBILE.md](MOBILE.md) treats writing (branches, file updates, PRs)
    from a plain GitHub-connected ChatGPT conversation as not reliably
    available and documents a split workflow instead. Re-test when
    OpenAI's connector capabilities change, and update MOBILE.md either
    way.
-4. <a id="grok-workflow"></a>**Verify a Grok workflow.** Untested as of 2026-08 — see
+5. <a id="grok-workflow"></a>**Verify a Grok workflow.** Untested as of 2026-08 — see
    [MOBILE.md](MOBILE.md). If Grok gains repository access, the universal
    starting instruction should apply unchanged; verify and document.
-5. <a id="companion-mobile-app"></a>**Companion mobile app, if the Shortcut proves insufficient.** The
+6. <a id="companion-mobile-app"></a>**Companion mobile app, if the Shortcut proves insufficient.** The
    iPhone Shortcut and text-replacement setups in
    [MOBILE.md](MOBILE.md) approximate a Claude-Code-like entry point for
    ChatGPT users without custom development. If they prove too clumsy in
    practice, a small companion app (pick repo → type task → open
    assistant with the bootstrap prompt) is the next step — noting that
    this is real app development, not documentation.
-6. <a id="out-of-chat-notifications"></a>**Out-of-chat change notifications for members.** In-chat catch-up is
+7. <a id="out-of-chat-notifications"></a>**Out-of-chat change notifications for members.** In-chat catch-up is
    now a convention (the instructions template's session-start
    catch-up), but a member who hasn't opened a session learns nothing.
    Evaluate a GitHub Actions job that emails a plain-language digest of
    merged changes (or leans on GitHub's built-in Watch notifications,
    documented in the members' page) — as of 2026-08, unexplored.
-7. <a id="multiple-team-sources-disagree"></a>**Define what happens when a consumer repo imports multiple `team`
+8. <a id="multiple-team-sources-disagree"></a>**Define what happens when a consumer repo imports multiple `team`
    sources that disagree.** See PRACTICE_ENGINE_PLAN.md's `## Deferred`
    section (added 2026-09-03, alongside that session's precedence reorder)
    for the detail — not duplicated here. **Half-closed 2026-09-06**: the
@@ -104,7 +132,7 @@ which is the failure this repointing exists to end — write
    **Blocked on:** nothing but a decision about what shape the answer takes.
    Parked deliberately at Morgan's request, 2026-09-07 — do not design it in
    passing.
-8. <a id="reduce-github-dependency"></a>**Reduce GitHub dependency when ready.** The layer itself is plain git
+9. <a id="reduce-github-dependency"></a>**Reduce GitHub dependency when ready.** The layer itself is plain git
    + markdown + Python; GitHub specifics are the worked examples (PRs,
    Actions, Issues, branch rulesets). When priorities allow, document
    Gitea equivalents (Gitea Actions is workflow-compatible; Issues and
@@ -112,10 +140,10 @@ which is the failure this repointing exists to end — write
    losing the practices. Deliberately below the Actions/Issues items
    above: deeper GitHub integration now is acceptable, since equivalents
    can be added later.
-9. <a id="prefork-catalogue-audit-table"></a>~~**The pre-fork catalogue audit table.**~~ **Done (2026-09-03).** One   row per inherited practice, verdict against this plan's architecture,
+10. <a id="prefork-catalogue-audit-table"></a>~~**The pre-fork catalogue audit table.**~~ **Done (2026-09-03).** One   row per inherited practice, verdict against this plan's architecture,
    plus whether Alex needs to hear about it:
    [spec/PREFORK_AUDIT.md](spec/PREFORK_AUDIT.md).
-10. <a id="individual-practice-scoping"></a>**`for_team:`/`in_repos:` individual-practice scoping.** Fully designed
+11. <a id="individual-practice-scoping"></a>**`for_team:`/`in_repos:` individual-practice scoping.** Fully designed
     in [PRACTICE_ENGINE_PLAN.md's Deferred section](spec/PRACTICE_ENGINE_PLAN.md#deferred-speculative--do-not-build-yet),
     correctly not built yet. **No longer blocked** (noted 2026-09-06): the
     stated blocker was "a real second team's private set existing to test
@@ -123,7 +151,7 @@ which is the failure this repointing exists to end — write
     existed since 2026-09-05. It is now an ordinary open item — build it
     when it is worth building, and don't re-derive the design judgment,
     which is already made.
-11. <a id="additionalcontext-reaches-the-model"></a>**Confirm `additionalContext` actually reaches the model, not just the
+12. <a id="additionalcontext-reaches-the-model"></a>**Confirm `additionalContext` actually reaches the model, not just the
     transcript.** The new `PreToolUse` hook
     ([templates/harness/claude-code/hooks/precedent-paths.sh](templates/harness/claude-code/hooks/precedent-paths.sh),
     [`spec/LOADER.md`](spec/LOADER.md#the-pretooluse-hook-and-what-is-confirmed-versus-assumed))
@@ -145,7 +173,7 @@ which is the failure this repointing exists to end — write
     negative result (the session never mentions the practice across
     several such edits) is itself the answer, and should be recorded here
     either way rather than left unconfirmed indefinitely.
-12. <a id="routing-audit-silent-drop"></a>~~**Investigate why `routing-audit` fell through, audit the plan for    other silent drops.**~~ **Part 1 done (2026-09-04)** — root cause and
+13. <a id="routing-audit-silent-drop"></a>~~**Investigate why `routing-audit` fell through, audit the plan for    other silent drops.**~~ **Part 1 done (2026-09-04)** — root cause and
     scan for other drops in
     [spec/UNBUILT_PLAN_ITEMS.md](spec/UNBUILT_PLAN_ITEMS.md)'s "Part 1,
     answered" section; the one adjacent gap it found is [`wire-the-very-deep-check-list`](#wire-the-very-deep-check-list) below.
@@ -166,7 +194,7 @@ which is the failure this repointing exists to end — write
     that two 6-case runs are a stronger signal than one but still not a
     replacement for the routing eval's fuller multi-run discipline, if this
     ever needs to be trusted at higher stakes than an on-demand backstop.
-13. <a id="retire-merge-target-practice"></a>**Retire [local/practices/merge-target-is-beta-branch.md](local/practices/merge-target-is-beta-branch.md)
+14. <a id="retire-merge-target-practice"></a>**Retire [local/practices/merge-target-is-beta-branch.md](local/practices/merge-target-is-beta-branch.md)
     (and its check at
     [local/tools/checks/check_merge_target_is_beta_branch.py](local/tools/checks/check_merge_target_is_beta_branch.py),
     and the pointer in [AGENTS.md](AGENTS.md)'s opening paragraph) the
@@ -180,6 +208,37 @@ which is the failure this repointing exists to end — write
     the shared engine.) **Blocked on:** Alex's review
     and approval of `precedent-beta-v01` for the real phase-7 merge into
     `main` — not something to anticipate or do early.
+
+    **That condition was met on 2026-09-14** — Alex merged
+    [pull request #367](https://github.com/alex137/BestPractice/pull/367)
+    ("Merge Precedent (precedent-beta-v01) into main"), tree-identical to
+    this branch at `3386318`, and `main` has carried all of Precedent
+    since. Found by the 2026-09-14 very deep check, whose `EXPIRING
+    PRACTICES` section asked exactly this question. **What is now the
+    decision, and it is not this item's to take:** this branch has moved
+    64 commits past the merged point already, so retiring the practice
+    means choosing where work lands next — switch to `main` now
+    (`base_branch` in [precedent.json](precedent.json) flips, the catalogue's
+    ≈134 absolute links are rewritten by one `sed`, this practice and its
+    check are deleted, the `TEMPORARY` paragraph leaves
+    [AGENTS.md](AGENTS.md), and the 64 commits go across as a second
+    merge-back by the same recipe) or keep landing here until a named
+    second fold-in. The session's recommendation is the first: every day on
+    the branch after the merge is another fold-in to rehearse, and the
+    recipe is proven. **Disposition:** ask (2026-09-14, the very deep check;
+    the question is Alex's and Morgan's together, since it decides which
+    branch adopters and check-ins target)
+
+    **Answered 2026-09-14, and the answer is neither of the two above.**
+    Morgan: *"work should still land to the precedent-beta-v01 branch; but I
+    will regularly merge the precedent branch with main"* (`strength:
+    decided`). So the branch stays the landing branch, `main` takes it by
+    his regular merges (the histories are joined since the same day, so
+    each is an ordinary merge), and this practice's expiry is reworded from
+    "when the branch is merged into main" — which has now happened and will
+    keep happening — to "when Morgan or Alex says work moves to main". The
+    retirement steps stay as written. **Disposition:** wait (2026-09-14,
+    Morgan's answer above)
 
     **What that merge will actually look like, rehearsed 2026-09-07 in a
     throwaway worktree and thrown away.** Two things worth not
@@ -275,7 +334,7 @@ which is the failure this repointing exists to end — write
       before phase 7; `main`'s only three commits since the merge base are
       the bad merge, the revert, and the revert's own pull request merge,
       so there is nothing there to want.
-14. <a id="contributor-access"></a>**Run the contributor-access plan for real.**
+15. <a id="contributor-access"></a>**Run the contributor-access plan for real.**
     [spec/CONTRIBUTOR_ACCESS.md](spec/CONTRIBUTOR_ACCESS.md)
     is drafted but not executed — it doubles as item 9's neighbor,
     [spec/PHASE6_BRIEF.md](spec/PHASE6_BRIEF.md)'s still-open item 4 (the
@@ -294,7 +353,41 @@ which is the failure this repointing exists to end — write
     person and repo for the rest of it, and Morgan adding the GitHub
     collaborator role and branch protection by hand (no tool in this repo's
     GitHub toolset creates a collaborator invite or a protection rule).
-15. <a id="team-repo-and-document-template"></a>~~**Build the team practice repo and reusable document-project template    for document work.**~~ **Done (2026-09-05)** —
+
+    **Reviewed 2026-09-14**, on Morgan's ask, and the plan now carries a
+    "Review, 2026-09-14" section with seven ranked findings and the
+    define/manage/limit/control framing (`strength: assented` — the session's
+    findings, his instruction to write them up). The two that change the
+    design rather than test it: `MAP.md` is owned while
+    [orientation-map](practices/orientation-map.md) makes every
+    add-a-document pull request touch it (item
+    [`generated-views-are-owned-paths`](#generated-views-are-owned-paths)),
+    and `CODEOWNERS` gates the merge but not the run of an edited workflow
+    (item [`workflow-run-is-not-gated`](#workflow-run-is-not-gated)). The
+    rest are items 109–112 below. **Disposition:** wait — the three
+    assumptions are still the first thing to settle, and Morgan opened a
+    throwaway repository under his own account for exactly that on 2026-09-14; the
+    measurement runs in
+    [a session seeded there](https://claude.ai/code/session_01DqP5TjkampkhpW3DEvVi7Z)
+    (this session cannot attach a repo under another owner, and
+    docs.github.com is blocked by the proxy), and its `RESULTS.md` is what
+    closes the three assumptions. **Built the same day, on "build what's
+    needed"** (`strength: assented`): the boundary check, the owned-paths
+    preview, the project mode of the CODEOWNERS generator, the `register`
+    placeholder, and the reworded guides — items 108, 110, 111 (half) and
+    112 below record each. Still open here: the assumptions, and the pilot.
+    **Documented and audited, same day**: INSTALL.md §0 step 10,
+    PER_MACHINE_SETUP.md's token row, SETUP.md's adding-a-person bullet,
+    FOR_DEVELOPERS.md's "Who May Change What", and the very deep check's
+    `CONTRIBUTOR BOUNDARY` section (pass 2, question 16), which reads the
+    generated file against its registry and the protection setting against
+    the plan on every run. **Plus, on Morgan's follow-up the same day**:
+    [documentation/GITHUB_SETTINGS.md](documentation/GITHUB_SETTINGS.md),
+    the GitHub side in one place — roles, the owner-only settings, branch
+    protection with the four values, what GitHub does with CODEOWNERS and
+    how this system generates it, Actions permissions and secrets, the
+    practice-set repositories — linked from every install path and guide.
+16. <a id="team-repo-and-document-template"></a>~~**Build the team practice repo and reusable document-project template    for document work.**~~ **Done (2026-09-05)** —
     [spec/DOCUMENT_WORK_PRACTICE_CAPTURE.md](spec/DOCUMENT_WORK_PRACTICE_CAPTURE.md)'s
     Steps 1-2 executed: `themorgan/precedent-team-tms` bootstrapped per
     [spec/BOOTSTRAP_NEW_SOURCES.md](spec/BOOTSTRAP_NEW_SOURCES.md) (empty of
@@ -303,14 +396,14 @@ which is the failure this repointing exists to end — write
     [templates/document-project/](templates/document-project/)
     added here. Step 3 (the plan's own boundary) deliberately not done — see
     item 16.
-16. <a id="document-project-pilot"></a>**Run the document-project pilot once Morgan has a real first
+17. <a id="document-project-pilot"></a>**Run the document-project pilot once Morgan has a real first
     project.** Item 15 no longer blocks this — the template and team repo
     are real. Deliberately not planned further than that: see
     [spec/DOCUMENT_WORK_PRACTICE_CAPTURE.md](spec/DOCUMENT_WORK_PRACTICE_CAPTURE.md)'s
     "Sequencing" section for why a pilot project and person are not invented
     ahead of a real one existing. **Blocked on:** a real subject and a real
     person, neither of which exists yet.
-17. <a id="wire-the-very-deep-check-list"></a>~~**Enumerate and wire the inherited RepoPersonalPreferences (RPP) "very deep check" audit list as    an on-demand tool.**~~ **Done (2026-09-05)** — a session holding
+18. <a id="wire-the-very-deep-check-list"></a>~~**Enumerate and wire the inherited RepoPersonalPreferences (RPP) "very deep check" audit list as    an on-demand tool.**~~ **Done (2026-09-05)** — a session holding
     [RepoPersonalPreferences](https://github.com/themorgan/RepoPersonalPreferences)
     answered the redundancy question first: `full-practice-audit` asks,
     practice by practice, "is this Rule satisfied" — a closed question
@@ -333,7 +426,7 @@ which is the failure this repointing exists to end — write
     `precedent-team-repo-maintenance`'s own `deep-check` (a team-level call, not
     decided here): [spec/UNBUILT_PLAN_ITEMS.md](spec/UNBUILT_PLAN_ITEMS.md)'s
     "Part 1, answered" section.
-18. <a id="ledger-root-commit-exemption"></a>~~**`parallel-artifact-ledger`'s root-commit exemption doesn't cover a    family's own inception commit.**~~ Found 2026-09-05: `_parallel_artifact_ledger`
+19. <a id="ledger-root-commit-exemption"></a>~~**`parallel-artifact-ledger`'s root-commit exemption doesn't cover a    family's own inception commit.**~~ Found 2026-09-05: `_parallel_artifact_ledger`
     in [tools/precedent_check.py](tools/precedent_check.py) excludes the
     *repository's* root commit (`git rev-list --max-parents=0`) from needing
     a ledger row, but not the commit that first created a given family's
@@ -352,7 +445,7 @@ which is the failure this repointing exists to end — write
     the harness case that proves the check fires gained a fourth stated case
     for the exemption, and a planted removal of a genuine later change still
     fails, so the exemption did not widen into a hole.
-19. <a id="ledger-ci-step-invisible"></a>~~**Root-cause why `parallel-artifact-ledger`'s own CI step never shows    its diagnostic output — a GitHub Actions log-capture anomaly, currently
+20. <a id="ledger-ci-step-invisible"></a>~~**Root-cause why `parallel-artifact-ledger`'s own CI step never shows    its diagnostic output — a GitHub Actions log-capture anomaly, currently
     working around it by making the check advisory-only.**~~ **Done
     (2026-09-06)** — there was no log-capture anomaly and no false positive.
     [verify_harness.py](tools/verify_harness.py) (CI step 5) invoked a
@@ -398,7 +491,7 @@ which is the failure this repointing exists to end — write
     why [`dfe504d`](https://github.com/alex137/BestPractice/commit/dfe504d)'s
     ledger row has to land in the same merge, as it does.
 
-20. <a id="gate-and-paths-unreachable-source"></a>~~**`precedent_gate.py` and `precedent_paths.py` don't flag an unreachable    materialized source either — only `precedent_show.py` does, 2026-09-06.**~~
+21. <a id="gate-and-paths-unreachable-source"></a>~~**`precedent_gate.py` and `precedent_paths.py` don't flag an unreachable    materialized source either — only `precedent_show.py` does, 2026-09-06.**~~
     **Done (2026-09-06).** Both read `practices/*.md` directly via
     `split_practices._read_practice_file` rather than shelling out to
     `precedent_show.py` (confirmed by grep, not assumed), so the
@@ -428,7 +521,7 @@ which is the failure this repointing exists to end — write
     the gate and path channels, alongside the pre-existing
     `precedent_show.py` cases) — all 12 pass.
 
-21. <a id="materialized-links-dead"></a>~~**A materialized practice's relative links are dead in the consuming    repo.**~~ **Done (2026-09-06.)** Every consuming repo was shipping ≈60
+22. <a id="materialized-links-dead"></a>~~**A materialized practice's relative links are dead in the consuming    repo.**~~ **Done (2026-09-06.)** Every consuming repo was shipping ≈60
     practice files whose internal links resolved to nothing:
     [tools/precedent_materialize.py](tools/precedent_materialize.py) copied
     practice bytes verbatim, so `../tools/very_deep_check.py` and
@@ -447,7 +540,7 @@ which is the failure this repointing exists to end — write
     own light check has dropped the exemption it needed to stay green, and
     its test case for that path now requires a finding instead of silence.
 
-22. <a id="sweep-judgment-only-practices"></a>~~**Sweep the team and individual sets' judgment-only practices.**~~
+23. <a id="sweep-judgment-only-practices"></a>~~**Sweep the team and individual sets' judgment-only practices.**~~
     [tools/full_practice_audit.py](tools/full_practice_audit.py) reports 49
     judgment-only practices across the three sources. The 2026-09-06
     pre-launch audit judged the universal slice's highest-yield ones and
@@ -494,7 +587,7 @@ which is the failure this repointing exists to end — write
     Full context: [spec/PRELAUNCH_AUDIT.md](spec/PRELAUNCH_AUDIT.md) and
     [spec/VERY_DEEP_CHECK.md](spec/VERY_DEEP_CHECK.md).
 
-23. <a id="roll-out-four-pass-restructure"></a>**Roll the very deep check's four-pass restructure out to
+24. <a id="roll-out-four-pass-restructure"></a>**Roll the very deep check's four-pass restructure out to
     `precedent-team-repo-maintenance`' own `deep-check`.**
     [practices/very-deep-check.md](practices/very-deep-check.md) was
     restructured 2026-09-06 from one drift checklist into four ordered
@@ -523,7 +616,7 @@ which is the failure this repointing exists to end — write
     `deep-check` should adopt anything from the four passes — not whether it
     should be replaced by them.
 
-24. <a id="consumer-source-names"></a>~~**Check the consumer repos' own source names against the convention.**~~
+25. <a id="consumer-source-names"></a>~~**Check the consumer repos' own source names against the convention.**~~
     **Done (2026-09-06.)** A private consumer repo — the one consumer
     that declares sources and was not attached when
     [practices/source-naming.md](practices/source-naming.md) landed — was
@@ -539,7 +632,7 @@ which is the failure this repointing exists to end — write
     is visible instead of silent. Two findings it surfaced are item 30
     below and the `code-cites-practice` fix that landed with this entry.
 
-25. <a id="unreachable-practices"></a>**Populate `not_binding` for the practices in force here that do not
+26. <a id="unreachable-practices"></a>**Populate `not_binding` for the practices in force here that do not
     bind this repo.** **The design decision is made and the mechanism is
     built (2026-09-06** —
     [decisions/2026-09-06-precedent-binds-itself.md](decisions/2026-09-06-precedent-binds-itself.md)**).**
@@ -622,7 +715,7 @@ which is the failure this repointing exists to end — write
     known rather than guessed.
 
 
-26. <a id="headline-duplicate-retired"></a>**Done 2026-09-06 — the duplicate was found and retired.** A session
+27. <a id="headline-duplicate-retired"></a>**Done 2026-09-06 — the duplicate was found and retired.** A session
     holding all four repositories searched by purpose and by mechanism
     across every practice body, frontmatter, check script and test:
     exactly one duplicate, `header-caps` in `precedent-team-repo-maintenance`,
@@ -681,7 +774,7 @@ which is the failure this repointing exists to end — write
     `individual_status` in `--json`;
     [spec/SOURCES.md](spec/SOURCES.md) carries the row.
 
-29. <a id="rpp-migration-audited"></a>**Done 2026-09-06 — nothing was lost in the migration, and the audit
+28. <a id="rpp-migration-audited"></a>**Done 2026-09-06 — nothing was lost in the migration, and the audit
     is recorded here because no ledger holds it.** RepoPersonalPreferences'
     46 rule identifiers (from its own `process/personal/README.md` headings,
     cross-checked against its `MAP.md`) were diffed against 41 practices in
@@ -737,7 +830,7 @@ which is the failure this repointing exists to end — write
     folded into the thread that found the first instance, which would have
     meant deciding all of them in passing.
 
-32. <a id="migrated-practices-lost-their-stories"></a>~~**The RPP migration dropped every `## Story`, and that is the
+29. <a id="migrated-practices-lost-their-stories"></a>~~**The RPP migration dropped every `## Story`, and that is the
     provenance the catalogue exists to keep.**~~ **Done — confirmed by
     re-measurement, 2026-09-07.** The backfill happened; this item outlived
     it and went on asserting figures that were no longer true. Every one of
@@ -769,7 +862,7 @@ which is the failure this repointing exists to end — write
     render identically — the rule is `fail-gracefully`'s second clause, and
     the finding above is what it looks like when nothing enforces it.
 
-33. <a id="team-check-cites-retired-practice"></a>~~**`precedent-team-repo-maintenance`' `check_deep_check.py` cites a practice
+30. <a id="team-check-cites-retired-practice"></a>~~**`precedent-team-repo-maintenance`' `check_deep_check.py` cites a practice
     retired in that same set.**~~ **Resolved by reversal, 2026-09-06.** The
     premise was the bug: `deep-check` was never redundant with
     `very-deep-check` — they are unrelated rules of different kind and
@@ -780,7 +873,7 @@ which is the failure this repointing exists to end — write
     move. This is the incident that motivated
     [decisions/2026-09-06-deduplication-not-retirement.md](decisions/2026-09-06-deduplication-not-retirement.md).
 
-34. <a id="attach-private-sources"></a>**Run one session rooted at each private set — this unblocks four other
+31. <a id="attach-private-sources"></a>**Run one session rooted at each private set — this unblocks four other
     items at once.** Established 2026-09-06 by trying it, rather than
     assumed: all three private repos (`themorgan/precedent-team-repo-maintenance`,
     `themorgan/precedent-team-tms`, `themorgan/precedent-individual`) are
@@ -880,7 +973,7 @@ which is the failure this repointing exists to end — write
     [tools/precedent_source_credentials.py](tools/precedent_source_credentials.py)
     reports which state a session is in.
 
-35. <a id="convert-team-set-retired-statuses"></a>*(was item 34 — two items carried that number until 2026-09-06.)* **Convert
+32. <a id="convert-team-set-retired-statuses"></a>*(was item 34 — two items carried that number until 2026-09-06.)* **Convert
     `precedent-team-repo-maintenance`' two `status: retired` practices to
     `status: deduplicated`.** `bestpractice-sync` (rule in force at
     individual) and `header-caps` (rule in force at universal) are both
@@ -916,7 +1009,7 @@ which is the failure this repointing exists to end — write
     one state the old record was never entitled to claim and is now simply
     true.
 
-36. <a id="build-codeowners-check-flag"></a>~~**`build_codeowners.py --check` is not a check — it takes no such flag
+33. <a id="build-codeowners-check-flag"></a>~~**`build_codeowners.py --check` is not a check — it takes no such flag
     and writes anyway.**~~ **Done 2026-09-06.** Both defects fixed in
     [tools/build_codeowners.py](tools/build_codeowners.py): a real `--check`
     that compares and exits non-zero without writing (and an unknown flag is
@@ -939,7 +1032,7 @@ which is the failure this repointing exists to end — write
     `python3 tools/precedent_vendor_engine.py refresh <bestpractice-clone>`
     then `python3 tools/build_codeowners.py`, committed.
 
-37. <a id="source-repo-consumes-no-catalogue"></a>**A source repo consumes no catalogue, so it cannot check itself.**
+34. <a id="source-repo-consumes-no-catalogue"></a>**A source repo consumes no catalogue, so it cannot check itself.**
     None of the three private sets has a `precedent.json`, so each set's
     `build_views.py` renders its own catalogue alone — and a universal
     practice cannot reach the set that dropped its own copy in favour of it.
@@ -951,7 +1044,7 @@ which is the failure this repointing exists to end — write
     source repo eating its own cooking changes what binds a contributor to
     that set, so it needs Morgan's call before any work starts.
 
-38. <a id="relax-the-pinned-branch-hold"></a>**Relax the pinned-branch hold
+35. <a id="relax-the-pinned-branch-hold"></a>**Relax the pinned-branch hold
     once the fix has run through real sync cycles.**
     [tools/checkin.py](tools/checkin.py)'s four commands — `fresh`,
     `update`, `record`, `push` — now read `upstream.branch` from a consuming
@@ -971,12 +1064,23 @@ which is the failure this repointing exists to end — write
     costs a silent overnight wipe of a repo's practices while staying
     cautious costs a stale paragraph. **Blocked on:** the fix surviving real
     sync cycles rather than only its own tests, and then Morgan saying so.
-    What it needs then, in one change: put `checkin.py update` back as the
-    remedy `_warn_catalogue_skew` names, drop the hold paragraph from the
-    migration document, and un-pause the `schedule:` block in each
-    consumer's `bestpractice-upstream-sync.yml` — never one of the three
-    without the others, since a half-relaxed hold is what makes an
-    unattended job run against advice nobody re-read.
+    What it needs then: put `checkin.py update` back as the remedy
+    `_warn_catalogue_skew` names, and drop the hold paragraph from the
+    migration document.
+
+    **The third part is WITHDRAWN, 2026-09-14.** It used to read "and
+    un-pause the `schedule:` block in each consumer's
+    `bestpractice-upstream-sync.yml` — never one of the three without the
+    others, since a half-relaxed hold is what makes an unattended job run
+    against advice nobody re-read." Morgan killed every scheduled vendor
+    update — *"No weekly updates. I had that weeks ago, but we're not doing
+    that anymore; this is now really complex and deserves hand attention and
+    issues come up every time and I'm on it every day anyway."*
+    **Strength:** decided ([decision-strength](practices/decision-strength.md)).
+    There is no `schedule:` block left to un-pause, so the coupling warning
+    it carried is moot with it: the remaining two parts are independent of
+    any clock, and the replacement channel is a person saying
+    `Update Vendors` ([vendor-update-runbook](practices/vendor-update-runbook.md)).
     **Enforced 2026-09-07, which changes what relaxing it costs.**
     `checkin.py update` now refuses while a non-default branch is pinned
     (`_pinned_branch_hold`), printing the manual procedure and naming
@@ -997,7 +1101,7 @@ which is the failure this repointing exists to end — write
     tree (a CI check refusing a commit that reverts the tree against its
     pin) is a real question and nobody has decided it.
 
-39. <a id="background-freshness-fetch"></a>**Consider making the freshness check's fetch asynchronous.**
+36. <a id="background-freshness-fetch"></a>**Consider making the freshness check's fetch asynchronous.**
     [.claude/hooks/freshness-guard.sh](.claude/hooks/freshness-guard.sh)'s
     `user-prompt` mode is throttled rather than backgrounded: it skips
     entirely inside its interval (measured ≈17ms, no network, no output) and
@@ -1022,7 +1126,7 @@ which is the failure this repointing exists to end — write
     measurements and the two rejected alternatives:
     [this thread](https://claude.ai/code/session_01NQCKsA4otmeujdrbCGrqR3).
 
-40. <a id="cache-freshness-verdict"></a>~~**Cache the freshness guard's verdict so a blocked state stops
+37. <a id="cache-freshness-verdict"></a>~~**Cache the freshness guard's verdict so a blocked state stops
     re-probing.**~~ **Considered and declined 2026-09-06 — the measurements
     are here so nobody re-derives them.** The behavior is real:
     [.claude/hooks/freshness-guard.sh](.claude/hooks/freshness-guard.sh)'s
@@ -1097,14 +1201,25 @@ which is the failure this repointing exists to end — write
   that was added to both source templates on 2026-09-06 and **removed the
   same day, deliberately**: a cron job phoning a remote weekly, spending an
   adopter's Actions minutes and opening pull requests in their repository, is
-  not something a universal template gets to decide on their behalf. It is an
-  individual-level preference now, and
+  not something a universal template gets to decide on their behalf.
   [spec/BOOTSTRAP_NEW_SOURCES.md](spec/BOOTSTRAP_NEW_SOURCES.md) records the
-  shape in full so nobody re-derives it. **Blocked on:** nothing mechanical,
-  and that is the point — reopening this means someone arguing the imposition
-  is worth it for every adopter, which is a decision rather than a task.
+  shape in full so nobody re-derives it.
 
-41. <a id="gates-absent-from-main"></a>**Put the leak gate on `main`; the deep
+  **SUPERSEDED 2026-09-14 in its second half.** This item used to end "it is
+  an individual-level preference now", which was true for eight days. Morgan
+  killed the weekly refresh outright — *"No weekly updates. I had that weeks
+  ago, but we're not doing that anymore; this is now really complex and
+  deserves hand attention and issues come up every time and I'm on it every
+  day anyway."* **Strength:** decided
+  ([decision-strength](practices/decision-strength.md)). So there is no
+  individual-level copy to point at either, and the replacement channel is a
+  person saying `Update Vendors`
+  ([vendor-update-runbook](practices/vendor-update-runbook.md)). **Blocked
+  on:** nothing — this is no longer an open question. A set nobody touches
+  for a month still goes a month unwarned, and that is now the accepted cost
+  rather than a gap awaiting a cron.
+
+38. <a id="gates-absent-from-main"></a>**Put the leak gate on `main`; the deep
     check cannot go there until the merge-back.** **Deferred by Morgan
     2026-09-07 — worth doing, not now.** `main` carries only
     [.github/workflows/docs.yml](.github/workflows/docs.yml), so the official
@@ -1151,7 +1266,7 @@ which is the failure this repointing exists to end — write
     with no grace period. **What closes it for free:** the merge-back landing
     first, which brings both gates to `main` in one move.
 
-42. <a id="bold-rule-for-heading-dense-pages"></a>~~**`bold-key-phrases` needs a weak
+39. <a id="bold-rule-for-heading-dense-pages"></a>~~**`bold-key-phrases` needs a weak
     counter-clause for heading-dense pages.**~~ **Done 2026-09-07**, in the team set,
     on branch `claude/bold-phrases-density-clause-mo6m33`. The clause went to
     `## Detail`, not `## Rule`: the practice is `tier: resident`, and a suggestion
@@ -1373,17 +1488,37 @@ which is the failure this repointing exists to end — write
   correction to the declining repo's reasoning when someone next works
   there.
 
-- **Four unmerged branches across three repos need a merge-or-close
-  verdict.** Listed by name, with what each is ahead by, in
-  [spec/VERY_DEEP_CHECK.md](spec/VERY_DEEP_CHECK.md)'s pass 4. Two of them
-  are `claude/pre-launch-audit-fixes-7wumzx`, the same branch name in
-  `precedent-individual` (19 unlanded) and `precedent-team-repo-maintenance` (16
-  unlanded), both last moved 2026-09-06. Either a real body of fixes that
-  never landed, or branches whose work reached `main` by another route — the
-  diffs do not say which.
-  **Blocked on:** Alex or Morgan. The practice is explicit that a session
-  which cannot tell says so by name and asks rather than guessing, because
-  waving one through trains the reader to wave the whole list through.
+- <a id="branch-merge-or-close-verdicts"></a>**The unmerged-branch verdicts are acted on; three branch deletions are
+  the only part left, and no session can do them.** Morgan delegated the
+  four, 2026-09-14. This item replaces an earlier version that named
+  `claude/pre-launch-audit-fixes-7wumzx` in two private sets — that
+  description was already stale against
+  [spec/VERY_DEEP_CHECK.md](spec/VERY_DEEP_CHECK.md)'s own pass 4, which is
+  the record, and reading the item instead of the record is what kept it
+  stale.
+
+  - `alex137/BestPractice: philosophy-bidirectional-slugs` — **merged**
+    2026-09-11, zero commits ahead. No verdict was ever owed on its content;
+    only the branch remains.
+  - `alex137/BestPractice: claude/sync-practices-54-55-x2w4n3` — **CLOSE**
+    stands, and it is now checked rather than assumed: its tip `7d8f5a6` is
+    an ancestor of `origin/main`, so nothing is discarded with it.
+  - `alex137/BestPractice: claude/file-sharing-service-spec-0m9c7p` —
+    **raised with Alex as [issue #394](https://github.com/alex137/BestPractice/issues/394)**,
+    2026-09-14, with the three answers laid out. That closes the drift two
+    runs recorded (recommending the ask, never making it). Its 41 commits
+    exist on no other branch, so it is the one branch here whose closure
+    would really discard something.
+  - `themorgan/precedent-individual: precedent/engine-refresh-c6c885033a9f` —
+    **CLOSE** as decided 2026-09-08; it pins an engine commit since
+    superseded, so merging it would refresh that set backwards.
+
+  **Blocked on:** Morgan, for three branch deletions, and nothing else. A
+  session cannot make them: `git push origin --delete` is refused by the
+  permission classifier as `[Git Destructive]` before it reaches GitHub —
+  a different wall from the 403 [record/GOTCHAS.md](record/GOTCHAS.md#g39)
+  describes, and one no retry or alternate tool gets around. Links were
+  handed to him 2026-09-14.
 
 - **Two published commits carry the wrong timezone offset, and
   `precedent_refresh_sources.py --commit` writes a commit with no session
@@ -1972,7 +2107,7 @@ which is the failure this repointing exists to end — write
   [`attach-private-sources`](TODO.md#attach-private-sources) stays the route for
   anything needing GitHub-side access to a `themorgan/` set — the API, a push, a
   pull request — rather than a read of its files on disk.
-43. <a id="loader-comment-names-an-unvendored-check"></a>**The generated loader block
+40. <a id="loader-comment-names-an-unvendored-check"></a>**The generated loader block
     tells every source set that a check catches drift, in exactly the repos where that
     check does not exist.** [tools/build_views.py](tools/build_views.py) writes `do not
     hand-edit this block, tools/verify_harness.py's regeneration check fails on drift.`
@@ -2117,8 +2252,10 @@ which is the failure this repointing exists to end — write
     is no baseline, so the guard does not apply.
   - A **withheld** slug is excluded: a public repo keeps private-level text
     out of its tracked tree deliberately.
-  - A slug whose recorded **source is no longer declared** is reported, not
-    refused: dropping a source is a decision somebody just made.
+  - A slug whose recorded **source name is not among the declared ones** is
+    refused as well, since 2026-09-14. It used to be reported and written,
+    on the reasoning that dropping a source is a decision somebody just
+    made -- which is true of a drop and false of a rename. See item 92.
   - A slug whose source **is** still declared, and which that source no
     longer produces, is refused. `--allow-removals` overrides it.
 
@@ -2141,7 +2278,7 @@ which is the failure this repointing exists to end — write
   change this run has been finding all day. The engine-side guard is blocked
   on a design call (which baseline to compare against), not on the work.
 
-40. <a id="philosophy-sync"></a>**~~Decide how `philosophy/` stays current with the notebook it came from.~~
+41. <a id="philosophy-sync"></a>**~~Decide how `philosophy/` stays current with the notebook it came from.~~
     Settled 2026-09-07: there is nothing to stay current with.** The
     question was which of three options to take — dated snapshot,
     vendored-and-synced, or move the originals here. Morgan chose the
@@ -2177,7 +2314,7 @@ which is the failure this repointing exists to end — write
     that into a public repo where nothing points at it would be a copy kept
     for the feeling of not having thrown anything away.
 
-41. <a id="philosophy-profanity-divergence"></a>**Three words in `philosophy/` are masked, and there is no longer an
+42. <a id="philosophy-profanity-divergence"></a>**Three words in `philosophy/` are masked, and there is no longer an
     original to compare them against.** The default leak blocklist bans
     profanity in this repository's public tree, and the essays carried it
     three times — in
@@ -2685,7 +2822,7 @@ which is the failure this repointing exists to end — write
 
   `STYLEGUIDE.md` is unchanged, as recommended: it ships empty, it is project
   data, and it is not a rule at any level.
-42. <a id="upstream-notice-silent-when-rooted-above"></a>**The upstream-carry
+43. <a id="upstream-notice-silent-when-rooted-above"></a>**The upstream-carry
     notice is silent in exactly the layout this project requires, and nothing
     reports its absence.**
     [tools/precedent_upstream_check.py](tools/precedent_upstream_check.py)
@@ -2712,7 +2849,7 @@ which is the failure this repointing exists to end — write
     and therefore already prints the notice — what is missing is the
     REPORTING line that tells a session the notice never arrived.
 
-45. <a id="small-calls-vs-brainstorm"></a>**`small-calls` tells a session to commit during a brainstorm, and
+44. <a id="small-calls-vs-brainstorm"></a>**`small-calls` tells a session to commit during a brainstorm, and
     nothing mechanical stops it.** Opened 2026-09-08 alongside
     [brainstorm-holds-commits](practices/brainstorm-holds-commits.md), and
     **corrected the same day** — the first version of this item said the team
@@ -2739,7 +2876,7 @@ which is the failure this repointing exists to end — write
     to `precedent-team-repo-maintenance` from this session (`cross-source-rollout`).
     Whoever takes it should check the individual set for the same shape.
 
-46. <a id="decision-strength-private-sources"></a>**Carry `decision-strength` into the two private practice sets.** The
+45. <a id="decision-strength-private-sources"></a>**Carry `decision-strength` into the two private practice sets.** The
    `strength:` frontmatter key, the `Weak yes` phrase and the
    `decision-strength` check landed universal on 2026-09-09
    ([decisions/2026-09-09-decision-strength.md](decisions/2026-09-09-decision-strength.md)).
@@ -2759,7 +2896,7 @@ which is the failure this repointing exists to end — write
    (`add_repo` refused with *"cross-tier adds are not supported in v1"*)
    (`cross-source-rollout`).
 
-47. <a id="whatsapp-bridge-research"></a>**Verify the chat bridge's platform claims against
+46. <a id="whatsapp-bridge-research"></a>**Verify the chat bridge's platform claims against
    the platforms, or drop it.**
    [spec/SPECULATIVE_WHATSAPP_BRIDGE.md](spec/SPECULATIVE_WHATSAPP_BRIDGE.md)
    designs a bot that gives each participant a private thread and
@@ -2809,7 +2946,7 @@ which is the failure this repointing exists to end — write
    `wait` ([open-item-disposition](practices/open-item-disposition.md)):
    nobody chases it, and nobody raises it unless Morgan asks.
 
-48. <a id="audit-trail-item-placement"></a>**Confirm where the audit-trail item belongs in
+47. <a id="audit-trail-item-placement"></a>**Confirm where the audit-trail item belongs in
    [philosophy/AI_GOVERNANCE_TO_COCREATE.md](philosophy/AI_GOVERNANCE_TO_COCREATE.md).**
    Morgan's 2026-09-09 batch asked for *"Version Control and an Audit
    Trail"* to be added under **Verification**, and, two items later, for
@@ -2828,7 +2965,7 @@ which is the failure this repointing exists to end — write
    ([decision-strength](practices/decision-strength.md)), which is the
    difference between the two.
 
-49. <a id="cross-owner-add-repo-push"></a>**Measure whether `add_repo` refuses a cross-owner attachment in the
+48. <a id="cross-owner-add-repo-push"></a>**Measure whether `add_repo` refuses a cross-owner attachment in the
    REVERSE direction, with `access: "push"`.** Every measurement so far ran
    one way — from a session rooted in this repository, reaching for a
    private practice-set repository under another owner — and the refusal
@@ -2854,7 +2991,7 @@ which is the failure this repointing exists to end — write
    transcript. It carries no disposition, so it is `wait`
    ([open-item-disposition](practices/open-item-disposition.md)).
 
-50. <a id="source-hook-drift"></a>**Decide whether a drifted-but-present session hook in a practice-set
+49. <a id="source-hook-drift"></a>**Decide whether a drifted-but-present session hook in a practice-set
    source gets brought up to canonical automatically.** Measured 2026-09-09
    across the five private sets: every declared hook exists and is
    executable, so nothing is broken — but one set's `freshness-guard.sh` is
@@ -3020,7 +3157,7 @@ which is the failure this repointing exists to end — write
    open is the general question: whether `--apply` should keep hook content
    current by default.
 
-51. <a id="sync-refuses-a-rewind"></a>**Make `precedent_sync_views.py` refuse a sync that would rewind a
+50. <a id="sync-refuses-a-rewind"></a>**Make `precedent_sync_views.py` refuse a sync that would rewind a
    practice's content, not just one that would remove the practice
    outright.** It already refuses at practice granularity: `_lost_practices`
    blocks a write that would remove a practice the committed
@@ -3049,7 +3186,7 @@ which is the failure this repointing exists to end — write
    **Blocked-on:** nothing external — it is queued for size, not for
    permission. It carries no disposition, so it is `wait`
    ([open-item-disposition](practices/open-item-disposition.md)).
-52. <a id="source-checks-adopt-engine-helpers"></a>**Move the two private practice sets' checks onto the engine helpers
+51. <a id="source-checks-adopt-engine-helpers"></a>**Move the two private practice sets' checks onto the engine helpers
    added 2026-09-10.** Three source-supplied checks were found broken by a
    real §0 install into a fresh private repository, and each one's cause
    was the same shape: a check re-deriving from private assumptions
@@ -3143,7 +3280,7 @@ which is the failure this repointing exists to end — write
    two documented import-failure fallbacks stay legal, since only a
    path-matching call is a decision.
 
-53. <a id="review-skill-level-permissions"></a>**Review the whole
+52. <a id="review-skill-level-permissions"></a>**Review the whole
    technical/non-technical permission split, now that the pieces are in
    three separate places.** Asked for by Morgan on 2026-09-10, closing the
    thread that produced the split: *"note a TODO to review the 'technical vs
@@ -3215,9 +3352,18 @@ which is the failure this repointing exists to end — write
    blocker is his attention, and the queue ahead of it is real work he has
    already named.
 
-   **Disposition:** ask (2026-09-10, Morgan asked for the review himself)
+   ~~**Remind:** still pending on Morgan; surface it again on 2026-09-15 as a
+   line in this list, not as a trigger phrase — he asked for the reminder to
+   be the note itself (2026-09-14, Morgan)~~ **Answered 2026-09-14, a day
+   early, by Morgan asking for it himself**: the review is
+   [spec/CONTRIBUTOR_ACCESS.md](spec/CONTRIBUTOR_ACCESS.md)'s "Review,
+   2026-09-14" section, and what it left open is the items it names. The
+   "worse error" bullet above has a proposed mechanism now
+   ([`pre-pr-ownership-guardrail`](#pre-pr-ownership-guardrail)).
+   **Disposition:** wait (2026-09-14; the ask was answered, the follow-ups
+   carry their own)
 
-54. <a id="stale-days-does-not-travel"></a>**Decide whether the four private
+53. <a id="stale-days-does-not-travel"></a>**Decide whether the four private
    practice sets should declare their own `branch_stale_days`.** Found
    2026-09-10 by the first real cross-repo run of the widened branch sweep
    ([practices/very-deep-check.md](practices/very-deep-check.md), pass 4),
@@ -3252,7 +3398,7 @@ which is the failure this repointing exists to end — write
    only the person an item waits on may set it to `ask`, and a session
    stamping that for him is the session giving itself permission to chase.
 
-55. <a id="private-owner-allowlist-inert"></a>**The repo-reference allowlist is
+54. <a id="private-owner-allowlist-inert"></a>**The repo-reference allowlist is
    inert here, and this public tree names the account that owns the private
    practice sets.** Found 2026-09-10 while answering a question about
    `PRECEDENT_SOURCE_BASE_URL`.
@@ -3332,7 +3478,7 @@ which is the failure this repointing exists to end — write
 
    **Disposition:** wait (2026-09-10, Morgan) — the code half is done; the
    remaining half needs a session rooted in his own account.
-53. <a id="retire-a-practice-source"></a>**Write the retirement sequence for a practice SOURCE, from the one real
+55. <a id="retire-a-practice-source"></a>**Write the retirement sequence for a practice SOURCE, from the one real
    run.** `precedent-team-tms` was retired 2026-09-10 — the first time a
    whole source has been taken out of service rather than a file or a
    directory inside one, which is what
@@ -3481,7 +3627,7 @@ which is the failure this repointing exists to end — write
     **Disposition:** wait
     ([open-item-disposition](practices/open-item-disposition.md)).
 
-57. <a id="repo-name-regex-shape"></a>**Think about the shape of the leak
+58. <a id="repo-name-regex-shape"></a>**Think about the shape of the leak
    gate's repository-name rule: it refuses `owner/name` and ignores `name`.**
    Raised by Morgan, 2026-09-11, in the same breath as deciding the team
    sets' names are not private
@@ -3520,7 +3666,7 @@ which is the failure this repointing exists to end — write
 
    **Disposition:** wait ([open-item-disposition](practices/open-item-disposition.md)).
 
-58. <a id="source-load-ceilings"></a>**Declare session-load ceilings in the attached practice-set sources, and
+59. <a id="source-load-ceilings"></a>**Declare session-load ceilings in the attached practice-set sources, and
    measure the real total a session pays.**
    [session-load-budget](practices/session-load-budget.md) landed 2026-09-11
    with a registry
@@ -3539,7 +3685,7 @@ which is the failure this repointing exists to end — write
    is a merge under that repository's own rules, not this one's. Do it in the
    session that refreshes their engines.
 
-59. <a id="provenance-check-skips-in-a-source-set"></a>**A universal
+60. <a id="provenance-check-skips-in-a-source-set"></a>**A universal
    practice's mechanical check could not bind a source set, so sets relied on
    checks that silently skipped there.** **Largely resolved**: the mechanism
    below shipped as `binds_publishers` (#261, 2026-09-12) and reached all four
@@ -3631,7 +3777,7 @@ which is the failure this repointing exists to end — write
 
    **Disposition:** wait ([open-item-disposition](practices/open-item-disposition.md)).
 
-60. <a id="consumer-views-drift-uncheckable-in-ci"></a>**A consuming repo's
+61. <a id="consumer-views-drift-uncheckable-in-ci"></a>**A consuming repo's
    generated loader block cannot be drift-checked in CI, and today nothing
    checks it anywhere.** A consuming repo materializes `practices/` from the
    sources it resolves. A team source is a sibling clone outside the repo; an
@@ -3665,7 +3811,7 @@ which is the failure this repointing exists to end — write
 
    **Disposition:** wait ([open-item-disposition](practices/open-item-disposition.md)).
 
-61. <a id="views-drift-gate-rollout-to-existing-sets"></a>**Install the views
+62. <a id="views-drift-gate-rollout-to-existing-sets"></a>**Install the views
    drift gate in the four existing private sets.**
    [templates/github-actions/views-drift.yml.template](templates/github-actions/views-drift.yml.template)
    reaches a new set through
@@ -3718,7 +3864,7 @@ which is the failure this repointing exists to end — write
 
    **Disposition:** wait ([open-item-disposition](practices/open-item-disposition.md)).
 
-62. <a id="cross-source-resident-block-over-cap"></a>~~**The resident block is
+63. <a id="cross-source-resident-block-over-cap"></a>~~**The resident block is
    over its 2,000-token cap once the private sources resolve, and has been
    since before this item was written.**~~ **CLOSED 2026-09-11: both demotions
    landed, and the block measures 1,695 tokens across 15 practices,
@@ -3866,7 +4012,7 @@ which is the failure this repointing exists to end — write
    and the full harness at `0 failed`.
 
 
-63. <a id="source-clone-keeps-no-credential"></a>~~**A private source clone carries no credential helper, so every later
+64. <a id="source-clone-keeps-no-credential"></a>~~**A private source clone carries no credential helper, so every later
     fetch of it fails — and the freshness guard blocks on that.**~~
     **Done (2026-09-11).**
     [tools/precedent_source_bootstrap.py](tools/precedent_source_bootstrap.py)
@@ -3909,7 +4055,7 @@ which is the failure this repointing exists to end — write
     `check_source_clone_keeps_its_credential` holds it, with two negative
     controls that were run rather than assumed.
 
-64. <a id="renamed-team-source-not-in-allowlist"></a>**Nothing checks that a
+65. <a id="renamed-team-source-not-in-allowlist"></a>**Nothing checks that a
     rename carried its allowlist entry.** *(The anchor is kept and the title
     changed: anchors are permanent here
     ([rename-updates-links](practices/rename-updates-links.md)), and this
@@ -3976,7 +4122,7 @@ which is the failure this repointing exists to end — write
     ([handoff-is-pasteable](practices/handoff-is-pasteable.md) is about
     making the right handoff easy, not about having one).
 
-65. <a id="figures-reach-commit-messages-ungated"></a>**A figure can reach a
+66. <a id="figures-reach-commit-messages-ungated"></a>**A figure can reach a
     commit message without anything checking it, and it did twice in two
     days.** Every script-derived number in a *document* sits inside a
     generated block that [doc_sync.py](tools/doc_sync.py) regenerates and
@@ -4027,7 +4173,7 @@ which is the failure this repointing exists to end — write
     item and said in the same breath that it is a weak one.
     **Disposition:** wait (2026-09-11, Morgan — a session did not set this to `ask`; he is the one it waits on)
 
-66. <a id="source-clause-check-reads-only-html-comments"></a>**The `Source:`
+67. <a id="source-clause-check-reads-only-html-comments"></a>**The `Source:`
     clause check reads only HTML comments, so a generated file whose header is
     a `#` comment is never asked for one.**
     [generated-edit-goes-upstream](practices/generated-edit-goes-upstream.md)'s
@@ -4053,7 +4199,7 @@ which is the failure this repointing exists to end — write
     whatever it names, and plant a case per header shape.
     **Disposition:** wait (2026-09-11 — no session has set this to `ask`)
 
-67. <a id="consuming-repo-clause-clears-on-vendor-update"></a>**Confirm the
+68. <a id="consuming-repo-clause-clears-on-vendor-update"></a>**Confirm the
     consuming repo's `Source:` clause actually clears, rather than assuming
     it.** The clause-matcher faults in item 66's sibling fix were found from a
     consuming repo, whose generator emits a hyphenated `Source:` path. That
@@ -4070,7 +4216,7 @@ which is the failure this repointing exists to end — write
     after the vendor update.
     **Disposition:** wait (2026-09-11 — no session has set this to `ask`)
 
-68. <a id="source-sets-vendor-the-broken-clause-matcher"></a>**All four
+69. <a id="source-sets-vendor-the-broken-clause-matcher"></a>**All four
     practice-set sources vendor the pre-fix `Source:` clause matcher.**
     `precedent_check.py` is in `ENGINE_FILES`, so `precedent-individual`,
     `precedent-team-repo-maintenance`, `precedent-team-writing` and
@@ -4095,7 +4241,7 @@ which is the failure this repointing exists to end — write
     tree.
     **Disposition:** wait (2026-09-11 — no session has set this to `ask`)
 
-69. <a id="source-name-check-cannot-run-in-a-hosted-session"></a>**The
+70. <a id="source-name-check-cannot-run-in-a-hosted-session"></a>**The
     source-name check reports UNVERIFIED for every private source in a hosted
     session, which is where most vendor updates happen.**
     [tools/precedent_source_names.py](tools/precedent_source_names.py) asks
@@ -4126,7 +4272,7 @@ which is the failure this repointing exists to end — write
     which this repository does not control, and a decision between those three
     shapes. **Disposition:** wait (2026-09-11 — a session filed this; nobody
     has set it to `ask`)
-70. <a id="my-options-includes-doing-nothing"></a>**Decide whether "My
+71. <a id="my-options-includes-doing-nothing"></a>**Decide whether "My
     options" must always list the do-nothing option.** When
     [my-options](practices/my-options.md) was coined on 2026-09-12, the
     session proposed that a plain "none of these, don't do it" be a
@@ -4141,8 +4287,8 @@ which is the failure this repointing exists to end — write
     **Blocked on / out of scope:** Morgan's decision, explicitly deferred.
     **Disposition:** wait (2026-09-12 — deferred by him; nobody has set it
     to `ask`)
-71. <a id="universal-adapters-undeclared"></a>**Decide whether THIS repository
-    declares its own harness adapters.** Since 2026-09-12 a practice source
+72. <a id="universal-adapters-undeclared"></a>~~**Decide whether THIS repository
+    declares its own harness adapters.**~~ **Done (2026-09-14).** Since 2026-09-12 a practice source
     can declare its `bootstrap/*.sh` in its own `precedent.json` and have
     [tools/precedent_materialize.py](tools/precedent_materialize.py) install
     them into every consuming repo on each sync — see
@@ -4156,12 +4302,61 @@ which is the failure this repointing exists to end — write
     `.claude/settings.json` wiring to match, which does not travel and cannot.
     The mechanism landing is not the same decision as pointing it at every
     install.
-    **Blocked on / out of scope:** a deliberate call about a behavioural
-    change to every consuming repo, which the session that built the
-    mechanism should not make by convenience on the way past.
-    **Disposition:** wait (2026-09-12 — a session filed this; nobody has set
-    it to `ask`)
-72. <a id="source-sets-declare-adapters"></a>**Have the private source sets
+
+    **Measured 2026-09-14: the reporting half of this is already built, and
+    the residue is narrower than it reads.** A proposal reached this repo for
+    an `adapters-are-wired` check — the complement to
+    `declared-hooks-exist`, reporting an adapter that sits on disk wired by
+    no `settings.json`. That check exists:
+    `hooks-on-disk-are-reachable` in
+    [tools/precedent_check.py](tools/precedent_check.py) sweeps
+    `.claude/hooks/` (and any directory a `settings*.json` names) for files
+    nothing that could run them names, and its own docstring cites the same
+    consuming-repo incident the proposal cites. **What it does not have is a
+    way to DECLINE one.** A repo that left an adapter unwired on purpose —
+    the consuming repo whose `AGENTS.md` records declining
+    `freshness-guard.sh` because its own bootstrap already fast-forwards —
+    has no way to say so that the check reads, because prose is deliberately
+    not searched. So it reports a correct decision as an orphan, permanently,
+    and the only way to clear it is to wire a hook the repo does not want.
+    The open work is a declared decline carrying a reason, satisfied by the
+    reason rather than by the wiring — not a new check.
+
+    **Built 2026-09-14.** `precedent.json` takes a `declined_adapters` list
+    of `{path, reason}`, and `hooks-on-disk-are-reachable` reads it: a hook
+    declined with a reason is satisfied by the reason. A decline with no
+    reason, a decline naming a file that is not there, and a decline sitting
+    beside a hook something actually calls are each reported instead — four
+    planted cases in
+    [tools/verify_harness.py](tools/verify_harness.py). Documented in
+    [spec/SOURCES.md](spec/SOURCES.md)'s "Harness adapters travel with the
+    source". **So the thing this item was waiting on exists**, and what is
+    left is the decision below and nothing else.
+
+    **CLOSED 2026-09-14.** The item's stated condition was a deliberate call
+    about a behavioural change to every consuming repo, and Morgan made it:
+    *"Approved - declare the eight adapters"* (`decided` — he chose it from
+    options laid out for him). `precedent.json` now declares **five**, not
+    eight, and the two subtractions are both worth reading.
+
+    `individual-source-bootstrap.sh.template` is not an adapter: it carries
+    variables substituted at install time, so copying it verbatim would
+    install a hook with placeholders where its values belong. The number in
+    this item was wrong, counted off `ls`.
+
+    `commit-identity.sh` and `freshness-guard.sh` are real adapters and are
+    deliberately left undeclared: the individual source already declares the
+    same two destinations, and `precedent_materialize.py` REFUSES a
+    destination collision outright. Declaring them here would have stopped
+    the sync of every repo holding both sources. Found by declaring all
+    seven and running the deep check, which failed the vendored-consumer
+    case against the real four-source pipeline — the only place this was
+    visible, since nothing in this repository alone collides.
+
+    The decline mechanism landed first, on purpose — it is what makes this
+    safe, since a repo that does not want one of the seven can now say so
+    with a reason instead of carrying a permanent violation.
+73. <a id="source-sets-declare-adapters"></a>**Have the private source sets
     declare their harness adapters.** Each of the four attached sets ships
     `bootstrap/*.sh` that its own practices tell a consuming repo to copy into
     `.claude/hooks/` by hand — the individual set's `freshness-guard.sh`,
@@ -4181,9 +4376,47 @@ which is the failure this repointing exists to end — write
     [`universal-adapters-undeclared`](TODO.md#universal-adapters-undeclared):
     the first sync after a declaration starts writing into consuming repos
     that may hold an older copy on purpose.
+
+    **Measured 2026-09-14, with all four sets on disk, and two of this
+    item's own claims are wrong.** First: *"each of the four attached sets
+    ships `bootstrap/*.sh`"* — only the individual set does. The three team
+    sets have no `bootstrap/` directory at all, so there is nothing for them
+    to declare and the work here is one set, not four. Second, and this is
+    the blocker: *"each set's vendored engine has to carry the new
+    `precedent_materialize.py` before a declaration does anything at all"* —
+    none of the four carries it, and the individual set's three declared
+    adapters are being written into consuming repos anyway. A SOURCE never
+    materializes; the CONSUMER does, out of its own engine. The sets vendor
+    a source-set subset that deliberately has no
+    `precedent_materialize.py` or `precedent_sync_views.py` in it. So the
+    stated blocker was never the real one, and the engine-currency report
+    that seemed to clear it was answering a different question.
+
+    **What is actually left here:** the individual set declares three of its
+    five `bootstrap/*.sh` — `session-start.sh` and
+    `precedent-universal-catalogue.sh` are not declared, and nothing says
+    whether that is a decision or an oversight. That question, and nothing
+    about the team sets, is this item.
+
+    **Unblocked 2026-09-14**, now that a consuming repo can decline an
+    adapter with a reason (see item 72). Declaring the two remaining scripts
+    no longer forces every consumer that does not want them into a
+    permanent violation, which was the real cost of doing this early. The
+    work is one repository — `precedent-individual` — and it is a session
+    rooted there, not here: this repository is a different owner and
+    `add_repo` refuses across owners (*"cross-tier adds are not supported in
+    v1"*, measured 2026-09-14). A push probe from a session holding the clone
+    is refused the same way: *"access denied by the git proxy:
+    themorgan/precedent-individual is not in this session's authorized
+    repository set"*.
+
+    **Universal declared its own seven on 2026-09-14**
+    ([`universal-adapters-undeclared`](TODO.md#universal-adapters-undeclared),
+    now closed), so the pattern this item asks the sets to follow now exists
+    upstream to copy.
     **Disposition:** wait (2026-09-12 — a session filed this; nobody has set
     it to `ask`)
-73. <a id="leak-gate-is-background-level"></a>~~**Decide whether
+74. <a id="leak-gate-is-background-level"></a>~~**Decide whether
     `leak-gate-is-background` belongs at team or universal level rather than
     individual.**~~ **Answered 2026-09-13, by him: universal** — *"Yes, make
     this one universal."* Asked to choose between the two readings below, he
@@ -4257,7 +4490,7 @@ which is the failure this repointing exists to end — write
     proportionality guard). Recorded here because the shape recurs: a limit on
     what a *repository* can reach, stated as a limit on what the session can do.
 
-74. <a id="leak-gate-is-background-dedup"></a>~~**Deduplicate
+75. <a id="leak-gate-is-background-dedup"></a>~~**Deduplicate
     `leak-gate-is-background` in the individual set, now that it is in force at
     universal.**~~ **Done 2026-09-13** — `themorgan/precedent-individual` pull
     request #94, merge commit `e3bb64e`. That set's copy now carries
@@ -4321,7 +4554,7 @@ which is the failure this repointing exists to end — write
     [TODO.md's `check-gate-reads-status` item](TODO.md#check-gate-reads-status)
     below.
 
-75. <a id="check-gate-reads-status"></a>~~**Decide whether
+76. <a id="check-gate-reads-status"></a>~~**Decide whether
     [tools/precedent_check.py](tools/precedent_check.py)'s practice-backed gate
     should test a practice's `status` rather than whether its file exists.**~~
     **Decided 2026-09-13: document the distinction, do not change the gate.**
@@ -4386,7 +4619,7 @@ which is the failure this repointing exists to end — write
     deliberately changed nothing. Morgan decided it on 2026-09-13. The item
     carries no disposition because it is no longer an open item.
 
-75. <a id="chief-of-staff-session"></a>~~**Decide whether to build the Chief of
+77. <a id="chief-of-staff-session"></a>~~**Decide whether to build the Chief of
     Staff session.**~~ **Decided 2026-09-14, by him: build it.** The universal
     practice and the sweeper Routine are live; the tag namespaces and the
     standing desk are not, and each is still his call —
@@ -4465,9 +4698,13 @@ which is the failure this repointing exists to end — write
   `verify()` finding naming the absent key, and a line in the bootstrap
   procedure. It was left out here deliberately rather than missed — the
   approval covered pronouns.
-  **Blocked on / out of scope:** nothing but the work and a decision that
-  the parallel is wanted; it was out of scope of the approved change.
-  **Disposition:** wait
+  **DONE 2026-09-14**, as part of the contributor-access build: the skeleton
+  carries `"register": "{{PERSON_REGISTER}}"` with its own comment,
+  `precedent_bootstrap_source.py --verify` names an absent key, and
+  [spec/BOOTSTRAP_NEW_SOURCES.md](spec/BOOTSTRAP_NEW_SOURCES.md)'s step 5d
+  asks for it beside pronouns. The one live set already has the field; no
+  existing set was edited.
+  **Disposition:** wait (done, kept for the record)
 
 - <a id="provenance-stamp-for-instantiated-copies"></a>**A file instantiated
   from a template carries no record that it was, so nothing can check
@@ -4609,13 +4846,35 @@ which is the failure this repointing exists to end — write
   no disposition because it is no longer an open item — the broken link is
   repaired and all four sets carry the flag.
 
-76. <a id="reply-check-rollout"></a>**Roll the blocking reply check out to the
+78. <a id="reply-check-rollout"></a>**Roll the blocking reply check out to the
     sources that want one, and land the individual set's half.** Built
     2026-09-13 in this repo: `tools/precedent_reply_check.py` enforces whatever
     a source declares in a `reply_check.json` at its root, and the `reply` gate
     now serves every source rather than this repo's own `practices/` alone.
 
-    **The individual set's half is written and cannot be pushed from here.**
+    **The individual half LANDED, and this item said otherwise until
+    2026-09-14.** Verified by content that day, not inferred: the set's
+    `reply_check.json` is on its `origin/main`, declaring
+    `require_heading_matching: "next step"` and the two archive sentences, and
+    it is what gates every reply in a session that resolves it — including the
+    session that checked. The paragraph below describes the state on
+    2026-09-13 and is kept as the record of what was true then.
+    **DECIDED 2026-09-14: the individual half is CLOSED on its stated
+    condition, and only the engine-rollout half stays open.** Morgan took the
+    recommendation as written — *"let's implement your recommendation"* — with
+    no argument for it, so **strength: assented (2026-09-14, Morgan)**. The
+    stated condition was that the individual set carry a `reply_check.json`
+    declaring the heading pattern and the two closing sentences: it is on that
+    set's `origin/main`, and it gated the reply of the session that checked,
+    which is the condition met rather than resembled. What is
+    genuinely left is that the four attached sources still run an older
+    vendored engine, so none of them can declare a CONDITIONAL requirement of
+    its own — the object-vs-list form and
+    `require_when_context_grew_tokens`. That is ordinary vendor-update work,
+    not a design question, and it belongs to whichever session is rolling the
+    sets forward rather than to a separate effort.
+
+    **The individual set's half was written and could not be pushed from here.**
     Its `next-steps-after-commit` gained the session-disposition clause, its
     `## Install` was corrected (it asserted a mechanical check was impossible,
     which was the premise that stopped anyone building one), and a
@@ -4668,11 +4927,15 @@ which is the failure this repointing exists to end — write
     anyone opens it, the text has to be rebuilt from this item plus the
     practice's own history.
 
-    **blocked-on:** the individual set not being pushable from a session rooted
-    here. **Disposition:** ask (2026-09-13, this session) — the written half
-    dies with this container otherwise.
+    **blocked-on:** the four attached sets still running the `c3c78d9` engine.
+    Refreshing them is vendor-update work inside those repositories, with its
+    own runbook and its own authorization, and the sessions doing those
+    rollouts own it — there is nothing here to hand anyone.
+    **Disposition:** wait (2026-09-14) — the 2026-09-13 `ask` was there because
+    the written individual half would die with that container; it did not, it
+    landed, and nothing left in this item needs Morgan.
 
-77. <a id="views-drift-vs-suite-workflow"></a>**Decide whether a source set
+79. <a id="views-drift-vs-suite-workflow"></a>**Decide whether a source set
     that runs the whole check suite in continuous integration should still
     carry `views-drift.yml`.** Until 2026-09-12 the two could not overlap:
     `generated-artifact-provenance` skipped itself in a source set, so the
@@ -4713,7 +4976,7 @@ which is the failure this repointing exists to end — write
     cross-owner. The decision comes first either way.
     **Disposition:** wait
 
-78. <a id="universal-prose-does-not-reach-a-source-set"></a>**A check can now
+80. <a id="universal-prose-does-not-reach-a-source-set"></a>**A check can now
     bind a repo that publishes practices; universal PROSE still cannot reach
     one.** `binds_publishers` (#261, 2026-09-12) closed half a wart this file
     had called "real and unaddressed": a universal check now runs in the
@@ -4792,9 +5055,38 @@ which is the failure this repointing exists to end — write
     enforcement half is open as
     [`source-set-runs-no-universal-checks`](TODO.md#source-set-runs-no-universal-checks)**,
     and rolling the change out to the four sets is still to do.
+
+    **The reading half was NOT finished on 2026-09-13, and the gap was in this
+    repository rather than in any set.** The hook wrote
+    `.precedent/SESSION_PRACTICES.md` correctly and **nothing told the session
+    to read it**: the standing instruction's pointer at that file was
+    conditional on `repo_is_public()`, which is one of the two reasons
+    `build_views.sources_for_tracked_block()` defers a source, and a set defers
+    universal for the other one. Every set is private, so the pointer was
+    suppressed in all four. Fixed 2026-09-14 (`build_views.defers_any_source`),
+    found by Morgan from the symptom — sessions open on a practice repo and
+    most of the rules he wants are not loaded. **The measurement that missed it
+    checked that the file was written, never that a session is told to read
+    it.**
+
+    **What the rollout now needs, and why it cannot be done from here.** Each
+    set vendors the engine as tracked files, so it needs
+    `python3 tools/precedent_refresh_sources.py --apply --commit` run from a
+    BestPractice checkout and the regenerated `AGENTS.md` committed and pushed
+    in that set. A session rooted in a set can get that checkout in seconds --
+    `git clone --depth 1 --branch precedent-beta-v01
+    https://github.com/alex137/BestPractice` is public and took 1 second on
+    2026-09-14 (gotcha 33). A session rooted HERE cannot finish it: the git
+    proxy answers 403 for `themorgan/*` ("not in this session's authorized
+    repository set") and `add_repo` refuses the cross-owner add. **On
+    2026-09-14 it could not even enumerate the live sessions to wake** --
+    `list_sessions` was refused by the harness's own permission classifier,
+    which is a permission refusal rather than a repository wall, so
+    [spawn-session](practices/spawn-session.md) sends it back to Morgan
+    instead of spawning beside whatever is already running.
     **Disposition:** wait
 
-79. <a id="wire-individual-hook-in-existing-sets"></a>**Wire
+81. <a id="wire-individual-hook-in-existing-sets"></a>**Wire
     `precedent-individual-bootstrap.sh` into the four practice sets that
     already exist.** As of 2026-09-13
     [tools/precedent_bootstrap_source.py](tools/precedent_bootstrap_source.py)
@@ -4857,7 +5149,7 @@ which is the failure this repointing exists to end — write
     is why it was handed off rather than done here.
     **Disposition:** wait
 
-80. <a id="session-load-under-20k"></a>**Get what every session loads under
+82. <a id="session-load-under-20k"></a>**Get what every session loads under
     20,000 tokens.** **DONE 2026-09-13 — 14,386.** Measured with
     [tools/build_views.py](tools/build_views.py)'s own `_approx_tokens`:
     [AGENTS.md](AGENTS.md) 11,468, `.precedent/SESSION_PRACTICES.md` 2,863,
@@ -4902,7 +5194,7 @@ which is the failure this repointing exists to end — write
 
 
 
-81. <a id="source-set-runs-no-universal-checks"></a>**A practice set now READS
+83. <a id="source-set-runs-no-universal-checks"></a>**A practice set now READS
     the universal rules and still RUNS none of universal's mechanical
     checks.** Shape 3 landed 2026-09-13
     ([spec/SOURCE_SET_PROSE_GAP.md](spec/SOURCE_SET_PROSE_GAP.md)): a session
@@ -4939,17 +5231,95 @@ which is the failure this repointing exists to end — write
     practice, which is the nearest existing machinery and the place to start
     reading.
 
-    **Not blocked on anything external** — it needs a session with a set
-    attached, which is the ordinary condition here. It is queued rather than
-    done because it is a measurement pass with an unknown answer, not a
-    change with a known shape, and shape 3's reading half is worth landing
-    without waiting on it.
-    He asked for it to be noted as an issue to review, so raising it with him
-    is what he asked for.
-    **Disposition:** ask (2026-09-13, Morgan)
+    **DECIDED 2026-09-14: run the measurement, wire nothing.** Morgan took the
+    recommendation as written — *"okay let's implement your suggestion"* —
+    with no argument for it, so **strength: assented (2026-09-14, Morgan)**.
+    Wiring before the count is what the `not_binding` reasoning above warns
+    against, and the cost of guessing wrong is a permanently red gate in four
+    repositories.
+
+    **MEASURED 2026-09-14, and the measurement half CLOSES on its stated
+    condition.** The set was `precedent-team-writing`, copied to scratch and
+    given the current upstream engine — every file in
+    [tools/precedent_vendor_engine.py](tools/precedent_vendor_engine.py)'s
+    `ENGINE_FILES`, 20 of them — so the run says what a REFRESHED set does,
+    not what a 249-commit-stale one does. Nothing was wired, and nothing was
+    written to any set.
+
+    **As the gate stands today, 3 universal checks reach a set and 42 do not
+    — and the 42 skip for ONE reason, not 42.** Every one prints *"no
+    practices/<slug>.md in this repo, so the practice is not in force here"*.
+    That is a file-presence test, and shape 3 deliberately does not satisfy it:
+    it routes the universal text through an untracked
+    `.precedent/SESSION_PRACTICES.md` rather than committing a second copy.
+    The three that do reach it are exactly the three carrying
+    `binds_publishers` — `catalogue-carries-stories`, `practice-links-travel`,
+    `generated-artifact-provenance`. So that machinery is not just the place to
+    start reading; it is already the whole of the answer, in production.
+
+    **With the presence gate forced open in the scratch copy, the whole
+    catalogue against one set is 24 passed, 5 violated, 1 advisory, 23
+    skipped.** Sorted the way this item asked:
+
+    - **(a) real findings: one, and it is a defect in a CHECK, not in the
+      set.** `code-cites-practice` reads
+      `tools/precedent_close_detect.py`'s citations of `declared-pronouns` and
+      `fail-gracefully` as typos, because it resolves a slug against the local
+      `practices/` directory — which in a practice set holds that set's own
+      catalogue and nothing else. Both slugs are real upstream. Every set given
+      the current engine would go red here, on engine files it did not write.
+    - **(b) not applicable to a set at all: the other four.** Three are
+      expectations of a consuming repo's `AGENTS.md` that a 17-practice
+      catalogue does not meet by design — `quick-index`,
+      `environment-gotchas`, `two-check-levels` — and `routing-audit` names
+      `tools/routing_audit.py`, which is not in `ENGINE_FILES` at all. This is
+      what `not_binding` is for.
+    - **(c) already covered by the set's own re-declared copy: none.** The
+      set's 17 practices meet the registry at three slugs — `draft-marker`,
+      `no-stale-counts`, `deliverables-carry-no-process` — and not one of them
+      is a universal practice. They are the writing team's own, with checks in
+      the shared engine, which is that engine working as designed. The
+      redeclaration `binds_publishers` was meant to end is genuinely absent.
+
+    **Half the catalogue cannot run in a set at any gate setting**, which this
+    item did not know: 13 of the 23 skips are a tool that is not vendored —
+    `doc_lint.py`, `doc_sync.py`, `doc_lifecycle.py`, `title_case.py`,
+    `practice_audit.py`, `model_audit.py`. Opening the gate buys nothing for
+    those without a second, larger decision about what a set contains. The
+    other 10 skip because there is honestly nothing there to check.
+
+    **What the count says about wiring, now that it is counted rather than
+    reasoned:** opening the presence gate today would turn four repositories
+    red for five reasons, four of which nobody would act on, and would not
+    enforce one universal rule that is not already enforced. The
+    `binds_publishers` three are the rules whose SUBJECT is a published
+    catalogue — a check reaches a set when the set is what the rule is about,
+    not because the set can read the rule. That is the boundary, and the
+    measurement endorses it.
+
+    **What is left, and it is small:** teach `code-cites-practice` to resolve a
+    slug across the resolved sources rather than the local directory. Not done
+    in the same breath as the measurement, on purpose —
+    [tools/precedent_check.py](tools/precedent_check.py)'s own header warns
+    against "a behaviour change nobody asked for, in every consuming repo at
+    once", and changing how a slug resolves is exactly that. It wants its own
+    branch and its own harness case.
+    **It pairs with item 87**, found 2026-09-14: a set cannot even run
+    `precedent_show.py` on a universal slug, because `practices/` there holds
+    the set's own files only. That is the same boundary from the READING side
+    — the rules arrive as one-line clauses and nothing else — so whoever takes
+    the measurement should read both items together rather than discover the
+    second one halfway through.
+
+    **The reason this was queued is spent.** It was queued as "a measurement
+    pass with an unknown answer, not a change with a known shape" — the answer
+    is above, and the shape that is left is one check's slug resolution.
+    **Disposition:** wait (2026-09-14) — the 2026-09-13 `ask` was Morgan asking
+    for this to be reviewed, and he has reviewed it; the `code-cites-practice`
+    fix is ordinary work that needs nothing from him.
 
 
-83. <a id="vendor-very-deep-check-into-sets"></a>**Vendor
+84. <a id="vendor-very-deep-check-into-sets"></a>**Vendor
     `very_deep_check.py` into the practice sets, so a set can audit its own
     always-loaded files instead of only gating new ones.** A set carries its
     own `AGENTS.md` — measured 2026-09-11 at 943, 956 and 963 tokens for the
@@ -4999,11 +5369,14 @@ which is the failure this repointing exists to end — write
     That is the question to put to him; the landing itself is four sessions'
     work in four repositories, and cheap once the shape is decided.
 
-    **Remind:** the vendoring decision — whole deep check or a named subset —
-    raise it tonight (2026-09-13, Morgan)
+    **DECIDED 2026-09-14: the whole check, not a named subset.** Morgan, in
+    his own words, asked which and answered *"the whole thing"*.
+    **Strength:** decided (2026-09-14, Morgan). The `**Remind:**` line that
+    carried this is removed because it has fired and been answered; what is
+    left is landing work in four repositories this session cannot push to.
     **Disposition:** ask (2026-09-13, Morgan)
 
-84. <a id="source-set-push-triggers"></a>**The four practice sets still run
+85. <a id="source-set-push-triggers"></a>**The four practice sets still run
     their checks on `pull_request` only, so a direct push to one runs
     nothing.** Upstream's half landed 2026-09-14 in
     [PR #313](https://github.com/alex137/BestPractice/pull/313):
@@ -5052,7 +5425,7 @@ which is the failure this repointing exists to end — write
     accepting a proposal. Nothing here is waiting on a decision; it is
     waiting on a session that can push.
 
-85. <a id="vendor-engine-ref-not-on-cli"></a>**Expose
+86. <a id="vendor-engine-ref-not-on-cli"></a>**Expose
     [tools/precedent_vendor_engine.py](tools/precedent_vendor_engine.py)'s
     `ref` parameter on the command line.** `refresh` fetches
     `origin <SOURCE_BRANCH>` and then resolves `origin/<SOURCE_BRANCH>`, so it
@@ -5109,7 +5482,7 @@ which is the failure this repointing exists to end — write
     [#336](https://github.com/alex137/BestPractice/pull/336) — and was
     corrected the same day.
 
-86. <a id="set-ci-skips-vendored-tests"></a>**No practice set's CI runs the
+87. <a id="set-ci-skips-vendored-tests"></a>**No practice set's CI runs the
     vendored checks' own test suite, so a red suite sits under a green pull
     request.** Verified 2026-09-14: none of the three workflow templates a set
     is bootstrapped with —
@@ -5130,7 +5503,7 @@ which is the failure this repointing exists to end — write
     that turns real answers into `SKIPPED` unless
     `PRECEDENT_BESTPRACTICE_CLONE` is set.
 
-87. <a id="set-cannot-show-a-universal-practice"></a>**In a practice SET,
+88. <a id="set-cannot-show-a-universal-practice"></a>**In a practice SET,
     `precedent_show.py SLUG` cannot read any universal practice — and the
     generated file that delivers those practices tells its reader to run
     exactly that command.** Measured 2026-09-14 in a real team set, not
@@ -5165,7 +5538,7 @@ which is the failure this repointing exists to end — write
     to four sets before it helps anyone — a bigger piece than the note asked
     for. Nothing is waiting on a decision.
 
-88. <a id="reply-check-cannot-forbid"></a>**The reply check can only REQUIRE
+89. <a id="reply-check-cannot-forbid"></a>**The reply check can only REQUIRE
     text, never forbid it — so every practice about what a reply must NOT
     contain is unenforceable by it.** Verified 2026-09-14 by reading
     [tools/precedent_reply_check.py](tools/precedent_reply_check.py): the
@@ -5196,7 +5569,7 @@ which is the failure this repointing exists to end — write
     and what it does with a reply that quotes the forbidden thing in order to
     report a real hit, which that practice explicitly still requires.
 
-89. <a id="consumer-cannot-resolve-upstream-commit"></a>**A consumer repo
+90. <a id="consumer-cannot-resolve-upstream-commit"></a>**A consumer repo
     cannot read upstream's own text at `upstream.commit` — nothing local
     resolves it — so no check that runs there may assume it can.** Measured
     2026-09-14 in a real consumer, not reasoned about: `process/upstream/` is
@@ -5315,6 +5688,19 @@ which is the failure this repointing exists to end — write
   2026-09-13 failure it was written for. It worked here: the refused turn
   emitted the closing alone.
 
+  **A THIRD door was found and closed 2026-09-14, and it is not this one
+  either.** That block message asked for *"the missing closing section(s)"*
+  whatever was actually missing. The individual set revised its required
+  closing sentence that morning -- close a session to archive one -- so every
+  reply already carrying the heading was refused for the SENTENCE alone, and
+  got exactly what the message asked for: a whole second `## Next Steps` block
+  written under the first. Morgan: *"In various recent sessions of the last few
+  minutes, you repeated the 'next steps' section two times."* A sentence-only
+  failure now says sentence-only, in the imperative, and names the repeat as
+  the thing not to do; three harness cases hold it, each with its control.
+  **The door below is still open** -- a machine-opened turn restates the list
+  in full, and nothing in that fix touches it.
+
   **The second copy came from a different door.** A continuous-integration
   notification arrived as its own turn, and the individual practice governing
   the closing list requires the outstanding items be restated **in full on
@@ -5341,10 +5727,158 @@ which is the failure this repointing exists to end — write
   waiting for, and a turn that reports a red check with no closing list is
   worse than one that repeats itself.
 
-- <a id="team-sets-carry-no-engine-refresh-workflow"></a>**None of the three
-  team sets has a channel that reports a stale vendored engine, so all three
-  are behind and nothing said so.**
-  **Disposition:** wait
+- <a id="team-sets-carry-no-engine-refresh-workflow"></a>**The weekly
+  engine-refresh cron is dead in all four practice sets. What survives it is
+  the finding underneath: a set's vendored engine goes stale, and nothing
+  unattended says so.**
+  **Disposition:** wait (2026-09-14 — the cron kill has landed; what is left
+  is refreshing the sets by hand, which is now the only channel there is)
+
+  **THE LIVE FINDING, re-measured 2026-09-14 in this session.** All four sets
+  vendor `74eb776277105b70fa504470de1dc3c521b0fd33` while this branch's tip is
+  `d23714b48a36`, so all four are behind — the same shape as the morning
+  measurement below, which caught the three team sets at `a114836` and the
+  individual set further back still. **The drift is not the problem; the
+  noticing is.** The three team sets carry `precedent-check.yml` and
+  `views-drift.yml` and neither looks at `ENGINE_MANIFEST.json`, and since the
+  cron kill the fourth has no scheduled channel either. Nothing reports this
+  on its own, and after 2026-09-14 nothing is supposed to.
+
+  **THE REMEDY IS BY HAND, and it is not a gap waiting on a workflow.**
+  `Update Vendors` ([vendor-update-runbook](practices/vendor-update-runbook.md))
+  is the channel: [tools/precedent_vendor_engine.py](tools/precedent_vendor_engine.py)
+  `refresh` per set, landed in the same pass. What reports the drift is a session that has the sources
+  attached — [tools/precedent_refresh_sources.py](tools/precedent_refresh_sources.py)
+  prints a behind/current line per source at session start, and printed
+  exactly the four STALE rows above at the start of this one. That is
+  attended reporting, which is what Morgan chose over a clock; **do not read
+  anything below as a standing argument for restoring one.**
+
+  **CLOSED 2026-09-14 — THE SCHEDULED CHANNEL IS RETIRED, NOT EXTENDED.**
+  Read this first: everything below it was written toward rolling the weekly
+  job out to three more repositories, and that is no longer the plan.
+  Morgan, 2026-09-14, in his own words: *"I think that engine-refresh.yml is
+  now doing an automatic update weekly. Let's stop that. No weekly updates. I
+  had that weeks ago, but we're not doing that anymore; this is now really
+  complex and deserves hand attention and issues come up every time and I'm on
+  it every day anyway."* **Strength:** decided (2026-09-14, Morgan) — he asked
+  for it outright rather than accepting a proposal
+  ([decision-strength](practices/decision-strength.md)).
+
+  **What that settles, item by item.** Decision 1 below (*install it in the
+  three team sets*) is **withdrawn** — no set gets a weekly cron, so the gap
+  this item opened on is no longer a gap. The `WORKFLOW_TEMPLATES` fork below
+  (*put it in the templates, leave it, or ship it behind an opt-in flag*) is
+  **closed with no change**: a mechanism nobody is going to run does not need
+  a distribution question. The superseded-pull-request fix below is **moot**
+  by the same route — the pull-request path it was fixing goes away with the
+  schedule. Decisions 2, 3 and 4 were already withdrawn and stay that way.
+  Nothing here reopens 2026-09-06's reasoning; it ends one repository's
+  exception to it.
+
+  **The 2026-09-06 reasoning survives intact and is now universal in
+  practice.** That decision said a scheduled workflow inherited by every
+  adopter is a cron job phoning a remote weekly on a schedule nobody picked,
+  and kept it out of
+  [tools/precedent_bootstrap_source.py](tools/precedent_bootstrap_source.py)'s
+  `WORKFLOW_TEMPLATES` for that reason — recorded in
+  [spec/BOOTSTRAP_NEW_SOURCES.md](spec/BOOTSTRAP_NEW_SOURCES.md)'s "The
+  scheduled channel, and why there is not one". The individual set was
+  the one place that took the cron anyway, on the ground that it was the
+  owner's own preference about his own repositories. He has now withdrawn that
+  preference, so the exception closes and nothing anywhere schedules a vendor
+  update.
+
+  **What replaces it: the phrase, by hand.** `Update Vendors` is the channel —
+  [vendor-update-runbook](practices/vendor-update-runbook.md), which since
+  2026-09-14 carries the merge as well as the update, so the thing a scheduled
+  job was bad at (landing: **two runs, two abandoned branches**, a 100% report
+  rate against a 0% landing rate, all measured below) is the half the phrase
+  actually does. The evidence in this item was always pointing here: the
+  channel never leaked at the reporting step.
+
+  **DONE 2026-09-14 — the kill landed, and both halves landed together.**
+  `.github/workflows/engine-refresh.yml` and the practice requiring it,
+  `practice-set-engine-refresh`, both live in the private practice sets;
+  neither file is in this repository. A session rooted in the individual set
+  removed the `schedule:` block, kept `workflow_dispatch` as the only trigger,
+  and revised the practice in the same pull request rather than leaving the
+  set failing a rule that still demanded a weekly job. Verified from here
+  against that set's `origin/main` rather than a local clone
+  ([verify-postcondition](practices/verify-postcondition.md)); the workflow's
+  own header now records the cron's dates and why it went.
+
+  **Why it had to go to a session rooted there**, kept because it is the
+  standing constraint and not a one-off: measured, not assumed,
+  `git push --dry-run` to that set came back *"access denied by the git
+  proxy"*, and `add_repo` with push access was refused by this session's own
+  permission layer.
+
+  **THE SCOPE IS FOUR REPOSITORIES, NOT ONE — corrected 2026-09-14 by Morgan**
+  (*"I think we need to remove it from the 4 practice level repos"*), against
+  the paragraph above, which named `precedent-individual` as the sole carrier.
+  That was true when this item was written and the decision recorded below
+  changed it: decision 1 approved putting the workflow INTO the three team
+  sets, so if any session acted on that approval before he reversed it, the
+  cron now exists in all four. **Unverified from here and deliberately left
+  that way** — no session rooted in this repository can read
+  `themorgan/precedent-team-*` at all, so "are they carrying it?" is a
+  question only a session holding those sets can answer, and guessing at it
+  is what [diagnosis-is-measured](practices/diagnosis-is-measured.md) exists
+  to stop. The removal is idempotent either way: a set without the file needs
+  nothing done to it.
+
+  **Owned, as of 2026-09-14, by the one session holding all four sets:**
+  `session_01Cp6E5dkxdjqej9C6YDUjZU` ("Engine-refresh cron removal"). Recorded
+  here rather than left in a chat thread
+  ([findings-return-through-repo](practices/findings-return-through-repo.md)),
+  because the next session to read this item will otherwise start a fifth
+  branch on the same four files.
+
+  **NOW MEASURED, AND THE CRON QUESTION IS CLOSED — 2026-09-14, later the
+  same day.** The paragraph above left the four-repository scope deliberately
+  unverified; the session-start hook then cloned all four sets into this
+  container, so it became answerable from here and was answered by looking
+  rather than by reasoning.
+
+  - **The three team sets never carried the workflow.**
+    `precedent-team-repo-maintenance`, `precedent-team-writing` and
+    `precedent-team-working-style` each hold exactly `precedent-check.yml` and
+    `views-drift.yml` in `.github/workflows/`, and nothing else. So decision 1
+    below — install it in the three team sets — was approved and never acted
+    on, which is the only reading that fits. `precedent-individual` really was
+    the sole carrier, and the four-repository scope was a precaution rather
+    than a finding.
+  - **`precedent-individual`'s cron is dead.** Its pull request #129 (*"kill
+    the engine-refresh cron, and revise the rule with it"*) is on that set's
+    `main`, and the workflow there now reads `on: workflow_dispatch:` with the
+    comment *"the only trigger. Nothing here fires on a clock."* The practice
+    that required the weekly job was revised in the same change. Verified on
+    `origin/main` by content, not by a report
+    ([verify-postcondition](practices/verify-postcondition.md)).
+
+  **What remains of this item is one line in one file**, and it is the
+  `relayed_authorization` change below, not the cron.
+
+  **A duplicate branch this session caused, named so nobody re-derives it:**
+  `claude/quirky-pasteur-e997ei` in `precedent-individual` carries a second,
+  unmerged retirement of the same cron, superseded by #129. It exists because
+  a session woke a `precedent-individual`-only window on this subject while a
+  window holding all four sets was already on it — `list_sessions` had been
+  run, and the four-set session was created after that enumeration and before
+  the wake. **Enumerating once is not enough when the work is queued rather
+  than immediate**; the check has to be close to the wake.
+
+  **A SEPARATE ONE-LINE CHANGE IN `precedent-individual`, same day, same
+  wall:** `identity.json` has no `relayed_authorization` field, so
+  [relayed-authorization](practices/relayed-authorization.md) reads `refused`
+  and every cross-repository handoff costs Morgan a second approval in a
+  second window. He asked for `accepted` on 2026-09-14 (*"yes that should be
+  in both precedent-individual as well as the template"*). **Strength:**
+  decided. The template half is already done — `relayed_authorization` ships
+  in [templates/practice-set-individual/identity.json.template](templates/practice-set-individual/identity.json.template)
+  set to `refused`, with the trade written out, so an adopter chooses it
+  rather than inheriting it. Only his own set's value is outstanding.
 
   **Found 2026-09-14**, checking the laggards at the end of an `Update
   Vendors` run in a consuming repo, which
@@ -5369,26 +5903,243 @@ which is the failure this repointing exists to end — write
   about the workflow's health worth checking before copying it anywhere.
 
   **Each set has a `precedent/engine-refresh` branch, and it is not evidence
-  of a scheduled job.** It is a spent working branch from the last manual
-  refresh, already merged. This session read it as the workflow and said so in
-  a pull request body before checking `.github/workflows/`; that is the
-  specific mistake worth not repeating, because the branch name is exactly
-  what a scheduled job's branch would be called.
+  of a scheduled job.** It is a working branch from a manual refresh. This
+  session read it as the workflow and said so in a pull request body before
+  checking `.github/workflows/`; that is the specific mistake worth not
+  repeating, because the branch name is exactly what a scheduled job's branch
+  would be called. (It said "already merged" as well, and **that half is
+  false** — see the 2026-09-14 correction below, where all four turned out to
+  be unmerged.)
 
   **Not done here, and the reason is scope rather than difficulty:** the work
-  is four `precedent_vendor_engine.py refresh` runs and a copied workflow
-  file, but this session's designated repositories were one consuming project
-  and this one, and a request to attach a set with push access was refused.
+  is four `precedent_vendor_engine.py refresh` runs — **no workflow is copied
+  anywhere**, per the reversal below — but this session's designated
+  repositories were one consuming project and this one, and a request to
+  attach a set with push access was refused.
   Recorded so the
   finding survives the window that found it
   ([findings-return-through-repo](practices/findings-return-through-repo.md)).
 
-  **What a fix decides:** whether the workflow goes into the three team sets
-  as it stands, or whether the individual set being both the only carrier and
-  the most stale means the job has been failing or disabled, and wants looking
-  at before it is copied three more times.
+  **MEASURED 2026-09-14, and it answers this item's own doubt: the workflow is
+  healthy.** The suspicion above — that the only carrier being the most stale
+  might mean the job was failing or disabled — is false, checked against
+  `precedent-individual`'s own history rather than inferred. Its cron is
+  Mondays, and it fired on Monday 2026-09-07 (`aec5ed5`, pushing
+  `precedent/engine-refresh-c6c885033a9f`) and again on Monday 2026-09-14
+  (`982dfcf`, pushing `precedent/engine-refresh-7c8904d2ec47`), producing a
+  correct refresh both times. All four sets vendor `74eb776` as of this
+  writing, so the staleness figures above are the state on the morning they
+  were taken, not now.
 
-90. <a id="engine-root-in-a-vendored-tree"></a>**Five engine tools read the
+  **What it was stale from is the LANDING, not the job — and the scheduled
+  channel has never once been landed.** Both workflow branches are unmerged,
+  by `git merge-base --is-ancestor`: `-c6c885033a9f` from 2026-09-07, which
+  [spec/VERY_DEEP_CHECK.md](spec/VERY_DEEP_CHECK.md) already names an unlanded
+  attempt, and `-7c8904d2ec47` from 2026-09-14. **Two runs, two abandoned
+  branches.** Every refresh that actually reached that set's `main` was landed
+  by a person or a session instead — `b80210c` (2026-09-10) reproduces the
+  workflow's tree by hand and says so in its own message, and `1eb647e`
+  (2026-09-14, this set's pull request #128) is a session's `Update Vendors`
+  run. So the job's report rate is 100% and its landing rate is 0%, which is
+  the same failure this practice's own Detail predicts for the ISSUE fallback
+  — a channel that reports into a place nobody acts on becomes litter and gets
+  muted — arriving through the pull-request channel instead.
+
+  **How to tell the two apart, since authorship no longer does it.** Since the
+  2026-09-10 identity fix the workflow commits as the declared identity, so
+  `git log --format=%an` cannot separate a scheduled run from a session. What
+  separates them is the BODY: the workflow's `git commit -m` is a single line
+  with no trailer, and every session-produced refresh carries a
+  `Claude-Session:` or `Session:` trailer and a written rationale. The branch
+  name is the second signal — the workflow appends the upstream commit
+  (`precedent/engine-refresh-<12 hex>`) and
+  [tools/precedent_refresh_sources.py](tools/precedent_refresh_sources.py)
+  does not (bare `precedent/engine-refresh`).
+
+  **Six unmerged refresh branches across the four sets, counted 2026-09-14.**
+  The two workflow ones above, plus a bare `precedent/engine-refresh` in every
+  one of the four — all four at `27655a18bc50`, all committed within three
+  seconds of each other at 06:24 -03, so one session's sweep — and none of
+  them merged. The refresh gets produced reliably and landed almost never.
+  **That was read at the time as an argument for giving the other three sets
+  the same channel. It is not, and the reversal below settles it the other
+  way:** the leak is at the landing step, which is precisely the half an
+  unattended job is worst at — a weekly job leaves up to seven days of drift
+  on its own, and a weekly job nobody lands leaves all of it. What six
+  abandoned branches actually argue for is refreshing by hand and landing it
+  in the same pass, which is what `Update Vendors` does.
+
+  **The cron time does not match either run, and this is not explained.** The
+  installed workflow says `17 6 * * 1` (06:17 UTC); both runs committed near
+  12:30 UTC on their Mondays. Whether that is GitHub delaying a scheduled job,
+  a `workflow_dispatch`, or a cron that was different at the time has not been
+  checked — recorded as an open thread rather than guessed at.
+
+  **How this item got it wrong the first time, 2026-09-14** (practice:
+  [diagnosis-is-measured](practices/diagnosis-is-measured.md)): the paragraphs
+  above originally credited the 09-14 run to `1eb647e` and reported one
+  unlanded branch rather than two. The cause was reading a local clone's
+  remote-tracking refs as if they were the remote — `git branch -a` and
+  `git log --all` without a `git fetch` first, in a clone that was several
+  hours stale. Two of the four branches simply were not there to be found, and
+  nothing about the output said so. Morgan noticed the missing branch by name.
+  **Fetch before you enumerate refs**, in any clone you did not just make.
+
+  **Why the three team sets never got it, established rather than assumed:**
+  three causes, none of them a decision anybody made about these
+  repositories.
+  [tools/precedent_bootstrap_source.py](tools/precedent_bootstrap_source.py)
+  installs workflows from an explicit two-entry `WORKFLOW_TEMPLATES` list and
+  this one is deliberately not in it; that exclusion was a 2026-09-06 call
+  about what a STRANGER's repository inherits, recorded in
+  [spec/BOOTSTRAP_NEW_SOURCES.md](spec/BOOTSTRAP_NEW_SOURCES.md)'s "The
+  scheduled channel, and why there is not one"; and
+  `precedent-team-repo-maintenance` predates the workflow outright (founded
+  2026-08-31 against the workflow's 2026-09-06) while the other two were
+  founded 2026-09-09 and bootstrapped from that same list. Sessions edited all
+  three sets' `.github/workflows/` on 2026-09-11, 09-12 and 09-13 without
+  adding it — which is what an exclusion nobody ever restated looks like from
+  the inside.
+
+  **No upstream template is needed, and adding one would re-open a settled
+  question.** The 2026-09-06 decision made the individual set the canonical
+  home for this workflow on purpose, and the spec section above already
+  records its full shape in prose for anyone rebuilding it. A team set copies
+  the file from the individual set, which IS the original — so
+  [fix-the-original](practices/fix-the-original.md) is satisfied without a
+  `templates/github-actions/` entry that would put the mechanism back in the
+  one place 2026-09-06 decided it should not live.
+
+  **What was left to decide was one word, and it is Morgan's:** whether a
+  `precedent-team-*` set counts as "a practice-set repo of mine" under the
+  individual practice that requires this workflow. If it does, that practice
+  wants one word widened and three repositories are out of compliance with a
+  rule approved 2026-09-06. If it does not, the team level needs a rule of its
+  own. The mechanism is right either way; only its level is open.
+
+  **DECIDED 2026-09-14 — the workflow goes into the three team sets.** Morgan
+  approved a four-part recommendation as written, so
+  **strength: assented (2026-09-14, Morgan)** on all four: the substance was
+  the session's proposal and he took it rather than choosing between options
+  he framed himself ([decision-strength](practices/decision-strength.md)).
+
+  1. **Install it in the three team sets — yes.** On the ground that the
+     workflow is proven healthy above, not on an assumption that it is.
+  2. **Daily instead of weekly — NO, withdrawn.** Weekly fires correctly; the
+     leak is at the landing step, and a faster cron only produces more pull
+     requests nobody lands.
+  3. **Auto-merge on green — NO, withdrawn.** It would reverse a decision
+     recorded and approved 2026-09-06 (*the workflow never merges; landing it
+     is his call*), and the session proposed it without noticing that, on a
+     reason that turned out to be wrong: the 2026-09-06 incident was NO
+     CHANNEL AT ALL, not an unlanded pull request. The two abandoned branches
+     above are a real argument for revisiting it, and a different one — his to
+     open, not a session's to slip in.
+  4. **A `templates/github-actions/` entry — NO, withdrawn**, for the reason
+     in the paragraph above it.
+
+  **The individual set needs nothing: it already has the workflow.** Asked and
+  answered rather than assumed — it is the one set of the four that has
+  carried `.github/workflows/engine-refresh.yml` since 2026-09-06, and the two
+  scheduled runs measured above are its own.
+
+  **STILL OPEN, and it cuts against decision 4 above:** Morgan asked, in the
+  same message that approved that withdrawal, whether the workflow should go
+  into the templates *"so they go into future ones"*. Those cannot both hold,
+  so decision 4 stands as approved and this is recorded as the live fork
+  rather than resolved by reading his question as an instruction. **Three ways
+  out, and the third is the session's recommendation:** put it in
+  `WORKFLOW_TEMPLATES` (every adopter inherits a weekly cron — the exact thing
+  2026-09-06 refused); leave it where it is and copy by hand into each new set
+  of his (today's behaviour, and how three sets came to be missing it);
+  **or ship the template and gate it behind an opt-in flag on
+  [tools/precedent_bootstrap_source.py](tools/precedent_bootstrap_source.py)**,
+  so a set gets it when somebody asks for it and never by inheritance. The
+  third keeps 2026-09-06's reasoning intact — nobody inherits a cron they did
+  not choose — while ending the hand-copy. It also means publishing a file
+  that currently lives only in a private set, which is a
+  [scrub-gate](practices/scrub-gate.md) question and not a formality.
+
+  **A SEPARATE CHANGE, RECOMMENDED 2026-09-14: the workflow should close its
+  own superseded pull requests.** Raised by another session and endorsed here
+  on the evidence this item already carries. The workflow reuses and closes a
+  single staleness ISSUE, and the practice states why in its own Detail — an
+  open issue must mean *stale right now* rather than *was stale once*, or the
+  channel becomes litter inside a month and gets muted. **Its pull-request
+  path has no equivalent.** It checks only whether a pull request is open for
+  the branch it is about to push, so every earlier run's pull request stays
+  open claiming an engine gap that a later run has already closed. Two
+  abandoned branches are the state above; the cost is live as well, in a
+  session sitting blocked on *"PR #126 — should delete or keep?"* between two
+  refresh pull requests from different runs. **A person arbitrating superseded
+  refresh pull requests by hand is the failure the issue path was built to
+  prevent, arriving through the other channel.**
+
+  **What the step has to get right**, since "close the old ones" is broader
+  than it sounds: close only pull requests **this workflow opened** — branches
+  matching `precedent/engine-refresh-<sha>`, never the bare
+  `precedent/engine-refresh` that
+  [tools/precedent_refresh_sources.py](tools/precedent_refresh_sources.py)
+  writes from a session — and comment naming the superseder before closing, as
+  the issue path already does. Whether the superseded BRANCH is deleted too is
+  a smaller question with an easy answer (it is reproducible from upstream at
+  any time), but it is a second change, not part of this one.
+
+  **Scope:** `precedent-individual` only — it is the sole carrier — and a
+  session rooted there does it, if it is ever wanted. **There is no "which
+  version do the team sets get" question to sequence any more**: decision 1 is
+  void, the three team sets never carried the workflow, and with no schedule
+  nothing stacks superseded pull requests on a clock.
+
+  **REVERSED 2026-09-14, later the same day: Morgan wants the cron killed.**
+  In his own words — *"we have a cron that we want to kill"* — so
+  **strength: decided (2026-09-14, Morgan)** on killing it. Everything the
+  decisions above turn on changes with it:
+
+  - **Decision 1 is VOID.** Installing a scheduled workflow in three
+    repositories while removing the schedule from the fourth is incoherent.
+    Nothing is to be installed in the team sets, and there is nothing to kill
+    there either: measured, none of the three has ever had
+    `.github/workflows/engine-refresh.yml`, so they have no scheduled action
+    at all.
+  - **The template fork is moot in the form it was asked.** *"So they go into
+    future ones"* has no content once there is no cron to inherit. If the
+    opt-in-flag route is ever wanted it is for a different artefact.
+  - **The superseded-pull-request closer recommended above loses its
+    urgency.** Its whole case was competing SCHEDULED runs stacking pull
+    requests nobody arbitrates. Without a schedule they stop competing, and
+    it drops from a fix to a nicety — worth keeping only if the on-demand
+    path turns out to stack them too.
+
+  **The shape was a reading when it was written and is his words now.**
+  Confirmed 2026-09-14, same day, asked and answered rather than assumed:
+  *"I meant to kill the scheduled crons, not workflow dispatch."* So: remove
+  the `schedule:` block, keep `workflow_dispatch`, and the job stays available
+  on request while never firing on a clock. **Strength: decided (2026-09-14,
+  Morgan)** on the shape as well as on the kill. Deleting the workflow
+  outright is explicitly NOT what was asked, and a later session should not
+  re-derive it as the tidier reading.
+
+  **This is not a one-line YAML edit, and that is the part worth not
+  forgetting.** The individual practice `practice-set-engine-refresh` REQUIRES
+  the weekly workflow — that is what it says, and it carries a Story about the
+  set going two hundred commits stale. Deleting the `schedule:` block without
+  retiring or revising that practice leaves the set failing its own rule, with
+  nothing to catch it (the practice declares no mechanical check, on purpose).
+  Both halves land together or neither does. Both are in
+  `precedent-individual`; `git push --dry-run` from here returns 403 from the
+  git proxy, re-measured today, so a session rooted there does the work.
+
+  **What killing it costs, said plainly rather than argued away:** the set
+  loses its only channel that reports a stale engine without somebody looking,
+  which is the exact 2026-09-06 condition the practice was written to end.
+  What makes that defensible is this item's own measurement — the unattended
+  channel fired twice and landed zero times, while sessions refreshed that set
+  three times in the same week. The attended path is the one that works. The
+  practice's revision should say that, rather than deleting its Why and
+  leaving the reasoning unanswered.
+
+91. <a id="engine-root-in-a-vendored-tree"></a>**Five engine tools read the
   wrong repo when vendored, and five more have not been checked.** Fixed
   2026-09-14 for the five a consuming repo actually runs —
   [tools/precedent_source_credentials.py](tools/precedent_source_credentials.py),
@@ -5421,7 +6172,7 @@ which is the failure this repointing exists to end — write
   readings is confident, specific, and about the wrong repository — the
   shape of wrongness that gets believed.
 
-91. <a id="sync-views-blames-a-dropped-source-for-a-retirement"></a>**A
+92. <a id="sync-views-blames-a-dropped-source-for-a-retirement"></a>**A
   retired practice is reported as one whose SOURCE was dropped, and a
   renamed source would read identically.** On 2026-09-14
   [tools/precedent_sync_views.py](tools/precedent_sync_views.py) removed four
@@ -5440,3 +6191,924 @@ which is the failure this repointing exists to end — write
   under the same reassuring sentence. The fix is to distinguish the two
   states before writing the message: a practice whose source resolves but
   whose `status` is `retired`, versus one whose source is genuinely gone.
+
+  **Done 2026-09-14, the safety half: the silent write is gone.** An
+  unmatched recorded source now REFUSES like the still-declared bucket
+  already did, and the message names the three states the name-matching
+  cannot separate — dropped, renamed, retired at source — instead of
+  asserting the commonest one. `--allow-removals` proceeds once the person
+  knows which they have. Covered by two new cases in
+  [tools/verify_harness.py](tools/verify_harness.py)'s
+  `check_sync_refuses_to_lose_a_recorded_practice`, including the one the
+  fixture had to be corrected to reach: **a rename alone loses nothing** —
+  the source still resolves and still produces the same slugs, so the guard
+  has no occasion to fire — and the damage needs a rename PLUS a practice
+  that really goes. A fixture asserting the rename alone passes for the
+  wrong reason.
+
+  **Still open, and this item stays open for it: the tool still cannot TELL
+  the three apart.** It refuses safely rather than distinguishing, which is
+  what the condition above asks for. Two ways to actually distinguish, in
+  order of durability: record something rename-proof in `MANIFEST.json` (a
+  URL or an id) instead of matching on the source's name, which removes the
+  ambiguity rather than catching it; or call
+  [tools/precedent_source_names.py](tools/precedent_source_names.py), whose
+  `renamed=True` (landed in PR #347, still unconsumed) reports a rename
+  GitHub redirects — precise, but a network call inside a tool that
+  otherwise runs offline, so it needs the refusal underneath it either way.
+
+93. <a id="phase3-snapshot-is-not-a-snapshot"></a>**The phase-3 "point-in-time
+    record" is not one: it freezes WHICH practices count and reads what they
+    say TODAY, so editing any of the original 52 moves a figure two documents
+    recite.** Measured 2026-09-14, and the measurement is the demonstration:
+    adding a `## Detail` to [two-check-levels](practices/two-check-levels.md)
+    — one of the original 52 — moved
+    [catalogue_stats.py](tools/catalogue_stats.py)'s
+    `phase3_snapshot_stats()['with_detail']` from 21 to 22, and
+    `scripts-assert-properties` failed on the anchor reciting 21 in
+    [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md)'s "The Rule/Detail
+    Split".
+    **The half-fix is visible in the function's own docstring.** It records
+    that computing these over the growing `practices/` directory "would fail
+    every anchor the first time anything was added after phase 3 -- which is
+    exactly what happened", and the remedy taken was to filter the population
+    by `source_practice_number` 1..52. That freezes the set, not the text: the
+    section content still comes from `_load()`, which reads the working tree.
+    So the figure is stable against *additions* and moves on any *edit* to an
+    original practice.
+    **Neither document knows that.** `spec/PRACTICE_FORMAT.md` says in its own
+    parenthetical that both figures are scoped to the original 52 "so they stay
+    a stable record of what phase 3 delivered rather than drifting", and
+    [spec/PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md) restates the
+    same figure.
+    **Do not refit the anchor** — [scripts-assert-properties](practices/scripts-assert-properties.md)
+    forbids exactly that, and here refitting would paper over the bug rather
+    than record it. A real snapshot reads the phase-3 text, which upstream can
+    do from its own history and a pinned ref; the population filter then
+    becomes redundant.
+    **Blocked-on** one call: whether these anchors should be a frozen record
+    read from a pinned commit, or be retired as anchors and kept as prose with
+    an "as of phase 3" date. Until it is made, editing an original-52 practice
+    trips a gate that is right to fire and wrong about who is at fault.
+    **The trap is narrower than "do not edit an original-52 practice", and the
+    exact boundary was measured 2026-09-14 by enumerating `ANCHORS`.** Of the
+    four, one reads the LIVE catalogue and three read the frozen snapshot,
+    which returns exactly two figures: `with_detail` moves when a `## Detail`
+    is added or removed, `long_rules` when a Rule crosses 150 words. A `Why`,
+    a `Story`, an `Install`, or any practice outside 1..52 moves neither. Note
+    that `long_rules` is recited in TWO documents -- `spec/PRACTICE_FORMAT.md`
+    and `spec/PRACTICE_ENGINE_PLAN.md` -- so a Rule crossing 150 words trips
+    two anchors at once, and a session that fixes only the document named in
+    the first failure will be back.
+    **Two mechanisms are in play here with OPPOSITE remedies, and conflating
+    them is the likelier mistake.** An `ANCHORS` figure is prose in a document
+    of record: never refit it, because making it agree with the present
+    destroys the thing it recorded. A `doc_sync` generated block --
+    `spec/LOADER.md`'s catalogue table -- is a render target reading the live
+    catalogue, and the correct action there is always
+    `python3 tools/doc_sync.py --write`. Editing one practice can trip both in
+    the same run, which is how it presented when this was found: `LOADER.md`
+    drifted 76 -> 77 on "Carrying a `## Detail`" and wanted regenerating,
+    while the anchor reciting 21 wanted leaving alone.
+    **Pending behind it:** a clause for
+    [two-check-levels](practices/two-check-levels.md) saying a check is
+    reported by what it found (`0 failed` / `0 violated`) and never by its
+    passed count — which is a property of the tree, so quoting it across a
+    repository boundary invites a comparison that means nothing. Written and
+    verified 2026-09-14, then reverted unlanded because it is an edit to an
+    original-52 practice and trips the anchor above. It came from a real case:
+    a consuming repo reported "52 passed, 0 violated" against upstream's "44
+    passed, 0 violated" for the same change.
+
+94. <a id="close-detect-declaration-unpushed"></a>**The individual set's
+  `close_detect.json` was written and could not be pushed from a session
+  rooted here. CLOSED 2026-09-14 — it is pushed, and close detection is
+  live.** Close detection
+  ([tools/precedent_close_detect.py](tools/precedent_close_detect.py),
+  built 2026-09-14) is inert until a source declares the phrases it fires
+  on, and the source that carries Morgan's closing convention is his
+  individual set — a different GitHub owner from this repository. The git
+  proxy refused to inject a credential across owners (*"not in this
+  session's authorized repository set"*), and `add_repo` was denied here
+  too, so the declaration existed as a local commit on a branch named
+  `close-detect-declaration` in a clone that died with the container.
+
+  **What unblocked it, and the correction worth keeping.** The wall is not a
+  property of this repository — it is a property of a session's **authorized
+  repository set**. A session started with BOTH owners in scope reaches the
+  individual set and pushes to it normally, and one did on 2026-09-14,
+  landing this as that set's pull request #131. It measured the access
+  rather than assuming it, which is the only reason it looked at all: the
+  clone was present, its remote was the individual set, and a dry-run push
+  of a new branch was accepted. **So the thing to ask for is a session
+  scoped to both owners**, not a session "rooted in" the other one — the
+  phrasing this item and its sibling both used, which reads as though the
+  starting repository were what decides.
+
+  **What landed is five keys and no logic**, at that source's root and never
+  vendored: `practice`, `archive_ready_one_of`, `closing_heading_matching`,
+  `candidate_marker`, `why`. The phrase it declares is deliberately the same
+  one that set's `reply_check.json` already requires, so one sentence marks
+  both *this session is finished* and *a practice may be offered here*,
+  rather than adding a second convention that would go unused.
+
+  **The closing condition is met, measured from the clone a fresh session
+  actually reads** (not the editable one — see the gotcha about the
+  individual source resolving to a clone you are probably not editing):
+  after fetching that set's `main`, `python3
+  tools/precedent_close_detect.py --explain` prints
+  `individual/precedent-individual: ready-to-archive ['You can archive this
+  session'], one candidate per session marked 'Practice candidate', in the
+  /next step/i section`, where it previously said no source declares a
+  `close_detect.json`.
+
+  **Then it moved up a level, hours later and in the same day's work.** The
+  blocker was never the declaration's content; it was that the phrase it
+  fires on (*"You can archive this session"*) belonged to a private set, so
+  the declaration had to live beside it. Moving
+  [next-steps-after-commit](practices/next-steps-after-commit.md) to
+  universal took that phrase with it, and a phrase that is universal can
+  carry a universal declaration. `close_detect.json` now sits at the root of
+  THIS repository, next to `reply_check.json`, and the individual set's copy
+  goes with the practice's other declaration in that move's second step --
+  [precedent_close_detect.py](tools/precedent_close_detect.py) accumulates
+  every source's declaration rather than overriding, so two identical ones
+  would both fire and `--explain` would report the rule twice.
+
+  So `--explain` now prints `universal/precedent`, not the individual source
+  the closing condition above asked for. **Recorded rather than ticked off**,
+  per [item-closes-on-its-condition](practices/item-closes-on-its-condition.md):
+  the literal condition was met on 2026-09-14 and then stopped being true,
+  and what replaced it is better than what it asked for — close detection is
+  live for every adopter running Precedent, not for one person, and nothing
+  about it is blocked on a repository under another owner.
+
+  **Disposition:** parked (2026-09-14, closed as done)
+
+95. <a id="one-unrelated-item-at-the-close"></a>**`closing-items-are-this-thread`
+    forbade every unrelated item; Morgan asked for exactly one, and only at
+    the close. CLOSED 2026-09-14 — the amendment is in the practice file.**
+    Asked for 2026-09-14, in his own words: *"please only give me ONE to-do
+    that is unrelated to the issue, and ONLY do that when the issue is done
+    (when you are about to say it's ready to be archived), and make it the
+    issue most important in your opinion AND (importantly) label clearly that
+    this is UNRELATED to the thread."* **Strength:** decided (2026-09-14,
+    Morgan).
+    **Why the old rule was not quite right.** It read *"close on this thread's
+    own work and nothing else — an unrelated suggestion sends me to a window
+    already doing it"*, and the reasoning holds: an unrelated item dropped
+    mid-thread competes with the thread. But a blanket ban also lost the one
+    case where a session is the only thing that has seen a problem, and the
+    person asking "anything else?" gets told no.
+    **What landed.** The amendment is now the practice's own Rule, transcribed
+    unchanged from the blockquote this item used to carry, with the exchange
+    above in its Story: one unrelated item, only in the `## Next Steps`
+    section of the reply that says the session can be archived, labelled
+    **"Unrelated Todo item to consider:"**, chosen rather than collected. It
+    is a `gates: ["reply"]` practice with no mechanical check, for the reason
+    its Install section gives — the subject is the conversation transcript,
+    and the correct outcome is the *absence* of a paragraph.
+    **The item was already stale when it was read.** Its blocked-on paragraph
+    said a session rooted in that set lands it and this one cannot; a
+    different window holding that repository had landed it the same day, at
+    12:05 −03:00, hours before this item was next opened. That is the
+    mechanism working as intended — the wording was preserved here precisely
+    so another window could land it, and one did — but it is also why
+    [item-closes-on-its-condition](practices/item-closes-on-its-condition.md)
+    says to check the condition rather than re-read the item's own
+    description of the world.
+    **Disposition:** parked (2026-09-14, closed as done)
+
+96. <a id="applies-to-sprawl"></a>**The path-trigger channel prints a wall of
+    rules for markdown and almost nothing for code, and a consuming repo
+    declined it over exactly that.** Measured on 2026-09-14 in a consuming repository — a private documents
+    repo with one markdown deliverable — and re-measured here against `precedent-beta-v01` at
+    [74eb776](https://github.com/alex137/BestPractice/commit/74eb776277105b70fa504470de1dc3c521b0fd33)
+    before writing this item; the figures move with the catalogue, so
+    re-measure again before acting on it.
+
+    **What the channel costs, per tool call.**
+    [tools/precedent_paths.py](tools/precedent_paths.py) — wired in a
+    consuming repo as `.claude/hooks/precedent-paths.sh` — fires on
+    PreToolUse for every `Edit` and `Write`, not once per session. Run
+    against real files in that repo, resolving all four sources (universal,
+    three team, repo-local, individual):
+
+    | File | Rules | Chars | Tokens | Time |
+    |---|---|---|---|---|
+    | `content/PERSONAL_TODOS.md` (its one deliverable) | 28 | 19,643 | ≈4,910 | 0.07s |
+    | `TODO.md` | 22 | 15,781 | ≈3,945 | 0.06s |
+    | `tools/light_check.py` | 5 | 4,831 | ≈1,207 | 0.06s |
+    | `.github/workflows/light-check.yml` | 3 | 2,430 | ≈607 | 0.06s |
+
+    Universal-only, in this repository, the same shape: `TODO.md` 15 rules /
+    ≈3,168 tokens, `README.md` 12 / ≈2,805,
+    [tools/precedent_paths.py](tools/precedent_paths.py) 5 / ≈1,207, a
+    workflow file 2 / ≈458. Latency is nothing. Three consecutive edits to a
+    markdown deliverable is ≈15,000 tokens of largely the same rules, and a
+    wall of 28 rules before each edit is skimmed rather than read — which is
+    the failure `reply-is-short` names one layer up, arriving through the
+    mechanism built to prevent it. The consequence is not only spend:
+    that repo **declined `precedent-paths.sh` on 2026-09-14** over this, so
+    the channel is costing a repo that wants it.
+
+    **The framing this item arrived with is half wrong, and correcting it
+    kills the cheap fix.** The measurement that raised it counted
+    `applies_to: ["**"]` as the cause: 69 of 113 active practices here (62
+    on-demand, 7 resident), 117 of 179 with all four of that repo's sources
+    resolved. Both counts reproduce exactly. But **`"**"` already means "not
+    path-routed"** — [tools/precedent_paths.py](tools/precedent_paths.py)
+    drops it (`narrow_globs = [g for g in globs if g != '**']`, there since
+    phase 2, 2026-08-31, so every vendored copy has it), and
+    [tools/routing_scope.json](tools/routing_scope.json)'s own `_note` says
+    so in as many words. **Not one of those 69 is printed by the channel.**
+    So the semantics change that would have been the cheap fix is already
+    the semantics, and the `"**"` share is not the number to watch.
+
+    **What actually drives it is markdown fan-in.** Of 103 active on-demand
+    practices here, 11 are routed `**/*.md` — plus what is file-specific
+    (`TODO.md`, `AGENTS.md`, `PRACTICES.md`) — and each source adds its own.
+    Code and configuration land at 2 to 5 rules because their globs genuinely
+    select; markdown is where the channel collapses, and markdown is what a
+    document repository edits all day.
+
+    **What this item asks for, then:**
+    - **Tighten `**/*.md`.** A practice governing outward-facing prose
+      ([readers-vocabulary](practices/readers-vocabulary.md),
+      [headline-capitalization](practices/headline-capitalization.md)) is not
+      the same routing as one governing any document at all
+      ([doc-references-are-links](practices/doc-references-are-links.md)).
+      The distinguishing-condition rule
+      [tools/routing_scope.json](tools/routing_scope.json)'s `_note` already
+      settled on is the test to apply; every glob that survives unchanged
+      carries its justification there, as the `"**"` entries already do.
+    - **Decide whether the channel caps what it prints** — N most severe, or
+      a summary line plus slugs to expand — so the cost stops scaling with
+      the catalogue. This trades completeness for being read. **This session's
+      position: cap it.** An uncapped wall is already not read at 28 rules,
+      so "complete" is nominal, and a summary line with slugs keeps the
+      expansion one command away. A cap is also the only one of these
+      remedies that bounds a *consuming* repo's cost, which is the cost that
+      lost the adoption.
+    - **A mechanical check** in [tools/precedent_check.py](tools/precedent_check.py)
+      that fails, or warns, when what the channel prints for a representative
+      path crosses a declared ceiling. The shape already exists:
+      [session-load-budget](practices/session-load-budget.md) declares a
+      ceiling per always-loaded surface in
+      [tools/session_load_budgets.json](tools/session_load_budgets.json) and
+      ratchets down. The threshold to declare is the *printed* size for a
+      markdown path, not the `"**"` share — per the correction above, that
+      share would measure nothing.
+
+    **Is this a gap in the routing audit? No — it is the opposite direction,
+    and they should stay separate.**
+    [routing-audit](practices/routing-audit.md) asks *did every practice that
+    should have fired, fire?* — under-firing, a practice with a wrong or
+    missing trigger that nobody notices. This asks what over-firing costs the
+    reader and the context window. Its `coverage` pass walks the same globs
+    and would report every one of these 28 as correctly matched, because they
+    are. Folding a cost ceiling into an audit built for misses would give one
+    mechanism two opposed success conditions. Same input file
+    ([tools/routing_scope.json](tools/routing_scope.json)), different
+    question.
+
+    **Blocked on / why this is queued rather than done:** the first bullet is
+    a judgement pass over 11-plus globs whose effect is felt in every
+    consuming repo, and the second and third need a number somebody decides.
+    Re-routing a practice changes when it reaches a session — the failure
+    mode [routing-audit](practices/routing-audit.md) exists for — so it is
+    not a tidying edit one session makes on its own.
+
+    **Disposition:** wait ([open-item-disposition](practices/open-item-disposition.md)).
+
+97. <a id="agents-md-ceiling-policy"></a>**Decide the STANDING answer to
+    `AGENTS.md`'s ceiling: a reduction pass every time somebody hits it, or a
+    higher declared number.** Item
+    [1](TODO.md#agents-md-over-its-ceiling) closed the instance and item
+    [82](TODO.md#session-load-under-20k) is done and parked, so the policy
+    question has had no home anywhere.
+
+    **The instance is closed and the pressure is not.** Measured on
+    `precedent-beta-v01` at `74eb776`, 2026-09-14: `AGENTS.md` is **11,553
+    tokens against the 12,000** in
+    [tools/session_load_budgets.json](tools/session_load_budgets.json), so
+    there are 447 tokens of headroom. The only reason there are any is that
+    the file went over three separate times in two days and somebody paid a
+    reduction pass each time — the gotchas preamble (12,026 → 11,917,
+    [PR #357](https://github.com/alex137/BestPractice/pull/357)), then the
+    quick index, where 14 rows had grown from *"looking for X → go to Y"* into
+    abstracts of the documents they only need to point at (11,917 → 11,546 at
+    `5b2f1ab`; item 1 records 11,538, measured on that branch before the merge
+    that carried it). Both cuts were duplication rather than content, and both
+    were paid mid-task by sessions doing something else.
+
+    **What makes it structural rather than a run of bad luck:** every gotcha,
+    every quick-index row and every standing command comes out of the same
+    12,000, the occasion index is GENERATED and cannot be hand-trimmed, and
+    the catalogue grows by design.
+    [session-load-budget](practices/session-load-budget.md) forbids the easy
+    move — raising the number to clear a red — and names the alternative,
+    which is what the two passes above did. Nobody has costed what doing that
+    forever is worth against the alternatives.
+
+    **A session is on it, rooted here and seeded with the whole question**,
+    created 2026-09-14:
+    [session_016g7xNkvTFffAchb3vDtBxp](https://claude.ai/code/session_016g7xNkvTFffAchb3vDtBxp).
+    Morgan asked for a separate tab in his own words — *"this is bigger so it
+    deserves a separate tab"* — so the spawn is his, not the session's.
+    **Strength:** decided (2026-09-14, Morgan), on the tab; the question's
+    answer is what that session is for and is not decided by anyone yet.
+
+    **COSTED FOR MORGAN 2026-09-14**, re-measured at `50d82ff` after the
+    seed's own figures went stale within hours — `AGENTS.md` **11,590 of
+    12,000, 410 tokens (3.4%)**, down from 447 at `74eb776` with nobody
+    trimming or adding prose in between. Reproduce any figure below with
+    `python3 tools/session_load_trend.py`.
+
+    **The one measurement that reorders the options: what consumes the
+    headroom is GENERATED.** The occasion index is **3,383 tokens, 29.2% of
+    the file, 106 entries**, and it has grown every single day — 1,136 on
+    2026-08-31, 2,462 on 09-09, 2,753 on 09-11, 3,053 on 09-12, 3,211 on
+    09-13, 3,377 on 09-14. That is **≈160 tokens a day over the fortnight and
+    ≈232 over the last three days**. With the resident block it is **4,340
+    tokens (37%) that no reduction pass may touch**. At those rates the
+    current headroom is gone in **under two days**, whether or not anybody
+    writes a word.
+
+    **Section costs, for any option that proposes cutting something:**
+    preamble 2,112 (18.2%) · resident block 967 (8.3%, generated) · occasion
+    index 3,383 (29.2%, generated) · standing instruction 322 · quick index
+    2,671 (23.0%) · gotchas index 1,532 (13.2%) · working-in-this-repo 429 ·
+    conventions 171.
+
+    **A. A standing reduction pass on a stated trigger.** Formalises what
+    already happens: at a declared headroom floor, the next session to touch
+    the file pays a pass before pushing. *Cost:* it keeps the tax and keeps
+    landing it on whoever is unlucky — **four crossings in two days, three
+    sessions, none of which added the thing that broke it** — and it fires
+    roughly weekly forever at the measured growth. The cheap material is also
+    spent: item 82's pass found that outside the gotchas *"nothing else in the
+    file was a duplicate"*, the gotchas are already split to
+    [record/GOTCHAS.md](record/GOTCHAS.md), the command stories are gone, and
+    the quick index is already back to pointers. **The next pass cuts live
+    content**, which is a different decision from the four before it.
+
+    **B. Raise the ceiling deliberately, with the reason recorded.**
+    Permitted — [session-load-budget](practices/session-load-budget.md)
+    forbids raising one *to clear a red check*, not raising one on purpose.
+    *Cost, and it is the finding that surprised this session:* **a raise buys
+    days, not months.** To 13,000 ≈ 6–9 days; to 14,000 ≈ 10–15; to 16,000 ≈
+    19–28; to 20,000 — which alone equals the whole-session target — ≈ 36–53.
+    The generated growth eats any number. **A raise defers this question; it
+    does not answer it.**
+
+    **C. A second split, in item 82's shape.** The only block big enough to be
+    worth moving is the **quick index, 2,671 tokens**, to a pointer at
+    [MAP.md](MAP.md). *Cost:* it exists precisely to stop sessions searching
+    the repo, so moving it re-adds the hop it was built to remove, and it was
+    *just* compressed on 2026-09-14 — cutting it again is cutting muscle. Buys
+    ≈11–17 days at the measured rates, then the same question returns.
+
+    **D. Cap the generated occasion index, the way the resident block is
+    capped.** [tools/build_views.py](tools/build_views.py) already refuses to
+    write an over-budget resident block; the occasion index has **no cap at
+    all**. A cap moves the cost onto the session ADDING a practice, at the
+    moment it adds one, and makes the decision about the thing that actually
+    grew. *Cost, measured rather than assumed:* of 113 active practices, **33
+    are reachable ONLY by the occasion index** — `applies_to: ["**"]`, which
+    matches everything and therefore routes nothing, and no `gates:` entry.
+    For those, dropping an index line **un-routes the rule**. The other ≈73
+    carry a specific path glob or a gate; **whether that channel fires at the
+    right moment is a per-practice reading this measurement does not
+    establish.** It also makes adding a practice harder in a project whose
+    thesis is capturing practices.
+
+    **E. Move something else out of the always-loaded set.** *Cost:* there is
+    no candidate. [CLAUDE.md](CLAUDE.md) is 55 tokens and
+    `.precedent/SESSION_PRACTICES.md` (3,081) is the private sources' only
+    channel into a session. **Named because leaving an option out is a
+    decision taken on somebody's behalf, not because it is live.**
+
+    **RECOMMENDED: D and B together, in that order — and the pair is the
+    recommendation, because neither works alone.** D is the only option that
+    stops the growth rather than absorbing it; B is the only one that stops
+    the next honest sentence from triggering a pass at 3.4% headroom. A and C
+    are both "absorb it again", and the material they absorb it with has
+    nearly run out. **What has to happen first for D to be safe:** the 33
+    index-only practices need a real `applies_to` glob or a gate, or the cap's
+    first bite silently un-routes a rule — that is work, and it is the reason
+    D is not simply done here.
+
+    **Not done, deliberately:** no ceiling was raised. The seed forbade it and
+    [session-load-budget](practices/session-load-budget.md) puts the
+    equivalent resident-block choice on the person in the same words.
+
+    **BUILT HERE**, because every option above needs it and none of them is
+    chosen: [tools/session_load_trend.py](tools/session_load_trend.py) reports
+    headroom, the hand-written/generated split and the growth rate per
+    surface, and its `headroom_notice()` is called from
+    [tools/precedent_gate.py](tools/precedent_gate.py) at the **merge and push
+    gates** — so a session is told the DISTANCE to the ceiling instead of
+    meeting it as a red check. The threshold is `headroom_floor_pct` in
+    [tools/session_load_budgets.json](tools/session_load_budgets.json); it is
+    a **notice, never a failure**, on the ground that a gate blocking on an
+    *approaching* ceiling would manufacture exactly the raise-it pressure the
+    practice exists to resist. It fires today at 3.4%.
+
+    **Record the answer with
+    [decision-strength](practices/decision-strength.md)** — `decided` only if
+    Morgan can be quoted choosing an option, `assented` for a bare "ok" to the
+    recommendation above.
+
+    **CLOSED 2026-09-14 — Morgan picked B, C and D**, from the menu above:
+    *"I think we should do B, C, and D. now"*. **Strength:** decided — he
+    chose rows rather than approving a proposal, and the recommendation he
+    was answering was D+B, so C is his own addition.
+
+    **C, the split.** The quick index had grown to **88 rows, 2,671 tokens**.
+    The full table moved to [WHERE_THINGS_ARE.md](WHERE_THINGS_ARE.md) and the
+    twelve rows sessions reach for constantly stayed inline, with a pointer
+    row. **No row was dropped** and nothing was rewritten. The trap worth
+    recording: [quick-index](practices/quick-index.md) is a *resident*
+    practice and is mechanically checked for **at least five rows in the
+    instructions file**, so moving the whole table would have broken a live
+    check and the practice's own intent — the short-table split satisfies
+    both. **11,590 → 9,336.**
+
+    **D, the cap.** `occasion_index_tokens` in
+    [tools/session_load_budgets.json](tools/session_load_budgets.json), set at
+    **3,600** against 3,377 measured, enforced by
+    [tools/build_views.py](tools/build_views.py)'s
+    `OccasionIndexBudgetExceeded` — **the first budget the generated half has
+    ever had.** Deliberately tight: the cap is meant to be met often, because
+    meeting it is the decision it exists to force. Its message names the fix
+    *and* the trap — never drop an `occasion:` from a practice whose
+    `applies_to` is `["**"]` with no gate, since the index is then its only
+    channel. Adding `reduction-pass` below took the index to 3,421, so **179
+    tokens remain**, which is the cap working as intended.
+
+    **B did not come out as expected, and the ceiling is UNCHANGED at
+    12,000.** C reclaimed 2,254 tokens and took headroom from 3.4% to 22.2%,
+    so there was no pressure left for a raise to relieve. What B asked for was
+    a number chosen on purpose rather than a ratchet artifact, and that is
+    what it now is: **12,000 = 5,600 generated cap** (resident 2,000 +
+    occasion 3,600, the most the generated half can ever be) **+ 6,400
+    declared prose allowance**, against 4,996 of prose today. **The guarantee
+    that buys:** if the generated half filled both caps the file would reach
+    10,596, so **generated growth alone can no longer push it over**. Every
+    future crossing is prose somebody chose to write — visible, attributable
+    and trimmable, which the four crossings on 09-13/14 were not. Raising it
+    above 12,000 stays Morgan's call and nothing here needs it; this was
+    flagged to him in the reply rather than decided quietly.
+
+    **The menu is documented and has a command.** Morgan asked for both in the
+    same message — *"And document these options, it's a good list for reducing
+    it in the future. Do we have a command to do a 'reduction' pass listing
+    what you did?"* — so the five options became the six-step menu in
+    [practices/reduction-pass.md](practices/reduction-pass.md), a **universal**
+    practice defining the standing command **"Reduction pass"**.
+    [session-load-budget](practices/session-load-budget.md) points at it
+    rather than carrying a second copy.
+    `python3 tools/session_load_trend.py --since <ref>` computes the
+    before/after ledger the report needs, excluding any surface that has no
+    `before` rather than booking it as growth.
+
+    **What is NOT claimed:** that the short quick index is as good as the full
+    one was. A session that needs a long-tail row now follows one link where
+    it used to read the row inline, and nothing measures what that costs —
+    the same honest gap [82](TODO.md#session-load-under-20k) recorded for the
+    gotchas split. **Disposition:** parked (2026-09-14, closed as done)
+
+98. <a id="no-history-checks-unpushed"></a>**Two individual-set checks crashed
+    on a repo with no commits. CLOSED 2026-09-14 — they skip it now, saying
+    there is no history yet.** `tools/checks/check_commit_author.py` and
+    `tools/checks/check_buenos_aires_dates.py` called `git log` with
+    `check=True`. An unborn HEAD makes git log exit 128, the
+    `CalledProcessError` escaped `find_violations()`, and
+    [tools/precedent_check.py](tools/precedent_check.py) printed the traceback
+    as a VIOLATION of the practice itself. **A fresh install is exactly a repo
+    with no commits**, so every [INSTALL.md](INSTALL.md) §0 install hit both,
+    and it is invisible from inside a practice set, which has years of
+    history. Reported from the first real §0 install into a project with
+    subject matter of its own, 2026-09-14.
+
+    **What unblocked it** is the one thing it was waiting on: a session rooted
+    in the individual set. The git proxy refuses to inject a credential across
+    owners and `add_repo` refused the cross-owner add, so nothing rooted here
+    could ever push the fix — it had to be pushed from there, and on
+    2026-09-14 it was, as that set's pull request #130, *"A repository with no
+    commits skips these two checks instead of crashing"*, merged at `519d20f`
+    over `68da995`. The set is private, so there is no link to give.
+
+    **What landed.** Both files read the log through a `_git_log_lines()`
+    helper that drops `check=True` and, on a non-zero git exit, raises the
+    file's own `NotApplicable` — SKIPPED, exit 2: *"this repository has no
+    commits yet"* when `git rev-parse --verify --quiet HEAD` fails, *"not a
+    git repository"* when `rev-parse --git-dir` fails, and otherwise git's own
+    stderr. **`--git-dir` is probed first**, because a directory that is not a
+    repository fails the HEAD probe too and would otherwise be told the wrong
+    cause. The helper is **duplicated verbatim in both files**, for the reason
+    those files already give at length: `precedent_materialize.py` copies only
+    the `check_*.py` scripts a practice's `checked_by:` claims, so a shared
+    helper module sitting beside them would never travel into a consuming
+    repo.
+
+    **Both suites got the two-direction case**, against a repository built
+    from nothing (`git init`) rather than a clone — a clone of that set
+    carries years of history and can never reach the condition. The empty repo
+    must exit 2 **and** the message must say "no commits yet" (exit 2 alone
+    would pass against a skip for the wrong reason — a repo declaring no
+    identity skips too); then the same fixture, once it carries one commit by
+    the declared person (name, email and zone read from the fixture's own
+    `identity.json` rather than written out a second time), must run **clean**
+    rather than stay skipped forever. Reproduced before and after rather than
+    reasoned about: an empty `git init` repo printed the `CalledProcessError`
+    traceback before the change and prints `SKIPPED: this repository has no
+    commits yet ...` after it. Both suites are green, that set's
+    `tools/checks/tests/run_all.sh` exits 0, and its `precedent_check.py`
+    reports 17 passed, 0 violated, 0 errored.
+
+    So this item's own closing condition — a fresh repo (`git init`, nothing
+    committed) runs both checks and gets SKIPPED rather than a traceback — is
+    met. **The sibling item is not:**
+    [`close-detect-declaration-unpushed`](TODO.md#close-detect-declaration-unpushed)
+    hit the same cross-owner wall, is a different fix, and stays open.
+
+    **Disposition:** parked (2026-09-14, closed as done)
+
+99. <a id="session-start-deepen-is-tentative"></a>**The session-start deepen is
+    TENTATIVE — revisit whether every session should pay it.** Since
+    2026-09-14 [.claude/hooks/session-start.sh](.claude/hooks/session-start.sh)
+    fetches the rest of a shallow clone's history before the first turn, so no
+    session here reads a truncated one. What it buys: three tools that report
+    success while checking almost nothing on a short history
+    ([behavioral_replay.py](tools/behavioral_replay.py) with nothing to replay,
+    [doc_lint.py](tools/doc_lint.py) silently narrowing to uncommitted files,
+    [precedent_check.py](tools/precedent_check.py)'s `scope: tree` checks
+    reading an empty `git log` as `0 violated`). What it costs: **4 seconds and
+    about 7 MB on every session**, measured against this remote through this
+    container's proxy — 2.7 MB of history before, 9.5 MB after — paid whether
+    or not that session ever reads history, which most do not.
+
+    **Morgan approved it weakly and asked for this item in the same breath**
+    (`strength: assented`, 2026-09-14): *"Okay let's do it, go merge. BUT note
+    this in the Todo as an issue to revisit in the future, it's tentative,
+    'weak'."* So the thing to revisit is the trade, not the implementation.
+
+    Three things would change the answer, and none of them is knowable yet
+    from one measurement: whether **4 seconds is noticeable** in practice at
+    the start of a session; whether the repo's history **grows** enough that
+    the figure stops being 4 seconds (it is ≈1,300 commits of mostly text
+    today); and whether the three tools above get fixed to **say "could not
+    check"** instead of degrading, which would remove most of the reason for
+    the deepen. The narrower alternative, if it stops paying: deepen a bounded
+    slice rather than everything, or deepen only when a tool that needs history
+    is about to run.
+
+    **Close it** by re-measuring the cost on a fresh container, deciding
+    keep / narrow / drop with that number in hand, and recording which — not
+    by the deepen having worked, which says nothing about whether it was worth
+    it.
+
+    **Disposition:** ask (2026-09-14, Morgan — he asked for it to be revisited)
+
+100. <a id="github-budget-into-the-source-sets"></a>**The four practice sets do not have
+    `github_budget.py` yet, and will not until their next engine refresh.**
+    Added 2026-09-14 with
+    [github-api-budget](practices/github-api-budget.md):
+    [tools/github_budget.py](tools/github_budget.py) is now in
+    `ENGINE_FILES`, so every set picks it up the next time
+    [tools/precedent_vendor_engine.py](tools/precedent_vendor_engine.py)
+    runs there — the `Update Vendors` runbook, or each set's own
+    on-demand engine-refresh workflow. Until then the vendored
+    `precedent_check.py` in those sets carries the `github-api-budget`
+    check and reports NOT APPLICABLE, correctly: a set declares no
+    `tools/github_api_budgets.json` and nothing in one calls the API, so
+    there is no spend to judge. Nothing is broken there; this item exists
+    so nobody re-derives that from a NOT APPLICABLE row.
+
+    **Blocked on:** nothing, deliberately — refreshing four private
+    repositories from here would open four pull requests for a file none
+    of them can use yet, which is the opposite of what
+    [cross-source-rollout](practices/cross-source-rollout.md) is for.
+    Close it when a refresh has landed in each set, or when one of them
+    grows its own API-calling tool and needs the module sooner.
+
+    **Disposition:** wait (2026-09-14, the session that added the practice)
+
+101. <a id="build-audience-dirs-still-vendor"></a>**Three more directories whose audience is "someone building Precedent"
+    still vendor, and only `philosophy/` was cut.** Added 2026-09-14, when
+    Morgan asked why the vendoring instructions were shipping `philosophy/`
+    to adopters at all. The answer generalizes further than the fix did:
+    [spec/DOCUMENT_LIFECYCLE.md](spec/DOCUMENT_LIFECYCLE.md)'s placement
+    table sorts directories by audience, and it puts [spec/](spec/),
+    `record/` and [decisions/](decisions/) under *"a contributor or session
+    building Precedent"* — the same audience test that took `evals/` out in
+    the first place, and the same one that took `philosophy/` out now. An
+    adopter vendors all three today and reads none of them.
+
+    **Blocked on:** a judgment about the links, which is why this was left
+    out of the change that prompted it rather than swept in. `philosophy/`
+    is linked from a handful of vendored files and nothing more;
+    [spec/](spec/) is cited dozens of times from the vendored
+    [INSTALL.md](INSTALL.md) itself, and cutting it turns this repo's own
+    install instructions into a document that points repeatedly at a
+    directory the reader does not have. [tools/doc_lint.py](tools/doc_lint.py)
+    skips the link check inside a mirrored tree, so nothing would go red —
+    which makes this worse, not better: the dead links would be invisible
+    to every gate and visible to every reader. Either rewrite those
+    citations as absolute upstream URLs first (the same move
+    [practice-links-travel](practices/practice-links-travel.md) already
+    makes for the catalogue), or decide `spec/` earns its passage and cut
+    only `record/` and `decisions/`.
+
+    **Three more, measured 2026-09-14 by a by-the-book §1 rehearsal**: the
+    vendored tree also carries this repo's `.github/workflows/` (three
+    workflows GitHub never runs from a subdirectory), `.claude/` (this
+    repo's own hook wiring) and `local/` — whose
+    [merge-target-is-beta-branch](local/practices/merge-target-is-beta-branch.md)
+    tells every PR to target a branch the adopter's project does not have.
+    A session grepping the adopter's repo for rules finds another
+    repository's. 382 files and 128,000 lines landed in that install's one
+    commit; `checkin.py not-vendored` reported `0 of 360` excluded because
+    its exclusion list and §1 step 1's are the same two directories, so
+    widening one means widening both and the harness check that ties them.
+
+    **Disposition:** wait (2026-09-14, the session that cut `philosophy/`)
+
+102. <a id="setup-default-is-the-loader"></a>**Decide whether [SETUP.md](SETUP.md)'s
+    guided install should install §0 (the loader) instead of §1 (the classic
+    vendored model).** Raised 2026-09-14 by the very deep check, which
+    rehearsed all three paths with fresh eyes. What a non-technical
+    administrator gets today from the one document written for them is the
+    classic model: the vendored prose, the audit, the check-in loop — and
+    **not** the resident block, the occasion index or the enforced checks,
+    which is everything [documentation/ADOPTING.md](documentation/ADOPTING.md)
+    and [README.md](README.md) promise ("they show up when they matter";
+    "where a practice can be checked, it is"). The classic template
+    ([templates/AGENTS.md.template](templates/AGENTS.md.template)) carries no
+    generated block at all, and §1 never runs the sync. A §1 project that
+    later wants the loader takes
+    [spec/MIGRATING_EXISTING_INSTALLS.md](spec/MIGRATING_EXISTING_INSTALLS.md),
+    which the same check found is still a rough road. §1's reasons to stay
+    the default — the export gate and check-in loop, the manifest audit —
+    are optional by their own headings (§3, §4), and §0 was rehearsed
+    against a real project on 2026-09-14 with the defects it found fixed the
+    same day. The session's recommendation: flip the default to §0 and keep
+    §1 for a project that wants the check-in loop, in one change that also
+    retires §1's `reply-gate.sh`/`precedent-paths.sh` wiring problem (next
+    item). **Blocked on:** Morgan's decision — it changes what every new
+    adopter receives. **Disposition:** ask (2026-09-14, the very deep check)
+
+    **CLOSED 2026-09-14 — flipped, the same day.** Morgan, on the check's
+    reply: *"anything you think we should do, just do it and Go Merge"*
+    (`strength: assented` — the recommendation was the session's, and he
+    delegated rather than chose). [SETUP.md](SETUP.md) now installs §0
+    through [tools/precedent_install.py](tools/precedent_install.py), a
+    one-command install added in the same change so that the nine prose
+    steps a rehearsal had just found drifting stop being steps a person
+    follows. §1 stays documented for a project that wants the classic
+    check-in loop.
+
+103. <a id="classic-install-wires-loader-hooks"></a>**A §1 install ends
+    every turn with `precedent gate FAIL`, because the Claude Code adapter
+    wires two hooks the hook table says are loader-only.** Measured
+    2026-09-14 on a by-the-book §1 rehearsal:
+    [templates/harness/claude-code/settings.json](templates/harness/claude-code/settings.json)
+    wires `reply-gate.sh` and `precedent-paths.sh` unconditionally, and
+    INSTALL.md's table marks both "only with the Precedent loader" without
+    saying to delete the entries. `precedent-paths.sh` exits silently; the
+    `Stop` hook's gate call finds `process/upstream/tools/precedent_gate.py`
+    and prints *gate 'reply' has no practices registered to it* on every
+    turn, permanently. **Blocked on:** the previous item — if §0 becomes the
+    default the §1 adapter shrinks to what §1 uses; if not, ship a §1
+    variant of `settings.json` or make the gate stay quiet under the
+    `process/upstream` layout. **Disposition:** wait (2026-09-14, the very
+    deep check). *Narrowed the same day*: §0 is the default now, so this
+    reaches only a project that chooses §1 by name; the fix is the §1
+    variant of `settings.json`, when somebody next installs §1.
+
+104. <a id="no-origin-is-not-stale"></a>**A repository with no `origin` at
+    all reads as a stale checkout and as a repo with nothing changed, and
+    both readings are wrong.** Measured 2026-09-14 on a freshly `git init`ed
+    §0 install: the freshness guard's `pre-write` refused the session's
+    first write (*could not fetch origin/…*), and `doc_lint.py`'s default
+    scope reported `0 file(s) checked` on a tree with three dead links,
+    because both hard-code `origin/<branch>` as the thing to compare
+    against. An unreachable origin should block, deliberately (gotcha
+    g21); an origin that was never configured cannot be stale relative to
+    anything, and `git remote get-url origin` tells the two apart in one
+    call. The install documents now say to lint the instantiated files by
+    name and to give the repo an origin first (INSTALL.md §0 step 8, §1
+    step 7), which is a workaround written as an instruction. **Blocked
+    on:** a change to both copies of the guard plus the harness-adapter
+    ledger, and to `doc_lint.py`'s `default_branch()` fallback — small, but
+    it touches the hook every session runs, so it wants its own change with
+    its own fixtures rather than a line in a documentation sweep.
+    **Disposition:** wait (2026-09-14, the very deep check)
+
+105. <a id="consumer-hears-about-files-it-does-not-have"></a>**The engine's
+    remedy strings and the loader template send a consumer to files only
+    this repository has.** Measured 2026-09-14 on a §0 install: every
+    prompt, stop and `vendor_engine status` prints *"Copy config.json.sample
+    from templates/practice-set-individual/"* (no `templates/` in a
+    consumer), session start prints *"see spec/BOOTSTRAP_NEW_SOURCES.md"*
+    (no `spec/`), and
+    [templates/AGENTS.md.loader.template](templates/AGENTS.md.loader.template)
+    says *"see INSTALL.md §0"* (no `INSTALL.md`). The same rehearsal found
+    that an administrator who answered "no individual set" is told *"treat
+    this as unknown, not as 'none'"* on every session start, every prompt
+    and every stop, with no way to record the answer. **Blocked on:** a
+    consumer-aware remedy renderer (the engine knows its `kind` from
+    `tools/ENGINE_MANIFEST.json`, so the upstream URL can replace a relative
+    path there) and a `precedent.json` key that records "no individual
+    source, on purpose". **Disposition:** wait (2026-09-14, the very deep
+    check)
+
+106. <a id="consumer-doc-sync-carries-upstream-pairs"></a>**The vendored
+    `doc_sync.py` ships this repository's own `PAIRS`, and two checks skip
+    on modules the consumer seed omits.** Measured 2026-09-14 on a §0
+    install: `computed-numbers-in-scripts` skips with *"this is an upstream
+    copy of PAIRS"*, `doc_lint.py --all` reports four unfindable analyses
+    for documents the consumer never had, and `document-status-header`,
+    `speculation-is-marked` and `docs-track-models` skip on
+    `doc_lifecycle.py` and `catalogue_stats.py`, which
+    `CONSUMER_ENGINE_FILES` does not include — so an adopter reading "a skip
+    is not a pass" cannot tell which of 21 skips are theirs. **Blocked on:**
+    a decision per module: vendor it, or make the check say "not part of the
+    consumer engine" rather than naming a missing file. **Disposition:** wait
+    (2026-09-14, the very deep check)
+
+107. <a id="team-skeleton-ships-three-files-short"></a>**All three team sets
+    carry `precedent.json`, `precedent-individual-bootstrap.sh` and
+    `precedent-universal-catalogue.sh`, and
+    [templates/practice-set-team/](templates/practice-set-team/) ships none
+    of them.** Reported by the very deep check's `TEMPLATE FRESHNESS`
+    section on 2026-09-14 — three of three sources of the level, which is
+    the threshold that separates a habit from a template gap. The
+    `precedent.json` carries each set's `fallback_timezone` and
+    `visibility`; the two hooks are what the `wire-individual-hook-in-existing-sets`
+    item (81) and the adapters declaration added after the skeleton was
+    written. **Blocked on:** nothing but the edit — the three files' current
+    shape is in any of the three sets, and
+    [tools/precedent_bootstrap_source.py](tools/precedent_bootstrap_source.py)
+    already installs the individual hook for a new set, so the question is
+    only whether the skeleton should carry a `precedent.json` with
+    placeholders. **Disposition:** wait (2026-09-14, the very deep check)
+108. <a id="generated-views-are-owned-paths"></a>**In a document project,
+    `MAP.md` is an owned path and every add-a-document pull request touches
+    it — so every one waits for the maintainer.**
+    [templates/document-project/.github/CODEOWNERS](templates/document-project/.github/CODEOWNERS)
+    owns `/MAP.md` and `/GLOSSARY.md` as generated views;
+    [orientation-map](practices/orientation-map.md) says a thread that adds
+    a document adds its row. Found by the 2026-09-14 review in
+    [spec/CONTRIBUTOR_ACCESS.md](spec/CONTRIBUTOR_ACCESS.md), finding 2. Two
+    ways out, and they are different projects: unown the two files, on the
+    ground that in a document project they index content and are content;
+    or regenerate them in continuous integration after merge so no
+    contributor commit touches them. The first is one line and gives the
+    contributor a file they can break; the second keeps the boundary and
+    needs a committing workflow, which
+    [ci-commits-carry-identity](practices/ci-commits-carry-identity.md)
+    already constrains. The session's pick is the first: a wrong row in an
+    index is a content mistake, and content is theirs. **Blocked on:**
+    Morgan choosing — it changes what a contributor can touch, which is the
+    line he drew.
+    **CLOSED 2026-09-14, the same day** — unowned, on the session's pick,
+    under Morgan's "build what's needed to implement the spec" (`strength:
+    assented`: he approved the write-up wholesale, not this choice by name).
+    [templates/document-project/precedent.json](templates/document-project/precedent.json)'s
+    `owned_paths` no longer lists the two files, its `_boundary_comment`
+    says why, and the spec's layer-2 section records it.
+    **Disposition:** wait (2026-09-14; done, kept for the record)
+109. <a id="workflow-run-is-not-gated"></a>**`CODEOWNERS` gates the merge of
+    an edited workflow, not its first run.** As the 2026-09-14 review
+    understands GitHub (unverified, read from no documentation): a Write
+    collaborator who edits a file under `.github/workflows/` on their own
+    branch gets it executed on push, with the repository's secrets, before
+    anyone reviews it. Owning `/.github/` stops it landing, not running once.
+    The mitigation is policy: a document project's workflows carry no secret
+    beyond the default `GITHUB_TOKEN` and declare a read-only `permissions`
+    block. [templates/github-actions/](templates/github-actions/)'s three
+    templates all declare `permissions`; whether each is read-only, and
+    whether [templates/document-project/README.md](templates/document-project/README.md)
+    should say so at instantiation, has not been checked.
+    **Audited the same day**: all three templates and this repository's own
+    three workflows declare `permissions: contents: read`, and the
+    document-project README's step 6 now says to keep the workflows
+    secret-free. **Blocked on:** verifying the run behaviour itself against
+    GitHub's own documentation, which a hosted session cannot reach
+    (docs.github.com is blocked by the proxy) — a person with a browser, or
+    the throwaway repository. **Disposition:** wait (2026-09-14, the review)
+110. <a id="boundary-is-checkable"></a>**Nothing checks that a document
+    project's boundary is actually on.** A forgotten instantiation step 6
+    (branch protection) leaves Write as unrestricted write, silently, while
+    every document goes on describing a boundary. Finding 5 of the
+    2026-09-14 review. The check is the shape of
+    [tools/precedent_source_names.py](tools/precedent_source_names.py): ask
+    the GitHub API whether the base branch requires a pull request and a
+    code-owner review, and print `UNVERIFIED` rather than a pass when it
+    cannot.
+    **BUILT 2026-09-14, the same day**:
+    [tools/precedent_boundary_check.py](tools/precedent_boundary_check.py),
+    PASS / FAIL / UNVERIFIED, the API stubbed in
+    [tools/verify_harness.py](tools/verify_harness.py) so every verdict
+    asserts its own words, and a 403 naming a plan upgrade read as FAIL
+    rather than UNVERIFIED — it is an answer to assumption 2. Run live here it
+    says UNVERIFIED: the session's token cannot read protection settings.
+    **What is not done**: nobody has run it against a repository where
+    protection is on, so the 200 branch is tested only against the response
+    shape the session remembers GitHub sending. **Blocked on:** the throwaway
+    repository, a token with administration read, and the assumptions.
+    **Disposition:** wait (2026-09-14, the review)
+111. <a id="pre-pr-ownership-guardrail"></a>**Before opening a pull request,
+    the session should say in plain words when the change will wait for
+    review, and offer to split it.** Diff the touched paths against
+    `CODEOWNERS`; tell the contributor *"this touches the project's
+    settings, so the maintainer has to look at it before it lands — want me
+    to put the document part in now on its own?"* User experience, not
+    enforcement; it closes the "worse error" bullet in
+    [`review-skill-level-permissions`](#review-skill-level-permissions).
+    The hooks are the other half: the freshness guard's and the gates'
+    refusals print exit codes and git vocabulary, and
+    [fail-gracefully](practices/fail-gracefully.md) says a non-technical
+    reader gets a plain sentence instead — nothing translates them yet.
+    Finding 6 of the 2026-09-14 review.
+    **The first half is BUILT, same day**:
+    [tools/precedent_owned_paths.py](tools/precedent_owned_paths.py) lists
+    owned and free paths against CODEOWNERS (GitHub's own matching rules,
+    last match wins, an untranslatable pattern reported rather than
+    skipped, a missing file reported as NO BOUNDARY rather than clean) and
+    prints the sentence to say; the document-project `AGENTS.md` runs it
+    before every pull request. Its wording is a first draft nobody has said
+    to a real contributor. **The hook half is not built.** **Blocked on:**
+    the pilot, for the wording of both halves — the hooks' refusals are
+    translated by a session that has met a real contributor's confusion,
+    not by one guessing at it. **Disposition:** wait (2026-09-14, the
+    review)
+112. <a id="project-maintainers-registry"></a>**A document project's
+    `CODEOWNERS` is hand-written while a practice set's is generated — two
+    mechanisms for one question.**
+    [tools/build_codeowners.py](tools/build_codeowners.py) derives a set's
+    file from `approvers.json`; the project template's
+    [CODEOWNERS](templates/document-project/.github/CODEOWNERS) says in its
+    own header that it is not. A `maintainers` field in the project's
+    `precedent.json`, and the same generator writing the project file from
+    it, makes onboarding one invite plus one line and keeps the owned-path
+    list in one place ([registry-source-of-truth](practices/registry-source-of-truth.md)).
+    Finding under "Define, manage, limit, control" in the 2026-09-14 review.
+    **Blocked on:** item [`generated-views-are-owned-paths`](#generated-views-are-owned-paths)
+    — the owned-path list is what the generator would write, and it is
+    still being decided.
+    **BUILT 2026-09-14, the same day, once item 108 was decided**:
+    [tools/build_codeowners.py](tools/build_codeowners.py) reads
+    `maintainers` and `owned_paths` from a project's `precedent.json` when
+    there is no `approvers.json`, writes `.github/CODEOWNERS` with one row
+    per owned path and its reason, and takes `--repo PATH`. The set mode
+    renders byte-for-byte what it did before — all three team sets'
+    committed files still `--check OK`. The document-project template's
+    CODEOWNERS is generated output now, and its README step 7 fills in the
+    registry instead of the file. **Disposition:** wait (2026-09-14; done,
+    kept for the record)
+
+
+113. <a id="withdrawn-and-landed-nowhere-with-no-baseline"></a>**A rule
+    withdrawn at its source and landed nowhere is still caught only where a
+    consumer had already recorded it.** The move rehearsal of 2026-09-14
+    ([spec/VERY_DEEP_CHECK.md](spec/VERY_DEEP_CHECK.md), "the fifth
+    question") produced three reports that day — the resolver's `IN FORCE
+    NOWHERE` for a forwarding address that resolves in no source, the
+    sync's copy-and-delete warning, and
+    [tools/precedent_move.py](tools/precedent_move.py) refusing the unsafe
+    states — and all three take a baseline: a deduplicated file with a
+    target, or a committed `MANIFEST.json` naming the slug. A practice
+    deleted outright from a set, in a consumer that never synced it, is
+    reported by nothing; only the set's own `git log` shows the delete.
+    **Blocked on:** a design for what a set itself could refuse — a
+    `git diff` guard in the set's own check that treats a deleted
+    `practices/*.md` as a finding unless a deduplicated or retired record
+    replaced it is the obvious shape, and it would sit in the set's
+    `precedent-check.yml`. **Disposition:** wait (2026-09-14, the move
+    rehearsal)
+
+114. <a id="installer-inherits-the-operators-individual-set"></a>**The
+    one-command installer writes the OPERATOR's individual practices into
+    the adopter's project, and the adopter's first check reads `3
+    violated` where SETUP.md promises `0`.** Found by the evening very deep
+    check of 2026-09-14 ([spec/VERY_DEEP_CHECK.md](spec/VERY_DEEP_CHECK.md)),
+    rehearsing [SETUP.md](SETUP.md)'s exact command into a scratch project
+    from this container. The project's `precedent.json` declares only the
+    universal source, but the sync and `precedent_check.py` also resolve
+    the container's user-level individual source, so the adopter's
+    committed `AGENTS.md` carries three private practices in its resident
+    block (`audience-register`, `reply-fits-one-screen`, `reply-is-short`)
+    and the check runs three individual checks (`claude-web-bootstrap`,
+    `commit-author`, `fresh-before-write`) that a fresh project cannot pass.
+    SETUP.md itself says an individual source "is never touched by this
+    session at all". Private text in a stranger's tree is the class the
+    leak gate exists for. **Blocked on:** deciding whether
+    [tools/precedent_install.py](tools/precedent_install.py) should run the
+    sync and the check with the individual source masked, or whether the
+    sync should never materialise a source the target's own `precedent.json`
+    does not declare. **Disposition:** ask (2026-09-14, the evening very
+    deep check)

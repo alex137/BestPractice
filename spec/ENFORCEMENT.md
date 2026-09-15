@@ -85,6 +85,7 @@ being checked by it.
 | `filename-separator` | tree | files of the same kind in one directory use one word separator, never both - and _ |
 | `generated-artifact-provenance` | tree | every generated view names the script that builds it and says it is generated, and regenerating it changes nothing |
 | `generated-edit-goes-upstream` | tree | every `do not hand-edit` header also names a Source -- where the file's content actually comes from -- and every path an unqualified `Source:` names exists here. A `Source (in <place>):` names somewhere this repo is not, so its paths are reported COULD NOT VERIFY rather than resolved |
+| `github-api-budget` | tree | every tool that builds a GitHub API URL is routed through tools/github_budget.py or declared in tools/github_api_budgets.json with a reason, the registry declares a core floor and a budget per tool that still exists, and nothing has quietly gone back to reading /rate_limit |
 | `github-setup-disclosed` | change | a newly added GitHub Actions workflow file is named in GETTING_STARTED.md's administrator section -- the document a dependent repo's own people read -- or in a repo's own root GITHUB_ACTIONS.md |
 | `heading-outline` | change | a changed document never jumps a heading level -- no heading is more than one level deeper than the one before it |
 | `headline-capitalization` | change | a changed outward-facing document has every heading in New York Times headline capitalization |
@@ -110,11 +111,11 @@ being checked by it.
 | `source-naming` | tree | every precedent.json in the tree names each source by the shape its level fixes -- `precedent`, `precedent-individual`, `precedent-team-<slug>`, `local` |
 | `speculation-is-marked` | tree | a speculative document under spec/ or record/ carries all four of its markers or none of them: the SPECULATIVE_ filename prefix requires a matching title, `kind: proposal`, a drafted/abandoned status and a warning block directly under the heading -- and, in the other direction, a document whose title or opening paragraph calls itself speculative must carry the prefix |
 | `technical-describes-people` | tree | no tracked path labels a FILE or DIRECTORY with a skill level; 'technical' and 'non-technical' describe people |
-| `timestamps-carry-offset` | tree | no tracked Python file stamps a moment with a bare `date.today()`, `utcnow()`, `utcfromtimestamp()` or a zero-argument `datetime.now()` -- every one of those resolves to whatever zone the machine is on, which in a container is UTC and in a record is unrecoverable. And the declared fallback zone is the SAME string in all three places that hold it: precedent.json, the time engine, and the commit hook |
+| `timestamps-carry-offset` | tree | no tracked Python file stamps a moment with a bare `date.today()`, `utcnow()`, `utcfromtimestamp()` or a zero-argument `datetime.now()` -- every one of those resolves to whatever zone the machine is on, which in a container is UTC and in a record is unrecoverable. And the ENGINE's fallback zone is the SAME string in all three engine files that hold it: the time engine and both copies of the commit hook |
 | `two-check-levels` | tree | the session instructions name two fixed, distinct check levels ("light check" / "deep check") and say which gates a commit versus a push |
 | `verify-postcondition` | turn-end | the state you wanted after the operations this turn: nothing committed but unpushed on any local branch, and no tracked file left modified |
 
-46 of 113 practices are enforced. Run `python3 tools/precedent_check.py --explain` for what each check does **not** catch.
+47 of 120 practices are enforced. Run `python3 tools/precedent_check.py --explain` for what each check does **not** catch.
 <!--/gen:enforcement-->
 
 Numbers by: catalogue_stats.py

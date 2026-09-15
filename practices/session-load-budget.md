@@ -43,6 +43,12 @@ failed ([environment-gotchas](environment-gotchas.md)). A trimming pass that
 chases the total deletes the entries that are working, and leaves a live
 section of unexplained rules behind.
 
+**The moves, in order, and the report they owe are
+[reduction-pass](reduction-pass.md)'s** — six of them, cheapest and
+provably lossless first, and it is what the person is asking for when they
+say **"Reduction pass"**. Not repeated here: one menu, in the practice that
+performs it.
+
 **A ceiling is a watermark, not an endorsement.** It is set at what the
 surface measured when it was last reviewed, so it ratchets down and never
 drifts up unnoticed. Raising one is a decision made on purpose, in a commit,

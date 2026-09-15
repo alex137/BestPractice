@@ -306,9 +306,17 @@ def main():
     # (practice: disclose-landing) -- every caller gets it, not just this
     # CLI entry point.
     if level != 'universal':
-        print(f"Regenerate this repo's generated views if it has any "
-              f"(tools/build_views.py in Precedent; the private sets carry "
-              f"no generated views today).")
+        # Every set bootstrapped since 2026-09-14 carries AGENTS.md with the
+        # loader markers and its own tools/build_views.py; older sets have
+        # whatever their author wrote, and `precedent_bootstrap_source.py
+        # --verify` names the gap. This line used to say the private sets
+        # carried no generated views, which stopped being true and sent a
+        # mover past a views-drift workflow that then went red.
+        print(f"Now regenerate that set's generated views: "
+              f"`python3 tools/build_views.py` run inside it (its own copy; "
+              f"if that reports AGENTS.md missing, "
+              f"`python3 tools/precedent_bootstrap_source.py --verify` in "
+              f"Precedent says what the set is missing).")
     return 0
 
 

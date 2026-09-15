@@ -4,7 +4,7 @@
 <link rel="stylesheet"
  href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600&family=Source+Sans+3:ital,wght@0,400;0,600;1,400&display=swap">
 <style>
-.renderstamp { color: var(--muted); font-size: 12px; margin: -0.6rem 0 1.6rem; }
+.renderstamp { display: block; color: var(--muted); font-size: 12px; margin: -0.6rem 0 1.6rem; }
 td span[data-view] { display: none; }
 td span[data-view].von { display: inline; }
 .viewtoggle { font-size: 12px; color: var(--muted); display: inline-flex; align-items: center; gap: 4px; margin-right: 6px; cursor: pointer; user-select: none; }
@@ -71,6 +71,10 @@ code { font: 0.86em ui-monospace, "Cascadia Mono", Menlo, monospace;
        background: var(--stripe); padding: 0.08em 0.3em; border-radius: 3px; }
 hr { border: 0; border-top: 1px solid var(--hairline); margin: 2.5rem 0 1.5rem; }
 .tablewrap { overflow-x: auto; margin: 1rem 0 0.5rem; }
+/* Wide tables break out of the reading column to the viewport edge:
+   a permutation table wants the whole window, the prose does not. */
+.tablewrap.bleed { width: calc(100vw - 2rem); position: relative;
+  left: 50%; margin-left: calc(-50vw + 1rem); }
 table {
   border-collapse: collapse; background: var(--surface);
   font-size: 0.8rem; line-height: 1.35;
@@ -124,7 +128,7 @@ audience:      session
 summary:       The verdict recorded for each inherited practice against the architecture the restructuring plan approved.</p>
 <hr />
 <h1 id="pre-fork-catalogue-audit">Pre-Fork Catalogue Audit</h1>
-<div class="renderstamp">Built 2026-09-08 18:13 UTC</div>
+<time class="renderstamp" datetime="2026-09-14T17:43:47+00:00">2026-09-14 17:43 UTC</time>
 <p>One row per practice inherited from pre-fork BestPractice (the original 52,
 numbered <code>PRACTICES.md</code> catalogue, plus Alex's practice 53 added on <code>main</code>
 after the fork point), verdict against this plan's architecture: does it
@@ -755,6 +759,11 @@ entry, ever named this.</p>
     bar.appendChild(resetBtn);
     bar.appendChild(label);
     var wrap = tbl.closest(".tablewrap") || tbl;
+    // A table wider than the reading column takes the whole window
+    // (the .bleed breakout); narrow tables stay in the column.
+    if (wrap !== tbl && tbl.scrollWidth > wrap.clientWidth + 4) {
+      wrap.classList.add("bleed");
+    }
     wrap.parentNode.insertBefore(bar, wrap);
 
     // Per-column filters: EVERY column gets a button (no distinct-value
@@ -1545,3 +1554,18 @@ entry, ever named this.</p>
   });
 })();
 </script>
+<script>(function(){
+  var t = document.querySelector('time.renderstamp');
+  if (!t) return;
+  var d = new Date(t.getAttribute('datetime'));
+  if (isNaN(d)) return;
+  var p = function(n){ return String(n).padStart(2, '0'); };
+  var tz = '';
+  try {
+    tz = new Intl.DateTimeFormat(undefined, {timeZoneName: 'short'})
+      .formatToParts(d).filter(function(x){ return x.type === 'timeZoneName'; })
+      .map(function(x){ return x.value; })[0] || '';
+  } catch (e) {}
+  t.textContent = d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate())
+    + ' ' + p(d.getHours()) + ':' + p(d.getMinutes()) + (tz ? ' ' + tz : '');
+})();</script>

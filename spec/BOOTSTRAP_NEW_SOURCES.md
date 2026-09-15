@@ -54,7 +54,8 @@ assume a session has:
   skeleton gained after that set was built**, and `pronouns` (2026-09-12) is
   the first: a migrated set holds no `pronouns` key at all rather than an
   unfilled `{{PERSON_PRONOUNS}}`, so the placeholder sweep cannot see it and
-  `--verify` names the absent key directly. Its remedy is not a file edit
+  `--verify` names the absent key directly. `register` (2026-09-14) is the
+  second, found the same way. Its remedy is not a file edit
   you can make alone — **ask the person whose set it is and write their
   answer in** ([practices/declared-pronouns.md](../practices/declared-pronouns.md)).
 - **Installs the session hooks, including the one that makes the person's
@@ -229,25 +230,62 @@ Both are incidental: they fire when someone happens to be bootstrapping, or
 happens to be working in this repo. Neither runs on a schedule, so a set
 nobody touches for a month is told nothing for a month.
 
-### The scheduled channel, and why it is not shipped here
+### The scheduled channel, and why there is not one
 
-The obvious third channel is a weekly GitHub Actions job in the source set
-itself: clone this repo, refresh, regenerate, open a pull request. It works,
-and it is the only channel that fires whether or not anyone is looking.
+**There is no scheduled refresh anywhere, at any level, as of
+2026-09-14.** Not in the templates, not in the team sets, not in anyone's
+individual set. The third channel a reader expects to find here does not
+exist, and its absence is a decision rather than a gap.
 
-**It was added to both source templates on 2026-09-06 and removed the same
-day.** Not because it broke — because a template is the wrong place to make
+Morgan, 2026-09-14, in his own words: *"I think that engine-refresh.yml is
+now doing an automatic update weekly. Let's stop that. No weekly updates. I
+had that weeks ago, but we're not doing that anymore; this is now really
+complex and deserves hand attention and issues come up every time and I'm
+on it every day anyway."* **Strength:** decided
+([decision-strength](../practices/decision-strength.md)) — he asked for it
+outright rather than accepting a proposal.
+
+The measurement behind it: two scheduled runs produced two abandoned
+branches — **a 100% report rate against a 0% landing rate.** The clock was
+never the bottleneck; the landing step was, and a faster clock only
+produces more pull requests nobody merges. It is the same reasoning that
+retired `bestpractice-sync` on 2026-09-11 (*"now that it's getting more
+complex, I'm more hesitant about syncing it automatically"*), so this
+finished a direction rather than opening one.
+
+**The replacement channel is a person saying "Update Vendors" in a
+session** — the fixed sequence in
+[`vendor-update-runbook`](../practices/vendor-update-runbook.md). So a set
+nobody touches for a month really is told nothing for a month, and that is
+now the accepted cost rather than a problem awaiting a cron.
+
+#### Superseded: why it was kept out of the templates (2026-09-06)
+
+**This paragraph is history.** It was the reasoning that removed the job
+from the templates while leaving it alive for individuals, and the
+2026-09-14 decision above supersedes its conclusion — the answer turned out
+to be no clock at all, not "a clock, but only for those who opt in". Its
+premise still holds and is worth keeping, which is why it is here rather
+than deleted.
+
+It was added to both source templates on 2026-09-06 and removed the same
+day. Not because it broke — because a template is the wrong place to make
 that choice. A scheduled workflow inherited by every adopter is a cron job
 phoning a remote every week, consuming their Actions minutes, opening pull
 requests in their repository, on a schedule they did not pick. That is a
 real imposition, and "it is good for you" is not a reason to install it in
-someone's repo without asking. It now lives at the **individual level**, in
-the practice set of whoever wants it, which is where a preference about how
-one's own repositories behave belongs
-([`layered-practice-packs`](../practices/layered-practice-packs.md)).
+someone's repo without asking. The clause that followed — *"it now lives at
+the individual level, in the practice set of whoever wants it"* — is the
+half that is no longer true: **superseded 2026-09-14, it lives nowhere**,
+and the individual set's copy is being removed too.
 
-Anyone who wants it can build it — the shape, recorded here so it does not
-have to be re-derived:
+#### Superseded: the shape, if anyone ever rebuilds it
+
+**Also history, and deliberately kept.** Nobody is expected to build this —
+the decision above is that no repository runs it. It is recorded so that a
+future attempt does not have to re-derive the two GitHub behaviours that
+cost a day to find (the pull-request permission that is off by default, and
+the issue fallback):
 
 - Clone this repo's `precedent-beta-v01`, run `precedent_vendor_engine.py
   refresh`, then `build_views.py`. **Both**, in one commit: a refreshed
@@ -434,7 +472,12 @@ case documented above.
    person gives you (`he/him`, `she/her`, `they/them`). An unfilled
    `timezone` silently downgrades the commit-identity check to a guess; an
    unfilled `pronouns` silently falls back to they/them for someone who may
-   have wanted otherwise and was never asked. `--verify` reports both.
+   have wanted otherwise and was never asked. **`register` (2026-09-14) is
+   the third of the same shape**: how technical their replies should be, in
+   their own words — nothing else can tell, on purpose
+   ([practices/technical-describes-people.md](../practices/technical-describes-people.md)).
+   Unfilled, a team-level default may decide it for them. `--verify` reports
+   all three.
    **`relayed_authorization` (2026-09-14) is the same shape and also has to be
    asked**: the skeleton ships `"refused"`, which is a real answer rather than
    a placeholder, so nothing will ever report it as unfilled — and a person
@@ -445,7 +488,7 @@ case documented above.
    `export PRECEDENT_LEAK_BLOCKLIST=<path>` and
    `git config precedent.requireVocabulary true` in every shared project
    they work in.
-7. Delete `practices/example-starter.md` once a real first practice
+7. Delete `practices/example-starter-<level>.md` once a real first practice
    replaces it.
 
 ### For a team set
@@ -483,7 +526,7 @@ per person), and it needs at least one approver at creation time.
    step 4 already documents for an existing team source — this is the
    identical gap, not a new one.
 7. Fill in `leak-blocklist.txt` and `approvers.json` for real, delete
-   `practices/example-starter.md` once a real first practice replaces it.
+   `practices/example-starter-<level>.md` once a real first practice replaces it.
 8. **For a team set, run `python3 tools/build_codeowners.py`** and commit
    the `CODEOWNERS` it writes. `approvers.json` is the declaration;
    `CODEOWNERS` is what actually makes GitHub require an approver's review,

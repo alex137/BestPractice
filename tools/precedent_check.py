@@ -1769,6 +1769,11 @@ def _practice_is_reachable(ctx):
         session_channel_levels = ()
 
     exempted, blocked_exemptions, via_session = [], [], []
+    try:
+        sys.path.insert(0, str(ROOT / 'tools'))
+        import build_views as _bv_index
+    except Exception:                                     # noqa: BLE001
+        _bv_index = None     # path channel unknown here; fall through as before
     for slug, (fm, s) in sorted(in_force.items()):
         if slug in not_binding:
             # `severity: blocking` may not be exempted -- the same rule the
@@ -1787,6 +1792,22 @@ def _practice_is_reachable(ctx):
             continue
         if (fm.get('gates') or '[]').strip('" ') not in ('[]', ''):
             continue                       # fires at a named moment
+        # THE PATH CHANNEL IS A CHANNEL. precedent_paths.py prints a practice's
+        # Rule when an edited file matches its applies_to, so a real glob
+        # reaches a session exactly as a gate does.
+        #
+        # Added 2026-09-14, when build_views began OMITTING a routed practice
+        # from the occasion index. Before that every on-demand practice was
+        # named in the block, so this model never had to know about the third
+        # channel and was right by accident; the moment the index stopped
+        # naming them, four correctly routed practices read as reachable by
+        # nothing. The check found a hole in its own model, not in the tree
+        # (practice: cite-the-incident).
+        #
+        # A bare ["**"] is NOT a route -- it matches every file and so
+        # distinguishes nothing. Same reading build_views takes.
+        if _bv_index is not None and _bv_index._routes_by_path(fm):
+            continue                       # fires when a matching file is edited
         cb = (fm.get('checked_by') or 'null').strip('" ')
         if cb and cb != 'null':
             # A check only counts if something here can RUN it.
@@ -2120,6 +2141,78 @@ def _declared_hook_targets(settings_path):
     return out
 
 
+@check('access-probe-is-wired', 'tree',
+       'a tree that vendors tools/precedent_access_check.py also INVOKES it '
+       'from its session-start wiring -- this repo\'s .claude/hooks/'
+       'session-start.sh, or the harness-neutral tools/bootstrap.sh an '
+       'adopter installs',
+       'whether the hook the wiring lives in actually RUNS (that is '
+       'declared-hooks-exist, and the session-rooted-one-directory-up case '
+       'it names defeats both); whether the probe returns the right verdict '
+       '(verify_harness\'s '
+       'check_access_probe_separates_refusal_from_silence owns that); and a '
+       'repo that deliberately wants no access probe, which has no way to '
+       'say so yet and would have to drop the tool itself',
+       practice_backed=False)
+def _access_probe_is_wired(ctx):
+    """A mechanism nobody invokes is a file, not a guarantee.
+
+    WHY THIS EXISTS (practice: cite-the-incident). The probe itself was
+    written to close a measured four-day, ~$100 block: a session built a
+    seven-commit patch for a repo it could not push to, because
+    spawn-session's "settle who merges before the work starts" is a sentence
+    a busy session does not stop to read. Moving the question to session
+    start is the whole fix -- so the ONE thing that must not rot quietly is
+    the line that runs it. Delete that line and every symptom returns with
+    nothing red anywhere.
+
+    Deliberately tolerant about WHERE. This repo runs it from its own
+    session-start hook; an adopter runs it from tools/bootstrap.sh, which is
+    harness-neutral so codex and gemini-cli reach it too. Either satisfies
+    this. A tree with the tool and no invocation anywhere does not.
+    """
+    tool = ctx.root / 'tools' / 'precedent_access_check.py'
+    if not tool.exists():
+        # A tree predating the tool is not in violation -- the engine is
+        # vendored into older trees on purpose (practice: fail-gracefully).
+        return []
+    wirings = [
+        pathlib.Path('.claude') / 'hooks' / 'session-start.sh',
+        pathlib.Path('tools') / 'bootstrap.sh',
+        pathlib.Path('templates') / 'bootstrap.sh',
+    ]
+    present, invoking = [], []
+    for rel in wirings:
+        f = ctx.root / rel
+        if not f.exists():
+            continue
+        present.append(str(rel))
+        try:
+            text = f.read_text(encoding='utf-8', errors='replace')
+        except OSError:
+            continue
+        # AN INVOCATION, NOT A MENTION, and the difference was measured
+        # rather than reasoned about. The first version of this check tested
+        # `'precedent_access_check.py' in text` and PASSED a tree whose
+        # invocation had been replaced with a different script -- because the
+        # surrounding `[ -f tools/precedent_access_check.py ]` guard still
+        # named the file. A check that a broken tree passes is worse than no
+        # check (practice: control-asserts-which-failure).
+        if re.search(r'python3?\s+\S*precedent_access_check\.py', text):
+            invoking.append(str(rel))
+    if not present:
+        # Nothing to wire it into. Not this check's business to invent one.
+        return []
+    if invoking:
+        return []
+    return [(str(tool.relative_to(ctx.root)), 0,
+             'tools/precedent_access_check.py is vendored here but no '
+             'session-start wiring invokes it, so no session is told which '
+             'repos in force it can actually push to. Candidates present: '
+             + ', '.join(present)
+             + '. Add: python3 tools/precedent_access_check.py .')]
+
+
 @check('declared-hooks-exist', 'tree',
        'every hook file a .claude/settings.json declares exists on disk, and '
        'is executable where the harness execs it directly',
@@ -2173,6 +2266,238 @@ def _declared_hooks_exist(ctx):
                     f'declares the hook `{raw}` and '
                     f'{path.relative_to(ROOT)} is not executable — it will '
                     f'silently never run'))
+    return found
+
+
+def _settings_hook_dirs():
+    """-> [Path] every directory a .claude/settings*.json actually wires a
+    hook out of, resolved against this repo.
+
+    Only `$CLAUDE_PROJECT_DIR`-rooted commands are resolvable from here --
+    the same limit declared-hooks-exist states for itself. A hook declared
+    by an absolute or bare relative path names a directory this tree cannot
+    resolve, so it simply is not swept: the cost of missing one is a hook
+    that goes unchecked, where the cost of guessing wrong would be calling a
+    working hook dead.
+    """
+    out = []
+    claude = ROOT / '.claude'
+    if not claude.is_dir():
+        return out
+    for sp in sorted(claude.glob('settings*.json')):
+        try:
+            raw = sp.read_text(encoding='utf-8')
+        except OSError:                          # practice: fail-gracefully
+            continue
+        for m in re.finditer(
+                r'\$\{?CLAUDE_PROJECT_DIR\}?/([\w./-]+\.sh)', raw):
+            d = (ROOT / m.group(1)).parent
+            if d not in out:
+                out.append(d)
+    return out
+
+
+@check('hooks-on-disk-are-reachable', 'tree',
+       'every hook file in .claude/hooks/ is reachable from something that '
+       'could run it — a settings*.json entry, another hook, or an engine '
+       'tool that invokes it by path',
+       'a hook that IS named somewhere but by a caller that never fires, and '
+       'a hook named only in prose: a document mentioning a filename is not '
+       'an invocation, so documents are deliberately not searched. It says '
+       'nothing about a repo with no .claude/hooks/ at all, which is '
+       "session-bootstrap's question, nor about what a hook does once it "
+       'runs. A hook the repo DECLINED on purpose is satisfied by its '
+       "declared reason in precedent.json's declined_adapters, never by "
+       'wiring it.',
+       practice_backed=False)
+def _hooks_on_disk_are_reachable(ctx):
+    """A hook nothing names is off, and from inside a session that looks
+    exactly like a hook that is working.
+
+    WHY THIS EXISTS (practice: cite-the-incident). The forward direction — a
+    settings entry naming a file that is not there — is
+    declared-hooks-exist above. This is the other end, and it was found in a
+    real consuming repo: on 2026-09-14 an `Update Vendors` pass there found
+    two hooks sitting in .claude/hooks/ with nothing naming them --
+    freshness-guard.sh and commit-identity.sh, both written minutes earlier
+    by precedent_refresh_sources.py --apply, which drops hook files in and
+    deliberately will not edit a settings.json. Nothing failed, which is the
+    whole problem: the session found them by listing the directory and
+    reading settings.json against it, not because anything said so.
+
+    TWO THINGS THIS INCIDENT IS NOT, corrected 2026-09-14 against the
+    repo's own history after the first version of this docstring got both
+    wrong (practice: no-invented-specifics -- a cited incident is a claim,
+    and a rule argued from a false one cannot be judged). Neither orphan was
+    the reply gate: that repo had never carried reply-gate.sh at all, tracked
+    or untracked, so its replies were ungated by absence and this check would
+    have reported nothing. And the exposure was minutes inside one session,
+    not "as long as the files had been present" -- the same session wired
+    both before it merged. The real cost is the one still worth citing: a
+    tool that installs hook files but cannot wire them leaves orphans by
+    design, and until this check nothing but a person reading the directory
+    would ever say so.
+
+    Reachability deliberately includes engine tools, not only settings.
+    tools/precedent_resolve.py invokes
+    .claude/hooks/precedent-individual-bootstrap.sh by path rather than
+    through any settings entry, so a check that read settings alone would
+    report this repo's own working bootstrap hook as dead — measured here
+    before this check shipped, which is why the clause exists.
+
+    DECLINING A HOOK IS A DECISION, and until 2026-09-14 there was no way
+    to record one. A source declares its harness adapters and every
+    consuming repo's sync writes them into .claude/hooks/; the sync will
+    not edit that repo's settings.json, deliberately, so a repo that does
+    not want a particular adapter has no way to end up wired. This check
+    then reported a correct decision as an orphan, permanently, and the
+    only way to clear it was to wire a hook the repo had decided against.
+    Measured in a real consuming repo the same day: its AGENTS.md recorded
+    declining freshness-guard.sh because its own bootstrap already fetches
+    and fast-forwards, and prose is deliberately not searched here, so
+    nothing could read it.
+
+    So a repo may declare `declined_adapters` in its precedent.json, each
+    entry a `path` and a `reason` — the same shape, and the same
+    requirement, as `filename_separator_exempt` above. THE REASON IS WHAT
+    SATISFIES IT. A decline with no reason is not a decision, it is a
+    silenced check, and it is reported as one. Two further states are
+    reported rather than silently accepted, because both mean the
+    declaration has come loose from what is on disk: a decline naming a
+    file that is not there (the adapter went, and the note outlived it),
+    and a decline for a hook that something DOES call (the repo changed its
+    mind and wired it, and the stale note now misdescribes the repo to the
+    next reader)."""
+    hooks_dir = ROOT / '.claude' / 'hooks'
+    # A practice set created by precedent_bootstrap_source.py wires its hooks
+    # out of a tracked `bootstrap/` instead, on purpose, so one copy exists
+    # and nothing can drift from it -- and such a set has no .claude/hooks/
+    # at all. Sweeping only the conventional directory declined as
+    # NotApplicable there while five real hooks sat unchecked, which is the
+    # blind spot this reads settings for. Measured 2026-09-14 against a real
+    # individual set.
+    hook_dirs = []
+    if hooks_dir.is_dir():
+        hook_dirs.append(hooks_dir)
+    for d in _settings_hook_dirs():
+        if d.is_dir() and d not in hook_dirs:
+            hook_dirs.append(d)
+    if not hook_dirs:
+        raise NotApplicable('this repo has no .claude/hooks/ directory and no '
+                            'settings*.json naming a hook anywhere else, so '
+                            'no hook file here could be orphaned')
+    hooks = []
+    for d in hook_dirs:
+        for p in sorted(d.iterdir()):
+            # `.sh` only outside the conventional directory: a bootstrap/
+            # holds settings and freshness snippets beside its hooks, and
+            # calling those abandoned hooks would be noise.
+            if not p.is_file() or p.name.startswith('.'):
+                continue
+            if d != hooks_dir and p.suffix != '.sh':
+                continue
+            hooks.append(p)
+    if not hooks:
+        raise NotApplicable('no hook files in ' +
+                            ', '.join(str(d.relative_to(ROOT))
+                                      for d in hook_dirs))
+    # Everything that could plausibly RUN a hook. Prose is excluded on
+    # purpose: naming a file in a document does not invoke it.
+    callers = []
+    caller_dirs = [(ROOT / '.claude', 'settings*.json'),
+                   (ROOT / 'tools', '*.py')]
+    caller_dirs.extend((d, '*') for d in hook_dirs)
+    for d, pat in caller_dirs:
+        if d.is_dir():
+            callers.extend(p for p in d.glob(pat) if p.is_file())
+    texts = []
+    for c in callers:
+        try:
+            texts.append((c, c.read_text(encoding='utf-8', errors='ignore')))
+        except OSError:                          # practice: fail-gracefully
+            continue
+    # practice: code-cites-practice -- checkable-gets-checked. The declared
+    # declines, read the same way filename_separator_exempt is: an entry
+    # without a reason buys nothing.
+    declined, reasonless = {}, []
+    try:
+        cfg = json.loads((ctx.root / 'precedent.json').read_text(encoding='utf-8'))
+    except (OSError, ValueError):                # practice: fail-gracefully
+        cfg = {}
+    for e in cfg.get('declined_adapters') or []:
+        if not isinstance(e, dict) or not e.get('path'):
+            continue
+        # NOT lstrip('./') -- that strips CHARACTERS, so a path beginning
+        # `.claude/` loses its leading dot and matches nothing. Measured
+        # here by the decline cases failing before this shipped.
+        path = str(e['path'])
+        while path.startswith('./'):
+            path = path[2:]
+        if str(e.get('reason') or '').strip():
+            declined[path] = e['reason']
+        else:
+            reasonless.append(path)
+
+    found = []
+    for path in sorted(reasonless):
+        found.append(Finding(
+            'precedent.json',
+            f'declines {path} with no reason. A decline carries the reason '
+            'it was declined for, because the reason is the whole thing '
+            'that separates a decision from a silenced check -- the next '
+            'reader has to be able to disagree with it'))
+
+    for hook in hooks:
+        # A PATH reference, not a bare mention. Every real caller names a
+        # hook the only way it can be run -- `hooks/<name>`, whether that is
+        # `$CLAUDE_PROJECT_DIR/.claude/hooks/reply-gate.sh` in a settings
+        # entry or `.claude/hooks/precedent-individual-bootstrap.sh` in
+        # precedent_resolve.py. Matching the bare filename instead made this
+        # check unfalsifiable: its own harness plant, which necessarily
+        # writes the planted name into the test source, read as a caller and
+        # the planted violation passed. Measured 2026-09-14, before it
+        # shipped.
+        # `hooks/<name>` for the conventional directory; `<dir>/<name>` for
+        # a set wiring them out of bootstrap/ -- still a PATH reference, the
+        # only form that can actually run one, never a bare filename.
+        ref = (f'hooks/{hook.name}' if hook.parent == hooks_dir
+               else f'{hook.parent.name}/{hook.name}')
+        rel = str(hook.relative_to(ROOT))
+        reachable = any(ref in t for c, t in texts if c != hook)
+        if reachable:
+            # A decline that no longer describes the repo. Reported, not
+            # ignored: the note is what the next reader trusts, and one
+            # saying "we deliberately do not run this" beside a hook that
+            # runs is worse than no note at all.
+            if rel in declined:
+                found.append(Finding(
+                    'precedent.json',
+                    f'declines {rel}, and something does call it. The '
+                    'decline is stale -- drop the entry, or unwire the '
+                    'hook; leaving both says the opposite of what the repo '
+                    'does'))
+            continue
+        if rel in declined:
+            continue
+        found.append(Finding(
+            rel,
+            f'sits in {hook.parent.relative_to(ROOT)}/ and nothing that '
+            'could run it names it — '
+            'no settings*.json entry, no other hook, no engine tool. An '
+            'orphaned hook is off, and from inside a session that is '
+            'indistinguishable from one that works. If that is deliberate, '
+            "declare it in precedent.json's declined_adapters with the "
+            'reason'))
+
+    # A decline naming nothing on disk. The adapter went and the note
+    # outlived it, which quietly exempts a path that may come back later.
+    on_disk = {str(h.relative_to(ROOT)) for h in hooks}
+    for path in sorted(set(declined) - on_disk):
+        found.append(Finding(
+            'precedent.json',
+            f'declines {path}, and no such file is here. Either the adapter '
+            'went and this note outlived it, or the path is wrong -- both '
+            'leave a standing exemption for something nobody can see'))
     return found
 
 
@@ -2450,17 +2775,98 @@ def _tracked_practice_files(ctx):
     return out
 
 
+# code-cites-practice: session-load-budget -- build_views.index_is_redundant
+# drops a routed practice's occasion line; this is the guard on the one case
+# where dropping it would un-route the rule instead of de-duplicating it.
+SPOKEN_TRIGGER_RE = re.compile(r"""(?ix)
+    \b(?:person|member|user|someone|he|she|they|morgan|i)\b[^,;]{0,40}?
+        \b(?:says?|asks?|hands?|tells?)\b
+  | \bmessage\b[^,;]{0,40}?\b(?:says|starts|ends|is\s+only)\b
+  | \b(?:asks?|asked)\s+(?:me\s+)?(?:for|to)\b
+  | \bby\s+name\b
+  | \bexplicitly\s+asks\b
+  | \bstanding\s+\w+\s+phrase\b
+""")
+
+
+@check('index-required-is-declared', 'tree',
+       'a practice whose occasion reads as a SPOKEN trigger -- something a '
+       'person says or asks for -- either carries index_required, or has been '
+       'reviewed and says so with index_required: false',
+       'whether the judgment recorded is CORRECT. It reads occasion text, so '
+       'it cannot tell a phrase the session must recognize in an incoming '
+       'message from one that merely mentions asking; both halves are '
+       'declared by a person in the practice file and this only insists that '
+       'somebody decided. It is also blind to the reverse error -- a spoken '
+       'trigger whose occasion is worded so it does not read as one -- which '
+       'no text test can reach.',
+       practice_backed=False)
+def _index_required_is_declared(ctx):
+    """WHY: a real applies_to glob or a gates: entry routes a practice without
+    an index line, so build_views drops it from the occasion index -- the
+    index is loaded in full by every session before it does any work, and a
+    line that duplicates a working channel is paid for every turn.
+
+    Neither channel can fire on something a PERSON SAYS. A glob needs a file;
+    a gate needs a moment, and merge/review/push/reply all arrive at the end
+    of the work a phrase was meant to redirect. `Go merge` is the worked case
+    and its own history is the citation: while its definition sat in a private
+    set a session could not read, one went and asked what the phrase meant --
+    the exact interruption the phrase exists to prevent.
+
+    So the index is the ONLY channel for a spoken trigger, and this check
+    refuses to let that be decided by a regex at build time. It finds the
+    shapes a spoken trigger takes and insists a person settle each one in the
+    practice file: `index_required: true` keeps the line, `false` records that
+    the glob or gate really does route it."""
+    try:
+        sys.path.insert(0, str(ROOT / 'tools'))
+        import build_views as bv
+    except Exception as e:                                   # noqa: BLE001
+        raise NotApplicable(f'build_views is not importable here ({e})')
+    practices_dir = ROOT / 'practices'
+    if not practices_dir.is_dir():
+        raise NotApplicable('no practices/ tree in this repo')
+    out = []
+    for fm, _sections, f in bv.load_practices(practices_dir):
+        occasion = bv._json_str(fm.get('occasion', ''))
+        if not occasion or not SPOKEN_TRIGGER_RE.search(occasion):
+            continue
+        if fm.get('command') not in (None, '', 'null'):
+            continue                      # a command is a spoken trigger by construction
+        declared = str(fm.get(bv.INDEX_REQUIRED_FIELD, '')).strip().strip('"').lower()
+        if declared in ('true', 'false'):
+            continue
+        rel = f.relative_to(ROOT) if hasattr(f, 'relative_to') else f
+        routed = bv.index_is_redundant(fm)
+        out.append(Finding(
+            str(rel),
+            f'its occasion reads as a spoken trigger ("{occasion[:60]}...") and '
+            f'it declares no {bv.INDEX_REQUIRED_FIELD}. '
+            + ('It is currently DROPPED from the occasion index because a glob '
+               'or gate routes it -- if the trigger is really something a '
+               'person says, that drop un-routes the rule silently. '
+               if routed else
+               'It is currently kept in the index. ')
+            + f'Set {bv.INDEX_REQUIRED_FIELD}: true to keep its index line, or '
+              f'false to record that the glob or gate really does route it'))
+    return out
+
+
 @check('timestamps-carry-offset', 'tree',
        'no tracked Python file stamps a moment with a bare `date.today()`, '
        '`utcnow()`, `utcfromtimestamp()` or a zero-argument `datetime.now()` '
        '-- every one of those resolves to whatever zone the machine is on, '
        'which in a container is UTC and in a record is unrecoverable. And '
-       'the declared fallback zone is the SAME string in all three places '
-       'that hold it: precedent.json, the time engine, and the commit hook',
+       'the ENGINE\'s fallback zone is the SAME string in all three engine '
+       'files that hold it: the time engine and both copies of the commit '
+       'hook',
        'a stamp that carries an offset but the WRONG one -- a zone declared '
        'incorrectly in somebody\'s identity.json is a true statement about a '
        'false fact, and nothing mechanical can tell where a person actually '
-       'is. It is also blind to `datetime.now(tz)` with an explicit zone '
+       'is. It is also blind, deliberately, to whether a repo\'s own '
+       '`fallback_timezone` in precedent.json matches the engine constant: '
+       'that field exists to differ from it. It is also blind to `datetime.now(tz)` with an explicit zone '
        'argument: that IS offset-carrying and orderable, so flagging it '
        'would fire on correct code, and routing it through the one module '
        'is a one-formatter-per-quantity matter this check leaves to review. '
@@ -2469,7 +2875,9 @@ def _tracked_practice_files(ctx):
        'session zone is set, which is the hook\'s job, not this one\'s.')
 def _timestamps_carry_offset(ctx):
     """Two properties, one practice: nothing writes a naive moment, and the
-    fallback zone cannot drift between the three files that name it.
+    ENGINE's fallback zone cannot drift between the three engine files that
+    name it (NOT precedent.json, which is the rung that overrides them --
+    see the comment at the second half).
 
     AST, NOT GREP. The first draft grepped, and matched its own explanatory
     comments in all twelve files it had just migrated -- a check reporting
@@ -2528,18 +2936,43 @@ def _timestamps_carry_offset(ctx):
                 f'({"today()" if fn.attr == "today" else "stamp(), utc_iso() or from_unix()"}), '
                 f'which resolves the person\'s zone and always carries the offset'))
 
-    # ---- the declared fallback, in the three files that hold it
+    # ---- the ENGINE's fallback zone, in the three engine files that hold it
+    #
+    # precedent.json IS NOT IN THIS SET, and putting it here was a real bug
+    # (found 2026-09-14 by the first real §0 install into a project with
+    # subject matter of its own). The comment this replaces said "the three
+    # files that hold it" while the code compared FOUR holders, and the
+    # fourth is not a copy of the other three -- it is a different RUNG of
+    # the ladder in tools/precedent_time.py. precedent.json's
+    # `fallback_timezone` is rung 5, the repository's own choice, and it
+    # EXISTS to override rung 6, the engine constant below: precedent_time's
+    # own header says "rung 5 lets any repo say otherwise", declared where
+    # "an adopting repo can set its own without editing vendored code".
+    # Both consumers honour that at runtime -- precedent_time._repo_fallback_zone
+    # and commit-identity.sh's _repo_fallback_tz, which falls back to
+    # DEFAULT_TZ only when precedent.json names nothing.
+    #
+    # So an adopter declaring America/Argentina/Buenos_Aires in precedent.json,
+    # with the engine files untouched at America/New_York, behaves correctly
+    # and used to fail this check. Reproduced in a private consumer before
+    # this was changed.
+    #
+    # What IS a lockstep, and stays one: the three ENGINE holders, so the
+    # engine never reports a zone it is not applying.
     declared = {}
     cfg = ctx.root / 'precedent.json'
     if cfg.exists():
+        # Read for its own sake: an unparseable precedent.json means the
+        # repo's declared override cannot be applied at all, which is worth
+        # saying even though the value is not compared against anything.
         try:
-            v = json.loads(cfg.read_text(encoding='utf-8')).get('fallback_timezone')
-            if isinstance(v, str) and v.strip():
-                declared['precedent.json (fallback_timezone)'] = v.strip()
+            json.loads(cfg.read_text(encoding='utf-8'))
         except ValueError:
-            out.append(Finding('precedent.json', 'is not valid JSON, so the '
-                                                 'declared fallback zone could '
-                                                 'NOT be compared'))
+            out.append(Finding('precedent.json', 'is not valid JSON, so this '
+                                                 'repo\'s own declared fallback '
+                                                 'zone (`fallback_timezone`, the '
+                                                 'rung that overrides the '
+                                                 'engine\'s) could NOT be read'))
     for rel, pat in ((ENGINE, r"^FALLBACK_TZ\s*=\s*'([^']+)'"),
                      ('.claude/hooks/commit-identity.sh', r'^DEFAULT_TZ="([^"]+)"'),
                      ('templates/harness/claude-code/hooks/commit-identity.sh',
@@ -2556,10 +2989,13 @@ def _timestamps_carry_offset(ctx):
                                     'reads -- it could NOT be compared'))
     if len(set(declared.values())) > 1:
         detail = '; '.join(f'{k} says {v}' for k, v in sorted(declared.items()))
-        out.append(Finding('', f'the declared fallback zone disagrees across '
-                               f'the files that hold it -- {detail}. One of '
-                               f'them silently stamps a different offset than '
-                               f'the others'))
+        out.append(Finding('', f'the ENGINE\'s fallback zone disagrees across '
+                               f'the three engine files that hold it -- '
+                               f'{detail}. One of them silently stamps a '
+                               f'different offset than the others. (A repo\'s '
+                               f'own `fallback_timezone` in precedent.json is '
+                               f'NOT one of these: it is the rung above, and '
+                               f'it is meant to differ.)'))
     return out
 
 
@@ -5181,6 +5617,180 @@ def _session_load_budget(ctx):
                                f'declares a ceiling for {rel!r}, which this '
                                f'check does not know how to find; add it to '
                                f'SESSION_LOAD_SURFACES or drop the entry'))
+    return out
+
+
+# code-cites-practice: github-api-budget
+GITHUB_API_BUDGETS = 'tools/github_api_budgets.json'
+_API_URL_RE = re.compile(r'https://api\.github\.com/')
+
+
+def _api_callers(ctx):
+    """-> tracked .py files that both build a GitHub API URL and send it.
+
+    Building the URL is not enough: a test fixture or a harness asserting on a
+    recorded response has the string and makes no request. The distinguishing
+    mark is a request verb in the same file. A file that has both and is still
+    not a caller says so in the registry's `unrouted_callers` -- the check
+    cannot tell a fixture URL from a live one by reading, and one that guessed
+    would be worse than one that asks for a line.
+    """
+    r = _git('ls-files', '-z')
+    if r.returncode != 0:
+        raise NotApplicable('git ls-files failed, so the tools that call the '
+                            'API could not be enumerated')
+    found = []
+    for rel in r.stdout.split('\0'):
+        if not rel.endswith('.py') or rel == 'tools/github_budget.py':
+            continue
+        path = ROOT / rel
+        if not path.is_file():
+            continue
+        try:
+            text = path.read_text(encoding='utf-8')
+        except (UnicodeDecodeError, OSError):
+            continue
+        if _API_URL_RE.search(text) and re.search(
+                r"curl|urlopen|opener\.open|requests\.", text):
+            found.append(rel)
+    return found
+
+
+@check('github-api-budget', 'tree',
+       'every tool that builds a GitHub API URL is routed through '
+       'tools/github_budget.py or declared in tools/github_api_budgets.json '
+       'with a reason, the registry declares a core floor and a budget per '
+       'tool that still exists, and nothing has quietly gone back to reading '
+       '/rate_limit',
+       'what anything actually spent. It reads declarations, not traffic: a '
+       'routed tool whose budget is generous enough to hide a runaway loop '
+       'passes here, and the figure that would catch it is the GITHUB API '
+       "BUDGET section of very_deep_check.py, printed per run. It also "
+       'cannot see the calls that matter most -- the harness-side '
+       'mcp__github__* tools spend the same account allowances and no file '
+       'in this repo describes them.')
+def _github_api_budget(ctx):
+    reg_path = ROOT / GITHUB_API_BUDGETS
+    callers = _api_callers(ctx)
+    if not reg_path.is_file():
+        # A repo with no registry AND no caller has nothing to declare, and a
+        # check that fired there would be noise in every consumer that never
+        # touches GitHub's API. A repo with a caller and no registry is the
+        # finding itself -- it is spending an allowance it has not named,
+        # which is the state this whole practice was written out of.
+        #
+        # A caller THIS REPO RECEIVED is not its finding, though. The engine
+        # vendors precedent_source_names.py into every consumer, and the
+        # registry that declares it is deliberately not vendored (it is the
+        # repo's own declaration, like session_load_budgets.json) -- so on
+        # 2026-09-14 two by-the-book installs, a fresh one and an update,
+        # came back `1 violated` on a tool the adopter had never seen, with a
+        # remedy ("copy one from upstream") that produced a second violation
+        # about a budget for a tool the consumer does not have. A file in
+        # tools/ENGINE_MANIFEST.json was audited where it was written
+        # (practice: very-deep-check, pass 2 question 1 -- bucket a finding by
+        # who wrote it); what this check owns here is what the repo itself
+        # wrote. Practice: github-api-budget.
+        vendored = set(_engine_manifest().get('files') or [])
+        mirrored = _mirrored(ROOT)
+        own = [rel for rel in callers
+               if not (rel.startswith('tools/') and rel[len('tools/'):] in vendored)
+               and not rel.startswith(mirrored)]
+        if not own:
+            raise NotApplicable(
+                f'this repo has no {GITHUB_API_BUDGETS} and nothing it wrote '
+                f'calls the GitHub API'
+                + (f' (the vendored engine files that do -- '
+                   f'{", ".join(sorted(set(callers) - set(own)))} -- are '
+                   f'declared where they were written)' if callers else '')
+                + ', so there is no spend to declare')
+        return [Finding(rel, f'calls the GitHub API, and this repo has no '
+                             f'{GITHUB_API_BUDGETS} declaring what that '
+                             f'should cost. Write one naming THIS repo\'s '
+                             f'tools -- a "core" floor and a run budget for '
+                             f'each caller here (upstream\'s file is the '
+                             f'shape, not the content: it budgets tools this '
+                             f'repo does not have) -- or declare the tool '
+                             f'under "unrouted_callers" with the reason')
+                for rel in own]
+    try:
+        reg = json.loads(reg_path.read_text(encoding='utf-8'))
+    except ValueError as e:
+        return [Finding(GITHUB_API_BUDGETS, f'is not valid JSON ({e}), so '
+                                            f'every floor and budget in it is '
+                                            f'unreadable and nothing is '
+                                            f'judged against anything')]
+    out = []
+    floors = {k: v for k, v in (reg.get('floors') or {}).items()
+              if not k.startswith('_')}
+    if not isinstance(floors.get('core'), (int, float)):
+        out.append(Finding(GITHUB_API_BUDGETS,
+                           'declares no numeric "core" floor. The core pool is '
+                           'the one a session can actually measure, so a '
+                           'registry without a floor for it reports numbers '
+                           'and judges nothing'))
+    budgets = {k: v for k, v in (reg.get('run_budgets') or {}).items()
+               if not k.startswith('_')}
+    for tool, value in sorted(budgets.items()):
+        if not isinstance(value, int):
+            out.append(Finding(GITHUB_API_BUDGETS,
+                               f'the run budget for {tool} is not a whole '
+                               f'number of calls ({value!r})'))
+        if not (ROOT / 'tools' / tool).is_file():
+            out.append(Finding(GITHUB_API_BUDGETS,
+                               f'declares a run budget for tools/{tool}, which '
+                               f'does not exist here. A budget for a deleted '
+                               f'tool is never compared against anything, and '
+                               f'reads as coverage'))
+    for name, row in sorted((reg.get('unmeasurable') or {}).items()):
+        if name.startswith('_') or not isinstance(row, dict):
+            continue
+        if not row.get('why'):
+            out.append(Finding(GITHUB_API_BUDGETS,
+                               f'`{name}` is listed as unmeasurable with no '
+                               f'"why". An allowance nobody can measure is '
+                               f'worth recording only with the reason beside '
+                               f'it'))
+        if row.get('limit') is not None and not row.get('published_figure_read'):
+            out.append(Finding(GITHUB_API_BUDGETS,
+                               f'`{name}` carries a published limit with no '
+                               f'"published_figure_read" date. A figure about '
+                               f'the outside world carries the date it was '
+                               f'read (practice: volatile-rules-carry-dates)'))
+
+    declared = {k for k, v in (reg.get('unrouted_callers') or {}).items()
+                if not k.startswith('_') and v}
+    for rel in callers:
+        text = (ROOT / rel).read_text(encoding='utf-8', errors='replace')
+        if 'import github_budget' in text or rel in declared:
+            continue
+        out.append(Finding(rel, 'calls the GitHub API directly. Route it '
+                                'through tools/github_budget.py so its calls '
+                                'are counted and cached, or declare it in '
+                                f'{GITHUB_API_BUDGETS} under '
+                                '"unrouted_callers" with the reason it cannot '
+                                'be. An uncounted caller is exactly what makes '
+                                '"what is spending our allowance" unanswerable'))
+
+    if (ROOT / 'tools' / 'github_budget.py').is_file():
+        gb = (ROOT / 'tools' / 'github_budget.py').read_text(encoding='utf-8')
+        # Everything after the module docstring: the docstring's whole job is
+        # to explain why /rate_limit is not used, so finding the word there is
+        # the rule working rather than breaking.
+        body = gb.split('"""', 2)[-1]
+        # A REQUEST to it, not a mention of it. This module's own prose names
+        # the endpoint constantly -- explaining why it is not used is half of
+        # what the file is for -- and a check that fired on the word would be
+        # unfixable without deleting the explanation.
+        if re.search(r"""(?:call|urlopen|get|open)\(\s*['"]/?rate_limit"""
+                     r"""|api\.github\.com/rate_limit""", body):
+            out.append(Finding('tools/github_budget.py',
+                               'requests /rate_limit. Measured 2026-09-14, that '
+                               'endpoint answers a pristine window from inside '
+                               'a session while the response headers on an '
+                               'ordinary call report the truth -- a budget read '
+                               'from it is green on the day the account runs '
+                               'out'))
     return out
 
 

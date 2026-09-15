@@ -359,6 +359,66 @@ def main():
                 print(f"{line}\n")
         except ImportError:
             pass
+
+    # EVERY gate, not one of them: a session whose SessionStart hooks never
+    # ran is working under rules it cannot see, with an identity it did not
+    # choose, and nothing in its own output says so.
+    #
+    # tools/precedent_session_check.py has answered this since 2026-09-08,
+    # and its own docstring names its two routes: AGENTS.md's opening banner,
+    # and somebody remembering to run it. On 2026-09-14 a session read that
+    # banner, did not run it, and spent hours with four guarantees down --
+    # noticing only when two uninstalled packages surfaced as three
+    # unrelated-looking verify_harness failures (record/GOTCHAS.md#g1,
+    # #g17). Guidance a session can skip is not a mechanism. A gate is
+    # something it runs at a named moment, so the gate is where this belongs.
+    #
+    # Offline, so it costs a tenth of a second and never fetches; silent
+    # when every guarantee holds, which is the normal case and prints
+    # nothing at all. Never fatal: the gate's job is the practices, and a
+    # session with a broken environment still needs them (fail-gracefully).
+    try:
+        sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+        import precedent_session_check as psck
+        block = psck.remind(prefix='precedent gate')
+        if block:
+            print(f"{block}\n")
+    except Exception:
+        # This tool reads git config and the filesystem; on a repo shape it
+        # does not expect it may raise, and a gate that dies because its
+        # ADVISORY block failed would be worse than one that stays quiet.
+        pass
+    # A session about to PUBLISH is the last point at which the always-loaded
+    # surfaces can still be looked at cheaply, and the only point at which
+    # somebody is certainly paying attention to gates. The ceiling check is
+    # binary -- green at 11,999 tokens and red at 12,001 -- so it reports the
+    # wall only once a session has hit it, which on 2026-09-13/14 happened
+    # four times in two days to three sessions that had come to do something
+    # else (practice: session-load-budget). This says the DISTANCE instead.
+    # Never fatal, never a finding: it is a number to know, and a gate that
+    # blocks on approaching a ceiling would be the raise-it pressure the
+    # practice exists to resist (practice: fail-gracefully).
+    if gate in ('merge', 'push'):
+        try:
+            sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+            import session_load_trend as slt
+            line = slt.headroom_notice(root)
+            if line:
+                print(f"{line}\n")
+        except ImportError:
+            # A partial vendor: expected, and the block above treats a missing
+            # sibling the same way. Silent because there is nothing the reader
+            # can act on at this moment.
+            pass
+        except Exception as e:                               # noqa: BLE001
+            # Anything ELSE is said out loud. Swallowing it would print no
+            # notice, which reads exactly like "you have plenty of room" --
+            # a wrong answer wearing the shape of a right one
+            # (practice: fail-gracefully -- never look complete).
+            print(f"NOTE: the session-load headroom could not be computed "
+                  f"({e}). Treat that as unknown, not as room to spare; "
+                  f"`python3 tools/session_load_trend.py` reports it "
+                  f"directly.\n")
     for n in source_notes:
         print(f"NOTE: {n}\n")
     if any(registered[s][0] in PRIVATE_LEVELS for s in slugs):

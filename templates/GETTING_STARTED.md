@@ -50,8 +50,10 @@ work at the same time. The whole loop:
 4. **Look at what it made.** The assistant's reply ends with links to the
    changed files; open them and ask for adjustments until it's right.
 5. **Say "propose this to the team."** The assistant packages your change
-   for review — the technical name is a *pull request* — and an
-   administrator, not you, decides when it joins the shared project.
+   for review — the technical name is a *pull request* — and says who
+   decides when it joins the shared project: for the documents themselves
+   that may be you, depending on how your project is set up; for the
+   project's settings, checks and rules it is always an administrator.
    Until that happens, nobody else sees your change: unlike Google Docs,
    nothing becomes shared automatically.
 
@@ -86,8 +88,31 @@ The most complete experience, on web, desktop, or phone. *(As of
 3. Ask your first question, e.g.: *"Review the project context, then tell
    me what needs my attention."*
 
-Claude Code reads the project's instruction files automatically. Nothing
-else to set up.
+Claude Code reads the project's instruction files automatically — nothing
+else to set up for that. **Two things are per-person, though, and neither
+happens on its own:**
+
+- **Your own settings.** Your name and timezone on the commits Claude
+  makes for you, and — if you or your team have one — your own practices
+  repository. [PER_MACHINE_SETUP.md](<upstream-docs>/PER_MACHINE_SETUP.md)
+  is the full copy-paste list; the short version is **environment
+  variables** (settings that live on your Claude account, not in this
+  repository), added at `claude.ai/code` → the environment this project
+  runs in → its **environment variables** page. *(Click-path as of
+  2026-09-11 — Anthropic's own guide at
+  [code.claude.com/docs/en/claude-code-on-the-web](https://code.claude.com/docs/en/claude-code-on-the-web)
+  is the place to check if it's moved.)*
+- **If you'd rather not set those, ask Claude directly instead.** In your
+  first message, say something like: *"Please connect to `<your team's or
+  your own practices repository>`."* Claude can attach read access to it
+  for that one session — the same thing the environment variables do
+  automatically, every session, without asking. This only works when that
+  repository is owned by the same GitHub account as this project; a
+  repository under a different account needs the environment-variable
+  route above instead. Skipping both isn't loud about it — your team's
+  and your own rules simply won't apply that session — so ask if Claude's
+  answers don't seem to reflect something you know your team has agreed
+  on.
 
 ### Codex Users
 
@@ -116,7 +141,7 @@ Codex; the project's automatic checks protect the result either way.
 
 Working from an iPhone a lot? This project includes an iPhone Shortcut
 recipe that prepares this starting message for you — see the phone guide
-at `<upstream-docs>/MOBILE.md`.
+in [MOBILE.md](<upstream-docs>/MOBILE.md).
 
 ### Gemini Users
 
@@ -182,7 +207,7 @@ opener:
 - **Compose bigger requests.** For anything substantial, draft your
   request in a notes app first, then paste it — the assistant's output
   quality tracks the clarity of what you hand it. (More habits like this
-  in the project's method guide: `<upstream-docs>/METHOD.md`.)
+  in the project's method guide, [METHOD.md](<upstream-docs>/METHOD.md).)
 
 ## For the Administrator: Approving Changes
 
@@ -212,7 +237,9 @@ A few things can only be done by hand, in GitHub's own settings pages, by
 someone with administrator rights here. None is urgent, and each fails
 *quietly* rather than loudly, so they are worth a look when you have a
 moment. **Ask the assistant for more specific instructions on any of
-them.** Click-paths as of <install date>.
+them**, or read the full reference at
+[GITHUB_SETTINGS.md](<upstream-docs>/documentation/GITHUB_SETTINGS.md).
+Click-paths as of <install date>.
 
 - **This project's repository is private**, unless it is meant to be
   public.
@@ -257,11 +284,12 @@ them.** Click-paths as of <install date>.
      introduces a new one (a required secret, a new required check). -->
 
 - **A Markdown check runs on every pull request** (the GitHub Actions
-  workflow `doc-lint.yml`) and catches a couple of specific formatting mistakes before
+  workflow `bestpractice-docs.yml`) and catches a couple of specific formatting mistakes before
   they reach the shared project. It needs no maintenance. If it doesn't
   appear on a pull request's checks, GitHub Actions may be disabled for
   this repository — an administrator can turn it on at repository
-  **Settings → Actions**. Details: `<upstream-docs>/GITHUB_ACTIONS.md`.
+  **Settings → Actions**. Details:
+  [GITHUB_ACTIONS.md](<upstream-docs>/GITHUB_ACTIONS.md).
 - **Every pull request opens with a standard template** — what changed,
   why, files touched, and a short checklist. An unchecked box on that
   checklist is normal; it means that gate didn't apply to this particular

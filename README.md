@@ -19,14 +19,17 @@ behind both live in your own GitHub repository.
 > here wanting to *use* the practice engine on your own project, read
 > [documentation/ADOPTING.md](documentation/ADOPTING.md) — it is written for that, and assumes no
 > programming. The design and its evidence are in
-> [spec/PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md). Everything below is
-> the pre-fork BestPractice documentation, still accurate for the parts the rewrite
-> has not reached; it is rewritten in place as later phases land rather than
-> kept as a second, drifting copy.
+> [spec/PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md). Alex merged this
+> branch into `main` on 2026-09-14 (pull request #367), so `main` carries
+> Precedent too, and Morgan merges this branch into `main` regularly; work
+> still lands here, on this branch.
 
-**New here?** Start with [What This Is (and Why Explore Using
+**New here?** [Ten Things to Know About How Precedent
+Works](documentation/TEN_THINGS.md) is the one page to read first — the
+ideas underneath everything, each linked to where both guides say more.
+Then [What This Is (and Why Explore Using
 Precedent)](documentation/WHY_PRECEDENT.md) for
-the pitch, then jump to the how-to guide for your situation:
+the pitch, and the how-to guide for your situation:
 [if you write code](documentation/FOR_DEVELOPERS.md), or
 [if you don't](documentation/FOR_EVERYONE_ELSE.md).
 
@@ -114,7 +117,7 @@ Hand installation, updates, and contributing improvements back:
 [METHOD.md](METHOD.md). Phone and per-assistant setups:
 [MOBILE.md](MOBILE.md). Automatic repository checks:
 [GITHUB_ACTIONS.md](GITHUB_ACTIONS.md). The pre-split practice catalog
-(52 of the current, larger set — see [practices/](practices/) for the
+(53 of the current, larger set — see [practices/](practices/) for the
 complete, current one): [PRACTICES.md](PRACTICES.md). Slide decks built
 from plain files: [deck/](deck/). Git in eight ideas: [GIT.md](GIT.md).
 Open items and roadmap: [TODO.md](TODO.md). Repository index for agents:

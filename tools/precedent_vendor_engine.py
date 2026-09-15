@@ -188,6 +188,7 @@ import hashlib
 import json
 import os
 import pathlib
+import re
 import shutil
 import subprocess
 import sys
@@ -201,6 +202,16 @@ SOURCE_BRANCH = 'precedent-beta-v01'  # see docstring: NOT the configured defaul
 
 ENGINE_FILES = [
     'build_views.py',
+    # The one place this engine asks GitHub anything, and the counter behind
+    # precedent_check.py's github-api-budget check (added 2026-09-14). It
+    # travels with the engine because the check travels with it: a consumer
+    # told to "route this caller through tools/github_budget.py" needs the
+    # file the finding names, and its own API-calling tools draw on the same
+    # account allowances this repo's do. Its companion registry
+    # (github_api_budgets.json) is deliberately NOT vendored -- a repo's
+    # floors and per-tool budgets are its own declaration, the same way
+    # session_load_budgets.json is.
+    'github_budget.py',
     # build_views.py's companion word list, and the reason it is here rather
     # than left behind: the engine vocabulary it declares (level, source,
     # catalogue, slug, gate, resident block) is what an adopter needs to read
@@ -328,6 +339,21 @@ ENGINE_FILES = [
     # ModuleNotFoundError from its own session-start hook.
     'precedent_resolve.py',
     'precedent_session_practices.py',
+    # Whether this session can actually PUSH to each repo in force, probed at
+    # session start (added 2026-09-14). In ENGINE_FILES rather than
+    # consumer-only because the question is sharpest exactly where a practice
+    # SET is attached: a set is normally another owner's repository, which is
+    # the wall that produced the incident in this file's own docstring -- a
+    # session that built a seven-commit patch it could not push and sat
+    # blocked on it for four days.
+    #
+    # It imports precedent_resolve (above, and in both lists) to enumerate the
+    # sources, and precedent_source_credentials (also in both) to authenticate
+    # the probe; both degrade to a narrower answer rather than raising, so a
+    # tree older than either still starts. It deliberately does NOT import
+    # very_deep_check, which is in neither list -- the probe was moved out of
+    # that file into this one precisely so it would travel.
+    'precedent_access_check.py',
     # The command vocabulary, read off the `command:` field of every
     # practice a repo resolves (added 2026-09-13 with practices/vocabulary.md).
     # In ENGINE_FILES rather than the consumer half for the same reason
@@ -346,6 +372,21 @@ ENGINE_FILES = [
     # named 'precedent_reply_check')" on every single turn. Reproduced in a
     # stripped vendor tree before this line was added.
     'precedent_reply_check.py',
+    # The stop hook's other half: close detection (2026-09-14). Same argument
+    # as the line above it, and caught the same way -- Morgan asked whether
+    # updating the vendored engine would carry this to a repo that has it,
+    # and the honest answer was no, because nobody had added it here. The
+    # hook guards on the file existing, so a consuming repo would have gone
+    # on skipping it silently and forever.
+    #
+    # What travels is the MECHANISM only. A source's close_detect.json is
+    # authored at that source's root and is never vendored, exactly like
+    # reply_check.json: it declares one person's or one team's closing
+    # convention, and an engine that shipped somebody's phrases would bind
+    # every adopter to them (practice: rule-level-by-reach). So a vendored
+    # repo receives a detector that detects nothing until a source declares
+    # what it should fire on -- which is the honest default, not a gap.
+    'precedent_close_detect.py',
     'precedent_vendor_engine.py',
 ]
 
@@ -1278,8 +1319,54 @@ def refresh(clone, force=False, ref=None):
         if r.returncode != 0:
             return r.returncode
 
-    print("next: review the diff, run this repo's own light check, then commit.")
+    _warn_bare_sync_invocations(ROOT)
+    print("next: review the diff, then `python3 tools/precedent_sync_views.py "
+          "--repo .` (a refresh changes what the loader renders, so `--check` "
+          "is expected to FAIL until the sync has run), review that diff too, "
+          "run this repo's own light check, then commit the two together.")
     return 0
+
+
+_BARE_SYNC_RE = re.compile(r'precedent_sync_views\.py(?![^\n]*--repo)')
+
+
+def _warn_bare_sync_invocations(root):
+    """Name every wiring file that still invokes precedent_sync_views.py
+    without `--repo`, which the engine has refused since 2026-09-10.
+
+    The engine's manifest does not cover tools/bootstrap.sh, the harness
+    hooks or the instructions file -- those are instantiated from templates
+    and adapted, so a refresh cannot rewrite them. Measured 2026-09-14 on a
+    consumer vendored six days earlier: its refreshed engine refused the
+    bare `--check` its own bootstrap.sh runs at every session start, so
+    every session opened with a WARN naming a fix that failed the same way.
+    Nothing in the refresh had told it (practice: change-updates-its-docs --
+    the mechanism moved, the wiring that calls it did not).
+    """
+    candidates = [root / 'tools' / 'bootstrap.sh', root / 'AGENTS.md',
+                  root / 'CLAUDE.md']
+    hooks = root / '.claude' / 'hooks'
+    if hooks.is_dir():
+        candidates += sorted(hooks.glob('*.sh'))
+    hits = []
+    for path in candidates:
+        try:
+            text = path.read_text(encoding='utf-8')
+        except (OSError, UnicodeDecodeError):
+            continue
+        for n, line in enumerate(text.splitlines(), 1):
+            if 'precedent_sync_views.py' in line and _BARE_SYNC_RE.search(line) \
+                    and not line.lstrip().startswith('#'):
+                hits.append(f'{path.relative_to(root)}:{n}')
+    if hits:
+        print("NOTICE: precedent_sync_views.py is invoked WITHOUT --repo in "
+              + ', '.join(hits)
+              + " -- the refreshed engine refuses that call, so a session-start "
+                "check there will WARN on every session and name a fix that "
+                "fails the same way. Re-instantiate tools/bootstrap.sh and the "
+                "harness hooks from upstream's templates/, or add `--repo .` "
+                "to each line; these files are not in the engine manifest, so "
+                "a refresh never rewrites them.")
 
 
 def fresh():

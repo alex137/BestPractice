@@ -8,6 +8,13 @@
 # 2026-09-04 gate audit that fixed the template found the reply gate unwired
 # — dogfooding it here closes the same gap in the repo that teaches it.
 #
+# 2026-09-14: and CLOSE DETECTION (tools/precedent_close_detect.py) -- the
+# noticing end of the same engine. A session that merged something and is
+# closing as ready to archive is asked, once, whether its own work turned up
+# a rule worth keeping, and only when a Stage-1 detector actually found
+# something. Silent otherwise, and silent in any repo whose sources declare
+# no close_detect.json.
+#
 # 2026-09-13: every reason to stop is now COLLECTED and reported in one
 # exit-2 message instead of the first one ending the script. Claude Code
 # re-invokes a blocked Stop hook with stop_hook_active=true and this script
@@ -56,6 +63,19 @@ if [[ -n "$tools" ]]; then
   if [[ -f "$tools/precedent_reply_check.py" ]]; then
     reply_out="$(echo "$input" | python3 "$tools/precedent_reply_check.py" --repo "$root" 2>&1)" || {
       reasons+=("$reply_out")
+    }
+  fi
+
+  # …and CLOSE DETECTION (2026-09-14), the other end of the same engine.
+  # precedent_close_detect.py asks, at the one moment all of its conditions
+  # can be known, whether this session turned up a rule worth keeping: it
+  # merged something, it is closing as ready to archive, it has not already
+  # offered one, and a Stage-1 detector found something in this session's own
+  # material. All four, or it is silent. Like the reply check, it detects
+  # nothing in a repo where no source declares a close_detect.json.
+  if [[ -f "$tools/precedent_close_detect.py" ]]; then
+    close_out="$(echo "$input" | python3 "$tools/precedent_close_detect.py" --repo "$root" 2>&1)" || {
+      reasons+=("$close_out")
     }
   fi
 fi

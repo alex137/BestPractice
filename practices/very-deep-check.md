@@ -15,7 +15,12 @@ in_force_at: null
 supersedes:  []
 overrides:   null
 added:       null
-approved_by: "pending review; revised 2026-09-05, Morgan F, to require every
+approved_by: "extended 2026-09-14, Morgan F -- after a session was refused by
+  GitHub with a rate-limit error, he asked for the cause investigated, the
+  fixes made, and this check to report the account's API limits so normal
+  usage can be seen not to overspend them (strength: decided; the section's
+  shape is the session's, the requirement is his);
+  pending review; revised 2026-09-05, Morgan F, to require every
   declared team/individual source actually be in the session before the check
   runs, and to add a stale-branch sweep across every repo the check touches;
   revised again same day, Morgan F, to add a cross-source-staleness check;
@@ -77,7 +82,11 @@ approved_by: "pending review; revised 2026-09-05, Morgan F, to require every
   beside every run -- \"you look to see if anything is being leaked that you
   think shouldn't be and you make the recommendation to me ... but only when
   I ask for it as part of a very thorough review I'm in the mindset of
-  doing\""
+  doing\"; extended 2026-09-14, Morgan F (strength: decided), so pass 1
+  rehearses a practice moved between levels and pass 3 reads every document
+  that describes a mechanism against what that mechanism does now -- \"does
+  very deep check do a read of the documentation to make sure it's
+  consistent with how it works now? If not add that too\""
 ---
 ## Rule
 When a person explicitly asks for a "very deep check", or after work that
@@ -89,7 +98,8 @@ passes in Detail, in that order. The tool enumerates the scope — this
 checkout's own top-level documents, plus the `practices/*.md` tree of every
 source in force, resolved exactly the way
 [tools/precedent_resolve.py](../tools/precedent_resolve.py) resolves them for
-ordinary loading — and prints the passes; reading and judging that scope is
+ordinary loading — and points at the passes (`--checklist` prints them in
+full); reading and judging that scope is
 the session's work, and is nearly the whole cost of this check. Never wired
 into a commit, push, or merge gate — the mechanical audits and
 [routing-audit](routing-audit.md) already cover what can be checked cheaply
@@ -121,6 +131,18 @@ and one in a `HANDOFF` repo ends in a woken session
 starts is the point; discovering it at the moment of trying to fix something
 is the cost. `--landable-only` narrows scope for a deliberately cheap run and
 says out loud what it made unreachable.
+
+**The check reads its own GitHub API bill, and the account's, in its last
+section** ([github-api-budget](github-api-budget.md)). What the run spent,
+against a declared budget; what each allowance pool has left, read off the
+headers of the calls it already made rather than bought with another one; and
+plainly, as unmeasured rather than as clean, the allowances a session cannot
+see from inside a container — `search`, at 30 requests a minute shared across
+every window at once, and the secondary limit on creating content, which
+nothing anywhere reports. **It reports and never refuses.** The pool is shared
+by every session running, so a run that stopped because somebody else had
+spent it would be punishing the wrong session; the remedy is fewer
+simultaneous windows and cheaper tools, and neither is this tool's to apply.
 
 **Before anything is read, every repo in force must be provably current
 against its origin, and must still be a repository work can land in** — this checkout and every attached source.
@@ -256,14 +278,19 @@ cannot tell a drift this run introduced from one that was there before. So:
    so an attached sibling has never been checked by anything. The
    liveness half runs in the same breath and is a finding rather than a
    refusal: a deleted, renamed or archived repo in force does not make the
-   reading below wrong, it makes the writing above it pointless.
+   reading below wrong, it makes the writing above it pointless. **And if
+   the checkout moved under you here, re-read the instructions file**: a
+   session is handed `AGENTS.md` before any guard can fast-forward the
+   tree, so after a fast-forward the copy in context is the stale one
+   (2026-09-14: 983 lines behind the tip, for a whole first turn).
 2. **Run the deep check suite as it stands** — the five gates
    [AGENTS.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/AGENTS.md) names ([two-check-levels](two-check-levels.md))
    — and fix what it reports, before this check reads a line. `0 failed` and
    `0 violated` is the starting line, not the finish.
 3. **Run [tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/very_deep_check.py)** for the
-   enumeration, the machine-readable parse, the source-shape check, and the
-   branch scan. A missing declared source stops the run here.
+   enumeration, the machine-readable parse, the source-shape check, the
+   branch scan, and the GitHub API budget. A missing declared source stops
+   the run here.
 4. **Read the unmerged-branch inventory, before any pass begins.** Not the
    verdicts — those are pass 4's expensive half and stay there. Just the
    list, and enough of each branch's diff to know *what already exists
@@ -321,6 +348,35 @@ audit came from **building the thing the document describes and running the
 checks on it** ([spec/PRELAUNCH_AUDIT.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/PRELAUNCH_AUDIT.md), "The
 method"). Build the fixtures.
 
+- **Rehearse each install path with fresh eyes, as the person it is
+  written for.** Not a fixture built by the session that knows the
+  documents: a session with no prior context — a subagent, told which
+  document to follow, whom to play, and to report every point where the
+  document is ambiguous, self-contradictory, names something that does not
+  exist, or asks a question the person cannot answer, with path and line —
+  one per path, in parallel. Five paths: the guided install
+  ([SETUP.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/SETUP.md), as a non-technical administrator),
+  the loader install ([INSTALL.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/INSTALL.md) §0, as a developer — both by
+  running `tools/precedent_install.py` as an adopter would and by reading
+  the numbered steps against what it did), the migration, the update
+  below, and **a practice moved between levels**
+  ([spec/MOVING_PRACTICES.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/MOVING_PRACTICES.md)):
+  two bootstrapped sets and a consumer in scratch, every direction the
+  page offers (individual → team, team → individual, team → universal),
+  with `tools/precedent_move.py` and, separately, by hand against the
+  page's two steps — then the copy-and-delete the page forbids, to see
+  which check names it. Added 2026-09-14, the day Morgan asked whether
+  the run had tested it and it had not: the rehearsal returned thirteen
+  findings and the move tool. Each rehearsal ends by running the result's
+  own checks and reporting the real output. **Then ask one more question of each: is what
+  landed what the pitch promised?** Read the result against
+  [documentation/ADOPTING.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/documentation/ADOPTING.md) and the README, not
+  only against the install document — on 2026-09-14 every sentence of the
+  guided install was correct and the person following it received a
+  system without the loader the pitch describes, which no single-document
+  reading could see. Fresh eyes are what made the difference: the
+  2026-09-14 run found 65 defects this way where the previous run's
+  session-built fixtures found five.
 - **A real from-scratch install.** A scratch repository with nothing in it,
   installed per [INSTALL.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/INSTALL.md) §0 against `precedent-beta-v01`
   alone — no team set, no individual set, none of the sibling clones this
@@ -571,6 +627,26 @@ confidently.
     published the violation. The same skip hid
     [generated-artifact-provenance](generated-artifact-provenance.md), whose
     own file names a check for it.)*
+16. **Is a boundary a setting or a document?** A rule that says *a
+    contributor cannot change X* is enforced by a setting somewhere -- a
+    branch-protection rule, a `CODEOWNERS` file GitHub actually reads, a
+    role on an invitation -- or it is a sentence. For each boundary a repo
+    in force describes, name the setting that enforces it and **read that
+    setting**, never the document describing it. Where the file that
+    carries the boundary is generated (a `CODEOWNERS` from a registry),
+    check the generated copy against its source: a hand-edit there is the
+    boundary changing with nothing announcing it.
+    [tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/very_deep_check.py)'s
+    `CONTRIBUTOR BOUNDARY` section does both per repo in force and prints
+    `UNVERIFIED` rather than a pass when it could not ask GitHub -- which is
+    the answer a session without a token that can read protection settings
+    gets, and it is not the same answer as *off*. *(Found: the contributor
+    boundary in
+    [spec/CONTRIBUTOR_ACCESS.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/CONTRIBUTOR_ACCESS.md)
+    described in three documents and enforced by a setting nothing had ever
+    read -- a forgotten instantiation step would have left Write as
+    unrestricted write while every document still described a wall,
+    2026-09-14.)*
 
 ### Pass 3 — Does the writing still hold together?
 The coherence read, across every repo in scope. Run the mechanical audits
@@ -578,6 +654,28 @@ first so this pass spends its attention on what they cannot see.
 
 - **Contradictions** — two rules, or two documents, that can't both be
   followed; a rule whose own carve-outs have eaten it.
+- **Documents against the mechanisms they describe.** A document that
+  says what a tool, hook, workflow or check DOES is a set of claims about
+  behaviour, and behaviour moves under it. For each such document — the
+  install and setup routes, the specs that describe a tool (the loader,
+  moving practices, the candidate pipeline, enforcement), the
+  developer-facing documentation, the README's pitch, and the messages the
+  tools themselves print, which are documents a person reads at the moment
+  they most need them to be true — take each claim of behaviour and test it
+  against the mechanism as it is now: run the command, or read the code
+  path that would have to produce the claimed result. Not a read for
+  broken links or stale names; those are the bullets below. A sentence
+  that was true when written and is false now is a finding, and the fix
+  is the sentence unless the behaviour is the thing that drifted. *(Added
+  2026-09-14, the day a run found three in one afternoon without a bullet
+  asking for them: a tool's post-landing line said the private sets carried
+  no generated views, months after bootstrap started generating them; a
+  spec said "the check can resolve it against the real sources" for a
+  check nothing outside this repo's harness ran; and the guided install's
+  every sentence was correct while the system it produced was not the one
+  the pitch described. Each was found by rehearsal, which is pass 1's job
+  and expensive; this is the cheap read that should have found them
+  first.)*
 - **Rules we ship somewhere else** — the contradiction this pass kept
   missing, and it is missed for a structural reason rather than
   carelessness. **A template is inert here and binding there.** Read as a

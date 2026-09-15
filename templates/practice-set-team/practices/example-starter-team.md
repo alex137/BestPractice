@@ -1,5 +1,5 @@
 ---
-slug:        example-starter
+slug:        example-starter-team
 title:       Replace me with your team's first practice
 tier:        on-demand
 severity:    default

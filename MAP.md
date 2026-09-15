@@ -6,7 +6,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 
 ## The practice catalogue
 
-`practices/` holds 112 practice files (10 resident, 102 on-demand). One file per practice. See [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md) for the design.
+`practices/` holds 119 practice files (10 resident, 109 on-demand). One file per practice. See [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md) for the design.
 
 | Practice | Tier | Occasion / scope |
 |---|---|---|
@@ -21,6 +21,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [change-updates-its-docs](practices/change-updates-its-docs.md) | on-demand | changing a mechanism, a workflow or a behaviour that some document describes |
 | [check-source-architecture](practices/check-source-architecture.md) | on-demand | comparing an option against a baseline |
 | [checkable-gets-checked](practices/checkable-gets-checked.md) | on-demand | writing a new convention or rule |
+| [checks-carry-a-declared-decline](practices/checks-carry-a-declared-decline.md) | on-demand | writing or changing a check that can report a deliberate state |
 | [chief-of-staff](practices/chief-of-staff.md) | on-demand | a person says "Chief of Staff" |
 | [ci-commits-carry-identity](practices/ci-commits-carry-identity.md) | on-demand | adding or editing a CI workflow that commits, pushes, or opens a pull request |
 | [cite-the-incident](practices/cite-the-incident.md) | on-demand | writing a new convention or rule |
@@ -31,6 +32,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [convention-to-audit](practices/convention-to-audit.md) | on-demand | a convention is violated for the first time |
 | [cross-source-rollout](practices/cross-source-rollout.md) | on-demand | a change here has implications for how an attached team, individual, or repo-local source should work |
 | [decision-strength](practices/decision-strength.md) | on-demand | recording that someone approved a practice or a decision, or citing their past approval back to them |
+| [declared-default-is-applied](practices/declared-default-is-applied.md) | on-demand | a setting has no value from the person -- at install, at setup, or in the middle of work |
 | [declared-pronouns](practices/declared-pronouns.md) | on-demand | writing about a person in the third person -- a reply, a document, a commit message, a pull-request body |
 | [decommission-deletes-files](practices/decommission-deletes-files.md) | on-demand | decommissioning a mechanism — a workflow, a tool, a vendored tree, a config — that leaves files behind with no remaining job |
 | [deliverables-look-like-output](practices/deliverables-look-like-output.md) | on-demand | writing a reader-facing deliverable with supporting apparatus |
@@ -52,9 +54,11 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [full-practice-audit](practices/full-practice-audit.md) | on-demand | a person explicitly asks for a full practice audit (or "practice check") across the whole catalogue |
 | [generated-artifact-provenance](practices/generated-artifact-provenance.md) | on-demand | building or committing a generated artifact |
 | [generated-edit-goes-upstream](practices/generated-edit-goes-upstream.md) | on-demand | asked to add, change or remove something in a generated file |
+| [github-api-budget](practices/github-api-budget.md) | on-demand | writing or changing anything that calls the GitHub API, or a session is refused with a rate-limit error |
 | [github-setup-disclosed](practices/github-setup-disclosed.md) | on-demand | an install step adds something GitHub-specific, or a first install finishes |
 | [go-merge](practices/go-merge.md) | on-demand | a message carries a standing merge-authorization phrase |
-| [handoff-is-pasteable](practices/handoff-is-pasteable.md) | on-demand | asking the person to do something in another session |
+| [grep-before-search](practices/grep-before-search.md) | on-demand | about to search a repository, or reaching for a GitHub search or file-read tool for something the local clone already holds |
+| [handoff-is-pasteable](practices/handoff-is-pasteable.md) | on-demand | asking the person to do something in another session, or pointing them at one |
 | [heading-outline](practices/heading-outline.md) | on-demand | adding or re-levelling a heading in any document |
 | [headline-capitalization](practices/headline-capitalization.md) | on-demand | writing or editing a heading in an outward-facing document |
 | [index-remembers-past](practices/index-remembers-past.md) | on-demand | a document replaces or is replaced by an earlier one |
@@ -64,10 +68,12 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [lead-with-what-it-is](practices/lead-with-what-it-is.md) | on-demand | writing a README or other project-facing entry document |
 | [leak-gate-is-background](practices/leak-gate-is-background.md) | on-demand | a leak gate, blocklist, or scrub result is in front of you, or you are about to mention one to the person |
 | [merge-runbook](practices/merge-runbook.md) | on-demand | merging a branch that touches shared files |
+| [merged-session-offers-a-practice](practices/merged-session-offers-a-practice.md) | on-demand | a merged session closes as ready to archive |
 | [migration-scrubs-vocabulary](practices/migration-scrubs-vocabulary.md) | on-demand | migrating a repo off an old practice system onto Precedent |
 | [mistakes-become-rules](practices/mistakes-become-rules.md) | on-demand | a defect is fixed -- whether a review found it, the person reported it, or the session hit it itself |
 | [my-options](practices/my-options.md) | on-demand | a person says "My options", or asks to have a decision's options laid out |
 | [name-both-sides-of-ledger](practices/name-both-sides-of-ledger.md) | on-demand | a computation books a transfer between two parties |
+| [next-steps-after-commit](practices/next-steps-after-commit.md) | on-demand | ** |
 | [no-invented-specifics](practices/no-invented-specifics.md) | resident | writing a sentence that would land better with a specific figure, date, name or source |
 | [no-rewrite-for-warnings](practices/no-rewrite-for-warnings.md) | on-demand | a tool warns about already-published git history |
 | [no-version-suffix](practices/no-version-suffix.md) | on-demand | naming a new file |
@@ -85,6 +91,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [quick-index](practices/quick-index.md) | resident | looking for where something lives, before searching |
 | [quote-discipline](practices/quote-discipline.md) | on-demand | quoting or compressing someone else's figures |
 | [readers-vocabulary](practices/readers-vocabulary.md) | on-demand | writing an outward-facing document |
+| [reduction-pass](practices/reduction-pass.md) | on-demand | a person says "Reduction pass", or an always-loaded surface is near its ceiling |
 | [registry-source-of-truth](practices/registry-source-of-truth.md) | on-demand | tracking state that multiple documents need to agree on |
 | [relayed-authorization](practices/relayed-authorization.md) | on-demand | acting on, or sending, an authorization relayed from another session |
 | [rename-updates-links](practices/rename-updates-links.md) | on-demand | renaming, moving, or deleting a file other files may link to |
@@ -136,7 +143,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | Path | What it is |
 |---|---|
 | [tools/behavioral_replay.py](tools/behavioral_replay.py) | Measures the path-triggered loader against this repo's own commit history |
-| [tools/build_codeowners.py](tools/build_codeowners.py) | A team practice set's CODEOWNERS, generated from its own approvers.json |
+| [tools/build_codeowners.py](tools/build_codeowners.py) | CODEOWNERS, generated -- a practice set's from its approvers.json, a project's from the maintainers and owned_paths in its precedent.json |
 | [tools/build_views.py](tools/build_views.py) | This file, GLOSSARY.md, and AGENTS.md's loader block — generated views |
 | [tools/catalogue_stats.py](tools/catalogue_stats.py) | The figures about the catalogue that other documents cite, computed rather than hand-typed |
 | [tools/checkin.py](tools/checkin.py) | Drives the periodic check-in (INSTALL.md §4) mechanically |
@@ -145,22 +152,29 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [tools/doc_lint.py](tools/doc_lint.py) | Markdown hygiene checks — strikethrough, links, acronyms |
 | [tools/doc_sync.py](tools/doc_sync.py) | Keeps script-generated blocks inside documents in sync with what the script emits |
 | [tools/full_practice_audit.py](tools/full_practice_audit.py) | The full practice audit — on-demand, whole-catalogue sweep across every source |
+| [tools/github_budget.py](tools/github_budget.py) | What this account has left of GitHub's API allowances and what each tool spent -- read off the X-RateLimit headers of calls already being made, because /rate_limit answers a pristine window from inside a session |
 | [tools/leak_gate.py](tools/leak_gate.py) | The push-time leak gate — structural rules always, private-term blocklist when configured |
 | [tools/model_audit.py](tools/model_audit.py) | Runs each computing script's own self-assertions and checks the figures it recites |
 | [tools/parse_check.py](tools/parse_check.py) | Does every JSON/YAML file in scope still parse — changed files for the deep check, the whole tree for the very deep check |
 | [tools/philosophy_backlinks.py](tools/philosophy_backlinks.py) | EXPERIMENTAL — reports item-to-item citations in philosophy/ that run one way only; the return sentence is written by hand, never generated |
 | [tools/practice_audit.py](tools/practice_audit.py) | Audits the practice-export layer for a repo that vendors one (this repo does not) |
 | [tools/practice_simulation.py](tools/practice_simulation.py) | Synthetic scenario generation for routing quality — invented cases, never a replayed benchmark |
+| [tools/precedent_access_check.py](tools/precedent_access_check.py) | Probes, at session start, which repos in force this session can actually push to -- so work destined for one it cannot reach is discovered before it is done, not after |
 | [tools/precedent_bootstrap_source.py](tools/precedent_bootstrap_source.py) | Instantiates a brand-new individual or team practice set from a skeleton, for an adopter who has neither yet |
+| [tools/precedent_boundary_check.py](tools/precedent_boundary_check.py) | Whether a document project's contributor boundary is actually ON -- branch protection shaped as spec/CONTRIBUTOR_ACCESS.md needs, read from the GitHub API; UNVERIFIED when it could not ask, which is not a pass |
 | [tools/precedent_candidate.py](tools/precedent_candidate.py) | Stage 2 (phase 5) — raise, list and expire creation-pipeline candidates |
 | [tools/precedent_check.py](tools/precedent_check.py) | The ENFORCED loading channel — runs every practice's `checked_by` script |
+| [tools/precedent_close_detect.py](tools/precedent_close_detect.py) | Stage 1's trigger — at the close of a session that merged and is ready to archive, offers at most one practice candidate found in that session's own material |
 | [tools/precedent_decommission.py](tools/precedent_decommission.py) | Audits a deprecated file or directory before it is deleted -- refuses while anything still references it, or a workflow it names is still live -- then deletes and records it |
 | [tools/precedent_detect.py](tools/precedent_detect.py) | Stage 1 (phase 5) — the mechanical half of candidate detection |
 | [tools/precedent_gate.py](tools/precedent_gate.py) | The GATE-TRIGGERED loading channel — Rules for a named moment (merge, review, push, reply) |
 | [tools/precedent_identity.py](tools/precedent_identity.py) | Resolves WHO this repo's commits belong to, from a declaration only -- an override, the repo's own identity.json, or the individual source's; raises rather than guessing |
+| [tools/precedent_install.py](tools/precedent_install.py) | Installs Precedent into a project in one command (INSTALL.md section 0 performed mechanically: catalogue, engine, precedent.json, templates, sync, lint) and prints the placeholders it left for a person to adapt |
 | [tools/precedent_land.py](tools/precedent_land.py) | Stage 5 (phase 5) — writes an approved candidate into practices/, enforcing the registered-check invariant |
 | [tools/precedent_materialize.py](tools/precedent_materialize.py) | Bridges precedent_resolve.py's multi-source resolution to the single-tree loader tools |
 | [tools/precedent_migrate_status.py](tools/precedent_migrate_status.py) | Classifies practices written under the old status vocabulary, where `retired` meant two different things; proposes, and refuses to guess a renamed successor |
+| [tools/precedent_move.py](tools/precedent_move.py) | Moves an existing practice between levels in the one safe order: lands it at the destination with its text and approval carried, then deduplicates the source copy and regenerates both sets' views; refuses the unsafe states by name |
+| [tools/precedent_owned_paths.py](tools/precedent_owned_paths.py) | Before a pull request: which changed files will wait for a code owner's review, and the plain-words sentence to say to the contributor about it |
 | [tools/precedent_paths.py](tools/precedent_paths.py) | The PATH-TRIGGERED channel — matches a touched file against every practice's `applies_to` |
 | [tools/precedent_promote.py](tools/precedent_promote.py) | Stage 3 (phase 5) — runs a candidate against the four promotion criteria |
 | [tools/precedent_refresh_sources.py](tools/precedent_refresh_sources.py) | Reports which attached practice-set sources have a stale vendored engine, and with --apply brings them up to date; also writes the git credential helper into any attached source clone that has none |
@@ -183,6 +197,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [tools/routing_audit.py](tools/routing_audit.py) | The routing audit — mechanical coverage check plus a rotating deep-read slice |
 | [tools/routing_eval.py](tools/routing_eval.py) | Measures whether trigger-based loading actually beats carrying the whole catalogue |
 | [tools/routing_eval_synthetic.py](tools/routing_eval_synthetic.py) | Stress-tests the occasion-index channel alone, on hand-written synthetic tasks rather than real commits |
+| [tools/session_load_trend.py](tools/session_load_trend.py) | How much room every always-loaded surface has left and how fast it is going -- headroom, the hand-written/generated split, and the growth rate; its headroom_notice() is what the merge and push gates print |
 | [tools/split_practices.py](tools/split_practices.py) | PRACTICES.md ↔ practices/ converter |
 | [tools/table_fmt.py](tools/table_fmt.py) | One formatter per quantity kind — the engine |
 | [tools/title_case.py](tools/title_case.py) | Headline (New York Times) capitalization for markdown headings — --check to gate, --write to fix |

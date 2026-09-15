@@ -1,5 +1,5 @@
 ---
-slug:        example-starter
+slug:        example-starter-individual
 title:       Replace me with your own first practice
 tier:        on-demand
 severity:    default

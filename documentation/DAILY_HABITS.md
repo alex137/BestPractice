@@ -105,6 +105,7 @@ each one saves you a paragraph of explaining:
 | **Park it** | Mark the open question as parked and drop the subject. It won't be raised again unless you raise it. |
 | **Plain words** | Drop the formal register and explain it the way somebody would say it out loud — same answer, plainer telling. |
 | **Practice check** | Go through every rule in force, one at a time, and report on each — the slow, complete version of the routine checks. |
+| **Reduction pass** | Measure everything a session loads before it starts work, make room by moving things rather than deleting them, and show you exactly what moved and what it saved. |
 | **Spawn session** | Check whether this work belongs in a different conversation — usually because it needs a project this one cannot reach — and hand you a link to that one, ready to go. |
 | **Three Things** | Tell you the three most important things you need to know right now, in three short lines. |
 | **Todo reminder** | Write the thing into the open-items file AND mark it as something to remind you about, so later sessions bring it up rather than waiting to be asked. |
@@ -140,7 +141,8 @@ questions instead of trying to remember the answers.
 
 ## Learn More
 
-[What This Is (and Why Explore Using
+[Ten Things to Know About How Precedent Works](TEN_THINGS.md) for the
+ideas underneath these habits, one page. [What This Is (and Why Explore Using
 Precedent)](WHY_PRECEDENT.md) for the bigger picture. [How to
 Use This — A Guide for Everyone
 Else](FOR_EVERYONE_ELSE.md) for how an idea becomes an
