@@ -573,17 +573,66 @@ HOOK_DEST_DIR = '.claude/hooks'
 
 
 def _hook_file_names(hooks_dir):
-    """The real (non-template) hook scripts BestPractice ships, read off
-    disk rather than hardcoded -- the same reasoning precedent_install.py's
-    _harness() already applies by parsing settings.json for the commands it
-    wires: a hook added upstream should not also require a matching edit
-    here before it can be vendored. `.template` files (e.g.
+    """Every real (non-template) hook script BestPractice SHIPS at this
+    source directory -- not what any one repo wants. `.template` files (e.g.
     individual-source-bootstrap.sh.template) are a different mechanism
-    (rendered per-source, not copied verbatim) and are excluded by the
-    glob."""
+    (rendered per-source, not copied verbatim) and are excluded by the glob.
+
+    Callers vendoring INTO a repo must intersect this with
+    _wired_hook_names(dest_root) -- see that function's docstring for why:
+    the shared hooks/ directory holds scripts that only a practice SET wires
+    (precedent-universal-catalogue.sh) alongside ones only a CONSUMER wires,
+    and vendoring the full glob into every repo regardless of kind is
+    exactly how hooks-on-disk-are-reachable's own incident happened."""
     if not hooks_dir.is_dir():
         return []
     return sorted(p.name for p in hooks_dir.glob('*.sh'))
+
+
+_HOOK_CMD_RE = re.compile(r'hooks/([\w.-]+\.sh)')
+
+
+def _wired_hook_names(dest_root):
+    """Hook script basenames `dest_root`'s OWN .claude/settings.json
+    actually wires -- the same regex precedent_install.py's _harness() uses
+    to decide what to copy at initial install.
+
+    THE BUG THIS CLOSES. A first version of hook-vendoring vendored every
+    `*.sh` HOOK_SOURCE_DIR contains, unconditionally. That is wrong for two
+    reasons at once: a source practice set and a consumer repo wire
+    different subsets of the same shared hooks/ directory (only a set wires
+    precedent-universal-catalogue.sh, only a consumer's settings.json wires
+    the rest), and a repo that deliberately declined an adapter (see
+    tools/precedent_check.py's hooks-on-disk-are-reachable and its
+    `declined_adapters` mechanism) must stay declined -- a routine refresh
+    re-planting a hook nobody wired is exactly the orphan that check exists
+    to catch. Caught here, before ever shipping, by running verify_harness.py
+    before push: `tools/precedent_install.py yields a project whose own
+    gates come back clean` failed with exactly that VIOLATION the moment
+    this vendored precedent-universal-catalogue.sh into a plain consumer
+    install. Scoping to what settings.json already wires makes this
+    impossible by construction -- there is no name to vendor that the repo
+    did not already choose to wire.
+
+    Returns an empty set, never an error, when settings.json does not exist
+    yet: INSTALL.md's own order writes it (precedent_install.py) before this
+    tool ever runs, so an absence here means "nothing to reconcile yet", not
+    "broken" (practice: fail-gracefully)."""
+    settings_path = dest_root / '.claude' / 'settings.json'
+    if not settings_path.is_file():
+        return set()
+    try:
+        settings = json.loads(settings_path.read_text(encoding='utf-8'))
+    except (ValueError, OSError):
+        return set()
+    names = set()
+    for group in (settings.get('hooks') or {}).values():
+        for entry in group:
+            for h in entry.get('hooks', []):
+                m = _HOOK_CMD_RE.search(h.get('command', '') or '')
+                if m:
+                    names.add(m.group(1))
+    return names
 
 
 def _sha256(path):
@@ -752,8 +801,23 @@ def _write_hook_files(dest_root, hooks_src_dir):
     `hooks_src_dir` may not exist (an old commit predating HOOK_SOURCE_DIR,
     or a working tree with no templates/ at all in a bootstrapped source
     set) -- then this writes nothing and leaves the manifest's hook keys as
-    they were, rather than erasing a previously-vendored record."""
-    names = _hook_file_names(hooks_src_dir)
+    they were, rather than erasing a previously-vendored record.
+
+    Scoped to _wired_hook_names(dest_root) -- see that function's docstring.
+    Vendoring everything HOOK_SOURCE_DIR ships, unconditionally, is the bug
+    it exists to prevent: this repo's own verify_harness.py caught it before
+    it shipped."""
+    available = set(_hook_file_names(hooks_src_dir))
+    wired = _wired_hook_names(dest_root)
+    names = sorted(available & wired)
+    skipped = sorted(available - wired)
+    if skipped:
+        print(f"NOTE: precedent_vendor_engine: {len(skipped)} hook script(s) "
+              f"BestPractice ships are not wired in this repo's own "
+              f".claude/settings.json ({', '.join(skipped)}) -- not vendored. "
+              f"That is expected for a hook only a different repo kind wires "
+              f"(a practice set vs. a consumer), or one this repo declined on "
+              f"purpose.", file=sys.stderr)
     if not names:
         return []
     dest_hooks = dest_root / HOOK_DEST_DIR
@@ -1436,13 +1500,14 @@ def refresh(clone, force=False, ref=None):
             _rewrite_manifest_file_list(dest_tools, kind)
 
         # Hook analog of set_incomplete, above -- but the "wanted" hook names
-        # are read from THIS commit's own tools listing (_hook_file_names on
-        # the just-extracted engine_dir/hooks), not from a static KINDS
-        # entry: unlike tools/, which files a hook run is unbounded on is not
-        # known until the commit is read. No hook analog of set_orphaned --
-        # see HOOK_SOURCE_DIR's own comment on the deliberately-missing
-        # tombstone/removal mechanism.
-        new_hook_names = _hook_file_names(engine_dir / 'hooks')
+        # are read from THIS commit's own listing at HOOK_SOURCE_DIR,
+        # intersected with what THIS repo's own settings.json actually wires
+        # (_wired_hook_names) -- never the full glob. Vendoring a hook this
+        # repo never wired is the orphan hooks-on-disk-are-reachable exists
+        # to catch; see _wired_hook_names's docstring for the incident.
+        # No hook analog of set_orphaned -- see HOOK_SOURCE_DIR's own comment
+        # on the deliberately-missing tombstone/removal mechanism.
+        new_hook_names = set(_hook_file_names(engine_dir / 'hooks')) & _wired_hook_names(ROOT)
         hooks_incomplete = sorted(
             n for n in new_hook_names
             if n not in set(manifest.get('hook_files') or [])
