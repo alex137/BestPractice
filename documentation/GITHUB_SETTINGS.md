@@ -102,7 +102,10 @@ the review real. GitHub offers it in two shapes, **branch protection rules**
 (the older page, **Settings → Branches**) and **rulesets** (**Settings →
 Rules → Rulesets**). Either works for everything on this page; pick one and
 do not mix them on the same branch, because two rules on one branch are two
-things to read and one of them is always the one nobody remembers.
+things to read and one of them is always the one nobody remembers. (This
+needs a paid GitHub plan on a private personal-account repository — see
+"Plan limits" below. If the page offers no rule to add, that is almost
+certainly why.)
 
 For the base branch (`main`, or whatever `precedent.json`'s `base_branch`
 names), the settings Precedent's contributor boundary needs are exactly

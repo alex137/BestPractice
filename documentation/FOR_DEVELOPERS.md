@@ -306,7 +306,9 @@ setting. `python3 tools/build_codeowners.py` writes `.github/CODEOWNERS`
 from the registry (never hand-edit it; `--check` says whether it is
 current), and branch protection on the base branch — require a pull
 request, required approvals 0, require review from code owners, no bypass —
-is what makes GitHub enforce the file. A documents-only pull request is then
+is what makes GitHub enforce the file (a paid GitHub plan on a private
+personal-account repository; see [GITHUB_SETTINGS.md](GITHUB_SETTINGS.md)'s
+"Plan limits"). A documents-only pull request is then
 its author's to merge; one touching an owned path waits for the maintainer.
 Two tools keep it honest: `python3 tools/precedent_boundary_check.py` asks
 GitHub whether the protection is actually on (`PASS`, `FAIL` naming the
