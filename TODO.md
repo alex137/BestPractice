@@ -7132,3 +7132,34 @@ which is the failure this repointing exists to end — write
     sync should never materialise a source the target's own `precedent.json`
     does not declare. **Disposition:** ask (2026-09-14, the evening very
     deep check)
+115. <a id="shallow-clone-self-heal-hardening"></a>**Harden the shallow-clone
+    self-heal so a failed attempt is loud, and so a merely-behind (not
+    falsely-diverged) shallow checkout gets a second try.** Full incident and
+    the platform research behind it:
+    [record/GOTCHAS.md g37](record/GOTCHAS.md#g37), third occurrence,
+    2026-09-15. This is scoped narrower than "prevent
+    shallow clones" — that part is closed: a brand-new session already
+    self-heals correctly, and a resumed session that predates the fix can
+    only be reached from inside itself, once, which is not something a
+    committed file can do. What is left to build:
+    1. `session-start.sh`'s unshallow attempt gets one `timeout 90` try and,
+       on failure, only a `WARN` line nothing re-surfaces. Retry once more
+       with a second bounded window, and on a second failure write a marker
+       (e.g. `.git/PRECEDENT_SHALLOW_UNRESOLVED`) that a later hook pass can
+       see and surface loudly, instead of a line in stdout nobody reads back.
+    2. `freshness-guard.sh`'s `_deepen_if_shallow` only fires from the
+       divergence branch (`ahead != "0"`). Make the guard check `is_shallow`
+       unconditionally on its own first run each session too, independent of
+       whether the counts look diverged — a second, independent path to the
+       same repair, so a SessionStart failure isn't the only chance.
+    3. Fold both into [record/GOTCHAS.md g37](record/GOTCHAS.md#g37) once built, and check whether the
+       four private practice sets' vendored copies need the same refresh
+       `tools/precedent_refresh_sources.py` already does for other hook
+       drift.
+    **Recommendation:** build it — the cost of getting a hook edit wrong here
+    is real (a past incident locked every tool for the session that merged a
+    conflict into `freshness-guard.sh`), so this is worth a second pair of
+    eyes before it lands rather than a silent direct edit. **Blocked on:**
+    Alex saying go ahead on editing `.claude/hooks/session-start.sh` and
+    `.claude/hooks/freshness-guard.sh` specifically. **Disposition:** ask
+    (2026-09-15, this session, at Alex's own request to plan a real fix).

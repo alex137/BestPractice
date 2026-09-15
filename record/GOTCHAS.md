@@ -965,6 +965,59 @@ force. Their vendored engines were refreshed to current that day and did
 **not** bring the hook with them — the engine and the hooks go stale
 independently ([g20](#g20)), and only the engine has a repair path.
 
+**A third occurrence, 2026-09-15, finally answers "can this be prevented
+outright" — and the answer is narrower than either fix so far assumed.**
+This session's checkout came up shallow at a commit hundreds behind tip
+(`b3040c6`), the freshness guard refused the first tool call with
+`132 local, 479 remote`, and `git show b3040c6:.claude/hooks/session-start.sh`
+and `...freshness-guard.sh` both came back with **zero** occurrences of the
+unshallow/deepen code. Same trap, third time.
+
+**Anthropic's own docs settle why, as of 2026-09-15**
+([claude-code-on-the-web](https://code.claude.com/docs/en/claude-code-on-the-web),
+[cloud-environments](https://code.claude.com/docs/en/cloud-environments)):
+*"Cloud sessions start from a fresh clone"* is true of a session's **first**
+turn only. Every later turn **resumes the same virtual machine (VM) and the
+same checkout** —
+nothing re-clones, and *"resuming an existing session never re-runs the
+setup script."* SessionStart hooks do fire on every resume, but they run
+**whatever copy of themselves is already checked out**. A session opened
+before a hook fix merged, and kept alive since, can never pick that fix up
+by resuming — the hook that would fetch the fix is the one artifact resuming
+cannot refresh. This is not a bug in the hook; it is what "resume" means.
+
+**So there is no committed file that closes this for a session already
+running old code.** The only way in is from inside that session:
+`git fetch --unshallow` (or a bounded `--deepen`), run once, by hand or by
+the hook succeeding on that session's own first chance to run current code.
+Once it succeeds, the repo is no longer shallow at all, so the class of bug
+cannot recur for that checkout again — this is a one-time threshold per
+already-open session, not a recurring one.
+
+**What a committed fix *can* still do, and where today's copy falls short:**
+it already self-heals every **brand-new** session correctly (a fresh clone
+gets the current, fixed hook) — the gap is only in already-resumed sessions,
+and in how loudly a failed attempt reports itself. Today's `session-start.sh`
+gives the unshallow exactly one `timeout 90` try and, on failure, writes a
+single `WARN` line to stderr that nothing re-surfaces later. And
+`freshness-guard.sh`'s `_deepen_if_shallow` only fires from the
+divergence-detection branch (`ahead != "0"`) — a checkout that is shallow but
+merely *behind*, never mis-read as diverged, gets no second attempt from the
+guard at all if SessionStart's own try failed. Proposed hardening (not yet
+built) is tracked at
+[TODO.md's `shallow-clone-self-heal-hardening` item](../TODO.md#shallow-clone-self-heal-hardening).
+
+**A setup script does not close the gap either, and is worth ruling out
+explicitly so nobody re-proposes it.** Setup scripts are the one mechanism
+that lives outside the git tree (environment config, not a committed file),
+which looks at first glance like the way around the bootstrapping trap. But
+per the same docs, a setup script *"runs the first time you start a session
+in an environment"* and is *"skipped when a cached environment exists"* —
+the environment filesystem is cached for roughly a week, so a setup script
+is **not** guaranteed to run on every new session either, let alone on a
+resumed one. It would add a second unreliable path, not close the one gap
+that matters.
+
 ## 38. <a id="g38"></a>A Routine that fires a FRESH session gets none of the session-management tools, so a scheduled job that reads the fleet cannot run there
 
 **Measured 2026-09-14**, twice, in opposite directions on the same afternoon.
