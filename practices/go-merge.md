@@ -35,6 +35,17 @@ branch you are merging into, commit the pending work, push the branch, open
 a pull request (or confirm one is already open), and merge it** -- using the
 repo's usual conventions, without asking again first.
 
+**The phrase is not scoped to the git sequence itself — it authorizes doing
+whatever finishing the thing in front of it actually requires.** Where
+landing the change really is sync/commit/push/PR/merge, do exactly that.
+Where the request needs something else, do that instead of forcing the git
+sequence onto work it doesn't fit. And where it turns out nothing needs
+doing at all — the change already exists, or the request has no repository
+action to take — **say so plainly instead of manufacturing a commit or a
+merge just to satisfy the phrase.** The authorization is for finishing the
+work, not for performing the ritual regardless of whether the work calls
+for it.
+
 **The default is to act on it.** Nothing about the phrase's position, the
 punctuation around it, or what was said before it changes the answer, and
 you do not have to have announced that you are ready to commit first. Said
@@ -286,6 +297,15 @@ nothing: `Go merge` keeps meaning exactly what it always meant, and `Go
 update` now means the same thing beside it. Same shape as `Approved`'s
 addition two days earlier -- one command, now three triggers, maintained
 once.
+
+**Revised 2026-09-15, on Morgan's decision, to state the scope explicitly
+rather than leave it implied by the worked examples.** He put it this way:
+*"'Go merge' doesn't mean just merge but 'Do what you need to, to make it
+happen -- and if there is nothing to do, then just TELL ME!'"* The git
+sequence was always the common case, not the definition; this makes that
+explicit before a session reads the Rule too literally and either forces a
+merge onto a task that doesn't need one, or stays silent when the honest
+answer is that nothing was left to do.
 
 ## Install
 No mechanical check, and not for lack of trying: this governs how a chat
