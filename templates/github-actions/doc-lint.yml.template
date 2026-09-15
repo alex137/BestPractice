@@ -17,31 +17,35 @@
 name: Precedent documentation checks
 
 on:
-  pull_request:
+  # push only, deliberately -- matching this repo's own docs.yml,
+  # deep-check.yml and leak-gate.yml (2026-09-15). Until then this template
+  # shipped both `pull_request:` and `push:` on the same path filters, kept
+  # on the reasoning that a dependent repo is one "nobody here controls," so
+  # a fork PR there would go unchecked without `pull_request:` -- a fork's
+  # push never fires `push` in the repo being contributed to. That reasoning
+  # is real for a repo that takes outside contributions, which this one
+  # does; it is dead weight for what this template actually ships into most
+  # often, a private, single-maintainer install with no fork traffic at
+  # all. There every push to an open PR fired the pull_request run, and
+  # merging fired the push run again on the same resulting tree, seconds
+  # apart -- measured directly in one dependent repo's installed copy: 235
+  # runs since 2026-08-28, in matched pairs, each pair billing at least two
+  # minutes on a private repo (GitHub rounds each job up to one minute).
+  # Nothing was gained for that cost: check runs attach to the head SHA
+  # whatever event produced them, so the PR still shows the push run's
+  # result, and the merge commit gets its own run on the base branch
+  # afterwards -- the only run that tests what actually landed.
+  #
+  # PUT `pull_request:` BACK IF THIS REPO EVER TAKES A PR FROM A FORK -- a
+  # fork's pushes do not fire `push` in the repo being contributed to, so
+  # `pull_request:` is the only trigger that would check it.
+  push:
     paths:
       - "**/*.md"
       # §1 (vendored under process/upstream/) and §0 (engine in the repo's
       # own tools/). A path that does not exist in this repo simply never
       # matches; listing both costs nothing and is what makes this file
       # portable between the two install models.
-      - "process/upstream/tools/doc_lint.py"
-      - "tools/doc_lint.py"
-      - ".github/workflows/bestpractice-docs.yml"
-  # EVERY BRANCH, not just the default one (2026-09-14). This read
-  # `branches: [main]` until then, which covers the branch a repo merges
-  # INTO and leaves every branch work actually happens on unchecked until
-  # somebody opens a pull request. Upstream had the identical bug in its own
-  # .github/workflows/docs.yml, where the branch carrying all the traffic is
-  # not `main` at all, so the linter watched an empty branch for weeks.
-  #
-  # `pull_request:` above stays, unlike upstream's copy, and the difference
-  # is deliberate: this file lands in repositories nobody here controls, and
-  # a fork's pushes do not fire `push` in the repo being contributed to. A
-  # duplicate run on a PR from an internal branch is the price of covering
-  # the fork case in a repo we cannot inspect.
-  push:
-    paths:
-      - "**/*.md"
       - "process/upstream/tools/doc_lint.py"
       - "tools/doc_lint.py"
       - ".github/workflows/bestpractice-docs.yml"
