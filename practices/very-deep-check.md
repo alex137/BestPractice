@@ -350,16 +350,21 @@ method"). Build the fixtures.
   document to follow, whom to play, and to report every point where the
   document is ambiguous, self-contradictory, names something that does not
   exist, or asks a question the person cannot answer, with path and line —
-  one per path, in parallel. Four paths: the guided install
+  one per path, in parallel. Five paths: the guided install
   ([SETUP.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/SETUP.md), as a non-technical administrator),
   the loader install ([INSTALL.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/INSTALL.md) §0, as a developer — both by
   running `tools/precedent_install.py` as an adopter would and by reading
   the numbered steps against what it did), the migration, the update
-  below, and a practice moved between levels
-  ([spec/MOVING_PRACTICES.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/MOVING_PRACTICES.md), with
-  `tools/precedent_move.py` and, separately, by hand against its two
-  steps). Each rehearsal ends by running the result's own checks and
-  reporting the real output. **Then ask one more question of each: is what
+  below, and **a practice moved between levels**
+  ([spec/MOVING_PRACTICES.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/MOVING_PRACTICES.md)):
+  two bootstrapped sets and a consumer in scratch, every direction the
+  page offers (individual → team, team → individual, team → universal),
+  with `tools/precedent_move.py` and, separately, by hand against the
+  page's two steps — then the copy-and-delete the page forbids, to see
+  which check names it. Added 2026-09-14, the day Morgan asked whether
+  the run had tested it and it had not: the rehearsal returned thirteen
+  findings and the move tool. Each rehearsal ends by running the result's
+  own checks and reporting the real output. **Then ask one more question of each: is what
   landed what the pitch promised?** Read the result against
   [documentation/ADOPTING.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/documentation/ADOPTING.md) and the README, not
   only against the install document — on 2026-09-14 every sentence of the
