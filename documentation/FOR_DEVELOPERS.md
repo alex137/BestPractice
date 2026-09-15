@@ -316,7 +316,9 @@ which changed files will wait for review, in words a contributor can act on.
 Keep workflows secret-free: `CODEOWNERS` gates the merge of an edited
 workflow, not its first run on a collaborator's branch.
 
-The install step is [INSTALL.md §0 step 10](../INSTALL.md#0-installing-directly-onto-the-precedent-loader-new-2026-09-03--read-the-caveat-before-using);
+Every GitHub setting in this section, and what GitHub itself does with a
+CODEOWNERS file, is [GITHUB_SETTINGS.md](GITHUB_SETTINGS.md). The install
+step is [INSTALL.md §0 step 10](../INSTALL.md#0-installing-directly-onto-the-precedent-loader-new-2026-09-03--read-the-caveat-before-using);
 the design, and the three GitHub behaviours it still rests on unverified,
 is [spec/CONTRIBUTOR_ACCESS.md](../spec/CONTRIBUTOR_ACCESS.md);
 [templates/document-project/](../templates/document-project/) is the

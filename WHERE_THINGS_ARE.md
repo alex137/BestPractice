@@ -105,6 +105,7 @@ not it is read.
 | The working method (branches, plain text, critique, prompts) | [METHOD.md](METHOD.md) |
 | Phone / ChatGPT / Grok workflows + assistant reliability status | [MOBILE.md](MOBILE.md) |
 | A brainstormed chat bridge — reaching a Claude session by voice, Telegram as proof of concept and WhatsApp as destination — **speculative: nobody decided to build it, and no claim in it came from a primary source** | [spec/SPECULATIVE_WHATSAPP_BRIDGE.md](spec/SPECULATIVE_WHATSAPP_BRIDGE.md) |
+| Every GitHub setting a Precedent project depends on, who clicks it, what fails without it — roles, branch protection with the four values, what GitHub does with CODEOWNERS and how this system generates it, Actions permissions and secrets, practice-set repositories | [documentation/GITHUB_SETTINGS.md](documentation/GITHUB_SETTINGS.md) |
 | CI checks for shell-less agents (install, require) | [GITHUB_ACTIONS.md](GITHUB_ACTIONS.md) |
 | Whether anything catches a drifted `MAP.md`, `GLOSSARY.md` or loader block in a practice SET (two things do) | [templates/github-actions/views-drift.yml.template](templates/github-actions/views-drift.yml.template) and [templates/github-actions/precedent-check.yml.template](templates/github-actions/precedent-check.yml.template); whether a set needs both is [TODO.md's `views-drift-vs-suite-workflow`](TODO.md#views-drift-vs-suite-workflow) |
 | Upstream open items / roadmap | [TODO.md](TODO.md) |
