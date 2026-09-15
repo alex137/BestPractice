@@ -181,18 +181,29 @@ guess on its behalf.
 
 ## What You Can't Do (on Purpose)
 
-The line is drawn by *what* a change touches, never by who you are. **The
-documents are yours**: you write them, change them, and — where your
-project is set up that way — merge your own document changes without
-waiting for anyone. **The machinery is not**: the project's settings, its
-automatic checks, and the rules everyone follows need the person who
-maintains the project to look before a change to them lands, whoever asks
-for it. And **a new rule is suggested by anyone and made official only by
-someone on the approvers' list**. Your assistant tells you before it
-proposes anything which side of the line the change falls on, so the wall
-is never a surprise. (Whoever administers the project sets that line up on
-GitHub; [GITHUB_SETTINGS.md](GITHUB_SETTINGS.md) is their page, not yours.) This isn't about trust in you personally; it just
-means a mistake, including the assistant's, stops at a wall instead of
+The line is drawn by *what* a change touches, never by who you are. There
+are three levels of say-so on a project, and knowing them makes the wall
+less mysterious:
+
+- **Anyone who writes for the project** — you, most days — changes and
+  merges their own document changes, once the project is set up that way.
+- **Whoever maintains the project** looks at anything touching its
+  settings, its automatic checks, or the rules everyone follows, before
+  that change lands — no matter who asked for it.
+- **Approvers** — a named list, sometimes just one person — are the only
+  ones who can make a suggested rule official, at whichever shelf (your
+  own, your team's, or the public one) it's aimed at.
+
+Your assistant tells you before it proposes anything which of these the
+change falls under, so the wall is never a surprise. Whoever administers
+the project sets this line up on GitHub itself;
+[GITHUB_SETTINGS.md](GITHUB_SETTINGS.md) is their page, not yours — worth
+knowing only because that page notes GitHub gives this wall for free on a
+public project, but a private one on a personal account needs a paid plan
+to turn it on. If your project is private and the wall seems to be missing,
+that is usually why, and it's a question for whoever administers it, not
+something to chase yourself. This isn't about trust in you personally; it
+just means a mistake, including the assistant's, stops at a wall instead of
 reaching anyone else.
 
 ## Learn More
