@@ -376,6 +376,12 @@ which is the failure this repointing exists to end — write
     preview, the project mode of the CODEOWNERS generator, the `register`
     placeholder, and the reworded guides — items 108, 110, 111 (half) and
     112 below record each. Still open here: the assumptions, and the pilot.
+    **Documented and audited, same day**: INSTALL.md §0 step 10,
+    PER_MACHINE_SETUP.md's token row, SETUP.md's adding-a-person bullet,
+    FOR_DEVELOPERS.md's "Who May Change What", and the very deep check's
+    `CONTRIBUTOR BOUNDARY` section (pass 2, question 16), which reads the
+    generated file against its registry and the protection setting against
+    the plan on every run.
 16. <a id="team-repo-and-document-template"></a>~~**Build the team practice repo and reusable document-project template    for document work.**~~ **Done (2026-09-05)** —
     [spec/DOCUMENT_WORK_PRACTICE_CAPTURE.md](spec/DOCUMENT_WORK_PRACTICE_CAPTURE.md)'s
     Steps 1-2 executed: `themorgan/precedent-team-tms` bootstrapped per

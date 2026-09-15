@@ -352,6 +352,14 @@ either; that is finding 7.
    person it was written for. Every line of "Verify by postcondition" above
    is a one-sentence check there.
 
+**Where this is documented for the people who will meet it** (2026-09-14):
+[INSTALL.md §0](../INSTALL.md#0-installing-directly-onto-the-precedent-loader-new-2026-09-03--read-the-caveat-before-using)'s
+step 10 is the install step; [FOR_DEVELOPERS.md](../documentation/FOR_DEVELOPERS.md)'s
+"Who May Change What" is the technical summary;
+[FOR_EVERYONE_ELSE.md](../documentation/FOR_EVERYONE_ELSE.md)'s "What You
+Can't Do (on Purpose)" is the contributor's version; and the very deep
+check's `CONTRIBUTOR BOUNDARY` section reads the setting on every run.
+
 ## What this does not cover
 
 - **A guard inside the session that knows who is running.** Precedent already

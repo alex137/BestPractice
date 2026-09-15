@@ -473,6 +473,15 @@ already made. It has no entry in the table below yet and should not get one
 until it has run quiet across several runs; the practice behind it is
 [github-api-budget](../practices/github-api-budget.md).
 
+**CONTRIBUTOR BOUNDARY is newer still, added 2026-09-14** with pass 2's
+question 16: per repo in force, is the generated `CODEOWNERS` current with
+the registry that owns it, and is branch protection on the base branch shaped
+the way [CONTRIBUTOR_ACCESS.md](CONTRIBUTOR_ACCESS.md) needs. A repo with no
+registry says so in one line; a session whose token cannot read protection
+settings gets `UNVERIFIED` as a note, which is not a clean row. Like the API
+budget, it has no entry in the table below until it has run quiet across
+several runs.
+
 **Record each pass here as you finish it, and in the ledger**:
 
 ```

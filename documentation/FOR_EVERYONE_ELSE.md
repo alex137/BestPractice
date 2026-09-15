@@ -42,12 +42,13 @@ Three things follow from this that are worth knowing:
   same time** without waiting for each other or overwriting each other,
   because each is on its own copy. This is the thing a shared live document
   cannot do.
-- **Whose yes it is depends on the project.** Most people here can propose
-  freely and cannot merge — see [What you can't do (on
-  purpose)](#what-you-cant-do-on-purpose) below, which is a deliberate
-  wall, not a comment on you. **If you are one of the people who can say
-  yes**, and you want the assistant to stop asking every time, say **"Go
-  merge"** — a standing phrase this project understands to mean *do all of
+- **Whose yes it is depends on what the change touches.** Your own
+  documents are usually yours to merge; the project's settings, its
+  automatic checks and its rules wait for whoever maintains the project —
+  see [What you can't do (on purpose)](#what-you-cant-do-on-purpose)
+  below, which is a deliberate wall, not a comment on you. **When the yes
+  is yours**, and you want the assistant to stop asking every time, say
+  **"Go merge"** — a standing phrase this project understands to mean *do all of
   it, including the merge, without checking back.*
 
 There are a few more of those standing phrases — **"Park it"**, **"Plain

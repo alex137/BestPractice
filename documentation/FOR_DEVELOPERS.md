@@ -10,13 +10,14 @@ it's there.
 
 ## Installing It on a Project
 
-The model in one paragraph: the project **vendors** Precedent at
-`process/upstream/` as plain tracked files; **install is adaptive** (you
-instantiate templates with the project's own subject matter, at their real
-locations); **export is abstractive** (an improvement made here is folded
-back into `process/upstream/` in generic form); a **manifest** records the
-mapping both ways and an **audit** makes drift and private-vocabulary
-leakage loud instead of silent.
+The model in one paragraph: the project **vendors** Precedent as plain
+tracked files — the practice catalogue and the engine that reads it — and
+declares in a `precedent.json` which practice sources bind it; a generated
+block in `AGENTS.md` then puts the handful of practices that matter in
+front of every session, and the ones that can be checked mechanically are
+checked on every run. **Install is adaptive**: you instantiate templates
+with the project's own subject matter, at their real locations. Nothing is
+fetched while you work.
 
 Two paths, and since 2026-09-14 the default is the first:
 
@@ -34,14 +35,16 @@ Two paths, and since 2026-09-14 the default is the first:
   It prints the placeholders it left for you to adapt and stops before
   committing. What it does step by step is §0's numbered list.
 - **[INSTALL.md §1](../INSTALL.md#1-install-into-a-dependent-repo)** — the
-  classic vendored model (`process/upstream/`, a manifest, the check-in
-  loop). It installs the practice *prose* and none of the loader; take it
-  only if the project specifically wants the export-and-check-in loop. A
-  project that *already* vendored BestPractice this way and wants the
-  loader takes
+  older vendored model: the whole upstream tree at `process/upstream/`, a
+  **manifest** recording the mapping both ways, and a check-in loop in
+  which an improvement made here is folded back upstream in generic form.
+  It installs the practice *prose* and none of the loader; take it only if
+  the project specifically wants the export-and-check-in loop. A project
+  that *already* vendored BestPractice this way and wants the loader takes
   [spec/MIGRATING_EXISTING_INSTALLS.md](../spec/MIGRATING_EXISTING_INSTALLS.md).
 
-The §1 sequence, in short — each step is spelled out in full at the link:
+The §1 sequence, in short, for a project that takes that path — each step
+is spelled out in full at the link:
 
 1. **Vendor** this repo's working tree (not its `.git`) into
    `process/upstream/`, as ordinary tracked files, and record the upstream
@@ -164,7 +167,12 @@ Before explaining how practices are created, it's useful to understand the
 different levels a practice can live at — every stage below names one.
 
 A practice lives at one of four levels, in precedence order (highest wins
-on conflict): **team > repo-local > individual > universal**.
+on conflict): **team > repo-local > individual > universal**. The team
+sits above the individual on purpose: your preference for a casual tone is
+about how you work, your team's rule that anything sent to a client is
+formal is about what you all ship, and the second has to win. A practice
+marked `severity: blocking` cannot be overridden from above at all, and
+every override is reported rather than applied silently.
 
 - **Universal** — the shared, public Precedent library everyone starts
   from.
@@ -173,7 +181,9 @@ on conflict): **team > repo-local > individual > universal**.
   editorial-conventions team repo, say).
 - **Individual** — a private, personal set of practices, declared in your
   own user-level configuration, never in a shared project's tracked
-  files. You can keep more than one if you work across separate contexts.
+  files. One per person, however many teams you are on: your own facts
+  (name, timezone, pronouns, how technical your replies should be) and
+  your own habits, which follow you into every project.
 - **Repo-local** — practices that live inside the project repository
   itself, at a `practices/` directory named `local`, for rules specific to
   that one project only.
@@ -272,6 +282,46 @@ runs at each one:
    *drafts* `practices/<slug>.md` — landing it for real means committing
    that draft to a branch and opening a pull request (PR) against
    Precedent, reviewed and merged by someone else.
+
+## Who May Change What
+
+Three roles, and each is a list in a file rather than a label on a person
+— nothing anywhere records whether somebody is "technical"
+([technical-describes-people](../practices/technical-describes-people.md)):
+
+- **Collaborator** — anyone invited to the project repository with GitHub's
+  Write role. They write, change and merge the project's content, through
+  their assistant, with `Go merge`.
+- **Maintainer** — named under `maintainers` in the project's
+  `precedent.json`. Their review is required before a change to the
+  machinery lands: `.github/`, `.claude/`, `tools/`, the vendored catalogue,
+  `precedent.json`, `AGENTS.md`. Which paths count is the `owned_paths` list
+  beside it, each with its reason.
+- **Approver** — named in a practice set's `approvers.json`. Only an
+  approver lands a practice at that level; everyone else, developer or not,
+  suggests one (next section).
+
+What makes the maintainer line real is one generated file and one GitHub
+setting. `python3 tools/build_codeowners.py` writes `.github/CODEOWNERS`
+from the registry (never hand-edit it; `--check` says whether it is
+current), and branch protection on the base branch — require a pull
+request, required approvals 0, require review from code owners, no bypass —
+is what makes GitHub enforce the file. A documents-only pull request is then
+its author's to merge; one touching an owned path waits for the maintainer.
+Two tools keep it honest: `python3 tools/precedent_boundary_check.py` asks
+GitHub whether the protection is actually on (`PASS`, `FAIL` naming the
+setting, or `UNVERIFIED` when it could not ask — never a pass by silence),
+and `python3 tools/precedent_owned_paths.py` says before a pull request
+which changed files will wait for review, in words a contributor can act on.
+Keep workflows secret-free: `CODEOWNERS` gates the merge of an edited
+workflow, not its first run on a collaborator's branch.
+
+The install step is [INSTALL.md §0 step 10](../INSTALL.md#0-installing-directly-onto-the-precedent-loader-new-2026-09-03--read-the-caveat-before-using);
+the design, and the three GitHub behaviours it still rests on unverified,
+is [spec/CONTRIBUTOR_ACCESS.md](../spec/CONTRIBUTOR_ACCESS.md);
+[templates/document-project/](../templates/document-project/) is the
+ready-made shape for a project where most collaborators only ever touch
+documents.
 
 ## How Practices Are Approved
 

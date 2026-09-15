@@ -159,6 +159,7 @@ session into every repository it touches.
 | `PRECEDENT_COMMIT_TZ` | Recommended, alongside the name — without it a fallback zone is used and commit timestamps carry the wrong offset | `America/Argentina/Buenos_Aires` |
 | `PRECEDENT_FRESHNESS_ALSO` | Recommended if practice sources are cloned beside your project | `~/precedent-individual=main;~/precedent-team-writing=main` |
 | `PRECEDENT_GIT_TOKEN_USER` | Optional; defaults to `x-access-token` | `x-access-token` |
+| `PRECEDENT_GITHUB_TOKEN` | Optional; read only by `python3 tools/precedent_boundary_check.py`, which asks GitHub whether a project's base branch is protected the way [INSTALL.md §0 step 10](INSTALL.md#0-installing-directly-onto-the-precedent-loader-new-2026-09-03--read-the-caveat-before-using) needs. Reading protection settings takes **administration read** on the repository (a classic token with `repo`, or a fine-grained one with Administration: read); without it the tool answers `UNVERIFIED`, which is honest and is not a pass. `GITHUB_TOKEN` and `GH_TOKEN` are read too, in that order after this one | `github_pat_<a token with Administration: read on the project>` |
 | `PRECEDENT_INDIVIDUAL_REPO` | Optional; only if your individual set is under a different account than the team sets | `https://github.com/another-account/precedent-individual` |
 
 **Give your environments distinct names, and set a throwaway

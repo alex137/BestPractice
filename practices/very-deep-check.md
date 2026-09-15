@@ -627,6 +627,26 @@ confidently.
     published the violation. The same skip hid
     [generated-artifact-provenance](generated-artifact-provenance.md), whose
     own file names a check for it.)*
+16. **Is a boundary a setting or a document?** A rule that says *a
+    contributor cannot change X* is enforced by a setting somewhere -- a
+    branch-protection rule, a `CODEOWNERS` file GitHub actually reads, a
+    role on an invitation -- or it is a sentence. For each boundary a repo
+    in force describes, name the setting that enforces it and **read that
+    setting**, never the document describing it. Where the file that
+    carries the boundary is generated (a `CODEOWNERS` from a registry),
+    check the generated copy against its source: a hand-edit there is the
+    boundary changing with nothing announcing it.
+    [tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/very_deep_check.py)'s
+    `CONTRIBUTOR BOUNDARY` section does both per repo in force and prints
+    `UNVERIFIED` rather than a pass when it could not ask GitHub -- which is
+    the answer a session without a token that can read protection settings
+    gets, and it is not the same answer as *off*. *(Found: the contributor
+    boundary in
+    [spec/CONTRIBUTOR_ACCESS.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/CONTRIBUTOR_ACCESS.md)
+    described in three documents and enforced by a setting nothing had ever
+    read -- a forgotten instantiation step would have left Write as
+    unrestricted write while every document still described a wall,
+    2026-09-14.)*
 
 ### Pass 3 — Does the writing still hold together?
 The coherence read, across every repo in scope. Run the mechanical audits
