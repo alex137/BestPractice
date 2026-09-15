@@ -44,12 +44,12 @@ were left for their own sessions to publish).
 
 | Pass | Status | Date | Notes |
 |---|---|---|---|
-| 1 — adopter installs | not run | 2026-09-14 | no rehearsal fits a twenty-minute run; the morning run's four rehearsals stand, and its PARTIAL (no real consumer attached) is unchanged |
+| 1 — adopter installs | done (PARTIAL) | 2026-09-14 | one rehearsal, in the ten minutes left over: SETUP.md's exact installer command into a scratch project. **Roadblock found**: the adopter's first check reads `3 violated` where the page promises `0`, and its `AGENTS.md` carries three of the operator's private practices — [TODO.md 114](../TODO.md#installer-inherits-the-operators-individual-set), `ask` |
 | 2 — mechanisms | done (PARTIAL) | 2026-09-14 | mechanical only: the tool's own sections, `doc_sync`, `precedent_check` (0 violated), `doc_lint` on the touched files; no tool was read against its own description |
 | 3 — coherence read | done (PARTIAL) | 2026-09-14 | the day's three new documents and the seven changed install documents, read against the tree by two readers with no other context; one contradiction, fixed |
 | 4 — catalogue, backlog, branches | done (PARTIAL) | 2026-09-14 | the tool's branch, base-drift and open-item scans read; the full catalogue read recorded as not done, same reason as the last three runs |
 
-**No roadblock found.** What the run found and did:
+**One roadblock found, in the last ten minutes, and recorded rather than fixed** (TODO.md 114: the installer writes the operator's individual set into the adopter's project). What the run found and did:
 
 - **README.md said the frozen catalogue holds 52 practices; the file it
   links says 53, and has 53 headings.** Fixed in README.md.

@@ -1711,6 +1711,14 @@
           "findings": 0,
           "tokens": null,
           "note": "PARTIAL: branch and base-drift scans read; catalogue read not done; 5 unlanded branches carried"
+        },
+        {
+          "pass": "1",
+          "status": "done",
+          "recorded": "2026-09-14T21:49:51-03:00",
+          "findings": 1,
+          "tokens": null,
+          "note": "PARTIAL: one rehearsal of SETUP.md installer into a scratch project; roadblock TODO 114"
         }
       ],
       "completed": true
