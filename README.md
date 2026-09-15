@@ -117,7 +117,7 @@ Hand installation, updates, and contributing improvements back:
 [METHOD.md](METHOD.md). Phone and per-assistant setups:
 [MOBILE.md](MOBILE.md). Automatic repository checks:
 [GITHUB_ACTIONS.md](GITHUB_ACTIONS.md). The pre-split practice catalog
-(52 of the current, larger set — see [practices/](practices/) for the
+(53 of the current, larger set — see [practices/](practices/) for the
 complete, current one): [PRACTICES.md](PRACTICES.md). Slide decks built
 from plain files: [deck/](deck/). Git in eight ideas: [GIT.md](GIT.md).
 Open items and roadmap: [TODO.md](TODO.md). Repository index for agents:
