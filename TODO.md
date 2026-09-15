@@ -3157,6 +3157,26 @@ which is the failure this repointing exists to end — write
    open is the general question: whether `--apply` should keep hook content
    current by default.
 
+   **The general question now has an answer on the CONSUMER side, 2026-09-15,
+   which is directly relevant precedent here even though it does not close
+   this item.** `precedent_vendor_engine.py` now vendors `.claude/hooks/*.sh`
+   the same way it vendors `tools/` — tracked in `ENGINE_MANIFEST.json`
+   (`hook_files`/`hooks_sha256`), refreshed by `refresh`, refused on
+   hand-edit unless `--force`, scoped to what a repo's own `settings.json`
+   actually wires (`_wired_hook_names`, added after a first version vendored
+   everything unconditionally and planted an orphan hook in every plain
+   consumer install — caught by `hooks-on-disk-are-reachable` before it
+   shipped). That answers "should hook content join the vendored engine as
+   something kept current" for a consumer repo: yes, drift-checked, never
+   silent. **It does not answer it for an attached practice-set source** —
+   `precedent_refresh_sources.py` is a different tool, a different
+   destination shape (a sibling clone, not a vendored copy), and this item's
+   own blocked-on (a session rooted under the sets' own owner) still holds.
+   Whoever picks this item up should read `_wired_hook_names`'s docstring in
+   `tools/precedent_vendor_engine.py` before designing the source-side
+   answer — the orphan-hook failure mode it describes applies just as much
+   to a set's `bootstrap/` layout as to a consumer's `.claude/hooks/`.
+
 50. <a id="sync-refuses-a-rewind"></a>**Make `precedent_sync_views.py` refuse a sync that would rewind a
    practice's content, not just one that would remove the practice
    outright.** It already refuses at practice granularity: `_lost_practices`
