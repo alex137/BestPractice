@@ -123,38 +123,56 @@ land on `precedent-beta-v01` per [AGENTS.md](../AGENTS.md)'s standing rule.
 
 ### Phase 1 — CI as the backstop, not a new idea
 
-This phase already exists as
-[todo/todo-2026-09-06-actions-as-enforcement-layer.md](../todo/todo-2026-09-06-actions-as-enforcement-layer.md);
-this plan adopts it rather than restating it. The reasoning that matters
-here specifically: a required GitHub Actions check binds every path to the
-default branch — human, Claude Code, ChatGPT, Grok, a web-UI merge —
-regardless of whether the agent that made the change has a shell or a hook
-at all. It is the one enforcement layer that does not care which provider
-produced the commit. **Done when:** [tools/practice_audit.py](../tools/practice_audit.py)
-(or its successor) runs as a required PR check, alongside the markdown-lint
-workflow that already proves the pattern.
+**Held off, 2026-09-16: this phase's own premise needed correcting before
+it could be started, and the area is under active, concurrent work.**
+Checking the actual state before touching anything found this repo already
+running [.github/workflows/deep-check.yml](../.github/workflows/deep-check.yml)
+and `leak-gate.yml` on every push and PR — `precedent_check.py`,
+`verify_harness.py` and `doc_sync.py` already bind every contributor to
+this repo regardless of tool, which is most of what this phase originally
+asked for. [tools/practice_audit.py](../tools/practice_audit.py) — this
+phase's original "done when" — turned out not to apply here at all: its
+own `--help` says it audits a *dependent* repo's vendored
+`process/upstream/` tree, and this repo vendors nothing. The real,
+still-open gap is in the templates a *dependent* repo installs
+([templates/github-actions/](../templates/github-actions/)) — a plain
+project repo gets `doc-lint.yml.template` (markdown lint only) by default,
+not the full `precedent-check.yml.template` suite that a practice-set
+repo gets. Separately, in the same session this plan is tracked in, another
+line of work landed a "CI-minutes plan" touching this exact area
+(commits `a1fd03f3`–`5bd5f06e`). Restarting Phase 1 without reading that
+work first would risk redoing or contradicting it. **Done when:** someone
+picks back up having read the CI-minutes work, and decides whether a
+dependent project repo should get the fuller check suite by default (or
+some cheaper equivalent) — not decided here.
+
+This phase still traces back to
+[todo/todo-2026-09-06-actions-as-enforcement-layer.md](../todo/todo-2026-09-06-actions-as-enforcement-layer.md),
+whose core reasoning stands regardless of the correction above: a required
+GitHub Actions check binds every path to the default branch — human,
+Claude Code, ChatGPT, Grok, a web-UI merge — regardless of whether the
+agent that made the change has a shell or a hook at all.
 
 ### Phase 2 — install the existing adapters on this repo's own root
 
+**Done, 2026-09-16.** `templates/bootstrap.sh` is now instantiated as
+[tools/bootstrap.sh](../tools/bootstrap.sh), and
+[GEMINI.md](../GEMINI.md) is installed at the root pointing at
+[AGENTS.md](../AGENTS.md), per
+[templates/harness/README.md](../templates/harness/README.md)'s own
+adapter pattern; [AGENTS.md](../AGENTS.md)'s "Working in this repo" section
+now tells a non-Claude-Code session to run the bootstrap script, since only
+Claude Code gets it automatically. Codex needed no pointer file (it reads
+`AGENTS.md` natively) — this repo eats its own dog food now, the same way
 [templates/harness/codex/](../templates/harness/codex/) and
 [templates/harness/gemini-cli/](../templates/harness/gemini-cli/) already
-exist and are documented. Today they are offered to repos that *install*
-Precedent; this repo does not run them on itself, and — because this repo
-is the source rather than an adopter — it doesn't even carry its own
-instantiated `tools/bootstrap.sh` yet; only [templates/bootstrap.sh](../templates/bootstrap.sh)
-exists, the template [INSTALL.md](../INSTALL.md) tells an adopting repo to
-copy to that path. Add [AGENTS.md](../AGENTS.md)'s Codex and Gemini CLI wiring here —
-instantiate `templates/bootstrap.sh` as `tools/bootstrap.sh` the same way an
-adopting repo would, and point the codex adapter's setup script at it; the
-Gemini adapter needs the [GEMINI.md](../templates/harness/gemini-cli/GEMINI.md)
-pointer file at root, or a `contextFileName` setting where the CLI version
-supports reading [AGENTS.md](../AGENTS.md) directly. **This makes Precedent eat its own
-dog food**: a session opened here under Codex or Gemini CLI should get the
-same starting instructions a session under Claude Code gets, today, not
-after some future adopter builds it first. **Done when:** a session started
-under each adapter loads [AGENTS.md](../AGENTS.md), runs the instantiated
-`tools/bootstrap.sh`, and the deep check passes regardless of which adapter
-was active.
+told an *adopting* repo to. Verified: `bash tools/bootstrap.sh` runs
+cleanly here (the deep check does not yet run under an actual Codex or
+Gemini CLI session, since none was available to test from inside this
+one — see Phase 5). Its own freshness-sync check surfaced a real,
+pre-existing, unrelated problem in `precedent.json`'s source path (a
+self-referential source declared at this repo's own root) — noted, not
+fixed, since it is a separate issue from portability.
 
 ### Phase 3 — port the freshness and identity hooks
 
