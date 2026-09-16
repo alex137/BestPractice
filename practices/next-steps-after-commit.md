@@ -9,8 +9,8 @@ gates:       ["reply"]
 index_clause: "close every reply on a real `## Next Steps` HEADING, never a bold line"
 checked_by:  null
 defines:     []
-status:      active
-in_force_at: null
+status:      deduplicated
+in_force_at: the-boildown
 supersedes:  []
 overrides:   null
 added:       2026-09-14
@@ -79,6 +79,8 @@ Extended again 2026-09-14, from a direct question about where the close/don't-cl
 **Moved to the universal catalogue on 2026-09-14**, the same day, on Morgan's own call: *"I think we should move the next steps at the end to be universal, and thus removed from the individual and team repos."* `strength: decided`. The individual copy is `status: deduplicated` and points here. The move carried the `reply_check.json` declaration with it, which is the half that bites: the requirement now binds every repository that runs Precedent, not one person. The neighbouring reply-shaping practices in that set -- how an ask is phrased, what may appear in the closing list, when a handoff is warranted -- were deliberately left where they are; each needs its own reach judgment ([rule-level-by-reach](rule-level-by-reach.md)), and a move that sweeps up its neighbours is the one nobody can review.
 
 **The duplication the Detail section above defends drifted once, on 2026-09-15, and was caught only by a direct question rather than a check.** The individual set's own copy of these three conditions was broadened that day -- "pushed" widened to any work safe outside the container, "thread genuinely done" widened to "nothing left to do directly in this session" -- because a session had withheld the archive recommendation on a thread whose only output was a published artifact, reasoning correctly against wording that was wrong: nothing had been *pushed*, so it read the condition as unmet. This universal copy carries its own text of the same conditions by design, and nobody had propagated the fix to it; asked directly whether the change would reach other adopters, the honest answer was no. Fixed the same day. **Nothing currently checks that this copy and the individual one agree** -- `checked_by: null` on both -- so the next drift will again need a direct question to surface.
+
+**Deduplicated 2026-09-15, into [the-boildown](the-boildown.md), on Morgan's decision.** He asked for the whole closing section -- this practice and five others -- consolidated into one place, under a new heading ("The Boildown" rather than "Next Steps"), with a fixed order for what it always carries and what a closing reply adds before its archive line. This file's Rule and Detail carried forward unchanged into the new practice; nothing here was dropped. Authorized: *"Let's go - go merge, do it, go update."*
 
 ## Install
 **Mechanically enforced since 2026-09-13, and what stopped it before was a false premise.** This section used to say there was no check to write: that the rule governs how a reply gets *written*, that no artifact distinguishes a correct closing from a missing one, and that the one place the omission is visible is the conversation transcript, "which a repo-scoped check script has no access to". The last clause is the one that was wrong. Claude Code hands its Stop hook a JSON payload carrying `transcript_path`, and that file is the session's own log -- final assistant message included -- on disk, before the hook runs. A Stop hook that exits 2 sends its stderr back to the model and the turn continues, so a reply that broke this rule gets rewritten before anyone sees it.

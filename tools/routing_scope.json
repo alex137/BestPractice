@@ -900,6 +900,17 @@
       "decided": "2026-09-10, when the practice landed",
       "checked_by_note": "tree-scope check in tools/precedent_check.py reads every tracked path"
     },
+    "the-boildown": {
+      "globs": [
+        "**"
+      ],
+      "why": "A moment, not a place — routed by the `reply` gate instead, exactly as next-steps-after-commit was before it was absorbed here.",
+      "decided": "Morgan, 2026-09-15",
+      "gates": [
+        "reply"
+      ],
+      "gates_why": "Its occasion is the end of every reply; tools/precedent_reply_check.py measures the heading and the two fixed sentence-pairs from the transcript at the stop hook. It carries NO occasion: for the same reason its predecessor did not -- the requirement is REFUSED at the stop hook whether or not a session recognised the occasion, so an index line would buy nothing a mechanical refusal doesn't already guarantee."
+    },
     "three-things": {
       "globs": [
         "**"

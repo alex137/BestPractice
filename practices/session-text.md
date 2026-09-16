@@ -178,7 +178,7 @@ not describe the handoff. Produce Session Text instead** — tell the person
 plainly, near the top of the reply, to open a new window; name the exact
 repository or repositories it needs to be seeded with; and give the opening
 text as one copy-pasteable block, per
-[handoff-is-pasteable](handoff-is-pasteable.md). There is no link to click
+[the-boildown](the-boildown.md). There is no link to click
 and no session id yet — the window doesn't exist until they open it and
 paste the text in.
 
@@ -314,7 +314,7 @@ session-creating tool for this — in Claude Code's cloud sessions that is
 `create_session` on the `claude-code-remote` server, and it stays unused
 here regardless of whether it is available. Instead: name the target
 repository or repositories out loud, then build
-[handoff-is-pasteable](handoff-is-pasteable.md)'s paste block as the opening
+[the-boildown](the-boildown.md)'s paste block as the opening
 message for a window the person opens themselves, and tell them plainly to
 open that new window and paste it in. Never silence and never a prose
 description of what the person should go type — the block itself, ready to
@@ -340,7 +340,7 @@ relay nobody mentions looks exactly like nothing having happened -- and they
 are the one who has to chase it if it stalls. Say in the reply that you woke
 it, what you sent it in one line, and give the
 `https://claude.ai/code/<session id>` link. That is the same three things
-[handoff-is-pasteable](handoff-is-pasteable.md) asks for; the only difference
+[the-boildown](the-boildown.md) asks for; the only difference
 is who pressed send.
 
 **Finding the live session to wake is by TITLE, not by tag.** `list_sessions`
@@ -360,7 +360,7 @@ being a blank cheque, and both are knowable before you seed: the destination
 repository declares them.
 
 **The pasted text is a handoff, and
-[handoff-is-pasteable](handoff-is-pasteable.md) governs its contents
+[the-boildown](the-boildown.md) governs its contents
 unchanged**: the session that opens once it is pasted in cannot see this
 conversation, so the text names the branch, the files, the command and the
 outcome expected, and ends with the line to paste back here when it is
@@ -399,7 +399,7 @@ session this session created was the better ergonomics — the person's load
 was a link and a click, not a block of text to carry — for exactly as long
 as those created sessions kept coming back accepted. They stopped: rejected,
 not seen as safe, for a reason nothing on this side of the harness can
-diagnose or fix. [handoff-is-pasteable](handoff-is-pasteable.md) was always
+diagnose or fix. [the-boildown](the-boildown.md) was always
 the fallback for when no session-creating tool was available; it is now the
 only path, whether or not one is.
 
@@ -627,4 +627,4 @@ exactly what a session that ran it and found nothing leaves behind — the
 work, committed normally. The one artifact it produces, a link in a chat
 reply, is not in the repository either. What a repository *can* check is
 downstream and already covered by
-[handoff-is-pasteable](handoff-is-pasteable.md)'s own gate.
+[the-boildown](the-boildown.md)'s own gate.

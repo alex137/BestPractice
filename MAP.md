@@ -6,7 +6,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 
 ## The practice catalogue
 
-`practices/` holds 119 practice files (10 resident, 109 on-demand). One file per practice. See [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md) for the design.
+`practices/` holds 117 practice files (10 resident, 107 on-demand). One file per practice. See [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md) for the design.
 
 | Practice | Tier | Occasion / scope |
 |---|---|---|
@@ -58,7 +58,6 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [github-setup-disclosed](practices/github-setup-disclosed.md) | on-demand | an install step adds something GitHub-specific, or a first install finishes |
 | [go-merge](practices/go-merge.md) | on-demand | a message carries a standing merge-authorization phrase |
 | [grep-before-search](practices/grep-before-search.md) | on-demand | about to search a repository, or reaching for a GitHub search or file-read tool for something the local clone already holds |
-| [handoff-is-pasteable](practices/handoff-is-pasteable.md) | on-demand | asking the person to do something in another session, or pointing them at one |
 | [heading-outline](practices/heading-outline.md) | on-demand | adding or re-levelling a heading in any document |
 | [headline-capitalization](practices/headline-capitalization.md) | on-demand | writing or editing a heading in an outward-facing document |
 | [index-remembers-past](practices/index-remembers-past.md) | on-demand | a document replaces or is replaced by an earlier one |
@@ -68,12 +67,10 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [lead-with-what-it-is](practices/lead-with-what-it-is.md) | on-demand | writing a README or other project-facing entry document |
 | [leak-gate-is-background](practices/leak-gate-is-background.md) | on-demand | a leak gate, blocklist, or scrub result is in front of you, or you are about to mention one to the person |
 | [merge-runbook](practices/merge-runbook.md) | on-demand | merging a branch that touches shared files |
-| [merged-session-offers-a-practice](practices/merged-session-offers-a-practice.md) | on-demand | a merged session closes as ready to archive |
 | [migration-scrubs-vocabulary](practices/migration-scrubs-vocabulary.md) | on-demand | migrating a repo off an old practice system onto Precedent |
 | [mistakes-become-rules](practices/mistakes-become-rules.md) | on-demand | a defect is fixed -- whether a review found it, the person reported it, or the session hit it itself |
 | [my-options](practices/my-options.md) | on-demand | a person says "My options", or asks to have a decision's options laid out |
 | [name-both-sides-of-ledger](practices/name-both-sides-of-ledger.md) | on-demand | a computation books a transfer between two parties |
-| [next-steps-after-commit](practices/next-steps-after-commit.md) | on-demand | ** |
 | [no-invented-specifics](practices/no-invented-specifics.md) | resident | writing a sentence that would land better with a specific figure, date, name or source |
 | [no-rewrite-for-warnings](practices/no-rewrite-for-warnings.md) | on-demand | a tool warns about already-published git history |
 | [no-version-suffix](practices/no-version-suffix.md) | on-demand | naming a new file |
@@ -107,7 +104,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [seeded-prompt-names-its-origin](practices/seeded-prompt-names-its-origin.md) | on-demand | seeding a prompt into another session -- spawning one, or scheduling a message into one |
 | [session-bootstrap](practices/session-bootstrap.md) | on-demand | setting up a new repo's session start |
 | [session-load-budget](practices/session-load-budget.md) | on-demand | adding to a file every session loads, or asking what a session pays before it starts work |
-| [session-spend-follows-the-task](practices/session-spend-follows-the-task.md) | on-demand | creating a session, or deciding when to compact one |
+| [session-spend-follows-the-task](practices/session-spend-follows-the-task.md) | on-demand | creating a session |
 | [session-tags](practices/session-tags.md) | on-demand | creating a session, or retagging one |
 | [session-text](practices/session-text.md) | on-demand | handing the person work to do, or starting work that may touch a repository this session cannot reach |
 | [slow-steps-report-and-cache](practices/slow-steps-report-and-cache.md) | on-demand | writing or running a gate, audit or solve that takes more than about a minute |
@@ -115,6 +112,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [speculation-is-marked](practices/speculation-is-marked.md) | on-demand | recording exploratory thinking -- an idea nobody has committed to -- as a document |
 | [tabular-shared-renderer](practices/tabular-shared-renderer.md) | on-demand | publishing a document with a multi-column sortable table |
 | [technical-describes-people](practices/technical-describes-people.md) | on-demand | naming or scoping something around a person's skill level |
+| [the-boildown](practices/the-boildown.md) | on-demand | ** |
 | [three-things](practices/three-things.md) | on-demand | a person says "Three Things" |
 | [timestamps-carry-offset](practices/timestamps-carry-offset.md) | on-demand | writing code that stamps a date or a time into a file, a record or a document |
 | [todo-is-a-handoff](practices/todo-is-a-handoff.md) | on-demand | writing or triaging an open item |
@@ -132,11 +130,14 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 
 ## Withdrawn practices
 
-1 practice file(s) here are **not in force** and are left out of every table above. **The files are kept on purpose** -- a withdrawn rule and the argument against it are worth re-reading, and `retired` is not a synonym for deleted (that is `decommission-deletes-files`, and it is about mechanisms, not rules). Read one in full with `python3 tools/precedent_show.py SLUG`.
+4 practice file(s) here are **not in force** and are left out of every table above. **The files are kept on purpose** -- a withdrawn rule and the argument against it are worth re-reading, and `retired` is not a synonym for deleted (that is `decommission-deletes-files`, and it is about mechanisms, not rules). Read one in full with `python3 tools/precedent_show.py SLUG`.
 
 | Practice | Status | Now in force at | Why it was withdrawn |
 |---|---|---|---|
+| [handoff-is-pasteable](practices/handoff-is-pasteable.md) | deduplicated | [the-boildown](practices/the-boildown.md) | Asked for by Morgan on 2026-09-10, in his own words: instructions should give *"the name of the repo* and the exact text to copy paste in*, and then those instructions should always finish with, reminding me to return to the original session with a message to copy-paste there confirming its success or sharing other issues."* |
 | [merge-authorization-keyword](practices/merge-authorization-keyword.md) | deduplicated | [go-merge](practices/go-merge.md) | **The 2026-09-07 retirement was reversed on 2026-09-08, and this is now a deduplication rather than a withdrawal.** `status: retired` said nobody wanted this rule anywhere. |
+| [merged-session-offers-a-practice](practices/merged-session-offers-a-practice.md) | deduplicated | [the-boildown](practices/the-boildown.md) | Morgan, 2026-09-14, on the practice engine he had been feeding by hand for weeks: *"I love the methodology of turning what we decide into Practices to be followed or enforced, but it seems like I'm always the one making the suggestions. |
+| [next-steps-after-commit](practices/next-steps-after-commit.md) | deduplicated | [the-boildown](practices/the-boildown.md) | Raised by Morgan as a standing personal preference, rather than in response to a specific missed handoff, and it lived in his individual set from 2026-09-04 to 2026-09-14. |
 
 ## The engine
 
