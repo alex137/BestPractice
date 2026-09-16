@@ -4,7 +4,7 @@
 Run bare. Prints one line per repo and exits 0 always.
 
 WHY THIS EXISTS, and it is one incident rather than a principle.
-`spawn-session` has said "settle who merges before the work starts" since
+`session-text` has said "settle who merges before the work starts" since
 2026-09-12, and on 2026-09-10 a session did the opposite: rooted in a private
 practice set, it migrated twelve repositories, catalogued their violations,
 and built a seven-commit patch for `alex137/BestPractice` -- which it then
@@ -39,7 +39,7 @@ distinct from `handoff` all the way to the printed line: a network blip
 reported as "you have no access here" sends somebody to spawn a session they
 did not need (practice: fail-gracefully).
 
-practice: spawn-session, durable-fix
+practice: session-text, durable-fix
 """
 import os
 import pathlib
@@ -134,7 +134,7 @@ def can_land_here(repo_dir):
     nothing: the server answers before any object is written, so a 'land'
     verdict is a real permission answer and a 403 is quotable. The alternative
     -- reasoning from the owner in the URL -- is exactly the inference
-    spawn-session says to stop making.
+    session-text says to stop making.
 
     NOT USED TO DROP A REPO FROM SCOPE, deliberately. A repo this session
     cannot push to is not unactionable, only more expensive: it needs a woken
@@ -238,7 +238,7 @@ def run(repo_root='.', out=sys.stderr):
         print(f'  => {len(handoff)} repo(s) need a handoff. Work destined for '
               f'one of them cannot be pushed from here, however it is written: '
               f'settle who lands it BEFORE doing the work '
-              f'(practice: spawn-session).', file=out)
+              f'(practice: session-text).', file=out)
     if unknown or unchecked:
         print(f'  => {len(unknown) + len(unchecked)} repo(s) unanswered. That '
               f'is NOT the same as refused -- probe one by hand before '
@@ -258,7 +258,7 @@ line each. Runs from the session-start hook; run it bare any time.
 Verdicts:
   LAND        git push --dry-run was accepted -- work can land here
   HANDOFF     a real permission refusal, quoted. Settle who merges BEFORE
-              doing work destined for this repo (practice: spawn-session)
+              doing work destined for this repo (practice: session-text)
   UNKNOWN     the probe could not reach the server. NOT the same as refused
   NOTASKED    the probe budget ran out before this repo
 

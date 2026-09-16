@@ -2160,7 +2160,7 @@ def _access_probe_is_wired(ctx):
     WHY THIS EXISTS (practice: cite-the-incident). The probe itself was
     written to close a measured four-day, ~$100 block: a session built a
     seven-commit patch for a repo it could not push to, because
-    spawn-session's "settle who merges before the work starts" is a sentence
+    session-text's "settle who merges before the work starts" is a sentence
     a busy session does not stop to read. Moving the question to session
     start is the whole fix -- so the ONE thing that must not rot quietly is
     the line that runs it. Delete that line and every symptom returns with

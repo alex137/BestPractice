@@ -118,7 +118,7 @@ nothing and keeps working, which is the right answer and the one a threshold
 gets wrong.
 
 **A fresh session is the largest re-read there is**, which puts this beside
-[spawn-session](spawn-session.md) rather than under it: that rule governs
+[spawn-session](session-text.md) rather than under it: that rule governs
 *whether* the work goes somewhere else, this one governs what it costs once
 it does. A new session re-reads its repository from scratch, so the same
 reasoning that says "wake a live session before creating one" says "do not
@@ -203,7 +203,7 @@ compact, only whether the question has gone unasked for too long.
 **What makes the three-session case the useful example** is that none of the
 three did anything wrong. Each was created for a reasonable-looking piece of
 work. The cost was in the pattern, which no individual session was in a
-position to see — the same blind spot [spawn-session](spawn-session.md)
+position to see — the same blind spot [spawn-session](session-text.md)
 records from the other side, where the session that should have been reused
 is invisible to the session about to be created.
 

@@ -702,7 +702,7 @@
       "globs": [
         "**"
       ],
-      "why": "No locus, for the same reason spawn-session and go-merge have none: what triggers it is a message arriving -- an authorization relayed from another session -- and a message is not a path. By the time a file in the receiving repository is edited, the question of whether the relay was actionable has already been answered. Reached through the occasion index and the merge gate.",
+      "why": "No locus, for the same reason session-text and go-merge have none: what triggers it is a message arriving -- an authorization relayed from another session -- and a message is not a path. By the time a file in the receiving repository is edited, the question of whether the relay was actionable has already been answered. Reached through the occasion index and the merge gate.",
       "decided": "2026-09-14, when the practice landed",
       "gates": [
         "merge"
@@ -866,7 +866,7 @@
       "why": "Declaring a source IS editing precedent.json, so the path identifies the practice's distinguishing condition rather than merely a necessary one. The Rule's other half -- say the convention before anyone picks a name -- is a conversational moment with no file at all, and no gate reaches it either; the occasion index carries that half, which is why the occasion names importing and creating a repository, not only declaring one.",
       "decided": "2026-09-06, the session that landed the practice"
     },
-    "spawn-session": {
+    "session-text": {
       "globs": [
         "**"
       ],
