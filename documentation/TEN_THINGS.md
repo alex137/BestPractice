@@ -114,14 +114,15 @@ see their own rules and never the other's.
 - Plain: [What It Knows About You, and How to Change It](FOR_EVERYONE_ELSE.md#what-it-knows-about-you-and-how-to-change-it), [Setting Up Your Own Practices](ADOPTING.md#setting-up-your-own-practices)
 - Technical: [PER_MACHINE_SETUP.md](../PER_MACHINE_SETUP.md), the leak gate at [tools/leak_gate.py](../tools/leak_gate.py) (`--explain`)
 
-## 10. Say Why You're Asking, Not Just What You Want
+## 10. Always Explain Why: Focus on the Problem
 
-Tell the assistant the reason behind a request, not only the request —
-*"skip that step, this client already reviewed the draft"*, not just *"skip
-that step."* The why is what lets it recognize the same case again without
-being told twice, and it's the raw material a practice gets written from
-when a correction repeats — a bare instruction finishes the one task in
-front of it and teaches nothing past that.
+Tell the assistant the problem behind a request, not just the fix you have
+in mind — *"this client already reviewed the draft, so skip anything
+redundant with it"*, not just *"skip that step."* Naming the problem is
+what lets it recognize the same case again without being told twice, catch
+what a prescribed fix would have missed, and it's the raw material a
+practice gets written from when a correction repeats — a bare instruction
+finishes the one task in front of it and teaches nothing past that.
 
 - Technical: [People and the Model](../philosophy/OUR_PHILOSOPHY.md#explain-the-why)
 
