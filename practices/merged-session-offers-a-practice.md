@@ -9,8 +9,8 @@ gates:       ["reply"]
 index_clause: "one candidate at most, in the closing list, from this session's work"
 checked_by:  null
 defines:     []
-status:      active
-in_force_at: null
+status:      deduplicated
+in_force_at: the-boildown
 supersedes:  []
 overrides:   null
 added:       2026-09-14
@@ -128,6 +128,8 @@ started cleanly: its pattern was `\bgit\s+merge\b`, and `\b` matches inside
 `merge-base`, which the freshness guard runs at session start. Caught by
 reading the regex against the session's own opening commands rather than by
 a test.
+
+**Deduplicated 2026-09-15, into [the-boildown](the-boildown.md), on Morgan's decision**, along with five other closing-section practices, into one consolidated section under a new heading. This practice's four conditions and its Detail carried forward unchanged. Authorized: *"Let's go - go merge, do it, go update."*
 
 ## Install
 Nothing to install where the engine is already wired: the Stop hook that

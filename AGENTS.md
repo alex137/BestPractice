@@ -187,7 +187,7 @@ plan's premise.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block; `python3 tools/build_views.py --check` exits non-zero on drift. Source: practices/ -- edit the practice file, never this block. -->
 
-## Resident block (~949 of 2000 token budget, 10 of 123 practices (10 universal))
+## Resident block (~949 of 2000 token budget, 10 of 121 practices (10 universal))
 
 **bold-key-phrases.** People don't read; they skim, and bolding makes skimming easy. Bold the key phrases in a document by default, without being asked, scaling with length -- a long paragraph or document is where a skimmer most needs a spine to follow, a short note usually needs little or none.
 
@@ -312,6 +312,8 @@ When checking whether the practices that should have fired for recent work actua
   routing-audit — run the mechanical coverage check now; roll the deep-read slice forward
 When comparing an option against a baseline:
   check-source-architecture — check both options exist in the source before costing them
+When creating a session:
+  session-spend-follows-the-task — pick the model for the job -- reading runs small, judgment doesn't
 When deciding whether to build or buy a component:
   build-buy-decompose — decompose first; one verdict per part, on ownership grounds
 When decommissioning a mechanism — a workflow, a tool, a vendored tree, a config — that leaves files behind with no remaining job:
