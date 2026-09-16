@@ -48,6 +48,19 @@
 #   6. An identity already configured locally, as long as it is not the
 #      container's own bot identity -- the one thing that is never a human.
 #
+# CLOSING THE LOOP ON A GUESS. Rungs 4-6 are inferences, not declarations --
+# nobody chose them, this hook worked them out. When a commit is about to run
+# on one, this hook says so and invites the fix (below), but it cannot hear a
+# person answer -- only a live session can. So: when someone tells a session
+# running here their name (and, optionally, their email) for commits, that
+# session writes an identity.json for them (their individual source if one
+# resolves, else asks where) rather than letting the guess repeat next
+# session. See spec/COMMIT_IDENTITY_PLAN.md for why this replaced an earlier,
+# repo-scoped design -- BestPractice never needed a different identity than
+# the person running it; a repository cannot need one at all, since GitHub's
+# own verified-commit check is scoped to the signing account, never to a
+# repository.
+#
 # TIMEZONE. Nothing in a GitHub profile says where someone is. So: an
 # explicit override, else the individual source's declared timezone, else
 # America/New_York -- the DECLARED FALLBACK.
@@ -328,9 +341,12 @@ if [ -n "$email" ]; then
     [ -n "$name" ] && git -C "$ROOT" config --local user.name "$name" 2>/dev/null
     git -C "$ROOT" config --local user.email "$email" 2>/dev/null
     echo "NOTE: commit-identity: commits from this checkout will be authored as '${name:-$email}' <$email>, from $source." >&2
+    if [ "$declared" -eq 0 ]; then
+      echo "NOTE: commit-identity: that identity was inferred, not declared -- tell Claude your name (and email, if you want one other than the above) and it becomes permanent, written into your individual source's identity.json, the same way declaring a timezone already is." >&2
+    fi
   fi
 else
-  echo "WARN: commit-identity: could not work out who is running this session, from any of the six sources this hook knows. Commits will use whatever git is already configured with -- and the pre-commit backstop will refuse them if that is the container's own bot identity. Set PRECEDENT_COMMIT_NAME/PRECEDENT_COMMIT_EMAIL to settle it." >&2
+  echo "WARN: commit-identity: could not work out who is running this session, from any of the six sources this hook knows. Commits will use whatever git is already configured with -- and the pre-commit backstop will refuse them if that is the container's own bot identity. Set PRECEDENT_COMMIT_NAME/PRECEDENT_COMMIT_EMAIL to settle it, or just tell Claude your name and email -- it will write an identity.json for you." >&2
 fi
 
 # ---- the SAME identity, GLOBALLY -- the half that reaches a repo which does
