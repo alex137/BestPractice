@@ -328,7 +328,7 @@ When deciding whether to build or buy a component:
 When decommissioning a mechanism — a workflow, a tool, a vendored tree, a config — that leaves files behind with no remaining job:
   decommission-deletes-files — delete what the decommissioned mechanism owned; audit first, never on a hunch
 When handing the person work to do, or starting work that may touch a repository this session cannot reach:
-  session-text — cross-repo check; wake, never create -- hand over paste text instead
+  session-text — cross-repo check; never create, never wake -- always hand over paste text
 When migrating a repo off an old practice system onto Precedent:
   migration-scrubs-vocabulary — scrub the old system's vocabulary the same session, not on request
 When naming a new file:

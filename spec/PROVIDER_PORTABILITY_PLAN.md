@@ -71,16 +71,22 @@ says as much: it is a one-line adapter, not the canonical source.
    actually installed at this repo's root. The `codex/` and `gemini-cli/`
    adapters exist as templates for repos that install Precedent, not as
    something this repo runs on itself.
-2. **The session-text and archive-command practice family.**
-   [practices/session-text.md](../practices/session-text.md) and
-   [practices/archive-command.md](../practices/archive-command.md) — plus
-   pieces of [practices/next-steps-after-commit.md](../practices/next-steps-after-commit.md)
-   and [practices/the-boildown.md](../practices/the-boildown.md) — name
-   Claude Code Remote MCP (Model Context Protocol) tool calls directly in the rule text: `add_repo`,
-   `list_sessions`, `ListAgents`, `SendMessage`, `create_trigger`,
-   `fire_trigger`, `get_session`, `archive_session`. There is no abstraction
-   layer; a session on a provider without that MCP server cannot carry out
-   these practices as written, at all — not degraded, just inapplicable.
+2. **The archive-command practice, and — as of 2026-09-16, partially closed
+   — session-text.** [practices/archive-command.md](../practices/archive-command.md)
+   still names Claude Code Remote MCP (Model Context Protocol) tool calls
+   directly in its rule text: `get_session`, `list_triggers`,
+   `archive_session`, `unarchive_session`. There is no abstraction layer; a
+   session on a provider without that MCP server cannot carry out this
+   practice as written, at all — not degraded, just inapplicable.
+   [practices/session-text.md](../practices/session-text.md) had the same
+   problem (`add_repo`, `list_sessions`, `ListAgents`, `SendMessage`,
+   `create_trigger`, `fire_trigger`) until this date, when the practice was
+   changed to never wake or create a session at all — see Phase 4 below for
+   what that traded away. `add_repo` for the cross-repository capability
+   check is still named in session-text's Rule; it is a narrower dependency
+   than the messaging tools were, since a session on another provider simply
+   has no such call to make and the check degrades to "assume this session
+   can't reach it," which is the safe direction to be wrong in.
 3. **Commit identity and the trailer convention.**
    [.claude/hooks/commit-identity.sh](../.claude/hooks/commit-identity.sh)
    and [tools/precedent_session_check.py](../tools/precedent_session_check.py)
@@ -172,7 +178,7 @@ practice text in [practices/session-text.md](../practices/session-text.md)
 and [practices/archive-command.md](../practices/archive-command.md)
 currently names Claude Code Remote MCP tools directly — `add_repo`,
 `list_sessions`, `create_trigger`, `archive_session`, and the rest. Two ways
-to close this, and this plan does not pick one on its own:
+were on the table to close this, and this plan did not pick one on its own:
 
 - **Capability indirection.** Rewrite the practices to describe the
   *capability* ("wake an existing session that holds this context, rather
@@ -187,11 +193,27 @@ to close this, and this plan does not pick one on its own:
   not generalize the way file-based practice loading does, since it depends
   on a specific MCP server existing at all.
 
+**[practices/session-text.md](../practices/session-text.md)'s half took a
+third path, decided 2026-09-16: remove the capability rather than indirect
+or scope it.** Morgan chose this over capability indirection on two
+grounds — the tool surface waking depended on (`ListAgents`, `SendMessage`,
+`create_trigger`) had already caused real reliability problems for
+`create_session`, and he wants the catalogue portable to providers like
+Grok without a binding table to maintain per provider. The practice now
+always produces Session Text (a paste block), never wakes a live session
+and never creates one; what is lost is the context-reuse saving waking
+existed for, named explicitly in the practice's own Story rather than left
+implicit. [practices/archive-command.md](../practices/archive-command.md)'s
+`list_triggers` call is a different case — it checks whether a Routine is
+bound to the session being archived, not a cross-session handoff — and is
+**not yet touched**; it is a smaller, narrower dependency than
+session-text's was, and still open.
+
 **Done when:** either a session on a non-Claude-Code provider can carry out
-`session-text`'s intent through a named alternate mechanism, or the practice
-file says plainly that it doesn't apply outside Claude Code and why — but
-not the current state, where it silently fails on a tool call that doesn't
-exist.
+`archive-command`'s intent through a named alternate mechanism, or the
+practice file says plainly that it doesn't apply outside Claude Code and
+why. `session-text` no longer needs this test — it depends on nothing
+provider-specific at all.
 
 ### Phase 5 — re-verify the lightweight surfaces and close the loop
 
