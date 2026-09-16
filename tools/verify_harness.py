@@ -162,6 +162,11 @@ FAILED = []
 PASSED = []
 NA = []
 
+# practice: slow-steps-report-and-cache -- populated by _install_check_timing(),
+# read by main() to print the slowest checks once the run finishes, so the
+# next session can cite real durations instead of estimating them.
+CHECK_DURATIONS = []
+
 # --------------------------------------------------------------------------
 # Post-conversion provenance exceptions -- both narrow and self-checking.
 # --------------------------------------------------------------------------
@@ -290,6 +295,65 @@ def check(name, ok, detail=''):
 def not_applicable(name, reason):
     NA.append((name, reason))
     print(f"N/A:  {name} -- {reason}")
+
+
+# practice: slow-steps-report-and-cache -- this run has 270+ check_* calls
+# and, before this, printed nothing between the first PASS/FAIL line and the
+# last: a wait with no number on it, indistinguishable from a hang. Wrapping
+# every check_* function (rather than hand-editing every call site in
+# main()) is the low-risk way in: it needs no changes to main()'s ~270 call
+# lines, so it cannot silently drop or reorder a check.
+#
+# PRECEDENT_NO_CHECK_TIMING=1 skips this -- set it when profiling under
+# cProfile, so the wrapper's own frames don't show up in the profile.
+_PROGRESS_INTERVAL_SECONDS = 5
+
+
+def _install_check_timing():
+    if os.environ.get('PRECEDENT_NO_CHECK_TIMING'):
+        return
+    names = sorted(n for n, v in list(globals().items())
+                    if n.startswith('check_') and callable(v))
+    total = len(names)
+    state = {'done': 0, 'elapsed': 0.0, 'last_report': time.monotonic()}
+    run_start = time.monotonic()
+
+    def _wrap(name, fn):
+        def wrapper(*args, **kwargs):
+            t0 = time.monotonic()
+            try:
+                return fn(*args, **kwargs)
+            finally:
+                dt = time.monotonic() - t0
+                state['done'] += 1
+                state['elapsed'] += dt
+                CHECK_DURATIONS.append((name, dt))
+                if dt >= 2.0:
+                    print(f"  ...{name} took {dt:.1f}s", file=sys.stderr)
+                now = time.monotonic()
+                if now - state['last_report'] >= _PROGRESS_INTERVAL_SECONDS:
+                    state['last_report'] = now
+                    avg = state['elapsed'] / state['done']
+                    remaining = avg * (total - state['done'])
+                    print(f"  -- {state['done']}/{total} checks done, "
+                          f"{now - run_start:.0f}s elapsed, "
+                          f"~{remaining:.0f}s remaining", file=sys.stderr)
+        return wrapper
+
+    for name in names:
+        globals()[name] = _wrap(name, globals()[name])
+
+
+def _report_check_durations(top_n=15):
+    if not CHECK_DURATIONS:
+        return
+    total = sum(dt for _, dt in CHECK_DURATIONS)
+    slowest = sorted(CHECK_DURATIONS, key=lambda p: p[1], reverse=True)[:top_n]
+    print(f"\n{len(CHECK_DURATIONS)} checks ran in {total:.1f}s total "
+          f"(this run -- durations vary with what the tree currently holds). "
+          f"Slowest {len(slowest)}:", file=sys.stderr)
+    for name, dt in slowest:
+        print(f"  {dt:6.2f}s  {name}", file=sys.stderr)
 
 
 def load_practice_files():
@@ -21987,6 +22051,7 @@ def _report_missing_doc_packages(where):
 
 
 def main():
+    _install_check_timing()
     _report_missing_doc_packages('PREFLIGHT')
     if not PRACTICES_DIR.exists():
         sys.exit("verify_harness FAIL: practices/ does not exist -- run "
@@ -22184,6 +22249,7 @@ def main():
         # by now is hundreds of lines above.
         _report_missing_doc_packages('NOTE')
     print(f"\n{len(PASSED)} passed, {len(FAILED)} failed, {len(NA)} not yet applicable.")
+    _report_check_durations()
     return 1 if FAILED else 0
 
 
