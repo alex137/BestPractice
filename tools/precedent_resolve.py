@@ -163,7 +163,14 @@ def _self_heal_universal_source(repo_root):
     if not tool.is_file():
         return 'no-tool'
     try:
-        subprocess.run([sys.executable, str(tool), '--sources-from',
+        # -B: this tool runs INSIDE repo_root, and its own _credential_args()
+        # imports precedent_source_credentials from ITS directory (repo_root/
+        # tools) -- on a repo_root that is a just-bootstrapped set, that
+        # write lands inside the set and reads as bootstrap drift in every
+        # audit afterwards, same as the build_views.py subprocess
+        # precedent_bootstrap_source.py already runs with -B for the same
+        # reason.
+        subprocess.run([sys.executable, '-B', str(tool), '--sources-from',
                         str(repo_root)], cwd=str(repo_root),
                        capture_output=True, timeout=60)
     except (OSError, subprocess.TimeoutExpired):
