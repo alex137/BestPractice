@@ -542,6 +542,30 @@ own tools to have been invoked. **The cheap habit that made it a non-event was
 pushing before the gap**: a pushed branch survives the move, an unpushed one
 survives only in the reflog.
 
+**Third recorded instance, 2026-09-16, and it shows a worse variant: the move
+can carry UNCOMMITTED changes with it.** A session on a feature branch (already
+one commit ahead of what it had pushed) found `git log` reporting a commit
+that should not have been there and `git diff` showing edits it did not
+recognize — `git reflog show HEAD` confirmed
+`checkout: moving from claude/elegant-pascal-8cb3n2 to precedent-beta-v01`
+with nothing in the session's own command history requesting it. Unlike both
+prior instances, there was no stranded commit and no already-pushed branch to
+fall back on: the session's own **uncommitted** edits had ridden along across
+the switch, landing as an uncommitted diff on top of `precedent-beta-v01`
+instead of the branch they were written for. `git status` looked completely
+ordinary throughout — clean branch name in the prompt, a plausible-looking
+diff — which is what makes this variant more dangerous than the first two:
+there is no missing function or stranded commit to notice, only the wrong
+base underneath edits that look fine on their own. **Recovery, in order**:
+`git diff > patch-file` before touching anything else (this preserves the
+edits regardless of what happens next), confirm the abandoned branch's
+history is unharmed (`git log`/`git rev-parse` against its remote), switch
+back to the correct branch cleanly, then `git apply --reject` the saved patch
+— expect at least one hunk to conflict if the correct branch has diverged
+from the wrong one since the edits were made, and reapply that hunk by hand
+from the `.rej` file. See [spec/VERIFY_HARNESS_PERFORMANCE.md](../spec/VERIFY_HARNESS_PERFORMANCE.md)
+for the full incident this was pulled from.
+
 
 ## 23. <a id="g23"></a>A verify_harness.py fixture that builds an "absent credential" scenario inherits ...
 
