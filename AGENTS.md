@@ -468,6 +468,14 @@ place — nothing is ever deleted, and nothing moves.
 
 ## Working in this repo
 
+- **Not running under Claude Code (Codex, Gemini CLI, or another agent)?
+  Run `bash tools/bootstrap.sh` at session start.** Claude Code gets this
+  automatically from its SessionStart hook; every other harness only gets
+  it if the agent actually runs it, per
+  [templates/harness/README.md](templates/harness/README.md)'s adapter
+  table — [GEMINI.md](GEMINI.md) at the root already says so for Gemini
+  CLI, and [templates/harness/codex/README.md](templates/harness/codex/README.md)
+  covers Codex.
 - **Default branch is `main`; work on a feature branch; PRs are the norm**
   here (this repo is public and is the shared upstream).
 - **Most changes arrive as check-in PRs from dependent repos** (INSTALL.md
