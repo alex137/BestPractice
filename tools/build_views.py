@@ -1771,6 +1771,7 @@ TOOLS_DESCRIPTIONS = {
     'title_case.py': "Headline (New York Times) capitalization for markdown headings — --check to gate, --write to fix",
     'todo_migrate.py': "One-time converter from the old TODO.md/gotchas-index format into spec/OPEN_ITEM_AND_GOTCHA_PLAN.md's per-item todo/gotchas files, dry-run by default",
     'build_todo_index.py': "todo/TODO.md and todo/CLOSED.md, generated from todo/*.md's frontmatter",
+    'build_gotcha_index.py': "gotchas/INDEX.md, generated from gotchas/*.md's frontmatter and Symptom sections -- not loaded by AGENTS.md",
     'verify_harness.py': "The verification harness — run before trusting any change here",
     'very_deep_check.py': "The very deep check — on-demand whole-repo coherence review, distinct from full-practice-audit",
 }

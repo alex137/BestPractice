@@ -6375,26 +6375,36 @@ def check_precedent_check_fires():
                 "`STYLEGUIDE.md` from.\n"))
         case('install-declares-its-scope', _plant_idis)
 
-        # environment-gotchas -- an entry that is a bare fix.
+        # environment-gotchas -- a live gotcha file that is a bare fix.
         #
-        # Anchored on the SECTION HEADING, never on the wording of any one
-        # entry. The first spelling matched the literal string
-        # "- **`pip install cmarkgfm`", and stopped planting anything the day
-        # that entry was reworded to name a second package (2026-09-14) --
-        # `str.replace` of an absent needle is a silent no-op, so the plant
-        # vanished and the check "failed" by passing. A fixture keyed on
-        # prose rots the first time somebody improves the prose; this one
-        # asserts its anchor instead (practice: fixture-owns-its-state).
+        # Revised 2026-09-16: the catalogue moved out of AGENTS.md into one
+        # file per trap under gotchas/ (spec/OPEN_ITEM_AND_GOTCHA_PLAN.md
+        # Part 2), and precedent_check.py's environment-gotchas now reads
+        # gotchas/*.md directly whenever that directory exists, ignoring
+        # AGENTS.md's structure entirely once it does. The old plant edited
+        # AGENTS.md's own bulleted index, which no longer exists on this
+        # repository's real tree -- planting there would silently prove
+        # nothing (the check would take the new branch and never look at
+        # AGENTS.md's content). This plant instead ADDS a new gotchas/*.md
+        # file, which is robust the same way the old one tried to be
+        # (anchored on structure, not on any existing entry's wording) and
+        # additive, so it cannot collide with or depend on the 44 real
+        # entries already there (practice: fixture-owns-its-state).
         def _plant_eg(repo):
-            def _insert(t):
-                m = re.search(r'(?m)^#{1,4}[^\n]*rediscover these[^\n]*$', t)
-                if not m:
-                    raise AssertionError(
-                        'environment-gotchas plant: no "do NOT rediscover '
-                        'these" heading in the fixture AGENTS.md, so nothing '
-                        'was planted and the case below would assert nothing')
-                return t[:m.end()] + '\n\n- `pip install cmarkgfm`.\n' + t[m.end():]
-            rewrite(repo, 'AGENTS.md', _insert)
+            gd = repo / 'gotchas'
+            if not gd.is_dir():
+                raise AssertionError(
+                    'environment-gotchas plant: no gotchas/ directory in the '
+                    'fixture tree, so nothing was planted and the case below '
+                    'would assert nothing')
+            (gd / 'gotcha-2026-01-01-planted-bare-fix.md').write_text(
+                '---\nslug: gotcha-2026-01-01-planted-bare-fix\n'
+                'status: live\nnoted: 2026-01-01\nseverity: null\n'
+                'retired: null\nretires_when: null\n---\n'
+                '## Symptom\n\nPlanted bare fix.\n\n'
+                '## Story\n\nUse `git cat-file -e`.\n\n'
+                '## Fix\n\n(see story)\n',
+                encoding='utf-8')
         case('environment-gotchas', _plant_eg)
 
         # session-bootstrap -- setup named in prose, no hook to run it

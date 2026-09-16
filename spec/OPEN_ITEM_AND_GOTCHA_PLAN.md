@@ -508,12 +508,22 @@ retires_when: "nothing has hit this since <date> and the mechanism
 
 ### Generated View
 
-The gotcha index inside [AGENTS.md](../AGENTS.md) stays exactly as it is
-today — one line per live entry, symptom plus link, loaded every session. It
-is generated from `gotchas/*.md` where `status: live`, instead of hand-kept.
-`retires_when` is deliberately **not** shown there even once it's built:
-it's read by whoever is auditing the catalogue, not by every session that
-pays for the index.
+**Superseded 2026-09-16 (`decision_strength: strong`) — see Decisions below.**
+This subsection originally kept the gotcha index inside
+[AGENTS.md](../AGENTS.md) exactly as it stood pre-migration: one line per
+live entry, symptom plus link, loaded every session, generated from
+`gotchas/*.md` instead of hand-kept. That premise did not survive contact
+with the measured cost: the index alone reached 1,736 tokens across 44
+entries, loaded whole every session regardless of whether that session ever
+touched a trap. The generated view now lives at `gotchas/INDEX.md` — the
+same one-line-per-live-entry content, the same source fields — but it is
+**not** `@`-included anywhere and nothing loads it by default.
+[AGENTS.md](../AGENTS.md) carries a short pointer instead: search
+`gotchas/` by symptom keyword before concluding a failure is new
+(practice: `grep-before-search`), with a link to `gotchas/INDEX.md` for the
+deliberate read. `retires_when` is still not shown in the generated view
+once it's built, for the reason already stated: it's for whoever is
+auditing the catalogue, not for every session.
 
 ---
 
@@ -770,6 +780,22 @@ was decided and how firmly — not as a checklist to work through.
    of the plan, not a courtesy left to whoever happens to be driving:
    written here so a session with no memory of this conversation still
    knows to do it.
+4. **`decision_strength: strong` — the gotcha index moves out of AGENTS.md
+   too, not just the stories.** Morgan, 2026-09-16, directly: *"can we
+   change how the gotcha system works so that they're only loaded when
+   needed?"*, after establishing that Part 2's original "Generated View"
+   premise — one line per live entry, loaded every session — was exactly
+   what had grown a still-unsplit dependent repository's inline gotcha
+   stories to ~20,000 tokens, and that BestPractice's own already-split
+   index was headed the same direction at a smaller constant (1,736 tokens,
+   44 entries, no ceiling of its own). Superseded the same day: see Part 2's
+   **Generated View** above for what replaced it, and
+   [tools/session_load_budgets.json](../tools/session_load_budgets.json)'s
+   `AGENTS.md` entry for the measured before/after. Not yet rolled out to
+   that dependent repository — Part 4.3 already says gotchas don't migrate
+   cross-repo, so its own split (inline stories into its own `gotchas/`,
+   plus this same AGENTS.md-pointer treatment) is separate, follow-up work
+   in that repository, on request.
 
 ---
 

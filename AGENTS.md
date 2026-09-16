@@ -187,7 +187,7 @@ plan's premise.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block; `python3 tools/build_views.py --check` exits non-zero on drift. Source: practices/ -- edit the practice file, never this block. -->
 
-## Resident block (~949 of 2000 token budget, 10 of 121 practices (10 universal))
+## Resident block (~972 of 2000 token budget, 10 of 121 practices (10 universal))
 
 **bold-key-phrases.** People don't read; they skim, and bolding makes skimming easy. Bold the key phrases in a document by default, without being asked, scaling with length -- a long paragraph or document is where a skimmer most needs a spine to follow, a short note usually needs little or none.
 
@@ -209,14 +209,19 @@ question inside the brainstorm is not authorization**, and neither is their
 enthusiasm for the idea.
 
 **environment-gotchas.** Every expensive environment discovery (a package that must be installed, a
-tool that silently doesn't work, a path that does work) is written down **with
-the story of what failed and why, not just the fix**, and a "do NOT rediscover
-these" section in the instructions file is where a session finds it.
+tool that silently doesn't work, a path that does work) is written down
+**with the story of what failed and why, not just the fix**, in its own
+file — one trap, one file, forever — under `gotchas/gotcha-<date>-<slug>.md`
+(directory and frontmatter shape:
+[spec/OPEN_ITEM_AND_GOTCHA_PLAN.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/OPEN_ITEM_AND_GOTCHA_PLAN.md)
+Part 2).
 
-**When the stories outgrow what every session can afford to load, split them.**
-The section then keeps **one line per trap** — the symptom, and a link — and
-the stories move to a linked record, in full. A split changes the loading,
-never the text.
+**None of that catalogue loads into the instructions file, at any size.**
+The instructions file carries a short pointer instead — hit an unexplained
+failure, grep `gotchas/` before concluding it's new — never the stories,
+and never even a one-line-per-trap index. A generated overview (symptom
+plus link, one line per live entry) exists for the deliberate read; nothing
+loads it automatically.
 
 **no-invented-specifics.** Being concrete makes writing better, and **it never licenses invention.** Do
 not manufacture a statistic, a date, a name, a version number or a citation
@@ -398,206 +403,31 @@ before searching the repo, and add new rows there rather than here.
 | Repo map, generated (phase 2) | [MAP.md](MAP.md) — regenerate with `tools/build_views.py`, never hand-edit |
 | Install / update / check-in playbook (dependent repos) | [INSTALL.md](INSTALL.md) — the assistant-facing runbook; the person-facing routes are [SETUP.md](SETUP.md) (guided, non-technical) and [documentation/FOR_DEVELOPERS.md](documentation/FOR_DEVELOPERS.md) (short form plus what actually bites) |
 | Upstream open items / roadmap | [TODO.md](TODO.md) |
-| The full story behind any line in the gotchas index, unabridged | [record/GOTCHAS.md](record/GOTCHAS.md) |
+| The full story behind any environment trap, and the generated overview of all of them | [gotchas/](gotchas/), [gotchas/INDEX.md](gotchas/INDEX.md) |
 | Anything else — the full index | [WHERE_THINGS_ARE.md](WHERE_THINGS_ARE.md) |
 
 
-## Build-environment gotchas — do NOT rediscover these
+## Build-environment gotchas — search before you rediscover one
 
-One line per trap; the story is in [record/GOTCHAS.md](record/GOTCHAS.md).
-The split itself is [environment-gotchas](practices/environment-gotchas.md)'s,
-carried in full in the resident block above, so it is not restated here.
+44 environment/tooling traps are catalogued, one file per trap, under
+[gotchas/](gotchas/) — each with its own Symptom, Story and Fix (practice:
+[environment-gotchas](practices/environment-gotchas.md)). Nothing here loads
+that catalogue for you: **hit a confusing, hard-to-explain failure? Before
+concluding it's new, grep for it** —
+`grep -ril '<a keyword from what you are seeing>' gotchas/` — rather than
+spending an hour on the wrong hypothesis (practice: `grep-before-search`).
 
-**When a symptom below matches what you are seeing, stop and open its entry
-before acting on the line** — several describe mechanisms that have since been
-fixed, and only the entry says which.
+A generated overview — symptom plus link, one line per live trap — is at
+[gotchas/INDEX.md](gotchas/INDEX.md) for the deliberate read: browsing the
+whole catalogue during a `very-deep-check` sweep, or when a grep comes up
+empty and a wider look is warranted. It is not `@`-included here and nothing
+loads it automatically, which is the whole point of this split.
 
-**Adding one?** A trap that can no longer fire moves on to
-[record/GOTCHAS_ARCHIVE.md](record/GOTCHAS_ARCHIVE.md) with the verdict that
-retired it. Nothing is ever deleted.
-
-- **`pip install cmarkgfm markdown`, or two gates degrade in silence and
-  [verify_harness.py](tools/verify_harness.py) fails three checks that have
-  nothing to do with your diff — and a container missing them is telling you
-  no SessionStart hook ran.** [story](record/GOTCHAS.md#g1)
-
-- **A git helper that returns stdout and drops the exit code will hand you a
-  confident wrong answer — this is the most-repeated bug in the project.**
-  [story](record/GOTCHAS.md#g2)
-
-- **A repository attached mid-session clones single-branch, so every branch
-  you create there reads as "unpushed" forever — including to a Stop hook that
-  then blocks the turn.** [story](record/GOTCHAS.md#g3)
-
-- **`git clone` with no `--branch` asks the SERVER which branch to check out,
-  and the answer is a setting on a web page that nothing in this repository
-  can see.** [story](record/GOTCHAS.md#g4)
-
-- **A stale checkout is indistinguishable from missing work, and the guard
-  cannot save the sessions that most need it.** [story](record/GOTCHAS.md#g5)
-
-- **This repo is normally cloned `--depth 1`, and several tools degrade rather
-  than fail on that.** [story](record/GOTCHAS.md#g6)
-
-- **`git clone --depth 1 /some/path` is ignored; git only honours `--depth`
-  over a transport.** [story](record/GOTCHAS.md#g7)
-
-- **A `scope: 'tree'` check in `tools/precedent_check.py` can silently report
-  a false *pass* on an under-fetched local clone, not just degrade loudly like
-  the two entries above.** [story](record/GOTCHAS.md#g8)
-
-- **The leak gate's vocabulary layer fails open unless you also set the git
-  config.** [story](record/GOTCHAS.md#g9)
-
-- **A bare `python3 tools/leak_gate.py` refuses when a private source RESOLVED
-  and no blocklist is set — and allows, loudly, when the private sources could
-  not be attached at all.** [story](record/GOTCHAS.md#g10)
-
-- **Setting `git config precedent.requireVocabulary true` to satisfy the leak
-  gate makes `verify_harness.py` fail two of its own leak-gate checks.**
-  [story](record/GOTCHAS.md#g11)
-
-- **On a shallow clone, `git merge-base` between two *different* branches can
-  exit 1 ("no common ancestor") even when the branches genuinely share history
-  — and that false negative reads exactly like a destructive force-push.**
-  [story](record/GOTCHAS.md#g12)
-
-- **`git log --format=%P` silently reports no parents at all for a commit
-  sitting at a shallow clone's boundary, even when it really has two.**
-  [story](record/GOTCHAS.md#g13)
-
-- **A consuming repo's own mechanical check against materialized
-  `tools/checks/`/`practices/` output cannot resolve sources live and trust
-  every one it lists.** [story](record/GOTCHAS.md#g14)
-
-- **A repo attached mid-session never runs its own SessionStart hook, so every
-  environment guarantee that hook provides is silently absent while you work
-  in it.** [story](record/GOTCHAS.md#g15)
-
-- **A merge conflict in `.claude/hooks/freshness-guard.sh` locks the session
-  out of every tool that could repair it, and `git` being exempt does not
-  help.** [story](record/GOTCHAS.md#g16)
-
-- **The session's PRIMARY repo does not run its SessionStart hooks either,
-  when the harness rooted the session one directory ABOVE it — and this
-  project's own required layout is what causes that.**
-  [story](record/GOTCHAS.md#g17)
-
-- **Your commits are authored by the bot because the harness sets that
-  identity in git's GLOBAL config AND in every clone's LOCAL config — so a
-  global-only fix is silently overridden.** [story](record/GOTCHAS.md#g18)
-
-- **The absence of `.claude/hooks/` is NOT evidence that a repo's hooks are
-  missing — resolve the paths its settings.json actually declares.**
-  [story](record/GOTCHAS.md#g19)
-
-- **A source set's hooks drift after installation and nothing has ever
-  refreshed them — there was an install path and no repair path.**
-  [story](record/GOTCHAS.md#g20)
-
-- **A refusal that names a remedy which cannot work is the moment to ask what
-  the guard actually measured, not to disable it.**
-  [story](record/GOTCHAS.md#g21)
-
-- **Something can move this checkout off your working branch mid-session, and
-  the cause is NOT known — treat a silently-vanished edit as this before you
-  re-derive it.** [story](record/GOTCHAS.md#g22)
-
-- **A `verify_harness.py` fixture that builds an "absent credential" scenario
-  inherits the container's real one, and so asserts the opposite of what it
-  ran.** [story](record/GOTCHAS.md#g23)
-
-- **A harness run that overlaps a write to the tree fails on a change
-  belonging to no commit, and the count alone cannot tell you that.**
-  [story](record/GOTCHAS.md#g24)
-
-- **Pointing a fixture's `HOME` at an empty directory does not keep it empty:
-  `precedent_resolve.load_config()` CLONES the individual source into it.**
-  [story](record/GOTCHAS.md#g25)
-
-- **The individual source resolves to a clone you are probably not editing,
-  and it can be many commits stale.** [story](record/GOTCHAS.md#g26)
-
-- **A sibling clone that was current when you took it can rot while you work,
-  and a "these copies do not match" failure will blame the code rather than
-  your clone.** [story](record/GOTCHAS.md#g27)
-
-- **A scratch COPY of this repo, taken to prototype a change without touching
-  the working tree, goes stale the moment the freshness guard fast-forwards
-  the real checkout under you — and copying the prototyped files back reverts
-  every commit that arrived in between, silently.**
-  [story](record/GOTCHAS.md#g28)
-
-- **`HEAD == origin/<branch>` and a clean tree is NOT evidence that your work
-  landed — it is the exact reading you get when your commit has been thrown
-  away.** [story](record/GOTCHAS.md#g29)
-
-- **The commit backstop is GLOBAL (`core.hooksPath`), so it reaches throwaway
-  fixture repositories too — and refused them.**
-  [story](record/GOTCHAS.md#g30)
-
-- **"no individual source resolved" is not noise — it means every personal and
-  team practice is silently absent, and the session will confidently apply the
-  wrong rules.** [story](record/GOTCHAS.md#g31)
-
-- **The private practice sets reach a session through the environment
-  credential, not through `add_repo`: set `PRECEDENT_GIT_TOKEN` and
-  `PRECEDENT_SOURCE_BASE_URL` ([PER_MACHINE_SETUP.md](PER_MACHINE_SETUP.md)) and the
-  SessionStart hook clones them -- usually before the first turn, but NOT
-  guaranteed: on 2026-09-14 they landed mid-session and turn one ran on the
-  universal set alone.** [story](record/GOTCHAS.md#g32)
-
-- **`add_repo` on a PUBLIC repository attaches nothing and never reaches the
-  cross-owner check, so testing that wall with `access: "read"` measures
-  nothing at all.** [story](record/GOTCHAS.md#g33)
-
-- **A session you spawn can lose its Model Context Protocol (MCP) tools
-  mid-run, and it cannot report back to you either — so a spawned session must
-  take the measurement it was spawned for in its OPENING turn.**
-  [story](record/GOTCHAS.md#g34)
-
-- **A private repo name reaches a public tree by nobody having predicted it,
-  so repo references are an ALLOWLIST, not a blocklist.**
-  [story](record/GOTCHAS.md#g35)
-
-- **A background `sleep` is not a wait, and using one as a wait makes you
-  invent elapsed time.** [story](record/GOTCHAS.md#g36)
-
-- **A shallow clone makes a merely-behind checkout read as diverged, so the
-  freshness guard refuses to update it and the session works from a day-old
-  tree.** [story](record/GOTCHAS.md#g37)
-
-- **A Routine that fires a FRESH session gets none of the session-management
-  tools, and the run still records SUCCEEDED — so a scheduled job that reads
-  the fleet quietly does nothing.** [story](record/GOTCHAS.md#g38)
-
-- **A session can push a branch but not delete one: the 403 wears a
-  dropped-connection message, so it reads as a flake.**
-  [story](record/GOTCHAS.md#g39)
-
-- **The session-start identity block reached every Precedent repo except the
-  individual set it read the identity from, so that one set kept committing as
-  the container's bot.** [story](record/GOTCHAS.md#g40)
-
-- **`/rate_limit` reports a pristine window from inside a session while the
-  `X-RateLimit-*` headers on an ordinary call report the truth — and there is
-  more than one allowance pool, keyed by repository.**
-  [story](record/GOTCHAS.md#g41)
-
-- **The permission classifier refuses `git commit` and the checks inside the
-  very practice set whose `identity.json` declares `relayed_authorization:
-  accepted` — non-deterministically, so retrying teaches you nothing.**
-  [story](record/GOTCHAS.md#g42)
-
-- **A spawned session's seeded prompt cannot pre-authorize a merge — the
-  classifier refuses the `create_session` call itself, even though
-  `go-merge`/`relayed-authorization` say the authorization should travel.**
-  [story](record/GOTCHAS.md#g43)
-
-- **A PreToolUse hook's once-per-session sentinel is not proof against two
-  tool calls the harness dispatches at once — both read it as absent before
-  either writes it, and both run `git fetch` against the same `.git` at
-  the same time.** [story](record/GOTCHAS.md#g44)
+**Adding one?** Write it as `gotchas/gotcha-<date>-<slug>.md`
+([spec/OPEN_ITEM_AND_GOTCHA_PLAN.md](spec/OPEN_ITEM_AND_GOTCHA_PLAN.md) Part
+2), then regenerate the overview: `python3 tools/build_gotcha_index.py`. A
+trap that can no longer fire gets `status: retired` in its own file, in
+place — nothing is ever deleted, and nothing moves.
 
 ## Working in this repo
 
