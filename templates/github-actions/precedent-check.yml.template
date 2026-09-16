@@ -46,10 +46,24 @@ on:
 # vocabulary. A filter that misses one input is a workflow that reports
 # nothing while looking green.
 
+# CONCURRENCY, so a burst of pushes to the same branch does not pay for
+# every run in the burst (2026-09-16, matching bestpractice-docs.yml's own
+# template since 2026-09-15). A second run starting on this branch cancels
+# whichever earlier run for it is still going, rather than billing both to
+# completion. Measured against a real account's usage report: this set's
+# own `precedent-check.yml` plus `views-drift.yml` together outspent every
+# other CI template except the doc linter, split across four practice sets
+# that had never been asked whether they wanted a run on every push.
+concurrency:
+  group: precedent-check-${{ github.ref }}
+  cancel-in-progress: true
+
 # Read-only on purpose: this reports, and has no business holding a token
-# that could write.
+# that could write. actions: read is for the debounce step below, which
+# lists this workflow's own past runs -- still no write access anywhere.
 permissions:
   contents: read
+  actions: read
 
 jobs:
   precedent-check:
@@ -81,7 +95,63 @@ jobs:
           # exactly that bug ran undetected on every push for days.
           fetch-depth: 0
 
+      # DEBOUNCE (2026-09-16): a set pushed to constantly pays for the whole
+      # suite on every push even with nothing ever overlapping enough for
+      # concurrency above to cancel it. Reads `ci_debounce_minutes` from
+      # this set's own identity.json (default 360 = 6 hours; 0 disables it;
+      # a TEAM set has no identity.json and always gets the default -- a
+      # known limit, not an oversight) and skips the rest of this job when
+      # the last COMPLETED run on this branch finished inside that window.
+      # spec/CI_MINUTES_PLAN.md's item 4: this is the whole-catalogue
+      # advisory check, not a security backstop, so a few hours of
+      # staleness between runs costs nothing nobody would notice by the
+      # next real one.
+      - name: Skip if checked recently (debounce)
+        id: debounce
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -eu
+          minutes="$(python3 - <<'PY'
+          import json, pathlib
+          try:
+              d = json.loads(pathlib.Path('identity.json').read_text())
+          except (OSError, ValueError):
+              d = {}
+          try:
+              v = int(d.get('ci_debounce_minutes', 360))
+          except (TypeError, ValueError):
+              v = 360
+          print(v)
+          PY
+          )"
+          if [ "$minutes" -le 0 ]; then
+            echo "ci_debounce_minutes: $minutes -- debounce off, running"
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          last="$(gh run list --workflow "${{ github.workflow }}" \
+                   --branch "${{ github.ref_name }}" --status completed \
+                   --limit 1 --json updatedAt --jq '.[0].updatedAt // empty' \
+                   2>/dev/null || true)"
+          if [ -z "$last" ]; then
+            echo "no prior completed run on this branch -- running"
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          elapsed=$(( ($(date -u +%s) - $(date -u -d "$last" +%s)) / 60 ))
+          if [ "$elapsed" -lt "$minutes" ]; then
+            echo "last completed run was ${elapsed}m ago, inside the " \
+                 "${minutes}m window -- skipping"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "last completed run was ${elapsed}m ago, outside the " \
+                 "${minutes}m window -- running"
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Set up Python
+        if: steps.debounce.outputs.skip != 'true'
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -97,6 +167,7 @@ jobs:
       # traceback on a green-looking day. Unpinned, matching BestPractice's
       # own deep-check.yml and docs.yml.
       - name: Install PyYAML
+        if: steps.debounce.outputs.skip != 'true'
         run: python -m pip install pyyaml
 
       # FOUR NAMED STEPS, not one. GitHub Actions shows step NAMES on a run's
@@ -106,6 +177,7 @@ jobs:
       # refusal fires on somebody who has not read this file.
 
       - name: Refuse if this repo is not a source set carrying the engine
+        if: steps.debounce.outputs.skip != 'true'
         run: |
           set -eu
           if [ ! -f tools/precedent_check.py ]; then
@@ -139,6 +211,7 @@ jobs:
           fi
 
       - name: Refuse if the vendored engine predates binds_publishers
+        if: steps.debounce.outputs.skip != 'true'
         run: |
           set -eu
           # INSPECT THE REGISTRY, NEVER GREP FOR THE NAME. An earlier version of
@@ -177,6 +250,7 @@ jobs:
           PY
 
       - name: Run every check that binds this repo
+        if: steps.debounce.outputs.skip != 'true'
         run: |
           set -euo pipefail
           # NOT --strict -- see the header. Most registered checks belong to
@@ -189,6 +263,7 @@ jobs:
           python3 tools/precedent_check.py 2>&1 | tee check-output.txt
 
       - name: Refuse a run that checked nothing
+        if: steps.debounce.outputs.skip != 'true'
         run: |
           set -eu
           # TWO questions, and the earlier version asked only the second. It ran

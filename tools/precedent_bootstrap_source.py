@@ -77,6 +77,7 @@ import sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+import precedent_identity
 import precedent_resolve
 import precedent_vendor_engine
 
@@ -207,6 +208,24 @@ WORKFLOW_TEMPLATES = (
 WORKFLOWS_REL = 'templates/github-actions/'
 
 
+def _ci_preference(dest):
+    """(enabled: bool, note: str) -- same resolution as
+    precedent_install.py's `_ci_preference`, reused here rather than
+    re-derived, so a set and a dependent repo answer "should CI be
+    installed" from the identical field. practice: declared-default-is-applied
+    -- nothing here asks; absent resolves to the engine's own default,
+    which is disabled."""
+    try:
+        pref = precedent_identity.ci_preference(dest)
+    except precedent_identity.NoDeclaredIdentity:
+        return False, ('no individual source declares ci_workflows -- '
+                        "disabled by default (GITHUB_ACTIONS.md)")
+    if pref['enabled']:
+        return True, f"ci_workflows: enabled ({pref['source']})"
+    shown = pref['value'] or '(absent)'
+    return False, f"ci_workflows: {shown} ({pref['source']})"
+
+
 def _install_workflows(dest):
     """Give a new source the CI gate its generated views had nowhere else.
 
@@ -234,7 +253,20 @@ def _install_workflows(dest):
     current template, and verify() reports a set that never got one --
     every set created before this date is in that position, and this tool
     cannot reach them on its own.
+
+    GATED ON ci_workflows (2026-09-16), same field and same default as
+    precedent_install.py's dependent-repo install: these two workflows are
+    CI this repo vendors into another repo, not this repo's own structural
+    backstop, so they belong to the same off-by-default policy -- measured
+    against a real account's usage report, `views-drift.yml` and
+    `precedent-check.yml` together cost more than a quarter of one
+    reporting period's total minutes across four practice sets, none of
+    which had ever been asked whether they wanted it.
     """
+    enabled, note = _ci_preference(dest)
+    if not enabled:
+        print(f"workflows: NOT written -- {note}")
+        return []
     written = []
     for template, rel, _why in WORKFLOW_TEMPLATES:
         out = dest / rel
@@ -643,11 +675,16 @@ def verify(level, path):
 
     # Like the hooks, the workflows are not in either skeleton -- they come
     # from templates/github-actions/, one copy, shared with dependent repos.
-    # A set bootstrapped before 2026-09-11 has none of them.
-    for _template, rel, why in WORKFLOW_TEMPLATES:
-        if not (path / rel).exists():
-            missing.append(f"{rel} (from {WORKFLOWS_REL}{_template}; without "
-                           f"it {why})")
+    # A set bootstrapped before 2026-09-11 has none of them. Since 2026-09-16
+    # they are also gated on ci_workflows (declared-default-is-applied:
+    # absent means disabled) -- a set that resolves disabled and has none of
+    # them is correctly configured, not behind, so it is not reported missing.
+    _ci_enabled, _ci_note = _ci_preference(path)
+    if _ci_enabled:
+        for _template, rel, why in WORKFLOW_TEMPLATES:
+            if not (path / rel).exists():
+                missing.append(f"{rel} (from {WORKFLOWS_REL}{_template}; "
+                               f"without it {why})")
 
     # A vendored engine older than binds_publishers (#261, 2026-09-12) turns
     # the workflow above into a decoration rather than a gate, and nothing

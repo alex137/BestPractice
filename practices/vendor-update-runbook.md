@@ -178,9 +178,20 @@ every step's answer is wrong if the one before it was skipped.
    sources in hand-written prose that went stale the day a team set was
    split by subject. **Not one produced a failing check.**
 
-10. **Verify by content on the remote**, never by ref equality
+10. **Sweep this repo's own `.github/workflows/` against the retired-file
+    table** ([spec/MIGRATING_EXISTING_INSTALLS.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/MIGRATING_EXISTING_INSTALLS.md)'s
+    step 6, added 2026-09-16) — an ordinary update touches the same
+    workflow files a migration would, and a repo that migrated before this
+    table existed has never had the chance to apply it. Per file, never a
+    blanket delete: the table names what each one is, and which are a
+    confirm-before-delete rather than an automatic one. While here, check
+    `ci_workflows` and `ci_debounce_minutes`
+    ([GITHUB_ACTIONS.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/GITHUB_ACTIONS.md))
+    are set the way the person actually wants, not just inherited from
+    whatever an earlier install or migration left.
+11. **Verify by content on the remote**, never by ref equality
    ([verify-postcondition](verify-postcondition.md)).
-11. **Publish it, without asking again.** Run [go-merge](go-merge.md)'s
+12. **Publish it, without asking again.** Run [go-merge](go-merge.md)'s
     chain on the result and report which branch it landed on. The phrase
     authorizes this step; do not stop at step 9 and ask. Every condition
     `Go merge` carries still holds -- a branch the repository restricts is

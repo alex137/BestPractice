@@ -78,7 +78,7 @@ naming the field and where to set it. **This only changes what
 `precedent_install.py` writes by default.** The template is always there to
 copy in by hand, on any one repo, whatever the field says.
 
-**Two more levers, once the workflow is installed at all:**
+**Three more levers, once the workflow is installed at all:**
 
 - **`concurrency` with `cancel-in-progress: true`** ships in
   [doc-lint.yml.template](templates/github-actions/doc-lint.yml.template)
@@ -101,6 +101,21 @@ copy in by hand, on any one repo, whatever the field says.
   cadence in it; its header explains why it gates the whole tracked
   Markdown corpus each run rather than "what changed", and what that
   trades away.
+- **A debounce, for a repo pushed to constantly that still wants a
+  push-triggered check** (2026-09-16) — the first step in
+  [doc-lint.yml.template](templates/github-actions/doc-lint.yml.template),
+  [precedent-check.yml.template](templates/github-actions/precedent-check.yml.template)
+  and [views-drift.yml.template](templates/github-actions/views-drift.yml.template)
+  skips the rest of the job when the last completed run on the same branch
+  finished less than `ci_debounce_minutes` ago (default `360` = 6 hours;
+  `0` disables it). Read from `precedent.json` in a dependent repo, or
+  `identity.json` in an individual practice set — a team set has neither
+  field to read and always gets the default. Unlike the scheduled variant
+  above, the check still fires on every push; it just declines to re-run
+  one that finished inside the window. Not applied to this repo's own
+  `docs.yml`/`deep-check.yml`/`leak-gate.yml`, or to any workflow standing
+  in for a security backstop: [spec/CI_MINUTES_PLAN.md](spec/CI_MINUTES_PLAN.md)'s
+  item 4 is the measurement and the reasoning behind that line.
 
 ## Install in a Dependent Repository
 

@@ -13579,19 +13579,53 @@ def check_views_drift_gate_reaches_a_source_set():
 
         import precedent_bootstrap_source as pbs
         newset = tmp / 'bootstrapped'
+        # FIXTURE OWNS ITS STATE (2026-09-16): _install_workflows is gated on
+        # ci_workflows since that date, resolved from newset/identity.json
+        # (falling back to whatever individual source the runner happens to
+        # have, which this fixture must never depend on). Writing the field
+        # explicitly is what makes the "adopter opted in" case below test
+        # opting in, rather than an ambient default this fixture did not set.
+        newset.mkdir(parents=True, exist_ok=True)
+        (newset / 'identity.json').write_text(
+            json.dumps({'email': 'fixture@example.com', 'ci_workflows': 'enabled'}),
+            encoding='utf-8')
         installed = [pathlib.Path(f) for f in pbs._install_workflows(newset)]
         cases.append(('precedent_bootstrap_source.py installs the gate into a '
-                      'new set, so an adopter does not have to know it exists',
+                      'new set that opted in, so an adopter who wants it does '
+                      'not have to know it exists',
                       all(f.is_file() for f in installed)
                       and (newset / '.github' / 'workflows' / 'views-drift.yml').is_file(),
                       str(installed)))
         # Every set created before 2026-09-11 has none, and this tool cannot
-        # reach them -- so verify() has to say so.
+        # reach them -- so verify() has to say so, for a set that opted in.
         (newset / '.github' / 'workflows' / 'views-drift.yml').unlink()
         missing = pbs.verify('individual', newset)
-        cases.append(('verify() names a set that has no views-drift workflow',
+        cases.append(('verify() names an opted-in set that has no '
+                      'views-drift workflow',
                       any('views-drift.yml' in m for m in missing),
                       '; '.join(missing)))
+
+        # THE NEW DEFAULT (2026-09-16, declared-default-is-applied): a set
+        # that never declares ci_workflows -- the ordinary case, per
+        # GITHUB_ACTIONS.md's "Controlling Actions Minutes" -- gets neither
+        # workflow written, and verify() does not call that a defect. A
+        # separate dest, so this does not disturb the opted-in fixture above.
+        undeclared = tmp / 'bootstrapped-undeclared'
+        undeclared.mkdir(parents=True, exist_ok=True)
+        (undeclared / 'identity.json').write_text(
+            json.dumps({'email': 'fixture2@example.com'}), encoding='utf-8')
+        installed_off = pbs._install_workflows(undeclared)
+        cases.append(('a set that never declares ci_workflows gets neither '
+                      'workflow written',
+                      installed_off == []
+                      and not (undeclared / '.github').exists(),
+                      str(installed_off)))
+        missing_off = pbs.verify('individual', undeclared)
+        cases.append(('verify() does not call a correctly-disabled set '
+                      'missing its CI workflows',
+                      not any('views-drift.yml' in m or 'precedent-check.yml' in m
+                              for m in missing_off),
+                      '; '.join(missing_off)))
 
         # The CLI route, pinned because three documents name it. verify()
         # was reachable only from this harness until 2026-09-11, while

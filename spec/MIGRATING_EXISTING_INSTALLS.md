@@ -73,12 +73,15 @@ that did exactly that.
 
 ## The pattern
 
-**Step 0, before any of it: ask which practice sources this repo should
-declare.** Not which it declares now — which it *should*. Ask the person,
-in the conversation, and write the answer into `precedent.json` as part of
-the migration rather than leaving it for later. A migration is the cheapest
-moment this question will ever have: somebody is already deciding what
-binds this repo.
+**Step 0, before any of it: ask [every question INSTALL_QUESTIONS.md
+lists](INSTALL_QUESTIONS.md) as asked at migration**, starting with which
+practice sources this repo should declare. Not which it declares now —
+which it *should*. Ask the person, in the conversation, and write each
+answer where that table says it's stored — `precedent.json`'s declared
+sources, `identity.json`'s `ci_workflows` field, and so on — as part of
+the migration rather than leaving any of it for later. A migration is the
+cheapest moment these questions will ever have: somebody is already
+deciding what binds this repo.
 
 **It has to be asked, not detected.** An undeclared source throws no error,
 writes no file and leaves nothing missing — the repo simply resolves fewer
@@ -509,6 +512,25 @@ one.
    keeps only its manual trigger. The distinction the old wording drew — a
    hold versus a leftover — still matters for the *file*, which stays; it
    just no longer applies to the schedule, which is gone.
+
+   **The same pass also sweeps every OTHER pre-Precedent `.github/workflows/`
+   file this repo carries** (2026-09-16, spec/CI_MINUTES_PLAN.md items
+   2/2a/3) — measured against a real account's usage report, workflows from
+   before this repo's current template set accounted for 42% of one
+   reporting period's total minutes, in repos that had never had a chance
+   to opt out because the setting to opt out did not exist yet. **Per file,
+   never a blanket delete:**
+
+   | File | Verdict |
+   |---|---|
+   | `bestpractice-upstream-sync.yml` | **Not retired — de-scheduled.** Stays, per the finding above; if it still carries a `schedule:` trigger, drop it to `workflow_dispatch` only, same as this step already does for the pack-sync workflow. |
+   | `practice-links-travel.yml` | Superseded once `precedent-check.yml` is installed and green — its check now runs as one case inside that whole-suite job (`practice-links-travel` in `tools/precedent_check.py`'s registry). Confirm the suite run covers it, then delete the standalone file. |
+   | `light-check.yml`, `commit-identity.yml` (the ordinary dependent-repo copy, not the practice-set workflow this step already covers), `status-claims-check.yml`, `unified-prompt-check.yml`, `platform-docs-check.yml` | **No trace in this repo's own history** — none of them were ever a Precedent template, in this branch or any other this repo can see. Confirm in the repo carrying the file what each one actually checks before touching it; a check with no equivalent anywhere in the current engine is a gap to raise with the person, not a file to delete on a guess. |
+
+   Applying `ci_workflows` and `ci_debounce_minutes`
+   ([GITHUB_ACTIONS.md](../GITHUB_ACTIONS.md)) to whatever CI templates this
+   migration keeps is part of the same pass, per
+   [spec/INSTALL_QUESTIONS.md](INSTALL_QUESTIONS.md)'s two rows for both.
 
 7. **Rewrite the consuming repo's own instructions file** (`AGENTS.md` or
    equivalent) from

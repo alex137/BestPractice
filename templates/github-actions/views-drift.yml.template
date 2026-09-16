@@ -81,10 +81,21 @@ on:
 # filter that misses one input is a workflow that reports nothing while
 # looking green, which is the failure above wearing a different hat.
 
+# CONCURRENCY, so a burst of pushes to the same branch does not pay for
+# every run in the burst (2026-09-16, matching bestpractice-docs.yml's own
+# template since 2026-09-15). A second run starting on this branch cancels
+# whichever earlier run for it is still going, rather than billing both to
+# completion.
+concurrency:
+  group: views-drift-${{ github.ref }}
+  cancel-in-progress: true
+
 # Read-only on purpose: this reports, and has no business holding a token
-# that could write.
+# that could write. actions: read is for the debounce step below, which
+# lists this workflow's own past runs -- still no write access anywhere.
 permissions:
   contents: read
+  actions: read
 
 jobs:
   views-drift:
@@ -102,12 +113,63 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha }}
           # fetch-depth left at the default: nothing here walks history.
 
+      # DEBOUNCE (2026-09-16): same field, same default, same reasoning as
+      # precedent-check.yml.template's own debounce step -- read there for
+      # the full rationale. This check takes seconds, so it is one of the
+      # cheapest jobs to over-run on a repo pushed to constantly, and one
+      # of the safest to space out: nothing here is a security backstop.
+      - name: Skip if checked recently (debounce)
+        id: debounce
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -eu
+          minutes="$(python3 - <<'PY'
+          import json, pathlib
+          try:
+              d = json.loads(pathlib.Path('identity.json').read_text())
+          except (OSError, ValueError):
+              d = {}
+          try:
+              v = int(d.get('ci_debounce_minutes', 360))
+          except (TypeError, ValueError):
+              v = 360
+          print(v)
+          PY
+          )"
+          if [ "$minutes" -le 0 ]; then
+            echo "ci_debounce_minutes: $minutes -- debounce off, running"
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          last="$(gh run list --workflow "${{ github.workflow }}" \
+                   --branch "${{ github.ref_name }}" --status completed \
+                   --limit 1 --json updatedAt --jq '.[0].updatedAt // empty' \
+                   2>/dev/null || true)"
+          if [ -z "$last" ]; then
+            echo "no prior completed run on this branch -- running"
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          elapsed=$(( ($(date -u +%s) - $(date -u -d "$last" +%s)) / 60 ))
+          if [ "$elapsed" -lt "$minutes" ]; then
+            echo "last completed run was ${elapsed}m ago, inside the " \
+                 "${minutes}m window -- skipping"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "last completed run was ${elapsed}m ago, outside the " \
+                 "${minutes}m window -- running"
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Set up Python
+        if: steps.debounce.outputs.skip != 'true'
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
 
       - name: Decide what this repo generates
+        if: steps.debounce.outputs.skip != 'true'
         id: layout
         run: |
           set -eu
@@ -164,7 +226,7 @@ jobs:
       # own file location, which is right for a source set and wrong the
       # moment the engine is nested.
       - name: Check the generated views
-        if: steps.layout.outputs.views != 'none'
+        if: steps.debounce.outputs.skip != 'true' && steps.layout.outputs.views != 'none'
         run: |
           set -eu
           args="--repo . --check"

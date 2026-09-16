@@ -2187,6 +2187,22 @@ def _bootstrap_drift_one(level, name, path, collect=None):
             if not gen_path.is_file():
                 continue
             rel = str(gen_path.relative_to(gen_root))
+            # __pycache__ is a Python runtime artifact, never a generator
+            # output -- comparing it reads a bytecode cache Python happened
+            # to write during THIS run of the generator as drift. Found
+            # 2026-09-16: bootstrap()'s own build_views.py subprocess is
+            # already `-B` (its own comment: "a tools/__pycache__/ it left
+            # behind read as bootstrap drift in every audit afterwards"),
+            # but that only covers build_views.py's own execution -- it does
+            # not stop whatever else in this process's run of bootstrap()
+            # writes bytecode into gen_root along the way. Measured: 100%
+            # reproducible through _bootstrap_drift_one, 0% through a direct
+            # bootstrap_source.bootstrap() call replaying the same
+            # arguments -- so the cache is a real side effect of THIS
+            # code path, whatever its exact trigger, and belongs excluded
+            # here rather than chased further upstream.
+            if '__pycache__' in pathlib.Path(rel).parts:
+                continue
             # practices/ is the set's own content, and example-starter-<level> is
             # the one file an adopter is told to delete.
             if rel.split(os.sep)[0] == 'practices':

@@ -56,7 +56,10 @@ refinement is deferred whether or not it appears on a list here.
 commit identity, the team and individual source question, the audit passing,
 and anything a mechanical check fails without. Those are not refinements —
 the project is wrong without them, and an install that skips one has not
-installed.
+installed. **[spec/INSTALL_QUESTIONS.md](spec/INSTALL_QUESTIONS.md) is the
+canonical list of every question this asks a person**, fresh install or
+migration alike — edit that table, not the prose in this file or SETUP.md,
+when a question is added, dropped or reworded.
 
 For what each practice is and why, read [practices/](practices/) — indexed
 by [MAP.md](MAP.md), one rule at a time with
