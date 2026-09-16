@@ -5250,6 +5250,17 @@ ITEM_N_PHRASE_RE = re.compile(
 # cutover (Part 4.4 step 1): the stub this migration left behind is prose
 # only, never a bulleted item.
 TODO_OLD_ITEM_BULLET_RE = re.compile(r'^-\s+(?:\[ \]\s+)?(?:<a id="|\*\*)', re.M)
+# This sub-check only makes sense once TODO.md HAS become the redirect
+# stub -- a downstream project installed from templates/TODO.md.template
+# never underwent this repo's own 2026-09-16 migration, and its TODO.md
+# opens with "# Repo TODO -- ..." and legitimately carries `- [ ]
+# **Title:**` bullets under "## Recurring" (the same shape the stub
+# forbids). Firing on every TODO.md regardless of that heading made this
+# vendored check block a clean install of every downstream project the
+# moment it ran precedent_check.py against its own fresh template --
+# caught by check_installer_produces_a_clean_install's fixture, which
+# installs into a scratch repo and expects `0 violated`.
+TODO_STUB_HEADING_RE = re.compile(r'\A#\s+TODO has moved\b')
 # This check's own file (it must be able to document the very shapes it
 # forbids), the migration's own historical records (a mapping table and a
 # measured-in-the-past spec, both meant to freeze old identifiers on
@@ -5312,7 +5323,7 @@ def _todo_gotcha_stale_reference(ctx):
             for m in pat.finditer(text):
                 line_no = text.count('\n', 0, m.start()) + 1
                 out.append(Finding(f'{rel}:{line_no}', f'{m.group(0)!r} {label}'))
-        if rel == 'TODO.md':
+        if rel == 'TODO.md' and TODO_STUB_HEADING_RE.match(text):
             for m in TODO_OLD_ITEM_BULLET_RE.finditer(text):
                 line_no = text.count('\n', 0, m.start()) + 1
                 out.append(Finding(f'{rel}:{line_no}',
