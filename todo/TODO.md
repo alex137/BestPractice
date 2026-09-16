@@ -115,6 +115,7 @@
 | [`todo-2026-09-14-set-ci-skips-vendored-tests`](todo-2026-09-14-set-ci-skips-vendored-tests.md) | No practice set's CI runs the vendored checks' own test suite, so a red suite sits under a green pull request. | 2d | wait | two calls: whether the suite belongs in the `precedent-check` workflow or its ow… |
 | [`todo-2026-09-14-team-sets-carry-no-engine-refresh-workflow`](todo-2026-09-14-team-sets-carry-no-engine-refresh-workflow.md) | The weekly engine-refresh cron is dead in all four practice sets. What survives it is the finding underneath: a set's ve | 2d | wait |  |
 | [`todo-2026-09-14-workflow-run-is-not-gated`](todo-2026-09-14-workflow-run-is-not-gated.md) | `CODEOWNERS` gates the merge of an edited workflow, not its first run. | 2d | wait | verifying the run behaviour itself against GitHub's own documentation, which a h… |
+| [`todo-2026-09-16-review-portability-plan`](todo-2026-09-16-review-portability-plan.md) | Review [spec/PROVIDER_PORTABILITY_PLAN.md](../spec/PROVIDER_PORTABILITY_PLAN.md) | 0d | ask |  |
 
 ## Decisions (the Person's Call)
 
