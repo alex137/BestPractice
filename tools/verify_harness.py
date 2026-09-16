@@ -22219,6 +22219,17 @@ def check_todo_gotcha_stale_reference_fires():
     out = run({'AGENTS.md': 'nothing here resembles any of the three shapes\n'})
     cases.append(('unrelated prose raises nothing', out == [], repr(out)))
 
+    out = run({'TODO.md': ('# Repo TODO — open analyses, verifications, and decisions\n\n'
+                           '## Recurring\n\n'
+                           '- [ ] **Precedent check-in:** review vendored changes.\n')})
+    cases.append(("a downstream project's own (never-migrated) TODO.md, still "
+                  "carrying the classic template's own bullets, raises nothing "
+                  "-- this repo's cutover does not bind a project that never "
+                  "adopted the stub (caught by "
+                  "check_installer_produces_a_clean_install: a fresh install "
+                  "from templates/TODO.md.template was failing this check)",
+                  out == [], repr(out)))
+
     bad = [(c[0], c[2]) for c in cases if not c[1]]
     check(f'todo-gotcha-stale-reference catches its three named shapes and '
           f'the two same-document exemptions do not false-positive '
