@@ -1222,35 +1222,97 @@ def _follow_gotcha_index(root, entries):
     return out
 
 
-def _gotchas_currency(repo_dir):
-    """-> (rows, findings) -- a reading list for the gotchas section.
+def _reroot_md_links(body, base):
+    """-> body with every markdown link's target rewritten from being
+    relative to `base` to being relative to the repo root.
 
-    rows are (tokens, line, title, [signals]) for every entry, so the caller
-    can order a reduction pass by what trimming each one would actually save
-    rather than by which happened to trip a signal.
+    Same normalization _follow_gotcha_index needs for a record living in a
+    subdirectory, needed here for the same reason: gotchas/*.md's own
+    relative links (`../tools/x.py`) are correct from gotchas/, and every
+    signal below resolves a named path against the repo root, so handed the
+    text unrooted the pass reports every such link as missing. Backtick
+    paths (`tools/x.py`, no link markup) are untouched -- they are prose
+    written root-relative already and were never relocated.
+    """
+    import posixpath
+    return re.sub(
+        r'\]\((?!https?://|mailto:|#)([^)]+)\)',
+        lambda m: '](' + posixpath.normpath(posixpath.join(base, m.group(1)))
+                  + ')',
+        body)
+
+
+def _gotcha_file_entries(gotchas_dir):
+    """-> [(loc, title, body)] for every status: live gotchas/gotcha-*.md
+    file, `loc` being the file's own slug (there is no AGENTS.md line number
+    once the catalogue lives here) and `body` its Story text, which is what
+    every signal below actually scans (dates, remedy paths, check slugs,
+    fixture names)."""
+    import posixpath
+    base = posixpath.basename(str(gotchas_dir).rstrip('/'))
+    out = []
+    for p in sorted(gotchas_dir.glob('gotcha-*.md')):
+        text = p.read_text(encoding='utf-8', errors='replace')
+        status_m = re.search(r'^status:\s*(\S+)', text, re.M)
+        if not status_m or status_m.group(1).strip() != 'live':
+            continue
+        sm = re.search(r'^##\s*Symptom\s*\n+(.+?)(?:\n\n|\n##|\Z)', text,
+                       re.M | re.S)
+        title = ' '.join((sm.group(1) if sm else p.stem).split())
+        story_m = re.search(r'^##\s*Story\s*\n+(.*?)(?:\n##\s*Fix|\Z)', text,
+                            re.M | re.S)
+        body = story_m.group(1) if story_m else text
+        out.append((p.stem, title, _reroot_md_links(body, base)))
+    return out
+
+
+def _gotchas_currency(repo_dir):
+    """-> (rows, findings) -- a reading list for the gotcha catalogue.
+
+    rows are (tokens, loc, title, [signals]) for every live entry, so the
+    caller can order a reduction pass by what trimming each one would
+    actually save rather than by which happened to trip a signal. `loc` is
+    an AGENTS.md line number (as `L123`) on the pre-migration shape, or a
+    gotchas/*.md slug once a repo has migrated -- cosmetic either way, never
+    parsed back.
     """
     root = pathlib.Path(repo_dir)
-    f = root / 'AGENTS.md'
-    if not f.is_file():
-        return [], []
-    text = f.read_text(encoding='utf-8', errors='replace')
-    head = re.search(r'(?m)^## .*' + re.escape(_GOTCHA_HEADING) + r'.*$', text)
-    if not head:
-        return [], []
-    after = re.search(r'(?m)^## ', text[head.end():])
-    sec = text[head.start():head.end() + (after.start() if after else len(text))]
-    entries = _md_bullet_entries(sec, text[:head.start()].count('\n'))
-    if not entries:
-        return [], []
 
-    # A SPLIT section is an index: one line per trap in AGENTS.md, the entry
-    # itself in a linked record (practice: environment-gotchas). Every signal
-    # below reads the entry's BODY -- the dates, the remedy paths, the check
-    # slugs, the fixture names -- so on a split section the bodies here are
-    # one sentence of symptom and the pass would go quietly blind, reporting
-    # a clean bill of health for a section it never actually read. Follow the
-    # link. Unsplit repos are untouched: nothing matches, nothing is swapped.
-    entries = _follow_gotcha_index(root, entries)
+    # The 2026-09-16 shape (spec/OPEN_ITEM_AND_GOTCHA_PLAN.md Part 2): one
+    # file per trap under gotchas/, AGENTS.md carrying only a pointer with
+    # no entries of its own. Checked FIRST and unconditionally -- a repo
+    # that has migrated has nothing left in AGENTS.md's section for the
+    # fallback below to find, which is the point of the migration, not a
+    # degradation this pass should read as "nothing to check".
+    gotchas_dir = root / 'gotchas'
+    if gotchas_dir.is_dir() and sorted(gotchas_dir.glob('gotcha-*.md')):
+        entries = _gotcha_file_entries(gotchas_dir)
+        if not entries:
+            return [], []
+    else:
+        f = root / 'AGENTS.md'
+        if not f.is_file():
+            return [], []
+        text = f.read_text(encoding='utf-8', errors='replace')
+        head = re.search(r'(?m)^## .*' + re.escape(_GOTCHA_HEADING) + r'.*$', text)
+        if not head:
+            return [], []
+        after = re.search(r'(?m)^## ', text[head.end():])
+        sec = text[head.start():head.end() + (after.start() if after else len(text))]
+        entries = _md_bullet_entries(sec, text[:head.start()].count('\n'))
+        if not entries:
+            return [], []
+
+        # A SPLIT section is an index: one line per trap in AGENTS.md, the
+        # entry itself in a linked record (practice: environment-gotchas).
+        # Every signal below reads the entry's BODY -- the dates, the remedy
+        # paths, the check slugs, the fixture names -- so on a split section
+        # the bodies here are one sentence of symptom and the pass would go
+        # quietly blind, reporting a clean bill of health for a section it
+        # never actually read. Follow the link. Unsplit repos are untouched:
+        # nothing matches, nothing is swapped.
+        entries = _follow_gotcha_index(root, entries)
+        entries = [(f'L{line}', title, body) for line, title, body in entries]
 
     slugs = _gotcha_check_slugs(repo_dir)
     tools_text = ''
@@ -1280,7 +1342,7 @@ def _gotchas_currency(repo_dir):
         return val
 
     rows, findings, undated = [], [], []
-    for line, title, body in entries:
+    for loc, title, body in entries:
         signals, named = [], set()
         for raw in _GOTCHA_MD_LINK.findall(body):
             tgt = raw.split('#')[0].strip()
@@ -1336,18 +1398,18 @@ def _gotchas_currency(repo_dir):
                 if lead:
                     signals.append(f'the tree moved on after {newest}: '
                                    + '; '.join(lead[:2]))
-        rows.append((bv._approx_tokens(body), line, title, signals))
+        rows.append((bv._approx_tokens(body), loc, title, signals))
         if not dates:
-            undated.append((bv._approx_tokens(body), line))
+            undated.append((bv._approx_tokens(body), loc))
 
     flagged = [r for r in rows if r[3]]
     if flagged:
         findings.append(
-            'REVIEW   AGENTS.md :: the gotchas section -- '
+            'REVIEW   the gotcha catalogue -- '
             f'{len(flagged)} of {len(rows)} entries raise a currency question '
             f'({sum(r[0] for r in flagged):,} tokens between them).')
-        for tok, line, title, signals in sorted(flagged, key=lambda r: -r[0]):
-            findings.append(f'  {tok:5,d} tok  L{line}  "{title[:64]}"')
+        for tok, loc, title, signals in sorted(flagged, key=lambda r: -r[0]):
+            findings.append(f'  {tok:5,d} tok  {loc}  "{title[:64]}"')
             for s in signals:
                 findings.append(f'            - {s}')
         findings.append(
@@ -1355,8 +1417,10 @@ def _gotchas_currency(repo_dir):
             'anything.\n  An entry may name a file that is gone precisely '
             'because it tells the story\n  of a decommission, and an old date '
             'on a trap nobody has hit lately is not\n  a trap that cannot '
-            'fire. Verify against the tree, then move what no longer\n  bites '
-            'to record/GOTCHAS_ARCHIVE.md IN FULL, with the verdict that '
+            'fire. Verify against the tree, then retire what no longer bites '
+            'IN FULL --\n  flip `status: retired` in its own gotchas/*.md '
+            'file (or move it to\n  record/GOTCHAS_ARCHIVE.md on the '
+            'pre-migration shape), with the verdict that '
             'moved it.')
     if undated:
         findings.append(
@@ -4910,8 +4974,8 @@ def _main(box):
         _big = sorted(_gc_rows, key=lambda r: -r[0])[:5]
         print("\n  Largest entries, whatever they signalled -- a reduction "
               "pass ordered by\n  what it would actually save:")
-        for _tok, _line, _title, _sig in _big:
-            print(f"  {_tok:5,d} tok  L{_line}  {_title[:62]}")
+        for _tok, _loc, _title, _sig in _big:
+            print(f"  {_tok:5,d} tok  {_loc}  {_title[:62]}")
         print(f"  {sum(r[0] for r in _gc_rows):5,d} tok  "
               f"{len(_gc_rows)} entries, whole section")
     print("\n  Do NOT optimise for the total. These entries exist because "

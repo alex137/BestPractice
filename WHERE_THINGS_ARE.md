@@ -113,8 +113,8 @@ not it is read.
 | CI checks for shell-less agents (install, require) | [GITHUB_ACTIONS.md](GITHUB_ACTIONS.md) |
 | Whether anything catches a drifted `MAP.md`, `GLOSSARY.md` or loader block in a practice SET (two things do) | [templates/github-actions/views-drift.yml.template](templates/github-actions/views-drift.yml.template) and [templates/github-actions/precedent-check.yml.template](templates/github-actions/precedent-check.yml.template); whether a set needs both is [TODO.md's `views-drift-vs-suite-workflow`](todo/todo-2026-09-13-views-drift-vs-suite-workflow.md) |
 | Upstream open items / roadmap | [TODO.md](TODO.md) |
-| The full story behind any line in the gotchas index, unabridged | [record/GOTCHAS.md](record/GOTCHAS.md) |
-| Gotchas that were shortened or retired, with the verdict that moved each one | [record/GOTCHAS_ARCHIVE.md](record/GOTCHAS_ARCHIVE.md) |
+| The full story behind any environment trap, one file each | [gotchas/](gotchas/) (generated overview: [gotchas/INDEX.md](gotchas/INDEX.md)) |
+| Gotchas that no longer fire, with the verdict that retired each one | [gotchas/](gotchas/) (`status: retired` in the file, in place -- nothing moves) |
 | GitAround — the reading view this work spun out | [alex137/GitAround](https://github.com/alex137/GitAround), a separate product since 2026-08-14; a branch here still staging it under proposals/ is superseded, and its documents live there now |
 | Slide-deck engine + deck conventions | [deck/](deck/) — engine [build_deck.py](deck/build_deck.py), practice in [deck/README.md](deck/README.md) |
 | Portable audits | [tools/](tools/) — [doc_lint.py](tools/doc_lint.py), [practice_audit.py](tools/practice_audit.py), [checkin.py](tools/checkin.py) |

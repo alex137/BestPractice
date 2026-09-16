@@ -1960,18 +1960,75 @@ def _gotcha_record_entries(rel):
     return out
 
 
+# The 2026-09-16 shape (spec/OPEN_ITEM_AND_GOTCHA_PLAN.md Part 2): one file
+# per trap under gotchas/gotcha-<date>-<slug>.md, frontmatter plus
+# `## Symptom` / `## Story` / `## Fix`. The instructions file carries only a
+# pointer -- no entries to parse there at all -- so the story test moves to
+# reading these files directly, in place of following AGENTS.md's index into
+# a linked record. A repo that has not migrated (no gotchas/ directory, or
+# an empty one) falls through to the pre-migration logic below unchanged,
+# so this universal check does not start failing every not-yet-migrated
+# consumer the day it is vendored.
+_GOTCHA_FM_FIELD_RE = re.compile(r'^([a-z_]+):\s*(.*)$')
+
+
+def _read_gotcha_files(root):
+    """-> [(path, status, symptom_ok, story_words, story_sentences)] for every
+    gotchas/gotcha-*.md file, or None if the directory does not exist or has
+    no such files (caller falls back to the pre-migration shape).
+    """
+    d = pathlib.Path(root) / 'gotchas'
+    if not d.is_dir():
+        return None
+    files = sorted(d.glob('gotcha-*.md'))
+    if not files:
+        return None
+    out = []
+    for f in files:
+        try:
+            text = f.read_text(encoding='utf-8', errors='replace')
+        except OSError:
+            continue
+        if not text.startswith('---\n'):
+            out.append((f, None, False, 0, 0))
+            continue
+        end = text.find('\n---', 4)
+        fields = {}
+        if end != -1:
+            for line in text[4:end].splitlines():
+                mm = _GOTCHA_FM_FIELD_RE.match(line)
+                if mm:
+                    fields[mm.group(1)] = mm.group(2).strip()
+        status = fields.get('status')
+        body = text[end:] if end != -1 else text
+        sm = re.search(r'^##\s*Symptom\s*\n+(.+?)(?:\n\n|\n##|\Z)', body,
+                       re.M | re.S)
+        symptom_ok = bool(sm and sm.group(1).strip())
+        # The story test reads Story AND Fix together: several migrated
+        # entries could not be split cleanly and carry a placeholder Fix
+        # ("read ## Story"), which must not itself read as a bare fix.
+        story_m = re.search(r'^##\s*Story\s*\n+(.*?)(?:\n##\s*Fix|\Z)', body,
+                            re.M | re.S)
+        story = story_m.group(1) if story_m else ''
+        words = len(story.split())
+        sentences = len([s for s in re.split(r'(?<=[.!?])\s', story)
+                         if s.strip()])
+        out.append((f, status, symptom_ok, words, sentences))
+    return out
+
+
 @check('environment-gotchas', 'tree',
-       'the session instructions carry a "do NOT rediscover these" section, '
-       'and every entry in it carries what failed, not only the fix — '
-       'following the link into the record when the section is a split index',
+       'the session instructions point at a gotcha catalogue and every live '
+       'entry in it carries what failed, not only the fix — reading '
+       'gotchas/*.md directly where a repo has migrated to that shape, or '
+       'following the link into the record on the pre-migration shape',
        'whether the story is a good story, whether it is true, or whether the '
-       'section is complete. It tells a one-line command from an entry that '
+       'catalogue is complete. It tells a one-line command from an entry that '
        'took the trouble to say what happened, and no more — padding defeats '
-       'it, and it says so rather than implying otherwise. On a split section '
-       'it checks that every line resolves to a real entry and that the entry '
-       'carries the story; it cannot tell whether the LINE names the symptom '
-       'a session would recognise, which is the half that makes an index '
-       'usable and the half only a person can read.')
+       'it, and it says so rather than implying otherwise. It cannot tell '
+       'whether a gotcha file\'s Symptom names what a session would '
+       'recognise, which is the half that makes the catalogue searchable '
+       'and the half only a person can read.')
 def _environment_gotchas(ctx):
     name, text = _instructions_file()
     m = GOTCHA_HEADING_RE.search(text)
@@ -1979,6 +2036,27 @@ def _environment_gotchas(ctx):
         return [Finding(name, 'has no "do NOT rediscover these" section, so '
                               'every expensive environment discovery is paid '
                               'for again by the next session')]
+
+    gotcha_files = _read_gotcha_files(ROOT)
+    if gotcha_files is not None:
+        out = []
+        live = [g for g in gotcha_files if g[1] == 'live']
+        if not live:
+            return [Finding(name, 'gotchas/ exists but has no status: live '
+                                  'entries')]
+        for f, status, symptom_ok, words, sentences in live:
+            rel = f.relative_to(ROOT)
+            if not symptom_ok:
+                out.append(Finding(str(rel), 'has no ## Symptom section (or '
+                                             'an empty one) -- unfindable by '
+                                             'grep on the failure text'))
+            if words < STORY_MIN_WORDS or sentences < STORY_MIN_SENTENCES:
+                out.append(Finding(str(rel), f'gotcha entry is a bare fix '
+                                             f'({words} words, {sentences} '
+                                             f'{"sentence" if sentences == 1 else "sentences"}) '
+                                             f'with no account of what failed'))
+        return out
+
     rest = text[m.end():]
     end = re.search(r'^#{1,4}\s', rest, re.M)
     section = rest[:end.start()] if end else rest

@@ -508,12 +508,22 @@ retires_when: "nothing has hit this since <date> and the mechanism
 
 ### Generated View
 
-The gotcha index inside [AGENTS.md](../AGENTS.md) stays exactly as it is
-today — one line per live entry, symptom plus link, loaded every session. It
-is generated from `gotchas/*.md` where `status: live`, instead of hand-kept.
-`retires_when` is deliberately **not** shown there even once it's built:
-it's read by whoever is auditing the catalogue, not by every session that
-pays for the index.
+**Superseded 2026-09-16 (`decision_strength: strong`) — see Decisions below.**
+This subsection originally kept the gotcha index inside
+[AGENTS.md](../AGENTS.md) exactly as it stood pre-migration: one line per
+live entry, symptom plus link, loaded every session, generated from
+`gotchas/*.md` instead of hand-kept. That premise did not survive contact
+with the measured cost: the index alone reached 1,736 tokens across 44
+entries, loaded whole every session regardless of whether that session ever
+touched a trap. The generated view now lives at `gotchas/INDEX.md` — the
+same one-line-per-live-entry content, the same source fields — but it is
+**not** `@`-included anywhere and nothing loads it by default.
+[AGENTS.md](../AGENTS.md) carries a short pointer instead: search
+`gotchas/` by symptom keyword before concluding a failure is new
+(practice: `grep-before-search`), with a link to `gotchas/INDEX.md` for the
+deliberate read. `retires_when` is still not shown in the generated view
+once it's built, for the reason already stated: it's for whoever is
+auditing the catalogue, not for every session.
 
 ---
 
@@ -770,6 +780,22 @@ was decided and how firmly — not as a checklist to work through.
    of the plan, not a courtesy left to whoever happens to be driving:
    written here so a session with no memory of this conversation still
    knows to do it.
+4. **`decision_strength: strong` — the gotcha index moves out of AGENTS.md
+   too, not just the stories.** Morgan, 2026-09-16, directly: *"can we
+   change how the gotcha system works so that they're only loaded when
+   needed?"*, after establishing that Part 2's original "Generated View"
+   premise — one line per live entry, loaded every session — was exactly
+   what had grown a still-unsplit dependent repository's inline gotcha
+   stories to ~20,000 tokens, and that BestPractice's own already-split
+   index was headed the same direction at a smaller constant (1,736 tokens,
+   44 entries, no ceiling of its own). Superseded the same day: see Part 2's
+   **Generated View** above for what replaced it, and
+   [tools/session_load_budgets.json](../tools/session_load_budgets.json)'s
+   `AGENTS.md` entry for the measured before/after. Not yet rolled out to
+   that dependent repository — Part 4.3 already says gotchas don't migrate
+   cross-repo, so its own split (inline stories into its own `gotchas/`,
+   plus this same AGENTS.md-pointer treatment) is separate, follow-up work
+   in that repository, on request.
 
 ---
 
@@ -791,81 +817,81 @@ file's history; `Words` is how long the item has grown.
 
 | Item | Since | Words | Disp. | What it is |
 |---|---|---|---|---|
-| [`roll-out-four-pass-restructure`](../TODO.md#roll-out-four-pass-restructure) | ≤09-06 | 262 | wait | Roll the very deep check's four-pass restructure out to `precedent-team-repo-maintenance`' own `deep-check` |
-| [`attach-private-sources`](../TODO.md#attach-private-sources) | ≤09-06 | 883 | wait | Run one session rooted at each private set — this unblocks four other items at once |
-| [`source-repo-consumes-no-catalogue`](../TODO.md#source-repo-consumes-no-catalogue) | ≤09-06 | 120 | wait | A source repo consumes no catalogue, so it cannot check itself |
-| [`decision-strength-private-sources`](../TODO.md#decision-strength-private-sources) | 09-09 | 167 | wait | Carry `decision-strength` into the two private practice sets |
-| [`source-hook-drift`](../TODO.md#source-hook-drift) | 09-09 | 1480 | wait | Decide whether a drifted-but-present session hook in a practice-set source gets brought up to canonical automatically |
-| [`stale-days-does-not-travel`](../TODO.md#stale-days-does-not-travel) | 09-10 | 325 | wait | Decide whether the four private practice sets should declare their own `branch_stale_days` |
-| [`source-load-ceilings`](../TODO.md#source-load-ceilings) | 09-11 | 150 | wait | Declare session-load ceilings in the attached practice-set sources, and measure the real total a session pays |
-| [`provenance-check-skips-in-a-source-set`](../TODO.md#provenance-check-skips-in-a-source-set) | 09-11 | 828 | wait | A universal practice's mechanical check could not bind a source set, so sets relied on checks that silently skipped there |
-| [`source-sets-vendor-the-broken-clause-matcher`](../TODO.md#source-sets-vendor-the-broken-clause-matcher) | 09-11 | 227 | wait | All four practice-set sources vendor the pre-fix `Source:` clause matcher |
-| [`source-name-check-cannot-run-in-a-hosted-session`](../TODO.md#source-name-check-cannot-run-in-a-hosted-session) | 09-11 | 299 | wait | The source-name check reports UNVERIFIED for every private source in a hosted session, which is where most vendor updates happen |
-| [`source-sets-declare-adapters`](../TODO.md#source-sets-declare-adapters) | 09-12 | 183 | wait | Have the private source sets declare their harness adapters |
-| [`views-drift-vs-suite-workflow`](../TODO.md#views-drift-vs-suite-workflow) | 09-13 | 335 | wait | Decide whether a source set that runs the whole check suite in continuous integration should still carry `views-drift.yml` |
-| [`wire-individual-hook-in-existing-sets`](../TODO.md#wire-individual-hook-in-existing-sets) | 09-13 | 467 | wait | Wire `precedent-individual-bootstrap.sh` into the four practice sets that already exist |
-| [`source-set-runs-no-universal-checks`](../TODO.md#source-set-runs-no-universal-checks) | 09-13 | 406 | ask | A practice set now READS the universal rules and still RUNS none of universal's mechanical checks |
-| [`vendor-very-deep-check-into-sets`](../TODO.md#vendor-very-deep-check-into-sets) | 09-13 | 475 | ask | Vendor `very_deep_check.py` into the practice sets, so a set can audit its own always-loaded files instead of only gating new ones |
-| [`source-set-push-triggers`](../TODO.md#source-set-push-triggers) | 09-14 | 397 | wait | The four practice sets still run their checks on `pull_request` only, so a direct push to one runs nothing |
-| [`set-ci-skips-vendored-tests`](../TODO.md#set-ci-skips-vendored-tests) | 09-14 | 166 | wait | No practice set's CI runs the vendored checks' own test suite, so a red suite sits under a green pull request |
-| [`set-cannot-show-a-universal-practice`](../TODO.md#set-cannot-show-a-universal-practice) | 09-14 | 317 | wait | In a practice SET, `precedent_show.py SLUG` cannot read any universal practice — and the generated file that delivers those practices tells its reader to run exactly that command |
+| [`roll-out-four-pass-restructure`](../todo/todo-2026-09-06-roll-out-four-pass-restructure.md) | ≤09-06 | 262 | wait | Roll the very deep check's four-pass restructure out to `precedent-team-repo-maintenance`' own `deep-check` |
+| [`attach-private-sources`](../todo/todo-2026-09-06-attach-private-sources.md) | ≤09-06 | 883 | wait | Run one session rooted at each private set — this unblocks four other items at once |
+| [`source-repo-consumes-no-catalogue`](../todo/todo-2026-09-06-source-repo-consumes-no-catalogue.md) | ≤09-06 | 120 | wait | A source repo consumes no catalogue, so it cannot check itself |
+| [`decision-strength-private-sources`](../todo/todo-2026-09-09-decision-strength-private-sources.md) | 09-09 | 167 | wait | Carry `decision-strength` into the two private practice sets |
+| [`source-hook-drift`](../todo/todo-2026-09-09-source-hook-drift.md) | 09-09 | 1480 | wait | Decide whether a drifted-but-present session hook in a practice-set source gets brought up to canonical automatically |
+| [`stale-days-does-not-travel`](../todo/todo-2026-09-10-stale-days-does-not-travel.md) | 09-10 | 325 | wait | Decide whether the four private practice sets should declare their own `branch_stale_days` |
+| [`source-load-ceilings`](../todo/todo-2026-09-11-source-load-ceilings.md) | 09-11 | 150 | wait | Declare session-load ceilings in the attached practice-set sources, and measure the real total a session pays |
+| [`provenance-check-skips-in-a-source-set`](../todo/todo-2026-09-11-provenance-check-skips-in-a-source-set.md) | 09-11 | 828 | wait | A universal practice's mechanical check could not bind a source set, so sets relied on checks that silently skipped there |
+| [`source-sets-vendor-the-broken-clause-matcher`](../todo/todo-2026-09-11-source-sets-vendor-the-broken-clause-matcher.md) | 09-11 | 227 | wait | All four practice-set sources vendor the pre-fix `Source:` clause matcher |
+| [`source-name-check-cannot-run-in-a-hosted-session`](../todo/todo-2026-09-11-source-name-check-cannot-run-in-a-hosted-session.md) | 09-11 | 299 | wait | The source-name check reports UNVERIFIED for every private source in a hosted session, which is where most vendor updates happen |
+| [`source-sets-declare-adapters`](../todo/todo-2026-09-12-source-sets-declare-adapters.md) | 09-12 | 183 | wait | Have the private source sets declare their harness adapters |
+| [`views-drift-vs-suite-workflow`](../todo/todo-2026-09-13-views-drift-vs-suite-workflow.md) | 09-13 | 335 | wait | Decide whether a source set that runs the whole check suite in continuous integration should still carry `views-drift.yml` |
+| [`wire-individual-hook-in-existing-sets`](../todo/todo-2026-09-13-wire-individual-hook-in-existing-sets.md) | 09-13 | 467 | wait | Wire `precedent-individual-bootstrap.sh` into the four practice sets that already exist |
+| [`source-set-runs-no-universal-checks`](../todo/todo-2026-09-13-source-set-runs-no-universal-checks.md) | 09-13 | 406 | ask | A practice set now READS the universal rules and still RUNS none of universal's mechanical checks |
+| [`vendor-very-deep-check-into-sets`](../todo/todo-2026-09-13-vendor-very-deep-check-into-sets.md) | 09-13 | 475 | ask | Vendor `very_deep_check.py` into the practice sets, so a set can audit its own always-loaded files instead of only gating new ones |
+| [`source-set-push-triggers`](../todo/todo-2026-09-14-source-set-push-triggers.md) | 09-14 | 397 | wait | The four practice sets still run their checks on `pull_request` only, so a direct push to one runs nothing |
+| [`set-ci-skips-vendored-tests`](../todo/todo-2026-09-14-set-ci-skips-vendored-tests.md) | 09-14 | 166 | wait | No practice set's CI runs the vendored checks' own test suite, so a red suite sits under a green pull request |
+| [`set-cannot-show-a-universal-practice`](../todo/todo-2026-09-14-set-cannot-show-a-universal-practice.md) | 09-14 | 317 | wait | In a practice SET, `precedent_show.py SLUG` cannot read any universal practice — and the generated file that delivers those practices tells its reader to run exactly that command |
 
 ### B. Engine Defects, Nothing Blocking — 16 Items
 
 | Item | Since | Words | Disp. | What it is |
 |---|---|---|---|---|
-| [`unreachable-practices`](../TODO.md#unreachable-practices) | ≤09-06 | 757 | wait | Populate `not_binding` for the practices in force here that do not bind this repo |
-| [`background-freshness-fetch`](../TODO.md#background-freshness-fetch) | ≤09-06 | 229 | wait | Consider making the freshness check's fetch asynchronous |
-| [`upstream-notice-silent-when-rooted-above`](../TODO.md#upstream-notice-silent-when-rooted-above) | 09-08 | 218 | wait | The upstream-carry notice is silent in exactly the layout this project requires, and nothing reports its absence |
-| [`small-calls-vs-brainstorm`](../TODO.md#small-calls-vs-brainstorm) | 09-08 | 253 | wait | `small-calls` tells a session to commit during a brainstorm, and nothing mechanical stops it |
-| [`sync-refuses-a-rewind`](../TODO.md#sync-refuses-a-rewind) | 09-10 | 277 | wait | Make `precedent_sync_views.py` refuse a sync that would rewind a practice's content, not just one that would remove the practice outright |
-| [`private-owner-allowlist-inert`](../TODO.md#private-owner-allowlist-inert) | 09-10 | 662 | wait | The repo-reference allowlist is inert here, and this public tree names the account that owns the private practice sets |
-| [`session-practices-reports-unresolved-sources`](../TODO.md#session-practices-reports-unresolved-sources) | 09-11 | 233 | wait | `.precedent/SESSION_PRACTICES.md` can report a source as unresolved that resolved fine minutes later — and a session reading it believes those practices are absent |
-| [`consumer-views-drift-uncheckable-in-ci`](../TODO.md#consumer-views-drift-uncheckable-in-ci) | 09-11 | 266 | wait | A consuming repo's generated loader block cannot be drift-checked in CI, and today nothing checks it anywhere |
-| [`renamed-team-source-not-in-allowlist`](../TODO.md#renamed-team-source-not-in-allowlist) | 09-11 | 584 | wait | Nothing checks that a rename carried its allowlist entry |
-| [`figures-reach-commit-messages-ungated`](../TODO.md#figures-reach-commit-messages-ungated) | 09-11 | 512 | wait | A figure can reach a commit message without anything checking it, and it did twice in two days |
-| [`source-clause-check-reads-only-html-comments`](../TODO.md#source-clause-check-reads-only-html-comments) | 09-11 | 226 | wait | The `Source:` clause check reads only HTML comments, so a generated file whose header is a `#` comment is never asked for one |
-| [`consuming-repo-clause-clears-on-vendor-update`](../TODO.md#consuming-repo-clause-clears-on-vendor-update) | 09-11 | 156 | wait | Confirm the consuming repo's `Source:` clause actually clears, rather than assuming it |
-| [`reply-check-cannot-forbid`](../TODO.md#reply-check-cannot-forbid) | 09-14 | 281 | wait | The reply check can only REQUIRE text, never forbid it — so every practice about what a reply must NOT contain is unenforceable by it |
-| [`consumer-cannot-resolve-upstream-commit`](../TODO.md#consumer-cannot-resolve-upstream-commit) | 09-14 | 1738 | ask | A consumer repo cannot read upstream's own text at `upstream.commit` — nothing local resolves it — so no check that runs there may assume it can |
-| [`engine-root-in-a-vendored-tree`](../TODO.md#engine-root-in-a-vendored-tree) | 09-14 | 205 | wait | Five engine tools read the wrong repo when vendored, and five more have not been checked |
-| [`sync-views-blames-a-dropped-source-for-a-retirement`](../TODO.md#sync-views-blames-a-dropped-source-for-a-retirement) | 09-14 | 167 | wait | A retired practice is reported as one whose SOURCE was dropped, and a renamed source would read identically |
+| [`unreachable-practices`](../todo/todo-2026-09-06-unreachable-practices.md) | ≤09-06 | 757 | wait | Populate `not_binding` for the practices in force here that do not bind this repo |
+| [`background-freshness-fetch`](../todo/todo-2026-09-06-background-freshness-fetch.md) | ≤09-06 | 229 | wait | Consider making the freshness check's fetch asynchronous |
+| [`upstream-notice-silent-when-rooted-above`](../todo/todo-2026-09-08-upstream-notice-silent-when-rooted-above.md) | 09-08 | 218 | wait | The upstream-carry notice is silent in exactly the layout this project requires, and nothing reports its absence |
+| [`small-calls-vs-brainstorm`](../todo/todo-2026-09-08-small-calls-vs-brainstorm.md) | 09-08 | 253 | wait | `small-calls` tells a session to commit during a brainstorm, and nothing mechanical stops it |
+| [`sync-refuses-a-rewind`](../todo/todo-2026-09-10-sync-refuses-a-rewind.md) | 09-10 | 277 | wait | Make `precedent_sync_views.py` refuse a sync that would rewind a practice's content, not just one that would remove the practice outright |
+| [`private-owner-allowlist-inert`](../todo/todo-2026-09-10-private-owner-allowlist-inert.md) | 09-10 | 662 | wait | The repo-reference allowlist is inert here, and this public tree names the account that owns the private practice sets |
+| [`session-practices-reports-unresolved-sources`](../todo/todo-2026-09-11-session-practices-reports-unresolved-sources.md) | 09-11 | 233 | wait | `.precedent/SESSION_PRACTICES.md` can report a source as unresolved that resolved fine minutes later — and a session reading it believes those practices are absent |
+| [`consumer-views-drift-uncheckable-in-ci`](../todo/todo-2026-09-11-consumer-views-drift-uncheckable-in-ci.md) | 09-11 | 266 | wait | A consuming repo's generated loader block cannot be drift-checked in CI, and today nothing checks it anywhere |
+| [`renamed-team-source-not-in-allowlist`](../todo/todo-2026-09-11-renamed-team-source-not-in-allowlist.md) | 09-11 | 584 | wait | Nothing checks that a rename carried its allowlist entry |
+| [`figures-reach-commit-messages-ungated`](../todo/todo-2026-09-11-figures-reach-commit-messages-ungated.md) | 09-11 | 512 | wait | A figure can reach a commit message without anything checking it, and it did twice in two days |
+| [`source-clause-check-reads-only-html-comments`](../todo/todo-2026-09-11-source-clause-check-reads-only-html-comments.md) | 09-11 | 226 | wait | The `Source:` clause check reads only HTML comments, so a generated file whose header is a `#` comment is never asked for one |
+| [`consuming-repo-clause-clears-on-vendor-update`](../todo/todo-2026-09-11-consuming-repo-clause-clears-on-vendor-update.md) | 09-11 | 156 | wait | Confirm the consuming repo's `Source:` clause actually clears, rather than assuming it |
+| [`reply-check-cannot-forbid`](../todo/todo-2026-09-14-reply-check-cannot-forbid.md) | 09-14 | 281 | wait | The reply check can only REQUIRE text, never forbid it — so every practice about what a reply must NOT contain is unenforceable by it |
+| [`consumer-cannot-resolve-upstream-commit`](../todo/todo-2026-09-14-consumer-cannot-resolve-upstream-commit.md) | 09-14 | 1738 | ask | A consumer repo cannot read upstream's own text at `upstream.commit` — nothing local resolves it — so no check that runs there may assume it can |
+| [`engine-root-in-a-vendored-tree`](../todo/todo-2026-09-14-engine-root-in-a-vendored-tree.md) | 09-14 | 205 | wait | Five engine tools read the wrong repo when vendored, and five more have not been checked |
+| [`sync-views-blames-a-dropped-source-for-a-retirement`](../todo/todo-2026-09-14-sync-views-blames-a-dropped-source-for-a-retirement.md) | 09-14 | 167 | wait | A retired practice is reported as one whose SOURCE was dropped, and a renamed source would read identically |
 
 ### C. Decisions — 10 Items
 
 | Item | Since | Words | Disp. | What it is |
 |---|---|---|---|---|
-| [`github-issues-for-open-items`](../TODO.md#github-issues-for-open-items) | ≤09-06 | 46 | wait | Evaluate GitHub Issues for open items |
-| [`reduce-github-dependency`](../TODO.md#reduce-github-dependency) | ≤09-06 | 72 | wait | Reduce GitHub dependency when ready |
-| [`individual-practice-scoping`](../TODO.md#individual-practice-scoping) | ≤09-06 | 68 | wait | `for_team:`/`in_repos:` individual-practice scoping |
-| [`retire-merge-target-practice`](../TODO.md#retire-merge-target-practice) | ≤09-06 | 897 | wait | Retire local/practices/merge-target-is-beta-branch.md (and its check at local/tools/checks/check_merge_target_is_beta_branch.py, and the pointer in AGENTS.md's opening paragraph) the moment Alex reviews and merges `precedent-beta-v01` into `main` for real |
-| [`relax-the-pinned-branch-hold`](../TODO.md#relax-the-pinned-branch-hold) | ≤09-06 | 418 | wait | Relax the pinned-branch hold once the fix has run through real sync cycles |
-| [`review-skill-level-permissions`](../TODO.md#review-skill-level-permissions) | 09-10 | 629 | ask | Review the whole technical/non-technical permission split, now that the pieces are in three separate places |
-| [`repo-name-regex-shape`](../TODO.md#repo-name-regex-shape) | 09-11 | 292 | wait | Think about the shape of the leak gate's repository-name rule: it refuses `owner/name` and ignores `name` |
-| [`my-options-includes-doing-nothing`](../TODO.md#my-options-includes-doing-nothing) | 09-12 | 145 | wait | Decide whether "My options" must always list the do-nothing option |
-| [`universal-adapters-undeclared`](../TODO.md#universal-adapters-undeclared) | 09-12 | 160 | wait | Decide whether THIS repository declares its own harness adapters |
-| [`reply-check-rollout`](../TODO.md#reply-check-rollout) | 09-13 | 538 | ask | Roll the blocking reply check out to the sources that want one, and land the individual set's half |
+| [`github-issues-for-open-items`](../todo/todo-2026-09-06-github-issues-for-open-items.md) | ≤09-06 | 46 | wait | Evaluate GitHub Issues for open items |
+| [`reduce-github-dependency`](../todo/todo-2026-09-06-reduce-github-dependency.md) | ≤09-06 | 72 | wait | Reduce GitHub dependency when ready |
+| [`individual-practice-scoping`](../todo/todo-2026-09-06-individual-practice-scoping.md) | ≤09-06 | 68 | wait | `for_team:`/`in_repos:` individual-practice scoping |
+| [`retire-merge-target-practice`](../todo/todo-2026-09-06-retire-merge-target-practice.md) | ≤09-06 | 897 | wait | Retire local/practices/merge-target-is-beta-branch.md (and its check at local/tools/checks/check_merge_target_is_beta_branch.py, and the pointer in AGENTS.md's opening paragraph) the moment Alex reviews and merges `precedent-beta-v01` into `main` for real |
+| [`relax-the-pinned-branch-hold`](../todo/todo-2026-09-06-relax-the-pinned-branch-hold.md) | ≤09-06 | 418 | wait | Relax the pinned-branch hold once the fix has run through real sync cycles |
+| [`review-skill-level-permissions`](../todo/todo-2026-09-10-review-skill-level-permissions.md) | 09-10 | 629 | ask | Review the whole technical/non-technical permission split, now that the pieces are in three separate places |
+| [`repo-name-regex-shape`](../todo/todo-2026-09-11-repo-name-regex-shape.md) | 09-11 | 292 | wait | Think about the shape of the leak gate's repository-name rule: it refuses `owner/name` and ignores `name` |
+| [`my-options-includes-doing-nothing`](../todo/todo-2026-09-12-my-options-includes-doing-nothing.md) | 09-12 | 145 | wait | Decide whether "My options" must always list the do-nothing option |
+| `universal-adapters-undeclared` | 09-12 | 160 | wait | Decide whether THIS repository declares its own harness adapters |
+| [`reply-check-rollout`](../todo/todo-2026-09-13-reply-check-rollout.md) | 09-13 | 538 | ask | Roll the blocking reply check out to the sources that want one, and land the individual set's half |
 
 ### D. Waiting on the Outside World — 5 Items
 
 | Item | Since | Words | Disp. | What it is |
 |---|---|---|---|---|
-| [`plain-chatgpt-write-support`](../TODO.md#plain-chatgpt-write-support) | ≤09-06 | 43 | wait | Re-verify plain-ChatGPT write support |
-| [`grok-workflow`](../TODO.md#grok-workflow) | ≤09-06 | 28 | wait | Verify a Grok workflow |
-| [`companion-mobile-app`](../TODO.md#companion-mobile-app) | ≤09-06 | 66 | wait | Companion mobile app, if the Shortcut proves insufficient |
-| [`additionalcontext-reaches-the-model`](../TODO.md#additionalcontext-reaches-the-model) | ≤09-06 | 194 | wait | Confirm `additionalContext` actually reaches the model, not just the transcript |
-| [`cross-owner-add-repo-push`](../TODO.md#cross-owner-add-repo-push) | 09-09 | 258 | wait | Measure whether `add_repo` refuses a cross-owner attachment in the REVERSE direction, with `access: "push"` |
+| [`plain-chatgpt-write-support`](../todo/todo-2026-09-06-plain-chatgpt-write-support.md) | ≤09-06 | 43 | wait | Re-verify plain-ChatGPT write support |
+| [`grok-workflow`](../todo/todo-2026-09-06-grok-workflow.md) | ≤09-06 | 28 | wait | Verify a Grok workflow |
+| [`companion-mobile-app`](../todo/todo-2026-09-06-companion-mobile-app.md) | ≤09-06 | 66 | wait | Companion mobile app, if the Shortcut proves insufficient |
+| [`additionalcontext-reaches-the-model`](../todo/todo-2026-09-06-additionalcontext-reaches-the-model.md) | ≤09-06 | 194 | wait | Confirm `additionalContext` actually reaches the model, not just the transcript |
+| `cross-owner-add-repo-push` | 09-09 | 258 | wait | Measure whether `add_repo` refuses a cross-owner attachment in the REVERSE direction, with `access: "push"` |
 
 ### E. Waiting on a Project, Person or Phase That Does Not Exist Yet — 8 Items
 
 | Item | Since | Words | Disp. | What it is |
 |---|---|---|---|---|
-| [`actions-as-enforcement-layer`](../TODO.md#actions-as-enforcement-layer) | ≤09-06 | 128 | wait | Lean further into GitHub Actions as the enforcement layer |
-| [`out-of-chat-notifications`](../TODO.md#out-of-chat-notifications) | ≤09-06 | 58 | wait | Out-of-chat change notifications for members |
-| [`contributor-access`](../TODO.md#contributor-access) | 09-11 | 175 | wait | Run the contributor-access plan for real |
-| [`document-project-pilot`](../TODO.md#document-project-pilot) | ≤09-06 | 67 | wait | Run the document-project pilot once Morgan has a real first project |
-| [`gates-absent-from-main`](../TODO.md#gates-absent-from-main) | 09-07 | 416 | wait | Put the leak gate on `main`; the deep check cannot go there until the merge-back |
-| [`whatsapp-bridge-research`](../TODO.md#whatsapp-bridge-research) | 09-09 | 515 | wait | Verify the chat bridge's platform claims against the platforms, or drop it |
-| [`audit-trail-item-placement`](../TODO.md#audit-trail-item-placement) | 09-09 | 165 | wait | Confirm where the audit-trail item belongs in philosophy/AI_GOVERNANCE_TO_COCREATE.md |
-| [`retire-a-practice-source`](../TODO.md#retire-a-practice-source) | 09-10 | 276 | wait | Write the retirement sequence for a practice SOURCE, from the one real run |
+| [`actions-as-enforcement-layer`](../todo/todo-2026-09-06-actions-as-enforcement-layer.md) | ≤09-06 | 128 | wait | Lean further into GitHub Actions as the enforcement layer |
+| [`out-of-chat-notifications`](../todo/todo-2026-09-06-out-of-chat-notifications.md) | ≤09-06 | 58 | wait | Out-of-chat change notifications for members |
+| [`contributor-access`](../todo/todo-2026-09-11-contributor-access.md) | 09-11 | 175 | wait | Run the contributor-access plan for real |
+| [`document-project-pilot`](../todo/todo-2026-09-06-document-project-pilot.md) | ≤09-06 | 67 | wait | Run the document-project pilot once Morgan has a real first project |
+| [`gates-absent-from-main`](../todo/todo-2026-09-07-gates-absent-from-main.md) | 09-07 | 416 | wait | Put the leak gate on `main`; the deep check cannot go there until the merge-back |
+| [`whatsapp-bridge-research`](../todo/todo-2026-09-09-whatsapp-bridge-research.md) | 09-09 | 515 | wait | Verify the chat bridge's platform claims against the platforms, or drop it |
+| `audit-trail-item-placement` | 09-09 | 165 | wait | Confirm where the audit-trail item belongs in philosophy/AI_GOVERNANCE_TO_COCREATE.md |
+| [`retire-a-practice-source`](../todo/todo-2026-09-10-retire-a-practice-source.md) | 09-10 | 276 | wait | Write the retirement sequence for a practice SOURCE, from the one real run |
 
