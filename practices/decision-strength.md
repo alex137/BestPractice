@@ -14,9 +14,7 @@ in_force_at: null
 supersedes:  []
 overrides:   null
 added:       "2026-09-09"
-approved_by: "Morgan, 2026-09-09; extended 2026-09-16, Morgan, on Alex's
-  intent-over-keyword point -- ambiguous reads are now disclosed rather than
-  written silently"
+approved_by: "Morgan, 2026-09-09"
 strength:    decided
 ---
 ## Rule
