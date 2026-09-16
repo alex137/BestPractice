@@ -97,7 +97,8 @@ Don't focus on finding the solution — focus on getting to the root of the
 issue. Keep asking why; keep finding and describing problems, and push the
 AI Assistants to solve them — the practice
 [`explain-the-why`](OUR_PHILOSOPHY.md#explain-the-why) asks of every single
-request.
+request, and a [Core Pillars](CORE_PILLARS.md) pillar,
+[`focus-on-whys-problems`](CORE_PILLARS.md#focus-on-whys-problems).
 
 ## Shipping and Process
 

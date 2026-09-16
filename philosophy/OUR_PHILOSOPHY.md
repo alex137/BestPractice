@@ -27,7 +27,7 @@ assistant each person also has, where joining costs a repository access
 rather than a day of setup ([`cloud-not-local`](AI_GOVERNANCE_TO_COCREATE.md#cloud-not-local)). (One
 part of [Core Pillars](CORE_PILLARS.md)'s case for what makes this
 approach unique —
-[`collaboration-not-just-production`](CORE_PILLARS.md#collaboration-not-just-production).)
+[`human-led`](CORE_PILLARS.md#human-led).)
 
 ## People and the Model
 
@@ -68,7 +68,9 @@ instruction tells the model what to type; the reason tells it what you're
 actually trying to achieve — naming the problem, instead of handing over a
 prescribed fix, is what lets it catch a case you didn't spell out or push
 back when the ask doesn't serve the goal
-([`five-whys`](COMPANY_BUILDING_RULES.md#five-whys)). It's also the raw
+([`five-whys`](COMPANY_BUILDING_RULES.md#five-whys); a
+[Core Pillars](CORE_PILLARS.md) pillar,
+[`focus-on-whys-problems`](CORE_PILLARS.md#focus-on-whys-problems)). It's also the raw
 material a standing rule gets made from — a practice pulled from "always do
 X" has nothing to check itself against, one pulled from "always do X
 because Y" can be tested against Y forever

@@ -25,8 +25,8 @@ The same six steps repeat every time, in order:
 5. The AI Assistant produces all the output; you only guide it
    ([`people-manage-agents-execute`](OUR_PHILOSOPHY.md#people-manage-agents-execute),
    [`humans-do-what-humans-do-best`](OUR_PHILOSOPHY.md#humans-do-what-humans-do-best)).
-6. The decisions, tiny to huge, are recorded, turn into learnings and
-   shared rules and protocols automatically
+6. The decisions, tiny to huge, are recorded and automatically turned
+   into learnings & protocols
    ([`rules-generated-automatically`](OUR_PHILOSOPHY.md#rules-generated-automatically),
    [`decisions-carry-their-situation`](OUR_PHILOSOPHY.md#decisions-carry-their-situation)),
    staying visible to whichever session opens this repo next.
