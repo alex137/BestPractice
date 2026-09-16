@@ -3,7 +3,7 @@
 # Rules for Building a Company Around AI
 
 *The "why" half of this repo's stage-1 pair — the case for running a
-company this way at all. [AI_GOVERNANCE_TO_COCREATE.md](AI_GOVERNANCE_TO_COCREATE.md)
+company this way at all. [AI Governance to Co-Create](AI_GOVERNANCE_TO_COCREATE.md)
 is the "how" half, one level down: what it takes to build the AI systems
 themselves so this becomes the default, rather than something a
 disciplined person has to manufacture by hand every session.*
@@ -14,16 +14,16 @@ disciplined person has to manufacture by hand every session.*
 
 **1. Context is king.**
 
-The scarce input is the tacit stuff: why the vendor failed, which option
-you already killed. Capturing it is capital expenditure
-([`context-is-capital`](OUR_PHILOSOPHY.md#context-is-capital), kept as
-[`durable-state-default`](AI_GOVERNANCE_TO_COCREATE.md#durable-state-default)), and a *corpus* is a
-body: stop feeding it and it dies, and nothing re-reads it unasked
+The scarce input is tacit: why the vendor failed, the option you already
+killed. Capturing it is capital expenditure
+([`context-is-capital`](OUR_PHILOSOPHY.md#context-is-capital),
+[`durable-state-default`](AI_GOVERNANCE_TO_COCREATE.md#durable-state-default)),
+a *corpus* that dies if nothing re-reads it
 ([`contradiction-scanning-recurring`](AI_GOVERNANCE_TO_COCREATE.md#contradiction-scanning-recurring)).
-Competitors rent the same models by Thursday; what nobody can rent is
-yours — unless a provider switch strands it
-([`provider-neutrality-hedge`](AI_GOVERNANCE_TO_COCREATE.md#provider-neutrality-hedge); as code, the
-withdrawn [`provider-neutral-llm`](RULES_NOW_TESTING.md#provider-neutral-llm)).
+Competitors rent the same models; what's yours can't be, unless a
+provider switch strands it
+([`provider-neutrality-hedge`](AI_GOVERNANCE_TO_COCREATE.md#provider-neutrality-hedge); withdrawn as
+code, [`provider-neutral-llm`](RULES_NOW_TESTING.md#provider-neutral-llm)).
 
 <a id="transcribe-everything"></a>
 
@@ -59,7 +59,7 @@ pushback: the hole in the logic, the option you missed
 ([`arguing-with-the-model`](OUR_PHILOSOPHY.md#arguing-with-the-model)). Arguing before
 you commit becomes free; the rest arrives unplanned
 ([`intermediary-layer-side-benefits`](REASONS_WHY.md#intermediary-layer-side-benefits)).
-One of [CORE_PILLARS.md](CORE_PILLARS.md)'s four
+One of [Core Pillars](CORE_PILLARS.md)'s four
 ([`chat-is-the-entry-point`](CORE_PILLARS.md#chat-is-the-entry-point));
 built in rather than practised,
 [`chat-is-primary-interface`](AI_GOVERNANCE_TO_COCREATE.md#chat-is-primary-interface).
@@ -98,12 +98,6 @@ issue. Keep asking why; keep finding and describing problems, and push the
 AI Assistants to solve them — the practice
 [`explain-the-why`](OUR_PHILOSOPHY.md#explain-the-why) asks of every single
 request.
-
-A cheap substitute for [`questions`](HUMANS_AT_OUR_BEST.md#questions),
-which nobody can be drilled into: in the system prompt as
-[`three-reflexes-in-system-prompt`](AI_GOVERNANCE_TO_COCREATE.md#three-reflexes-in-system-prompt),
-out loud mid-task as
-[`three-reflexes-out-loud`](RULES_NOW_TESTING.md#three-reflexes-out-loud).
 
 ## Shipping and Process
 
@@ -172,20 +166,9 @@ four thousand like step one. Staff the fleet itself: watching drift, retuning gu
 needs a human again — [`actually-managing`](HUMANS_AT_OUR_BEST.md#actually-managing) pointed
 at agents ([`people-manage-agents-execute`](OUR_PHILOSOPHY.md#people-manage-agents-execute)).
 
-<a id="human-only-zones"></a>
-
-**13. Protect human-only zones on purpose, and put them on the calendar.**
-
-If everyone consumes only summaries, nobody detects the moment they drift —
-everything still reads coherent. Mandate raw contact as ritual: founders
-reading unfiltered complaints, managers watching real work in silence. Put
-it on the calendar so it survives being inconvenient. That is
-[`wrong-gets-cheap-early`](REASONS_WHY.md#wrong-gets-cheap-early) on the error no
-checklist sees.
-
 <a id="structurally-human"></a>
 
-**14. Lean the permanent hire toward what's structurally human.**
+**13. Lean the permanent hire toward what's structurally human.**
 
 The clearest case for a permanent role is work a model can't do at all:
 [`judgment`](HUMANS_AT_OUR_BEST.md#judgment) when the rules run out, [`taste`](HUMANS_AT_OUR_BEST.md#taste) that
@@ -200,18 +183,18 @@ corrects.
 
 ## See Also
 
-- [CORE_PILLARS.md](CORE_PILLARS.md) — the one-page pitch: the core ideas
+- [Core Pillars](CORE_PILLARS.md) — the one-page pitch: the core ideas
   this approach argues are unique, specifically taken together.
-- [OUR_PHILOSOPHY.md](OUR_PHILOSOPHY.md) — the underlying theoretical
+- [Our Philosophy](OUR_PHILOSOPHY.md) — the underlying theoretical
   ideas everything else here assumes, named and explained on their own
   terms.
 - [Our Working Loop](THE_WORKING_LOOP.md) — the six-step cycle those
   ideas run through, end to end.
-- [REASONS_WHY.md](REASONS_WHY.md) — the less obvious benefits those
+- [Reasons Why](REASONS_WHY.md) — the less obvious benefits those
   ideas actually produce in practice.
-- [AI_GOVERNANCE_TO_COCREATE.md](AI_GOVERNANCE_TO_COCREATE.md) — the
+- [AI Governance to Co-Create](AI_GOVERNANCE_TO_COCREATE.md) — the
   standalone essay on how AI systems themselves should be configured,
   built, and run.
-- [HUMANS_AT_OUR_BEST.md](HUMANS_AT_OUR_BEST.md) — the one list of what
+- [Humans at Our Best](HUMANS_AT_OUR_BEST.md) — the one list of what
   humans are good at, gathered from the shorter versions scattered here
   and elsewhere.

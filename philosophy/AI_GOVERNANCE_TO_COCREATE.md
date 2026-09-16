@@ -6,13 +6,13 @@
 run them so co-creation —
 [`co-create-dont-delegate`](COMPANY_BUILDING_RULES.md#co-create-dont-delegate) —
 is the default, not something a disciplined person manufactures by hand.
-[COMPANY_BUILDING_RULES.md](COMPANY_BUILDING_RULES.md) makes the case for
+[Company Building Rules](COMPANY_BUILDING_RULES.md) makes the case for
 running a company this way; this document is one level down, about the
-systems. See also [OUR_PHILOSOPHY.md](OUR_PHILOSOPHY.md) (the theory),
-[REASONS_WHY.md](REASONS_WHY.md) (the payoffs), and
-[HUMANS_AT_OUR_BEST.md](HUMANS_AT_OUR_BEST.md) (what stays human).
-Promoted out of [ASSORTED_NOTES.md](ASSORTED_NOTES.md);
-[RULES_NOW_TESTING.md](RULES_NOW_TESTING.md) is where an idea from either
+systems. See also [Our Philosophy](OUR_PHILOSOPHY.md) (the theory),
+[Reasons Why](REASONS_WHY.md) (the payoffs), and
+[Humans at Our Best](HUMANS_AT_OUR_BEST.md) (what stays human).
+Promoted out of [Assorted Notes](ASSORTED_NOTES.md);
+[Rules Now Testing](RULES_NOW_TESTING.md) is where an idea from either
 essay gets tried before it's called a rule.*
 
 ## Memory & Context
@@ -79,14 +79,11 @@ by hand meanwhile as
 
 <a id="three-reflexes-in-system-prompt"></a>
 
-**7. The reflex from
-[`five-whys`](COMPANY_BUILDING_RULES.md#five-whys) belongs in
-the system prompt, not just a human's habit.** An agent that asks itself
-"have I done this shape before" mid-task, and says so, does more of
+**7. The reflex belongs in the system prompt, not just a human's habit.**
+An agent that asks itself "have I done this shape before" mid-task, and
+says so, does more of
 [`think-in-workflows`](COMPANY_BUILDING_RULES.md#think-in-workflows)'s
-work than a person remembering to ask. Until it is configured, a person
-asks them out loud:
-[`three-reflexes-out-loud`](RULES_NOW_TESTING.md#three-reflexes-out-loud).
+work than a person remembering to ask.
 
 <a id="argue-in-the-open"></a>
 
@@ -218,17 +215,17 @@ the platform it's sitting in today. What the hedge looks like in practice:
 
 ## See Also
 
-- [CORE_PILLARS.md](CORE_PILLARS.md) — the one-page pitch: the core ideas
+- [Core Pillars](CORE_PILLARS.md) — the one-page pitch: the core ideas
   this approach argues are unique, specifically taken together.
-- [OUR_PHILOSOPHY.md](OUR_PHILOSOPHY.md) — the underlying theoretical
+- [Our Philosophy](OUR_PHILOSOPHY.md) — the underlying theoretical
   ideas everything else here assumes, named and explained on their own
   terms.
 - [Our Working Loop](THE_WORKING_LOOP.md) — the six-step cycle those
   ideas run through, end to end.
-- [REASONS_WHY.md](REASONS_WHY.md) — the less obvious benefits those
+- [Reasons Why](REASONS_WHY.md) — the less obvious benefits those
   ideas actually produce in practice.
-- [COMPANY_BUILDING_RULES.md](COMPANY_BUILDING_RULES.md) — the standalone
+- [Company Building Rules](COMPANY_BUILDING_RULES.md) — the standalone
   essay on rules for building a company around AI.
-- [HUMANS_AT_OUR_BEST.md](HUMANS_AT_OUR_BEST.md) — the one list of what
+- [Humans at Our Best](HUMANS_AT_OUR_BEST.md) — the one list of what
   humans are good at, gathered from the shorter versions scattered here
   and elsewhere.

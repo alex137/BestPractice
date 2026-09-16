@@ -9,33 +9,33 @@ good at that is worth protecting.
 
 ## What's Here
 
-- [CORE_PILLARS.md](CORE_PILLARS.md) — the one-page pitch: the core ideas
+- [Core Pillars](CORE_PILLARS.md) — the one-page pitch: the core ideas
   this approach argues are unique, specifically taken together.
-- [OUR_PHILOSOPHY.md](OUR_PHILOSOPHY.md) — the underlying theoretical
+- [Our Philosophy](OUR_PHILOSOPHY.md) — the underlying theoretical
   ideas everything else here assumes, named and explained on their own
   terms. **Start here.**
-- [THE_WORKING_LOOP.md](THE_WORKING_LOOP.md) — the six-step cycle those
+- [The Working Loop](THE_WORKING_LOOP.md) — the six-step cycle those
   ideas run through, end to end.
-- [REASONS_WHY.md](REASONS_WHY.md) — its companion: the less obvious
+- [Reasons Why](REASONS_WHY.md) — its companion: the less obvious
   benefits those ideas produce in practice.
-- [COMPANY_BUILDING_RULES.md](COMPANY_BUILDING_RULES.md) — the standalone
+- [Company Building Rules](COMPANY_BUILDING_RULES.md) — the standalone
   essay on rules for building a company around AI.
-- [AI_GOVERNANCE_TO_COCREATE.md](AI_GOVERNANCE_TO_COCREATE.md) — the
+- [AI Governance to Co-Create](AI_GOVERNANCE_TO_COCREATE.md) — the
   standalone essay on how AI systems themselves should be configured,
   built, and run.
-- [HUMANS_AT_OUR_BEST.md](HUMANS_AT_OUR_BEST.md) — the one full list of
+- [Humans at Our Best](HUMANS_AT_OUR_BEST.md) — the one full list of
   what humans are good at, gathered from the shorter versions scattered
   through the other documents.
-- [RULES_NOW_TESTING.md](RULES_NOW_TESTING.md) — the practical rules
+- [Rules Now Testing](RULES_NOW_TESTING.md) — the practical rules
   actually being tried in real work right now, and candidates for
   promotion.
-- [ASSORTED_NOTES.md](ASSORTED_NOTES.md) — the brainstorm itself: one
+- [Assorted Notes](ASSORTED_NOTES.md) — the brainstorm itself: one
   entry per idea, prompt, workflow, or observation, loosely grouped. Its
   closing **Open Questions** section holds what is still unsettled.
 - [doc-recipes/](doc-recipes/) — standing constraints on individual
   documents here, one `.recipe.md` file per document it governs.
 
-*Lineage: `RANDOM_NOTES.md` became [ASSORTED_NOTES.md](ASSORTED_NOTES.md)
+*Lineage: `RANDOM_NOTES.md` became [Assorted Notes](ASSORTED_NOTES.md)
 on 2026-09-09, and `OPEN_QUESTIONS.md` was folded into that document's
 closing Open Questions section the same day
 ([index-remembers-past](../practices/index-remembers-past.md) keeps this
