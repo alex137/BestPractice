@@ -13,18 +13,18 @@ None of them is new on its own; together, they make collaborative work look and 
 
 ## See Also
 
-- [OUR_PHILOSOPHY.md](OUR_PHILOSOPHY.md) — the underlying theoretical
+- [Our Philosophy](OUR_PHILOSOPHY.md) — the underlying theoretical
   ideas everything else here assumes, named and explained on their own
   terms.
 - [Our Working Loop](THE_WORKING_LOOP.md) — the six-step cycle those
   ideas run through, end to end.
-- [REASONS_WHY.md](REASONS_WHY.md) — the less obvious benefits those
+- [Reasons Why](REASONS_WHY.md) — the less obvious benefits those
   ideas actually produce in practice.
-- [COMPANY_BUILDING_RULES.md](COMPANY_BUILDING_RULES.md) — the standalone
+- [Company Building Rules](COMPANY_BUILDING_RULES.md) — the standalone
   essay on rules for building a company around AI.
-- [AI_GOVERNANCE_TO_COCREATE.md](AI_GOVERNANCE_TO_COCREATE.md) — the
+- [AI Governance to Co-Create](AI_GOVERNANCE_TO_COCREATE.md) — the
   standalone essay on how AI systems themselves should be configured,
   built, and run.
-- [HUMANS_AT_OUR_BEST.md](HUMANS_AT_OUR_BEST.md) — the one list of what
+- [Humans at Our Best](HUMANS_AT_OUR_BEST.md) — the one list of what
   humans are good at, gathered from the shorter versions scattered here
   and elsewhere.

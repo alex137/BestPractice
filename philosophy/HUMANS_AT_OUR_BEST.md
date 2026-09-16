@@ -102,9 +102,7 @@ this page doesn't replace them.*
   without trying; working out what would actually fix it is a different
   skill, and an unnatural, hard-won one for most.
 - <a id="questions"></a>**The right questions.** Asking the right one at the right time may be
-  the hardest of the skills that matter;
-  [`five-whys`](COMPANY_BUILDING_RULES.md#five-whys) is the
-  drillable substitute.
+  the hardest of the skills that matter.
 - <a id="the-human-spark"></a>**The human spark.** What makes someone worth working for, not merely
   alongside
   ([`structurally-human`](COMPANY_BUILDING_RULES.md#structurally-human)).
@@ -114,17 +112,17 @@ this page doesn't replace them.*
 
 ## See Also
 
-- [CORE_PILLARS.md](CORE_PILLARS.md) — the one-page pitch: the core ideas
+- [Core Pillars](CORE_PILLARS.md) — the one-page pitch: the core ideas
   this approach argues are unique, specifically taken together.
-- [OUR_PHILOSOPHY.md](OUR_PHILOSOPHY.md) — the underlying theoretical
+- [Our Philosophy](OUR_PHILOSOPHY.md) — the underlying theoretical
   ideas everything else here assumes, named and explained on their own
   terms.
 - [Our Working Loop](THE_WORKING_LOOP.md) — the six-step cycle those
   ideas run through, end to end.
-- [REASONS_WHY.md](REASONS_WHY.md) — the less obvious benefits those
+- [Reasons Why](REASONS_WHY.md) — the less obvious benefits those
   ideas actually produce in practice.
-- [COMPANY_BUILDING_RULES.md](COMPANY_BUILDING_RULES.md) — the standalone
+- [Company Building Rules](COMPANY_BUILDING_RULES.md) — the standalone
   essay on rules for building a company around AI.
-- [AI_GOVERNANCE_TO_COCREATE.md](AI_GOVERNANCE_TO_COCREATE.md) — the
+- [AI Governance to Co-Create](AI_GOVERNANCE_TO_COCREATE.md) — the
   standalone essay on how AI systems themselves should be configured,
   built, and run.

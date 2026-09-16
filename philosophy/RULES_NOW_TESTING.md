@@ -4,8 +4,8 @@
 
 This is the second stage of this repo's pipeline (see
 [README.md](README.md)'s "How this repo's ideas become company policy"):
-[COMPANY_BUILDING_RULES.md](COMPANY_BUILDING_RULES.md) argues *why*;
-[AI_GOVERNANCE_TO_COCREATE.md](AI_GOVERNANCE_TO_COCREATE.md) designs *how*
+[Company Building Rules](COMPANY_BUILDING_RULES.md) argues *why*;
+[AI Governance to Co-Create](AI_GOVERNANCE_TO_COCREATE.md) designs *how*
 the AI systems themselves should be built so the healthy pattern is the
 default; this document is *what's actually being tried right now* — not
 settled policy, not a finished essay, but the checklist a session in any
@@ -17,12 +17,12 @@ earns its way *off* — into [precedent-team-repo-maintenance](https://github.co
 for the rare rule that's genuinely about Morgan the person, not the team),
 for automatic rollout to every project that resolves that source — only
 once it's actually proven itself here. See
-[ASSORTED_NOTES.md's Open Questions](ASSORTED_NOTES.md#open-questions) for what is still unsettled.
+[Assorted Notes' Open Questions](ASSORTED_NOTES.md#open-questions) for what is still unsettled.
 
 **This document does not get vendored anywhere.** Unlike `process/upstream/`
 or the team/individual practice sources, it has no manifest entry and no
 sync workflow — it's native to this repo, the same as
-[ASSORTED_NOTES.md](ASSORTED_NOTES.md), because working out which rules are
+[Assorted Notes](ASSORTED_NOTES.md), because working out which rules are
 ready is exactly this repo's job. Nothing here is real company policy for
 another project until a session has separately gone into
 precedent-team-repo-maintenance (or precedent-individual) and landed it there
@@ -86,22 +86,9 @@ The trial of
 [`argue-in-the-open`](AI_GOVERNANCE_TO_COCREATE.md#argue-in-the-open),
 asked of a person rather than configured into the system.
 
-<a id="three-reflexes-out-loud"></a>
-
-### 4. Three Reflexes, Asked Out Loud Mid-Task — *Trial*
-
-Before calling work done, answer all three out loud in the reply:
-
-- What rules or protocols should come from this?
-- Have I done this shape before, or will I again?
-- Is there a way this could be better — not just faster?
-
-([`five-whys`](COMPANY_BUILDING_RULES.md#five-whys); the trial
-of [`three-reflexes-in-system-prompt`](AI_GOVERNANCE_TO_COCREATE.md#three-reflexes-in-system-prompt).)
-
 <a id="write-like-a-human"></a>
 
-### 5. Write Like a Human, Not an LLM — *Promoted*
+### 4. Write Like a Human, Not an LLM — *Promoted*
 
 [`write-like-a-human`](../practices/write-like-a-human.md). Nothing you
 ship may sound like it came from an AI — document, reply or commit
@@ -116,7 +103,7 @@ name.
 
 <a id="dark-process-self-audit"></a>
 
-### 6. Dark-Process Self-Audit, Including the Session's Own Habits — *Trial*
+### 5. Dark-Process Self-Audit, Including the Session's Own Habits — *Trial*
 
 Periodically, same cadence as the BestPractice check-in — list workflows
 whose only interface is a human inbox, the assistant's own included, and
@@ -129,9 +116,9 @@ Shares its cadence with
 
 <a id="contradiction-scanning"></a>
 
-### 7. Contradiction-Scanning Across the Corpus, as a Recurring Job — *Trial*
+### 6. Contradiction-Scanning Across the Corpus, as a Recurring Job — *Trial*
 
-Periodically re-read [ASSORTED_NOTES.md](ASSORTED_NOTES.md) and this document for entries
+Periodically re-read [Assorted Notes](ASSORTED_NOTES.md) and this document for entries
 that now disagree — same cadence as
 [`dark-process-self-audit`](#dark-process-self-audit), not a one-off. It
 is the periodic half of
@@ -140,20 +127,19 @@ caught by re-reading rather than by contact.
 
 ## Not Yet Ready for This List
 
-These ideas from [AI_GOVERNANCE_TO_COCREATE.md](AI_GOVERNANCE_TO_COCREATE.md)
+These ideas from [AI Governance to Co-Create](AI_GOVERNANCE_TO_COCREATE.md)
 need either more real testing or actual infrastructure this repo doesn't
 have yet — writing them as rules now would be systematizing before the
 third instance, exactly what
 [`think-in-workflows`](COMPANY_BUILDING_RULES.md#think-in-workflows) warns
-against. Tracked instead in [ASSORTED_NOTES.md's Open Questions](ASSORTED_NOTES.md#open-questions):
+against. Tracked instead in [Assorted Notes' Open Questions](ASSORTED_NOTES.md#open-questions):
 
 - **Active/proactive resurfacing** ("you decided X six weeks ago,
   unprompted") — needs something that actively mines and ranks history,
   not just answers when asked.
 - **Automatic workflow-candidate detection** — mining commit/session
-  history for recurring task shapes, rather than relying on
-  [`three-reflexes-out-loud`](#three-reflexes-out-loud)'s human-triggered
-  reflex.
+  history for recurring task shapes, rather than relying on a
+  human-triggered reflex.
 - **Situational, inferred cost-awareness** —
   [`cost-awareness-situational`](AI_GOVERNANCE_TO_COCREATE.md#cost-awareness-situational)'s
   own text records that a fixed "surface spend per outcome" policy was
@@ -195,20 +181,20 @@ record.)*
 
 ## See Also
 
-- [CORE_PILLARS.md](CORE_PILLARS.md) — the one-page pitch: the core ideas
+- [Core Pillars](CORE_PILLARS.md) — the one-page pitch: the core ideas
   this approach argues are unique, specifically taken together.
-- [OUR_PHILOSOPHY.md](OUR_PHILOSOPHY.md) — the underlying theoretical
+- [Our Philosophy](OUR_PHILOSOPHY.md) — the underlying theoretical
   ideas everything else here assumes, named and explained on their own
   terms.
 - [Our Working Loop](THE_WORKING_LOOP.md) — the six-step cycle those
   ideas run through, end to end.
-- [REASONS_WHY.md](REASONS_WHY.md) — the less obvious benefits those
+- [Reasons Why](REASONS_WHY.md) — the less obvious benefits those
   ideas actually produce in practice.
-- [COMPANY_BUILDING_RULES.md](COMPANY_BUILDING_RULES.md) — the standalone
+- [Company Building Rules](COMPANY_BUILDING_RULES.md) — the standalone
   essay on rules for building a company around AI.
-- [AI_GOVERNANCE_TO_COCREATE.md](AI_GOVERNANCE_TO_COCREATE.md) — the
+- [AI Governance to Co-Create](AI_GOVERNANCE_TO_COCREATE.md) — the
   standalone essay on how AI systems themselves should be configured,
   built, and run.
-- [HUMANS_AT_OUR_BEST.md](HUMANS_AT_OUR_BEST.md) — the one list of what
+- [Humans at Our Best](HUMANS_AT_OUR_BEST.md) — the one list of what
   humans are good at, gathered from the shorter versions scattered here
   and elsewhere.
