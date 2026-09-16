@@ -23,7 +23,9 @@ loop; say so and follow §1 instead.
    the project. Tell the administrator, in one sentence, what you are
    about to set up: a practice layer that gives their project durable
    memory, safe concurrent work, and a Getting Started page for members.
-2. **Ask exactly three questions**, together in one message, and wait:
+2. **Ask exactly five questions** — the canonical list, in
+   [spec/INSTALL_QUESTIONS.md](spec/INSTALL_QUESTIONS.md) — together in one
+   message, and wait:
    - *What is this project about?* (one or two sentences)
    - *Are there private names or code words that must never appear in
      anything public?* Explain why in one sentence: parts of the practice
@@ -37,6 +39,16 @@ loop; say so and follow §1 instead.
      projects have neither yet — that's a complete answer on its own — but
      it costs nothing to offer setting one up in the same conversation, so
      ask rather than assume no.
+   - *Which AI assistant will actually be working in this repo* — Claude
+     Code, ChatGPT connected to GitHub, or something else? Explain in one
+     sentence: an assistant with no access to a terminal needs GitHub's
+     own automated checks for things one with terminal access does not.
+   - *Should the vendored GitHub Actions workflow be on or off?* Default
+     **disabled** unless they say otherwise — GitHub Actions minutes are
+     metered per private repository. If they want it on and answered "no"
+     to the third question, say plainly that it stays off until a source
+     declares `"ci_workflows": "enabled"` (`GITHUB_ACTIONS.md`), since
+     there is nowhere else this install can record the preference.
 3. **Install without further questions.** Clone the public repo
    `https://github.com/alex137/BestPractice` beside the project (a sibling
    directory, not inside it) **on its `precedent-beta-v01` branch** — the

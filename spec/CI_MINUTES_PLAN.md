@@ -1,7 +1,7 @@
 ---
 title:         Cutting GitHub Actions minutes across every vendored repo
 kind:          proposal
-status:        drafted
+status:        accepted
 opened:        2026-09-16
 closed:        null
 superseded_by: null
@@ -12,12 +12,14 @@ summary:       "What is actually burning Actions minutes across Morgan's repos, 
 
 # Cutting GitHub Actions minutes across every vendored repo
 
-**This is a plan awaiting Morgan's decision, not yet built.** It organizes
-his 2026-09-16 conversation (seven ideas plus two follow-on questions)
-against what is actually in this repo's tree and what the account's own
-usage report shows, and it pushes back on two of the seven where the
-numbers or the existing design say something different than the idea
-assumed.
+This organizes Morgan's 2026-09-16 conversation (seven ideas plus two
+follow-on questions) against what is actually in this repo's tree and what
+the account's own usage report shows, and pushes back on two of the seven
+where the numbers or the existing design said something different than
+the idea assumed. **Morgan approved phases 1–5 the same day** — "phases
+1-5 approved... Go update!", holding items 6 and 7 for later (strength:
+decided) — and "Sequencing and status" below says what that approval has
+and has not reached yet.
 
 ## Where the minutes actually go — measured, not guessed
 
@@ -355,38 +357,61 @@ already used (including today's excluded spike), is worth doing before
 any of the rest of this plan, since it's the number that says how urgent
 the rest of it actually is.
 
-## Sequencing
+## Sequencing and status
 
-- **Phase A — small, no open questions, do first.** Widen `ci_workflows` to
-  gate every current template (item 1); write
-  `spec/INSTALL_QUESTIONS.md` (item 1a); add the missing `concurrency`
-  block to `precedent-check.yml.template` and `views-drift.yml.template`
-  (item 5); archive or delete the repo already named for its own deletion
-  (item 3's free case).
-- **Phase B — the sweep, folded into migration.** Build the retired-file
-  registry and the per-file "confirm the replacement" check (items 2, 2a,
-  3), and run it against repos as they migrate.
-- **Phase C — the debounce mechanism** (item 4), applied to advisory checks
-  first, explicitly excluding anything playing the leak-gate role.
-- **Phase D — self-hosted runner pilot** (item 6), scoped to the two
-  busiest ordinary repos' lint jobs, as a separate, later effort.
-- **Item 2b** — BestPractice's own three workflows — is held out of every
-  phase above pending Morgan's answer below.
+Morgan approved phases 1–5 on 2026-09-16, holding items 6 and 7 for later
+(tracked in
+[todo/todo-2026-09-16-revisit-ci-minutes-items-6-7.md](../todo/todo-2026-09-16-revisit-ci-minutes-items-6-7.md),
+due 2026-09-19). **What "done" means here is scoped to this repository**:
+this session can build and merge everything BestPractice itself owns — the
+installer, the templates, the migration and update runbooks — but it
+cannot push to Morgan's other repositories, which are outside this
+session's GitHub access. Turning any of this ON for a given dependent
+repo, practice set, or team repo is still a separate action in that
+repo, the next time it installs, migrates, or takes an update.
+
+- **Phase A — done.** `ci_workflows` gates every current CI template, not
+  only `bestpractice-docs.yml` (item 1);
+  [spec/INSTALL_QUESTIONS.md](INSTALL_QUESTIONS.md) is the canonical
+  install/migration question list, with the two new questions added and
+  SETUP.md/INSTALL.md/MIGRATING_EXISTING_INSTALLS.md pointed at it (item
+  1a); `precedent-check.yml.template` and `views-drift.yml.template`
+  carry the same `concurrency` block `doc-lint.yml.template` already had
+  (item 5). Archiving the repo already named for its own deletion is
+  still Morgan's to do — that repo is outside this session's reach.
+- **Phase B — the infrastructure is built; the sweep itself is not run.**
+  `MIGRATING_EXISTING_INSTALLS.md`'s step 6 and
+  `vendor-update-runbook.md`'s step 10 both carry the retired-workflow
+  table and point at applying `ci_workflows`/`ci_debounce_minutes`
+  retroactively (items 2, 2a, 3) — but sweeping an actual repo's
+  `.github/workflows/` against that table happens the next time that
+  repo migrates or takes an update, in a session rooted there.
+- **Phase C — done.** A debounce guard (`ci_debounce_minutes`, default
+  `360`) ships in `doc-lint.yml.template`, `precedent-check.yml.template`
+  and `views-drift.yml.template`, and nowhere else — not in this repo's
+  own three workflows, per item 2b below (item 4). **Not exercised
+  against live GitHub Actions infrastructure from this session** — the
+  `gh run list` call it depends on has no equivalent to test locally; its
+  first real run on any adopting repo is worth watching.
+- **Phase D — held.** Self-hosted runner pilot (item 6), per the todo
+  reminder above.
 
 ## Open decisions
 
 1. **Item 2b: keep this repo's own `docs.yml`/`deep-check.yml`/`leak-gate.yml`
-   mandatory, un-gated by any of the above?** Recommended yes, given the
-   security rationale on record and that this repo is public (so nothing
-   here is actually costing money). Needs Morgan's explicit answer before
-   any phase touches these three either way.
-2. **`ci_workflows` granularity** — one field gating every template
-   (recommended), or per-workflow control for a practice set that wants
-   its own checks but not the consuming-repo doc lint?
-3. **Debounce default window** — `360` minutes (Morgan's own "6 hours"
-   example) as the shipped default, confirm or change?
-4. **Which workflows are debounce-exempt** — advisory checks get the
-   debounce, anything playing a leak-gate role in a private repo does not;
-   confirm that split, or name specific exceptions either way.
-5. **Self-hosted runner pilot scope** — the two busiest personal repos'
-   lint jobs as proposed, or a different starting pair?
+   mandatory, un-gated by any of the above?** Still open — "phases 1-5"
+   approved everything above, and item 2b was deliberately held out of
+   every phase rather than folded into any of them, so this needs its own
+   answer. Recommendation unchanged: yes, given the security rationale on
+   record and that this repo is public (so nothing here is actually
+   costing money).
+2. **`ci_workflows` granularity** — implemented as one field gating every
+   template, not per-workflow control. Revisit only if a practice set
+   turns up wanting its own checks but not a consuming repo's doc lint.
+3. **Debounce default window** — implemented as `360` minutes (Morgan's
+   own "6 hours" example). Change the default in each template's guard
+   step if that turns out wrong in practice.
+4. **Which workflows are debounce-exempt** — implemented as: every
+   vendored template gets it, this repo's own three workflows do not.
+5. **Self-hosted runner pilot scope** — still open, deferred to items 6/7's
+   todo reminder.
