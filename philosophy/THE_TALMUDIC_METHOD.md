@@ -22,8 +22,8 @@ the resemblance stops being a coincidence and starts being a design lens.*
 <a id="argument-is-the-method"></a>
 
 2. **Argument is the method, not a detour to the answer.** A study partner
-   who only agrees isn't a [chavruta](#chavruta-not-solo), he's an oracle,
-   and the exchange doesn't count until it's been genuinely tested.
+   who only agrees isn't a chavruta, he's an oracle, and the exchange
+   doesn't count until it's been genuinely tested.
    [`arguing-with-the-model`](OUR_PHILOSOPHY.md#arguing-with-the-model)
    names exactly that failure mode for a model that just agrees, and
    [`brainstorm-holds-commits`](../practices/brainstorm-holds-commits.md)
