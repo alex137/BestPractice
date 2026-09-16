@@ -102,7 +102,7 @@ question.** If the push, the pull request or the merge is refused because
 this session cannot reach the repository -- a cross-owner `add_repo`
 refusal, no push access, a repository nobody attached -- **the
 authorization is still good and it travels with the work.** Run
-[spawn-session](spawn-session.md) on the spot: wake a live session that
+[spawn-session](session-text.md) on the spot: wake a live session that
 already holds that repository, or, where none does, create one seeded with
 the steps that are left, and put the link in the reply. **Finish everything
 this session can do first** -- sync, commit, push where the push works --
@@ -255,7 +255,7 @@ just run that came back as a repository-permissions problem: *"if you don't
 have permission to do the go merge (or a part of it) because of cross repo
 issues, then you can spawn a new session to do so."* The chain in the Rule
 had always assumed every step of it was reachable from wherever the phrase
-was read, and [spawn-session](spawn-session.md) -- written about work that
+was read, and [spawn-session](session-text.md) -- written about work that
 has not started yet -- did not obviously govern a chain that stopped
 halfway. So the session that hit it reported the refusal and stopped, which
 is what he was looking at when he asked.

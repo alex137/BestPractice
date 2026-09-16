@@ -64,16 +64,19 @@ practice file — `python3 tools/precedent_show.py SLUG` for any of them.
   that he was not convinced: `strength: assented`, written into whatever the
   approval is being recorded in, that same turn. **Not an invitation to talk
   him into it.**
-- **"Spawn session"** ([spawn-session](practices/spawn-session.md)) — before
+- **"Session Text"** ([session-text](practices/session-text.md)) — before
   starting what he just asked for, check whether it belongs in a different
   session, repositories first; then **wake a live session** that already holds
-  the context, or, where none fits, hand him a link to a new one, rooted in
-  the right repository and already seeded with the prompt. **Waking beats
-  spawning**: a spawned session re-reads its repository from nothing. The
-  check runs whether or not he says the phrase, and an
-  honest "this session is the right one" answers it. **The
-  prompt you seed carries the merge authorization**, bounded to the seeded
-  work, that repository's routine branch and its own checks passing.
+  the context, or, where none fits, tell him to open a new window, name the
+  repositories to seed it with, and hand him the opening text in a
+  copy-pasteable block. **Never `create_session`** for this — sessions it
+  creates have been coming back rejected as unsafe, so the mechanism is
+  retired outright, not just renamed. Waking still beats a new window: a
+  fresh one re-reads its repository from nothing. The check runs whether or
+  not he says the phrase, and an honest "this session is the right one"
+  answers it. **The text you hand him carries the merge authorization**,
+  bounded to the seeded work, that repository's routine branch and its own
+  checks passing.
 - **"My options"** ([my-options](practices/my-options.md)) — every real choice
   on the table in plainer words, a short block each, the cost said as flatly
   as the benefit, then **a named recommendation with its reason** — never a
@@ -313,8 +316,8 @@ When deciding whether to build or buy a component:
   build-buy-decompose — decompose first; one verdict per part, on ownership grounds
 When decommissioning a mechanism — a workflow, a tool, a vendored tree, a config — that leaves files behind with no remaining job:
   decommission-deletes-files — delete what the decommissioned mechanism owned; audit first, never on a hunch
-When handing the person work to do, creating a session, or starting work that may touch a repository this session cannot reach:
-  spawn-session — cross-repo check; wake, never spawn beside; link every session at the end
+When handing the person work to do, or starting work that may touch a repository this session cannot reach:
+  session-text — cross-repo check; wake, never create -- hand over paste text instead
 When migrating a repo off an old practice system onto Precedent:
   migration-scrubs-vocabulary — scrub the old system's vocabulary the same session, not on request
 When naming a new file:
