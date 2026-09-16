@@ -1,21 +1,31 @@
 ---
-slug:        spawn-session
-title:       "Check whether the work belongs in another session before starting it, and hand over a seeded link"
+slug:        session-text
+title:       "Check whether the work belongs in another session before starting it, and hand over copy-pasteable text for a window you open yourself -- never a session this one creates"
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
-occasion:    "handing the person work to do, creating a session, or starting work that may touch a repository this session cannot reach"
+occasion:    "handing the person work to do, or starting work that may touch a repository this session cannot reach"
 gates:       ["reply"]
-index_clause: "cross-repo check; wake, never spawn beside; link every session at the end"
+index_clause: "cross-repo check; wake, never create -- hand over paste text instead"
 checked_by:  null
-defines:     ["Spawn session"]
-command:     {"Spawn session": "Check whether this work belongs in a different conversation — usually because it needs a project this one cannot reach — and hand you a link to that one, ready to go."}
+defines:     ["Session Text"]
+command:     {"Session Text": "Check whether this work belongs in a different conversation — usually because it needs a project this one cannot reach — and, instead of creating that session itself, tell you to open a new window, name the repositories it needs to be seeded with, and give you the opening text in a copy-pasteable block."}
 status:      active
 in_force_at: null
 supersedes:  []
 overrides:   null
 added:       "2026-09-11"
-approved_by: "Morgan, 2026-09-11 -- coined and placed at universal in the same message;
+approved_by: "Morgan, 2026-09-15 -- renamed from `Spawn session` to `Session Text` and the
+  create_session mechanism retired outright: \"your spawned sessions get everything
+  rejected for not being seen as safe... STOP spawning sessions; I need to wait...
+  until we figure out how to tell Cloud your spawns are safe.\" He asked for both
+  halves in the same message -- the standing instruction never to call
+  create_session for this again, and the replacement phrase: tell him to open a
+  new window, name the repositories to seed it with, and hand him the opening text
+  in a copy-pasteable block. Waking an already-live session is unaffected -- that
+  is a message into a session that already exists, not a new one this session
+  creates, and it was never the thing getting rejected.
+  Morgan, 2026-09-11 -- coined and placed at universal in the same message;
   extended 2026-09-12, Morgan F, relayed through a scheduled instruction to land five
   fleet rules at universal -- the cross-owner wall with its who-merges half, and waking
   a live session before creating a new one. Placing them at universal is his; that these
@@ -151,66 +161,70 @@ this rule wrongly claimed all of them were stranded.
 session reuses what it already holds where a new one re-reads its repository
 from nothing. That reason was always the real one.
 
-**Whatever you create, tag it in the `create_session` call itself** —
-`subject:`, `repo:`, `role:`, `wants:`, per
-[session-tags](session-tags.md). The `subject:` tag is what lets the NEXT
-spawner's enumeration above answer "is anyone already on this?", and it is
-the one tag that cannot be usefully added later: a collision found after both
-sessions have run is not a collision caught.
+**Never call `create_session` (or spawn a background agent) to hand off
+work to a repository this session cannot reach — not since 2026-09-15.**
+Sessions this session created were coming back rejected, not seen as safe,
+and the fix is not a smarter retry: the mechanism is retired for this
+purpose, unconditionally, until that changes.
 
 **Where no live session fits, and only then: do not start the work and do
-not describe the handoff. Create the session** — rooted in the right repository,
-already carrying the prompt you would have given it — **and put its link
-near the top of the reply, on its own line, telling the person plainly to
-click it.**
+not describe the handoff. Produce Session Text instead** — tell the person
+plainly, near the top of the reply, to open a new window; name the exact
+repository or repositories it needs to be seeded with; and give the opening
+text as one copy-pasteable block, per
+[handoff-is-pasteable](handoff-is-pasteable.md). There is no link to click
+and no session id yet — the window doesn't exist until they open it and
+paste the text in.
 
 **Then name it again at the end, in whatever closing list of outstanding
-items the reply carries — one line per session, with the link.** This holds
-for a session you woke as much as one you created, and whether the person
-asked for it or you decided on it yourself. The link at the top is for
-someone reading the whole reply; the closing list is for someone reading only
-the end, **and that is most people most of the time.** A long reply buries a
-link in its own middle, and a session nobody can find again is a session
-nobody is watching — which is the one thing a spawner owes, since the person
-cannot see that conversation from where they are standing. Say in the line
-what the session was asked to do, so the list reads without scrolling back
-up.
+items the reply carries — one line per handoff, saying what it was for.**
+This holds for a session you woke as much as text you handed over, and
+whether the person asked for it or you decided on it yourself. The mention
+at the top is for someone reading the whole reply; the closing list is for
+someone reading only the end, **and that is most people most of the time.**
+A long reply buries it in its own middle, and a handoff nobody can find
+again is one nobody acts on — which is the one thing this owes, since the
+person is the one who has to go open the window. Say in the line what the
+work was, so the list reads without scrolling back up.
 
-**The seeded prompt carries a merge authorization only when the person gave
-one for the spawn.** The default is the other way round: a session spawned
-off `Spawn session` alone, or off an ordinary request, stops at the pull
+**The pasted text carries a merge authorization only when the person gave
+one for the handoff.** The default is the other way round: text handed over
+off `Session Text` alone, or off an ordinary request, stops at the pull
 request and says whose call the merge is. Morgan, 2026-09-13, setting this
-default in his own words -- *"by default you don't; only if I explicitly
-tell you to spawn a session and go merge. If I only saw 'spawn session' then
-assume I need to manually approve the merge."*
+default in his own words, of the mechanism this rule used before it was a
+paste block -- *"by default you don't; only if I explicitly tell you to
+spawn a session and go merge. If I only saw 'spawn session' then assume I
+need to manually approve the merge."* The same default holds now: naming
+the handoff alone is not naming the merge.
 
 **Why the opposite reading is tempting and wrong.** Work somebody asked for
 is usually work they want landed, so a stop at a finished branch looks like
-handing them back a decision they already made. But asking for a session is
+handing them back a decision they already made. But asking for a handoff is
 not the same act as authorizing a merge in it, and a relayed authorization
 is the one thing the person cannot take back once it has left the window
 they typed in. **When they meant both, they say both** -- which is the next
 paragraph, and it is the only shape that carries.
 
-**`Spawn session` and `Go merge` in the same message is the unambiguous
+**`Session Text` and `Go merge` in the same message is the unambiguous
 case, and the phrase travels.** When the person says both -- or `Approved`,
 which is the same command ([go-merge](go-merge.md)) -- the authorization they
-just gave is for the work, and the work is about to move to a session they
-are not typing in. So it moves with it: the seeded prompt carries the
-`Go merge` verbatim, quoted and attributed, and the spawned session merges
-without coming back to ask. **Leaving it behind is the failure** -- it strands
-an authorization in the window where the work no longer is, and hands them
-back a decision they made in the same breath as asking for the session.
+just gave is for the work, and the work is about to move to a window they
+are not typing in yet. So it moves with it: the pasted text carries the
+`Go merge` verbatim, quoted and attributed, and the session they open by
+pasting it in merges without coming back to ask. **Leaving it behind is the
+failure** -- it strands an authorization in the window where the work no
+longer is, and hands them back a decision they made in the same breath as
+asking for the handoff.
 
 **Three bounds on it, and they are what make it safe to relay.** The
-authorization covers **the seeded work only** -- not whatever the spawned
-session decides to do next, and not a second merge after it. It names **the
-branch that repository's own rules say routine work lands on**, never a
-branch behind review or a release branch: a restriction the destination
-repository declares is not something a relayed phrase can lift, exactly as
-[go-merge](go-merge.md) already says. And it is **conditional on that
-repository's own checks passing** -- the seeded prompt says which ones, so
-the receiving session does not have to guess.
+authorization covers **the handed-off work only** -- not whatever the
+opened session decides to do next, and not a second merge after it. It
+names **the branch that repository's own rules say routine work lands on**,
+never a branch behind review or a release branch: a restriction the
+destination repository declares is not something a relayed phrase can lift,
+exactly as [go-merge](go-merge.md) already says. And it is **conditional on
+that repository's own checks passing** -- the pasted text says which ones,
+so the session that opens it does not have to guess.
 
 **A repository wall is not a permission refusal, and only one of the two
 stops you relaying.** A session that cannot reach another owner's repository
@@ -254,11 +268,11 @@ written out of. If the work was your idea rather than theirs, seed it as
 work to do and stop before the merge.
 
 **The check is unconditional.** It runs whenever another repository might be
-involved, whether or not anyone says anything. **"Spawn session" is the
+involved, whether or not anyone says anything. **"Session Text" is the
 explicit command** for the times it did not: it means *run that check now,
-say what it found, and hand me the link* — including when the honest answer
-is "this session is the right one", which is said in one line and then the
-work continues.
+say what it found, and give me the paste block* — including when the honest
+answer is "this session is the right one", which is said in one line and
+then the work continues.
 
 ## Detail
 **Cross-repository is first because it is the one that gets discovered too
@@ -270,15 +284,16 @@ that *can* write. Worse, some of it cannot be repaired mid-flight at all:
 ([recorded upstream](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/AGENTS.md#build-environment-gotchas--do-not-rediscover-these)), so a session rooted under one owner
 may simply never reach the other's repositories for its whole life.
 
-**What "create the session" means concretely, as of 2026-09-11.** Where the
-harness offers a session-creating tool — in Claude Code's cloud sessions
-that is `create_session` on the `claude-code-remote` server — call it with
-the target repository as the source and the whole handoff as the prompt, and
-the link is the returned session's `https://claude.ai/code/<session id>`
-page. **Where no such tool is available, say so and fall back to
-[handoff-is-pasteable](handoff-is-pasteable.md)'s paste block** — one or the
-other, never silence and never a prose description of what the person should
-go type.
+**What "Session Text" means concretely, as of 2026-09-15.** Never call a
+session-creating tool for this — in Claude Code's cloud sessions that is
+`create_session` on the `claude-code-remote` server, and it stays unused
+here regardless of whether it is available. Instead: name the target
+repository or repositories out loud, then build
+[handoff-is-pasteable](handoff-is-pasteable.md)'s paste block as the opening
+message for a window the person opens themselves, and tell them plainly to
+open that new window and paste it in. Never silence and never a prose
+description of what the person should go type — the block itself, ready to
+paste.
 
 **How to wake one, in Claude Code's cloud sessions as of 2026-09-13.**
 `ListAgents` lists what is reachable — subagents, other local sessions,
@@ -319,13 +334,13 @@ do not ask again."* The named check and the named branch are what stop it
 being a blank cheque, and both are knowable before you seed: the destination
 repository declares them.
 
-**The seeded prompt is a handoff, and
+**The pasted text is a handoff, and
 [handoff-is-pasteable](handoff-is-pasteable.md) governs its contents
-unchanged**: the session opening that link cannot see this conversation, so
-the prompt names the branch, the files, the command and the outcome
-expected, and ends with the line to paste back here when it is done. One
-session per destination repository, keyed by the repository's name — never
-by an ordinal.
+unchanged**: the session that opens once it is pasted in cannot see this
+conversation, so the text names the branch, the files, the command and the
+outcome expected, and ends with the line to paste back here when it is
+done. One block per destination repository, keyed by the repository's name
+— never by an ordinal.
 
 **And it opens by naming THIS session —
 [seeded-prompt-names-its-origin](seeded-prompt-names-its-origin.md): the
@@ -335,18 +350,18 @@ is what a session reaches for instead when the rule is not in front of it —
 *"from a session rooted in `<repo>`"* tells the reader nothing they can open.
 The id and the link are knowable: ask the harness for this session's own id.
 
-**Say what the new session will do before the link.** The person is
-authorizing it by clicking, and a link with no sentence attached asks them
-to authorize something they cannot see.
+**Say what the new window will do before the paste block.** The person is
+authorizing it by opening the window and pasting it in, and a block with no
+sentence attached asks them to authorize something they cannot see.
 
-**Do not spawn a session for work this session can do, and establish the
+**Do not hand off work this session can do itself, and establish the
 verdict rather than inferring it.** The check is a probe, not a hunch: try
 the attach, or `git push --dry-run` against the repository, and quote what
 came back. *"I am probably not allowed"* is not a finding, and neither is
 *"this session looks like it is ending"* — both hand the person back a job
-they asked for. Every clean session costs them a tab, a fresh context and a
+they asked for. Every new window costs them a tab, a fresh context and a
 re-read, so the handoff is normally **partial**: whatever this session can
-finish, it finishes here, and only the residue is seeded into the link.
+finish, it finishes here, and only the residue goes into the paste block.
 
 ## Why
 The cost being avoided is not confusion, it is re-derivation. A session that
@@ -354,13 +369,14 @@ works for an hour and then finds the repository out of reach has produced
 context, not work, and context is exactly the thing a handoff cannot carry.
 Checking first costs one comparison of two lists.
 
-**A click is better than a paste where a click is available**, and that is
-the whole delta over [handoff-is-pasteable](handoff-is-pasteable.md). That
-rule already says the person is the transport and their load should be a
-block of text rather than a task to reconstruct; this one says that when the
-harness can create the session directly, their load should be a link rather
-than a block of text — the paste block stays as the fallback, not as the
-target.
+**A paste block is the only shape this can take, since 2026-09-15.** A
+session this session created was the better ergonomics — the person's load
+was a link and a click, not a block of text to carry — for exactly as long
+as those created sessions kept coming back accepted. They stopped: rejected,
+not seen as safe, for a reason nothing on this side of the harness can
+diagnose or fix. [handoff-is-pasteable](handoff-is-pasteable.md) was always
+the fallback for when no session-creating tool was available; it is now the
+only path, whether or not one is.
 
 **The command exists because the check is a session's job and the person is
 the one who notices it was skipped.** Naming the phrase gives them two words
@@ -536,6 +552,22 @@ new phrase names what the command does, where the old one named a property of
 the destination that the person saying it cannot check from where they are
 standing. The rule, the gate and the routing are untouched; only the words
 moved.
+
+**Renamed again 2026-09-15, on Morgan's decision, and this time the
+mechanism moved too.** Unlike the rejected 2026-09-13 rename, this one was
+not about the name underselling the rule -- it was about `create_session`
+itself: *"your spawned sessions get everything rejected for not being seen
+as safe. Have a rule to STOP spawning sessions; I need to wait ... until we
+figure out how to tell Cloud your spawns are safe, or Anthropic improves
+your system. In the meantime ... eliminate the vocab phrase we use 'spawn
+session', but create a new one, called 'Session Text' which we will define
+as: you tell me to open a new window; tell me what repos to seed it with;
+and you give me (in a copy and pastable format) the text to copy-paste
+in."* Two changes landed together because they were the same ask: the
+standing instruction never to call `create_session` (or spawn a background
+agent) for this again, and the phrase renamed to match what it now actually
+does. Waking an already-live session is untouched -- it was never the thing
+coming back rejected, and nothing in his ask covered it.
 
 ## Install
 Nothing to configure. The occasion index entry above is generated, so an

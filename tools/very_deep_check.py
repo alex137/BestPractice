@@ -3296,7 +3296,7 @@ def access_audit(repo_root, sources=(), out=None):
             f'{n_handoff} repo(s) need a handoff and {n_unknown} could not be '
             f'probed. A finding in one of those does not end in a commit from '
             f'this session -- it ends in a woken session '
-            f'(practice: spawn-session). Group them that way when you report.')
+            f'(practice: session-text). Group them that way when you report.')
         print('  ' + notes[-1], file=out)
     return rows, notes
 

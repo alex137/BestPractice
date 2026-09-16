@@ -21848,7 +21848,7 @@ def check_assumed_visibility_never_deletes_practices():
 
 def check_access_probe_separates_refusal_from_silence():
     """`can_land_here` must answer 'handoff' ONLY for a real permission
-    refusal, and 'unknown' for everything else (practice: spawn-session).
+    refusal, and 'unknown' for everything else (practice: session-text).
 
     THE INCIDENT THE PROBE EXISTS FOR (2026-09-10): a session rooted in a
     private practice set built a seven-commit patch for a repo it could not

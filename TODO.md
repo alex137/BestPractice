@@ -5055,7 +5055,7 @@ which is the failure this repointing exists to end — write
     `precedent-team-repo-maintenance` (`session_0185SF928m3c1dgtAj2uyFR8`),
     `precedent-team-working-style` (`session_019Tas6QAJHUXwXwUv7ksDYf`).
     Woken rather than spawned, per
-    [spawn-session](practices/spawn-session.md): a live session reuses the
+    [spawn-session](practices/session-text.md): a live session reuses the
     context it holds. **This session could not do it itself** —
     `git push --dry-run` returned 403 on all four, which is the quotable
     refusal the handoff rules ask for, and the merge authorization travelled
@@ -5102,7 +5102,7 @@ which is the failure this repointing exists to end — write
     2026-09-14 it could not even enumerate the live sessions to wake** --
     `list_sessions` was refused by the harness's own permission classifier,
     which is a permission refusal rather than a repository wall, so
-    [spawn-session](practices/spawn-session.md) sends it back to Morgan
+    [spawn-session](practices/session-text.md) sends it back to Morgan
     instead of spawning beside whatever is already running.
     **Disposition:** wait
 
