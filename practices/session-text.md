@@ -55,7 +55,13 @@ approved_by: "Morgan, 2026-09-15 -- renamed from `Spawn session` to `Session Tex
   happen again, fix the tempalte or whatever in precedent\" (strength: decided).
   That the mechanism is a session-start probe, and that the existing
   can_land_here moves down into a vendored file so it reaches adopters at all,
-  were the session's judgement -- he asked for the outcome, not the shape."
+  were the session's judgement -- he asked for the outcome, not the shape.
+  Amended 2026-09-15, Morgan, after a container that had been baking `Go
+  merge` into spawned sessions' seeded prompts started hitting the harness's
+  own classifier -- \"maybe we remove that BUT we have it say very very
+  prominent, bold capitalized, that I need to manually say to merge it,\"
+  confirmed with \"Yes, do both\" once the default above was shown to already
+  cover the removal half (strength: decided)."
 strength:    decided
 source_practice_number: null
 ---
@@ -196,6 +202,25 @@ paste block -- *"by default you don't; only if I explicitly tell you to
 spawn a session and go merge. If I only saw 'spawn session' then assume I
 need to manually approve the merge."* The same default holds now: naming
 the handoff alone is not naming the merge.
+
+**Say the default boundary out loud in the pasted text, not just by its
+absence.** A block that simply never mentions merging still reads as
+ambiguous to whoever opens the new window and pastes it in, rather than as a
+bounded stop. The default-case text states it directly:
+
+> **DO NOT MERGE — STOP AT THE PULL REQUEST. Wait for the word "Go merge"
+> in this session before merging.**
+
+This earns its place even now that the text is always something a person
+reads and pastes themselves, never something handed to an automated
+`create_session` call -- the ambiguity it closes is theirs, at the moment
+they decide whether to type `Go merge` into the window they just opened. It
+is also part of why `create_session` is gone from this practice at all:
+[record/GOTCHAS.md#g43](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/record/GOTCHAS.md#g43)
+found the harness's own permission classifier refusing a `create_session`
+call outright over a baked-in merge instruction, `[Merge Without Review]` --
+one data point among the ones that led to retiring the automated route
+rather than trying to word around it.
 
 **Why the opposite reading is tempting and wrong.** Work somebody asked for
 is usually work they want landed, so a stop at a finished branch looks like
@@ -553,6 +578,22 @@ the destination that the person saying it cannot check from where they are
 standing. The rule, the gate and the routing are untouched; only the words
 moved.
 
+**The explicit stop-point line, 2026-09-15.** A container had been baking a
+full merge instruction into `create_session`'s seeded prompt, on the reading
+that a spawned session should carry the same authorization it would have had
+inline. The harness's own permission classifier refused the `create_session`
+call itself over it -- `[Merge Without Review]`, recorded in full as
+[record/GOTCHAS.md#g43](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/record/GOTCHAS.md#g43)
+-- which is what prompted Morgan to ask about it: *"Could it be related to
+the fact that you, in spawning new sessions, a day or two ago, we had it
+include 'go merge'?"* His proposed fix, in his own words: *"maybe we remove
+that BUT we have it say very very prominent, bold capitalized, that I need to
+manually say to merge it."* The session that read this rule found the removal
+half already covered by the 2026-09-13 default above -- nothing needed
+un-baking, since the default was already not to bake it in -- so what was
+missing was only the explicit statement, which he confirmed with *"Yes, do
+both"* once that was shown to him (strength: decided).
+
 **Renamed again 2026-09-15, on Morgan's decision, and this time the
 mechanism moved too.** Unlike the rejected 2026-09-13 rename, this one was
 not about the name underselling the rule -- it was about `create_session`
@@ -567,7 +608,12 @@ in."* Two changes landed together because they were the same ask: the
 standing instruction never to call `create_session` (or spawn a background
 agent) for this again, and the phrase renamed to match what it now actually
 does. Waking an already-live session is untouched -- it was never the thing
-coming back rejected, and nothing in his ask covered it.
+coming back rejected, and nothing in his ask covered it. **The stop-point
+line above predates this and outlives it** -- it was written for a seeded
+`create_session` prompt, and it earns its place just as much in a
+copy-pasted block, since the ambiguity it closes belongs to the person
+reading the text before they paste it in, not to the mechanism that used to
+deliver it.
 
 ## Install
 Nothing to configure. The occasion index entry above is generated, so an
