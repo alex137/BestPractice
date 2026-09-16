@@ -14,6 +14,8 @@ good at that is worth protecting.
 - [OUR_PHILOSOPHY.md](OUR_PHILOSOPHY.md) — the underlying theoretical
   ideas everything else here assumes, named and explained on their own
   terms. **Start here.**
+- [THE_WORKING_LOOP.md](THE_WORKING_LOOP.md) — the six-step cycle those
+  ideas run through, end to end.
 - [REASONS_WHY.md](REASONS_WHY.md) — its companion: the less obvious
   benefits those ideas produce in practice.
 - [COMPANY_BUILDING_RULES.md](COMPANY_BUILDING_RULES.md) — the standalone
