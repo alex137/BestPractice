@@ -636,6 +636,46 @@ one.
    assume a later engine refresh will fix it — an engine refresh carries
    tools, never practice text, so nothing about it can fill a Story.
 
+## Upgrading a repo that already migrated before 2026-09-14
+
+A repo whose migration predates Morgan's 2026-09-14 decision to kill every
+scheduled vendor update ("The default-branch gotcha" above, and
+[vendor-update-runbook](../practices/vendor-update-runbook.md)) followed
+step 6 as it read *then* — pause the pack's sync workflow, don't delete it.
+Bringing such a repo forward now is not a fresh migration, so the steps
+above won't surface what it's still carrying. Check these specifically,
+each a real thing step 5/6 found on real repos rather than a hypothetical:
+
+- **A pack-sync workflow file that is merely paused, not deleted** — a
+  `schedule:` block commented out, or an `if: false` guard, instead of a
+  `workflow_dispatch`-only file with the schedule removed. Step 6 above now
+  requires deletion outright; a repo upgraded before that requirement
+  existed is exactly the one still carrying the old, paused version.
+- **Orphaned pack secrets and tokens** — a repository secret or `.env`
+  reference for the old pack's sync credential (a `*_PACK_TOKEN`-shaped
+  name) that nothing calls once the workflow above is actually deleted.
+  Deleting the workflow without also removing the secret leaves a live
+  credential with no reader, which is its own, separate risk.
+- **A leftover `process/manifest_<pack>.json` or pack tree** the original
+  migration didn't fully retire — re-run
+  `python3 tools/precedent_decommission.py process/<old-pack-tree> process/manifest_<pack>.json`
+  and don't consider the repo upgraded until it reports `CLEAR`.
+- **Backlog or TODO items that assumed a schedule still existed** — an item
+  about pausing, re-enabling, or monitoring the old scheduled sync is moot
+  now that no repository runs one at all, and is safe to close as `DONE`
+  and prune, distinct from a genuinely open item about the same pack.
+- **A `process/retired_vocabulary.json` that predates the pack's own
+  retirement**, or one that never existed because the original migration
+  predated [migration-scrubs-vocabulary](../practices/migration-scrubs-vocabulary.md)
+  itself. Add the pack's name and any retired secret name to `terms` if
+  they aren't there yet, then run
+  `python3 tools/precedent_check.py --only migration-scrubs-vocabulary`
+  and don't call the upgrade done until it passes.
+
+None of this is a second migration — the three-source model is already in
+place — it is closing out exactly the piece the 2026-09-14 decision changed
+out from under an earlier migration's own correct-at-the-time step 6.
+
 ## The default-branch gotcha
 
 **Still follow the manual steps below.** What changed is *why*, and the
