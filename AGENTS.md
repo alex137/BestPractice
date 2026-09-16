@@ -187,7 +187,7 @@ plan's premise.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block; `python3 tools/build_views.py --check` exits non-zero on drift. Source: practices/ -- edit the practice file, never this block. -->
 
-## Resident block (~972 of 2000 token budget, 10 of 122 practices (10 universal))
+## Resident block (~972 of 2000 token budget, 10 of 123 practices (10 universal))
 
 **bold-key-phrases.** People don't read; they skim, and bolding makes skimming easy. Bold the key phrases in a document by default, without being asked, scaling with length -- a long paragraph or document is where a skimmer most needs a spine to follow, a short note usually needs little or none.
 
@@ -309,6 +309,8 @@ When about to search a repository, or reaching for a GitHub search or file-read 
   grep-before-search — grep the clone; a repo-scoped list before a search; fewer windows at once
 When adding a file to a directory that already holds files of the same kind:
   filename-separator — one word separator per directory and file kind -- never both - and _
+When asked to include an image, logo, or other binary asset the person is supplying, rather than approximate one from a description:
+  attach-the-original — attach the file itself -- recreating an original from a description is invention
 When building a mechanism that makes something discoverable or reachable:
   affordance-is-shared — name who else the mechanism you just built now serves
 When building a permutation or configuration-sweep table:

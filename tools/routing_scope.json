@@ -37,6 +37,28 @@
       ],
       "gates_why": "The obligation lands in the reply: resolve the session, archive it, and say so, that same turn."
     },
+    "attach-the-original": {
+      "globs": [
+        "**/*.png",
+        "**/*.jpg",
+        "**/*.jpeg",
+        "**/*.gif",
+        "**/*.webp",
+        "**/*.svg",
+        "**/*.ico",
+        "**/*.pdf",
+        "**/*.zip",
+        "**/*.woff",
+        "**/*.woff2",
+        "**/*.ttf",
+        "**/*.otf",
+        "**/*.mp3",
+        "**/*.mp4",
+        "**/*.mov"
+      ],
+      "why": "Its own applies_to: common binary/asset extensions, a real locus for the moment such a file is actually being written. Deliberately not `**` -- a rule about handling original binaries has nothing to say to a session editing a practice file. index_required: true because the glob only fires once the write is already chosen; the decision it governs -- attach the original versus decline or recreate -- happens earlier, at the request, which only the occasion index reaches.",
+      "decided": "2026-09-16, when the practice landed"
+    },
     "base-branch-is-the-record": {
       "globs": [
         "**"
