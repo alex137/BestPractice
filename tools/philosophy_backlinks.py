@@ -30,7 +30,6 @@ DOCS = {
     "COMPANY_BUILDING_RULES.md": "Company Building Rules",
     "AI_GOVERNANCE_TO_COCREATE.md": "AI Governance",
     "HUMANS_AT_OUR_BEST.md": "Humans at Our Best",
-    "RULES_NOW_TESTING.md": "Rules Now Testing",
 }
 
 ANCHOR = re.compile(r'<a id="([a-z0-9-]+)"></a>')
@@ -49,8 +48,8 @@ def parse_items(name, lines):
     items = []
     for n, (i, slug) in enumerate(starts):
         limit = starts[n + 1][0] if n + 1 < len(starts) else len(lines)
-        # RULES_NOW_TESTING.md puts the anchor above the heading it names,
-        # so the item's own title must not be read as the terminator.
+        # Several of these documents put the anchor above the heading it
+        # names, so the item's own title must not be read as the terminator.
         body = i + 1
         while body < limit and lines[body].strip() == "":
             body += 1

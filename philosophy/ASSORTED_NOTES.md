@@ -37,7 +37,7 @@ and push the sharpened version back in.
   a structural check for AI-sounding prose, and self-surfacing of dark
   processes.
 - **Where an idea from either essay actually goes next** —
-  [Rules Now Testing](RULES_NOW_TESTING.md), added 2026-08-27. Neither essay
+  `RULES_NOW_TESTING.md`, added 2026-08-27. Neither essay
   above is itself a set of rules anyone follows day to day; this is the
   document that turns an argument into a checklist actually in force, and
   tracks which of those checklist items have proven themselves enough to
@@ -168,7 +168,7 @@ contribute a practice back (the WordPress Plugins comparison) — still
 doesn't have a home: it's a genuine complication for
 [`co-create-dont-delegate`](COMPANY_BUILDING_RULES.md#co-create-dont-delegate)'s
 "practices arise organically" framing, only partly answered by this repo's
-own three-stage pipeline ([Rules Now Testing](RULES_NOW_TESTING.md)),
+own three-stage pipeline (`RULES_NOW_TESTING.md`),
 which gives "one person enforcing" but not yet a trivially-easy way for
 someone else to contribute a practice back.
 
@@ -191,13 +191,13 @@ pushes them there. Candidate mechanisms, none decided yet (this is a
   nobody re-reads.
 
 Push-back mode (the first candidate above) is decided and promoted — see
-[`push-back-writing-thinking`](RULES_NOW_TESTING.md#push-back-writing-thinking).
+`push-back-writing-thinking`.
 The rest — visible
 reminders, in-your-face rule-extraction, proactive resurfacing — remain
 open; proactive resurfacing specifically also shows up as one of
 [AI Governance to Co-Create](AI_GOVERNANCE_TO_COCREATE.md)'s "Memory & context" ideas,
 tracked as a not-yet-ready item in
-[Rules Now Testing](RULES_NOW_TESTING.md) pending real infrastructure.
+`RULES_NOW_TESTING.md` pending real infrastructure.
 
 ## Observations From Other Conversations
 
@@ -341,7 +341,7 @@ pack." Morgan's correction: this repo's actual job is to *try* an idea in
 real work first — going straight from an essay here to a rule that rolls
 out to every project skips the step that's supposed to catch a good-sounding
 idea that doesn't actually hold up. The fix wasn't a new rule, it was
-naming the stage that was missing: [Rules Now Testing](RULES_NOW_TESTING.md),
+naming the stage that was missing: `RULES_NOW_TESTING.md`,
 sitting between the essays here and RepoPersonalPreferences, holding
 whatever's currently on trial. See [README.md](README.md)'s new pipeline
 section and [the Open Questions section below](#open-questions) for what is still open.
@@ -390,7 +390,7 @@ Look for tensions between entries in this document — for
 example `build-five-kill-four` against
 [`think-in-workflows`](COMPANY_BUILDING_RULES.md#think-in-workflows)'s
 "don't systematize a one-off". Worth a dedicated pass once there is enough
-material for real tensions to surface. [Rules Now Testing](RULES_NOW_TESTING.md)'s
+material for real tensions to surface. `RULES_NOW_TESTING.md`'s
 contradiction-scanning rule is the same job described from the other side.
 
 ### Active Resurfacing
@@ -404,7 +404,7 @@ when asked. **No design has been proposed.**
 
 Mining commit and session history for a recurring task shape, instead of
 relying on a human noticing. Today the reflex in
-[Rules Now Testing](RULES_NOW_TESTING.md) is human-triggered, which is
+`RULES_NOW_TESTING.md` was human-triggered, which is
 the part the idea says should not stay true.
 
 ### Situational, Inferred Cost-Awareness

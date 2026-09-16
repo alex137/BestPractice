@@ -64,10 +64,9 @@ the resemblance stops being a coincidence and starts being a design lens.*
    disagreed on most everything, and tradition holds both were right —
    their opposing rulings are recorded side by side rather than one being
    erased once the other won out.
-   [Rules Now Testing](RULES_NOW_TESTING.md) and
-   [`park-it`](../practices/park-it.md)'s `parked` disposition do the same:
-   a rule can be tried, argued over, and left genuinely unsettled instead
-   of declared closed just to make a page look finished.
+   [`park-it`](../practices/park-it.md)'s `parked` disposition does the
+   same: a rule can be tried, argued over, and left genuinely unsettled
+   instead of declared closed just to make a page look finished.
 
 8. **The page itself is built as layered commentary, not one voice.** A
    Talmud page prints the central text ringed by later commentaries that
@@ -97,6 +96,3 @@ the resemblance stops being a coincidence and starts being a design lens.*
 - [Humans at Our Best](HUMANS_AT_OUR_BEST.md) — the one list of what
   humans are good at, gathered from the shorter versions scattered here
   and elsewhere.
-- [Rules Now Testing](RULES_NOW_TESTING.md) — the practical rules
-  actually being tried in real work right now, and candidates for
-  promotion.
