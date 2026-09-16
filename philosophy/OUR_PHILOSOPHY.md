@@ -81,11 +81,23 @@ It is also what
 [`people-manage-agents-execute`](#people-manage-agents-execute) means by
 briefing a model and staying engaged.
 
+<a id="explain-the-why"></a>
+
+**4. Say why you're asking, every time.** The instruction tells the model
+what to type; the reason tells it what you're actually trying to achieve,
+and that's what lets it catch a case you didn't spell out or push back when
+the ask doesn't serve the goal. It's also the raw material a standing rule
+gets made from — a practice pulled from "always do X" has nothing to check
+itself against, one pulled from "always do X because Y" can be tested
+against Y forever
+([`rules-generated-automatically`](#rules-generated-automatically),
+[`decisions-carry-their-situation`](#decisions-carry-their-situation)).
+
 ## Knowledge That Gets Captured
 
 <a id="context-is-capital"></a>
 
-**4. Context is core.** [`capital-asset`](COMPANY_BUILDING_RULES.md#capital-asset)
+**5. Context is core.** [`capital-asset`](COMPANY_BUILDING_RULES.md#capital-asset)
 makes the case for capturing this. What matters is the residue, not
 the deliverable — the option tried and killed, the correction only
 legible against the draft it corrected. One document carries that
@@ -96,7 +108,7 @@ the AI carrying the translation keeps thinking real, not thinned
 
 <a id="rules-generated-automatically"></a>
 
-**5. Protocols, rules, and preferences get generated automatically.**
+**6. Protocols, rules, and preferences get generated automatically.**
 What's automatic is the finding: the AI Assistant surfaces the pattern
 every time, without anyone having to remember to look. Turning it into
 a standing rule is a human call, routed by this repo's own rules to
@@ -117,7 +129,7 @@ reason, and pays off as
 
 <a id="decisions-carry-their-situation"></a>
 
-**6. Every decision carries the situation that produced it.** However
+**7. Every decision carries the situation that produced it.** However
 small the call, the record states what case prompted it — a bare
 "always do X" invites relitigation from anyone who wasn't there. The
 case also tests the rule: one that wouldn't have caught it is theater.
@@ -136,7 +148,7 @@ decision carrying its case is one worth raising unprompted later
 
 <a id="processes-should-be-visible"></a>
 
-**7. Processes should be visible, not locked in one person's brain.** A
+**8. Processes should be visible, not locked in one person's brain.** A
 workflow whose only interface is "email me and I'll handle it" is
 invisible to everyone else. Bigger than tidiness
 ([`no-dark-processes`](COMPANY_BUILDING_RULES.md#no-dark-processes)):
@@ -146,7 +158,7 @@ compounding blind spot.
 
 <a id="explicit-ownership-not-hidden-in-the-model"></a>
 
-**8. Protocols, documents, and knowledge should be explicitly owned by
+**9. Protocols, documents, and knowledge should be explicitly owned by
 the team, not hidden inside an AI Assistant.** Any model infers your
 implicit patterns as you work; the question is where that lives — a
 private session, or files the team can edit and hand to another model
@@ -157,7 +169,7 @@ private session, or files the team can edit and hand to another model
 
 <a id="humans-do-what-humans-do-best"></a>
 
-**9. Humans should do what humans do best.** Machines produce; people
+**10. Humans should do what humans do best.** Machines produce; people
 bring judgment, relationships, instinct: reading a room, sensing what a
 client meant but didn't say, pushing someone harder when the moment
 calls for it. Optimizing a person to act like a fast, tireless model
