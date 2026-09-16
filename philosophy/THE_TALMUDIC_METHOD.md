@@ -80,10 +80,23 @@ the resemblance stops being a coincidence and starts being a design lens.*
 
 ## See Also
 
+- [Core Pillars](CORE_PILLARS.md) — the one-page pitch: the core ideas
+  this approach argues are unique, specifically taken together.
 - [Our Philosophy](OUR_PHILOSOPHY.md) — the underlying theoretical
   ideas everything else here assumes, named and explained on their own
   terms.
+- [Our Working Loop](THE_WORKING_LOOP.md) — the six-step cycle those
+  ideas run through, end to end.
 - [Reasons Why](REASONS_WHY.md) — the less obvious benefits those
-  ideas produce in practice.
+  ideas actually produce in practice.
 - [Company Building Rules](COMPANY_BUILDING_RULES.md) — the standalone
   essay on rules for building a company around AI.
+- [AI Governance to Co-Create](AI_GOVERNANCE_TO_COCREATE.md) — the
+  standalone essay on how AI systems themselves should be configured,
+  built, and run.
+- [Humans at Our Best](HUMANS_AT_OUR_BEST.md) — the one list of what
+  humans are good at, gathered from the shorter versions scattered here
+  and elsewhere.
+- [Rules Now Testing](RULES_NOW_TESTING.md) — the practical rules
+  actually being tried in real work right now, and candidates for
+  promotion.
