@@ -19616,6 +19616,30 @@ def check_very_deep_check_bootstrap_drift():
         cases.append(('a set the generator just wrote reports no drift at all',
                       out == [], repr(out)))
 
+        # A bytecode cache the generator's own imports can leave behind in
+        # the throwaway destination it runs inside must never read as
+        # drift. The real write site is intermittent and was never pinned
+        # down (see the module docstring's bootstrap-drift entry), so it is
+        # planted directly here rather than relied on to occur.
+        orig_bootstrap = vdc.bootstrap_source.bootstrap
+
+        def _bootstrap_with_stray_pyc(level, name, gen_dest, **kwargs):
+            orig_bootstrap(level, name, gen_dest, **kwargs)
+            cache = pathlib.Path(gen_dest) / 'tools' / '__pycache__'
+            cache.mkdir(parents=True, exist_ok=True)
+            (cache / 'precedent_source_credentials.cpython-311.pyc').write_bytes(
+                b'stray bytecode cache')
+
+        vdc.bootstrap_source.bootstrap = _bootstrap_with_stray_pyc
+        try:
+            dest, src = fresh('pycache')
+            out = vdc._bootstrap_drift(src)
+        finally:
+            vdc.bootstrap_source.bootstrap = orig_bootstrap
+        cases.append(('a stray __pycache__/*.pyc the generator leaves behind '
+                      'in its own run is not drift',
+                      out == [], repr(out)))
+
         cases.append(('no resolved source reads as a SKIP, in those words, '
                       'never as clean',
                       any('NOT compared' in m and 'skip' in m.lower()

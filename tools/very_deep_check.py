@@ -2123,6 +2123,16 @@ def _bootstrap_drift_one(level, name, path, collect=None):
             if not gen_path.is_file():
                 continue
             rel = str(gen_path.relative_to(gen_root))
+            # A bytecode cache the generator's own imports can leave behind
+            # in the throwaway destination is a build artifact, not
+            # generated content -- the same exclusion verify_harness.py
+            # already applies with shutil.ignore_patterns(..., '__pycache__',
+            # '*.pyc', ...) everywhere it copies this tree, and the same
+            # reasoning precedent_bootstrap_source.py's build_views.py
+            # subprocess comment gives for the one case that was already
+            # fixed this way.
+            if '__pycache__' in pathlib.Path(rel).parts or rel.endswith('.pyc'):
+                continue
             # practices/ is the set's own content, and example-starter-<level> is
             # the one file an adopter is told to delete.
             if rel.split(os.sep)[0] == 'practices':
