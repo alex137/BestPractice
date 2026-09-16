@@ -46,6 +46,24 @@ The replacement channel is a person saying "Update Vendors" in a session
 session-start line it prints, are the whole notification story -- if
 nobody is looking, nothing tells anybody.
 
+CLARIFIED 2026-09-15: the paragraph above was about the WEEKLY, unattended
+workflow specifically, not about a session's own bootstrap applying this
+tool's report to its own working tree. Morgan: "my objection was to the
+WEEKLY updates that were automatic; I never objected to START OF SESSION
+checks that are automatic, I LOVE THAT." (strength: decided).
+`.claude/hooks/session-start.sh` now calls this with `--apply`
+unconditionally, every session, for the reason its own comment gives: a
+session working from a BestPractice checkout already has everything this
+tool needs, so applying costs nothing further and closes the round trip
+every earlier session had to make by hand (notice STALE, then run
+--apply). This is still not the retired mechanism -- it runs once, inside
+a session someone is sitting in, against that session's own working tree,
+and it still never commits or pushes on its own; --commit remains a
+separate, explicit flag. The dirty-tree check in the stale loop below
+(added the same day) is what keeps this from being the auto-apply that
+would have made 2026-09-14's decision moot: a source with its own
+uncommitted changes is left alone rather than silently overwritten.
+
 A SECOND THING THIS COVERS, AND WHY IT IS THE SAME TOOL (added
 2026-09-09). A source set also carries its own session hooks -- the
 freshness guard, the commit-identity backstop, and since 2026-09-13 the
@@ -760,6 +778,20 @@ def main(argv):
     for e in stale:
         e['tip'] = tip
         print(f"\n--- {_label(e['repo'])}")
+        # practice: durable-fix -- session-start.sh now calls --apply
+        # unconditionally, every session, so this guard is what keeps that
+        # safe. Without it, a person's own uncommitted edit in this source
+        # (a new practice file, a hand fix mid-review) would be sitting in
+        # the same working tree that `refresh` and `build_views` write
+        # into, and their diff would land tangled with a regenerated one
+        # they never asked for -- indistinguishable after the fact from
+        # having clobbered it outright.
+        ok_status, dirty = _git('status', '--porcelain', cwd=e['repo'])
+        if ok_status and dirty:
+            print(f"  SKIP refresh: uncommitted changes present in this "
+                  f"source, not auto-applying over them -- commit or stash "
+                  f"there, then re-run")
+            continue
         for name, ok, out in apply_to(e, commit='--commit' in argv):
             print(f"  {'ok ' if ok else 'FAIL'} {name}: {out.splitlines()[-1] if out else ''}")
             failed = failed or not ok
