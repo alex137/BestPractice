@@ -349,12 +349,12 @@ run prompted on every single run.
    The team and individual slices are untouched — a session with those
    repos attached should take them next, one at a time, with the closed
    question the practice's own Rule names.
-9. **[TODO.md's `additionalcontext-reaches-the-model` item](../TODO.md#additionalcontext-reaches-the-model) still needs a live session**: whether
+9. **[TODO.md's `additionalcontext-reaches-the-model` item](../todo/todo-2026-09-06-additionalcontext-reaches-the-model.md) still needs a live session**: whether
    `additionalContext` reaches the model or only the transcript. The test
    plan is written; it needs a real Claude Code session with the adapter
    installed. Now cheaper to run than it was: this repo installs the hook
    itself as of today, so the next session here is the test.
-10. **The design half of [TODO.md's `multiple-team-sources-disagree` item](../TODO.md#multiple-team-sources-disagree)**: whether a consuming repo should
+10. **The design half of [TODO.md's `multiple-team-sources-disagree` item](../todo/todo-2026-09-06-multiple-team-sources-disagree.md)**: whether a consuming repo should
    be able to express a preference between two team sources at all, rather
    than being told to rename one. The silent-failure half is closed; the
    design question is untouched, and a second team set now exists to test
@@ -575,8 +575,8 @@ acted on where it runs, and whether it has a two-direction test.
 
 ### The judgment-only sweep, partially done
 
-[TODO.md's `sweep-judgment-only-practices` item](../TODO.md#sweep-judgment-only-practices)
-is a 52-practice sweep the item itself frames as bounded only by session
+TODO.md's `sweep-judgment-only-practices` item (since closed and pruned) was
+a 52-practice sweep the item itself frames as bounded only by session
 budget. This pass took the slice with mechanically testable cores rather
 than stopping at the first practice and running out:
 
@@ -719,7 +719,7 @@ way to say "this source is in force, but this practice does not bind this
 repo."** Silence is currently doing that job, which is exactly why 43 rules
 sit unreachable and nobody can tell the deliberate cases from the forgotten
 ones. Adding that vocabulary is a design change, not a fix, and it is
-[TODO.md's `unreachable-practices` item](../TODO.md#unreachable-practices).
+[TODO.md's `unreachable-practices` item](../todo/todo-2026-09-06-unreachable-practices.md).
 
 ### Root cause of the fourteen crashing checks, and the fix
 
@@ -748,8 +748,8 @@ is precisely how one bad line reached fourteen files.
 
 ## The judgment-only sweep, round two
 
-Continuing [TODO.md's `sweep-judgment-only-practices` item](../TODO.md#sweep-judgment-only-practices).
-Nineteen of the fifty-one judgment-only practices have now been judged with
+Continuing TODO.md's `sweep-judgment-only-practices` item (since closed and
+pruned). Nineteen of the fifty-one judgment-only practices have now been judged with
 the closed question [practices/full-practice-audit.md](../practices/full-practice-audit.md)
 names — *does this apply; if so, is it satisfied, with the specific file* —
 against the actual state of all six repos.
@@ -890,7 +890,7 @@ needs its blast radius asserted, not described.**
 
 ## The loader block now renders every declared source — except a private one in a public repo
 
-Part A of [TODO.md's `unreachable-practices` item](../TODO.md#unreachable-practices),
+Part A of [TODO.md's `unreachable-practices` item](../todo/todo-2026-09-06-unreachable-practices.md),
 done 2026-09-06 at Morgan's direction. **The engine change landed; here it is
 deliberately switched off, and the reason is the more useful half of this
 entry.**

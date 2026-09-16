@@ -252,7 +252,7 @@ rule is gated" remain different claims, and only the second one is what a
 generated view drifting silently needs. Whether a set that gains a workflow
 running the whole suite should then drop this one is an open question, not a
 settled redundancy — [TODO.md](TODO.md)'s
-[`views-drift-vs-suite-workflow`](TODO.md#views-drift-vs-suite-workflow)
+[`views-drift-vs-suite-workflow`](todo/todo-2026-09-13-views-drift-vs-suite-workflow.md)
 holds it.
 
 The workflow **gates and does not fix**: regenerating in CI would leave the

@@ -105,7 +105,7 @@ fires only when a source declares a `close_detect.json` naming its
 ready-to-archive sentence. Since 2026-09-14 one source does — Morgan's
 individual set, whose declaration landed once a session holding both owners
 could push it
-([TODO.md's `close-detect-declaration-unpushed` item](../TODO.md#close-detect-declaration-unpushed),
+([TODO.md's `close-detect-declaration-unpushed` item](../todo/todo-2026-09-14-close-detect-declaration-unpushed.md),
 now closed). Nobody else's does, and nothing tells them to.
 
 **Once the sign-off sentence is universal, that file can be universal too** —

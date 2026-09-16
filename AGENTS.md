@@ -620,6 +620,10 @@ retired it. Nothing is ever deleted.
 - **Direct edits are fine** for content about this repo itself (README,
   practice wording, engine code); abstracted lessons still only enter via
   a scrubbed check-in from where they were learned.
+- **A pull request touching `TODO.md` after the 2026-09-16 todo/gotcha
+  migration is refused by CI** (`precedent_check.py --only
+  todo-gotcha-stale-reference`). File the item under `todo/` instead
+  ([spec/OPEN_ITEM_AND_GOTCHA_PLAN.md](spec/OPEN_ITEM_AND_GOTCHA_PLAN.md)).
 - **Before committing:** `python3 tools/doc_lint.py` on markdown you
   touched (`pip install cmarkgfm` — the session-start hook does this);
   after touching the deck engine, rebuild the sample both ways:

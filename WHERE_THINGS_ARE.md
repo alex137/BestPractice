@@ -10,8 +10,8 @@ the only difference between the two; no row was dropped.** It was made on
 2026-09-14 because the inline table had grown to 2,671 tokens that every
 session paid before doing any work, against a declared ceiling it was pushing
 into (practice:
-[session-load-budget](practices/session-load-budget.md), open item
-[`agents-md-ceiling-policy`](TODO.md#agents-md-ceiling-policy)).
+[session-load-budget](practices/session-load-budget.md), TODO.md's
+`agents-md-ceiling-policy` item, since closed and pruned).
 
 **Adding a row?** Add it here. It belongs in AGENTS.md's short table only if
 sessions will hunt for it *constantly* — the test is frequency, not
@@ -22,7 +22,7 @@ not it is read.
 |---|---|
 | The restructuring plan (read this first) | [spec/PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md) |
 | Whether an open item may be raised with Morgan at all, and what "Park it" writes | [practices/open-item-disposition.md](practices/open-item-disposition.md), phrase at [practices/park-it.md](practices/park-it.md) |
-| Running many sessions at once — the proposed Chief of Staff session, what `list_sessions` can and cannot do, and the tag namespaces | [spec/CHIEF_OF_STAFF.md](spec/CHIEF_OF_STAFF.md) — **drafted, not decided**; open item at [TODO.md's `chief-of-staff-session`](TODO.md#chief-of-staff-session) |
+| Running many sessions at once — the proposed Chief of Staff session, what `list_sessions` can and cannot do, and the tag namespaces | [spec/CHIEF_OF_STAFF.md](spec/CHIEF_OF_STAFF.md) — decided 2026-09-14 (build it); was tracked at TODO.md's `chief-of-staff-session` item, since closed and pruned |
 | Inherited practices whose meaning or mechanism changed under Precedent (Alex needs to hear about these) | [spec/CHANGES_TO_TELL_ALEX.md](spec/CHANGES_TO_TELL_ALEX.md) |
 | The phase-1 per-practice file format | [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) |
 | Why a practice file's references to `spec/`, `templates/` or a root document are full `https://github.com/...` URLs rather than relative links | [practices/practice-links-travel.md](practices/practice-links-travel.md) |
@@ -41,7 +41,7 @@ not it is read.
 | Populating the two private sets (done 2026-09-01, closing phase 3 — brief kept for how it was done) | [spec/PRIVATE_SETS_BRIEF.md](spec/PRIVATE_SETS_BRIEF.md) |
 | Bootstrapping a brand-new individual or team set from zero — the generalized procedure any adopter follows, plus the tool and skeletons it uses | [spec/BOOTSTRAP_NEW_SOURCES.md](spec/BOOTSTRAP_NEW_SOURCES.md), tool at [tools/precedent_bootstrap_source.py](tools/precedent_bootstrap_source.py), skeletons at [templates/practice-set-individual/](templates/practice-set-individual/) and [templates/practice-set-team/](templates/practice-set-team/) |
 | Bringing mechanical checks to the two private sets' practices (open; cannot run from here) | [spec/PRIVATE_ENFORCEMENT_BRIEF.md](spec/PRIVATE_ENFORCEMENT_BRIEF.md) |
-| How a session rooted in an individual or team set gets the universal practices, and why its checks still do not run there | [spec/SOURCE_SET_PROSE_GAP.md](spec/SOURCE_SET_PROSE_GAP.md), open half at [TODO.md](TODO.md#source-set-runs-no-universal-checks) |
+| How a session rooted in an individual or team set gets the universal practices, and why its checks still do not run there | [spec/SOURCE_SET_PROSE_GAP.md](spec/SOURCE_SET_PROSE_GAP.md), open half at [`source-set-runs-no-universal-checks`](todo/todo-2026-09-13-source-set-runs-no-universal-checks.md) |
 | How a repo that already had BestPractice installed migrates to Precedent's three-source model (the recommended pattern, from the first real dependent-repo test) | [spec/MIGRATING_EXISTING_INSTALLS.md](spec/MIGRATING_EXISTING_INSTALLS.md) |
 | Deleting a file or directory a decommissioned mechanism left behind — the audit that has to pass first, and the record of what went | [practices/decommission-deletes-files.md](practices/decommission-deletes-files.md), audit at [tools/precedent_decommission.py](tools/precedent_decommission.py) |
 | Moving an existing, still-wanted practice from one level to another (team ↔ individual, team ↔ team, team → universal) — distinct from creating one or retiring one outright | [spec/MOVING_PRACTICES.md](spec/MOVING_PRACTICES.md); the tool that does both steps in order is [tools/precedent_move.py](tools/precedent_move.py) |
@@ -111,7 +111,7 @@ not it is read.
 | The ten ideas underneath Precedent on one page — work through an assistant, the repository is the memory, practices, proposal and approval, routing, enforcement, four levels, three permission levels, the standing phrases, privacy — each linked into both guides | [documentation/TEN_THINGS.md](documentation/TEN_THINGS.md) |
 | Every GitHub setting a Precedent project depends on, who clicks it, what fails without it — roles, branch protection with the four values, what GitHub does with CODEOWNERS and how this system generates it, Actions permissions and secrets, practice-set repositories | [documentation/GITHUB_SETTINGS.md](documentation/GITHUB_SETTINGS.md) |
 | CI checks for shell-less agents (install, require) | [GITHUB_ACTIONS.md](GITHUB_ACTIONS.md) |
-| Whether anything catches a drifted `MAP.md`, `GLOSSARY.md` or loader block in a practice SET (two things do) | [templates/github-actions/views-drift.yml.template](templates/github-actions/views-drift.yml.template) and [templates/github-actions/precedent-check.yml.template](templates/github-actions/precedent-check.yml.template); whether a set needs both is [TODO.md's `views-drift-vs-suite-workflow`](TODO.md#views-drift-vs-suite-workflow) |
+| Whether anything catches a drifted `MAP.md`, `GLOSSARY.md` or loader block in a practice SET (two things do) | [templates/github-actions/views-drift.yml.template](templates/github-actions/views-drift.yml.template) and [templates/github-actions/precedent-check.yml.template](templates/github-actions/precedent-check.yml.template); whether a set needs both is [TODO.md's `views-drift-vs-suite-workflow`](todo/todo-2026-09-13-views-drift-vs-suite-workflow.md) |
 | Upstream open items / roadmap | [TODO.md](TODO.md) |
 | The full story behind any line in the gotchas index, unabridged | [record/GOTCHAS.md](record/GOTCHAS.md) |
 | Gotchas that were shortened or retired, with the verdict that moved each one | [record/GOTCHAS_ARCHIVE.md](record/GOTCHAS_ARCHIVE.md) |

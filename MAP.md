@@ -145,6 +145,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 |---|---|
 | [tools/behavioral_replay.py](tools/behavioral_replay.py) | Measures the path-triggered loader against this repo's own commit history |
 | [tools/build_codeowners.py](tools/build_codeowners.py) | CODEOWNERS, generated -- a practice set's from its approvers.json, a project's from the maintainers and owned_paths in its precedent.json |
+| [tools/build_todo_index.py](tools/build_todo_index.py) | todo/TODO.md and todo/CLOSED.md, generated from todo/*.md's frontmatter |
 | [tools/build_views.py](tools/build_views.py) | This file, GLOSSARY.md, and AGENTS.md's loader block — generated views |
 | [tools/catalogue_stats.py](tools/catalogue_stats.py) | The figures about the catalogue that other documents cite, computed rather than hand-typed |
 | [tools/checkin.py](tools/checkin.py) | Drives the periodic check-in (INSTALL.md §4) mechanically |
@@ -202,6 +203,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [tools/split_practices.py](tools/split_practices.py) | PRACTICES.md ↔ practices/ converter |
 | [tools/table_fmt.py](tools/table_fmt.py) | One formatter per quantity kind — the engine |
 | [tools/title_case.py](tools/title_case.py) | Headline (New York Times) capitalization for markdown headings — --check to gate, --write to fix |
+| [tools/todo_migrate.py](tools/todo_migrate.py) | One-time converter from the old TODO.md/gotchas-index format into spec/OPEN_ITEM_AND_GOTCHA_PLAN.md's per-item todo/gotchas files, dry-run by default |
 | [tools/todo_progress.py](tools/todo_progress.py) | which open items a change may have moved, and which name a file that is gone -- reports a resemblance, never a verdict |
 | [tools/verify_harness.py](tools/verify_harness.py) | The verification harness — run before trusting any change here |
 | [tools/very_deep_check.py](tools/very_deep_check.py) | The very deep check — on-demand whole-repo coherence review, distinct from full-practice-audit |

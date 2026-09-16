@@ -5407,7 +5407,7 @@ def check_precedent_check_fires():
             # cannot make it unverifiable. Copying them back in only gave
             # layered-practice-packs' baseline the real repo's 34 unreachable
             # team practices to report -- an open architectural question (see
-            # TODO.md#unreachable-practices), not a defect a fixture planted,
+            # todo/todo-2026-09-06-unreachable-practices.md), not a defect a fixture planted,
             # and it made every planted case below prove nothing. A fixture
             # for a PRIVATE consumer's multi-source block would need them; the
             # coverage for that lives in
@@ -7399,6 +7399,23 @@ def check_precedent_check_fires():
         case('document-status-header', _plant_bad_lifecycle_status,
              setup=_setup_lifecycle)
 
+        # todo-gotcha-stale-reference -- a stray old-format citation added
+        # to a tracked file after the 2026-09-16 migration. The dedicated,
+        # multi-case fixture for this check's three shapes and its two
+        # same-document exemptions is
+        # check_todo_gotcha_stale_reference_fires(); this is only the one
+        # planted case `enforced channel fires` itself wants, to keep the
+        # "every registered check has a planted case here" claim honest.
+        def _plant_stale_todo_reference(repo):
+            (repo / 'WHERE_THINGS_ARE.md').write_text(
+                (repo / 'WHERE_THINGS_ARE.md').read_text(encoding='utf-8')
+                + '\n\nSee [x](TODO.md#a-slug-nothing-has) for detail.\n',
+                encoding='utf-8')
+            git(repo, 'add', '-A')
+            git(repo, 'commit', '-qm', 'planted stale TODO.md reference')
+
+        case('todo-gotcha-stale-reference', _plant_stale_todo_reference)
+
         # --- and the registry must not contain an untested claim ------------
         import importlib.util
         spec = importlib.util.spec_from_file_location(
@@ -7567,7 +7584,8 @@ def check_parallel_artifact_ledger_fires():
         subprocess.run(['git', 'commit', '-q', '-m', 'root'], cwd=tmp, check=True)
         # Two more commits, because the check excludes two kinds of
         # inception: the repo's own root commit, and the commit that
-        # FIRST created a given member directory (TODO.md item 18 --
+        # FIRST created a given member directory (TODO.md's
+        # closed and pruned from TODO.md, was the `ledger-root-commit-exemption` item --
         # a family coming into existence has nothing for its other
         # members to have transferred from). So the commit under test has
         # to be the third: a real later CHANGE to an existing member.
@@ -9368,7 +9386,7 @@ def check_show_flags_unreachable_materialized_source():
     its own independent verdict, matching precedent_show.py's own
     per-slug concatenation).
 
-    EXTENDED 2026-09-06 (TODO.md item 20, closed) to cover
+    EXTENDED 2026-09-06 (closed and pruned from TODO.md; was the `gate-and-paths-unreachable-source` item) to cover
     precedent_gate.py and precedent_paths.py too -- both read
     practices/*.md directly, the same way precedent_show.py itself used
     to, so the note above never reached a practice loaded through the
@@ -9404,8 +9422,8 @@ def check_show_flags_unreachable_materialized_source():
                        'show-fixture-individual', 'The individual fixture Rule.')
         # Gated + narrow applies_to, so the SAME materialized fixture also
         # exercises precedent_gate.py and precedent_paths.py below -- both
-        # read practices/*.md directly, same as precedent_show.py, and TODO
-        # item 20 named them as needing the identical reachability note.
+        # read practices/*.md directly, same as precedent_show.py, and
+        # the `gate-and-paths-unreachable-source` item (closed, pruned from TODO.md) named them as needing the identical reachability note.
         write_practice(indiv / 'practices' / 'show-fixture-individual-routed.md',
                        'show-fixture-individual-routed', 'The routed individual fixture Rule.',
                        applies_to='["fixture-only/*.md"]', gates='["push"]')
@@ -9487,13 +9505,13 @@ def check_show_flags_unreachable_materialized_source():
 
         rc, out = gate('push')
         cases.append(('unreachable: precedent_gate.py now carries the note for '
-                      'the gated individual-sourced slug (TODO item 20, closed)',
+                      'the gated individual-sourced slug (the `gate-and-paths-unreachable-source` item, closed and pruned from TODO.md)',
                       rc == 0 and 'NOT reachable this session' in out
                       and '(source: individual,' in out, out))
 
         rc, out = paths('fixture-only/x.md')
         cases.append(('unreachable: precedent_paths.py now carries the note for '
-                      'the same slug matched by path (TODO item 20, closed)',
+                      'the same slug matched by path (the `gate-and-paths-unreachable-source` item, closed and pruned from TODO.md)',
                       rc == 0 and 'NOT reachable this session' in out
                       and '(source: individual,' in out, out))
 
@@ -13703,7 +13721,7 @@ def check_precedent_check_degrades_in_a_source_set():
 
 
 def check_vendor_engine_consumer_case():
-    """TODO.md item 18, tested rather than trusted: tools/precedent_vendor_
+    """Tested rather than trusted: tools/precedent_vendor_
     engine.py's 'consumer' kind (added 2026-09-05, piloted against a real
     private consumer repo) produces a genuinely working
     four-source engine in a consumer repo, the same rigor
@@ -22131,6 +22149,220 @@ def _report_missing_doc_packages(where):
     return missing
 
 
+def check_todo_gotcha_stale_reference_fires():
+    """precedent_check.py's `todo-gotcha-stale-reference` (Part 4.1 step 7,
+    extended by step 10) against a real fixture repo, `pc.ROOT` pointed at
+    it (practice: control-asserts-which-failure -- asserts the specific
+    finding text, not just that the check went non-green; and each planted
+    case has its own clean-tree negative control alongside it, per
+    fixture-owns-its-state)."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_check as pc
+
+    def make_repo(files):
+        d = pathlib.Path(tempfile.mkdtemp(prefix='precedent-stale-ref-'))
+        for rel, content in files.items():
+            p = d / rel
+            p.parent.mkdir(parents=True, exist_ok=True)
+            p.write_text(content, encoding='utf-8')
+        subprocess.run(['git', 'init', '-q'], cwd=d, check=True)
+        subprocess.run(['git', 'add', '-A'], cwd=d, check=True)
+        return d
+
+    def run(files):
+        d = make_repo(files)
+        saved = pc.ROOT
+        pc.ROOT = d
+        try:
+            findings = pc._todo_gotcha_stale_reference(pc.Ctx(whole_tree=True))
+            return [str(f) for f in findings]
+        finally:
+            pc.ROOT = saved
+            shutil.rmtree(d, ignore_errors=True)
+
+    cases = []
+
+    out = run({'spec/PLAN.md': 'see [x](../TODO.md#old-slug) for detail\n'})
+    cases.append(('a TODO.md#slug link is reported',
+                  any('old-slug' in o for o in out), repr(out)))
+
+    out = run({'todo/todo-2026-01-01-old-slug.md':
+              '---\nslug: todo-2026-01-01-old-slug\n---\n## What\nfine\n'})
+    cases.append(('...and a real migrated item file alone raises nothing',
+                  out == [], repr(out)))
+
+    out = run({'spec/X.md': 'the story is [here](#g5)\n'})
+    cases.append(('a bare #gN anchor with no file is reported',
+                  any('#g5' in o for o in out), repr(out)))
+
+    out = run({'record/GOTCHAS.md': '## 5. <a id="g5"></a>Trap\n\nSee [also](#g5).\n'})
+    cases.append(("...and the SAME bare anchor inside record/GOTCHAS.md itself "
+                  "is not -- it is a real same-document jump there",
+                  out == [], repr(out)))
+
+    out = run({'AGENTS.md': 'closed via TODO.md item 42 last week\n'})
+    cases.append(('an "item N" phrase is reported',
+                  any('item 42' in o for o in out), repr(out)))
+
+    out = run({'TODO.md': '# TODO has moved\n\nSee todo/ instead.\n'})
+    cases.append(("the real stub -- prose, no bullets -- raises nothing",
+                  out == [], repr(out)))
+
+    out = run({'TODO.md': ('# TODO has moved\n\n'
+                           '- <a id="new-item"></a>**Sneaking one in.**\n')})
+    cases.append(('a new old-format bullet added back to TODO.md itself is '
+                  'reported (Part 4.4 step 1: TODO.md takes no new items '
+                  'after the cutover)',
+                  any('new item bullet' in o for o in out), repr(out)))
+
+    out = run({'AGENTS.md': 'nothing here resembles any of the three shapes\n'})
+    cases.append(('unrelated prose raises nothing', out == [], repr(out)))
+
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'todo-gotcha-stale-reference catches its three named shapes and '
+          f'the two same-document exemptions do not false-positive '
+          f'({len(cases)} stated cases)',
+          not bad, '; '.join(f"{n} -- {d[:300]}" for n, d in bad))
+
+
+def check_todo_and_gotcha_sweeps():
+    """very_deep_check.py's two Part 3 sweeps -- _open_item_sweep and
+    _gotcha_retirement_candidates -- against planted fixtures
+    (fixture-owns-its-state: each fixture writes every field its own
+    assertion depends on)."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import very_deep_check as vdc
+    import precedent_time as ptime
+
+    today = ptime.today(ROOT)
+
+    def todo_item(slug, **fields):
+        base = dict(kind='analysis', status='open', disposition='wait',
+                   remind_on='null', blocked_on='null', batch='null',
+                   decision='null', decision_strength='null',
+                   waiting_on='null', noted=today, closed='null')
+        base.update(fields)
+        lines = ['---', f'slug:              {slug}']
+        for k in ('kind', 'domain', 'severity', 'status', 'disposition',
+                 'remind_on', 'blocked_on', 'batch', 'decision',
+                 'decision_strength', 'waiting_on', 'noted', 'closed'):
+            v = base.get(k, 'null')
+            lines.append(f'{k}:{"":<{18-len(k)}} {v}')
+        lines += ['---', '', '## What', '', f'**{slug} title.**', '']
+        return '\n'.join(lines)
+
+    def make_repo(todo_files=None, gotcha_files=None):
+        d = pathlib.Path(tempfile.mkdtemp(prefix='precedent-sweep-'))
+        for name, content in (todo_files or {}).items():
+            (d / 'todo').mkdir(exist_ok=True)
+            (d / 'todo' / name).write_text(content, encoding='utf-8')
+        for name, content in (gotcha_files or {}).items():
+            (d / 'gotchas').mkdir(exist_ok=True)
+            (d / 'gotchas' / name).write_text(content, encoding='utf-8')
+        return d
+
+    cases = []
+
+    d = make_repo(todo_files={
+        'todo-2026-01-01-unblocked.md': todo_item(
+            'todo-2026-01-01-unblocked', noted='2026-01-01'),
+    })
+    out = vdc._open_item_sweep(d)
+    cases.append(('an open, kind:analysis item with no blocked_on is listed '
+                  'as UNBLOCKED', any('UNBLOCKED' in o for o in out), repr(out)))
+    shutil.rmtree(d)
+
+    d = make_repo(todo_files={
+        'todo-2026-01-01-blocked.md': todo_item(
+            'todo-2026-01-01-blocked', noted='2026-01-01',
+            blocked_on='"see `tools/nonexistent_tool.py`"'),
+    })
+    out = vdc._open_item_sweep(d)
+    cases.append(('...and one WITH a blocked_on is not', not any(
+        'UNBLOCKED' in o and 'blocked' in o for o in out), repr(out)))
+    cases.append(('a blocked_on naming a file that is not in the tree is '
+                  'flagged', any('GONE' in o for o in out)
+                  and any('nonexistent_tool' in o for o in out), repr(out)))
+    shutil.rmtree(d)
+
+    d = make_repo(todo_files={
+        'todo-2026-01-01-real.md': todo_item(
+            'todo-2026-01-01-real', noted='2026-01-01',
+            blocked_on='"see `AGENTS.md`"'),
+    })
+    (d / 'AGENTS.md').write_text('# real file\n', encoding='utf-8')
+    out = vdc._open_item_sweep(d)
+    cases.append(('...and one naming a file that DOES exist is not '
+                  '(negative control for the same signal)',
+                  not any('GONE' in o for o in out), repr(out)))
+    shutil.rmtree(d)
+
+    d = make_repo(todo_files={
+        'todo-2026-01-01-overdue.md': todo_item(
+            'todo-2026-01-01-overdue', noted='2026-01-01',
+            disposition='ask', remind_on='"2020-01-01"'),
+    })
+    out = vdc._open_item_sweep(d)
+    cases.append(('a disposition: ask item whose remind_on is years past is '
+                  'reported as a Reminder well past due',
+                  any('OVERDUE' in o.upper() or 'PAST DUE' in o.upper()
+                      for o in out), repr(out)))
+    shutil.rmtree(d)
+
+    d = make_repo(todo_files={
+        'todo-2026-01-01-done.md': todo_item(
+            'todo-2026-01-01-done', noted='2026-01-01', status='done',
+            closed='"2026-01-02"'),
+    })
+    out = vdc._open_item_sweep(d)
+    cases.append(('a status: done item is not surfaced by any signal -- the '
+                  'sweep reads OPEN items only',
+                  out == [] or all('done' not in o for o in out), repr(out)))
+    shutil.rmtree(d)
+
+    GOTCHA_BASE = ('---\nslug: {slug}\nstatus: {status}\nnoted: 2026-01-01\n'
+                  'severity: null\nretired: {retired}\n'
+                  'retires_when: {rw}\n---\n## Symptom\nx\n')
+    d = make_repo(gotcha_files={
+        'gotcha-2026-01-01-a.md': GOTCHA_BASE.format(
+            slug='gotcha-2026-01-01-a', status='live', retired='null',
+            rw='"a check refuses this"'),
+    })
+    out = vdc._gotcha_retirement_candidates(d)
+    cases.append(('a live gotcha with retires_when set is surfaced',
+                  any('gotcha-2026-01-01-a' in o for o in out), repr(out)))
+    shutil.rmtree(d)
+
+    d = make_repo(gotcha_files={
+        'gotcha-2026-01-01-b.md': GOTCHA_BASE.format(
+            slug='gotcha-2026-01-01-b', status='live', retired='null',
+            rw='null'),
+    })
+    out = vdc._gotcha_retirement_candidates(d)
+    cases.append(('...and one with retires_when still null is not '
+                  '(negative control -- this is the state every migrated '
+                  'entry starts in)', out == [], repr(out)))
+    shutil.rmtree(d)
+
+    d = make_repo(gotcha_files={
+        'gotcha-2026-01-01-c.md': GOTCHA_BASE.format(
+            slug='gotcha-2026-01-01-c', status='retired', retired='"2026-01-02"',
+            rw='"nothing has hit this since 2026-01-01"'),
+    })
+    out = vdc._gotcha_retirement_candidates(d)
+    cases.append(('an ALREADY-retired gotcha is not surfaced even with '
+                  'retires_when set -- there is nothing left to judge',
+                  out == [], repr(out)))
+    shutil.rmtree(d)
+
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'the open-item and gotcha-retirement sweeps report the signals '
+          f'Part 3 names, and no more ({len(cases)} stated cases)',
+          not bad, '; '.join(f"{n} -- {d[:300]}" for n, d in bad))
+
+
 def main():
     _install_check_timing()
     _report_missing_doc_packages('PREFLIGHT')
@@ -22305,6 +22537,8 @@ def main():
     check_rendered_docs_are_current()
     check_install_names_every_not_vendored_dir()
     check_philosophy_readme_lists_every_file()
+    check_todo_gotcha_stale_reference_fires()
+    check_todo_and_gotcha_sweeps()
 
     # RECAP THE FAILURES BY NAME, immediately before the summary line.
     #

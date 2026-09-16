@@ -44,7 +44,7 @@ were left for their own sessions to publish).
 
 | Pass | Status | Date | Notes |
 |---|---|---|---|
-| 1 — adopter installs | done (PARTIAL) | 2026-09-14 | one rehearsal, in the ten minutes left over: SETUP.md's exact installer command into a scratch project. **Roadblock found**: the adopter's first check reads `3 violated` where the page promises `0`, and its `AGENTS.md` carries three of the operator's private practices — [TODO.md 114](../TODO.md#installer-inherits-the-operators-individual-set), `ask` |
+| 1 — adopter installs | done (PARTIAL) | 2026-09-14 | one rehearsal, in the ten minutes left over: SETUP.md's exact installer command into a scratch project. **Roadblock found**: the adopter's first check reads `3 violated` where the page promises `0`, and its `AGENTS.md` carries three of the operator's private practices — [TODO.md 114](../todo/todo-2026-09-14-installer-inherits-the-operators-individual-set.md), `ask` |
 | 2 — mechanisms | done (PARTIAL) | 2026-09-14 | mechanical only: the tool's own sections, `doc_sync`, `precedent_check` (0 violated), `doc_lint` on the touched files; no tool was read against its own description |
 | 3 — coherence read | done (PARTIAL) | 2026-09-14 | the day's three new documents and the seven changed install documents, read against the tree by two readers with no other context; one contradiction, fixed |
 | 4 — catalogue, backlog, branches | done (PARTIAL) | 2026-09-14 | the tool's branch, base-drift and open-item scans read; the full catalogue read recorded as not done, same reason as the last three runs |

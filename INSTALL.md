@@ -863,7 +863,7 @@ defects, all of them in this engine and none in the steps:
   traceback was reported as a violation of the practice itself. **Fixed
   2026-09-14**: both checks now skip, saying there is no history yet, and
   run clean as soon as the repo has its first commit.
-  [TODO.md's `no-history-checks-unpushed` item](TODO.md#no-history-checks-unpushed)
+  [TODO.md's `no-history-checks-unpushed` item](todo/todo-2026-09-14-no-history-checks-unpushed.md)
   carries what landed;
 - a repo declaring its own `fallback_timezone` in `precedent.json` — the
   documented rung-5 override — was reported as drift by

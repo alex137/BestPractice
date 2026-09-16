@@ -21,7 +21,7 @@ Two KINDS, sharing one mechanism:
                full precedent_materialize.py/precedent_sync_views.py
                toolchain that resolves all of them into one materialized
                tree). Needs CONSUMER_ENGINE_FILES: everything 'source'
-               needs, PLUS those materializing tools — see TODO.md item 18 and this repo's own
+               needs, PLUS those materializing tools — see this repo's own
                engine-plus-host-shims practice ("domain-neutral mechanism
                lives in the vendored tree"). Piloted 2026-09-05 against
                a private consumer repo — INSTALL.md §1 step 12 and §2
@@ -37,8 +37,8 @@ one, and precedent-team-tms's copy was simply missing outright.
 
 THE GAP 'consumer' CLOSES. A real consumer's own tools/ needing the same
 treatment was named explicitly as future work when 'source' shipped
-(TODO.md item 18: "not piloted... deliberately not folded into the
-source-repo fix"). A private consumer repo — a real four-source
+(the TODO item that named it — since closed and removed — said: "not
+piloted... deliberately not folded into the source-repo fix"). A private consumer repo — a real four-source
 consumer, not a fixture — had the identical undocumented-hand-copy problem
 'source' closed for practice sets: its top-level tools/ held
 build_views.py, precedent_gate.py, precedent_paths.py, precedent_show.py,

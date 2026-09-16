@@ -148,7 +148,7 @@ generated occasion index carries its own practices and not one of universal's,
 so this rule, `spawn-session` and `handoff-is-pasteable` were none of them in
 front of the session that spawned.
 That is the observed cost of
-[TODO.md's `universal-prose-does-not-reach-a-source-set`](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/TODO.md#universal-prose-does-not-reach-a-source-set),
+[TODO.md's `universal-prose-does-not-reach-a-source-set`](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/todo/todo-2026-09-13-universal-prose-does-not-reach-a-source-set.md),
 which had until then been argued from a hand-copied practice rather than from
 a miss. The smaller cause is fixed here: `spawn-session` told a session what
 the seeded prompt contains and never pointed at this rule, so even a session

@@ -14,7 +14,7 @@ summary:       What it costs to close the gap where universal guidance text neve
 **A session rooted in a practice-source set reads that set's own catalogue
 and nothing else.** Universal rules do not bind it, because it never sees
 them. The open item is
-[TODO.md's `universal-prose-does-not-reach-a-source-set`](../TODO.md#universal-prose-does-not-reach-a-source-set);
+[TODO.md's `universal-prose-does-not-reach-a-source-set`](../todo/todo-2026-09-13-universal-prose-does-not-reach-a-source-set.md);
 this brief costs the ways out of it. **Morgan approved the costing on
 2026-09-13** (`assented` — he approved this session's recommendation to cost
 both shapes rather than picking one blind). **Nothing here is decided.**
@@ -175,4 +175,4 @@ postcondition here was never "the file exists").
 **What shape 3 does NOT do**, and it is now an open item rather than a
 footnote: a set reads the universal rules and still runs none of universal's
 mechanical checks —
-[TODO.md's `source-set-runs-no-universal-checks`](../TODO.md#source-set-runs-no-universal-checks).
+[TODO.md's `source-set-runs-no-universal-checks`](../todo/todo-2026-09-13-source-set-runs-no-universal-checks.md).

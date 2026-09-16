@@ -91,7 +91,7 @@ except Exception:                  # a vendored tree older than that module --
 ROOT = _consuming(_ENGINE_DIR.parent)  # unchanged default when --repo is omitted
 sys.path.insert(0, str(_ENGINE_DIR))
 import split_practices as sp
-# TODO.md item 20 (was 19): this channel read practices/*.md directly,
+# Closed and pruned from TODO.md (was the `gate-and-paths-unreachable-source` item): this channel read practices/*.md directly,
 # bypassing precedent_show.py's materialized-source reachability note
 # (PR #114) the same way precedent_paths.py did. Fixed by importing
 # precedent_show.py's two helpers directly -- same discipline this file

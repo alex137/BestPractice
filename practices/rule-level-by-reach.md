@@ -124,8 +124,8 @@ any team's. It is just as true for a repository whose subject is nothing like
 that one's.
 
 **Live evidence, in this repository, the same day**, that the older axis alone
-could not answer the question: [the open item](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/TODO.md#leak-gate-is-background-level)
-on which level `leak-gate-is-background` belongs at reaches for
+could not answer the question: the item (since closed, and pruned from
+TODO.md) on which level `leak-gate-is-background` belongs at reaches for
 [layered-practice-packs](layered-practice-packs.md)' decision rule — *would this
 hold in an unrelated repo?* — and records that it yields **two readings, and
 they disagree**: the nuisance the rule ends is not personal, which reads

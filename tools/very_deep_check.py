@@ -263,6 +263,8 @@ except Exception:                      # noqa: BLE001 -- reported, never raised
 # offset. Never a bare datetime.date.today(): that is the container's UTC.
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 import precedent_time  # noqa: E402
+import build_todo_index as bti  # noqa: E402 -- reads todo/*.md's frontmatter,
+                                 # the one place that parsing lives
 
 
 # The passes the invoking session actually works are read from the practice
@@ -1369,6 +1371,155 @@ def _gotchas_currency(repo_dir):
             'run --\n  every path answers with the boundary commit\'s date. '
             '`git fetch --depth=500`\n  first to get that signal.')
     return rows, findings
+
+
+# spec/OPEN_ITEM_AND_GOTCHA_PLAN.md Part 3, "Open-item sweep": reads every
+# todo/*.md and reports, without closing anything. Below this threshold a
+# Reminder that has just come due is not yet worth a session's unprompted
+# attention (todo/TODO.md's own Due Reminders view already surfaces it the
+# moment it arrives, per the format's normal, non-sweep channel); above it,
+# nobody has been working here to see the due view, which is exactly the
+# safety-net case Part 3 names this pass for.
+_REMINDER_WELL_PAST_DAYS = 7
+_OPEN_ITEM_OLDEST_N = 5
+
+
+def _open_item_sweep(repo_dir):
+    """-> findings (list[str]) for the OPEN ITEMS section. Three mechanical
+    signals, each a question rather than a verdict -- matching
+    _gotchas_currency's own discipline, and item-closes-on-its-condition's:
+    a resemblance to done is not done."""
+    todo_dir = pathlib.Path(repo_dir) / 'todo'
+    if not todo_dir.is_dir():
+        return []
+    items = [it for it in bti.load_items(todo_dir)
+             if it.get('status', 'open') == 'open']
+    if not items:
+        return []
+
+    try:
+        today = datetime.date.fromisoformat(precedent_time.today(repo_dir))
+    except Exception:
+        today = None
+
+    out = []
+
+    unblocked = sorted(
+        (it for it in items
+         if it.get('kind') == 'analysis' and not it.get('blocked_on')),
+        key=lambda it: it.get('noted') or '')
+    if unblocked:
+        out.append(f'  UNBLOCKED -- {len(unblocked)} open, kind: analysis '
+                   f'item(s) with no stated blocker. Either do them now or '
+                   f'say why not:')
+        for it in unblocked:
+            out.append(f'    {it.slug} -- {it.title[:80]}')
+
+    named_gone = []
+    for it in items:
+        blocked = it.get('blocked_on') or ''
+        named = set(_GOTCHA_MD_LINK.findall(blocked))
+        named |= set(_GOTCHA_PATH_IN_TICKS.findall(blocked))
+        gone = sorted(p for p in named
+                     if not p.startswith(('http', 'mailto:', '#'))
+                     and not p.endswith('/')
+                     # resolved against todo/, not the repo root -- these
+                     # are links as written INSIDE a todo/*.md file, so a
+                     # bare sibling name or a "../" prefix both mean what
+                     # they say from there, same as a browser would read it
+                     and not (todo_dir / p.split('#')[0]).resolve().exists())
+        if gone:
+            named_gone.append((it, gone))
+    if named_gone:
+        out.append(f'  BLOCKED-ON NAMES SOMETHING GONE -- {len(named_gone)} '
+                   f'item(s). Either the blocker\n  cleared under another '
+                   f'name or the reference rotted -- read the item\'s own '
+                   f'stated\n  condition before touching `status`:')
+        for it, gone in named_gone:
+            out.append(f'    {it.slug} -- {it.title[:80]}')
+            for g in gone[:3]:
+                out.append(f'        missing: {g}')
+
+    if today:
+        aged = []
+        for it in items:
+            noted = it.get('noted')
+            try:
+                age = (today - datetime.date.fromisoformat(noted)).days
+            except (TypeError, ValueError):
+                continue
+            aged.append((age, it))
+        aged.sort(key=lambda r: -r[0])
+        if aged:
+            out.append(f'  OLDEST {min(_OPEN_ITEM_OLDEST_N, len(aged))} of '
+                       f'{len(aged)} open item(s), by age:')
+            for age, it in aged[:_OPEN_ITEM_OLDEST_N]:
+                out.append(f'    {age:4d}d  {it.slug} -- {it.title[:70]}')
+
+        due = []
+        for it in items:
+            if it.get('disposition') != 'ask':
+                continue
+            remind_on = it.get('remind_on')
+            if not remind_on:
+                continue
+            try:
+                gap = (today - datetime.date.fromisoformat(remind_on)).days
+            except ValueError:
+                continue
+            if gap >= _REMINDER_WELL_PAST_DAYS:
+                due.append((gap, it))
+        if due:
+            due.sort(key=lambda r: -r[0])
+            out.append(f'  REMINDER WELL PAST DUE -- {len(due)} item(s), due '
+                       f'{_REMINDER_WELL_PAST_DAYS}+ days ago and (this run '
+                       f'aside) nobody has surfaced them since. '
+                       f'todo/TODO.md\'s own Due\n  Reminders view is the '
+                       f'normal channel; this is the safety net for a '
+                       f'Reminder\n  that arrived while nobody was working '
+                       f'here to see it:')
+            for gap, it in due:
+                out.append(f'    {gap:4d}d overdue  {it.slug} -- {it.title[:60]}')
+
+    if not out:
+        out.append('  none -- no unblocked analysis item, no blocked_on '
+                   'naming something gone, and no\n  Reminder overdue by '
+                   f'{_REMINDER_WELL_PAST_DAYS}+ days.')
+    out.append('  This pass proposes and never closes. An item closes only '
+               'when its OWN\n  stated condition is met -- a resemblance is '
+               'not that, and a closed item\n  is not re-read.')
+    return out
+
+
+def _gotcha_retirement_candidates(repo_dir):
+    """spec/OPEN_ITEM_AND_GOTCHA_PLAN.md Part 3's other half: "extended to
+    read retires_when and report entries whose condition looks met."
+    `retires_when` is declared in the schema now and populated later
+    (Part 2) -- as of this migration every gotchas/*.md carries it `null`,
+    so this reports NOTHING today and is wired for the day a future
+    session (Part 4.1 step 9) starts filling it in. Deliberately does not
+    try to judge whether a stated condition is MET: the three shapes Part
+    2 gives as examples ("a check refuses this", "the harness fixes X",
+    "nothing has hit this since DATE") are freeform prose, and guessing at
+    which read as satisfied is exactly the auto-closer Part 5 rules out --
+    this surfaces every entry that has one stated, for a person to judge."""
+    gotchas_dir = pathlib.Path(repo_dir) / 'gotchas'
+    if not gotchas_dir.is_dir():
+        return []
+    out = []
+    for p in sorted(gotchas_dir.glob('gotcha-*.md')):
+        text = p.read_text(encoding='utf-8', errors='replace')
+        m = re.search(r'^retires_when:\s*(.+)$', text, re.M)
+        if not m:
+            continue
+        val = m.group(1).strip()
+        if val in ('null', ''):
+            continue
+        status_m = re.search(r'^status:\s*(\S+)', text, re.M)
+        if status_m and status_m.group(1).strip() == 'retired':
+            continue  # already retired -- nothing left to judge
+        out.append(f'  {p.stem} -- retires_when: {val}')
+    return out
 
 
 def _shipped_rules(repo_dir):
@@ -4769,6 +4920,14 @@ def _main(box):
           "question is \"would a session hit\n  this today\", never \"how big "
           "is it\". What no longer bites moves to a\n  linked archive IN FULL, "
           "never to a deletion.")
+    _gr_candidates = _gotcha_retirement_candidates(repo_root)
+    if _gr_candidates:
+        print("\n  RETIRES_WHEN STATED -- the condition is written, judging "
+              "whether it is MET\n  is a person's call (Part 5 rules out an "
+              "auto-closer for the same reason\n  item-closes-on-its-condition "
+              "does):")
+        for _line in _gr_candidates:
+            print(_line)
     print()
 
     # OPEN ITEMS. The deep read is the one moment somebody is looking at the
@@ -4778,43 +4937,19 @@ def _main(box):
     # file the tree no longer has -- which is what an item that quietly got
     # done under another name looks like from outside
     # (practice: item-closes-on-its-condition).
-    _todo_n = 0
-    try:
-        import todo_progress as _tp
-        _todo_f = pathlib.Path(repo_root) / 'TODO.md'
-        _todo_text = _todo_f.read_text(encoding='utf-8', errors='replace') \
-            if _todo_f.is_file() else None
-    except Exception:
-        _tp, _todo_text = None, None
-    if _tp is not None and _todo_text is not None:
+    # spec/OPEN_ITEM_AND_GOTCHA_PLAN.md Part 4.1 step 8: since the
+    # 2026-09-16 migration, open items live one-per-file under todo/, not
+    # as TODO.md bullets -- todo_progress.py's TODO.md-shaped reading
+    # would silently report "none" against the redirect stub it now finds
+    # there, which is worse than not running at all
+    # (practice: fail-gracefully). _open_item_sweep reads todo/*.md
+    # directly, per Part 3's "Open-item sweep".
+    _todo_findings = _open_item_sweep(repo_root)
+    _todo_n = len(_todo_findings)
+    if _todo_findings:
         print("OPEN ITEMS -- what the queue says about itself\n")
-        _rem = _tp.reminders(_todo_text)
-        _stale = _tp.stale_paths(_todo_text)
-        _todo_n = len(_rem) + len(_stale)
-        _by = {s: b for _n2, s, b in _tp.items(_todo_text)}
-        if _rem:
-            print(f"  REMINDERS -- {len(_rem)} item(s) he asked to be "
-                  f"reminded of:")
-            for _n2, _slug, _note in _rem:
-                print(f"  TODO {_n2} ({_slug}) -- {_tp.title_of(_by[_slug])}")
-                print(f"      {_note}")
-            print()
-        if _stale:
-            print(f"  NAMES A FILE THAT IS GONE -- {len(_stale)} open item(s). "
-                  f"Either the work\n  landed under another name, or the item "
-                  f"has rotted. Read the item's own\n  stated condition before "
-                  f"closing anything:")
-            for _n2, _slug, _gone in _stale:
-                print(f"  TODO {_n2} ({_slug}) -- {_tp.title_of(_by[_slug])}")
-                for _g in _gone[:3]:
-                    print(f"      missing: {_g}")
-            print()
-        if not _rem and not _stale:
-            print("  none -- no reminder-marked item, and every open item's "
-                  "named files are\n  present.\n")
-        print("  This pass proposes and never closes. An item closes only "
-              "when its OWN\n  stated condition is met -- a resemblance is "
-              "not that, and a closed item\n  is not re-read.")
+        for _line in _todo_findings:
+            print(_line)
         print()
     if led:
         led.end(findings=len(_sl) + len(_gc_msgs if _gc_rows else []) + _todo_n)

@@ -213,7 +213,7 @@ Three checks carry the flag, each with its own incident recorded beside it:
 `generated-artifact-provenance`. **Widening it is per-check judgment, not a
 sweep** — the flag removes the gate, it does not make a check that needs
 resolved sources work without them — and the remaining skips in a source set
-are what [`coverage-report-for-registered-checks`](../TODO.md#coverage-report-for-registered-checks)
+are what [`coverage-report-for-registered-checks`](../todo/todo-2026-09-12-coverage-report-for-registered-checks.md)
 is for. `verify_harness.py`'s
 `check_publisher_bound_checks_run_in_a_source_set` asserts both directions
 against a fixture that plants the link which really shipped: a publisher fails

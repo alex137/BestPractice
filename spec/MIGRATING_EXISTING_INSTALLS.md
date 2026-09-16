@@ -498,7 +498,7 @@ one.
 
    **What changed 2026-09-14:** this used to read "stays, paused
    deliberately", pointing at
-   [TODO.md](../TODO.md#relax-the-pinned-branch-hold)'s hold as a pause with
+   [TODO.md](../todo/todo-2026-09-06-relax-the-pinned-branch-hold.md)'s hold as a pause with
    a stated condition for lifting it. The condition no longer lifts
    anything. Morgan killed every scheduled vendor update — *"No weekly
    updates. I had that weeks ago, but we're not doing that anymore; this is
@@ -671,7 +671,7 @@ record that the pin works, keep the manual procedure, revisit once the fix
 has run through real sync cycles. Treat this as **not yet**, not as
 *cannot*, and do not flip it on your own: relaxing it is a decision with an
 owner, tracked as
-[TODO.md's `relax-the-pinned-branch-hold` item](../TODO.md#relax-the-pinned-branch-hold).
+[TODO.md's `relax-the-pinned-branch-hold` item](../todo/todo-2026-09-06-relax-the-pinned-branch-hold.md).
 
 **The hold is enforced, since 2026-09-07 — it is no longer only written
 here.** `checkin.py update` refuses outright while `upstream.branch` names a

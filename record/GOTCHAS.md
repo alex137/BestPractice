@@ -486,7 +486,7 @@ tools/precedent_refresh_sources.py --apply` now restores a
 declared-but-missing hook, **independently of engine staleness**, since the
 two go stale independently. Bringing a drifted-but-present hook up to
 canonical is still a person's call, and [TODO.md's `source-hook-drift`
-item](../TODO.md#source-hook-drift) holds it.
+item](../todo/todo-2026-09-09-source-hook-drift.md) holds it.
 
 
 ## 21. <a id="g21"></a>A refusal that names a remedy which cannot work is the moment to ask what the guard ...
@@ -1040,9 +1040,9 @@ single `WARN` line to stderr that nothing re-surfaces later. And
 `freshness-guard.sh`'s `_deepen_if_shallow` only fires from the
 divergence-detection branch (`ahead != "0"`) — a checkout that is shallow but
 merely *behind*, never mis-read as diverged, gets no second attempt from the
-guard at all if SessionStart's own try failed. Proposed hardening (not yet
-built) is tracked at
-[TODO.md's `shallow-clone-self-heal-hardening` item](../TODO.md#shallow-clone-self-heal-hardening).
+guard at all if SessionStart's own try failed. Hardening was tracked at
+TODO.md's `shallow-clone-self-heal-hardening` item — closed 2026-09-15
+(built and merged) and since pruned from TODO.md.
 
 **A setup script does not close the gap either, and is worth ruling out
 explicitly so nobody re-proposes it.** Setup scripts are the one mechanism
@@ -1072,9 +1072,9 @@ disjoint shallow graft read as **`0 behind, 0 ahead`**, not as a false
 divergence — so the OLD code, gated on `ahead != "0"`, never even
 attempted a deepen and silently treated a checkout that was five real
 commits stale as fully up to date. The new unconditional call fixes
-that shape too, not only the one this entry names. Full detail:
-[TODO.md's `shallow-clone-self-heal-hardening` item](../TODO.md#shallow-clone-self-heal-hardening),
-closed.
+that shape too, not only the one this entry names. Full detail was in
+TODO.md's `shallow-clone-self-heal-hardening` item, closed 2026-09-15 and
+since pruned from TODO.md.
 
 ## 38. <a id="g38"></a>A Routine that fires a FRESH session gets none of the session-management tools, so a scheduled job that reads the fleet cannot run there
 
