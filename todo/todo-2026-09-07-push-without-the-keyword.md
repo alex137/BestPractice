@@ -3,25 +3,27 @@ slug:              todo-2026-09-07-push-without-the-keyword
 kind:              analysis
 domain:            null
 severity:          null
-status:            open
-disposition:       parked
+status:            done
+disposition:       wait
 remind_on:         null
-blocked_on:        "Morgan, for the hard rule only — the interim answer is given and needs nothing further. It is a question about what he wants from his own sessions and has no answer derivable from the repository. Also still to do, and NOT doable from a session rooted in this repository: mirroring the settled presenc"
+blocked_on:        null
 batch:             null
-decision:          null
-decision_strength: null
-waiting_on:        "Morgan"
+decision:          "hard rule: read the message for what it authorizes, phrase or not; where the reading is a genuine judgment call, say it out loud and confirm before the shared-branch steps -- never guess silently in either direction"
+decision_strength: decided
+waiting_on:        null
 noted:             2026-09-07
-closed:            null
+closed:            "2026-09-16"
 ---
 ## What
 
 - <a id="push-without-the-keyword"></a>**Decide what a session does when Morgan has NOT said "Go merge".**
-  **Disposition:** parked (2026-09-08, Morgan) — he has no pattern yet to
-  turn into the hard rule he wants, and asked not to be asked while he finds
-  one. Parked is not closed: the item stands, and the paragraph in
-  [AGENTS.md](../AGENTS.md) does not close it either. Unparking is his call
-  ([open-item-disposition](../practices/open-item-disposition.md)).
+  **Closed 2026-09-16, Morgan.** Parked 2026-09-08 while he found a pattern
+  to turn into the hard rule; he gave it in the conversation that also moved
+  this whole command set from phrase-matching to intent-reading, on a design
+  point raised by Alex: *"apply the same to the ones that are a serious
+  decision such as Go Merge, Weak Yes, etc -- and just note that (if the
+  exact phrase isn't used), then use your judgment and ASK the person if you
+  have doubt."*
   [AGENTS.md](../AGENTS.md) says two things and never joins them: a PR into
   `precedent-beta-v01` needs no sign-off from Alex, and "Go merge" means
   push what the thread agreed *without asking again*. Neither says what the
@@ -78,40 +80,45 @@ closed:            null
   for itself whether to push or merge without the keyword, owns the call,
   and **does not ask him** — the asking is itself a cost he has named twice.
 
-  **Read the second sentence as carefully as the first.** He wants a hard
-  rule eventually, and he ruled out "use judgment" as the content of it.
-  Judgment is the interim state, not the destination, so this item stays
-  OPEN. A later session must not close it by pointing at the interim answer
-  and calling the question settled — that would encode as permanent exactly
-  what he named as temporary.
+  **A fourth reading was offered and NOT chosen** while judgment was the
+  interim answer, recorded so it is not re-derived as new: *push always,
+  merge only on the keyword* — the branch and PR go up so the deep check
+  runs and [reply-links-files](../practices/reply-links-files.md)'s links
+  resolve, but nothing lands without a word. Superseded by the hard rule
+  below rather than chosen or rejected on its own terms.
 
-  This costs what the item said it would: the three readings note that
-  judgment is the one thing that does not make five sessions draw the same
-  line, which is why the incident happened. That cost is now accepted on
-  purpose rather than unnoticed.
+  **The hard rule, 2026-09-16, Morgan, closing the question this item was
+  parked on:** read the message for what it authorizes, not only for the
+  keyword — but where a message could honestly be read either way, say the
+  reading out loud and get it confirmed before the shared-branch steps run.
+  Committing locally is never held on this; only the push, the pull
+  request, or the merge is. This is reading 3 from above, made precise
+  enough for five parallel sessions to draw the line the same way: the
+  phrase removes doubt outright, and doubt otherwise gets a stated
+  confirmation rather than a silent guess in either direction. Recorded in
+  [AGENTS.md](../AGENTS.md)'s "Go merge" and "Weak yes" paragraphs and in
+  [go-merge.md](../practices/go-merge.md),
+  [weak-yes.md](../practices/weak-yes.md) and
+  [decision-strength.md](../practices/decision-strength.md) directly.
 
-  **A fourth reading was offered and NOT chosen**, recorded so it is not
-  re-derived as new: *push always, merge only on the keyword* — the branch
-  and PR go up so the deep check runs and
-  [reply-links-files](../practices/reply-links-files.md)'s links resolve, but
-  nothing lands without a word. It removes reading 1's cost and reading 2's
-  both, and needs no judgment about significance. He passed on it in favour
-  of judgment; it stays on the table for whoever writes the hard rule.
-
-  **Blocked on:** Morgan, for the hard rule only — the interim answer is
-  given and needs nothing further. It is a question about what he wants from
-  his own sessions and has no answer derivable from the repository. Also
-  still to do, and NOT doable from a session rooted in this repository:
-  mirroring the settled presence wording into the `go-merge` practice in his
-  individual set, so the private canonical text and this public paraphrase
-  cannot drift. The cross-owner `add_repo` refusal blocks it in both
-  directions (see [AGENTS.md](../AGENTS.md)'s cross-tier gotcha), so it needs a
-  session rooted in that set.
+  **The individual-set mirroring this item once named as a separate blocker
+  is moot.** It referred to `go-merge` in Morgan's individual set as the
+  "private canonical text" a public paraphrase could drift from — true
+  2026-09-07, before the practice moved to universal the next day. Since
+  then the individual copy is `status: deduplicated`, pointing back at this
+  same universal file; there is no longer a second canonical copy for
+  anything to drift from.
 
 ## How It Closes
 
-Not open until: Morgan, for the hard rule only — the interim answer is given and needs nothing further. It is a question about what he wants from his own sessions and has no answer derivable from the repository. Also still to do, and NOT doable from a session rooted in this repository: mirroring the settled presenc
+Closed: Morgan gave the hard rule 2026-09-16, and it is written into
+`AGENTS.md` and the three practice files named above.
 
 ## Notes
 
 2026-09-16: migrated from TODO.md by tools/todo_migrate.py.
+
+2026-09-16: closed. Hard rule decided in the conversation that also moved
+`Go merge`, `Weak yes`, `decision-strength` and several other commands from
+phrase-matching toward intent-reading, on a design point raised by Alex and
+carried by Morgan.

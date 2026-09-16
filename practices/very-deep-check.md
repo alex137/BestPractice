@@ -1198,6 +1198,13 @@ own evaluation. Pass 1 is the partial exception, and the reason it is first:
 building a fixture and running the checks on it produces evidence, not a
 judgment, so its findings do not depend on this caveat.
 
+**Kept on the explicit ask, as a session's own judgment call, when the
+2026-09-16 conversation widened several other commands to plain intent.**
+This is the same reasoning [full-practice-audit](full-practice-audit.md)
+gives for itself: a whole-repo, multi-pass review is expensive to run
+unprompted, so a message that only sounds like it might want one earns a
+clarifying question, not a launch.
+
 ## Story
 **The live-session sweep and the wider branch sweep were Morgan's,
 2026-09-12, in one sentence each.** The first — *"do a sweep of live

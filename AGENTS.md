@@ -27,10 +27,22 @@ origin incident happened. Full story, the mechanical check, and the
 retirement condition:
 [local/practices/merge-target-is-beta-branch.md](local/practices/merge-target-is-beta-branch.md).**
 
-**Precedent commands.** Each of these is a phrase in his message that means a
-fixed thing, and each is a universal practice: the trigger and the meaning are
-here, and the rule, the argument and the story of its coining are in the
-practice file — `python3 tools/precedent_show.py SLUG` for any of them.
+**Precedent commands.** Each of these names a thing a session recognizes by
+what the message is actually asking for, not by scanning it for a keyword —
+each has a phrase that is always sufficient and never ambiguous, and each is
+a universal practice: the trigger and the meaning are here, and the rule,
+the argument and the story of its coining are in the practice file —
+`python3 tools/precedent_show.py SLUG` for any of them. **The phrase removes
+doubt; it does not create a requirement.** A message that plainly asks for
+the same thing in other words gets the same treatment, and where a command
+authorizes something hard to reverse (a push, a merge, a mark recording how
+convinced he was) and the reading is a genuine judgment call rather than a
+clean one, that is said out loud and confirmed rather than guessed —
+[go-merge](practices/go-merge.md) and [weak-yes](practices/weak-yes.md)
+spell out exactly how, below. A few — a full practice audit, a very deep
+check, the fleet sweep — are the deliberate exception, kept to the literal
+ask because what they trigger is too expensive to run on a guess; each
+names why in its own file.
 
 - **"Go merge"**, **"Approved"**, and **"Go update"** ([go-merge](practices/go-merge.md)) —
   classify first: **trivial** (wording, a typo, a dead link — content this
@@ -43,27 +55,44 @@ practice file — `python3 tools/precedent_show.py SLUG` for any of them.
   the work. One rule, three triggers — `Approved` is also an ordinary
   adjective, so *"the approved plan of record"* is not the command, and
   `Go update` is not the command when "update" has its own object, as in
-  *"go update the branch, then look at the diff."*
+  *"go update the branch, then look at the diff."* **None of the three is
+  required for the authorization to exist** — "sold, ship it" reads as this
+  command as plainly as the phrase does. What the phrase buys is certainty:
+  say one of them and the chain runs, full stop. Where it's absent and the
+  sentence could honestly go either way, say the read out loud and get it
+  confirmed before the push, the pull request, or the merge — commit locally
+  regardless, and hold only the shared-branch steps on the answer.
 - **"Park it"** ([park-it](practices/park-it.md)) — write
   `**Disposition:** parked (<date>, <who said it>)` into the item meant, in
   that same turn, say which item was marked, and **never raise it unprompted
   again** — not this session, and not a later one that decides it has become
   urgent. Nobody owes an explanation for parking something: do it, and never
-  ask a follow-up about it.
+  ask a follow-up about it. **Kept to the literal word, deliberately** —
+  parking has no built-in correction, so where it only *sounds* like the
+  phrase ("that can wait", "let's not worry about that one") ask which they
+  mean rather than guess.
 - **"Three Things"** ([three-things](practices/three-things.md)) — the three
   most important things he needs to know now, each a bolded phrase and at most
   two sentences, and nothing around them: no preamble, no fourth item, no
   closing offer. It asks for **attention rather than action**: an answer
-  assembled from what is already in context is the failure it prevents.
+  assembled from what is already in context is the failure it prevents. A
+  plain ask for the same shape of answer ("what do I actually need to know
+  right now") gets it too — low stakes if the read is wrong, so no
+  confirmation step.
 - **"Plain words"** ([plain-words](practices/plain-words.md)) — the same
   answer said the way you would say it out loud: short sentences, the concrete
   case before the general principle, no hedging. **It governs the rest of the
   conversation, not just the next reply**, and nothing about the substance
-  changes — a plainer reply that quietly says less has failed it.
+  changes — a plainer reply that quietly says less has failed it. Asking for
+  this register in other words counts the same as the phrase.
 - **"Weak yes"** ([weak-yes](practices/weak-yes.md)) — go ahead, and record
   that he was not convinced: `strength: assented`, written into whatever the
   approval is being recorded in, that same turn. **Not an invitation to talk
-  him into it.**
+  him into it.** Most weak agreement arrives without the phrase, and still
+  gets marked `assented` ([decision-strength](practices/decision-strength.md))
+  — but where that reading is a genuine judgment call rather than a clean
+  one, `weak-yes`'s own worked example says how to disclose it instead of
+  writing it silently.
 - **"Session Text"** ([session-text](practices/session-text.md)) — before
   starting what he just asked for, check whether it belongs in a different
   session, repositories first; then **wake a live session** that already holds
@@ -108,16 +137,20 @@ never "you decided this."** A session may write `decided` only if it can quote
 the person choosing it; a bare "ok" to the session's own proposal is
 `assented`, written that way without asking.
 
-**What a merge authorization's ABSENCE means is a separate question**, and its
-interim answer is: **use judgment, and do not ask him.** Morgan, 2026-09-07,
-ruled out "use judgment" as the content of the hard rule he wants eventually,
-so this is the interim state and not the destination — [TODO.md](TODO.md)'s
-`push-without-the-keyword` item stays open for it, and must not be closed by
-pointing at this paragraph. What the repository itself contributes is only the
-destination: an authorization to merge, in whatever words it arrives, means
-`precedent-beta-v01` per the paragraph above, and is not done until a fetch
-confirms the pushed content is actually there
-([verify-postcondition](practices/verify-postcondition.md)).
+**What a merge authorization's ABSENCE means was an open question from
+2026-09-07 to 2026-09-16.** Morgan, 2026-09-07, ruled out "use judgment" as
+the content of the hard rule he wanted eventually, and asked not to be
+asked again while he found one — recorded in
+[todo/todo-2026-09-07-push-without-the-keyword.md](todo/todo-2026-09-07-push-without-the-keyword.md).
+**He gave it 2026-09-16**, in the same conversation that moved this whole
+section from phrase-matching to intent: read the message for what it is
+asking, and where reading it is a genuine judgment call rather than a clean
+one, say the read out loud and confirm before the shared-branch steps run,
+rather than either guessing silently or holding silently. `Go merge` and
+`Weak yes` above spell out what that looks like for each. An authorization
+to merge, in whatever words it arrives, means `precedent-beta-v01` per the
+paragraph above, and is not done until a fetch confirms the pushed content
+is actually there ([verify-postcondition](practices/verify-postcondition.md)).
 
 **FIRST, and normally already done for you.** The private sources are
 cloned by the SessionStart hook when the environment carries
@@ -275,7 +308,7 @@ When a computation books a transfer between two parties:
   name-both-sides-of-ledger — name both sides; check what is charged against what is received
 When a document replaces or is replaced by an earlier one:
   index-remembers-past — put the lineage in the index, not in either document
-When a message carries a standing merge-authorization phrase:
+When a message carries a standing merge-authorization phrase, or plainly authorizes the merge without one:
   go-merge — "Go merge"/"Approved"/"Go update": trivial -> push; else sync, branch, PR, merge
 When a message says "Archive" standing alone, about a session:
   archive-command — "Archive" alone means archive the session meant (default: this one) now
@@ -293,11 +326,11 @@ When a person says "My options", or asks to have a decision's options laid out:
   my-options — "My options" -- every option, plainer, both sides, then your pick and why
 When a person says "Park it" about an open item or a question:
   park-it — "Park it" -- mark the item `parked` now; never raise it unprompted again
-When a person says "Plain words":
+When a person says "Plain words", or plainly asks to be talked to that way:
   plain-words — "Plain words" -- say it as you would out loud; same substance
 When a person says "Reduction pass", or an always-loaded surface is near its ceiling:
   reduction-pass — "Reduction pass" -- work the menu in order, move never delete, report what moved
-When a person says "Three Things":
+When a person says "Three Things", or plainly asks for exactly this shape of answer:
   three-things — "Three Things" -- the three that matter now, one bold phrase and two lines each
 When a person says "Todo reminder", or asks to be reminded of something:
   todo-reminder — "Todo reminder" -- write the item, mark it `**Remind:**`, set disposition `ask`

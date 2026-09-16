@@ -14,7 +14,9 @@ in_force_at: null
 supersedes:  []
 overrides:   null
 added:       "2026-09-09"
-approved_by: "Morgan, 2026-09-09"
+approved_by: "Morgan, 2026-09-09; extended 2026-09-16, Morgan, on Alex's
+  intent-over-keyword point -- ambiguous reads are now disclosed rather than
+  written silently"
 strength:    decided
 ---
 ## Rule
@@ -44,6 +46,13 @@ recording whether the person endorsed your own idea, which is the one
 judgment you cannot be trusted to make generously. So: **write `decided`
 only if you can quote them choosing it. A bare "ok" to your own proposal is
 `assented`, written that way without asking them.** Unsure is `assented`.
+
+**"Without asking them" covers the clean cases -- the table below is a
+lookup, not a coin flip.** Where the register is genuinely ambiguous enough
+that a different mark was plausible, say the read out loud in the reply
+instead of writing it silently -- see [weak-yes](weak-yes.md)'s own worked
+example. That is a disclosure riding along with the mark, not a question
+that waits on an answer before the mark gets written.
 
 **Read the words, not the fact of agreement.** Agreement arrives in language
 that carries its own strength, and the mark follows the language:
@@ -121,6 +130,13 @@ A scale of three or five levels was considered and rejected in the same
 conversation: more resolution than the evidence supports, and an invitation
 for a session to split hairs about someone's state of mind — which is the
 invention this rule exists to stop.
+
+**Extended 2026-09-16, on Alex's design point and Morgan's decision**, the
+same conversation that revised [go-merge](go-merge.md) and
+[weak-yes](weak-yes.md): a genuinely ambiguous read gets said out loud
+rather than filed silently, per Morgan's *"use your judgment and ASK the
+person if you have doubt."* The clean-case table below is unaffected — this
+is for the read that is actually a coin flip.
 
 ## Install
 The word the person can say to mark an approval weak at the moment they give

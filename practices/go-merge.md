@@ -4,7 +4,7 @@ title:       "\"Go merge\", \"Approved\", and \"Go update\" -- authorize sync, c
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
-occasion:    "a message carries a standing merge-authorization phrase"
+occasion:    "a message carries a standing merge-authorization phrase, or plainly authorizes the merge without one"
 gates:       ["merge"]
 index_clause: "\"Go merge\"/\"Approved\"/\"Go update\": trivial -> push; else sync, branch, PR, merge"
 checked_by:  null
@@ -23,7 +23,11 @@ approved_by: "Morgan, 2026-09-08 -- moved up from his individual set to
   go merge\"; trivial/substantial split added 2026-09-15, Morgan -- \"Sold.
   Let's do it. Go merge\", choosing it over a rename to a new command; third
   phrase added later the same day, Morgan, reconsidering the rename he had
-  just set aside -- \"I think the solution is to allow BOTH words to be used\""
+  just set aside -- \"I think the solution is to allow BOTH words to be used\";
+  extended 2026-09-16, Morgan, on Alex's intent-over-keyword point -- \"apply
+  the same to the ones that are a serious decision such as Go Merge, Weak Yes,
+  etc -- and just note that (if the exact phrase isn't used), then use your
+  judgment and ASK the person if you have doubt\""
 strength:    decided
 ---
 ## Rule
@@ -91,6 +95,28 @@ straight to the branch with no merge in sight -- and "update" names what
 actually happens either way: the work is saved and published. Both
 phrases stay live; neither retires the other, and using one over the other
 carries no different meaning or weaker authorization.
+
+**None of the three phrases is required for the authorization to exist —
+they are the unambiguous case, not the only case.** A message can plainly
+authorize a merge without any of them in it: "sold, ship it", "yes, let's
+do this", "that's exactly what I wanted, put it up" all read as this
+command to a reasonable person, and treating them as anything less is
+answering a clear yes with a question. **The phrases stay valuable because
+they remove the one thing intent-reading cannot: doubt.** Say one of them
+and the chain runs, full stop, no matter how the sentence around it reads.
+
+**Where the phrase is absent and the sentence leaves genuine doubt, say
+your reading out loud and get it confirmed before running the push, the
+pull request, or the merge — never guess silently in either direction.**
+"I'm reading that as authorization to go merge this — say so if that's not
+what you meant" costs one line and is cheap; a merge nobody actually asked
+for, or work left sitting because a real go-ahead was read as small talk,
+both cost more than that line. This is *not* license to ask about
+phrasing that already reads as a clear yes — asking there is the exact
+interruption this practice exists to remove — it is for the sentence that
+could honestly go either way. Committing locally is never blocked on
+this: do that regardless, and hold only the steps that touch the shared
+branch until the reading is confirmed.
 
 **Say the target branch before merging, every time.** It is spelled out
 here rather than left inside "usual conventions" because that is the step
@@ -165,11 +191,14 @@ even when the fix is obviously correct, because what changed is behavior or
 meaning, not words. **The test is never the size of the diff; it is whether
 the meaning changed.**
 
-**Ask about the object, never about the phrasing.** The one question worth
-stopping for is *which* pending work is meant, and only when several
-unrelated branches are genuinely in play. Asking whether the words were
-meant as the command produces exactly the interruption the command exists to
-remove: if you can tell what would be merged, merge it.
+**Once one of the three phrases is there, ask about the object, never about
+the phrasing.** The one question worth stopping for is *which* pending work
+is meant, and only when several unrelated branches are genuinely in play.
+Asking whether the words were meant as the command produces exactly the
+interruption the command exists to remove: if you can tell what would be
+merged, merge it. This is a different case from the phrase being absent
+altogether — there, the confirmation above is about whether the message
+authorizes anything at all, not about which branch it means.
 
 **This is shorthand for an authorization, never a new kind of permission.**
 It says the person has approved *this* merge; it does not widen what may be
@@ -306,6 +335,18 @@ sequence was always the common case, not the definition; this makes that
 explicit before a session reads the Rule too literally and either forces a
 merge onto a task that doesn't need one, or stays silent when the honest
 answer is that nothing was left to do.
+
+**Revised 2026-09-16, on Alex's design point and Morgan's decision, to
+recognize the intent rather than only the three phrases.** Alex's framing,
+relayed by Morgan: a session should ask itself whether a message reads as
+this authorization, not scan it for the trigger words. Morgan agreed and
+set the boundary for how far that goes on an action this size: *"apply the
+same to the ones that are a serious decision such as Go Merge, Weak Yes,
+etc -- and just note that (if the exact phrase isn't used), then use your
+judgment and ASK the person if you have doubt."* This is why the confirm
+step above holds only the shared-branch steps, and only when the reading is
+genuinely in doubt -- not a general license to question a clear yes, which
+is the interruption this practice has always existed to remove.
 
 ## Install
 No mechanical check, and not for lack of trying: this governs how a chat
