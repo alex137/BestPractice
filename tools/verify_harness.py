@@ -162,6 +162,11 @@ FAILED = []
 PASSED = []
 NA = []
 
+# practice: slow-steps-report-and-cache -- populated by _install_check_timing(),
+# read by main() to print the slowest checks once the run finishes, so the
+# next session can cite real durations instead of estimating them.
+CHECK_DURATIONS = []
+
 # --------------------------------------------------------------------------
 # Post-conversion provenance exceptions -- both narrow and self-checking.
 # --------------------------------------------------------------------------
@@ -290,6 +295,99 @@ def check(name, ok, detail=''):
 def not_applicable(name, reason):
     NA.append((name, reason))
     print(f"N/A:  {name} -- {reason}")
+
+
+def _changed_touches(*rel_paths):
+    """True if this push touched any of `rel_paths` -- same changed-scope
+    principle check_machine_readable_files_parse already uses ("did I just
+    break something", not "is the whole repo well"; the whole-tree sweep is
+    very_deep_check.py's on-demand job), reused here for a handful of the
+    slower checks below that exist to test very_deep_check.py's own logic
+    rather than this repo's practice content.
+
+    Deliberately scoped to the DIRECT file(s) each caller names, not those
+    files' own transitive imports: a change to one of very_deep_check.py's
+    helper modules that alters its behavior without touching
+    very_deep_check.py or the named file itself would not be caught here --
+    only by a later on-demand very deep check run. That is a real, accepted
+    gap (documented at each call site), not an oversight: enumerating a
+    transitive closure by hand goes stale the moment those imports change,
+    and a check that silently narrows itself is worse than one that says
+    plainly what it does not cover.
+
+    parse_check.changed() itself never silently narrows: with no base
+    branch to diff against (e.g. a shallow clone with no ancestor in
+    common), it falls back to the WHOLE tracked tree and labels the scope
+    accordingly -- so `touched` is still True in that fallback case, same
+    as if this returned unscoped.
+    """
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(
+        '_parse_check', ROOT / 'tools' / 'parse_check.py')
+    pcheck = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(pcheck)
+    changed_paths, scope = pcheck.changed(ROOT)
+    changed_set = set(changed_paths)
+    return any(p in changed_set for p in rel_paths), scope
+
+
+# practice: slow-steps-report-and-cache -- this run has 270+ check_* calls
+# and, before this, printed nothing between the first PASS/FAIL line and the
+# last: a wait with no number on it, indistinguishable from a hang. Wrapping
+# every check_* function (rather than hand-editing every call site in
+# main()) is the low-risk way in: it needs no changes to main()'s ~270 call
+# lines, so it cannot silently drop or reorder a check.
+#
+# PRECEDENT_NO_CHECK_TIMING=1 skips this -- set it when profiling under
+# cProfile, so the wrapper's own frames don't show up in the profile.
+_PROGRESS_INTERVAL_SECONDS = 5
+
+
+def _install_check_timing():
+    if os.environ.get('PRECEDENT_NO_CHECK_TIMING'):
+        return
+    names = sorted(n for n, v in list(globals().items())
+                    if n.startswith('check_') and callable(v))
+    total = len(names)
+    state = {'done': 0, 'elapsed': 0.0, 'last_report': time.monotonic()}
+    run_start = time.monotonic()
+
+    def _wrap(name, fn):
+        def wrapper(*args, **kwargs):
+            t0 = time.monotonic()
+            try:
+                return fn(*args, **kwargs)
+            finally:
+                dt = time.monotonic() - t0
+                state['done'] += 1
+                state['elapsed'] += dt
+                CHECK_DURATIONS.append((name, dt))
+                if dt >= 2.0:
+                    print(f"  ...{name} took {dt:.1f}s", file=sys.stderr)
+                now = time.monotonic()
+                if now - state['last_report'] >= _PROGRESS_INTERVAL_SECONDS:
+                    state['last_report'] = now
+                    avg = state['elapsed'] / state['done']
+                    remaining = avg * (total - state['done'])
+                    print(f"  -- {state['done']}/{total} checks done, "
+                          f"{now - run_start:.0f}s elapsed, "
+                          f"~{remaining:.0f}s remaining", file=sys.stderr)
+        return wrapper
+
+    for name in names:
+        globals()[name] = _wrap(name, globals()[name])
+
+
+def _report_check_durations(top_n=15):
+    if not CHECK_DURATIONS:
+        return
+    total = sum(dt for _, dt in CHECK_DURATIONS)
+    slowest = sorted(CHECK_DURATIONS, key=lambda p: p[1], reverse=True)[:top_n]
+    print(f"\n{len(CHECK_DURATIONS)} checks ran in {total:.1f}s total "
+          f"(this run -- durations vary with what the tree currently holds). "
+          f"Slowest {len(slowest)}:", file=sys.stderr)
+    for name, dt in slowest:
+        print(f"  {dt:6.2f}s  {name}", file=sys.stderr)
 
 
 def load_practice_files():
@@ -19463,6 +19561,23 @@ def check_very_deep_check_bootstrap_drift():
     Each case bootstraps its own set (practice: fixture-owns-its-state): the
     states are mutually exclusive, so sharing one directory across them
     would make every case depend on the order of the ones before it."""
+    # practice: slow-steps-report-and-cache -- this fixture is one of the
+    # harness's slowest (~22s of a ~250s run, measured), rebuilding and
+    # diffing real vendored sets to test very_deep_check.py's own drift
+    # logic. Change-scoped like check_machine_readable_files_parse, on the
+    # same reasoning: this gates a push and runs constantly, so it only
+    # needs to ask "did THIS push break bootstrap-drift detection", not
+    # "is bootstrap-drift detection healthy in general" -- the latter is
+    # very_deep_check.py's own on-demand job. See _changed_touches()'s
+    # docstring for the residual gap this narrower scope accepts.
+    name = 'very_deep_check reports bootstrap drift against a real set'
+    touched, scope = _changed_touches('tools/very_deep_check.py',
+                                       'tools/precedent_bootstrap_source.py')
+    if not touched:
+        not_applicable(name, f'neither tools/very_deep_check.py nor '
+                             f'tools/precedent_bootstrap_source.py changed '
+                             f'({scope})')
+        return
     import hashlib, shutil, tempfile
     import very_deep_check as vdc
 
@@ -19580,6 +19695,20 @@ def check_very_deep_check_convergent_drift():
     Untracked files are pinned as NOT drift -- the first live run reported a
     harness-written `.claude/settings.local.json` in all three team sets,
     which is container state, not a shape the skeleton is missing."""
+    # practice: slow-steps-report-and-cache -- this fixture is one of the
+    # harness's slowest (~32s of a ~250s run, measured), bootstrapping two
+    # real sets to test very_deep_check.py's own drift logic. Change-scoped
+    # like check_machine_readable_files_parse -- see that function's and
+    # _changed_touches()'s docstrings for the reasoning and the residual
+    # gap this narrower scope accepts.
+    name = 'very_deep_check reports convergent drift across sets'
+    touched, scope = _changed_touches('tools/very_deep_check.py',
+                                       'tools/precedent_bootstrap_source.py')
+    if not touched:
+        not_applicable(name, f'neither tools/very_deep_check.py nor '
+                             f'tools/precedent_bootstrap_source.py changed '
+                             f'({scope})')
+        return
     import shutil, tempfile
     import very_deep_check as vdc
 
@@ -20754,6 +20883,22 @@ def check_shallow_clone_never_fabricates_unlanded_work():
     not reach far enough, no fallback ran, and the fabricated count stood --
     which is why the incident needed a real repository to show up at all.
     """
+    # practice: slow-steps-report-and-cache -- this fixture is one of the
+    # harness's slowest (~16s of a ~250s run, measured), building real git
+    # history to test very_deep_check.py's shallow-clone handling.
+    # Change-scoped like check_machine_readable_files_parse -- see that
+    # function's and _changed_touches()'s docstrings for the reasoning and
+    # the residual gap this narrower scope accepts. NOT scoped on "are
+    # shallow clones still common" (this docstring's own account says they
+    # remain the default environment every fresh session starts in) --
+    # scoped only on whether THIS push touched the code under test, which
+    # holds regardless of how common shallow clones are in the wild.
+    name = ('a shallow clone never fabricates a count of unlanded work, and '
+            'says so when it cannot tell')
+    touched, scope = _changed_touches('tools/very_deep_check.py')
+    if not touched:
+        not_applicable(name, f'tools/very_deep_check.py did not change ({scope})')
+        return
     import shutil, tempfile
     import json as _json
 
@@ -21987,6 +22132,7 @@ def _report_missing_doc_packages(where):
 
 
 def main():
+    _install_check_timing()
     _report_missing_doc_packages('PREFLIGHT')
     if not PRACTICES_DIR.exists():
         sys.exit("verify_harness FAIL: practices/ does not exist -- run "
@@ -22184,6 +22330,7 @@ def main():
         # by now is hundreds of lines above.
         _report_missing_doc_packages('NOTE')
     print(f"\n{len(PASSED)} passed, {len(FAILED)} failed, {len(NA)} not yet applicable.")
+    _report_check_durations()
     return 1 if FAILED else 0
 
 
