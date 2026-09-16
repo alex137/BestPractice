@@ -4,7 +4,7 @@ title:       "\"Go merge\", \"Approved\", and \"Go update\" -- authorize sync, c
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
-occasion:    "a message carries a standing merge-authorization phrase, or plainly authorizes the merge without one"
+occasion:    "a message carries the merge phrase, or plainly authorizes a merge"
 gates:       ["merge"]
 index_clause: "\"Go merge\"/\"Approved\"/\"Go update\": trivial -> push; else sync, branch, PR, merge"
 checked_by:  null

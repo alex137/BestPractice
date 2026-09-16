@@ -977,10 +977,9 @@
     },
     "todo-reminder": {
       "globs": [
-        "TODO.md",
-        "**/TODO.md"
+        "todo/todo-*.md"
       ],
-      "why": "The command writes into the open-items file and nowhere else. Its real trigger is a phrase in a message, which the reply gate carries; the glob covers a session already editing the file.",
+      "why": "The command writes into an open-item file under todo/ and nowhere else, post the 2026-09-16 todo/gotcha migration. Its real trigger is a phrase in a message, which the reply gate carries; the glob covers a session already editing the item file.",
       "decided": "2026-09-13"
     },
     "two-check-levels": {

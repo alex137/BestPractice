@@ -308,7 +308,7 @@ When a computation books a transfer between two parties:
   name-both-sides-of-ledger — name both sides; check what is charged against what is received
 When a document replaces or is replaced by an earlier one:
   index-remembers-past — put the lineage in the index, not in either document
-When a message carries a standing merge-authorization phrase, or plainly authorizes the merge without one:
+When a message carries the merge phrase, or plainly authorizes a merge:
   go-merge — "Go merge"/"Approved"/"Go update": trivial -> push; else sync, branch, PR, merge
 When a message says "Archive" standing alone, about a session:
   archive-command — "Archive" alone means archive the session meant (default: this one) now
