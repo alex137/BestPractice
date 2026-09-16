@@ -15,6 +15,13 @@ both ways.
   list entries, it opens the bullet. The slug is the citation handle, so
   **it never changes** once written — retitle an item freely, renumber the
   list freely, leave the slug alone.
+- **A citation never targets its own item's slug.** An item can name the
+  concept it's already discussing without linking the word to itself — the
+  link only earns its place pointing somewhere else in the document. Caught
+  2026-09-16 in [../THE_TALMUDIC_METHOD.md](../THE_TALMUDIC_METHOD.md): an
+  item linked its own defining word to a *different* item's slug, which
+  read as self-referential because the word and the item were the same
+  concept, not because the anchor was technically wrong.
 - **Core documents are the seven the index calls essays and lists**, named
   in `DOCS` in
   [../../tools/philosophy_backlinks.py](../../tools/philosophy_backlinks.py).
