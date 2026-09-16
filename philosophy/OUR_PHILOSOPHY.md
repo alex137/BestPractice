@@ -11,29 +11,9 @@ running a company this way; [AI_GOVERNANCE_TO_COCREATE.md](AI_GOVERNANCE_TO_COCR
 makes the case for building the AI systems that way. Both assume a handful
 of ideas about memory,
 [judgment](HUMANS_AT_OUR_BEST.md), and how work actually produces quality.
-It's an account of the theory, not a pitch for it.*
-
-## The Working Loop
-
-The same five steps repeat every time, in order:
-
-1. A spark — an idea, new data, an incoming request, a changed system
-   message.
-2. Argue it out with an AI Assistant that has this repo attached, so
-   the argument runs against the actual record instead of a guess
-   ([`arguing-with-the-model`](#arguing-with-the-model)).
-3. Most of that arguing happens on GitHub in the open, and the decision
-   and reasoning is tracked there — a pull request, not a secret chat
-   log ([`context-is-capital`](#context-is-capital),
-   [`processes-should-be-visible`](#processes-should-be-visible)).
-4. The AI Assistant produces all the output; you only guide it
-   ([`people-manage-agents-execute`](#people-manage-agents-execute),
-   [`humans-do-what-humans-do-best`](#humans-do-what-humans-do-best)).
-5. The decisions, small to big, turn into learnings and shared rules
-   and protocols automatically
-   ([`rules-generated-automatically`](#rules-generated-automatically),
-   [`decisions-carry-their-situation`](#decisions-carry-their-situation)),
-   staying visible to whichever session opens this repo next.
+It's an account of the theory, not a pitch for it. The cycle these ideas
+run through end to end, step by step, is
+[THE_WORKING_LOOP.md](THE_WORKING_LOOP.md)'s own page.*
 
 ## Groups, Not Individuals
 
@@ -110,7 +90,9 @@ the AI carrying the translation keeps thinking real, not thinned
 
 **6. Protocols, rules, and preferences get generated automatically.**
 What's automatic is the finding: the AI Assistant surfaces the pattern
-every time, without anyone having to remember to look. Turning it into
+every time, without anyone having to remember to look — the reason
+behind a request is exactly the material that finding gets pulled from
+([`explain-the-why`](#explain-the-why)). Turning it into
 a standing rule is a human call, routed by this repo's own rules to
 whoever's responsible — and a spotted pattern always gets surfaced,
 never left unremarked. This repo's team and individual practice sources
@@ -131,7 +113,9 @@ reason, and pays off as
 
 **7. Every decision carries the situation that produced it.** However
 small the call, the record states what case prompted it — a bare
-"always do X" invites relitigation from anyone who wasn't there. The
+"always do X" invites relitigation from anyone who wasn't there, the
+same gap [`explain-the-why`](#explain-the-why) names from the request's
+side, before it is ever written down as a rule. The
 case also tests the rule: one that wouldn't have caught it is theater.
 BestPractice already requires this
 ([practice 5](../PRACTICES.md#5-conventions-cite-the-incident-that-created-them),
@@ -182,6 +166,8 @@ its [`relationships`](HUMANS_AT_OUR_BEST.md#relationships) and
 
 ## See Also
 
+- [THE_WORKING_LOOP.md](THE_WORKING_LOOP.md) — the six-step cycle these
+  ideas run through, end to end.
 - [CORE_PILLARS.md](CORE_PILLARS.md) — the one-page pitch: the core ideas
   this approach argues are unique, specifically taken together.
 - [REASONS_WHY.md](REASONS_WHY.md) — the less obvious benefits those
