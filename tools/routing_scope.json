@@ -26,6 +26,17 @@
       "why": "No locus. 'A mechanism that makes something reachable' is a property of what you built, not of where you built it.",
       "decided": "phase 4 routing pass"
     },
+    "archive-command": {
+      "globs": [
+        "**"
+      ],
+      "why": "A moment, and specifically a phrase in a MESSAGE -- no file path reaches it. Routed by the `reply` gate.",
+      "decided": "2026-09-16, when it moved up from the individual set",
+      "gates": [
+        "reply"
+      ],
+      "gates_why": "The obligation lands in the reply: resolve the session, archive it, and say so, that same turn."
+    },
     "base-branch-is-the-record": {
       "globs": [
         "**"
