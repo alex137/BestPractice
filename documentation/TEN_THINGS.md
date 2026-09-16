@@ -54,18 +54,7 @@ rulebook nobody trusts, so that middle step is the design.
 - Plain: [How an Idea Becomes a Practice](ADOPTING.md#how-an-idea-becomes-a-practice), [A Worked Example, Start to Finish](FOR_EVERYONE_ELSE.md#a-worked-example-start-to-finish)
 - Technical: [Walkthrough: Turning a Habit Into a Practice](FOR_DEVELOPERS.md#walkthrough-turning-a-habit-into-a-practice), [How Practices Are Approved](FOR_DEVELOPERS.md#how-practices-are-approved)
 
-## 5. Practices Show Up When They Matter, Not All at Once
-
-An assistant is not handed the whole library every time. A handful of
-practices are always present; the rest are routed in by what the work is —
-the file being edited, the moment (merging, replying), or the occasion. A
-library that costs more to carry the bigger it gets is a library people stop
-growing, and this is what keeps it cheap to grow.
-
-- Plain: [What It Is — "They show up when they matter"](ADOPTING.md#what-it-is)
-- Technical: [spec/LOADER.md](../spec/LOADER.md), [How Enforcement Works](FOR_DEVELOPERS.md#how-enforcement-works)
-
-## 6. Where a Practice Can Be Checked, It Is Enforced
+## 5. Where a Practice Can Be Checked, It Is Enforced
 
 Writing a rule down does not make anyone follow it — that was measured, and
 it does not. A practice that can be turned into an automatic check stops
@@ -76,7 +65,7 @@ documentation says so plainly rather than promising otherwise.
 - Plain: [What It Does Not Do](ADOPTING.md#what-it-does-not-do)
 - Technical: [How Enforcement Works](FOR_DEVELOPERS.md#how-enforcement-works), [spec/ENFORCEMENT.md](../spec/ENFORCEMENT.md)
 
-## 7. A Practice Belongs to You, to a Team, to One Project, or to Everyone
+## 6. A Practice Belongs to You, to a Team, to One Project, or to Everyone
 
 Four levels, each a separate place: your own private set, which follows you
 into every project; a team's private set, of which a project can declare
@@ -89,7 +78,7 @@ approval its new home requires.
 - Plain: [Personal, Team, and Universal — And Moving Between Them](FOR_EVERYONE_ELSE.md#personal-team-and-universal--and-moving-between-them), [Sharing Practices With a Team](ADOPTING.md#sharing-practices-with-a-team)
 - Technical: [Four Levels, Each Just Another Repo](FOR_DEVELOPERS.md#four-levels-each-just-another-repo), [spec/SOURCES.md](../spec/SOURCES.md)
 
-## 8. What You May Change Is Decided by What the Change Touches, at Three Levels
+## 7. What You May Change Is Decided by What the Change Touches, at Three Levels
 
 Everyone invited to a project is a **contributor**, with the same GitHub
 role: the documents are theirs to write and merge. A **maintainer** is named
@@ -102,7 +91,7 @@ the line runs through paths and lists.
 - Plain: [What You Can't Do (on Purpose)](FOR_EVERYONE_ELSE.md#what-you-cant-do-on-purpose)
 - Technical: [Who May Change What](FOR_DEVELOPERS.md#who-may-change-what), [GITHUB_SETTINGS.md](GITHUB_SETTINGS.md), [spec/CONTRIBUTOR_ACCESS.md](../spec/CONTRIBUTOR_ACCESS.md)
 
-## 9. A Few Standing Phrases Mean Exactly One Thing
+## 8. A Few Standing Phrases Mean Exactly One Thing
 
 Plain English always works, but a short vocabulary saves a paragraph each
 time: **Go merge**, **Park it**, **Three Things**, **Plain words**, **Weak
@@ -113,7 +102,7 @@ to have the current list read to you.
 - Plain: [The Rest of the Vocabulary](DAILY_HABITS.md#the-rest-of-the-vocabulary)
 - Technical: the command practices, starting at [go-merge](../practices/go-merge.md) and [vocabulary](../practices/vocabulary.md)
 
-## 10. What Is Yours Stays Yours, and That Is Enforced
+## 9. What Is Yours Stays Yours, and That Is Enforced
 
 Your own practices, your name, your timezone, how you like to be addressed
 and how technical your replies should be live in a private place only you
@@ -124,6 +113,17 @@ see their own rules and never the other's.
 
 - Plain: [What It Knows About You, and How to Change It](FOR_EVERYONE_ELSE.md#what-it-knows-about-you-and-how-to-change-it), [Setting Up Your Own Practices](ADOPTING.md#setting-up-your-own-practices)
 - Technical: [PER_MACHINE_SETUP.md](../PER_MACHINE_SETUP.md), the leak gate at [tools/leak_gate.py](../tools/leak_gate.py) (`--explain`)
+
+## 10. Say Why You're Asking, Not Just What You Want
+
+Tell the assistant the reason behind a request, not only the request —
+*"skip that step, this client already reviewed the draft"*, not just *"skip
+that step."* The why is what lets it recognize the same case again without
+being told twice, and it's the raw material a practice gets written from
+when a correction repeats — a bare instruction finishes the one task in
+front of it and teaches nothing past that.
+
+- Technical: [Working With the Model](../philosophy/OUR_PHILOSOPHY.md#explain-the-why)
 
 ## Where to Go From Here
 
