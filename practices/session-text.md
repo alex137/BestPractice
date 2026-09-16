@@ -6,7 +6,7 @@ severity:    default
 applies_to:  ["**"]
 occasion:    "handing the person work to do, or starting work that may touch a repository this session cannot reach"
 gates:       ["reply"]
-index_clause: "cross-repo check; wake, never create -- hand over paste text instead"
+index_clause: "cross-repo check; never create, never wake -- always hand over paste text"
 checked_by:  null
 defines:     ["Session Text"]
 command:     {"Session Text": "Check whether this work belongs in a different conversation — usually because it needs a project this one cannot reach — and, instead of creating that session itself, tell you to open a new window, name the repositories it needs to be seeded with, and give you the opening text in a copy-pasteable block."}
@@ -61,7 +61,17 @@ approved_by: "Morgan, 2026-09-15 -- renamed from `Spawn session` to `Session Tex
   own classifier -- \"maybe we remove that BUT we have it say very very
   prominent, bold capitalized, that I need to manually say to merge it,\"
   confirmed with \"Yes, do both\" once the default above was shown to already
-  cover the removal half (strength: decided)."
+  cover the removal half (strength: decided).
+  Amended 2026-09-16, Morgan -- waking retired too, so the practice now
+  produces Session Text unconditionally: \"remove waking entirely, always
+  paste text... I've had so many problems with spawning sessions (you know
+  I've had dozens of sessions with you trying to fix those permissions
+  problems caused by that) that hose aren't reliable enough, plus we want
+  this to be LLM neutral - we have people interested in using this with
+  Grok!!!!\" Chosen over the alternative of keeping waking as a labelled
+  Claude Code Remote binding, on both counts he gave: reliability, and
+  standing interest in running this catalogue under a different provider
+  entirely (strength: decided)."
 strength:    decided
 source_practice_number: null
 ---
@@ -120,72 +130,37 @@ skip a practice file is the one already deep enough in the work for this to
 cost the most**, so the question moved to the one moment nobody has to choose
 to visit.
 
-**Where a different session is needed, wake a live one before creating a new
-one.** A message into an existing session reuses the context it already
-holds; a new session re-reads its repository from scratch, which is most of
-what a session costs
-([session-spend-follows-the-task](session-spend-follows-the-task.md)). Create
-a fresh one when no live session holds the right repository, or when the
-context in the live one is itself the problem.
+**Never call `create_session` (or spawn a background agent), and never wake
+a live one either — not since 2026-09-16, and this covers both mechanisms
+for the same reason.** Sessions this session created were coming back
+rejected, not seen as safe; that alone retired `create_session`. Waking —
+`ListAgents`/`SendMessage` for a reachable session, `create_trigger` with
+`persistent_session_id` for one that is not — survived that first cut
+because it does not create anything. It is retired now anyway, on two
+further grounds neither of which is specific to the rejection problem:
+reliability (the same permission failures that dogged `create_session`
+recur on the tool surface waking depends on), and portability (this
+catalogue is meant to run the same way under any capable coding-agent
+provider, and `ListAgents`/`SendMessage`/`create_trigger` exist only under
+Claude Code Remote). Producing Session Text has no such dependency — it is
+a person opening a window and pasting in text, which needs nothing from
+either mechanism.
 
-**Enumerate before you create, every time: `list_sessions`, matched on the
-target repository.** "Wake a live one first" is not a preference to weigh --
-it is a call to make, and a session that never looked satisfies the sentence
-above exactly while still spawning a duplicate. **Having established that
-this session cannot do the work is necessary and not sufficient**; the second
-question is whether the work is already being done, and only the two answers
-together license a new session.
-
-**A session already on the work that is BLOCKED is the case to look for, not
-the case to route around.** It is stuck waiting for something -- a decision,
-an answer, a permission -- and what it needs is that answer delivered, not a
-sibling starting the same job from nothing. Send it the thing it is waiting
-on. A second session there does not unblock the first; it pays the whole
-read-in again and then collides.
-
-**The check can only happen here, at spawn time.** A session spawned into a
-repository this one could not attach cannot enumerate that repository's
-sessions either, so the burden does not pass downstream -- there is no later
-moment at which it can be done. The spawner is the only party that can look.
-
-**A spawned session CAN report back, and this rule said for a day that it
-could not.** Corrected 2026-09-13, by a spawned session doing it: it reached
-its spawner with `create_trigger` carrying `persistent_session_id`, which
-fires into a named session in the same account. What is true is narrower --
-**peer messaging does not reach a cloud session**: `ListAgents` does not list
-one, so `SendMessage` cannot address it. The trigger route is the one that
-works, and nothing had written it down.
-
-**So the return path is a thing you build, not a thing you have.** A spawned
-session only knows where to send its answer if the seeded prompt told it --
-which makes [seeded-prompt-names-its-origin](seeded-prompt-names-its-origin.md)
-load-bearing rather than courteous: the session id it requires *is* the
-return address. A prompt that names no origin strands its session exactly as
-this rule wrongly claimed all of them were stranded.
-
-**Waking still beats spawning**, on the context argument alone: a live
-session reuses what it already holds where a new one re-reads its repository
-from nothing. That reason was always the real one.
-
-**Never call `create_session` (or spawn a background agent) to hand off
-work to a repository this session cannot reach — not since 2026-09-15.**
-Sessions this session created were coming back rejected, not seen as safe,
-and the fix is not a smarter retry: the mechanism is retired for this
-purpose, unconditionally, until that changes.
-
-**Where no live session fits, and only then: do not start the work and do
-not describe the handoff. Produce Session Text instead** — tell the person
-plainly, near the top of the reply, to open a new window; name the exact
-repository or repositories it needs to be seeded with; and give the opening
-text as one copy-pasteable block, per
+**Whenever the work belongs in a different session: do not start the work
+and do not describe the handoff. Produce Session Text instead** — tell the
+person plainly, near the top of the reply, to open a new window; name the
+exact repository or repositories it needs to be seeded with; and give the
+opening text as one copy-pasteable block, per
 [the-boildown](the-boildown.md). There is no link to click
 and no session id yet — the window doesn't exist until they open it and
-paste the text in.
+paste the text in. This holds even where a live session already covers the
+same work; naming that session in the pasted text (so the person can decide
+whether to use it instead of opening a new one) is the closest this
+practice comes to what waking used to do on its own.
 
 **Then name it again at the end, in whatever closing list of outstanding
 items the reply carries — one line per handoff, saying what it was for.**
-This holds for a session you woke as much as text you handed over, and
-whether the person asked for it or you decided on it yourself. The mention
+This holds whether the person asked for it or you decided on it yourself. The mention
 at the top is for someone reading the whole reply; the closing list is for
 someone reading only the end, **and that is most people most of the time.**
 A long reply buries it in its own middle, and a handoff nobody can find
@@ -309,48 +284,18 @@ that *can* write. Worse, some of it cannot be repaired mid-flight at all:
 ([recorded upstream](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/AGENTS.md#build-environment-gotchas--do-not-rediscover-these)), so a session rooted under one owner
 may simply never reach the other's repositories for its whole life.
 
-**What "Session Text" means concretely, as of 2026-09-15.** Never call a
+**What "Session Text" means concretely, as of 2026-09-16.** Never call a
 session-creating tool for this — in Claude Code's cloud sessions that is
-`create_session` on the `claude-code-remote` server, and it stays unused
-here regardless of whether it is available. Instead: name the target
+`create_session` on the `claude-code-remote` server — and never call a
+session-messaging tool either — `ListAgents`, `SendMessage`, `create_trigger`
+with `persistent_session_id`, `fire_trigger` — regardless of whether any of
+them is available. All of it stays unused here. Instead: name the target
 repository or repositories out loud, then build
 [the-boildown](the-boildown.md)'s paste block as the opening
 message for a window the person opens themselves, and tell them plainly to
 open that new window and paste it in. Never silence and never a prose
 description of what the person should go type — the block itself, ready to
 paste.
-
-**How to wake one, in Claude Code's cloud sessions as of 2026-09-13.**
-`ListAgents` lists what is reachable — subagents, other local sessions,
-sessions in the cloud where this one has cloud access — and **the name in
-that listing is the address**, passed straight to `SendMessage` as `to`. The
-message arrives in that session's conversation at its next tool round. For a
-session `ListAgents` cannot see — one spawned with `create_session` has been
-recorded as unreachable that way — go by session id instead: `create_trigger`
-with `persistent_session_id`, then `fire_trigger` to deliver it now rather
-than on a schedule. **Permission boundaries are per-session**, so work a person REFUSED here is
-never work to ask a peer for; that routes back to them. **A repository this
-session merely cannot reach is not that** -- it is the wall the Rule's clause
-above is about, and the answer there is to relay, not to hand the person a
-paste block.
-
-**Waking a session is something the person has to be TOLD about, with the
-link.** They cannot see the other conversation from where they are, so a
-relay nobody mentions looks exactly like nothing having happened -- and they
-are the one who has to chase it if it stalls. Say in the reply that you woke
-it, what you sent it in one line, and give the
-`https://claude.ai/code/<session id>` link. That is the same three things
-[the-boildown](the-boildown.md) asks for; the only difference
-is who pressed send.
-
-**Finding the live session to wake is by TITLE, not by tag.** `list_sessions`
-accepts a `tags` filter and it does not work from inside a session — it
-answers *"tags filter is not currently available"* (checked 2026-09-12, in
-Claude Code's cloud sessions). So a session's **title** is the only lineage a
-later session can actually search on, which makes naming a session for its
-subject at creation worth the one extra call: an untitled session is one
-nobody will find to wake, and the cost of not finding it is a fresh session
-re-reading the repository from scratch.
 
 **What the relayed authorization looks like in the prompt.** One line, at
 the end, after the outcome expected: *"<Person> authorized this on <date>:
@@ -394,14 +339,18 @@ works for an hour and then finds the repository out of reach has produced
 context, not work, and context is exactly the thing a handoff cannot carry.
 Checking first costs one comparison of two lists.
 
-**A paste block is the only shape this can take, since 2026-09-15.** A
-session this session created was the better ergonomics — the person's load
-was a link and a click, not a block of text to carry — for exactly as long
-as those created sessions kept coming back accepted. They stopped: rejected,
-not seen as safe, for a reason nothing on this side of the harness can
-diagnose or fix. [the-boildown](the-boildown.md) was always
-the fallback for when no session-creating tool was available; it is now the
-only path, whether or not one is.
+**A paste block is the only shape this can take, since 2026-09-16.** A
+session this session created, or a live one it woke directly, was the
+better ergonomics — the person's load was a link and a click, not a block of
+text to carry — for exactly as long as those mechanisms kept coming back
+reliable. They stopped: `create_session` calls came back rejected, not seen
+as safe, for a reason nothing on this side of the harness can diagnose or
+fix, and the same tool surface under waking carried the same risk without
+yet having failed the same way. [the-boildown](the-boildown.md)
+was always the fallback for when no session-creating or session-messaging
+tool was available; it is now the only path, whether or not one is — which
+also means it is the only path that costs nothing to run under a provider
+that never had those tools to begin with.
 
 **The command exists because the check is a session's job and the person is
 the one who notices it was skipped.** Naming the phrase gives them two words
@@ -614,6 +563,33 @@ line above predates this and outlives it** -- it was written for a seeded
 copy-pasted block, since the ambiguity it closes belongs to the person
 reading the text before they paste it in, not to the mechanism that used to
 deliver it.
+
+**Waking retired 2026-09-16, in a conversation about removing Claude-only
+functionality from the practice layer more broadly.** Session spawning had
+already gone the day before; asked directly whether waking still happened
+and whether it could be avoided too, Morgan answered with both the decision
+and the reason in the same message: *"remove waking entirely, always paste
+text... I've had so many problems with spawning sessions (you know I've had
+dozens of sessions with you trying to fix those permissions problems caused
+by that) that hose aren't reliable enough, plus we want this to be LLM
+neutral - we have people interested in using this with Grok!!!!"* The
+alternative on the table — keep waking working exactly as before, just
+labelled explicitly as a Claude Code Remote binding that other providers
+fall back off of — was offered and declined on both counts he gave, not
+one: it would have kept costing the reliability problems he had already
+spent many sessions fighting, and it would have kept a capability
+provider-specific in a catalogue he wants portable.
+
+**What this costs, named rather than left implicit:** the context-reuse
+saving that was `session-text`'s entire second half, the reason "wake a live
+one" was ever added — a live session already holds the repository read in,
+a fresh window re-reads it from nothing. That saving is real and it is gone
+for good in the common case; what replaces it is naming a known live
+session in the pasted text where one happens to already be known from this
+conversation, which is weaker and does not require the enumeration this
+practice used to reach for. Traded deliberately, for a reason spend can't
+buy back: a mechanism that keeps failing is not cheaper for costing less
+per success.
 
 ## Install
 Nothing to configure. The occasion index entry above is generated, so an

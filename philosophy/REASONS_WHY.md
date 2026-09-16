@@ -109,8 +109,7 @@ meeting reconstructing who approved what
 dies before it acquires allies, which makes
 [`build-five-kill-four`](COMPANY_BUILDING_RULES.md#build-five-kill-four) cheap and
 [`own-every-word`](COMPANY_BUILDING_RULES.md#own-every-word) urgent. Drift is the same failure,
-caught by periodic contradiction-checks
-([`contradiction-scanning`](RULES_NOW_TESTING.md#contradiction-scanning)).
+caught by periodic contradiction-checks.
 
 <a id="instinct-catches-what-checklists-miss"></a>
 

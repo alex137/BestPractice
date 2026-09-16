@@ -11,9 +11,7 @@ running a company this way; this document is one level down, about the
 systems. See also [Our Philosophy](OUR_PHILOSOPHY.md) (the theory),
 [Reasons Why](REASONS_WHY.md) (the payoffs), and
 [Humans at Our Best](HUMANS_AT_OUR_BEST.md) (what stays human).
-Promoted out of [Assorted Notes](ASSORTED_NOTES.md);
-[Rules Now Testing](RULES_NOW_TESTING.md) is where an idea from either
-essay gets tried before it's called a rule.*
+Promoted out of [Assorted Notes](ASSORTED_NOTES.md).*
 
 ## Memory & Context
 
@@ -73,9 +71,7 @@ possible; this is what it is for).
 Argue a genuine counter-case on writing/thinking work, comply on
 technical execution — the switch should track task shape, not sit fixed
 at the system level, where a rule built strict on purpose under-serves the
-case in front of it ([`boundary-pushing`](HUMANS_AT_OUR_BEST.md#boundary-pushing)). Being run
-by hand meanwhile as
-[`push-back-writing-thinking`](RULES_NOW_TESTING.md#push-back-writing-thinking).
+case in front of it ([`boundary-pushing`](HUMANS_AT_OUR_BEST.md#boundary-pushing)).
 
 <a id="three-reflexes-in-system-prompt"></a>
 
@@ -90,8 +86,7 @@ work than a person remembering to ask.
 **8. Argue in the open.** An AI reviewer that holds a half-formed
 position and invites disagreement, rather than posting a clean
 finished-looking suggestion, keeps the disagreement itself in the record.
-The system-level form of [`arguing-with-the-model`](OUR_PHILOSOPHY.md#arguing-with-the-model),
-asked of people first as [`argue-in-the-open`](RULES_NOW_TESTING.md#argue-in-the-open).
+The system-level form of [`arguing-with-the-model`](OUR_PHILOSOPHY.md#arguing-with-the-model).
 
 ## Interface
 
@@ -182,8 +177,6 @@ citation, an assumption — so [`taste`](HUMANS_AT_OUR_BEST.md#taste) has a plac
 periodically list workflows whose only interface is a human inbox —
 including its own — and propose an addressable alternative, per
 [`no-dark-processes`](COMPANY_BUILDING_RULES.md#no-dark-processes).
-Running by hand today as
-[`dark-process-self-audit`](RULES_NOW_TESTING.md#dark-process-self-audit).
 
 <a id="periodic-checkins-not-expiry"></a>
 

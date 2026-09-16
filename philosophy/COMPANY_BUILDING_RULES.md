@@ -22,8 +22,7 @@ a *corpus* that dies if nothing re-reads it
 ([`contradiction-scanning-recurring`](AI_GOVERNANCE_TO_COCREATE.md#contradiction-scanning-recurring)).
 Competitors rent the same models; what's yours can't be, unless a
 provider switch strands it
-([`provider-neutrality-hedge`](AI_GOVERNANCE_TO_COCREATE.md#provider-neutrality-hedge); withdrawn as
-code, [`provider-neutral-llm`](RULES_NOW_TESTING.md#provider-neutral-llm)).
+([`provider-neutrality-hedge`](AI_GOVERNANCE_TO_COCREATE.md#provider-neutrality-hedge)).
 
 <a id="transcribe-everything"></a>
 
@@ -70,8 +69,7 @@ built in rather than practised,
 
 The low-value mode is "produce this and I'll edit it"; the high-value mode
 is thinking with the model in real time, arguing the opposite side before
-you've committed ([`arguing-with-the-model`](OUR_PHILOSOPHY.md#arguing-with-the-model); in
-public, [`argue-in-the-open`](RULES_NOW_TESTING.md#argue-in-the-open)). The tell: sessions
+you've committed ([`arguing-with-the-model`](OUR_PHILOSOPHY.md#arguing-with-the-model)). The tell: sessions
 that read like fights. The gain is catching your error an hour later, not
 three weeks later at the client
 ([`wrong-gets-cheap-early`](REASONS_WHY.md#wrong-gets-cheap-early)).
@@ -113,8 +111,7 @@ technical but is [`politics`](HUMANS_AT_OUR_BEST.md#politics) — every dark pro
 for a reason, with a name and a desk attached
 ([`processes-should-be-visible`](OUR_PHILOSOPHY.md#processes-should-be-visible)). A
 standing job for the AI
-([`ai-hunts-dark-processes`](AI_GOVERNANCE_TO_COCREATE.md#ai-hunts-dark-processes)), run by hand as
-[`dark-process-self-audit`](RULES_NOW_TESTING.md#dark-process-self-audit).
+([`ai-hunts-dark-processes`](AI_GOVERNANCE_TO_COCREATE.md#ai-hunts-dark-processes)).
 
 <a id="build-five-kill-four"></a>
 
@@ -140,7 +137,7 @@ nobody thought about. Ship it in your voice; the fingerprints are
 mechanical enough to check for
 ([`structural-ai-voice-check`](AI_GOVERNANCE_TO_COCREATE.md#structural-ai-voice-check)). (Now
 [`write-like-a-human`](../practices/write-like-a-human.md), universal since
-2026-09-07; [how it got there](RULES_NOW_TESTING.md#write-like-a-human).)
+2026-09-07.)
 
 ## People
 
