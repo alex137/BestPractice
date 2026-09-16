@@ -430,7 +430,7 @@ whether it earns a place as a recurring check or stays ad hoc.
 - [OUR_PHILOSOPHY.md](OUR_PHILOSOPHY.md) — the underlying theoretical
   ideas everything else here assumes, named and explained on their own
   terms.
-- [THE_WORKING_LOOP.md](THE_WORKING_LOOP.md) — the six-step cycle those
+- [Our Working Loop](THE_WORKING_LOOP.md) — the six-step cycle those
   ideas run through, end to end.
 - [REASONS_WHY.md](REASONS_WHY.md) — the less obvious benefits those
   ideas actually produce in practice.

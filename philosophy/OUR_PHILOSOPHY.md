@@ -89,44 +89,32 @@ the AI carrying the translation keeps thinking real, not thinned
 <a id="rules-generated-automatically"></a>
 
 **6. Protocols, rules, and preferences get generated automatically.**
-What's automatic is the finding: the AI Assistant surfaces the pattern
-every time, without anyone having to remember to look — the reason
-behind a request is exactly the material that finding gets pulled from
-([`explain-the-why`](#explain-the-why)). Turning it into
-a standing rule is a human call, routed by this repo's own rules to
-whoever's responsible — and a spotted pattern always gets surfaced,
-never left unremarked. This repo's team and individual practice sources
-(precedent-team-repo-maintenance, precedent-individual — see
-[spec/MIGRATING_EXISTING_INSTALLS.md](../spec/MIGRATING_EXISTING_INSTALLS.md)) run that mechanism continuously
-([`automatic-rule-extraction`](AI_GOVERNANCE_TO_COCREATE.md#automatic-rule-extraction);
-[practice 20](../PRACTICES.md#20-mistakes-become-rules-root-cause-the-miss-then-encode-the-prevention)
-is the same move done by hand). It makes
-[`decisions-carry-their-situation`](#decisions-carry-their-situation)
+The AI Assistant surfaces the pattern behind a request every time,
+unprompted ([`explain-the-why`](#explain-the-why)); turning it into a
+standing rule is still a human call. This repo's team and individual
+practice sources run that mechanism continuously
+([`automatic-rule-extraction`](AI_GOVERNANCE_TO_COCREATE.md#automatic-rule-extraction)),
+making [`decisions-carry-their-situation`](#decisions-carry-their-situation)
 affordable and
 [`explicit-ownership-not-hidden-in-the-model`](#explicit-ownership-not-hidden-in-the-model)
-possible, beats documenting by hand for
-[`writing-stops-competing-with-doing`](REASONS_WHY.md#writing-stops-competing-with-doing)'s
-reason, and pays off as
-[`protocols-generated-not-just-documented`](REASONS_WHY.md#protocols-generated-not-just-documented).
+possible — and beats documenting by hand
+([`writing-stops-competing-with-doing`](REASONS_WHY.md#writing-stops-competing-with-doing),
+[`protocols-generated-not-just-documented`](REASONS_WHY.md#protocols-generated-not-just-documented)).
 
 <a id="decisions-carry-their-situation"></a>
 
 **7. Every decision carries the situation that produced it.** However
-small the call, the record states what case prompted it — a bare
-"always do X" invites relitigation from anyone who wasn't there, the
-same gap [`explain-the-why`](#explain-the-why) names from the request's
-side, before it is ever written down as a rule. The
-case also tests the rule: one that wouldn't have caught it is theater.
-BestPractice already requires this
-([practice 5](../PRACTICES.md#5-conventions-cite-the-incident-that-created-them),
-[practice 20](../PRACTICES.md#20-mistakes-become-rules-root-cause-the-miss-then-encode-the-prevention));
-capture is the
-agents' job, pulled from the work as it happens
-([`rules-generated-automatically`](#rules-generated-automatically)'s
-rule extraction). It prevents
-[`situation-heads-off-confusion`](REASONS_WHY.md#situation-heads-off-confusion), and a
-decision carrying its case is one worth raising unprompted later
-([`active-resurfacing`](AI_GOVERNANCE_TO_COCREATE.md#active-resurfacing)).
+small the call, name the case that prompted it, or it invites
+relitigation from someone who wasn't there
+([`explain-the-why`](#explain-the-why)) — a case it wouldn't have caught
+makes the rule theater. Capture is the agents' job, pulled from the work
+itself
+([`rules-generated-automatically`](#rules-generated-automatically)'s rule
+extraction), heading off
+[`situation-heads-off-confusion`](REASONS_WHY.md#situation-heads-off-confusion)
+and worth
+[`active-resurfacing`](AI_GOVERNANCE_TO_COCREATE.md#active-resurfacing)
+later.
 
 ## Visible and Owned, Not Hidden
 
@@ -166,7 +154,7 @@ its [`relationships`](HUMANS_AT_OUR_BEST.md#relationships) and
 
 ## See Also
 
-- [THE_WORKING_LOOP.md](THE_WORKING_LOOP.md) — the six-step cycle these
+- [Our Working Loop](THE_WORKING_LOOP.md) — the six-step cycle these
   ideas run through, end to end.
 - [CORE_PILLARS.md](CORE_PILLARS.md) — the one-page pitch: the core ideas
   this approach argues are unique, specifically taken together.

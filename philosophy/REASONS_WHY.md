@@ -129,7 +129,7 @@ judgment this repo routes to people
 - [OUR_PHILOSOPHY.md](OUR_PHILOSOPHY.md) — the underlying theoretical
   ideas everything else here assumes, named and explained on their own
   terms.
-- [THE_WORKING_LOOP.md](THE_WORKING_LOOP.md) — the six-step cycle those
+- [Our Working Loop](THE_WORKING_LOOP.md) — the six-step cycle those
   ideas run through, end to end.
 - [COMPANY_BUILDING_RULES.md](COMPANY_BUILDING_RULES.md) — the standalone
   essay on rules for building a company around AI.
