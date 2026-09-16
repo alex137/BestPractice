@@ -1,7 +1,7 @@
 ---
 title:         "Plan: Commit Identity Resolution"
 kind:          proposal
-status:        drafted
+status:        executed
 opened:        2026-09-16
 closed:        null
 superseded_by: null
@@ -11,8 +11,13 @@ summary:       "A claim that BestPractice needs a different commit identity than
 ---
 # Plan: Commit Identity Resolution
 
-**Nothing here is implemented.** This is a specification to review, not a
-report of work done.
+**Implemented.** `commit-identity.sh` (both copies) now closes the loop
+described below: it already says which of the six sources it used, and now
+says explicitly, when that source was inferred rather than declared, that
+telling Claude a name and email makes it permanent. The one remaining item
+— confirming whether the session's authenticated GitHub account and the
+signing key's account are the same — is an empirical check, not a blocker,
+and is unchanged from the "Before Writing Any Code" section below.
 
 ## The Problem, in One Paragraph
 

@@ -91,3 +91,5 @@ Full catalogue, one file per trap. AGENTS.md carries only a pointer to this file
 - **The symptom.** [story](gotcha-2026-09-15-a-pretooluse-hook-s-once-per-session-sentinel-is-not-proof-a.md)
 
 - **The symptom.** [story](gotcha-2026-09-15-a-spawned-session-s-seeded-prompt-cannot-pre-authorize-a-mer.md)
+
+- **A repo-scoped git identity gets proposed to fix a GitHub "Verified" badge mismatch — a different commit name/email for this repository than the person's own, applied locally so it doesn't leak into other repos — before anyone checks whether the repository actually needs one.** [story](gotcha-2026-09-16-a-repo-cannot-need-its-own-commit-identity-github-verified-commi.md)
