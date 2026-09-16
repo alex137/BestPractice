@@ -129,6 +129,45 @@ def _self_heal_individual_source(repo_root):
         pass
     return 'attempted'
 
+def _self_heal_universal_source(repo_root):
+    """practice: session-bootstrap -- the mirror-image gap to
+    _self_heal_individual_source above, for a SOURCE-kind repo (an
+    individual or team practice set) that declares the universal source
+    (BestPractice) in its own precedent.json.
+
+    NO TIMING RACE HERE, unlike the individual case: BestPractice is
+    PUBLIC, so cloning it needs no token and no wait for this session's own
+    `add_repo` call to have happened. What is actually missing is any
+    non-SessionStart path that ever attempts the clone at all.
+    bootstrap/precedent-universal-catalogue.sh does it, but only at
+    SessionStart -- and a practice set opened as one of several repos in a
+    session, attached alongside others rather than as the session's own
+    primary project, never runs a SessionStart hook that is not its own
+    (this repo's own record/GOTCHA.md g15/g17). A session reaching this
+    set's declared universal source through the engine's ordinary tools
+    (precedent_check.py, precedent_paths.py,
+    precedent_session_practices.py -- all of which run through load_config
+    below) would otherwise see it declared and simply absent, forever, with
+    nothing left to try -- the same silence the individual-source heal
+    above exists to break for the private case.
+
+    Deliberately narrow, same as the function above: only fires when the
+    repo actually ships tools/precedent_source_bootstrap.py (a source set
+    whose engine predates ENGINE_FILES picking it up has neither the tool
+    nor the gap this closes). Never raises: a failed clone here is reported
+    by the ordinary 'missing source' path load_config's caller already has,
+    not a new failure mode."""
+    tool = repo_root / 'tools' / 'precedent_source_bootstrap.py'
+    if not tool.is_file():
+        return 'no-tool'
+    try:
+        subprocess.run([sys.executable, str(tool), '--sources-from',
+                        str(repo_root)], cwd=str(repo_root),
+                       capture_output=True, timeout=60)
+    except (OSError, subprocess.TimeoutExpired):
+        pass
+    return 'attempted'
+
 # HIGHEST PRECEDENCE FIRST -- read this tuple left to right as strongest to
 # weakest. (Changed 2026-09-03: this used to be listed lowest-first, weakest
 # to strongest, which reads backwards to an English speaker scanning a
@@ -417,6 +456,15 @@ def load_config(repo, user_config=None):
                 os.path.expandvars(str(entry['path']))).expanduser()
             entry_path = (entry_path if entry_path.is_absolute()
                           else repo_root / entry_path).resolve()
+            # practice: session-bootstrap -- a universal source declared but
+            # not yet on disk (never cloned, because the SessionStart hook
+            # that clones it never ran for this session -- see
+            # _self_heal_universal_source above) gets one clone attempt now,
+            # before load_source() reports it missing. A path that already
+            # has a practices/ dir is left alone: this never re-clones or
+            # refreshes an existing checkout, only creates an absent one.
+            if level == 'universal' and not (entry_path / 'practices').is_dir():
+                _self_heal_universal_source(repo_root)
             sources.append({'level': level, 'name': entry.get('name', level),
                             'path': str(entry_path)})
 
