@@ -78,17 +78,28 @@ screen as the environment variables above — to force the checkout current
 on start, regardless of the container's cached state:
 
 ```sh
-b="$(git branch --show-current)"; git fetch origin "$b" && git reset --hard "origin/$b"
+if git rev-parse --git-dir >/dev/null 2>&1; then
+  b="$(git branch --show-current)"
+  [ -n "$b" ] && git fetch origin "$b" && git reset --hard "origin/$b"
+fi
 ```
 
 Deliberately generic: no repo name, no branch name. It reads both from the
 checkout it's run against, so the same line works whatever repository and
 branch the environment happens to open — not just this one.
 
-**Unconfirmed as of 2026-09-15: whether a Setup command re-runs on every
-session start, or only once when the environment's image is built.** If
-it's the latter, this doesn't help — verify by starting two sessions a few
-days apart in the same environment and comparing `git log -1`.
+**The guard is load-bearing, not defensive padding.** A bare
+`b="$(git branch --show-current)"; git fetch origin "$b" && git reset --hard "origin/$b"`
+errored the first time it was tried, 2026-09-15: the Setup command runs
+before the checkout is ready, so `git branch --show-current` had nothing to
+read yet. The `if`/`[ -n "$b" ]` guards make it a no-op on that run instead
+of failing, and it confirmed working the same day once added.
+
+**Still unconfirmed as of 2026-09-15: whether the Setup command re-runs on
+every session start, or only once when the environment's image is built.**
+If it's the latter, this stops helping after the image is built — verify by
+starting two sessions a few days apart in the same environment and
+comparing `git log -1`.
 
 ## Verify It Worked
 
