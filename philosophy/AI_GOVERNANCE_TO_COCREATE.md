@@ -79,8 +79,8 @@ by hand meanwhile as
 
 <a id="three-reflexes-in-system-prompt"></a>
 
-**7. The three reflexes from
-[`three-questions`](COMPANY_BUILDING_RULES.md#three-questions) belong in
+**7. The reflex from
+[`five-whys`](COMPANY_BUILDING_RULES.md#five-whys) belongs in
 the system prompt, not just a human's habit.** An agent that asks itself
 "have I done this shape before" mid-task, and says so, does more of
 [`think-in-workflows`](COMPANY_BUILDING_RULES.md#think-in-workflows)'s

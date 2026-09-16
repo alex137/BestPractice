@@ -31,8 +31,7 @@ withdrawn [`provider-neutral-llm`](RULES_NOW_TESTING.md#provider-neutral-llm)).
 
 A colleague who's been here since the founding, remembers everything, and
 has no eyes or ears, only text: the Ghost. Every untranscribed meeting
-removes an organ; what never became text at all is
-[`digitize-the-edge`](#digitize-the-edge)'s. Most companies do the easy 5%;
+removes an organ. Most companies do the easy 5%;
 the bar is nearer 90% and never 100%, since some of it is
 [`the-unspoken`](HUMANS_AT_OUR_BEST.md#the-unspoken) — testable as [`coldstart-test`](AI_GOVERNANCE_TO_COCREATE.md#coldstart-test),
 and worth it for
@@ -49,7 +48,7 @@ sentence. What kills a company is four handoffs where everyone skimmed;
 the error surfaces at the customer, the last room you hear about
 ([`wrong-gets-cheap-early`](REASONS_WHY.md#wrong-gets-cheap-early), run backwards).
 
-## Working With the Model
+## Rules for Working With the Model
 
 <a id="ai-chat-as-intermediary"></a>
 
@@ -90,20 +89,18 @@ asks mid-task;
 history instead). A protocol needs only one judgment call. Systematize
 everything and you ship nothing, beautifully diagrammed.
 
-<a id="three-questions"></a>
+<a id="five-whys"></a>
 
-**7. Three questions, asked until they're reflexes.**
+**7. The Five Whys: focus on the problem.**
 
-A long checklist buys interrogation instead of work. Three questions,
-drilled until they're reflexes:
+Don't focus on finding the solution — focus on getting to the root of the
+issue. Keep asking why; keep finding and describing problems, and push the
+AI Assistants to solve them — the practice
+[`explain-the-why`](OUR_PHILOSOPHY.md#explain-the-why) asks of every single
+request.
 
-- What rule should come from this? You'll decide it again; write it now.
-- Have I done this shape before, or will I again? Then it's a workflow.
-- Could AI Assistant make this better? Not faster — better.
-
-*Better* is the one that earns its keep. All three are a cheap substitute
-for [`questions`](HUMANS_AT_OUR_BEST.md#questions), which nobody can be drilled into: in the
-system prompt as
+A cheap substitute for [`questions`](HUMANS_AT_OUR_BEST.md#questions),
+which nobody can be drilled into: in the system prompt as
 [`three-reflexes-in-system-prompt`](AI_GOVERNANCE_TO_COCREATE.md#three-reflexes-in-system-prompt),
 out loud mid-task as
 [`three-reflexes-out-loud`](RULES_NOW_TESTING.md#three-reflexes-out-loud).
@@ -138,23 +135,9 @@ Whether it fits is
 [`cost-awareness-situational`](AI_GOVERNANCE_TO_COCREATE.md#cost-awareness-situational), never a
 policy set once.
 
-<a id="digitize-the-edge"></a>
-
-**10. Digitize the edge, where the atoms are.**
-
-If you make, move, install or repair physical things, the untouched value
-sits at the analog frontier, precisely because reaching it is annoying:
-photos of every job, sensor logs, a voice note before the next call. The
-Ghost can't climb a ladder or smell burnt wiring
-([`sense-of-smell`](HUMANS_AT_OUR_BEST.md#sense-of-smell)), or check the record against the
-site ([`verification`](HUMANS_AT_OUR_BEST.md#verification)) — the
-[`dirtiness-of-real-life`](HUMANS_AT_OUR_BEST.md#dirtiness-of-real-life). Convert it to text
-([`transcribe-everything`](#transcribe-everything)) and the other rules
-open up.
-
 <a id="no-ai-voice"></a>
 
-**11. Nothing you ship may sound like it came from an AI.**
+**10. Nothing you ship may sound like it came from an AI.**
 
 The default register — the throat-clearing opener, "not just X, it's Y,"
 the bolded summary nobody asked for — reads as nobody home. Unrewritten output is output
@@ -168,7 +151,7 @@ mechanical enough to check for
 
 <a id="hire-for-drive"></a>
 
-**12. Hire for drive, "Getting Sh\*t Done," relationships, and taste.**
+**11. Hire for drive, "Getting Sh\*t Done," relationships, and taste.**
 
 The bottleneck isn't making things, it's judging them fast — production is
 what models absorbed first. Hire someone who gets things done unmanaged
@@ -181,7 +164,7 @@ back.
 
 <a id="manager-of-agents"></a>
 
-**13. Give the agents a manager — a human over the loop, not in it.**
+**12. Give the agents a manager — a human over the loop, not in it.**
 
 "In the loop" became jargon for a rubber stamp: nobody scrutinizes step
 four thousand like step one. Staff the fleet itself: watching drift, retuning guardrails
@@ -191,7 +174,7 @@ at agents ([`people-manage-agents-execute`](OUR_PHILOSOPHY.md#people-manage-agen
 
 <a id="human-only-zones"></a>
 
-**14. Protect human-only zones on purpose, and put them on the calendar.**
+**13. Protect human-only zones on purpose, and put them on the calendar.**
 
 If everyone consumes only summaries, nobody detects the moment they drift —
 everything still reads coherent. Mandate raw contact as ritual: founders
@@ -202,7 +185,7 @@ checklist sees.
 
 <a id="structurally-human"></a>
 
-**15. Lean the permanent hire toward what's structurally human.**
+**14. Lean the permanent hire toward what's structurally human.**
 
 The clearest case for a permanent role is work a model can't do at all:
 [`judgment`](HUMANS_AT_OUR_BEST.md#judgment) when the rules run out, [`taste`](HUMANS_AT_OUR_BEST.md#taste) that

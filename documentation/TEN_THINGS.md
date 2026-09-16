@@ -123,7 +123,7 @@ being told twice, and it's the raw material a practice gets written from
 when a correction repeats — a bare instruction finishes the one task in
 front of it and teaches nothing past that.
 
-- Technical: [Working With the Model](../philosophy/OUR_PHILOSOPHY.md#explain-the-why)
+- Technical: [People and the Model](../philosophy/OUR_PHILOSOPHY.md#explain-the-why)
 
 ## Where to Go From Here
 

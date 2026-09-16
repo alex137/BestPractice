@@ -96,7 +96,7 @@ Before calling work done, answer all three out loud in the reply:
 - Have I done this shape before, or will I again?
 - Is there a way this could be better — not just faster?
 
-([`three-questions`](COMPANY_BUILDING_RULES.md#three-questions); the trial
+([`five-whys`](COMPANY_BUILDING_RULES.md#five-whys); the trial
 of [`three-reflexes-in-system-prompt`](AI_GOVERNANCE_TO_COCREATE.md#three-reflexes-in-system-prompt).)
 
 <a id="write-like-a-human"></a>

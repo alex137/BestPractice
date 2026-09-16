@@ -29,7 +29,7 @@ part of [CORE_PILLARS.md](CORE_PILLARS.md)'s case for what makes this
 approach unique —
 [`collaboration-not-just-production`](CORE_PILLARS.md#collaboration-not-just-production).)
 
-## Working With the Model
+## People and the Model
 
 <a id="people-manage-agents-execute"></a>
 
@@ -63,13 +63,15 @@ briefing a model and staying engaged.
 
 <a id="explain-the-why"></a>
 
-**4. Say why you're asking, every time.** The instruction tells the model
-what to type; the reason tells it what you're actually trying to achieve,
-and that's what lets it catch a case you didn't spell out or push back when
-the ask doesn't serve the goal. It's also the raw material a standing rule
-gets made from — a practice pulled from "always do X" has nothing to check
-itself against, one pulled from "always do X because Y" can be tested
-against Y forever
+**4. Explain why, every time: describe problems, not solutions.** The
+instruction tells the model what to type; the reason tells it what you're
+actually trying to achieve — naming the problem, instead of handing over a
+prescribed fix, is what lets it catch a case you didn't spell out or push
+back when the ask doesn't serve the goal
+([`five-whys`](COMPANY_BUILDING_RULES.md#five-whys)). It's also the raw
+material a standing rule gets made from — a practice pulled from "always do
+X" has nothing to check itself against, one pulled from "always do X
+because Y" can be tested against Y forever
 ([`rules-generated-automatically`](#rules-generated-automatically),
 [`decisions-carry-their-situation`](#decisions-carry-their-situation)).
 

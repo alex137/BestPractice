@@ -51,8 +51,7 @@ this page doesn't replace them.*
   staffed role, [`manager-of-agents`](COMPANY_BUILDING_RULES.md#manager-of-agents)).
 - <a id="verification"></a>**Verification.** Machines can only go so far in making sure that what
   they are doing is correctly reflected in the real world — most of all
-  where the real world is physical
-  ([`digitize-the-edge`](COMPANY_BUILDING_RULES.md#digitize-the-edge)).
+  where the real world is physical.
 - <a id="trade-offs-and-hard-decisions"></a>**Trade-offs and hard decisions.** Nothing worth choosing comes free:
   speed against care, this client against that one, the person you like
   against the person who is right. Somebody has to pick, knowing what the
@@ -60,11 +59,13 @@ this page doesn't replace them.*
   [`build-five-kill-four`](COMPANY_BUILDING_RULES.md#build-five-kill-four) stops applying.
 - <a id="dirtiness-of-real-life"></a>**Managing the dirtiness of real life.** When you leave the digital world,
   and more often than not when you're on it, very little works smoothly or
-  the way it seems to "on paper" — the frontier
-  [`digitize-the-edge`](COMPANY_BUILDING_RULES.md#digitize-the-edge) is about reaching.
+  the way it seems to "on paper."
 
 ### People
 
+- <a id="why"></a>**Why.** Kids ask "why" about everything the moment they learn to talk;
+  digging to the root instead of stopping at the symptom is human nature,
+  not a trained skill.
 - <a id="relationships"></a>**Relationships.** A counterparty trusts because of who's on the other
   end of them
   ([`structurally-human`](COMPANY_BUILDING_RULES.md#structurally-human));
@@ -80,8 +81,7 @@ this page doesn't replace them.*
 - <a id="sense-of-smell"></a>**Sense of smell.** Understanding how reality actually plays out, past
   anything a machine's formal analysis can show: *this vendor is sketchy*,
   *those guys are always in disasters*, *we just don't get along*. Sometimes
-  literal — the Ghost can't smell burnt wiring
-  ([`digitize-the-edge`](COMPANY_BUILDING_RULES.md#digitize-the-edge)) — and the general case is
+  literal — the Ghost can't smell burnt wiring — and the general case is
   [`instinct-catches-what-checklists-miss`](REASONS_WHY.md#instinct-catches-what-checklists-miss).
 
 ### The Intangible
@@ -98,9 +98,12 @@ this page doesn't replace them.*
   ([`humans-do-what-humans-do-best`](OUR_PHILOSOPHY.md#humans-do-what-humans-do-best));
   the answer that felt off and passed every check
   ([`instinct-catches-what-checklists-miss`](REASONS_WHY.md#instinct-catches-what-checklists-miss)).
+- <a id="understanding-problems"></a>**Understanding problems.** People sense that something is wrong almost
+  without trying; working out what would actually fix it is a different
+  skill, and an unnatural, hard-won one for most.
 - <a id="questions"></a>**The right questions.** Asking the right one at the right time may be
   the hardest of the skills that matter;
-  [`three-questions`](COMPANY_BUILDING_RULES.md#three-questions) is the
+  [`five-whys`](COMPANY_BUILDING_RULES.md#five-whys) is the
   drillable substitute.
 - <a id="the-human-spark"></a>**The human spark.** What makes someone worth working for, not merely
   alongside

@@ -9,10 +9,11 @@ its own.*
 
 The same six steps repeat every time, in order:
 
-1. A spark — an idea, new data, an incoming request, a changed system
-   message.
-2. Argue it out with an AI Assistant that has this repo attached, so
-   the argument runs against the actual record instead of a guess
+1. A spark — a problem, an idea, new data, an incoming request, a changed
+   system message.
+2. Describe the problem and argue over it with an AI Assistant that has
+   this repo attached, so the argument runs against the actual record
+   instead of a guess
    ([`arguing-with-the-model`](OUR_PHILOSOPHY.md#arguing-with-the-model)).
 3. Most of that arguing happens on GitHub in the open, and the decision
    and reasoning is tracked there — a pull request, not a secret chat
@@ -23,8 +24,8 @@ The same six steps repeat every time, in order:
 5. The AI Assistant produces all the output; you only guide it
    ([`people-manage-agents-execute`](OUR_PHILOSOPHY.md#people-manage-agents-execute),
    [`humans-do-what-humans-do-best`](OUR_PHILOSOPHY.md#humans-do-what-humans-do-best)).
-6. The decisions, small to big, turn into learnings and shared rules
-   and protocols automatically
+6. The decisions, tiny to huge, are recorded, turn into learnings and
+   shared rules and protocols automatically
    ([`rules-generated-automatically`](OUR_PHILOSOPHY.md#rules-generated-automatically),
    [`decisions-carry-their-situation`](OUR_PHILOSOPHY.md#decisions-carry-their-situation)),
    staying visible to whichever session opens this repo next.
