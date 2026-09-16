@@ -333,7 +333,7 @@ When a person says "Reduction pass", or an always-loaded surface is near its cei
 When a person says "Three Things", or plainly asks for exactly this shape of answer:
   three-things — "Three Things" -- the three that matter now, one bold phrase and two lines each
 When a person says "Todo reminder", or asks to be reminded of something:
-  todo-reminder — "Todo reminder" -- write the item, mark it `**Remind:**`, set disposition `ask`
+  todo-reminder — "Todo reminder" -- write the item, set `disposition: ask` and `remind_on`, never a scheduled trigger
 When a person says "Vocabulary", or asks what the standing commands are:
   vocabulary — "Vocabulary" -- list every command in force, read it, never recall it
 When a person says "Weak yes", or agrees in words that carry no conviction:

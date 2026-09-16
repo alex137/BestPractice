@@ -3,17 +3,17 @@
 # Our Philosophy
 
 *The theoretical layer underneath everything else in this repo, not a new
-argument. [CORE_PILLARS.md](CORE_PILLARS.md) is the short version of what
+argument. [Core Pillars](CORE_PILLARS.md) is the short version of what
 follows — the four pillars it names are what these ideas add up to, and
-what [REASONS_WHY.md](REASONS_WHY.md)'s payoffs come out of.
-[COMPANY_BUILDING_RULES.md](COMPANY_BUILDING_RULES.md) makes the case for
-running a company this way; [AI_GOVERNANCE_TO_COCREATE.md](AI_GOVERNANCE_TO_COCREATE.md)
+what [Reasons Why](REASONS_WHY.md)'s payoffs come out of.
+[Company Building Rules](COMPANY_BUILDING_RULES.md) makes the case for
+running a company this way; [AI Governance to Co-Create](AI_GOVERNANCE_TO_COCREATE.md)
 makes the case for building the AI systems that way. Both assume a handful
 of ideas about memory,
 [judgment](HUMANS_AT_OUR_BEST.md), and how work actually produces quality.
 It's an account of the theory, not a pitch for it. The cycle these ideas
 run through end to end, step by step, is
-[THE_WORKING_LOOP.md](THE_WORKING_LOOP.md)'s own page.*
+[The Working Loop](THE_WORKING_LOOP.md)'s own page.*
 
 ## Groups, Not Individuals
 
@@ -25,9 +25,9 @@ work. This repo assumes something different: several people solving the
 same problem together, with chat as what connects them, not a private
 assistant each person also has, where joining costs a repository access
 rather than a day of setup ([`cloud-not-local`](AI_GOVERNANCE_TO_COCREATE.md#cloud-not-local)). (One
-part of [CORE_PILLARS.md](CORE_PILLARS.md)'s case for what makes this
+part of [Core Pillars](CORE_PILLARS.md)'s case for what makes this
 approach unique —
-[`collaboration-not-just-production`](CORE_PILLARS.md#collaboration-not-just-production).)
+[`human-led`](CORE_PILLARS.md#human-led).)
 
 ## People and the Model
 
@@ -41,7 +41,7 @@ the first attempt reveals what the brief missed
 ([`manager-of-agents`](COMPANY_BUILDING_RULES.md#manager-of-agents))
 — same posture as [`arguing-with-the-model`](#arguing-with-the-model),
 applied to management. (Full list:
-[HUMANS_AT_OUR_BEST.md](HUMANS_AT_OUR_BEST.md) — this is the claim behind
+[Humans at Our Best](HUMANS_AT_OUR_BEST.md) — this is the claim behind
 its [`judgment`](HUMANS_AT_OUR_BEST.md#judgment),
 [`actually-managing`](HUMANS_AT_OUR_BEST.md#actually-managing) and
 [`taste`](HUMANS_AT_OUR_BEST.md#taste) entries, and behind
@@ -68,7 +68,9 @@ instruction tells the model what to type; the reason tells it what you're
 actually trying to achieve — naming the problem, instead of handing over a
 prescribed fix, is what lets it catch a case you didn't spell out or push
 back when the ask doesn't serve the goal
-([`five-whys`](COMPANY_BUILDING_RULES.md#five-whys)). It's also the raw
+([`five-whys`](COMPANY_BUILDING_RULES.md#five-whys); a
+[Core Pillars](CORE_PILLARS.md) pillar,
+[`focus-on-whys-problems`](CORE_PILLARS.md#focus-on-whys-problems)). It's also the raw
 material a standing rule gets made from — a practice pulled from "always do
 X" has nothing to check itself against, one pulled from "always do X
 because Y" can be tested against Y forever
@@ -150,7 +152,7 @@ calls for it. Optimizing a person to act like a fast, tireless model
 optimizes away what they're for
 ([`structurally-human`](COMPANY_BUILDING_RULES.md#structurally-human)) —
 hold them to that standard, not a machine's. (Full list:
-[HUMANS_AT_OUR_BEST.md](HUMANS_AT_OUR_BEST.md) — this is the claim behind
+[Humans at Our Best](HUMANS_AT_OUR_BEST.md) — this is the claim behind
 its [`relationships`](HUMANS_AT_OUR_BEST.md#relationships) and
 [`instinct`](HUMANS_AT_OUR_BEST.md#instinct) entries.)
 
@@ -158,15 +160,15 @@ its [`relationships`](HUMANS_AT_OUR_BEST.md#relationships) and
 
 - [Our Working Loop](THE_WORKING_LOOP.md) — the six-step cycle these
   ideas run through, end to end.
-- [CORE_PILLARS.md](CORE_PILLARS.md) — the one-page pitch: the core ideas
+- [Core Pillars](CORE_PILLARS.md) — the one-page pitch: the core ideas
   this approach argues are unique, specifically taken together.
-- [REASONS_WHY.md](REASONS_WHY.md) — the less obvious benefits those
+- [Reasons Why](REASONS_WHY.md) — the less obvious benefits those
   ideas actually produce in practice.
-- [COMPANY_BUILDING_RULES.md](COMPANY_BUILDING_RULES.md) — the standalone
+- [Company Building Rules](COMPANY_BUILDING_RULES.md) — the standalone
   essay on rules for building a company around AI.
-- [AI_GOVERNANCE_TO_COCREATE.md](AI_GOVERNANCE_TO_COCREATE.md) — the
+- [AI Governance to Co-Create](AI_GOVERNANCE_TO_COCREATE.md) — the
   standalone essay on how AI systems themselves should be configured,
   built, and run.
-- [HUMANS_AT_OUR_BEST.md](HUMANS_AT_OUR_BEST.md) — the one list of what
+- [Humans at Our Best](HUMANS_AT_OUR_BEST.md) — the one list of what
   humans are good at, gathered from the shorter versions scattered here
   and elsewhere.
