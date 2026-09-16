@@ -182,14 +182,24 @@ fi
 # generating a loader block with a defect fixed upstream days earlier, and
 # it surfaced only because a session happened to run a check by hand.
 #
-# Report only -- it never refreshes anything on its own. `--apply` is a
-# person's decision (or a session acting on one), because the result has to
-# be reviewed and published under each set's own merge rules, which this
-# hook cannot know. Exit 0 regardless: a session that fails to START over
-# an advisory notice about a DIFFERENT repository is a far worse outcome
-# than one that misses the notice.
+# APPLIED, NOT JUST REPORTED (2026-09-15). Morgan: "my objection was to the
+# WEEKLY updates that were automatic; I never objected to START OF SESSION
+# checks that are automatic, I LOVE THAT." (strength: decided). This does
+# not reopen precedent_refresh_sources.py's own 2026-09-14 "no unattended
+# path" paragraph -- that decision killed a scheduled workflow running on
+# its own cadence, unattended, with nobody watching. This is the opposite
+# shape: it runs once, inside a session someone is sitting in, against
+# that session's own working tree, and it still never commits or pushes --
+# publishing stays "Update Vendors" or a person reading the diff by hand.
+# See that file's docstring for the fuller record.
+#
+# A source with its own uncommitted changes is left alone rather than
+# refreshed -- precedent_refresh_sources.py checks for that before writing
+# anything, so a person's in-progress edit in precedent-individual or a
+# team set is never interleaved with a regenerated diff it did not ask
+# for. Reports and never gates on failure, like everything else here.
 if [ -f tools/precedent_refresh_sources.py ]; then
-  python3 tools/precedent_refresh_sources.py 2>/dev/null || true
+  python3 tools/precedent_refresh_sources.py --apply 2>/dev/null || true
 fi
 
 # ---- commit identity, for EVERY Precedent repo in the session
