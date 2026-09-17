@@ -121,6 +121,9 @@ this page doesn't replace them.*
   ideas run through, end to end.
 - [Reasons Why](REASONS_WHY.md) — the less obvious benefits those
   ideas actually produce in practice.
+- [The Talmudic Method](THE_TALMUDIC_METHOD.md) — the resemblance between
+  what this system insists on and how the Talmud gets studied, argument
+  by argument.
 - [Company Building Rules](COMPANY_BUILDING_RULES.md) — the standalone
   essay on rules for building a company around AI.
 - [AI Governance to Co-Create](AI_GOVERNANCE_TO_COCREATE.md) — the
