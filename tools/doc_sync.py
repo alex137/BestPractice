@@ -173,10 +173,17 @@ def main():
                     help="regenerate drifted blocks in place")
     ap.add_argument("--list", action="store_true",
                     help="list registered document/block/script pairs")
+    ap.add_argument("--only", action="append", default=[], metavar="SUBSTR",
+                    help="restrict to pairs whose document, block or script path "
+                         "contains SUBSTR (repeatable) -- the fast gate for a "
+                         "turn that touched a few documents; the bare run stays "
+                         "the pre-merge gate")
     args = ap.parse_args()
+    pairs = [p for p in PAIRS if not args.only
+             or any(o in p[0] or o in p[1] or o in p[2] for o in args.only)]
 
     if args.list:
-        for doc, name, script in PAIRS:
+        for doc, name, script in pairs:
             print(f"  {doc} [{name}] <- {script}")
         return
 
@@ -199,8 +206,9 @@ def main():
               f"(document, block, script) triples, or leave it empty if no "
               f"document here carries generated numbers yet.")
         PAIRS[:] = []
+        pairs = []
 
-    for doc, name, script in PAIRS:
+    for doc, name, script in pairs:
         path = ROOT / doc
         # Graceful degradation, not a crash: PAIRS is hand-maintained, and a
         # document renamed or deleted without updating it leaves an entry
@@ -240,7 +248,7 @@ def main():
     # footer naming each script that feeds it, so a reader always knows
     # which code produced the numbers.
     docs = {}
-    for doc, name, script in PAIRS:
+    for doc, name, script in pairs:
         # Graceful degradation, not a crash: a PAIRS entry pointing at a file that
         # no longer exists was already reported once, above; carrying it into
         # the footer and restatement passes only turns that one clear finding
