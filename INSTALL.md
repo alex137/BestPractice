@@ -84,37 +84,40 @@ list.)
    `process/upstream/` and commit it as ordinary tracked files. Record the
    upstream commit hash you copied from (used by updates, step 2).
    **Skip [evals/](evals/), [philosophy/](philosophy/), [spec/](spec/),
-   [todo/](todo/), [decisions/](decisions/), [deck/](deck/) and
-   [record/](record/).** All seven fail the same test: they answer a
-   question about *building* Precedent rather than using it, and nothing a
-   consumer runs reads any of them.
+   [todo/](todo/), [decisions/](decisions/), [deck/](deck/), [record/](record/),
+   AGENTS.md and CLAUDE.md.** The first seven fail the same test: they
+   answer a question about *building* Precedent rather than using it, and
+   nothing a consumer runs reads any of them. AGENTS.md/CLAUDE.md fail a
+   different, sharper test: a harness auto-loads a file with that exact
+   name as *live instructions* for wherever a session is working — and
+   this repo's own copies carry a tail that is BestPractice talking about
+   itself ("this repo is the shared upstream", "PRs are the norm here"),
+   false when read as instructions for a consumer's own repo. A consumer's
+   real root AGENTS.md already comes from
+   [templates/AGENTS.md.template](templates/AGENTS.md.template), never
+   from mirroring this file, so nothing generic is lost by skipping it.
 
    - [evals/](evals/) is Precedent's own routing-quality measurement corpus
      (the fixtures behind [spec/LOADER.md](spec/LOADER.md)'s recall and
-     precision figures). It is most of what a consumer was otherwise
-     copying.
-   - [philosophy/](philosophy/) is the argument *for* the ideas — essays,
-     notes, rules being tried. It is not part of the system and it is not
-     instructions for using the system, and it
+     precision figures).
+   - [philosophy/](philosophy/) is the argument *for* the ideas, and
      [binds nothing outside itself](local/practices/philosophy-is-not-repo-policy.md)
-     even here. An adopter has already adopted; shipping them the case for
-     adopting is reading material, not machinery.
+     even here.
    - [spec/](spec/), [todo/](todo/), [decisions/](decisions/) and
      [deck/](deck/) are the engine's own build plans, backlog, dated design
      decisions and pitch-deck tooling — contributor material, per
      [spec/DOCUMENT_LIFECYCLE.md](spec/DOCUMENT_LIFECYCLE.md)'s own
      audience table.
    - [record/](record/) holds the fuller, pre-migration text behind the
-     current [gotchas/](gotchas/) split. Every vendored practice that cites it
-     does so by full external GitHub link, never a local one, so skipping
-     it costs a session nothing it could not already reach.
+     current [gotchas/](gotchas/) split, cited from vendored practices by
+     external GitHub link, never a local one.
 
-   **`gotchas/` and `examples/` are checked against the same test and kept
+   **`gotchas/` and `examples/` are checked against the same tests and kept
    in.** `gotchas/` is troubleshooting for *running* the vendored tooling,
-   not for building it, and a resident practice's own Rule says to `grep
-   gotchas/` — a local operation that finds nothing not actually vendored.
-   `examples/` shows an adopter how to build their own practice set, which
-   is a use of Precedent, not a step in building it.
+   and a resident practice's own Rule says to `grep gotchas/` — a local
+   operation that finds nothing not actually vendored. `examples/` shows an
+   adopter how to build their own practice set, a use of Precedent, not a
+   step in building it.
 
    **Which is not the same as "skip the reader-facing prose".**
    [documentation/](documentation/) vendors, in full and on purpose:

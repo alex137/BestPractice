@@ -627,25 +627,34 @@ def _vendored_exclusion_findings(repo_dir):
     try:
         import checkin
         not_vendored = checkin.NOT_VENDORED
+        not_vendored_root = checkin._NOT_VENDORED_ROOT_PATHS
     except Exception as exc:                                      # noqa: BLE001
         return [f"could not read NOT_VENDORED from tools/checkin.py -- "
                 f"{type(exc).__name__}: {exc} -- so this repo's "
                 f"process/upstream/ was NOT checked against it"]
     if not upstream_dir.is_dir():
         return []              # manifest declares a consumer, tree not present locally
-    hits = {}
+    hits = {}          # name -> (file count, is a root file rather than a dir)
     for p in upstream_dir.rglob('*'):
         if not p.is_file() or '.git' in p.parts:
             continue
-        excluded = [part for part in p.relative_to(upstream_dir).parts
-                   if part in not_vendored]
+        rel = p.relative_to(upstream_dir)
+        excluded = [part for part in rel.parts if part in not_vendored]
+        is_root = not excluded and rel in not_vendored_root
+        if is_root:
+            excluded = [str(rel)]
         if excluded:
-            hits[excluded[0]] = hits.get(excluded[0], 0) + 1
-    return [f"process/upstream/{name}/ still carries {n} file(s) NOT_VENDORED "
-            f"excludes -- either checkin.py update's sweep has not run here "
-            f"since {name!r} was excluded (re-run it: it now reports this "
-            f"every time), or this repo vendors from a pre-fix engine copy"
-            for name, n in sorted(hits.items())]
+            name = excluded[0]
+            n, _ = hits.get(name, (0, is_root))
+            hits[name] = (n + 1, is_root)
+    out = []
+    for name, (n, is_root) in sorted(hits.items()):
+        where = f"process/upstream/{name}" if is_root else f"process/upstream/{name}/"
+        out.append(f"{where} still present, {n} file(s) under an excluded path -- "
+                   f"either checkin.py update's sweep has not run here since "
+                   f"{name!r} was excluded (re-run it: it now reports this every "
+                   f"time), or this repo vendors from a pre-fix engine copy")
+    return out
 
 
 def _declared_stale_days(repo_dir):
