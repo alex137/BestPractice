@@ -226,6 +226,12 @@ starting two sessions a few days apart in the same environment and
 comparing `git log -1`. The short version of this same fix is also in
 [CLOUD_SETUP.md](CLOUD_SETUP.md#keep-the-checkout-from-going-stale).
 
+**Running a human-only commit-authorship policy on a hosted session?** The
+container signs commits as `noreply@anthropic.com` by default, which such a
+policy refuses, so every commit trips a loop between the two — see
+[CLOUD_SETUP.md](CLOUD_SETUP.md#when-the-containers-own-signing-collides-with-a-human-only-policy)
+for the fix.
+
 ## Hosted Sessions — The Credential That Replaces `add_repo`
 
 **On a hosted, ephemeral session there is a second way to reach your
