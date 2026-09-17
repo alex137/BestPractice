@@ -186,7 +186,72 @@ def _rev_parse_quiet(clone, ref):
 # the vendored README.md, METHOD.md and MAP.md report nothing in a consumer.
 # The two checks that read philosophy/ (verify_harness.py) already report
 # not-applicable when the directory is absent rather than passing blind.
-NOT_VENDORED = frozenset({'evals', 'philosophy'})
+#
+# Five more joined 2026-09-17, checked against spec/DOCUMENT_LIFECYCLE.md's
+# own audience table (contributor/session-building-Precedent = cut,
+# adopter/session-using-Precedent = keep) -- but the table alone is not what
+# decided any of these; each was verified against its ACTUAL current
+# content first, because the table's classification of one candidate
+# (gotchas/, considered and rejected -- see below) turned out to be wrong on
+# a real consumer and nearly cost 52 lines of live content:
+#
+#   spec/, todo/, decisions/, deck/ -- BestPractice's own build plans,
+#   backlog and dated design decisions about the ENGINE, plus pitch-deck
+#   tooling. Every citation into these four from a vendored (resident or
+#   universal) practice file is a full external github.com URL, not a local
+#   relative link -- the same pattern already accepted for philosophy/ -- so
+#   a consumer session can always follow the citation over the network; it
+#   never depends on a local copy under process/upstream/.
+#
+#   record/ -- the closer call of the five, flagged rather than asserted.
+#   It is NOT what spec/DOCUMENT_LIFECYCLE.md's still-unexecuted migration
+#   proposal describes (that would move BestPractice's own phase briefs
+#   here; none of that has landed). What actually lives in record/ today is
+#   record/GOTCHAS.md and record/GOTCHAS_ARCHIVE.md -- the pre-migration,
+#   monolithic predecessor to the current gotchas/*.md per-file split, kept
+#   as the fuller story text and cited by #gN anchor from several resident
+#   practices (session-text.md, very-deep-check.md, grep-before-search.md,
+#   chief-of-staff.md, vendor-update-runbook.md). Those citations are also
+#   full external URLs (same reasoning as above), and the LIVE, current
+#   mechanism -- gotchas/*.md -- is not excluded (below). record/GOTCHAS.md
+#   itself carries `audience: session` in its own frontmatter, which reads
+#   against excluding it; this was weighed and record/ was excluded anyway
+#   on the strength of the external-URL pattern and the gotchas/*.md split
+#   already covering the live/operational half. Reopen this one specifically
+#   if a session hits a case where the local copy was actually needed.
+#
+# CONSIDERED AND REJECTED: gotchas/. The original candidate list (drafted
+# from a check-in session's own experience in a consumer repo) grouped it
+# with todo/decisions/ by name-association, but its actual content is
+# troubleshooting for RUNNING the vendored tooling (checkin.py itself,
+# freshness-guard.sh, add_repo interactions, precedent_check.py), not
+# planning for building it -- and it is reached the one way none of the
+# above are: environment-gotchas.md, a RESIDENT universal practice, has its
+# own Rule say "hit an unexplained failure, grep `gotchas/` before
+# concluding it's new." A grep is a local filesystem operation; it finds
+# nothing that is not actually vendored. Excluding gotchas/ would have left
+# that instruction pointing at an empty directory in every consumer.
+#
+# ALSO CONSIDERED, kept IN: examples/. Its README says plainly what it is
+# for -- "here so that someone setting up their own [personal practice set]
+# has something concrete to copy" -- which is an adopter activity (a
+# consumer building their OWN practice set), not a contributor activity.
+#
+# ALSO CONSIDERED, but out of THIS mechanism's scope: top-level .claude/ and
+# .github/ (BestPractice's own dev/CI config, distinct from
+# templates/harness/claude-code/ and templates/github-actions/, the actual
+# instantiation sources -- confirmed absent from
+# precedent_vendor_engine.py's CONSUMER_ENGINE_FILES and unreferenced
+# anywhere as process/upstream/.claude or process/upstream/.github) and
+# local/ (BestPractice's own repo-local practice layer -- vendoring a
+# repo-local layer into another repo is a category error by definition; no
+# reference to "upstream/local" or "upstream.local" found anywhere in this
+# repo's own tooling). Both read as clear NOT_VENDORED candidates on the
+# same audience test, but adding them is deferred rather than folded in
+# here silently -- flag for confirmation before extending NOT_VENDORED to
+# non-spec-lifecycle top-level directories.
+NOT_VENDORED = frozenset({'evals', 'philosophy', 'spec', 'todo', 'decisions',
+                          'deck', 'record'})
 
 
 def not_vendored_share(base=None):
@@ -516,6 +581,59 @@ def _pinned_branch_hold(clone, allow=False):
         f"PRECEDENT_ALLOW_PINNED_UPDATE=1 checkin.py update ...)")
 
 
+def _report_excluded_content():
+    """Print what is sitting under a NOT_VENDORED path in the vendored tree,
+    every `update` run, whether or not anything else changed this hop.
+
+    Never deletes anything -- this is the mechanism fix for the failure
+    that motivated it: `_files()`'s NOT_VENDORED filter already stops
+    comparing an excluded path going forward, but a path excluded AFTER a
+    tree was already vendored just sits there, invisible to every later
+    `update`, because nothing ever looked at it again. That is exactly what
+    happened to philosophy/ and evals/ in a real consumer repo -- vendored
+    2026-09-12, excluded 2026-09-14, still sitting there three days later
+    with nothing pointing at them, until an unrelated check (record()'s
+    _carry_check, which walks the tree unfiltered) flagged 52 real lines as
+    "lost" and nearly had them discarded by an --accept-loss call before a
+    human caught it.
+    (practice: durable-fix -- this is the mechanism fix, not the one-time
+    manual cleanup a consumer's own re-vendor would otherwise have to
+    remember to do.)
+
+    Deliberately NOT auto-delete: NOT_VENDORED is a per-repo judgment call
+    about what is operational, and it has already been wrong once on a real
+    consumer (gotchas/ was drafted for exclusion, then confirmed to still be
+    load-bearing -- see the comment on NOT_VENDORED itself). Pairing a
+    fallible judgment call with automatic, silent deletion across every
+    consumer on every run is a worse failure mode than the stale-content
+    problem this closes: a wrong exclusion would DESTROY content instead of
+    merely ignoring it. Reporting loudly and leaving removal to a human
+    keeps the fix reversible. tools/very_deep_check.py's matching finding
+    is the audit-time half of the same signal, for a consumer that never
+    happens to run `update` again.
+    """
+    if not UPSTREAM.is_dir():
+        return
+    hits = {}
+    for p in UPSTREAM.rglob('*'):
+        if not p.is_file() or '.git' in p.parts:
+            continue
+        excluded = [part for part in p.relative_to(UPSTREAM).parts
+                   if part in NOT_VENDORED]
+        if excluded:
+            hits[excluded[0]] = hits.get(excluded[0], 0) + 1
+    if not hits:
+        return
+    names = ', '.join(sorted(hits))
+    total = sum(hits.values())
+    rm = ' '.join(f'process/upstream/{n}' for n in sorted(hits))
+    print(f"checkin update: {total} stale file(s) under excluded path(s) still in "
+          f"the vendored tree: {names} (in NOT_VENDORED, so no longer compared or "
+          f"refreshed -- present because they were vendored before being excluded, "
+          f"or copied in by hand). Not removed automatically: confirm nothing there "
+          f"is still needed, then  git rm -r {rm}  and commit.")
+
+
 def update(clone, force=False, allow_pinned=False):
     """INSTALL.md §2 step 5: mirror the clone's tree at the branch this
     install tracks into the vendored tree, refusing to clobber unexported
@@ -570,6 +688,7 @@ def update(clone, force=False, allow_pinned=False):
             _stamp_synced_from(src_ref)
             print(f"checkin update: vendored tree already identical to "
                   f"{branch} @ {src_ref[:12]} — nothing to do.")
+            _report_excluded_content()
             return 0
         for p in vendored_only:
             (UPSTREAM / p).unlink()
@@ -582,6 +701,7 @@ def update(clone, force=False, allow_pinned=False):
           f"{src_ref[:12]})")
     print("next: propagate template changes into instantiated files (INSTALL.md §2),")
     print("      update manifest entries, then run:  checkin.py record " + str(clone))
+    _report_excluded_content()
     return 0
 
 

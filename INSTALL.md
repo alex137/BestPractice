@@ -83,9 +83,11 @@ list.)
 1. **Vendor:** copy this repo's working tree (not its `.git`) into
    `process/upstream/` and commit it as ordinary tracked files. Record the
    upstream commit hash you copied from (used by updates, step 2).
-   **Skip [evals/](evals/) and [philosophy/](philosophy/).** Both fail the
-   same test: they answer a question about *building* Precedent rather than
-   using it, and nothing a consumer runs reads either.
+   **Skip [evals/](evals/), [philosophy/](philosophy/), [spec/](spec/),
+   [todo/](todo/), [decisions/](decisions/), [deck/](deck/) and
+   [record/](record/).** All seven fail the same test: they answer a
+   question about *building* Precedent rather than using it, and nothing a
+   consumer runs reads any of them.
 
    - [evals/](evals/) is Precedent's own routing-quality measurement corpus
      (the fixtures behind [spec/LOADER.md](spec/LOADER.md)'s recall and
@@ -97,6 +99,22 @@ list.)
      [binds nothing outside itself](local/practices/philosophy-is-not-repo-policy.md)
      even here. An adopter has already adopted; shipping them the case for
      adopting is reading material, not machinery.
+   - [spec/](spec/), [todo/](todo/), [decisions/](decisions/) and
+     [deck/](deck/) are the engine's own build plans, backlog, dated design
+     decisions and pitch-deck tooling — contributor material, per
+     [spec/DOCUMENT_LIFECYCLE.md](spec/DOCUMENT_LIFECYCLE.md)'s own
+     audience table.
+   - [record/](record/) holds the fuller, pre-migration text behind the
+     current [gotchas/](gotchas/) split. Every vendored practice that cites it
+     does so by full external GitHub link, never a local one, so skipping
+     it costs a session nothing it could not already reach.
+
+   **`gotchas/` and `examples/` are checked against the same test and kept
+   in.** `gotchas/` is troubleshooting for *running* the vendored tooling,
+   not for building it, and a resident practice's own Rule says to `grep
+   gotchas/` — a local operation that finds nothing not actually vendored.
+   `examples/` shows an adopter how to build their own practice set, which
+   is a use of Precedent, not a step in building it.
 
    **Which is not the same as "skip the reader-facing prose".**
    [documentation/](documentation/) vendors, in full and on purpose:
