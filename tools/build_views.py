@@ -1762,6 +1762,7 @@ TOOLS_DESCRIPTIONS = {
     'precedent_vendor_engine.py': "Vendors the minimal source-repo engine (this file, precedent_gate/paths/show.py, split_practices.py, a trimmed routing_scope.json) into an individual or team set, and keeps it refreshable",
     'resplit_sections.py': "The editorial Rule/Detail/Why/Story/Install split, applied from tools/section_split.json",
     'todo_progress.py': 'which open items a change may have moved, and which name a file that is gone -- reports a resemblance, never a verdict',
+    'move_paths.py': "Moves tracked files or directories and repoints every reference to them in the same change — relative links, path strings, globs, blob URLs; immutable files reported, never rewritten",
     'routing_audit.py': "The routing audit — mechanical coverage check plus a rotating deep-read slice",
     'routing_eval.py': "Measures whether trigger-based loading actually beats carrying the whole catalogue",
     'routing_eval_synthetic.py': "Stress-tests the occasion-index channel alone, on hand-written synthetic tasks rather than real commits",

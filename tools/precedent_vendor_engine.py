@@ -446,6 +446,12 @@ CONSUMER_ENGINE_FILES = ENGINE_FILES[:-1] + [
     'doc_lint.py',
     'doc_sync.py',
     'routing_audit.py',
+    # Move tracked files or directories and repoint every reference in the
+    # same change (rename-updates-links made mechanical; added 2026-09-17
+    # from a consumer's repository reshape -- 366 files, 2,900 references,
+    # four tranches). A consumer's own tools are what reshape its tree, so
+    # the tool lives in the consumer half; a practice set moves nothing.
+    'move_paths.py',
     # headline-capitalization's check imports it. Added 2026-09-06, after a
     # consumer that re-vendored the catalogue got the practice but not the
     # module, and precedent_check.py reported the check as ERRORED

@@ -59,6 +59,9 @@ Requires cmark-gfm for exact detection:  pip install cmarkgfm
 (If absent, the strikethrough check is SKIPPED with a notice rather than guessing.)
 
 Run:  python3 tools/doc_lint.py             # changed-vs-default-branch, gate
+                                             # (fails only on lines the change
+                                             # touched; the rest is reported
+                                             # as pre-existing -- touched_lines)
       python3 tools/doc_lint.py --all        # whole repo, report-only
       python3 tools/doc_lint.py --fix FILE   # rewrite ~ -> ≈ on struck lines
 (In a repo that vendors this the classic way, the path is
@@ -635,12 +638,71 @@ def check_quantities(text):
 def tracked_md():
     return _git(['ls-files', '*.md'], cwd=ROOT).split()
 
-def changed_md():
+def merge_base():
     ref = f'origin/{default_branch()}'
-    base = _git(['merge-base', 'HEAD', ref], cwd=ROOT) or ref
+    return _git(['merge-base', 'HEAD', ref], cwd=ROOT) or ref
+
+def changed_md():
+    base = merge_base()
     committed = _git(['diff', '--name-only', '--diff-filter=d', base, '--', '*.md'], cwd=ROOT).split()
     worktree = _git(['diff', '--name-only', '--diff-filter=d', '--', '*.md'], cwd=ROOT).split()
     return sorted(set(committed) | set(worktree))
+
+ALL_LINES = object()   # sentinel: every line of the file is this change's
+                       # (a distinct object -- None would collide with
+                       # "absent from the diff", i.e. untouched)
+
+def touched_lines(base):
+    """{path: set(lineno)} -- the lines the change since `base` ADDED or
+    rewrote in each markdown file (working tree included, renames
+    followed); an untracked file maps to ALL_LINES.
+
+    "Gate on what you touched" is a rule about lines, not files. A rename
+    or a link repoint touches a file without touching the finding on line
+    400 that was there before the change, and a mass move -- eighty files
+    renamed, five hundred links repointed in one commit (2026-09-17, a
+    repository reshaping itself along product boundaries) -- surfaced the
+    whole legacy backlog of those files as gate failures: tildes, residue
+    and dangling links that nobody in that change had written. A gate that
+    fails on what a change did not do teaches people to bypass it. So a
+    finding on a line the diff did not touch is reported as pre-existing
+    and does not fail the gate; `--all` still reports the backlog in full,
+    and an explicit path argument still gates the whole file.
+
+    Each touched line maps to the text the hunk REMOVED (its pre-image),
+    so a caller can ask whether a finding on the new line was already
+    present on the old one -- a link repointed inside a sentence that
+    carried a `[verify]` before the change did not add the `[verify]`.
+    Returns {path: {lineno: removed_text}}; an untracked file maps to
+    ALL_LINES."""
+    touched, cur, hunk_lines, removed = {}, None, [], []
+
+    def close_hunk():
+        if cur is not None and hunk_lines:
+            text = '\n'.join(removed)
+            for ln in hunk_lines:
+                touched[cur][ln] = text
+
+    for line in _git(['diff', '-M', '-U0', base, '--', '*.md'], cwd=ROOT).splitlines():
+        if line.startswith('+++ '):
+            close_hunk(); hunk_lines, removed = [], []
+            p = line[4:]
+            cur = None if p == '/dev/null' else (p[2:] if p.startswith('b/') else p)
+            if cur is not None:
+                touched.setdefault(cur, {})
+        elif line.startswith('@@') and cur is not None:
+            close_hunk(); hunk_lines, removed = [], []
+            m = re.match(r'@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@', line)
+            if m:
+                start = int(m.group(1))
+                n = 1 if m.group(2) is None else int(m.group(2))
+                hunk_lines = list(range(start, start + n))
+        elif line.startswith('-') and not line.startswith('---') and cur is not None:
+            removed.append(line[1:])
+    close_hunk()
+    for p in _git(['ls-files', '--others', '--exclude-standard', '--', '*.md'], cwd=ROOT).split():
+        touched[p] = ALL_LINES
+    return touched
 
 def iter_prose_lines(path):
     """Yield (lineno, text) for lines outside fenced code blocks."""
@@ -1172,15 +1234,50 @@ def main():
     # fail a gate in the one repo that has no way to act on them. See
     # VENDORED_PREFIXES for the incident.
     fatal = []
+    # Line scope (see touched_lines): in the default gate a finding fails
+    # only on a line this change added or rewrote. An explicit path argument
+    # gates the whole file, and --all reports everything.
+    scope = touched_lines(merge_base()) if (gate and not args) else None
+    loc_re = re.compile(r'^\s*(.+?):(\d+): ')
+
+    def pre_image_has(kind, finding, removed):
+        """Did the hunk's removed text already carry this finding? Then the
+        change moved or reworded the line without adding the defect."""
+        if kind == 'residue':
+            return any(pat.search(removed) for pat, _why in RESIDUE_PATTERNS)
+        if kind == 'strike':
+            return HAVE_GFM and renders_del(removed)
+        if kind == 'broken':
+            m = re.search(r': -> (\S+) ', finding)
+            return bool(m) and m.group(1) in removed
+        return False
+
+    def this_change(finding, kind):
+        if scope is None:
+            return True
+        m = loc_re.match(finding)
+        if not m:
+            return True
+        t = scope.get(m.group(1))
+        if t is ALL_LINES:
+            return True
+        if t is None or int(m.group(2)) not in t:
+            return False
+        return not pre_image_has(kind, finding, t[int(m.group(2))])
+
     # EVERY fail-class group, listed exhaustively. The first version of this
     # loop omitted skip_lines, which silently disarmed the skipped-heading
     # check for the repo's own content too -- the finding still printed
     # "FAIL" and the run still exited 0. Caught by the negative control that
     # plants a real heading skip here; without that control it would have
     # shipped as a passing gate that checks nothing.
-    for group in (strike_lines, unsourced_lines, residue_lines,
-                  broken_link_lines, skip_lines):
-        ours, theirs = _split_vendored(group)
+    pre_existing = []
+    for kind, group in (('strike', strike_lines), ('unsourced', unsourced_lines),
+                        ('residue', residue_lines), ('broken', broken_link_lines),
+                        ('skip', skip_lines)):
+        mine = [x for x in group if this_change(x, kind)]
+        pre_existing.extend(x for x in group if not this_change(x, kind))
+        ours, theirs = _split_vendored(mine)
         fatal.extend(ours)
         if theirs:
             print(f"\n  NOTE: {len(theirs)} further finding(s) of this kind "
@@ -1191,7 +1288,19 @@ def main():
             print('\n'.join(theirs[:10]))
             if len(theirs) > 10:
                 print(f"  … and {len(theirs) - 10} more")
+    if pre_existing:
+        print(f"\n  NOTE: {len(pre_existing)} finding(s) above sit on lines this "
+              f"change did not touch (pre-existing in a changed or renamed "
+              f"file); they are backlog, not a failure of this change -- fix "
+              f"them when you next edit those lines, or run --all for the "
+              f"whole report:")
+        print('\n'.join(pre_existing[:10]))
+        if len(pre_existing) > 10:
+            print(f"  … and {len(pre_existing) - 10} more")
     if gate and (fatal or findability):
+        print(f"\ndoc_lint FAIL: {len(fatal)} gating finding(s) on lines this change "
+              f"touched" + (f", {len(findability)} unfindable analysis(es)" if findability else "") + ":")
+        print('\n'.join(fatal[:40]))
         return 1
     return 0
 
