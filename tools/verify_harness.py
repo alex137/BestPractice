@@ -6475,6 +6475,7 @@ def check_precedent_check_fires():
         # way rather than by deleting the whole block.
         def _plant_unwired_probe(repo):
             for rel in (pathlib.Path('.claude') / 'hooks' / 'session-start.sh',
+                        pathlib.Path('tools') / 'bootstrap.sh',
                         pathlib.Path('templates') / 'bootstrap.sh'):
                 f = repo / rel
                 if not f.exists():
