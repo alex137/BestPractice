@@ -22566,8 +22566,37 @@ def check_todo_and_gotcha_sweeps():
           not bad, '; '.join(f"{n} -- {d[:300]}" for n, d in bad))
 
 
+def _print_checkout_banner():
+    """Print which branch and commit this run is actually checking, before
+    a single check runs.
+
+    A run against an unexpectedly-reset checkout looks identical to a run
+    against the intended one -- same PASS/FAIL shape, no error -- and
+    nothing else in this tool's output says which tree it ran against.
+    Found 2026-09-17: a session's local checkout silently reset to this
+    repo's started branch between turns (a container/session-lifecycle
+    behavior, not something this repo controls), and a full run against
+    the wrong branch read as a clean pass on a change that was not
+    actually on disk -- caught only by a separate, manual
+    `git branch --show-current`.
+    (practice: durable-fix -- the checkout resetting is outside this
+    repo's control; making a run against the wrong tree impossible to
+    mistake for one against the right tree is not.)
+    """
+    b = subprocess.run(['git', '-C', str(ROOT), 'rev-parse', '--abbrev-ref', 'HEAD'],
+                       capture_output=True, text=True)
+    h = subprocess.run(['git', '-C', str(ROOT), 'rev-parse', '--short', 'HEAD'],
+                       capture_output=True, text=True)
+    if b.returncode != 0 or h.returncode != 0:
+        print(f"verify_harness: could not determine {ROOT}'s branch/commit -- "
+              f"results below are not attributable to a known tree.\n")
+        return
+    print(f"verify_harness: checking {ROOT} @ {b.stdout.strip()} ({h.stdout.strip()})\n")
+
+
 def main():
     _install_check_timing()
+    _print_checkout_banner()
     _report_missing_doc_packages('PREFLIGHT')
     if not PRACTICES_DIR.exists():
         sys.exit("verify_harness FAIL: practices/ does not exist -- run "
