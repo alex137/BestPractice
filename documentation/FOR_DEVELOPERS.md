@@ -72,7 +72,7 @@ upstream update (the `Update Vendors` command), **[§3](../INSTALL.md#3-optional
 and **[§4](../INSTALL.md#4-optional-periodic-check-in--propose-your-improvements-upstream)**
 flow an improvement back upstream, **[§7](../INSTALL.md#7-practice-packs-domain-layers)**
 covers domain practice packs, and
-**[PER_MACHINE_SETUP.md](../PER_MACHINE_SETUP.md)**
+**[PER_MACHINE_SETUP.md](PER_MACHINE_SETUP.md)**
 is what each person sets on each machine — including the credential that
 lets a hosted session reach a private practice source without an
 `add_repo` dance.
@@ -128,7 +128,7 @@ here rather than leaving to be discovered at the link.
   authenticated as, so a half-filled identity looks fine; nothing anywhere
   can resolve a zone, so the author-date check drops from enforced to
   guessed and wrong-offset commits reach the remote.
-  [PER_MACHINE_SETUP.md](../PER_MACHINE_SETUP.md).
+  [PER_MACHINE_SETUP.md](PER_MACHINE_SETUP.md).
 - **A repo attached mid-session runs none of its own hooks**, so every
   guarantee the install wired up is absent while you work in it — and the
   failure looks like a broken tool rather than an unrun hook. The

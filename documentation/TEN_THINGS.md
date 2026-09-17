@@ -112,7 +112,7 @@ those words lives in your private place too. Two people on one project each
 see their own rules and never the other's.
 
 - Plain: [What It Knows About You, and How to Change It](FOR_EVERYONE_ELSE.md#what-it-knows-about-you-and-how-to-change-it), [Setting Up Your Own Practices](ADOPTING.md#setting-up-your-own-practices)
-- Technical: [PER_MACHINE_SETUP.md](../PER_MACHINE_SETUP.md), the leak gate at [tools/leak_gate.py](../tools/leak_gate.py) (`--explain`)
+- Technical: [PER_MACHINE_SETUP.md](PER_MACHINE_SETUP.md), the leak gate at [tools/leak_gate.py](../tools/leak_gate.py) (`--explain`)
 
 ## 10. Always Explain Why: Focus on the Problem
 

@@ -6,7 +6,7 @@ severity:          null
 status:            open
 disposition:       wait
 remind_on:         null
-blocked_on:        "nothing about access, as of 2026-09-12 — what remains is building the thing the four bullets above describe. A session rooted at this repository now holds it, all three team sets and the individual set at once: the SessionStart hook's credential route ([PER_MACHINE_SETUP.md](../PER_MACHINE_SETUP.md)) c"
+blocked_on:        "nothing about access, as of 2026-09-12 — what remains is building the thing the four bullets above describe. A session rooted at this repository now holds it, all three team sets and the individual set at once: the SessionStart hook's credential route ([PER_MACHINE_SETUP.md](../documentation/PER_MACHINE_SETUP.md)) c"
 batch:             null
 decision:          null
 decision_strength: null
@@ -165,7 +165,7 @@ closed:            null
   **Blocked on:** nothing about access, as of 2026-09-12 — what remains is
   building the thing the four bullets above describe. A session rooted at this
   repository now holds it, all three team sets and the individual set at once:
-  the SessionStart hook's credential route ([PER_MACHINE_SETUP.md](../PER_MACHINE_SETUP.md)) clones
+  the SessionStart hook's credential route ([PER_MACHINE_SETUP.md](../documentation/PER_MACHINE_SETUP.md)) clones
   every declared source before the first turn, and
   `~/.config/precedent/config.json` exists. Both halves of the 2026-09-08
   reading this paragraph replaces are superseded — on that date no sibling
@@ -179,7 +179,7 @@ closed:            null
 
 ## How It Closes
 
-Not open until: nothing about access, as of 2026-09-12 — what remains is building the thing the four bullets above describe. A session rooted at this repository now holds it, all three team sets and the individual set at once: the SessionStart hook's credential route ([PER_MACHINE_SETUP.md](../PER_MACHINE_SETUP.md)) c
+Not open until: nothing about access, as of 2026-09-12 — what remains is building the thing the four bullets above describe. A session rooted at this repository now holds it, all three team sets and the individual set at once: the SessionStart hook's credential route ([PER_MACHINE_SETUP.md](../documentation/PER_MACHINE_SETUP.md)) c
 
 ## Notes
 

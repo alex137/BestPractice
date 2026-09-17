@@ -233,7 +233,6 @@
       "globs": [
         "SETUP.md",
         "INSTALL.md",
-        "PER_MACHINE_SETUP.md",
         "documentation/*.md",
         "templates/GETTING_STARTED.md"
       ],

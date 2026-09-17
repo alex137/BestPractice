@@ -107,9 +107,9 @@ Setup doesn't require you to write any code yourself: open a session on
 your project with an AI assistant and paste it [SETUP.md](SETUP.md), which
 runs the whole install as a conversation. Developers who want the files and
 commands have [INSTALL.md](INSTALL.md), the assistant-facing runbook, and
-[PER_MACHINE_SETUP.md](PER_MACHINE_SETUP.md) for what each person sets on
+[PER_MACHINE_SETUP.md](documentation/PER_MACHINE_SETUP.md) for what each person sets on
 each machine — most people, working on Claude Code on the web, only need
-[CLOUD_SETUP.md](CLOUD_SETUP.md), the cloud-first fast path through it.
+[CLOUD_SETUP.md](documentation/CLOUD_SETUP.md), the cloud-first fast path through it.
 
 ## Everything Else
 

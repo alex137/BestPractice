@@ -156,7 +156,7 @@ nobody raises it on day one: a date stamped in the wrong city's time is a
 small, visible, one-sentence fix whenever you happen to notice it. If you
 want the technical version — what each setting is called and what breaks
 without it — it is
-[Per-Machine Setup](../PER_MACHINE_SETUP.md).
+[Per-Machine Setup](PER_MACHINE_SETUP.md).
 
 ## Two Things You Can Fill in Whenever You Like
 

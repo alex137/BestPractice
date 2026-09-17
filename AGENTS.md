@@ -155,7 +155,7 @@ is actually there ([verify-postcondition](practices/verify-postcondition.md)).
 **FIRST, and normally already done for you.** The private sources are
 cloned by the SessionStart hook when the environment carries
 `PRECEDENT_GIT_TOKEN` and `PRECEDENT_SOURCE_BASE_URL`
-([PER_MACHINE_SETUP.md](PER_MACHINE_SETUP.md)) — **verified working 2026-09-10**, all four
+([PER_MACHINE_SETUP.md](documentation/PER_MACHINE_SETUP.md)) — **verified working 2026-09-10**, all four
 sources on disk before the first turn. **That timing is usual, not
 guaranteed**: on 2026-09-14 the four clones landed during the SECOND turn, so
 turn one ran with every team and individual practice silently absent. Check

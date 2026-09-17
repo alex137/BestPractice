@@ -13,7 +13,7 @@ to, but nothing here needs them.
 | still deciding whether to adopt it | [documentation/WHY_PRECEDENT.md](documentation/WHY_PRECEDENT.md), then [documentation/ADOPTING.md](documentation/ADOPTING.md) |
 | a developer who wants the short form plus how to work here | [documentation/FOR_DEVELOPERS.md](documentation/FOR_DEVELOPERS.md) |
 | not a developer, and it is already installed | [documentation/FOR_EVERYONE_ELSE.md](documentation/FOR_EVERYONE_ELSE.md), then [documentation/DAILY_HABITS.md](documentation/DAILY_HABITS.md) |
-| setting up your own machine rather than a repository | [PER_MACHINE_SETUP.md](PER_MACHINE_SETUP.md) |
+| setting up your own machine rather than a repository | [PER_MACHINE_SETUP.md](documentation/PER_MACHINE_SETUP.md) |
 
 **The model in one paragraph.** The dependent repo **vendors** this repo at
 `process/upstream/` as plain tracked files. **Install is adaptive** — you
@@ -814,7 +814,7 @@ not this section.
        are a person's clicks.
     4. Run `python3 tools/precedent_boundary_check.py` with a token that can
        read the repository's settings (`PRECEDENT_GITHUB_TOKEN`, per
-       [PER_MACHINE_SETUP.md](PER_MACHINE_SETUP.md)). Only `PASS` means the
+       [PER_MACHINE_SETUP.md](documentation/PER_MACHINE_SETUP.md)). Only `PASS` means the
        boundary is on; `UNVERIFIED` means this run could not look, which is
        not the same thing, and `--check` refuses it.
     Two things to keep true afterwards: **workflows carry no secret** beyond
@@ -1343,7 +1343,7 @@ public upstream but too general to be one repo's local rules. Mechanics:
 
 ## 8. Per-Machine Setup — What Each Person Sets, on Each Machine
 
-**Moved to [PER_MACHINE_SETUP.md](PER_MACHINE_SETUP.md).** Everything on
+**Moved to [PER_MACHINE_SETUP.md](documentation/PER_MACHINE_SETUP.md).** Everything on
 this page installs Precedent into a *repository*; that one is the other
 axis — what a person sets on each computer they work from, none of which
 lives in any repository and most of which fails quietly when absent. It
@@ -1354,5 +1354,5 @@ hosted session reach a private practice source without an `add_repo` dance
 check needs to read a repository's protection settings.
 
 **Most people set this up on Claude Code on the web, not a local
-checkout** — [CLOUD_SETUP.md](CLOUD_SETUP.md) is the fast path for exactly
+checkout** — [CLOUD_SETUP.md](documentation/CLOUD_SETUP.md) is the fast path for exactly
 that case; `PER_MACHINE_SETUP.md` is the complete reference underneath it.

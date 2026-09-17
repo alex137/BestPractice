@@ -1,6 +1,6 @@
 # Per-Machine Setup — What Each Person Sets, on Each Machine
 
-[INSTALL.md](INSTALL.md) installs Precedent into a *repository*, once. This
+[INSTALL.md](../INSTALL.md) installs Precedent into a *repository*, once. This
 page is the other axis: the settings that belong to **a person on a
 computer**, and therefore have to be set again on every machine they work
 from. **None of it lives in any repository** — that is the point of it — so
@@ -24,13 +24,13 @@ layer, or anything you're running locally instead.
 session mid-work. Every setting on this page either has a declared default or
 degrades to one, and a session applies it and carries on rather than
 interrupting you for a value you can change in one sentence later
-([declared-default-is-applied](practices/declared-default-is-applied.md)).
+([declared-default-is-applied](../practices/declared-default-is-applied.md)).
 
 | If you set nothing | What you get |
 |---|---|
 | `PRECEDENT_COMMIT_NAME` / `_EMAIL`, and `identity.json`'s `name`/`email` | Resolved from the GitHub account the session is authenticated as — which is why this half usually *looks* fine |
 | `PRECEDENT_COMMIT_TZ`, and `identity.json`'s `timezone` | This repository's declared `fallback_timezone`, `America/New_York`, and the author-date check downgrades from enforced to guessed |
-| `identity.json`'s `pronouns` | `they/them`, never inferred from your name ([declared-pronouns](practices/declared-pronouns.md)) |
+| `identity.json`'s `pronouns` | `they/them`, never inferred from your name ([declared-pronouns](../practices/declared-pronouns.md)) |
 | `identity.json`'s `relayed_authorization` | `refused` — your approval does not travel to a session you are not typing in |
 | `PRECEDENT_GIT_TOKEN` / `PRECEDENT_SOURCE_BASE_URL` | No private set resolves, so your own and your team's practices are silently absent — **the one row here whose default is genuinely bad**, and the reason the rest of this page exists |
 
@@ -106,7 +106,7 @@ act on them there? `"refused"`, and an absent field, mean no: that session
 does the work, opens the pull request, and you approve again in the other
 window. `"accepted"` means it merges on the relay, still bounded to the named
 work, that repository's routine branch and its checks passing. The rule is
-[practices/relayed-authorization.md](practices/relayed-authorization.md), and
+[practices/relayed-authorization.md](../practices/relayed-authorization.md), and
 `python3 tools/precedent_identity.py --relay` is what reads it.
 
 **4. The leak gate's vocabulary layer**, if your private sources resolve.
@@ -136,7 +136,7 @@ env -u GIT_AUTHOR_NAME -u GIT_AUTHOR_EMAIL -u TZ git var GIT_AUTHOR_IDENT
 |---|---|---|
 | `individual.name`, `individual.path`, `individual.repo_url` | `~/.config/precedent/config.json` (or wherever `PRECEDENT_USER_CONFIG` points) | Your individual practices do not resolve. The session says so on stderr and runs with team and universal only — easy to miss in a long startup. `repo_url` specifically is what the session-start hook clones from; without it the hook cannot fetch your set. |
 | `PRECEDENT_LEAK_BLOCKLIST` **and** `git config precedent.requireVocabulary true` | shell profile, and git config per checkout | The leak gate's vocabulary layer **fails open**: it prints `PARTIAL`, exits 0, and the push goes through with only the structural rules applied. Both are needed — the variable alone is not enough. **Since 2026-09-12 the variable is an override rather than the only route**: with it unset, the gate reads `leak-blocklist.txt` from the individual set your config names — the path this same section tells you to put it at — so a fresh shell no longer silently drops to the structural half. Set it anyway when your list lives somewhere else. |
-| `# visibility-audit: private-owner <your GitHub account> -- reason`, inside that blocklist file | the private blocklist itself | Switches the **repo-reference allowlist** on. Without it, every `<account>/<name>` mention passes: a blocklist blocks only the names someone remembered, and a private repository you create tomorrow is not one of them. With it, each mention is refused until an `allow` line gives a reason. The gate prints `INERT` on every run until you declare it, rather than passing quietly. **Do not pre-allow your individual source** — a shared repo naming one is refused by [tools/precedent_resolve.py](tools/precedent_resolve.py) as a privacy boundary, so an allow line for it grants exactly what the architecture withholds. Two further directives live in the same file, both off by default and both dated 2026-09-12: `stem-notes off -- reason` moves the routine missing-stem note out of every push run and into the very deep check, and `auto-cover-bare-names on -- reason` makes each private clone's **bare** name a pattern in its own right, so the short form is refused without anybody writing a stem. |
+| `# visibility-audit: private-owner <your GitHub account> -- reason`, inside that blocklist file | the private blocklist itself | Switches the **repo-reference allowlist** on. Without it, every `<account>/<name>` mention passes: a blocklist blocks only the names someone remembered, and a private repository you create tomorrow is not one of them. With it, each mention is refused until an `allow` line gives a reason. The gate prints `INERT` on every run until you declare it, rather than passing quietly. **Do not pre-allow your individual source** — a shared repo naming one is refused by [tools/precedent_resolve.py](../tools/precedent_resolve.py) as a privacy boundary, so an allow line for it grants exactly what the architecture withholds. Two further directives live in the same file, both off by default and both dated 2026-09-12: `stem-notes off -- reason` moves the routine missing-stem note out of every push run and into the very deep check, and `auto-cover-bare-names on -- reason` makes each private clone's **bare** name a pattern in its own right, so the short form is refused without anybody writing a stem. |
 | `name`, `email`, `timezone` in your individual set's `identity.json` | the individual set itself | Your commits carry the wrong person or the wrong clock. Name and address can still be resolved from the GitHub account the session is authenticated as, so this half often *looks* fine; **the timezone cannot be resolved from anywhere** — nothing in a GitHub profile says where a person is and a container's clock is UTC — so an unfilled zone silently downgrades the author-date check from enforced to guessed, and wrong-offset commits reach the remote before anyone notices. Use an Internet Assigned Numbers Authority (IANA) zone name (`America/New_York`), never a bare offset. The same file's `grandfathered_commit_shas` is the exemption list for commits that were **already published** when a violation surfaced; it starts empty and stays empty until you genuinely need one — an unpushed commit gets fixed, not listed. |
 | `pip install cmarkgfm markdown` | the machine | `doc_lint.py`'s strikethrough check stops running and says so in one line, and `doc_html.py` cannot import. A session-start hook installs these where one runs; a repo attached mid-session never runs its own hook, so do it by hand there. |
 
@@ -144,7 +144,7 @@ env -u GIT_AUTHOR_NAME -u GIT_AUTHOR_EMAIL -u TZ git var GIT_AUTHOR_IDENT
 for you when it creates a set, and
 `tools/precedent_source_bootstrap.py` keeps them current at session start.
 Filling them in by hand is for a machine where neither has run — copy
-[templates/practice-set-individual/config.json.sample](templates/practice-set-individual/config.json.sample),
+[templates/practice-set-individual/config.json.sample](../templates/practice-set-individual/config.json.sample),
 which carries the same explanation.
 
 ## Setting These on the Environment, With an Example for Each
@@ -165,7 +165,7 @@ session into every repository it touches.
 | `PRECEDENT_COMMIT_TZ` | Recommended, alongside the name — without it a fallback zone is used and commit timestamps carry the wrong offset | `America/Argentina/Buenos_Aires` |
 | `PRECEDENT_FRESHNESS_ALSO` | Recommended if practice sources are cloned beside your project | `~/precedent-individual=main;~/precedent-team-writing=main` |
 | `PRECEDENT_GIT_TOKEN_USER` | Optional; defaults to `x-access-token` | `x-access-token` |
-| `PRECEDENT_GITHUB_TOKEN` | Optional; read only by `python3 tools/precedent_boundary_check.py`, which asks GitHub whether a project's base branch is protected the way [INSTALL.md §0 step 10](INSTALL.md#0-installing-directly-onto-the-precedent-loader-new-2026-09-03--read-the-caveat-before-using) needs. Reading protection settings takes **administration read** on the repository (a classic token with `repo`, or a fine-grained one with Administration: read); without it the tool answers `UNVERIFIED`, which is honest and is not a pass. `GITHUB_TOKEN` and `GH_TOKEN` are read too, in that order after this one | `github_pat_<a token with Administration: read on the project>` |
+| `PRECEDENT_GITHUB_TOKEN` | Optional; read only by `python3 tools/precedent_boundary_check.py`, which asks GitHub whether a project's base branch is protected the way [INSTALL.md §0 step 10](../INSTALL.md#0-installing-directly-onto-the-precedent-loader-new-2026-09-03--read-the-caveat-before-using) needs. Reading protection settings takes **administration read** on the repository (a classic token with `repo`, or a fine-grained one with Administration: read); without it the tool answers `UNVERIFIED`, which is honest and is not a pass. `GITHUB_TOKEN` and `GH_TOKEN` are read too, in that order after this one | `github_pat_<a token with Administration: read on the project>` |
 | `PRECEDENT_INDIVIDUAL_REPO` | Optional; only if your individual set is under a different account than the team sets | `https://github.com/another-account/precedent-individual` |
 
 **Give your environments distinct names, and set a throwaway
@@ -179,7 +179,7 @@ and was not that: `list_environments` showed two environments both named
 running in the other. The ping separates "the variables do not arrive" from
 "the token is wrong", which print identically otherwise. An environment change
 never reaches a session already running, so test in a NEW one. Full sequence:
-[record/GOTCHAS_ARCHIVE.md](record/GOTCHAS_ARCHIVE.md) entry 29.
+[record/GOTCHAS_ARCHIVE.md](../record/GOTCHAS_ARCHIVE.md) entry 29.
 
 ## The Setup Command — Keeping the Checkout Itself Current
 
@@ -196,7 +196,7 @@ diverged from live `origin`, which then tripped the freshness guard and the
 Stop hook on every session as if real unpushed work existed. Recreating the
 environment cleared it that one time; whether it recurs on a schedule is
 still open ([TODO.md's `check-default-cc-environment-staleness`
-item](todo/todo-2026-09-15-check-default-cc-environment-staleness.md)).
+item](../todo/todo-2026-09-15-check-default-cc-environment-staleness.md)).
 
 Add this to the Setup command field to force the checkout current on every
 run, regardless of the container's cached state:
@@ -245,8 +245,8 @@ it.
 
 | Setting | Where | Effect |
 |---|---|---|
-| `PRECEDENT_GIT_TOKEN` | the environment's own configuration (on Claude Code on the web, the environment; locally, your shell profile) | A token with **read** access to your practice-set repositories. [tools/precedent_source_bootstrap.py](tools/precedent_source_bootstrap.py) uses it to clone them at session start — and, since 2026-09-11, to fast-forward the ones already on disk, so a container that has been up for days is not still reading the sources as they were the day it started. A clone with uncommitted work in it is reported and left alone, never clobbered. Since 2026-09-11 each synced clone also keeps the credential helper in its own config, so a later plain `git fetch` inside it works too — the helper names the variable, so no token is written to disk. Nothing else reads it. |
-| `PRECEDENT_SOURCE_BASE_URL` | same | Where a practice set is cloned from, by name: `<base>/<set-name>`, e.g. `https://github.com/<account>`. Covers the **individual** set as well as the team ones (since 2026-09-10) — [source-naming](practices/source-naming.md) fixes that set's name to `precedent-individual` for everybody, so the account is the only unknown and this supplies it. Without it neither can be located, since **no tracked file names the account that owns them** — that is deliberate, and [precedent.json](precedent.json)'s own comment says why. |
+| `PRECEDENT_GIT_TOKEN` | the environment's own configuration (on Claude Code on the web, the environment; locally, your shell profile) | A token with **read** access to your practice-set repositories. [tools/precedent_source_bootstrap.py](../tools/precedent_source_bootstrap.py) uses it to clone them at session start — and, since 2026-09-11, to fast-forward the ones already on disk, so a container that has been up for days is not still reading the sources as they were the day it started. A clone with uncommitted work in it is reported and left alone, never clobbered. Since 2026-09-11 each synced clone also keeps the credential helper in its own config, so a later plain `git fetch` inside it works too — the helper names the variable, so no token is written to disk. Nothing else reads it. |
+| `PRECEDENT_SOURCE_BASE_URL` | same | Where a practice set is cloned from, by name: `<base>/<set-name>`, e.g. `https://github.com/<account>`. Covers the **individual** set as well as the team ones (since 2026-09-10) — [source-naming](../practices/source-naming.md) fixes that set's name to `precedent-individual` for everybody, so the account is the only unknown and this supplies it. Without it neither can be located, since **no tracked file names the account that owns them** — that is deliberate, and [precedent.json](../precedent.json)'s own comment says why. |
 | `PRECEDENT_GIT_TOKEN_USER` | same | Optional. The username sent with the token; defaults to `x-access-token`, which GitHub accepts alongside any personal access token. |
 | `PRECEDENT_INDIVIDUAL_REPO` | same | Optional. The individual set's full URL, overriding the `<base>/precedent-individual` derivation above. Needed only where that set does not sit under the same account as the team sets. |
 | `PRECEDENT_GIT_TOKEN=inherit` | same | Opt-in: use whatever git credential the container itself carries (`GITHUB_TOKEN`, then `GH_TOKEN`). **Expect it to be refused** — see below. |
@@ -273,13 +273,13 @@ practice source at all** — nothing there ever wrote
 `~/.config/precedent/config.json` — so every personal rule was silently
 absent while the session applied the ones it could see. The hook that writes
 it now ships into a set as well
-([tools/precedent_bootstrap_source.py](tools/precedent_bootstrap_source.py)),
+([tools/precedent_bootstrap_source.py](../tools/precedent_bootstrap_source.py)),
 execing the same vendored
-[tools/precedent_source_bootstrap.py](tools/precedent_source_bootstrap.py),
+[tools/precedent_source_bootstrap.py](../tools/precedent_source_bootstrap.py),
 which a set may hold for the first time. **A set created before that date
 has neither the hook nor the wiring**, and this cannot be repaired for you:
 an existing `.claude/settings.json` is never rewritten, so
-[tools/precedent_refresh_sources.py](tools/precedent_refresh_sources.py)
+[tools/precedent_refresh_sources.py](../tools/precedent_refresh_sources.py)
 reports the hook as unwired at every session start. The hook file and the one
 `SessionStart` command are both yours to add there — `--apply` writes neither
 for a set whose settings do not already declare the hook — ahead of
@@ -288,16 +288,16 @@ for a set whose settings do not already declare the hook — ahead of
 **Verified end to end, 2026-09-10.** A real read-scoped token set on the
 environment, and a brand-new container came up with all four private sources
 already cloned, before the first turn:
-[tools/precedent_resolve.py](tools/precedent_resolve.py) reported **146
+[tools/precedent_resolve.py](../tools/precedent_resolve.py) reported **146
 practices from 6 sources (41 team, 13 individual)** in a repository that had
 been resolving 89 from 1, and
-[tools/precedent_source_credentials.py](tools/precedent_source_credentials.py)
+[tools/precedent_source_credentials.py](../tools/precedent_source_credentials.py)
 reported `OK`. No `add_repo` call was made or needed. **What made this look impossible
 for three days was not the token**: the account held two environments with
 the same name, and the values had been set on the one the sessions were not
-running in. Name your environments distinctly — see [AGENTS.md](AGENTS.md)'s
+running in. Name your environments distinctly — see [AGENTS.md](../AGENTS.md)'s
 gotcha and, for the full sequence, entry 29 in
-[record/GOTCHAS_ARCHIVE.md](record/GOTCHAS_ARCHIVE.md).
+[record/GOTCHAS_ARCHIVE.md](../record/GOTCHAS_ARCHIVE.md).
 
 **What was verified before that, and how (measured 2026-09-09, in a Claude
 Code on the web container).** Three things were tested directly: an

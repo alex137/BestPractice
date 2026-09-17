@@ -335,7 +335,7 @@ one.
    call, so no ordering fixes it and the self-heal has nothing to retry
    into. Set `PRECEDENT_GIT_TOKEN` and `PRECEDENT_SOURCE_BASE_URL` in the
    environment's own configuration
-   ([PER_MACHINE_SETUP.md](../PER_MACHINE_SETUP.md)):
+   ([PER_MACHINE_SETUP.md](../documentation/PER_MACHINE_SETUP.md)):
    a credential the environment carries is available to the SessionStart
    hook itself, before the agent's first turn, which is the one thing
    `add_repo` can never be. Then

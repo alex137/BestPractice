@@ -82,7 +82,7 @@ every install as suggestions rather than a gate (click-paths as of
    `PRECEDENT_REPO_TOKEN` unless something already expects another name. It
    is what lets a workflow push a branch or open a pull request on the
    project's behalf. It is not the read-only, environment-level
-   `PRECEDENT_GIT_TOKEN` from [PER_MACHINE_SETUP.md](../PER_MACHINE_SETUP.md),
+   `PRECEDENT_GIT_TOKEN` from [PER_MACHINE_SETUP.md](PER_MACHINE_SETUP.md),
    and it is not needed by any of the shipped checks, which only read.
 3. **The default branch is `main`** — **Settings → General → Default
    branch**. The shipped workflows name it as a literal string; a
@@ -219,7 +219,7 @@ a token with **administration read** on the repository: a classic token
 with `repo`, or a fine-grained one with *Administration: read-only*. The
 session's own GitHub access does not have it (measured 2026-09-14: a 403),
 so this is normally run by the maintainer with `PRECEDENT_GITHUB_TOKEN`
-set, per [PER_MACHINE_SETUP.md](../PER_MACHINE_SETUP.md).
+set, per [PER_MACHINE_SETUP.md](PER_MACHINE_SETUP.md).
 
 ## GitHub Actions, Permissions and Secrets
 
@@ -263,7 +263,7 @@ are simpler:
   installed by the bootstrap tool, read-only.
 - **A token to reach it from a hosted session**: the read-only
   `PRECEDENT_GIT_TOKEN` plus `PRECEDENT_SOURCE_BASE_URL` on the environment,
-  which is [PER_MACHINE_SETUP.md](../PER_MACHINE_SETUP.md)'s subject, not
+  which is [PER_MACHINE_SETUP.md](PER_MACHINE_SETUP.md)'s subject, not
   this page's.
 
 ## In One Table

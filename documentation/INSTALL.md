@@ -14,7 +14,7 @@ the full runbook it links into — written for the assistant doing the
 install, so expect commands rather than explanations.
 
 **Setting up your own machine** rather than a repository is a separate
-page: [PER_MACHINE_SETUP.md](../PER_MACHINE_SETUP.md).
+page: [PER_MACHINE_SETUP.md](PER_MACHINE_SETUP.md).
 
 **Setting up the repository on GitHub** — who gets which role, branch
 protection, what CODEOWNERS does and how Precedent generates it, Actions

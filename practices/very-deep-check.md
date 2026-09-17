@@ -92,7 +92,14 @@ approved_by: "extended 2026-09-14, Morgan F -- after a session was refused by
   list is written to a committable file with a clickable link on every row
   instead of only being printed, after two Sunday runs produced it and he
   never saw it -- \"it should put those links in the document it creates
-  so I can just go there and click - it shouldn't live in the chat\""
+  so I can just go there and click - it shouldn't live in the chat\";
+  extended 2026-09-17, Morgan (strength: decided), with a pass-3 bullet
+  asking whether every file, documentation included, lives in the directory
+  its kind already uses -- \"in very_deep_check, can you update it to make
+  sure that files including documentation are in their right
+  folder/location?\" -- after two person-facing setup guides were found
+  sitting at repo root while documentation/ held every other reader-facing
+  page"
 ---
 ## Rule
 When a person explicitly asks for a "very deep check", or after work that
@@ -843,6 +850,26 @@ first so this pass spends its attention on what they cannot see.
   breaks the slug convention — nor two directories that disagree where a
   person moves files between them, nor an exemption whose stated reason has
   stopped being true. Read those.
+- **File location — does every file, documentation included, live where its
+  kind already lives?** The mechanical checks assume placement is already
+  right and test only naming and content; nothing here reads a file against
+  the directory it sits in. Walk the top level and every directory with a
+  declared purpose (`documentation/`, `spec/`, `practices/`, `tools/`,
+  `todo/`, `gotchas/`, `record/`) and ask, for each file outside them,
+  whether its kind already has a home: a reader-facing setup or how-to page
+  at repo root while `documentation/` holds every other one, a design
+  document outside `spec/`, a script outside `tools/`. Moving one is
+  [rename-updates-links](rename-updates-links.md): search the whole tracked
+  tree for the old path and repoint every reference in the same commit, not
+  only the ones a grep for the bare filename happens to catch. *(Found
+  2026-09-17: `PER_MACHINE_SETUP.md` and `CLOUD_SETUP.md` — both person-facing
+  setup guides — sitting at repo root while `documentation/` already held
+  `FOR_DEVELOPERS.md`, `FOR_EVERYONE_ELSE.md`, `GITHUB_SETTINGS.md` and every
+  other reader-facing page; moved into `documentation/`, with roughly two
+  dozen files across `README.md`, `AGENTS.md`, `SETUP.md`, `INSTALL.md`,
+  `WHERE_THINGS_ARE.md`, `todo/`, `spec/`, `gotchas/`, `record/` and
+  `documentation/` itself carrying a link to one or both, repointed the same
+  commit.)*
 - **Fragments** — a sentence, note, or heading left behind by an earlier
   edit: a "temporary" caveat whose occasion has passed, a note about a
   reorganization that already happened.

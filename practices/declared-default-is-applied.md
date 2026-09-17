@@ -3,7 +3,7 @@ slug:        declared-default-is-applied
 title:       A setting with a declared default is applied, not asked
 tier:        on-demand
 severity:    default
-applies_to:  ["SETUP.md", "INSTALL.md", "PER_MACHINE_SETUP.md", "documentation/*.md", "templates/GETTING_STARTED.md"]
+applies_to:  ["SETUP.md", "INSTALL.md", "documentation/*.md", "templates/GETTING_STARTED.md"]
 occasion:    "a setting has no value from the person -- at install, at setup, or in the middle of work"
 gates:       ["reply"]
 index_clause: "apply the declared default and name it in passing; never ask"

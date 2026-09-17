@@ -199,8 +199,8 @@ loop; say so and follow §1 instead.
       environments with the same name, the values go on the one they are
       not using**, so give the environments distinct names first. This
       walkthrough, cloud-only, is also written out at
-      [CLOUD_SETUP.md](CLOUD_SETUP.md); the full list of every variable and
-      what each does is [PER_MACHINE_SETUP.md](PER_MACHINE_SETUP.md).
+      [CLOUD_SETUP.md](documentation/CLOUD_SETUP.md); the full list of every variable and
+      what each does is [PER_MACHINE_SETUP.md](documentation/PER_MACHINE_SETUP.md).
 
    Put the same five into `GETTING_STARTED.md` so they are findable after
    this conversation closes.
@@ -292,7 +292,7 @@ the project is wrong without them.
   their approval travels between sessions — each has a declared answer that
   applies until they say otherwise. Apply it, mention it in passing at most,
   and point them at
-  [PER_MACHINE_SETUP.md](PER_MACHINE_SETUP.md)'s "What Applies Until You Set
+  [PER_MACHINE_SETUP.md](documentation/PER_MACHINE_SETUP.md)'s "What Applies Until You Set
   Any of It" once (practice
   [declared-default-is-applied](practices/declared-default-is-applied.md)).
   A wrong timezone is a one-sentence fix whenever they notice; the question

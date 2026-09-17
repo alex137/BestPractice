@@ -21,7 +21,7 @@ closed:            null
    practice sets.** Found 2026-09-10 while answering a question about
    `PRECEDENT_SOURCE_BASE_URL`.
 
-   **What is actually there.** [PER_MACHINE_SETUP.md](../PER_MACHINE_SETUP.md) explains that the
+   **What is actually there.** [PER_MACHINE_SETUP.md](../documentation/PER_MACHINE_SETUP.md) explains that the
    base URL is an environment variable precisely so that **no tracked file
    names the account owning the private sets**. That is not true of this
    repository as it stands: `.claude/hooks/precedent-individual-bootstrap.sh`

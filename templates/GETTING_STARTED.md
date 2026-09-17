@@ -94,7 +94,7 @@ happens on its own:**
 
 - **Your own settings.** Your name and timezone on the commits Claude
   makes for you, and — if you or your team have one — your own practices
-  repository. [PER_MACHINE_SETUP.md](<upstream-docs>/PER_MACHINE_SETUP.md)
+  repository. [PER_MACHINE_SETUP.md](<upstream-docs>/documentation/PER_MACHINE_SETUP.md)
   is the full copy-paste list; the short version is **environment
   variables** (settings that live on your Claude account, not in this
   repository), added at `claude.ai/code` → the environment this project

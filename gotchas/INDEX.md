@@ -68,7 +68,7 @@ Full catalogue, one file per trap. AGENTS.md carries only a pointer to this file
 
 - **The leak gate's vocabulary layer fails open unless you also set the git config.** [story](gotcha-2026-09-13-the-leak-gate-s-vocabulary-layer-fails-open-unless-you-also-.md)
 
-- **The private practice sets reach a session through the environment credential, not through `add_repo`: set `PRECEDENT_GIT_TOKEN` and `PRECEDENT_SOURCE_BASE_URL` ([PER_MACHINE_SETUP.md](../PER_MACHINE_SETUP.md)) and the SessionStart hook clones them before the first turn, where no ordering rule can reach it.** [story](gotcha-2026-09-13-the-private-practice-sets-reach-a-session-through-the-enviro.md)
+- **The private practice sets reach a session through the environment credential, not through `add_repo`: set `PRECEDENT_GIT_TOKEN` and `PRECEDENT_SOURCE_BASE_URL` ([PER_MACHINE_SETUP.md](../documentation/PER_MACHINE_SETUP.md)) and the SessionStart hook clones them before the first turn, where no ordering rule can reach it.** [story](gotcha-2026-09-13-the-private-practice-sets-reach-a-session-through-the-enviro.md)
 
 - **The session's PRIMARY repo does not run its SessionStart hooks either, when the harness rooted the session one directory ABOVE it — and this project's own required layout is what causes that.** [story](gotcha-2026-09-13-the-session-s-primary-repo-does-not-run-its-sessionstart-hoo.md)
 

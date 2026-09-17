@@ -431,7 +431,7 @@ case documented above.
    hook later, from inside the agent's own turn, after that instruction has
    already run.
    **Where the environment carries `PRECEDENT_GIT_TOKEN` and
-   `PRECEDENT_SOURCE_BASE_URL` ([PER_MACHINE_SETUP.md](../PER_MACHINE_SETUP.md)), none of that
+   `PRECEDENT_SOURCE_BASE_URL` ([PER_MACHINE_SETUP.md](../documentation/PER_MACHINE_SETUP.md)), none of that
    ordering applies**: git has the credential before the first turn, so the
    hook's own single attempt succeeds at `SessionStart` and no `add_repo`
    is involved. That is the durable route; the `add_repo` dance is the

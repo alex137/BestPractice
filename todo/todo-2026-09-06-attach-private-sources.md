@@ -27,7 +27,7 @@ closed:            null
     source is the private repo** — or, since 2026-09-10, a session with
     `PRECEDENT_GIT_TOKEN` on its environment, which clones every private
     source at session start with no `add_repo` call at all
-    ([PER_MACHINE_SETUP.md](../PER_MACHINE_SETUP.md)). That route is verified working and is the
+    ([PER_MACHINE_SETUP.md](../documentation/PER_MACHINE_SETUP.md)). That route is verified working and is the
     cheaper one; this item's remaining work is the per-set commands below,
     which still need a session that can PUSH to each set. BestPractice itself is public, so that
     session can `git clone https://github.com/alex137/BestPractice` directly;
@@ -105,7 +105,7 @@ closed:            null
     hook can then clone the sources *before the agent's first turn*, which is
     the ordering every part of this problem turns on. Set
     `PRECEDENT_GIT_TOKEN` and `PRECEDENT_SOURCE_BASE_URL`
-    ([PER_MACHINE_SETUP.md](../PER_MACHINE_SETUP.md)),
+    ([PER_MACHINE_SETUP.md](../documentation/PER_MACHINE_SETUP.md)),
     and [tools/precedent_source_bootstrap.py](../tools/precedent_source_bootstrap.py)
     `--teams-from .` clones every declared team set as a sibling. **Nobody
     has run it with a valid token yet** — three of the four things it depends
