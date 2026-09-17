@@ -909,6 +909,17 @@
       ],
       "gates_why": "The reply is where the link either appears or does not. The check itself belongs earlier -- before the work -- but the only artifact it leaves is the handover in the reply, which is the moment a gate can still catch."
     },
+    "session-title-names-the-difference": {
+      "globs": [
+        "**"
+      ],
+      "why": "A moment -- creating or renaming a session -- and the title lives on the session service, not in any tree. No file path reaches it. Routed by the `reply` gate.",
+      "decided": "2026-09-17, when the practice landed",
+      "gates": [
+        "reply"
+      ],
+      "gates_why": "The naming decision is made while composing a reply, at creation or the moment the differentiator becomes known -- the same moment session-tags' obligation lands in."
+    },
     "speculation-is-marked": {
       "globs": [
         "spec/SPECULATIVE_*.md",

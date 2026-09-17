@@ -220,7 +220,7 @@ plan's premise.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block; `python3 tools/build_views.py --check` exits non-zero on drift. Source: practices/ -- edit the practice file, never this block. -->
 
-## Resident block (~1180 of 2000 token budget, 11 of 125 practices (11 universal))
+## Resident block (~1180 of 2000 token budget, 11 of 126 practices (11 universal))
 
 **answer-first-ask-before-long-work.** Three parts. **(1) Answer the easy questions in a message before starting
 anything long.** A conceptual question is answered from what is already
