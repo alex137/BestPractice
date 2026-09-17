@@ -220,7 +220,7 @@ plan's premise.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block; `python3 tools/build_views.py --check` exits non-zero on drift. Source: practices/ -- edit the practice file, never this block. -->
 
-## Resident block (~972 of 2000 token budget, 10 of 123 practices (10 universal))
+## Resident block (~972 of 2000 token budget, 10 of 124 practices (10 universal))
 
 **bold-key-phrases.** People don't read; they skim, and bolding makes skimming easy. Bold the key phrases in a document by default, without being asked, scaling with length -- a long paragraph or document is where a skimmer most needs a spine to follow, a short note usually needs little or none.
 
@@ -390,6 +390,8 @@ When starting work the repository may already cover:
   search-by-purpose — search by purpose and by mechanism before concluding nothing exists
 When tracking state that multiple documents need to agree on:
   registry-source-of-truth — state lives in one machine-readable registry; documents derive
+When writing a hook, script, or practice-file rule in this repository that a dependent repo will vendor or install:
+  vendor-neutral-by-default — this repo ships out whole -- default new code and rules to provider-neutral
 When writing a rule that depends on the outside world:
   volatile-rules-carry-dates — a rule about the outside world carries its date, inline
 When writing a script whose numbers a document will cite:
