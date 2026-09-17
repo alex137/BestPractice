@@ -47,6 +47,21 @@ only where it was first needed leaves every other caller paying full price,
 and the run looks exactly as slow as it did before — which reads as the cache
 not working rather than as the cache not being consulted.
 
+**A memo is re-keyed only through a reproduction check.** When a source
+edit moves the key, copying the stored results under the new key is allowed
+only after re-evaluating every stored solution on the current code: a family
+whose rows all reproduce is copied, a family with one row that does not is
+re-solved. Any solve-side edit can change every stored answer, however
+unrelated it looks, and a copied memo then publishes numbers the committed
+code no longer produces. Two companions: a key that excludes a presentation
+tail of the source must match its marker **at the start of a line** — the
+marker's literal inside the key function itself is an earlier occurrence,
+and matching the bare text truncates the hashed body there, so no edit below
+that function ever moves the key; and a heavy search never runs from a
+stdin or `-c` main under a process pool — a worker spawned from such a main
+re-imports `<stdin>`, dies, and is respawned forever, which reads as "a task
+that has been running for a long time".
+
 ## Why
 A gate that takes twenty minutes gets skipped, run concurrently with its
 siblings (halving both), or trusted from memory. And a wait with nothing on
@@ -60,6 +75,15 @@ process's imports and never hit. The self-check then still ran nine minutes,
 because a serial block executed *before* the cache load. And the owner's
 question — *"do you have an estimate of how long we should expect to
 wait?"* — had no answer, because nothing had ever measured it.
+
+The re-key rule came a week later, from the same repository. A term added
+for one operating mode changed the result of every published row in the
+other mode; the memos were copied across the key change, and the numbers in
+the study no longer reproduced from the committed code — found only when the
+next question needed a stored solution re-run. The same day, three models
+turned out to have keys that had never covered anything below their own key
+function, because the marker that trims the presentation tail was matched
+as bare text, so their memos had gone stale unnoticed.
 
 ## Install
 Memoize the solve under a source-content key with a bypass switch; add a
