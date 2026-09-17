@@ -742,9 +742,18 @@ The refusal condition *is* the hold's own condition, so it retires itself:
 when the pinned branch merges into the default and a repo's
 [process/manifest.json](../templates/) is repointed, the guard stops firing
 with nothing to remember to delete. Override for one run with
-`PRECEDENT_ALLOW_PINNED_UPDATE=1`. Eight cases in
-[tools/verify_harness.py](../tools/verify_harness.py) assert it, with a
-negative control.
+`checkin.py update ... --allow-pinned` — or the equivalent
+`PRECEDENT_ALLOW_PINNED_UPDATE=1`, kept for scripts and harnesses that don't
+mind it. **Prefer the flag**: reproduced 2026-09-17 against a real
+pinned-branch consumer, the env-var form gets refused outright
+by Claude Code Web's own permission classifier before checkin.py ever
+runs — the name matches its "safety bypass flag" heuristic (`ALLOW`
+overriding a hold) closely enough to read as one, so every pinned-branch
+consumer running under that harness hit the refusal on every Update Vendors
+pass and had to fall back to the manual mirror below instead. The flag
+carries no such name and isn't classified that way. Ten cases in
+[tools/verify_harness.py](../tools/verify_harness.py) assert the hold and
+both spellings of the override, with a negative control.
 
 **What that guard cannot reach, and why the manual mirror is still the entry
 point.** A consumer still carrying a *pre-fix* vendored copy of

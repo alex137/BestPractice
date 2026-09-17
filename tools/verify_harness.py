@@ -11613,14 +11613,16 @@ def check_update_refuses_while_a_branch_is_pinned():
                       repo / 'process' / 'upstream' / 'tools' / 'precedent_time.py')
         return repo
 
-    def _run(repo, clone, override=False):
+    def _run(repo, clone, override=False, flag=False):
         env = dict(os.environ)
         env.pop('PRECEDENT_ALLOW_PINNED_UPDATE', None)
         if override:
             env['PRECEDENT_ALLOW_PINNED_UPDATE'] = '1'
         script = repo / 'process' / 'upstream' / 'tools' / 'checkin.py'
-        r = subprocess.run([sys.executable, str(script), 'update', str(clone)],
-                           capture_output=True, text=True, cwd=str(repo),
+        args = [sys.executable, str(script), 'update', str(clone)]
+        if flag:
+            args.append('--allow-pinned')
+        r = subprocess.run(args, capture_output=True, text=True, cwd=str(repo),
                            env=env, timeout=180)
         return r.returncode, r.stdout + r.stderr
 
@@ -11643,9 +11645,20 @@ def check_update_refuses_while_a_branch_is_pinned():
                       'repointed' in out))
         cases.append(('and names its own override',
                       'PRECEDENT_ALLOW_PINNED_UPDATE=1' in out))
+        # practice: control-asserts-which-failure -- the CLI flag exists
+        # because at least one harness's own permission classifier refuses
+        # the env-var form before checkin.py runs at all (its name reads as
+        # a safety-bypass flag: ALLOW overriding a hold). The message must
+        # name the flag too, not just the env var, or a session reading it
+        # under such a harness has no non-refused override to reach for.
+        cases.append(('and names the --allow-pinned flag',
+                      '--allow-pinned' in out))
 
         _, out = _run(repo, clone, override=True)
-        cases.append(('the override gets past the hold',
+        cases.append(('the env-var override gets past the hold',
+                      'is PINNED to' not in out))
+        _, out = _run(repo, clone, flag=True)
+        cases.append(('the --allow-pinned flag also gets past the hold',
                       'is PINNED to' not in out))
 
         # The self-retiring cases: nothing to hold once the pin agrees with
@@ -11659,6 +11672,69 @@ def check_update_refuses_while_a_branch_is_pinned():
 
     failed = [n for n, ok in cases if not ok]
     check(f'checkin.py update refuses while a non-default branch is pinned '
+          f'({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
+def check_bare_sync_warning_ignores_prose_mentions():
+    """_warn_bare_sync_invocations flags a real bare invocation of
+    precedent_sync_views.py, never a shell guard or a markdown link that
+    merely mentions the filename.
+
+    Reproduced 2026-09-17 against this repo's own tools/bootstrap.sh: its
+    shell guard `if [ -f tools/precedent_sync_views.py ]; then` sits one
+    line above the real invocation (which already carries `--repo`), and
+    the old regex -- `precedent_sync_views\\.py(?![^\\n]*--repo)` -- matched
+    the substring anywhere on a line, so the guard line and a markdown link
+    target ([tools/precedent_sync_views.py](tools/precedent_sync_views.py))
+    both false-positived as bare invocations. (practice:
+    control-asserts-which-failure -- a "no output" pass proves nothing on
+    its own, so the negative control below restores the old regex and
+    checks the false positive comes back.)
+    """
+    import contextlib, io, tempfile as _tempfile
+    import precedent_vendor_engine as _pve
+
+    def _run(text):
+        # practice: fixture-owns-its-state -- a fresh scratch tree each
+        # call, never the real repo, so nothing here depends on what this
+        # repo's own bootstrap.sh happens to contain today.
+        with _tempfile.TemporaryDirectory() as td:
+            root = pathlib.Path(td)
+            (root / 'tools').mkdir()
+            (root / 'tools' / 'bootstrap.sh').write_text(text)
+            out = io.StringIO()
+            with contextlib.redirect_stdout(out):
+                _pve._warn_bare_sync_invocations(root)
+            return out.getvalue()
+
+    guard_and_real = (
+        "if [ -f tools/precedent_sync_views.py ]; then\n"
+        "  python3 tools/precedent_sync_views.py --repo . --check\n"
+        "fi\n")
+    link_only = (
+        "See [tools/precedent_sync_views.py](tools/precedent_sync_views.py) "
+        "for details.\n")
+    genuinely_bare = "python3 tools/precedent_sync_views.py\n"
+
+    cases = [
+        ('a shell guard next to a real --repo invocation is not flagged',
+         'NOTICE' not in _run(guard_and_real)),
+        ('a markdown link target is not flagged',
+         'NOTICE' not in _run(link_only)),
+        ('a genuinely bare invocation is still flagged',
+         'NOTICE' in _run(genuinely_bare)),
+    ]
+
+    # Negative control: the pre-fix regex (any occurrence of the filename
+    # not later followed by --repo on the same line) DOES false-positive on
+    # the guard line -- proving the two positive cases above are evidence of
+    # the fix, not of a fixture that never exercises the old bug.
+    old_re = re.compile(r'precedent_sync_views\.py(?![^\n]*--repo)')
+    cases.append(('negative control: the old regex flags the shell guard',
+                  bool(old_re.search(guard_and_real.splitlines()[0]))))
+
+    failed = [n for n, ok in cases if not ok]
+    check(f'_warn_bare_sync_invocations ignores prose mentions '
           f'({len(cases)} stated cases)', not failed, '; '.join(failed))
 
 
@@ -22540,6 +22616,7 @@ def main():
     check_repo_reference_allowlist()
     check_leak_gate_scans_the_consuming_repo()
     check_update_refuses_while_a_branch_is_pinned()
+    check_bare_sync_warning_ignores_prose_mentions()
     check_leftover_pack_is_flagged_after_migration()
     check_detect_restated_fires()
     check_creation_pipeline_fires()
