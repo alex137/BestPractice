@@ -14723,18 +14723,24 @@ def check_rendered_docs_are_current():
 
 
 def check_install_names_every_not_vendored_dir():
-    """INSTALL.md §1 step 1 names every directory checkin.py refuses to vendor.
+    """INSTALL.md §1 step 1 names everything checkin.py refuses to vendor --
+    every NOT_VENDORED directory, and every NOT_VENDORED_ROOT_FILES file.
 
     These are two halves of one rule kept in two files, which is the shape
-    that drifts. tools/checkin.py's NOT_VENDORED is what the tooling acts
-    on; INSTALL.md step 1 is what a person copying the tree by hand reads.
-    A directory added to one and not the other means either a consumer
-    hand-copies a tree the tooling then reports as drifted, or the prose
-    promises an exclusion nothing performs.
+    that drifts. tools/checkin.py's NOT_VENDORED/NOT_VENDORED_ROOT_FILES are
+    what the tooling acts on; INSTALL.md step 1 is what a person copying the
+    tree by hand reads. An entry added to one and not the other means either
+    a consumer hand-copies a tree the tooling then reports as drifted, or the
+    prose promises an exclusion nothing performs.
 
     Found when philosophy/ was excluded on 2026-09-14 and nothing would have
     caught the doc being left behind (practice: checkable-gets-checked).
     Name-only: the paragraph's wording is nobody's business but its author's.
+    A directory is matched as `name/` (so `spec` inside `specification` can't
+    false-positive); a root file has no such delimiter available, so it is
+    matched bare -- AGENTS.md/CLAUDE.md are distinctive enough that a bare
+    substring match is not a meaningful false-positive risk in a 2000-char
+    window, the same tradeoff `not_vendored_share()`'s own comment accepts.
     """
     install = ROOT / 'INSTALL.md'
     if not install.is_file():
@@ -14744,7 +14750,8 @@ def check_install_names_every_not_vendored_dir():
     try:
         sys.path.insert(0, str(ROOT / 'tools'))
         import checkin as _checkin
-        excluded = set(_checkin.NOT_VENDORED)
+        excluded_dirs = set(_checkin.NOT_VENDORED)
+        excluded_files = set(_checkin.NOT_VENDORED_ROOT_FILES)
     except Exception as exc:                       # pragma: no cover
         not_applicable('INSTALL.md names every not-vendored directory',
                        f'could not read checkin.NOT_VENDORED: {exc}')
@@ -14754,9 +14761,11 @@ def check_install_names_every_not_vendored_dir():
     # mention elsewhere in a 1000-line document from passing this.
     i = text.find('**Skip ')
     step = text[i:i + 2000] if i != -1 else ''
-    missing = sorted(d for d in excluded if f'{d}/' not in step)
-    check(f'INSTALL.md §1 step 1 names every not-vendored directory '
-          f'({len(excluded)} excluded)',
+    missing = sorted(d for d in excluded_dirs if f'{d}/' not in step) + \
+        sorted(f for f in excluded_files if f not in step)
+    total = len(excluded_dirs) + len(excluded_files)
+    check(f'INSTALL.md §1 step 1 names every not-vendored directory/file '
+          f'({total} excluded)',
           not missing,
           f'not named in the vendor step: {", ".join(missing)}' if missing
           else '')
