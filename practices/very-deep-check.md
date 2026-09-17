@@ -99,7 +99,19 @@ approved_by: "extended 2026-09-14, Morgan F -- after a session was refused by
   sure that files including documentation are in their right
   folder/location?\" -- after two person-facing setup guides were found
   sitting at repo root while documentation/ held every other reader-facing
-  page"
+  page;
+  extended again 2026-09-17, Morgan (strength: decided), with a pass-2 item
+  reading the harness-adapter ledger's verdicts for whether they are
+  actually correct, not merely present -- \"update the very deep check
+  definition to do a focused and detailed check to make sure that the
+  system works in each of the LLMs (codex gemini grok) cross-platform? I
+  want this to detect errors where, a change was made to how we do
+  something with Claude, but it wasn't rolled out to the others\" -- after
+  the same conversation found that `parallel-artifact-ledger`'s enforced
+  check only proves a row exists per change, by its own docstring's
+  admission, and a live example where two recent rows promised a codex or
+  gemini-cli user a hand-run workaround that neither adapter's own README
+  mentions anywhere"
 ---
 ## Rule
 When a person explicitly asks for a "very deep check", or after work that
@@ -660,6 +672,40 @@ confidently.
     read -- a forgotten instantiation step would have left Write as
     unrestricted write while every document still described a wall,
     2026-09-14.)*
+17. **Does the harness-adapter ledger's verdict match what each member's own
+    documentation actually tells its user?** `parallel-artifact-ledger`'s
+    enforced check
+    ([tools/precedent_check.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/precedent_check.py))
+    only proves a row EXISTS for every commit that touched a harness-adapter
+    member -- its own docstring says so: "whether a referenced row is
+    actually CORRECT ... only that a row exists." This is the ledger's own
+    version of question 15's gap between a check running and a check's
+    claim being true, so it gets the same treatment: read a sample of
+    rows, newest first, against the real state of each named member. Where
+    a row claims a mechanism transferred, does the named file actually
+    carry it. Where a row claims a workaround "needs no harness at all" and
+    a member without a hook mechanism could still get it by running a
+    script once by hand, does that member's own README say so anywhere a
+    person reading it would find it -- or does the workaround live only in
+    the ledger row's own prose, reachable by nobody who starts from the
+    adapter they actually use. Every family member with an adapter
+    directory gets read this way, present tense: today that is
+    `claude-code/`, `codex/`, and `gemini-cli/`, and a fourth member joins
+    this same read the day it gets a directory of its own -- there is
+    nothing to check for one that does not exist yet, which is a
+    finding this pass should say plainly rather than passing over in
+    silence. *(Found, 2026-09-17: `templates/harness/LEDGER.md`'s `ffcae058`
+    row, and two rows above it for the same file, each say a codex or
+    gemini-cli user could get the fix by running `commit-identity.sh` once
+    by hand -- `commit.gpgsign false`, the global commit identity, the
+    timezone symlink, none of which need a hook mechanism neither member
+    has. Neither `templates/harness/codex/README.md` nor
+    `templates/harness/gemini-cli/GEMINI.md` mentioned this anywhere; the
+    workaround was written down exactly once, in
+    [documentation/CLOUD_SETUP.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/documentation/CLOUD_SETUP.md),
+    framed entirely as a Claude Code Remote concern. A codex or gemini-cli
+    user reading their own adapter's README had no way to discover it.
+    Closed the same session by pointing both READMEs at that section.)*
 
 ### Pass 3 — Does the writing still hold together?
 The coherence read, across every repo in scope. Run the mechanical audits
