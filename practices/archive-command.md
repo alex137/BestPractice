@@ -18,13 +18,22 @@ added:       "2026-09-16"
 approved_by: "Morgan, 2026-09-16 -- coined in his individual set the same day
   and moved to universal on his decision that this is the project's own
   command rather than one person's habit: \"I think this should be a
-  universal command not just for me.\" strength: decided."
+  universal command not just for me.\" strength: decided.
+  Amended 2026-09-17, on the same provider-portability sweep that removed
+  session-text's waking mechanism, under his broad \"Go update\"
+  authorization to finish the plan rather than a review of this file's
+  specific wording: the mechanical steps were reframed as a named Claude
+  Code Remote binding rather than presented as universal, since a provider
+  without those tool calls has no way to carry them out
+  (strength: assented)."
 strength:    decided
 ---
 ## Rule
 When a message says **"Archive"** -- standing alone, case-insensitive, as its own line or as the whole of a sentence -- treat it as authorization to archive the session it means, **right then, in that same turn: no confirmation, no recap first.**
 
-**Which session it means, unless one is named: the session the message arrived in.** Resolve its own ID (`get_session` with no argument), check `list_triggers` for a Routine bound to it via `persistent_session_id`, and archive it (`archive_session`). A bound Routine does not block this -- the word is the authorization -- but say so in the reply, since an archived session accepts no events and the Routine will stop firing.
+**Which session it means, unless one is named: the session the message arrived in.** End that session's lifecycle through whatever mechanism this harness provides, and check first whether anything is bound to fire into it later, so the person hears about it rather than finding it silently stopped.
+
+**In Claude Code Remote, concretely**: resolve its own ID (`get_session` with no argument), check `list_triggers` for a Routine bound to it via `persistent_session_id`, and archive it (`archive_session`). A bound Routine does not block this -- the word is the authorization -- but say so in the reply, since an archived session accepts no events and the Routine will stop firing. **This is the only binding this practice currently has.** A session on a provider with no equivalent tool call has no way to carry out the mechanical half of this rule -- say so plainly, rather than silently doing nothing or guessing at a substitute, the same way [session-text](session-text.md) names its own dependencies rather than papering over them.
 
 **Say plainly what happened and that it undoes.** State that the session is now archived -- read-only, its container released -- and that `unarchive_session` reverses it if it wasn't meant, with the one exception [the-boildown](the-boildown.md) already names: anything uncommitted, or committed but unpushed, in that container's working tree does not come back, because unarchiving provisions a fresh container rather than resuming the old one.
 
@@ -40,6 +49,15 @@ The standing-phrase mechanism already exists for exactly this shape of thing -- 
 Coined 2026-09-16 in Morgan's individual set, the same day he asked whether archiving a session works only through the UI or also through a command and, told it works as a direct tool call already, asked for "archive" itself as a standing word.
 
 Moved to universal the same day, on his decision that it belongs alongside the project's other commands rather than staying his own habit: *"I think this should be a universal command not just for me."*
+
+**Amended 2026-09-17**, closing the last named gap in
+[spec/PROVIDER_PORTABILITY_PLAN.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/PROVIDER_PORTABILITY_PLAN.md)'s
+Phase 4: this practice was still naming Claude Code Remote's tool calls as
+if any provider could make them. Unlike [session-text](session-text.md)'s
+waking mechanism, there is no provider-neutral substitute to fall back
+to -- ending a session's lifecycle is inherently a platform action, not
+something a paste block can stand in for -- so the fix here is naming the
+dependency rather than removing it.
 
 ## Install
 No mechanical check, same class as [go-merge](go-merge.md): this governs how a message gets read, not a property of a diff or the repo tree, and the one place the distinction between "recognized the word" and "archived on its own initiative" is visible is the conversation transcript, which a repo-scoped script can't read.

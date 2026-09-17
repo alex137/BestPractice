@@ -239,17 +239,27 @@ Grok without a binding table to maintain per provider. The practice now
 always produces Session Text (a paste block), never wakes a live session
 and never creates one; what is lost is the context-reuse saving waking
 existed for, named explicitly in the practice's own Story rather than left
-implicit. [practices/archive-command.md](../practices/archive-command.md)'s
-`list_triggers` call is a different case — it checks whether a Routine is
-bound to the session being archived, not a cross-session handoff — and is
-**not yet touched**; it is a smaller, narrower dependency than
-session-text's was, and still open.
+implicit.
 
-**Done when:** either a session on a non-Claude-Code provider can carry out
-`archive-command`'s intent through a named alternate mechanism, or the
-practice file says plainly that it doesn't apply outside Claude Code and
-why. `session-text` no longer needs this test — it depends on nothing
-provider-specific at all.
+**[practices/archive-command.md](../practices/archive-command.md)'s half
+took the second path, 2026-09-17: name it as a Claude Code Remote binding
+rather than indirect or remove it.** Its `list_triggers` call is a
+different case from session-text's waking — it checks whether a Routine is
+bound to the session being archived, not a cross-session handoff — and
+unlike waking, there is no provider-neutral substitute: ending a session's
+lifecycle is inherently a platform action, nothing a paste block can stand
+in for. So the Rule now states the capability generically first ("end that
+session's lifecycle through whatever mechanism this harness provides"),
+names the Claude Code Remote calls as the one binding this practice
+currently has, and says plainly that a session on another provider has no
+way to carry out the mechanical half — rather than silently doing nothing
+or improvising a substitute.
+
+**Done, 2026-09-17.** Both halves of this phase are closed, by two
+different routes: session-text by removing the dependency, archive-command
+by naming it. Neither approach generalizes to the other — a future
+practice with the same problem needs its own judgment call about which
+fits, not a rule that one path always wins.
 
 ### Phase 5 — re-verify the lightweight surfaces and close the loop
 
