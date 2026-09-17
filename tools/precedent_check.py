@@ -2579,6 +2579,83 @@ def _hooks_on_disk_are_reachable(ctx):
     return found
 
 
+@check('no-hardcoded-git-identity', 'tree',
+       'a tracked .claude/settings.json never names a person\'s '
+       'GIT_AUTHOR_NAME or GIT_AUTHOR_EMAIL in its env block -- '
+       'commit-identity.sh is installed to resolve that per session, per '
+       'person, without ever writing a name or an address into a tracked '
+       'file, and a literal value there overrides its resolution for every '
+       'session and every collaborator who ever loads this file, not only '
+       'the one who wrote it',
+       'a repo that really is somebody\'s OWN individual practice source, '
+       'where self-declaring is correct by design (commit-identity.sh rung '
+       '2: a root identity.json means this repo IS that source) -- '
+       'detected here by the presence of a root identity.json, not by '
+       'checking that its values agree with it, which is a heavier, '
+       'more specific job than an engine property check should take on. '
+       'Also blind to .claude/settings.local.json, which is untracked and '
+       'per-machine by design and is exactly where a personal override '
+       'belongs.',
+       practice_backed=False)
+def _no_hardcoded_git_identity(ctx):
+    """GIT_AUTHOR_NAME/GIT_AUTHOR_EMAIL outrank `git config user.*`, so a
+    literal value in a TRACKED settings.json silently overrides
+    commit-identity.sh's per-person resolution for everyone who ever loads
+    this file -- a misattribution bug, not a privacy leak, and one that
+    fires whether the repo is public or private.
+
+    Written 2026-09-17 after a report claimed BestPractice's own shipped
+    Claude Code adapter template had exactly this pattern. Checked, not
+    assumed: this repo's templates/harness/claude-code/settings.json has
+    never carried GIT_AUTHOR_NAME or GIT_AUTHOR_EMAIL, in its full git
+    history, on any branch. This check exists for the repo that introduces
+    the pattern anyway -- by hand, or by copying it from an individual
+    practice source's own settings.json without reading why that one is
+    self-declared on purpose -- since nothing else here would say so, and
+    it reaches an already-installed repo through the ordinary vendoring of
+    tools/, unlike a fix to settings.json itself (vendor-update-runbook.md
+    step 3: settings.json is never touched by an update).
+
+    Deliberately narrow: it does not verify the hardcoded value against
+    identity.json's own value. That drift check is a heavier, more
+    specific job -- precedent-individual's own private check_commit_author.py
+    already does it for the one repo where self-declaring is correct -- and
+    promoting it into this shared engine is a bigger step than this check
+    takes on."""
+    settings = ROOT / '.claude' / 'settings.json'
+    if not settings.is_file():
+        raise NotApplicable('this repo has no tracked .claude/settings.json')
+    try:
+        payload = json.loads(settings.read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        # Unparseable JSON is the harness's problem to report, not this
+        # check's to guess at.
+        return []
+    env = payload.get('env')
+    if not isinstance(env, dict):
+        return []
+    named = [k for k in ('GIT_AUTHOR_NAME', 'GIT_AUTHOR_EMAIL') if env.get(k)]
+    if not named:
+        return []
+    if (ROOT / 'identity.json').is_file():
+        # This repo declares itself as somebody's individual practice
+        # source (commit-identity.sh rung 2) -- self-declaring here is the
+        # documented, correct case, not the bug this check is for.
+        return []
+    return [Finding(
+        str(settings.relative_to(ROOT)),
+        f'hardcodes {" and ".join(named)} in its tracked env block. '
+        'commit-identity.sh is installed here to resolve that per person, '
+        'per session, without ever writing a name or an address into a '
+        'tracked file -- a literal value here overrides that resolution '
+        'for every session and every collaborator who ever loads this '
+        'file, silently, because GIT_AUTHOR_* outranks `git config '
+        'user.*`. Move it to .claude/settings.local.json (untracked, '
+        'per-machine) if it is a personal override, drop it and let '
+        'commit-identity.sh resolve it if not, or add a root identity.json '
+        'if this repo really is somebody\'s individual practice source.')]
+
+
 @check('engine-plus-host-shims', 'tree',
        'no file outside the vendored tree duplicates a run of lines from '
        'inside it — that is a fork, not a shim',

@@ -6518,6 +6518,32 @@ def check_precedent_check_fires():
                       and 'nothing that could run it names it'
                       in planted['hooks-on-disk-are-reachable'][1]))
 
+        # no-hardcoded-git-identity -- settings.json hardcodes a person's
+        # git identity in its tracked env block, which is exactly what
+        # commit-identity.sh exists to resolve per session instead. Merged
+        # into the fixture's existing env block rather than replacing it
+        # (practice: fixture-owns-its-state) -- this repo's own
+        # .claude/settings.json already carries TZ, and a plant that
+        # clobbered it would prove the check fires on a tree that no
+        # longer resembles a real one. No identity.json is planted beside
+        # it: this fixture is not an individual practice source, so the
+        # check's one exemption must not apply here, or the case would
+        # pass for the wrong reason.
+        def _plant_hardcoded_identity(repo):
+            def _add_identity(t):
+                d = json.loads(t)
+                env = d.setdefault('env', {})
+                env['GIT_AUTHOR_NAME'] = 'Planted Person'
+                env['GIT_AUTHOR_EMAIL'] = 'planted@example.com'
+                return json.dumps(d, indent=2) + '\n'
+            rewrite(repo, '.claude/settings.json', _add_identity)
+        case('no-hardcoded-git-identity', _plant_hardcoded_identity)
+        cases.append(('no-hardcoded-git-identity: the planted violation '
+                      'names the hardcoded fields it found',
+                      'GIT_AUTHOR_NAME' in planted['no-hardcoded-git-identity'][1]
+                      and 'GIT_AUTHOR_EMAIL'
+                      in planted['no-hardcoded-git-identity'][1]))
+
         # ...and the same failure in the OTHER hook layout. A practice set
         # created by precedent_bootstrap_source.py wires its hooks out of a
         # tracked `bootstrap/` and has no .claude/hooks/ at all, so sweeping
