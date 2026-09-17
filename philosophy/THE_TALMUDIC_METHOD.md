@@ -9,6 +9,13 @@ instead of smoothing it away, cite precedent by name — and the resemblance
 to how the Talmud gets studied is hard to unsee. Worth naming, if only so
 the resemblance stops being a coincidence and starts being a design lens.*
 
+The eight insights below fall into three groups: **how the argument
+happens** (1–2), **what the ruling isn't allowed to erase** (3, 4, 7), and
+**how it outlives the moment** (5, 6, 8). The throughline runs argue, don't
+flatten what the argument produced, then make it citable later.
+
+## How the Argument Happens
+
 <a id="chavruta-not-solo"></a>
 
 1. **Chavruta: nothing gets studied alone.** Talmudic learning happens in
@@ -29,6 +36,8 @@ the resemblance stops being a coincidence and starts being a design lens.*
    [`brainstorm-holds-commits`](../practices/brainstorm-holds-commits.md)
    enforces the same discipline structurally — the repository stays
    untouched until the argument has actually run.
+
+## What the Ruling Isn't Allowed to Erase
 
 <a id="dissent-survives-the-ruling"></a>
 
@@ -54,6 +63,8 @@ the resemblance stops being a coincidence and starts being a design lens.*
    makes the same bet: a rule kept as "always do X because Y" stays
    arguable against Y forever, one kept as bare "always do X" has nothing
    left to check.
+
+## How It Outlives the Moment
 
 <a id="precedent-binds-forward"></a>
 
