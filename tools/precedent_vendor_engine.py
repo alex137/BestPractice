@@ -1676,7 +1676,7 @@ def refresh(clone, force=False, ref=None):
     return 0
 
 
-_BARE_SYNC_RE = re.compile(r'precedent_sync_views\.py(?![^\n]*--repo)')
+_BARE_SYNC_RE = re.compile(r'\bpython3\s+\S*precedent_sync_views\.py(?![^\n]*--repo)')
 
 
 def _warn_bare_sync_invocations(root):
