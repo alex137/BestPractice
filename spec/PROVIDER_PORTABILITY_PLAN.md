@@ -272,6 +272,38 @@ the "coding agent" [MOBILE.md](../MOBILE.md) currently tells ChatGPT and
 Grok users to route changes through. Update [MOBILE.md](../MOBILE.md)
 either way, per those items' own close condition.
 
+**Research pass, 2026-09-17 — corrects an earlier wrong claim in this same
+conversation.** Asked to check whether Codex, Gemini CLI, or Grok
+authenticate outbound GitHub API calls the same automatic way this Claude
+Code Remote environment does (see the finding below), a web search turned
+up something this plan had gotten flatly wrong: **Grok Build
+(`xai-org/grok-build`) is a real coding-agent product** — a terminal agent
+with shell and file access, reading `AGENTS.md` natively — not the
+plain-chat-only Grok this plan and `MOBILE.md` had both assumed. A new
+[templates/harness/grok-build/](../templates/harness/grok-build/) adapter
+now exists, grounded in xAI's own current docs and explicit about what
+wasn't confirmed (the exact `.grok/hooks.json` syntax, and whether "reads
+`.claude/`" means it actually fires those hooks the way Claude Code's own
+protocol does). It is deliberately **not** wired into
+[templates/harness/LEDGER.md](../templates/harness/LEDGER.md)'s enforced
+transfer tracking yet — that check's member list is hardcoded to the
+original three, and extending it on an unverified hooks syntax would risk
+enforcing something wrong.
+
+**The same pass also found `commit-identity.sh`'s GitHub-lookup mechanism
+was quietly Claude-Code-Remote-specific.** It calls
+`curl https://api.github.com/user` with no Authorization header, which
+only ever worked because this environment's own outbound proxy injects a
+GitHub credential transparently — confirmed by checking each platform's
+own current docs: neither Codex Cloud nor Gemini CLI does anything
+equivalent; both expect the person to supply a token themselves. Fixed the
+same day: the script now sends a bearer token when `GH_TOKEN` or
+`GITHUB_TOKEN` is set (the same precedence `gh` CLI itself uses, and
+exactly what GitHub Actions sets automatically on every runner), and falls
+back to the old unauthenticated call otherwise — unchanged behavior under
+Claude Code Remote, a real chance at working elsewhere instead of a
+guaranteed silent no-op.
+
 ## What this plan does not attempt
 
 **Feature parity on cross-session orchestration is not promised.** Claude

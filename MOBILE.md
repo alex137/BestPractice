@@ -70,11 +70,21 @@ and route changes through a coding agent.
 
 ## Grok
 
-Not yet verified with this workflow *(as of 2026-08)*. If Grok can reach
-your repository, the same opener as ChatGPT should work. Otherwise treat
-it as a disconnected assistant: paste in the documents you are
-discussing, decide what you want changed, and hand the change request to
-a teammate with a coding agent.
+**Two different things share the name, and this repo's workflow only
+concerns one of them.** The Grok app/chat on your phone is a
+disconnected assistant unless it has its own repository connector —
+paste in the documents you're discussing, decide what you want changed,
+and hand the change request to a teammate with a coding agent, the same
+as any assistant with no repository access.
+
+**Grok Build** (`xai-org/grok-build`) is a separate, real terminal coding
+agent — like Codex CLI or Gemini CLI, not a phone app — with its own
+[adapter](templates/harness/grok-build/README.md) as of 2026-09-17, built
+from xAI's own current documentation. It reads `AGENTS.md` natively.
+**Not yet run against this repository by an actual session** — the
+adapter says plainly what's confirmed from documentation versus what
+still needs a real test, and that test is what would move this note from
+"documented" to "verified."
 
 ## Any Other Assistant
 

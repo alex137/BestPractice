@@ -198,8 +198,35 @@ if [ -z "$email" ] && [ -n "${CCR_SESSION_ACCOUNT_EMAIL:-}" ]; then
 fi
 
 # --- 5. the GitHub account this session is authenticated as
+#
+# Sends an Authorization header when GH_TOKEN or GITHUB_TOKEN is set (same
+# precedence gh CLI itself uses), because the unauthenticated call this had
+# before only ever worked by accident, under one specific harness. Claude
+# Code Remote's own outbound proxy silently attaches GitHub credentials to
+# every HTTPS request, so a bare, header-less curl to api.github.com/user
+# succeeded here -- and nowhere else, since api.github.com/user requires
+# auth and answers 401 without it. Verified 2026-09-17 against each
+# platform's own docs (Codex Cloud, Gemini CLI): neither injects an ambient
+# GitHub credential into arbitrary outbound calls the way this proxy does;
+# both instead expect the person to export a token themselves (gh CLI setup
+# for Codex, GITHUB_PERSONAL_ACCESS_TOKEN for Gemini CLI's own GitHub MCP).
+# GITHUB_TOKEN is also what GitHub Actions itself sets automatically on
+# every runner, so this same change is what makes the call work there too.
+# Absent either variable, this falls through to mechanism 6 exactly as
+# before -- nothing about the fallback chain changes, only the odds that
+# this specific rung actually returns something outside Claude Code Remote.
+gh_token="${GH_TOKEN:-${GITHUB_TOKEN:-}}"
 if [ -z "$email" ] && command -v curl >/dev/null 2>&1 && command -v python3 >/dev/null 2>&1; then
-  gh="$(curl -s --max-time 10 https://api.github.com/user 2>/dev/null | python3 -c '
+  # No token in the environment falls back to the pre-2026-09-17 bare call.
+  # That fallback is what makes this rung succeed under Claude Code Remote,
+  # whose own outbound proxy injects the credential this call never has to
+  # ask for. Everywhere else, api.github.com/user requires auth and an
+  # unauthenticated call comes back empty, which is correct: falling
+  # through to mechanism 6 is the honest answer when nothing here actually
+  # knows who is asking.
+  gh_auth_header=()
+  [ -n "$gh_token" ] && gh_auth_header=(-H "Authorization: Bearer $gh_token")
+  gh="$(curl -s --max-time 10 "${gh_auth_header[@]}" https://api.github.com/user 2>/dev/null | python3 -c '
 import json, sys
 try:
     d = json.load(sys.stdin)
