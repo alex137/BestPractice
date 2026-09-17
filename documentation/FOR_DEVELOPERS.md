@@ -55,7 +55,8 @@ is spelled out in full at the link:
    `TODO.md`, `GLOSSARY.md`, `GETTING_STARTED.md`, the PR template, the
    `.gitignore` baseline, and the harness adapter(s) from
    [templates/harness/](../templates/harness/) for whichever assistant
-   will work the repo. `VOICE.md` and `STYLEGUIDE.md` are the exception:
+   will work the repo. `local/practices/project-voice.md` (a repo-local
+   practice, not a plain document) and `STYLEGUIDE.md` are the exception:
    both ship near-empty and **stay that way** — see "Optional, and
    deliberately left for later" below.
 3. **Ask the two questions only a person can answer** — which private
@@ -84,17 +85,19 @@ lets a hosted session reach a private practice source without an
 Two files ship near-empty on purpose and are not filled in by an install,
 an upgrade or a migration:
 
-- **`VOICE.md`** — how this project sounds: its voice, its audiences, its
-  domain vocabulary, and any deliberate departure from a catalogue rule.
-  General writing quality is not in it; the practice catalogue covers that
-  for every project at once.
+- **`local/practices/project-voice.md`** — how this project sounds: its
+  voice, its audiences, its domain vocabulary, and any deliberate departure
+  from a catalogue rule. A repo-local practice, not a plain document —
+  reached through the same occasion index as every other rule in force
+  here. General writing quality is not in it; the practice catalogue
+  covers that for every project at once.
 - **`STYLEGUIDE.md`** — the visual identity, transcribed as plain text from
   whatever brand guideline exists. Never attach, vendor or link the source
   document into the repo.
 
 Both stay local to the project and are never exported upstream. **Fill
 either in whenever you want by asking your assistant** — *"help me fill in
-VOICE.md"* — and a section left `<undecided>` is a real answer, not a gap.
+my project's voice"* — and a section left `<undecided>` is a real answer, not a gap.
 The same goes for anything else that would refine a working project rather
 than make it work: it is a later conversation by design, not an oversight.
 

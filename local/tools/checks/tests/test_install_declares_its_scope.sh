@@ -5,7 +5,7 @@
 #   2. a doc with no scope declaration -- require exit 1 naming THAT;
 #   3. a doc declaring the scope but never its counterpart -- require exit 1
 #      naming THAT, separately from 2;
-#   4. a doc naming VOICE.md and STYLEGUIDE.md together with no deferral
+#   4. a doc naming project-voice.md and STYLEGUIDE.md together with no deferral
 #      marker -- require exit 1 naming THAT;
 #   5. a repo with neither document -- require exit 2 (SKIPPED), never a
 #      silent pass: a consuming repo's install path lives upstream.
@@ -55,7 +55,7 @@ deferred.
 
 What is never deferred: the blocklist, the commit identity, the audit.
 '
-GOOD_FILES='`VOICE.md` and `STYLEGUIDE.md` ship as skeletons and stay that way.
+GOOD_FILES='`project-voice.md` and `STYLEGUIDE.md` ship as skeletons and stay that way.
 '
 
 # --- 1. clean -------------------------------------------------------------
@@ -84,7 +84,7 @@ else bad "expected the counterpart finding; rc=$RC out=$OUT"; fi
 
 # --- 4. the optional files named as an instruction ------------------------
 d=$(make_fixture instruction)
-printf '%s\nWalk them through `VOICE.md` and fill in `STYLEGUIDE.md` from their brand guideline.\n' "$GOOD_SCOPE" > "$d/INSTALL.md"
+printf '%s\nWalk them through `project-voice.md` and fill in `STYLEGUIDE.md` from their brand guideline.\n' "$GOOD_SCOPE" > "$d/INSTALL.md"
 run "$d"
 if [ "$RC" -eq 1 ] && grep -q 'no deferral marker' <<<"$OUT"; then
   ok "an instruction to fill the optional files in is caught"
@@ -100,7 +100,7 @@ else bad "expected exit 2 and SKIPPED; rc=$RC out=$OUT"; fi
 # --- 6. the negation must NOT fire ---------------------------------------
 # The failure mode this check exists to avoid in itself.
 d=$(make_fixture negation)
-printf '%s\nBoth `VOICE.md` and `STYLEGUIDE.md` ship empty. Do not walk them\nthrough the sections, and do not ask whether a brand guideline exists.\n' "$GOOD_SCOPE" > "$d/INSTALL.md"
+printf '%s\nBoth `project-voice.md` and `STYLEGUIDE.md` ship empty. Do not walk them\nthrough the sections, and do not ask whether a brand guideline exists.\n' "$GOOD_SCOPE" > "$d/INSTALL.md"
 run "$d"
 if [ "$RC" -eq 0 ]; then ok "prose forbidding the walkthrough does not fire"
 else bad "the negation fired -- the check cannot tell an instruction from its negation; out=$OUT"; fi

@@ -164,16 +164,19 @@ Whoever set this project up was told to do the essentials and stop, so two
 files were created empty on purpose and are waiting for you. Neither is
 urgent, and a project works perfectly well with both left blank.
 
-- **`VOICE.md`** — how this project should sound. Who it sounds like, who
-  reads it, the words your field insists on and the ones it can't use, and
-  anything you want done differently from the general rules.
+- **Your project's own voice** — how this project should sound. Who it
+  sounds like, who reads it, the words your field insists on and the ones
+  it can't use, and anything you want done differently from the general
+  rules. (Kept at `local/practices/project-voice.md`, if you ever go
+  looking for it.)
 - **`STYLEGUIDE.md`** — how it should look. Colors, fonts, logo rules —
   whatever your brand guideline says, if you have one.
 
-**To fill either in, just say so to your assistant** — *"help me fill in
-VOICE.md"* — and it will ask you questions and write down your answers. You
-can do it today, next month, or never. **Both stay entirely inside your own
-project**; nothing in them is ever shared with anyone outside it.
+**To fill either in, just say so to your assistant** — *"help me fill in my
+project's voice"* — and it will ask you questions and write down your
+answers. You can do it today, next month, or never. **Both stay entirely
+inside your own project**; nothing in them is ever shared with anyone
+outside it.
 
 **Anything you leave blank is a real answer**, not a hole. A project that
 hasn't decided how it sounds yet is better off saying so than having someone
