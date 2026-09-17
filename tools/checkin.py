@@ -253,6 +253,47 @@ def _rev_parse_quiet(clone, ref):
 NOT_VENDORED = frozenset({'evals', 'philosophy', 'spec', 'todo', 'decisions',
                           'deck', 'record'})
 
+# Root-only exclusions -- matched by exact top-level path, NEVER as a path
+# component the way NOT_VENDORED is. `_files()`'s component match is right
+# for a subject-matter directory (the same "gotchas" can only ever mean
+# BestPractice's own gotchas/ at the top level) but wrong here: component
+# matching on 'AGENTS.md'/'CLAUDE.md' would ALSO catch
+# templates/harness/claude-code/CLAUDE.md and
+# templates/document-project/AGENTS.md -- real TEMPLATE SOURCES a consumer
+# instantiates from (INSTALL.md sec.2), not copies of this repo's own root
+# files. Confirmed both exist and must stay vendored before adding this.
+#
+# Why exclude the root files at all, added 2026-09-17: AGENTS.md/CLAUDE.md
+# are the one class of vendored file a harness auto-loads BY FILENAME as
+# live instructions for whatever directory a session is working in --
+# every other vendored file is read only when something goes looking for
+# it. This repo's own root AGENTS.md has an explicit internal divider
+# ("The rest of this file (below) is BestPractice's own pre-fork
+# orientation") separating a generic loader section from content that is
+# BestPractice talking about itself ("Default branch is main... this repo
+# is public and is the shared upstream", "Most changes arrive as check-in
+# PRs from dependent repos") -- and the whole file, tail included, was
+# vendored as an ordinary byte-for-byte mirror. On 2026-09-17 that tail
+# bled into a real consumer session as if it were live instructions about
+# THAT repo's own workflow.
+#
+# Truncating just the tail at that divider was the first design tried and
+# was rejected: _diff() and everything built on it (record()'s
+# byte-identical verification, push()'s mirror-BACK guard, _carry_check())
+# assume the vendored tree is either byte-identical to source or fully
+# absent -- nothing in this tool has a third state of "present but
+# deliberately transformed". Giving AGENTS.md that third state means
+# teaching every one of those functions to compare through a transform
+# instead of raw bytes, for one file, forever -- and getting push() wrong
+# once means a consumer's local truncated copy overwrites this repo's own
+# real AGENTS.md. Full exclusion costs nothing a consumer needs: their own
+# root AGENTS.md already carries ITS OWN generic loader section, generated
+# fresh from ITS OWN attached sources (templates/AGENTS.md.template),
+# never derived from this file -- so there is no loader content to lose,
+# only the self-referential tail that was the actual problem.
+NOT_VENDORED_ROOT_FILES = frozenset({'AGENTS.md', 'CLAUDE.md'})
+_NOT_VENDORED_ROOT_PATHS = frozenset(pathlib.Path(n) for n in NOT_VENDORED_ROOT_FILES)
+
 
 def not_vendored_share(base=None):
     """-> (excluded_files, total_files, excluded_bytes) for the tree at `base`.
@@ -270,7 +311,8 @@ def not_vendored_share(base=None):
         if p.suffix in ('.pyc', '.pyo'):
             continue
         total += 1
-        if any(part in NOT_VENDORED for part in p.parts):
+        rel = p.relative_to(base)
+        if any(part in NOT_VENDORED for part in rel.parts) or rel in _NOT_VENDORED_ROOT_PATHS:
             excluded += 1
             try:
                 excluded_bytes += p.stat().st_size
@@ -292,6 +334,7 @@ def _files(base):
             if p.is_file() and '.git' not in p.parts
             and '__pycache__' not in p.parts
             and not any(part in NOT_VENDORED for part in p.parts)
+            and p.relative_to(base) not in _NOT_VENDORED_ROOT_PATHS
             and p.suffix not in ('.pyc', '.pyo')}
 
 
@@ -618,8 +661,10 @@ def _report_excluded_content():
     for p in UPSTREAM.rglob('*'):
         if not p.is_file() or '.git' in p.parts:
             continue
-        excluded = [part for part in p.relative_to(UPSTREAM).parts
-                   if part in NOT_VENDORED]
+        rel = p.relative_to(UPSTREAM)
+        excluded = [part for part in rel.parts if part in NOT_VENDORED]
+        if not excluded and rel in _NOT_VENDORED_ROOT_PATHS:
+            excluded = [str(rel)]
         if excluded:
             hits[excluded[0]] = hits.get(excluded[0], 0) + 1
     if not hits:
@@ -628,10 +673,10 @@ def _report_excluded_content():
     total = sum(hits.values())
     rm = ' '.join(f'process/upstream/{n}' for n in sorted(hits))
     print(f"checkin update: {total} stale file(s) under excluded path(s) still in "
-          f"the vendored tree: {names} (in NOT_VENDORED, so no longer compared or "
-          f"refreshed -- present because they were vendored before being excluded, "
-          f"or copied in by hand). Not removed automatically: confirm nothing there "
-          f"is still needed, then  git rm -r {rm}  and commit.")
+          f"the vendored tree: {names} (excluded from vendoring, so no longer "
+          f"compared or refreshed -- present because they were vendored before "
+          f"being excluded, or copied in by hand). Not removed automatically: "
+          f"confirm nothing there is still needed, then  git rm -r {rm}  and commit.")
 
 
 def update(clone, force=False, allow_pinned=False):
@@ -979,9 +1024,10 @@ def main():
             print(f"checkin not-vendored: nothing to measure under {base} -- "
                   f"no files found, so this figure is not zero, it is unknown")
             return 1
-        names = ', '.join(sorted(NOT_VENDORED)) or '(nothing excluded)'
+        names = ', '.join(sorted(NOT_VENDORED) + sorted(NOT_VENDORED_ROOT_FILES)) \
+            or '(nothing excluded)'
         print(f"tree measured:  {base}")
-        print(f"excluded dirs:  {names}")
+        print(f"excluded:       {names}")
         # Bytes, explicitly labelled: `du` reports DISK BLOCKS, and 557 small
         # files round up to roughly four times their real size at a 4K block.
         # A session quoting "2.4 MB" from `du` next to "557 files" from here
