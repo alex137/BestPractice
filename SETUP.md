@@ -43,12 +43,31 @@ loop; say so and follow §1 instead.
      Code, ChatGPT connected to GitHub, or something else? Explain in one
      sentence: an assistant with no access to a terminal needs GitHub's
      own automated checks for things one with terminal access does not.
-   - *Should the vendored GitHub Actions workflow be on or off?* Default
-     **disabled** unless they say otherwise — GitHub Actions minutes are
-     metered per private repository. If they want it on and answered "no"
-     to the third question, say plainly that it stays off until a source
-     declares `"ci_workflows": "enabled"` (`GITHUB_ACTIONS.md`), since
-     there is nowhere else this install can record the preference.
+   - *Should the vendored GitHub Actions workflow be on or off?* **Default
+     depends on the answer just above.** If the assistant has no terminal
+     access (ChatGPT, or anything else with no local shell), default
+     **enabled** — GitHub Actions is not a cost optimization for that
+     case, it is the only place any check can run at all, and defaulting
+     it off silently leaves that repo with zero enforcement regardless of
+     what a session recommends. Otherwise (Claude Code, Codex, Gemini
+     CLI — anything with its own bootstrap and hooks), default
+     **disabled** — GitHub Actions minutes are metered per private
+     repository, and local enforcement already covers it. Either way, say
+     the default out loud and let them override it. If they want it on
+     and answered "no" to the third question, say plainly that it stays
+     off until a source declares `"ci_workflows": "enabled"`
+     (`GITHUB_ACTIONS.md`), since there is nowhere else this install can
+     record the preference. **What "declares" means, concretely**: this is
+     a standing field in `identity.json` — the person's individual (or
+     team) source, never `precedent.json` — so activating it is either
+     something you do right now, if this session can reach that source,
+     or something the person has to get done in a session that can (Session
+     Text, if this one isn't it). Either way it is a standing preference
+     for every repo that resolves through that identity, not a
+     this-repo-only switch, and it takes effect for a given dependent repo
+     only the next time that repo installs, migrates, or takes an Update
+     Vendors pass — never retroactively, and never instantly across a
+     whole fleet at once.
 3. **Install without further questions.** Clone the public repo
    `https://github.com/alex137/BestPractice` beside the project (a sibling
    directory, not inside it) **on its `precedent-beta-v01` branch** — the

@@ -25,6 +25,20 @@ set -euo pipefail
 pip install --quiet cmarkgfm 2>/dev/null || \
   echo "WARN: pip install failed - doc_lint strikethrough check will be skipped" >&2
 
+# Set the commit author to whoever is actually running this session, not
+# a container's own bot identity -- practice `session-bootstrap`. Claude
+# Code gets this from its own SessionStart hook
+# (.claude/hooks/commit-identity.sh, wired in .claude/settings.json) before
+# this script would ever run, so this call is a harmless no-op there (the
+# script is idempotent -- "already right: no churn, no message"). Every
+# other harness has no such hook, so this is the only place it runs.
+# Depends on nothing Claude-Code-specific beyond how it's invoked: it reads
+# $CLAUDE_PROJECT_DIR, falling back to $PWD, and otherwise just needs git.
+if [ -f .claude/hooks/commit-identity.sh ]; then
+  bash .claude/hooks/commit-identity.sh || \
+    echo "WARN: commit-identity.sh failed - commits may be authored as whatever git is already configured with" >&2
+fi
+
 # Repair a single-branch clone's refspec before anything tries to fetch.
 # A repository attached mid-session (Claude Code's `add_repo`, and any
 # `git clone --single-branch`) is handed exactly one refspec --

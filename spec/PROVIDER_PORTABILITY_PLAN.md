@@ -123,32 +123,43 @@ land on `precedent-beta-v01` per [AGENTS.md](../AGENTS.md)'s standing rule.
 
 ### Phase 1 — CI as the backstop, not a new idea
 
-**Held off, 2026-09-16: this phase's own premise needed correcting before
-it could be started, and the area is under active, concurrent work.**
-Checking the actual state before touching anything found this repo already
-running [.github/workflows/deep-check.yml](../.github/workflows/deep-check.yml)
-and `leak-gate.yml` on every push and PR — `precedent_check.py`,
-`verify_harness.py` and `doc_sync.py` already bind every contributor to
-this repo regardless of tool, which is most of what this phase originally
-asked for. [tools/practice_audit.py](../tools/practice_audit.py) — this
-phase's original "done when" — turned out not to apply here at all: its
-own `--help` says it audits a *dependent* repo's vendored
-`process/upstream/` tree, and this repo vendors nothing. The real,
-still-open gap is in the templates a *dependent* repo installs
-([templates/github-actions/](../templates/github-actions/)) — a plain
-project repo gets `doc-lint.yml.template` (markdown lint only) by default,
-not the full `precedent-check.yml.template` suite that a practice-set
-repo gets. Separately, in the same session this plan is tracked in, another
-line of work landed a "CI-minutes plan" touching this exact area
-(commits `a1fd03f3`–`5bd5f06e`). Restarting Phase 1 without reading that
-work first would risk redoing or contradicting it. **Done when:** someone
-picks back up having read the CI-minutes work, and decides whether a
-dependent project repo should get the fuller check suite by default (or
-some cheaper equivalent) — not decided here.
+**Partially done, 2026-09-16, after correcting the original premise.**
+[tools/practice_audit.py](../tools/practice_audit.py) — this phase's
+original "done when" — turned out not to apply here: its own `--help`
+says it audits a *dependent* repo's vendored `process/upstream/` tree, and
+this repo vendors nothing. This repo's own contributor-facing enforcement
+was already covered: [.github/workflows/deep-check.yml](../.github/workflows/deep-check.yml)
+and `leak-gate.yml` already run `precedent_check.py`, `verify_harness.py`
+and `doc_sync.py` on every push and PR, regardless of tool.
 
-This phase still traces back to
+**What was actually found, reading the concurrent "CI-minutes plan"
+(commits `a1fd03f3`–`5bd5f06e`) before touching anything**: that work
+added a platform question to the guided install
+([spec/INSTALL_QUESTIONS.md](INSTALL_QUESTIONS.md)) — *which AI assistant
+will work in this repo* — with the stated reasoning that a
+shell-less assistant (ChatGPT via GitHub's connector) needs GitHub Actions
+as its *only* enforcement channel. But the very next row, `ci_workflows`,
+still said "default disabled, unless the person says otherwise" — flat,
+regardless of the answer just given. The platform question was being
+asked and explained, then ignored by the default it was supposed to
+inform. **Fixed**: [spec/INSTALL_QUESTIONS.md](INSTALL_QUESTIONS.md) and
+[SETUP.md](../SETUP.md) now make the `ci_workflows` default depend on the
+platform answer —
+enabled by default for a shell-less assistant, disabled by default for one
+with its own bootstrap and hooks (Claude Code, Codex, Gemini CLI, all of
+which Phase 2 gave this repo). This is a conversational-default fix, not a
+code change — the actual value still gets recorded by whoever conducts the
+install, same as before.
+
+**Still open**: a plain dependent project repo gets `doc-lint.yml.template`
+(markdown lint only) by default, never the full `precedent-check.yml.template`
+suite a practice-set repo gets, so a project repo's own practice compliance
+(not just its markdown) still goes unchecked in CI even when `ci_workflows`
+is on. Whether that gap is worth closing, and how, is not decided here —
+picking it up should start from the CI-minutes plan's own "Sequencing and
+status" section, not from scratch. This phase still traces back to
 [todo/todo-2026-09-06-actions-as-enforcement-layer.md](../todo/todo-2026-09-06-actions-as-enforcement-layer.md),
-whose core reasoning stands regardless of the correction above: a required
+whose core reasoning stands regardless of the corrections above: a required
 GitHub Actions check binds every path to the default branch — human,
 Claude Code, ChatGPT, Grok, a web-UI merge — regardless of whether the
 agent that made the change has a shell or a hook at all.
@@ -176,17 +187,24 @@ fixed, since it is a separate issue from portability.
 
 ### Phase 3 — port the freshness and identity hooks
 
-[templates/harness/README.md](../templates/harness/README.md)'s own porting
-recipe (its six-question section) is largely unexecuted for Codex and
-Gemini specifically — the freshness gate and `commit-identity.sh` "depend on
-nothing Claude Code specific beyond how it is invoked," per that same
-document, but nobody has written the Codex- or Gemini-side invocation yet.
-Do that: wire [.claude/hooks/commit-identity.sh](../.claude/hooks/commit-identity.sh)'s
-session-start half into Codex's setup script and Gemini's session-start
-directive, and the freshness guard the same way. **Done when:** a commit
-made under a Codex or Gemini CLI session in this repo is authored correctly
-without anyone having to remember, the same guarantee Claude Code already
-has.
+**Done, 2026-09-16.** The freshness half was already inside
+`templates/bootstrap.sh` (the fetch/fast-forward logic Phase 2 installed);
+what was missing was identity. `templates/bootstrap.sh` now calls
+[.claude/hooks/commit-identity.sh](../.claude/hooks/commit-identity.sh)
+directly when the file is present, guarded and non-fatal on failure —
+confirmed idempotent under Claude Code (a no-op there, since its own
+SessionStart hook already ran it first) and syntax-checked. `tools/bootstrap.sh`
+was re-copied from the template to carry the same change here.
+
+**This edits the shared template, not a copy scoped to this repo, and
+that is deliberate.** The concern raised when this phase was first
+written — that changing `templates/bootstrap.sh` widens every dependent
+repo's copy, not just this one's — turned out to be the wrong thing to
+worry about: propagating a template improvement to already-vendored repos
+is exactly what [vendor-update-runbook](../practices/vendor-update-runbook.md)
+exists for, one repo at a time, on that repo's own next update. It is not
+automatic and was never going to be from here; it needs no special
+handling beyond what "Update Vendors" already does.
 
 ### Phase 4 — de-vendor the session-text and archive-command practices
 
