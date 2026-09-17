@@ -62,6 +62,43 @@ it.
   you, in a new session, whether the variables arrived at all before you
   start chasing the token itself.
 
+## When the Container's Own Signing Collides With a Human-Only Policy
+
+Claude Code Remote signs every commit with a key tied to
+`noreply@anthropic.com`, **container-wide** (`commit.gpgsign=true` in
+`/root/.gitconfig`, set fresh on every container) — that's how GitHub shows
+a Claude-authored commit as Verified. **If the project, or your own
+practices, also require every commit to carry a real person's identity, the
+two collide on every single commit, forever**: the stop hook flags each one
+as Unverified and recommends switching to the bot identity, and a
+human-authorship guard immediately refuses that switch. Measured
+2026-09-17: this fired on three consecutive commits in one session before
+anyone traced why, on a repo whose own commit-identity backstop explicitly
+refuses `noreply@anthropic.com` as an author by design.
+
+**The fix has to survive a fresh container, so it belongs in whatever
+script already runs at session start and already sets up your commit
+identity** — not a one-off `git config` you'd have to repeat by hand every
+session:
+
+```sh
+git config commit.gpgsign false
+```
+
+Add that line beside wherever your identity hook already does
+`git config user.name` / `git config user.email` — for a repo running
+Precedent's own commit-identity backstop, that's the hook installing it
+(`commit-identity.sh`, or the session-start hook that calls it). It
+overrides the container-wide default **for that one checkout only**, so the
+stop hook's Unverified check (which only runs when `commit.gpgsign` reads
+`true`) never fires there again, and the human-authorship guard never has
+to refuse anything.
+
+**Only do this where you actually want human-only authorship.** In a
+repository where nobody minds a Claude-authored, GitHub-Verified commit,
+the container's default is doing exactly what it's for — leave it alone
+there.
+
 ## Keep the Checkout From Going Stale
 
 A session's container can start from cached state instead of a genuinely

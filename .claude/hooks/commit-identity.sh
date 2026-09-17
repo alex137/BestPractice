@@ -379,18 +379,32 @@ fi
 _set_global_identity() {
   [ "$declared" -eq 1 ] || return 0
   [ -n "$email" ] || return 0
-  local g_name g_email
+  local g_name g_email g_gpgsign
   g_name="$(git config --global --get user.name 2>/dev/null || true)"
   g_email="$(git config --global --get user.email 2>/dev/null || true)"
-  if [ "$g_email" = "$email" ] && [ "$g_name" = "$name" ]; then
+  g_gpgsign="$(git config --global --get commit.gpgsign 2>/dev/null || true)"
+  if [ "$g_email" = "$email" ] && [ "$g_name" = "$name" ] && [ "$g_gpgsign" != "true" ]; then
     return 0                      # already right: no churn, no message
   fi
   [ -n "$name" ] && git config --global user.name "$name" 2>/dev/null
   git config --global user.email "$email" 2>/dev/null
+  local gpgsign_note=""
+  if [ "$g_gpgsign" = "true" ]; then
+    # The container signs commits as its own bot identity by default, so
+    # GitHub can verify them -- deliberately, per THE PROBLEM above. Once a
+    # real person's identity is declared, their commits do not need that
+    # signature, and leaving it on means the stop hook keeps recommending
+    # the bot identity back, on every commit, which this same backstop then
+    # refuses -- forever, until one of them stops asking. Measured
+    # 2026-09-17: three commits in a row, in one session, before anyone
+    # traced why.
+    git config --global commit.gpgsign false 2>/dev/null
+    gpgsign_note=" Global commit signing (which asserted the container's own identity) is off now too, so it stops recommending that identity back."
+  fi
   if _is_bot "$g_email" "$g_name"; then
-    echo "NOTE: commit-identity: the GLOBAL git identity was the container's own agent account ($g_email). Set to '${name:-$email}' <$email>, so a repository attached or cloned LATER in this session inherits a person rather than the bot -- which is the gap a per-checkout fix cannot close." >&2
+    echo "NOTE: commit-identity: the GLOBAL git identity was the container's own agent account ($g_email). Set to '${name:-$email}' <$email>, so a repository attached or cloned LATER in this session inherits a person rather than the bot -- which is the gap a per-checkout fix cannot close.$gpgsign_note" >&2
   else
-    echo "NOTE: commit-identity: global git identity set to '${name:-$email}' <$email>, so repositories attached later in this session inherit it." >&2
+    echo "NOTE: commit-identity: global git identity set to '${name:-$email}' <$email>, so repositories attached later in this session inherit it.$gpgsign_note" >&2
   fi
 }
 _set_global_identity
