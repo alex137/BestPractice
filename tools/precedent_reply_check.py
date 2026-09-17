@@ -33,7 +33,17 @@ mistaken for a live declaration:
       "why": "<what goes wrong when the reply omits it>"
     }
 
-A source may declare one requirement (an object) or several (a list).
+A source may declare one requirement (an object) or several (a list). Add
+`"advisory": true` to a requirement and an unmet one is still detected and
+named (by `violations()`, to whoever reads `--explain` or calls this
+programmatically) but never enters the blocking set `main()` acts on --
+so it can never refuse a turn. That is the one way this file's mechanism
+stops being "enforcement, not a reminder" for a specific requirement,
+deliberately: a source declares `advisory` when it wants the SHAPE of a
+recommendation -- reviewed, stated one way or the other -- without the
+gate that gave next-steps-after-commit its teeth. (the-boildown's own
+compact-check and archive-line requirements are the first to use it,
+2026-09-17.)
 
 THAT SPLIT IS STILL THE POINT, AND ONE REQUIREMENT HAS SINCE CROSSED IT.
 `next-steps-after-commit` -- the closing `## Next Steps` heading and one of
@@ -245,7 +255,17 @@ def _norm(s):
 def violations(text, reqs, timeline=None):
     """-> list of records, one per unmet requirement:
 
-        {'kind': 'heading' | 'sentence', 'message': <human-readable>}
+        {'kind': 'heading' | 'sentence', 'message': <human-readable>,
+         'advisory': bool}
+
+    `advisory` mirrors the requirement's own `"advisory": true` declaration
+    (default false). main() still detects and names an unmet advisory
+    requirement -- a session should still hear about it -- but never lets
+    one refuse the turn: `advisory` marks a recommendation the person can
+    take or leave, not a shape the reply must have. (Morgan, 2026-09-17,
+    on the-boildown's own compact/archive lines specifically: give the
+    honest answer after actually reviewing which situation applies, "and
+    note these aren't binding, it's just recommendations.")
 
     The KIND is the reason this returns records rather than the plain strings
     it used to. A reply that is missing the HEADING has to write the whole
@@ -285,8 +305,9 @@ def violations(text, reqs, timeline=None):
         heading_present = None
         if pat:
             heading_present = any(re.search(pat, h, re.I) for h in headings)
+        advisory = bool(r.get('advisory'))
         if pat and not heading_present:
-            out.append({'kind': 'heading', 'message': (
+            out.append({'kind': 'heading', 'advisory': advisory, 'message': (
                 f"[{r.get('_source', '?')}] this reply has no MARKDOWN HEADING "
                 f"matching /{pat}/i. Bold text is not a heading -- the closing "
                 f"list has to be a real `## ` heading, or it is exactly as "
@@ -294,16 +315,17 @@ def violations(text, reqs, timeline=None):
                 + (f" (practice: {r['practice']})" if r.get('practice') else ''))})
         one_of = r.get('require_one_of') or []
         if one_of and not any(_norm(o) in _norm(text) for o in one_of):
-            out.append({'kind': 'sentence', 'message': (
+            out.append({'kind': 'sentence', 'advisory': advisory, 'message': (
                 f"[{r.get('_source', '?')}] this reply says none of: "
                 + '; '.join(f'"{o}"' for o in one_of)
-                + ". One of them has to be there, in those words -- an absent "
-                  "line and a 'nothing is outstanding' line look identical on "
-                  "the page and mean opposite things."
+                + ("." if advisory else
+                   ". One of them has to be there, in those words -- an absent "
+                   "line and a 'nothing is outstanding' line look identical on "
+                   "the page and mean opposite things.")
                 + (" Your reply ALREADY CARRIES the heading this belongs "
                    "under, so add the sentence as one more line there -- do "
                    "NOT write that section a second time."
-                   if heading_present else '')
+                   if heading_present and not advisory else '')
                 + (f" ({r['_context_note']})" if r.get('_context_note') else '')
                 + (f" (practice: {r['practice']})" if r.get('practice') else ''))})
     return out
@@ -336,6 +358,8 @@ def main():
                 bits.append("ONLY once the context has grown "
                             f"{int(r['require_when_context_grew_tokens']):,} "
                             "tokens since that was last said")
+            if r.get('advisory'):
+                bits.append("ADVISORY -- named when unmet, never blocks")
             print(f"  {r.get('_source')}: " + ', '.join(bits))
         return 0
 
@@ -368,7 +392,7 @@ def main():
     # this block?" about a tool-only turn.
     if not reqs or not text.strip():
         return 0
-    bad = violations(text, reqs, timeline)
+    bad = [b for b in violations(text, reqs, timeline) if not b.get('advisory')]
     if not bad:
         return 0
     # The reply that was just refused has ALREADY been shown to the person --

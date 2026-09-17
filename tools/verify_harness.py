@@ -8441,6 +8441,77 @@ def check_reply_gate_sees_every_source():
           '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad_cases))
 
 
+def check_advisory_requirement_never_blocks():
+    """`"advisory": true` on a reply_check.json requirement makes an unmet
+    one detectable (--explain, and violations() for any programmatic
+    caller) but never lets it refuse the turn -- unlike an ordinary
+    requirement in the same file, which still does.
+
+    Added 2026-09-17 alongside downgrading the-boildown's own archive and
+    compact sentences to advisory (Morgan, direct instruction: "note these
+    aren't binding, it's just recommendations"). practice:
+    control-asserts-which-failure -- the positive case alone proves
+    nothing; the negative control below is the same fixture with
+    `advisory` removed, which must go back to blocking.
+    """
+    import tempfile
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-advisory-'))
+    cases = []
+    try:
+        fx = tmp / 'repo'
+        (fx / 'practices').mkdir(parents=True)
+        (fx / 'precedent.json').write_text(json.dumps({'sources': [
+            {'level': 'universal', 'name': 'precedent', 'path': '.'}]}), encoding='utf-8')
+
+        def declare(advisory):
+            req = {'practice': 'fixture-advisory',
+                   'require_heading_matching': 'fixture heading',
+                   'require_one_of': ['fixture sentence one', 'fixture sentence two']}
+            if advisory:
+                req['advisory'] = True
+            (fx / 'reply_check.json').write_text(json.dumps(req), encoding='utf-8')
+
+        bad = tmp / 'bad.md'
+        bad.write_text('## Fixture Heading\n\nNeither fixed sentence is here.\n',
+                       encoding='utf-8')
+
+        def replycheck():
+            return subprocess.run(
+                [sys.executable, str(ROOT / 'tools' / 'precedent_reply_check.py'),
+                 '--repo', str(fx), '--text', str(bad)],
+                capture_output=True, text=True, cwd=str(tmp),
+                env={**os.environ, 'PRECEDENT_USER_CONFIG': str(tmp / 'no-such-config.json')})
+
+        def explain():
+            return subprocess.run(
+                [sys.executable, str(ROOT / 'tools' / 'precedent_reply_check.py'),
+                 '--repo', str(fx), '--explain'],
+                capture_output=True, text=True, cwd=str(tmp),
+                env={**os.environ, 'PRECEDENT_USER_CONFIG': str(tmp / 'no-such-config.json')})
+
+        declare(advisory=True)
+        r = replycheck()
+        cases.append(('an advisory requirement does not block a reply that '
+                      'misses its sentence', r.returncode == 0, f'exit {r.returncode}'))
+        e = explain()
+        cases.append(('--explain still names it, and marks it ADVISORY',
+                      'ADVISORY' in e.stdout, e.stdout[:200]))
+
+        # The negative control: same fixture, `advisory` removed -- must go
+        # back to blocking, or the positive case above proves nothing.
+        declare(advisory=False)
+        r2 = replycheck()
+        cases.append(('negative control: the same requirement without '
+                      '"advisory" blocks the same reply',
+                      r2.returncode == 2, f'exit {r2.returncode}'))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    failed = [n for n, ok, *_ in cases if not ok]
+    check(f'an advisory reply_check.json requirement is detected but never '
+          f'blocks ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
 def check_compaction_offer_fires_on_context_growth():
     """The size-aware half of the reply check: a long session is REFUSED a
     reply that never says whether this is a cheap point to compact.
@@ -22591,6 +22662,7 @@ def main():
     check_publisher_bound_checks_run_in_a_source_set()
     check_gate_channel()
     check_reply_gate_sees_every_source()
+    check_advisory_requirement_never_blocks()
     check_compaction_offer_fires_on_context_growth()
     check_close_detection_fires_only_when_all_conditions_hold()
     check_loader_block_advertises_only_live_channels()
