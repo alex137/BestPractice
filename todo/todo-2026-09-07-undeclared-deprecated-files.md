@@ -54,3 +54,14 @@ Not open until: that design call. The cheaper half is not blocked and is worth d
 ## Notes
 
 2026-09-16: migrated from TODO.md by tools/todo_migrate.py.
+
+2026-09-17: the cheaper half landed — [very-deep-check](../practices/very-deep-check.md)'s
+Pass 4 now carries a "Deprecated files nothing has decommissioned" item that
+reads every mechanism in force against whether anything still calls it, runs
+[tools/precedent_decommission.py](../tools/precedent_decommission.py) on what
+plainly does not, and asks the session's user wherever the verdict is
+unclear, rather than guessing (Morgan, strength: decided). **Still blocked
+on the design call above** — nothing here declares a deliberate pause with a
+stated condition for lifting it, so a mechanical scan of `.github/workflows/`
+for a paused schedule would still fire identically on a deliberate hold and
+an abandoned one; that half stays open.

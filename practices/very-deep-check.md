@@ -111,7 +111,22 @@ approved_by: "extended 2026-09-14, Morgan F -- after a session was refused by
   check only proves a row exists per change, by its own docstring's
   admission, and a live example where two recent rows promised a codex or
   gemini-cli user a hand-run workaround that neither adapter's own README
-  mentions anywhere"
+  mentions anywhere; extended again 2026-09-17, Morgan (strength: decided),
+  with a pass-4 item that inventories every cron, scheduled workflow and
+  session trigger across every repo and account in force, gives each a
+  verdict, disables or deletes what nobody needs, and writes the whole list
+  to a committed report -- \"To very deep check, we should also add: a check
+  of any crons or other automated actions - and delete or disable not needed
+  ones, and to make a list of all of them that goes into the very deep check
+  report\"; extended in the same turn, Morgan (strength: decided), with a
+  companion item closing the cheaper half of
+  [todo-2026-09-07-undeclared-deprecated-files](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/todo/todo-2026-09-07-undeclared-deprecated-files.md)
+  -- reading every mechanism in force against whether it is still the thing
+  that runs, deleting what plainly is not, writing into the same report, and
+  asking the session's user wherever a verdict is unclear -- \"And also the
+  same for any deprecated files - look for them, delete them, note it in the
+  big document made with the findings. And if there is any doubt or
+  questions, ask the session user\""
 ---
 ## Rule
 When a person explicitly asks for a "very deep check", or after work that
@@ -1012,6 +1027,51 @@ Last because none of it strands an adopter, and none of it is cheap.
   backlog — [todo-is-a-handoff](todo-is-a-handoff.md) queues only what is
   blocked or out of scope, so anything else there is either doable now or
   should be closed.
+- **Automated actions and schedules — crons, scheduled workflows, session
+  triggers — across every repo and account in force.** Nothing else here
+  sweeps these: a `schedule:` trigger in a `.github/workflows/*.yml`, an
+  OS-level cron, and a session Routine or trigger this harness itself can
+  create (its own trigger-listing tool enumerates them) all run in total
+  silence between the moment they are set up and the moment somebody happens
+  to look. None of it shows up in a diff the way a stale branch does — a
+  schedule keeps firing, or keeps *not* firing, and either way the file that
+  defines it goes on looking exactly as intentional as a live one. Enumerate
+  every one: what it runs, on what schedule, when it last actually fired,
+  and what changed when it did. Then give each a verdict — **needed**,
+  **disable**, or **delete**. Disabling is a real, worth-keeping state for a
+  workflow file (comment out the schedule, keep `workflow_dispatch` —
+  [decommission-deletes-files](decommission-deletes-files.md) already names
+  this as mid-decommissioning, not abandonment); it is not worth keeping for
+  a session trigger, where re-creating one costs nothing and a stale one
+  left enabled is a session that can wake unattended and act on
+  instructions nobody has re-read. **Where the verdict is unclear, name it
+  and ask the session's user rather than guessing** — a schedule paused on
+  purpose, with a stated reason to resume it, reads identically in the file
+  to one somebody forgot to finish decommissioning, and only a person who
+  remembers the reason can tell the two apart. Write the full inventory —
+  live and retired alike, with its verdict and the reason — to a committed
+  `record/automated-actions.md`, for the same reason the branch sweep
+  stopped living in the chat transcript: a list nobody can reopen gets
+  rediscovered from scratch next run rather than read.
+- **Deprecated files nothing has decommissioned.**
+  [todo-2026-09-07-undeclared-deprecated-files](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/todo/todo-2026-09-07-undeclared-deprecated-files.md)
+  named this gap and split it in two: a fully mechanical version was
+  designed and rejected, because it cannot tell a deliberate pause from an
+  abandoned one — the same ambiguity the bullet above now asks a person to
+  resolve file by file. What it left for this pass is the cheaper half:
+  read every mechanism in force — a tool, a workflow, a vendored tree, a
+  config — against whether anything still calls it, and where it plainly
+  does not, run
+  [tools/precedent_decommission.py](../tools/precedent_decommission.py) on
+  the path and act on a clean report exactly as
+  [decommission-deletes-files](decommission-deletes-files.md) already
+  requires for a deliberate decommissioning. **Where the audit is not
+  clean, or the file's status is genuinely unclear, name it and ask the
+  session's user** rather than deleting on a hunch or leaving it for the
+  next run to rediscover unchanged. Record every path this pass looked at,
+  and its verdict, in the same `record/automated-actions.md` the bullet
+  above writes, so a path already cleared as deliberate is not re-examined
+  from nothing next time.
 - **Branches, both directions, one verdict each.** The *inventory* was
   already read at step 4 of the order of operations, for a different
   reason — to stop this run rediscovering work that exists. What is left
