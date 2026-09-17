@@ -93,3 +93,5 @@ Full catalogue, one file per trap. AGENTS.md carries only a pointer to this file
 - **The symptom.** [story](gotcha-2026-09-15-a-spawned-session-s-seeded-prompt-cannot-pre-authorize-a-mer.md)
 
 - **A repo-scoped git identity gets proposed to fix a GitHub "Verified" badge mismatch — a different commit name/email for this repository than the person's own, applied locally so it doesn't leak into other repos — before anyone checks whether the repository actually needs one.** [story](gotcha-2026-09-16-a-repo-cannot-need-its-own-commit-identity-github-verified-commi.md)
+
+- **Writing `templates/harness/LEDGER.md`'s own row for the commit it belongs to, then running `git commit --amend --no-edit` to fold the row into that same commit (per the ledger's "in the same commit" rule), changes the commit's hash — which makes the row's own citation stale again. Amending a second time to fix the citation changes the hash a second time, and so on: the row is content inside the very object whose identity it names, so no amend can ever make it correct.** [story](gotcha-2026-09-17-a-ledger-row-citing-its-own-commit-cannot-converge-by-amen.md)
