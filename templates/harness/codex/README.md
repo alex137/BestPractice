@@ -18,3 +18,11 @@ Wiring the rest:
 - **Audits:** unchanged — `python3 process/upstream/tools/practice_audit.py`
   and `python3 process/upstream/tools/doc_lint.py` are plain Python and run
   identically here.
+- **Commit identity and signing:** Codex has no hook mechanism to run
+  `commit-identity.sh` automatically (see
+  [../LEDGER.md](../LEDGER.md) for the running list of what that costs).
+  Several of its effects are plain `git config`/OS settings that need no
+  hook at all, though — running the script once by hand still sets them for
+  this checkout. If your environment signs commits by default in a way that
+  collides with a human-only authorship policy, see
+  [CLOUD_SETUP.md](<upstream-docs>/documentation/CLOUD_SETUP.md#when-the-containers-own-signing-collides-with-a-human-only-policy).
