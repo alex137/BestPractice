@@ -8,7 +8,17 @@ adapter actually is. A change to the mechanism inside one presumptively
 transfers to the others; this table records, per change, the verdict for
 each member — *applied as `<what>`*, or *no transfer because `<reason>`* —
 so a headline-level "this one's harness-specific" call can't silently skip
-a mechanism that should have propagated. Origin incident:
+a mechanism that should have propagated.
+
+**[grok-build/](grok-build/) joined the family 2026-09-17 and isn't in the
+table below yet, deliberately** — its own README says the enforced side of
+this tracking (`tools/precedent_check.py`'s hardcoded member-directory
+list) needs its own change to add a fourth member, and wiring that in
+against an unverified hooks syntax would be a worse mistake than leaving
+the gap named. Every row below predates grok-build and carries no column
+for it.
+
+Origin incident:
 [parallel-artifact-ledger](../../practices/parallel-artifact-ledger.md)'s
 own `## Story`. Add a row here in the same commit as any change to a
 member's wiring, before this file existed retroactively for the one already
