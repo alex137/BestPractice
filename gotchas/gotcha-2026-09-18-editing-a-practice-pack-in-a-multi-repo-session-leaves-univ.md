@@ -1,9 +1,9 @@
 ---
 slug:            gotcha-2026-09-18-editing-a-practice-pack-in-a-multi-repo-session-leaves-univ
-status:          live
+status:          retired
 noted:           2026-09-18
 severity:        null
-retired:         null
+retired:         "2026-09-18"
 retires_when:    null
 ---
 ## Symptom
@@ -59,7 +59,17 @@ write that one untracked, gitignored file.
 
 ## Fix
 
-**From inside the specific pack you are editing**, whenever the session
+**Retired 2026-09-18.** `tools/precedent_resolve.py`'s `load_config()` now
+self-heals a stale or absent render on its own — `_self_heal_stale_render()`,
+added in commit `ef5838b1` (PR #452), built from the shape this entry's own
+brief, [`spec/SESSION_PRACTICES_RENDER_SELF_HEAL.md`](../spec/SESSION_PRACTICES_RENDER_SELF_HEAL.md),
+recommended. The manual commands below are no longer necessary once a repo
+has taken that engine refresh; kept here, unedited, for a repo that hasn't
+yet and for the story of how the gap was found. Whether a given pack has the
+fix: `grep _self_heal_stale_render tools/precedent_resolve.py` from its root.
+
+**The manual fix, still correct on an engine that predates the self-heal.
+From inside the specific pack you are editing**, whenever the session
 might be scoped to more than one repo (there is no reliable way to tell from
 inside a running session whether its own `SessionStart` hooks actually
 fired — `CLAUDE_PROJECT_DIR` being unset proves nothing either way, per the

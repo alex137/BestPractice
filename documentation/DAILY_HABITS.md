@@ -72,19 +72,22 @@ If the answer is written down somewhere, you'll get it with a link; if it
 isn't, you'll be told that, which is also an answer — usually it means
 something worth writing down never was.
 
-## 4. Say "Go Merge" When You're Ready
+## 4. Say "Go Update" When You're Ready
 
 Everything you do in a conversation is, until you say otherwise, **only
 in that conversation.** It hasn't been shared, and if you close the tab it
 may not survive.
 
-**"Go merge"** is how you end that. Say it and your assistant saves the
+**"Go update"** is how you end that. Say it and your assistant saves the
 work properly, publishes it where your colleagues can see it, and tells
 you where it went — no further questions, no checklist to confirm.
+("Go merge" means exactly the same thing, and still works — "update" is
+just the more honest word, since plenty of what it does isn't a merge at
+all, but a direct edit.)
 
 Say it when you're done with a piece of work and want other people to
 have it, or when you simply want it saved outside the conversation before
-you stop for the day. **When in doubt, say it** — merging something small
+you stop for the day. **When in doubt, say it** — updating something small
 costs nothing, and losing an afternoon's work because it was never saved
 costs an afternoon.
 
@@ -97,12 +100,12 @@ each one saves you a paragraph of explaining:
 <!--gen:vocabulary-->
 | Say this | And it will |
 |---|---|
-| **Approved** | The same as **Go merge**: save the work, publish it, and tell you where it went. |
+| **Approved** | The same as **Go update**: save the work, publish it, and tell you where it went. |
 | **Archive** | Archive the session meant -- this one, unless another is named -- right now. It's reversible if it wasn't meant. |
 | **Brainstorm** | Think it through with you and write nothing down — no files, no edits, nothing saved — until you say to. |
 | **Chief of Staff** | Stop and route this: tell you what every open session is blocked on and what is colliding, with a clickable link to each. |
-| **Go merge** | Save the work, publish it, and tell you where it went — without asking anything further. |
-| **Go update** | The same as **Go merge**: save the work, publish it, and tell you where it went. |
+| **Go merge** | The same as **Go update**: save the work, publish it, and tell you where it went. |
+| **Go update** | Save the work, publish it, and tell you where it went — without asking anything further. |
 | **My options** | Lay out the real choices in plainer words, the good and the bad of each, and tell you which one it recommends and why. |
 | **Park it** | Mark the open question as parked and drop the subject. It won't be raised again unless you raise it. |
 | **Plain words** | Drop the formal register and explain it the way somebody would say it out loud — same answer, plainer telling. |

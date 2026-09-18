@@ -26,10 +26,11 @@ A conversation is disposable; the project is what lasts, so anything that
 matters has to end up in it. Work happens on a private copy, is proposed as
 a pull request, and becomes real only when it is merged — which means
 several people and their assistants can work at once without overwriting
-each other. **"Go merge"** is the phrase that ends a piece of work: save it,
-publish it, say where it went, no further questions.
+each other. **"Go update"** is the phrase that ends a piece of work: save it,
+publish it, say where it went, no further questions ("Go merge" says the
+same thing).
 
-- Plain: [Nothing Is Real Until It's Merged](FOR_EVERYONE_ELSE.md#nothing-is-real-until-its-merged), [Say "Go Merge" When You're Ready](DAILY_HABITS.md#4-say-go-merge-when-youre-ready)
+- Plain: [Nothing Is Real Until It's Merged](FOR_EVERYONE_ELSE.md#nothing-is-real-until-its-merged), [Say "Go Update" When You're Ready](DAILY_HABITS.md#4-say-go-update-when-youre-ready)
 - Technical: [GIT.md — The Eight Ideas](../GIT.md#the-eight-ideas), [GitHub Becomes Your Memory](WHY_PRECEDENT.md#invisible-memory)
 
 ## 3. A Rule About Any Pattern Is a Practice

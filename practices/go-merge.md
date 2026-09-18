@@ -1,15 +1,15 @@
 ---
 slug:        go-merge
-title:       "\"Go merge\", \"Approved\", and \"Go update\" -- authorize sync, confirm branch, commit, push, PR, and merge (or a direct push, when it's trivial)"
+title:       "\"Go update\", \"Approved\", and \"Go merge\" -- authorize sync, confirm branch, commit, push, PR, and merge (or a direct push, when it's trivial)"
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
 occasion:    "a message carries the merge phrase, or plainly authorizes a merge"
 gates:       ["merge"]
-index_clause: "\"Go merge\"/\"Approved\"/\"Go update\": trivial -> push; else sync, branch, PR, merge"
+index_clause: "\"Go update\"/\"Approved\"/\"Go merge\": trivial -> push; else sync, branch, PR, merge"
 checked_by:  null
-defines:     ["Go merge", "Approved", "Go update"]
-command:     {"Go merge": "Save the work, publish it, and tell you where it went — without asking anything further.", "Approved": "The same as **Go merge**: save the work, publish it, and tell you where it went.", "Go update": "The same as **Go merge**: save the work, publish it, and tell you where it went."}
+defines:     ["Go update", "Approved", "Go merge"]
+command:     {"Go update": "Save the work, publish it, and tell you where it went — without asking anything further.", "Approved": "The same as **Go update**: save the work, publish it, and tell you where it went.", "Go merge": "The same as **Go update**: save the work, publish it, and tell you where it went."}
 status:      active
 in_force_at: null
 supersedes:  ["merge-authorization-keyword"]
@@ -27,11 +27,15 @@ approved_by: "Morgan, 2026-09-08 -- moved up from his individual set to
   extended 2026-09-16, Morgan, on Alex's intent-over-keyword point -- \"apply
   the same to the ones that are a serious decision such as Go Merge, Weak Yes,
   etc -- and just note that (if the exact phrase isn't used), then use your
-  judgment and ASK the person if you have doubt\""
+  judgment and ASK the person if you have doubt\"; reversed 2026-09-18, Morgan --
+  \"let's reverse it so that Go update is the primary one, that you recommend
+  and use\" and \"it's not about the merge because many times it's not a merge
+  but a direct edit,\" declining a rename again for the same reason as
+  2026-09-15"
 strength:    decided
 ---
 ## Rule
-If the message you are answering tells you to `Go merge` --
+If the message you are answering tells you to `Go update` --
 case-insensitive, **anywhere in the message**, as its own line, as a whole
 sentence, or as a clause inside a longer one -- treat it as authorization,
 right there, to: **sync your local branch with origin, say out loud which
@@ -56,7 +60,7 @@ you do not have to have announced that you are ready to commit first. Said
 before you have mentioned committing at all, it means get ready and go.
 
 **Classify the pending change before running that chain.** Two kinds of
-work answer to `Go merge`, and they are not treated the same:
+work answer to `Go update`, and they are not treated the same:
 
 - **Trivial** — wording, a typo, a dead link, formatting, or any other edit
   that does not change what a document requires or what code does, *and* it
@@ -88,13 +92,15 @@ chain, and the identical branch-naming step. There is no weaker reading of
 it: it is not "noted", it is not "go ahead and I will merge it later", and it
 does not become a question about whether he meant the command.
 
-**`Go update` means the same thing too, permanently, alongside `Go merge`
-rather than instead of it.** It exists for the reading where "merge"
-sounds like a promise the phrase might not keep -- a trivial fix goes
-straight to the branch with no merge in sight -- and "update" names what
-actually happens either way: the work is saved and published. Both
-phrases stay live; neither retires the other, and using one over the other
-carries no different meaning or weaker authorization.
+**`Go merge` means the same thing too, permanently, alongside `Go update`
+rather than instead of it.** `Go update` is the one to reach for first:
+"update" names what actually happens whether or not a merge ends up in the
+picture -- a trivial fix can go straight to the branch with no merge in
+sight at all -- where "merge" reads as a promise the phrase might not
+keep. `Go merge` stays exactly as good a way to say it, especially when a
+real merge is literally what is happening; neither phrase retires the
+other, and using one over the other still carries no different meaning or
+weaker authorization -- only which one gets said first changed.
 
 **None of the three phrases is required for the authorization to exist —
 they are the unambiguous case, not the only case.** A message can plainly
@@ -144,12 +150,13 @@ declaration's absence, not a failed relay, and the reply says which word and
 where.
 
 ## Detail
-"That was perfect. Go merge", "Go merge.", a lone line reading `GO MERGE`,
-"go merge it and tell me what broke", and "when the check passes, go merge"
-all count. What does not is the words being used about something else --
-"let's go merge those two lists", "go check the logs, then merge the
-report" -- where `merge` has its own object and is plainly not an
-instruction about the work in front of you.
+"That was perfect. Go update", "Go update.", a lone line reading
+`GO UPDATE`, "go update it and tell me what broke", and "when the check
+passes, go update" all count. What does not is the word being used about
+something else -- "go update the branch, then look at the diff", "can you
+update TODO.md first", "go update your local clone before you start" --
+where `update` has its own object and is plainly not an instruction about
+the work in front of you.
 
 **`Approved` has the same shape and one more way to be about something
 else, because it is an ordinary adjective as well as a verb.** "Approved.",
@@ -163,15 +170,14 @@ merge it.** A message that says `approved` about work you have not yet shown
 him, where nothing is pending, is the one case worth a question -- and the
 question is *which* work, never whether the word meant what it said.
 
-**`Go update` collides with ordinary language in the same way, because
-"update" names a routine action all over this repository -- a branch, a
-dependency, a document, a stale clone.** "Go update the branch, then look at
-the diff", "can you update TODO.md first", "go update your local clone
-before you start" are not the command -- there `update` has an object of its
-own, exactly like `merge` above. "Go update it", "go update, no PR needed
-for this one", and a lone line reading `GO UPDATE` do count. Same test:
-if you can tell what would be merged and the word is being said about it,
-merge it.
+**`Go merge` collides with ordinary language the same way, because
+"merge" names a routine action of its own elsewhere -- two lists, two
+branches, two reports.** "let's go merge those two lists", "go check the
+logs, then merge the report" are not the command -- there `merge` has an
+object of its own, exactly like `update` above. "Go merge it", "go merge,
+no PR needed for this one", and a lone line reading `GO MERGE` do count.
+Same test: if you can tell what would be updated and the word is being
+said about it, do it.
 
 **"Blocked" means a call came back refused, not that you expect one to.**
 `Go merge` is not an invitation to go looking for reasons the merge might
@@ -347,6 +353,18 @@ judgment and ASK the person if you have doubt."* This is why the confirm
 step above holds only the shared-branch steps, and only when the reading is
 genuinely in doubt -- not a general license to question a clear yes, which
 is the interruption this practice has always existed to remove.
+
+**Reversed 2026-09-18, on Morgan's decision, to make `Go update` the
+phrase the assistant leads with, recommends, and reaches for first --
+`Go merge` stays exactly as valid, just second.** He named the seam his
+own 2026-09-15 words had already found: *"it's not about the merge because
+many times it's not a merge but a direct edit."* Asked directly for the
+ordering to flip, not for a rename -- a rename was declined again, for the
+same reason it was declined on 2026-09-15, propagation to every source
+that vendors this file for a problem that was never about the name. Both
+phrases keep meaning exactly the same thing, with the identical
+authorization and the identical chain; only which one comes first, in the
+frontmatter and in the assistant's own mouth, changed.
 
 ## Install
 No mechanical check, and not for lack of trying: this governs how a chat

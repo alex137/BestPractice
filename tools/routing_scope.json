@@ -1008,6 +1008,20 @@
       "why": "Fires on the relationship between a thing and its variant.",
       "decided": "phase 4 routing pass"
     },
+    "vendor-rollout-disclosed": {
+      "globs": [
+        "practices/*.md",
+        "templates/**",
+        ".claude/hooks/*.sh"
+      ],
+      "why": "A real locus for most of what it governs -- a practice file, a template, a hook script -- but not all of it: the engine files this also covers are named individually in tools/precedent_vendor_engine.py's ENGINE_FILES/CONSUMER_ENGINE_FILES lists rather than matched by a path glob, since that set is a curated allowlist, not every *.py file under tools/. Reached for those by the gates below instead.",
+      "decided": "2026-09-18, when the practice landed",
+      "gates": [
+        "merge",
+        "push"
+      ],
+      "gates_why": "The disclosure has to land before the shared-branch step, not after -- both moments a change could reach a consumer without it."
+    },
     "vendor-update-runbook": {
       "globs": [
         "**"

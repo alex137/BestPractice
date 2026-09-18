@@ -44,7 +44,7 @@ check, the fleet sweep — are the deliberate exception, kept to the literal
 ask because what they trigger is too expensive to run on a guess; each
 names why in its own file.
 
-- **"Go merge"**, **"Approved"**, and **"Go update"** ([go-merge](practices/go-merge.md)) —
+- **"Go update"**, **"Approved"**, and **"Go merge"** ([go-merge](practices/go-merge.md)) —
   classify first: **trivial** (wording, a typo, a dead link — content this
   repo already allows a direct edit to) commits and pushes straight to the
   branch, no PR; **substantial** (anything that changes what a document
@@ -52,12 +52,15 @@ names why in its own file.
   pushes, opens the pull request, and merges — **without asking again.**
   Unsure which it is? Substantial. A step this session cannot perform hands
   off rather than coming back as a question: the authorization travels with
-  the work. One rule, three triggers — `Approved` is also an ordinary
-  adjective, so *"the approved plan of record"* is not the command, and
-  `Go update` is not the command when "update" has its own object, as in
-  *"go update the branch, then look at the diff."* **None of the three is
-  required for the authorization to exist** — "sold, ship it" reads as this
-  command as plainly as the phrase does. What the phrase buys is certainty:
+  the work. One rule, three triggers, and `Go update` is the one to lead
+  with — it names what actually happens whether or not a merge is literally
+  in the picture — with `Go merge` exactly as valid, just second.
+  `Approved` is also an ordinary adjective, so *"the approved plan of
+  record"* is not the command, and `Go merge` is not the command when
+  "merge" has its own object, as in *"let's go merge those two lists."*
+  **None of the three is required for the authorization to exist** —
+  "sold, ship it" reads as this command as plainly as the phrase does.
+  What the phrase buys is certainty:
   say one of them and the chain runs, full stop. Where it's absent and the
   sentence could honestly go either way, say the read out loud and get it
   confirmed before the push, the pull request, or the merge — commit locally
@@ -220,7 +223,7 @@ plan's premise.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block; `python3 tools/build_views.py --check` exits non-zero on drift. Source: practices/ -- edit the practice file, never this block. -->
 
-## Resident block (~1180 of 2000 token budget, 11 of 127 practices (11 universal))
+## Resident block (~1180 of 2000 token budget, 11 of 128 practices (11 universal))
 
 **answer-first-ask-before-long-work.** Three parts. **(1) Answer the easy questions in a message before starting
 anything long.** A conceptual question is answered from what is already
@@ -322,7 +325,7 @@ When a computation books a transfer between two parties:
 When a document replaces or is replaced by an earlier one:
   index-remembers-past — put the lineage in the index, not in either document
 When a message carries the merge phrase, or plainly authorizes a merge:
-  go-merge — "Go merge"/"Approved"/"Go update": trivial -> push; else sync, branch, PR, merge
+  go-merge — "Go update"/"Approved"/"Go merge": trivial -> push; else sync, branch, PR, merge
 When a message says "Archive" standing alone, about a session:
   archive-command — "Archive" alone means archive the session meant (default: this one) now
 When a message says "Update Vendors", or an upstream update is being taken into a repo that vendors a practice layer:
