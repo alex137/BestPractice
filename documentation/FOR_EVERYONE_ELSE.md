@@ -48,8 +48,9 @@ Three things follow from this that are worth knowing:
   see [What you can't do (on purpose)](#what-you-cant-do-on-purpose)
   below, which is a deliberate wall, not a comment on you. **When the yes
   is yours**, and you want the assistant to stop asking every time, say
-  **"Go merge"** — a standing phrase this project understands to mean *do all of
-  it, including the merge, without checking back.*
+  **"Go update"** — a standing phrase this project understands to mean *do
+  all of it, including the merge, without checking back.* ("Go merge"
+  means the same thing.)
 
 There are a few more of those standing phrases — **"Park it"**, **"Plain
 words"**, **"Three Things"** — and [How to Use This Day to
