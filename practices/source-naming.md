@@ -6,7 +6,7 @@ severity:    default
 applies_to:  ["precedent.json", "precedent-source.json"]
 occasion:    "importing, creating, or declaring a repository that holds practices"
 gates:       []
-index_clause: "identity lives in the source's manifest; the name is chosen once, the repository is called anything"
+index_clause: "identity lives in the manifest; name chosen once, repo called anything"
 checked_by:  "tools/precedent_check.py"
 defines:     ["practice-set source", "source manifest"]
 status:      active

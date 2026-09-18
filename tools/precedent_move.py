@@ -202,6 +202,8 @@ def _regenerate(set_root):
 
 def move(slug, from_level, from_path, to_level, to_path, approved_by,
          strength=None, story=None, dry_run=False, dedupe_only=False, say=print):
+    from_level = LEVEL_ALIASES.get(from_level, from_level)
+    to_level = LEVEL_ALIASES.get(to_level, to_level)
     if from_level not in LEVELS or to_level not in LEVELS:
         raise MoveRefused(f'levels are one of {LEVELS}')
     if from_level == 'universal':
