@@ -49,6 +49,18 @@ KIND_LABELS = {
 }
 KIND_ORDER = ['analysis', 'verify', 'manual', 'decision']
 
+# spec/OPEN_ITEM_AND_GOTCHA_PLAN.md's own frontmatter table: status is
+# open | done | dropped, nothing else. An item outside this set (`closed`
+# is the one that has actually shipped -- valid elsewhere in this repo's
+# OTHER status vocabulary, tools/doc_lifecycle.py's briefs and records,
+# which makes it an easy value to reach for by mistake) does not raise
+# here on its own; it silently fails BOTH `status == 'open'` and
+# `status in ('done', 'dropped')` below and vanishes from both generated
+# files with no error. Found 2026-09-18 already live on two items in this
+# repo. Caught here, at read time, so a bad status fails loud instead of
+# just going missing from the reader's view.
+LEGAL_STATUS = ('open', 'done', 'dropped')
+
 
 class TodoItem:
     def __init__(self, path, fields):
@@ -103,7 +115,18 @@ def read_todo_item(path):
         if not m:
             continue
         fields[m.group(1)] = _unquote(m.group(2))
-    return TodoItem(path, fields)
+    item = TodoItem(path, fields)
+    status = item.get('status', 'open')
+    if status not in LEGAL_STATUS:
+        sys.exit(f'build_todo_index FAIL: {path} has status: {status!r}, '
+                  f'not one of {", ".join(LEGAL_STATUS)} -- it would '
+                  f'silently vanish from both TODO.md and CLOSED.md rather '
+                  f'than fail loud. Fix the frontmatter (an item is `open` '
+                  f'until finished, then `done` or `dropped`, never '
+                  f'`closed` -- that value belongs to this repo\'s other '
+                  f'status vocabulary, tools/doc_lifecycle.py\'s briefs and '
+                  f'records, not to a todo item).')
+    return item
 
 
 def load_items(todo_dir):

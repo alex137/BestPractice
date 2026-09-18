@@ -3,16 +3,16 @@ slug:              todo-2026-09-07-practice-consistency-across-team-repos
 kind:              analysis
 domain:            null
 severity:          null
-status:            open
+status:            done
 disposition:       wait
 remind_on:         null
-blocked_on:        "nothing about access, as of 2026-09-12 — what remains is building the thing the four bullets above describe. A session rooted at this repository now holds it, all three team sets and the individual set at once: the SessionStart hook's credential route ([PER_MACHINE_SETUP.md](../documentation/PER_MACHINE_SETUP.md)) c"
+blocked_on:        null
 batch:             null
 decision:          null
 decision_strength: null
 waiting_on:        null
 noted:             2026-09-07
-closed:            null
+closed:            2026-09-18
 ---
 ## What
 
@@ -184,3 +184,47 @@ Not open until: nothing about access, as of 2026-09-12 — what remains is build
 ## Notes
 
 2026-09-16: migrated from TODO.md by tools/todo_migrate.py.
+
+2026-09-18: closing — the narrower fix this item's own "conclusion offered"
+already landed, before the migration above, and nobody came back to mark
+it. `bbd41431` (Morgan, 2026-09-12 17:57 -03) added `binds_publishers=True`
+to `precedent_check.py`'s `check()` registration: a check carrying it runs
+in any repo that publishes a `practices/` tree, whether or not that
+practice's own text is vendored in there — exactly "a check ... declare
+that it binds any repository publishing a `practices/` tree, rather than
+depending on the practice text being locally present." `2b4810da`
+(2026-09-13) documented the check-ran/in-force distinction this created.
+That commit's own message cites this item by slug and picks its second
+option by name over the other two this item's evidence weighed.
+
+Verified before closing, not just read: all three checks this item's
+evidence names as incidents —
+[catalogue-carries-stories](../practices/catalogue-carries-stories.md),
+[practice-links-travel](../practices/practice-links-travel.md), and
+[generated-artifact-provenance](../practices/generated-artifact-provenance.md) — carry `binds_publishers=True` in
+[tools/precedent_check.py](../tools/precedent_check.py). The counter-example
+this item most needs held onto — **same slug active in two sources is not
+sufficient evidence of redundancy** — is exactly what the fix respects
+rather than breaks: it does not touch the re-declared copy at all, it
+makes the copy unnecessary by letting the universal check reach the
+publisher directly, and the flag is deliberately not applied to every
+skipping check, only the three whose subject is the published tree itself
+(the module's own `check()` docstring says so explicitly: "Set it only
+where the check's subject really is the published practice tree").
+`tools/verify_harness.py`'s `check_publisher_bound_checks_run_in_a_source_set`
+proves both directions against a real fixture — a publisher with the flag
+fires on a planted violation and names where its Rule lives since it can't
+print the local file, a consumer still skips the same planted violation
+and says why — asserting the printed message, not just an exit code
+(practice: control-asserts-which-failure), and it passed in this session's
+own full harness run before this item closed. The one re-declared copy
+this item's evidence tracked (`catalogue-carries-stories` in
+`precedent-team-repo-maintenance`) was retired 2026-09-13 once the flag
+reached it, per the check's own registration comment.
+
+Not built: the broader reconcile/promote tool the four bullets above also
+describe (cross-source drift detection, a per-pair ledger, promotion
+scoring). Morgan's message closing this item offered a choice between that
+tool and this narrower fix; the narrower fix was already in and verified,
+so building the larger tool on top of an already-solved problem would
+have been solving it twice.
