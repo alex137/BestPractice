@@ -126,7 +126,14 @@ approved_by: "extended 2026-09-14, Morgan F -- after a session was refused by
   asking the session's user wherever a verdict is unclear -- \"And also the
   same for any deprecated files - look for them, delete them, note it in the
   big document made with the findings. And if there is any doubt or
-  questions, ask the session user\""
+  questions, ask the session user\"; extended 2026-09-18, Morgan
+  (strength: decided), so pass 2's item 17 names `grok-build/` as a fourth
+  harness-adapter directory and drops the stale present-tense count that
+  still read three -- \"Fix the stale count in item #17 now, and add in
+  the grok, please\", after a session answering a question about this
+  check found `templates/harness/grok-build/` already on disk, researched
+  and dated 2026-09-17, un-named by either the item's own prose or
+  `templates/harness/LEDGER.md`'s family line"
 ---
 ## Rule
 When a person explicitly asks for a "very deep check", or after work that
@@ -705,11 +712,20 @@ confidently.
     the ledger row's own prose, reachable by nobody who starts from the
     adapter they actually use. Every family member with an adapter
     directory gets read this way, present tense: today that is
-    `claude-code/`, `codex/`, and `gemini-cli/`, and a fourth member joins
-    this same read the day it gets a directory of its own -- there is
-    nothing to check for one that does not exist yet, which is a
-    finding this pass should say plainly rather than passing over in
-    silence. *(Found, 2026-09-17: `templates/harness/LEDGER.md`'s `ffcae058`
+    `claude-code/`, `codex/`, `gemini-cli/`, and `grok-build/`. The last of
+    these deliberately carries no ledger rows to check yet --
+    [templates/harness/grok-build/README.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/templates/harness/grok-build/README.md)
+    says outright that it is not wired into `LEDGER.md`'s enforced
+    tracking, because the hooks syntax it would need to confirm is
+    unverified against xAI's docs, and extending enforcement on a guess
+    would be worse than leaving the gap named -- so its read is narrower
+    than the other three: confirm that disclaimer is still true (the
+    directory still isn't in `LEDGER.md`'s family line, the unverified
+    claims are still unverified) rather than comparing rows that don't
+    exist. A fifth member joins the full read the day it gets a directory
+    of its own -- there is nothing to check for one that does not exist
+    yet, which is a finding this pass should say plainly rather than
+    passing over in silence. *(Found, 2026-09-17: `templates/harness/LEDGER.md`'s `ffcae058`
     row, and two rows above it for the same file, each say a codex or
     gemini-cli user could get the fix by running `commit-identity.sh` once
     by hand -- `commit.gpgsign false`, the global commit identity, the
