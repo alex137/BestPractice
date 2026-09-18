@@ -68,7 +68,7 @@ Run:
 Exit: 0 on a resolved set, 1 on a conflict, a malformed source, or --strict
 with a source missing.
 """
-import json, os, pathlib, posixpath, re, subprocess, sys
+import json, os, pathlib, posixpath, re, subprocess, sys, time
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'tools'))
@@ -164,6 +164,76 @@ def _self_heal_universal_source(repo_root):
         subprocess.run([sys.executable, str(tool), '--sources-from',
                         str(repo_root)], cwd=str(repo_root),
                        capture_output=True, timeout=60)
+    except (OSError, subprocess.TimeoutExpired):
+        pass
+    return 'attempted'
+
+
+def _stale_render_hours(repo_root):
+    """-> the age, in hours, past which .precedent/SESSION_PRACTICES.md
+    counts as stale rather than merely old -- read from THIS repo's own
+    `stale_checkout_hours` (precedent.json), or the engine default (24)
+    when the key is absent or malformed.
+
+    Mirrors .claude/hooks/freshness-guard.sh's `_stale_hours` exactly, in
+    Python: same key, same fallback. A threshold nobody decided is doctrine
+    (practice: constants-are-risk-inputs), so this borrows the declared one
+    rather than compiling a second number in -- but it is answering a
+    DIFFERENT question than that key was declared for (how old is the
+    RENDER, not how old is the checkout), and
+    spec/SESSION_PRACTICES_RENDER_SELF_HEAL.md says so plainly: this is a
+    starting number for that judgment call, not a proof it is the right
+    one. Never raises: an unreadable or absent precedent.json is the
+    ordinary case for a repo with no declared threshold, not a failure."""
+    try:
+        cfg = json.loads((repo_root / 'precedent.json').read_text(encoding='utf-8'))
+    except (OSError, json.JSONDecodeError):
+        return 24
+    hours = cfg.get('stale_checkout_hours')
+    return hours if isinstance(hours, int) and hours > 0 else 24
+
+
+def _self_heal_stale_render(repo_root):
+    """practice: session-bootstrap -- the other half of the render gap
+    _self_heal_universal_source above does not close. That function fires
+    only when a declared universal source's CLONE is entirely missing, and
+    even then it only clones -- it never re-renders
+    .precedent/SESSION_PRACTICES.md, the file precedent_session_practices.py
+    writes and that AGENTS.md tells every session to read. The 2026-09-18
+    incident this closes had every clone present the whole session; the
+    render was simply a day stale, so `entry_path / 'practices'` was always
+    True and the clone-heal never fired -- see
+    spec/SESSION_PRACTICES_RENDER_SELF_HEAL.md (Shape C, the shape this
+    implements) for the fuller account.
+
+    Fires when the rendered file is ABSENT or older than
+    _stale_render_hours() above. Judged from the file's mtime ON DISK,
+    never from session state: there is no reliable in-session signal for
+    whether SessionStart actually ran (CLAUDE_PROJECT_DIR being unset
+    proves nothing either way, per tools/precedent_session_check.py's own
+    docstring).
+
+    Deliberately narrow, same shape as _self_heal_universal_source above:
+    only fires when the repo actually ships
+    tools/precedent_session_practices.py (a source set whose engine
+    predates this addition simply doesn't get it, rather than failing).
+    Never raises: a failed render here is reported by whatever ordinary
+    path the caller already has for a missing or stale
+    SESSION_PRACTICES.md, not a new failure mode."""
+    tool = repo_root / 'tools' / 'precedent_session_practices.py'
+    if not tool.is_file():
+        return 'no-tool'
+    target = repo_root / '.precedent' / 'SESSION_PRACTICES.md'
+    if target.is_file():
+        try:
+            age_hours = (time.time() - target.stat().st_mtime) / 3600
+        except OSError:
+            age_hours = None
+        if age_hours is not None and age_hours < _stale_render_hours(repo_root):
+            return 'fresh'
+    try:
+        subprocess.run([sys.executable, str(tool), '--repo', str(repo_root)],
+                       cwd=str(repo_root), capture_output=True, timeout=60)
     except (OSError, subprocess.TimeoutExpired):
         pass
     return 'attempted'
@@ -528,6 +598,14 @@ def load_config(repo, user_config=None):
                                str(user_cfg_path))
         sources.append(entry)
     sources.sort(key=lambda s: _precedence_rank(s['level']))
+    # practice: session-bootstrap -- every load_config() caller (_check,
+    # _paths, _show, _gate) is a chance to notice the rendered catalogue is
+    # stale, not just a missing clone (_self_heal_universal_source above
+    # only ever catches the latter). Only when this repo actually declares
+    # something to render for: a bare load_config() call against a repo
+    # with no sources has nothing SESSION_PRACTICES.md would carry.
+    if sources:
+        _self_heal_stale_render(repo_root)
     return sources
 
 
