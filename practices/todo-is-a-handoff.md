@@ -3,7 +3,7 @@ slug:        todo-is-a-handoff
 title:       A TODO is a handoff, not a parking lot
 tier:        on-demand
 severity:    default
-applies_to:  ["TODO.md"]
+applies_to:  ["TODO.md", "todo/todo-*.md"]
 occasion:    "writing or triaging an open item"
 gates:       ["merge"]
 index_clause: "queue only for a stated blocked-on/out-of-scope reason — otherwise just do it"
@@ -35,6 +35,11 @@ The reason is written into the item itself:
 "Would enlarge this turn" is not a reason; it is the moment the context is
 cheapest. A sweep that finds an open item with neither reason either does it
 in the sweeping session or closes it as not worth doing.
+
+**In the per-item `todo/todo-<date>-<slug>.md` format**
+([spec/OPEN_ITEM_AND_GOTCHA_PLAN.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/OPEN_ITEM_AND_GOTCHA_PLAN.md)
+Part 1), the same two reasons are the `blocked_on` frontmatter field's
+content, not prose. Widened here, 2026-09-18, alongside `applies_to`.
 
 ## Why
 A queued item sheds context every day it waits. The session that

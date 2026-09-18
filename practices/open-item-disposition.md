@@ -3,7 +3,7 @@ slug:        open-item-disposition
 title:       An open item carries a disposition, and silence is the default
 tier:        on-demand
 severity:    default
-applies_to:  ["**/TODO.md", "templates/TODO.md.template"]
+applies_to:  ["**/TODO.md", "templates/TODO.md.template", "**/todo/todo-*.md"]
 occasion:    "writing or triaging an open item, or deciding whether to raise one in a reply"
 gates:       ["reply"]
 index_clause: "an item is raised in chat only if it says `ask`; absent means stay quiet"
@@ -45,6 +45,15 @@ owner's call, never a session's — including "this seems important now."
 An `ask` item is a standing invitation, not a queue to drain. It is raised
 when it blocks the work in the thread, in the words the item already
 carries.
+
+**In the per-item `todo/todo-<date>-<slug>.md` format**
+([spec/OPEN_ITEM_AND_GOTCHA_PLAN.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/OPEN_ITEM_AND_GOTCHA_PLAN.md)
+Part 1), the same rule holds but the mechanism is a frontmatter field, not
+a prose line: `disposition: parked` / `wait` / `ask`, not a
+`**Disposition:**` sentence inside the body. Widened here, 2026-09-18, once
+`applies_to` covered `todo/todo-*.md` too — before that, a repo running the
+per-item format had no channel telling it this rule still applied to its
+items at all.
 
 ## Why
 Capture and salience were travelling on one channel. A repository that

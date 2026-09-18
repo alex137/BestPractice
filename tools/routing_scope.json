@@ -628,9 +628,10 @@
     "open-item-disposition": {
       "globs": [
         "**/TODO.md",
-        "templates/TODO.md.template"
+        "templates/TODO.md.template",
+        "**/todo/todo-*.md"
       ],
-      "why": "The item's disposition is written in the TODO file itself, and the template teaches the convention to every dependent repo. Nowhere else can carry one.",
+      "why": "The item's disposition is written in the TODO file itself, and the template teaches the convention to every dependent repo. Nowhere else can carry one. Widened 2026-09-18 to the per-item todo/ format's own files, once a repo has migrated to it -- same rule, a frontmatter field there instead of a prose line.",
       "decided": "2026-09-08, when the practice landed",
       "gates": [
         "reply"
@@ -976,9 +977,10 @@
     },
     "todo-is-a-handoff": {
       "globs": [
-        "TODO.md"
+        "TODO.md",
+        "todo/todo-*.md"
       ],
-      "why": "The distinguishing condition is writing or triaging an entry in the TODO file itself \u2014 the only place the practice's rule is ever violated.",
+      "why": "The distinguishing condition is writing or triaging an entry in the TODO file itself \u2014 the only place the practice's rule is ever violated. Widened 2026-09-18 to the per-item todo/ format's own files, once a repo has migrated to it.",
       "decided": "post-phase-4, converting Alex's practice 53",
       "gates": [
         "merge"
