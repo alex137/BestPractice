@@ -20,10 +20,14 @@ strength:    decided
 source_practice_number: null
 ---
 ## Rule
-When the person says **"Vocabulary"**, list the standing commands in force
-here -- each phrase, and one plain sentence saying what it does -- and
-nothing else. No preamble, no closing offer, and no advice about which to
-use.
+When the person says **"Vocabulary"**, begin the answer with one line making
+clear that these are not exact-keyword triggers: a session recognizes the
+phrase, but it also reads plain language for the same intent and triggers on
+that, the way [go-merge](go-merge.md) itself is read (*"sold, ship it"* counts
+as much as the phrase does). Then list the standing commands in force here --
+each phrase, and one plain sentence saying what it does -- and nothing else
+beyond that opening line. No further preamble, no closing offer, and no
+advice about which to use.
 
 **Read the list, never recall it.** Run
 `python3 tools/precedent_vocabulary.py`, which collects every practice
