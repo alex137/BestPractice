@@ -360,6 +360,23 @@ def main():
         except ImportError:
             pass
 
+        # Whether anyone other than Morgan has pushed to precedent-beta-v01
+        # since he was last told -- silent except on a real alert, which is
+        # the whole point: the always-printed status line lives in
+        # .claude/hooks/session-start.sh's own call to the same module,
+        # once per session, not here on every single reply. This module is
+        # repo-local to alex137/BestPractice (its own two-branch carry
+        # model), not a vendored engine file, so a consuming repo's copy of
+        # this gate script simply has no sibling to import and stays quiet.
+        try:
+            sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+            import precedent_beta_watermark_check as pbw
+            alert = pbw.remind(root)
+            if alert:
+                print(f"{alert}\n")
+        except ImportError:
+            pass
+
     # EVERY gate, not one of them: a session whose SessionStart hooks never
     # ran is working under rules it cannot see, with an identity it did not
     # choose, and nothing in its own output says so.
