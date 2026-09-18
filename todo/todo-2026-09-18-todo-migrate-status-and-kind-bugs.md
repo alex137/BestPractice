@@ -3,7 +3,7 @@ slug:              todo-2026-09-18-todo-migrate-status-and-kind-bugs
 kind:              analysis
 domain:            mechanism
 severity:          notable
-status:            open
+status:            done
 disposition:       wait
 remind_on:         null
 blocked_on:        null
@@ -12,17 +12,16 @@ decision:          null
 decision_strength: null
 waiting_on:        null
 noted:             2026-09-18
-closed:            null
+closed:            2026-09-18
 ---
 ## What
 
 - <a id="todo-migrate-status-and-kind-bugs"></a>**[tools/todo_migrate.py](../tools/todo_migrate.py) writes a `status` value `build_todo_index.py` doesn't
   recognize, and silently drops the classic format's kind signal.** A
-  session working in a real four-source Precedent consumer
-  (`themorgan/GetEmailsFromGmail`) ran `todo_migrate.py` for real against
-  that repo's 32-item `docs/TODO.md` and reported two bugs. This item
-  verifies both against this repo's own code and history, not just the
-  report.
+  session working in a real four-source Precedent consumer (name withheld —
+  not this repo's to disclose) ran `todo_migrate.py` for real against that
+  repo's 32-item `docs/TODO.md` and reported two bugs. This item verifies
+  both against this repo's own code and history, not just the report.
 
   **Bug 1 — `status: closed` is not a status `build_todo_index.py`
   recognizes.** [`build_plan()`](../tools/todo_migrate.py) (line 430) writes
@@ -68,7 +67,7 @@ closed:            null
   filed under `## Decisions (user's call)` still comes out `analysis` —
   with or without the marker-regex fix — because `parse_todo_items` never
   records which heading a bullet falls under before `guess_kind` runs. The
-  marker convention may be real in `GetEmailsFromGmail`'s own drifted copy
+  marker convention may be real in that consumer's own drifted copy
   of the template (out of scope to check from here), but the fix as
   proposed treats an unverified signal while leaving the one this repo can
   actually document still broken.
@@ -109,3 +108,17 @@ Verified both bugs and re-scoped bug 2's fix; not yet implemented — this
 item is unblocked, agent-doable work, filed rather than done this turn
 because it was raised as a write-up-and-recommend request, not an
 implement request.
+
+2026-09-18: implemented all four listed changes and closed this item.
+`tools/todo_migrate.py` now writes `status: done` for a checked item, and
+`build_plan()` calls a new `determine_kind()` — section heading, then the
+inline marker, then `guess_kind()`'s phrase heuristics, in that order — via
+a new `section_kind` field `parse_todo_items()` now tracks per item.
+Re-ran the two fixtures from `## What` against the patched code: the
+checkbox+marker fixture now classifies `decision`/`verify` correctly, and
+the section-heading fixture (`## Decisions (user's call)` with no marker)
+now also resolves `decision`, which the marker-only fix alone would still
+have missed. Corrected
+[todo/todo-2026-09-17-access-probe-plant-not-detected.md](todo-2026-09-17-access-probe-plant-not-detected.md)'s
+`status` to `done` by hand. Did not add the optional `status`-validation
+guard to `build_todo_index.py` — out of the four-item scope this closes.

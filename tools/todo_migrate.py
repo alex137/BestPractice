@@ -22,6 +22,14 @@ session to fill it in otherwise. Per the plan's own Part 4.1: `domain` and
 few dozen files in bulk is the wrong trade, and a session sets them when
 it next touches the item, same as `decision_strength`.
 
+A checked box (`- [x] ...`) always migrates to `status: done`. A checkbox
+alone cannot distinguish "done" from "abandoned/overtaken/moot" -- this
+tool does not try to infer that from the checkbox bit alone. Hand-review
+any checked item whose own text reads as an abandonment ("moot",
+"overtaken", "superseded" near the checkbox is a reasonable heuristic to
+scan for) and correct its `status` to `dropped` before committing the
+migration's output.
+
 `noted` (the day an item was first written down) is computed the same way
 spec/OPEN_ITEM_AND_GOTCHA_PLAN.md's own Appendix measured it: the first
 commit in this repository's history whose diff introduces that item's own
@@ -82,6 +90,34 @@ TODO_BARE_RE = re.compile(r'^-\s+\*\*')
 TODO_CHECKBOX_RE = re.compile(r'^-\s+\[([ xX])\]\s+\*\*')
 GOTCHA_HEADING_RE = re.compile(
     r'^##\s+\d+\.\s+(?:<a id="(g\d+)"></a>)?(.*)$')
+# A plain `##` heading in a TODO file -- not the gotcha format's numbered
+# one above. This is the classic template's REAL kind signal
+# (templates/TODO.md.template pre-migration: "## Analyses (agent-doable)",
+# "## Verify before external use", "## Decisions (user's call)"), which
+# parse_todo_items previously threw away entirely -- it only looked for
+# bullet starts, never recorded which heading preceded one. A section
+# whose text doesn't name a kind (e.g. "## Recurring") yields no match,
+# same as no heading at all.
+TODO_SECTION_HEADING_RE = re.compile(r'^##\s+(.*)$')
+SECTION_KIND_RE = re.compile(
+    r'\b(analys(?:is|es)|verif(?:y|ication)|physical|manual|decisions?)\b',
+    re.IGNORECASE)
+SECTION_KIND_MAP = {
+    'analysis': 'analysis', 'analyses': 'analysis',
+    'verify': 'verify', 'verification': 'verify',
+    'physical': 'manual', 'manual': 'manual',
+    'decision': 'decision', 'decisions': 'decision',
+}
+# An item's own explicit kind marker, e.g. "...done. (**decision**)" --
+# reported from a real consumer's TODO.md, not attested anywhere in this
+# repo's own history (checked both the template's real classic version and
+# this repo's own pre-migration TODO.md). Kept as a fallback below the
+# section heading for exactly that reason: it may be real in some
+# consumer's own drifted template copy, and costs nothing when absent.
+KIND_MARKER_RE = re.compile(
+    r'\(\*\*(analysis|verify|verification|physical|manual|decision)\*\*',
+    re.IGNORECASE)
+KIND_MARKER_MAP = {'verification': 'verify', 'physical': 'manual'}
 
 TITLE_RE = re.compile(r'\*\*(.+?)\*\*', re.DOTALL)
 BLOCKED_ON_RE = re.compile(
@@ -138,7 +174,8 @@ def anchor_noted_date(repo, source_relpath, anchor_id, wrap_id=True):
 
 
 class Item:
-    def __init__(self, anchor, title, body, has_anchor, checked=None):
+    def __init__(self, anchor, title, body, has_anchor, checked=None,
+                 section_kind=None):
         self.anchor = anchor
         self.title = title
         self.body = body
@@ -150,6 +187,10 @@ class Item:
         # this migration doesn't try to fix). True/False: `- [x] `/`- [ ] `
         # was matched, and IS this format's own status signal -- honor it.
         self.checked = checked
+        # The kind-named `##` section this item was filed under in the
+        # source file (None outside any such section, or under one whose
+        # heading names no kind, e.g. "## Recurring"). See guess_kind().
+        self.section_kind = section_kind
 
     @property
     def slug(self):
@@ -171,12 +212,27 @@ def parse_todo_items(text):
     eventually by `**`, but TODO_BARE_RE's own `^-\\s+\\*\\*` does not match
     it (the checkbox sits in between), so the two never actually collide --
     the ordering just keeps that invariant explicit rather than relying on
-    it by accident."""
+    it by accident.
+
+    Also tracks the nearest preceding `##` heading for each bullet, so an
+    item filed under a kind-named section (the classic template's own
+    "## Analyses (agent-doable)" / "## Verify before external use" /
+    "## Decisions (user's call)") carries that as `section_kind` --
+    previously thrown away here entirely, before guess_kind() ever ran."""
     lines = text.split('\n')
     starts = []
+    section_kind_at = {}
+    current_section_kind = None
     for i, line in enumerate(lines):
+        hm = TODO_SECTION_HEADING_RE.match(line)
+        if hm:
+            km = SECTION_KIND_RE.search(hm.group(1))
+            current_section_kind = (
+                SECTION_KIND_MAP[km.group(1).lower()] if km else None)
+            continue
         if TODO_ANCHOR_RE.match(line) or TODO_CHECKBOX_RE.match(line) or TODO_BARE_RE.match(line):
             starts.append(i)
+            section_kind_at[i] = current_section_kind
     starts.append(len(lines))
     items = []
     for idx in range(len(starts) - 1):
@@ -191,7 +247,9 @@ def parse_todo_items(text):
         checked = (cm.group(1).lower() == 'x') if cm else None
         tm = TITLE_RE.search(raw)
         title = tm.group(1).strip() if tm else raw.strip().splitlines()[0][:80]
-        items.append(Item(anchor, title, raw, has_anchor=bool(anchor), checked=checked))
+        items.append(Item(anchor, title, raw, has_anchor=bool(anchor),
+                           checked=checked,
+                           section_kind=section_kind_at[starts[idx]]))
     return items
 
 
@@ -228,6 +286,21 @@ def guess_kind(item):
     if any(c in low for c in MANUAL_CUES):
         return 'manual'
     return 'analysis'
+
+
+def determine_kind(item):
+    """The section heading an item was filed under (the classic template's
+    real, verified kind signal) wins first; an explicit inline marker like
+    `(**decision**)` is next (reported from one real consumer, not attested
+    in this repo's own history, so it's a fallback rather than trusted
+    first); guess_kind()'s phrase heuristics are last resort."""
+    if item.section_kind:
+        return item.section_kind
+    mm = KIND_MARKER_RE.search(item.body)
+    if mm:
+        raw = mm.group(1).lower()
+        return KIND_MARKER_MAP.get(raw, raw)
+    return guess_kind(item)
 
 
 def guess_blocked_on(item):
@@ -415,7 +488,7 @@ def build_plan(items, repo, source_relpath, kind_of_source):
                 repo, source_relpath, snippet, wrap_id=False)
         if kind_of_source == 'todo':
             blocked_on = guess_blocked_on(item)
-            kind = guess_kind(item)
+            kind = determine_kind(item)
             disposition = guess_disposition(item)
             remind_on = guess_remind_on(item, disposition, noted)
             waiting_on = guess_waiting_on(blocked_on)
@@ -426,8 +499,15 @@ def build_plan(items, repo, source_relpath, kind_of_source):
             # carry one: `[x]` closes the item as of today (the real close
             # date isn't recoverable from a checked box alone -- there is
             # no signal in the source for WHEN it was checked, only that it
-            # is), `[ ]` stays open.
-            status = 'closed' if item.checked else 'open'
+            # is), `[ ]` stays open. `done` is the honest default for a
+            # checked item -- a checkbox alone can't distinguish done from
+            # dropped/abandoned, and `closed` is not a status
+            # build_todo_index.py recognizes at all (its vocabulary is
+            # open/done/dropped, per spec/OPEN_ITEM_AND_GOTCHA_PLAN.md);
+            # writing `closed` here silently dropped every checked item
+            # from both generated indexes. Hand-correct an item whose own
+            # text reads as abandoned rather than finished to `dropped`.
+            status = 'done' if item.checked else 'open'
             closed = TODAY if item.checked else None
             fm = render_todo_frontmatter(
                 new_slug, kind, status, disposition, remind_on, blocked_on,

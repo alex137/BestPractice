@@ -3,7 +3,7 @@ slug:              todo-2026-09-17-access-probe-plant-not-detected
 kind:              manual
 domain:            null
 severity:          null
-status:            closed
+status:            done
 disposition:       wait
 remind_on:         null
 blocked_on:        null

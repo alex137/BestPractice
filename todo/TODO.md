@@ -75,7 +75,6 @@
 | [`todo-2026-09-14-withdrawn-and-landed-nowhere-with-no-baseline`](todo-2026-09-14-withdrawn-and-landed-nowhere-with-no-baseline.md) | A rule withdrawn at its source and landed nowhere is still caught only where a consumer had already recorded it. | 4d | wait | a design for what a set itself could refuse — a `git diff` guard in the set's ow… |
 | [`todo-2026-09-15-go-merge-direct-edit-narrowing-check`](todo-2026-09-15-go-merge-direct-edit-narrowing-check.md) | A mechanical check could narrow the trivial/substantial judgment `Go merge` now makes, and it is not built. | 3d | wait |  |
 | [`todo-2026-09-16-file-retires-when-on-live-gotchas`](todo-2026-09-16-file-retires-when-on-live-gotchas.md) | Populate `retires_when` on the live gotchas. | 2d | wait |  |
-| [`todo-2026-09-18-todo-migrate-status-and-kind-bugs`](todo-2026-09-18-todo-migrate-status-and-kind-bugs.md) | [tools/todo_migrate.py](../tools/todo_migrate.py) writes a `status` value `build_todo_index.py` doesn't recognize, and s | 0d | wait |  |
 
 ## Verify Before External Use
 
@@ -168,7 +167,6 @@
 | [`todo-2026-09-14-sync-views-blames-a-dropped-source-for-a-retirement`](todo-2026-09-14-sync-views-blames-a-dropped-source-for-a-retirement.md) | A retired practice is reported as one whose SOURCE was dropped, and a renamed source would read identically. | 4d |
 | [`todo-2026-09-15-go-merge-direct-edit-narrowing-check`](todo-2026-09-15-go-merge-direct-edit-narrowing-check.md) | A mechanical check could narrow the trivial/substantial judgment `Go merge` now makes, and it is not built. | 3d |
 | [`todo-2026-09-16-file-retires-when-on-live-gotchas`](todo-2026-09-16-file-retires-when-on-live-gotchas.md) | Populate `retires_when` on the live gotchas. | 2d |
-| [`todo-2026-09-18-todo-migrate-status-and-kind-bugs`](todo-2026-09-18-todo-migrate-status-and-kind-bugs.md) | [tools/todo_migrate.py](../tools/todo_migrate.py) writes a `status` value `build_todo_index.py` doesn't recognize, and s | 0d |
 
 ## Open Decisions
 
