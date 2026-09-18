@@ -1,13 +1,13 @@
 ---
 title:         Self-healing the RENDER, not just the clone, for .precedent/SESSION_PRACTICES.md
 kind:          brief
-status:        open
+status:        closed
 opened:        2026-09-18
-closed:        null
+closed:        2026-09-18
 superseded_by: null
 supersedes:    []
 audience:      session
-summary:       load_config()'s existing self-heal only clones a missing universal sibling; it never re-renders .precedent/SESSION_PRACTICES.md itself, so a session whose SessionStart hook never ran still sees a stale or absent catalogue even when the clone is fine. Three shapes for closing that second half, costed, none built.
+summary:       load_config()'s existing self-heal only clones a missing universal sibling; it never re-renders .precedent/SESSION_PRACTICES.md itself, so a session whose SessionStart hook never ran still sees a stale or absent catalogue even when the clone is fine. Three shapes costed; Shape C built and merged 2026-09-18 (commit ef5838b1, PR #452).
 ---
 # Self-healing the RENDER, not just the clone, for .precedent/SESSION_PRACTICES.md
 
@@ -18,7 +18,15 @@ that doesn't know to look. This brief costs the code fix, the same way
 shape-3 design. It continues
 [TODO.md's `universal-prose-does-not-reach-a-source-set`](../todo/todo-2026-09-13-universal-prose-does-not-reach-a-source-set.md),
 whose reading half that brief shipped 2026-09-13 is exactly the mechanism
-with the gap described here. **Nothing here is decided or built.**
+with the gap described here.
+
+**Closed 2026-09-18.** Shape C (below) was built and merged the same day —
+`_self_heal_stale_render()`, `tools/precedent_resolve.py` commit `ef5838b1`,
+[PR #452](https://github.com/alex137/BestPractice/pull/452). The rest of
+this brief is kept as written, including the shapes not chosen: it is the
+record of why Shape C was picked over A and B, not a live decision anymore.
+[`gotchas/gotcha-2026-09-18-editing-a-practice-pack-in-a-multi-repo-session-leaves-univ.md`](../gotchas/gotcha-2026-09-18-editing-a-practice-pack-in-a-multi-repo-session-leaves-univ.md),
+the manual workaround this replaces, is retired accordingly.
 
 ## What already exists, read from the code rather than assumed
 
@@ -164,8 +172,12 @@ to need its own measurement first.
 
 ## Next step
 
-This is a brief to decide, not a diff to review — say which shape (or ask
-for the measurements Shape B and C's own sections name) before any of this
-is built. Building it is its own PR in `tools/precedent_resolve.py`,
-gated the same way any engine change here is: deep check clean, then the
-vendor-refresh rollout to the four packs as a separate follow-up step.
+**Closed** — see the note under the title. What was genuinely left open at
+build time and is worth someone picking up separately: the latency and
+call-count measurements Shape B and C's own sections named as unmeasured
+(only Shape C's was actually needed to build it, and that build used the
+borrowed `stale_checkout_hours` constant as-is rather than deriving a
+render-specific number first — a real remaining question, not a blocker),
+and the vendor-refresh rollout to the four packs, which this brief's build
+does not do on its own: "Update Vendors" still has to run in each before
+they get this fix.
