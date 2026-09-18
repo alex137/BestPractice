@@ -11,6 +11,7 @@ Built from every practice's `defines:` frontmatter field -- the terms that pract
 | API budget | [github-api-budget](practices/github-api-budget.md) |
 | Approved | [go-merge](practices/go-merge.md) |
 | Archive | [archive-command](practices/archive-command.md) |
+| Archive? | [archive-status-check](practices/archive-status-check.md) |
 | assented | [decision-strength](practices/decision-strength.md) |
 | bet-relevant | [constants-are-risk-inputs](practices/constants-are-risk-inputs.md) |
 | Brainstorm | [brainstorm-holds-commits](practices/brainstorm-holds-commits.md) |
