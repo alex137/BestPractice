@@ -1068,6 +1068,13 @@
       "why": "No locus. A standing command phrase fires on something the person said, not on a file being edited; it is reached through the occasion index and the reply gate.",
       "decided": "2026-09-09"
     },
+    "write-it-up": {
+      "globs": [
+        "**"
+      ],
+      "why": "A moment, and specifically a phrase in a MESSAGE -- no file path reaches it, and unlike a gate-tied command its work (writing the report, committing it, pushing it) happens inline rather than at merge/review/push/reply time. Reached through the occasion index alone.",
+      "decided": "2026-09-18, when the practice landed"
+    },
     "write-like-a-human": {
       "globs": [
         "**/*.md"

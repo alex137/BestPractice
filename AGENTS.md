@@ -220,7 +220,7 @@ plan's premise.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block; `python3 tools/build_views.py --check` exits non-zero on drift. Source: practices/ -- edit the practice file, never this block. -->
 
-## Resident block (~1180 of 2000 token budget, 11 of 126 practices (11 universal))
+## Resident block (~1180 of 2000 token budget, 11 of 127 practices (11 universal))
 
 **answer-first-ask-before-long-work.** Three parts. **(1) Answer the easy questions in a message before starting
 anything long.** A conceptual question is answered from what is already
@@ -329,6 +329,8 @@ When a message says "Update Vendors", or an upstream update is being taken into 
   vendor-update-runbook — "Update Vendors" -- source clone first, both layers move separately, then merge
 When a model, study or comparison table rests on an operating constant nobody decided — a margin, a cap, a rate, a floor:
   constants-are-risk-inputs — a constant nobody decided is a swept, registered input -- never doctrine
+When a person asks, in whatever words, for a write-up of the issue or bug being worked:
+  write-it-up — "Write it up" -- commit a full report of the issue and fix, then link it
 When a person explicitly asks for a "very deep check" across the whole repo, or after work that invites drift:
   very-deep-check — read every repo in force against itself, pass by pass; never a routine gate
 When a person explicitly asks for a full practice audit (or "practice check") across the whole catalogue:

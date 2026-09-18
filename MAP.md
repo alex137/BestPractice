@@ -6,7 +6,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 
 ## The practice catalogue
 
-`practices/` holds 121 practice files (11 resident, 110 on-demand). One file per practice. See [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md) for the design.
+`practices/` holds 122 practice files (11 resident, 111 on-demand). One file per practice. See [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md) for the design.
 
 | Practice | Tier | Occasion / scope |
 |---|---|---|
@@ -130,6 +130,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [vocabulary](practices/vocabulary.md) | on-demand | a person says "Vocabulary", or asks what the standing commands are |
 | [volatile-rules-carry-dates](practices/volatile-rules-carry-dates.md) | on-demand | writing a rule that depends on the outside world |
 | [weak-yes](practices/weak-yes.md) | on-demand | a person says "Weak yes", or agrees in words that carry no conviction |
+| [write-it-up](practices/write-it-up.md) | on-demand | a person asks, in whatever words, for a write-up of the issue or bug being worked |
 | [write-like-a-human](practices/write-like-a-human.md) | resident | writing anything a person will read -- a document, a reply, a commit message |
 
 ## Withdrawn practices
