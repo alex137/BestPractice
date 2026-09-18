@@ -17970,6 +17970,122 @@ def check_individual_source_bootstrap_self_heals():
           '; '.join(f"{n} -- {d[:800]}" for n, d in bad))
 
 
+def check_stale_render_self_heals():
+    """spec/SESSION_PRACTICES_RENDER_SELF_HEAL.md's Shape C, tested rather
+    than trusted -- precedent_resolve._self_heal_stale_render() is the fix
+    for the half of the render gap check_individual_source_bootstrap_self_heals
+    above does not cover: that self-heal (and
+    _self_heal_universal_source() beside it) only ever fires on a MISSING
+    clone. The 2026-09-18 incident this follows from had the clone present
+    the whole session -- .precedent/SESSION_PRACTICES.md was simply a day
+    stale -- so an existence-only guard would have stayed silent the whole
+    extra day, which is exactly what Shape A (rejected in the brief) does
+    and Shape C does not.
+
+    Fixture: a stub tools/precedent_session_practices.py that writes a
+    marker rather than performing a real multi-source render -- the
+    function under test only decides WHETHER to call the render tool,
+    never what the tool itself produces, so a stub keeps every case here
+    hermetic and fast (practice: fixture-owns-its-state). Each case gets
+    its own tmp repo, so no case's precedent.json or file mtime leaks into
+    the next."""
+    import shutil, tempfile
+    import precedent_resolve as pr
+
+    stub = ('#!/usr/bin/env python3\n'
+            'import pathlib, sys\n'
+            'repo = sys.argv[sys.argv.index("--repo") + 1]\n'
+            'out = pathlib.Path(repo) / ".precedent"\n'
+            'out.mkdir(parents=True, exist_ok=True)\n'
+            '(out / "SESSION_PRACTICES.md").write_text("rendered", encoding="utf-8")\n')
+
+    def _repo(tmp, *, with_tool=True, stale_hours=None):
+        repo = tmp / next(tempfile._get_candidate_names())
+        (repo / 'tools').mkdir(parents=True)
+        if with_tool:
+            tool = repo / 'tools' / 'precedent_session_practices.py'
+            tool.write_text(stub, encoding='utf-8')
+            tool.chmod(0o755)
+        if stale_hours is not None:
+            (repo / 'precedent.json').write_text(
+                json.dumps({'stale_checkout_hours': stale_hours}), encoding='utf-8')
+        return repo
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-stale-render-'))
+    cases = []
+    try:
+        # --- case 1: absent render -> the stub is invoked, file appears --
+        repo1 = _repo(tmp)
+        result1 = pr._self_heal_stale_render(repo1)
+        rendered1 = (repo1 / '.precedent' / 'SESSION_PRACTICES.md')
+        cases.append(('an absent render is written by the self-heal',
+                      result1 == 'attempted' and rendered1.is_file()
+                      and rendered1.read_text(encoding='utf-8') == 'rendered',
+                      f'result={result1!r} exists={rendered1.is_file()}'))
+
+        # --- case 2: a fresh render (just written) is left alone ---------
+        result2 = pr._self_heal_stale_render(repo1)
+        cases.append(("a render younger than the threshold is reported "
+                      "'fresh' and left untouched, not re-rendered on "
+                      "every call",
+                      result2 == 'fresh', f'result={result2!r}'))
+
+        # --- case 3: a render older than the declared threshold re-fires -
+        repo3 = _repo(tmp, stale_hours=1)
+        out3 = repo3 / '.precedent'
+        out3.mkdir(parents=True)
+        marker = out3 / 'SESSION_PRACTICES.md'
+        marker.write_text('stale copy', encoding='utf-8')
+        old = time.time() - 2 * 3600  # 2h old, past this repo's 1h threshold
+        os.utime(marker, (old, old))
+        result3 = pr._self_heal_stale_render(repo3)
+        cases.append(('a render older than the declared stale_checkout_hours '
+                      'is re-rendered, not just an absent one',
+                      result3 == 'attempted'
+                      and marker.read_text(encoding='utf-8') == 'rendered',
+                      f'result={result3!r} content={marker.read_text(encoding="utf-8")!r}'))
+
+        # --- case 4: same age, but a generous threshold leaves it fresh --
+        repo4 = _repo(tmp, stale_hours=48)
+        out4 = repo4 / '.precedent'
+        out4.mkdir(parents=True)
+        marker4 = out4 / 'SESSION_PRACTICES.md'
+        marker4.write_text('still current', encoding='utf-8')
+        os.utime(marker4, (old, old))
+        result4 = pr._self_heal_stale_render(repo4)
+        cases.append(("the SAME 2h-old file is 'fresh' under a 48h "
+                      "threshold -- the threshold is read from THIS repo's "
+                      "own precedent.json, not hardcoded",
+                      result4 == 'fresh'
+                      and marker4.read_text(encoding='utf-8') == 'still current',
+                      f'result={result4!r}'))
+
+        # --- case 5: the declared-default (24h) is honored when
+        # precedent.json is absent, not silently zero ---------------------
+        repo5 = _repo(tmp)  # no precedent.json written at all
+        cases.append(('the declared-default (24h) is used when this repo '
+                      'has no precedent.json at all',
+                      pr._stale_render_hours(repo5) == 24,
+                      f'got {pr._stale_render_hours(repo5)!r}'))
+
+        # --- case 6: a source set whose engine predates this addition (no
+        # precedent_session_practices.py) degrades, never raises ----------
+        repo6 = _repo(tmp, with_tool=False)
+        result6 = pr._self_heal_stale_render(repo6)
+        cases.append(('a repo with no precedent_session_practices.py '
+                      'degrades to no-tool rather than raising',
+                      result6 == 'no-tool', f'result={result6!r}'))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'the stale-render self-heal fires on absent-or-stale, not just '
+          f'absent, and reads its threshold from this repo\'s own '
+          f'precedent.json ({len(cases)} stated cases)',
+          not bad,
+          '; '.join(f"{n} -- {d[:400]}" for n, d in bad))
+
+
 def check_instantiated_template_links_survive_the_copy():
     """A file a template tells you to COPY INTO A REPO ROOT cannot carry a
     link that only resolves from the template's own directory.
@@ -22795,6 +22911,7 @@ def main():
     check_materialized_links_are_placed()
     check_source_supplied_checks_run()
     check_individual_source_bootstrap_self_heals()
+    check_stale_render_self_heals()
     check_source_credentials()
     check_vendored_engine_reads_the_consumer_root()
     check_source_clone_keeps_its_credential()
