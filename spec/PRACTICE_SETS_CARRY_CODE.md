@@ -22,12 +22,12 @@ Morgan to accept, amend or decline.
 
 **What exists.** The universal source already pairs code with practices:
 [tabular-shared-renderer](../practices/tabular-shared-renderer.md) is a
-practice, and `tools/doc_html.py` is the code it is about; the deck engine
+practice, and [`tools/doc_html.py`](../tools/doc_html.py) is the code it is about; the deck engine
 under `deck/` is the same shape. A consumer gets both through one vendored
 tree ([INSTALL.md §1](../INSTALL.md)), records the tree's commit in its
 manifest, and drifts against it file by file. Dependent repo #1 also
 carries a second vendored tree, a domain pack, with its own manifest and
-blocklist, audited by the same `practice_audit.py` — the pack pattern from
+blocklist, audited by the same [`practice_audit.py`](../tools/practice_audit.py) — the pack pattern from
 [layered-practice-packs](../practices/layered-practice-packs.md).
 
 **What is missing.** A *team* source is resolved live for its practices
@@ -42,7 +42,7 @@ code directories it declares in its own `precedent.json`, say
 `code: ["tools", "deck"]`). A consumer that declares the set as a source
 vendors those directories under `process/<set-name>/`, records the commit
 in `process/manifest_<set-name>.json`, and is drift-audited on them by the
-same `practice_audit.py`, exactly as the universal tree is today. The
+same [`practice_audit.py`](../tools/practice_audit.py), exactly as the universal tree is today. The
 practices still resolve live from the sibling clone; only the code is
 vendored, because code has to be present offline, for a collaborator
 without the sibling clone, and for CI.
@@ -50,7 +50,7 @@ without the sibling clone, and for CI.
 Nothing new is invented: the manifest schema, the drift check, the scrub
 gate and the engine/shim convention
 ([engine-plus-host-shims](../practices/engine-plus-host-shims.md)) all
-already exist for the universal tree. The change is that `checkin.py`'s
+already exist for the universal tree. The change is that [`checkin.py`](../tools/checkin.py)'s
 `update`/`record` take a source name and a manifest path instead of
 assuming the one universal tree, and that `precedent.json` lets a set
 declare which of its directories are code.
