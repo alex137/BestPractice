@@ -82,9 +82,11 @@ loop; say so and follow §1 instead.
        --admin <the administrator's GitHub handle>
    ```
 
-   It vendors the catalogue and the engine, writes `precedent.json`,
-   instantiates `AGENTS.md`, `MAP.md`, `TODO.md`, `GLOSSARY.md`,
-   `GETTING_STARTED.md`, `VOICE.md` and `STYLEGUIDE.md`, the README entry
+   It vendors the catalogue and the engine, writes `precedent.json`
+   (declaring the repo-local `"local"` source along with the universal
+   one), instantiates `AGENTS.md`, `MAP.md`, `TODO.md`, `GLOSSARY.md`,
+   `GETTING_STARTED.md`, `local/practices/project-voice.md` and
+   `STYLEGUIDE.md`, the README entry
    block, the Claude Code hooks, `tools/bootstrap.sh`, the Actions check
    and the pull-request template, runs the sync, lints what it wrote, and
    then prints **the placeholders it left** — each is a `<…>` in a file it
@@ -108,9 +110,9 @@ loop; say so and follow §1 instead.
    as INSTALL.md §1 step 9 describes for an existing repo. This is real,
    working tooling, not a promise: it hands them a starter file in the
    right format and the exact config to wire in, in the same sitting.
-   `VOICE.md` and `STYLEGUIDE.md` install as the templates' near-empty
-   skeletons and **stay that way** — filling them in is not part of an
-   install (see "What an install does not do" below).
+   `local/practices/project-voice.md` and `STYLEGUIDE.md` install as the
+   templates' near-empty skeletons and **stay that way** — filling them in
+   is not part of an install (see "What an install does not do" below).
    Respect the root-hygiene rule (INSTALL.md §0 step 7): nothing from
    Precedent lands loose at the repo root except the instantiated files,
    `precedent.json`, and the sync's own `practices/` and `MANIFEST.json`.
@@ -124,13 +126,13 @@ loop; say so and follow §1 instead.
    instructions file (the contract future AI sessions work under) in two
    or three plain sentences each. Offer to adjust anything.
 
-   Then **mention `VOICE.md` and `STYLEGUIDE.md` in one breath and move
-   on**: both shipped empty, both are optional, both stay local to their
-   project and are never proposed back to the public Precedent repo, and
-   they can fill either in whenever they like by just saying so to an
-   assistant — *"help me fill in VOICE.md"*. **Do not walk them through
-   the sections, and do not ask whether a brand guideline exists.** That
-   is a good conversation and it is not this one.
+   Then **mention `local/practices/project-voice.md` and `STYLEGUIDE.md` in
+   one breath and move on**: both shipped empty, both are optional, both
+   stay local to their project and are never proposed back to the public
+   Precedent repo, and they can fill either in whenever they like by just
+   saying so to an assistant — *"help me fill in my project's voice"*. **Do
+   not walk them through the sections, and do not ask whether a brand
+   guideline exists.** That is a good conversation and it is not this one.
 5. **Merge for them or with them.** If you can merge, ask "Shall I make
    this live?" and do it on their yes. If only they can merge, give them
    the pull-request link and tell them exactly what to press.
@@ -227,10 +229,11 @@ it runs inside your ordinary work. The section references are to
   public, and whether a team or personal practices repo exists or should be
   set up now (§1 step 9; most projects have neither yet, and saying so is a
   complete answer — but offer to set one up on the spot). Then they look at
-  what you built and either approve it or ask for changes. `VOICE.md` and
-  `STYLEGUIDE.md` are **not** walked through and nobody is asked about a
-  brand guideline: both ship empty, stay local to the project, and are
-  filled in whenever they later ask an assistant to.
+  what you built and either approve it or ask for changes.
+  `local/practices/project-voice.md` and `STYLEGUIDE.md` are **not** walked
+  through and nobody is asked about a brand guideline: both ship empty,
+  stay local to the project, and are filled in whenever they later ask an
+  assistant to.
 - **When a practice is proposed** (a rule their assistant noticed and
   wrote down). They say yes or no, at the level it belongs — theirs, the
   team's, or the public library, where it goes up for a visible review.
@@ -267,8 +270,9 @@ most needs to feel short.
 So these are **out of scope** for you, and are mentioned in one sentence
 each, not worked through:
 
-- **`VOICE.md`** — the project's own voice, its audiences, its domain
-  vocabulary. Ships near-empty and stays that way.
+- **`local/practices/project-voice.md`** — the project's own voice, its
+  audiences, its domain vocabulary. A repo-local practice, not a plain
+  document; ships near-empty and stays that way.
 - **`STYLEGUIDE.md`** — the visual identity. Ships near-empty; do not ask
   whether a brand guideline exists, and never read, attach or vendor one.
 - **Anything else that is a refinement rather than a requirement**, whether
@@ -277,8 +281,8 @@ each, not worked through:
 
 **What you do say, once:** these files exist, they are optional, they stay
 local to the project, and **the administrator can fill any of them in at
-any time just by asking an assistant** — *"help me fill in VOICE.md"*. That
-sentence is the whole handover.
+any time just by asking an assistant** — *"help me fill in my project's
+voice"*. That sentence is the whole handover.
 
 **What is in scope and must not be skipped as "polish":** the private-word
 blocklist, the commit identity, the team and individual source question,

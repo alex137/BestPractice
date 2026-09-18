@@ -6356,11 +6356,13 @@ def check_precedent_check_fires():
         case('park-it', _plant_park_it)
 
         # install-declares-its-scope -- SETUP.md put back the way it read
-        # before 2026-09-14: the paragraph naming VOICE.md and STYLEGUIDE.md
-        # together, stripped of every deferral marker, so it reads as an
-        # instruction to fill them in during the install. That is the exact
-        # regression the check exists for, and it is the state the guided
-        # install was actually in.
+        # before 2026-09-14: the paragraph naming project-voice.md and
+        # STYLEGUIDE.md together, stripped of every deferral marker, so it
+        # reads as an instruction to fill them in during the install. That
+        # is the exact regression the check exists for, and it is the state
+        # the guided install was actually in. (Read 'VOICE.md' here before
+        # 2026-09-17, when this project's own voice was still a plain root
+        # document rather than local/practices/project-voice.md.)
         #
         # The counterpart matters as much as the case: the check's own test
         # (local/tools/checks/tests/) proves that prose saying "do NOT walk
@@ -6370,9 +6372,9 @@ def check_precedent_check_fires():
         def _plant_idis(repo):
             rewrite(repo, 'SETUP.md', lambda s: s + (
                 "\n## Fill In the Identity Files\n\n"
-                "Walk the administrator through `VOICE.md` section by "
-                "section, and\nask whether a brand guideline exists to fill "
-                "`STYLEGUIDE.md` from.\n"))
+                "Walk the administrator through `project-voice.md` section "
+                "by section, and\nask whether a brand guideline exists to "
+                "fill `STYLEGUIDE.md` from.\n"))
         case('install-declares-its-scope', _plant_idis)
 
         # environment-gotchas -- a live gotcha file that is a bare fix.
@@ -6517,6 +6519,32 @@ def check_precedent_check_fires():
                       'zzz-orphan.sh' in planted['hooks-on-disk-are-reachable'][1]
                       and 'nothing that could run it names it'
                       in planted['hooks-on-disk-are-reachable'][1]))
+
+        # no-hardcoded-git-identity -- settings.json hardcodes a person's
+        # git identity in its tracked env block, which is exactly what
+        # commit-identity.sh exists to resolve per session instead. Merged
+        # into the fixture's existing env block rather than replacing it
+        # (practice: fixture-owns-its-state) -- this repo's own
+        # .claude/settings.json already carries TZ, and a plant that
+        # clobbered it would prove the check fires on a tree that no
+        # longer resembles a real one. No identity.json is planted beside
+        # it: this fixture is not an individual practice source, so the
+        # check's one exemption must not apply here, or the case would
+        # pass for the wrong reason.
+        def _plant_hardcoded_identity(repo):
+            def _add_identity(t):
+                d = json.loads(t)
+                env = d.setdefault('env', {})
+                env['GIT_AUTHOR_NAME'] = 'Planted Person'
+                env['GIT_AUTHOR_EMAIL'] = 'planted@example.com'
+                return json.dumps(d, indent=2) + '\n'
+            rewrite(repo, '.claude/settings.json', _add_identity)
+        case('no-hardcoded-git-identity', _plant_hardcoded_identity)
+        cases.append(('no-hardcoded-git-identity: the planted violation '
+                      'names the hardcoded fields it found',
+                      'GIT_AUTHOR_NAME' in planted['no-hardcoded-git-identity'][1]
+                      and 'GIT_AUTHOR_EMAIL'
+                      in planted['no-hardcoded-git-identity'][1]))
 
         # ...and the same failure in the OTHER hook layout. A practice set
         # created by precedent_bootstrap_source.py wires its hooks out of a
@@ -14723,18 +14751,24 @@ def check_rendered_docs_are_current():
 
 
 def check_install_names_every_not_vendored_dir():
-    """INSTALL.md §1 step 1 names every directory checkin.py refuses to vendor.
+    """INSTALL.md §1 step 1 names everything checkin.py refuses to vendor --
+    every NOT_VENDORED directory, and every NOT_VENDORED_ROOT_FILES file.
 
     These are two halves of one rule kept in two files, which is the shape
-    that drifts. tools/checkin.py's NOT_VENDORED is what the tooling acts
-    on; INSTALL.md step 1 is what a person copying the tree by hand reads.
-    A directory added to one and not the other means either a consumer
-    hand-copies a tree the tooling then reports as drifted, or the prose
-    promises an exclusion nothing performs.
+    that drifts. tools/checkin.py's NOT_VENDORED/NOT_VENDORED_ROOT_FILES are
+    what the tooling acts on; INSTALL.md step 1 is what a person copying the
+    tree by hand reads. An entry added to one and not the other means either
+    a consumer hand-copies a tree the tooling then reports as drifted, or the
+    prose promises an exclusion nothing performs.
 
     Found when philosophy/ was excluded on 2026-09-14 and nothing would have
     caught the doc being left behind (practice: checkable-gets-checked).
     Name-only: the paragraph's wording is nobody's business but its author's.
+    A directory is matched as `name/` (so `spec` inside `specification` can't
+    false-positive); a root file has no such delimiter available, so it is
+    matched bare -- AGENTS.md/CLAUDE.md are distinctive enough that a bare
+    substring match is not a meaningful false-positive risk in a 2000-char
+    window, the same tradeoff `not_vendored_share()`'s own comment accepts.
     """
     install = ROOT / 'INSTALL.md'
     if not install.is_file():
@@ -14744,7 +14778,8 @@ def check_install_names_every_not_vendored_dir():
     try:
         sys.path.insert(0, str(ROOT / 'tools'))
         import checkin as _checkin
-        excluded = set(_checkin.NOT_VENDORED)
+        excluded_dirs = set(_checkin.NOT_VENDORED)
+        excluded_files = set(_checkin.NOT_VENDORED_ROOT_FILES)
     except Exception as exc:                       # pragma: no cover
         not_applicable('INSTALL.md names every not-vendored directory',
                        f'could not read checkin.NOT_VENDORED: {exc}')
@@ -14754,9 +14789,11 @@ def check_install_names_every_not_vendored_dir():
     # mention elsewhere in a 1000-line document from passing this.
     i = text.find('**Skip ')
     step = text[i:i + 2000] if i != -1 else ''
-    missing = sorted(d for d in excluded if f'{d}/' not in step)
-    check(f'INSTALL.md §1 step 1 names every not-vendored directory '
-          f'({len(excluded)} excluded)',
+    missing = sorted(d for d in excluded_dirs if f'{d}/' not in step) + \
+        sorted(f for f in excluded_files if f not in step)
+    total = len(excluded_dirs) + len(excluded_files)
+    check(f'INSTALL.md §1 step 1 names every not-vendored directory/file '
+          f'({total} excluded)',
           not missing,
           f'not named in the vendor step: {", ".join(missing)}' if missing
           else '')
@@ -21608,8 +21645,8 @@ def check_title_case_knows_the_files_it_ships():
 
     THE INCIDENT, 2026-09-08, from a consumer repo taking the beta update:
     headline-capitalization fired on that repo's VOICE.md. `INTERNAL_FILES`
-    had been built from UPSTREAM's own root names, and upstream ships
-    VOICE.md and STYLEGUIDE.md as templates it never instantiates -- so the
+    had been built from UPSTREAM's own root names, and upstream shipped
+    VOICE.md and STYLEGUIDE.md as templates it never instantiated -- so the
     default was blind to exactly the files this project hands out, and every
     adopter got the same false positive on a file whose own header says it
     is LOCAL ONLY.
@@ -21617,9 +21654,18 @@ def check_title_case_knows_the_files_it_ships():
     IT FAILS IN THE DIRECTION NOBODY CHECKS, which is what makes it worth a
     standing control rather than a one-line fix: upstream's own gate stays
     green because upstream does not have the file. So this check does not
-    ask "is VOICE.md classified right" -- it derives the list of shipped
-    root files from templates/ and asks it of ALL of them, so a template
-    added later is covered without anybody remembering to come back.
+    ask "is STYLEGUIDE.md classified right" -- it derives the list of
+    shipped root files from templates/ and asks it of ALL of them, so a
+    template added later is covered without anybody remembering to come
+    back.
+
+    VOICE.md itself stopped being a root file on 2026-09-17 (it is now the
+    repo-local practice local/practices/project-voice.md, instantiated from
+    templates/local-practices/project-voice.md.template -- nested one level
+    deeper, so the root-level `templates/*.md.template` glob below correctly
+    no longer yields it). It is kept out of `shipped` and the by-name
+    assertions for that reason, not an oversight: this check is about root
+    files, and it no longer is one.
     """
     import importlib.util
 
@@ -21643,16 +21689,28 @@ def check_title_case_knows_the_files_it_ships():
     cases.append(('templates/ yields root files to classify at all',
                   len(shipped) >= 3, str(shipped)))
 
-    # The two the incident was about, asserted BY NAME as well as by the
-    # derivation above: a derivation that silently produced an empty list
-    # would otherwise pass this whole check.
-    for name in ('VOICE.md', 'STYLEGUIDE.md'):
+    # STYLEGUIDE.md, the one of the two the incident was about that is
+    # STILL a root file, asserted BY NAME as well as by the derivation
+    # above: a derivation that silently produced an empty list would
+    # otherwise pass this whole check.
+    for name in ('STYLEGUIDE.md',):
         cases.append((f'{name} is shipped by a template',
                       name in shipped, str(shipped)))
         cases.append((f'{name} is INTERNAL -- its own template header says '
                       f'LOCAL ONLY, so no adopter should be told to '
                       f'headline-case it',
                       tc.is_outward(name) is False, ''))
+
+    # VOICE.md's own replacement is internal for a different reason -- not
+    # INTERNAL_FILES (it carries no root-file entry for it at all any more)
+    # but INTERNAL_DIRS, because local/practices/ is a repo-local practice
+    # source, and 'local' has been an INTERNAL_DIRS entry since before this
+    # file existed.
+    cases.append(('local/practices/project-voice.md is INTERNAL via '
+                  "INTERNAL_DIRS's 'local' entry, with no INTERNAL_FILES "
+                  'entry needed for it',
+                  tc.is_outward('local/practices/project-voice.md') is False,
+                  ''))
 
     # spec/ and record/ are twins by design -- spec/ holds current normative
     # reference, record/ the working record -- and record/ was missing from
@@ -21678,10 +21736,10 @@ def check_title_case_knows_the_files_it_ships():
     # is there, and the default is what every fresh install starts from.
     import tempfile
     with tempfile.TemporaryDirectory() as tmp:
-        cases.append(('VOICE.md is internal with NO precedent.json at all -- '
-                      'the state a fresh adopter is in before they configure '
-                      'anything', tc.is_outward('VOICE.md', root=tmp) is False,
-                      ''))
+        cases.append(('STYLEGUIDE.md is internal with NO precedent.json at '
+                      'all -- the state a fresh adopter is in before they '
+                      'configure anything',
+                      tc.is_outward('STYLEGUIDE.md', root=tmp) is False, ''))
 
     ok = all(c[1] for c in cases)
     check(f'title_case classifies the root files this project ships into '
@@ -22566,8 +22624,37 @@ def check_todo_and_gotcha_sweeps():
           not bad, '; '.join(f"{n} -- {d[:300]}" for n, d in bad))
 
 
+def _print_checkout_banner():
+    """Print which branch and commit this run is actually checking, before
+    a single check runs.
+
+    A run against an unexpectedly-reset checkout looks identical to a run
+    against the intended one -- same PASS/FAIL shape, no error -- and
+    nothing else in this tool's output says which tree it ran against.
+    Found 2026-09-17: a session's local checkout silently reset to this
+    repo's started branch between turns (a container/session-lifecycle
+    behavior, not something this repo controls), and a full run against
+    the wrong branch read as a clean pass on a change that was not
+    actually on disk -- caught only by a separate, manual
+    `git branch --show-current`.
+    (practice: durable-fix -- the checkout resetting is outside this
+    repo's control; making a run against the wrong tree impossible to
+    mistake for one against the right tree is not.)
+    """
+    b = subprocess.run(['git', '-C', str(ROOT), 'rev-parse', '--abbrev-ref', 'HEAD'],
+                       capture_output=True, text=True)
+    h = subprocess.run(['git', '-C', str(ROOT), 'rev-parse', '--short', 'HEAD'],
+                       capture_output=True, text=True)
+    if b.returncode != 0 or h.returncode != 0:
+        print(f"verify_harness: could not determine {ROOT}'s branch/commit -- "
+              f"results below are not attributable to a known tree.\n")
+        return
+    print(f"verify_harness: checking {ROOT} @ {b.stdout.strip()} ({h.stdout.strip()})\n")
+
+
 def main():
     _install_check_timing()
+    _print_checkout_banner()
     _report_missing_doc_packages('PREFLIGHT')
     if not PRACTICES_DIR.exists():
         sys.exit("verify_harness FAIL: practices/ does not exist -- run "

@@ -65,7 +65,8 @@ Nothing about it is specific to one team or one person.
 2026-09-07, and the history is the argument for the shape this landed in.
 
 **The overcorrection paragraph arrived later, 2026-09-08**, out of
-[templates/VOICE.md.template](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/templates/VOICE.md.template)'s section 11,
+`templates/VOICE.md.template`'s section 11 (that template is retired as of
+2026-09-17, replaced by `templates/local-practices/project-voice.md.template`),
 when Morgan decided that template should ship only a project's own voice and
 its generic half was read against this practice to see what would be lost. It
 is the one piece that belonged here rather than in a new practice: a rule

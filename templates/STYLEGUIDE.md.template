@@ -1,10 +1,11 @@
 <!-- Template: instantiate per Precedent INSTALL.md §1 as STYLEGUIDE.md at
      the dependent repo's root. There is no sensible default content here --
      visual identity is specific to each project or company -- so this file
-     ships as an empty skeleton. VOICE.md next door ships nearly empty for a
-     different reason, and the distinction is worth holding: general writing
-     rules were DELETED from it (2026-09-08) because the practice catalogue
-     already carries them, whereas nothing generic was ever possible here.
+     ships as an empty skeleton. local/practices/project-voice.md ships
+     nearly empty for a different reason, and the distinction is worth
+     holding: general writing rules were DELETED from its predecessor,
+     VOICE.md (2026-09-08) because the practice catalogue already carries
+     them, whereas nothing generic was ever possible here.
      Copied EMPTY at install, and left that way: an install does the
      essentials and stops (INSTALL.md, "Essentials only"), so nobody asks
      at install whether a brand guideline exists. Whenever somebody later
@@ -22,10 +23,11 @@
      them here in plain text. If no such document exists yet, leave sections
      marked <undecided> rather than inventing values.
 
-     This file, once instantiated, is LOCAL ONLY, same as VOICE.md — never
-     folded back into process/upstream/ through the export gate (INSTALL.md
-     §3) or check-in (§4). A brand's visual identity is not a generic
-     practice; nothing here is meant to travel to another project. -->
+     This file, once instantiated, is LOCAL ONLY, same as
+     local/practices/project-voice.md — never folded back into
+     process/upstream/ through the export gate (INSTALL.md §3) or check-in
+     (§4). A brand's visual identity is not a generic practice; nothing
+     here is meant to travel to another project. -->
 
 # Style Guide
 
@@ -68,7 +70,7 @@ entirely" — whatever the project's convention actually is.>
 
 ## Tone in Visuals
 
-Visual tone follows [VOICE.md](VOICE.md): the same restraint applies to
+Visual tone follows [local/practices/project-voice.md](local/practices/project-voice.md): the same restraint applies to
 slides and charts as to prose — no decorative icons standing in for a
 point that isn't made, no gradient-and-glow treatment to make a plain
 fact look like an insight. Project-specific visual tells to avoid go

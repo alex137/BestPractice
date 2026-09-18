@@ -52,12 +52,12 @@ INTERNAL_DIRS = (
     "templates", "tools",
 )
 # `record` joined `spec` on 2026-09-08, and it was missing for the same reason
-# VOICE.md was missing from INTERNAL_FILES: this list was written from the
-# directories the repository HAPPENED TO HAVE at the time, and record/ did not
-# exist yet -- spec/DOCUMENT_LIFECYCLE.md had planned it but nothing had
-# created it. The two are twins by design (spec/ holds current normative
-# reference, record/ holds the working record), so one being internal and the
-# other outward was never a decision anybody made.
+# VOICE.md (see below) was once missing from INTERNAL_FILES: this list was
+# written from the directories the repository HAPPENED TO HAVE at the time,
+# and record/ did not exist yet -- spec/DOCUMENT_LIFECYCLE.md had planned it
+# but nothing had created it. The two are twins by design (spec/ holds current
+# normative reference, record/ holds the working record), so one being
+# internal and the other outward was never a decision anybody made.
 
 # A repository's root holds BOTH kinds, which is why directories alone cannot
 # settle this: README.md and SETUP.md are the first things an outsider reads,
@@ -68,16 +68,23 @@ INTERNAL_DIRS = (
 # byte-identical check in between, so they could not be in scope even if they
 # were outward-facing.
 #
-# VOICE.md and STYLEGUIDE.md are here for a different reason, and the reason
-# is the bug that put them here (2026-09-08, found by a consumer repo taking
-# the beta update). THIS LIST WAS BUILT FROM UPSTREAM'S OWN ROOT NAMES, and
-# upstream never instantiates those two -- it ships them as
-# templates/*.template and only an ADOPTER ever has them at a root. So the
-# check was blind to precisely the files this project hands out, and every
-# adopter got the same false positive on a file whose own header says it is
-# LOCAL ONLY. An adopter could clear it in precedent.json's `internal_paths`,
-# but making each of them discover and fix the same upstream oversight is not
-# a mechanism, it is a toll.
+# STYLEGUIDE.md is here for a different reason, and the reason is the bug
+# that put it here (2026-09-08, found by a consumer repo taking the beta
+# update). THIS LIST WAS BUILT FROM UPSTREAM'S OWN ROOT NAMES, and upstream
+# never instantiates it -- it ships as templates/STYLEGUIDE.md.template and
+# only an ADOPTER ever has it at a root. So the check was blind to precisely
+# the file this project hands out, and every adopter got the same false
+# positive on a file whose own header says it is LOCAL ONLY. An adopter could
+# clear it in precedent.json's `internal_paths`, but making each of them
+# discover and fix the same upstream oversight is not a mechanism, it is a
+# toll.
+#
+# VOICE.md used to be here for the identical reason, until 2026-09-17: it
+# stopped being a root document at all (INSTALL.md's project-voice step) and
+# became a repo-local PRACTICE at local/practices/project-voice.md instead --
+# already internal because "local" is in INTERNAL_DIRS above, with nothing to
+# add here. Kept as a footnote rather than deleted outright, because the next
+# root file this bug repeats on will look exactly like this one did.
 #
 # The general lesson, which is why this comment is longer than the fix: a
 # default derived from THIS repository's contents is wrong wherever the file
@@ -86,7 +93,7 @@ INTERNAL_DIRS = (
 INTERNAL_FILES = (
     "AGENTS.md", "CLAUDE.md", "GLOSSARY.md",
     "MAP.md", "PRACTICES.md", "TODO.md",
-    "VOICE.md", "STYLEGUIDE.md",
+    "STYLEGUIDE.md",
     # WHERE_THINGS_ARE.md joined on 2026-09-14, the day it was created: it is
     # AGENTS.md's own quick index, split out of it to stop every session
     # paying 2,671 tokens for a table it reads a dozen rows of

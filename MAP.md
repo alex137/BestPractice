@@ -6,7 +6,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 
 ## The practice catalogue
 
-`practices/` holds 120 practice files (11 resident, 109 on-demand). One file per practice. See [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md) for the design.
+`practices/` holds 121 practice files (11 resident, 110 on-demand). One file per practice. See [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md) for the design.
 
 | Practice | Tier | Occasion / scope |
 |---|---|---|
@@ -110,6 +110,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [session-spend-follows-the-task](practices/session-spend-follows-the-task.md) | on-demand | creating a session |
 | [session-tags](practices/session-tags.md) | on-demand | creating a session, or retagging one |
 | [session-text](practices/session-text.md) | on-demand | handing the person work to do, or starting work that may touch a repository this session cannot reach |
+| [session-title-names-the-difference](practices/session-title-names-the-difference.md) | on-demand | naming or renaming a session, at creation or once its differentiator is known |
 | [slow-steps-report-and-cache](practices/slow-steps-report-and-cache.md) | on-demand | writing or running a gate, audit or solve that takes more than about a minute |
 | [source-naming](practices/source-naming.md) | on-demand | importing, creating, or declaring a repository that holds practices |
 | [speculation-is-marked](practices/speculation-is-marked.md) | on-demand | recording exploratory thinking -- an idea nobody has committed to -- as a document |

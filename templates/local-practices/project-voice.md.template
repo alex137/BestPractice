@@ -1,0 +1,162 @@
+---
+slug:        project-voice
+title:       This project's own voice
+tier:        on-demand
+severity:    default
+applies_to:  ["**"]
+occasion:    "drafting anything a person outside the project will read"
+gates:       []
+index_clause: "this project's own voice -- target, audiences, vocabulary, and any departure from the general rules"
+checked_by:  null
+defines:     []
+status:      active
+in_force_at: null
+supersedes:  []
+overrides:   null
+added:       "<install date>"
+approved_by: "<undecided>"
+---
+<!-- Template: instantiate per Precedent INSTALL.md as this file (already at
+     its destination path, local/practices/project-voice.md) -- a repo-local
+     PRACTICE (precedent.json's "local" source), not a plain document.
+
+     THIS REPLACES templates/VOICE.md.template, retired 2026-09-17. VOICE.md
+     was a freeform doc that reached a session only by luck of someone
+     opening it. A repo-local practice reaches every session the same way
+     every other rule in force here does: `applies_to: ["**"]` with no
+     `gates` keeps it un-omittable from the occasion index
+     (spec/PRACTICE_FORMAT.md's `index_required` section), and the "local"
+     source's practices are never filtered out of a repo's own generated
+     block regardless of that repo's declared visibility (precedent.json's
+     own comment on the `local` source says why: it lives in the repo's own
+     tree, so nothing about it is private).
+
+     DO NOT reintroduce general writing rules here. A rule that would
+     improve anyone's writing belongs in the universal catalogue
+     (`write-like-a-human`, `bold-key-phrases`, `no-invented-specifics`,
+     and the rest) — one copy binds every project at once. A local copy of
+     a generic rule does not just go stale, it starts arguing with the live
+     one: that is what actually happened to the old `templates/VOICE.md.template`
+     before 2026-09-08, when its own formatting section forbade what
+     `bold-key-phrases` requires and every project installed from it carried
+     both instructions at once with no way to know which was meant to win.
+     What is left for this file is the one thing that genuinely does not
+     generalize: this project's own voice, which is nobody else's business
+     and does not travel.
+
+     Copied nearly empty at install, and left that way — an install does the
+     essentials and stops. Every section below may legitimately stay
+     `<undecided>`; an unfilled project-voice.md is a normal, permanent
+     state for a project that has not thought about its voice yet, and is
+     much better than an invented one. When somebody later says "help me
+     fill in my project's voice", walk them through the sections below and
+     fill them in from what they say.
+
+     This file, once instantiated, is LOCAL ONLY — repo-local practices are
+     never folded back through the export gate (INSTALL.md's copy-back
+     rule) or a check-in. It lives under `local/practices/`, in the repo's
+     own tree, so the check-in tooling structurally never touches it.
+
+     MIGRATING AN EXISTING INSTALL that still has a root VOICE.md: read it
+     once, carry the decisions actually made — not what merely shipped —
+     into the sections below, declare the "local" source in `precedent.json`
+     if this repo has not already, and delete VOICE.md in the same commit.
+     spec/MIGRATING_EXISTING_INSTALLS.md's project-voice step has the
+     worked procedure. -->
+
+## Rule
+Anything drafted for this project that a person will read follows this
+project's own stated voice below, **on top of — never instead of —** the
+general writing-quality rules already in force everywhere in the catalogue
+(`write-like-a-human`, `bold-key-phrases`, `no-invented-specifics`, and the
+rest). This file is not where general writing quality lives: a rule that
+would improve anyone's prose belongs in the universal catalogue, where one
+copy binds every project at once. What is written below is only what is
+true of *this* project and would be wrong somewhere else.
+
+A section left `<undecided>` is not a gap to fill in with something
+plausible. It means nobody has decided, and the general rules apply
+unmodified.
+
+## Detail
+**Voice target.** <One sentence. Who does this project sound like, in a way
+that is specific to it? "A senior clinician writing to a referring
+colleague." "A brief to a judge who has read the file." "The instruction
+card in the box." If the honest answer is just "a sharp colleague typing
+quickly," leave this `<undecided>` — that is the general default and does
+not need restating.>
+
+**Audiences and register.** <Who reads what this project produces, and how
+formality differs between them. A project with one audience needs one
+line. A project whose output goes to both a regulator and a customer needs
+to say which is which, and what changes.>
+
+- **<audience>:** <register, and anything that shifts for them>
+
+**Words this project uses, and words it avoids.** <Domain terms only, and
+the reason. The right word for a thing here; a word that means something
+specific in this field and must not be used loosely; a name that must
+appear in a fixed form; a term the general rules would flag but that is
+simply correct in this subject.
+
+NOT a general banned-word list — if a word is bad writing everywhere, it is
+already covered.>
+
+| Word or phrase | Use, avoid, or fixed form | Why, in this project |
+|---|---|---|
+| <term> | <verdict> | <reason> |
+
+**Overrides.** Most departures from a catalogue rule do not belong in this
+section — recording one where it has a better home is worse than not
+recording it at all. Three homes, in order; take the first that fits:
+
+1. **A knob in `precedent.json`.** If the departure is mechanical — this
+   check should not run here, this path is internal, this directory is
+   exempt — declare it there (`not_binding`, `internal_paths`,
+   `output_paths`, `filename_separator_exempt`; each takes a stated
+   reason). The tool reads it, so the override is enforced rather than
+   remembered.
+2. **A `## Conventions` bullet in this repo's instructions file.** If a
+   session has to *know* the departure while doing ordinary work, it goes
+   where every session already reads — a session applying a rule is not
+   reading this file when it applies it.
+3. **Here** — a voice or writing departure with no mechanical knob, that a
+   session only needs when it is thinking about voice specifically. Name
+   the practice, state the departure, say why the general rule does not
+   fit.
+
+When a departure lands in 1 or 2, this section may still name it in one
+line and point at where it lives — a pointer, never a copy. If there are
+none, say so; "none" is a real answer and a useful one.
+
+- **<practice slug>:** <what this project does instead, and why — or where
+  it is declared, if it lives in `precedent.json` or the instructions file>
+
+**Examples.** <Two or three short before-and-after pairs drawn from this
+project's own material, if any are worth keeping. Generic examples are
+not — the catalogue has those. A pair earns its place here only if it shows
+something about this subject that a general rule would get wrong.>
+
+## Why
+A local copy of a generic writing rule does not just go stale, it starts
+arguing with the live one — the reason the old `VOICE.md` template's 205
+lines of general guidance were deleted upstream on 2026-09-08. What
+survives that deletion, project by project, is the one thing that
+genuinely does not generalize: this project's own identity. Making it a
+practice rather than a freestanding document means a session reaches it
+through the same channel as every other rule in force here — the occasion
+index and `precedent_paths.py` — instead of a file that sits at the root
+until someone happens to open it.
+
+## Story
+None recorded yet for this project — an unfilled voice is a normal,
+permanent state, not a gap. When a real voice decision or departure gets
+made here, record it in this section: what was decided, who decided it,
+and why the general default did not fit.
+
+## Install
+This file is repo-local (`precedent.json`'s `"local"` source, `path:
+"local"`) and is never exported upstream through the export gate or a
+check-in — this project's voice is its own identity, not a generic
+practice. It ships nearly empty at install and stays that way until
+someone asks an assistant to fill it in.

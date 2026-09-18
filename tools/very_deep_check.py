@@ -594,6 +594,69 @@ def _declared_base_branch(repo_dir):
     except Exception:
         return None
 
+def _vendored_exclusion_findings(repo_dir):
+    """-> [str] findings, or None if `repo_dir` is not a vendored consumer.
+
+    A vendored consumer is one with a process/upstream/ directory, or a
+    process/manifest.json declaring upstream.commit -- the same two signals
+    tools/checkin.py itself looks for. Reads NOT_VENDORED from checkin.py by
+    import, not a second copy, so the two can never disagree about what is
+    excluded (practice: registry-source-of-truth).
+
+    This is the audit-time half of the NOT_VENDORED mechanism fix
+    (practice: very-deep-check); checkin.py's own `update` prints the same
+    signal every time it runs, but only for a repo that actually runs
+    `update` again after a path is newly excluded. This check is what still
+    catches the other case -- a consumer that has not re-run `update` since,
+    or is vendoring from a pre-fix engine copy that never had the sweep at
+    all -- since a very deep check reads the tree as it sits, not as the
+    last `update` left it.
+    """
+    repo_dir = pathlib.Path(repo_dir)
+    upstream_dir = repo_dir / 'process' / 'upstream'
+    is_consumer = upstream_dir.is_dir()
+    if not is_consumer:
+        manifest_path = repo_dir / 'process' / 'manifest.json'
+        try:
+            manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
+            is_consumer = bool((manifest.get('upstream') or {}).get('commit'))
+        except Exception:                                        # noqa: BLE001
+            pass
+    if not is_consumer:
+        return None
+    try:
+        import checkin
+        not_vendored = checkin.NOT_VENDORED
+        not_vendored_root = checkin._NOT_VENDORED_ROOT_PATHS
+    except Exception as exc:                                      # noqa: BLE001
+        return [f"could not read NOT_VENDORED from tools/checkin.py -- "
+                f"{type(exc).__name__}: {exc} -- so this repo's "
+                f"process/upstream/ was NOT checked against it"]
+    if not upstream_dir.is_dir():
+        return []              # manifest declares a consumer, tree not present locally
+    hits = {}          # name -> (file count, is a root file rather than a dir)
+    for p in upstream_dir.rglob('*'):
+        if not p.is_file() or '.git' in p.parts:
+            continue
+        rel = p.relative_to(upstream_dir)
+        excluded = [part for part in rel.parts if part in not_vendored]
+        is_root = not excluded and rel in not_vendored_root
+        if is_root:
+            excluded = [str(rel)]
+        if excluded:
+            name = excluded[0]
+            n, _ = hits.get(name, (0, is_root))
+            hits[name] = (n + 1, is_root)
+    out = []
+    for name, (n, is_root) in sorted(hits.items()):
+        where = f"process/upstream/{name}" if is_root else f"process/upstream/{name}/"
+        out.append(f"{where} still present, {n} file(s) under an excluded path -- "
+                   f"either checkin.py update's sweep has not run here since "
+                   f"{name!r} was excluded (re-run it: it now reports this every "
+                   f"time), or this repo vendors from a pre-fix engine copy")
+    return out
+
+
 def _declared_stale_days(repo_dir):
     """-> a repo's own `branch_stale_days` from its precedent.json, or None.
 
@@ -4442,6 +4505,24 @@ def _main(box):
                  f"not parse. Fix those first -- this tool reads "
                  f"precedent.json to enumerate its own scope, so it cannot "
                  f"report anything else while one of them is malformed.")
+
+    if led:
+        led.start('VENDORING EXCLUSIONS')
+    _vendor_findings = _vendored_exclusion_findings(_root)
+    if not as_json:
+        print("VENDORING EXCLUSIONS -- a vendored consumer's process/upstream/ "
+              "checked against\ntools/checkin.py's NOT_VENDORED\n")
+        if _vendor_findings is None:
+            print("  N/A: not a vendored consumer (no process/upstream/, no "
+                  "process/manifest.json upstream.commit).")
+        elif not _vendor_findings:
+            print("  OK: process/upstream/ carries nothing under an excluded path.")
+        else:
+            for _f in _vendor_findings:
+                print(f"  FINDING: {_f}")
+        print()
+    if led:
+        led.end(findings=len(_vendor_findings or []))
 
     data = enumerate_scope(repo, user_config)
 
