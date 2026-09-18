@@ -223,7 +223,7 @@ plan's premise.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block; `python3 tools/build_views.py --check` exits non-zero on drift. Source: practices/ -- edit the practice file, never this block. -->
 
-## Resident block (~1180 of 2000 token budget, 11 of 128 practices (11 universal))
+## Resident block (~1180 of 2000 token budget, 11 of 129 practices (11 universal))
 
 **answer-first-ask-before-long-work.** Three parts. **(1) Answer the easy questions in a message before starting
 anything long.** A conceptual question is answered from what is already
@@ -324,6 +324,8 @@ When a computation books a transfer between two parties:
   name-both-sides-of-ledger — name both sides; check what is charged against what is received
 When a document replaces or is replaced by an earlier one:
   index-remembers-past — put the lineage in the index, not in either document
+When a message asks whether the session can be archived, or plainly carries that feeling:
+  archive-status-check — "Archive?" -- check what's pending first; archive if clear, else say what isn't
 When a message carries the merge phrase, or plainly authorizes a merge:
   go-merge — "Go update"/"Approved"/"Go merge": trivial -> push; else sync, branch, PR, merge
 When a message says "Archive" standing alone, about a session:
