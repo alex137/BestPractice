@@ -58,8 +58,9 @@ is the manual workaround for exactly this, merged the same day as this brief.
 
 1. **It has to fire on "stale or absent," not just "absent."** Mirroring the
    clone-heal's guard exactly (`if not sp.is_file(): render()`) reproduces
-   today's incident one-for-one: the file existed, so an existence-only
-   check would have stayed silent for the whole extra day.
+   the 2026-09-18 incident this brief follows from, one-for-one: the file
+   existed, so an existence-only check would have stayed silent for the
+   whole extra day.
 2. **It has to stay cheap on the common path.** `load_config()` runs inside
    `precedent_check.py`, `precedent_paths.py`, `precedent_show.py`, and
    `precedent_gate.py` — several of which fire more than once per turn, some
@@ -68,9 +69,10 @@ is the manual workaround for exactly this, merged the same day as this brief.
 3. **It has to know what "stale" means without trusting anything the
    possibly-unrun hook would have set.** There is no in-session signal for
    "did SessionStart actually fire" — `CLAUDE_PROJECT_DIR` being unset
-   proves nothing either way, per the existing session-check code's own
-   comment. Staleness has to be judged from file state on disk, not from
-   session state.
+   proves nothing either way, per `tools/precedent_session_check.py`'s own
+   docstring, which tests every SessionStart guarantee by its effect on
+   disk for exactly this reason. Staleness has to be judged from file
+   state on disk, not from session state.
 
 ## Shapes
 
@@ -85,7 +87,8 @@ render()`, added right beside the existing clone-heal call.
   still passes `is_file()`. This shape fixes the case where a session's
   first-ever `load_config()` call finds nothing at all (e.g., a brand-new
   clone with no prior session), and leaves every staleness case — which is
-  what actually happened here — exactly as open as it is today.
+  what actually happened in the 2026-09-18 incident this brief follows
+  from — exactly as open as this shape leaves it.
 
 ### Shape B — unconditional re-render on every `load_config()` call
 
@@ -151,11 +154,13 @@ to need its own measurement first.
   four packs by 2026-09-17. This brief's fix does not retroactively apply
   itself; "Update Vendors" still has to run in each.
 - Worth measuring alongside the build, not guessed beforehand: real
-  `precedent_session_practices.py` latency in each of the four packs (this
-  session measured under a couple of seconds once, in
-  `precedent-individual`, cold-clone case — not the warm, already-current
-  case Shape C's common path actually hits) and how many `load_config()`
-  calls one ordinary editing turn makes.
+  `precedent_session_practices.py` latency in each of the four packs.
+  Measured once, 2026-09-18, in `precedent-individual`: under a couple of
+  seconds — but that was the cold-clone case (the sibling had just been
+  synced), not the warm, already-current case Shape C's common path
+  actually hits, so it is a starting number, not a proof either way. Also
+  unmeasured: how many `load_config()` calls one ordinary editing turn
+  makes.
 
 ## Next step
 
