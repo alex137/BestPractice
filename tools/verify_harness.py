@@ -18596,9 +18596,9 @@ def check_move_tool_lands_then_deduplicates():
         cases.append(('the source copy is deduplicated, points at the slug, and its Story '
                       'says where it went',
                       'status:      deduplicated' in stext and 'in_force_at: zz-moves' in stext
-                      and 'Moved to the team set `precedent-team-fixture`' in stext, stext[-400:]))
+                      and 'Moved to the shared set `precedent-team-fixture`' in stext, stext[-400:]))
         cases.append(('the disclosure names both sets and the level',
-                      'DISCLOSE TO THE HUMAN' in r.stdout and 'team set precedent-team-fixture' in r.stdout
+                      'DISCLOSE TO THE HUMAN' in r.stdout and 'shared set precedent-team-fixture' in r.stdout
                       and 'individual set precedent-individual' in r.stdout, r.stdout[-400:]))
 
         # -- a consumer resolving both sets sees the practice from the team, once --
