@@ -32,6 +32,16 @@ deliverables and indexes which documents back each part of each one.
 
 - At session start, run `bash tools/bootstrap.sh` before other work (harnesses
   with a hook mechanism run it automatically — see `templates/harness/`).
+- **A session already scoped to more than one repo from the start — not one
+  attached mid-session — never gets this automatically for ANY of them.** A
+  harness's own SessionStart hook (which sets `commit-author`'s declared
+  identity and installs its pre-commit backstop) fires only for its
+  *primary* project directory; a sibling repo in the same multi-repo session
+  is never that, for the session's entire duration, not just its first turn
+  (practice `session-bootstrap`). Run `bash tools/bootstrap.sh` by hand,
+  once per repo, before that repo's first commit — the existing fallback
+  for a harness with no hook mechanism at all applies here for the same
+  reason.
 
 ### Two check levels
 
