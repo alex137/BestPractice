@@ -37,6 +37,17 @@
       ],
       "gates_why": "The obligation lands in the reply: resolve the session, archive it, and say so, that same turn."
     },
+    "archive-status-check": {
+      "globs": [
+        "**"
+      ],
+      "why": "Same locus as `archive-command`: a phrase (or its plain-language equivalent) in a MESSAGE, not a file path.",
+      "decided": "2026-09-18, coined alongside archive-command as its intent-checking counterpart",
+      "gates": [
+        "reply"
+      ],
+      "gates_why": "The check and the resulting archive-or-report both land in the reply, the same turn the question was asked."
+    },
     "attach-the-original": {
       "globs": [
         "**/*.png",
