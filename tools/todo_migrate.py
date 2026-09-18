@@ -119,6 +119,11 @@ KIND_MARKER_RE = re.compile(
     re.IGNORECASE)
 KIND_MARKER_MAP = {'verification': 'verify', 'physical': 'manual'}
 
+class TodoShapeError(ValueError):
+    """Raised when a source file matches none of parse_todo_items's known
+    start shapes -- see _heading_per_item_shaped()."""
+
+
 TITLE_RE = re.compile(r'\*\*(.+?)\*\*', re.DOTALL)
 BLOCKED_ON_RE = re.compile(
     r'\*\*Blocked[- ]on(?:\s*/\s*out of scope)?:?\*\*\s*(.+?)'
@@ -197,6 +202,30 @@ class Item:
         return self.anchor or _slugify(self.title)
 
 
+def _heading_per_item_shaped(lines):
+    """True if this file uses one `## <slug>` heading per item, each with
+    its own **Disposition:** line nearby, rather than a flat bullet list --
+    a real pre-migration shape (found 2026-09-18 against a real consumer's
+    TODO.md, which used exactly this) that none of TODO_ANCHOR_RE /
+    TODO_CHECKBOX_RE / TODO_BARE_RE recognizes. Left undetected, an
+    indented `- **Blocked on:**` / `- **Disposition:**` sub-bullet under
+    each heading matches TODO_BARE_RE as if it were its own top-level item,
+    fabricating two items per real one and swallowing whichever headings
+    fall between a fabricated item and the next bullet into that item's
+    body verbatim. Detected by the same signature that trips the bug: at
+    least two `##` headings, each followed shortly by a **Disposition:**
+    line before the next heading."""
+    heading_idxs = [i for i, l in enumerate(lines)
+                    if TODO_SECTION_HEADING_RE.match(l)]
+    if len(heading_idxs) < 2:
+        return False
+    bounds = heading_idxs + [len(lines)]
+    with_disposition = sum(
+        1 for j, i in enumerate(heading_idxs)
+        if any(DISPOSITION_RE.search(l) for l in lines[i:bounds[j + 1]]))
+    return with_disposition >= 2 and with_disposition == len(heading_idxs)
+
+
 def parse_todo_items(text):
     """Split TODO.md's flat bullet list into Items. A bullet starts a new
     item at column 0 (`- ...`); everything indented under it, down to the
@@ -214,12 +243,28 @@ def parse_todo_items(text):
     the ordering just keeps that invariant explicit rather than relying on
     it by accident.
 
+    A file shaped some other way entirely -- checked against
+    _heading_per_item_shaped() before any of the three shapes are trusted
+    -- raises TodoShapeError rather than silently returning whatever the
+    bare-bold pattern happens to match (practice: fail-gracefully; a
+    fabricated item set looks exactly like a real one to every caller
+    downstream of this function).
+
     Also tracks the nearest preceding `##` heading for each bullet, so an
     item filed under a kind-named section (the classic template's own
     "## Analyses (agent-doable)" / "## Verify before external use" /
     "## Decisions (user's call)") carries that as `section_kind` --
     previously thrown away here entirely, before guess_kind() ever ran."""
     lines = text.split('\n')
+    if _heading_per_item_shaped(lines):
+        raise TodoShapeError(
+            "this file doesn't match any known TODO.md shape -- it looks "
+            "like one `## <slug>` heading per item with its own "
+            "**Disposition:** line, which none of TODO_ANCHOR_RE / "
+            "TODO_CHECKBOX_RE / TODO_BARE_RE recognizes. Parsing it anyway "
+            "would fabricate items from indented sub-bullets and swallow "
+            "headings' text into them -- write the todo/ items for this "
+            "file by hand instead of trusting --apply.")
     starts = []
     section_kind_at = {}
     current_section_kind = None
@@ -579,8 +624,11 @@ def main(argv):
 
     TODAY = precedent_time.today(repo)
 
-    items = (parse_todo_items(text) if source == 'todo.md'
-             else parse_gotcha_items(text))
+    try:
+        items = (parse_todo_items(text) if source == 'todo.md'
+                 else parse_gotcha_items(text))
+    except TodoShapeError as e:
+        sys.exit(f'todo_migrate FAIL: {e}')
     if only_slugs:
         wanted = set(only_slugs)
         items = [it for it in items if it.slug in wanted]

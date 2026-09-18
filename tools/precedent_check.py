@@ -727,14 +727,20 @@ def _practice_status(text):
 
 
 def _foreign_practice(rel):
-    """True if a COMMITTED practices/MANIFEST.json says another source owns it.
+    """True if a COMMITTED MANIFEST.json says another source owns it.
 
     Attribution never comes from live source resolution: a bare CI checkout
     can reach neither a team sibling clone nor a private user-level config,
     so "did not resolve here" is not "owned here". Same mechanism, and the
     same reasoning, as the materialized-practice guards elsewhere.
+
+    MANIFEST.json lives at the REPO ROOT, not under practices/ --
+    precedent_materialize.py's materialize() always writes it to `out_dir`
+    (precedent_sync_views.py calls it with the repo root as `out_dir`), so
+    a `practices/MANIFEST.json` path here never matched any real consumer
+    and this function returned False unconditionally, everywhere.
     """
-    manifest = ROOT / 'practices' / 'MANIFEST.json'
+    manifest = ROOT / 'MANIFEST.json'
     if not manifest.is_file():
         return False
     try:
