@@ -1294,18 +1294,55 @@ def check_leak_gate_fires():
         git(repo, 'reset', '-q', '--hard', base)
 
         # 6b. structural PATH rules must be case-insensitive. Regression
-        # case: the four FORBIDDEN_PATHS regexes had no re.I, so a
-        # directory named the way a person actually types it --
-        # "Team-Nightjar/", "Individual/", "Candidates/" -- passed the gate
-        # silently while its lowercase spelling correctly failed.
-        (repo / 'Team-Nightjar').mkdir()
-        (repo / 'Team-Nightjar' / 'notes.md').write_text('clean\n', encoding='utf-8')
-        git(repo, 'add', '-A'); git(repo, 'commit', '-qm', 'mixed-case team dir')
-        cases.append(('a mixed-case forbidden path (Team-Nightjar/) fails the '
+        # case: the FORBIDDEN_PATHS regexes had no re.I, so a directory
+        # named the way a person actually types it -- "Individual/",
+        # "Candidates/" -- passed the gate silently while its lowercase
+        # spelling correctly failed.
+        (repo / 'Candidates').mkdir()
+        (repo / 'Candidates' / 'notes.md').write_text('clean\n', encoding='utf-8')
+        git(repo, 'add', '-A'); git(repo, 'commit', '-qm', 'mixed-case candidates dir')
+        cases.append(('a mixed-case forbidden path (Candidates/) fails the '
                       'same as its lowercase spelling',
                       gate('--range', f'{base}..HEAD') == 1))
         git(repo, 'reset', '-q', '--hard', base)
-        shutil.rmtree(repo / 'Team-Nightjar', ignore_errors=True)
+        shutil.rmtree(repo / 'Candidates', ignore_errors=True)
+
+        # 6d. a vendored private set is recognised by what it CARRIES, not by
+        # a name shape (2026-09-18, practice: source-naming). Two tells: a
+        # path segment equal to a shared source this repo DECLARES, in any
+        # case; and a source manifest that says the set is private, under
+        # any directory name at all. A public planning document whose
+        # title happens to start with "team" is neither, and passes.
+        (repo / 'precedent.json').write_text(json.dumps({
+            'sources': [{'level': 'shared', 'name': 'nightjar-set',
+                         'path': '../nightjar-set'}]}), encoding='utf-8')
+        (repo / 'spec').mkdir()
+        (repo / 'spec' / 'TEAM_PLANNING_NOTE.md').write_text('a public note\n',
+                                                              encoding='utf-8')
+        git(repo, 'add', '-A'); git(repo, 'commit', '-qm', 'declare a shared source')
+        base_declared = git(repo, 'rev-parse', 'HEAD')
+        cases.append(('a public document whose filename begins "TEAM" passes -- '
+                      'a title is not a vendored set',
+                      gate() == 0))
+        (repo / 'Nightjar-Set' / 'practices').mkdir(parents=True)
+        (repo / 'Nightjar-Set' / 'practices' / 'x.md').write_text('private\n',
+                                                                   encoding='utf-8')
+        git(repo, 'add', '-A'); git(repo, 'commit', '-qm', 'vendor the declared set')
+        cases.append(('a directory named after a DECLARED shared source fails, '
+                      'in any case', gate('--range', f'{base_declared}..HEAD') == 1))
+        git(repo, 'reset', '-q', '--hard', base_declared)
+        shutil.rmtree(repo / 'Nightjar-Set', ignore_errors=True)
+        (repo / 'vendored' / 'anything').mkdir(parents=True)
+        (repo / 'vendored' / 'anything' / 'precedent-source.json').write_text(
+            json.dumps({'name': 'whatever', 'level': 'shared',
+                        'visibility': 'private'}), encoding='utf-8')
+        git(repo, 'add', '-A'); git(repo, 'commit', '-qm', 'vendor a manifest')
+        cases.append(("a private set's own manifest fails under ANY directory "
+                      'name', gate('--range', f'{base_declared}..HEAD') == 1))
+        git(repo, 'reset', '-q', '--hard', base)
+        shutil.rmtree(repo / 'vendored', ignore_errors=True)
+        shutil.rmtree(repo / 'spec', ignore_errors=True)
+        (repo / 'precedent.json').unlink(missing_ok=True)
 
         # 6c. the FORBIDDEN_CONTENT "non-universal source" rule must catch a
         # real frontmatter-shaped line and NOT an ordinary sentence that
@@ -1356,14 +1393,15 @@ def check_leak_gate_fires():
         cases.append(('a blocklist with no patterns fails rather than passing '
                       'vacuously', rc == 1))
 
-        # 10. the single ALLOWED_PATHS exemption, from both sides. The
-        #     vendored-private-set rule matches a path SEGMENT beginning
-        #     'precedent-individual', which is also the start of the canonical
-        #     SessionStart hook's FILENAME -- so installing the hook this
-        #     project tells every adopter to install failed the gate
-        #     (2026-09-06, the moment BestPractice installed its own). The
-        #     exemption is one exact path, so the directory case it was
-        #     written for must still fail.
+        # 10. the single ALLOWED_PATHS exemption, from both sides. Until
+        #     2026-09-18 the vendored-private-set rule matched a path SEGMENT
+        #     beginning 'precedent-individual', which is also the start of
+        #     the canonical SessionStart hook's FILENAME -- so installing the
+        #     hook this project tells every adopter to install failed the
+        #     gate (2026-09-06, the moment BestPractice installed its own).
+        #     The rule now matches a whole segment equal to the default
+        #     individual name, so the hook passes on its own; the exemption
+        #     stays as the record and the directory case must still fail.
         hook_rel = '.claude/hooks/precedent-individual-bootstrap.sh'
         (repo / '.claude' / 'hooks').mkdir(parents=True, exist_ok=True)
         (repo / hook_rel).write_text('#!/bin/bash\nexit 0\n', encoding='utf-8')
@@ -2084,12 +2122,12 @@ def check_source_precedence():
         # all four sources are actually in play
         cases.append(('all four sources resolve',
                       {s['level'] for s in data['sources']}
-                      == {'universal', 'team', 'individual', 'repo-local'}))
+                      == {'universal', 'shared', 'individual', 'repo-local'}))
         # precedence: team > repo-local > individual > universal, on a slug
         # defined at all four
         cases.append(('team beats repo-local beats individual beats '
                       'universal on a slug defined at all four',
-                      by_slug.get('shared-slug', {}).get('level') == 'team'))
+                      by_slug.get('shared-slug', {}).get('level') == 'shared'))
         # isolate repo-local's own rank: a slug defined at repo-local,
         # individual and universal, but NOT team, must resolve to repo-local
         cases.append(('repo-local beats individual and universal when team '
@@ -2098,7 +2136,7 @@ def check_source_precedence():
         # everything unique to a level survives
         for slug, level in (('universal-only', 'universal'),
                             ('individual-only', 'individual'),
-                            ('team-only', 'team'),
+                            ('team-only', 'shared'),
                             ('repo-local-only', 'repo-local')):
             cases.append((f'{slug} survives from {level}',
                           by_slug.get(slug, {}).get('level') == level))
@@ -4498,7 +4536,7 @@ def check_session_practices_load_without_publishing():
                       'every session\'s resident block',
                       'universal-one' not in slugs))
         cases.append(('the level is carried, so the block can say where a rule came from',
-                      levels.get('team-only-rule') == 'team'))
+                      levels.get('team-only-rule') == 'shared'))
 
         text = psp.render(extra, levels, notes)
         cases.append(('the rendered block names the team practice',
@@ -12493,7 +12531,7 @@ def check_sync_views_cross_source():
                       'uni-fixture' in agents_text and 'team-fixture' in agents_text))
         cases.append(('the resident-count-by-level header counts only the '
                       'RESIDENT practices, not all four resolved ones',
-                      '2 of 4 practices (1 team, 1 universal)' in agents_text))
+                      '2 of 4 practices (1 shared, 1 universal)' in agents_text))
         cases.append(('the occasion index reaches the on-demand individual '
                       'and repo-local practices too',
                       'ind-fixture' in agents_text and 'local-fixture' in agents_text))
@@ -13123,7 +13161,7 @@ def check_creation_pipeline_fires():
                         '--raised-by', 'harness', '--observed', 'x', '--proposed-rule', 'x')
         cases.append(('--as-issue is refused for --level individual '
                       '(no one else to notify)',
-                      rc == 1 and 'only applies to --level team' in out))
+                      rc == 1 and 'only applies to --level shared' in out))
 
         rc, out = pyrun(cand_tool, 'create', '--level', 'universal',
                         '--slug', 'pipeline-fixture-disclose-cand-u', '--title', 't',
@@ -13272,10 +13310,10 @@ def check_bootstrap_source_produces_resolvable_set():
                       rc == 0 and not resolved.get('missing') and not resolved.get('blocked'), out))
         cases.append(('the planted shared slug resolves, won by the team set over '
                       'the individual set (real precedence, not just presence)',
-                      slugs.get('zz-shared-slug', {}).get('level') == 'team', out))
+                      slugs.get('zz-shared-slug', {}).get('level') == 'shared', out))
         cases.append(('and the two skeletons\' own placeholders no longer collide: '
                       'both resolve, each from its own level',
-                      slugs.get('example-starter-team', {}).get('level') == 'team'
+                      slugs.get('example-starter-shared', {}).get('level') == 'shared'
                       and slugs.get('example-starter-individual', {}).get('level')
                       == 'individual', out))
     finally:
@@ -14526,7 +14564,7 @@ def check_source_shape_is_verified():
     with tempfile.TemporaryDirectory() as td:
         def fixture(level, **edits):
             d = pathlib.Path(td) / f'src{len(cases)}{level}{len(edits)}'
-            shutil.copytree(ROOT / 'templates' / f'practice-set-{level}', d)
+            shutil.copytree(ROOT / 'templates' / f"practice-set-{ {'team': 'shared'}.get(level, level) }", d)
             (d / 'practices').mkdir(exist_ok=True)
             (d / 'practices' / 'x.md').write_text('---\nslug: x\n---\n## Rule\nx\n',
                                                   encoding='utf-8')
@@ -15383,7 +15421,7 @@ def check_loader_block_covers_every_declared_source():
     # deleting a legitimate practice is one people learn to ignore.
     publishable = set()
     for s in declared:
-        if s['level'] in ('team', 'individual'):
+        if s['level'] in ('shared', 'team', 'individual'):
             continue
         d = pathlib.Path(s['path']) / 'practices'
         if not d.is_dir():
@@ -15423,7 +15461,7 @@ def check_loader_block_covers_every_declared_source():
         if not active:
             continue
         present = [a for a in active if a in named]
-        if public and s['level'] in ('team', 'individual'):
+        if public and s['level'] in ('shared', 'team', 'individual'):
             leaked += [a for a in present if a not in publishable]
         elif not present and expected_in_block:
             missing.append(f"{s['level']}/{s['name']} ({len(expected_in_block)} of "
@@ -18585,7 +18623,7 @@ def check_move_tool_lands_then_deduplicates():
         levels = {p['slug']: p['level'] for p in resolved.get('practices', [])}
         cases.append(('a consumer resolving both sets gets the moved practice from the '
                       'team, once, and the deduplicated copy is not reported as a collision',
-                      levels.get('zz-moves') == 'team'
+                      levels.get('zz-moves') == 'shared'
                       and not resolved.get('blocked'), (r.stdout + r.stderr)[:600]))
 
         # -- the resolver names a forwarding address that resolves nowhere --

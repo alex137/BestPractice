@@ -77,7 +77,7 @@
       "describes": [
         "tools/precedent_bootstrap_source.py",
         "templates/practice-set-individual",
-        "templates/practice-set-team"
+        "templates/practice-set-shared"
       ],
       "why": "It is the conversational front door to the same install, so it drifts from INSTALL.md's mechanics rather than from the code directly."
     },

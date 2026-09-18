@@ -203,7 +203,7 @@ def _approx_tokens(text):
 # tools/precedent_session_practices.py renders exactly this complement into
 # an untracked file instead -- one definition, so the two cannot disagree
 # about which practices a public repo's session is otherwise never shown.
-PRIVATE_LEVELS = ('team', 'individual')
+PRIVATE_LEVELS = ('shared', 'team', 'individual')
 
 
 _VISIBILITY_WARNED = set()
@@ -288,7 +288,7 @@ def repo_is_public(root):
             for src in (json.loads(
                     (pathlib.Path(root) / 'precedent.json').read_text(
                         encoding='utf-8')).get('sources') or []):
-                if src.get('level') in ('team', 'individual'):
+                if src.get('level') in PRIVATE_LEVELS:
                     dropped.append(f"{src.get('level')}:{src.get('name')}")
         except (ValueError, OSError, AttributeError, TypeError):
             dropped = []

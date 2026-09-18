@@ -53,6 +53,7 @@ Built from every practice's `defines:` frontmatter field -- the terms that pract
 | session load | [session-load-budget](practices/session-load-budget.md) |
 | Session Text | [session-text](practices/session-text.md) |
 | skipped heading level | [heading-outline](practices/heading-outline.md) |
+| source manifest | [source-naming](practices/source-naming.md) |
 | speculative document | [speculation-is-marked](practices/speculation-is-marked.md) |
 | subject: | [session-tags](practices/session-tags.md) |
 | the desk | [chief-of-staff](practices/chief-of-staff.md) |

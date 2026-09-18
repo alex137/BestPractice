@@ -157,8 +157,9 @@ fi
 # PRECEDENT_GIT_TOKEN is the durable fix and `add_repo` is the per-session
 # one (practice: durable-fix).
 #
-# The team sets are cloned as SIBLINGS, from $PRECEDENT_SOURCE_BASE_URL/<name>,
-# because that is how tools/precedent_resolve.py resolves a team source. The
+# The shared sets are cloned as SIBLINGS, from $PRECEDENT_SOURCE_BASE_URL/<name>
+# (or /<repo>, when the declaration says the repository is called something
+# else), because that is how tools/precedent_resolve.py resolves one. The
 # individual set needs nothing here: precedent_resolve.py's own self-heal
 # already re-runs its bootstrap hook, and with a token set that attempt now
 # succeeds where it used to fail for want of access.

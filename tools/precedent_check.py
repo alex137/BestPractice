@@ -1169,6 +1169,11 @@ def _separator_foreign():
     return _SEPARATOR_FOREIGN_FIXED + _mirrored(ROOT)
 
 
+# Filenames fixed by the engine, identical in every Precedent repository,
+# and therefore never a repository's own separator choice.
+ENGINE_FIXED_FILENAMES = frozenset({'precedent-source.json'})
+
+
 @check('filename-separator', 'tree',
        'files of the same kind in one directory use one word separator, '
        'never both - and _',
@@ -1201,6 +1206,12 @@ def _filename_separator(ctx):
         if any(f.startswith(x) for x in _separator_foreign()):
             continue
         path = pathlib.PurePath(f)
+        # A name the engine fixes is determined elsewhere by construction --
+        # the same reason precedent.json's exemption exists -- so it never
+        # sets or breaks a directory's convention (practice: source-naming:
+        # the source manifest's name is the same in every repository).
+        if path.name in ENGINE_FIXED_FILENAMES:
+            continue
         # The FIRST dot ends the stem: `a_b.md.template` is named after
         # `a_b.md`, so its separator was inherited from that name, not
         # chosen here.
@@ -1552,13 +1563,15 @@ def _generated_edit_goes_upstream(ctx):
 
 
 @check('source-naming', 'tree',
-       "every precedent.json in the tree names each source by the shape its "
-       "level fixes -- `precedent`, `precedent-individual`, "
-       "`precedent-team-<slug>`, `local`",
-       'the GitHub repository names themselves, and whether a team slug names '
-       'a purpose rather than a roster. It sees declared names in tracked '
-       'configuration, which is the layer a check can reach; the rest of the '
-       'practice is disclosure, carried by the occasion index.')
+       "every precedent.json in the tree names each source by a name its "
+       "level allows -- `precedent` and `local` for universal and repo-local, "
+       "a slug for a shared or individual set -- and every declared source "
+       "on disk that carries a precedent-source.json answers to the name and "
+       "level declared for it",
+       'the GitHub repository names themselves, which may be anything. It '
+       'sees declared names in tracked configuration and the manifests of '
+       'sources it can reach, which is the layer a check can reach; the rest '
+       'of the practice is disclosure, carried by the occasion index.')
 def _source_naming(ctx):
     out = []
     sys.path.insert(0, str(ROOT / 'tools'))
@@ -1582,17 +1595,27 @@ def _source_naming(ctx):
             continue
         for entry in data.get('sources', []):
             level, name = entry.get('level'), entry.get('name')
-            shape = pr.SOURCE_NAME_SHAPE.get(level)
-            if shape is None:
+            # The one rule per level lives in the resolver, so the gate and
+            # the engine cannot disagree about the convention.
+            try:
+                pr.check_source_name(level, name, rel)
+            except pr.ResolveError as e:
+                out.append(Finding(rel, str(e).split(': ', 1)[-1]))
                 continue
-            pattern, expected = shape
-            # The one regular expression per level lives in the resolver, so
-            # the gate and the engine cannot disagree about the convention.
-            if not (isinstance(name, str) and pattern.match(name)):
-                out.append(Finding(
-                    rel, f'names its {level} source {name!r}; a {level} '
-                         f'source is named {expected} -- fixed by its level, '
-                         f'not chosen (spec/SOURCE_NAMING.md)'))
+            # Identity is read off the source, never inferred from its name:
+            # a clone at the declared path that calls itself something else
+            # is the wrong repository there (practice: source-naming).
+            raw = entry.get('path')
+            if not isinstance(raw, str) or not raw:
+                continue
+            src_path = (cfg.parent / raw).resolve()
+            if not (src_path / pr.SOURCE_MANIFEST).is_file():
+                continue
+            try:
+                pr.check_source_manifest({'name': name, 'level': level,
+                                          'path': str(src_path)})
+            except pr.ResolveError as e:
+                out.append(Finding(rel, str(e)))
     return out
 
 

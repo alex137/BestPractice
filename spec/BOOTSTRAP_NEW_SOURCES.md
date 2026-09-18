@@ -38,7 +38,7 @@ mechanizes everything that does not require credentials this tool can't
 assume a session has:
 
 - Copies [`templates/practice-set-individual/`](../templates/practice-set-individual/)
-  or [`templates/practice-set-team/`](../templates/practice-set-team/) into
+  or [`templates/practice-set-shared/`](../templates/practice-set-shared/) into
   a target directory, filling in the owner's name (and, for a team, its
   first approver's name and GitHub handle) wherever the skeleton names a
   placeholder.
@@ -491,21 +491,27 @@ case documented above.
 7. Delete `practices/example-starter-<level>.md` once a real first practice
    replaces it.
 
-### For a team set
+### For a shared set
 
-Same shape, with two differences: the repo is created once per team (not
-per person), and it needs at least one approver at creation time.
+A shared set is any set declared by more than one repository — a team's
+house rules, or a subject system (a filing pipeline, a presentation kit)
+used by whoever does that kind of work. Same shape as the individual case,
+with two differences: the repo is created once per set (not per person),
+and it needs at least one approver at creation time.
 
-1. **The name is `precedent-team-<slug>`**, slug lowercase and hyphenated,
-   naming what the team is *for* rather than who is on it — a roster-shaped
-   name is stale the moment a third person joins, and renaming a set breaks
-   every vendored reference to it. Say the convention before the repository
-   is created; see [practices/source-naming.md](../practices/source-naming.md).
+1. **The name is a slug, chosen once**, lowercase and hyphenated, naming
+   the subject rather than who works on it — a roster-shaped name is stale
+   the moment a third person joins, and renaming a set breaks every
+   consumer's attribution. The bootstrap tool writes it into the set's
+   `precedent-source.json`, which is where its identity lives; the
+   repository may be called anything (declare `repo` in the consumer when
+   it differs). Say this before the repository is created; see
+   [practices/source-naming.md](../practices/source-naming.md).
 2. Create a **private** repository, shared with the team's members as
    collaborators. Same access caveat as step 2 above.
 3. Run:
    ```
-   python3 tools/precedent_bootstrap_source.py --level team \
+   python3 tools/precedent_bootstrap_source.py --level shared \
        --name <name> --dest <local clone path> \
        --approver "Full Name:github-handle"
    ```
@@ -527,7 +533,7 @@ per person), and it needs at least one approver at creation time.
    identical gap, not a new one.
 7. Fill in `leak-blocklist.txt` and `approvers.json` for real, delete
    `practices/example-starter-<level>.md` once a real first practice replaces it.
-8. **For a team set, run `python3 tools/build_codeowners.py`** and commit
+8. **For a shared set, run `python3 tools/build_codeowners.py`** and commit
    the `CODEOWNERS` it writes. `approvers.json` is the declaration;
    `CODEOWNERS` is what actually makes GitHub require an approver's review,
    and until it exists the approver list enforces nothing. Re-run it every

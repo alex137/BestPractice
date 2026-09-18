@@ -49,9 +49,12 @@ fi
 # account. PRECEDENT_INDIVIDUAL_REPO lets each person point this at theirs
 # without editing a tracked file (and without a second, conflicting hook).
 #
-# The NAME is deliberately not overridable: practice source-naming fixes it
-# as the same string in every person's own account, so only the account --
-# that is, the URL -- can legitimately differ.
+# The NAME is not overridable HERE: this hook bootstraps a set under the
+# default name every person's own set gets when their config names none
+# (`precedent-individual`, practice source-naming), so only the account --
+# that is, the URL -- can legitimately differ. A person whose set is called
+# something else declares it in their own user-level config, which this
+# hook reads first.
 #
 # Set it in whatever your environment uses for per-session variables; on
 # Claude Code Remote that is the environment's own configuration. Leave it
@@ -81,9 +84,12 @@ fi
 # `individual.repo_url` is read first, and a public consumer needs no URL in
 # its tree at all.
 #
-# The NAME is deliberately not overridable: practice source-naming fixes it
-# as the same string in every person's own account, so only the account --
-# that is, the URL -- can legitimately differ.
+# The NAME is not overridable HERE: this hook bootstraps a set under the
+# default name every person's own set gets when their config names none
+# (`precedent-individual`, practice source-naming), so only the account --
+# that is, the URL -- can legitimately differ. A person whose set is called
+# something else declares it in their own user-level config, which this
+# hook reads first.
 CFG="$HOME/.config/precedent/config.json"
 CFG_URL=""
 if [ -f "$CFG" ]; then
@@ -121,8 +127,8 @@ if [ "yes" != "yes" ]; then
 fi
 
 # LAST RESORT, and the reason a public repo need bake in no account at all.
-# The set's NAME is fixed by level -- `precedent-individual` for every
-# person, never chosen (practice: source-naming) -- so the only unknown is
+# The set's NAME defaults by level -- `precedent-individual` for every
+# person whose config names none (practice: source-naming) -- so the only unknown is
 # the ACCOUNT, and $PRECEDENT_SOURCE_BASE_URL already carries it for the
 # team sets. Deriving the individual set the same way means a tracked hook
 # in a public tree names nobody.

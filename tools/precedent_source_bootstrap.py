@@ -77,7 +77,8 @@ import subprocess
 import sys
 import time
 
-LEVELS = {'individual', 'team'}
+LEVELS = {'individual', 'shared'}
+LEVEL_ALIASES = {'team': 'shared'}   # the pre-2026-09-18 spelling still reads
 
 # WHICH BRANCH A SOURCE IS CLONED FROM, AND WHY IT IS NAMED HERE RATHER THAN
 # ASKED FOR (practice: cite-the-incident).
@@ -450,11 +451,12 @@ def sources_from_repo(repo_path, base_url=None, retries=DEFAULT_RETRIES,
     except Exception as e:
         return [(None, False, f'could not read {repo_path / "precedent.json"}: {e}')]
     for src in cfg.get('sources', []) or []:
-        level = src.get('level')
-        if level not in ('team', 'universal'):
+        level = LEVEL_ALIASES.get(src.get('level'), src.get('level'))
+        if level not in ('shared', 'universal'):
             continue
         name = str(src.get('name') or '').strip()
         rel = str(src.get('path') or '').strip()
+        repo = str(src.get('repo') or '').strip()
         if not name or not rel:
             results.append((name or None, False,
                             'the declared source has no name or no path'))
@@ -483,7 +485,7 @@ def sources_from_repo(repo_path, base_url=None, retries=DEFAULT_RETRIES,
             ok_before, before = _run_git(['-C', str(clone_path), 'rev-parse',
                                           'HEAD'])
             ok, out = _try_sync(url if ok_url else _clone_url(
-                repo_path, level, name, base) or '', clone_path)
+                repo_path, level, name, base, repo) or '', clone_path)
             if not ok:
                 # A source that is present but could not be refreshed is
                 # still IN FORCE -- it is on disk and resolvable -- so this
@@ -510,11 +512,11 @@ def sources_from_repo(repo_path, base_url=None, retries=DEFAULT_RETRIES,
             results.append((name, True, 'already on disk, fast-forwarded'
                             if moved else 'already on disk and current'))
             continue
-        clone_url = _clone_url(repo_path, level, name, base)
+        clone_url = _clone_url(repo_path, level, name, base, repo)
         if not clone_url:
             results.append((name, False,
                             f'{BASE_URL_ENV} is not set, so there is no URL to '
-                            f'clone {name} from' if level == 'team' else
+                            f'clone {name} from' if level == 'shared' else
                             f'tools/ENGINE_MANIFEST.json records no '
                             f'source_repo, so there is no URL to clone the '
                             f'universal source {name} from'))
@@ -526,12 +528,23 @@ def sources_from_repo(repo_path, base_url=None, retries=DEFAULT_RETRIES,
     return results
 
 
-def _clone_url(repo_path, level, name, base):
+def _clone_url(repo_path, level, name, base, repo=''):
     """Where a declared source is cloned from -- see sources_from_repo's
-    docstring for why the two levels answer differently."""
+    docstring for why the two levels answer differently.
+
+    `repo` is the declaration's optional `repo` field (practice:
+    source-naming, 2026-09-18): the repository a shared set lives in when it
+    is not called what the set is. A full URL is used as given (a private
+    consumer's choice; a public one would be publishing an account); a bare
+    repository name is joined to the base URL exactly as the source's name
+    would have been, so a public consumer still names no account."""
     if level == 'universal':
         return _engine_manifest(repo_path).get('source_repo') or ''
-    return f'{base}/{name}' if base else ''
+    if repo and ('://' in repo or repo.startswith('git@')):
+        return repo
+    if not base:
+        return ''
+    return f'{base}/{repo or name}'
 
 
 def _clone_branch(repo_path, level):
