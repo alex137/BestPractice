@@ -64,6 +64,22 @@ import precedent_time  # practice: timestamps-carry-offset -- the one module
 
 TODO_ANCHOR_RE = re.compile(r'^-\s+(?:\[ \]\s+)?<a id="([^"]+)"></a>')
 TODO_BARE_RE = re.compile(r'^-\s+\*\*')
+# A checkbox bullet with no anchor -- `- [ ] **Title.**` / `- [x] **Title.**` --
+# is a DIFFERENT shape from both of the above: TODO_ANCHOR_RE requires an
+# `<a id=>` tag after an optional checkbox, and TODO_BARE_RE requires `**`
+# immediately after `- `, with no checkbox in between. Neither matches this
+# shape at all, so a file using it (the shape templates/TODO.md.template
+# itself taught every consumer before the todo/ migration -- see e.g. its own
+# `- [ ] **Precedent check-in:**` example) parses as ZERO items: no anchor,
+# no bare-bold start is ever found, so parse_todo_items's own `starts` list
+# stays empty except for the sentinel, and the whole file becomes either no
+# items at all, or -- worse -- a single fabricated "item" if some unrelated
+# prose bullet elsewhere happens to match TODO_BARE_RE (a bold label with no
+# checkbox, e.g. "- **Claiming (multi-member repos):**" in this same
+# template's own intro prose), silently swallowing everything after it up to
+# the next such bullet. Found 2026-09-18 running this tool against a real
+# consumer's TODO.md for the first time since #445 vendored it out.
+TODO_CHECKBOX_RE = re.compile(r'^-\s+\[([ xX])\]\s+\*\*')
 GOTCHA_HEADING_RE = re.compile(
     r'^##\s+\d+\.\s+(?:<a id="(g\d+)"></a>)?(.*)$')
 
@@ -122,11 +138,18 @@ def anchor_noted_date(repo, source_relpath, anchor_id, wrap_id=True):
 
 
 class Item:
-    def __init__(self, anchor, title, body, has_anchor):
+    def __init__(self, anchor, title, body, has_anchor, checked=None):
         self.anchor = anchor
         self.title = title
         self.body = body
         self.has_anchor = has_anchor
+        # None: this item's start line carries no checkbox at all (the
+        # anchor-tagged or bare-bold shapes) -- checkbox-open/closed is not
+        # this format's own way of saying status, so build_plan's caller
+        # decides some other way (today: always 'open', a pre-existing gap
+        # this migration doesn't try to fix). True/False: `- [x] `/`- [ ] `
+        # was matched, and IS this format's own status signal -- honor it.
+        self.checked = checked
 
     @property
     def slug(self):
@@ -137,11 +160,22 @@ def parse_todo_items(text):
     """Split TODO.md's flat bullet list into Items. A bullet starts a new
     item at column 0 (`- ...`); everything indented under it, down to the
     next column-0 bullet, is that item's body. The file's own intro prose
-    (before the first bullet) is not an item and is skipped."""
+    (before the first bullet) is not an item and is skipped.
+
+    Three start shapes, tried in this order so the more specific ones win:
+    an anchor-tagged bullet (`- [ ] <a id="x"></a>...` or bare), a checkbox
+    bullet with no anchor (`- [ ] **Title.**` / `- [x] **Title.**` --
+    templates/TODO.md.template's own pre-migration shape), or a bare bold
+    bullet with neither (`- **Title.**`). TODO_CHECKBOX_RE has to be tried
+    BEFORE TODO_BARE_RE: `- [ ] **` also starts with `- ` followed
+    eventually by `**`, but TODO_BARE_RE's own `^-\\s+\\*\\*` does not match
+    it (the checkbox sits in between), so the two never actually collide --
+    the ordering just keeps that invariant explicit rather than relying on
+    it by accident."""
     lines = text.split('\n')
     starts = []
     for i, line in enumerate(lines):
-        if TODO_ANCHOR_RE.match(line) or TODO_BARE_RE.match(line):
+        if TODO_ANCHOR_RE.match(line) or TODO_CHECKBOX_RE.match(line) or TODO_BARE_RE.match(line):
             starts.append(i)
     starts.append(len(lines))
     items = []
@@ -153,9 +187,11 @@ def parse_todo_items(text):
         raw = '\n'.join(block)
         m = TODO_ANCHOR_RE.match(block[0])
         anchor = m.group(1) if m else None
+        cm = None if anchor else TODO_CHECKBOX_RE.match(block[0])
+        checked = (cm.group(1).lower() == 'x') if cm else None
         tm = TITLE_RE.search(raw)
         title = tm.group(1).strip() if tm else raw.strip().splitlines()[0][:80]
-        items.append(Item(anchor, title, raw, has_anchor=bool(anchor)))
+        items.append(Item(anchor, title, raw, has_anchor=bool(anchor), checked=checked))
     return items
 
 
@@ -384,9 +420,18 @@ def build_plan(items, repo, source_relpath, kind_of_source):
             remind_on = guess_remind_on(item, disposition, noted)
             waiting_on = guess_waiting_on(blocked_on)
             new_slug = f'todo-{noted}-{slug}'
+            # item.checked is None for the anchor/bare-bold shapes (this
+            # format carries no done/not-done signal of its own -- always
+            # 'open', the pre-existing behavior). A checkbox bullet DOES
+            # carry one: `[x]` closes the item as of today (the real close
+            # date isn't recoverable from a checked box alone -- there is
+            # no signal in the source for WHEN it was checked, only that it
+            # is), `[ ]` stays open.
+            status = 'closed' if item.checked else 'open'
+            closed = TODAY if item.checked else None
             fm = render_todo_frontmatter(
-                new_slug, kind, 'open', disposition, remind_on, blocked_on,
-                None, None, None, waiting_on, noted, None)
+                new_slug, kind, status, disposition, remind_on, blocked_on,
+                None, None, None, waiting_on, noted, closed)
             body = render_todo_body(item, blocked_on, is_floor)
             new_relpath = f'todo/{new_slug}.md'
         else:
