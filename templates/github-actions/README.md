@@ -1,6 +1,6 @@
 # GitHub Actions templates
 
-Four templates, for two different kinds of repository. All are read-only:
+Three templates, for two different kinds of repository. All are read-only:
 they report, and none holds a token that could write
 ([ci-commits-carry-identity](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/ci-commits-carry-identity.md)).
 
@@ -8,8 +8,20 @@ they report, and none holds a token that could write
 |---|---|---|
 | [`doc-lint.yml.template`](doc-lint.yml.template) | `.github/workflows/bestpractice-docs.yml` | any dependent repository — but only when `ci_workflows: enabled` is declared; see below |
 | [`doc-lint-scheduled.yml.template`](doc-lint-scheduled.yml.template) | `.github/workflows/bestpractice-docs.yml` (in place of the row above, never alongside it) | a dependent repository pushed to its default branch very frequently, where per-push billing adds up |
-| [`views-drift.yml.template`](views-drift.yml.template) | `.github/workflows/views-drift.yml` | one that GENERATES its own views — an individual or team practice set, or any repo whose `practices/` it authors itself |
-| [`precedent-check.yml.template`](precedent-check.yml.template) | `.github/workflows/precedent-check.yml` | a practice SET only (its own header says why); a consuming repo skips it |
+| [`precedent-check.yml.template`](precedent-check.yml.template) | `.github/workflows/precedent-check.yml` | a practice SET only (its own header says why); a consuming repo skips it. Covers the generated-views drift check too (see below) — there is no separate `views-drift.yml.template` any more. |
+
+**Trigger shape, all three (2026-09-19, spec/CI_MINUTES_PLAN.md item 8):**
+`pull_request: [opened, synchronize]` plus `push:` scoped to the branch(es)
+that actually receive merges — `branches: [main]` as shipped, which each
+template's own header says how to widen for a repo whose routine merge
+target isn't just `main` (this repo's own copies list
+`[main, precedent-beta-v01]`). A branch with no open PR costs nothing at
+all; a branch with an open PR gets checked. Read a template's own header
+before deviating from this — the shape exists because the two simpler
+alternatives (push on every branch, or push scoped to named branches with
+no `pull_request:` at all) were each tried here first and each cost
+something real: the first billed for branches nobody was reviewing yet,
+the second gave up automatic checking on anything short of a merge.
 
 ## The Markdown lint template
 
@@ -58,13 +70,22 @@ silent no-op on a repo pushed straight to its default branch, and what
 gating the full corpus trades away on a repo with an existing backlog of
 violations.
 
-## The generated-views drift template
+## The generated-views drift check
 
-Copy [`views-drift.yml.template`](views-drift.yml.template) to
-`.github/workflows/views-drift.yml`. It runs
-`python3 tools/build_views.py --repo . --check`, which exits non-zero when
-`AGENTS.md`'s loader block, `MAP.md` or `GLOSSARY.md` has drifted from a
-fresh regeneration.
+**No longer a separate template.** Through 2026-09-19 this was
+`views-drift.yml.template`, copied to `.github/workflows/views-drift.yml`
+alongside `precedent-check.yml`. It is now the `views-drift` job inside
+`precedent-check.yml.template` itself — folded in the same day as the
+trigger change above, for the same reason: two separate workflow files each
+billed their own one-job-minute floor on every push regardless of what
+either one's debounce window decided, and a single file with one shared
+debounce job halves that. Installing `precedent-check.yml.template` installs
+this check; there is nothing further to copy.
+
+It runs `python3 tools/build_views.py --repo . --check`, which exits
+non-zero when [AGENTS.md](../../AGENTS.md)'s loader block,
+[MAP.md](../../MAP.md) or [GLOSSARY.md](../../GLOSSARY.md) has drifted
+from a fresh regeneration.
 
 **Why it exists.** Until 2026-09-11 nothing checked a generated view
 anywhere but in Precedent's own repo, whose `deep-check.yml` runs
@@ -76,13 +97,14 @@ generated header claiming a guard was failing the build on exactly that.
 
 Sets created by
 [`tools/precedent_bootstrap_source.py`](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/precedent_bootstrap_source.py)
-get it installed; every set created before that date needs the copy above,
-and that tool's `--verify` names it as missing until it is there.
+get it installed; a set created before 2026-09-11 needs `precedent-check.yml`
+installed (which now carries this job), and that tool's `--verify` names it
+as missing until it is there.
 
 **It refuses rather than passing blind** when the engine is vendored under
 `process/upstream/` (a consuming repo, whose `practices/` is materialized
 from sources a runner cannot reach), when the loader block turns out to be
 built from unreachable sources, or when no engine is vendored at all. The
-file's own header says which case is which, and
+job's own comments say which case is which, and
 [GITHUB_ACTIONS.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/GITHUB_ACTIONS.md)
 covers what gates a consuming repo instead.

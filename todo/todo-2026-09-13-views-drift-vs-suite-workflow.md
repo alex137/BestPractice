@@ -3,16 +3,16 @@ slug:              todo-2026-09-13-views-drift-vs-suite-workflow
 kind:              decision
 domain:            null
 severity:          null
-status:            open
+status:            done
 disposition:       wait
 remind_on:         null
 blocked_on:        "removing a workflow from every source set is a change to repositories this session cannot reach, and the sets are cross-owner. The decision comes first either way."
 batch:             null
-decision:          null
-decision_strength: null
+decision:          "Keep both checks, but as jobs in one workflow file rather than two separate ones -- resolves the cost this item named (two workflows reporting the same fact, two places to update) without losing what it named as worth keeping (both checks' own distinct failure messages, precedent-check's deliberate non-strict leniency staying independent of views-drift's own refusal logic). precedent-check.yml.template now carries a views-drift job; views-drift.yml.template no longer exists. Applied in all four of Morgan's practice sets plus this repo's own template, 2026-09-19 -- see spec/CI_MINUTES_PLAN.md item 8."
+decision_strength: decided
 waiting_on:        null
 noted:             2026-09-13
-closed:            null
+closed:            2026-09-19
 ---
 ## What
 
@@ -64,3 +64,10 @@ Not open until: removing a workflow from every source set is a change to reposit
 ## Notes
 
 2026-09-16: migrated from TODO.md by tools/todo_migrate.py.
+
+2026-09-19: closed. The blocker (cross-owner repos this session couldn't
+reach) lifted when a session working across `alex137/BestPractice` and
+Morgan's four practice sets got push access to all of them in the same
+conversation, prompted by a GitHub Actions billing spike traced to exactly
+these two workflows -- see spec/CI_MINUTES_PLAN.md item 8 for the incident
+and precedent-check.yml.template's own header for the mechanical result.

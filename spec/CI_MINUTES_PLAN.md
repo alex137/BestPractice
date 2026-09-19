@@ -370,7 +370,7 @@ practice sets (`precedent-individual`, `precedent-team-writing`,
 `precedent-team-repo-maintenance`, `precedent-team-working-style`),
 accounting for 86% of the 2026-09-19 total before noon. All four had
 `precedent-check.yml`/`views-drift.yml` installed per "Install in a
-Practice-Set Repository" (GITHUB_ACTIONS.md) — debounce guard included,
+Practice-Set Repository" ([GITHUB_ACTIONS.md](../GITHUB_ACTIONS.md)) — debounce guard included,
 running at its 360-minute default, exactly as Phase C shipped it.
 
 **Why the debounce guard didn't stop it.** Debounce (Item 4's own design)
@@ -406,12 +406,70 @@ merge runbook already runs on every merge"), so a session following its
 own process loses no real coverage; what's lost is the independent,
 externally-visible backstop for a merge that skips that process.
 
-**Not done here**: the templates themselves
-(`precedent-check.yml.template`, `views-drift.yml.template`,
-`doc-lint.yml.template`) still ship `push:` with no branch restriction.
-Whether to add one as a documented option — for a repo with heavy
-non-default-branch churn, the same condition that triggered this
-incident — is Open decision 3, updated below.
+**Not done here at the time**: the templates themselves still shipped
+`push:` with no branch restriction. Done the same day, item 9 below.
+
+## Item 9 — the templates themselves, so a future install doesn't repeat item 8 (2026-09-19)
+
+Item 8 fixed four already-installed repos by hand. Nothing about that
+touched the **templates** those repos originally installed from — a
+practice set bootstrapped today ([tools/precedent_bootstrap_source.py](../tools/precedent_bootstrap_source.py)), or any
+repo freshly given `precedent-check.yml`/`doc-lint.yml` by
+[tools/precedent_install.py](../tools/precedent_install.py), would still get the design that caused the
+incident. Fixed the same day, once Morgan asked whether it needed to be
+done in BestPractice (BP) too — he did: "does this fix need to be
+implemented in BP so that future repos we create with it don't have that
+issue?" `strength: decided` ("Yes, go ahead and implement it").
+
+**Three changes, all three templates:**
+
+1. `precedent-check.yml.template` and `views-drift.yml.template` are now
+   **one template**, `precedent-check.yml.template` — the same merge item
+   8 applied to the four repos, now upstream. `views-drift.yml.template`
+   no longer exists; installing `precedent-check.yml.template` installs
+   both checks, as its `precedent-check` and `views-drift` jobs.
+2. **Debounce moved into its own job in all three templates**
+   (`doc-lint.yml.template` included, previously a single job with a
+   debounce STEP — the same step-vs-job distinction item 8 measured: a
+   step-level skip still bills the job's own runner-minute, a job-level
+   `if:` that evaluates false is never billed at all).
+3. **`pull_request: [opened, synchronize]` added back to all three,
+   alongside `push:` scoped to `branches: [main]`** — not push
+   unrestricted (item 8's own problem) and not push-restricted-alone
+   (item 8's *first* fix, which gave up automatic verification on
+   anything short of a merge — a different repo's CI catching a real
+   error on an open PR the same day is what changed Morgan's mind on
+   that trade). Each template's own header documents how to widen the
+   branch list for a repo whose routine merge target isn't just `main` —
+   this repo's own `docs.yml`/`deep-check.yml` (not `leak-gate.yml`,
+   deliberately: see below) got the same treatment, listing
+   `[main, precedent-beta-v01]`.
+
+**Why this doesn't reintroduce the exact duplicate-run problem
+`doc-lint.yml.template`'s own header already measured** (235 runs in
+matched pairs, before `pull_request:` was dropped entirely on
+2026-09-15): that measurement was push running on *every* branch,
+overlapping `pull_request:synchronize` on any branch with an open PR.
+With push now scoped to only the named branch(es) — never a PR's own
+head — a PR's branch only ever gets `pull_request` events and a named
+branch only ever gets `push` events. Nothing fires twice for the same
+commit. This repo's own `leak-gate.yml` was deliberately left alone: its
+every-branch scope is a security backstop (a leak is exposed the instant
+it's pushed to this public repo, PR or not), not a cost or coverage
+trade, so the branch-scoping reasoning above does not apply to it.
+
+**Documented, not just changed**, per Morgan's own instruction that this
+be written up for whoever adapts it: [templates/github-actions/README.md](../templates/github-actions/README.md)
+has the trigger shape and the branch-list customization point up front;
+[GITHUB_ACTIONS.md](../GITHUB_ACTIONS.md)'s "Controlling Actions Minutes" and "Install in a
+Practice-Set Repository" sections carry the mechanical detail; this item
+is the incident and reasoning. [TODO.md](../TODO.md)'s
+[`views-drift-vs-suite-workflow`](../todo/todo-2026-09-13-views-drift-vs-suite-workflow.md)
+closes — the merge above is its answer.
+
+Verified: all edited/new template files parse as valid YAML; deep check
+([tools/verify_harness.py](../tools/verify_harness.py), [tools/doc_lint.py](../tools/doc_lint.py), [tools/leak_gate.py](../tools/leak_gate.py), [tools/precedent_check.py](../tools/precedent_check.py),
+[tools/doc_sync.py](../tools/doc_sync.py)) run clean before each push in this item's own PRs.
 
 ## Sequencing and status
 
@@ -431,10 +489,11 @@ repo, the next time it installs, migrates, or takes an update.
   [spec/INSTALL_QUESTIONS.md](INSTALL_QUESTIONS.md) is the canonical
   install/migration question list, with the two new questions added and
   SETUP.md/INSTALL.md/MIGRATING_EXISTING_INSTALLS.md pointed at it (item
-  1a); `precedent-check.yml.template` and `views-drift.yml.template`
-  carry the same `concurrency` block `doc-lint.yml.template` already had
-  (item 5). Archiving the repo already named for its own deletion is
-  still Morgan's to do — that repo is outside this session's reach.
+  1a); `precedent-check.yml.template` (which now also carries what
+  `views-drift.yml.template` used to, item 9) carries the same
+  `concurrency` block `doc-lint.yml.template` already had (item 5).
+  Archiving the repo already named for its own deletion is still
+  Morgan's to do — that repo is outside this session's reach.
 - **Phase B — the infrastructure is built; the sweep itself is not run.**
   `MIGRATING_EXISTING_INSTALLS.md`'s step 6 and
   `vendor-update-runbook.md`'s step 10 both carry the retired-workflow
@@ -442,16 +501,19 @@ repo, the next time it installs, migrates, or takes an update.
   retroactively (items 2, 2a, 3) — but sweeping an actual repo's
   `.github/workflows/` against that table happens the next time that
   repo migrates or takes an update, in a session rooted there.
-- **Phase C — done, and now exercised live (item 8).** A debounce guard
-  (`ci_debounce_minutes`, default `360`) ships in
-  `doc-lint.yml.template`, `precedent-check.yml.template` and
-  `views-drift.yml.template`, and nowhere else — not in this repo's own
-  three workflows, per item 2b below (item 4). Its first real run, on
-  four of Morgan's practice sets, showed it caps a run's expensive tail
-  but not the baseline cost of the checkout-plus-guard steps that run
-  unconditionally on every trigger — real coverage of trigger *volume*
-  needs a branch restriction alongside it, not a substitute for it. Full
-  account: item 8 above.
+- **Phase C — done, exercised live, and revised (items 8-9).** A debounce
+  guard (`ci_debounce_minutes`, default `360`) ships in
+  `doc-lint.yml.template` and `precedent-check.yml.template` (which now
+  also carries what `views-drift.yml.template` used to), and nowhere
+  else — not in this repo's own three workflows, per item 2b below (item
+  4). Its first real run, on four of Morgan's practice sets, showed it
+  caps a run's expensive tail but not the baseline cost of the
+  checkout-plus-guard steps that ran unconditionally on every trigger.
+  Item 9 revised both templates to move the guard into its own job (a
+  job-level skip is never billed at all, unlike a step-level one) and add
+  a branch-scoped `push:` plus `pull_request:`, which is the volume fix
+  the debounce guard alone was never designed to provide. Full account:
+  items 8 and 9 above.
 - **Phase D — held.** Self-hosted runner pilot (item 6), per the todo
   reminder above.
 
@@ -468,16 +530,14 @@ repo, the next time it installs, migrates, or takes an update.
    template, not per-workflow control. Revisit only if a practice set
    turns up wanting its own checks but not a consuming repo's doc lint.
 3. **Debounce default window** — implemented as `360` minutes (Morgan's
-   own "6 hours" example); item 8's incident tightened it to `30` minutes
-   in the four repos it touched, alongside a `branches: [main]`
-   restriction the debounce guard alone did not provide. Still open
-   here: whether `precedent-check.yml.template`, `views-drift.yml.template`
-   and `doc-lint.yml.template` should ship a documented (not necessarily
-   default-on) branch-restriction option for a repo with heavy
-   non-default-branch churn — the condition that actually drove the
-   spike, which the debounce guard was never designed to address on its
-   own. No template change made here; item 8 is the field evidence for
-   whoever picks this decision up.
+   own "6 hours" example) and left there in the templates; item 8's
+   incident tightened it to `30` minutes in the four repos it touched, a
+   per-repo call in `identity.json`/`precedent.json`, not a template
+   default change. **Resolved, item 9**: all three templates now ship
+   `pull_request:` alongside `push: branches: [main]`, documented in each
+   template's own header and in [templates/github-actions/README.md](../templates/github-actions/README.md) as a
+   customization point for a repo whose routine merge target isn't just
+   `main`.
 4. **Which workflows are debounce-exempt** — implemented as: every
    vendored template gets it, this repo's own three workflows do not.
 5. **Self-hosted runner pilot scope** — still open, deferred to items 6/7's

@@ -191,20 +191,24 @@ HARNESS_SETTINGS_REL = 'templates/harness/claude-code/settings.json'
 
 WORKFLOW_TEMPLATES = (
     # (template under templates/github-actions/, path in the new set, why a
-    # set without it is under-gated -- the reason is per-workflow because
-    # they cover different things, and a shared sentence went stale the
-    # moment one of them changed. It did: this tuple's reason used to be a
-    # single hardcoded string in verify() still claiming that
-    # precedent_check.py's provenance check "skips itself in a source set",
-    # which binds_publishers (#261) made false on 2026-09-12.)
-    ('views-drift.yml.template', '.github/workflows/views-drift.yml',
-     'nothing checks this set\'s generated views for drift on a pull '
-     'request -- the vendored provenance check covers the same three views '
-     'since binds_publishers, but only when somebody runs it by hand'),
+    # set without it is under-gated.)
+    #
+    # ONE ENTRY, NOT TWO, since 2026-09-19: this used to be
+    # views-drift.yml.template and precedent-check.yml.template separately,
+    # each its own workflow file with its own debounce step. Merged the same
+    # day precedent-check.yml.template's own header explains why (two
+    # workflows billed two job-minutes on a debounced push regardless of
+    # what the debounce window decided; one workflow with the debounce
+    # decision in its own gating job bills one). The views-drift CHECK
+    # still exists -- it is a job inside precedent-check.yml now, not a
+    # dropped feature. spec/CI_MINUTES_PLAN.md item 9 has the full account.
     ('precedent-check.yml.template', '.github/workflows/precedent-check.yml',
      'nothing runs the CHECK SUITE here at all -- a set gated only on the '
      'one or two rules it hand-wired a workflow for is silent on the rest '
-     'of its own catalogue'),
+     'of its own catalogue, and nothing checks this set\'s generated views '
+     'for drift on a pull request either -- the vendored provenance check '
+     'covers the same three views since binds_publishers, but only when '
+     'somebody runs it by hand'),
 )
 # Same (template, dest path) pairs precedent_vendor_engine.CI_WORKFLOW_
 # TEMPLATES['source'] declares for refresh()'s own use -- checked here,
@@ -253,28 +257,28 @@ def _install_workflows(dest):
     header claiming a guard was failing the build on exactly that.
 
     THAT SKIP IS OVER as of binds_publishers (PR #261, 2026-09-12): the check
-    runs in a source set now, and covers the same three views this workflow
-    does (measured 2026-09-13 in a freshly bootstrapped set -- `1 passed`,
-    and red on planted drift in each view). The workflow stays because it is
-    wired to `pull_request` and the vendored check is not, which is a
-    different property than coverage. Whether a set that also gains a
-    whole-suite workflow should keep both is TODO.md's
-    `views-drift-vs-suite-workflow`.
+    runs in a source set now, and covers the same three views the
+    views-drift job in this workflow does (measured 2026-09-13 in a freshly
+    bootstrapped set -- `1 passed`, and red on planted drift in each view).
+    That job stays because it is wired to `pull_request` and the vendored
+    check is not, which is a different property than coverage. TODO.md's
+    `views-drift-vs-suite-workflow` closed 2026-09-19: keep both, as jobs in
+    one workflow rather than two separate files.
 
-    Same reasoning as _install_session_hooks: the workflow FILES are
+    Same reasoning as _install_session_hooks: the workflow FILE is
     rewritten on every call, so a set this is re-run against picks up the
     current template, and verify() reports a set that never got one --
     every set created before this date is in that position, and this tool
     cannot reach them on its own.
 
     GATED ON ci_workflows (2026-09-16), same field and same default as
-    precedent_install.py's dependent-repo install: these two workflows are
+    precedent_install.py's dependent-repo install: this workflow is
     CI this repo vendors into another repo, not this repo's own structural
-    backstop, so they belong to the same off-by-default policy -- measured
+    backstop, so it belongs to the same off-by-default policy -- measured
     against a real account's usage report, `views-drift.yml` and
-    `precedent-check.yml` together cost more than a quarter of one
-    reporting period's total minutes across four practice sets, none of
-    which had ever been asked whether they wanted it.
+    `precedent-check.yml`, then two separate files, together cost more than
+    a quarter of one reporting period's total minutes across four practice
+    sets, none of which had ever been asked whether they wanted it.
     """
     enabled, note = _ci_preference(dest)
     if not enabled:

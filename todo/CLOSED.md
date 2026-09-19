@@ -4,6 +4,7 @@
 
 | Item | What | Status | Closed |
 |---|---|---|---|
+| [`todo-2026-09-13-views-drift-vs-suite-workflow`](todo-2026-09-13-views-drift-vs-suite-workflow.md) | Decide whether a source set that runs the whole check suite in continuous integration should still carry `views-drift.ym | done | 2026-09-19 |
 | [`todo-2026-09-19-pr-template-todo-md-wording-is-stale-post-migration`](todo-2026-09-19-pr-template-todo-md-wording-is-stale-post-migration.md) | This repo's PR template still told contributors to work with `TODO.md` directly | done | 2026-09-19 |
 | [`todo-2026-09-07-practice-consistency-across-team-repos`](todo-2026-09-07-practice-consistency-across-team-repos.md) | How one practice lives in several team repos and stays consistent | done | 2026-09-18 |
 | [`todo-2026-09-18-todo-migrate-status-and-kind-bugs`](todo-2026-09-18-todo-migrate-status-and-kind-bugs.md) | [tools/todo_migrate.py](../tools/todo_migrate.py) writes a `status` value `build_todo_index.py` doesn't recognize, and s | done | 2026-09-18 |

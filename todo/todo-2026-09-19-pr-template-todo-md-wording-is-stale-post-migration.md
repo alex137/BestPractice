@@ -31,14 +31,17 @@ closed:            2026-09-19
 
 ## How It Closes
 
-Fixed directly in both files, in this same change: "Link the TODO.md item"
--> "Link the relevant `todo/todo-*.md` item", and the Gates checklist's
-"`TODO.md` updated" line -> "`todo/` updated ... a new item is
-`todo/todo-<date>-<slug>.md`, never a `TODO.md` edit". A direct edit is
-correct here -- this repo's own copy isn't tracked against a recorded
-manifest hash the way a dependent repo's materialized copy is, and the
-generic template is this repo's own content to edit directly
-(`AGENTS.md`'s "Direct edits are fine for content about this repo itself").
+Fixed directly in both files. Landed twice, independently and
+concurrently: this branch's own edit, and (reaching `precedent-beta-v01`
+first) another session's `6dfdad5` "Fix stale TODO.md wording in PR
+templates" plus `1e2c2d2` "Fix remaining stale TODO.md reference in PR
+templates" -- the merge conflict that produced surfaced the duplicate, and
+this branch's wording deferred to the already-landed one rather than
+re-litigating an equivalent fix. A direct edit is correct here either
+way -- this repo's own copy isn't tracked against a recorded manifest hash
+the way a dependent repo's materialized copy is, and the generic template
+is this repo's own content to edit directly (`AGENTS.md`'s "Direct edits
+are fine for content about this repo itself").
 
 ## Notes
 

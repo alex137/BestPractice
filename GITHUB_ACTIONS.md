@@ -102,20 +102,44 @@ copy in by hand, on any one repo, whatever the field says.
   Markdown corpus each run rather than "what changed", and what that
   trades away.
 - **A debounce, for a repo pushed to constantly that still wants a
-  push-triggered check** (2026-09-16) — the first step in
-  [doc-lint.yml.template](templates/github-actions/doc-lint.yml.template),
-  [precedent-check.yml.template](templates/github-actions/precedent-check.yml.template)
-  and [views-drift.yml.template](templates/github-actions/views-drift.yml.template)
-  skips the rest of the job when the last completed run on the same branch
-  finished less than `ci_debounce_minutes` ago (default `360` = 6 hours;
-  `0` disables it). Read from `precedent.json` in a dependent repo, or
-  `identity.json` in an individual practice set — a team set has neither
-  field to read and always gets the default. Unlike the scheduled variant
-  above, the check still fires on every push; it just declines to re-run
-  one that finished inside the window. Not applied to this repo's own
+  push-triggered check** (2026-09-16, moved into its own JOB 2026-09-19) —
+  a `debounce` job in
+  [doc-lint.yml.template](templates/github-actions/doc-lint.yml.template)
+  and [precedent-check.yml.template](templates/github-actions/precedent-check.yml.template)
+  (the latter now covers the generated-views drift check too — see
+  "Install in a Practice-Set Repository" below) skips the check job(s) that
+  `needs:` it when the last completed run on the same branch finished less
+  than `ci_debounce_minutes` ago (default `360` = 6 hours; `0` disables
+  it). Read from `precedent.json` in a dependent repo, or `identity.json`
+  in an individual practice set — a team set has neither field to read and
+  always gets the default. **A separate job, not a step inside one that
+  already started** (2026-09-19): a step-level skip still bills a whole
+  runner-minute for the job that reached it, so a debounced push under the
+  old shape cost as much as the decision to skip did. A job whose own `if:`
+  is false is reported SKIPPED and never allocates a runner — not billed at
+  all. Not applied to this repo's own
   `docs.yml`/`deep-check.yml`/`leak-gate.yml`, or to any workflow standing
   in for a security backstop: [spec/CI_MINUTES_PLAN.md](spec/CI_MINUTES_PLAN.md)'s
   item 4 is the measurement and the reasoning behind that line.
+- **`pull_request:` alongside a branch-scoped `push:`, not push on every
+  branch** (2026-09-19, [spec/CI_MINUTES_PLAN.md](spec/CI_MINUTES_PLAN.md)
+  item 8) — both templates ship `push: branches: [main]` plus
+  `pull_request: [opened, synchronize]`. A branch with no open PR triggers
+  neither event that matches here, so the workflow is never evaluated —
+  cheaper than debounce, which still bills the debounce job's own minute.
+  A branch with an open PR gets checked, debounced the same way repeated
+  pushes to an already-open PR are. Widen the branch list
+  (`branches: [main, precedent-beta-v01]`, this repo's own pattern) if the
+  repo installing this has more than one routine merge target — each
+  template's own header says so at the trigger block. Do not add
+  `pull_request:` to a `push:` that still covers every branch: that
+  reintroduces the exact duplicate-run problem
+  [doc-lint.yml.template](templates/github-actions/doc-lint.yml.template)'s
+  own header measured (235 runs in matched pairs) before this repo's own
+  `docs.yml`/`deep-check.yml` dropped `pull_request:` outright on
+  2026-09-07/2026-09-14 — the fix here is scoping `push:` narrowly enough
+  that it never fires on the same branch `pull_request:` is watching, not
+  running both wide open.
 
 ## Install in a Dependent Repository
 
@@ -143,14 +167,16 @@ If the dependent repository instead copies or adapts the linter into its own too
 
 ## Install in a Practice-Set Repository
 
-A practice set gets **two** workflows, and they answer different questions:
-`precedent-check.yml` runs the whole check suite over the set's catalogue,
-and `views-drift.yml` checks that its generated views still match a fresh
-regeneration. Sets created by
+A practice set gets **one** workflow, `precedent-check.yml`, and it answers
+two questions: whether the whole check suite passes over the set's
+catalogue, and whether its generated views still match a fresh
+regeneration (the `precedent-check` and `views-drift` jobs, respectively —
+see "The Views Drift Gate" below; through 2026-09-19 this was two separate
+files, merged the same day as the trigger change above). Sets created by
 [tools/precedent_bootstrap_source.py](tools/precedent_bootstrap_source.py)
-get both installed automatically; older sets need the copies below, and
-`python3 tools/precedent_bootstrap_source.py --verify <path>` names either
-one as missing until it is there.
+get it installed automatically; older sets need the copy below, and
+`python3 tools/precedent_bootstrap_source.py --verify <path>` names it as
+missing until it is there.
 
 ### The Check Suite
 
@@ -205,22 +231,15 @@ coverage.
 
 An individual or team practice set generates its own views — `AGENTS.md`'s
 loader block, [MAP.md](MAP.md) and [GLOSSARY.md](GLOSSARY.md) — from its
-`practices/` directory and the engine vendored into its own `tools/`. Copy:
+`practices/` directory and the engine vendored into its own `tools/`.
+**No separate copy step** — installing `precedent-check.yml.template`
+above installs this too, as its `views-drift` job.
 
-```text
-templates/github-actions/views-drift.yml.template
-```
-
-to:
-
-```text
-.github/workflows/views-drift.yml
-```
-
-It runs `python3 tools/build_views.py --repo . --check`, which exits
+That job runs `python3 tools/build_views.py --repo . --check`, which exits
 non-zero when any of the three has drifted from a fresh regeneration.
-Every set created before 2026-09-11 needs the copy above; see this
-section's opening for how both workflows are installed and verified.
+Every set created before 2026-09-11 needs `precedent-check.yml` installed
+(which now carries this job); see this section's opening for how it is
+installed and verified.
 
 **Why a source set needs its own gate.** Until 2026-09-11 nothing checked a
 generated view anywhere but in this repo, where
@@ -256,21 +275,28 @@ source set the two now look at the same three files, by the same
 coverage argument for keeping this workflow is gone.
 
 **What it still does is fire without being asked.** A vendored check runs
-when somebody types the command; this workflow is attached to `push`, on
-every branch — it was `pull_request` alone until 2026-09-14, which meant a
-session pushing straight to a source set's own branch, the normal way work
-lands in a private single-owner set, ran no check at all. Nothing else in a
-source set runs
-[precedent_check.py](tools/precedent_check.py) in continuous integration
-at all, so "the check runs natively now" and "the
-rule is gated" remain different claims, and only the second one is what a
-generated view drifting silently needs. Whether a set that gains a workflow
-running the whole suite should then drop this one is an open question, not a
-settled redundancy — [TODO.md](TODO.md)'s
-[`views-drift-vs-suite-workflow`](todo/todo-2026-09-13-views-drift-vs-suite-workflow.md)
-holds it.
+when somebody types the command; this job is attached to the same
+`pull_request`/branch-scoped-`push` trigger as `precedent-check` (see
+"Controlling Actions Minutes" above) — it was `pull_request` alone until
+2026-09-14, which meant a session pushing straight to a source set's own
+branch, the normal way work lands in a private single-owner set, ran no
+check at all. "The check runs natively now" and "the rule is gated" remain
+different claims, and only the second one is what a generated view
+drifting silently needs.
 
-The workflow **gates and does not fix**: regenerating in CI would leave the
+**Whether a set that gains a workflow running the whole suite should then
+drop this check was an open question, settled 2026-09-19**: keep both, but
+as jobs in one workflow file rather than two — see
+[TODO.md](TODO.md)'s
+[`views-drift-vs-suite-workflow`](todo/todo-2026-09-13-views-drift-vs-suite-workflow.md)
+for the record. Folding the two files together removed the actual cost
+that item named (two workflows reporting the same fact, two places to
+update the drift story) without losing what it named as worth keeping —
+each check's own distinct failure message, and `precedent-check`'s
+deliberate non-`--strict` leniency staying independent of this job's own
+refusal logic.
+
+This job **gates and does not fix**: regenerating in CI would leave the
 branch's own diff wrong and put a runner bot in the authorship path that
 [practices/ci-commits-carry-identity.md](practices/ci-commits-carry-identity.md)
 exists to keep clean. The fix is one `python3 tools/build_views.py` on the
@@ -371,8 +397,8 @@ private user-level config. Neither exists in a bare CI checkout, so there is
 nothing on the runner to regenerate the views *from* — and
 [tools/build_views.py](tools/build_views.py) deliberately exits 0 rather
 than writing a block from an incomplete source set, which is the shape a
-green-but-blind check would take. So
-[views-drift.yml.template](templates/github-actions/views-drift.yml.template)
+green-but-blind check would take. So the `views-drift` job in
+[precedent-check.yml.template](templates/github-actions/precedent-check.yml.template)
 exits non-zero when it finds the vendored `process/upstream/` layout instead
 of running. What covers a consuming repo today is a session running
 `python3 tools/precedent_sync_views.py --repo . --check` where the sources
