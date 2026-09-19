@@ -15,35 +15,60 @@ name: Deep check
 # a session is already supposed to run before every push or merge, now
 # bound to every push, on every branch.
 #
-# Runs on every branch, not just main -- same reasoning as leak-gate.yml:
-# on this project the branch IS the published artifact.
+# Ran on every branch, not just main, from this file's first commit through
+# 2026-09-19 -- same reasoning as leak-gate.yml then: on this project the
+# branch IS the published artifact.
+#
+# NAMED-BRANCH SCOPE, 2026-09-19: this repo has no billing pressure --
+# public, unmetered Actions minutes -- but the four private practice sets
+# whose own CI templates this repo owns had exactly that pressure the same
+# day, and the fix there (branch-scoped `push:` + `pull_request:` for
+# everything else, spec/CI_MINUTES_PLAN.md item 8) is worth this repo
+# holding itself to as well: a template this repo ships ought to look like
+# the discipline it teaches, not just cost nothing because it's public.
+# `branches: [main, precedent-beta-v01]` replaces every-branch scope -- the
+# two branches that actually receive merges.
 
 on:
-  # push only, and deliberately so. `pull_request:` sat here from this
-  # file's first commit (2236a94, copied wholesale from leak-gate.yml
-  # along with the every-branch scope above) and fired a SECOND run of
-  # every push on any branch with an open PR: same SHA, 2-37 seconds
-  # apart. Measured 2026-09-07 over 13 fully paired runs from 2026-09-06
-  # -- the pair never once disagreed, including two pairs that failed
-  # together. That is structural rather than luck: the push run tests the
-  # branch tip, the pull_request run tests head-merged-into-base, and
-  # those are the same tree whenever the branch is current with its base,
-  # which the habit of merging the base branch in keeps true here.
-  # Nothing is lost from the PR's own view -- check runs attach to the
-  # head SHA whatever event produced them, so this workflow still reports
-  # on the PR -- and the merge commit gets its own run on the base branch
-  # afterwards, which is the only run that tests what actually landed.
+  # `pull_request:` (opened, synchronize) is BACK, 2026-09-19 -- read the
+  # 2026-09-07 removal note directly below for why it was dropped, and why
+  # this doesn't reintroduce what it measured. The duplicate pairs found
+  # then happened because push ran on EVERY branch, so a push to a branch
+  # with an open PR fired both events for the identical tree. With push now
+  # scoped to only `main`/`precedent-beta-v01` -- neither of which is ever
+  # a PR's own head branch -- a PR's branch only ever gets pull_request
+  # events and main/precedent-beta-v01 only ever get push events. Nothing
+  # here fires twice for the same commit, and a branch with no open PR now
+  # costs nothing at all rather than a full run on every push.
+  pull_request:
+    types: [opened, synchronize]
+
+  # push only sat here, deliberately, from 2026-09-07 to 2026-09-19.
+  # `pull_request:` sat here from this file's first commit (2236a94, copied
+  # wholesale from leak-gate.yml along with the every-branch scope above)
+  # and fired a SECOND run of every push on any branch with an open PR:
+  # same SHA, 2-37 seconds apart. Measured 2026-09-07 over 13 fully paired
+  # runs from 2026-09-06 -- the pair never once disagreed, including two
+  # pairs that failed together. That is structural rather than luck: the
+  # push run tests the branch tip, the pull_request run tests
+  # head-merged-into-base, and those are the same tree whenever the branch
+  # is current with its base, which the habit of merging the base branch in
+  # keeps true here. Nothing is lost from the PR's own view -- check runs
+  # attach to the head SHA whatever event produced them, so this workflow
+  # still reports on the PR -- and the merge commit gets its own run on the
+  # base branch afterwards, which is the only run that tests what actually
+  # landed.
   #
-  # PUT `pull_request:` BACK IF A PR EVER ARRIVES FROM A FORK. A fork's
-  # pushes do not fire `push` in this repo, so pull_request would be the
-  # only trigger that could run this check on it, and such a PR would go
-  # unchecked. Every PR to date (#83-#123, checked 2026-09-07) came from
-  # a branch inside this repo, and the documented check-in flow keeps it
-  # that way: INSTALL.md sec.4 has a dependent repo push its branch HERE
-  # from a dual-repo session, because a single-repo session cannot write to
-  # this repo at all -- it does not fork. So the fork case is an outside
-  # contributor on a public repo, not the check-in path this repo expects.
+  # A PR FROM A FORK still needs `pull_request:` -- a fork's pushes do not
+  # fire `push` in this repo, so pull_request is what would catch it; it is
+  # already back above, not a contingency to remember anymore. Every PR to
+  # date (#83-#123, checked 2026-09-07) came from a branch inside this
+  # repo, and the documented check-in flow keeps it that way: INSTALL.md
+  # sec.4 has a dependent repo push its branch HERE from a dual-repo
+  # session, because a single-repo session cannot write to this repo at
+  # all -- it does not fork.
   push:
+    branches: [main, precedent-beta-v01]
   workflow_dispatch:
 
 permissions:
