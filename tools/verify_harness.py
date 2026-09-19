@@ -14887,6 +14887,166 @@ def check_vendor_engine_refreshes_ci_workflow_files():
           '; '.join(f"{n} -- {d[:800]}" for n, d in bad))
 
 
+def check_vendor_engine_retires_ci_workflow_files():
+    """THE INCIDENT (2026-09-19, found in themorgan/precedent-individual).
+    views-drift.yml.template was folded into precedent-check.yml.template as
+    its own job (spec/CI_MINUTES_PLAN.md item 9), and the repos that
+    hand-applied that fix the same day deleted their now-redundant
+    views-drift.yml file -- but nothing told refresh() the old manifest
+    entry was retired, so ci_workflows_sha256 kept a hash for a file that no
+    longer existed. _ci_workflow_drift reads "recorded, but missing" as a
+    hand-edit needing --force, so the NEXT refresh() in that repo would have
+    refused the WHOLE run over a file a previous, correct fix had already
+    removed.
+
+    Two mechanisms this closes, tested here: RETIRED_CI_WORKFLOW_FILES +
+    _remove_retired_ci_workflow_files (refresh() self-heals a stale
+    retirement automatically), and the `record-ci` CLI subcommand
+    (record_ci_workflow_files exposed standalone, clone-free, for the
+    moment a CI workflow file is fixed BY HAND and needs the manifest told
+    without a `refresh --force` overwriting the fix back to the generic
+    template -- the other half of the same incident, found the same day in
+    themorgan/TodoMorgan and themorgan/VoiceDefMorgan).
+
+    `kind: source` throughout, since RETIRED_CI_WORKFLOW_FILES' one entry
+    (views-drift.yml) is a 'source'-kind retirement; CI_WORKFLOW_TEMPLATES
+    is not, so precedent-check.yml.template is the live template refresh()
+    always has to reach past the retired entry to apply.
+
+    Fixture shape mirrors check_vendor_engine_refreshes_ci_workflow_files
+    immediately above: only precedent_vendor_engine.py is copied into each
+    fake consumer, and each scenario gets its own fresh directory."""
+    import shutil, tempfile
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-ci-retire-'))
+    cases = []
+    rel = '.github/workflows/precedent-check.yml'
+    retired_rel = '.github/workflows/views-drift.yml'
+    try:
+        engine_bytes = (ROOT / 'tools' / 'precedent_vendor_engine.py').read_bytes()
+        engine_hash = hashlib.sha256(engine_bytes).hexdigest()
+        real_template = (ROOT / 'templates' / 'github-actions' /
+                         'precedent-check.yml.template').read_bytes()
+        stub = b'name: stub\n# an older vendored copy\n'
+        stub_hash = hashlib.sha256(stub).hexdigest()
+
+        def make_set(name, retired_still_on_disk):
+            """A fresh 'source' set carrying a live precedent-check.yml
+            (recorded, stale against the current template -- so a
+            successful refresh is independently visible) plus a retired
+            views-drift.yml manifest entry, with or without the file
+            itself still sitting on disk."""
+            consumer = tmp / name
+            (consumer / 'tools').mkdir(parents=True)
+            (consumer / '.github' / 'workflows').mkdir(parents=True)
+            (consumer / 'tools' / 'precedent_vendor_engine.py').write_bytes(engine_bytes)
+            (consumer / rel).write_bytes(stub)
+            ci_hashes = {rel: stub_hash, retired_rel: 'deadbeef' * 8}
+            if retired_still_on_disk:
+                (consumer / retired_rel).write_bytes(b'name: views-drift\n')
+            manifest = {
+                'kind': 'source', 'source_commit': 'deadbeef',
+                'files': ['precedent_vendor_engine.py'],
+                'sha256': {'precedent_vendor_engine.py': engine_hash},
+                'ci_workflow_files': sorted(ci_hashes),
+                'ci_workflows_sha256': ci_hashes,
+            }
+            (consumer / 'tools' / 'ENGINE_MANIFEST.json').write_text(
+                json.dumps(manifest), encoding='utf-8')
+            return consumer
+
+        def run_refresh(consumer):
+            r = subprocess.run(
+                [sys.executable, str(consumer / 'tools' / 'precedent_vendor_engine.py'),
+                 'refresh', str(ROOT), '--from-ref', 'HEAD'],
+                capture_output=True, text=True, cwd=str(consumer))
+            return r.returncode, r.stdout + r.stderr
+
+        def manifest_of(consumer):
+            return json.loads(
+                (consumer / 'tools' / 'ENGINE_MANIFEST.json').read_text(encoding='utf-8'))
+
+        # -- A: retired entry, file already gone from disk (the real
+        # precedent-individual shape) -- refresh succeeds, refreshes the
+        # LIVE file, and drops the retired entry, all in one run --
+        a = make_set('gone', retired_still_on_disk=False)
+        rc_a, out_a = run_refresh(a)
+        cases.append(('a retired, already-deleted CI workflow entry does NOT make '
+                      'refresh refuse the run',
+                      rc_a == 0, out_a[:800]))
+        cases.append(('...the still-current file is refreshed to the current '
+                      'template regardless',
+                      (a / rel).read_bytes() == real_template, out_a[:800]))
+        cases.append(('...and the retired entry is dropped from the manifest',
+                      retired_rel not in manifest_of(a).get('ci_workflows_sha256', {}),
+                      out_a[:800]))
+        cases.append(('...reported by name, not a silent drop',
+                      'views-drift.yml' in out_a and 'retired' in out_a, out_a[:800]))
+
+        # -- B: retired entry, file STILL on disk -- dropped from tracking,
+        # reported, but the file itself is left alone (a CI workflow file is
+        # never deleted automatically, matching refresh()'s own stated
+        # design for ci_incomplete) --
+        b = make_set('kept', retired_still_on_disk=True)
+        rc_b, out_b = run_refresh(b)
+        cases.append(('CONTROL: when the retired file is still on disk, refresh still '
+                      'succeeds and drops the manifest entry',
+                      rc_b == 0 and retired_rel not in manifest_of(b).get('ci_workflows_sha256', {}),
+                      out_b[:800]))
+        cases.append(('...but the file itself is left on disk, not deleted',
+                      (b / retired_rel).is_file(), out_b[:400]))
+        cases.append(('...and refresh WARNs that it is still there rather than staying '
+                      'silent about the leftover',
+                      'still on disk' in out_b, out_b[:800]))
+
+        # -- C: `record-ci` re-baselines a hand-fixed file's hash, clone-free,
+        # without touching content -- the other half of the same incident --
+        c = tmp / 'hand-fixed'
+        (c / 'tools').mkdir(parents=True)
+        (c / '.github' / 'workflows').mkdir(parents=True)
+        (c / 'tools' / 'precedent_vendor_engine.py').write_bytes(engine_bytes)
+        hand_fixed = b'name: precedent-check\n# hand-applied fix, correct content\n'
+        (c / rel).write_bytes(hand_fixed)
+        stale_manifest = {
+            'kind': 'source', 'source_commit': 'deadbeef',
+            'files': ['precedent_vendor_engine.py'],
+            'sha256': {'precedent_vendor_engine.py': engine_hash},
+            'ci_workflow_files': [rel],
+            'ci_workflows_sha256': {rel: stub_hash},  # stale: predates the hand fix
+        }
+        (c / 'tools' / 'ENGINE_MANIFEST.json').write_text(
+            json.dumps(stale_manifest), encoding='utf-8')
+        r_c = subprocess.run(
+            [sys.executable, str(c / 'tools' / 'precedent_vendor_engine.py'), 'record-ci'],
+            capture_output=True, text=True, cwd=str(c))
+        cases.append(('`record-ci` runs with no clone argument at all (unlike status/'
+                      'refresh) and exits clean',
+                      r_c.returncode == 0, (r_c.stdout + r_c.stderr)[:800]))
+        cases.append(('...re-records the hash to match what is on disk NOW',
+                      manifest_of(c).get('ci_workflows_sha256', {}).get(rel) ==
+                      hashlib.sha256(hand_fixed).hexdigest(),
+                      (r_c.stdout + r_c.stderr)[:800]))
+        cases.append(('...without touching the hand-fixed content itself',
+                      (c / rel).read_bytes() == hand_fixed, ''))
+        r_c2 = subprocess.run(
+            [sys.executable, str(c / 'tools' / 'precedent_vendor_engine.py'), 'record-ci'],
+            capture_output=True, text=True, cwd=str(c))
+        cases.append(('CONTROL: a second `record-ci` run, now already current, says so '
+                      'rather than re-printing a change',
+                      r_c2.returncode == 0 and 'nothing to do' in r_c2.stdout,
+                      r_c2.stdout[:400]))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'a retired CI workflow template (views-drift.yml folded into '
+          f'precedent-check.yml) self-heals on refresh instead of refusing, and '
+          f'`record-ci` re-baselines a hand-fixed file clone-free ({len(cases)} '
+          f'stated cases)',
+          not bad,
+          '; '.join(f"{n} -- {d[:800]}" for n, d in bad))
+
+
 def check_rule_rewrite_detection():
     """cite-the-incident asks "did somebody WRITE this rule", so it has to
     tell an authorship event from an edit.
@@ -23369,6 +23529,7 @@ def main():
     check_vendor_engine_consumer_case()
     check_vendor_engine_hook_drift_respects_adapters()
     check_vendor_engine_refreshes_ci_workflow_files()
+    check_vendor_engine_retires_ci_workflow_files()
     check_rule_rewrite_detection()
     check_source_shape_is_verified()
     check_machine_readable_files_parse()
