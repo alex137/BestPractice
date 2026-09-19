@@ -45,3 +45,13 @@ Not open until: deciding whether [tools/precedent_install.py](../tools/precedent
 ## Notes
 
 2026-09-16: migrated from TODO.md by tools/todo_migrate.py.
+
+2026-09-19: reproduced, pass 1 of the very deep check, rehearsing
+[tools/precedent_install.py](../tools/precedent_install.py) (SETUP.md's
+underlying tool) into a fresh scratch project. Still 2 of the 3 named checks violated after a full-sweep run on
+the committed tree (`claude-web-bootstrap`, `commit-author`); the third,
+`fresh-before-write`, is not a separate bug -- it reads clean once the
+adopter takes the documented next step and commits, so it was an artifact
+of an uncommitted rehearsal both times, not the individual-source leak
+itself. The blocked-on decision above is unchanged and still needs a
+person's call.
