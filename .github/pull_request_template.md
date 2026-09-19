@@ -33,4 +33,4 @@
 
 ## Open questions / follow-ups
 
-<!-- Anything deferred. These should also land in TODO.md. -->
+<!-- Anything deferred. These should also land under todo/. -->
