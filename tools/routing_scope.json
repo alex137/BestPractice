@@ -903,6 +903,13 @@
       ],
       "gates_why": "The obligation lands where a session is created, which is a tool call made while composing a reply."
     },
+    "small-calls": {
+      "globs": [
+        "**"
+      ],
+      "why": "No locus. What licenses this is a judgment call coming up mid-work, a property of the moment rather than of a file or directory -- the same reason session-text and go-merge have none. Reached through the occasion index.",
+      "decided": "2026-09-19, when the practice landed at universal"
+    },
     "slow-steps-report-and-cache": {
       "globs": [
         "**"

@@ -255,6 +255,29 @@
       "reason": "each is named after the file it generates; those names are set by GitHub and by the leak gate, not here"
     }
   ],
+  "_source_purpose_comment": [
+    "One disambiguating sentence per declared source, for a session sorting",
+    "where a practice belongs -- added 2026-09-19 after `push-back` was found",
+    "sitting in precedent-team-writing (a subject-scoped writing/formatting",
+    "set) when its actual subject is contested reasoning in general, not",
+    "writing craft. These are read alongside the 'sources' array below;",
+    "they do not affect resolution and nothing parses them.",
+    "",
+    "precedent (universal): practices every session everywhere follows --",
+    "core, claimed behavior of the system itself, not one team's taste.",
+    "precedent-team-writing: the craft of writing and formatting prose for a",
+    "human reader only -- citations, lists, emphasis, document mechanics.",
+    "Never the substance of an argument or a decision.",
+    "precedent-team-repo-maintenance: how to run and maintain a repository",
+    "that vendors this practice layer -- syncs, installs, gates, branch and",
+    "vendoring conventions. Binds repos of that kind, not people.",
+    "precedent-team-working-style: how a session paces, communicates and",
+    "hands off work with the person it works for -- registers, escalation,",
+    "reporting up the chain. Not writing craft and not repo mechanics.",
+    "precedent-individual: one person's own standing preferences -- timezone,",
+    "git identity, personal repo conventions, register -- that follow them",
+    "into every project, not a team's shared rule."
+  ],
   "sources": [
     {
       "level": "universal",
