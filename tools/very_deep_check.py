@@ -2267,6 +2267,15 @@ def _bootstrap_drift_one(level, name, path, collect=None):
             # here rather than chased further upstream.
             if '__pycache__' in pathlib.Path(rel).parts:
                 continue
+            # .precedent/ is session state the set's own .gitignore excludes:
+            # SESSION_PRACTICES.md is rendered for the session that is
+            # running, and since the stale-render self-heal (2026-09-18)
+            # bootstrap()'s own build_views run renders it into a brand-new
+            # set too -- so two generations of the same set differ there by
+            # construction, and the first real run of this check reported a
+            # just-generated set as drifted (2026-09-19).
+            if rel.split(os.sep)[0] == '.precedent':
+                continue
             # practices/ is the set's own content, and example-starter-<level> is
             # the one file an adopter is told to delete.
             if rel.split(os.sep)[0] == 'practices':
