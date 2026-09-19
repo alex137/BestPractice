@@ -80,7 +80,7 @@ import precedent_time  # practice: timestamps-carry-offset -- the one module
 # start a `starts` entry on its own. It is not proven to be what actually
 # happened in that one giant hand-and-tool commit (some numbered items DID
 # get real todo/ files, so whatever ran was not purely "run this regex over
-# the file" -- see todo/todo-2026-09-19-migration-dropped-51-items.md for
+# the file" -- see todo/todo-2026-09-19-migration-dropped-54-items.md for
 # the fuller account), but it is a real gap this tool would hit again on
 # any TODO.md still using numbered markers, precedent-individual's among
 # them per its own not_binding exemption. Fixed here regardless of whether
