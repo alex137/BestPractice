@@ -143,9 +143,9 @@ approved_by: "extended 2026-09-14, Morgan F -- after a session was refused by
   up front;
   extended again 2026-09-19, Morgan (strength: decided), so the checkout's
   merged-and-stale branch list is embedded, in full and never truncated,
-  in spec/VERY_DEEP_CHECK.md itself via a doc_sync-gated generated block,
-  rather than left for a session to remember to open and paste from
-  record/stale_branches.md -- \"This list should be generated and included
+  in spec/VERY_DEEP_CHECK.md itself, written directly by the checkout's own
+  branch scan rather than left for a session to remember to open and paste
+  from record/stale_branches.md -- \"This list should be generated and included
   in the VERY DEEP CHECK MD document when it's generated... And if there
   are more than 10, include them!\", after a session named ten safe
   deletions without ever printing them and had to be asked for the list a
@@ -1155,18 +1155,27 @@ Last because none of it strands an adopter, and none of it is cheap.
   it**, and this repeated the exact failure once already, in a different
   shape: a session can point at `record/stale_branches.md` existing and
   still never put the checkout's safe-to-delete list in front of the
-  person. The fix is the same mechanism
-  [computed-numbers-in-scripts](computed-numbers-in-scripts.md) already uses
-  for every other script-computed table a document quotes:
-  `tools/very_deep_check.py
-  --emit merged-stale-checkout` prints just the checkout's merged-and-stale
-  list, `tools/doc_sync.py` embeds it in a `<!--gen:merged-stale-checkout-->`
-  block in [spec/VERY_DEEP_CHECK.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/VERY_DEEP_CHECK.md),
-  and the gate fails if the two drift — so the list is IN the document a
-  session writes up, not one file reference away from it, and **never
-  truncated regardless of count**. `doc_sync.py` is part of the deep check
-  already run before every push, so this costs nothing beyond what pass 4
-  already pays for the scan.
+  person. `tools/very_deep_check.py --emit merged-stale-checkout` prints
+  just the checkout's merged-and-stale list, and every real run of the
+  checkout's branch scan writes that same markdown directly into a
+  `<!--vdc-embed:merged-stale-checkout:...-->` block in
+  [spec/VERY_DEEP_CHECK.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/VERY_DEEP_CHECK.md)
+  — so the list is IN the document a session writes up, not one file
+  reference away from it, and **never truncated regardless of count**.
+  **Deliberately NOT** the
+  [computed-numbers-in-scripts](computed-numbers-in-scripts.md)/`doc_sync.py`
+  gen-block mechanism most other script-computed tables in this repo use —
+  that contract needs a script's output to be REPRODUCIBLE from the
+  repository's own tracked files, and this one makes a live `git
+  fetch`/`ls-remote` against the real GitHub origin, so its answer depends
+  on the moment it runs, not on anything a commit fixes. Registering it in
+  `doc_sync.py`'s `PAIRS` failed CI on the very first PR: the harness's own
+  `enforced channel fires` self-test builds a scratch copy of the tree with
+  no working remote to test a single planted violation, and the live scan
+  inside that copy produced a different answer than whatever was committed
+  — a drift with nothing to do with the violation under test. See the
+  comment above `PAIRS` in
+  [tools/doc_sync.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/doc_sync.py).
 
   *Merged and not deleted* — every branch fully merged into that repo's
   integration branch and still sitting there: a mechanical, offline fact
@@ -1887,6 +1896,11 @@ truncates. A committed file a session has to remember to open and paste
 from is the same shape of loss as a Sunday run's stdout — just one file
 closer to durable — so the fix is not "remember to paste it next time," it
 is removing the step that can be forgotten:
-`tools/very_deep_check.py --emit merged-stale-checkout` plus a
-`tools/doc_sync.py`-gated block, same as any other script-computed table
-this repository quotes.
+`tools/very_deep_check.py --emit merged-stale-checkout` plus a block the
+checkout's own branch scan writes directly on every real run. The first
+version of this fix registered the block with `tools/doc_sync.py`, the
+mechanism every other script-computed table in this repository uses, and
+that failed its own first CI run: the live GitHub fetch the emitter makes
+has no reproducible answer inside the harness's scratch-copy fixtures, so
+the gate reported drift unrelated to whatever it was actually testing.
+Corrected the same day to write the block directly instead of gating it.

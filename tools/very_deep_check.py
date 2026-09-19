@@ -4262,26 +4262,12 @@ def _delete_row_lines(r, path, show_into=False):
     return lines
 
 
-def emit_merged_stale_checkout(repo_root=None):
-    """-> the merged-and-stale (safe-to-delete) branch list for THIS
-    checkout alone, as the markdown doc_sync embeds in
-    spec/VERY_DEEP_CHECK.md's gen block (practice: very-deep-check).
-
-    WHY THIS EXISTS AND WHY IT IS SEPARATE FROM record/stale_branches.md
-    (2026-09-19). The full branch report already carries this list, but a
-    session handed a run's write-up read the file's EXISTENCE and still
-    did not carry the list itself into the reply -- "you named there were
-    10 but never actually gave them the list to act on". Morgan: "This
-    list should be generated and included in the VERY DEEP CHECK MD
-    document when it's generated... And if there are more than 10,
-    include them!" A pointer that still requires a session to remember to
-    open, read and paste a second file is the same failure
-    record/stale_branches.md itself was built to end
-    ([spawn-session]'s own Story: "existed only in that Sunday session's
-    own transcript"); the fix is the same shape doc_sync already uses for
-    every other computed-and-quoted figure. NEVER truncated -- every
-    merged-and-stale branch is listed, however many there are."""
-    scan = scan_branches(repo_root or ROOT)
+def _merged_stale_checkout_markdown(scan):
+    """-> the merged-and-stale (safe-to-delete) branch list from an
+    already-computed `scan_branches()` result, as markdown. Shared by
+    `emit_merged_stale_checkout` (its own fresh scan, for `--emit`) and the
+    main run (the scan it already paid for), so the two never drift into
+    two different renderings of the same list."""
     if scan is None:
         return ('(this checkout could not be scanned -- not its own git '
                 'checkout, or its integration branch could not be '
@@ -4295,6 +4281,59 @@ def emit_merged_stale_checkout(repo_root=None):
     for r in stale:
         lines.extend(_delete_row_lines(r, path))
     return '\n'.join(lines)
+
+
+def emit_merged_stale_checkout(repo_root=None):
+    """-> the merged-and-stale (safe-to-delete) branch list for THIS
+    checkout alone, as markdown, for `--emit` (practice: very-deep-check).
+
+    WHY THIS EXISTS AND WHY IT IS SEPARATE FROM record/stale_branches.md
+    (2026-09-19). The full branch report already carries this list, but a
+    session handed a run's write-up read the file's EXISTENCE and still
+    did not carry the list itself into the reply -- "you named there were
+    10 but never actually gave them the list to act on". Morgan: "This
+    list should be generated and included in the VERY DEEP CHECK MD
+    document when it's generated... And if there are more than 10,
+    include them!" A pointer that still requires a session to remember to
+    open, read and paste a second file is the same failure
+    record/stale_branches.md itself was built to end
+    ([spawn-session]'s own Story: "existed only in that Sunday session's
+    own transcript"). NEVER truncated -- every merged-and-stale branch is
+    listed, however many there are.
+
+    NOT wired into `doc_sync.py` -- see the comment above `PAIRS` in
+    [tools/doc_sync.py](../tools/doc_sync.py) for why a live remote scan
+    cannot be a doc_sync-gated invariant. `_update_spec_doc_block()` below
+    is what actually keeps spec/VERY_DEEP_CHECK.md current, writing this
+    same markdown whenever the checkout's own branch scan runs for real."""
+    return _merged_stale_checkout_markdown(scan_branches(repo_root or ROOT))
+
+
+SPEC_DOC_RELPATH = pathlib.Path('spec') / 'VERY_DEEP_CHECK.md'
+_VDC_EMBED_RE = re.compile(
+    r'(<!--vdc-embed:merged-stale-checkout:[^>]*-->\n).*?'
+    r'(\n<!--/vdc-embed:merged-stale-checkout-->)', re.S)
+
+
+def _update_spec_doc_block(repo_root, markdown):
+    """Rewrite the `<!--vdc-embed:merged-stale-checkout:...-->` block in
+    THIS repo's own spec/VERY_DEEP_CHECK.md, in place -- never in a
+    checked repo other than this one, since that document and this
+    practice both live only here. A silent no-op when the file or the
+    block is absent (a checked repo that vendors this engine has neither,
+    and a run against it must not fail over a document it does not own)."""
+    path = pathlib.Path(repo_root) / SPEC_DOC_RELPATH
+    if not path.is_file():
+        return False
+    text = path.read_text(encoding='utf-8')
+    if not _VDC_EMBED_RE.search(text):
+        return False
+    new_text = _VDC_EMBED_RE.sub(lambda m: m.group(1) + markdown + m.group(2),
+                                 text, count=1)
+    if new_text != text:
+        path.write_text(new_text, encoding='utf-8')
+        return True
+    return False
 
 
 def _write_branch_report(branch_scans, out_path, repo_root):
@@ -4826,6 +4865,12 @@ def _main(box):
         _branch_report_path = _write_branch_report(
             branch_scans, branch_report_path or branch_report_path_for(repo_root),
             repo_root)
+        # This repo's own spec/VERY_DEEP_CHECK.md only, never a checked
+        # repo's -- see _update_spec_doc_block's docstring.
+        if pathlib.Path(repo_root).resolve() == ROOT.resolve():
+            _update_spec_doc_block(
+                repo_root, _merged_stale_checkout_markdown(
+                    branch_scans.get('checkout')))
 
     # THE REPO SIDE of the live-session sweep, gathered here beside the
     # branch scan because it reads the same clones and asks the neighbouring

@@ -61,9 +61,25 @@ PAIRS = [
     ("spec/CHANGES_TO_TELL_ALEX.md", "merge-back", "tools/catalogue_stats.py"),
     ("documentation/DAILY_HABITS.md", "vocabulary",
      "tools/precedent_vocabulary.py"),
-    ("spec/VERY_DEEP_CHECK.md", "merged-stale-checkout",
-     "tools/very_deep_check.py"),
 ]
+
+# spec/VERY_DEEP_CHECK.md's merged-stale-checkout block is deliberately NOT
+# here. Every PAIRS script above computes from this repo's own tracked
+# files -- deterministic, reproducible from a bare copy of the tree.
+# tools/very_deep_check.py --emit merged-stale-checkout instead makes a
+# LIVE `git fetch`/`ls-remote` against the real GitHub origin, so its
+# answer depends on the moment it runs and the clone's own depth, not on
+# anything this repository's own commit fixes. Registering it here failed
+# the very first CI run (practice: very-deep-check): the harness's own
+# "enforced channel fires" self-test builds a scratch copy of the tree to
+# plant one violation, and that copy's git history and remote are not the
+# real repo's, so the live scan inside it produced a different answer than
+# whatever was committed -- a false DRIFT with no connection to the
+# planted violation being tested. `tools/very_deep_check.py` writes that
+# block directly, with its own sentinel, when its checkout branch scan
+# actually runs -- see `_update_spec_doc_block()` -- the same way it writes
+# record/stale_branches.md, never gated on matching a moment that has
+# already passed by the time anything checks it.
 
 # Where this repo keeps prose, for the orphan-sentinel scan; narrow it in
 # the host shim if the whole tree is too broad.
