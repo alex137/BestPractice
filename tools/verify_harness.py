@@ -5480,7 +5480,7 @@ def check_precedent_check_fires():
     from the middle of the header line and reported zero on a table with
     twenty-six.
     """
-    import shutil, tempfile
+    import shutil, tempfile, multiprocessing
 
     def git(cwd, *args, check_rc=True):
         r = subprocess.run(['git', '-C', str(cwd), *args],
@@ -5556,13 +5556,69 @@ def check_precedent_check_fires():
         # --- one planted violation per enforced practice --------------------
         planted = {}
 
+        # case()'s two sub-runs -- the planted fixture and the clean fixture
+        # -- are provably independent: different directories, no shared
+        # state, and nothing outside case() reads either one until both
+        # are done. That makes them safe to run as two real OS processes
+        # instead of one after another. Threads were tried for this exact
+        # spot before (2026-09-16, see spec/VERIFY_HARNESS_PERFORMANCE.md)
+        # and again today, and both times measured no reliable win or an
+        # active loss -- this container's `shutil.copytree` does not
+        # parallelize across Python threads. Real processes are different:
+        # benchmarked directly today, 8 independent (copytree + subprocess)
+        # pipelines launched as separate `multiprocessing.Process` workers
+        # finished in ~1/3 the time of running them one at a time, with
+        # identical results. `ProcessPoolExecutor`/`multiprocessing.Pool`
+        # don't fit here -- their workers receive tasks by pickling them
+        # through a queue, and `plant`/`setup` are local closures, which
+        # can't be pickled. `multiprocessing.Process` forks directly from
+        # the point in the code where the closure already exists in memory,
+        # so no pickling of the closure itself is needed -- only the
+        # (rc, out) result has to come back, and that's a plain int and str.
+        def _case_worker(fn, q):
+            # A plant()/setup() that raises today fails the whole check
+            # loudly, which is correct -- a case that can't even build its
+            # fixture is itself a bug. In a child process an uncaught
+            # exception would otherwise just kill that process silently;
+            # the parent's queue.get() would hang forever waiting for a
+            # result that is never coming. Catch it here and forward it
+            # instead, so the parent can re-raise and keep that behavior.
+            try:
+                q.put(('ok', fn()))
+            except BaseException as e:
+                q.put(('error', e))
+
         def case(slug, plant, extra=(), setup=None, advisory=False):
-            repo = fresh(slug)
-            if setup:
-                setup(repo)
-            if plant:
-                plant(repo)
-            rc, out = run(repo, slug, *extra)
+            def _planted_pipeline():
+                repo = fresh(slug)
+                if setup:
+                    setup(repo)
+                if plant:
+                    plant(repo)
+                return run(repo, slug, *extra)
+
+            def _clean_pipeline():
+                clean = fresh(slug + '-clean')
+                if setup:
+                    setup(clean)
+                return run(clean, slug, *extra)
+
+            q1, q2 = multiprocessing.Queue(), multiprocessing.Queue()
+            p1 = multiprocessing.Process(target=_case_worker, args=(_planted_pipeline, q1))
+            p2 = multiprocessing.Process(target=_case_worker, args=(_clean_pipeline, q2))
+            p1.start()
+            p2.start()
+            status1, value1 = q1.get()
+            status2, value2 = q2.get()
+            p1.join()
+            p2.join()
+            if status1 == 'error':
+                raise value1
+            if status2 == 'error':
+                raise value2
+            rc, out = value1
+            rc2, out2 = value2
+
             planted[slug] = (rc, out)
             if advisory:
                 # advisory=True means a planted violation still reports its
@@ -5582,10 +5638,6 @@ def check_precedent_check_fires():
             else:
                 cases.append((f'{slug}: a planted violation fails the check',
                               rc == 1 and 'VIOLATION' in out))
-            clean = fresh(slug + '-clean')
-            if setup:
-                setup(clean)
-            rc2, out2 = run(clean, slug, *extra)
             planted[slug + '-clean'] = (rc2, out2)
             cases.append((f'{slug}: the same tree unplanted does not',
                           rc2 == 0 and 'VIOLATION' not in out2 and 'ADVISORY' not in out2))
