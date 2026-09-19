@@ -75,7 +75,7 @@
 | [`todo-2026-09-15-go-merge-direct-edit-narrowing-check`](todo-2026-09-15-go-merge-direct-edit-narrowing-check.md) | A mechanical check could narrow the trivial/substantial judgment `Go merge` now makes, and it is not built. | 4d | wait |  |
 | [`todo-2026-09-16-file-retires-when-on-live-gotchas`](todo-2026-09-16-file-retires-when-on-live-gotchas.md) | Populate `retires_when` on the live gotchas. | 3d | wait |  |
 | [`todo-2026-09-18-no-stale-counts-undercounts-a-multi-source-catalogue`](todo-2026-09-18-no-stale-counts-undercounts-a-multi-source-catalogue.md) | `check_no_stale_counts.py` (vendored from `precedent-team-writing`, practice `no-stale-counts`) reports a false positive | 1d | wait | write access to precedent-team-writing -- refused from a session rooted here (cr… |
-| [`todo-2026-09-19-migration-dropped-51-items`](todo-2026-09-19-migration-dropped-51-items.md) | The 2026-09-16 todo/gotcha migration (`9a08363b`) dropped 51 of the 148 items in the pre-migration `TODO.md` — not just  | 0d | wait |  |
+| [`todo-2026-09-19-migration-dropped-54-items`](todo-2026-09-19-migration-dropped-54-items.md) | The 2026-09-16 todo/gotcha migration (`9a08363b`) dropped 54 of the 161 items in the pre-migration `TODO.md` — about a t | 0d | wait |  |
 | [`todo-2026-09-19-pass-3-coherence-read-findings`](todo-2026-09-19-pass-3-coherence-read-findings.md) | Pass 3 of a very deep check (2026-09-19) read all 130 `practices/*.md` files for coherence — contradictions, staleness,  | 0d | ask | the repo owner's call on which findings below are worth acting on -- most are ar… |
 
 ## Verify Before External Use
@@ -171,7 +171,7 @@
 | [`todo-2026-09-14-sync-views-blames-a-dropped-source-for-a-retirement`](todo-2026-09-14-sync-views-blames-a-dropped-source-for-a-retirement.md) | A retired practice is reported as one whose SOURCE was dropped, and a renamed source would read identically. | 5d |
 | [`todo-2026-09-15-go-merge-direct-edit-narrowing-check`](todo-2026-09-15-go-merge-direct-edit-narrowing-check.md) | A mechanical check could narrow the trivial/substantial judgment `Go merge` now makes, and it is not built. | 4d |
 | [`todo-2026-09-16-file-retires-when-on-live-gotchas`](todo-2026-09-16-file-retires-when-on-live-gotchas.md) | Populate `retires_when` on the live gotchas. | 3d |
-| [`todo-2026-09-19-migration-dropped-51-items`](todo-2026-09-19-migration-dropped-51-items.md) | The 2026-09-16 todo/gotcha migration (`9a08363b`) dropped 51 of the 148 items in the pre-migration `TODO.md` — not just  | 0d |
+| [`todo-2026-09-19-migration-dropped-54-items`](todo-2026-09-19-migration-dropped-54-items.md) | The 2026-09-16 todo/gotcha migration (`9a08363b`) dropped 54 of the 161 items in the pre-migration `TODO.md` — about a t | 0d |
 
 ## Open Decisions
 

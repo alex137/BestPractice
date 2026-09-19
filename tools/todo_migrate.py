@@ -70,8 +70,25 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 import precedent_time  # practice: timestamps-carry-offset -- the one module
 
-TODO_ANCHOR_RE = re.compile(r'^-\s+(?:\[ \]\s+)?<a id="([^"]+)"></a>')
-TODO_BARE_RE = re.compile(r'^-\s+\*\*')
+# The bullet marker a top-level item starts with: an unordered `- ` bullet,
+# or a NUMBERED `51. ` one. Both are real pre-migration shapes -- this
+# repository's own TODO.md used numbered markers for 119 of its 148
+# top-level items right up to the commit that migrated it (`9a08363b`,
+# 2026-09-16), and dash markers for the other 29. Found 2026-09-19, after
+# that migration turned out to have dropped 50 items with no trace: this
+# regex, at the time, matched `-\s+` only, so a numbered item could never
+# start a `starts` entry on its own. It is not proven to be what actually
+# happened in that one giant hand-and-tool commit (some numbered items DID
+# get real todo/ files, so whatever ran was not purely "run this regex over
+# the file" -- see todo/todo-2026-09-19-migration-dropped-51-items.md for
+# the fuller account), but it is a real gap this tool would hit again on
+# any TODO.md still using numbered markers, precedent-individual's among
+# them per its own not_binding exemption. Fixed here regardless of whether
+# it explains the original loss, because the next repo to run this tool
+# should not have to find out the same way.
+BULLET_MARKER_RE = r'(?:-|\d+\.)\s+'
+TODO_ANCHOR_RE = re.compile(r'^' + BULLET_MARKER_RE + r'(?:\[ \]\s+)?<a id="([^"]+)"></a>')
+TODO_BARE_RE = re.compile(r'^' + BULLET_MARKER_RE + r'\*\*')
 # A checkbox bullet with no anchor -- `- [ ] **Title.**` / `- [x] **Title.**` --
 # is a DIFFERENT shape from both of the above: TODO_ANCHOR_RE requires an
 # `<a id=>` tag after an optional checkbox, and TODO_BARE_RE requires `**`
@@ -87,7 +104,7 @@ TODO_BARE_RE = re.compile(r'^-\s+\*\*')
 # template's own intro prose), silently swallowing everything after it up to
 # the next such bullet. Found 2026-09-18 running this tool against a real
 # consumer's TODO.md for the first time since #445 vendored it out.
-TODO_CHECKBOX_RE = re.compile(r'^-\s+\[([ xX])\]\s+\*\*')
+TODO_CHECKBOX_RE = re.compile(r'^' + BULLET_MARKER_RE + r'\[([ xX])\]\s+\*\*')
 GOTCHA_HEADING_RE = re.compile(
     r'^##\s+\d+\.\s+(?:<a id="(g\d+)"></a>)?(.*)$')
 # A plain `##` heading in a TODO file -- not the gotcha format's numbered
@@ -295,7 +312,43 @@ def parse_todo_items(text):
         items.append(Item(anchor, title, raw, has_anchor=bool(anchor),
                            checked=checked,
                            section_kind=section_kind_at[starts[idx]]))
+    _assert_no_dropped_items(lines, items)
     return items
+
+
+# Independent of the three specific start shapes above, on purpose: this
+# counts every `<a id="...">` anywhere in the file, by a completely
+# different method (a bare regex over the whole text, not the line-by-line
+# marker scan `starts` above uses), and refuses to proceed if that number
+# disagrees with how many items got parsed. Built 2026-09-19, after the
+# 2026-09-16 migration (`9a08363b`) turned out to have silently dropped 50
+# of 148 real items with nothing anywhere catching it -- neither this
+# module nor anything downstream of it asserted the one property that
+# would have caught it immediately: item count in equals item count out.
+# `_heading_per_item_shaped`'s TodoShapeError guards a DIFFERENT failure
+# (the whole file being an unrecognized shape); this guards the one this
+# function could pass while still being wrong -- recognizing some items
+# correctly and silently missing others, which looks identical to success
+# at every point downstream (practice: control-asserts-which-failure).
+ANY_ANCHOR_RE = re.compile(r'<a id="([^"]+)"></a>')
+
+
+def _assert_no_dropped_items(lines, items):
+    text = '\n'.join(lines)
+    all_anchors = set(ANY_ANCHOR_RE.findall(text))
+    parsed_anchors = {it.anchor for it in items if it.anchor}
+    missing = all_anchors - parsed_anchors
+    if missing:
+        raise TodoShapeError(
+            f'{len(missing)} anchor(s) exist in this file but were not '
+            f'recognized as the start of any item -- parse_todo_items '
+            f'found {len(items)} item(s) total. Each is either a nested '
+            f'anchor inside another item\'s body (harmless -- add it to a '
+            f'reviewed exemption if so) or a top-level item whose start '
+            f'line matches none of TODO_ANCHOR_RE / TODO_BARE_RE / '
+            f'TODO_CHECKBOX_RE (the real failure this guards). Missing: '
+            + ', '.join(f'`{a}`' for a in sorted(missing)[:20])
+            + (f', and {len(missing) - 20} more' if len(missing) > 20 else ''))
 
 
 def parse_gotcha_items(text):
