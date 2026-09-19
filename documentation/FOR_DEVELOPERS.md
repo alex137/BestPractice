@@ -284,7 +284,8 @@ runs at each one:
    naming a listed approver. For universal, `precedent_land.py` only
    *drafts* `practices/<slug>.md` — landing it for real means committing
    that draft to a branch and opening a pull request (PR) against
-   Precedent, reviewed and merged by someone else.
+   Precedent, merged once its own deep check passes — no second sign-off
+   required, same as any other PR into `precedent-beta-v01`.
 
 ## Who May Change What
 
@@ -346,9 +347,9 @@ has to say yes?*
   proposing a candidate is a slower path here on purpose, not a shortcut
   around needing someone else's agreement.
 - **Everyone's (universal):** goes up as a PR against the shared
-  Precedent repository, reviewed and merged by someone other than
-  whoever proposed it. No single person, including whoever maintains the
-  library, can land a universal practice alone.
+  Precedent repository, merged once its own deep check passes — the same
+  branch-level gate as any other PR into `precedent-beta-v01`, not a
+  second reviewer's sign-off.
 
 ## How Enforcement Works
 

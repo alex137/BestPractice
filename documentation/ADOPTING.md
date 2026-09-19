@@ -183,10 +183,10 @@ trusts. Who has to give that yes depends on which of the three it belongs to:
   alone, however sure you are about it — instead it becomes a suggestion
   sitting where an approver will actually see it (a notification wherever
   they already get them), and it lands only once one of them agrees.
-- **Everyone's?** No single person's word is enough here, not even whoever
-  runs this whole shared library — it always goes up for a real, visible
-  review, and someone other than whoever proposed it has to accept it
-  before it's real.
+- **Everyone's?** It always goes up as a real, visible pull request against
+  the shared library, and lands once that PR's own deep check passes —
+  the same gate as any other change there, not a second person's
+  sign-off.
 
 **Then it routes and enforces.** Once it lands, the practice is filed where
 it belongs, shows up when the work calls for it, and — if it can be checked
