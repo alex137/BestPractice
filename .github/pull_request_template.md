@@ -17,7 +17,7 @@
 
 ## Why
 
-<!-- The intent/critique that prompted it. Link the TODO.md item if there is one. -->
+<!-- The intent/critique that prompted it. Link the relevant todo/todo-*.md item if there is one. -->
 
 ## Files touched
 
@@ -28,7 +28,7 @@
 - [ ] Base branch is `precedent-beta-v01`, not `main` (see AGENTS.md's opening note) — checked explicitly, not assumed from the default branch
 - [ ] Deep check run and clean: `verify_harness.py`, `doc_lint.py`, `leak_gate.py`, `precedent_check.py`, `doc_sync.py`
 - [ ] Generated views regenerated if any `practices/*.md` front matter changed (`tools/build_views.py`) — AGENTS.md/MAP.md/GLOSSARY.md byte-identical to a fresh build
-- [ ] `TODO.md` updated — items opened/closed listed below
+- [ ] `todo/` updated — items opened/closed listed below (a new item is `todo/todo-<date>-<slug>.md`, never a `TODO.md` edit — CI refuses those)
 - [ ] `GLOSSARY.md`/occasion-index entries current if a practice's `defines:`, `applies_to`, or `occasion` changed
 
 ## Open questions / follow-ups

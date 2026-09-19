@@ -16,7 +16,7 @@
 
 ## Why
 
-<!-- The intent/critique that prompted it. Link the TODO.md item if there is one. -->
+<!-- The intent/critique that prompted it. Link the relevant todo/todo-*.md item if there is one. -->
 
 ## Files touched
 
@@ -26,7 +26,7 @@
 
 - [ ] Scrub gate run — no private names/code words in the vendored tree
 - [ ] MAP.md updated (or: no structural change, so not needed)
-- [ ] TODO.md updated — items opened/closed listed below
+- [ ] `todo/` updated — items opened/closed listed below (a new item is `todo/todo-<date>-<slug>.md`, never a `TODO.md` edit)
 - [ ] GLOSSARY.md updated (or: no new terms)
 
 ## Open questions / follow-ups

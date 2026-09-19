@@ -4,6 +4,7 @@
 
 | Item | What | Status | Closed |
 |---|---|---|---|
+| [`todo-2026-09-19-pr-template-todo-md-wording-is-stale-post-migration`](todo-2026-09-19-pr-template-todo-md-wording-is-stale-post-migration.md) | This repo's PR template still told contributors to work with `TODO.md` directly | done | 2026-09-19 |
 | [`todo-2026-09-07-practice-consistency-across-team-repos`](todo-2026-09-07-practice-consistency-across-team-repos.md) | How one practice lives in several team repos and stays consistent | done | 2026-09-18 |
 | [`todo-2026-09-18-todo-migrate-status-and-kind-bugs`](todo-2026-09-18-todo-migrate-status-and-kind-bugs.md) | [tools/todo_migrate.py](../tools/todo_migrate.py) writes a `status` value `build_todo_index.py` doesn't recognize, and s | done | 2026-09-18 |
 | [`todo-2026-09-17-access-probe-plant-not-detected`](todo-2026-09-17-access-probe-plant-not-detected.md) | Fixed. [tools/verify_harness.py](../tools/verify_harness.py)'s `check_precedent_check_fires` reported `access-probe-is-w | done | 2026-09-17 |
