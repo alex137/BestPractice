@@ -6907,6 +6907,25 @@ def check_precedent_check_fires():
              lambda repo: rewrite(repo, 'TODO.md',
                                   lambda t: t + '\nSee the new ZQX report.\n'))
 
+        # ...and the same acronym, already unglossed in a COMMITTED file,
+        # copied into a brand-new path must NOT fail. read_base(f) only ever
+        # checks this file's own path in the base tree, so a migration that
+        # moves content to a new path (TODO.md -> todo/*.md is the real
+        # incident this reproduces) left it blind: identical prose read as
+        # newly introduced at its new path and clean at its old one.
+        _mig = fresh('acronyms-glossary-migrated-path')
+        rewrite(_mig, 'TODO.md', lambda t: t + '\nSee the new ZQX report.\n')
+        git(_mig, 'add', '-A')
+        git(_mig, 'commit', '-qm', 'plant ZQX in TODO.md')
+        (_mig / 'planted-migrated.md').write_text(
+            'See the new ZQX report.\n', encoding='utf-8')
+        _rc_mig, _out_mig = run(_mig, 'acronyms-glossary')
+        cases.append(('acronyms-glossary: an unglossed acronym copied to a '
+                      'brand-new path, already unglossed elsewhere in the '
+                      'base tree, does NOT fail -- a migration moved it, '
+                      'the change did not introduce it',
+                      _rc_mig == 0 and 'VIOLATION' not in _out_mig))
+
         # ci-commits-carry-identity -- a workflow that commits as the bot.
         # The fixture is the real shape: the two `git config` lines and the
         # `git commit` that a scheduled refresh workflow actually runs.
@@ -7017,6 +7036,25 @@ def check_precedent_check_fires():
                       '<!--record-doc--> document does NOT fail -- a '
                       'historical record is where lineage belongs',
                       _rc_rd == 0 and 'VIOLATION' not in _out_rd))
+
+        # ...and the same lineage phrase, already committed somewhere in the
+        # base tree, copied to a brand-new path must NOT fail either -- same
+        # fix, same reason as acronyms-glossary's migrated-path case above.
+        _migl = fresh('index-remembers-past-migrated-path')
+        (_migl / 'source-lineage.md').write_text(
+            '# Doc\n\nThis document is the successor to the old one.\n',
+            encoding='utf-8')
+        git(_migl, 'add', '-A')
+        git(_migl, 'commit', '-qm', 'plant lineage phrase')
+        (_migl / 'planted-migrated-lineage.md').write_text(
+            '# New Doc\n\nThis document is the successor to the old one.\n',
+            encoding='utf-8')
+        _rc_migl, _out_migl = run(_migl, 'index-remembers-past')
+        cases.append(('index-remembers-past: the same lineage phrase copied '
+                      'to a brand-new path, already present in the base '
+                      "tree, does NOT fail -- a migration moved it, the "
+                      "change didn't introduce it",
+                      _rc_migl == 0 and 'VIOLATION' not in _out_migl))
 
         # deliverables-look-like-output -- process residue in a deliverable
         case('deliverables-look-like-output',
