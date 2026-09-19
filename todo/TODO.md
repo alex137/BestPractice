@@ -75,6 +75,7 @@
 | [`todo-2026-09-15-go-merge-direct-edit-narrowing-check`](todo-2026-09-15-go-merge-direct-edit-narrowing-check.md) | A mechanical check could narrow the trivial/substantial judgment `Go merge` now makes, and it is not built. | 4d | wait |  |
 | [`todo-2026-09-16-file-retires-when-on-live-gotchas`](todo-2026-09-16-file-retires-when-on-live-gotchas.md) | Populate `retires_when` on the live gotchas. | 3d | wait |  |
 | [`todo-2026-09-18-no-stale-counts-undercounts-a-multi-source-catalogue`](todo-2026-09-18-no-stale-counts-undercounts-a-multi-source-catalogue.md) | `check_no_stale_counts.py` (vendored from `precedent-team-writing`, practice `no-stale-counts`) reports a false positive | 1d | wait | write access to precedent-team-writing -- refused from a session rooted here (cr… |
+| [`todo-2026-09-19-pass-3-coherence-read-findings`](todo-2026-09-19-pass-3-coherence-read-findings.md) | Pass 3 of a very deep check (2026-09-19) read all 130 `practices/*.md` files for coherence — contradictions, staleness,  | 0d | ask | the repo owner's call on which findings below are worth acting on -- most are ar… |
 
 ## Verify Before External Use
 
@@ -128,7 +129,6 @@
 | [`todo-2026-09-09-source-hook-drift`](todo-2026-09-09-source-hook-drift.md) | Decide whether a drifted-but-present session hook in a practice-set source gets brought up to canonical automatically. | 10d | wait | those other threads first, then a session rooted under the sets' own owner to ca… |
 | [`todo-2026-09-10-stale-days-does-not-travel`](todo-2026-09-10-stale-days-does-not-travel.md) | Decide whether the four private practice sets should declare their own `branch_stale_days`. | 9d | wait |  |
 | [`todo-2026-09-12-my-options-includes-doing-nothing`](todo-2026-09-12-my-options-includes-doing-nothing.md) | Decide whether "My options" must always list the do-nothing option. | 7d | wait | Morgan's decision, explicitly deferred. |
-| [`todo-2026-09-13-views-drift-vs-suite-workflow`](todo-2026-09-13-views-drift-vs-suite-workflow.md) | Decide whether a source set that runs the whole check suite in continuous integration should still carry `views-drift.ym | 6d | wait | removing a workflow from every source set is a change to repositories this sessi… |
 | [`todo-2026-09-19-revisit-examples-vendoring`](todo-2026-09-19-revisit-examples-vendoring.md) | Revisit whether `documentation/examples/practice-set/` (moved from top-level `examples/` this same session) should stay  | 0d | ask |  |
 
 ## Unblocked Work
@@ -178,7 +178,6 @@
 | [`todo-2026-09-09-source-hook-drift`](todo-2026-09-09-source-hook-drift.md) | Decide whether a drifted-but-present session hook in a practice-set source gets brought up to canonical automatically. |  |
 | [`todo-2026-09-10-stale-days-does-not-travel`](todo-2026-09-10-stale-days-does-not-travel.md) | Decide whether the four private practice sets should declare their own `branch_stale_days`. |  |
 | [`todo-2026-09-12-my-options-includes-doing-nothing`](todo-2026-09-12-my-options-includes-doing-nothing.md) | Decide whether "My options" must always list the do-nothing option. | Morgan |
-| [`todo-2026-09-13-views-drift-vs-suite-workflow`](todo-2026-09-13-views-drift-vs-suite-workflow.md) | Decide whether a source set that runs the whole check suite in continuous integration should still carry `views-drift.ym |  |
 | [`todo-2026-09-19-revisit-examples-vendoring`](todo-2026-09-19-revisit-examples-vendoring.md) | Revisit whether `documentation/examples/practice-set/` (moved from top-level `examples/` this same session) should stay  |  |
 
 ## Due Reminders

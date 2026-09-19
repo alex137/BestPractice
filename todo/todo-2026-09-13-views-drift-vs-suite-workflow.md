@@ -3,7 +3,7 @@ slug:              todo-2026-09-13-views-drift-vs-suite-workflow
 kind:              decision
 domain:            null
 severity:          null
-status:            closed
+status:            done
 disposition:       wait
 remind_on:         null
 blocked_on:        "removing a workflow from every source set is a change to repositories this session cannot reach, and the sets are cross-owner. The decision comes first either way."
