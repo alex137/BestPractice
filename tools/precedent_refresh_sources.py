@@ -197,7 +197,7 @@ def declared_paths():
     out = []
     try:
         for s in precedent_resolve.load_config(ROOT):
-            if s.get('level') in ('team', 'individual') and s.get('path'):
+            if s.get('level') in ('shared', 'team', 'individual') and s.get('path'):
                 out.append(pathlib.Path(s['path']).expanduser().resolve())
     except Exception:
         # Any config problem is precedent_resolve's to report, loudly, in

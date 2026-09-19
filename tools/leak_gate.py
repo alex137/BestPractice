@@ -164,41 +164,83 @@ DEFAULT_BLOCKLIST = pathlib.Path(__file__).resolve().parent / 'leak-blocklist.de
 # directories (the plan's "Source -- Who a Practice Belongs To"), so a
 # directory shaped like a private set here means someone took the shortcut
 # the plan exists to prevent.
+#
+# Until 2026-09-18 two more rules lived here, matching a path segment
+# beginning `team-` or `precedent-(individual|team-)`: the name a private set
+# HAD to carry was the tell a vendored copy could not hide. That was a name
+# doing a file's work (practice: source-naming), and it refused a public
+# planning document for being called TEAM_something. A private set is now
+# recognised by two things it actually carries: the name its consumer
+# DECLARES for it (a path segment equal to a declared shared source's name,
+# or to the default individual name -- see private_set_names and scan) and
+# the manifest it ships (a precedent-source.json saying `visibility:
+# private` -- see SOURCE_MANIFEST). Both are files, both catch a set under
+# any name at all, and neither refuses a document for its title.
 FORBIDDEN_PATHS = [
-    # re.I throughout: a directory a person names by hand -- Team-Nightjar/,
-    # Individual/, Candidates/ -- is exactly as forbidden as its lowercase
-    # spelling, and the case-sensitive versions of these four passed every
-    # such path silently until a deep-check audit planted one and watched
-    # the gate exit 0.
+    # re.I throughout: a directory a person names by hand -- Individual/,
+    # Candidates/ -- is exactly as forbidden as its lowercase spelling, and
+    # the case-sensitive versions of these passed every such path silently
+    # until a deep-check audit planted one and watched the gate exit 0.
     (re.compile(r'(^|/)(individual|personal|private)/', re.I),
      'an individual-level directory -- individual practices live in their own '
      'private repo, never in Precedent'),
-    # NOTE, 2026-09-10: this also matches a FILE whose name begins `team-`
-    # or `TEAM_` -- `spec/TEAM_PRACTICE_CAPTURE_DOCUMENT_WORK.md`, a public
-    # planning document about team-level capture, was refused by it on the
-    # commit that created it. That is bluntness, not a bug: the pattern
-    # cannot see whether a segment is a directory, and the alternative --
-    # requiring a trailing `/` -- would pass a vendored set dropped in as a
-    # tarball or a single file. The document was renamed instead, the same
-    # call the individual-bootstrap exemption below made for the same
-    # reason. If you hit this, rename before you loosen.
-    (re.compile(r'(^|/)team[-_/]', re.I),
-     'a team-level path -- team practices live in one private repo per team'),
-    (re.compile(r'(^|/)precedent-(individual|team-)', re.I),
-     'a vendored copy of a private practice set'),
     (re.compile(r'(^|/)(candidates|outbox)/', re.I),
      'a candidates/outbox directory -- these hold unreviewed drafts that may '
      'carry private context (plan, Stage 2)'),
 ]
 
-# Exactly one path is exempt from FORBIDDEN_PATHS, by full path, and it is
+# The file a practice-set source carries at its root to say what it is; the
+# resolver's SOURCE_MANIFEST, spelled here too because this gate must run
+# vendored where the resolver is deliberately absent.
+SOURCE_MANIFEST = 'precedent-source.json'
+DEFAULT_INDIVIDUAL_NAME = 'precedent-individual'
+# The levels whose sources are private by default. `team` is the pre-2026-09-18
+# spelling of `shared` and still reads.
+PRIVATE_LEVELS = ('shared', 'team', 'individual')
+
+
+def private_set_names(root=None):
+    """-> the names a vendored private set would be found under: every
+    shared source this repo's precedent.json declares, plus the default
+    individual name. Lowercased; matched whole against path segments."""
+    names = {DEFAULT_INDIVIDUAL_NAME}
+    cfg = pathlib.Path(root or ROOT) / 'precedent.json'
+    try:
+        data = json.loads(cfg.read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return names
+    for s in data.get('sources', []) or []:
+        if (s or {}).get('level') in PRIVATE_LEVELS and isinstance(s.get('name'), str):
+            names.add(s['name'].strip().lower())
+    return names
+
+
+def _manifest_says_private(text):
+    """True when `text` is a source manifest declaring itself private, or
+    declaring a level that is private by default. A manifest that cannot be
+    parsed is reported too: a file by that name that is not a manifest is
+    not something a public tree has a use for."""
+    try:
+        data = json.loads(text)
+    except ValueError:
+        return True
+    if not isinstance(data, dict):
+        return True
+    vis = str(data.get('visibility') or '').strip().lower()
+    if vis == 'private':
+        return True
+    return vis != 'public' and data.get('level') in PRIVATE_LEVELS
+
+# Exactly one path is exempt from the path rules, by full path, and it is
 # not a loophole: it is the canonical SessionStart hook every consuming
 # project is TOLD to install, at a name tools/precedent_resolve.py fixes in
 # code (INDIVIDUAL_BOOTSTRAP_HOOK) and INSTALL.md publishes. Its basename
-# begins with 'precedent-individual', so the vendored-private-set rule above
-# matched it -- that rule means a DIRECTORY holding a private set's content
-# (its own comment says so), and it was matching a filename that merely
-# starts with the same text.
+# begins with 'precedent-individual', and until 2026-09-18 the
+# vendored-private-set rule matched any segment BEGINNING with that text --
+# a rule that means a DIRECTORY holding a private set's content, matching a
+# filename that merely starts the same way. The rule now matches a whole
+# segment, so the hook passes on its own; the exemption stays as the record
+# of where the engine looks.
 #
 # 2026-09-06: this fired the moment BestPractice installed its own copy of
 # that hook, refusing a file the project's own instructions require. Exempting
@@ -991,14 +1033,32 @@ def load_blocklist():
             True)
 
 
-def scan(units, blocklist, repo_policy=(None, None), auto_names=()):
+def scan(units, blocklist, repo_policy=(None, None), auto_names=(),
+         private_names=None):
     owners, allowed = repo_policy
+    if private_names is None:
+        private_names = private_set_names()
     hits = []
     for display, rel, text in units:
         if rel is not None and rel not in ALLOWED_PATHS:
             for pat, why in FORBIDDEN_PATHS:
                 if pat.search(rel):
                     hits.append((display, 0, why, rel))
+            segments = [seg.lower() for seg in rel.split('/')]
+            for seg in segments[:-1]:
+                if seg in private_names:
+                    hits.append((display, 0,
+                                 f'a vendored copy of the private practice set '
+                                 f'{seg!r} -- a declared shared or individual '
+                                 f'source never lives inside another repository',
+                                 rel))
+                    break
+            if segments[-1] == SOURCE_MANIFEST and text is not None \
+                    and _manifest_says_private(text):
+                hits.append((display, 0,
+                             f'a private practice set\'s own {SOURCE_MANIFEST} -- the '
+                             f'set it describes is being vendored into a public tree',
+                             rel))
         if text is None:
             continue
         for pat, why in FORBIDDEN_CONTENT:
@@ -1088,7 +1148,7 @@ def _private_sources_declared(root=None):
         # guessing "no private sources" here would fail open in exactly the
         # direction this function exists to close (practice: fail-gracefully).
         return True
-    return any((s or {}).get('level') in ('individual', 'team')
+    return any((s or {}).get('level') in PRIVATE_LEVELS
                for s in data.get('sources', []))
 
 
@@ -1135,7 +1195,7 @@ def _private_sources_resolved(root=None):
         return True, []
     missing = {(m or {}).get('name') for m in res.get('missing', [])}
     private = [s for s in sources
-               if (s or {}).get('level') in ('individual', 'team')]
+               if (s or {}).get('level') in PRIVATE_LEVELS]
     unresolved = [s.get('name') for s in private if s.get('name') in missing]
     resolved = [s.get('name') for s in private if s.get('name') not in missing]
     return bool(resolved), unresolved

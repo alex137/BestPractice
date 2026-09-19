@@ -1833,7 +1833,7 @@ matching the rest of this document's own current-state discipline
   nowhere to start — closed for the case that doesn't need the full
   creation pipeline. New skeletons
   ([templates/practice-set-individual/](../templates/practice-set-individual/),
-  [templates/practice-set-team/](../templates/practice-set-team/)), a new
+  [templates/practice-set-shared/](../templates/practice-set-shared/)), a new
   bootstrap tool
   ([tools/precedent_bootstrap_source.py](../tools/precedent_bootstrap_source.py),
   harness-tested against a real resolve, precedence included), and a real

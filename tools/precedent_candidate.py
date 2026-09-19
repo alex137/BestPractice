@@ -94,7 +94,8 @@ SIGNALS = {
     'repeated-instruction', 'repeated-check-failure', 'review-found-defect',
     'restated-in-second-scope',
 }
-LEVELS = {'individual', 'team', 'universal'}
+LEVELS = {'individual', 'shared', 'universal'}
+LEVEL_ALIASES = {'team': 'shared'}   # the pre-2026-09-18 spelling still reads
 STATUSES = {'open', 'promoted', 'expired', 'declined'}
 SLUG_RE = re.compile(r'^[a-z0-9]+(-[a-z0-9]+)*$')
 
@@ -248,7 +249,7 @@ def split_candidate_sections(body):
 
 
 def cmd_create(args):
-    level = args.get('--level')
+    level = LEVEL_ALIASES.get(args.get('--level'), args.get('--level'))
     if level not in LEVELS:
         raise CandidateError(f"--level must be one of {sorted(LEVELS)}, got {level!r}")
     slug = args.get('--slug')
@@ -269,9 +270,9 @@ def cmd_create(args):
     # bare-boolean-flag support) -- so this is `--as-issue true`, not a bare
     # `--as-issue`, for consistency with the rest of the tool's own style.
     as_issue = args.get('--as-issue') == 'true'
-    if as_issue and level != 'team':
+    if as_issue and level != 'shared':
         raise CandidateError(
-            "--as-issue only applies to --level team. Individual is always "
+            "--as-issue only applies to --level shared. Individual is always "
             "your own to land directly -- there's no one else whose "
             "permission a candidate could stand in for, so an Issue has no "
             "one to notify. Universal is already always an Issue; --as-issue "
@@ -325,9 +326,9 @@ def cmd_create(args):
 
     path = args.get('--path')
     if not path:
-        raise CandidateError('--path REPO is required for --level individual/team')
+        raise CandidateError('--path REPO is required for --level individual/shared')
 
-    if level == 'team':
+    if level == 'shared':
         _nudge_if_already_approver(path, fields['raised_by'])
 
     if as_issue:
@@ -418,7 +419,7 @@ def _iter_candidates(path):
 
 
 def cmd_list(args):
-    level = args.get('--level')
+    level = LEVEL_ALIASES.get(args.get('--level'), args.get('--level'))
     if level not in LEVELS:
         raise CandidateError(f"--level must be one of {sorted(LEVELS)}, got {level!r}")
     if level == 'universal':
@@ -430,7 +431,7 @@ def cmd_list(args):
         return 0
     path = args.get('--path')
     if not path:
-        raise CandidateError('--path REPO is required for --level individual/team')
+        raise CandidateError('--path REPO is required for --level individual/shared')
     status_filter = args.get('--status')
     if status_filter and status_filter not in STATUSES:
         raise CandidateError(f"--status must be one of {sorted(STATUSES)}, got {status_filter!r}")
@@ -479,9 +480,9 @@ def set_candidate_status(target, new_status, required_current='open'):
 
 
 def cmd_expire(args):
-    level = args.get('--level')
-    if level not in ('individual', 'team'):
-        raise CandidateError("--level must be individual or team for expire "
+    level = LEVEL_ALIASES.get(args.get('--level'), args.get('--level'))
+    if level not in ('individual', 'shared'):
+        raise CandidateError("--level must be individual or shared for expire "
                               "(a universal candidate is an Issue -- close it there)")
     path = args.get('--path')
     fname = args.get('--file')

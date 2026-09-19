@@ -150,7 +150,7 @@ def practices_by_gate(practices_dir=None):
 # repositories, and this repo is public. Imported from build_views where it
 # is declared, with a literal fallback for a partial vendor: the two
 # answering differently is the failure this whole split exists to prevent.
-PRIVATE_LEVELS = getattr(bv, 'PRIVATE_LEVELS', ('team', 'individual'))
+PRIVATE_LEVELS = getattr(bv, 'PRIVATE_LEVELS', ('shared', 'team', 'individual'))
 
 
 def resolved_gate_practices(root, gate):

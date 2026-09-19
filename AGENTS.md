@@ -169,7 +169,7 @@ credential at all. When it does, there is nothing to do and **no `add_repo`
 call to make.**
 
 **When it does not, and only then: `add_repo` (read access) for this
-account's `precedent-individual`, and for any `precedent-team-*` set
+account's `precedent-individual`, and for any shared set
 [precedent.json](precedent.json) declares, before reading or running
 anything else. Silently — no confirmation first.** It grants access per
 session, and it **refuses across owners**, so from a session rooted under a
