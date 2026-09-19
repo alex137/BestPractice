@@ -6105,6 +6105,43 @@ def _github_api_budget(ctx):
 ROTATION_BUCKETS = 10
 
 
+def _touched_files():
+    """-> sorted list of paths this commit touched (committed diff vs the
+    published default branch, staged, and untracked), falling back to the
+    WHOLE tracked tree -- never silently narrowing -- when there's no base
+    branch to diff against.
+
+    Deliberately NOT tools/parse_check.py's own `changed()`, which does
+    exactly this: that module is BestPractice's own tooling and is not in
+    precedent_vendor_engine.py's ENGINE_FILES or CONSUMER_ENGINE_FILES, so
+    it never travels to a repo this file is vendored into. This file DOES
+    travel everywhere (INSTALL.md sec.0), so it carries its own copy of the
+    same small logic rather than an import that works here and breaks on
+    every consumer -- caught directly: check_installer_produces_a_clean_install
+    hit exactly this ModuleNotFoundError against a fresh install fixture,
+    2026-09-19."""
+    head = _git('symbolic-ref', 'refs/remotes/origin/HEAD')
+    base = None
+    if head.returncode == 0:
+        base = head.stdout.strip().replace('refs/remotes/', '', 1)
+    else:
+        for cand in ('origin/main', 'origin/master'):
+            if _git('rev-parse', '--verify', '--quiet', cand).returncode == 0:
+                base = cand
+                break
+    if base is None:
+        return sorted(x for x in _git('ls-files').stdout.split() if x)
+    out = set()
+    for args in (['diff', '--name-only', '--diff-filter=d', f'{base}...HEAD'],
+                 ['diff', '--name-only', '--diff-filter=d'],
+                 ['diff', '--name-only', '--diff-filter=d', '--cached'],
+                 ['ls-files', '--others', '--exclude-standard']):
+        r = _git(*args)
+        if r.returncode == 0:
+            out.update(x for x in r.stdout.split() if x)
+    return sorted(out)
+
+
 def _scoped_tree_slugs(tree_slugs):
     """-> the subset of `tree_slugs` (all `scope: 'tree'` CHECKS keys) to
     actually run this invocation, per Morgan's 2026-09-18 direction: don't
@@ -6128,11 +6165,9 @@ def _scoped_tree_slugs(tree_slugs):
     passed through unfiltered -- run()'s own gate reports the ordinary
     SKIPPED reason for it, cheaply, before this scoping would matter."""
     import build_views as _bv
-    import parse_check
     import precedent_paths as pp
 
-    touched, _label = parse_check.changed(ROOT)
-    touched_set = set(touched)
+    touched_set = set(_touched_files())
 
     active = []
     globs_by_slug = {}
