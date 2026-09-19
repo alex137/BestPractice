@@ -127,7 +127,7 @@ is the incident that prompted this -- never reached an already-vendored
 repo no matter how many times it ran `refresh`. .claude/settings.json itself
 is still never touched by this tool, on purpose; see that block.
 
-Four subcommands:
+Five subcommands:
 
   seed <dest-dir> [--kind source|consumer]
                                   Run from BESTPRACTICE'S OWN checkout (the
@@ -179,10 +179,27 @@ Four subcommands:
                                   an unreachable remote must never read as
                                   "confirmed fresh").
 
+  record-ci                      Clone-free, like `fresh`: re-baseline THIS
+                                  repo's own ci_workflow_files/ci_workflows_
+                                  sha256 against whatever CI workflow
+                                  file(s) are on disk right now, for the
+                                  kind ENGINE_MANIFEST.json already
+                                  declares. Content is never touched -- only
+                                  the recorded hash. For the moment a CI
+                                  workflow file was fixed BY HAND (an
+                                  incident too urgent to wait for a
+                                  `refresh --force`, which would also
+                                  overwrite it back to the generic
+                                  template) and now needs the manifest to
+                                  stop calling it drifted. Also drops any
+                                  RETIRED_CI_WORKFLOW_FILES entry the
+                                  manifest still carries.
+
 Run (from an already-vendored repo's own checkout, either kind):
   python3 tools/precedent_vendor_engine.py fresh
   python3 tools/precedent_vendor_engine.py status  ../BestPractice
   python3 tools/precedent_vendor_engine.py refresh ../BestPractice
+  python3 tools/precedent_vendor_engine.py record-ci
 
 Run once, from BestPractice's own checkout, to vendor a NEW consumer repo
 (status/refresh above then work unchanged, kind auto-detected):
@@ -1016,6 +1033,43 @@ CI_WORKFLOW_TEMPLATES = {
     ),
 }
 
+# CI-workflow analog of RETIRED_ENGINE_FILES above -- a relative path this
+# manifest may still be tracking in ci_workflow_files/ci_workflows_sha256
+# whose template CI_WORKFLOW_TEMPLATES no longer lists at all.
+#
+# THE GAP THIS CLOSES, found 2026-09-19 in a real individual practice set.
+# views-drift.yml.template was folded into precedent-check.yml.template as
+# its own job (spec/CI_MINUTES_PLAN.md item 9), and the four repos that hand-
+# applied that fix the same day deleted the now-redundant views-drift.yml
+# file -- but nothing told refresh() the old entry was retired, so
+# ci_workflows_sha256 kept recording a hash for a file that no longer
+# existed. _ci_workflow_drift reads "recorded, but missing on disk" as a
+# hand-edit needing --force, so the NEXT refresh() in that repo would have
+# refused entirely over a file the fix had already, correctly, removed --
+# not the file-content drift that check exists to catch.
+#
+# WHY A TOMBSTONE, MIRRORING RETIRED_ENGINE_FILES, RATHER THAN JUST DIFFING
+# CI_WORKFLOW_TEMPLATES. A name gone from the current mapping is ambiguous
+# on its own: it could mean "retired, fold its job into the survivor" (safe
+# to stop tracking) or "a repo's own tools/ vendored an older engine that
+# still lists a file dropped since" (nothing to clean up, this repo simply
+# has not refreshed yet). Naming the retirement explicitly, with the reason,
+# is what makes automatic cleanup safe to do unconditionally rather than
+# guessing from absence.
+#
+# WHY THIS NEVER DELETES THE FILE ITSELF, unlike _remove_dropped_engine_
+# files for an ordinary tools/*.py engine file. refresh()'s own comment on
+# ci_incomplete says why: "deleting somebody's .github/workflows/*.yml out
+# from under them on a routine refresh is a different, larger decision than
+# this fix makes." A retired CI workflow file still on disk is reported
+# (see _remove_retired_ci_workflow_files below), never removed -- only the
+# stale manifest tracking is.
+RETIRED_CI_WORKFLOW_FILES = {
+    '.github/workflows/views-drift.yml':
+        'folded into precedent-check.yml.template as its own job, 2026-09-19 '
+        '(spec/CI_MINUTES_PLAN.md item 9)',
+}
+
 
 def record_ci_workflow_files(dest_root, kind):
     """Read-modify-write ENGINE_MANIFEST.json's `ci_workflow_files`/
@@ -1064,9 +1118,17 @@ def _ci_workflow_drift(dest_root, manifest):
     hash for, whose on-disk sha256 no longer matches it -- a hand-edit (or
     a removal) since it was last recorded. A `rel` this manifest carries no
     hash for at all is NOT drift -- see CI_WORKFLOW_TEMPLATES' catch-up
-    note above; there is nothing recorded yet to have drifted from."""
+    note above; there is nothing recorded yet to have drifted from.
+
+    A `rel` in RETIRED_CI_WORKFLOW_FILES is ALSO not drift, missing or not:
+    its retirement is already known and explained, and refresh() cleans up
+    the stale tracking itself (_remove_retired_ci_workflow_files, called
+    before this function ever runs) rather than refusing the whole run over
+    a file whose disappearance a previous, correct fix already caused."""
     drifted = []
     for rel, recorded_hash in (manifest.get('ci_workflows_sha256') or {}).items():
+        if rel in RETIRED_CI_WORKFLOW_FILES:
+            continue
         path = dest_root / rel
         if not path.is_file():
             drifted.append((rel, 'missing'))
@@ -1074,6 +1136,45 @@ def _ci_workflow_drift(dest_root, manifest):
         if _sha256(path) != recorded_hash:
             drifted.append((rel, 'hand-edited (sha256 differs from manifest)'))
     return drifted
+
+
+def _remove_retired_ci_workflow_files(dest_root, manifest):
+    """Drop every RETIRED_CI_WORKFLOW_FILES entry from a manifest that still
+    carries one, and report (never delete) a retired file still on disk.
+
+    Idempotent and safe to call unconditionally: a manifest with no such
+    entry writes nothing and returns []. Called at the very top of refresh(),
+    before _ci_workflow_drift ever runs, so a retirement this old cannot
+    cause the "missing" drift RETIRED_CI_WORKFLOW_FILES exists to defuse --
+    see that dict's own comment for the incident.
+
+    Returns the list of rel paths dropped from the manifest, for refresh()'s
+    own reporting."""
+    manifest_path = dest_root / 'tools' / MANIFEST_NAME
+    if not manifest_path.is_file():
+        return []
+    recorded = dict(manifest.get('ci_workflows_sha256') or {})
+    dropped = sorted(rel for rel in recorded if rel in RETIRED_CI_WORKFLOW_FILES)
+    if not dropped:
+        return []
+    for rel in dropped:
+        recorded.pop(rel, None)
+        if (dest_root / rel).is_file():
+            print(f"WARN: precedent_vendor_engine: {rel} was retired "
+                  f"({RETIRED_CI_WORKFLOW_FILES[rel]}) but is still on disk -- "
+                  f"left in place, not deleted (a CI workflow file is never "
+                  f"removed automatically). Safe to delete by hand once its "
+                  f"replacement is confirmed working.", file=sys.stderr)
+    live = json.loads(manifest_path.read_text(encoding='utf-8'))
+    live['ci_workflow_files'] = sorted(recorded)
+    live['ci_workflows_sha256'] = recorded
+    manifest_path.write_text(json.dumps(live, indent=2, ensure_ascii=False) + '\n',
+                             encoding='utf-8')
+    manifest['ci_workflow_files'] = sorted(recorded)
+    manifest['ci_workflows_sha256'] = recorded
+    print(f"precedent_vendor_engine: dropped {len(dropped)} retired CI workflow "
+          f"tracking entry(s) from the manifest ({', '.join(dropped)}).")
+    return dropped
 
 
 def _ci_workflow_incomplete(dest_root, kind, ci_workflows_dir, manifest):
@@ -1769,6 +1870,12 @@ def refresh(clone, force=False, ref=None):
     manifest = _load_manifest(dest_tools)
     kind = manifest.get('kind', DEFAULT_KIND)  # older manifests predate 'kind' -- 'source'
 
+    # Before anything else, including the drift check below: a retired CI
+    # workflow entry is cleaned up unconditionally, --force or not, so its
+    # own retirement can never be the reason refresh refuses. See
+    # RETIRED_CI_WORKFLOW_FILES' own comment for the incident this closes.
+    _remove_retired_ci_workflow_files(ROOT, manifest)
+
     if not force:
         drift = (_local_drift(dest_tools, manifest) + _hook_drift(ROOT, manifest)
                  + _ci_workflow_drift(ROOT, manifest))
@@ -2056,10 +2163,59 @@ def _credential_reminder(where):
         print(f"\n{line}")
 
 
+def _cli_record_ci(rest):
+    """CLI body of `record-ci`. Clone-free, like `fresh` -- unlike `status`/
+    `refresh`, it never reads BestPractice at all, only this repo's own
+    manifest and its own CI workflow file(s) on disk, exactly what
+    record_ci_workflow_files() needs.
+
+    THE GAP THIS CLOSES. record_ci_workflow_files() already does the right
+    thing -- record what's on disk now, touch no content -- but before this
+    it was reachable only from inside precedent_install.py/precedent_
+    bootstrap_source.py at initial install, or by importing the module and
+    calling it directly (which is what fixing two real consumer repos'
+    stale post-hand-fix hashes took, 2026-09-19, since neither repo's
+    session could run a full `refresh` against a live BestPractice clone
+    mid-incident without either leaving the hash stale -- refused by the
+    next refresh -- or accepting `refresh --force`
+    overwriting the hand-authored fix with the generic template). A session
+    in that position needs a supported way to say "this content is correct
+    now, just re-baseline" without a clone and without risking an overwrite;
+    this is that command.
+
+    Also runs _remove_retired_ci_workflow_files first, so a `record-ci` run
+    on a manifest with a stale retired entry does not leave it stranded."""
+    if rest:
+        sys.exit(f"precedent_vendor_engine FAIL: unknown argument(s) to "
+                 f"record-ci: {', '.join(rest)}.")
+    dest_tools = ROOT / 'tools'
+    manifest = _load_manifest(dest_tools)
+    kind = manifest.get('kind', DEFAULT_KIND)
+    _remove_retired_ci_workflow_files(ROOT, manifest)
+    before = dict(_load_manifest(dest_tools).get('ci_workflows_sha256') or {})
+    written = record_ci_workflow_files(ROOT, kind)
+    if not written:
+        sys.exit(f"precedent_vendor_engine FAIL: no {MANIFEST_NAME} at "
+                 f"{dest_tools} to record into -- run `seed` first.")
+    after = dict(_load_manifest(dest_tools).get('ci_workflows_sha256') or {})
+    changed = sorted(k for k in set(before) | set(after) if before.get(k) != after.get(k))
+    if changed:
+        print(f"precedent_vendor_engine record-ci OK ({kind}): re-recorded "
+              f"{len(changed)} CI workflow file hash(es) from what's on disk "
+              f"right now ({', '.join(changed)}). Content was not touched -- "
+              f"this only updates {MANIFEST_NAME}.")
+    else:
+        print(f"precedent_vendor_engine record-ci ({kind}): already matches "
+              f"what's on disk -- nothing to do.")
+    return 0
+
+
 def main():
     args = sys.argv[1:]
     if args and args[0] == 'fresh':
         return fresh()
+    if args and args[0] == 'record-ci':
+        return _cli_record_ci(args[1:])
     if len(args) < 2 or args[0] not in ('seed', 'status', 'refresh'):
         sys.exit(__doc__)
     if args[0] == 'seed':
