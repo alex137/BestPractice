@@ -59,10 +59,23 @@ independent of whether that same run then survived to the end.
 
 ## Fix
 
-None available from inside this repo — the subprocess fan-out is how
-`verify_harness.py`'s stress-style checks are written, and narrowing it is
-harness work, not a per-change fix. What worked, practically:
+No fix for the fan-out itself from inside this repo — the subprocess
+fan-out is how [`verify_harness.py`](../tools/verify_harness.py)'s
+stress-style checks are written, and narrowing it is harness work, not a
+per-change fix. What worked, practically:
 
+- **`PRECEDENT_CHECK_SKIP=name1,name2 python3` [`tools/verify_harness.py`](../tools/verify_harness.py)**
+  (added 2026-09-18, alongside `PRECEDENT_CHECK_ONLY` for the inverse)
+  replaces named `check_*` functions with a no-op before they run, so their
+  fan-out never happens. Reproduced directly: two full runs died at exit
+  137 in almost the same spot (117-118/172, right after
+  `check_creation_pipeline_fires`); skipping the two checks already
+  confirmed heaviest (`check_leak_gate_refuses_a_fresh_container`,
+  `check_precedent_check_fires`) let the same tree sail past that exact
+  point in under a minute. This does not fix the fan-out — it lets you
+  avoid re-triggering an already-identified heavy check's fan-out while
+  isolating or re-measuring the rest, which the `pkill`-and-retry approach
+  below cannot do (a retry re-runs everything, fan-out included).
 - Before a retry, kill any survivors: `pkill -9 -f
   precedent_session_practices.py` (and `-f verify_harness.py` if the prior
   attempt is still hanging around), then confirm with `free -h` and

@@ -343,6 +343,32 @@ def _changed_touches(*rel_paths):
 _PROGRESS_INTERVAL_SECONDS = 5
 
 
+def _install_check_filter():
+    """PRECEDENT_CHECK_ONLY / PRECEDENT_CHECK_SKIP -- comma-separated
+    check_* names -- let a run cover a named subset instead of all ~172.
+    Built for splitting the handful of genuinely heavy checks into their
+    own CI job (see spec/VERIFY_HARNESS_PERFORMANCE.md), and doubles as a
+    way to re-measure the checks after a heavy one without re-paying for
+    the heavy one itself. A filtered-out check is replaced with a no-op
+    before it can run, so its subprocess fan-out never happens -- this is
+    not a report filter, the check's own cost is what's being skipped.
+    """
+    only = os.environ.get('PRECEDENT_CHECK_ONLY')
+    skip = os.environ.get('PRECEDENT_CHECK_SKIP')
+    if not only and not skip:
+        return
+    only_set = set(only.split(',')) if only else None
+    skip_set = set(skip.split(',')) if skip else set()
+    names = sorted(n for n, v in list(globals().items())
+                    if n.startswith('check_') and callable(v))
+    for name in names:
+        if (only_set is not None and name not in only_set) or name in skip_set:
+            def _skipped(*a, _name=name, **kw):
+                print(f"  SKIP (filtered out by PRECEDENT_CHECK_ONLY/SKIP): {_name}",
+                      file=sys.stderr)
+            globals()[name] = _skipped
+
+
 def _install_check_timing():
     if os.environ.get('PRECEDENT_NO_CHECK_TIMING'):
         return
@@ -22769,6 +22795,7 @@ def _print_checkout_banner():
 
 
 def main():
+    _install_check_filter()
     _install_check_timing()
     _print_checkout_banner()
     _report_missing_doc_packages('PREFLIGHT')
