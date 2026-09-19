@@ -494,13 +494,39 @@ repo, the next time it installs, migrates, or takes an update.
   `concurrency` block `doc-lint.yml.template` already had (item 5).
   Archiving the repo already named for its own deletion is still
   Morgan's to do — that repo is outside this session's reach.
-- **Phase B — the infrastructure is built; the sweep itself is not run.**
-  `MIGRATING_EXISTING_INSTALLS.md`'s step 6 and
-  `vendor-update-runbook.md`'s step 10 both carry the retired-workflow
-  table and point at applying `ci_workflows`/`ci_debounce_minutes`
-  retroactively (items 2, 2a, 3) — but sweeping an actual repo's
-  `.github/workflows/` against that table happens the next time that
-  repo migrates or takes an update, in a session rooted there.
+- **Phase B — the retired-workflow deletion sweep still hasn't run
+  anywhere; the costly part reached all four repos on its own, ahead of
+  it (verified 2026-09-19).** `MIGRATING_EXISTING_INSTALLS.md`'s step 6
+  and `vendor-update-runbook.md`'s step 10 still carry the
+  retired-workflow table for items 2/2a/3's file-deletion pass, and that
+  hasn't run in any dependent repo yet — `themorgan/TodoMorgan` and
+  `themorgan/VoiceDefMorgan` both still carry the named retired files
+  (`light-check.yml`, `bestpractice-upstream-sync.yml`, and, in
+  VoiceDefMorgan, `platform-docs-check.yml`/`status-claims-check.yml`/
+  `unified-prompt-check.yml`), unremoved. That's cosmetic, not a live
+  cost, though: their triggers are already `pull_request`-with-`paths`
+  or `workflow_dispatch` only, so none of them fire on an ordinary push.
+  Separately, and sooner than this bullet originally expected: item 9's
+  fix reached all four repos this session checked
+  (`themorgan/precedent-individual`, `themorgan/precedent-team-writing`,
+  `themorgan/TodoMorgan`, `themorgan/VoiceDefMorgan`) the same day it
+  shipped here, without waiting for a full migration pass — `abc667a`
+  (2026-09-18) taught "Update Vendors" to refresh an already-installed CI
+  workflow file against its current template, not just write it once at
+  install; the two practice sets took the fix that way plus a direct
+  hand-applied commit each (item 8's own account), while TodoMorgan and
+  VoiceDefMorgan got a hand-applied fix after "Update Vendors" backfilled
+  a manifest baseline for a file it had never tracked before (which, by
+  that commit's own design, does not rewrite content on its first run).
+  Verified directly against all four repos' `.github/workflows/` on
+  2026-09-19: branch-scoped `push:`, debounce as its own job, and
+  `pull_request:` restored, matching this document's own item 9.
+  **One bookkeeping gap found in the same check:** TodoMorgan's and
+  VoiceDefMorgan's hand-applied fixes left `tools/ENGINE_MANIFEST.json`'s
+  `ci_workflows_sha256` pointing at the pre-fix hash for
+  `bestpractice-docs.yml`, so the next template improvement to
+  `doc-lint.yml.template` will read that file as hand-edited and refuse
+  to auto-refresh it there until someone re-baselines it.
 - **Phase C — done, exercised live, and revised (items 8-9).** A debounce
   guard (`ci_debounce_minutes`, default `360`) ships in
   `doc-lint.yml.template` and `precedent-check.yml.template` (which now
