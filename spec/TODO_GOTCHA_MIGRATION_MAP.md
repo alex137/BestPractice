@@ -59,6 +59,7 @@ Written by Part 4.1 step 5 (spec/OPEN_ITEM_AND_GOTCHA_PLAN.md) at migration time
 | `level-repo-naming` | [`todo/todo-2026-09-08-level-repo-naming.md`](../todo/todo-2026-09-08-level-repo-naming.md) |
 | `upstream-notice-silent-when-rooted-above` | [`todo/todo-2026-09-08-upstream-notice-silent-when-rooted-above.md`](../todo/todo-2026-09-08-upstream-notice-silent-when-rooted-above.md) |
 | `small-calls-vs-brainstorm` | [`todo/todo-2026-09-08-small-calls-vs-brainstorm.md`](../todo/todo-2026-09-08-small-calls-vs-brainstorm.md) |
+| `split-team-sets-by-subject` | [`todo/todo-2026-09-08-split-team-sets-by-subject.md`](../todo/todo-2026-09-08-split-team-sets-by-subject.md) |
 | `decision-strength-private-sources` | [`todo/todo-2026-09-09-decision-strength-private-sources.md`](../todo/todo-2026-09-09-decision-strength-private-sources.md) |
 | `whatsapp-bridge-research` | [`todo/todo-2026-09-09-whatsapp-bridge-research.md`](../todo/todo-2026-09-09-whatsapp-bridge-research.md) |
 | `source-hook-drift` | [`todo/todo-2026-09-09-source-hook-drift.md`](../todo/todo-2026-09-09-source-hook-drift.md) |

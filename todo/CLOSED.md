@@ -12,4 +12,5 @@
 | [`todo-2026-09-07-push-without-the-keyword`](todo-2026-09-07-push-without-the-keyword.md) | Decide what a session does when Morgan has NOT said "Go merge". | done | 2026-09-16 |
 | [`todo-2026-09-15-execute-open-item-gotcha-migration`](todo-2026-09-15-execute-open-item-gotcha-migration.md) | Execute the open-item and gotcha migration. | done | 2026-09-16 |
 | [`todo-2026-09-10-source-checks-adopt-engine-helpers`](todo-2026-09-10-source-checks-adopt-engine-helpers.md) | Move the two private practice sets' checks onto the engine helpers added 2026-09-10. | done | 2026-09-10 |
+| [`todo-2026-09-08-split-team-sets-by-subject`](todo-2026-09-08-split-team-sets-by-subject.md) | Sort the existing team and individual rules into subject-scoped team sets. | done | 2026-09-09 |
 | [`todo-2026-09-07-stem-note-reaches-the-sets`](todo-2026-09-07-stem-note-reaches-the-sets.md) | Refresh the private sets' vendored engine so the stem-coverage note actually runs where the blocklist lives. | dropped | 2026-09-07 |
