@@ -53,8 +53,9 @@ deliverables and indexes which documents back each part of each one.
 - **Light check** — `python3 process/upstream/tools/doc_lint.py` on the markdown you touched.
   Fast, run before every commit without thinking about it. Gates a commit.
 - **Deep check** — the full suite: `python3 process/upstream/tools/precedent_check.py`,
-  `python3 process/upstream/tools/practice_audit.py`, and `<your own audits>`.
-  Gates a push and a merge.
+  `python3 process/upstream/tools/practice_audit.py`, `python3 tools/precedent_sync_views.py --repo . --check`
+  (only if this repo declares any source beyond universal in `precedent.json`),
+  and `<your own audits>`. Gates a push and a merge.
 
 ### Build-environment gotchas — do NOT rediscover these
 

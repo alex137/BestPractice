@@ -451,6 +451,16 @@ list.)
      can raise it, because the sets a repo *could* declare are not
      derivable from the ones it *does*.
 
+     **Before moving on, grep for the failure this step is also protecting
+     against one level down.** Run `grep -n '<name>' AGENTS.md CLAUDE.md`
+     for every source name just declared, one name at a time. A hit
+     outside a dated Story, gotcha, or incident write-up is a standing
+     enumeration of this repo's declared sources sitting in hand-authored
+     prose — exactly what goes stale the next time a set splits, is added,
+     or is retired, because prose does not move when `precedent.json`
+     does. Reword it to describe the set dynamically (a count, or a
+     pointer to `precedent.json`) rather than naming it.
+
      The pattern underneath it: **a set that is about a kind of work is
      declared by everyone who does that work**, whatever team they are on,
      and a set that is about running a particular kind of repository is
