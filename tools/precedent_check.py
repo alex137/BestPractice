@@ -3810,6 +3810,47 @@ def _unglossed(text, known, path=None):
     return _doc_lint().scan_unglossed(text, known, path)
 
 
+def _grep_base_tree(base, needle, ignore_case=False):
+    """Paths (relative) under BASE whose tracked `*.md` content contains
+    NEEDLE literally.
+
+    `ctx.read_base(f)` only ever asks "does THIS path exist in the base
+    tree" -- so a migration that moves content to a new path (a rename, a
+    directory reshuffle, or a monolithic file split into many, none of
+    which git's own rename detection reliably catches when one old file
+    becomes many new ones with none deleted) leaves it blind: the new path
+    never existed in base, so every acronym or phrase the move merely
+    carried over reads as newly introduced. Confirmed directly against the
+    TODO.md -> todo/*.md migration: identical prose flagged at its new path
+    and clean at its old one. Searching the base tree by CONTENT instead of
+    by path answers the question the practice actually asks -- did the
+    CHANGE introduce this, or did it already read this way somewhere in the
+    repo -- regardless of which path it now sits at."""
+    args = ['grep', '-F', '-l', '-z']
+    if ignore_case:
+        args.append('-i')
+    args += ['--', needle, base, '--', '*.md']
+    r = _git(*args)
+    if r.returncode != 0:
+        return []
+    prefix = f'{base}:'
+    return [e[len(prefix):] for e in r.stdout.split('\0')
+            if e.strip().startswith(prefix)]
+
+
+def _token_preexisted_in_base(base, token, known):
+    """TOKEN already unglossed somewhere in the base tree, at any path --
+    see _grep_base_tree's docstring. Bounded by grep's own candidate list,
+    not a full-tree unglossed scan, and only ever called when the file at
+    this path is genuinely new -- an ordinary edit to an existing file never
+    reaches this."""
+    for path in _grep_base_tree(base, token):
+        text = _git('show', f'{base}:{path}').stdout
+        if any(t == token for _i, t in _unglossed(text, known, path)):
+            return True
+    return False
+
+
 @check('acronyms-glossary', 'change',
        'a changed document does not introduce a NEW unglossed acronym -- one '
        'not already in GLOSSARY.md and not expanded on first use',
@@ -3847,10 +3888,13 @@ def _acronyms_glossary(ctx):
         base_text = ctx.read_base(f)
         base_toks = {tok for _i, tok in _unglossed(base_text, known, f)} if base_text else set()
         for i, tok in cur:
-            if tok not in base_toks:
-                out.append(Finding(f'{f}:{i}',
-                                    f'{tok} used without expansion on first '
-                                    f'use or a GLOSSARY.md entry'))
+            if tok in base_toks:
+                continue
+            if base_text is None and _token_preexisted_in_base(ctx.base, tok, known):
+                continue
+            out.append(Finding(f'{f}:{i}',
+                                f'{tok} used without expansion on first '
+                                f'use or a GLOSSARY.md entry'))
     return out
 
 
@@ -4180,6 +4224,28 @@ INLINE_LINEAGE_RE = re.compile(
     r'|\breplaces?\s+the\s+(?:older|previous|prior)\b', re.I)
 
 
+def _phrase_preexisted_in_base(base, line):
+    """The LINE carrying an inline-lineage phrase already exists, verbatim,
+    somewhere in the base tree -- not just the trigger words alone.
+
+    A bare phrase match is too coarse: "successor to" legitimately recurs as
+    documentation ABOUT this very check (an illustrative "no successor
+    to..." mention elsewhere in the repo), and matching on the phrase alone
+    treated that unrelated sentence as proof this change's own lineage
+    language already existed -- caught by the harness's own planted-
+    violation case, which stopped firing once phrase-only matching shipped.
+    Requiring the full LINE to match ties this to "the same sentence
+    moved," which is what the practice actually cares about, and a two- or
+    three-word trigger phrase is not enough context to tell a genuine move
+    from a coincidence."""
+    for path in _grep_base_tree(base, line):
+        text = _git('show', f'{base}:{path}').stdout
+        if any(candidate.strip() == line.strip()
+               for candidate in text.splitlines()):
+            return True
+    return False
+
+
 @check('index-remembers-past', 'change',
        "a changed document does not carry inline lineage language naming "
        "what it replaced or what replaced it, since provenance belongs in "
@@ -4199,18 +4265,21 @@ def _index_remembers_past(ctx):
     for f in _md_in_scope(ctx):
         if _is_historical_record(f):
             continue
-        cur = {(i, m.group(0)) for i, line in enumerate(ctx.read(f).splitlines(), 1)
+        cur = {(i, m.group(0), line) for i, line in enumerate(ctx.read(f).splitlines(), 1)
                for m in INLINE_LINEAGE_RE.finditer(line)}
         base_text = ctx.read_base(f)
         base = {m.group(0).lower() for line in (base_text or '').splitlines()
                 for m in INLINE_LINEAGE_RE.finditer(line)} if base_text else set()
-        for i, phrase in sorted(cur):
-            if phrase.lower() not in base:
-                out.append(Finding(f'{f}:{i}',
-                                    f'carries inline lineage language '
-                                    f'("{phrase}") -- provenance belongs in '
-                                    f'the repository index, not in the '
-                                    f'document'))
+        for i, phrase, line in sorted(cur):
+            if phrase.lower() in base:
+                continue
+            if base_text is None and _phrase_preexisted_in_base(ctx.base, line):
+                continue
+            out.append(Finding(f'{f}:{i}',
+                                f'carries inline lineage language '
+                                f'("{phrase}") -- provenance belongs in '
+                                f'the repository index, not in the '
+                                f'document'))
     return out
 
 
