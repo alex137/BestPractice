@@ -86,6 +86,29 @@ every step's answer is wrong if the one before it was skipped.
    `tools/` commit may already match. `.claude/settings.json` is still never
    touched — only the hook scripts it calls are vendored engine code, and a
    consumer's own hook wiring is its own.
+   **Since 2026-09-18 this also refreshes the installed CI workflow file(s)**
+   vendored from `templates/github-actions/*.template` — a dependent repo's
+   `.github/workflows/bestpractice-docs.yml` (from `doc-lint.yml.template`),
+   a practice set's `.github/workflows/views-drift.yml` and
+   `precedent-check.yml` (from their own templates) — drift-checked and
+   tracked the same way, in the same `ENGINE_MANIFEST.json`
+   (`ci_workflow_files`/`ci_workflows_sha256`). Before this date these files
+   were written once, at initial install, and never refreshed: a template fix
+   landing after install — the `concurrency:` block `doc-lint.yml.template`
+   gained on 2026-09-15, then
+   [spec/CI_MINUTES_PLAN.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/CI_MINUTES_PLAN.md)'s
+   Phase C debounce-guard step the very next day — reached an already-installed
+   `bestpractice-docs.yml` only if that repo happened to reinstall from
+   scratch. A repo vendored before this date has no `ci_workflows_sha256` in
+   its manifest yet; its first refresh after taking this change records a
+   baseline hash for whichever of these files it has installed and prints a
+   one-time catch-up notice — but, **unlike the hooks catch-up above, does
+   NOT rewrite the file's content on that first run.** A CI workflow is
+   exactly the kind of file a real repo hand-tunes (an extra job, a changed
+   schedule, a repo-specific secret), so overwriting an unrecorded one the
+   first time this shipped would have discarded that with no warning. Run
+   `refresh` again once the baseline is recorded to pick up template changes
+   normally from then on.
    **When the same update is going into more than one repo, note the tip
    before you start and check every repo against it at the end.** Each refresh
    resolves the tip at the moment it runs, so two repos updated an hour apart

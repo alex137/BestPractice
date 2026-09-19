@@ -205,6 +205,18 @@ WORKFLOW_TEMPLATES = (
      'one or two rules it hand-wired a workflow for is silent on the rest '
      'of its own catalogue'),
 )
+# Same (template, dest path) pairs precedent_vendor_engine.CI_WORKFLOW_
+# TEMPLATES['source'] declares for refresh()'s own use -- checked here,
+# once, at import time, rather than trusted to stay in sync by eye: this
+# tuple carries a third field (the "why", above) that engine's registry has
+# no use for, so it is not simply replaced by it (practice:
+# registry-source-of-truth -- the pairing itself has one source; the extra
+# field this file alone needs stays here).
+assert tuple((t, r) for t, r, _why in WORKFLOW_TEMPLATES) == \
+    precedent_vendor_engine.CI_WORKFLOW_TEMPLATES['source'], (
+    'WORKFLOW_TEMPLATES has drifted from '
+    "precedent_vendor_engine.CI_WORKFLOW_TEMPLATES['source'] -- update both "
+    'together, refresh() vendors by the latter.')
 WORKFLOWS_REL = 'templates/github-actions/'
 
 
@@ -681,10 +693,43 @@ def verify(level, path):
     # them is correctly configured, not behind, so it is not reported missing.
     _ci_enabled, _ci_note = _ci_preference(path)
     if _ci_enabled:
+        # Since 2026-09-18: a workflow file that EXISTS can still be
+        # STALE -- "Update Vendors" only just started re-copying an
+        # already-installed CI workflow's body on refresh
+        # (vendor-update-runbook.md step 3); a set refreshed before that
+        # shipped still runs whatever it was installed with. Reported as
+        # its own category, never folded into "missing" outright: a
+        # missing file has no workflow running at all, a stale one has one
+        # running an OLDER version of it -- different gaps, different
+        # remedies (install vs. refresh). Only reported when the manifest
+        # shows the file was never hand-edited: a hand-edit is
+        # `precedent_vendor_engine refresh`'s own drift check to report,
+        # not this one's, and a manifest with no record at all for this
+        # file yet (vendored before this feature existed) is the one-time
+        # catch-up refresh() handles silently -- also not this one's to
+        # flag.
+        _ci_manifest = _load_json(path / 'tools' / 'ENGINE_MANIFEST.json') or {}
+        _ci_recorded = _ci_manifest.get('ci_workflows_sha256') or {}
         for _template, rel, why in WORKFLOW_TEMPLATES:
-            if not (path / rel).exists():
+            wf_path = path / rel
+            if not wf_path.exists():
                 missing.append(f"{rel} (from {WORKFLOWS_REL}{_template}; "
                                f"without it {why})")
+                continue
+            _recorded_hash = _ci_recorded.get(rel)
+            if _recorded_hash is None:
+                continue  # never tracked yet -- refresh's own catch-up covers it
+            _live_hash = precedent_vendor_engine._sha256(wf_path)
+            if _live_hash != _recorded_hash:
+                continue  # hand-edited -- refresh's own drift check covers it, not this one
+            _current_hash = precedent_vendor_engine._sha256(
+                ROOT / 'templates' / 'github-actions' / _template)
+            if _live_hash != _current_hash:
+                missing.append(
+                    f"{rel} is STALE (from {WORKFLOWS_REL}{_template}; content was "
+                    f"never hand-edited but no longer matches the current template) "
+                    f"-- run `python3 tools/precedent_vendor_engine.py refresh "
+                    f"<bestpractice-clone>` to pick it up")
 
     # A vendored engine older than binds_publishers (#261, 2026-09-12) turns
     # the workflow above into a decoration rather than a gate, and nothing
@@ -1079,6 +1124,13 @@ def bootstrap(level, name, dest, approvers=None, force=False):
     if _changed:
         written.append(_cfg)
     written += precedent_vendor_engine.seed(dest)
+    # AFTER seed(), not before: seed()/_write_engine_files builds
+    # ENGINE_MANIFEST.json fresh on every call, so recording the CI
+    # workflow files' hashes before this point would be silently wiped the
+    # moment seed() ran (see record_ci_workflow_files's own docstring). The
+    # workflow files themselves are already on disk from _install_workflows
+    # above -- this only computes and records their hashes.
+    written += precedent_vendor_engine.record_ci_workflow_files(dest, 'source')
     written += _write_instructions_and_views(dest, level, name)
 
     return {'dest': dest, 'written': written}
