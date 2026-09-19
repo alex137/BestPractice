@@ -5587,14 +5587,14 @@ def _todo_gotcha_stale_reference(ctx):
 
 @check('todo-migrate-available-but-unused', 'tree',
        'a repo that has tools/todo_migrate.py vendored in (source or '
-       'consumer engine alike) but has never run it -- TODO.md is still '
-       'the old single-file format, no todo/ directory exists, and the '
-       'file does not open on the "# TODO has moved" stub heading',
+       'consumer engine alike) but has never run it -- TODO.md still '
+       'carries real old-format item bullets, no todo/ directory exists, '
+       'and the file does not open on the "# TODO has moved" stub heading',
        'a repo that migrated by hand, without ever invoking the tool, '
        'and happens to have written its own todo/ directory and stub '
        'heading the same way this tool would -- indistinguishable from '
        'having run it, and does not need to be told apart, since both '
-       'leave the same two signals the tool itself checks for',
+       'leave the same signals the tool itself checks for',
        practice_backed=True)
 def _todo_migrate_available_but_unused(ctx):
     if not (ROOT / 'tools' / 'todo_migrate.py').exists():
@@ -5612,6 +5612,17 @@ def _todo_migrate_available_but_unused(ctx):
         return []
     text = ctx.read('TODO.md')
     if TODO_STUB_HEADING_RE.match(text):
+        return []
+    if not TODO_OLD_ITEM_BULLET_RE.search(text):
+        # No real old-format bullet in it either -- this is a genuinely
+        # fresh install's templates/TODO.md.template (a pointer, never
+        # populated), not an old TODO.md nobody migrated. Caught 2026-09-19
+        # by verify_harness.py's check_installer_produces_a_clean_install:
+        # a fresh install vendors todo_migrate.py same as any consumer, and
+        # its template TODO.md has neither the stub heading nor a todo/
+        # directory yet either -- the same two signals a genuinely
+        # unmigrated repo has, with nothing to migrate. Real old-format
+        # content is the one signal that tells them apart.
         return []
     return [Finding('TODO.md',
         'tools/todo_migrate.py is vendored into this repo but TODO.md is '

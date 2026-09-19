@@ -18,10 +18,11 @@ approved_by: "pending review"
 ---
 ## Rule
 When `tools/todo_migrate.py` is vendored into a repo and that repo's
-`TODO.md` is still the old single-file format — no `todo/` directory, and
-the file does not open on the `# TODO has moved` stub heading — the
-migration tool is present and has never been run. Run it:
-`python3 tools/todo_migrate.py --apply`, then `python3
+`TODO.md` still carries real old-format item bullets — no `todo/`
+directory, the file does not open on the `# TODO has moved` stub heading,
+and it has actual content to convert, not just a fresh install's unused
+pointer template — the migration tool is present and has never been run.
+Run it: `python3 tools/todo_migrate.py --apply`, then `python3
 tools/build_todo_index.py`, per
 [vendor-update-runbook](vendor-update-runbook.md)'s step for a
 newly-vendored migration tool. A vendor refresh can ship a mechanism;
@@ -57,13 +58,26 @@ real repos, so the same vendor-engine change that keeps this check
 truthful for a source set (`precedent_vendor_engine.py`'s `ENGINE_FILES`)
 moved both tools into the shared list the same day.
 
+The check's first version fired on a genuinely fresh install, too: a
+brand-new project vendors `tools/todo_migrate.py` the same as any real
+consumer, and its `TODO.md` — instantiated from
+`templates/TODO.md.template`, a pointer, never populated — has neither
+the stub heading nor a `todo/` directory yet either, the same two
+signals a real unmigrated repo has, with nothing to actually migrate.
+Caught the same day by `verify_harness.py`'s
+`check_installer_produces_a_clean_install`, before this check ever
+shipped to a real consumer. Requiring a real old-format item bullet in
+the file — the one signal that only a genuinely unmigrated `TODO.md`
+carries — fixed it.
+
 ## Install
 `tools/precedent_check.py`'s `todo-migrate-available-but-unused` check
 (tree scope) fires when `tools/todo_migrate.py` exists on disk,
 `tools/ENGINE_MANIFEST.json` declares a `kind` at all — `source` or
 `consumer` alike, both vendor the tool since 2026-09-19 — `TODO.md`
-exists at the repo root, and neither the stub heading nor a `todo/`
-directory is present. It reports the finding against `TODO.md`, naming
+exists at the repo root, no `todo/` directory is present, the file does
+not open on the stub heading, and it carries at least one real
+old-format item bullet. It reports the finding against `TODO.md`, naming
 the exact commands to run. It is silent (no finding, not merely skipped)
 in BestPractice itself, which vendors nothing into itself and so never
 resolves a `kind` here at all.
