@@ -2,8 +2,8 @@
 title:         Very deep check — run record
 kind:          record
 status:        closed
-opened:        2026-09-14
-closed:        2026-09-14
+opened:        2026-09-19
+closed:        2026-09-19
 superseded_by: null
 supersedes:    []
 audience:      session
@@ -29,68 +29,86 @@ findings themselves live in the commits that fixed them and in
 
 ## Current run
 
-**Started and finished 2026-09-14, evening**, on Morgan's direct request
-("Very deep check again"), **time-boxed by him to twenty minutes**. That
-bound is the run's most important fact: it is the second run of the day,
-it read only what moved since the morning run closed (PRs #399 through
-#402, and the two commits between them), and every pass below is marked
-PARTIAL or not run against the practice's full scope. A later session that
-wants the full read resumes from the morning run's own "not done" items,
-not from here. Scope: this checkout on `precedent-beta-v01`, worked on
-`claude/deep-check-fe1t02`; the individual set and the three team sets
-were refreshed to the current engine and read by the tool, not written
-(every one probes `HANDOFF` from here, and their refreshed working trees
-were left for their own sessions to publish).
+**Started and finished 2026-09-19**, on direct request ("very deep check"),
+not time-boxed in words but kept mechanical by choice: no explicit consumer
+attached and no full catalogue read, consistent with every prior run.
+Scope: this checkout on `precedent-beta-v01`, worked on
+`claude/charming-babbage-ypapbx`; the individual set and the three team
+sets were refreshed to the current engine and read by the tool, not
+written (every one probes `HANDOFF` from here — this session holds no
+credential for `themorgan/precedent-individual` or any
+`themorgan/precedent-team-*` repo — and their refreshed working trees were
+left for their own sessions to publish).
 
 | Pass | Status | Date | Notes |
 |---|---|---|---|
-| 1 — adopter installs | done (PARTIAL) | 2026-09-14 | one rehearsal, in the ten minutes left over: SETUP.md's exact installer command into a scratch project. **Roadblock found**: the adopter's first check reads `3 violated` where the page promises `0`, and its `AGENTS.md` carries three of the operator's private practices — [TODO.md 114](../todo/todo-2026-09-14-installer-inherits-the-operators-individual-set.md), `ask` |
-| 2 — mechanisms | done (PARTIAL) | 2026-09-14 | mechanical only: the tool's own sections, `doc_sync`, `precedent_check` (0 violated), `doc_lint` on the touched files; no tool was read against its own description |
-| 3 — coherence read | done (PARTIAL) | 2026-09-14 | the day's three new documents and the seven changed install documents, read against the tree by two readers with no other context; one contradiction, fixed |
-| 4 — catalogue, backlog, branches | done (PARTIAL) | 2026-09-14 | the tool's branch, base-drift and open-item scans read; the full catalogue read recorded as not done, same reason as the last three runs |
+| 1 — adopter installs | not run | 2026-09-19 | no consumer rehearsal attempted this run |
+| 2 — mechanisms | done (PARTIAL) | 2026-09-19 | mechanical only: `verify_harness.py` (214 passed, 1 real failure + 1 planted fixture), `precedent_check.py`, `doc_lint.py`, `doc_sync.py`, `leak_gate.py`; the tool's own sections read, not each tool against its own description |
+| 3 — coherence read | not run | 2026-09-19 | no read of the practice catalogue or recently changed documents beyond what pass 2's tools cover mechanically |
+| 4 — catalogue, backlog, branches | done (PARTIAL) | 2026-09-19 | the tool's branch, base-drift, unlanded-work and documentation-currency scans read; verdicts NOT assigned to any of the 238 branches the tool lists (13 carry unlanded work across every repo in force, 8 of them in this checkout, 4 hundreds of commits deep — see below); full catalogue read still not done |
 
-**One roadblock found, in the last ten minutes, and recorded rather than fixed** (TODO.md 114: the installer writes the operator's individual set into the adopter's project). What the run found and did:
+**One real defect found and fixed; one real blocker found and left for a
+decision.** What the run found and did:
 
-- **README.md said the frozen catalogue holds 52 practices; the file it
-  links says 53, and has 53 headings.** Fixed in README.md.
-- **Two reader-facing documents that landed today were unknown to the
-  currency registry** (`documentation/GITHUB_SETTINGS.md`,
-  `documentation/TEN_THINGS.md`), so nothing could tell when either went
-  stale. Both added to [tools/doc_coverage.json](../tools/doc_coverage.json)
-  with what they describe.
-- **Every link, anchor, command and flag the day's documents cite exists**
-  (the readers checked each one against the tree), and the precedence
-  order is stated the same way in the three places it appears.
+- **`record/stale-branches.md` (pass 4's own generated branch report)
+  carried no lifecycle frontmatter**, failing `document-status-header` in
+  both `precedent_check.py` and `verify_harness.py`. Fixed in
+  [tools/very_deep_check.py](../tools/very_deep_check.py)'s
+  `_write_branch_report` — practice: document-status-header. Re-run clean
+  on both checks afterward.
+- **The regenerated `record/stale-branches.md` failed the leak gate**: one
+  line matches an individual-blocklisted term, coming from a real,
+  already-pushed branch name (Morgan F, 2026-09-08 — see the leak gate's
+  own output for the exact match, not repeated here since quoting it is
+  what would leak it into a tracked file). Nothing was pushed with that
+  content — the gate did its job. **Not resolved here**: whether the
+  branch name itself needs renaming, or the term is fine to leave in a
+  generated doc, is a call for whoever owns that branch, not this
+  session. `record/stale-branches.md` is regenerated on disk,
+  untracked, and was not committed this run.
+- **Two reader-facing documents were unknown to the currency registry**
+  (`documentation/CLOUD_SETUP.md`, `documentation/PER_MACHINE_SETUP.md`),
+  so nothing could tell when either went stale. Both added to
+  [tools/doc_coverage.json](../tools/doc_coverage.json) with what they
+  describe.
 - **Base-branch drift: none.** Every commit on `origin/main` has a
-  patch-equivalent on the branch, on a shallow clone — the caveat the tool
-  prints applies.
+  patch-equivalent on `origin/precedent-beta-v01`.
 - **Endgame merge rehearsal: 0 conflicts, 0 silent disappearances.**
-- **Bootstrap and convergent drift in the four private sets** is the same
-  finding the morning run recorded, now against the refreshed engine; it is
-  those repositories' own work and stays `HANDOFF`.
-- **Open items naming a file that is gone: 11**, the same list as the
-  morning; the tool proposes and does not close, and nothing here was
-  closed.
-- **Unlanded work: 5 branches**, two in this checkout.
-  `open-item-and-gotcha-plan` moved today with four commits and is
-  Morgan's; `claude/file-sharing-service-spec-0m9c7p` has three commits
-  from July. No verdict given in a time-boxed run; both carried to the next
-  full pass 4.
-- **`spec/SOURCES.md`'s title still says "Three Sources"** while its body
-  documents four. Not a finding: the document says so itself, on purpose,
-  as a dated addendum over rewritten history.
+- **Bootstrap drift, convergent drift, and template freshness gaps in the
+  four private sets** are real (23, 4, and 5 findings respectively) and
+  stay `HANDOFF` — this session cannot write to any of those repos.
+- **This checkout owes verdicts on 8 unlanded branches** (of 13 total
+  across every repo in force) the tool's UNLANDED WORK section lists, four
+  of them carrying hundreds of commits with no patch-equivalent on
+  `precedent-beta-v01`
+  (`claude/a-spawned-session-can-answer`, 485; `claude/apply-writes-neither-half`,
+  482; `agents-cross-tier-and-git-author-gotchas`, 240;
+  `claude/bestpractice-migration-cleanup-i5s118`, 210) — read far enough to
+  know whether each is superseded work or something real still waiting,
+  and none of that reading happened this run. See
+  [record/stale-branches.md](../record/stale-branches.md) (regenerated,
+  uncommitted — see the leak-gate note above) for the full branch list
+  with delete links, and this run's `--record-pass` entry in
+  [record/very-deep-check-ledger.json](../record/very-deep-check-ledger.json)
+  for the section-by-section counts.
+- **10 branches in this checkout are merged and stale (>= 30 days)** —
+  safe deletion candidates once authorship is confirmed against each PR;
+  not deleted here.
 
 ### Prerequisites
 
 All four sources cloned by the SessionStart hook before the first turn,
 all four behind their origin; `precedent_refresh_sources.py --apply`
-brought each to the current engine. This checkout was current with
+brought each to the current engine (local only — none of the four private
+repos accept a push from this session, confirmed by the tool's own
+`git push --dry-run` probe). This checkout was current with
 `origin/precedent-beta-v01` at the start.
 
 ## Runs so far
 
 | Run | Passes completed | What it changed |
 |---|---|---|
+| 2026-09-19 | 2 (partial), 4 (partial); 1, 3 not run | On direct request. Mechanical only: `verify_harness.py`, `precedent_check.py`, `doc_lint.py`, `doc_sync.py`, `leak_gate.py`, and the tool's own scans, against the state five days after the last run. One defect fixed: `record/stale-branches.md` (the tool's own pass-4 output) carried no lifecycle frontmatter, failing `document-status-header`. One blocker found and left standing: the regenerated branch report trips the leak gate on an already-pushed branch name matching the individual blocklist, so it was not committed. Two reader-facing documents added to the currency registry. Base-branch drift none; endgame merge clean. Verdicts not assigned on any of the 238 listed branches, 13 of them carrying real unlanded work (8 in this checkout, four hundreds of commits deep); pass 1 and pass 3 not attempted. |
 | 2026-09-14 (evening) | 2 (partial), 3 (partial), 4 (partial); 1 not run | On Morgan's direct request, time-boxed to twenty minutes. Read only what moved since the morning run: the day's three new documents and seven changed install documents, checked link by link and flag by flag against the tree; the tool's own scans. Two defects, both fixed: README.md giving the frozen catalogue as 52 practices where the file says 53, and two new reader-facing documents missing from the currency registry. Base-branch drift none; endgame merge clean; the private sets' bootstrap drift unchanged and still `HANDOFF`. |
 | 2026-09-14 | 1 (partial), 2, 3, 4 (partial) | On Morgan's direct request, with the adopter experience as the brief. Four literal rehearsals by sessions with no context — the guided SETUP.md install, a §0 install, a migration, a six-day-old consumer's update — found 65 defects, eight roadblocks; every one fixable from here was fixed the same day (a skeleton slug collision that refused a migration's first sync, an API-budget check firing on every fresh consumer, a template's dead links going red on the adopter's first check, the update leaving every session start warning). The dominant finding is a decision: the guided default installs §1, which turns on none of the loader the pitch describes. Pass 4 found the phase-7 merge into `main` had landed that day unnoticed; its retirement item is now `ask`. Pass 1 partial (no real consumer attached, third run running); the full catalogue read not done. |
 | 2026-09-11 | 1 (partial), 2, 3, 4 (partial) | On Morgan's direct request. Every finding one shape: a mechanism changed and the sentences describing it did not. `precedent_sync_views.py` made `--repo` mandatory and seven documented invocations still omitted it — including the one running in every adopter session and the one shipped into every adopter repo. INSTALL.md §2 had no step for a §0 install's practice catalogue, so a consumer taking the documented update kept 72 practices against upstream's 98 and reported `OK`. Two checks that could not pass on a correct fresh install (`github-setup-disclosed`, `acronyms-glossary` — the latter measuring its vocabulary from tracked markdown, so it reported words from the vendored catalogue). One shipped template restating four catalogue rules as its own, one of them resident. And the phase-7 merge, recorded at 0 conflicts, re-rehearsed at 2. Pass 1 partial (no real consumer attached); pass 4's full catalogue read recorded as not done. |
