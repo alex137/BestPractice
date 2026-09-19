@@ -6,7 +6,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 
 ## The practice catalogue
 
-`practices/` holds 127 practice files (11 resident, 116 on-demand). One file per practice. See [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md) for the design.
+`practices/` holds 128 practice files (11 resident, 117 on-demand). One file per practice. See [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md) for the design.
 
 | Practice | Tier | Occasion / scope |
 |---|---|---|
@@ -19,6 +19,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [base-branch-is-the-record](practices/base-branch-is-the-record.md) | on-demand | starting work another session may already have done, or opening a pull request |
 | [bold-key-phrases](practices/bold-key-phrases.md) | resident | writing any document meant to be read |
 | [brainstorm-holds-commits](practices/brainstorm-holds-commits.md) | resident | a conversation is exploratory, or a person calls it a brainstorm |
+| [brief-it](practices/brief-it.md) | on-demand | a person asks, in whatever words, for a write-up of the current issue that they can hand to other sessions |
 | [build-buy-decompose](practices/build-buy-decompose.md) | on-demand | deciding whether to build or buy a component |
 | [capture-gate](practices/capture-gate.md) | on-demand | merging a branch |
 | [catalogue-carries-stories](practices/catalogue-carries-stories.md) | on-demand | landing practices in bulk -- a migration, an import, or a move between sources |
