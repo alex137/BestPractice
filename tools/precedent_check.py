@@ -97,12 +97,25 @@ Run:
   python3 tools/precedent_check.py --turn-end       # the end-of-turn scope
   python3 tools/precedent_check.py --only SLUG      # one practice
   python3 tools/precedent_check.py --paths A B      # explicit change scope
-  python3 tools/precedent_check.py --all            # change scope = whole tree
+  python3 tools/precedent_check.py --all            # change scope = whole tree,
+                                                    # AND every tree-scope check
+                                                    # (implies --full-sweep)
+  python3 tools/precedent_check.py --full-sweep     # every tree-scope check,
+                                                    # not just this commit's
+                                                    # touched + rotation slice
   python3 tools/precedent_check.py --list           # what is registered
   python3 tools/precedent_check.py --explain        # what each check does NOT check
   python3 tools/precedent_check.py --strict         # a SKIP, or a thing a
                                                     # check COULD NOT VERIFY,
                                                     # is a failure
+
+A bare run does NOT sweep every `tree`-scope check every time (Morgan,
+2026-09-18): each run covers a check whose own practice file or a matching
+applies_to path was touched this commit, plus a rotating 1/10th slice of
+whatever's left, so a check skipped this commit is covered within 10
+commits -- guaranteed by the commit count, never left to chance. See
+_scoped_tree_slugs()'s own docstring for the exact rule. `change`-scope
+checks are unaffected; they already self-limit to the diff, every run.
 """
 import ast, collections, difflib, functools, io, json, os, pathlib, re, subprocess, sys
 
@@ -6082,6 +6095,116 @@ def _github_api_budget(ctx):
     return out
 
 
+# 1 bucket in NUM_BUCKETS runs each commit -- so a `scope: 'tree'` check
+# that isn't directly or indirectly touched this commit is still covered
+# within NUM_BUCKETS consecutive commits, guaranteed by the commit count
+# rather than left to chance. Not a persisted cursor on purpose: CI's
+# checkout is thrown away after every run, so nothing written during a run
+# survives to the next one -- the commit count is the one number every
+# checkout, CI or local, can derive identically without state to carry.
+ROTATION_BUCKETS = 10
+
+
+def _touched_files():
+    """-> sorted list of paths this commit touched (committed diff vs the
+    published default branch, staged, and untracked), falling back to the
+    WHOLE tracked tree -- never silently narrowing -- when there's no base
+    branch to diff against.
+
+    Deliberately NOT tools/parse_check.py's own `changed()`, which does
+    exactly this: that module is BestPractice's own tooling and is not in
+    precedent_vendor_engine.py's ENGINE_FILES or CONSUMER_ENGINE_FILES, so
+    it never travels to a repo this file is vendored into. This file DOES
+    travel everywhere (INSTALL.md sec.0), so it carries its own copy of the
+    same small logic rather than an import that works here and breaks on
+    every consumer -- caught directly: check_installer_produces_a_clean_install
+    hit exactly this ModuleNotFoundError against a fresh install fixture,
+    2026-09-19."""
+    head = _git('symbolic-ref', 'refs/remotes/origin/HEAD')
+    base = None
+    if head.returncode == 0:
+        base = head.stdout.strip().replace('refs/remotes/', '', 1)
+    else:
+        for cand in ('origin/main', 'origin/master'):
+            if _git('rev-parse', '--verify', '--quiet', cand).returncode == 0:
+                base = cand
+                break
+    if base is None:
+        return sorted(x for x in _git('ls-files').stdout.split() if x)
+    out = set()
+    for args in (['diff', '--name-only', '--diff-filter=d', f'{base}...HEAD'],
+                 ['diff', '--name-only', '--diff-filter=d'],
+                 ['diff', '--name-only', '--diff-filter=d', '--cached'],
+                 ['ls-files', '--others', '--exclude-standard']):
+        r = _git(*args)
+        if r.returncode == 0:
+            out.update(x for x in r.stdout.split() if x)
+    return sorted(out)
+
+
+def _scoped_tree_slugs(tree_slugs):
+    """-> the subset of `tree_slugs` (all `scope: 'tree'` CHECKS keys) to
+    actually run this invocation, per Morgan's 2026-09-18 direction: don't
+    sweep every tree-scope check every time, but never leave one uncovered
+    for long. Three tiers, unioned:
+
+      1. DIRECTLY touched -- this commit's diff includes the check's own
+         `practices/<slug>.md`.
+      2. LIKELY INDIRECTLY touched -- the diff includes a file matching
+         one of the practice's own `applies_to` globs (narrower than
+         `**`; a practice whose only glob is `**` can never be "indirectly"
+         matched by a specific file, so it always falls to tier 3).
+      3. A ROTATING 1/ROTATION_BUCKETS slice of whatever's left, keyed by
+         `git rev-list --count HEAD` mod ROTATION_BUCKETS -- deterministic,
+         not random, so ROTATION_BUCKETS consecutive commits cover the
+         whole remaining set exactly once each, not "probably."
+
+    Retired/deduplicated practices are never scheduled at all (tier 3
+    would otherwise round-robin dead checks). A slug with no resolvable
+    practices/<slug>.md here (this repo doesn't carry that practice) is
+    passed through unfiltered -- run()'s own gate reports the ordinary
+    SKIPPED reason for it, cheaply, before this scoping would matter."""
+    import build_views as _bv
+    import precedent_paths as pp
+
+    touched_set = set(_touched_files())
+
+    active = []
+    globs_by_slug = {}
+    for slug in tree_slugs:
+        p = _practice_file(slug)
+        if p is None:
+            active.append(slug)
+            continue
+        try:
+            fm, _sections = sp._read_practice_file(p)
+        except sp.PracticeFileError:
+            active.append(slug)
+            continue
+        if not _bv.is_in_force(fm):
+            continue
+        active.append(slug)
+        globs_by_slug[slug] = [g for g in pp._globs(fm.get('applies_to', '[]'))
+                               if g != '**']
+
+    directly = {s for s in active if f'practices/{s}.md' in touched_set}
+    indirectly = {s for s in active if s not in directly
+                  and any(pp.path_matches(t, g)
+                          for g in globs_by_slug.get(s, ())
+                          for t in touched_set)}
+    remaining = sorted(set(active) - directly - indirectly)
+
+    if remaining:
+        commit_count = int(_git('rev-list', '--count', 'HEAD').stdout.strip() or 0)
+        bucket = commit_count % ROTATION_BUCKETS
+        round_robin = {s for i, s in enumerate(remaining)
+                       if i % ROTATION_BUCKETS == bucket}
+    else:
+        round_robin = set()
+
+    return sorted(directly | indirectly | round_robin)
+
+
 def run(slugs, ctx, scopes, exempt=None):
     exempt = exempt or {}
     results = []
@@ -6196,7 +6319,30 @@ def main():
     if '--turn-end' in flags and '--all' in flags:
         scopes = {'tree', 'change', 'turn-end'}
     ctx = Ctx(paths=paths, rng=rng, whole_tree='--all' in flags)
-    slugs = [only] if only else sorted(CHECKS)
+    tree_scope_note = None
+    if only:
+        slugs = [only]
+    else:
+        tree_slugs = sorted(s for s in CHECKS if CHECKS[s]['scope'] == 'tree')
+        other_slugs = sorted(s for s in CHECKS if CHECKS[s]['scope'] != 'tree')
+        # checks-carry-a-declared-decline -- a repo that wants every
+        # tree-scope check run every time can always reach that state,
+        # on purpose, with a reason to type: --full-sweep, or --all
+        # (which already means "treat everything as changed" for ctx).
+        if '--full-sweep' in flags or '--all' in flags:
+            slugs = sorted(set(other_slugs) | set(tree_slugs))
+        else:
+            scoped_tree = _scoped_tree_slugs(tree_slugs)
+            slugs = sorted(set(other_slugs) | set(scoped_tree))
+            skipped_this_run = sorted(set(tree_slugs) - set(scoped_tree))
+            if skipped_this_run:
+                tree_scope_note = (
+                    f'{len(skipped_this_run)} of {len(tree_slugs)} tree-scope '
+                    f'check(s) not run this invocation (not directly or '
+                    f'indirectly touched, and not this commit\'s rotation '
+                    f'slice -- covered within {ROTATION_BUCKETS} commits): '
+                    f'{", ".join(skipped_this_run)}. Run --full-sweep for all '
+                    f'of them.')
     exempt, refused_exemptions = load_exemptions()
     results = run(slugs, ctx, scopes, exempt=exempt)
 
@@ -6263,6 +6409,8 @@ def main():
               f'anyway. (Recorded reason: {why})')
     if ctx.scope_reason and any(CHECKS[s]['scope'] == 'change' for s in slugs):
         print(f'note: {ctx.scope_reason}')
+    if tree_scope_note:
+        print(f'note: {tree_scope_note}')
 
     n_uv = sum(len(r[4]) for r in unverified)
     print(f'\nprecedent_check: {len(passed)} passed, {len(violated)} violated, '
