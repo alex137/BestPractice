@@ -172,25 +172,38 @@ def _self_heal_universal_source(repo_root):
 def _stale_render_hours(repo_root):
     """-> the age, in hours, past which .precedent/SESSION_PRACTICES.md
     counts as stale rather than merely old -- read from THIS repo's own
-    `stale_checkout_hours` (precedent.json), or the engine default (24)
-    when the key is absent or malformed.
+    `stale_render_hours` (precedent.json), or the engine default (1) when
+    the key is absent or malformed.
 
-    Mirrors .claude/hooks/freshness-guard.sh's `_stale_hours` exactly, in
-    Python: same key, same fallback. A threshold nobody decided is doctrine
-    (practice: constants-are-risk-inputs), so this borrows the declared one
-    rather than compiling a second number in -- but it is answering a
-    DIFFERENT question than that key was declared for (how old is the
-    RENDER, not how old is the checkout), and
-    spec/SESSION_PRACTICES_RENDER_SELF_HEAL.md says so plainly: this is a
-    starting number for that judgment call, not a proof it is the right
-    one. Never raises: an unreadable or absent precedent.json is the
-    ordinary case for a repo with no declared threshold, not a failure."""
+    ITS OWN KEY, DELIBERATELY SEPARATE FROM `stale_checkout_hours`
+    (.claude/hooks/freshness-guard.sh's threshold for how old a git
+    CHECKOUT may be). Until 2026-09-18 this function borrowed that key
+    outright -- same name, same 24h fallback -- reasoning that a threshold
+    nobody decided is doctrine (practice: constants-are-risk-inputs) and a
+    declared number beats a second hardcoded one. That reasoning held for
+    reuse, not for the number itself: checkout staleness and render
+    staleness are different questions with different failure shapes.
+    Stale checkout is LOUD -- freshness-guard prints a banner a person acts
+    on -- so tolerating it for up to a day, as Morgan's own 24h reasoning
+    argues ("an hour behind, not much changed; a few days behind, a lot
+    probably did"), is a reasonable place to draw that line. Stale render
+    is SILENT by design -- the self-heal has no banner, because a session
+    should never notice it ran -- which is exactly what let the
+    2026-09-18 incident stay undetected for a full day: nothing was
+    watching for it at all. A silent failure mode wants a much shorter
+    leash than a loud one, so this now has its own key and its own
+    default -- 1 hour, not 24 -- rather than continuing to inherit an
+    answer measured for a different question.
+    spec/SESSION_PRACTICES_RENDER_SELF_HEAL.md has the fuller comparison
+    of the two cases and the reasoning behind the number.
+    Never raises: an unreadable or absent precedent.json is the ordinary
+    case for a repo with no declared threshold, not a failure."""
     try:
         cfg = json.loads((repo_root / 'precedent.json').read_text(encoding='utf-8'))
     except (OSError, json.JSONDecodeError):
-        return 24
-    hours = cfg.get('stale_checkout_hours')
-    return hours if isinstance(hours, int) and hours > 0 else 24
+        return 1
+    hours = cfg.get('stale_render_hours')
+    return hours if isinstance(hours, int) and hours > 0 else 1
 
 
 def _self_heal_stale_render(repo_root):

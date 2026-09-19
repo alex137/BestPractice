@@ -18008,7 +18008,7 @@ def check_stale_render_self_heals():
             tool.chmod(0o755)
         if stale_hours is not None:
             (repo / 'precedent.json').write_text(
-                json.dumps({'stale_checkout_hours': stale_hours}), encoding='utf-8')
+                json.dumps({'stale_render_hours': stale_hours}), encoding='utf-8')
         return repo
 
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-stale-render-'))
@@ -18039,7 +18039,7 @@ def check_stale_render_self_heals():
         old = time.time() - 2 * 3600  # 2h old, past this repo's 1h threshold
         os.utime(marker, (old, old))
         result3 = pr._self_heal_stale_render(repo3)
-        cases.append(('a render older than the declared stale_checkout_hours '
+        cases.append(('a render older than the declared stale_render_hours '
                       'is re-rendered, not just an absent one',
                       result3 == 'attempted'
                       and marker.read_text(encoding='utf-8') == 'rendered',
@@ -18060,12 +18060,12 @@ def check_stale_render_self_heals():
                       and marker4.read_text(encoding='utf-8') == 'still current',
                       f'result={result4!r}'))
 
-        # --- case 5: the declared-default (24h) is honored when
+        # --- case 5: the declared-default (1h) is honored when
         # precedent.json is absent, not silently zero ---------------------
         repo5 = _repo(tmp)  # no precedent.json written at all
-        cases.append(('the declared-default (24h) is used when this repo '
+        cases.append(('the declared-default (1h) is used when this repo '
                       'has no precedent.json at all',
-                      pr._stale_render_hours(repo5) == 24,
+                      pr._stale_render_hours(repo5) == 1,
                       f'got {pr._stale_render_hours(repo5)!r}'))
 
         # --- case 6: a source set whose engine predates this addition (no
