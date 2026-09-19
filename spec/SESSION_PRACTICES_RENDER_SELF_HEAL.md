@@ -175,9 +175,18 @@ to need its own measurement first.
 **Closed** — see the note under the title. What was genuinely left open at
 build time and is worth someone picking up separately: the latency and
 call-count measurements Shape B and C's own sections named as unmeasured
-(only Shape C's was actually needed to build it, and that build used the
-borrowed `stale_checkout_hours` constant as-is rather than deriving a
-render-specific number first — a real remaining question, not a blocker),
-and the vendor-refresh rollout to the four packs, which this brief's build
-does not do on its own: "Update Vendors" still has to run in each before
-they get this fix.
+(only Shape C's was actually needed to build it), and the vendor-refresh
+rollout to the four packs, which this brief's build does not do on its
+own: "Update Vendors" still has to run in each before they get this fix.
+
+**Both since closed, 2026-09-18.** The vendor rollout landed the same day
+(all four packs refreshed and merged). The borrowed-constant question —
+`_stale_render_hours()` using `stale_checkout_hours` as-is rather than its
+own number — was answered the same day too: it now reads a separate
+`stale_render_hours` key, default 1 hour rather than 24. The reasoning is
+in `_stale_render_hours()`'s own docstring rather than repeated here:
+stale-checkout is a loud failure a person acts on, so tolerating it for up
+to a day is defensible; stale-render is silent by design, which is exactly
+what let the incident this brief follows from go undetected for a full
+day, so it gets a much shorter leash. The call-count and per-repo latency
+measurements are still genuinely open, not blocking anything.
