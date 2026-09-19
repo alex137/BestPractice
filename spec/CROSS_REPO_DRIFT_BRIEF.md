@@ -7,7 +7,7 @@ closed:        null
 superseded_by: null
 supersedes:    []
 audience:      session
-summary:       What a BestPractice-rooted session found and fixed for the 2026-09-16 todo/gotcha migration's dropped archive item, and what it found but could not fix — a misattributed practice link in precedent-individual and a batch of stale-anchor prose in precedent-team-writing — because both repos are outside its access.
+summary:       What a BestPractice-rooted session found and fixed for the 2026-09-16 todo/gotcha migration's dropped archive item and the practice-links-travel engine gap that let a misattributed link ship unnoticed, and what it found but could not fix directly — that same link in precedent-individual and stale-anchor prose in precedent-team-writing — because both repos are outside its access.
 ---
 # Cross-Repo Drift Brief — precedent-individual and precedent-team-writing
 
@@ -193,6 +193,56 @@ own `practices/` (`push-back.md`, `small-calls.md` — these are the
 deduplication stubs left behind by the same split, and are BestPractice's
 own to fix if they need it; not touched in this session since they weren't
 what was asked).
+
+## Why the Vendored Check Didn't Catch Item 2, and the Engine Fix for It
+
+Morgan asked, after reading the above: is there anything to fix in
+BestPractice itself so this class of bug stops recurring. Yes, and it's
+now fixed and pushed here (`3d75dc61`, same branch).
+
+`precedent-individual` has this check vendored — `practice-links-travel`
+is `checked_by: tools/precedent_check.py` — and it ran clean anyway. Read
+of the check's own code found why:
+[`tools/precedent_check.py`](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/precedent_check.py)'s
+`_practice_links_travel` validated an absolute URL only when it named
+*this* repository; a URL naming any other repository — including
+BestPractice itself, checked from inside a repo that vendors it — was
+treated as "somebody else's to keep working" and skipped outright, no
+matter what path it named. `_origin_slug()`'s own docstring said so
+explicitly. So the item 2 link was never actually checked; it was skipped
+before anyone asked whether `private-repo-scrub.md` existed at that path.
+
+**Fixed:** a non-self absolute URL is now also checked when it names the
+repo's own declared **universal source** (read from `precedent.json` via
+`precedent_resolve.load_config`) *and* that source is locally resolvable —
+which it is in every repo that declares one, since the SessionStart
+credential route clones it as a sibling before the first turn. Verified
+both directions against a scratch copy of `precedent-individual` with the
+patched checker dropped in: the unpatched check reports the item 2 link
+clean, the patched one reports it by name (`no such path exists there`).
+`tools/verify_harness.py`'s existing `practice-links-travel` fixtures
+(which plant known-good and known-bad links in a throwaway repo and assert
+on the exact finding text) still pass unchanged — 216 passed, 0 failed on
+the full suite.
+
+**This still needs "Update Vendors" to actually reach `precedent-individual`,
+`precedent-team-writing`, and the other two sets** — pushing the fix here
+does not patch their already-vendored copies of `tools/precedent_check.py`
+by itself. Once a session in each of them runs that sequence, re-running
+`precedent_check.py --full-sweep` there should surface the rest of the "4"
+and "21" that this fix, plus the pack-repo check for anything that looks
+missing, is now positioned to actually catch.
+
+**What this does not fix:** the check still trusts an absolute URL into
+any *other* private source (a team set that isn't the universal one)
+without verifying it — it only extended coverage to the universal source,
+which was the concrete gap this incident exposed and the one every repo
+can safely resolve locally without a wider design change. It also does not
+retroactively flag an absolute URL that should have been a private
+backticked path in the first place (the Rule already forbids that shape;
+nothing yet checks for it mechanically). Both are follow-on hardening, not
+part of what was asked here, and are not filed as their own `todo/` items
+since neither is blocking anything right now.
 
 ## What Repos the Fix Needs
 
