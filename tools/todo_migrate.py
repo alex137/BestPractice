@@ -138,7 +138,25 @@ KIND_MARKER_MAP = {'verification': 'verify', 'physical': 'manual'}
 
 class TodoShapeError(ValueError):
     """Raised when a source file matches none of parse_todo_items's known
-    start shapes -- see _heading_per_item_shaped()."""
+    start shapes -- see _heading_per_item_shaped() and
+    _numbered_heading_shaped()."""
+
+
+# A fourth real pre-migration shape, found 2026-09-19 in a consumer's own
+# TODO.md (precedent-individual: 11 items shaped `## N. Title -- status`,
+# zero <a id=> anchors, zero **Disposition:** lines, inconsistent status
+# suffixes -- some items carry none at all). Neither TODO_ANCHOR_RE,
+# TODO_CHECKBOX_RE nor TODO_BARE_RE recognizes a `##` heading as an item
+# start (all three require a `-`/`N.` bullet), and _heading_per_item_shaped
+# only catches the sibling heading shape that carries Disposition lines --
+# so this shape parsed as zero items, silently, and
+# _assert_no_dropped_items passed it trivially (0 anchors present in the
+# text, 0 anchors parsed -- equal, so "nothing missing"). That is the exact
+# blind spot control-asserts-which-failure warns about: a real-content file
+# yielding an empty result looked identical to a genuinely-empty file.
+# Detected directly instead, the same way as the sibling shape above: a
+# file-level signature, checked before any bullet-start regex is trusted.
+TODO_NUMBERED_HEADING_RE = re.compile(r'^##\s+\d+\.\s+')
 
 
 TITLE_RE = re.compile(r'\*\*(.+?)\*\*', re.DOTALL)
@@ -243,6 +261,24 @@ def _heading_per_item_shaped(lines):
     return with_disposition >= 2 and with_disposition == len(heading_idxs)
 
 
+def _numbered_heading_shaped(lines):
+    """True if this file uses one numbered `## N. <title>` heading per item
+    -- optionally suffixed `-- status`, inconsistently, some items carrying
+    no status text at all -- with no <a id=> anchors and no per-item bullet
+    start anywhere in the file. See TODO_NUMBERED_HEADING_RE's comment for
+    the real file this was found against and why it matters: left
+    undetected, this shape parses as zero items with no error at all."""
+    heading_idxs = [i for i, l in enumerate(lines)
+                    if TODO_NUMBERED_HEADING_RE.match(l)]
+    if len(heading_idxs) < 2:
+        return False
+    has_bullet_start = any(
+        TODO_ANCHOR_RE.match(l) or TODO_CHECKBOX_RE.match(l)
+        or TODO_BARE_RE.match(l)
+        for l in lines)
+    return not has_bullet_start
+
+
 def parse_todo_items(text):
     """Split TODO.md's flat bullet list into Items. A bullet starts a new
     item at column 0 (`- ...`); everything indented under it, down to the
@@ -282,6 +318,19 @@ def parse_todo_items(text):
             "would fabricate items from indented sub-bullets and swallow "
             "headings' text into them -- write the todo/ items for this "
             "file by hand instead of trusting --apply.")
+    if _numbered_heading_shaped(lines):
+        raise TodoShapeError(
+            "this file doesn't match any known TODO.md shape -- it looks "
+            "like one numbered `## N. Title` heading per item, with no "
+            "<a id=> anchors and no **Disposition:** lines, which none of "
+            "TODO_ANCHOR_RE / TODO_CHECKBOX_RE / TODO_BARE_RE recognizes "
+            "(they all require a bullet start, not a heading) and "
+            "_heading_per_item_shaped() doesn't cover either (it requires "
+            "Disposition lines this shape lacks). Parsing it anyway would "
+            "silently return zero items, and with zero anchors in the "
+            "text the completeness guard below would pass it trivially -- "
+            "write the todo/ items for this file by hand instead of "
+            "trusting --apply.")
     starts = []
     section_kind_at = {}
     current_section_kind = None
