@@ -141,18 +141,27 @@ def _commit_and_push(individual_path, path, message, no_push):
     return 'committed and pushed'
 
 
-def check(root=None, no_fetch=False, no_push=False, user_config=None):
+def check(root=None, no_fetch=False, no_push=False, user_config=None,
+          individual_path=None):
     """-> (status, lines, alert).
 
     status is 'ok' (nothing new, or it was all your own commits), 'alert'
     (someone else pushed since the watermark), or 'unknown' (could not
     tell). `lines` is prose for the always-on session-start CLI; `alert` is
     the short paragraph `remind()` surfaces, or None.
+
+    `individual_path`, given explicitly, skips config-file resolution
+    entirely. Needed for a session whose PRIMARY repo IS the individual
+    source: nothing wrote it a `~/.config/precedent/config.json` pointing
+    at itself (that file is for a repo that resolves someone ELSE's
+    individual set), so `_individual_path()` would find nothing to
+    resolve even though the right directory is sitting right there.
     """
     repo = pathlib.Path(root).resolve() if root else REPO
     branch = _working_branch()
 
-    indiv = _individual_path(user_config)
+    indiv = pathlib.Path(individual_path).expanduser() if individual_path \
+        else _individual_path(user_config)
     if indiv is None or not (indiv / '.git').is_dir():
         return 'unknown', ['no individual source resolves, so there is nowhere '
                             'to keep this watermark'], None
@@ -269,8 +278,13 @@ def main():
                          help='compare against local refs only; do not fetch')
     parser.add_argument('--no-push', action='store_true',
                          help='write and commit the watermark locally, skip the push')
+    parser.add_argument('--individual-path', default=None,
+                         help='the individual source directory, when this session '
+                              'IS that source and has no config.json pointing at '
+                              'someone else\'s')
     args = parser.parse_args()
-    status, lines, _alert = check(no_fetch=args.no_fetch, no_push=args.no_push)
+    status, lines, _alert = check(no_fetch=args.no_fetch, no_push=args.no_push,
+                                   individual_path=args.individual_path)
     prefix = {'ok': 'beta-branch watermark',
               'alert': 'BETA-BRANCH WATERMARK',
               'unknown': 'beta-branch watermark UNKNOWN'}[status]
