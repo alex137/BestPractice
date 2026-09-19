@@ -26,10 +26,10 @@ Every source carries `precedent-source.json` at its root:
 
 ```json
 {
-  "name": "patent-system",
+  "name": "lab-notebook",
   "level": "shared",
   "visibility": "private",
-  "subject": "drafting and managing provisional patent filings",
+  "subject": "keeping a laboratory notebook that an audit can read",
   "code": ["tools"]
 }
 ```
