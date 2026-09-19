@@ -2783,6 +2783,26 @@ def check_doc_lint_fires():
         cases.append(("a document naming itself in its own title is not "
                       "reported as an unglossed acronym", not selfname_flagged))
 
+        # 2026-09-19: precedent-team-writing's create-word-doc.md tripped the
+        # acronym scan the moment a consumer repo first vendored it -- "found
+        # via Part II, verified on MS Word desktop macOS 16.78.3" read "II"
+        # and "MS" as brand-new unglossed acronyms, on a file the consumer
+        # neither wrote nor can edit (same shape as the blockquote case
+        # above: acronyms-glossary gates on what a change ADDS, so a
+        # brand-new vendored file has every token in it read as new).
+        (tmp / 'numeral.md').write_text(
+            "Found via Part II, verified on MS Word desktop.\n", encoding='utf-8')
+        _s, _u, numeral_flagged, *_ = dl.check_file(
+            'numeral.md', fix=False, known=set(dl.ACRONYM_STOP))
+        cases.append(('a roman numeral ("Part II") and a stop-listed product '
+                      'name ("MS") are not reported as unglossed acronyms',
+                      not numeral_flagged))
+        cases.append(('the roman-numeral check is a grammar, not a stoplist '
+                      '-- ZQX (a real, never-glossed acronym) is still '
+                      'caught right beside it',
+                      not dl.looks_like_roman_numeral('ZQX')
+                      and dl.looks_like_roman_numeral('II')))
+
         # --- broken relative links (check 7) -------------------------------
         # 96 links in this repo resolved to nothing before this check
         # existed; the largest group was practices/*.md written with
