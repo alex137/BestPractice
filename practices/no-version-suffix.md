@@ -32,8 +32,9 @@ another reason, fixing its references in the same pass.
 ## Detail
 
 ## Why
-"`_v1`" is the classic redundant-with-VCS habit: it answers a question
-the version-control history already answers, and unlike the history it does not
+"`_v1`" is the classic habit that duplicates the version control system
+(VCS): it answers a question the version-control history already answers,
+and unlike the history it does not
 update itself — a `_v1` file edited fifty times still says `_v1`, so the label
 actively lies. It also invites a rename on every real revision (churning the
 references), or worse, a `_v2` copy that forks the file and splits its history.

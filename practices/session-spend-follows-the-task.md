@@ -61,7 +61,7 @@ kind a task is, it is the judgment kind.
 
 ## Detail
 **A fresh session is the largest re-read there is**, which puts this beside
-[spawn-session](session-text.md): that rule governs *whether* the work goes
+[session-text](session-text.md): that rule governs *whether* the work goes
 somewhere else, this one governs what it costs once it does. Reasoning about
 which model a spawned session needs is the same economy as reasoning about
 whether to spawn it at all — neither is a decision nobody is forced to make,
@@ -132,7 +132,7 @@ compact, only whether the question has gone unasked for too long.
 **What makes the three-session case the useful example** is that none of the
 three did anything wrong. Each was created for a reasonable-looking piece of
 work. The cost was in the pattern, which no individual session was in a
-position to see — the same blind spot [spawn-session](session-text.md)
+position to see — the same blind spot [session-text](session-text.md)
 records from the other side, where the session that should have been reused
 is invisible to the session about to be created.
 

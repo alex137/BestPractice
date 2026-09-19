@@ -72,14 +72,14 @@ as force × the *load's* displacement rather than the agent's own
 path — exactly half, the other half leaving through a dissipative
 element between them. The halved charge equaled the load's
 kinetic-energy gain to the digit, so the one-sided check passed; the
-published capability ceiling came out ~2× optimistic (compounded by a
+published capability ceiling came out ≈2× optimistic (compounded by a
 missing geometric completion condition the same 1-D framing hid) and
 survived its thread's otherwise-careful review because it arrived in
 a commit raising ceilings a doctrine reread had shown were wrongly
 zero. It was caught a day later only when an independent
 trajectory integrator's whole-system energy balance refused to close —
 and a three-line inventory then showed the payer's entire available
-energy was ~3× short of the sink side at the published ceiling. The
+energy was ≈3× short of the sink side at the published ceiling. The
 correct accounting had existed in the program's own prose for weeks,
 written down and executable nowhere — the same lesson as the
 model-audit practice, recurring: prose does not fail a build; a

@@ -87,7 +87,7 @@ one nothing checks, and its numbers rot silently while every gate reports
 green), and a document may **opt in** — placing a marker alone on a line — to a
 stricter rule that *every* quantity in it be generated, cited to an external
 source, or explicitly marked an estimate. Measure before making that a
-repo-wide gate: in the origin repo ~91% of quantity tokens were unexplained, so
+repo-wide gate: in the origin repo ≈91% of quantity tokens were unexplained, so
 the strict rule is per-document opt-in, and a report mode sizes the backlog
 without blocking anything. Two false-positive traps are worth inheriting: match
 declared figures with a **unit boundary** (else "30 m" matches "30 m/s"), and

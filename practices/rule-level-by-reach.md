@@ -113,7 +113,7 @@ repository — the one the session could write to.
 *(Reported, not verified here: cross-owner attaches are refused, so that source
 cannot be read from this repository. What is verifiable here is the material.
 Most of it was already at universal —
-[spawn-session](session-text.md) landed 2026-09-11 and already required naming
+[session-text](session-text.md) landed 2026-09-11 and already required naming
 the repositories the work must read, write or push to and comparing them
 against the ones the session holds — and its Detail already cited the
 cross-owner refusal, which was one of the eight.)*

@@ -90,7 +90,7 @@ leaves the reader exactly where they started.
 
 ## Story
 **Coined by Morgan on 2026-09-12**, in the same thread that renamed
-[spawn-session](session-text.md). He described the request rather than
+[session-text](session-text.md). He described the request rather than
 naming it: *"I also tell you a lot 'explain the options more clearly, in
 somewhat less technical wording, the positives and negatives of each, and
 which you recommend and why' - maybe we should have a command for that one

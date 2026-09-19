@@ -1984,6 +1984,276 @@
         }
       ],
       "completed": true
+    },
+    {
+      "run_id": "2026-09-19T12:30:50-03:00",
+      "date": "2026-09-19",
+      "repo": "/home/user/BestPractice",
+      "argv": [],
+      "seconds": 50.26,
+      "components": [
+        {
+          "name": "FRESHNESS -- this checkout",
+          "kind": "mechanical",
+          "findings": 0,
+          "items": null,
+          "output_tokens": 26,
+          "seconds": 3.44,
+          "status": "clean"
+        },
+        {
+          "name": "MACHINE-READABLE FILES",
+          "kind": "mechanical",
+          "findings": 0,
+          "items": null,
+          "output_tokens": 20,
+          "seconds": 0.06,
+          "status": "clean"
+        },
+        {
+          "name": "VENDORING EXCLUSIONS",
+          "kind": "mechanical",
+          "findings": 0,
+          "items": null,
+          "output_tokens": 27,
+          "seconds": 0.0,
+          "status": "clean"
+        },
+        {
+          "name": "FRESHNESS -- declared sources",
+          "kind": "mechanical",
+          "findings": 0,
+          "items": null,
+          "output_tokens": 74,
+          "seconds": 3.95,
+          "status": "clean"
+        },
+        {
+          "name": "REPOS IN FORCE -- still there, still writable",
+          "kind": "mechanical",
+          "findings": 0,
+          "items": null,
+          "output_tokens": 546,
+          "seconds": 4.88,
+          "status": "clean"
+        },
+        {
+          "name": "CONTRIBUTOR BOUNDARY -- CODEOWNERS current, protection on",
+          "kind": "mechanical",
+          "findings": 0,
+          "items": null,
+          "output_tokens": 171,
+          "seconds": 0.02,
+          "status": "clean"
+        },
+        {
+          "name": "SCOPE -- documents and practices to read",
+          "kind": "read",
+          "findings": null,
+          "items": 359,
+          "output_tokens": 131,
+          "seconds": 0.0,
+          "status": "material"
+        },
+        {
+          "name": "WITHIN-SOURCE CONFLICTS",
+          "kind": "mechanical",
+          "findings": 0,
+          "items": null,
+          "output_tokens": 35,
+          "seconds": 0.06,
+          "status": "clean"
+        },
+        {
+          "name": "SOURCE SHAPE",
+          "kind": "mechanical",
+          "findings": 0,
+          "items": null,
+          "output_tokens": 26,
+          "seconds": 0.01,
+          "status": "clean"
+        },
+        {
+          "name": "TEMPLATE FRESHNESS",
+          "kind": "mechanical",
+          "findings": 5,
+          "items": null,
+          "output_tokens": 197,
+          "seconds": 0.01,
+          "status": "findings"
+        },
+        {
+          "name": "BOOTSTRAP DRIFT",
+          "kind": "mechanical",
+          "findings": 23,
+          "items": null,
+          "output_tokens": 412,
+          "seconds": 13.55,
+          "status": "findings"
+        },
+        {
+          "name": "CONVERGENT DRIFT",
+          "kind": "mechanical",
+          "findings": 4,
+          "items": null,
+          "output_tokens": 686,
+          "seconds": 0.0,
+          "status": "findings"
+        },
+        {
+          "name": "EXPIRING PRACTICES",
+          "kind": "mechanical",
+          "findings": 1,
+          "items": null,
+          "output_tokens": 113,
+          "seconds": 0.03,
+          "status": "findings"
+        },
+        {
+          "name": "ORPHANS",
+          "kind": "mechanical",
+          "findings": 0,
+          "items": null,
+          "output_tokens": 44,
+          "seconds": 0.0,
+          "status": "clean"
+        },
+        {
+          "name": "SESSION LOAD",
+          "kind": "mechanical",
+          "findings": 58,
+          "items": null,
+          "output_tokens": 2528,
+          "seconds": 0.33,
+          "status": "findings"
+        },
+        {
+          "name": "TIER PLACEMENT",
+          "kind": "read",
+          "findings": null,
+          "items": 11,
+          "output_tokens": 341,
+          "seconds": 0.01,
+          "status": "material"
+        },
+        {
+          "name": "RULES WE SHIP SOMEWHERE ELSE",
+          "kind": "read",
+          "findings": null,
+          "items": 30,
+          "output_tokens": 379,
+          "seconds": 0.02,
+          "status": "material"
+        },
+        {
+          "name": "DOCUMENTATION CURRENCY",
+          "kind": "mechanical",
+          "findings": 13,
+          "items": null,
+          "output_tokens": 1163,
+          "seconds": 0.24,
+          "status": "findings"
+        },
+        {
+          "name": "UNLANDED WORK",
+          "kind": "mechanical",
+          "findings": 9,
+          "items": null,
+          "output_tokens": 353,
+          "seconds": 0.0,
+          "status": "findings"
+        },
+        {
+          "name": "LIVE SESSIONS -- recent work against the repo",
+          "kind": "read",
+          "findings": null,
+          "items": 1039,
+          "output_tokens": 934,
+          "seconds": 0.0,
+          "status": "partial"
+        },
+        {
+          "name": "REPOSITORY VISIBILITY",
+          "kind": "mechanical",
+          "findings": 0,
+          "items": null,
+          "output_tokens": 202,
+          "seconds": 11.22,
+          "status": "clean"
+        },
+        {
+          "name": "CHECKLIST -- the four passes a session works",
+          "kind": "read",
+          "findings": null,
+          "items": null,
+          "output_tokens": 65,
+          "seconds": 0.0,
+          "status": "material"
+        },
+        {
+          "name": "BRANCHES -- verdicts owed",
+          "kind": "mechanical",
+          "findings": 101,
+          "items": null,
+          "output_tokens": 2841,
+          "seconds": 11.2,
+          "status": "findings"
+        },
+        {
+          "name": "BASE BRANCH DRIFT",
+          "kind": "mechanical",
+          "findings": 0,
+          "items": null,
+          "output_tokens": 66,
+          "seconds": 0.06,
+          "status": "clean"
+        },
+        {
+          "name": "ENDGAME MERGE",
+          "kind": "mechanical",
+          "findings": 0,
+          "items": null,
+          "output_tokens": 130,
+          "seconds": 0.86,
+          "status": "clean"
+        },
+        {
+          "name": "GITHUB API BUDGET",
+          "kind": "mechanical",
+          "findings": 0,
+          "items": null,
+          "output_tokens": 396,
+          "seconds": 0.0,
+          "status": "clean"
+        }
+      ],
+      "passes": [
+        {
+          "pass": "1",
+          "status": "done",
+          "recorded": "2026-09-19T12:32:33-03:00",
+          "findings": 2,
+          "tokens": null,
+          "note": "Real install rehearsal via precedent_install.py into a scratch project, committed, full-sweep run. 2 violations reproduce (claude-web-bootstrap, commit-author) matching todo-114, confirmed still open; fresh-before-write cleared on commit, not a distinct bug"
+        },
+        {
+          "pass": "3",
+          "status": "done",
+          "recorded": "2026-09-19T12:32:33-03:00",
+          "findings": 25,
+          "tokens": null,
+          "note": "Full 130-file practice catalogue coherence read by a dedicated sub-agent. 3 small categories fixed in this pass (13 stale spawn-session link labels, 5 tilde-to-approx, 2 VCS expansions); 5 contradictions, staleness, disproportion, formatting-drift, self-application and duplication findings queued for the repo owner in todo-2026-09-19-pass-3-coherence-read-findings.md"
+        },
+        {
+          "pass": "4",
+          "status": "done",
+          "recorded": "2026-09-19T12:32:33-03:00",
+          "findings": 2,
+          "tokens": null,
+          "note": "Real branch judgment on this checkout's 8 unlanded branches by a dedicated sub-agent, on a fully-unshallowed clone. Found and fixed 2 real bugs in very_deep_check.py (missing --prune, ahead-count computed before merge-base resolution) that fabricated 210-485 unlanded commits on 4 already-deleted branches. 1 real MERGE-worthy bug fix and 1 MERGE-worthy proposal doc found on abandoned branches, left for a human decision; 1 CLOSE (team-sets-carry-code, superseded by merged PR455) added to todo-2026-09-14; issue 394's stale 41-commit figure corrected to 3"
+        }
+      ],
+      "completed": true
     }
   ]
 }
