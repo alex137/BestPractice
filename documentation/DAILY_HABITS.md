@@ -101,7 +101,7 @@ each one saves you a paragraph of explaining:
 | Say this | And it will |
 |---|---|
 | **Approved** | The same as **Go update**: save the work, publish it, and tell you where it went. |
-| **Archive** | Archive the session meant -- this one, unless another is named -- right now. It's reversible if it wasn't meant. |
+| **Archive** | Check whether anything from this session is still outstanding -- a merge, something the assistant is waiting on, a recommendation -- and either archive it right then or tell you exactly what's left. |
 | **Archive?** | Check whether anything from this session is still outstanding -- a merge, something the assistant is waiting on, a recommendation -- and either archive it right then or tell you exactly what's left. |
 | **Brainstorm** | Think it through with you and write nothing down — no files, no edits, nothing saved — until you say to. |
 | **Chief of Staff** | Stop and route this: tell you what every open session is blocked on and what is colliding, with a clickable link to each. |
