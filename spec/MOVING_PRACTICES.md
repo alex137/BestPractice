@@ -109,9 +109,12 @@ hand-done one against:
      ([`precedent_candidate.py`](../tools/precedent_candidate.py), [`precedent_land.py`](../tools/precedent_land.py)) is not the way to
      move an existing practice**: it carries a rule and an observation,
      not a file, and the rehearsal above lists what it drops.
-   - **To universal**: a pull request (PR) to Precedent, reviewed and merged
-     by someone other than whoever proposed it — same as any new universal
-     practice. The tool drafts the file; the PR is the approval.
+   - **To universal**: a pull request (PR) against `precedent-beta-v01`,
+     merged once its own deep check passes — no second sign-off required,
+     same as any other PR into that branch
+     ([merge-target-is-beta-branch](../local/practices/merge-target-is-beta-branch.md))
+     and same as any new universal practice. The tool drafts the file; the
+     merge is the approval.
 2. **Deduplicate it at the source, through that level's own removal
    approval** (Stage 6's table) — **never** a plain delete, and never done as
    a side effect of step 1. Set `status: deduplicated` and

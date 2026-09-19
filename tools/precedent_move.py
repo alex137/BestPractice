@@ -50,8 +50,10 @@ rule is a decision for a pull request, not a tool).
 
 UNIVERSAL AS THE DESTINATION drafts only: the file is written into the
 Precedent clone's practices/ and the source is left ACTIVE, because the
-landing there is the pull request being merged by someone else, and a
-source deduplicated before that lands has a rule in force nowhere. The
+landing there is still the pull request merging -- a session may merge it
+directly once its deep check passes, same as any other PR into
+precedent-beta-v01 (spec/MOVING_PRACTICES.md, merge-target-is-beta-branch.md)
+-- and a source deduplicated before that lands has a rule in force nowhere. The
 clone's own generated surfaces are regenerated (build_views.py, doc_sync.py
 --write) so its deep check is green on the draft. Run this tool again with
 `--dedupe-only` once the PR has merged AND every repository consuming the
