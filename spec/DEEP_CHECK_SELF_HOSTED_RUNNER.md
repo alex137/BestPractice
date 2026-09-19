@@ -1,7 +1,7 @@
 ---
-title:         A self-hosted runner for THIS repo's own deep-check — proposal, not adopted
+title:         A self-hosted runner for this repo's own deep-check
 kind:          proposal
-status:        open
+status:        drafted
 opened:        2026-09-18
 closed:        null
 superseded_by: null
