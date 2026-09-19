@@ -193,6 +193,11 @@ def _stale_render_hours(repo_root):
     return hours if isinstance(hours, int) and hours > 0 else 24
 
 
+# Set in the environment of the renderer _self_heal_stale_render spawns, so
+# the renderer's own load_config() never spawns a second one.
+SELF_HEAL_RENDER_ENV = 'PRECEDENT_SELF_HEAL_RENDER'
+
+
 def _self_heal_stale_render(repo_root):
     """practice: session-bootstrap -- the other half of the render gap
     _self_heal_universal_source above does not close. That function fires
@@ -220,6 +225,19 @@ def _self_heal_stale_render(repo_root):
     Never raises: a failed render here is reported by whatever ordinary
     path the caller already has for a missing or stale
     SESSION_PRACTICES.md, not a new failure mode."""
+    # NEVER FROM INSIDE ITS OWN RENDER. precedent_session_practices.py calls
+    # load_config(), which lands here, which ran precedent_session_practices.py
+    # again -- and that child's load_config() ran here again, before any
+    # render had been written to read as fresh. Every level of the recursion
+    # spawned the next, and nothing bounded it but the 60-second timeout:
+    # a single bootstrap of a new set stood up over two thousand renderers
+    # in a few seconds (2026-09-19, found the first time the harness's
+    # bootstrap-drift check actually ran after this heal landed; the
+    # session-wide OOM kills recorded the day before were the same fork
+    # bomb, seen from the memory cgroup). The child is told it IS the heal,
+    # and a process told that does not start another.
+    if os.environ.get(SELF_HEAL_RENDER_ENV):
+        return 'nested'
     tool = repo_root / 'tools' / 'precedent_session_practices.py'
     if not tool.is_file():
         return 'no-tool'
@@ -233,7 +251,8 @@ def _self_heal_stale_render(repo_root):
             return 'fresh'
     try:
         subprocess.run([sys.executable, str(tool), '--repo', str(repo_root)],
-                       cwd=str(repo_root), capture_output=True, timeout=60)
+                       cwd=str(repo_root), capture_output=True, timeout=60,
+                       env=dict(os.environ, **{SELF_HEAL_RENDER_ENV: '1'}))
     except (OSError, subprocess.TimeoutExpired):
         pass
     return 'attempted'
