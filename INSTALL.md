@@ -112,12 +112,17 @@ list.)
      current [gotchas/](gotchas/) split, cited from vendored practices by
      external GitHub link, never a local one.
 
-   **`gotchas/` and `examples/` are checked against the same tests and kept
-   in.** `gotchas/` is troubleshooting for *running* the vendored tooling,
-   and a resident practice's own Rule says to `grep gotchas/` — a local
-   operation that finds nothing not actually vendored. `examples/` shows an
-   adopter how to build their own practice set, a use of Precedent, not a
-   step in building it.
+   **`gotchas/` is checked against the same tests and kept in.** It is
+   troubleshooting for *running* the vendored tooling, and a resident
+   practice's own Rule says to `grep gotchas/` — a local operation that
+   finds nothing not actually vendored.
+
+   **`documentation/examples/` (formerly top-level `examples/`, moved
+   2026-09-19) shows an adopter how to build their own practice set, a use
+   of Precedent, not a step in building it** — and it now sits inside
+   `documentation/`, the tree this same audience table already assigns to
+   "someone using Precedent on their own project", so it is not a separate
+   judgment call any more.
 
    **Which is not the same as "skip the reader-facing prose".**
    [documentation/](documentation/) vendors, in full and on purpose:
@@ -597,7 +602,7 @@ list.)
      predates the check is the migration case, not this one:
      [spec/MIGRATING_EXISTING_INSTALLS.md](spec/MIGRATING_EXISTING_INSTALLS.md)'s
      step 4d.
-   - See [examples/practice-set/](examples/practice-set) for what an
+   - See [documentation/examples/practice-set/](documentation/examples/practice-set) for what an
      individual set's files actually look like, and
      [spec/PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md)'s Vocabulary table
      for **universal source**, **team source**, and **individual source**

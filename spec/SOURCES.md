@@ -53,7 +53,7 @@ it does and does not change.
 | Degrade gracefully when the individual set is missing | Resolves on what it has, says on stderr what is **not in force** | Built and tested. `--strict` makes it fatal where a caller wants that. |
 | Say whether "no individual practices" is a finding or a silence | `individual_status` in `--json`, and a stderr notice whenever the answer is *unknown* rather than *none* | Built and tested (2026-09-06). A source that was never declared reaches neither `sources` nor `missing`, so the row above covered only *declared* sources: a hosted session with no route to the set printed exactly what a laptop with genuinely no set printed. Four states are now distinguished — no user config on a local machine (definite), a config declaring none (definite), a project shipping no bootstrap hook (unknown), and a hook that ran and produced nothing (unknown). |
 | A retired practice is resolvable but not in force | `status:` filtered at resolve time | Built and tested. |
-| The frozen example set | [examples/practice-set/](../examples/practice-set) | Built — invented content, see below. |
+| The frozen example set | [documentation/examples/practice-set/](../documentation/examples/practice-set) | Built — invented content, see below. |
 | The leak gate's vocabulary layer | [tools/leak_gate.py](../tools/leak_gate.py), blocklist from `PRECEDENT_LEAK_BLOCKLIST`, template at [templates/leak-blocklist.txt.template](../templates/leak-blocklist.txt.template) | Built and switched on. |
 | The private sets **populated** from RepoPersonalPreferences' 46 rules | — | **Not done. See below.** |
 
@@ -289,7 +289,7 @@ the *migration* is not started.
 
 ## The example set is invented, deliberately
 
-[examples/practice-set/](../examples/practice-set) is three practices, a
+[documentation/examples/practice-set/](../documentation/examples/practice-set) is three practices, a
 user-level config, and a README. The plan describes it as *"a one-time frozen
 copy of Morgan's private practices, illustrative only, never updated from the
 live individual set"*, and it is frozen and illustrative — but it is not a

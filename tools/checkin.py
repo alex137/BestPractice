@@ -296,10 +296,26 @@ def _rev_parse_quiet(clone, ref):
 # nothing that is not actually vendored. Excluding gotchas/ would have left
 # that instruction pointing at an empty directory in every consumer.
 #
-# ALSO CONSIDERED, kept IN: examples/. Its README says plainly what it is
-# for -- "here so that someone setting up their own [personal practice set]
-# has something concrete to copy" -- which is an adopter activity (a
-# consumer building their OWN practice set), not a contributor activity.
+# ALSO CONSIDERED, kept IN: examples/ (now documentation/examples/, moved
+# 2026-09-19 -- see below). Its README says plainly what it is for -- "here
+# so that someone setting up their own [personal practice set] has
+# something concrete to copy" -- which is an adopter activity (a consumer
+# building their OWN practice set), not a contributor activity. Because it
+# now lives under documentation/, which was never itself a NOT_VENDORED
+# candidate, it is not even reachable by this comment's own top-level
+# component-match test any more -- the move settles the audience question
+# structurally instead of by a name-based judgment call.
+#
+# The move followed a relayed, unverified claim that a consumer repo was
+# hand-deleting this directory after every Update Vendors pass; rather than
+# exclude adopter-facing content on hearsay, it was relocated into
+# documentation/ (the tree the repo's own audience table already assigns to
+# "someone using Precedent on their own project") and a revisit was filed:
+# todo/todo-2026-09-19-revisit-examples-vendoring.md. The staleness worry
+# behind the same claim is separately covered by
+# tools/verify_harness.py's check_example_set, which parses and resolves
+# this example against the CURRENT format on every deep check and fails if
+# it drifts -- so nothing new was built for that half of the concern.
 #
 # ALSO CONSIDERED, but out of THIS mechanism's scope: top-level .claude/ and
 # .github/ (BestPractice's own dev/CI config, distinct from

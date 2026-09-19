@@ -2583,7 +2583,7 @@ def _run(cmd):
     return r.returncode, r.stdout, r.stderr
 
 
-EXAMPLE_SET = ROOT / 'examples' / 'practice-set'
+EXAMPLE_SET = ROOT / 'documentation' / 'examples' / 'practice-set'
 
 
 MANDATORY_SECTIONS = ('rule', 'why', 'story', 'install')  # 'detail' is optional
@@ -2594,7 +2594,7 @@ def check_practice_sections_present():
     (## Detail is legitimately optional -- only some practices carry one).
 
     WHY THIS EXISTS SEPARATELY FROM check_example_set's identical-looking
-    check. That check only ever ran against examples/practice-set/. For the
+    check. That check only ever ran against documentation/examples/practice-set/. For the
     52 phase-1-converted practices, a missing section usually gets caught
     anyway by the word-multiset content-preservation checks, because the
     corrupted text is not what PRACTICES.md's frozen original said. But

@@ -1,6 +1,6 @@
 <!-- Last updated: 2026-08-31 (Buenos Aires) by a phase-3 build session -->
 
-# An example practice set
+# An Example Practice Set
 
 This is what a **personal practice set** looks like from the inside. It is
 here so that someone setting up their own has something concrete to copy,
@@ -9,7 +9,7 @@ without anyone having to show them a real one.
 Everything in it is invented. Nobody works this way; the practices are
 written to demonstrate the mechanics, not to be adopted.
 
-## What it demonstrates
+## What It Demonstrates
 
 | File | What to look at |
 |---|---|
@@ -18,7 +18,7 @@ written to demonstrate the mechanics, not to be adopted.
 | [practices/link-what-i-cite.md](practices/link-what-i-cite.md) | Replacing a practice from a lower source by name, with `overrides:`. |
 | [config.json](config.json) | The user-level file that tells the tools where a personal set lives. |
 
-## The three things worth knowing before you make your own
+## The Three Things Worth Knowing Before You Make Your Own
 
 **It is a separate repository, and it is private.** Not a folder inside a
 shared project. The separation is what keeps it private: file permissions are
@@ -36,7 +36,7 @@ working in the same project get different sets, each seeing their own.
 name in capitals"* is written once and follows you into every project. It is
 never copied, never re-approved, never remembered in three places.
 
-## What this is not
+## What This Is Not
 
 It is **not a copy of anyone's real set**, and it is not kept in step with
 one. It was written for this repository, from scratch, and it is frozen: it

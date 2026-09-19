@@ -553,7 +553,7 @@ and it needs at least one approver at creation time.
   That item is about *proposing new practices upward* once a set already
   exists; this document is about the set existing in the first place. A
   freshly bootstrapped set works today with direct edits (as
-  `examples/practice-set/` already shows) — the creation-pipeline tooling
+  `documentation/examples/practice-set/` already shows) — the creation-pipeline tooling
   is a separate, still-open piece of work.
 - **Not rehearsed against a real, brand-new external adopter yet** — the
   harness checks (`check_bootstrap_source_produces_resolvable_set` proves

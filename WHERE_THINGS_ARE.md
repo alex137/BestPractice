@@ -89,7 +89,7 @@ not it is read.
 | Why `philosophy/` binds nothing outside itself, and the checks that hold that line | [local/practices/philosophy-is-not-repo-policy.md](local/practices/philosophy-is-not-repo-policy.md), [local/practices/philosophy-declares-its-source.md](local/practices/philosophy-declares-its-source.md) |
 | How a practice source's harness adapters (its `bootstrap/*.sh`) reach a consuming repo's `.claude/hooks/` without anyone hand-copying them, and why the settings wiring deliberately does not travel | [spec/SOURCES.md](spec/SOURCES.md)'s "Harness adapters travel with the source", mechanism at [tools/precedent_materialize.py](tools/precedent_materialize.py) |
 | Which practice libraries are in force in this repo | [precedent.json](precedent.json) |
-| An example personal practice set | [examples/practice-set/](examples/practice-set/) |
+| An example personal practice set | [documentation/examples/practice-set/](documentation/examples/practice-set/) |
 | The private-term blocklist template (copy into your own private set) | [templates/leak-blocklist.txt.template](templates/leak-blocklist.txt.template) |
 | The leak gate (push-time; both layers live) | [tools/leak_gate.py](tools/leak_gate.py) — `--explain` for what it does and does not check |
 | The editorial section split, as reviewable data | [tools/section_split.json](tools/section_split.json), applied by [tools/resplit_sections.py](tools/resplit_sections.py) |

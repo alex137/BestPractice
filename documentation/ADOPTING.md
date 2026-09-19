@@ -82,7 +82,7 @@ You make one, you name it in your own settings (not in any shared project),
 and it follows you into every project you work in. You write a personal
 practice once; you never copy it, re-approve it, or remember it in three
 places. There is a worked example to copy in
-[examples/practice-set/](../examples/practice-set).
+[examples/practice-set/](examples/practice-set).
 
 **You don't need this to already exist before you start.** If you don't
 have one yet, just say so — your assistant sets it up in the same
@@ -232,4 +232,4 @@ you have already decided. It has no opinion about whether you decided well.
 | What a practice file looks like | [spec/PRACTICE_FORMAT.md](../spec/PRACTICE_FORMAT.md) |
 | How the right practices get picked out, and what was measured | [spec/LOADER.md](../spec/LOADER.md) |
 | How the four sources combine — team, this project's own, yours, the general library — and which wins | [spec/SOURCES.md](../spec/SOURCES.md) |
-| An example of a personal set | [examples/practice-set/](../examples/practice-set) |
+| An example of a personal set | [examples/practice-set/](examples/practice-set) |
