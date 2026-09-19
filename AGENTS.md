@@ -223,7 +223,7 @@ plan's premise.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block; `python3 tools/build_views.py --check` exits non-zero on drift. Source: practices/ -- edit the practice file, never this block. -->
 
-## Resident block (~1180 of 2000 token budget, 11 of 129 practices (11 universal))
+## Resident block (~1180 of 2000 token budget, 11 of 130 practices (11 universal))
 
 **answer-first-ask-before-long-work.** Three parts. **(1) Answer the easy questions in a message before starting
 anything long.** A conceptual question is answered from what is already
@@ -380,6 +380,8 @@ When deciding whether to build or buy a component:
   build-buy-decompose — decompose first; one verdict per part, on ownership grounds
 When decommissioning a mechanism — a workflow, a tool, a vendored tree, a config — that leaves files behind with no remaining job:
   decommission-deletes-files — delete what the decommissioned mechanism owned; audit first, never on a hunch
+When drafting or reviewing prose meant to persuade or be judged:
+  push-back — argue a real counter-case before building on a stated stance
 When handing the person work to do, or starting work that may touch a repository this session cannot reach:
   session-text — cross-repo check; never create, never wake -- always hand over paste text
 When migrating a repo off an old practice system onto Precedent:
