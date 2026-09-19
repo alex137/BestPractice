@@ -23,8 +23,8 @@ set -euo pipefail
 # reason to gate the pip install (do not touch a developer's own environment)
 # does not apply to reading and repairing git state.
 if [ "${CLAUDE_CODE_REMOTE:-}" = "true" ]; then
-  pip install --quiet cmarkgfm markdown 2>/dev/null || \
-    echo "WARN: pip install failed - doc_lint strikethrough check, .md deck slides, and tools/doc_html.py all degrade" >&2
+  pip_err="$(pip install --quiet cmarkgfm markdown 2>&1 1>/dev/null)" || \
+    echo "WARN: pip install failed - doc_lint strikethrough check, .md deck slides, and tools/doc_html.py all degrade - pip stderr: ${pip_err}" >&2
 fi
 
 # Repair a single-branch clone's refspec before anything tries to fetch.
