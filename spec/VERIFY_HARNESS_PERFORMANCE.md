@@ -3,11 +3,11 @@ title:         verify_harness.py Performance — What Was Actually Found
 kind:          record
 status:        closed
 opened:        2026-09-16
-closed:        2026-09-16
+closed:        2026-09-19
 superseded_by: null
 supersedes:    []
 audience:      session
-summary:       "Why the deep-check suite ran ~250s, what actually made it slow, an audited parallelization that measured out to no real gain and was reverted, and a change-scoping fix that measurably worked."
+summary:       "Why the deep-check suite ran ~250s, what actually made it slow, an audited thread-based parallelization that measured out to no real gain and was reverted, a change-scoping fix that measurably worked, and a 2026-09-19 follow-up: CI's own job-split confirmed working, a reverted fixture-reuse attempt, and a process-based (not thread-based) parallelization of check_precedent_check_fires that landed."
 ---
 # verify_harness.py Performance — What Was Actually Found
 
@@ -175,12 +175,184 @@ commits on `claude/elegant-pascal-8cb3n2`, merged via
 implemented, measured, and reverted entirely within the session — it never
 left the working tree.
 
+## 2026-09-19 follow-up: CI's own job-split, a reverted fixture-reuse attempt, and a process-based parallelization that landed
+
+A later session picked this back up from a different angle: not "why is
+this slow" again, but "does the fix already exist somewhere, and can the
+2026-09-16 threading conclusion be improved on."
+
+### CI's parallel job-split (PR #461) is confirmed working
+
+Separately from this record, [PR #461](https://github.com/alex137/BestPractice/pull/461)
+(2026-09-18) split `deep-check.yml` into three parallel GitHub Actions jobs:
+`check_precedent_check_fires` alone, the rest of
+[tools/verify_harness.py](../tools/verify_harness.py), and
+[tools/precedent_check.py](../tools/precedent_check.py) +
+[tools/doc_sync.py](../tools/doc_sync.py). That PR's own commit message said
+timing on GitHub's runner was "not yet measured." It now is: the most recent
+run at the time of writing (run `35439918795`) shows the three jobs
+completing in 86s, 61s, and 5s **concurrently**, for a total workflow
+wall-clock of ~99s — against the ~150s+ a sequential run of the same work
+takes. This works cleanly because it uses separate GitHub-hosted VMs, each
+with their own disk — the same class of contention this record's threading
+attempt (above) and the fixture-reuse attempt (below) both ran into does
+not apply between separate machines.
+
+This does not speed up a session's own local
+`python3 tools/verify_harness.py` run before a push (per
+[two-check-levels](../practices/two-check-levels.md)) —
+that still runs everything on one machine, sequentially. The two are
+separate wins: CI gets its parallelism for free from the job-split; a local
+run needed its own fix, below.
+
+### Reverted: reusing one fixture directory instead of copying fresh per case
+
+A different lever than threading: `check_precedent_check_fires` builds
+~63 `case()` invocations, each copying the whole repository tree twice via
+`shutil.copytree`. Copying is measurably the expense, not the subprocess —
+a fresh copytree of this tree costs ~450ms; resetting an already-checked-out
+copy with `git reset --hard && git clean -fdx` costs ~15-125ms when nothing
+but files changed. Reusing one tree across all 63 slugs and resetting it
+between them, instead of recopying, was implemented and tested.
+
+**Two real correctness bugs surfaced by actually running it, not by
+review:**
+
+1. `git reset --hard`/`clean -fdx` only restores the working tree and
+   index — it does not undo git-level state (new commits, `git remote add`,
+   branches, rewritten history), which several `setup()` closures create.
+   The second case to call `_setup_origin` failed outright: "remote origin
+   already exists," left behind by the first. Fixed by snapshotting
+   `for-each-ref`/`.git/config`/`.git/HEAD` right after the tree's one-time
+   initial copy and comparing byte-for-byte before every reset; a mismatch
+   triggers a full `.git` rebuild from the pristine copy instead of the
+   cheap working-tree-only reset.
+2. `_publish()` creates a bare repo at a path derived from the fixture
+   directory's own name, to push to. Unique names (one fixture per slug)
+   made this safe by accident; one shared name made the second publish
+   collide with the first's leftover history — a non-fast-forward push
+   rejection. Fixed with a general sweep, on every reset, of anything under
+   the scratch directory that is not a fixture registered through `fresh()`
+   (which records its own name as it runs) and is not the reused directory
+   itself — rather than hand-naming this one pattern, since the same
+   blind spot that missed it once could just as easily miss the next one.
+
+Both fixes verified correct: the isolated check reported the same
+**200 of 200 stated cases pass**, twice, after both fixes landed. But the
+speed result was modest and noisy — 85.3s baseline vs. 68-77s after, roughly
+10-20%, far short of what the per-cycle microbenchmark (450ms → 15-125ms)
+implied, because a real fraction of the 63 cases do actual git surgery and
+fall onto the expensive rebuild path rather than the cheap one. Given a
+small, noisy win bought with three interacting safety mechanisms (pristine
+detection, a full-`.git`-rebuild fallback, and a stray-artifact sweep) in
+the one check whose entire job is catching silent false coverage, this was
+reverted rather than kept. The revert was clean: `git diff` against `HEAD`
+came back empty.
+
+### What actually worked: real OS processes, not threads
+
+This record's 2026-09-16 threading attempt (above) found "no real
+difference... proved that was noise" from a rigorous controlled comparison.
+Testing the same underlying question again on 2026-09-19 — with a plain
+synthetic benchmark, before touching any code — found something sharper and,
+this time, actively negative: 4 sequential `shutil.copytree` calls of this
+tree took 0.53s total (0.13s each); the same 4 run concurrently via
+`ThreadPoolExecutor` took 1.36s total, each individual copy slowing to
+1.34s under contention. Threads made this container's filesystem work
+*slower*, not merely no-faster. **Real OS processes are a different story
+entirely, benchmarked directly**: 8 independent (copytree + subprocess)
+pipelines run one after another took 2.36s; the same 8 launched as separate
+`multiprocessing.Process` workers took 0.73s, with identical results — a
+genuine ~3.2x. Neither `ProcessPoolExecutor` nor `multiprocessing.Pool` fit
+here: their worker processes receive tasks by pickling them through a
+queue, and `plant`/`setup` are local closures, which pickling can't cross.
+Plain `multiprocessing.Process` sidesteps this — it forks directly from the
+point in the code where the closure already exists in memory, so only the
+(trivially picklable) `(rc, out)` result has to cross the process boundary,
+never the closure itself.
+
+**This resolves, without fully explaining, the open question this record
+closed with in 2026-09-16** ("why threading didn't help in situ despite
+working in an isolated benchmark"): the two sessions' synthetic
+copytree-only benchmarks disagree (no measurable difference vs. actively
+worse), which itself says this container's behavior for concurrent file
+copies is not a fixed, stable property — it varies enough between
+measurement sessions that a conclusion drawn from one running instance does
+not reliably predict another. What holds across both sessions is the
+conclusion that matters operationally: **whatever mechanism python threads
+use for this specific workload in this container, it does not reliably
+help, and real processes are the safer bet going forward.**
+
+**Implemented: parallelizing only within each `case()` call.** Scoped
+identically to the 2026-09-16 threading attempt — a case's own two
+sub-runs (the planted fixture and the clean fixture) are independent of
+each other and of everything else, and `case()` still blocks and returns
+only once both are real `(rc, out)` tuples, so nothing about call sites,
+ordering, or the ~8 slugs whose results are read again later by unrelated
+code needed to change. The only added complexity beyond the executor swap
+itself: a plant()/setup() that raises inside a child process would
+otherwise kill that process silently and hang the parent waiting on a
+result that never arrives, instead of failing the whole check loudly the
+way an exception in the original sequential code does — so each worker
+catches and forwards the exception through the queue, and the parent
+re-raises it.
+
+Verified correct: **200 of 200 stated cases pass**, checked across three
+separate runs. Timing, honestly reported rather than cherry-picked: two
+isolated runs came back at 59.6s and 78.7s (both below this record's own
+documented 83-120s noise floor for this exact check); one run under the
+full 171-check suite came back at 102.56s (above the 85.26s single-sample
+baseline this session started from, though within the documented noise
+band). Three samples against noise this wide is not the rigorous 3×3
+alternating comparison this record's 2026-09-16 section used to establish
+that floor — but two of three landing below it, on a change with the same
+safety profile as the code it replaces (each process still does its own
+fully independent copy; no shared state, no reuse, no new leak surface),
+reads as a real if noisy improvement rather than as noise dressed up as one.
+
+## Where this landed (2026-09-19)
+
+The process-based `case()` parallelization shipped on
+`claude/verify-harness-rotation-70zvhm`, merged into `precedent-beta-v01`
+(PR link added once opened). The fixture-reuse attempt was implemented,
+measured, and reverted entirely within the session — like the 2026-09-16
+threading attempt, it never left the working tree as a commit.
+
 ## Open follow-ups
 
-- **Why threading didn't help `check_precedent_check_fires` in situ**,
-  despite working in an isolated benchmark — the many-small-git-subprocess-calls
-  hypothesis above, unconfirmed.
-- The three change-scoped checks' transitive-closure gap (above) is an
-  accepted, documented tradeoff, not a task — revisit only if a real
-  regression in one of `very_deep_check.py`'s helper modules is ever missed
-  by it.
+- **The cross-session copytree-under-threads discrepancy** (no measurable
+  difference in 2026-09-16's rigorous study vs. actively worse in
+  2026-09-19's synthetic benchmark) is itself unexplained — is this
+  container's underlying disk/filesystem behavior genuinely variable
+  between sessions, or was one of the two benchmarks measuring something
+  subtly different? Whoever hits this territory again should treat threads
+  as unproven-to-actively-risky by default rather than re-litigate it from
+  a single new sample.
+- **A rigorous 3×3-style alternating comparison for the process-based
+  change**, matching the standard this record's 2026-09-16 section set,
+  would firm up the 59.6s/78.7s/102.56s picture above into something as
+  solid as the noise floor it's being compared against.
+- **Cross-case parallelization (running many of the 63 cases concurrently,
+  not just the two halves of one case)** was analyzed but not attempted:
+  the function isn't structured as a flat list of independent work (`case()`
+  calls interleave with ~30 bespoke fixture blocks across ~2000 lines), ~8
+  slugs have their result read again later by unrelated code, and the
+  closure-pickling issue above rules out the standard pool tools. Three
+  sketched approaches, none built: **(a)** a bounded lookahead pipeline
+  paired with a lazy-resolving `planted` dict that blocks-and-resolves
+  wherever a value is first read, so no case has to be hand-classified as
+  "safe to defer" — the general fix, most build effort; **(b)** refactor
+  the ~75 `plant`/`setup` closures to module-level functions (passing
+  `tmp`/`pristine`/`git` explicitly instead of capturing them) so the
+  standard `ProcessPoolExecutor` applies directly — less novel machinery,
+  but a large mechanical rewrite across every case with real transcription
+  risk; **(c)** a scoped-down version of (a) that only special-cases the
+  known ~8 downstream-read slugs — least effort, but reintroduces exactly
+  the "silently wrong if a future case is added and nobody updates the
+  list" risk the general version avoids. Potential upside, from the 8-process
+  synthetic benchmark above: something closer to 3-4x than the ~30%(ish, noisy)
+  this session's narrower change achieved.
+- The three change-scoped checks' transitive-closure gap (above, from
+  2026-09-16) is an accepted, documented tradeoff, not a task — revisit
+  only if a real regression in one of `very_deep_check.py`'s helper modules
+  is ever missed by it.
