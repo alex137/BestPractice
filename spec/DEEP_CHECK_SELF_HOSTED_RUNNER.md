@@ -52,13 +52,19 @@ time drops.
 [tools/verify_harness.py](../tools/verify_harness.py) run measured **250.7s**, then **192.9s** after the
 2026-09-16 change-scoping fix — both figures from a session's own container,
 not GitHub's runner. This conversation's starting point (another session's
-report: ~7-9 minutes locally, ~22 minutes on GitHub's shared runner) is
-newer and higher, consistent with more checks landing since 2026-09-16 in
-an actively-developed repo — not a contradiction, a trend. Idea #1
-(matrix-splitting the current heavy checks across parallel GitHub-hosted
-jobs, in progress this same session) targets the same gap without touching
-where the work runs at all; measuring what that buys first, before deciding
-self-hosting is still needed on top of it, is the right order — see
+report: ~7-9 minutes locally, ~22 minutes on GitHub's shared runner) turned
+out to include a real bug, not just more checks landing: an unbounded
+recursion in [`precedent_resolve.py`](../tools/precedent_resolve.py)'s self-heal path was intermittently
+spawning thousands of processes and either crashing the run outright or
+burning most of its wall-clock, depending on timing (fixed 2026-09-18, see
+[the gotcha's Resolution section](../gotchas/gotcha-2026-09-18-verify-harnesss-stress-checks-can-oom-kill-the-bash-tools.md)).
+**With that fixed, a full local run measures 149.9s**, with one check
+(`check_precedent_check_fires`, 71.6s) accounting for the only cost left
+worth splitting out — already done, in `deep-check.yml`'s new parallel-job
+structure. Whether GitHub's own runner still shows anything like the
+original ~22 minutes after both fixes land is not yet measured; if it
+doesn't, most of the case for self-hosting this workflow evaporates along
+with the number that motivated it. See
 "What I'd actually recommend" below.
 
 ## Security: a harder case than item 6's, not the same one
