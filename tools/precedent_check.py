@@ -2666,9 +2666,16 @@ def _hooks_on_disk_are_reachable(ctx):
             'could run it names it — '
             'no settings*.json entry, no other hook, no engine tool. An '
             'orphaned hook is off, and from inside a session that is '
-            'indistinguishable from one that works. If that is deliberate, '
-            "declare it in precedent.json's declined_adapters with the "
-            'reason'))
+            'indistinguishable from one that works. Usually this means the '
+            'hook still needs wiring, not declining: the sync that dropped '
+            'it deliberately will not touch settings*.json '
+            '(spec/BOOTSTRAP_NEW_SOURCES.md, "WHAT DOES NOT TRAVEL"), so add '
+            'the SessionStart entry yourself. On a harness that refuses a '
+            'session hand-editing settings*.json ("Self-Modification"), '
+            "hand the person the exact entry to paste rather than leaving "
+            'the hook silently off or declining it just to silence this '
+            'check — declined_adapters is for a hook the repo genuinely '
+            "does not want, with the reason recorded there"))
 
     # A decline naming nothing on disk. The adapter went and the note
     # outlived it, which quietly exempts a path that may come back later.

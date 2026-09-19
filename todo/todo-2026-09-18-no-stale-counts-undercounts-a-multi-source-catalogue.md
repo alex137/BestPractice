@@ -76,3 +76,13 @@ either its current state or its tracked history. [AGENTS.md](../AGENTS.md)'s
 `11 of 129 practices` is the live instance of the shape, and it is correct,
 not stale -- the false positive is in the checking script, not the document
 it flags. No edit made to AGENTS.md or TODO.md.
+
+2026-09-19: reproduced independently, in a different consuming repo
+(reported via a sibling session's write-up), with the same
+off-by-the-engine-dev-scoped-set-size shape -- 175 actual vs. 159 computed
+there, an off-by-16 matching the off-by-16 already described above. Confirms this is a structural bug in `no-stale-counts` itself
+(double-stripping engine-dev-scoped practices whenever a multi-source
+tracked list ends up with length > 1 for a reason unrelated to deferring),
+not specific to this repo's shape. Still not this repo's file to fix --
+`check_no_stale_counts.py` lives in `precedent-team-writing`, unreachable
+from a session rooted here. No action taken beyond this note.
