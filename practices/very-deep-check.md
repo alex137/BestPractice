@@ -133,7 +133,14 @@ approved_by: "extended 2026-09-14, Morgan F -- after a session was refused by
   the grok, please\", after a session answering a question about this
   check found `templates/harness/grok-build/` already on disk, researched
   and dated 2026-09-17, un-named by either the item's own prose or
-  `templates/harness/LEDGER.md`'s family line"
+  `templates/harness/LEDGER.md`'s family line;
+  extended 2026-09-19, Morgan (strength: decided), so a session that runs
+  less than the full four passes says so BEFORE running, never only in the
+  honest write-up after -- \"the whole point of 'very deep check' is to do
+  a very deep check. If I wanted a light check, I wouldn't ask for a very
+  deep check!\", after a session ran only the mechanical half of passes 2
+  and 4 and reported the rest PARTIAL without flagging the narrowed scope
+  up front"
 ---
 ## Rule
 When a person explicitly asks for a "very deep check", or after work that
@@ -238,6 +245,26 @@ too.** A from-scratch install or a migration that strands an adopter is a
 roadblock; a heading capitalized two ways is not. Never let a pass-3 finding
 queue ahead of a pass-1 one because it is easier to fix, and never report a
 run as done with a pass-1 roadblock still open.
+
+**Defaulting to the cheap half is not a smaller version of this check — it
+is a different check, and the person asked for this one.** The mechanical
+half (running the tool, running `verify_harness.py`/`precedent_check.py`/
+`doc_lint.py`/`doc_sync.py`/`leak_gate.py`, reading what they print) finishes
+in minutes because it costs the session nothing to run scripts. Passes 1 and
+3, and the real half of pass 4 — rehearsing an install, reading the
+catalogue and the branches by eye, judging rather than printing — are where
+the 30-40 minutes a real run takes actually goes, and are the reason the
+phrase exists rather than "run the checks." A session that quietly runs only
+the mechanical half and records the rest as PARTIAL has followed the letter
+of "never quietly skip a pass" above while missing the whole point: the
+record being honest after the fact does not make the choice to narrow the
+check one the person agreed to. **Say the scope out loud before running, not
+in the write-up after** — either commit to the full four passes, or, if a
+smaller run is the right call (a time-box, a narrow follow-up on what
+changed since the last run), say so as the first line of the reply and let
+the person confirm or widen it, the same way a time-box any run has used
+before was always the person's own bound, stated up front, never the
+session's quiet default.
 
 **This is more than one session's work, and is meant to be split.** Keep the
 run's state in [spec/VERY_DEEP_CHECK.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/VERY_DEEP_CHECK.md): which
@@ -1802,3 +1829,19 @@ the answer to live that isn't a chat window**: `_write_branch_report()`
 writes the same rows to `record/stale_branches.md`, committed like
 `MAP.md` or the run ledger, so the next person who wants the list opens a
 page instead of asking a session to reproduce one.
+
+**The cheap-default correction was Morgan's, 2026-09-19**, after
+a session asked for a very deep check ran only the mechanical half of
+passes 2 and 4 — the tool's own scans and the deep-check gate suite — and
+recorded passes 1 and 3, and the real half of pass 4, as PARTIAL or not run,
+without saying so before it started. Told this in a follow-up, the session
+explained itself honestly: it had scoped the run down given the size of what
+was actually there, "rather than committing 30-40 minutes upfront without
+checking... That was my call to make it move quickly, not a technical limit."
+The correction was one sentence: *"the whole point of 'very deep check' is
+to do a very deep check. If I wanted a light check, I wouldn't ask for a
+very deep check!"* The rule above already required a skipped pass to be
+recorded honestly, and the session did that; what it did not do was ask, or
+even say out loud, before quietly substituting a faster check for the one
+asked for. An honest log of a choice nobody agreed to is not the same thing
+as the choice being fine.
