@@ -163,11 +163,15 @@ ACRONYM_STOP = {
     'PR','PRS','CI','CD','VCS','UTC','YAML','TOML','DOM','JS','TS','LLM','LLMS',
     'HTML5','REST','SQL','SSH','TLS','SSL','ENV','REPO','REGEX','DIFF','SHA','UUID',
     'TL','DR','NA','IO','CWD','STDIN','STDOUT','STDERR',
-    # 'MS' the way 'US'/'UK' already are: a product name (Microsoft, "MS
-    # Word") that a document names when it says which desktop app it
-    # verified something on, not an abbreviation anyone is asking to have
-    # expanded on first use.
-    'MS',
+    # Deliberately NOT here: 'MS'. Reconsidered after a second look --
+    # unlike US/UK/EU (no other common reading in English prose) it carries
+    # real competing meanings (Multiple Sclerosis, Mississippi, Master of
+    # Science) that this stoplist would silently stop flagging everywhere
+    # this engine is vendored, not just in a software-tooling context. The
+    # document that tripped this (create-word-doc.md's "verified on MS
+    # Word") already glosses a real acronym inline elsewhere in the same
+    # file ("Office Open XML (OOXML)") -- the fix for that one line is
+    # glossing it the same way at the source, not a blanket stoplist entry.
 }
 
 def load_known_acronyms():

@@ -2786,20 +2786,29 @@ def check_doc_lint_fires():
         # 2026-09-19: precedent-team-writing's create-word-doc.md tripped the
         # acronym scan the moment a consumer repo first vendored it -- "found
         # via Part II, verified on MS Word desktop macOS 16.78.3" read "II"
-        # and "MS" as brand-new unglossed acronyms, on a file the consumer
-        # neither wrote nor can edit (same shape as the blockquote case
-        # above: acronyms-glossary gates on what a change ADDS, so a
-        # brand-new vendored file has every token in it read as new).
+        # as a brand-new unglossed acronym, on a file the consumer neither
+        # wrote nor can edit (same shape as the blockquote case above:
+        # acronyms-glossary gates on what a change ADDS, so a brand-new
+        # vendored file has every token in it read as new). "II" is a roman
+        # numeral, not an acronym -- nothing to gloss. "MS" in the same line
+        # is a different case, deliberately NOT engine-exempted: it is a
+        # real, ambiguous acronym (Microsoft here, but also Multiple
+        # Sclerosis, Mississippi...) that this document already has a
+        # convention for glossing inline ("Office Open XML (OOXML)"
+        # elsewhere in the same file) -- so the scan is still expected to
+        # catch it, and the fix for that line is at the source, not here.
         (tmp / 'numeral.md').write_text(
             "Found via Part II, verified on MS Word desktop.\n", encoding='utf-8')
         _s, _u, numeral_flagged, *_ = dl.check_file(
             'numeral.md', fix=False, known=set(dl.ACRONYM_STOP))
-        cases.append(('a roman numeral ("Part II") and a stop-listed product '
-                      'name ("MS") are not reported as unglossed acronyms',
-                      not numeral_flagged))
+        flagged = {tok for _i, tok in numeral_flagged}
+        cases.append(('a roman numeral ("Part II") is not reported as an '
+                      'unglossed acronym, while a real, unglossed acronym '
+                      '("MS") right beside it still is',
+                      'II' not in flagged and 'MS' in flagged))
         cases.append(('the roman-numeral check is a grammar, not a stoplist '
-                      '-- ZQX (a real, never-glossed acronym) is still '
-                      'caught right beside it',
+                      '-- ZQX (a real, never-glossed acronym) does not '
+                      'read as one',
                       not dl.looks_like_roman_numeral('ZQX')
                       and dl.looks_like_roman_numeral('II')))
 
