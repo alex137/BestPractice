@@ -970,10 +970,13 @@ def _hook_drift(dest_root, manifest):
 # KIND-SPECIFIC, unlike the hooks above (which vendor the SAME scripts into
 # both kinds, narrowed only by what a repo's own settings.json wires). A
 # consumer installs bestpractice-docs.yml from doc-lint.yml.template; a
-# source set installs views-drift.yml and precedent-check.yml from their own
-# templates -- CI_WORKFLOW_TEMPLATES is the one place that pairing is
-# declared, so precedent_bootstrap_source.py's own WORKFLOW_TEMPLATES reuses
-# it rather than repeating it (practice: registry-source-of-truth).
+# source set installs precedent-check.yml (which since 2026-09-19 also
+# carries the views-drift check as one of its jobs -- see
+# templates/github-actions/precedent-check.yml.template's own header,
+# spec/CI_MINUTES_PLAN.md item 9) from its own template --
+# CI_WORKFLOW_TEMPLATES is the one place that pairing is declared, so
+# precedent_bootstrap_source.py's own WORKFLOW_TEMPLATES reuses it rather
+# than repeating it (practice: registry-source-of-truth).
 #
 # Both are gated on `ci_workflows` at the point they are WRITTEN
 # (precedent_install.py's / precedent_bootstrap_source.py's own
@@ -998,7 +1001,6 @@ CI_WORKFLOW_TEMPLATES = {
         ('doc-lint.yml.template', '.github/workflows/bestpractice-docs.yml'),
     ),
     'source': (
-        ('views-drift.yml.template', '.github/workflows/views-drift.yml'),
         ('precedent-check.yml.template', '.github/workflows/precedent-check.yml'),
     ),
 }

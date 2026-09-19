@@ -13854,7 +13854,7 @@ def check_views_drift_gate_reaches_a_source_set():
          alone, and require every `*.py` named in their generated headers to
          exist in that set's own tools/.
       2. `build_views.py --check` -- what the headers now name, and what
-         templates/github-actions/views-drift.yml.template runs -- actually
+         precedent-check.yml.template's own views-drift job runs -- actually
          gates there: exit 0 clean, non-zero on one planted line.
 
     Plus the shipping half: the template exists, gates without writing, and
@@ -13929,11 +13929,14 @@ def check_views_drift_gate_reaches_a_source_set():
                       'command the headers and the shipped workflow both name '
                       'actually gates', rc != 0 and 'MAP.md' in out, out))
 
-        # The shipping half.
-        tmpl = ROOT / 'templates' / 'github-actions' / 'views-drift.yml.template'
+        # The shipping half. Since 2026-09-19 the views-drift gate is a JOB
+        # inside precedent-check.yml.template, not its own file -- see that
+        # template's own header and spec/CI_MINUTES_PLAN.md item 9.
+        tmpl = ROOT / 'templates' / 'github-actions' / 'precedent-check.yml.template'
         text = tmpl.read_text(encoding='utf-8') if tmpl.is_file() else ''
-        cases.append(('templates/github-actions/views-drift.yml.template ships '
-                      'the gate to adopters', bool(text), ''))
+        cases.append(('templates/github-actions/precedent-check.yml.template '
+                      'ships the views-drift gate to adopters, as a job',
+                      bool(text) and 'views-drift:' in text, ''))
         cases.append(('it runs build_views.py --check, and only reads the repo',
                       '--check' in text and 'build_views.py' in text
                       and 'contents: read' in text,
@@ -13949,7 +13952,7 @@ def check_views_drift_gate_reaches_a_source_set():
                       and 'NOT VERIFIABLE' in text, ''))
         cases.append(('README.md in templates/github-actions/ names it, so an '
                       'adopter can find it',
-                      'views-drift.yml.template' in
+                      'views-drift' in
                       (ROOT / 'templates' / 'github-actions' / 'README.md')
                       .read_text(encoding='utf-8'), ''))
 
@@ -13970,15 +13973,16 @@ def check_views_drift_gate_reaches_a_source_set():
                       'new set that opted in, so an adopter who wants it does '
                       'not have to know it exists',
                       all(f.is_file() for f in installed)
-                      and (newset / '.github' / 'workflows' / 'views-drift.yml').is_file(),
+                      and (newset / '.github' / 'workflows' / 'precedent-check.yml').is_file(),
                       str(installed)))
         # Every set created before 2026-09-11 has none, and this tool cannot
         # reach them -- so verify() has to say so, for a set that opted in.
-        (newset / '.github' / 'workflows' / 'views-drift.yml').unlink()
+        (newset / '.github' / 'workflows' / 'precedent-check.yml').unlink()
         missing = pbs.verify('individual', newset)
         cases.append(('verify() names an opted-in set that has no '
-                      'views-drift workflow',
-                      any('views-drift.yml' in m for m in missing),
+                      'precedent-check workflow (which carries the '
+                      'views-drift gate as one of its jobs)',
+                      any('precedent-check.yml' in m for m in missing),
                       '; '.join(missing)))
 
         # THE NEW DEFAULT (2026-09-16, declared-default-is-applied): a set
@@ -14015,20 +14019,20 @@ def check_views_drift_gate_reaches_a_source_set():
                            capture_output=True, text=True)
         cases.append(('`--verify PATH` exists, exits non-zero on the '
                       'incomplete set, and names what is missing',
-                      r.returncode == 1 and 'views-drift.yml' in r.stdout,
+                      r.returncode == 1 and 'precedent-check.yml' in r.stdout,
                       (r.stdout + r.stderr).strip()))
         # The control: restoring the workflow has to change the report, or
         # the case above is satisfied by a flag that fails on everything.
         # This fixture is a bare .github/ directory rather than a finished
         # set, so it stays incomplete either way -- what is asserted is that
-        # the views-drift line, and only it, goes away.
+        # the precedent-check line, and only it, goes away.
         before = set(pbs.verify('individual', newset))
         pbs._install_workflows(newset)
         after = set(pbs.verify('individual', newset))
         gone = before - after
         cases.append(('restoring the workflow removes that line from '
                       '`--verify` and nothing else',
-                      len(gone) == 1 and 'views-drift.yml' in gone.pop()
+                      len(gone) == 1 and 'precedent-check.yml' in gone.pop()
                       and not (after - before),
                       f"before={len(before)} after={len(after)}"))
     finally:
