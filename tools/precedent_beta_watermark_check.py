@@ -121,12 +121,16 @@ def _write_watermark(path, data):
                      encoding='utf-8')
 
 
-def _commit_and_push(individual_path, path, message, no_push):
+def _commit_and_push(individual_path, path, message, no_push, branch):
     """Commit the watermark in the individual source, and push unless asked
     not to. Never raises: a failed push still leaves the watermark advanced
     LOCALLY, which is enough to stop this same session from repeating the
     alert -- cross-session dedup needs the push to actually land, and a
-    failure here says so rather than pretending it landed."""
+    failure here says so rather than pretending it landed.
+
+    `branch` is only for the failure message below -- naming the branch this
+    watermark is FOR, not the repository this push actually targets (that's
+    always the individual source, never `branch`'s own repo)."""
     rel = path.relative_to(individual_path)
     git(individual_path, 'add', str(rel))
     code, _ = git(individual_path, 'commit', '-m', message)
@@ -136,8 +140,15 @@ def _commit_and_push(individual_path, path, message, no_push):
         return 'committed locally only (--no-push)'
     code, out = git(individual_path, 'push', 'origin', 'HEAD')
     if code != 0:
-        return (f'committed locally, but the push failed ({out.splitlines()[-1] if out else "see stderr"}) '
-                f'-- this will re-alert next session until it can push')
+        # Names the individual source and calls this "the note" -- the
+        # caller embeds this string right after reporting on `branch`'s own
+        # commits, in the same sentence, and a bare "the push failed" there
+        # reads as if THOSE commits failed to push. They didn't; this is a
+        # separate push, of a bookkeeping file, to a different repository
+        # (individual_path's own remote, not branch's).
+        return (f'this note about it failed to sync to the individual source '
+                f'({out.splitlines()[-1] if out else "see stderr"}) -- not a '
+                f'failure to push {branch} itself; retries next session')
     return 'committed and pushed'
 
 
@@ -214,7 +225,7 @@ def check(root=None, no_fetch=False, no_push=False, user_config=None,
         _write_watermark(watermark_path, registry)
         outcome = _commit_and_push(indiv, watermark_path,
                                     f'Baseline {branch} watermark at {head[:9]}',
-                                    no_push)
+                                    no_push, branch)
         return 'ok', [f'no prior watermark for {branch}; baselined at '
                        f'{head[:9]} ({outcome})'], None
 
@@ -242,7 +253,7 @@ def check(root=None, no_fetch=False, no_push=False, user_config=None,
     _write_watermark(watermark_path, registry)
     outcome = _commit_and_push(indiv, watermark_path,
                                 f'Advance {branch} watermark to {head[:9]}',
-                                no_push)
+                                no_push, branch)
 
     if not others:
         return 'ok', [f'{branch} moved to {head[:9]}, all your own commits '
