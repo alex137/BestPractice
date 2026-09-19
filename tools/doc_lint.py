@@ -163,6 +163,15 @@ ACRONYM_STOP = {
     'PR','PRS','CI','CD','VCS','UTC','YAML','TOML','DOM','JS','TS','LLM','LLMS',
     'HTML5','REST','SQL','SSH','TLS','SSL','ENV','REPO','REGEX','DIFF','SHA','UUID',
     'TL','DR','NA','IO','CWD','STDIN','STDOUT','STDERR',
+    # Deliberately NOT here: 'MS'. Reconsidered after a second look --
+    # unlike US/UK/EU (no other common reading in English prose) it carries
+    # real competing meanings (Multiple Sclerosis, Mississippi, Master of
+    # Science) that this stoplist would silently stop flagging everywhere
+    # this engine is vendored, not just in a software-tooling context. The
+    # document that tripped this (create-word-doc.md's "verified on MS
+    # Word") already glosses a real acronym inline elsewhere in the same
+    # file ("Office Open XML (OOXML)") -- the fix for that one line is
+    # glossing it the same way at the source, not a blanket stoplist entry.
 }
 
 def load_known_acronyms():
@@ -472,6 +481,31 @@ def looks_like_a_word(tok):
     return corpus_word_forms().get(tok, 0.0) >= WORD_FORM_RATIO
 
 
+# A roman numeral ("Part II", book-joseph's own "Part I" / "Part II") is
+# numbering notation, not an acronym -- there is nothing in "II" for a
+# document to gloss, the same way a filename stem (LEDGER.md) or a
+# self-naming title (SETUP.md) isn't one either. Validated structurally,
+# against the canonical grammar, rather than enumerated: a hand-kept list
+# of "numerals someone used" is wrong the first time a later Part goes
+# past whatever the list covers -- the same reasoning looks_like_a_word()
+# is corpus-based rather than a wordlist for.  (practice: acronyms-glossary)
+#
+# TRADEOFF, stated rather than hidden: a token that is BOTH a well-formed
+# roman numeral and a real acronym (MD, VI, XI...) reads as a numeral here
+# and stops being flagged. Checked against ACRONYM_STOP's own entries:
+# none collide (its unit/acronym abbreviations -- CM, CD, DC, CI -- are
+# never used here in numeral position). Revisit if a real short acronym
+# that is also a valid roman numeral turns up unglossed in the wild.
+ROMAN_NUMERAL_RE = re.compile(r'M{0,4}(CM|CD|D?C{0,3})(XC|XL|L?X{0,3})(IX|IV|V?I{0,3})')
+
+
+def looks_like_roman_numeral(tok):
+    """True when `tok` is a well-formed roman numeral (I, II, ... XIV, ...),
+    checked against the numeral grammar itself, not a list of numerals."""
+    m = ROMAN_NUMERAL_RE.fullmatch(tok)
+    return bool(m) and m.group(0) != ''
+
+
 def scan_unglossed(text, known, path=None):
     """[(lineno, TOKEN)] — every ALL-CAPS token in `text` that is not a
     known acronym, not glossed inline as `LONG FORM (TOK)`, not a filename
@@ -525,6 +559,11 @@ def scan_unglossed(text, known, path=None):
                 # An English word this repo shouts for emphasis, not an
                 # initialism. Decided from the corpus, not a wordlist --
                 # see looks_like_a_word().
+                continue
+            if looks_like_roman_numeral(tok):
+                # "Part II" -- numbering notation, not an acronym. See
+                # looks_like_roman_numeral()'s own comment for why this is
+                # a grammar check and not a list of numerals.
                 continue
             if FILENAME_STEM_RE.match(clean, m.end()):
                 # An ALL-CAPS filename stem is a file reference, not an
