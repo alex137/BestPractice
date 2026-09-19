@@ -166,7 +166,7 @@ def _write_precedent_json(dest, base_branch, visibility, output_paths, teams, fo
                              f'installed. Pass --force to overwrite it.')
     sources = [{'level': 'universal', 'name': 'precedent', 'path': UNIVERSAL_PATH}]
     for name, p in teams:
-        sources.append({'level': 'team', 'name': name, 'path': p})
+        sources.append({'level': 'shared', 'name': name, 'path': p})
     # repo-local: holds local/practices/project-voice.md, instantiated below.
     # name and path are both fixed to "local" -- practice: source-naming.
     sources.append({'level': 'repo-local', 'name': 'local', 'path': 'local'})

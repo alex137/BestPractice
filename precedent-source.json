@@ -1,0 +1,16 @@
+{
+  "name": "precedent",
+  "level": "universal",
+  "visibility": "public",
+  "subject": "how to work in a repository with an AI assistant, for any repository, team or person",
+  "code": ["tools", "templates", "deck"],
+  "_comment": [
+    "This file is what makes a directory a practice-set source (practice:",
+    "source-naming). The name is chosen once, here, and every consumer",
+    "declares it verbatim; the repository holding it may be called anything.",
+    "`level` is universal, shared, individual or repo-local; `visibility`",
+    "says whether the set may appear in a public tree; `subject` is one",
+    "sentence on what the set is about; `code` lists the directories a",
+    "consumer vendors alongside the practices."
+  ]
+}

@@ -387,9 +387,9 @@ list.)
    passive one:** if the answer to either half is no, the very next thing
    this session says is *"Want me to set one up for you right now? It only
    takes a minute and needs nothing from you but a yes."* (The name is
-   not theirs to pick — `precedent-individual`, or
-   `precedent-team-<subject>` where the subject is the only word they
-   supply; see the naming rule under the team branch below.) — not a
+   theirs to pick once — a slug naming the subject, written into the
+   set's own `precedent-source.json`; the repository may be called
+   anything; see the naming rule under the shared branch below.) — not a
    once-mentioned option left for the administrator to bring back up
    later. Nobody using Precedent should have to already know
    `spec/BOOTSTRAP_NEW_SOURCES.md` exists to get offered it.
@@ -415,19 +415,19 @@ list.)
      would resolve on some *future* session, purely because `add_repo` for
      it was named as a standing instruction, rather than confirming this
      session — the one doing the wiring — could reach it too.
-   - **If yes to a team source:** add `precedent.json` at the project root
+   - **If yes to a shared source** (a team's, or any set for a kind of work): add `precedent.json` at the project root
      (create it if this is the first source beyond universal) declaring it:
      ```json
      {
        "sources": [
          {"level": "universal", "name": "precedent", "path": "process/upstream"},
-         {"level": "team", "name": "precedent-team-<slug>", "path": "../precedent-team-<slug>"},
-         {"level": "team", "name": "precedent-team-<other>", "path": "../precedent-team-<other>"}
+         {"level": "shared", "name": "<name>", "path": "../<name>"},
+         {"level": "shared", "name": "<other>", "path": "../<other>", "repo": "<its repository, when not called <other>>"}
        ]
      }
      ```
-     **A repo declares as many team sets as its work needs, and this is
-     the ordinary case, not an exception.** Team sets are named for a
+     **A repo declares as many shared sets as its work needs, and this is
+     the ordinary case, not an exception.** Shared sets are named for a
      **subject**, so one team declares several and one set serves several
      teams. Two team sets defining the same slug is refused outright —
      that guard is what keeps one rule to one home, and it is why a set
@@ -459,11 +459,12 @@ list.)
      gates and branch setup it has no way to act on — and the cheap
      remedy is not declaring the set, not a `not_binding` entry per slug.
 
-     **Names are fixed by level, not chosen** — `precedent` for the
-     universal set, `precedent-individual` for a person's own,
-     `precedent-team-<slug>` for a team's, `local` for a repo-local one.
-     Say that out loud before anyone creates or renames a repository here,
-     rather than correcting a name afterwards: renaming a set breaks every
+     **A set's name is chosen once and lives in its own
+     `precedent-source.json`** — a slug, written by the author when the set
+     is created; the repository may be called anything (`precedent` and
+     `local` are the two fixed names, for the universal set and a repo-local
+     one). Say that out loud before anyone creates a set, rather than
+     correcting a name afterwards: renaming a set breaks every
      vendored reference to it, and
      [`tools/precedent_resolve.py`](tools/precedent_resolve.py) refuses a
      source declared under any other shape. See
