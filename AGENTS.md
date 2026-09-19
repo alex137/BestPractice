@@ -329,7 +329,7 @@ When a judgment call is needed to keep work moving:
 When a message carries the merge phrase, or plainly authorizes a merge:
   go-merge — "Go update"/"Approved"/"Go merge": trivial -> push; else sync, branch, PR, merge
 When a message says "Archive", with or without a question mark, or otherwise asks whether the session can be archived:
-  archive-status-check — "Archive"/"Archive?" -- check what's pending first; archive if clear, else say what isn't
+  archive-status-check — "Archive"/"Archive?" -- check pending; archive if clear, else say what isn't
 When a message says "Update Vendors", or an upstream update is being taken into a repo that vendors a practice layer:
   vendor-update-runbook — "Update Vendors" -- source clone first, both layers move separately, then merge
 When a model, study or comparison table rests on an operating constant nobody decided — a margin, a cap, a rate, a floor:
