@@ -3,7 +3,7 @@ slug:              todo-2026-09-19-migration-dropped-54-items
 kind:              analysis
 domain:            mechanism
 severity:          notable
-status:            open
+status:            done
 disposition:       wait
 remind_on:         null
 blocked_on:        null
@@ -12,7 +12,7 @@ decision:          null
 decision_strength: null
 waiting_on:        null
 noted:             2026-09-19
-closed:            null
+closed:            2026-09-19
 ---
 ## What
 
@@ -67,84 +67,76 @@ closed:            null
   above.
 
   **The 54, each with the shape it used:**
-  - `agents-md-over-its-ceiling` (numbered)
+  - ~~`agents-md-over-its-ceiling`~~ (numbered) — closed, restored as [`todo-2026-09-14-agents-md-over-its-ceiling.md`](todo-2026-09-14-agents-md-over-its-ceiling.md)
   - ~~`prefork-catalogue-audit-table`~~ (numbered) — closed, restored as [`todo-2026-09-06-prefork-catalogue-audit-table.md`](todo-2026-09-06-prefork-catalogue-audit-table.md)
-  - `routing-audit-silent-drop` (numbered)
+  - ~~`routing-audit-silent-drop`~~ (numbered) — closed, restored as [`todo-2026-09-06-routing-audit-silent-drop.md`](todo-2026-09-06-routing-audit-silent-drop.md)
   - ~~`team-repo-and-document-template`~~ (numbered) — closed, restored as [`todo-2026-09-06-team-repo-and-document-template.md`](todo-2026-09-06-team-repo-and-document-template.md)
-  - `wire-the-very-deep-check-list` (numbered)
-  - `ledger-root-commit-exemption` (numbered)
-  - `ledger-ci-step-invisible` (numbered)
-  - `gate-and-paths-unreachable-source` (numbered)
-  - `materialized-links-dead` (numbered)
-  - `sweep-judgment-only-practices` (numbered)
+  - ~~`wire-the-very-deep-check-list`~~ (numbered) — closed, restored as [`todo-2026-09-06-wire-the-very-deep-check-list.md`](todo-2026-09-06-wire-the-very-deep-check-list.md)
+  - ~~`ledger-root-commit-exemption`~~ (numbered) — closed, restored as [`todo-2026-09-06-ledger-root-commit-exemption.md`](todo-2026-09-06-ledger-root-commit-exemption.md)
+  - ~~`ledger-ci-step-invisible`~~ (numbered) — closed, restored as [`todo-2026-09-06-ledger-ci-step-invisible.md`](todo-2026-09-06-ledger-ci-step-invisible.md)
+  - ~~`gate-and-paths-unreachable-source`~~ (numbered) — closed, restored as [`todo-2026-09-06-gate-and-paths-unreachable-source.md`](todo-2026-09-06-gate-and-paths-unreachable-source.md)
+  - ~~`materialized-links-dead`~~ (numbered) — closed, restored as [`todo-2026-09-06-materialized-links-dead.md`](todo-2026-09-06-materialized-links-dead.md)
+  - ~~`sweep-judgment-only-practices`~~ (numbered) — closed, restored as [`todo-2026-09-06-sweep-judgment-only-practices.md`](todo-2026-09-06-sweep-judgment-only-practices.md)
   - ~~`consumer-source-names`~~ (numbered) — closed, restored as [`todo-2026-09-06-consumer-source-names.md`](todo-2026-09-06-consumer-source-names.md)
-  - `headline-duplicate-retired` (numbered)
-  - `done-2026-09-06-the-individual-source-bootstrap-hook-is-inst` (numbered, no anchor)
+  - ~~`headline-duplicate-retired`~~ (numbered) — closed, restored as [`todo-2026-09-06-headline-duplicate-retired.md`](todo-2026-09-06-headline-duplicate-retired.md)
+  - ~~`done-2026-09-06-the-individual-source-bootstrap-hook-is-inst`~~ (numbered, no anchor) — closed, restored as [`todo-2026-09-06-done-2026-09-06-the-individual-source-bootstrap-hook-is-inst.md`](todo-2026-09-06-done-2026-09-06-the-individual-source-bootstrap-hook-is-inst.md)
   - ~~`done-2026-09-06-a-missing-individual-source-is-no-longer-sil`~~ (numbered, no anchor) — closed, restored as [`todo-2026-09-06-done-2026-09-06-a-missing-individual-source-is-no-longer-sil.md`](todo-2026-09-06-done-2026-09-06-a-missing-individual-source-is-no-longer-sil.md)
   - ~~`rpp-migration-audited`~~ (numbered) — closed, restored as [`todo-2026-09-06-rpp-migration-audited.md`](todo-2026-09-06-rpp-migration-audited.md)
-  - `migrated-practices-lost-their-stories` (numbered)
+  - ~~`migrated-practices-lost-their-stories`~~ (numbered) — closed, restored as [`todo-2026-09-06-migrated-practices-lost-their-stories.md`](todo-2026-09-06-migrated-practices-lost-their-stories.md)
   - ~~`team-check-cites-retired-practice`~~ (numbered) — closed, restored as [`todo-2026-09-06-team-check-cites-retired-practice.md`](todo-2026-09-06-team-check-cites-retired-practice.md)
-  - `convert-team-set-retired-statuses` (numbered)
-  - `build-codeowners-check-flag` (numbered)
-  - `cache-freshness-verdict` (numbered)
-  - `a-scheduled-freshness-channel-exists-only-for-whoever-builds` (bare-bold, no anchor)
-  - `bold-rule-for-heading-dense-pages` (numbered)
-  - `team-maintainers-is-a-roster-name` (unnumbered)
-  - `freshness-also-names-the-old-set-name` (unnumbered)
-  - `individual-copy-points-at-a-retired-slug` (unnumbered)
-  - `pack-sync-is-the-same-unattended-merge` (unnumbered)
-  - `loader-comment-names-an-unvendored-check` (numbered)
-  - `philosophy-sync` (numbered)
-  - `build-views-stdout-count` (unnumbered)
-  - `blocklist-stem-not-full-name` (unnumbered)
-  - `park-it-to-individual-set` (unnumbered)
+  - ~~`convert-team-set-retired-statuses`~~ (numbered) — closed, restored as [`todo-2026-09-06-convert-team-set-retired-statuses.md`](todo-2026-09-06-convert-team-set-retired-statuses.md)
+  - ~~`build-codeowners-check-flag`~~ (numbered) — closed, restored as [`todo-2026-09-06-build-codeowners-check-flag.md`](todo-2026-09-06-build-codeowners-check-flag.md)
+  - ~~`cache-freshness-verdict`~~ (numbered) — closed, restored as [`todo-2026-09-06-cache-freshness-verdict.md`](todo-2026-09-06-cache-freshness-verdict.md)
+  - ~~`a-scheduled-freshness-channel-exists-only-for-whoever-builds`~~ (bare-bold, no anchor) — closed, restored as [`todo-2026-09-06-a-scheduled-freshness-channel-exists-only-for-whoever-builds.md`](todo-2026-09-06-a-scheduled-freshness-channel-exists-only-for-whoever-builds.md)
+  - ~~`bold-rule-for-heading-dense-pages`~~ (numbered) — open, blocked, restored as [`todo-2026-09-07-bold-rule-for-heading-dense-pages.md`](todo-2026-09-07-bold-rule-for-heading-dense-pages.md)
+  - ~~`team-maintainers-is-a-roster-name`~~ (unnumbered) — closed, restored as [`todo-2026-09-11-team-maintainers-is-a-roster-name.md`](todo-2026-09-11-team-maintainers-is-a-roster-name.md)
+  - ~~`freshness-also-names-the-old-set-name`~~ (unnumbered) — closed, restored as [`todo-2026-09-11-freshness-also-names-the-old-set-name.md`](todo-2026-09-11-freshness-also-names-the-old-set-name.md)
+  - ~~`individual-copy-points-at-a-retired-slug`~~ (unnumbered) — closed, restored as [`todo-2026-09-11-individual-copy-points-at-a-retired-slug.md`](todo-2026-09-11-individual-copy-points-at-a-retired-slug.md)
+  - ~~`pack-sync-is-the-same-unattended-merge`~~ (unnumbered) — closed, restored as [`todo-2026-09-11-pack-sync-is-the-same-unattended-merge.md`](todo-2026-09-11-pack-sync-is-the-same-unattended-merge.md)
+  - ~~`loader-comment-names-an-unvendored-check`~~ (numbered) — closed, restored as [`todo-2026-09-07-loader-comment-names-an-unvendored-check.md`](todo-2026-09-07-loader-comment-names-an-unvendored-check.md)
+  - ~~`philosophy-sync`~~ (numbered) — closed, restored as [`todo-2026-09-07-philosophy-sync.md`](todo-2026-09-07-philosophy-sync.md)
+  - ~~`build-views-stdout-count`~~ (unnumbered) — closed, restored as [`todo-2026-09-16-build-views-stdout-count.md`](todo-2026-09-16-build-views-stdout-count.md)
+  - ~~`blocklist-stem-not-full-name`~~ (unnumbered) — closed, restored as [`todo-2026-09-07-blocklist-stem-not-full-name.md`](todo-2026-09-07-blocklist-stem-not-full-name.md)
+  - ~~`park-it-to-individual-set`~~ (unnumbered) — closed, restored as [`todo-2026-09-08-park-it-to-individual-set.md`](todo-2026-09-08-park-it-to-individual-set.md)
   - ~~`private-set-audit-branches`~~ (unnumbered) — closed, restored as [`todo-2026-09-08-private-set-audit-branches.md`](todo-2026-09-08-private-set-audit-branches.md)
-  - `voice-and-styleguide-as-practices` (unnumbered)
-  - `audit-trail-item-placement` (numbered)
-  - `cross-owner-add-repo-push` (numbered)
-  - `deduplicate-practice-links-travel` (numbered)
-  - `views-drift-gate-rollout-to-existing-sets` (numbered)
-  - `cross-source-resident-block-over-cap` (numbered)
-  - `source-clone-keeps-no-credential` (numbered)
-  - `universal-adapters-undeclared` (numbered)
-  - `leak-gate-is-background-level` (numbered)
-  - `leak-gate-is-background-dedup` (numbered)
-  - `check-gate-reads-status` (numbered)
-  - `chief-of-staff-session` (numbered)
-  - `morgan-prose-name` (unnumbered)
-  - `register-is-a-live-field-in-one-identity-json-and-absent-fro` (bare-bold, no anchor)
-  - `roll-binds-publishers-out-to-the-source-sets` (unnumbered)
-  - `session-load-under-20k` (numbered)
-  - `vendor-engine-ref-not-on-cli` (numbered)
-  - `agents-md-ceiling-policy` (numbered)
-  - `setup-default-is-the-loader` (numbered)
-  - `generated-views-are-owned-paths` (numbered)
-  - `shallow-clone-self-heal-hardening` (numbered)
+  - ~~`voice-and-styleguide-as-practices`~~ (unnumbered) — closed, restored as [`todo-2026-09-08-voice-and-styleguide-as-practices.md`](todo-2026-09-08-voice-and-styleguide-as-practices.md)
+  - ~~`audit-trail-item-placement`~~ (numbered) — closed, restored as [`todo-2026-09-09-audit-trail-item-placement.md`](todo-2026-09-09-audit-trail-item-placement.md)
+  - ~~`cross-owner-add-repo-push`~~ (numbered) — open, blocked, restored as [`todo-2026-09-09-cross-owner-add-repo-push.md`](todo-2026-09-09-cross-owner-add-repo-push.md)
+  - ~~`deduplicate-practice-links-travel`~~ (numbered) — closed, restored as [`todo-2026-09-11-deduplicate-practice-links-travel.md`](todo-2026-09-11-deduplicate-practice-links-travel.md)
+  - ~~`views-drift-gate-rollout-to-existing-sets`~~ (numbered) — closed, restored as [`todo-2026-09-11-views-drift-gate-rollout-to-existing-sets.md`](todo-2026-09-11-views-drift-gate-rollout-to-existing-sets.md)
+  - ~~`cross-source-resident-block-over-cap`~~ (numbered) — closed, restored as [`todo-2026-09-11-cross-source-resident-block-over-cap.md`](todo-2026-09-11-cross-source-resident-block-over-cap.md)
+  - ~~`source-clone-keeps-no-credential`~~ (numbered) — closed, restored as [`todo-2026-09-11-source-clone-keeps-no-credential.md`](todo-2026-09-11-source-clone-keeps-no-credential.md)
+  - ~~`universal-adapters-undeclared`~~ (numbered) — closed, restored as [`todo-2026-09-12-universal-adapters-undeclared.md`](todo-2026-09-12-universal-adapters-undeclared.md)
+  - ~~`leak-gate-is-background-level`~~ (numbered) — closed, restored as [`todo-2026-09-12-leak-gate-is-background-level.md`](todo-2026-09-12-leak-gate-is-background-level.md)
+  - ~~`leak-gate-is-background-dedup`~~ (numbered) — closed, restored as [`todo-2026-09-13-leak-gate-is-background-dedup.md`](todo-2026-09-13-leak-gate-is-background-dedup.md)
+  - ~~`check-gate-reads-status`~~ (numbered) — closed, restored as [`todo-2026-09-13-check-gate-reads-status.md`](todo-2026-09-13-check-gate-reads-status.md)
+  - ~~`chief-of-staff-session`~~ (numbered) — closed, restored as [`todo-2026-09-13-chief-of-staff-session.md`](todo-2026-09-13-chief-of-staff-session.md)
+  - ~~`morgan-prose-name`~~ (unnumbered) — closed, restored as [`todo-2026-09-12-morgan-prose-name.md`](todo-2026-09-12-morgan-prose-name.md)
+  - ~~`register-is-a-live-field-in-one-identity-json-and-absent-fro`~~ (bare-bold, no anchor) — closed, restored as [`todo-2026-09-12-register-is-a-live-field-in-one-identity-json-and-absent-fro.md`](todo-2026-09-12-register-is-a-live-field-in-one-identity-json-and-absent-fro.md)
+  - ~~`roll-binds-publishers-out-to-the-source-sets`~~ (unnumbered) — closed, restored as [`todo-2026-09-12-roll-binds-publishers-out-to-the-source-sets.md`](todo-2026-09-12-roll-binds-publishers-out-to-the-source-sets.md)
+  - ~~`session-load-under-20k`~~ (numbered) — closed, restored as [`todo-2026-09-13-session-load-under-20k.md`](todo-2026-09-13-session-load-under-20k.md)
+  - ~~`vendor-engine-ref-not-on-cli`~~ (numbered) — closed, restored as [`todo-2026-09-14-vendor-engine-ref-not-on-cli.md`](todo-2026-09-14-vendor-engine-ref-not-on-cli.md)
+  - ~~`agents-md-ceiling-policy`~~ (numbered) — closed, restored as [`todo-2026-09-14-agents-md-ceiling-policy.md`](todo-2026-09-14-agents-md-ceiling-policy.md)
+  - ~~`setup-default-is-the-loader`~~ (numbered) — closed, restored as [`todo-2026-09-14-setup-default-is-the-loader.md`](todo-2026-09-14-setup-default-is-the-loader.md)
+  - ~~`generated-views-are-owned-paths`~~ (numbered) — closed, restored as [`todo-2026-09-14-generated-views-are-owned-paths.md`](todo-2026-09-14-generated-views-are-owned-paths.md)
+  - ~~`shallow-clone-self-heal-hardening`~~ (numbered) — closed, restored as [`todo-2026-09-15-shallow-clone-self-heal-hardening.md`](todo-2026-09-15-shallow-clone-self-heal-hardening.md)
   - ~~`ledger-gap-shallow-clone-hardening`~~ (numbered) — closed, restored as [`todo-2026-09-15-ledger-gap-shallow-clone-hardening.md`](todo-2026-09-15-ledger-gap-shallow-clone-hardening.md)
 
 ## How It Closes
 
-The root cause is fixed (`tools/todo_migrate.py`, this branch, verified
-above) — that half of this item is done. What remains:
-
-1. For each of the 54, decide whether it is `status: done` or genuinely
-   still `status: open` (most read so far look done or resolved, going by
-   `~~strikethrough~~` markers and "DONE"/"Resolved" language in their
-   text, but that was only confirmed for the 2 already closed), and
-   reconstruct each as a `todo/todo-<date>-<slug>.md` file plus a
-   migration-map row, the same way the 2 already-closed ones were done —
-   verbatim from the pre-migration text, links repointed to where they now
-   resolve, `precedent_check.py --full-sweep` clean before committing.
-2. Regenerate `todo/TODO.md` and `todo/CLOSED.md`
-   (`python3 tools/build_todo_index.py`) once all 54 are in.
-3. Once `precedent-individual` (or any other not-yet-migrated repo) runs
-   `tools/todo_migrate.py --apply` on its own `TODO.md`, confirm the new
-   guard actually ran clean there too — a silent success on a repo whose
-   `TODO.md` happens to have no shape gap would not, by itself, prove the
-   guard is doing anything.
-
-**Blocked-on:** nothing external — this is sizable (54 items, several with
-long, dense prose) rather than blocked.
+Closed 2026-09-19. All 54 are reconstructed as their own `todo/` files with
+migration-map rows, `todo/TODO.md`/`todo/CLOSED.md` regenerated, full check
+suite clean. 52 of the 54 restored `status: done` or `dropped`, matching
+what their own pre-migration text already said; 2
+(`cross-owner-add-repo-push`, `bold-rule-for-heading-dense-pages`) restored
+`status: open` because their own text describes a real, unresolved blocker
+as of the pre-migration snapshot — this item does not claim to have closed
+those two, only to have given them back their own file and history. What
+`precedent-individual` (or any other not-yet-migrated repo) still needs,
+separately: run `tools/todo_migrate.py --apply` on its own `TODO.md` and
+confirm the new guard runs clean there too — a silent success on a repo
+whose `TODO.md` happens to have no shape gap would not, by itself, prove
+the guard is doing anything.
 
 ## Notes
 
@@ -178,4 +170,21 @@ above): `prefork-catalogue-audit-table`, `team-repo-and-document-template`,
 `private-set-audit-branches`, `ledger-gap-shallow-clone-hardening` — all
 `status: done` or `dropped` in the original text, verbatim from
 `git show 9a08363b^:TODO.md`, links repointed, `precedent_check.py
---full-sweep` clean. 46 remain.
+--full-sweep` clean. 46 remained after this pass, corrected from an
+earlier "44" said in chat by mis-subtracting 10 restored against a 54
+total when only 8 had been restored at that point (the first 2 predate
+this item and were never part of its own count).
+
+2026-09-19, later the same day: the remaining 46 restored, using
+`tools/todo_migrate.py --slug` in dry-run mode against the real
+pre-migration text (for accurate `noted` dates via its own git
+archaeology) as a first draft, then correcting `status`/`kind`/`decision`
+fields by reading each item's own text — the tool defaults every
+non-checkbox item to `status: open`, which is wrong for the 44 that are
+actually done or dropped, so that correction was done by hand for all 46,
+not trusted from the tool. All 46 verbatim from `git show
+9a08363b^:TODO.md`, links and old-style `TODO.md`-anchor citations repointed
+(several of the anchor citations resolve to other items in this same
+batch), `precedent_check.py --full-sweep` and the full harness clean
+before committing. This item is now closed; the two still-open
+reconstructed items stand on their own, in their own files.

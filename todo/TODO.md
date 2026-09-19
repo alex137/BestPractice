@@ -23,6 +23,7 @@
 | [`todo-2026-09-06-unreachable-practices`](todo-2026-09-06-unreachable-practices.md) | Populate `not_binding` for the practices in force here that do not bind this repo. | 13d | wait | a session that can resolve the private sources — see [`attach-private-sources`](… |
 | [`todo-2026-09-06-upstream-only-registries-ride-along-in-vendored-engine-files`](todo-2026-09-06-upstream-only-registries-ride-along-in-vendored-engine-files.md) | Upstream-only registries ride along in vendored engine files. | 13d | wait | nothing but a deliberate pass — this touches the vendoring contract (does `prece… |
 | [`todo-2026-09-07-audience-register-sharpening`](todo-2026-09-07-audience-register-sharpening.md) | Sharpen `audience-register` so the plainer register actually holds — three changes, all in the individual practice set,  | 12d | wait | his approval of the new wording. It is his rule about how he is spoken to, and a… |
+| [`todo-2026-09-07-bold-rule-for-heading-dense-pages`](todo-2026-09-07-bold-rule-for-heading-dense-pages.md) | `bold-key-phrases` needs a weak counter-clause for heading-dense pages. | 12d | wait | a session rooted in precedent-team-repo-maintenance (the practice's own set) to … |
 | [`todo-2026-09-07-consumers-need-refresh-after-promotion`](todo-2026-09-07-consumers-need-refresh-after-promotion.md) | A consumer that vendors an OLD universal catalogue loses a promoted practice at its next sync, silently. | 12d | wait | the refresh itself belongs in each consumer, run under that repo's own gates — t… |
 | [`todo-2026-09-07-gates-absent-from-main`](todo-2026-09-07-gates-absent-from-main.md) | Put the leak gate on `main`; the deep check cannot go there until the merge-back. | 12d | wait |  |
 | [`todo-2026-09-07-stem-reminder-at-the-refusal`](todo-2026-09-07-stem-reminder-at-the-refusal.md) | Consider putting the stem reminder in the allowlist's REFUSAL message too. | 12d | wait |  |
@@ -75,7 +76,6 @@
 | [`todo-2026-09-15-go-merge-direct-edit-narrowing-check`](todo-2026-09-15-go-merge-direct-edit-narrowing-check.md) | A mechanical check could narrow the trivial/substantial judgment `Go merge` now makes, and it is not built. | 4d | wait |  |
 | [`todo-2026-09-16-file-retires-when-on-live-gotchas`](todo-2026-09-16-file-retires-when-on-live-gotchas.md) | Populate `retires_when` on the live gotchas. | 3d | wait |  |
 | [`todo-2026-09-18-no-stale-counts-undercounts-a-multi-source-catalogue`](todo-2026-09-18-no-stale-counts-undercounts-a-multi-source-catalogue.md) | `check_no_stale_counts.py` (vendored from `precedent-team-writing`, practice `no-stale-counts`) reports a false positive | 1d | wait | write access to precedent-team-writing -- refused from a session rooted here (cr… |
-| [`todo-2026-09-19-migration-dropped-54-items`](todo-2026-09-19-migration-dropped-54-items.md) | The 2026-09-16 todo/gotcha migration (`9a08363b`) dropped 54 of the 161 items in the pre-migration `TODO.md` — about a t | 0d | wait |  |
 | [`todo-2026-09-19-pass-3-coherence-read-findings`](todo-2026-09-19-pass-3-coherence-read-findings.md) | Pass 3 of a very deep check (2026-09-19) read all 130 `practices/*.md` files for coherence — contradictions, staleness,  | 0d | ask | the repo owner's call on which findings below are worth acting on -- most are ar… |
 
 ## Verify Before External Use
@@ -85,6 +85,7 @@
 | [`todo-2026-09-06-additionalcontext-reaches-the-model`](todo-2026-09-06-additionalcontext-reaches-the-model.md) | Confirm `additionalContext` actually reaches the model, not just the transcript. | 13d | wait |  |
 | [`todo-2026-09-06-grok-workflow`](todo-2026-09-06-grok-workflow.md) | Verify a Grok workflow. | 13d | wait |  |
 | [`todo-2026-09-06-plain-chatgpt-write-support`](todo-2026-09-06-plain-chatgpt-write-support.md) | Re-verify plain-ChatGPT write support. | 13d | wait |  |
+| [`todo-2026-09-09-cross-owner-add-repo-push`](todo-2026-09-09-cross-owner-add-repo-push.md) | Measure whether `add_repo` refuses a cross-owner attachment in the REVERSE direction, with `access: "push"`. | 10d | wait | a session rooted under the other owner (a private practice-set repository), whic… |
 | [`todo-2026-09-09-whatsapp-bridge-research`](todo-2026-09-09-whatsapp-bridge-research.md) | Verify the chat bridge's platform claims against the platforms, or drop it. | 10d | wait | for the WhatsApp half, a Meta Business account, a business entity that clears ve… |
 | [`todo-2026-09-11-consuming-repo-clause-clears-on-vendor-update`](todo-2026-09-11-consuming-repo-clause-clears-on-vendor-update.md) | Confirm the consuming repo's `Source:` clause actually clears, rather than assuming it. | 8d | wait |  |
 | [`todo-2026-09-15-check-default-cc-environment-staleness`](todo-2026-09-15-check-default-cc-environment-staleness.md) | Check whether the "Default CC" environment is still cloning fresh in a few days. | 4d | ask |  |
@@ -171,7 +172,6 @@
 | [`todo-2026-09-14-sync-views-blames-a-dropped-source-for-a-retirement`](todo-2026-09-14-sync-views-blames-a-dropped-source-for-a-retirement.md) | A retired practice is reported as one whose SOURCE was dropped, and a renamed source would read identically. | 5d |
 | [`todo-2026-09-15-go-merge-direct-edit-narrowing-check`](todo-2026-09-15-go-merge-direct-edit-narrowing-check.md) | A mechanical check could narrow the trivial/substantial judgment `Go merge` now makes, and it is not built. | 4d |
 | [`todo-2026-09-16-file-retires-when-on-live-gotchas`](todo-2026-09-16-file-retires-when-on-live-gotchas.md) | Populate `retires_when` on the live gotchas. | 3d |
-| [`todo-2026-09-19-migration-dropped-54-items`](todo-2026-09-19-migration-dropped-54-items.md) | The 2026-09-16 todo/gotcha migration (`9a08363b`) dropped 54 of the 161 items in the pre-migration `TODO.md` — about a t | 0d |
 
 ## Open Decisions
 
