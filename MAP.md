@@ -6,7 +6,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 
 ## The practice catalogue
 
-`practices/` holds 123 practice files (11 resident, 112 on-demand). One file per practice. See [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md) for the design.
+`practices/` holds 124 practice files (11 resident, 113 on-demand). One file per practice. See [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md) for the design.
 
 | Practice | Tier | Occasion / scope |
 |---|---|---|
@@ -14,6 +14,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [affordance-is-shared](practices/affordance-is-shared.md) | on-demand | building a mechanism that makes something discoverable or reachable |
 | [answer-first-ask-before-long-work](practices/answer-first-ask-before-long-work.md) | resident | a turn that could start a computation, search or build lasting longer than a few minutes |
 | [archive-command](practices/archive-command.md) | on-demand | a message says "Archive" standing alone, about a session |
+| [archive-status-check](practices/archive-status-check.md) | on-demand | a message asks whether the session can be archived, or plainly carries that feeling |
 | [attach-the-original](practices/attach-the-original.md) | on-demand | asked to include an image, logo, or other binary asset the person is supplying, rather than approximate one from a description |
 | [base-branch-is-the-record](practices/base-branch-is-the-record.md) | on-demand | starting work another session may already have done, or opening a pull request |
 | [bold-key-phrases](practices/bold-key-phrases.md) | resident | writing any document meant to be read |
@@ -170,6 +171,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [tools/practice_audit.py](tools/practice_audit.py) | Audits the practice-export layer for a repo that vendors one (this repo does not) |
 | [tools/practice_simulation.py](tools/practice_simulation.py) | Synthetic scenario generation for routing quality — invented cases, never a replayed benchmark |
 | [tools/precedent_access_check.py](tools/precedent_access_check.py) | Probes, at session start, which repos in force this session can actually push to -- so work destined for one it cannot reach is discovered before it is done, not after |
+| [tools/precedent_beta_watermark_check.py](tools/precedent_beta_watermark_check.py) | Says whether anyone other than Morgan has pushed to precedent-beta-v01 since he was last told, against a watermark kept in his individual source rather than this repo -- unlike the upstream watermark above it auto-advances the moment it reports, since it gates a notification rather than an action; session start always prints a line, the reply gate's own `remind()` stays silent except on a real alert |
 | [tools/precedent_bootstrap_source.py](tools/precedent_bootstrap_source.py) | Instantiates a brand-new individual or team practice set from a skeleton, for an adopter who has neither yet |
 | [tools/precedent_boundary_check.py](tools/precedent_boundary_check.py) | Whether a document project's contributor boundary is actually ON -- branch protection shaped as spec/CONTRIBUTOR_ACCESS.md needs, read from the GitHub API; UNVERIFIED when it could not ask, which is not a pass |
 | [tools/precedent_candidate.py](tools/precedent_candidate.py) | Stage 2 (phase 5) — raise, list and expire creation-pipeline candidates |

@@ -330,6 +330,17 @@ _hook_repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd -P)"
 python3 "$_hook_repo/tools/precedent_upstream_check.py" || \
   echo "WARN: upstream check did not run -- whether main has moved since the last carry is unknown this session" >&2
 
+# Say whether anyone other than Morgan has pushed to `precedent-beta-v01`
+# since he was last told -- Alex also commits here, and unlike the upstream
+# check above, this one auto-advances the moment it reports (see
+# tools/precedent_beta_watermark_check.py's own header for why the two
+# watermarks are not the same shape). Session start always gets a line, the
+# same way the upstream check above always does; the reply gate's own copy
+# of this check (tools/precedent_gate.py) stays silent except on a real
+# alert, which is where the "never repeat it every message" half lives.
+python3 "$_hook_repo/tools/precedent_beta_watermark_check.py" || \
+  echo "WARN: beta-branch watermark check did not run -- whether anyone else pushed to precedent-beta-v01 is unknown this session" >&2
+
 # A bootstrap that blocks startup is worse than anything it protects against,
 # and `set -e` above would otherwise let a non-zero last command take the
 # session down. Every check here reports; none of them gates.
