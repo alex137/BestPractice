@@ -11,7 +11,12 @@ Per the convention-becomes-audit rule, the steps are now a tool; every
 mutation it performs is gated by a check that fails loudly.
 
 Four subcommands — update takes upstream changes IN, the other three drive
-a check-in OUT:
+a check-in OUT. Each takes `--source NAME` to run the same loop for a SHARED
+practice set that ships code (practice: source-naming, 2026-09-18): the
+vendored tree is then process/<name>/, the manifest process/manifest_<name>.json,
+and only the directories the set's own precedent-source.json lists under
+`code` are mirrored; its practices resolve live and are never vendored.
+Without --source the universal set is mirrored whole, as always:
 
   status <upstream-clone>   Compare the vendored tree against the clone's
                             working tree: list Added/Modified/Deleted files
@@ -102,6 +107,65 @@ _top = subprocess.run(['git', 'rev-parse', '--show-toplevel'], cwd=HERE.parent,
 ROOT = pathlib.Path(_top) if _top else HERE.parents[3]
 UPSTREAM = ROOT / 'process' / 'upstream'
 MANIFEST = ROOT / 'process' / 'manifest.json'
+# `--source NAME` (2026-09-18, practice: source-naming): the same loop for a
+# SHARED practice set that ships code alongside its practices. The
+# vendored tree is process/<name>/, its manifest process/manifest_<name>.json,
+# and only the directories the set's own precedent-source.json lists under
+# `code` are mirrored -- the practices themselves resolve live from the
+# sibling clone and are never vendored. With no --source the universal set
+# is mirrored whole, exactly as before.
+SOURCE = None
+SOURCE_MANIFEST = 'precedent-source.json'
+CODE_DIRS = None
+
+
+def _select_source(name):
+    global SOURCE, UPSTREAM, MANIFEST
+    SOURCE = name
+    UPSTREAM = ROOT / 'process' / name
+    MANIFEST = ROOT / 'process' / f'manifest_{name}.json'
+
+
+def _read_source_manifest(clone):
+    """-> the clone's own precedent-source.json (dict) or {}. Read from the
+    tracked branch's remote ref when it has one, so the working tree's state
+    is never what decides what gets mirrored."""
+    for ref in (f'origin/{_tracked_branch(clone)}', 'HEAD'):
+        rc, out = _git_rc(clone, 'show', f'{ref}:{SOURCE_MANIFEST}')
+        if rc == 0 and out.strip():
+            try:
+                return json.loads(out)
+            except ValueError:
+                sys.exit(f"checkin FAIL: {clone}'s {SOURCE_MANIFEST} at {ref} is not "
+                         f"valid JSON")
+    f = clone / SOURCE_MANIFEST
+    if f.is_file():
+        try:
+            return json.loads(f.read_text(encoding='utf-8'))
+        except ValueError:
+            sys.exit(f"checkin FAIL: {f} is not valid JSON")
+    return {}
+
+
+def _bind_source(clone):
+    """With --source: the clone must be the set it is declared to be, and
+    its manifest decides which directories are code. Identity is read off
+    the source, never inferred from a name."""
+    global CODE_DIRS
+    if SOURCE is None:
+        return
+    m = _read_source_manifest(clone)
+    own = m.get('name')
+    if own and own != SOURCE:
+        sys.exit(f"checkin FAIL: {clone} calls itself {own!r} in its "
+                 f"{SOURCE_MANIFEST}; --source named {SOURCE!r}. Point at the "
+                 f"right clone, or declare the source by the name it gives itself.")
+    dirs = [str(d).strip().strip('/') for d in (m.get('code') or []) if str(d).strip()]
+    if not dirs:
+        sys.exit(f"checkin FAIL: {clone}'s {SOURCE_MANIFEST} lists no `code` "
+                 f"directories, so there is nothing to vendor -- a set whose "
+                 f"practices resolve live needs no mirror at all.")
+    CODE_DIRS = dirs
 
 
 def _same_commit(a, b):
@@ -330,12 +394,20 @@ def _files(base):
     # diverged from main's with its own fixes and never picked this one up;
     # see AGENTS.md's gotchas section on re-checking main for drift before
     # phase 5.)
-    return {p.relative_to(base) for p in base.rglob('*')
-            if p.is_file() and '.git' not in p.parts
-            and '__pycache__' not in p.parts
-            and not any(part in NOT_VENDORED for part in p.parts)
-            and p.relative_to(base) not in _NOT_VENDORED_ROOT_PATHS
-            and p.suffix not in ('.pyc', '.pyo')}
+    files = {p.relative_to(base) for p in base.rglob('*')
+             if p.is_file() and '.git' not in p.parts
+             and '__pycache__' not in p.parts
+             and not any(part in NOT_VENDORED for part in p.parts)
+             and p.relative_to(base) not in _NOT_VENDORED_ROOT_PATHS
+             and p.suffix not in ('.pyc', '.pyo')}
+    if CODE_DIRS is not None:
+        # A shared set's mirror is its declared code directories and nothing
+        # else -- never its manifest (a private set's manifest in a consumer's
+        # tree is what the leak gate refuses), never its practices.
+        files = {f for f in files
+                 if any(f.as_posix() == d or f.as_posix().startswith(d + '/')
+                        for d in CODE_DIRS)}
+    return files
 
 
 def _diff(clone):
@@ -987,7 +1059,11 @@ def record(clone, note, accept_loss=False):
                  f"merge/pull upstream first (or push the missing export); nothing recorded")
     head = _git(clone, 'rev-parse', 'HEAD')
     manifest = _manifest()
-    old = manifest['upstream'].get('commit')
+    up = manifest.setdefault('upstream', {})
+    if SOURCE and 'source' not in manifest:
+        manifest['source'] = SOURCE
+        up.setdefault('branch', _tracked_branch(clone))
+    old = up.get('commit')
     manifest['upstream']['commit'] = head
     # record() has just verified the vendored tree is byte-identical to what
     # landed upstream -- which is STRONGER evidence of currency than the mirror
@@ -1004,7 +1080,7 @@ def record(clone, note, accept_loss=False):
     MANIFEST.write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + '\n',
                         encoding='utf-8')
     print(f"checkin record OK: upstream.commit {old} -> {head}")
-    print("next: commit process/manifest.json in this repo.")
+    print(f"next: commit {MANIFEST.relative_to(ROOT)} in this repo.")
     return 0
 
 
@@ -1041,9 +1117,16 @@ def main():
         print("practices/ is never excluded -- this is measurement fixtures, "
               "not rules.")
         return 0
+    if '--source' in args:
+        i = args.index('--source')
+        if i + 1 >= len(args):
+            sys.exit('checkin FAIL: --source needs the set\'s name')
+        _select_source(args[i + 1])
+        args = args[:i] + args[i + 2:]
     if len(args) < 2 or args[0] not in ('status', 'update', 'push', 'record'):
         sys.exit(__doc__)
     clone = _clone_or_die(args[1])
+    _bind_source(clone)
     if args[0] == 'status':
         return status(clone)
     if args[0] == 'update':

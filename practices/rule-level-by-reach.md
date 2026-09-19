@@ -4,7 +4,7 @@ title:       "Which set holds a rule is decided by its reach, not by write acces
 tier:        on-demand
 severity:    default
 applies_to:  ["practices/**", "AGENTS.md", "CLAUDE.md", "precedent.json"]
-occasion:    "deciding which practice set a new rule belongs in -- repo-local, team, individual or universal"
+occasion:    "deciding which practice set a new rule belongs in -- repo-local, shared, individual or universal"
 gates:       ["review"]
 index_clause: "pick the set by reach -- not by the repo you can write to"
 checked_by:  null
@@ -25,12 +25,13 @@ source_practice_number: null
 ---
 ## Rule
 **A rule lands in one of four sets, and which one is a question about its
-reach:** **repo-local** (true only of this repository's subject), **team**
-(true for this team, not another), **individual** (one person's way of
-working), **universal** (any repository, any team, any person).
+reach:** **repo-local** (true only of this repository's subject), **shared**
+(true for everyone who does one kind of work, or for one team, not
+another), **individual** (one person's way of working), **universal** (any
+repository, any team, any person).
 
 **Three tests, in order**, each answering what the one before cannot.
-*Still true for a different team?* — not the team's. *For a different person?*
+*Still true for a different team, or outside this kind of work?* — not the shared set's. *For a different person?*
 — not that person's. *For a repository whose subject is nothing like this
 one's?* — universal, and filing it lower strands it.
 
@@ -47,7 +48,7 @@ content is — generic, domain, repo-local — which decides how the rule must b
 *written*: its vocabulary, whether the public scrub applies, how general the
 wording has to be. This one asks where the rule *lives*. The two are not a
 re-labelling of each other, and the middle terms show it: a domain rule can sit
-in a team set or in universal, and **individual has no counterpart on that axis
+in a shared set or in universal, and **individual has no counterpart on that axis
 at all**, because a person is not a kind of program. Answer both — content to
 know how to write it, reach to know where to put it.
 

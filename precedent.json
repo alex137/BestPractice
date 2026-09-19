@@ -132,12 +132,13 @@
   "_comment": [
     "The practice sources in force in this repository. Precedent is its own",
     "consumer: the universal set it publishes is the set it runs on.",
-    "A shared repository may declare universal and team sources ONLY -- a",
+    "A shared repository may declare universal and shared sources ONLY -- a",
     "person's individual set is declared in their own user-level config, so",
     "that naming it here cannot leak its existence to everyone on the team.",
     "See tools/precedent_resolve.py for the resolution and precedence rules.",
     "",
-    "The team source below is real: precedent-team-repo-maintenance IS this",
+    "The shared sources below are real (level `shared`; `team` was the word",
+    "until 2026-09-18 and still reads): precedent-team-repo-maintenance IS this",
     "repo's own maintaining team's conventions (Morgan and Alex). Declared",
     "2026-09-02 by the phase-5 deep-check follow-up -- see",
     "spec/PHASE5_DEEPCHECK.md's 'wiring precedent-team-repo-maintenance into",
@@ -261,17 +262,17 @@
       "path": "."
     },
     {
-      "level": "team",
+      "level": "shared",
       "name": "precedent-team-repo-maintenance",
       "path": "../precedent-team-repo-maintenance"
     },
     {
-      "level": "team",
+      "level": "shared",
       "name": "precedent-team-writing",
       "path": "../precedent-team-writing"
     },
     {
-      "level": "team",
+      "level": "shared",
       "name": "precedent-team-working-style",
       "path": "../precedent-team-working-style"
     },

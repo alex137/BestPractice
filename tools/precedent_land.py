@@ -193,10 +193,10 @@ def land(candidate_path, level, repo_path, approved_by, against,
         approved_by = approved_by or '(pending PR review)'
     else:
         if not repo_path:
-            raise LandRefused('--path REPO is required for individual/team')
+            raise LandRefused('--path REPO is required for individual/shared')
         if not approved_by:
             raise LandRefused('--approved-by NAME is required')
-        if level == 'team':
+        if level == 'shared':
             approvers_file = pathlib.Path(repo_path) / 'approvers.json'
             if not approvers_file.is_file():
                 raise LandRefused(f'{approvers_file} does not exist -- cannot verify an approver')
@@ -205,7 +205,7 @@ def land(candidate_path, level, repo_path, approved_by, against,
             if approved_by not in names:
                 raise LandRefused(
                     f"{approved_by!r} is not in {approvers_file}'s approver list "
-                    f"({sorted(n for n in names if n)}) -- team-level landing "
+                    f"({sorted(n for n in names if n)}) -- shared-level landing "
                     f"needs a real approver, per Stage 4")
         if checked_by:
             _verify_checked_by_private(repo_path, checked_by)
@@ -221,7 +221,7 @@ def land(candidate_path, level, repo_path, approved_by, against,
     dest.write_text(_render_practice(fm, result['proposed_rule'], observed,
                                      approved_by, level, strength),
                     encoding='utf-8')
-    if level in ('individual', 'team'):
+    if level in ('individual', 'shared'):
         # Mark the source candidate promoted so it stops reading as still
         # open -- an already-landed candidate left at `status: open` would
         # keep surfacing from `precedent_candidate.py list --status open`
@@ -245,7 +245,7 @@ def land(candidate_path, level, repo_path, approved_by, against,
               f"individual practice set ({repo_path}). It applies "
               f"only to you, is already in force, and nobody else approved "
               f"or needs to.")
-    elif level == 'team':
+    elif level == 'shared':
         print(f"DISCLOSE TO THE HUMAN: this is now part of the TEAM "
               f"practice set at {repo_path}, approved by "
               f"{approved_by!r}. It is already in force for "
@@ -283,7 +283,7 @@ def _parse_args(argv):
 def main():
     args = _parse_args(sys.argv[1:])
     candidate_path = args.get('--file')
-    level = args.get('--level')
+    level = {'team': 'shared'}.get(args.get('--level'), args.get('--level'))
     if not candidate_path or level not in pc.LEVELS:
         sys.exit(f"precedent_land FAIL: --file CANDIDATE.md and --level "
                   f"({sorted(pc.LEVELS)}) are both required")

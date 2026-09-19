@@ -19,7 +19,7 @@ closed:            null
 - <a id="team-skeleton-ships-three-files-short"></a>**All three team sets
     carry `precedent.json`, `precedent-individual-bootstrap.sh` and
     `precedent-universal-catalogue.sh`, and
-    [templates/practice-set-team/](../templates/practice-set-team/) ships none
+    [templates/practice-set-shared/](../templates/practice-set-shared/) ships none
     of them.** Reported by the very deep check's `TEMPLATE FRESHNESS`
     section on 2026-09-14 — three of three sources of the level, which is
     the threshold that separates a habit from a template gap. The
