@@ -8,7 +8,7 @@ repo already exists somewhere -- INSTALL.md step 9 and SETUP.md step 2 both
 ask "do you already have one?" and simply stop if the answer is no. Nothing
 in this repo has ever handed a new adopter a place to start. This tool does:
 it instantiates templates/practice-set-individual/ or
-templates/practice-set-team/ into a target directory, fills in the owner's
+templates/practice-set-shared/ into a target directory, fills in the owner's
 name (and, for a team, its first approver), and prints -- or, opted in,
 writes -- the exact wiring a consuming repo or a person's own environment
 needs next. See spec/BOOTSTRAP_NEW_SOURCES.md for the full procedure this
@@ -80,10 +80,10 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 import precedent_resolve
 import precedent_vendor_engine
 
-LEVELS = {'individual', 'team'}
+LEVELS = {'individual', 'shared'}
 SKELETONS = {
     'individual': ROOT / 'templates' / 'practice-set-individual',
-    'team': ROOT / 'templates' / 'practice-set-team',
+    'shared': ROOT / 'templates' / 'practice-set-shared',
 }
 DEFAULT_USER_CONFIG = pathlib.Path.home() / '.config' / 'precedent' / 'config.json'
 USER_CONFIG_ENV = 'PRECEDENT_USER_CONFIG'
@@ -851,7 +851,7 @@ def _malformed(level, path):
         if found:
             out.append(f'{rel} still holds unfilled {", ".join(found)}')
 
-    if level == 'team':
+    if level == 'shared':
         f = path / 'approvers.json'
         if f.is_file():
             # Exactly what build_codeowners.py refuses. A source that fails
@@ -982,7 +982,7 @@ def bootstrap(level, name, dest, approvers=None, force=False):
             f"{dest} already exists and is not empty -- pass --force true to "
             f"write into it anyway (existing files with the same name are "
             f"overwritten; anything else already there is left alone)")
-    if level == 'team' and not approvers:
+    if level == 'shared' and not approvers:
         raise BootstrapRefused(
             "a team set needs at least one approver -- pass "
             '--approver "Full Name:github-handle" (whoever is creating this '
@@ -990,14 +990,14 @@ def bootstrap(level, name, dest, approvers=None, force=False):
 
     dest.mkdir(parents=True, exist_ok=True)
     mapping = {'NAME': name, 'DEST_PATH': str(dest)}
-    if level == 'team':
+    if level == 'shared':
         first = approvers[0]
         mapping['APPROVER_NAME'] = first['name']
         mapping['APPROVER_GITHUB'] = first['github']
 
     _warn_if_clone_is_stale()
     written = _copy_skeleton(SKELETONS[level], dest, mapping)
-    if level == 'team':
+    if level == 'shared':
         _seed_approvers_json(dest, approvers)
     written += _install_session_hooks(dest)
     written += _install_workflows(dest)
@@ -1121,7 +1121,7 @@ def write_repo_config(repo_config_dir, name, dest, force=False):
     data = _load_json(config_path) or {'format_version': 1, 'sources': []}
     sources = data.setdefault('sources', [])
     rel_path = os.path.relpath(dest, repo_config_dir)
-    existing = next((s for s in sources if s.get('level') == 'team'
+    existing = next((s for s in sources if s.get('level') == 'shared'
                       and s.get('name') == name), None)
     if existing:
         if existing.get('path') != rel_path and not force:
@@ -1131,7 +1131,7 @@ def write_repo_config(repo_config_dir, name, dest, force=False):
                 f"--force true to overwrite it")
         existing['path'] = rel_path
     else:
-        sources.append({'level': 'team', 'name': name, 'path': rel_path})
+        sources.append({'level': 'shared', 'name': name, 'path': rel_path})
     config_path.write_text(json.dumps(data, indent=2) + '\n', encoding='utf-8')
     return config_path
 
@@ -1158,7 +1158,7 @@ def _parse_args(argv):
 
 
 def _infer_level(path):
-    """-> 'team' | 'individual' | None, read off the set itself.
+    """-> 'shared' | 'individual' | None, read off the set itself.
 
     Asking the operator for --level on a set that already exists is asking
     them to restate something the directory already says: a team set carries
@@ -1167,7 +1167,7 @@ def _infer_level(path):
     wrong is cheap to notice and never destructive -- verify() only reads.
     """
     if (path / 'approvers.json').exists():
-        return 'team'
+        return 'shared'
     for name in ('identity.json', 'config.json', 'config.json.sample'):
         if (path / name).exists():
             return 'individual'
@@ -1330,7 +1330,7 @@ def main():
             else:
                 print("Next step -- add this to the consuming project's own "
                       "precedent.json \"sources\" list:")
-                print(json.dumps({'level': 'team', 'name': name, 'path': str(dest_path)}, indent=2))
+                print(json.dumps({'level': 'shared', 'name': name, 'path': str(dest_path)}, indent=2))
     except BootstrapRefused as e:
         print(f"REFUSED (wiring not written; the set itself is): {e}")
         return 1

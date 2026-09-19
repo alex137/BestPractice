@@ -1,12 +1,12 @@
 ---
 slug:        source-naming
-title:       A practice-set source's name is fixed by its level, and is disclosed before anyone picks one
+title:       A universal, individual or repo-local source's name is fixed by its level; a shared source's is not
 tier:        on-demand
 severity:    default
 applies_to:  ["precedent.json"]
 occasion:    "importing, creating, or declaring a repository that holds practices"
 gates:       []
-index_clause: "names are fixed by level; say the convention before anyone picks a name"
+index_clause: "names are fixed by level, except shared; say the convention before picking one"
 checked_by:  "tools/precedent_check.py"
 defines:     ["practice-set source"]
 status:      active
@@ -17,15 +17,20 @@ added:       2026-09-06
 approved_by: "Morgan F"
 ---
 ## Rule
-A practice-set source's name is fixed by its level, never chosen:
+Three of a practice-set source's four levels fix the name, never chosen:
 `precedent` for the universal set, `precedent-individual` for every person's
-own set, `precedent-team-<slug>` for a team's, and `local` for a repo-local
-one. The owning account already namespaces the repository, so the owner is
-never repeated in the name. A team slug is lowercase, hyphenated, and names
-the team's **purpose** — a roster-shaped name is stale the moment a third
-person joins, and renaming a set breaks every vendored reference to it. The
-`name` declared in a configuration file must match; the repository and its
-clone directory should.
+own set, and `local` for a repo-local one. The owning account already
+namespaces the repository, so the owner is never repeated in the name.
+
+**The fourth level, `shared`, does not fix a name.** It carries no required
+prefix and no pattern check — a shared source is named whatever the team
+that owns it calls its repository. This is a deliberate narrowing from the
+level's earlier convention (`precedent-team-<slug>`, retired 2026-09-19 —
+see Story): free naming was Morgan's own call, made explicit as "we aren't
+going to accept only precedent-team-* names anymore," not an oversight this
+practice failed to enforce. The `name` declared in a configuration file must
+still match what the source itself declares (its own `precedent-source.json`
+or equivalent); the repository and its clone directory should too.
 
 **Say the convention the first time it can matter.** When importing,
 creating, or attaching a repository that will hold practices comes up —
@@ -36,19 +41,23 @@ fact. The person naming the repository is the one participant no mechanical
 check can reach.
 
 ## Detail
-Four different names are all called "the naming convention," and they fail
+Different names are all called "the naming convention," and they fail
 differently, so they are enforced differently:
 
 | The name | If it varies | Answer |
 |---|---|---|
-| The `name` field in `precedent.json` or the user-level config | Attribution in a materialized `MANIFEST.json` stops matching; every error message names a set nobody recognizes | **Refused** by [tools/precedent_resolve.py](../tools/precedent_resolve.py) |
+| The `name` field in `precedent.json` or the user-level config, for `universal`, `individual` or `repo-local` | Attribution in a materialized `MANIFEST.json` stops matching; every error message names a set nobody recognizes | **Refused** by [tools/precedent_resolve.py](../tools/precedent_resolve.py) |
+| The same field for `shared` | Only that it must match the source's own declared name (see below) | **Unconstrained** otherwise — no pattern is checked |
 | The clone directory a source's `path` points at | The declared relative path is wrong on that machine | **Warned** about, never refused: continuous integration checkouts and git worktrees legitimately differ |
-| The GitHub repository name | Nothing breaks today; a later rename breaks every vendored reference | **Recommended**, and disclosed per the Rule above |
-| A team slug's meaning (purpose, not roster) | The name goes stale rather than wrong | Judgment. No check can tell `precedent-team-writing` from `precedent-team-morgan-alex` |
+| The GitHub repository name, for `universal`, `individual` or `repo-local` | Nothing breaks today; a later rename breaks every vendored reference | **Recommended**, and disclosed per the Rule above |
+| The GitHub repository name, for `shared` | Nothing checks it at all | Whatever the owning team calls it |
 
 A repo-local source's `name` is the literal string `local`, matching its
 already-fixed `path`, so the answer travels from one Precedent repository to
-the next instead of being re-chosen per repo.
+the next instead of being re-chosen per repo. A shared source still needs
+*a* stable name — every consumer that declares it must use the same string,
+and that string is attribution in a materialized `MANIFEST.json` — it is
+just no longer required to look a particular way.
 
 ## Why
 A convention that lives only in prose is a convention that drifts, and the
@@ -84,13 +93,34 @@ choice: a repo-local `path` must now be exactly `local`, refused otherwise.
 This practice is that move made one layer earlier, before there are outside
 adopters whose references a correction would break.
 
+**2026-09-19: the level was renamed `team` to `shared`, and the fixed-name
+requirement for it was dropped in the same pass.** Three private repos
+(precedent-team-writing, precedent-team-repo-maintenance,
+precedent-team-working-style) had all independently vendored an
+individual-scoped practice (`buenos-aires-dates`) alongside a genuinely
+generic one (`commit-author`) — a mistake traced back to conflating "this
+check's mechanism is generic" with "this practice's prose is meant to
+travel." Fixing it surfaced that the engine's `team` keyword and the
+consuming repos' own `precedent.json` files already disagreed (`shared` in
+every config, `team` in the code that validated it) — vocabulary drift
+nobody had reconciled. Morgan's decision, put to him directly: adopt
+`shared` as the real name rather than force the configs back to `team`, and
+while renaming it, stop requiring the `precedent-team-<slug>` prefix at
+all — "we aren't going to accept only precedent-team-* names anymore." The
+three repos above were renamed on GitHub to match (precedent-shared-writing,
+precedent-shared-repo-maintenance, precedent-shared-working-style) as part
+of the same change.
+
 ## Install
 [tools/precedent_resolve.py](../tools/precedent_resolve.py)'s `load_config`
-refuses a `name` that does not match its level's shape, and warns when a
-source's `name` and the basename of its `path` disagree.
+refuses a `name` that does not match its level's shape (`SOURCE_NAME_SHAPE`
+in `check_source_name` — `shared` deliberately has no entry there, so the
+check is a silent no-op for it), and warns when a source's `name` and the
+basename of its `path` disagree.
 [tools/precedent_bootstrap_source.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/precedent_bootstrap_source.py)
-refuses a non-conforming `--name` before it creates anything, which is the
-last moment a wrong name is still cheap.
+refuses a non-conforming `--name` for `universal`, `individual` or
+`repo-local` before it creates anything, which is the last moment a wrong
+name is still cheap; a `shared` `--name` is accepted as given.
 [tools/precedent_check.py](../tools/precedent_check.py) checks every
 `precedent.json` in the tree, so a shipped template cannot drift either.
 Neither reaches the disclosure half of the Rule: that one is carried by the

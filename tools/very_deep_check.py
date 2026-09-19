@@ -190,7 +190,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'tools'))
 import precedent_resolve as pr
 
-FATAL_MISSING_LEVELS = ('team', 'individual')
+FATAL_MISSING_LEVELS = ('shared', 'individual')
 
 # How old a MERGED, undeleted branch has to be before the sweep marks it
 # stale. A threshold nobody decided is doctrine, so this is a declared,
@@ -1578,7 +1578,7 @@ def _template_freshness(sources):
     by_level = {}
     for s in sources:
         lvl, path = s.get('level'), s.get('path')
-        if lvl in ('team', 'individual') and path:
+        if lvl in ('shared', 'individual') and path:
             p = pathlib.Path(path)
             if p.is_dir():
                 by_level.setdefault(lvl, []).append((s.get('name'), p))
@@ -1863,7 +1863,7 @@ def _bootstrap_drift_one(level, name, path, collect=None):
 
     real_root = pathlib.Path(path)
     approvers = None
-    if level == 'team':
+    if level == 'shared':
         try:
             data = json.loads((real_root / 'approvers.json').read_text(encoding='utf-8'))
             approvers = data.get('approvers') or None
@@ -2028,7 +2028,7 @@ def _bootstrap_drift(sources, collect=None):
     out, seen = [], False
     for s in sources:
         level, path = s.get('level'), s.get('path')
-        if level not in ('team', 'individual') or not path:
+        if level not in ('shared', 'individual') or not path:
             continue
         if not pathlib.Path(path).is_dir():
             continue
@@ -4044,7 +4044,7 @@ def _main(box):
                     '--skip-liveness')
 
     # EVERY source precedent.json declares, not only the private ones.
-    # This used to be gated on FATAL_MISSING_LEVELS ('team', 'individual'),
+    # This used to be gated on FATAL_MISSING_LEVELS ('shared', 'individual'),
     # which is the answer to a DIFFERENT question -- "whose absence should
     # abort the run" -- reused here as if it also meant "whose branches are
     # worth sweeping". The two came apart the moment a repo declared a
@@ -4232,7 +4232,7 @@ def _main(box):
     _shape_any = False
     for _s in data['sources']:
         _lvl, _path = _s.get('level'), _s.get('path')
-        if _lvl not in ('team', 'individual') or not _path:
+        if _lvl not in ('shared', 'individual') or not _path:
             continue
         _shape_any = True
         _missing = bootstrap_source.verify(_lvl, _path)
@@ -4380,7 +4380,7 @@ def _main(box):
     _orph_targets = [('this checkout', repo_root)]
     for _s in data['sources']:
         _p = _s.get('path')
-        if _s.get('level') in ('team', 'individual') and _p:
+        if _s.get('level') in ('shared', 'individual') and _p:
             _orph_targets.append((_s.get('name'), pathlib.Path(_p)))
     for _name, _p in _orph_targets:
         if not pathlib.Path(_p).is_dir():
@@ -4412,7 +4412,7 @@ def _main(box):
     _sl_targets = [('this checkout', repo_root)]
     for _s in data['sources']:
         _p = _s.get('path')
-        if _s.get('level') in ('team', 'individual') and _p:
+        if _s.get('level') in ('shared', 'individual') and _p:
             _sl_targets.append((_s.get('name'), pathlib.Path(_p)))
     _grand, _sl = 0, []
     for _sname, _sp in _sl_targets:

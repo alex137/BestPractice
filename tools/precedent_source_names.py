@@ -309,7 +309,7 @@ def assess(repo, env=None, user_config=None):
         # The OFFLINE half, reported whether or not the API answers: the
         # declared name and the clone's own remote disagreeing is a drift
         # nothing else prints, and it costs no network to see.
-        if src['level'] in ('team', 'individual') and name != src['name']:
+        if src['level'] in ('shared', 'individual') and name != src['name']:
             row['declared_drift'] = (
                 f'precedent.json (or the user config) declares {src["name"]!r} '
                 f'while the clone fetches from {owner}/{name}')

@@ -4,7 +4,7 @@
 "Precedence, and the One Case Where the Individual Does Not Win").
 
 A practice's LEVEL is not a field. It is implied by which repository the file
-lives in, "so it cannot drift from reality" — universal in Precedent, team in
+lives in, "so it cannot drift from reality" — universal in Precedent, shared in
 one private repo per team, individual in one private repo per person,
 repo-local in the consuming repo's own tree. This tool is what turns "up to
 four repositories" into "the practices in force here".
@@ -12,7 +12,7 @@ four repositories" into "the practices in force here".
 WHO DECLARES WHICH SOURCE, AND WHY THAT SPLIT IS A PRIVACY BOUNDARY RATHER
 THAN A CONVENIENCE.
 
-  The CONSUMER REPO declares universal, its team set, and its own repo-local
+  The CONSUMER REPO declares universal, its shared set, and its own repo-local
   set, in a tracked config file (precedent.json). Everyone working there
   gets those, and everyone working there can already read them.
 
@@ -26,15 +26,16 @@ THAN A CONVENIENCE.
   their own personal practices and neither seeing the other's. That falls out
   of where the declaration lives; it is not a rule anyone has to remember.
 
-PRECEDENCE is team > repo-local > individual > universal, by slug (changed
-2026-09-03 from the phase-3 individual > team > universal order — see
-spec/SOURCES.md for the reasoning). A team's rules bind everyone in it, so
+PRECEDENCE is shared > repo-local > individual > universal, by slug (changed
+2026-09-03 from the phase-3 individual > team > universal order, and the
+level itself renamed team -> shared on 2026-09-19 — see spec/SOURCES.md for
+the precedence reasoning). A team's rules bind everyone in it, so
 they are the strongest -- closest to actual law for that group. Universal
 covers every Precedent user in the world, so by design it is the lowest
 common denominator and the weakest. An individual's own practices sit in
 between: more binding than a rule meant for the whole world, less binding
 than what a person's own team requires of them. Repo-local sits alongside
-that same ladder, between individual and team, since it speaks to the actual
+that same ladder, between individual and shared, since it speaks to the actual
 working reality of one specific repo rather than a person's general style --
 but nothing here is fixed forever: any practice at any level can still be
 reordered relative to one slug via `overrides:`, or protected from every
@@ -132,16 +133,17 @@ def _self_heal_individual_source(repo_root):
 # HIGHEST PRECEDENCE FIRST -- read this tuple left to right as strongest to
 # weakest. (Changed 2026-09-03: this used to be listed lowest-first, weakest
 # to strongest, which reads backwards to an English speaker scanning a
-# left-to-right list -- team > repo-local > individual > universal is the
+# left-to-right list -- shared > repo-local > individual > universal is the
 # actual precedence order, matching how it is written and spoken everywhere
-# else in this codebase and its docs.)
+# else in this codebase and its docs. The level itself was renamed from
+# `team` to `shared` on 2026-09-19 -- see check_source_name's docstring.)
 #
 # The resolver still needs to WALK sources lowest-precedence-first internally
 # (a later source simply replaces what an earlier one put in place -- see
 # resolve() below), so every place that turns a level into a walk position
 # reads this tuple in reverse: `_precedence_rank()` gives the weakest level
 # rank 0, not `PRECEDENCE` itself.
-PRECEDENCE = ('team', 'repo-local', 'individual', 'universal')
+PRECEDENCE = ('shared', 'repo-local', 'individual', 'universal')
 
 
 def _precedence_rank(level):
@@ -162,11 +164,20 @@ def _precedence_rank(level):
 # to `precedent-individual`, and precedent_materialize.py had begun recording
 # the name as per-file attribution in a committed MANIFEST.json, where a
 # rename silently stops matching. See spec/SOURCE_NAMING.md.
+#
+# `shared` (renamed from `team` 2026-09-19) has no entry here, deliberately --
+# `check_source_name` below is a no-op for any level absent from this dict.
+# The fixed `precedent-team-<slug>` pattern this level used to require was
+# retired the same day the level itself was renamed: Morgan's call was "we
+# aren't going to accept only precedent-team-* names anymore" rather than
+# swap the required prefix for `precedent-shared-<slug>`. A shared source's
+# name is therefore unconstrained -- the MANIFEST.json attribution argument
+# above still holds (any string works as a label), only the predictability
+# guarantee ("every shared source in every repo I adopt Precedent in is named
+# the same way") is gone for this one level.
 SOURCE_NAME_SHAPE = {
     'universal':  (re.compile(r'^precedent$'), 'precedent'),
     'individual': (re.compile(r'^precedent-individual$'), 'precedent-individual'),
-    'team':       (re.compile(r'^precedent-team-[a-z0-9]+(?:-[a-z0-9]+)*$'),
-                   'precedent-team-<slug>, slug lowercase and hyphenated'),
     'repo-local': (re.compile(r'^local$'), 'local'),
 }
 
@@ -209,7 +220,7 @@ def warn_name_matches_path(level, name, path, where):
 
     Warning on every mismatch is wrong too, and that is the narrower point.
     The first version did, and it fired on perfectly correct fixtures and
-    checkouts whose directory is simply named something else ('team-set',
+    checkouts whose directory is simply named something else ('shared-set',
     'ind', a temporary directory) -- noise on legitimate work, which is the
     fastest way to teach a reader to ignore a warning. So it fires only when
     the directory basename already carries the `precedent-` prefix: that is a
@@ -318,7 +329,7 @@ def _diagnose_no_individual(why, heal, user_cfg_path, repo_root):
 def load_config(repo, user_config=None):
     """-> list of {level, name, path}, lowest precedence first.
 
-    The repo config may name universal, team, and repo-local sources. An
+    The repo config may name universal, shared, and repo-local sources. An
     individual source declared in a SHARED repo is refused by name, because
     that is the privacy boundary above, and a mistake that is silent here is
     a mistake nobody finds. A repo-local source's `path` must be EXACTLY
@@ -405,9 +416,9 @@ def load_config(repo, user_config=None):
             # the universal source cannot write a relative path that is
             # correct everywhere: an individual set is cloned to
             # $HOME/precedent-individual, and $HOME is /root on some
-            # containers and /home/user on others, while the team sets and
+            # containers and /home/user on others, while the shared sets and
             # the consuming repo sit side by side. So "../BestPractice"
-            # resolves from a team set and names nothing from an individual
+            # resolves from a shared set and names nothing from an individual
             # one. Same reasoning, and the same remedy, as
             # PRECEDENT_FRESHNESS_ALSO's "write the path as ~/name, never
             # spelled out". An already-relative path is unaffected: expansion
@@ -781,7 +792,7 @@ def resolve(sources):
                 # whichever the config happens to list second. The plan
                 # says this fails loudly ("the resolver fails loudly if two
                 # same-level practices claim one slug"), and until
-                # 2026-09-06 it did not: two team sources with a shared
+                # 2026-09-06 it did not: two shared sources with a shared
                 # slug resolved silently to the later one, reported only as
                 # an `overridden:` notice on stderr that reads exactly like
                 # a legitimate higher-level override. load_source() already
@@ -824,7 +835,7 @@ def resident_stats(res):
     source existed to combine with. `spec/PRIVATE_SETS_BRIEF.md` flagged the
     gap explicitly and asked the session populating the private sets to
     report back a combined figure "so a Precedent session can build the
-    cross-source cap" -- nothing ever did. A team set marking six practices
+    cross-source cap" -- nothing ever did. A shared set marking six practices
     resident and an individual set marking three, on top of this repo's own
     six, pushes a real resolved session's context well past the 2,000-token
     budget with nothing objecting, because no single source's build ever
@@ -917,7 +928,7 @@ def main():
             sys.exit(
                 f"precedent resolve FAIL: no practice sources are declared for "
                 f"{repo}. A repository using Precedent declares its universal and "
-                f"team sources in a tracked {REPO_CONFIG}; a person declares their "
+                f"shared sources in a tracked {REPO_CONFIG}; a person declares their "
                 f"own individual set in their user-level config "
                 f"({DEFAULT_USER_CONFIG}, or {USER_CONFIG_ENV}). Nothing was "
                 f"resolved because nothing was asked for -- that is not an empty "

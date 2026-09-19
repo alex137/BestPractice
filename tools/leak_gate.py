@@ -1088,7 +1088,7 @@ def _private_sources_declared(root=None):
         # guessing "no private sources" here would fail open in exactly the
         # direction this function exists to close (practice: fail-gracefully).
         return True
-    return any((s or {}).get('level') in ('individual', 'team')
+    return any((s or {}).get('level') in ('individual', 'shared')
                for s in data.get('sources', []))
 
 
@@ -1135,7 +1135,7 @@ def _private_sources_resolved(root=None):
         return True, []
     missing = {(m or {}).get('name') for m in res.get('missing', [])}
     private = [s for s in sources
-               if (s or {}).get('level') in ('individual', 'team')]
+               if (s or {}).get('level') in ('individual', 'shared')]
     unresolved = [s.get('name') for s in private if s.get('name') in missing]
     resolved = [s.get('name') for s in private if s.get('name') not in missing]
     return bool(resolved), unresolved

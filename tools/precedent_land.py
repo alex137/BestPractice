@@ -196,7 +196,7 @@ def land(candidate_path, level, repo_path, approved_by, against,
             raise LandRefused('--path REPO is required for individual/team')
         if not approved_by:
             raise LandRefused('--approved-by NAME is required')
-        if level == 'team':
+        if level == 'shared':
             approvers_file = pathlib.Path(repo_path) / 'approvers.json'
             if not approvers_file.is_file():
                 raise LandRefused(f'{approvers_file} does not exist -- cannot verify an approver')
@@ -221,7 +221,7 @@ def land(candidate_path, level, repo_path, approved_by, against,
     dest.write_text(_render_practice(fm, result['proposed_rule'], observed,
                                      approved_by, level, strength),
                     encoding='utf-8')
-    if level in ('individual', 'team'):
+    if level in ('individual', 'shared'):
         # Mark the source candidate promoted so it stops reading as still
         # open -- an already-landed candidate left at `status: open` would
         # keep surfacing from `precedent_candidate.py list --status open`
@@ -245,7 +245,7 @@ def land(candidate_path, level, repo_path, approved_by, against,
               f"individual practice set ({repo_path}). It applies "
               f"only to you, is already in force, and nobody else approved "
               f"or needs to.")
-    elif level == 'team':
+    elif level == 'shared':
         print(f"DISCLOSE TO THE HUMAN: this is now part of the TEAM "
               f"practice set at {repo_path}, approved by "
               f"{approved_by!r}. It is already in force for "

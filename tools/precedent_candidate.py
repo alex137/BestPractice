@@ -94,7 +94,7 @@ SIGNALS = {
     'repeated-instruction', 'repeated-check-failure', 'review-found-defect',
     'restated-in-second-scope',
 }
-LEVELS = {'individual', 'team', 'universal'}
+LEVELS = {'individual', 'shared', 'universal'}
 STATUSES = {'open', 'promoted', 'expired', 'declined'}
 SLUG_RE = re.compile(r'^[a-z0-9]+(-[a-z0-9]+)*$')
 
@@ -269,7 +269,7 @@ def cmd_create(args):
     # bare-boolean-flag support) -- so this is `--as-issue true`, not a bare
     # `--as-issue`, for consistency with the rest of the tool's own style.
     as_issue = args.get('--as-issue') == 'true'
-    if as_issue and level != 'team':
+    if as_issue and level != 'shared':
         raise CandidateError(
             "--as-issue only applies to --level team. Individual is always "
             "your own to land directly -- there's no one else whose "
@@ -327,7 +327,7 @@ def cmd_create(args):
     if not path:
         raise CandidateError('--path REPO is required for --level individual/team')
 
-    if level == 'team':
+    if level == 'shared':
         _nudge_if_already_approver(path, fields['raised_by'])
 
     if as_issue:
@@ -480,7 +480,7 @@ def set_candidate_status(target, new_status, required_current='open'):
 
 def cmd_expire(args):
     level = args.get('--level')
-    if level not in ('individual', 'team'):
+    if level not in ('individual', 'shared'):
         raise CandidateError("--level must be individual or team for expire "
                               "(a universal candidate is an Issue -- close it there)")
     path = args.get('--path')

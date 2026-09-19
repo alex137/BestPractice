@@ -1940,7 +1940,7 @@ def check_source_precedence():
             'format_version': 1,
             'sources': [{'level': 'universal', 'name': 'precedent',
                          'path': str(universal)},
-                        {'level': 'team', 'name': 'precedent-team-fixture',
+                        {'level': 'shared', 'name': 'precedent-team-fixture',
                          'path': str(team)},
                         {'level': 'repo-local', 'name': 'local',
                          'path': 'local'}]}), encoding='utf-8')
@@ -1970,12 +1970,12 @@ def check_source_precedence():
         # all four sources are actually in play
         cases.append(('all four sources resolve',
                       {s['level'] for s in data['sources']}
-                      == {'universal', 'team', 'individual', 'repo-local'}))
+                      == {'universal', 'shared', 'individual', 'repo-local'}))
         # precedence: team > repo-local > individual > universal, on a slug
         # defined at all four
         cases.append(('team beats repo-local beats individual beats '
                       'universal on a slug defined at all four',
-                      by_slug.get('shared-slug', {}).get('level') == 'team'))
+                      by_slug.get('shared-slug', {}).get('level') == 'shared'))
         # isolate repo-local's own rank: a slug defined at repo-local,
         # individual and universal, but NOT team, must resolve to repo-local
         cases.append(('repo-local beats individual and universal when team '
@@ -1984,7 +1984,7 @@ def check_source_precedence():
         # everything unique to a level survives
         for slug, level in (('universal-only', 'universal'),
                             ('individual-only', 'individual'),
-                            ('team-only', 'team'),
+                            ('team-only', 'shared'),
                             ('repo-local-only', 'repo-local')):
             cases.append((f'{slug} survives from {level}',
                           by_slug.get(slug, {}).get('level') == level))
@@ -2058,7 +2058,7 @@ def check_source_precedence():
             'format_version': 1,
             'sources': [{'level': 'universal', 'name': 'precedent',
                          'path': str(coll_universal)},
-                        {'level': 'team', 'name': 'precedent-team-fixture',
+                        {'level': 'shared', 'name': 'precedent-team-fixture',
                          'path': str(coll_team)}]}), encoding='utf-8')
         r_coll = subprocess.run(
             [sys.executable, str(ROOT / 'tools' / 'precedent_resolve.py'),
@@ -2192,8 +2192,8 @@ def check_source_precedence():
         practice(t_b, 'b-only', level_note='Only in B.')
         (two_teams / 'precedent.json').write_text(json.dumps({
             'format_version': 1,
-            'sources': [{'level': 'team', 'name': 'precedent-team-a', 'path': str(t_a)},
-                        {'level': 'team', 'name': 'precedent-team-b', 'path': str(t_b)}]}),
+            'sources': [{'level': 'shared', 'name': 'precedent-team-a', 'path': str(t_a)},
+                        {'level': 'shared', 'name': 'precedent-team-b', 'path': str(t_b)}]}),
             encoding='utf-8')
         r_two = subprocess.run(
             [sys.executable, str(ROOT / 'tools' / 'precedent_resolve.py'),
@@ -2308,7 +2308,7 @@ def check_cross_source_resident_budget():
         # Rule, stacked on top of this repo's own resident practices, must
         # push the combined figure over budget and be refused
         consumer = tmp / 'consumer'
-        team = tmp / 'team'
+        team = tmp / 'shared'
         (consumer).mkdir()
         (team / 'practices').mkdir(parents=True)
         big_rule = ' '.join(['word'] * 1500)  # ~1950 approx-tokens alone
@@ -2325,7 +2325,7 @@ def check_cross_source_resident_budget():
             'format_version': 1,
             'sources': [{'level': 'universal', 'name': 'precedent',
                          'path': str(ROOT)},
-                        {'level': 'team', 'name': 'precedent-team-fixture',
+                        {'level': 'shared', 'name': 'precedent-team-fixture',
                          'path': str(team)}]}), encoding='utf-8')
         rc2, out2, err2 = _run([sys.executable, str(ROOT / 'tools' /
                                 'precedent_resolve.py'), '--repo', str(consumer),
@@ -3457,7 +3457,7 @@ def check_source_names_detects_a_rename():
                        capture_output=True)
         (consumer / 'precedent.json').write_text(json.dumps({
             'visibility': 'private',
-            'sources': [{'level': 'team', 'name': 'precedent-team-fixture',
+            'sources': [{'level': 'shared', 'name': 'precedent-team-fixture',
                          'path': '../precedent-team-fixture'}]}),
             encoding='utf-8')
 
@@ -3712,15 +3712,15 @@ def check_legacy_status_migration():
             (d / f'{slug}.md').write_text(x, encoding='utf-8')
             return d / f'{slug}.md'
 
-        team_sync = make('team', 'bestpractice-sync', 'retired',
+        team_sync = make('shared', 'bestpractice-sync', 'retired',
                          'Moved to the individual set.', legacy=True)
-        team_caps = make('team', 'header-caps', 'retired',
+        team_caps = make('shared', 'header-caps', 'retired',
                          'The universal catalogue carries this now.', legacy=True)
         make('individual', 'bestpractice-sync')
         make('universal', 'headline-capitalization')
         against = [str(tmp / 'individual'), str(tmp / 'universal')]
 
-        recs = pms.legacy_records(tmp / 'team' / 'practices')
+        recs = pms.legacy_records(tmp / 'shared' / 'practices')
         cases.append(('a legacy record (non-active, no in_force_at) is found',
                       {fm.get('slug') for _f, fm, _s in recs}
                       == {'bestpractice-sync', 'header-caps'}))
@@ -3731,14 +3731,14 @@ def check_legacy_status_migration():
 
         # report-only must never write
         before = team_sync.read_text(encoding='utf-8')
-        rc = pms.report(str(tmp / 'team'), against, {}, False)
+        rc = pms.report(str(tmp / 'shared'), against, {}, False)
         cases.append(('report-only leaves every file untouched',
                       team_sync.read_text(encoding='utf-8') == before))
         cases.append(('report-only exits non-zero while legacy records remain',
                       rc == 1))
 
         # the renamed successor must NOT be guessed
-        rc = pms.report(str(tmp / 'team'), against, {}, True)
+        rc = pms.report(str(tmp / 'shared'), against, {}, True)
         caps_after = team_caps.read_text(encoding='utf-8')
         cases.append(('a RENAMED successor is left UNDETERMINED, not guessed -- '
                       'guessing here is the resemblance reasoning the rename removes',
@@ -3750,7 +3750,7 @@ def check_legacy_status_migration():
                       and 'in_force_at: bestpractice-sync' in sync_after))
 
         # an explicitly named target that is not in force is refused
-        pms.report(str(tmp / 'team'), against, {'header-caps': 'no-such-slug'}, True)
+        pms.report(str(tmp / 'shared'), against, {'header-caps': 'no-such-slug'}, True)
         cases.append(('an in_force_at: target that is not active anywhere is refused',
                       'no-such-slug' not in team_caps.read_text(encoding='utf-8')))
 
@@ -3764,7 +3764,7 @@ def check_legacy_status_migration():
                       (tmp / 'team2' / 'practices' / 'storyless.md').read_text(encoding='utf-8')))
 
         # the named target lands, and the result satisfies the contract
-        pms.report(str(tmp / 'team'), against,
+        pms.report(str(tmp / 'shared'), against,
                    {'header-caps': 'headline-capitalization'}, True)
         fm, sections = sp._read_practice_file(team_caps)
         import build_views as _bv
@@ -3775,7 +3775,7 @@ def check_legacy_status_migration():
                       _bv.status_contract_violation(
                           fm, sections, {'headline-capitalization'}.__contains__) is None))
         cases.append(('the migration is idempotent -- a second run finds nothing',
-                      pms.report(str(tmp / 'team'), against, {}, False) == 0))
+                      pms.report(str(tmp / 'shared'), against, {}, False) == 0))
 
         # the rewriter must not touch a body line that merely starts "status:"
         body_trap = make('team3', 'body-trap', 'retired',
@@ -3968,7 +3968,7 @@ def check_session_practices_load_without_publishing():
         # A repo declaring universal (itself) + a team source.
         repo = tmp / 'repo'
         (repo / 'practices').mkdir(parents=True)
-        team = tmp / 'team' / 'practices'
+        team = tmp / 'shared' / 'practices'
         team.mkdir(parents=True)
         src = (ROOT / 'practices' / 'verify-postcondition.md').read_text(encoding='utf-8')
 
@@ -3983,8 +3983,8 @@ def check_session_practices_load_without_publishing():
         (repo / 'precedent.json').write_text(_json.dumps({
             'format_version': 1, 'visibility': 'public',
             'sources': [{'level': 'universal', 'name': 'precedent', 'path': '.'},
-                        {'level': 'team', 'name': 'precedent-team-repo-maintenance',
-                         'path': str(tmp / 'team')}]}), encoding='utf-8')
+                        {'level': 'shared', 'name': 'precedent-team-repo-maintenance',
+                         'path': str(tmp / 'shared')}]}), encoding='utf-8')
 
         extra, levels, notes = psp.collect(str(repo))
         slugs = {fm['slug'] for fm, _s, _f in extra}
@@ -3995,7 +3995,7 @@ def check_session_practices_load_without_publishing():
                       'every session\'s resident block',
                       'universal-one' not in slugs))
         cases.append(('the level is carried, so the block can say where a rule came from',
-                      levels.get('team-only-rule') == 'team'))
+                      levels.get('team-only-rule') == 'shared'))
 
         text = psp.render(extra, levels, notes)
         cases.append(('the rendered block names the team practice',
@@ -4007,7 +4007,7 @@ def check_session_practices_load_without_publishing():
         (repo / 'precedent.json').write_text(_json.dumps({
             'format_version': 1, 'visibility': 'public',
             'sources': [{'level': 'universal', 'name': 'precedent', 'path': '.'},
-                        {'level': 'team', 'name': 'precedent-team-repo-maintenance',
+                        {'level': 'shared', 'name': 'precedent-team-repo-maintenance',
                          'path': str(tmp / 'no-such-dir')}]}), encoding='utf-8')
         _extra, _levels, notes2 = psp.collect(str(repo))
         # notes are (kind, text) since 2026-09-13 -- the tag is what keeps a
@@ -4271,7 +4271,7 @@ def check_session_practices_load_without_publishing():
         (repo / 'practices').mkdir(parents=True)
         (repo / 'tools').mkdir(parents=True)
         (repo / '.claude' / 'hooks').mkdir(parents=True)
-        tsrc = fx / 'team' / 'practices'
+        tsrc = fx / 'shared' / 'practices'
         tsrc.mkdir(parents=True)
         base = (ROOT / 'practices' / 'verify-postcondition.md').read_text(encoding='utf-8')
         x = re.sub(r'^slug:(\s+)\S+$', r'slug:\g<1>team-unreachable', base, count=1, flags=re.M)
@@ -4282,8 +4282,8 @@ def check_session_practices_load_without_publishing():
         (repo / 'precedent.json').write_text(_js.dumps({
             'format_version': 1, 'visibility': 'public',
             'sources': [{'level': 'universal', 'name': 'precedent', 'path': '.'},
-                        {'level': 'team', 'name': 'precedent-team-repo-maintenance',
-                         'path': str(fx / 'team')}]}), encoding='utf-8')
+                        {'level': 'shared', 'name': 'precedent-team-repo-maintenance',
+                         'path': str(fx / 'shared')}]}), encoding='utf-8')
         _sh.copy(ROOT / 'tools' / 'precedent_session_practices.py', repo / 'tools')
         hook = repo / '.claude' / 'hooks' / 'session-start.sh'
 
@@ -7095,7 +7095,7 @@ def check_source_sets_can_learn_they_are_stale():
     #    to make that choice for people. It lives at the individual level
     #    now, for whoever wants it. This case exists so the file cannot
     #    reappear here without someone deciding to put it back.
-    for level in ('individual', 'team'):
+    for level in ('individual', 'shared'):
         wf = ROOT / 'templates' / f'practice-set-{level}' / '.github' / 'workflows' / 'engine-refresh.yml'
         cases.append((f'the {level} source template ships no scheduled workflow '
                       f'(a per-person choice, not a universal default)',
@@ -8101,7 +8101,7 @@ def check_materialize_bridges_loader():
 
     cases = []
     try:
-        uni, team = tmp / 'universal', tmp / 'team'
+        uni, team = tmp / 'universal', tmp / 'shared'
         # Both fixture practices CLAIM the same check filename, which is
         # what makes the collision below a real one: since 2026-09-06
         # materialize only vendors a script some resolved practice's
@@ -8130,7 +8130,7 @@ def check_materialize_bridges_loader():
         (consumer).mkdir()
         (consumer / 'precedent.json').write_text(json.dumps({
             'sources': [{'level': 'universal', 'name': 'precedent', 'path': str(uni)},
-                        {'level': 'team', 'name': 'precedent-team-fixture', 'path': str(team)}]
+                        {'level': 'shared', 'name': 'precedent-team-fixture', 'path': str(team)}]
         }), encoding='utf-8')
 
         materialize_tool = str(ROOT / 'tools' / 'precedent_materialize.py')
@@ -8391,7 +8391,7 @@ def check_materialize_carries_harness_adapters():
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-adapters-'))
     cases = []
     try:
-        uni, team, consumer = tmp / 'universal', tmp / 'team', tmp / 'consumer'
+        uni, team, consumer = tmp / 'universal', tmp / 'shared', tmp / 'consumer'
         for root, slug in ((uni, 'uni-fixture'), (team, 'team-fixture')):
             p = root / 'practices' / f'{slug}.md'
             p.parent.mkdir(parents=True, exist_ok=True)
@@ -8420,7 +8420,7 @@ def check_materialize_carries_harness_adapters():
         consumer.mkdir()
         (consumer / 'precedent.json').write_text(json.dumps({
             'sources': [{'level': 'universal', 'name': 'precedent', 'path': str(uni)},
-                        {'level': 'team', 'name': 'precedent-team-fixture',
+                        {'level': 'shared', 'name': 'precedent-team-fixture',
                          'path': str(team)}]}), encoding='utf-8')
 
         # The fixture owns its HOME for the reason spelled out in
@@ -8809,7 +8809,7 @@ def check_sync_refuses_to_lose_a_recorded_practice():
         srcs = [{'level': 'universal', 'name': 'precedent',
                  'path': 'precedent/universal'}]
         if extra_source:
-            srcs.append({'level': 'team', 'name': 'precedent-team-x',
+            srcs.append({'level': 'shared', 'name': 'precedent-team-x',
                          'path': str(team)})
         (repo / 'precedent.json').write_text(json.dumps({
             'format_version': 1, 'base_branch': 'main',
@@ -8865,7 +8865,7 @@ def check_sync_refuses_to_lose_a_recorded_practice():
         repo2, team2, user2 = _repo(tmp / 'b')
         _sync(repo2, user2); _commit(repo2)
         cfg = json.loads((repo2 / 'precedent.json').read_text())
-        cfg['sources'] = [s for s in cfg['sources'] if s['level'] != 'team']
+        cfg['sources'] = [s for s in cfg['sources'] if s['level'] != 'shared']
         (repo2 / 'precedent.json').write_text(json.dumps(cfg), encoding='utf-8')
         r = _sync(repo2, user2)
         cases.append(('dropping a source from precedent.json is allowed, not '
@@ -9946,7 +9946,7 @@ def check_verify_reports_a_source_wired_for_fewer_moments():
             {'hooks': {'SessionStart': [{'hooks': [
                 {'type': 'command', 'command': c} for c in cmds]}]}}),
             encoding='utf-8')
-        return [m for m in pbs.verify('team', root) if 'NOT WIRED' in m]
+        return [m for m in pbs.verify('shared', root) if 'NOT WIRED' in m]
 
     D = '$CLAUDE_PROJECT_DIR'
     cases = []
@@ -10675,7 +10675,7 @@ def check_commit_identity_copies_are_identical():
         import precedent_resolve as _pr
         team_dirs += [pathlib.Path(x['path']).expanduser()
                       for x in _pr.load_config(ROOT)
-                      if x.get('level') == 'team' and x.get('path')]
+                      if x.get('level') == 'shared' and x.get('path')]
     except Exception:
         pass
     seen_dirs = set()
@@ -11449,7 +11449,7 @@ def check_sync_views_cross_source():
         (consumer / 'precedent.json').write_text(json.dumps({
             'visibility': 'private',
             'sources': [{'level': 'universal', 'name': 'precedent', 'path': str(universal)},
-                        {'level': 'team', 'name': 'precedent-team-fixture', 'path': str(team)},
+                        {'level': 'shared', 'name': 'precedent-team-fixture', 'path': str(team)},
                         {'level': 'repo-local', 'name': 'local', 'path': 'local'}]
         }), encoding='utf-8')
         user_cfg = tmp / 'user.json'
@@ -11475,7 +11475,7 @@ def check_sync_views_cross_source():
                       'uni-fixture' in agents_text and 'team-fixture' in agents_text))
         cases.append(('the resident-count-by-level header counts only the '
                       'RESIDENT practices, not all four resolved ones',
-                      '2 of 4 practices (1 team, 1 universal)' in agents_text))
+                      '2 of 4 practices (1 shared, 1 universal)' in agents_text))
         cases.append(('the occasion index reaches the on-demand individual '
                       'and repo-local practices too',
                       'ind-fixture' in agents_text and 'local-fixture' in agents_text))
@@ -11563,7 +11563,7 @@ def check_sync_views_cross_source():
         write_practice(other / 'practices' / 'shared.md', 'shared',
                         'TEAM VERSION.')
         (selfref2 / 'precedent.json').write_text(json.dumps({
-            'sources': [{'level': 'team', 'name': 'precedent-team-other', 'path': str(other)},
+            'sources': [{'level': 'shared', 'name': 'precedent-team-other', 'path': str(other)},
                         {'level': 'universal', 'name': 'precedent', 'path': '.'}]
         }), encoding='utf-8')
         (selfref2 / 'AGENTS.md').write_text(
@@ -11906,7 +11906,7 @@ def check_creation_pipeline_fires():
 
         # --- landing hard-refuses an unlisted team approver ---------------------
         f7 = make_candidate('pipeline-fixture-approver', recurrence=2, occasion='x')
-        rc, out = pyrun(land_tool, '--file', str(f7), '--level', 'team',
+        rc, out = pyrun(land_tool, '--file', str(f7), '--level', 'shared',
                         '--path', str(ROOT), '--approved-by', 'Someone Not An Approver')
         # ROOT has no approvers.json at all -- refused for that reason, which is
         # itself the right failure mode (never landed without one to check against).
@@ -12028,8 +12028,8 @@ def check_creation_pipeline_fires():
                        cwd=team_repo, check=True)
 
         f10 = make_candidate('pipeline-fixture-disclose-team', recurrence=2, occasion='x')
-        rc, out = pyrun(promote_tool, '--file', str(f10), '--level', 'team')
-        rc, out = pyrun(land_tool, '--file', str(f10), '--level', 'team',
+        rc, out = pyrun(promote_tool, '--file', str(f10), '--level', 'shared')
+        rc, out = pyrun(land_tool, '--file', str(f10), '--level', 'shared',
                         '--path', str(team_repo), '--approved-by', 'Approved Person')
         cases.append(('landing a team practice by a real approver discloses the '
                       'named team set, already in force for everyone on it',
@@ -12039,7 +12039,7 @@ def check_creation_pipeline_fires():
 
         def make_issue_draft(raised_by, **extra):
             gh_repo = extra.pop('github_repo', None)
-            args = [cand_tool, 'create', '--level', 'team', '--path', str(team_repo),
+            args = [cand_tool, 'create', '--level', 'shared', '--path', str(team_repo),
                     '--as-issue', 'true',
                     '--slug', extra.pop('slug', 'pipeline-fixture-issue'),
                     '--title', 't', '--signal', 'explicit-instruction',
@@ -12078,7 +12078,7 @@ def check_creation_pipeline_fires():
                       rc == 0 and 'DISCLOSE TO THE HUMAN' in out
                       and 'YOUR OWN individual set' in out and str(repo) in out))
 
-        rc, out = pyrun(cand_tool, 'create', '--level', 'team', '--path', str(team_repo),
+        rc, out = pyrun(cand_tool, 'create', '--level', 'shared', '--path', str(team_repo),
                         '--slug', 'pipeline-fixture-disclose-cand-t', '--title', 't',
                         '--signal', 'explicit-instruction', '--raised-by', 'Approved Person',
                         '--observed', 'x', '--proposed-rule', 'x')
@@ -12089,7 +12089,7 @@ def check_creation_pipeline_fires():
                       and 'TEAM set at' in out and str(team_repo) in out
                       and 'already an approver' in out))
 
-        rc, out = pyrun(cand_tool, 'create', '--level', 'team', '--path', str(team_repo),
+        rc, out = pyrun(cand_tool, 'create', '--level', 'shared', '--path', str(team_repo),
                         '--slug', 'pipeline-fixture-disclose-cand-n', '--title', 't',
                         '--signal', 'explicit-instruction', '--raised-by', 'Someone Not An Approver',
                         '--observed', 'x', '--proposed-rule', 'x')
@@ -12119,7 +12119,7 @@ def check_creation_pipeline_fires():
         no_remote_repo = tmp / 'fixture-team-no-remote'
         (no_remote_repo / 'candidates').mkdir(parents=True)
         subprocess.run(['git', 'init', '-q'], cwd=no_remote_repo, check=True)
-        rc, out = pyrun(cand_tool, 'create', '--level', 'team', '--path', str(no_remote_repo),
+        rc, out = pyrun(cand_tool, 'create', '--level', 'shared', '--path', str(no_remote_repo),
                         '--as-issue', 'true', '--slug', 'pipeline-fixture-issue-e',
                         '--title', 't', '--signal', 'explicit-instruction',
                         '--raised-by', 'harness', '--observed', 'x', '--proposed-rule', 'x')
@@ -12129,7 +12129,7 @@ def check_creation_pipeline_fires():
                       rc == 1 and 'could not detect a GitHub owner/repo' in out
                       and '--github-repo' in out))
 
-        rc, out = pyrun(cand_tool, 'create', '--level', 'team', '--path', str(no_remote_repo),
+        rc, out = pyrun(cand_tool, 'create', '--level', 'shared', '--path', str(no_remote_repo),
                         '--as-issue', 'true', '--github-repo', 'override-owner/override-repo',
                         '--slug', 'pipeline-fixture-issue-f',
                         '--title', 't', '--signal', 'explicit-instruction',
@@ -12186,12 +12186,12 @@ def check_bootstrap_source_produces_resolvable_set():
                       rc == 0 and (indiv_dest / 'practices' / 'example-starter.md').is_file()
                       and (indiv_dest / 'config.json.sample').is_file(), out))
 
-        rc, out = pyrun(bootstrap_tool, '--level', 'team',
+        rc, out = pyrun(bootstrap_tool, '--level', 'shared',
                         '--name', 'precedent-team-harness-fixture', '--dest', str(team_dest))
         cases.append(('bootstrapping a team set without --approver is refused',
                       rc == 1 and 'approver' in out, out))
 
-        rc, out = pyrun(bootstrap_tool, '--level', 'team',
+        rc, out = pyrun(bootstrap_tool, '--level', 'shared',
                         '--name', 'precedent-team-harness-fixture', '--dest', str(team_dest),
                         '--approver', 'Harness Approver:harness-approver-gh')
         approvers_json = team_dest / 'approvers.json'
@@ -12214,7 +12214,7 @@ def check_bootstrap_source_produces_resolvable_set():
             'format_version': 1,
             'sources': [
                 {'level': 'universal', 'name': 'precedent', 'path': str(ROOT)},
-                {'level': 'team', 'name': 'precedent-team-harness-fixture', 'path': str(team_dest)},
+                {'level': 'shared', 'name': 'precedent-team-harness-fixture', 'path': str(team_dest)},
             ],
         }), encoding='utf-8')
         user_config = tmp / 'user-config.json'
@@ -12236,7 +12236,7 @@ def check_bootstrap_source_produces_resolvable_set():
                       rc == 0 and not resolved.get('missing') and not resolved.get('blocked'), out))
         cases.append(('example-starter resolves, won by the team set over the '
                       'individual set (real precedence, not just presence)',
-                      slugs.get('example-starter', {}).get('level') == 'team', out))
+                      slugs.get('example-starter', {}).get('level') == 'shared', out))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
@@ -12541,7 +12541,7 @@ def check_session_start_refreshes_an_attached_team_clone():
         repo.mkdir()
         (repo / 'precedent.json').write_text(_json.dumps(
             {'format_version': 1,
-             'sources': [{'level': 'team', 'name': 'precedent-team-fixture',
+             'sources': [{'level': 'shared', 'name': 'precedent-team-fixture',
                           'path': '../clone-of-it'}]}), encoding='utf-8')
 
         name, ok, msg = psb.sources_from_repo(repo)[0]
@@ -12900,7 +12900,7 @@ def check_vendor_engine_consumer_case():
             'visibility': 'private',   # declared, not defaulted -- see above
             'sources': [
                 {'level': 'universal', 'name': 'precedent', 'path': str(ROOT)},
-                {'level': 'team', 'name': 'precedent-team-consumer-fixture', 'path': str(team_dir)},
+                {'level': 'shared', 'name': 'precedent-team-consumer-fixture', 'path': str(team_dir)},
                 {'level': 'repo-local', 'name': 'local', 'path': 'local'},
             ],
         }), encoding='utf-8')
@@ -13311,7 +13311,7 @@ def check_source_shape_is_verified():
             (d / 'practices').mkdir(exist_ok=True)
             (d / 'practices' / 'x.md').write_text('---\nslug: x\n---\n## Rule\nx\n',
                                                   encoding='utf-8')
-            if level == 'team':
+            if level == 'shared':
                 (d / 'approvers.json').write_text(_json.dumps(
                     {'approvers': [{'name': 'A', 'github': 'a'}]}), encoding='utf-8')
                 (d / 'approvers.json.template').unlink(missing_ok=True)
@@ -13358,21 +13358,21 @@ def check_source_shape_is_verified():
             return d
 
         cases.append(('a complete team set is well-formed',
-                      bss.verify('team', fixture('team')) == []))
+                      bss.verify('shared', fixture('shared')) == []))
         cases.append(('a complete individual set is well-formed',
                       bss.verify('individual', fixture('individual')) == []))
         cases.append(('a source with no session hooks is reported -- they are '
                       'the one part of a source\'s shape that does not live '
                       'in the skeleton',
                       any('freshness-guard' in f for f in bss.verify(
-                          'team', fixture('team',
+                          'shared', fixture('shared',
                                           **{'.claude/hooks/freshness-guard.sh': None})))))
         # A source is free to keep its hooks somewhere other than where
         # bootstrap() writes them, as long as settings.json points at them:
         # what the shape check is really asking is whether the hook RUNS.
         # A real one does exactly this (its hooks live in bootstrap/), and
         # the literal-path check reported that working source as broken.
-        _relocated = fixture('team', **{'.claude/hooks/freshness-guard.sh': None})
+        _relocated = fixture('shared', **{'.claude/hooks/freshness-guard.sh': None})
         (_relocated / 'bootstrap').mkdir(exist_ok=True)
         (_relocated / 'bootstrap' / 'freshness-guard.sh').write_text('#!/bin/sh\n')
         # Every mode the adapter wires, not just session-start: this fixture
@@ -13393,53 +13393,53 @@ def check_source_shape_is_verified():
         cases.append(('a session hook kept outside .claude/hooks/ but wired by '
                       'the source\'s own settings.json is NOT reported missing',
                       not any('freshness-guard' in f
-                              for f in bss.verify('team', _relocated))))
+                              for f in bss.verify('shared', _relocated))))
 
         # The negative control for that leniency: wired at a path where
         # nothing is installed must still be reported, or the check above
         # would accept any settings.json that merely mentions the name.
-        _dangling = fixture('team', **{'.claude/hooks/freshness-guard.sh': None})
+        _dangling = fixture('shared', **{'.claude/hooks/freshness-guard.sh': None})
         (_dangling / '.claude' / 'settings.json').write_text(_json.dumps(
             {'hooks': {'SessionStart': [{'hooks': [{'type': 'command',
              'command': '$CLAUDE_PROJECT_DIR/bootstrap/freshness-guard.sh'}]}]}}))
         cases.append(('a hook wired at a path where no file exists is still '
                       'reported missing',
                       any('freshness-guard' in f
-                          for f in bss.verify('team', _dangling))))
+                          for f in bss.verify('shared', _dangling))))
 
         cases.append(('a report names the harness adapter, not the skeleton, '
                       'for the files the skeleton has never shipped',
                       all('templates/harness/claude-code/hooks/' in f
-                          for f in bss.verify('team', fixture(
-                              'team', **{'.claude/hooks/commit-identity.sh': None}))
+                          for f in bss.verify('shared', fixture(
+                              'shared', **{'.claude/hooks/commit-identity.sh': None}))
                           if 'commit-identity' in f)))
 
         cases.append(('a missing skeleton file is reported',
                       any('leak-blocklist' in f for f in bss.verify(
-                          'team', fixture('team', **{'leak-blocklist.txt': None})))))
+                          'shared', fixture('shared', **{'leak-blocklist.txt': None})))))
         cases.append(('an approvers.json with no approvers is reported -- '
                       'build_codeowners.py refuses exactly this',
                       any('no approvers' in f for f in bss.verify(
-                          'team', fixture('team', **{'approvers.json':
+                          'shared', fixture('shared', **{'approvers.json':
                               _json.dumps({'approvers': []})})))))
         cases.append(('an approver with no github is reported',
                       any('"github"' in f for f in bss.verify(
-                          'team', fixture('team', **{'approvers.json':
+                          'shared', fixture('shared', **{'approvers.json':
                               _json.dumps({'approvers': [{'name': 'A'}]})})))))
         cases.append(('an unfilled {{PLACEHOLDER}} is reported -- bootstrapped '
                       'and never finished',
                       any('unfilled' in f for f in bss.verify(
-                          'team', fixture('team',
+                          'shared', fixture('shared',
                                           **{'leak-blocklist.txt': 'a {{NAME}} b'})))))
         cases.append(('an individual config missing individual.path is reported',
                       any('individual.path' in f for f in bss.verify(
                           'individual', fixture('individual', **{'config.json.sample':
                               _json.dumps({'individual': {'name': 'n'}})})))))
-        d = fixture('team')
+        d = fixture('shared')
         for f in (d / 'practices').glob('*.md'):
             f.unlink()
         cases.append(('a source with no practice files is reported',
-                      any('no practice files' in x for x in bss.verify('team', d))))
+                      any('no practice files' in x for x in bss.verify('shared', d))))
 
     bad = [n for n, ok in cases if not ok]
     for n in bad:
@@ -14104,7 +14104,7 @@ def check_loader_block_covers_every_declared_source():
     # deleting a legitimate practice is one people learn to ignore.
     publishable = set()
     for s in declared:
-        if s['level'] in ('team', 'individual'):
+        if s['level'] in ('shared', 'individual'):
             continue
         d = pathlib.Path(s['path']) / 'practices'
         if not d.is_dir():
@@ -14133,7 +14133,7 @@ def check_loader_block_covers_every_declared_source():
         if not active:
             continue
         present = [a for a in active if a in named]
-        if public and s['level'] in ('team', 'individual'):
+        if public and s['level'] in ('shared', 'individual'):
             leaked += [a for a in present if a not in publishable]
         elif not present:
             missing.append(f"{s['level']}/{s['name']} ({len(active)} active "
@@ -15507,7 +15507,7 @@ def check_source_credentials():
             sources = [{'level': 'universal', 'name': 'precedent', 'path': '.'},
                        {'level': 'repo-local', 'name': 'local', 'path': 'local'}]
             if team_path is not None:
-                sources.insert(1, {'level': 'team', 'name': 'precedent-team-fixture',
+                sources.insert(1, {'level': 'shared', 'name': 'precedent-team-fixture',
                                    'path': team_path})
             (repo / 'precedent.json').write_text(
                 json.dumps({'format_version': 1, 'sources': sources}), encoding='utf-8')
@@ -15783,7 +15783,7 @@ def check_source_credentials():
         cases.append(('...and writes no user config for it: a team source '
                       'resolves by path, so there is nothing to record',
                       not (home_empty / '.config' / 'precedent' / 'config.json')
-                      .read_text(encoding='utf-8').count('team'),
+                      .read_text(encoding='utf-8').count('shared'),
                       (home_empty / '.config' / 'precedent' / 'config.json')
                       .read_text(encoding='utf-8')))
 
@@ -16168,7 +16168,7 @@ def check_source_credentials_reach_clones_nothing_syncs():
         consumer = tmp / 'consumer'
         (consumer / 'sibling-team').mkdir(parents=True)
         (consumer / 'precedent.json').write_text(json.dumps({'sources': [
-            {'level': 'team', 'name': 'precedent-team-fixture',
+            {'level': 'shared', 'name': 'precedent-team-fixture',
              'path': 'sibling-team'}]}), encoding='utf-8')
         subprocess.run(['git', 'clone', '-q', f'file://{source}',
                         str(consumer / 'sibling-team')], check=True,
@@ -16915,7 +16915,7 @@ def check_mirrored_prefixes_answers_both_install_models():
             'format_version': 1, 'visibility': 'private', 'sources': [
                 {'level': 'universal', 'name': 'precedent',
                  'path': 'precedent/universal'},
-                {'level': 'team', 'name': 'precedent-team-writing',
+                {'level': 'shared', 'name': 'precedent-team-writing',
                  'path': '../precedent-team-writing'},
                 {'level': 'repo-local', 'name': 'local', 'path': 'local'}]})
         s0 = pr.mirrored_prefixes(tmp / 's0')
@@ -18260,12 +18260,12 @@ def check_very_deep_check_convergent_drift():
     def fresh(tag):
         dest = tmp / tag
         subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_bootstrap_source.py'),
-                        '--level', 'team', '--name', 'precedent-team-' + tag,
+                        '--level', 'shared', '--name', 'precedent-team-' + tag,
                         '--dest', str(dest), '--approver', 'Fixture:fixture'],
                        capture_output=True, text=True)
         subprocess.run(['git', 'init', '-q', str(dest)], capture_output=True)
         subprocess.run(['git', '-C', str(dest), 'add', '-A'], capture_output=True)
-        return dest, {'level': 'team', 'name': 'precedent-team-' + tag,
+        return dest, {'level': 'shared', 'name': 'precedent-team-' + tag,
                       'path': str(dest)}
 
     try:
@@ -18287,9 +18287,9 @@ def check_very_deep_check_convergent_drift():
                       'nothing',
                       any(m.startswith('note') and 'converge' in m
                           for m in vdc._convergent_drift(
-                              {('team', 'README.md'): {'solo': frozenset()}})),
+                              {('shared', 'README.md'): {'solo': frozenset()}})),
                       repr(vdc._convergent_drift(
-                          {('team', 'README.md'): {'solo': frozenset()}}))))
+                          {('shared', 'README.md'): {'solo': frozenset()}}))))
 
         # ONE set changing a file is a person, not a template gap.
         line = 'a distinctive line no skeleton ships anywhere at all'
@@ -18909,7 +18909,7 @@ def check_sync_refuses_to_write_from_incomplete_sources():
             'sources': [
                 {'level': 'universal', 'name': 'precedent',
                  'path': 'precedent/universal'},
-                {'level': 'team', 'name': 'precedent-team-widgets',
+                {'level': 'shared', 'name': 'precedent-team-widgets',
                  'path': str(team)}]}), encoding='utf-8')
         empty_user = tmp / 'user.json'
         empty_user.write_text(_json.dumps({'format_version': 1}), encoding='utf-8')
@@ -19740,7 +19740,7 @@ def check_leak_gate_refuses_a_fresh_container():
     UNIVERSAL = [{'level': 'universal', 'name': 'precedent', 'path': '.'}]
     # A private source that RESOLVES: its directory exists and carries a
     # practices/ tree, so the session can read its text.
-    PRIVATE = UNIVERSAL + [{'level': 'team', 'name': 'precedent-team-x',
+    PRIVATE = UNIVERSAL + [{'level': 'shared', 'name': 'precedent-team-x',
                             'path': '../precedent-team-x'}]
 
     with tempfile.TemporaryDirectory() as tmp:
@@ -19782,7 +19782,7 @@ def check_leak_gate_refuses_a_fresh_container():
     # text and has nothing from it to leak; refusing bought no safety and cost
     # repo-is-memory. The path below simply does not exist.
     with tempfile.TemporaryDirectory() as tmp:
-        repo = build(tmp, UNIVERSAL + [{'level': 'team', 'name': 'precedent-team-absent',
+        repo = build(tmp, UNIVERSAL + [{'level': 'shared', 'name': 'precedent-team-absent',
                                         'path': '../precedent-team-absent'}])
         rc4, out4 = run(repo)
         cases.append(('a private source DECLARED but not resolved ALLOWS the '
@@ -20346,7 +20346,7 @@ def check_assumed_visibility_never_deletes_practices():
                'sources': [
                    {'level': 'universal', 'name': 'precedent',
                     'path': 'precedent/universal'},
-                   {'level': 'team', 'name': 'precedent-team-x',
+                   {'level': 'shared', 'name': 'precedent-team-x',
                     'path': str(team)}]}
         if visibility:
             cfg['visibility'] = visibility

@@ -1102,7 +1102,7 @@ def _no_version_suffix(ctx):
 # describing somebody, which is the one place it belongs.
 # practice: technical-describes-people
 _PERSON_NOUNS = ('contributor', 'contributors', 'person', 'people', 'user',
-                 'users', 'team', 'teams', 'member', 'members', 'author',
+                 'users', 'shared', 'teams', 'member', 'members', 'author',
                  'authors', 'reader', 'readers', 'writer', 'writers',
                  'staff', 'colleague', 'colleagues', 'owner', 'owners')
 

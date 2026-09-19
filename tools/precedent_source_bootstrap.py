@@ -77,7 +77,7 @@ import subprocess
 import sys
 import time
 
-LEVELS = {'individual', 'team'}
+LEVELS = {'individual', 'shared'}
 
 # WHICH BRANCH A SOURCE IS CLONED FROM, AND WHY IT IS NAMED HERE RATHER THAN
 # ASKED FOR (practice: cite-the-incident).
@@ -129,7 +129,7 @@ def expected_branch(clone_path):
 # consuming repo, by path, with nothing to write down -- see
 # tools/precedent_resolve.py's own header for why the two are wired
 # differently. Both are cloned the same way, which is all this tool does, so
-# 'team' is a real value here rather than the placeholder it was until
+# 'shared' is a real value here rather than the placeholder it was until
 # 2026-09-09: what differs is only whether a config file is written
 # afterwards (_write_config below), and the sibling path the clone lands at.
 #
@@ -451,7 +451,7 @@ def sources_from_repo(repo_path, base_url=None, retries=DEFAULT_RETRIES,
         return [(None, False, f'could not read {repo_path / "precedent.json"}: {e}')]
     for src in cfg.get('sources', []) or []:
         level = src.get('level')
-        if level not in ('team', 'universal'):
+        if level not in ('shared', 'universal'):
             continue
         name = str(src.get('name') or '').strip()
         rel = str(src.get('path') or '').strip()
@@ -514,7 +514,7 @@ def sources_from_repo(repo_path, base_url=None, retries=DEFAULT_RETRIES,
         if not clone_url:
             results.append((name, False,
                             f'{BASE_URL_ENV} is not set, so there is no URL to '
-                            f'clone {name} from' if level == 'team' else
+                            f'clone {name} from' if level == 'shared' else
                             f'tools/ENGINE_MANIFEST.json records no '
                             f'source_repo, so there is no URL to clone the '
                             f'universal source {name} from'))

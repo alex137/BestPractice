@@ -364,7 +364,7 @@ When fixing a file that came from somewhere else -- a template, a vendored tree,
 When handing the person work to do, creating a session, or starting work that may touch a repository this session cannot reach:
   spawn-session — cross-repo check; wake, never spawn beside; link every session at the end
 When importing, creating, or declaring a repository that holds practices:
-  source-naming — names are fixed by level; say the convention before anyone picks a name
+  source-naming — names are fixed by level, except shared; say the convention before picking one
 When landing practices in bulk -- a migration, an import, or a move between sources:
   catalogue-carries-stories — no active practice sits with an empty ## Story
 When merging a branch:

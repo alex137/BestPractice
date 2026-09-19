@@ -19,7 +19,8 @@ one team set and lived only there, which meant the plan's own approval
 mechanism -- "approvers are declared in the set's own config, and
 CODEOWNERS is generated from that list" -- had exactly one implementation,
 in a private repo, reachable by nobody else. A second team set
-(bootstrapped 2026-09-05 from templates/practice-set-team/) got its
+(bootstrapped 2026-09-05 from what was then templates/practice-set-team/,
+renamed templates/practice-set-shared/ on 2026-09-19) got its
 approvers.json and no way to turn it into enforcement: approvers declared,
 approvals unenforced, and nothing saying so. Promoted here 2026-09-06 so
 every team set the bootstrap tool creates has it from the first commit

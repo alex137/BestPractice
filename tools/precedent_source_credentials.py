@@ -418,11 +418,11 @@ def unresolved_private_sources(repo_root=None, env=None):
 
     cfg = _read_json(root / 'precedent.json') or {}
     for src in cfg.get('sources', []) or []:
-        if src.get('level') != 'team':
+        if src.get('level') != 'shared':
             continue
         path = (root / str(src.get('path', ''))).resolve()
         if not (path / 'practices').is_dir():
-            out.append(('team', str(src.get('name') or path.name),
+            out.append(('shared', str(src.get('name') or path.name),
                         f'{path} has no practices/ directory'))
 
     user_cfg, code = individual_config_state(env)

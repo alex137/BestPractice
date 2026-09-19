@@ -11,20 +11,34 @@ summary:       How a practice-set source is named, what refuses versus what warn
 ---
 # How a practice-set source is named
 
-A source's name is fixed by its level, not chosen. This document carries the
-reasoning: what the convention is, why four different names that all get
-called "the naming convention" are enforced differently, and what was decided.
+**2026-09-19 update, read this first.** The `team` level was renamed
+`shared`, and its fixed `precedent-team-<slug>` naming requirement — row 3
+of "Four names, four enforcement stories" below, and everything downstream
+of it — was dropped in the same change: a `shared` source's GitHub
+repository and declared `name` may now be anything. What follows is this
+document's original 2026-09-06 reasoning, kept because the OTHER three
+levels' naming rules and the argument for why names are split into four
+independently-enforced pieces are unchanged and still current; read
+`shared` for `team` throughout and take the Story in
+[practices/source-naming.md](../practices/source-naming.md) as the record of
+what changed and why. That practice file is the current Rule; this document
+is reference and history beneath it, not restated below.
+
+A source's name is fixed by its level, not chosen — except `shared`, as of
+2026-09-19. This document carries the original reasoning: what the
+convention was, why four different names that all get called "the naming
+convention" are enforced differently, and what was decided on 2026-09-06.
 The rule itself is [practices/source-naming.md](../practices/source-naming.md);
 the reference a session reads while working is
 [spec/SOURCES.md](SOURCES.md)'s Naming section.
 
-## The convention
+## The convention (as of 2026-09-06 -- see the update note above)
 
 | Level | Name | Where it lives |
 |---|---|---|
 | Universal | `precedent` — no prefix; it is the product, not a set | [alex137/BestPractice](https://github.com/alex137/BestPractice) |
 | Individual | `precedent-individual`, identical in every person's account | a **private** repository in that person's own account |
-| Team | `precedent-team-<slug>`, slug lowercase and hyphenated, named for the team's *purpose* | a private repository the team owns |
+| Team (now `shared`) | `precedent-team-<slug>`, slug lowercase and hyphenated, named for the team's *purpose* — no longer required; see the update note above | a private repository the team owns |
 | Repo-local | `local` | the consuming repo's own `local/` directory |
 
 ## Why this needed writing down at all

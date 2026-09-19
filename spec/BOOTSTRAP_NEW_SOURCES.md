@@ -38,7 +38,7 @@ mechanizes everything that does not require credentials this tool can't
 assume a session has:
 
 - Copies [`templates/practice-set-individual/`](../templates/practice-set-individual/)
-  or [`templates/practice-set-team/`](../templates/practice-set-team/) into
+  or [`templates/practice-set-shared/`](../templates/practice-set-shared/) into
   a target directory, filling in the owner's name (and, for a team, its
   first approver's name and GitHub handle) wherever the skeleton names a
   placeholder.
