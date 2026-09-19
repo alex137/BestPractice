@@ -357,6 +357,62 @@ already used (including today's excluded spike), is worth doing before
 any of the rest of this plan, since it's the number that says how urgent
 the rest of it actually is.
 
+## Item 8 — field validation: debounce alone did not stop a live spike (2026-09-19)
+
+Item 4's own text flagged this as untested: "its first real run on any
+adopting repo is worth watching." This is that run, and what it showed
+changes the recommendation in Open decision 3 below.
+
+**What happened.** Morgan's account usage report showed 183 minutes billed
+on 2026-09-18 and 165 by noon on 2026-09-19 — a session diagnosed it in
+that repo, not this one, because the driver was four of Morgan's private
+practice sets (`precedent-individual`, `precedent-team-writing`,
+`precedent-team-repo-maintenance`, `precedent-team-working-style`),
+accounting for 86% of the 2026-09-19 total before noon. All four had
+`precedent-check.yml`/`views-drift.yml` installed per "Install in a
+Practice-Set Repository" (GITHUB_ACTIONS.md) — debounce guard included,
+running at its 360-minute default, exactly as Phase C shipped it.
+
+**Why the debounce guard didn't stop it.** Debounce (Item 4's own design)
+skips the *rest* of the job when the last completed run on the branch
+finished inside the window — but the checkout step and the debounce guard
+step itself are not behind that gate; they run on every trigger,
+unconditionally, by construction (the guard has to check out the repo and
+call `gh run list` before it can know whether to skip anything else).
+GitHub bills in whole minutes, so a "skipped" run is not a free run — it's
+a cheap one. The four sets carry `push:` with no `branches:` restriction
+(2026-09-14, per each workflow's own comment) and no `paths:` filter
+(deliberate, per the same comment), so every push to every session's
+`claude/*` working branch paid that baseline, and there were dozens of
+such branches across the four repos. Debounce collapses the *expensive*
+tail of a run; it does nothing about trigger *volume*, which turned out
+to be the actual cost driver once real branch churn hit it.
+
+**Fix applied, 2026-09-19, directly in the four repos** (this session has
+push access there; BestPractice's own session-scoped access still does
+not reach Morgan's other repositories, per "Sequencing and status" below):
+`push:` restricted to `branches: [main]` in both workflows, and the
+debounce window tightened from 360 to 30 minutes (`ci_debounce_minutes`,
+in `identity.json` where one exists) —
+[precedent-individual#153](https://github.com/themorgan/precedent-individual/pull/153),
+[precedent-team-writing#41](https://github.com/themorgan/precedent-team-writing/pull/41),
+[precedent-team-repo-maintenance#87](https://github.com/themorgan/precedent-team-repo-maintenance/pull/87),
+[precedent-team-working-style#41](https://github.com/themorgan/precedent-team-working-style/pull/41),
+all merged. **The tradeoff accepted**: a `claude/*` branch pushed to
+directly now gets zero automatic CI until it reaches `main` — verified
+locally instead, via the same mechanical checks the merge runbook already
+runs before a merge commits (deep-check's own Rule: "the same set the
+merge runbook already runs on every merge"), so a session following its
+own process loses no real coverage; what's lost is the independent,
+externally-visible backstop for a merge that skips that process.
+
+**Not done here**: the templates themselves
+(`precedent-check.yml.template`, `views-drift.yml.template`,
+`doc-lint.yml.template`) still ship `push:` with no branch restriction.
+Whether to add one as a documented option — for a repo with heavy
+non-default-branch churn, the same condition that triggered this
+incident — is Open decision 3, updated below.
+
 ## Sequencing and status
 
 Morgan approved phases 1–5 on 2026-09-16, holding items 6 and 7 for later
@@ -386,13 +442,16 @@ repo, the next time it installs, migrates, or takes an update.
   retroactively (items 2, 2a, 3) — but sweeping an actual repo's
   `.github/workflows/` against that table happens the next time that
   repo migrates or takes an update, in a session rooted there.
-- **Phase C — done.** A debounce guard (`ci_debounce_minutes`, default
-  `360`) ships in `doc-lint.yml.template`, `precedent-check.yml.template`
-  and `views-drift.yml.template`, and nowhere else — not in this repo's
-  own three workflows, per item 2b below (item 4). **Not exercised
-  against live GitHub Actions infrastructure from this session** — the
-  `gh run list` call it depends on has no equivalent to test locally; its
-  first real run on any adopting repo is worth watching.
+- **Phase C — done, and now exercised live (item 8).** A debounce guard
+  (`ci_debounce_minutes`, default `360`) ships in
+  `doc-lint.yml.template`, `precedent-check.yml.template` and
+  `views-drift.yml.template`, and nowhere else — not in this repo's own
+  three workflows, per item 2b below (item 4). Its first real run, on
+  four of Morgan's practice sets, showed it caps a run's expensive tail
+  but not the baseline cost of the checkout-plus-guard steps that run
+  unconditionally on every trigger — real coverage of trigger *volume*
+  needs a branch restriction alongside it, not a substitute for it. Full
+  account: item 8 above.
 - **Phase D — held.** Self-hosted runner pilot (item 6), per the todo
   reminder above.
 
@@ -409,8 +468,16 @@ repo, the next time it installs, migrates, or takes an update.
    template, not per-workflow control. Revisit only if a practice set
    turns up wanting its own checks but not a consuming repo's doc lint.
 3. **Debounce default window** — implemented as `360` minutes (Morgan's
-   own "6 hours" example). Change the default in each template's guard
-   step if that turns out wrong in practice.
+   own "6 hours" example); item 8's incident tightened it to `30` minutes
+   in the four repos it touched, alongside a `branches: [main]`
+   restriction the debounce guard alone did not provide. Still open
+   here: whether `precedent-check.yml.template`, `views-drift.yml.template`
+   and `doc-lint.yml.template` should ship a documented (not necessarily
+   default-on) branch-restriction option for a repo with heavy
+   non-default-branch churn — the condition that actually drove the
+   spike, which the debounce guard was never designed to address on its
+   own. No template change made here; item 8 is the field evidence for
+   whoever picks this decision up.
 4. **Which workflows are debounce-exempt** — implemented as: every
    vendored template gets it, this repo's own three workflows do not.
 5. **Self-hosted runner pilot scope** — still open, deferred to items 6/7's
