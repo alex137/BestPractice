@@ -6097,6 +6097,16 @@ def check_precedent_check_fires():
         case('vendored-engine-file-refs-resolve',
              lambda repo: (repo / 'tools' / 'routing_scope.json').unlink())
 
+        # vendored-import-refs-resolve -- a vendored file (precedent_paths.py,
+        # in both ENGINE_FILES and CONSUMER_ENGINE_FILES) module-level
+        # imports parse_check.py, which is vendored in neither -- reproducing
+        # the 2026-09-19 incident this check exists for
+        # (precedent_check.py did exactly this to itself and broke
+        # check_installer_produces_a_clean_install).
+        case('vendored-import-refs-resolve',
+             lambda repo: rewrite(repo, 'tools/precedent_paths.py',
+                                  lambda t: 'import parse_check\n' + t))
+
         # generated-artifact-provenance -- a hand-edited generated view
         case('generated-artifact-provenance',
              lambda repo: rewrite(repo, 'MAP.md', lambda t: t + '\nhand-added\n'))

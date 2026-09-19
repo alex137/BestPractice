@@ -3375,6 +3375,60 @@ def _vendored_engine_file_refs_resolve(ctx):
     return findings
 
 
+@check('vendored-import-refs-resolve', 'tree',
+       "every module-level `import X` / `from X import ...` inside a "
+       "tools/*.py file that is itself vendored (in "
+       "precedent_vendor_engine.py's ENGINE_FILES or CONSUMER_ENGINE_FILES) "
+       "names a local tools/ module that travels in that SAME list -- a "
+       "vendored file importing a companion the receiving repo never gets "
+       "crashes with ModuleNotFoundError on its first real run",
+       "an import inside a function or method body (this repo's own "
+       "established convention for a deliberately lazy or optional "
+       "dependency, used throughout this very file) -- module-level only, "
+       "on purpose, so that convention is never flagged; a relative import "
+       "(`from . import x`); a dynamic import (`importlib`, `__import__`); "
+       "and any import whose target is not a same-directory tools/*.py "
+       "file at all (stdlib, a third-party package, a materialized "
+       "tools/checks/ script)",
+       practice_backed=False)
+def _vendored_import_refs_resolve(ctx):
+    import precedent_vendor_engine as pve
+
+    tools_dir = ROOT / 'tools'
+    local_modules = {p.stem for p in tools_dir.glob('*.py')}
+    findings = []
+    for kind, file_list in sorted(pve.KINDS.items()):
+        vendored = {n[:-3] for n in file_list if n.endswith('.py')}
+        list_name = 'ENGINE_FILES' if kind == 'source' else 'CONSUMER_ENGINE_FILES'
+        for name in sorted(vendored):
+            path = tools_dir / f'{name}.py'
+            if not path.is_file():
+                continue  # vendored-engine-file-refs-resolve's own territory
+            try:
+                tree = ast.parse(path.read_text(encoding='utf-8', errors='ignore'),
+                                 filename=str(path))
+            except SyntaxError:
+                continue
+            imported = set()
+            for node in tree.body:  # MODULE LEVEL ONLY -- see blind_to above
+                if isinstance(node, ast.Import):
+                    imported.update(a.name.split('.')[0] for a in node.names)
+                elif (isinstance(node, ast.ImportFrom) and node.level == 0
+                      and node.module):
+                    imported.add(node.module.split('.')[0])
+            for mod in sorted(imported & local_modules - vendored):
+                findings.append(Finding(
+                    f'tools/{name}.py',
+                    f"({kind} kind) imports tools/{mod}.py at module level, "
+                    f"which is not in precedent_vendor_engine.py's {list_name} "
+                    f"-- a {kind} set that receives {name}.py will not receive "
+                    f"{mod}.py, and crashes with ModuleNotFoundError importing "
+                    f"it on its first real run (caught directly, 2026-09-19: "
+                    f"precedent_check.py imported tools/parse_check.py this way "
+                    f"and broke check_installer_produces_a_clean_install)"))
+    return findings
+
+
 # Keys that name a DECLARED branch. Three distinct questions get answered by
 # a declaration rather than by inference, and a file answering ANY of them is
 # not the failure this check is about:
