@@ -140,7 +140,16 @@ approved_by: "extended 2026-09-14, Morgan F -- after a session was refused by
   a very deep check. If I wanted a light check, I wouldn't ask for a very
   deep check!\", after a session ran only the mechanical half of passes 2
   and 4 and reported the rest PARTIAL without flagging the narrowed scope
-  up front"
+  up front;
+  extended again 2026-09-19, Morgan (strength: decided), so the checkout's
+  merged-and-stale branch list is embedded, in full and never truncated,
+  in spec/VERY_DEEP_CHECK.md itself via a doc_sync-gated generated block,
+  rather than left for a session to remember to open and paste from
+  record/stale_branches.md -- \"This list should be generated and included
+  in the VERY DEEP CHECK MD document when it's generated... And if there
+  are more than 10, include them!\", after a session named ten safe
+  deletions without ever printing them and had to be asked for the list a
+  second time"
 ---
 ## Rule
 When a person explicitly asks for a "very deep check", or after work that
@@ -1142,6 +1151,23 @@ Last because none of it strands an adopter, and none of it is cheap.
   Sunday run that had produced the list twice and shown it neither time:
   *"it shouldn't live in the chat"*).
 
+  **Committing the file is not the same as the run's own write-up carrying
+  it**, and this repeated the exact failure once already, in a different
+  shape: a session can point at `record/stale_branches.md` existing and
+  still never put the checkout's safe-to-delete list in front of the
+  person. The fix is the same mechanism
+  [computed-numbers-in-scripts](computed-numbers-in-scripts.md) already uses
+  for every other script-computed table a document quotes:
+  `tools/very_deep_check.py
+  --emit merged-stale-checkout` prints just the checkout's merged-and-stale
+  list, `tools/doc_sync.py` embeds it in a `<!--gen:merged-stale-checkout-->`
+  block in [spec/VERY_DEEP_CHECK.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/VERY_DEEP_CHECK.md),
+  and the gate fails if the two drift — so the list is IN the document a
+  session writes up, not one file reference away from it, and **never
+  truncated regardless of count**. `doc_sync.py` is part of the deep check
+  already run before every push, so this costs nothing beyond what pass 4
+  already pays for the scan.
+
   *Merged and not deleted* — every branch fully merged into that repo's
   integration branch and still sitting there: a mechanical, offline fact
   (`git merge-base --is-ancestor`), true whether or not GitHub's own
@@ -1845,3 +1871,22 @@ recorded honestly, and the session did that; what it did not do was ask, or
 even say out loud, before quietly substituting a faster check for the one
 asked for. An honest log of a choice nobody agreed to is not the same thing
 as the choice being fine.
+
+**The embedded stale-branch list was Morgan's too, later the same day
+(strength: decided)**, and it is the same lesson landing a second time in a
+narrower place. The corrected run committed `record/stale_branches.md` and
+told him ten branches were safe to delete — then never actually printed
+them, so he had to ask *"Don't you have to give me in the very deep check a
+list of the stale branches to review?"* before getting one. Handed the
+list, he deleted all ten in the same turn and named the fix precisely:
+*"This list should be generated and included in the VERY DEEP CHECK MD
+document when it's generated... And if there are more than 10, include
+them!"* — pointing at [spec/VERY_DEEP_CHECK.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/VERY_DEEP_CHECK.md)
+by name, not `record/stale_branches.md`, and ruling out any version that
+truncates. A committed file a session has to remember to open and paste
+from is the same shape of loss as a Sunday run's stdout — just one file
+closer to durable — so the fix is not "remember to paste it next time," it
+is removing the step that can be forgotten:
+`tools/very_deep_check.py --emit merged-stale-checkout` plus a
+`tools/doc_sync.py`-gated block, same as any other script-computed table
+this repository quotes.

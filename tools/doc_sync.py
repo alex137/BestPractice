@@ -61,6 +61,8 @@ PAIRS = [
     ("spec/CHANGES_TO_TELL_ALEX.md", "merge-back", "tools/catalogue_stats.py"),
     ("documentation/DAILY_HABITS.md", "vocabulary",
      "tools/precedent_vocabulary.py"),
+    ("spec/VERY_DEEP_CHECK.md", "merged-stale-checkout",
+     "tools/very_deep_check.py"),
 ]
 
 # Where this repo keeps prose, for the orphan-sentinel scan; narrow it in

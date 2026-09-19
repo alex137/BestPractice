@@ -27,6 +27,26 @@ this document holds the run in progress, not an archive of every finding
 findings themselves live in the commits that fixed them and in
 [TODO.md](../TODO.md)).
 
+## Branches safe to delete right now
+
+**Mechanically proven safe** — every commit on each of these is already an
+ancestor of `precedent-beta-v01` — and stale enough (>= 30 days untouched)
+that nobody is likely to still have it checked out. This is the live state
+of this checkout alone, not a snapshot from whichever run is described
+below; regenerate with `python3 tools/doc_sync.py --write` after any very
+deep check that reruns pass 4 for this checkout, or on its own with
+`python3 tools/very_deep_check.py --emit merged-stale-checkout`. A session
+cannot delete a branch (`git push origin --delete` is refused outright,
+same wall as
+[todo-2026-09-14-branch-merge-or-close-verdicts.md](../todo/todo-2026-09-14-branch-merge-or-close-verdicts.md)),
+so this is a page to click through, not a to-do for a session.
+
+<!--gen:merged-stale-checkout-->
+(none -- no merged branch is >= 30 days stale right now)
+<!--/gen:merged-stale-checkout-->
+
+Numbers by: very_deep_check.py
+
 ## Current run
 
 **Started 2026-09-19 as a mechanical-only pass, corrected mid-run to the

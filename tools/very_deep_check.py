@@ -180,6 +180,11 @@ Run:
   python3 tools/very_deep_check.py --allow-stale
       -- run anyway on a tree that is not provably current. For a
       deliberately offline run only; every finding is then provisional.
+  python3 tools/very_deep_check.py --emit merged-stale-checkout
+      -- print this checkout's merged-and-stale (safe-to-delete) branch
+      list, as markdown, and exit -- nothing else runs. The block
+      tools/doc_sync.py embeds into spec/VERY_DEEP_CHECK.md, never
+      truncated (practice: very-deep-check, computed-numbers-in-scripts).
   python3 tools/very_deep_check.py --record-pass '2=done,findings=3,tokens=120000,note=...'
       -- record a hand-worked pass's outcome against the most recent run in
       the ledger, and exit. `findings`, `tokens` and `note` are each
@@ -4239,6 +4244,59 @@ def branch_report_path_for(repo_root=None):
     return pathlib.Path(repo_root or ROOT) / BRANCH_REPORT_RELPATH
 
 
+def _delete_row_lines(r, path, show_into=False):
+    """-> the bullet + delete-link lines for one merged branch row.
+
+    Shared by `_write_branch_report` (every section, every repo) and
+    `emit_merged_stale_checkout` (just the checkout's safe-to-delete list,
+    for the `--emit` block spec/VERY_DEEP_CHECK.md embeds) so the two
+    never drift into two different renderings of the same row."""
+    age = (f"last commit {r['last']}, {r['age_days']} day(s) old"
+           if r['last'] else "last commit date unreadable in this clone")
+    who = f", last touched by {r['author']}" if r.get('author') else ''
+    into = f", merged into `{r['into']}`" if show_into and r.get('into') else ''
+    lines = [f"- **`{r['name']}`** -- {age}{who}{into}"]
+    url = _branch_url(path, r['name'])
+    if url:
+        lines.append(f"  [Delete branch →]({url})")
+    return lines
+
+
+def emit_merged_stale_checkout(repo_root=None):
+    """-> the merged-and-stale (safe-to-delete) branch list for THIS
+    checkout alone, as the markdown doc_sync embeds in
+    spec/VERY_DEEP_CHECK.md's gen block (practice: very-deep-check).
+
+    WHY THIS EXISTS AND WHY IT IS SEPARATE FROM record/stale_branches.md
+    (2026-09-19). The full branch report already carries this list, but a
+    session handed a run's write-up read the file's EXISTENCE and still
+    did not carry the list itself into the reply -- "you named there were
+    10 but never actually gave them the list to act on". Morgan: "This
+    list should be generated and included in the VERY DEEP CHECK MD
+    document when it's generated... And if there are more than 10,
+    include them!" A pointer that still requires a session to remember to
+    open, read and paste a second file is the same failure
+    record/stale_branches.md itself was built to end
+    ([spawn-session]'s own Story: "existed only in that Sunday session's
+    own transcript"); the fix is the same shape doc_sync already uses for
+    every other computed-and-quoted figure. NEVER truncated -- every
+    merged-and-stale branch is listed, however many there are."""
+    scan = scan_branches(repo_root or ROOT)
+    if scan is None:
+        return ('(this checkout could not be scanned -- not its own git '
+                'checkout, or its integration branch could not be '
+                'resolved)')
+    path = scan.get('path')
+    sd = scan.get('stale_days') or STALE_DAYS_DEFAULT
+    stale = [r for r in scan['merged'] if r.get('stale')]
+    if not stale:
+        return f'(none -- no merged branch is >= {sd} days stale right now)'
+    lines = []
+    for r in stale:
+        lines.extend(_delete_row_lines(r, path))
+    return '\n'.join(lines)
+
+
 def _write_branch_report(branch_scans, out_path, repo_root):
     """Write `branch_scans` (the same dict the console BRANCHES section
     prints, and --json's 'branches' key) to `out_path` as committable
@@ -4302,15 +4360,7 @@ def _write_branch_report(branch_scans, out_path, repo_root):
     lines.append('')
 
     def _row(r, path, show_into):
-        age = (f"last commit {r['last']}, {r['age_days']} day(s) old"
-               if r['last'] else "last commit date unreadable in this clone")
-        who = f", last touched by {r['author']}" if r.get('author') else ''
-        into = (f", merged into `{r['into']}`"
-                if show_into and r.get('into') else '')
-        lines.append(f"- **`{r['name']}`** -- {age}{who}{into}")
-        url = _branch_url(path, r['name'])
-        if url:
-            lines.append(f"  [Delete branch →]({url})")
+        lines.extend(_delete_row_lines(r, path, show_into=show_into))
 
     def _section(title, rows, empty_note, path, show_into=False):
         lines.append(f'### {title}')
@@ -4478,6 +4528,23 @@ def _main(box):
         args = args[:i] + args[i + 2:]
     if record_pass is not None:
         return _record_pass(record_pass, ledger_path, repo)
+    if '--emit' in args:
+        # doc_sync's own contract (practice: computed-numbers-in-scripts):
+        # print exactly the named block's content and exit -- no ledger, no
+        # freshness gate, no other section. Deliberately its own path
+        # through main() rather than reusing the full pipeline below,
+        # which reads and judges everything in force; a doc_sync gate
+        # needs only this checkout's own branches, fast.
+        i = args.index('--emit')
+        if i + 1 >= len(args):
+            sys.exit("very deep check FAIL: --emit needs a block name.")
+        name = args[i + 1]
+        if name != 'merged-stale-checkout':
+            sys.exit(f"very deep check FAIL: --emit {name!r} is not a "
+                     f"block this script owns; the only one is "
+                     f"'merged-stale-checkout'.")
+        print(emit_merged_stale_checkout(repo))
+        return 0
 
     as_json = '--json' in args
     allow_missing = '--allow-missing-sources' in args
