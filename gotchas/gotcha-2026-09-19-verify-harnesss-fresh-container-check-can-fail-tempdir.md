@@ -58,3 +58,27 @@ If this recurs on a *different* check, that is itself new evidence — it
 would argue for moving `_rmtree_retrying` into a shared context manager
 other checks opt into, rather than converting each site one at a time as it
 happens to fail.
+
+## Resolution (2026-09-19, a Different Session, Same Day)
+
+**The "unmeasured hypothesis" above almost certainly named the wrong
+mechanism.** A separate session fixing
+[gotcha-2026-09-18-verify-harnesss-stress-checks-can-oom-kill-the-bash-tools.md](gotcha-2026-09-18-verify-harnesss-stress-checks-can-oom-kill-the-bash-tools.md)
+found that `check_leak_gate_refuses_a_fresh_container` — the exact check
+this file is about — was fanning out into an unbounded recursive chain of
+[precedent_session_practices.py](../tools/precedent_session_practices.py)
+subprocesses, all writing inside the same kind of fixture tree this check
+tears down, and measured that check dropping from 241.8s to 1.72s once the
+recursion was fixed (an env-var reentrancy guard in
+[precedent_resolve.py](../tools/precedent_resolve.py)'s
+`_self_heal_stale_render()`).
+241.8s is within a second of the 243.3s this check took in the very run
+that hit the `ENOTEMPTY` documented above — the "transient filesystem race"
+was almost certainly hundreds of concurrent orphaned subprocesses
+contending for the same directory tree, not a git filesystem-monitor daemon.
+
+**`_rmtree_retrying()` stays** — it is still correct general hardening
+(retry over crash, evidence over silence) independent of which mechanism
+caused the one directory it has actually seen fail to be transiently
+non-empty. But the specific hypothesis in the Story above is superseded by
+this dated, measured finding, not merely unconfirmed.

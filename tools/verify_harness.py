@@ -387,6 +387,32 @@ def _changed_touches(*rel_paths):
 _PROGRESS_INTERVAL_SECONDS = 5
 
 
+def _install_check_filter():
+    """PRECEDENT_CHECK_ONLY / PRECEDENT_CHECK_SKIP -- comma-separated
+    check_* names -- let a run cover a named subset instead of all ~172.
+    Built for splitting the handful of genuinely heavy checks into their
+    own CI job (see spec/VERIFY_HARNESS_PERFORMANCE.md), and doubles as a
+    way to re-measure the checks after a heavy one without re-paying for
+    the heavy one itself. A filtered-out check is replaced with a no-op
+    before it can run, so its subprocess fan-out never happens -- this is
+    not a report filter, the check's own cost is what's being skipped.
+    """
+    only = os.environ.get('PRECEDENT_CHECK_ONLY')
+    skip = os.environ.get('PRECEDENT_CHECK_SKIP')
+    if not only and not skip:
+        return
+    only_set = set(only.split(',')) if only else None
+    skip_set = set(skip.split(',')) if skip else set()
+    names = sorted(n for n, v in list(globals().items())
+                    if n.startswith('check_') and callable(v))
+    for name in names:
+        if (only_set is not None and name not in only_set) or name in skip_set:
+            def _skipped(*a, _name=name, **kw):
+                print(f"  SKIP (filtered out by PRECEDENT_CHECK_ONLY/SKIP): {_name}",
+                      file=sys.stderr)
+            globals()[name] = _skipped
+
+
 def _install_check_timing():
     if os.environ.get('PRECEDENT_NO_CHECK_TIMING'):
         return
@@ -1338,18 +1364,55 @@ def check_leak_gate_fires():
         git(repo, 'reset', '-q', '--hard', base)
 
         # 6b. structural PATH rules must be case-insensitive. Regression
-        # case: the four FORBIDDEN_PATHS regexes had no re.I, so a
-        # directory named the way a person actually types it --
-        # "Team-Nightjar/", "Individual/", "Candidates/" -- passed the gate
-        # silently while its lowercase spelling correctly failed.
-        (repo / 'Team-Nightjar').mkdir()
-        (repo / 'Team-Nightjar' / 'notes.md').write_text('clean\n', encoding='utf-8')
-        git(repo, 'add', '-A'); git(repo, 'commit', '-qm', 'mixed-case team dir')
-        cases.append(('a mixed-case forbidden path (Team-Nightjar/) fails the '
+        # case: the FORBIDDEN_PATHS regexes had no re.I, so a directory
+        # named the way a person actually types it -- "Individual/",
+        # "Candidates/" -- passed the gate silently while its lowercase
+        # spelling correctly failed.
+        (repo / 'Candidates').mkdir()
+        (repo / 'Candidates' / 'notes.md').write_text('clean\n', encoding='utf-8')
+        git(repo, 'add', '-A'); git(repo, 'commit', '-qm', 'mixed-case candidates dir')
+        cases.append(('a mixed-case forbidden path (Candidates/) fails the '
                       'same as its lowercase spelling',
                       gate('--range', f'{base}..HEAD') == 1))
         git(repo, 'reset', '-q', '--hard', base)
-        shutil.rmtree(repo / 'Team-Nightjar', ignore_errors=True)
+        shutil.rmtree(repo / 'Candidates', ignore_errors=True)
+
+        # 6d. a vendored private set is recognised by what it CARRIES, not by
+        # a name shape (2026-09-18, practice: source-naming). Two tells: a
+        # path segment equal to a shared source this repo DECLARES, in any
+        # case; and a source manifest that says the set is private, under
+        # any directory name at all. A public planning document whose
+        # title happens to start with "team" is neither, and passes.
+        (repo / 'precedent.json').write_text(json.dumps({
+            'sources': [{'level': 'shared', 'name': 'nightjar-set',
+                         'path': '../nightjar-set'}]}), encoding='utf-8')
+        (repo / 'spec').mkdir()
+        (repo / 'spec' / 'TEAM_PLANNING_NOTE.md').write_text('a public note\n',
+                                                              encoding='utf-8')
+        git(repo, 'add', '-A'); git(repo, 'commit', '-qm', 'declare a shared source')
+        base_declared = git(repo, 'rev-parse', 'HEAD')
+        cases.append(('a public document whose filename begins "TEAM" passes -- '
+                      'a title is not a vendored set',
+                      gate() == 0))
+        (repo / 'Nightjar-Set' / 'practices').mkdir(parents=True)
+        (repo / 'Nightjar-Set' / 'practices' / 'x.md').write_text('private\n',
+                                                                   encoding='utf-8')
+        git(repo, 'add', '-A'); git(repo, 'commit', '-qm', 'vendor the declared set')
+        cases.append(('a directory named after a DECLARED shared source fails, '
+                      'in any case', gate('--range', f'{base_declared}..HEAD') == 1))
+        git(repo, 'reset', '-q', '--hard', base_declared)
+        shutil.rmtree(repo / 'Nightjar-Set', ignore_errors=True)
+        (repo / 'vendored' / 'anything').mkdir(parents=True)
+        (repo / 'vendored' / 'anything' / 'precedent-source.json').write_text(
+            json.dumps({'name': 'whatever', 'level': 'shared',
+                        'visibility': 'private'}), encoding='utf-8')
+        git(repo, 'add', '-A'); git(repo, 'commit', '-qm', 'vendor a manifest')
+        cases.append(("a private set's own manifest fails under ANY directory "
+                      'name', gate('--range', f'{base_declared}..HEAD') == 1))
+        git(repo, 'reset', '-q', '--hard', base)
+        shutil.rmtree(repo / 'vendored', ignore_errors=True)
+        shutil.rmtree(repo / 'spec', ignore_errors=True)
+        (repo / 'precedent.json').unlink(missing_ok=True)
 
         # 6c. the FORBIDDEN_CONTENT "non-universal source" rule must catch a
         # real frontmatter-shaped line and NOT an ordinary sentence that
@@ -1400,14 +1463,15 @@ def check_leak_gate_fires():
         cases.append(('a blocklist with no patterns fails rather than passing '
                       'vacuously', rc == 1))
 
-        # 10. the single ALLOWED_PATHS exemption, from both sides. The
-        #     vendored-private-set rule matches a path SEGMENT beginning
-        #     'precedent-individual', which is also the start of the canonical
-        #     SessionStart hook's FILENAME -- so installing the hook this
-        #     project tells every adopter to install failed the gate
-        #     (2026-09-06, the moment BestPractice installed its own). The
-        #     exemption is one exact path, so the directory case it was
-        #     written for must still fail.
+        # 10. the single ALLOWED_PATHS exemption, from both sides. Until
+        #     2026-09-18 the vendored-private-set rule matched a path SEGMENT
+        #     beginning 'precedent-individual', which is also the start of
+        #     the canonical SessionStart hook's FILENAME -- so installing the
+        #     hook this project tells every adopter to install failed the
+        #     gate (2026-09-06, the moment BestPractice installed its own).
+        #     The rule now matches a whole segment equal to the default
+        #     individual name, so the hook passes on its own; the exemption
+        #     stays as the record and the directory case must still fail.
         hook_rel = '.claude/hooks/precedent-individual-bootstrap.sh'
         (repo / '.claude' / 'hooks').mkdir(parents=True, exist_ok=True)
         (repo / hook_rel).write_text('#!/bin/bash\nexit 0\n', encoding='utf-8')
@@ -2128,12 +2192,12 @@ def check_source_precedence():
         # all four sources are actually in play
         cases.append(('all four sources resolve',
                       {s['level'] for s in data['sources']}
-                      == {'universal', 'team', 'individual', 'repo-local'}))
+                      == {'universal', 'shared', 'individual', 'repo-local'}))
         # precedence: team > repo-local > individual > universal, on a slug
         # defined at all four
         cases.append(('team beats repo-local beats individual beats '
                       'universal on a slug defined at all four',
-                      by_slug.get('shared-slug', {}).get('level') == 'team'))
+                      by_slug.get('shared-slug', {}).get('level') == 'shared'))
         # isolate repo-local's own rank: a slug defined at repo-local,
         # individual and universal, but NOT team, must resolve to repo-local
         cases.append(('repo-local beats individual and universal when team '
@@ -2142,7 +2206,7 @@ def check_source_precedence():
         # everything unique to a level survives
         for slug, level in (('universal-only', 'universal'),
                             ('individual-only', 'individual'),
-                            ('team-only', 'team'),
+                            ('team-only', 'shared'),
                             ('repo-local-only', 'repo-local')):
             cases.append((f'{slug} survives from {level}',
                           by_slug.get(slug, {}).get('level') == level))
@@ -4542,7 +4606,7 @@ def check_session_practices_load_without_publishing():
                       'every session\'s resident block',
                       'universal-one' not in slugs))
         cases.append(('the level is carried, so the block can say where a rule came from',
-                      levels.get('team-only-rule') == 'team'))
+                      levels.get('team-only-rule') == 'shared'))
 
         text = psp.render(extra, levels, notes)
         cases.append(('the rendered block names the team practice',
@@ -7151,7 +7215,8 @@ def check_precedent_check_fires():
             'def _code_cites_practice(ctx):\n'
             '    raise RuntimeError("planted: an unrelated check\'s own bug")\n'))
         r_boom = subprocess.run(
-            [sys.executable, str(boom_repo / 'tools' / 'precedent_check.py')],
+            [sys.executable, str(boom_repo / 'tools' / 'precedent_check.py'),
+             '--full-sweep'],
             capture_output=True, text=True, cwd=str(boom_repo))
         boom_out = r_boom.stdout + r_boom.stderr
         m_passed = re.search(r'precedent_check: (\d+) passed,', boom_out)
@@ -12537,7 +12602,7 @@ def check_sync_views_cross_source():
                       'uni-fixture' in agents_text and 'team-fixture' in agents_text))
         cases.append(('the resident-count-by-level header counts only the '
                       'RESIDENT practices, not all four resolved ones',
-                      '2 of 4 practices (1 team, 1 universal)' in agents_text))
+                      '2 of 4 practices (1 shared, 1 universal)' in agents_text))
         cases.append(('the occasion index reaches the on-demand individual '
                       'and repo-local practices too',
                       'ind-fixture' in agents_text and 'local-fixture' in agents_text))
@@ -13167,7 +13232,7 @@ def check_creation_pipeline_fires():
                         '--raised-by', 'harness', '--observed', 'x', '--proposed-rule', 'x')
         cases.append(('--as-issue is refused for --level individual '
                       '(no one else to notify)',
-                      rc == 1 and 'only applies to --level team' in out))
+                      rc == 1 and 'only applies to --level shared' in out))
 
         rc, out = pyrun(cand_tool, 'create', '--level', 'universal',
                         '--slug', 'pipeline-fixture-disclose-cand-u', '--title', 't',
@@ -13316,10 +13381,10 @@ def check_bootstrap_source_produces_resolvable_set():
                       rc == 0 and not resolved.get('missing') and not resolved.get('blocked'), out))
         cases.append(('the planted shared slug resolves, won by the team set over '
                       'the individual set (real precedence, not just presence)',
-                      slugs.get('zz-shared-slug', {}).get('level') == 'team', out))
+                      slugs.get('zz-shared-slug', {}).get('level') == 'shared', out))
         cases.append(('and the two skeletons\' own placeholders no longer collide: '
                       'both resolve, each from its own level',
-                      slugs.get('example-starter-team', {}).get('level') == 'team'
+                      slugs.get('example-starter-shared', {}).get('level') == 'shared'
                       and slugs.get('example-starter-individual', {}).get('level')
                       == 'individual', out))
     finally:
@@ -13964,7 +14029,8 @@ def check_precedent_check_degrades_in_a_source_set():
                       set(in_force) >= {'headline-capitalization', 'source-naming'},
                       f'in force: {in_force}'))
 
-        r = subprocess.run([sys.executable, 'tools/precedent_check.py'],
+        r = subprocess.run([sys.executable, 'tools/precedent_check.py',
+                            '--full-sweep'],
                            cwd=str(dest), capture_output=True, text=True)
         out = r.stdout + r.stderr
         cases.append(('it runs in a source set without a traceback',
@@ -14480,6 +14546,179 @@ def check_vendor_engine_hook_drift_respects_adapters():
           '; '.join(f"{n} -- {d[:800]}" for n, d in bad))
 
 
+def check_vendor_engine_refreshes_ci_workflow_files():
+    """"Update Vendors" refreshing tools/ and .claude/hooks/*.sh but never
+    .github/workflows/*.yml is the bug this closes -- see
+    precedent_vendor_engine.py's CI_WORKFLOW_TEMPLATES block (2026-09-18)
+    and vendor-update-runbook.md step 3's own paragraph on it. Mirrors
+    check_vendor_engine_hook_drift_respects_adapters' fixture shape: only
+    precedent_vendor_engine.py itself is copied into each fake consumer
+    (practice: fixture-owns-its-state -- nothing here needs a real seed or
+    git history beyond what ROOT, the real upstream clone under test,
+    already carries), and each scenario gets its OWN fresh consumer
+    directory, for the same reason that test's docstring gives: a real
+    refresh rewrites the whole vendored tools/ tree from this checkout, and
+    a later CONTROL reading a directory an earlier case already refreshed
+    would be reading contamination, not its own result.
+
+    `kind: consumer` throughout, so CI_WORKFLOW_TEMPLATES['consumer']
+    applies: one file, .github/workflows/bestpractice-docs.yml, from
+    doc-lint.yml.template."""
+    import shutil, tempfile
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-ci-workflow-'))
+    cases = []
+    rel = '.github/workflows/bestpractice-docs.yml'
+    try:
+        engine_bytes = (ROOT / 'tools' / 'precedent_vendor_engine.py').read_bytes()
+        engine_hash = hashlib.sha256(engine_bytes).hexdigest()
+        real_template = (ROOT / 'templates' / 'github-actions' /
+                         'doc-lint.yml.template').read_bytes()
+        real_hash = hashlib.sha256(real_template).hexdigest()
+        # A stand-in for "whatever this file looked like when it was last
+        # vendored" -- deliberately NOT real_template's bytes, so a refresh
+        # that actually rewrote the file is distinguishable from one that
+        # left it alone by content, not just by a hash comparison that could
+        # coincidentally already match.
+        stub = b'name: stub\n# an older vendored copy\n'
+        stub_hash = hashlib.sha256(stub).hexdigest()
+        edited = b'name: hand-edited\n# a real repo customized this\n'
+
+        def make_consumer(name, wf_bytes, ci_recorded):
+            """A fresh consumer: this engine's own vendor tool (recorded in
+            its manifest, so it is never itself flagged UNTRACKED ENGINE
+            FILE or LOCAL DRIFT and does not confound the assertions
+            below), and one CI workflow file. `ci_recorded` is the
+            manifest's ci_workflows_sha256 dict, or None to simulate a repo
+            vendored before this feature existed (no such key at all)."""
+            consumer = tmp / name
+            (consumer / 'tools').mkdir(parents=True)
+            (consumer / '.github' / 'workflows').mkdir(parents=True)
+            (consumer / 'tools' / 'precedent_vendor_engine.py').write_bytes(engine_bytes)
+            manifest = {
+                'kind': 'consumer', 'source_commit': 'deadbeef',
+                'files': ['precedent_vendor_engine.py'],
+                'sha256': {'precedent_vendor_engine.py': engine_hash},
+            }
+            if ci_recorded is not None:
+                manifest['ci_workflow_files'] = sorted(ci_recorded)
+                manifest['ci_workflows_sha256'] = ci_recorded
+            (consumer / 'tools' / 'ENGINE_MANIFEST.json').write_text(
+                json.dumps(manifest), encoding='utf-8')
+            if wf_bytes is not None:
+                (consumer / rel).write_bytes(wf_bytes)
+            return consumer
+
+        def run_refresh(consumer, extra=()):
+            # --from-ref HEAD, not a bare `refresh ROOT`: this fixture tests
+            # a mechanism landing in the SAME change as this test, so
+            # ROOT's own origin/precedent-beta-v01 has not necessarily
+            # picked it up yet -- exactly the gap --from-ref exists to
+            # close (see _source_tools_at's own docstring, and every other
+            # fixture here that vendors a brand-new mechanic under test:
+            # check_vendor_engine_consumer_case and
+            # check_bootstrap_source_engine_is_functional both do the
+            # same). Without it, a run before this PR reaches
+            # origin/precedent-beta-v01 vendors the OLD tool, the
+            # self-replacing second pass then runs THAT copy -- missing
+            # this feature entirely -- against a manifest the first (new)
+            # pass already updated, and the two passes disagree.
+            r = subprocess.run(
+                [sys.executable, str(consumer / 'tools' / 'precedent_vendor_engine.py'),
+                 'refresh', str(ROOT), '--from-ref', 'HEAD', *extra],
+                capture_output=True, text=True, cwd=str(consumer))
+            return r.returncode, r.stdout + r.stderr
+
+        def manifest_of(consumer):
+            return json.loads(
+                (consumer / 'tools' / 'ENGINE_MANIFEST.json').read_text(encoding='utf-8'))
+
+        # -- A: matches the manifest (never hand-edited), differs from the
+        # CURRENT template -- refresh() rewrites it and updates the hash --
+        a = make_consumer('stale', stub, {rel: stub_hash})
+        rc_a, out_a = run_refresh(a)
+        cases.append(('a CI workflow file that matches its own manifest record but '
+                      'differs from the current template is rewritten to that '
+                      'template', (a / rel).read_bytes() == real_template, out_a[:800]))
+        cases.append(('...and the manifest is updated to the NEW hash, not left '
+                      'pointing at the stale one',
+                      manifest_of(a).get('ci_workflows_sha256', {}).get(rel) == real_hash,
+                      out_a[:800]))
+        cases.append(('...and refresh says which CI workflow file it refreshed '
+                      '(control-asserts-which-failure: the specific message, not just '
+                      'a clean exit)',
+                      rc_a == 0 and 'refreshed' in out_a and rel in out_a, out_a[:800]))
+
+        # -- B: differs from the manifest record -- a hand-edit -- refresh
+        # refuses the whole run, same as any other drifted file, and leaves
+        # the file untouched --
+        b = make_consumer('edited', edited, {rel: stub_hash})
+        rc_b, out_b = run_refresh(b)
+        cases.append(('a hand-edited CI workflow file (on-disk bytes no longer match '
+                      'the manifest) makes refresh refuse, naming the FAIL this tool '
+                      'always uses for drift, not a generic error',
+                      rc_b != 0 and 'hand-edited since the last seed/refresh' in out_b,
+                      out_b[:800]))
+        cases.append(('...and the file itself is left untouched by the refusal',
+                      (b / rel).read_bytes() == edited, out_b[:400]))
+
+        # -- B, CONTROL: the same hand-edit, with --force, DOES get
+        # overwritten -- proves the refusal above is the drift check firing,
+        # not something incidental to this fixture (control-asserts-which-
+        # failure's negative control) --
+        b_forced = make_consumer('edited-forced', edited, {rel: stub_hash})
+        rc_bf, out_bf = run_refresh(b_forced, extra=('--force',))
+        cases.append(('CONTROL: the same hand-edited file, with --force, is '
+                      'overwritten to the current template rather than refused',
+                      rc_bf == 0 and (b_forced / rel).read_bytes() == real_template,
+                      out_bf[:800]))
+
+        # -- C: no manifest record at all -- a repo vendored before this
+        # feature existed -- one-time catch-up: baseline hash recorded, but
+        # the file itself is NOT rewritten (unlike the hooks catch-up,
+        # deliberately -- see CI_WORKFLOW_TEMPLATES' own comment on why) --
+        c = make_consumer('catchup', stub, None)
+        rc_c, out_c = run_refresh(c)
+        cases.append(('a CI workflow file with no prior manifest record at all is '
+                      'NOT rewritten on its first refresh after this feature ships',
+                      (c / rel).read_bytes() == stub, out_c[:800]))
+        cases.append(('...but a baseline hash IS recorded for it',
+                      manifest_of(c).get('ci_workflows_sha256', {}).get(rel) == stub_hash,
+                      out_c[:800]))
+        cases.append(('...and refresh prints a one-time catch-up NOTICE naming it, not '
+                      'just a silent write',
+                      rc_c == 0 and 'NOTICE' in out_c and 'baseline' in out_c and rel in out_c,
+                      out_c[:800]))
+
+        # -- C, CONTROL: a SECOND refresh of that same catch-up consumer now
+        # has a baseline to compare against, so it behaves like case A and
+        # rewrites the file to the current template -- proves the first
+        # run's silence was the catch-up rule and not a bug that never picks
+        # the file up at all --
+        rc_c2, out_c2 = run_refresh(c)
+        cases.append(('CONTROL: a second refresh, now that a baseline is recorded, '
+                      'DOES rewrite the file to the current template',
+                      rc_c2 == 0 and (c / rel).read_bytes() == real_template, out_c2[:800]))
+
+        # -- D: CI disabled (no workflow file installed at all) -- refresh
+        # neither writes nor complains about it --
+        d = make_consumer('disabled', None, None)  # no workflow file written at all
+        rc_d, out_d = run_refresh(d)
+        cases.append(('CONTROL: a consumer with no CI workflow file installed at all '
+                      'is neither refused nor reported by the new mechanism -- '
+                      'correctly absent, same as ci_workflows disabled',
+                      rc_d == 0 and 'hand-edited' not in out_d and rel not in out_d,
+                      out_d[:800]))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'"Update Vendors" now refreshes an already-installed CI workflow file '
+          f'body, not just tools/ and .claude/hooks/*.sh ({len(cases)} stated cases)',
+          not bad,
+          '; '.join(f"{n} -- {d[:800]}" for n, d in bad))
+
+
 def check_rule_rewrite_detection():
     """cite-the-incident asks "did somebody WRITE this rule", so it has to
     tell an authorship event from an edit.
@@ -14570,7 +14809,7 @@ def check_source_shape_is_verified():
     with tempfile.TemporaryDirectory() as td:
         def fixture(level, **edits):
             d = pathlib.Path(td) / f'src{len(cases)}{level}{len(edits)}'
-            shutil.copytree(ROOT / 'templates' / f'practice-set-{level}', d)
+            shutil.copytree(ROOT / 'templates' / f"practice-set-{ {'team': 'shared'}.get(level, level) }", d)
             (d / 'practices').mkdir(exist_ok=True)
             (d / 'practices' / 'x.md').write_text('---\nslug: x\n---\n## Rule\nx\n',
                                                   encoding='utf-8')
@@ -15427,7 +15666,7 @@ def check_loader_block_covers_every_declared_source():
     # deleting a legitimate practice is one people learn to ignore.
     publishable = set()
     for s in declared:
-        if s['level'] in ('team', 'individual'):
+        if s['level'] in ('shared', 'team', 'individual'):
             continue
         d = pathlib.Path(s['path']) / 'practices'
         if not d.is_dir():
@@ -15467,7 +15706,7 @@ def check_loader_block_covers_every_declared_source():
         if not active:
             continue
         present = [a for a in active if a in named]
-        if public and s['level'] in ('team', 'individual'):
+        if public and s['level'] in ('shared', 'team', 'individual'):
             leaked += [a for a in present if a not in publishable]
         elif not present and expected_in_block:
             missing.append(f"{s['level']}/{s['name']} ({len(expected_in_block)} of "
@@ -18052,7 +18291,7 @@ def check_stale_render_self_heals():
             tool.chmod(0o755)
         if stale_hours is not None:
             (repo / 'precedent.json').write_text(
-                json.dumps({'stale_checkout_hours': stale_hours}), encoding='utf-8')
+                json.dumps({'stale_render_hours': stale_hours}), encoding='utf-8')
         return repo
 
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-stale-render-'))
@@ -18083,7 +18322,7 @@ def check_stale_render_self_heals():
         old = time.time() - 2 * 3600  # 2h old, past this repo's 1h threshold
         os.utime(marker, (old, old))
         result3 = pr._self_heal_stale_render(repo3)
-        cases.append(('a render older than the declared stale_checkout_hours '
+        cases.append(('a render older than the declared stale_render_hours '
                       'is re-rendered, not just an absent one',
                       result3 == 'attempted'
                       and marker.read_text(encoding='utf-8') == 'rendered',
@@ -18104,12 +18343,12 @@ def check_stale_render_self_heals():
                       and marker4.read_text(encoding='utf-8') == 'still current',
                       f'result={result4!r}'))
 
-        # --- case 5: the declared-default (24h) is honored when
+        # --- case 5: the declared-default (1h) is honored when
         # precedent.json is absent, not silently zero ---------------------
         repo5 = _repo(tmp)  # no precedent.json written at all
-        cases.append(('the declared-default (24h) is used when this repo '
+        cases.append(('the declared-default (1h) is used when this repo '
                       'has no precedent.json at all',
-                      pr._stale_render_hours(repo5) == 24,
+                      pr._stale_render_hours(repo5) == 1,
                       f'got {pr._stale_render_hours(repo5)!r}'))
 
         # --- case 6: a source set whose engine predates this addition (no
@@ -18238,7 +18477,8 @@ def check_not_binding_actually_exempts_a_check():
             }, indent=2) + '\n', encoding='utf-8')
 
         def run_check():
-            r = subprocess.run([sys.executable, 'tools/precedent_check.py'],
+            r = subprocess.run([sys.executable, 'tools/precedent_check.py',
+                                '--full-sweep'],
                                cwd=str(repo), capture_output=True, text=True)
             return r.returncode, r.stdout + r.stderr
 
@@ -18718,9 +18958,9 @@ def check_move_tool_lands_then_deduplicates():
         cases.append(('the source copy is deduplicated, points at the slug, and its Story '
                       'says where it went',
                       'status:      deduplicated' in stext and 'in_force_at: zz-moves' in stext
-                      and 'Moved to the team set `precedent-team-fixture`' in stext, stext[-400:]))
+                      and 'Moved to the shared set `precedent-team-fixture`' in stext, stext[-400:]))
         cases.append(('the disclosure names both sets and the level',
-                      'DISCLOSE TO THE HUMAN' in r.stdout and 'team set precedent-team-fixture' in r.stdout
+                      'DISCLOSE TO THE HUMAN' in r.stdout and 'shared set precedent-team-fixture' in r.stdout
                       and 'individual set precedent-individual' in r.stdout, r.stdout[-400:]))
 
         # -- a consumer resolving both sets sees the practice from the team, once --
@@ -18745,7 +18985,7 @@ def check_move_tool_lands_then_deduplicates():
         levels = {p['slug']: p['level'] for p in resolved.get('practices', [])}
         cases.append(('a consumer resolving both sets gets the moved practice from the '
                       'team, once, and the deduplicated copy is not reported as a collision',
-                      levels.get('zz-moves') == 'team'
+                      levels.get('zz-moves') == 'shared'
                       and not resolved.get('blocked'), (r.stdout + r.stderr)[:600]))
 
         # -- the resolver names a forwarding address that resolves nowhere --
@@ -22826,6 +23066,7 @@ def _print_checkout_banner():
 
 
 def main():
+    _install_check_filter()
     _install_check_timing()
     _print_checkout_banner()
     _report_missing_doc_packages('PREFLIGHT')
@@ -22959,6 +23200,7 @@ def main():
     check_precedent_check_degrades_in_a_source_set()
     check_vendor_engine_consumer_case()
     check_vendor_engine_hook_drift_respects_adapters()
+    check_vendor_engine_refreshes_ci_workflow_files()
     check_rule_rewrite_detection()
     check_source_shape_is_verified()
     check_machine_readable_files_parse()

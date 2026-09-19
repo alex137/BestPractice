@@ -63,6 +63,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]      # the Precedent clone
 sys.path.insert(0, str(ROOT / 'tools'))
 import precedent_time  # noqa: E402  (practice: timestamps-carry-offset)
 import precedent_identity  # noqa: E402
+import precedent_vendor_engine  # noqa: E402
 TEMPLATES = ROOT / 'templates'
 UPSTREAM_URL = 'https://github.com/alex137/BestPractice'
 UPSTREAM_DOCS = f'{UPSTREAM_URL}/blob/main'
@@ -165,7 +166,7 @@ def _write_precedent_json(dest, base_branch, visibility, output_paths, teams, fo
                              f'installed. Pass --force to overwrite it.')
     sources = [{'level': 'universal', 'name': 'precedent', 'path': UNIVERSAL_PATH}]
     for name, p in teams:
-        sources.append({'level': 'team', 'name': name, 'path': p})
+        sources.append({'level': 'shared', 'name': name, 'path': p})
     # repo-local: holds local/practices/project-voice.md, instantiated below.
     # name and path are both fixed to "local" -- practice: source-naming.
     sources.append({'level': 'repo-local', 'name': 'local', 'path': 'local'})
@@ -419,6 +420,18 @@ def _bootstrap_and_ci(dest, ci_enabled, ci_note, force):
                             f'top-level docs vs the vendored {UNIVERSAL_PATH}/ tree.')
         pr.write_text(text, encoding='utf-8')
         out.append('.github/pull_request_template.md: written')
+    # Record bestpractice-docs.yml's vendored hash into ENGINE_MANIFEST.json
+    # (ci_workflow_files/ci_workflows_sha256) -- AFTER the write above, so
+    # what gets hashed is whatever actually landed on disk this call,
+    # whether just written or already there from an earlier install. Called
+    # unconditionally rather than only inside the `if ci_enabled:` branch
+    # above: it merely records whatever is currently on disk, so a repo
+    # where CI was disabled (nothing written, nothing to record) is a
+    # harmless no-op here, same as _ci_workflow_drift never complaining
+    # about a file that is correctly absent. See
+    # precedent_vendor_engine.record_ci_workflow_files's own docstring for
+    # why this runs after seed(), not before.
+    precedent_vendor_engine.record_ci_workflow_files(dest, 'consumer')
     return out
 
 

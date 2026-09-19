@@ -1,5 +1,5 @@
 <!-- Template: instantiate one copy of this directory per new document project.
-     Not tool-bootstrapped (unlike templates/practice-set-team/) -- copy it by
+     Not tool-bootstrapped (unlike templates/practice-set-shared/) -- copy it by
      hand into the new repo's root and fill in the placeholders below. See
      spec/DOCUMENT_WORK_PRACTICE_CAPTURE.md for the plan this implements
      and why it stops here (no pilot project yet). -->

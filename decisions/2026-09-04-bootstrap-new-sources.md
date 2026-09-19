@@ -13,7 +13,7 @@ question: |
 decision: |
   Ship a narrower fix now, independent of item 2: two real,
   forkable skeletons (`templates/practice-set-individual/`,
-  `templates/practice-set-team/` -- the latter carrying this
+  `templates/practice-set-shared/` -- the latter carrying this
   repo's first `approvers.json.template`), a new
   `tools/precedent_bootstrap_source.py` that instantiates
   either one and prints or writes the exact next-step config,

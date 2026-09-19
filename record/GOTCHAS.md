@@ -566,6 +566,23 @@ from the wrong one since the edits were made, and reapply that hunk by hand
 from the `.rej` file. See [spec/VERIFY_HARNESS_PERFORMANCE.md](../spec/VERIFY_HARNESS_PERFORMANCE.md)
 for the full incident this was pulled from.
 
+**Fourth recorded instance, 2026-09-18, closest to the second: no lost
+work, but a wasted merge attempt.** A session on a feature branch ran
+`git merge origin/<base-branch>` mid-turn, expecting to update its own
+branch, and got `Already up to date` — because `git branch --show-current`
+by then reported the base branch itself, not the feature branch. `git
+reflog` showed the same shape as before: `checkout: moving from
+<feature-branch> to precedent-beta-v01`, with nothing in the session's own
+command history requesting it, sometime between an earlier push and this
+merge attempt. Nothing was lost — the feature branch's own commits were
+already pushed, matching the second instance's "pushed before the gap"
+case — but the merge command itself ran against the wrong branch and had
+to be redone after switching back. **New symptom to watch for**: a `git
+merge`/`git pull` that reports "already up to date" when you expected real
+incoming changes is worth an immediate `git branch --show-current` check,
+same as a function that silently stopped existing was the tell in the
+first instance.
+
 
 ## 23. <a id="g23"></a>A verify_harness.py fixture that builds an "absent credential" scenario inherits ...
 
