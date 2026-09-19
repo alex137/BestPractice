@@ -14564,9 +14564,22 @@ def check_vendor_engine_refreshes_ci_workflow_files():
             return consumer
 
         def run_refresh(consumer, extra=()):
+            # --from-ref HEAD, not a bare `refresh ROOT`: this fixture tests
+            # a mechanism landing in the SAME change as this test, so
+            # ROOT's own origin/precedent-beta-v01 has not necessarily
+            # picked it up yet -- exactly the gap --from-ref exists to
+            # close (see _source_tools_at's own docstring, and every other
+            # fixture here that vendors a brand-new mechanic under test:
+            # check_vendor_engine_consumer_case and
+            # check_bootstrap_source_engine_is_functional both do the
+            # same). Without it, a run before this PR reaches
+            # origin/precedent-beta-v01 vendors the OLD tool, the
+            # self-replacing second pass then runs THAT copy -- missing
+            # this feature entirely -- against a manifest the first (new)
+            # pass already updated, and the two passes disagree.
             r = subprocess.run(
                 [sys.executable, str(consumer / 'tools' / 'precedent_vendor_engine.py'),
-                 'refresh', str(ROOT), *extra],
+                 'refresh', str(ROOT), '--from-ref', 'HEAD', *extra],
                 capture_output=True, text=True, cwd=str(consumer))
             return r.returncode, r.stdout + r.stderr
 
