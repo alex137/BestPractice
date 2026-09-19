@@ -615,8 +615,13 @@ one.
    harness adapter the universal source installs into `.claude/hooks/` —
    `precedent-universal-catalogue.sh` is for practice sets and a consumer
    declines it in `precedent.json`'s `declined_adapters` with the reason
-   (`hooks-on-disk-are-reachable`); and create `process/scrub_blocklist.txt`
-   if the manifest names one (`scrub-gate`). Then: `python3
+   (`hooks-on-disk-are-reachable`); create `process/scrub_blocklist.txt`
+   if the manifest names one (`scrub-gate`); and, since 2026-09-19, run
+   `python3 tools/todo_migrate.py --apply` then `python3
+   tools/build_todo_index.py` if `TODO.md` is still the old single-file
+   format — no `todo/` directory, no `# TODO has moved` stub heading — now
+   that the migration is vendored into every migrated repo, not only
+   consumers (`todo-migrate-available-but-unused`). Then: `python3
    tools/precedent_sync_views.py --repo .` from the consuming repo, with
    its `precedent.json` and a real user-level individual config in place.
    Check the reported precedence, any `overridden`/`blocked` entries, the

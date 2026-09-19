@@ -109,6 +109,22 @@ every step's answer is wrong if the one before it was skipped.
    first time this shipped would have discarded that with no warning. Run
    `refresh` again once the baseline is recorded to pick up template changes
    normally from then on.
+   **Since 2026-09-19, check whether this refresh newly vendors
+   `tools/todo_migrate.py` or `tools/build_todo_index.py`** — the one-time
+   per-item TODO migration tool and its ongoing index generator
+   ([spec/OPEN_ITEM_AND_GOTCHA_PLAN.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/OPEN_ITEM_AND_GOTCHA_PLAN.md)
+   Part 4.2). Vendoring the tool is not the same as running it, and nothing
+   else says so: this repo shipped both to every consumer on 2026-09-15/16
+   and, once source sets turned out to need them too, to every source set
+   on 2026-09-19 — and confirmed the same day that most consumers had
+   never run it, three or more days after it arrived. If `TODO.md` is
+   still the old single-file format (no `todo/` directory, no `# TODO has
+   moved` stub heading), run `python3 tools/todo_migrate.py --apply` then
+   `python3 tools/build_todo_index.py` as part of this refresh, not as a
+   follow-up. Step 6's full check also catches this —
+   [todo-migrate-available-but-unused](todo-migrate-available-but-unused.md)
+   — but the fix belongs here, at the refresh that brought the tool in,
+   not deferred to whoever next happens to run the check.
    **When the same update is going into more than one repo, note the tip
    before you start and check every repo against it at the end.** Each refresh
    resolves the tip at the moment it runs, so two repos updated an hour apart

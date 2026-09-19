@@ -398,6 +398,27 @@ ENGINE_FILES = [
     # repo receives a detector that detects nothing until a source declares
     # what it should fire on -- which is the honest default, not a gap.
     'precedent_close_detect.py',
+    # The generator and the one-time converter for the 2026-09-16 todo/gotcha
+    # migration's per-item TODO.md format (spec/OPEN_ITEM_AND_GOTCHA_PLAN.md
+    # Part 1 and Part 4.2). Both were CONSUMER-only until 2026-09-19, on the
+    # reasoning that "a source set has no TODO.md of its own to convert" --
+    # wrong: confirmed the same day that precedent-individual and
+    # precedent-team-writing (both `kind: source`) carry real, long-lived
+    # TODO.mds of their own (520 and 112 lines) and were structurally unable
+    # to run the migration, exactly like todo-migrate-available-but-unused's
+    # own Story. A practice set is a repository somebody works in like any
+    # other and accumulates its own open items the same way a consumer does.
+    'build_todo_index.py',
+    'todo_migrate.py',
+    # title_case.py was CONSUMER-only until 2026-09-19, since headline
+    # capitalization was thought of as a consumer-catalogue concern. Moved
+    # here the same day build_todo_index.py was: it imports title_case at
+    # module level, and vendored-import-refs-resolve caught the resulting
+    # gap directly -- a source set receiving build_todo_index.py without
+    # this would crash importing it with ModuleNotFoundError on its first
+    # real run, the same failure shape precedent_check.py's own promotion
+    # (see below) was caught by.
+    'title_case.py',
     'precedent_vendor_engine.py',
 ]
 
@@ -452,37 +473,27 @@ CONSUMER_ENGINE_FILES = ENGINE_FILES[:-1] + [
     # four tranches). A consumer's own tools are what reshape its tree, so
     # the tool lives in the consumer half; a practice set moves nothing.
     'move_paths.py',
-    # headline-capitalization's check imports it. Added 2026-09-06, after a
-    # consumer that re-vendored the catalogue got the practice but not the
-    # module, and precedent_check.py reported the check as ERRORED
-    # ("ModuleNotFoundError: No module named 'title_case'") rather than
-    # passed or skipped -- honest, and useless. Same class as doc_lint.py
-    # above: a universal practice's own Install names a module, so every
-    # repo that resolves that practice needs it vendored alongside.
-    'title_case.py',
-    # The generators for the 2026-09-16 todo/gotcha migration's own per-item
-    # format (spec/OPEN_ITEM_AND_GOTCHA_PLAN.md Part 1 and Part 2). Missing
-    # from this list since the migration and since build_gotcha_index.py was
-    # added the same way -- found 2026-09-16 when a consumer taking the
-    # vendor update went looking for build_gotcha_index.py to do its own
+    # title_case.py was listed here until 2026-09-19 and is now in
+    # ENGINE_FILES -- build_todo_index.py imports it at module level and
+    # moved into the shared list the same day, so a source set that got one
+    # without the other would crash on its first real run. See the entry
+    # there. Repeating it here is refused by the duplicate guard below.
+    #
+    # The gotcha-catalogue generator for the 2026-09-16 todo/gotcha migration's
+    # per-item format (spec/OPEN_ITEM_AND_GOTCHA_PLAN.md Part 2). Missing from
+    # this list since the migration -- found 2026-09-16 when a consumer taking
+    # the vendor update went looking for build_gotcha_index.py to do its own
     # gotcha-catalogue split and it simply was not there, no error, no
-    # SKIPPED, nothing named it as missing. CONSUMER-only, same reasoning as
-    # doc_lint.py above: a source set materializes no catalogue of its own
-    # todo/*.md or gotchas/*.md items, so it has nothing for either generator
-    # to read.
-    'build_todo_index.py',
+    # SKIPPED, nothing named it as missing. CONSUMER-only: a source set
+    # materializes no catalogue of its own gotchas/*.md items, so it has
+    # nothing for this generator to read.
+    #
+    # build_todo_index.py and todo_migrate.py were listed here alongside it
+    # until 2026-09-19 and are now in ENGINE_FILES -- a source set turned out
+    # to have its own TODO.md after all (see the entry there). Repeating them
+    # here is refused by the duplicate guard below, which is how a stray
+    # re-listing would be caught.
     'build_gotcha_index.py',
-    # The one-time converter for the SAME migration (Part 4.2's own step 1:
-    # "This repository ships the finished template and tooling first" --
-    # todo_migrate.py, build_todo_index.py, and the stale-reference check,
-    # "all vendored the way the rest of the engine is"). Missing from this
-    # list for the same reason build_todo_index.py was, above, and caught
-    # the same way: a consumer whose own TODO.md had never been migrated
-    # went looking for this to run its own conversion and it simply was not
-    # here -- found 2026-09-18. CONSUMER-only, same reasoning as
-    # build_todo_index.py directly above: a source set has no TODO.md of its
-    # own to convert, so it has nothing for this tool to read either.
-    'todo_migrate.py',
     # precedent_source_bootstrap.py is NOT re-listed here, for the same
     # reason precedent_check.py is not (see the note below): it was
     # consumer-only when this list was written -- the individual-source

@@ -112,10 +112,11 @@ being checked by it.
 | `speculation-is-marked` | tree | a speculative document under spec/ or record/ carries all four of its markers or none of them: the SPECULATIVE_ filename prefix requires a matching title, `kind: proposal`, a drafted/abandoned status and a warning block directly under the heading -- and, in the other direction, a document whose title or opening paragraph calls itself speculative must carry the prefix |
 | `technical-describes-people` | tree | no tracked path labels a FILE or DIRECTORY with a skill level; 'technical' and 'non-technical' describe people |
 | `timestamps-carry-offset` | tree | no tracked Python file stamps a moment with a bare `date.today()`, `utcnow()`, `utcfromtimestamp()` or a zero-argument `datetime.now()` -- every one of those resolves to whatever zone the machine is on, which in a container is UTC and in a record is unrecoverable. And the ENGINE's fallback zone is the SAME string in all three engine files that hold it: the time engine and both copies of the commit hook |
+| `todo-migrate-available-but-unused` | tree | a repo that has tools/todo_migrate.py vendored in (source or consumer engine alike) but has never run it -- TODO.md is still the old single-file format, no todo/ directory exists, and the file does not open on the "# TODO has moved" stub heading |
 | `two-check-levels` | tree | the session instructions name two fixed, distinct check levels ("light check" / "deep check") and say which gates a commit versus a push |
 | `verify-postcondition` | turn-end | the state you wanted after the operations this turn: nothing committed but unpushed on any local branch, and no tracked file left modified |
 
-47 of 130 practices are enforced. Run `python3 tools/precedent_check.py --explain` for what each check does **not** catch.
+48 of 131 practices are enforced. Run `python3 tools/precedent_check.py --explain` for what each check does **not** catch.
 <!--/gen:enforcement-->
 
 Numbers by: catalogue_stats.py

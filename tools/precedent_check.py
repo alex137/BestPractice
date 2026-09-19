@@ -5585,6 +5585,41 @@ def _todo_gotcha_stale_reference(ctx):
     return out
 
 
+@check('todo-migrate-available-but-unused', 'tree',
+       'a repo that has tools/todo_migrate.py vendored in (source or '
+       'consumer engine alike) but has never run it -- TODO.md is still '
+       'the old single-file format, no todo/ directory exists, and the '
+       'file does not open on the "# TODO has moved" stub heading',
+       'a repo that migrated by hand, without ever invoking the tool, '
+       'and happens to have written its own todo/ directory and stub '
+       'heading the same way this tool would -- indistinguishable from '
+       'having run it, and does not need to be told apart, since both '
+       'leave the same two signals the tool itself checks for',
+       practice_backed=True)
+def _todo_migrate_available_but_unused(ctx):
+    if not (ROOT / 'tools' / 'todo_migrate.py').exists():
+        return []
+    if not _engine_manifest().get('kind'):
+        # BestPractice itself: vendors nothing into itself, so it never
+        # resolves a `kind` here at all. A vendored repo of either kind
+        # (source or consumer) DOES have its own TODO.md to convert -- see
+        # this practice's own Story and precedent_vendor_engine.py's
+        # ENGINE_FILES entry for build_todo_index.py/todo_migrate.py.
+        return []
+    if not (ROOT / 'TODO.md').exists():
+        return []
+    if (ROOT / 'todo').is_dir():
+        return []
+    text = ctx.read('TODO.md')
+    if TODO_STUB_HEADING_RE.match(text):
+        return []
+    return [Finding('TODO.md',
+        'tools/todo_migrate.py is vendored into this repo but TODO.md is '
+        'still the old single-file format and no todo/ directory exists '
+        '-- run `python3 tools/todo_migrate.py --apply` then `python3 '
+        'tools/build_todo_index.py` (practices/vendor-update-runbook.md)')]
+
+
 # practice: decision-strength -- the grammar of the strength mark, so that
 # "unmarked means unknown" stays a reliable reading. A malformed or invented
 # value is the dangerous case: `strength: strong` reads as an endorsement to

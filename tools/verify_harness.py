@@ -7655,6 +7655,32 @@ def check_precedent_check_fires():
 
         case('todo-gotcha-stale-reference', _plant_stale_todo_reference)
 
+        # todo-migrate-available-but-unused -- a repo that has the migration
+        # tool vendored (an ENGINE_MANIFEST.json declaring a kind, same as a
+        # real vendored repo would carry) but whose TODO.md was never
+        # actually migrated: no todo/ directory, and no stub heading. This
+        # repo's own tree is already migrated (it IS the tool's origin), so
+        # the setup alone -- just adding the manifest -- keeps the clean
+        # pipeline clean; the plant undoes the migration to create the
+        # violation.
+        def _setup_todo_migrate_manifest(repo):
+            (repo / 'tools' / 'ENGINE_MANIFEST.json').write_text(
+                json.dumps({'kind': 'consumer'}), encoding='utf-8')
+            git(repo, 'add', '-A')
+            git(repo, 'commit', '-qm', 'planted vendored-consumer manifest')
+
+        def _plant_todo_migrate_unused(repo):
+            shutil.rmtree(repo / 'todo')
+            (repo / 'TODO.md').write_text(
+                '# Repo TODO -- open items\n\n## Recurring\n'
+                '- [ ] **An old-format item, never migrated.**\n',
+                encoding='utf-8')
+            git(repo, 'add', '-A')
+            git(repo, 'commit', '-qm', 'planted unmigrated TODO.md')
+
+        case('todo-migrate-available-but-unused', _plant_todo_migrate_unused,
+             setup=_setup_todo_migrate_manifest)
+
         # --- and the registry must not contain an untested claim ------------
         import importlib.util
         spec = importlib.util.spec_from_file_location(
@@ -14091,15 +14117,19 @@ def check_precedent_check_degrades_in_a_source_set():
         # Negative control on the fixture itself: if any optional module HAD
         # come along, every assertion below would pass for the wrong reason,
         # because the imports would simply succeed.
-        # precedent_resolve.py was in this tuple until 2026-09-13 and is now
-        # in ENGINE_FILES on purpose (shape 3 --
-        # spec/SOURCE_SET_PROSE_GAP.md), so a source set HAS it and it is no
-        # longer one of the modules whose absence this fixture is about.
-        # Leaving it here made the control assert the opposite of the
-        # shipped boundary, which is how the move was caught.
-        optional = ('doc_lint.py', 'doc_sync.py', 'title_case.py')
+        # precedent_resolve.py was in this tuple until 2026-09-13, and
+        # title_case.py until 2026-09-19 -- both are now in ENGINE_FILES on
+        # purpose (precedent_resolve.py: shape 3, spec/SOURCE_SET_PROSE_GAP.md;
+        # title_case.py: build_todo_index.py imports it at module level and
+        # moved into the shared list the same day, see
+        # precedent_vendor_engine.py's ENGINE_FILES entry) -- so a source set
+        # HAS both now and neither is one of the modules whose absence this
+        # fixture is about. Leaving either here made the control assert the
+        # opposite of the shipped boundary, which is how both moves were
+        # caught.
+        optional = ('doc_lint.py', 'doc_sync.py')
         absent = [m for m in optional if not (dest / 'tools' / m).is_file()]
-        cases.append(('the three optional modules are genuinely absent, so '
+        cases.append(('the two optional modules are genuinely absent, so '
                       'the skips below are real', len(absent) == len(optional),
                       f'absent: {absent}'))
         cases.append(('and precedent_resolve.py IS present, which is what '
@@ -14110,14 +14140,19 @@ def check_precedent_check_degrades_in_a_source_set():
         # modules IN FORCE here, or the runner skips them for "practice not
         # in force" before either import is ever attempted -- and the guards
         # would go untested while the check reported success.
-        for slug in ('headline-capitalization', 'source-naming'):
+        # 'headline-capitalization' was in this tuple until 2026-09-19: its
+        # check imports title_case.py, which a source set now has (see
+        # above), so it no longer demonstrates the skip -- swapped for
+        # 'acronyms-glossary', which imports doc_lint.py, still genuinely
+        # absent here.
+        for slug in ('acronyms-glossary', 'source-naming'):
             src = ROOT / 'practices' / f'{slug}.md'
             if src.is_file():
                 shutil.copy2(src, dest / 'practices' / f'{slug}.md')
         in_force = sorted(f.stem for f in (dest / 'practices').glob('*.md'))
         cases.append(('the two import-dependent practices are in force in the '
                       'fixture, so their checks actually reach the import',
-                      set(in_force) >= {'headline-capitalization', 'source-naming'},
+                      set(in_force) >= {'acronyms-glossary', 'source-naming'},
                       f'in force: {in_force}'))
 
         r = subprocess.run([sys.executable, 'tools/precedent_check.py',

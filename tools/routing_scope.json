@@ -1020,6 +1020,13 @@
       "why": "The command writes into an open-item file under todo/ and nowhere else, post the 2026-09-16 todo/gotcha migration. Its real trigger is a phrase in a message, which the reply gate carries; the glob covers a session already editing the item file.",
       "decided": "2026-09-13"
     },
+    "todo-migrate-available-but-unused": {
+      "globs": [
+        "TODO.md"
+      ],
+      "why": "The distinguishing condition is a repo's own TODO.md -- whether it is still the old single-file format is the whole question this practice asks, and the mechanical check (checked_by) is the real enforcement; the glob covers a session already editing the file by hand, which is when a person is most likely to notice its shape.",
+      "decided": "2026-09-19"
+    },
     "two-check-levels": {
       "globs": [
         "**"
