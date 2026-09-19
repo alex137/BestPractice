@@ -2507,11 +2507,9 @@ def _unmerged_row(repo_dir, name, ref, target_ref, target, stale_days=None):
     # belong on the row rather than on the half of the sweep that ends in a
     # deletion.
     row.update(_branch_meta(repo_dir, ref, stale_days))
-    rc, out, _ = _run_git(repo_dir, 'rev-list', '--count', f'{target_ref}..{ref}')
-    if rc == 0 and out.isdigit():
-        row['ahead'] = int(out)
     # `git cherry` is only meaningful if a merge base between the two refs
-    # actually resolves in THIS clone, so ask for one first.
+    # actually resolves in THIS clone, so ask for one first -- and `ahead`
+    # below needs exactly the same precondition, for the same reason.
     #
     # Guarding on `git cherry`'s exit code -- which is what this did until
     # 2026-09-08 -- never fires, because on a shallow clone there is no
@@ -2533,7 +2531,21 @@ def _unmerged_row(repo_dir, name, ref, target_ref, target, stale_days=None):
     # bounded fetch works on a shallow and a full clone alike.
     if not _merge_base_resolves(repo_dir, target_ref, ref):
         _run_git(repo_dir, 'fetch', '--depth=5000', 'origin')
-    if _merge_base_resolves(repo_dir, target_ref, ref):
+    resolves = _merge_base_resolves(repo_dir, target_ref, ref)
+    # `rev-list --count target..ref` moved here, gated on the SAME
+    # precondition as `cherry` (practice: very-deep-check). On a shallow
+    # clone whose merge-base does not truly resolve, `rev-list` does not
+    # fail the way `cherry` used to -- it silently counts every commit
+    # reachable from `ref` back to the grafted shallow boundary and calls
+    # that "ahead", which is a fabricated boundary, not history. Found
+    # 2026-09-19, pass 4 of a very deep check: four branches that were
+    # plain, fully-landed ancestors of the target read as 210-485 commits
+    # "ahead" on a shallow clone, and 0 once genuinely resolved.
+    if resolves:
+        rc, out, _ = _run_git(repo_dir, 'rev-list', '--count',
+                              f'{target_ref}..{ref}')
+        if rc == 0 and out.isdigit():
+            row['ahead'] = int(out)
         rc, out, _ = _run_git(repo_dir, 'cherry', target_ref, ref)
         if rc == 0:
             row['unique'] = sum(1 for ln in out.splitlines()
@@ -2591,9 +2603,19 @@ def _fetch_all_heads(repo_dir):
                  '+refs/heads/*:refs/remotes/origin/*')
     # Bounded: --unshallow is blocked by some git policy hooks, and a
     # depth-limited fetch works on a shallow and a full clone alike.
-    rc, _, _ = _run_git(repo_dir, 'fetch', '--depth=50', 'origin')
+    #
+    # --prune (practice: very-deep-check), added 2026-09-19: without it, a
+    # remote-tracking ref for a branch someone already deleted on the server
+    # sits here forever, and scan_branches below enumerates it as if it were
+    # live. Found the same run as the `ahead`/`cherry` fix above: 4 of 8
+    # branches this check reported as carrying hundreds of unlanded commits
+    # were plain, already-merged, ALREADY-DELETED-ON-THE-REMOTE stale refs --
+    # `have - server` never having been computed here is why nothing caught
+    # it. `--prune` deletes only local tracking refs; it touches nothing on
+    # the remote.
+    rc, _, _ = _run_git(repo_dir, 'fetch', '--prune', '--depth=50', 'origin')
     if rc != 0:
-        _run_git(repo_dir, 'fetch', 'origin')
+        _run_git(repo_dir, 'fetch', '--prune', 'origin')
     # ls-remote asks the SERVER and ignores local refs entirely, so it is the
     # only thing that can say what this clone is still missing.
     rc, heads, _ = _run_git(repo_dir, 'ls-remote', '--heads', 'origin')

@@ -181,7 +181,7 @@ which is the class this check exists for — a set's practice contradicting
 universal's is a finding about both. What the verdict changes is the
 *reporting*: a finding in a `LAND` repo ends in a commit from this session,
 and one in a `HANDOFF` repo ends in a woken session
-([spawn-session](session-text.md)). Saying which is which before the reading
+([session-text](session-text.md)). Saying which is which before the reading
 starts is the point; discovering it at the moment of trying to fix something
 is the cost. `--landable-only` narrows scope for a deliberately cheap run and
 says out loud what it made unreachable.

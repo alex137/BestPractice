@@ -50,7 +50,7 @@ wiring anything in.
 
 ## Story
 A session doing an enforcement sweep converted 3 practices, checked the
-remaining ~30 against a mental list of "reasoning-quality, no signature,"
+remaining ≈30 against a mental list of "reasoning-quality, no signature,"
 and reported the sweep as complete — 21 of 52 enforced, the rest correctly
 resistant. Asked to look again rather than accept that verdict, a second
 pass found two more that were genuinely convertible

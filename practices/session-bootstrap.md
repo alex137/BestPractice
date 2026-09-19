@@ -151,7 +151,7 @@ first turn (and therefore its `add_repo` call) never overlap in time, so
 retrying inside the hook is not a partial mitigation, it is inert — every
 attempt, at any count or delay, runs before `add_repo` could possibly
 have fired even once. It had also been quietly costing every cold session
-real latency (up to ~12 seconds) for that zero benefit. The lazy
+real latency (up to ≈12 seconds) for that zero benefit. The lazy
 self-heal half was unaffected and independently confirmed to work — it
 runs from inside the agent's own turn, after `add_repo`, which is exactly
 where the access exists. Fixed by defaulting

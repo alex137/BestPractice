@@ -108,7 +108,7 @@ written; it was written before the merge it failed to mention.
 **The merge was not even the summarising session's.** A third session, spawned
 by one of the first two, had landed it — and a spawned session is invisible to
 the sibling it was spawned beside, which cannot list it, message it, or read
-what it did ([spawn-session](session-text.md)'s return path is the same fact
+what it did ([session-text](session-text.md)'s return path is the same fact
 from the other end: a spawned session reports back through its repository or
 not at all). So the summary was not merely stale. **It was written by a session
 that had no way to know**, which is why the remedy cannot be a better summary

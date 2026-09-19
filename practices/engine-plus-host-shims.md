@@ -45,7 +45,7 @@ diverge the first time someone forgets. (Origin: the first dependent repo
 maintained renderer, lint, and sync-gate forks in lockstep through one day
 of heavy feature work — every change patched twice — then collapsed all
 three to shims; behavior was verified identical before and after, the
-renderer's output byte-for-byte, and ~1,400 lines of duplicate
+renderer's output byte-for-byte, and ≈1,400 lines of duplicate
 implementation disappeared. The collapse also surfaced a latent bug: the
 exported sync-gate copy referenced a config name no one had ever defined,
 because nothing had ever executed it.)
