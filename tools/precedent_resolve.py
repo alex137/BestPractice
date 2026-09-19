@@ -64,9 +64,11 @@ Run:
   python3 tools/precedent_resolve.py --json          # the resolved set as data
   python3 tools/precedent_resolve.py --repo DIR      # resolve for another repo
   python3 tools/precedent_resolve.py --explain SLUG  # how one slug resolved
-  python3 tools/precedent_resolve.py --strict        # a missing source is fatal
-Exit: 0 on a resolved set, 1 on a conflict, a malformed source, or --strict
-with a source missing.
+  python3 tools/precedent_resolve.py --strict        # a missing source, or a
+                                                      # deduplication pointing
+                                                      # IN FORCE NOWHERE, is fatal
+Exit: 0 on a resolved set, 1 on a conflict, a malformed source, --strict with
+a source missing or a dangling deduplication, or the resident budget over cap.
 """
 import json, os, pathlib, posixpath, re, subprocess, sys, time
 
@@ -1023,6 +1025,9 @@ def _report(res, sources, out=sys.stdout):
     for d in res.get('dangling', ()):
         print(f"  IN FORCE NOWHERE: {d['slug']} ({d['source']}) -- {d['why']}",
               file=out)
+    if res.get('dangling'):
+        print(f"  {len(res['dangling'])} deduplication(s) unreachable from "
+              f"here -- rerun with --strict to fail on this", file=out)
     rstats = resident_stats(res)
     if rstats['practices']:
         who = ', '.join(f"{p['slug']} ({p['level']})" for p in rstats['practices'])
@@ -1087,14 +1092,21 @@ def main():
         print(f"precedent resolve: the {m['level']} source {m['name']!r} is not "
               f"available ({m['reason']}). Running WITHOUT it -- the practices it "
               f"holds are not in force in this session.", file=sys.stderr)
-    if res['missing'] and '--strict' in args:
+    if (res['missing'] or res.get('dangling')) and '--strict' in args:
         return 1
 
     if explain:
         return _explain(explain, res, sources)
 
     rstats = resident_stats(res)
-    rc = 1 if (res['missing'] and '--strict' in args) else 0
+    # A dedup pointing IN FORCE NOWHERE is real exposure -- a rule someone
+    # believes is still binding is reachable by nobody, for this repo -- but
+    # it is a PRE-EXISTING condition every consumer inherited silently, not
+    # something this run caused. Flipping the default exit code for it would
+    # turn every consumer's next `--check` red with no warning. --strict is
+    # the same opt-in already used for a missing source, for the same
+    # reason; the count above makes it visible either way.
+    rc = 1 if ((res['missing'] or res.get('dangling')) and '--strict' in args) else 0
     # OVER BUDGET is not gated behind --strict: PRACTICE_ENGINE_PLAN.md's
     # "The Resident Budget" is explicit that exceeding the cap "fails the
     # build outright... mechanically, not by discipline" for the single-repo
