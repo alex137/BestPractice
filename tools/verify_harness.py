@@ -14906,7 +14906,7 @@ def check_vendor_engine_retires_ci_workflow_files():
     moment a CI workflow file is fixed BY HAND and needs the manifest told
     without a `refresh --force` overwriting the fix back to the generic
     template -- the other half of the same incident, found the same day in
-    themorgan/TodoMorgan and themorgan/VoiceDefMorgan).
+    two real consumer repos).
 
     `kind: source` throughout, since RETIRED_CI_WORKFLOW_FILES' one entry
     (views-drift.yml) is a 'source'-kind retirement; CI_WORKFLOW_TEMPLATES

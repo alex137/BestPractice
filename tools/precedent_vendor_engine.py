@@ -1037,7 +1037,7 @@ CI_WORKFLOW_TEMPLATES = {
 # manifest may still be tracking in ci_workflow_files/ci_workflows_sha256
 # whose template CI_WORKFLOW_TEMPLATES no longer lists at all.
 #
-# THE GAP THIS CLOSES, found 2026-09-19 in themorgan/precedent-individual.
+# THE GAP THIS CLOSES, found 2026-09-19 in a real individual practice set.
 # views-drift.yml.template was folded into precedent-check.yml.template as
 # its own job (spec/CI_MINUTES_PLAN.md item 9), and the four repos that hand-
 # applied that fix the same day deleted the now-redundant views-drift.yml
@@ -2173,11 +2173,11 @@ def _cli_record_ci(rest):
     thing -- record what's on disk now, touch no content -- but before this
     it was reachable only from inside precedent_install.py/precedent_
     bootstrap_source.py at initial install, or by importing the module and
-    calling it directly (which is what fixing themorgan/TodoMorgan and
-    themorgan/VoiceDefMorgan's stale post-hand-fix hashes took, 2026-09-19,
-    since neither repo's session could run a full `refresh` against a live
-    BestPractice clone mid-incident without either leaving the hash stale
-    -- refused by the next refresh -- or accepting `refresh --force`
+    calling it directly (which is what fixing two real consumer repos'
+    stale post-hand-fix hashes took, 2026-09-19, since neither repo's
+    session could run a full `refresh` against a live BestPractice clone
+    mid-incident without either leaving the hash stale -- refused by the
+    next refresh -- or accepting `refresh --force`
     overwriting the hand-authored fix with the generic template). A session
     in that position needs a supported way to say "this content is correct
     now, just re-baseline" without a clone and without risking an overwrite;

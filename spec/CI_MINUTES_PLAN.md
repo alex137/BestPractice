@@ -471,6 +471,49 @@ Verified: all edited/new template files parse as valid YAML; deep check
 ([tools/verify_harness.py](../tools/verify_harness.py), [tools/doc_lint.py](../tools/doc_lint.py), [tools/leak_gate.py](../tools/leak_gate.py), [tools/precedent_check.py](../tools/precedent_check.py),
 [tools/doc_sync.py](../tools/doc_sync.py)) run clean before each push in this item's own PRs.
 
+## Item 9a — two engine-level gaps items 8-9's hand-fixes exposed (2026-09-19)
+
+Re-baselining `ci_workflows_sha256` by hand in the four repos item 8 fixed
+(dropping a stale hash after each one's hand-applied fix, and a stale
+`views-drift.yml` tracking entry in `themorgan/precedent-individual` left
+over from item 9's own consolidation) surfaced two gaps in
+[tools/precedent_vendor_engine.py](../tools/precedent_vendor_engine.py)
+itself, not just in those repos' manifests:
+
+1. **No retirement mechanism for CI workflow templates.**
+   `RETIRED_ENGINE_FILES`/`_remove_dropped_engine_files` already handle
+   this for ordinary vendored files under [tools/](../tools/); `ci_workflow_files`/
+   `ci_workflows_sha256` had no equivalent, so folding
+   `views-drift.yml.template` into `precedent-check.yml.template` left
+   every set that already had it tracked with a stale manifest entry
+   `refresh()` would read as a missing, hand-edited file — refusing the
+   whole run — the next time it ran there. Fixed with
+   `RETIRED_CI_WORKFLOW_FILES` (a tombstone dict mirroring
+   `RETIRED_ENGINE_FILES`) and `_remove_retired_ci_workflow_files`, called
+   unconditionally at the top of `refresh()`: a retired entry is dropped
+   from the manifest automatically, and a retired file still on disk is
+   reported, never deleted — matching this repo's own stated design that
+   a CI workflow file is never removed automatically (item 9's own
+   comment on `ci_incomplete`).
+2. **No way to re-baseline a CI workflow's recorded hash without a full
+   clone.** `record_ci_workflow_files()` already does exactly this —
+   record what's on disk, touch no content — but was reachable only from
+   inside [tools/precedent_install.py](../tools/precedent_install.py)/
+   [tools/precedent_bootstrap_source.py](../tools/precedent_bootstrap_source.py) at
+   install time, or by importing the module directly (which is what
+   fixing the two dependent repos' stale hashes above actually took). A
+   session hand-fixing a CI workflow file mid-incident has no supported
+   way to tell the manifest the fix is correct short of
+   `refresh --force` against a live clone, which would overwrite the
+   hand-authored fix with the generic template. The new `record-ci`
+   subcommand (clone-free, like `fresh`) closes this.
+
+Both verified against scratch fixtures reproducing each incident, and
+covered by a new `check_vendor_engine_retires_ci_workflow_files` in
+[tools/verify_harness.py](../tools/verify_harness.py) (11 cases) alongside
+the existing CI-workflow refresh coverage. Deep check run clean before
+push, same as item 9.
+
 ## Sequencing and status
 
 Morgan approved phases 1–5 on 2026-09-16, holding items 6 and 7 for later
@@ -499,34 +542,35 @@ repo, the next time it installs, migrates, or takes an update.
   it (verified 2026-09-19).** `MIGRATING_EXISTING_INSTALLS.md`'s step 6
   and `vendor-update-runbook.md`'s step 10 still carry the
   retired-workflow table for items 2/2a/3's file-deletion pass, and that
-  hasn't run in any dependent repo yet — `themorgan/TodoMorgan` and
-  `themorgan/VoiceDefMorgan` both still carry the named retired files
-  (`light-check.yml`, `bestpractice-upstream-sync.yml`, and, in
-  VoiceDefMorgan, `platform-docs-check.yml`/`status-claims-check.yml`/
+  hasn't run in any dependent repo yet — two of the four dependent repos
+  checked still carry the named retired files
+  (`light-check.yml`, `bestpractice-upstream-sync.yml`, and, in one of the
+  two, `platform-docs-check.yml`/`status-claims-check.yml`/
   `unified-prompt-check.yml`), unremoved. That's cosmetic, not a live
   cost, though: their triggers are already `pull_request`-with-`paths`
   or `workflow_dispatch` only, so none of them fire on an ordinary push.
   Separately, and sooner than this bullet originally expected: item 9's
   fix reached all four repos this session checked
   (`themorgan/precedent-individual`, `themorgan/precedent-team-writing`,
-  `themorgan/TodoMorgan`, `themorgan/VoiceDefMorgan`) the same day it
+  and the two dependent repos above) the same day it
   shipped here, without waiting for a full migration pass — `abc667a`
   (2026-09-18) taught "Update Vendors" to refresh an already-installed CI
   workflow file against its current template, not just write it once at
   install; the two practice sets took the fix that way plus a direct
-  hand-applied commit each (item 8's own account), while TodoMorgan and
-  VoiceDefMorgan got a hand-applied fix after "Update Vendors" backfilled
+  hand-applied commit each (item 8's own account), while the two
+  dependent repos got a hand-applied fix after "Update Vendors" backfilled
   a manifest baseline for a file it had never tracked before (which, by
   that commit's own design, does not rewrite content on its first run).
   Verified directly against all four repos' `.github/workflows/` on
   2026-09-19: branch-scoped `push:`, debounce as its own job, and
   `pull_request:` restored, matching this document's own item 9.
-  **One bookkeeping gap found in the same check:** TodoMorgan's and
-  VoiceDefMorgan's hand-applied fixes left `tools/ENGINE_MANIFEST.json`'s
+  **One bookkeeping gap found in the same check:** both dependent repos'
+  hand-applied fixes left `tools/ENGINE_MANIFEST.json`'s
   `ci_workflows_sha256` pointing at the pre-fix hash for
   `bestpractice-docs.yml`, so the next template improvement to
-  `doc-lint.yml.template` will read that file as hand-edited and refuse
-  to auto-refresh it there until someone re-baselines it.
+  `doc-lint.yml.template` would have read that file as hand-edited and
+  refused to auto-refresh it there — fixed the same day via the new
+  `record-ci` subcommand (item 9a below).
 - **Phase C — done, exercised live, and revised (items 8-9).** A debounce
   guard (`ci_debounce_minutes`, default `360`) ships in
   `doc-lint.yml.template` and `precedent-check.yml.template` (which now
