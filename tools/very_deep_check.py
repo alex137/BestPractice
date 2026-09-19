@@ -191,7 +191,7 @@ Run:
       -- write the branch sweep's committable Markdown (every merged,
       merged-elsewhere and unmerged branch, one clickable delete or
       compare link per row) somewhere other than the checked repo's own
-      record/stale-branches.md. Written on every run that does not pass
+      record/stale_branches.md. Written on every run that does not pass
       --skip-branch-scan; this only relocates it.
 Exit: 1 if any repo in force is not provably current (unless --allow-stale),
 or if a declared team/individual source is missing (unless
@@ -4205,7 +4205,12 @@ def _record_pass(value, path=None, repo=None):
 # per-repo anchoring as LEDGER_RELPATH just above: the file describes the
 # REPO BEING CHECKED, not this engine's own checkout, so a fixture that
 # points --repo at a scratch directory must write there, never here.
-BRANCH_REPORT_RELPATH = pathlib.Path('record') / 'stale-branches.md'
+#
+# Underscore, not hyphen (practice: filename-separator): record/ already
+# carries GOTCHAS_ARCHIVE.md, and a hyphenated name sitting next to it is
+# exactly the mixed-separator case the practice's own planted fixture
+# exists to catch -- it did, the first time this file was ever committed.
+BRANCH_REPORT_RELPATH = pathlib.Path('record') / 'stale_branches.md'
 
 
 def branch_report_path_for(repo_root=None):

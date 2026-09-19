@@ -1107,7 +1107,7 @@ Last because none of it strands an adopter, and none of it is cheap.
   nothing to open but a scrollback nobody kept. `_write_branch_report()`
   writes the same sweep, one clickable delete link (or, for an unmerged
   branch, a branches-page link and a compare-view link) per row, to
-  `record/stale-branches.md` in the checked repo — regenerated on every run
+  `record/stale_branches.md` in the checked repo — regenerated on every run
   that does not pass `--skip-branch-scan`, and relocatable with
   `--branch-report PATH`. Commit the result so the links are live on the
   branch a person actually opens, the same way `MAP.md` and the ledger are
@@ -1799,6 +1799,6 @@ only in that Sunday session's own transcript and nobody carried it
 forward. **The fix is not a smarter sweep — `scan_branches` and
 `_branch_url` already computed everything asked for — it is a place for
 the answer to live that isn't a chat window**: `_write_branch_report()`
-writes the same rows to `record/stale-branches.md`, committed like
+writes the same rows to `record/stale_branches.md`, committed like
 `MAP.md` or the run ledger, so the next person who wants the list opens a
 page instead of asking a session to reproduce one.
