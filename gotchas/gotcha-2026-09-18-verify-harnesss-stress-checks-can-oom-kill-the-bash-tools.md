@@ -1,10 +1,10 @@
 ---
 slug:            gotcha-2026-09-18-verify-harnesss-stress-checks-can-oom-kill-the-bash-tools
-status:          live
+status:          retired
 noted:           2026-09-18
 severity:        null
-retired:         null
-retires_when:    null
+retired:         2026-09-18
+retires_when:    "tools/precedent_resolve.py's _self_heal_stale_render() carries the PRECEDENT_SELF_HEAL_IN_PROGRESS reentrancy guard -- condition met the same day, below"
 ---
 ## Symptom
 
@@ -91,3 +91,53 @@ per-change fix. What worked, practically:
   fastest way to confirm it is this trap and not a real regression: an
   `oom-kill` line naming the Bash tool's own memcg means keep going, not
   stop and debug the diff.
+
+## Resolution (2026-09-18, Same Day, a Different Session)
+
+**The Story above's diagnosis was wrong about the mechanism, even though
+the symptom and the process count were both real.** It called the fan-out
+"the neighborhood of `check_precedent_check_fires`... and the
+session-bootstrap fixtures around it," read as many legitimate parallel
+test cases piling up. Watching a live run's process tree
+(`ps --forest`) instead of only counting processes after the fact showed
+something different: a single **linear recursive chain**, each link an
+identical
+[`precedent_session_practices.py --repo <same path>`](../tools/precedent_session_practices.py)
+invocation, 26+ levels deep and still growing when caught.
+
+The actual bug: [`tools/precedent_resolve.py`](../tools/precedent_resolve.py)'s
+`_self_heal_stale_render()` spawns
+[`precedent_session_practices.py`](../tools/precedent_session_practices.py)
+as a subprocess whenever the untracked `.precedent/SESSION_PRACTICES.md` is
+missing or stale.
+That subprocess itself calls `load_config()`, which reaches the same
+function for the same `repo_root` — and the target file this function is
+spawning the process TO WRITE does not exist yet at that moment, since the
+write only happens once the child's own render completes. With no
+reentrancy guard, the child decided it also needed to self-heal, spawned a
+third copy of itself, and so on with no base case, until the cgroup ceiling
+this Story describes was hit. `check_bootstrap_source_produces_resolvable_set`
+and `check_leak_gate_refuses_a_fresh_container` both bootstrap a fresh
+source with no rendered file yet, which is exactly the condition that
+triggers it — matching this Story's "45 `PASS` lines in" and "117/172"
+crash points, both immediately after a check that bootstraps a fresh
+individual source.
+
+**Fixed**: an environment-variable sentinel
+(`PRECEDENT_SELF_HEAL_IN_PROGRESS`) set on the spawned subprocess's
+environment, checked at the top of `_self_heal_stale_render()`, so a child
+already inside a self-heal attempt never triggers another one for itself.
+Verified directly: `check_leak_gate_refuses_a_fresh_container` dropped from
+241.8s to 1.72s, `check_bootstrap_source_produces_resolvable_set` from an
+OOM crash to 4.50s, and a full unmodified
+[`verify_harness.py`](../tools/verify_harness.py) run completed in 149.9s
+(215 passed, 0 failed) — the first clean completion this investigation
+saw, after two runs died at exit 137 in the same spot.
+
+**What stays true from the Story above, for whoever hits a resemblance
+that isn't this exact bug**: the Bash tool's own memory cgroup can be
+exhausted well before the host's own `free -h` shows any pressure, and
+`dmesg`'s `oom-kill` line naming the Bash tool's memcg is still the fastest
+way to confirm that shape of failure. What's retired is the specific
+cause and the specific two checks — not the general "a cgroup can OOM
+before the host does" lesson.
