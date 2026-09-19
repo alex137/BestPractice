@@ -96,7 +96,7 @@ repointing its two in-repo links from relative
 
 Found while tracing a stale link: `precedent-team-writing`'s own `TODO.md`
 (its item 4, `todo-gotcha-stale-reference-exempted`) cites this item by its
-old `TODO.md#source-checks-adopt-engine-helpers` anchor and says the anchor
+old `TODO.md` anchor, `source-checks-adopt-engine-helpers`, and says the anchor
 "is gone from BestPractice's current `todo/` tree and its own
 `spec/TODO_GOTCHA_MIGRATION_MAP.md`, and nothing found here confidently
 says where it went" — this file and the migration-map row added alongside

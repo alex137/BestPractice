@@ -75,7 +75,8 @@ by direct inspection**, independent of the check tooling:
 
 `precedent-team-writing/TODO.md` (its item 4,
 `todo-gotcha-stale-reference-exempted`) names a stale link to
-`https://github.com/alex137/BestPractice/blob/precedent-beta-v01/TODO.md#source-checks-adopt-engine-helpers`
+`https://github.com/alex137/BestPractice/blob/precedent-beta-v01/TODO.md`,
+anchored on `source-checks-adopt-engine-helpers`,
 and says: *"that item is gone from BestPractice's current `todo/` tree and
 its own `spec/TODO_GOTCHA_MIGRATION_MAP.md`, and nothing found here
 confidently says where it went... Blocked-on: tracing the real destination
@@ -105,7 +106,7 @@ session rooted there can now repoint its stale link to
 and drop the `not_binding` exemption for that finding in
 `precedent-team-writing/precedent.json` (it may still need to stay
 exempted for the file's other flagged string, the instructional
-`` `TODO.md#slug` `` placeholder near the top of that same `TODO.md` — that
+`` `TODO.md` `` + `` `#slug` `` placeholder near the top of that same `TODO.md` — that
 one was never a real link and needs no fix, only a judgment call about
 whether the exemption should narrow).
 
@@ -174,7 +175,7 @@ Files: `trim-prose.md`, `draft-marker.md`, `list-restraint.md`,
 `branch-links.md`, `no-stale-counts.md`.
 
 This sentence is descriptive prose (explaining why an old anchor it does
-not itself cite would no longer resolve), not a literal `TODO.md#anchor`
+not itself cite would no longer resolve), not a literal `TODO.md` anchor
 link — `precedent_check.py`'s `todo-gotcha-stale-reference` check would not
 flag it, and did not when tested. Whether this is part of what the other
 session counted as "21 stale internal TODO.md anchors," and whether the

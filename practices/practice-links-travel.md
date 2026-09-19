@@ -239,6 +239,25 @@ publishers, so it runs in the sets where same-slug deduplication is normal —
 and it was written against this repository, where every withdrawn practice
 happens to point at a differently-named successor.
 
+**The check itself had the "somebody else's repository" gap, found
+2026-09-19.** Its URL branch only ever validated a link that named THIS
+repository — any other absolute URL was treated as somebody else's to keep
+working and skipped outright, no matter what it named. That included the
+one target every repo declaring a source can actually check: the universal
+source, cloned as a sibling before the first turn in exactly the repos this
+check is vendored into. `precedent-individual/practices/my-identity-is-not-private.md`
+linked `private-repo-scrub` as an absolute URL into BestPractice — the
+practice had never lived there, only in a different declared source — and
+the vendored copy of this exact check, run in that exact repository,
+reported nothing: the self-slug guard skipped the link before ever asking
+whether the path existed. Fixed by checking a non-self absolute URL against
+the declared universal source's local clone (via `precedent_resolve.load_config`)
+whenever that clone is resolvable, rather than skipping every non-self URL
+unconditionally. Verified both directions against a scratch copy of
+`precedent-individual`: the unpatched check reports the link clean, the
+patched one reports it — the same real link, the same real repository,
+nothing else changed.
+
 ## Install
 [tools/precedent_check.py](../tools/precedent_check.py) enforces it, as a
 tree-scope check over the practice files this repository owns. It reads

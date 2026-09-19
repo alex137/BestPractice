@@ -861,16 +861,55 @@ def _travelling_engine_files():
     return {'tools/' + n for n in _pve.CONSUMER_ENGINE_FILES}
 
 
-def _origin_slug():
-    """'owner/repo' for origin, or None. Used only to decide whether an
-    absolute URL points at THIS repository -- a URL naming some other
-    repository is somebody else's to keep working."""
-    r = _git('remote', 'get-url', 'origin')
+def _origin_slug(root=None):
+    """'owner/repo' for `root`'s origin (default ROOT), or None. Used to
+    decide whether an absolute URL points at a repository this check can
+    actually verify -- THIS repository, or (since 2026-09-19) a locally
+    resolvable declared source of it, most commonly the universal source
+    (usually BestPractice itself). A URL naming any other repository is
+    still somebody else's to keep working -- see `_universal_source_root`
+    below for why the universal source is no longer in that bucket."""
+    r = _git('remote', 'get-url', 'origin', cwd=root)
     if r.returncode != 0:
         return None
     m = re.search(r'github\.com[:/]+([^/]+/[^/\s]+?)(?:\.git)?/*$',
                   r.stdout.strip())
     return m.group(1) if m else None
+
+
+def _universal_source_root():
+    """Local directory of this repo's declared UNIVERSAL source, or None
+    when it cannot be resolved (undeclared, unreadable, or not cloned
+    locally).
+
+    Found 2026-09-19: a practice file's absolute link into BestPractice
+    (almost always the universal source, whether this repo IS BestPractice
+    or vendors it) went unchecked in every repo but BestPractice itself,
+    because the URL branch below used to treat any non-self repository as
+    'somebody else's to keep working' -- including the one repository this
+    check is specifically shipped to every consumer to protect links into.
+    A real case: `precedent-individual/practices/my-identity-is-not-private.md`
+    linked a practice absolutely into BestPractice that had never existed
+    there (it lived in a different declared source), and the vendored copy
+    of this exact check, run in that exact repo, reported nothing -- the
+    self-slug guard skipped the link before ever looking at whether the
+    path existed. The universal source is materially different from 'some
+    other repository': every repo that declares one has it cloned as a
+    sibling before the first turn (the SessionStart credential route), so
+    its tree is exactly as checkable as this repo's own."""
+    try:
+        import precedent_resolve as pr
+        sources = pr.load_config(ROOT)
+    except Exception:                                # practice: fail-gracefully
+        return None
+    for s in sources:
+        if s.get('level') == 'universal':
+            try:
+                root = (ROOT / s['path']).resolve()
+            except Exception:
+                return None
+            return root if root.is_dir() else None
+    return None
 
 
 def _practice_status_fields(path):
@@ -1032,19 +1071,41 @@ def _practice_links_travel(ctx):
                 continue
             if target.startswith(('http://', 'https://')):
                 m = _BLOB_URL_RE.match(target)
-                if not m or slug is None or m.group(1).lower() != slug.lower():
-                    continue                    # somebody else's repository
+                if not m:
+                    continue
+                url_repo = m.group(1)
+                # practice: practice-links-travel -- a link into THIS
+                # repository is checked against ROOT, as before. A link into
+                # any OTHER repository used to be waved through unconditionally
+                # ('somebody else's repository to keep working'); since
+                # 2026-09-19 a link into the declared UNIVERSAL source (when
+                # it is locally resolvable, which it is in every repo that
+                # declares one) is checked too -- see _universal_source_root's
+                # own docstring for the real case this missed.
+                if slug is not None and url_repo.lower() == slug.lower():
+                    check_root, subject, u_branch = ROOT, 'this repository', branch
+                else:
+                    uroot = _universal_source_root()
+                    u_slug = _origin_slug(uroot) if uroot else None
+                    if uroot is None or u_slug is None \
+                            or url_repo.lower() != u_slug.lower():
+                        continue                # somebody else's repository
+                    check_root = uroot
+                    subject = 'its declared universal source'
+                    u_branch = _declared_base_branch(uroot)
                 url_branch, url_path = m.group(2), m.group(3).split('#')[0]
-                if branch and url_branch != branch:
+                if u_branch and url_branch != u_branch:
                     out.append(Finding(
-                        where, f'links this repository at `{url_branch}`, but '
-                               f'precedent.json declares `{branch}` -- an '
-                               f'upstream link goes stale the moment it names '
-                               f'a branch nobody is publishing from'))
-                elif not (ROOT / url_path).exists():
+                        where, f'links {subject} at `{url_branch}`, but '
+                               f'{"precedent.json" if check_root is ROOT else "its precedent.json"} '
+                               f'declares `{u_branch}` -- an upstream link '
+                               f'goes stale the moment it names a branch '
+                               f'nobody is publishing from'))
+                elif not (check_root / url_path).exists():
                     out.append(Finding(
-                        where, f'links `{url_path}` in this repository, and '
-                               f'no such path exists here'))
+                        where, f'links `{url_path}` in {subject}, and no '
+                               f'such path exists '
+                               f'{"here" if check_root is ROOT else "there"}'))
                 continue
             base = target.split('#')[0]
             if not base:
