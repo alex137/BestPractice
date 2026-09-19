@@ -10,8 +10,8 @@ index_clause: "\"Brief it\" -- one paste block: situation, session id, recommend
 checked_by:  null
 defines:     ["Brief it"]
 command:     {"Brief it": "Write up the current issue or situation as a self-contained briefing for a session that was not in this conversation -- what happened and the context behind it, this session's own id and a link to it, what you recommend the other session do and why, which repository has to be its primary seed root, and which others (if any) need to be attached alongside it -- and hand the whole thing back as one block ready to copy in one click."}
-status:      active
-in_force_at: null
+status:      deduplicated
+in_force_at: my-options
 supersedes:  []
 overrides:   null
 added:       "2026-09-19"
@@ -116,6 +116,21 @@ design this would break: "each has a phrase that is always sufficient and
 never ambiguous." "Brief it" was used instead, matching the "<verb> it"
 shape [Park it](park-it.md) and [Write it up](write-it-up.md) already use,
 and checked against every trigger phrase already in force in this catalogue.
+
+**Deduplicated the same day, into [my-options](my-options.md), on Morgan's
+decision.** Reading this file, he turned "Brief it" down on both the name and
+the split: *"I hear 'brief' and I think something bigger and more formal in
+github -- which is exactly what we did a few days ago with the command
+'write it up'! This is more something to paste in, something smaller and
+shorter... I still like 'my options' and then it triggers when you realize
+it's similar to 'show me options' etc. Let's use that."* The shape this file
+described -- the situation, the session id, the repositories, the
+paste-ready block -- moved into `my-options.md` as its handoff case, framed
+per his instruction as options to prevent or resolve the issue rather than a
+single flat recommendation. Two active practices could not both own the
+trigger phrase "My options", so folding this one in rather than keeping a
+second file with the collision restored was the session's call, not put to
+him.
 
 ## Install
 Nothing for an adopter to set up -- the phrase reaches every session through

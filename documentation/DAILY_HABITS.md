@@ -104,11 +104,10 @@ each one saves you a paragraph of explaining:
 | **Archive** | Archive the session meant -- this one, unless another is named -- right now. It's reversible if it wasn't meant. |
 | **Archive?** | Check whether anything from this session is still outstanding -- a merge, something the assistant is waiting on, a recommendation -- and either archive it right then or tell you exactly what's left. |
 | **Brainstorm** | Think it through with you and write nothing down — no files, no edits, nothing saved — until you say to. |
-| **Brief it** | Write up the current issue or situation as a self-contained briefing for a session that was not in this conversation -- what happened and the context behind it, this session's own id and a link to it, what you recommend the other session do and why, which repository has to be its primary seed root, and which others (if any) need to be attached alongside it -- and hand the whole thing back as one block ready to copy in one click. |
 | **Chief of Staff** | Stop and route this: tell you what every open session is blocked on and what is colliding, with a clickable link to each. |
 | **Go merge** | The same as **Go update**: save the work, publish it, and tell you where it went. |
 | **Go update** | Save the work, publish it, and tell you where it went — without asking anything further. |
-| **My options** | Lay out the real choices in plainer words, the good and the bad of each, and tell you which one it recommends and why. |
+| **My options** | Lay out the real choices in plainer words, the good and the bad of each, and tell you which one it recommends and why -- and when it's about a current issue meant for another session, add that session's id and link, which repository has to be the primary seed root, and which others need to be attached, then hand the whole thing back as one paste-ready block. |
 | **Park it** | Mark the open question as parked and drop the subject. It won't be raised again unless you raise it. |
 | **Plain words** | Drop the formal register and explain it the way somebody would say it out loud — same answer, plainer telling. |
 | **Practice check** | Go through every rule in force, one at a time, and report on each — the slow, complete version of the routine checks. |
