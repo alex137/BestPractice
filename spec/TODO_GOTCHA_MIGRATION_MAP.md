@@ -63,6 +63,7 @@ Written by Part 4.1 step 5 (spec/OPEN_ITEM_AND_GOTCHA_PLAN.md) at migration time
 | `whatsapp-bridge-research` | [`todo/todo-2026-09-09-whatsapp-bridge-research.md`](../todo/todo-2026-09-09-whatsapp-bridge-research.md) |
 | `source-hook-drift` | [`todo/todo-2026-09-09-source-hook-drift.md`](../todo/todo-2026-09-09-source-hook-drift.md) |
 | `sync-refuses-a-rewind` | [`todo/todo-2026-09-10-sync-refuses-a-rewind.md`](../todo/todo-2026-09-10-sync-refuses-a-rewind.md) |
+| `source-checks-adopt-engine-helpers` | [`todo/todo-2026-09-10-source-checks-adopt-engine-helpers.md`](../todo/todo-2026-09-10-source-checks-adopt-engine-helpers.md) |
 | `review-skill-level-permissions` | [`todo/todo-2026-09-10-review-skill-level-permissions.md`](../todo/todo-2026-09-10-review-skill-level-permissions.md) |
 | `stale-days-does-not-travel` | [`todo/todo-2026-09-10-stale-days-does-not-travel.md`](../todo/todo-2026-09-10-stale-days-does-not-travel.md) |
 | `private-owner-allowlist-inert` | [`todo/todo-2026-09-10-private-owner-allowlist-inert.md`](../todo/todo-2026-09-10-private-owner-allowlist-inert.md) |
