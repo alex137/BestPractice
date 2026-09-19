@@ -14502,6 +14502,179 @@ def check_vendor_engine_hook_drift_respects_adapters():
           '; '.join(f"{n} -- {d[:800]}" for n, d in bad))
 
 
+def check_vendor_engine_refreshes_ci_workflow_files():
+    """"Update Vendors" refreshing tools/ and .claude/hooks/*.sh but never
+    .github/workflows/*.yml is the bug this closes -- see
+    precedent_vendor_engine.py's CI_WORKFLOW_TEMPLATES block (2026-09-18)
+    and vendor-update-runbook.md step 3's own paragraph on it. Mirrors
+    check_vendor_engine_hook_drift_respects_adapters' fixture shape: only
+    precedent_vendor_engine.py itself is copied into each fake consumer
+    (practice: fixture-owns-its-state -- nothing here needs a real seed or
+    git history beyond what ROOT, the real upstream clone under test,
+    already carries), and each scenario gets its OWN fresh consumer
+    directory, for the same reason that test's docstring gives: a real
+    refresh rewrites the whole vendored tools/ tree from this checkout, and
+    a later CONTROL reading a directory an earlier case already refreshed
+    would be reading contamination, not its own result.
+
+    `kind: consumer` throughout, so CI_WORKFLOW_TEMPLATES['consumer']
+    applies: one file, .github/workflows/bestpractice-docs.yml, from
+    doc-lint.yml.template."""
+    import shutil, tempfile
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-ci-workflow-'))
+    cases = []
+    rel = '.github/workflows/bestpractice-docs.yml'
+    try:
+        engine_bytes = (ROOT / 'tools' / 'precedent_vendor_engine.py').read_bytes()
+        engine_hash = hashlib.sha256(engine_bytes).hexdigest()
+        real_template = (ROOT / 'templates' / 'github-actions' /
+                         'doc-lint.yml.template').read_bytes()
+        real_hash = hashlib.sha256(real_template).hexdigest()
+        # A stand-in for "whatever this file looked like when it was last
+        # vendored" -- deliberately NOT real_template's bytes, so a refresh
+        # that actually rewrote the file is distinguishable from one that
+        # left it alone by content, not just by a hash comparison that could
+        # coincidentally already match.
+        stub = b'name: stub\n# an older vendored copy\n'
+        stub_hash = hashlib.sha256(stub).hexdigest()
+        edited = b'name: hand-edited\n# a real repo customized this\n'
+
+        def make_consumer(name, wf_bytes, ci_recorded):
+            """A fresh consumer: this engine's own vendor tool (recorded in
+            its manifest, so it is never itself flagged UNTRACKED ENGINE
+            FILE or LOCAL DRIFT and does not confound the assertions
+            below), and one CI workflow file. `ci_recorded` is the
+            manifest's ci_workflows_sha256 dict, or None to simulate a repo
+            vendored before this feature existed (no such key at all)."""
+            consumer = tmp / name
+            (consumer / 'tools').mkdir(parents=True)
+            (consumer / '.github' / 'workflows').mkdir(parents=True)
+            (consumer / 'tools' / 'precedent_vendor_engine.py').write_bytes(engine_bytes)
+            manifest = {
+                'kind': 'consumer', 'source_commit': 'deadbeef',
+                'files': ['precedent_vendor_engine.py'],
+                'sha256': {'precedent_vendor_engine.py': engine_hash},
+            }
+            if ci_recorded is not None:
+                manifest['ci_workflow_files'] = sorted(ci_recorded)
+                manifest['ci_workflows_sha256'] = ci_recorded
+            (consumer / 'tools' / 'ENGINE_MANIFEST.json').write_text(
+                json.dumps(manifest), encoding='utf-8')
+            if wf_bytes is not None:
+                (consumer / rel).write_bytes(wf_bytes)
+            return consumer
+
+        def run_refresh(consumer, extra=()):
+            # --from-ref HEAD, not a bare `refresh ROOT`: this fixture tests
+            # a mechanism landing in the SAME change as this test, so
+            # ROOT's own origin/precedent-beta-v01 has not necessarily
+            # picked it up yet -- exactly the gap --from-ref exists to
+            # close (see _source_tools_at's own docstring, and every other
+            # fixture here that vendors a brand-new mechanic under test:
+            # check_vendor_engine_consumer_case and
+            # check_bootstrap_source_engine_is_functional both do the
+            # same). Without it, a run before this PR reaches
+            # origin/precedent-beta-v01 vendors the OLD tool, the
+            # self-replacing second pass then runs THAT copy -- missing
+            # this feature entirely -- against a manifest the first (new)
+            # pass already updated, and the two passes disagree.
+            r = subprocess.run(
+                [sys.executable, str(consumer / 'tools' / 'precedent_vendor_engine.py'),
+                 'refresh', str(ROOT), '--from-ref', 'HEAD', *extra],
+                capture_output=True, text=True, cwd=str(consumer))
+            return r.returncode, r.stdout + r.stderr
+
+        def manifest_of(consumer):
+            return json.loads(
+                (consumer / 'tools' / 'ENGINE_MANIFEST.json').read_text(encoding='utf-8'))
+
+        # -- A: matches the manifest (never hand-edited), differs from the
+        # CURRENT template -- refresh() rewrites it and updates the hash --
+        a = make_consumer('stale', stub, {rel: stub_hash})
+        rc_a, out_a = run_refresh(a)
+        cases.append(('a CI workflow file that matches its own manifest record but '
+                      'differs from the current template is rewritten to that '
+                      'template', (a / rel).read_bytes() == real_template, out_a[:800]))
+        cases.append(('...and the manifest is updated to the NEW hash, not left '
+                      'pointing at the stale one',
+                      manifest_of(a).get('ci_workflows_sha256', {}).get(rel) == real_hash,
+                      out_a[:800]))
+        cases.append(('...and refresh says which CI workflow file it refreshed '
+                      '(control-asserts-which-failure: the specific message, not just '
+                      'a clean exit)',
+                      rc_a == 0 and 'refreshed' in out_a and rel in out_a, out_a[:800]))
+
+        # -- B: differs from the manifest record -- a hand-edit -- refresh
+        # refuses the whole run, same as any other drifted file, and leaves
+        # the file untouched --
+        b = make_consumer('edited', edited, {rel: stub_hash})
+        rc_b, out_b = run_refresh(b)
+        cases.append(('a hand-edited CI workflow file (on-disk bytes no longer match '
+                      'the manifest) makes refresh refuse, naming the FAIL this tool '
+                      'always uses for drift, not a generic error',
+                      rc_b != 0 and 'hand-edited since the last seed/refresh' in out_b,
+                      out_b[:800]))
+        cases.append(('...and the file itself is left untouched by the refusal',
+                      (b / rel).read_bytes() == edited, out_b[:400]))
+
+        # -- B, CONTROL: the same hand-edit, with --force, DOES get
+        # overwritten -- proves the refusal above is the drift check firing,
+        # not something incidental to this fixture (control-asserts-which-
+        # failure's negative control) --
+        b_forced = make_consumer('edited-forced', edited, {rel: stub_hash})
+        rc_bf, out_bf = run_refresh(b_forced, extra=('--force',))
+        cases.append(('CONTROL: the same hand-edited file, with --force, is '
+                      'overwritten to the current template rather than refused',
+                      rc_bf == 0 and (b_forced / rel).read_bytes() == real_template,
+                      out_bf[:800]))
+
+        # -- C: no manifest record at all -- a repo vendored before this
+        # feature existed -- one-time catch-up: baseline hash recorded, but
+        # the file itself is NOT rewritten (unlike the hooks catch-up,
+        # deliberately -- see CI_WORKFLOW_TEMPLATES' own comment on why) --
+        c = make_consumer('catchup', stub, None)
+        rc_c, out_c = run_refresh(c)
+        cases.append(('a CI workflow file with no prior manifest record at all is '
+                      'NOT rewritten on its first refresh after this feature ships',
+                      (c / rel).read_bytes() == stub, out_c[:800]))
+        cases.append(('...but a baseline hash IS recorded for it',
+                      manifest_of(c).get('ci_workflows_sha256', {}).get(rel) == stub_hash,
+                      out_c[:800]))
+        cases.append(('...and refresh prints a one-time catch-up NOTICE naming it, not '
+                      'just a silent write',
+                      rc_c == 0 and 'NOTICE' in out_c and 'baseline' in out_c and rel in out_c,
+                      out_c[:800]))
+
+        # -- C, CONTROL: a SECOND refresh of that same catch-up consumer now
+        # has a baseline to compare against, so it behaves like case A and
+        # rewrites the file to the current template -- proves the first
+        # run's silence was the catch-up rule and not a bug that never picks
+        # the file up at all --
+        rc_c2, out_c2 = run_refresh(c)
+        cases.append(('CONTROL: a second refresh, now that a baseline is recorded, '
+                      'DOES rewrite the file to the current template',
+                      rc_c2 == 0 and (c / rel).read_bytes() == real_template, out_c2[:800]))
+
+        # -- D: CI disabled (no workflow file installed at all) -- refresh
+        # neither writes nor complains about it --
+        d = make_consumer('disabled', None, None)  # no workflow file written at all
+        rc_d, out_d = run_refresh(d)
+        cases.append(('CONTROL: a consumer with no CI workflow file installed at all '
+                      'is neither refused nor reported by the new mechanism -- '
+                      'correctly absent, same as ci_workflows disabled',
+                      rc_d == 0 and 'hand-edited' not in out_d and rel not in out_d,
+                      out_d[:800]))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'"Update Vendors" now refreshes an already-installed CI workflow file '
+          f'body, not just tools/ and .claude/hooks/*.sh ({len(cases)} stated cases)',
+          not bad,
+          '; '.join(f"{n} -- {d[:800]}" for n, d in bad))
+
+
 def check_rule_rewrite_detection():
     """cite-the-incident asks "did somebody WRITE this rule", so it has to
     tell an authorship event from an edit.
@@ -22970,6 +23143,7 @@ def main():
     check_precedent_check_degrades_in_a_source_set()
     check_vendor_engine_consumer_case()
     check_vendor_engine_hook_drift_respects_adapters()
+    check_vendor_engine_refreshes_ci_workflow_files()
     check_rule_rewrite_detection()
     check_source_shape_is_verified()
     check_machine_readable_files_parse()

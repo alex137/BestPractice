@@ -951,6 +951,204 @@ def _hook_drift(dest_root, manifest):
     return drifted
 
 
+# --- CI workflow files: templates/github-actions/*.template ----------------
+# Distinct from the tools/ engine files and the .claude/hooks/ scripts above
+# in the same two ways HOOK_SOURCE_DIR's own comment names for itself: a
+# different source directory (templates/github-actions/, not tools/) and a
+# different destination (.github/workflows/, not tools/ or .claude/hooks/).
+# Until 2026-09-18 these files were installed ONCE -- precedent_install.py's
+# _bootstrap_and_ci and precedent_bootstrap_source.py's _install_workflows
+# both write `if not wf.exists() or force`, never on an ordinary refresh --
+# so "Update Vendors" never re-copied the template body into an
+# already-installed file. Reached a real consumer this way: doc-lint.yml.
+# template's `concurrency:` block (2026-09-15) reached an already-installed
+# bestpractice-docs.yml only when that repo reinstalled from scratch, and
+# spec/CI_MINUTES_PLAN.md's Phase C debounce-guard step (added the next day)
+# never reached it at all -- the same class of gap the hooks block above
+# closed for .claude/hooks/*.sh on 2026-09-15.
+#
+# KIND-SPECIFIC, unlike the hooks above (which vendor the SAME scripts into
+# both kinds, narrowed only by what a repo's own settings.json wires). A
+# consumer installs bestpractice-docs.yml from doc-lint.yml.template; a
+# source set installs views-drift.yml and precedent-check.yml from their own
+# templates -- CI_WORKFLOW_TEMPLATES is the one place that pairing is
+# declared, so precedent_bootstrap_source.py's own WORKFLOW_TEMPLATES reuses
+# it rather than repeating it (practice: registry-source-of-truth).
+#
+# Both are gated on `ci_workflows` at the point they are WRITTEN
+# (precedent_install.py's / precedent_bootstrap_source.py's own
+# `_ci_preference`) -- nothing below this line asks that question again. A
+# file this kind's list names but that is not present on disk is simply not
+# this mechanism's business: correctly absent because CI is declined, same
+# as always.
+#
+# THE CATCH-UP IS DELIBERATELY DIFFERENT FROM THE HOOKS ONE ABOVE. A hook
+# script is engine code this repo ships as an unmodified adapter -- "this
+# engine has no local variance by design" -- so the hooks catch-up
+# overwrites an untracked one outright. A CI workflow YAML is exactly the
+# kind of file a real repo hand-tunes (an extra job, a changed schedule, a
+# repo-specific secret), so the first refresh after this shipped must not
+# silently discard that. `_refresh_ci_workflow_files` below records a
+# baseline hash for an untracked file and leaves its content alone; only a
+# LATER refresh, once that baseline exists, can tell "matches what we
+# recorded" from "hand-edited" and act on it.
+CI_WORKFLOWS_SOURCE_DIR = 'templates/github-actions'
+CI_WORKFLOW_TEMPLATES = {
+    'consumer': (
+        ('doc-lint.yml.template', '.github/workflows/bestpractice-docs.yml'),
+    ),
+    'source': (
+        ('views-drift.yml.template', '.github/workflows/views-drift.yml'),
+        ('precedent-check.yml.template', '.github/workflows/precedent-check.yml'),
+    ),
+}
+
+
+def record_ci_workflow_files(dest_root, kind):
+    """Read-modify-write ENGINE_MANIFEST.json's `ci_workflow_files`/
+    `ci_workflows_sha256` from whichever of this kind's CI workflow files
+    actually exist on disk at `dest_root` right now -- called by
+    precedent_install.py and precedent_bootstrap_source.py right after they
+    write .github/workflows/*.yml from templates/github-actions/*.template,
+    AFTER precedent_vendor_engine.seed() has already written
+    ENGINE_MANIFEST.json. Necessarily after: seed()/_write_engine_files
+    build that file FRESH on every call (see its own docstring), so
+    anything recorded here before seed runs would be silently wiped -- the
+    same way hook_files would be if _write_hook_files ran before
+    _write_engine_files instead of after.
+
+    Does not copy anything -- by the time either caller reaches this point
+    the workflow file is already on disk, written by that caller's own
+    template substitution. This only computes and records its hash. A file
+    this kind's CI_WORKFLOW_TEMPLATES names but that does not exist here
+    (ci_workflows disabled) is simply left out -- not an error, and not
+    recorded as missing; that is ci_workflows's own gate to report, not
+    this one's.
+
+    Returns [] when there is no manifest yet to write into (seed() failed,
+    or was never run) -- fail-gracefully, matching _write_hook_files' own
+    early-return shape."""
+    manifest_path = dest_root / 'tools' / MANIFEST_NAME
+    if not manifest_path.is_file():
+        return []
+    manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
+    names, hashes = [], {}
+    for _template, rel in CI_WORKFLOW_TEMPLATES.get(kind, ()):
+        path = dest_root / rel
+        if path.is_file():
+            names.append(rel)
+            hashes[rel] = _sha256(path)
+    manifest['ci_workflow_files'] = sorted(names)
+    manifest['ci_workflows_sha256'] = hashes
+    manifest_path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + '\n',
+                             encoding='utf-8')
+    return [manifest_path]
+
+
+def _ci_workflow_drift(dest_root, manifest):
+    """CI-workflow analog of _hook_drift: [(rel, why)] for a vendored CI
+    workflow file the manifest's `ci_workflows_sha256` already records a
+    hash for, whose on-disk sha256 no longer matches it -- a hand-edit (or
+    a removal) since it was last recorded. A `rel` this manifest carries no
+    hash for at all is NOT drift -- see CI_WORKFLOW_TEMPLATES' catch-up
+    note above; there is nothing recorded yet to have drifted from."""
+    drifted = []
+    for rel, recorded_hash in (manifest.get('ci_workflows_sha256') or {}).items():
+        path = dest_root / rel
+        if not path.is_file():
+            drifted.append((rel, 'missing'))
+            continue
+        if _sha256(path) != recorded_hash:
+            drifted.append((rel, 'hand-edited (sha256 differs from manifest)'))
+    return drifted
+
+
+def _ci_workflow_incomplete(dest_root, kind, ci_workflows_dir, manifest):
+    """-> [rel, ...] every CI workflow file refresh() actually has safe
+    work to do for right now: present on disk, its template fetched for the
+    commit being vendored, and EITHER not yet recorded in the manifest at
+    all (a catch-up baseline to write) OR recorded, unchanged since, and
+    different from the current template.
+
+    Used only to decide refresh()'s early-exit ("already current -- nothing
+    to do"). A hand-edited file (recorded, but no longer matching) is
+    deliberately excluded: reaching this function at all means the upfront
+    _ci_workflow_drift refusal already let this run proceed, which happens
+    only when there was no such mismatch, or --force overrode it -- and
+    --force alone is why refresh() never reaches its early exit at all (see
+    the `not force` in that check)."""
+    recorded = manifest.get('ci_workflows_sha256') or {}
+    out = []
+    for template, rel in CI_WORKFLOW_TEMPLATES.get(kind, ()):
+        path = dest_root / rel
+        if not path.is_file():
+            continue
+        src = ci_workflows_dir / template
+        if not src.is_file():
+            continue
+        if rel not in recorded:
+            out.append(rel)
+            continue
+        if _sha256(path) == recorded[rel] and _sha256(path) != _sha256(src):
+            out.append(rel)
+    return out
+
+
+def _refresh_ci_workflow_files(dest_root, kind, ci_workflows_dir, manifest):
+    """Bring each installed CI workflow file that is safe to touch up to
+    the current template, and read-modify-write ENGINE_MANIFEST.json's
+    ci_workflow_files/ci_workflows_sha256 -- same shape as
+    _write_hook_files, run strictly AFTER _write_engine_files (and
+    _write_hook_files, when it ran), whose own manifest write knows nothing
+    about these keys and would otherwise silently drop them.
+
+    `manifest` is the manifest as loaded BEFORE this refresh -- the same
+    one refresh() already keeps for _remove_dropped_engine_files -- and the
+    one whose ci_workflows_sha256 is being compared against.
+
+    Per file: not on disk (ci_workflows disabled, or genuinely absent) ->
+    left alone. Not yet recorded -> baseline recorded, content UNTOUCHED
+    (see CI_WORKFLOW_TEMPLATES' catch-up note above). Recorded, and its
+    on-disk hash differs from the CURRENT template -> rewritten to that
+    template, hash updated. This one rule covers both an ordinary refresh
+    (where, by the time this runs, an on-disk mismatch against the recorded
+    hash can only mean --force accepted a hand-edit, since the upfront
+    drift check already refused otherwise) and --force overwriting a
+    hand-edited file outright, the same way --force already treats every
+    other drifted file in this tool.
+
+    Returns (refreshed, catchup): rel paths rewritten to the current
+    template, and rel paths whose hash was recorded for the first time."""
+    if not any((dest_root / rel).is_file()
+               for _t, rel in CI_WORKFLOW_TEMPLATES.get(kind, ())):
+        return [], []
+    recorded = dict(manifest.get('ci_workflows_sha256') or {})
+    refreshed, catchup = [], []
+    for template, rel in CI_WORKFLOW_TEMPLATES.get(kind, ()):
+        path = dest_root / rel
+        if not path.is_file():
+            continue
+        src = ci_workflows_dir / template
+        if not src.is_file():
+            continue                  # this commit predates the template
+        template_hash = _sha256(src)
+        if rel not in recorded:
+            recorded[rel] = _sha256(path)
+            catchup.append(rel)
+            continue
+        if _sha256(path) != template_hash:
+            shutil.copy2(src, path)
+            recorded[rel] = template_hash
+            refreshed.append(rel)
+    manifest_path = dest_root / 'tools' / MANIFEST_NAME
+    live = json.loads(manifest_path.read_text(encoding='utf-8'))
+    live['ci_workflow_files'] = sorted(recorded)
+    live['ci_workflows_sha256'] = recorded
+    manifest_path.write_text(json.dumps(live, indent=2, ensure_ascii=False) + '\n',
+                             encoding='utf-8')
+    return refreshed, catchup
+
+
 def _git(cwd, *args):
     """Run git and return stdout, DISCARDING the exit code.
 
@@ -1224,7 +1422,14 @@ def status(clone):
     if not manifest.get('hook_files'):
         print(f"  NOTE: this manifest has no hook_files recorded yet -- vendored before hook "
               f"scripts were tracked. `refresh` will pick them up on the next run.")
-    drift = drift + hook_drift
+    ci_drift = _ci_workflow_drift(ROOT, manifest)
+    for rel, why in ci_drift:
+        print(f"  LOCAL DRIFT: {rel} -- {why}")
+    if not manifest.get('ci_workflows_sha256'):
+        print(f"  NOTE: this manifest has no ci_workflows_sha256 recorded yet -- vendored "
+              f"before CI workflow files were tracked. `refresh` will record a baseline "
+              f"for them (not rewrite them) on the next run.")
+    drift = drift + hook_drift + ci_drift
     untracked = _untracked_engine_files(dest_tools, manifest)
     for name in untracked:
         print(f"  UNTRACKED ENGINE FILE: {name} is an engine file this "
@@ -1402,6 +1607,26 @@ def _source_tools_at(clone, kind=DEFAULT_KIND, ref=None, fetch=True):
     # "nothing to vendor" rather than an error (fail-gracefully: a repo
     # vendoring from an old commit should not lose its tools/ refresh over a
     # directory that commit never had).
+
+    # CI workflow templates, into tmp/ci-workflows/ -- same commit, same
+    # read-only blob discipline as the hooks block above, but kind-specific:
+    # there is no destination-wiring signal for a CI workflow file the way
+    # _wired_hook_names gives one for a hook, so what's fetched is exactly
+    # this kind's own declared CI_WORKFLOW_TEMPLATES list. A missing blob
+    # (this commit predates the template) is skipped, not fatal -- the same
+    # fail-gracefully discipline as the hooks block: a repo vendoring from
+    # an old commit should not lose its tools/ refresh over a template that
+    # commit never had.
+    ci_tmp = tmp / 'ci-workflows'
+    ci_tmp.mkdir(exist_ok=True)
+    for template, _rel in CI_WORKFLOW_TEMPLATES.get(kind, ()):
+        blob = subprocess.run(
+            ['git', '-C', str(clone), 'show',
+             f'{commit}:{CI_WORKFLOWS_SOURCE_DIR}/{template}'],
+            capture_output=True)
+        if blob.returncode != 0:
+            continue
+        (ci_tmp / template).write_bytes(blob.stdout)
     return commit, tmp
 
 
@@ -1532,15 +1757,16 @@ def refresh(clone, force=False, ref=None):
     kind = manifest.get('kind', DEFAULT_KIND)  # older manifests predate 'kind' -- 'source'
 
     if not force:
-        drift = _local_drift(dest_tools, manifest) + _hook_drift(ROOT, manifest)
+        drift = (_local_drift(dest_tools, manifest) + _hook_drift(ROOT, manifest)
+                 + _ci_workflow_drift(ROOT, manifest))
         if drift:
             for name, why in drift:
                 print(f"  {name}: {why}")
-            sys.exit("precedent_vendor_engine FAIL: a vendored engine or hook file was "
-                     "hand-edited since the last seed/refresh -- refreshing would silently "
-                     "discard that edit. Move the edit upstream into BestPractice instead "
-                     "(this engine has no local variance by design), or pass --force to "
-                     "overwrite anyway.")
+            sys.exit("precedent_vendor_engine FAIL: a vendored engine, hook or CI "
+                     "workflow file was hand-edited since the last seed/refresh -- "
+                     "refreshing would silently discard that edit. Move the edit "
+                     "upstream into BestPractice instead (this engine has no local "
+                     "variance by design), or pass --force to overwrite anyway.")
 
     new_commit, engine_dir = _source_tools_at(clone, kind, ref=ref,
                                               fetch=ref is None)
@@ -1613,8 +1839,17 @@ def refresh(clone, force=False, ref=None):
             if n not in set(manifest.get('hook_files') or [])
             or not (ROOT / HOOK_DEST_DIR / n).is_file())
 
+        # CI-workflow analog of set_incomplete/hooks_incomplete, above --
+        # see _ci_workflow_incomplete's own docstring for exactly what
+        # counts. No analog of set_orphaned/set_incomplete's REMOVAL side:
+        # a CI workflow this repo no longer vendors is left alone, not
+        # deleted -- deleting somebody's `.github/workflows/*.yml` out from
+        # under them on a routine refresh is a different, larger decision
+        # than this fix makes.
+        ci_incomplete = _ci_workflow_incomplete(ROOT, kind, engine_dir / 'ci-workflows', manifest)
+
         if new_commit == manifest.get('source_commit') and not force \
-                and not set_incomplete and not hooks_incomplete:
+                and not set_incomplete and not hooks_incomplete and not ci_incomplete:
             print(f"precedent_vendor_engine refresh: already current with {SOURCE_BRANCH} "
                   f"@ {new_commit[:12]} -- nothing to do.")
             # Reported here too, and this is the case that matters MOST: a
@@ -1639,6 +1874,10 @@ def refresh(clone, force=False, ref=None):
                   f"({', '.join(hooks_incomplete)}) -- refreshing anyway. This is the "
                   f"one-time catch-up for a repo vendored before hooks were tracked "
                   f"at all (manifest has no 'hook_files' yet).")
+        if ci_incomplete and new_commit == manifest.get('source_commit'):
+            print(f"NOTICE: the recorded commit already matches, but this "
+                  f"repo's CI workflow file(s) need attention "
+                  f"({', '.join(ci_incomplete)}) -- refreshing anyway.")
 
         self_before = _sha256(HERE) if HERE.is_file() else None
         written = _write_engine_files(dest_tools, engine_dir, new_commit, kind)
@@ -1649,10 +1888,23 @@ def refresh(clone, force=False, ref=None):
         # top of this function, which is the one that still remembers.
         _remove_dropped_engine_files(dest_tools, manifest, kind)
         written += _write_hook_files(ROOT, engine_dir / 'hooks')
+        ci_refreshed, ci_catchup = _refresh_ci_workflow_files(
+            ROOT, kind, engine_dir / 'ci-workflows', manifest)
+        written += [ROOT / rel for rel in ci_refreshed]
     finally:
         shutil.rmtree(engine_dir, ignore_errors=True)
     print(f"precedent_vendor_engine refresh OK ({kind}): {len(written)} file(s) refreshed "
           f"from {SOURCE_BRANCH} @ {new_commit[:12]} (was {manifest.get('source_commit', '?')[:12]})")
+    if ci_refreshed:
+        print(f"precedent_vendor_engine refresh: refreshed {len(ci_refreshed)} CI "
+              f"workflow file(s) to the current template ({', '.join(ci_refreshed)}).")
+    if ci_catchup:
+        print(f"NOTICE: precedent_vendor_engine refresh: recording a baseline hash "
+              f"for {len(ci_catchup)} CI workflow file(s) this manifest never tracked "
+              f"before ({', '.join(ci_catchup)}) -- vendored before this feature "
+              f"existed. Not rewritten this run, so a hand customization is never "
+              f"silently discarded -- run `refresh` again to pick up template "
+              f"changes now that a baseline is recorded.")
     # ROOT, not `dest`: refresh()'s local for the repo being refreshed is
     # `dest_tools` (ROOT / 'tools'), and there has never been a `dest` here.
     # Landed 2026-09-06 as a NameError that crashed EVERY refresh, after the
