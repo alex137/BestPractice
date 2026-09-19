@@ -155,6 +155,22 @@ actual history (commit `9a08363b`, `9a08363b^`) and from actually running
 the patched `tools/todo_migrate.py` against that real text, not from a
 hypothetical or constructed example.
 
+2026-09-19 (later the same day): the general warning above about a
+not-yet-migrated repo turned out to be exactly right, for
+`precedent-individual` specifically. Its `TODO.md` uses a fourth real
+shape -- numbered `## N. Title -- status` headings, zero `<a id=>`
+anchors, zero `**Disposition:**` lines -- that the guard above did not
+catch, because 0 anchors present in the text trivially equalled 0
+anchors parsed. A session rooted there ran the (already numbered-marker-fixed)
+tool, got 0 items with no error, and correctly stopped rather than
+declaring the migration done -- see its PR (`themorgan/precedent-individual`
+#163, vendor-refresh only, migration not run). Fixed in commit `8128e7205`
+here: `_numbered_heading_shaped()` now detects this shape and raises
+`TodoShapeError` instead of silently returning empty. `precedent-individual`
+still needs a session to pull that fix (`Update Vendors`) and actually run
+the migration -- no live session remained to hand that off to as of this
+writing.
+
 Also added a matching completeness guard to `parse_gotcha_items` (same
 commit as the guard above) — checked directly against
 `record/GOTCHAS.md`/`record/GOTCHAS_ARCHIVE.md`'s real pre-migration text
