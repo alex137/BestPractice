@@ -38,6 +38,12 @@ Written by Part 4.1 step 5 (spec/OPEN_ITEM_AND_GOTCHA_PLAN.md) at migration time
 | `background-freshness-fetch` | [`todo/todo-2026-09-06-background-freshness-fetch.md`](../todo/todo-2026-09-06-background-freshness-fetch.md) |
 | `wire-the-clone-free-engine-freshness-check-into-the-path-a-p` | [`todo/todo-2026-09-06-wire-the-clone-free-engine-freshness-check-into-the-path-a-p.md`](../todo/todo-2026-09-06-wire-the-clone-free-engine-freshness-check-into-the-path-a-p.md) |
 | `gates-absent-from-main` | [`todo/todo-2026-09-07-gates-absent-from-main.md`](../todo/todo-2026-09-07-gates-absent-from-main.md) |
+| `prefork-catalogue-audit-table` | [`todo/todo-2026-09-06-prefork-catalogue-audit-table.md`](../todo/todo-2026-09-06-prefork-catalogue-audit-table.md) |
+| `team-repo-and-document-template` | [`todo/todo-2026-09-06-team-repo-and-document-template.md`](../todo/todo-2026-09-06-team-repo-and-document-template.md) |
+| `consumer-source-names` | [`todo/todo-2026-09-06-consumer-source-names.md`](../todo/todo-2026-09-06-consumer-source-names.md) |
+| `done-2026-09-06-a-missing-individual-source-is-no-longer-sil` | [`todo/todo-2026-09-06-done-2026-09-06-a-missing-individual-source-is-no-longer-sil.md`](../todo/todo-2026-09-06-done-2026-09-06-a-missing-individual-source-is-no-longer-sil.md) |
+| `rpp-migration-audited` | [`todo/todo-2026-09-06-rpp-migration-audited.md`](../todo/todo-2026-09-06-rpp-migration-audited.md) |
+| `team-check-cites-retired-practice` | [`todo/todo-2026-09-06-team-check-cites-retired-practice.md`](../todo/todo-2026-09-06-team-check-cites-retired-practice.md) |
 | `nine-practices-carry-an-empty-why` | [`todo/todo-2026-09-06-nine-practices-carry-an-empty-why.md`](../todo/todo-2026-09-06-nine-practices-carry-an-empty-why.md) |
 | `two-declared-sources-are-missing-a-file-their-level-s-skelet` | [`todo/todo-2026-09-07-two-declared-sources-are-missing-a-file-their-level-s-skelet.md`](../todo/todo-2026-09-07-two-declared-sources-are-missing-a-file-their-level-s-skelet.md) |
 | `the-commit-identity-mechanism-does-not-reach-an-attached-sib` | [`todo/todo-2026-09-07-the-commit-identity-mechanism-does-not-reach-an-attached-sib.md`](../todo/todo-2026-09-07-the-commit-identity-mechanism-does-not-reach-an-attached-sib.md) |
@@ -60,6 +66,7 @@ Written by Part 4.1 step 5 (spec/OPEN_ITEM_AND_GOTCHA_PLAN.md) at migration time
 | `upstream-notice-silent-when-rooted-above` | [`todo/todo-2026-09-08-upstream-notice-silent-when-rooted-above.md`](../todo/todo-2026-09-08-upstream-notice-silent-when-rooted-above.md) |
 | `small-calls-vs-brainstorm` | [`todo/todo-2026-09-08-small-calls-vs-brainstorm.md`](../todo/todo-2026-09-08-small-calls-vs-brainstorm.md) |
 | `split-team-sets-by-subject` | [`todo/todo-2026-09-08-split-team-sets-by-subject.md`](../todo/todo-2026-09-08-split-team-sets-by-subject.md) |
+| `private-set-audit-branches` | [`todo/todo-2026-09-08-private-set-audit-branches.md`](../todo/todo-2026-09-08-private-set-audit-branches.md) |
 | `decision-strength-private-sources` | [`todo/todo-2026-09-09-decision-strength-private-sources.md`](../todo/todo-2026-09-09-decision-strength-private-sources.md) |
 | `whatsapp-bridge-research` | [`todo/todo-2026-09-09-whatsapp-bridge-research.md`](../todo/todo-2026-09-09-whatsapp-bridge-research.md) |
 | `source-hook-drift` | [`todo/todo-2026-09-09-source-hook-drift.md`](../todo/todo-2026-09-09-source-hook-drift.md) |
@@ -122,6 +129,7 @@ Written by Part 4.1 step 5 (spec/OPEN_ITEM_AND_GOTCHA_PLAN.md) at migration time
 | `go-merge-direct-edit-narrowing-check` | [`todo/todo-2026-09-15-go-merge-direct-edit-narrowing-check.md`](../todo/todo-2026-09-15-go-merge-direct-edit-narrowing-check.md) |
 | `check-default-cc-environment-staleness` | [`todo/todo-2026-09-15-check-default-cc-environment-staleness.md`](../todo/todo-2026-09-15-check-default-cc-environment-staleness.md) |
 | `execute-open-item-gotcha-migration` | [`todo/todo-2026-09-15-execute-open-item-gotcha-migration.md`](../todo/todo-2026-09-15-execute-open-item-gotcha-migration.md) |
+| `ledger-gap-shallow-clone-hardening` | [`todo/todo-2026-09-15-ledger-gap-shallow-clone-hardening.md`](../todo/todo-2026-09-15-ledger-gap-shallow-clone-hardening.md) |
 | `g1` | [`gotchas/gotcha-2026-09-13-pip-install-cmarkgfm-or-tools-doclint-py-s-strikethrough-che.md`](../gotchas/gotcha-2026-09-13-pip-install-cmarkgfm-or-tools-doclint-py-s-strikethrough-che.md) |
 | `g2` | [`gotchas/gotcha-2026-09-13-a-git-helper-that-returns-stdout-and-drops-the-exit-code-wil.md`](../gotchas/gotcha-2026-09-13-a-git-helper-that-returns-stdout-and-drops-the-exit-code-wil.md) |
 | `g3` | [`gotchas/gotcha-2026-09-13-a-repository-attached-mid-session-clones-single-branch-so-ev.md`](../gotchas/gotcha-2026-09-13-a-repository-attached-mid-session-clones-single-branch-so-ev.md) |

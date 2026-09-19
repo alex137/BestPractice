@@ -142,7 +142,7 @@ practice files. Tracing it here turned up more than this one gap: a
 systematic sweep of every anchor in the pre-migration `TODO.md` against
 the migration map found **51 of 148 items missing**, not just this one and
 `source-checks-adopt-engine-helpers` — filed in full as
-[`todo-2026-09-19-migration-dropped-51-items`](todo-2026-09-19-migration-dropped-51-items.md)
+[`todo-2026-09-19-migration-dropped-54-items`](todo-2026-09-19-migration-dropped-54-items.md)
 rather than reconstructed one-by-one here. This file and
 `source-checks-adopt-engine-helpers` are the two of the 51 reconstructed
 so far, both because something outside this repository was actively

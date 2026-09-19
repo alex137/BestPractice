@@ -361,6 +361,26 @@ def parse_gotcha_items(text):
     for i, line in enumerate(lines):
         if GOTCHA_HEADING_RE.match(line):
             starts.append(i)
+    # Independent recount, the same reason and shape as
+    # _assert_no_dropped_items below: any `## N.` heading at all, matched by
+    # a bare regex over the whole file rather than trusted because
+    # GOTCHA_HEADING_RE happened to accept it here. Checked directly
+    # 2026-09-19 against this repo's own real pre-migration files (44 in
+    # record/GOTCHAS.md, 33 in record/GOTCHAS_ARCHIVE.md) and found clean --
+    # unlike TODO.md's multi-shape bullet list, a single consistent heading
+    # format is much harder to under-parse. Guarded anyway: "checked once
+    # and found clean" is not the same claim as "cannot go wrong", and a
+    # team's own GOTCHAS.md is not guaranteed to be as regular as this one.
+    raw_heading_count = len(re.findall(r'^##\s+\d+\.\s+', text, re.M))
+    if raw_heading_count != len(starts):
+        raise TodoShapeError(
+            f'{raw_heading_count} lines look like a numbered `## N.` gotcha '
+            f'heading, but only {len(starts)} matched GOTCHA_HEADING_RE '
+            f'exactly -- something about the other '
+            f'{raw_heading_count - len(starts)} does not fit the expected '
+            f'shape (a stray space, a missing period, text before the '
+            f'number). Fix the file or the regex before trusting this '
+            f'parse; do not proceed with a silent undercount.')
     starts.append(len(lines))
     items = []
     for idx in range(len(starts) - 1):

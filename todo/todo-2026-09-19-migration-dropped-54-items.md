@@ -68,22 +68,22 @@ closed:            null
 
   **The 54, each with the shape it used:**
   - `agents-md-over-its-ceiling` (numbered)
-  - `prefork-catalogue-audit-table` (numbered)
+  - ~~`prefork-catalogue-audit-table`~~ (numbered) — closed, restored as [`todo-2026-09-06-prefork-catalogue-audit-table.md`](todo-2026-09-06-prefork-catalogue-audit-table.md)
   - `routing-audit-silent-drop` (numbered)
-  - `team-repo-and-document-template` (numbered)
+  - ~~`team-repo-and-document-template`~~ (numbered) — closed, restored as [`todo-2026-09-06-team-repo-and-document-template.md`](todo-2026-09-06-team-repo-and-document-template.md)
   - `wire-the-very-deep-check-list` (numbered)
   - `ledger-root-commit-exemption` (numbered)
   - `ledger-ci-step-invisible` (numbered)
   - `gate-and-paths-unreachable-source` (numbered)
   - `materialized-links-dead` (numbered)
   - `sweep-judgment-only-practices` (numbered)
-  - `consumer-source-names` (numbered)
+  - ~~`consumer-source-names`~~ (numbered) — closed, restored as [`todo-2026-09-06-consumer-source-names.md`](todo-2026-09-06-consumer-source-names.md)
   - `headline-duplicate-retired` (numbered)
   - `done-2026-09-06-the-individual-source-bootstrap-hook-is-inst` (numbered, no anchor)
-  - `done-2026-09-06-a-missing-individual-source-is-no-longer-sil` (numbered, no anchor)
-  - `rpp-migration-audited` (numbered)
+  - ~~`done-2026-09-06-a-missing-individual-source-is-no-longer-sil`~~ (numbered, no anchor) — closed, restored as [`todo-2026-09-06-done-2026-09-06-a-missing-individual-source-is-no-longer-sil.md`](todo-2026-09-06-done-2026-09-06-a-missing-individual-source-is-no-longer-sil.md)
+  - ~~`rpp-migration-audited`~~ (numbered) — closed, restored as [`todo-2026-09-06-rpp-migration-audited.md`](todo-2026-09-06-rpp-migration-audited.md)
   - `migrated-practices-lost-their-stories` (numbered)
-  - `team-check-cites-retired-practice` (numbered)
+  - ~~`team-check-cites-retired-practice`~~ (numbered) — closed, restored as [`todo-2026-09-06-team-check-cites-retired-practice.md`](todo-2026-09-06-team-check-cites-retired-practice.md)
   - `convert-team-set-retired-statuses` (numbered)
   - `build-codeowners-check-flag` (numbered)
   - `cache-freshness-verdict` (numbered)
@@ -98,7 +98,7 @@ closed:            null
   - `build-views-stdout-count` (unnumbered)
   - `blocklist-stem-not-full-name` (unnumbered)
   - `park-it-to-individual-set` (unnumbered)
-  - `private-set-audit-branches` (unnumbered)
+  - ~~`private-set-audit-branches`~~ (unnumbered) — closed, restored as [`todo-2026-09-08-private-set-audit-branches.md`](todo-2026-09-08-private-set-audit-branches.md)
   - `voice-and-styleguide-as-practices` (unnumbered)
   - `audit-trail-item-placement` (numbered)
   - `cross-owner-add-repo-push` (numbered)
@@ -120,7 +120,7 @@ closed:            null
   - `setup-default-is-the-loader` (numbered)
   - `generated-views-are-owned-paths` (numbered)
   - `shallow-clone-self-heal-hardening` (numbered)
-  - `ledger-gap-shallow-clone-hardening` (numbered)
+  - ~~`ledger-gap-shallow-clone-hardening`~~ (numbered) — closed, restored as [`todo-2026-09-15-ledger-gap-shallow-clone-hardening.md`](todo-2026-09-15-ledger-gap-shallow-clone-hardening.md)
 
 ## How It Closes
 
@@ -162,3 +162,20 @@ count above comes from `git show`/`git log` against this repository's
 actual history (commit `9a08363b`, `9a08363b^`) and from actually running
 the patched `tools/todo_migrate.py` against that real text, not from a
 hypothetical or constructed example.
+
+Also added a matching completeness guard to `parse_gotcha_items` (same
+commit as the guard above) — checked directly against
+`record/GOTCHAS.md`/`record/GOTCHAS_ARCHIVE.md`'s real pre-migration text
+and found clean, 44 and 33 items respectively, matching the migration
+commit's own claim exactly. Gotchas were not affected by this bug; only
+`TODO.md`'s messier multi-shape bullet list was.
+
+8 of the 54 restored this session, the shortest ones first (struck through
+above): `prefork-catalogue-audit-table`, `team-repo-and-document-template`,
+`consumer-source-names`,
+`done-2026-09-06-a-missing-individual-source-is-no-longer-sil`,
+`rpp-migration-audited`, `team-check-cites-retired-practice`,
+`private-set-audit-branches`, `ledger-gap-shallow-clone-hardening` — all
+`status: done` or `dropped` in the original text, verbatim from
+`git show 9a08363b^:TODO.md`, links repointed, `precedent_check.py
+--full-sweep` clean. 46 remain.
