@@ -220,6 +220,21 @@ def _self_heal_stale_render(repo_root):
     Never raises: a failed render here is reported by whatever ordinary
     path the caller already has for a missing or stale
     SESSION_PRACTICES.md, not a new failure mode."""
+    # practice: durable-fix -- reentrancy guard. precedent_session_practices.py
+    # itself calls load_config() (to know what to render), which reaches this
+    # same function for the same repo_root -- and the target file this
+    # function is spawning that process TO WRITE does not exist yet at the
+    # moment the child makes that same check, since the write happens only
+    # once the child's own render completes. With no guard, that child
+    # decided it also needed to self-heal, spawned a third copy of itself,
+    # and so on with no base case -- reproduced directly, 2026-09-18: a
+    # single call chain reached 2000+ concurrent processes and OOM-killed
+    # the caller (gotchas/gotcha-2026-09-18-verify-harnesss-stress-checks-can-oom-kill-the-bash-tools.md).
+    # The env var marks "a self-heal render is already in flight for this
+    # invocation's process tree" so a child never re-triggers one for
+    # itself; the top-level caller (this var unset) still heals normally.
+    if os.environ.get('PRECEDENT_SELF_HEAL_IN_PROGRESS'):
+        return 'already-healing'
     tool = repo_root / 'tools' / 'precedent_session_practices.py'
     if not tool.is_file():
         return 'no-tool'
@@ -233,7 +248,8 @@ def _self_heal_stale_render(repo_root):
             return 'fresh'
     try:
         subprocess.run([sys.executable, str(tool), '--repo', str(repo_root)],
-                       cwd=str(repo_root), capture_output=True, timeout=60)
+                       cwd=str(repo_root), capture_output=True, timeout=60,
+                       env={**os.environ, 'PRECEDENT_SELF_HEAL_IN_PROGRESS': '1'})
     except (OSError, subprocess.TimeoutExpired):
         pass
     return 'attempted'
