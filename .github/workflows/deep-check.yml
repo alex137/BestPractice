@@ -49,9 +49,65 @@ on:
 permissions:
   contents: read
 
+# verify_harness.py's own timing instrumentation (practice:
+# slow-steps-report-and-cache) measured a full local run at 149.9s with one
+# check, check_precedent_check_fires, accounting for 71.6s of it (~48%) --
+# see spec/VERIFY_HARNESS_PERFORMANCE.md and the 2026-09-18 follow-up in
+# gotchas/gotcha-2026-09-18-verify-harnesss-stress-checks-can-oom-kill-the-bash-tools.md's
+# Resolution section. verify_harness.py's PRECEDENT_CHECK_ONLY/SKIP (added
+# the same day) split that one check into its own job below, run in
+# parallel with everything else -- wall-clock for this workflow's slowest
+# leg becomes roughly the max of the two jobs instead of their sum.
+# precedent_check.py and doc_sync.py are unrelated tools with no dependency
+# on verify_harness.py's checks, so they run as a third parallel job rather
+# than waiting behind either.
 jobs:
-  deep-check:
-    name: verify_harness + precedent_check + doc_sync
+  verify-harness-heavy:
+    name: verify_harness (check_precedent_check_fires)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Markdown parser
+        run: python -m pip install cmarkgfm markdown
+
+      - name: Run the verification harness (heavy check only)
+        run: python3 tools/verify_harness.py
+        env:
+          PRECEDENT_CHECK_ONLY: check_precedent_check_fires
+
+  verify-harness-rest:
+    name: verify_harness (everything else)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Markdown parser
+        run: python -m pip install cmarkgfm markdown
+
+      - name: Run the verification harness (all but the heavy check)
+        run: python3 tools/verify_harness.py
+        env:
+          PRECEDENT_CHECK_SKIP: check_precedent_check_fires
+
+  precedent-check-and-sync:
+    name: precedent_check + doc_sync
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
@@ -78,9 +134,6 @@ jobs:
 
       - name: Install Markdown parser
         run: python -m pip install cmarkgfm markdown
-
-      - name: Run the verification harness
-        run: python3 tools/verify_harness.py
 
       - name: Run precedent_check.py
         run: python3 tools/precedent_check.py
