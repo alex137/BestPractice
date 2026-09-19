@@ -297,6 +297,50 @@ def not_applicable(name, reason):
     print(f"N/A:  {name} -- {reason}")
 
 
+def _rmtree_retrying(path, attempts=5, delay=0.2):
+    """Delete a directory tree, retrying a transient ENOTEMPTY instead of
+    either crashing the whole run over it or silently swallowing it
+    (practice: durable-fix -- retrying is instrumentation, not suppression:
+    a real, persistent leak still fails, now with evidence).
+
+    THE INCIDENT, 2026-09-19: check_leak_gate_refuses_a_fresh_container's own
+    `tempfile.TemporaryDirectory()` cleanup crashed this entire run on
+    GitHub's hosted runner with `OSError: [Errno 39] Directory not empty`,
+    tearing down a throwaway git repo the check builds and deletes.
+    Everything the check does to that directory is a synchronous
+    `subprocess.run` -- nothing in the check itself keeps a handle open --
+    and the identical check passed clean on the identical commit both
+    locally and on a same-runner re-run minutes later, so this reads as a
+    transient filesystem race on the runner rather than a real leak (a
+    plausible but UNMEASURED mechanism: modern git can auto-start a
+    background filesystem-monitor daemon per repo that outlives the `git`
+    command that spawned it). A short retry gives whatever is transiently
+    holding the directory open a moment to let go; if it is still not empty
+    after `attempts`, this raises anyway -- loudly, with what is actually
+    left in the directory attached, rather than passing silently the way
+    `ignore_cleanup_errors=True` would (practice: cite-the-incident).
+    """
+    last_err = None
+    for _ in range(attempts):
+        try:
+            shutil.rmtree(path)
+            return
+        except FileNotFoundError:
+            return
+        except OSError as e:
+            last_err = e
+            time.sleep(delay)
+    remaining = []
+    try:
+        remaining = sorted(str(p) for p in pathlib.Path(path).rglob('*'))
+    except OSError:
+        pass
+    shown = remaining[:20]
+    more = f" (+{len(remaining) - 20} more)" if len(remaining) > 20 else ""
+    raise OSError(f"{last_err} -- still not empty after {attempts} retries; "
+                  f"contents: {shown}{more}")
+
+
 def _changed_touches(*rel_paths):
     """True if this push touched any of `rel_paths` -- same changed-scope
     principle check_machine_readable_files_parse already uses ("did I just
@@ -21684,8 +21728,7 @@ def check_leak_gate_refuses_a_fresh_container():
         # fresh-container shape this check is about.
         return repo
 
-    _fixture_home_ctx = tempfile.TemporaryDirectory()
-    _fixture_home = pathlib.Path(_fixture_home_ctx.name)
+    _fixture_home = pathlib.Path(tempfile.mkdtemp())
 
     cases = []
     UNIVERSAL = [{'level': 'universal', 'name': 'precedent', 'path': '.'}]
@@ -21694,7 +21737,13 @@ def check_leak_gate_refuses_a_fresh_container():
     PRIVATE = UNIVERSAL + [{'level': 'team', 'name': 'precedent-team-x',
                             'path': '../precedent-team-x'}]
 
-    with tempfile.TemporaryDirectory() as tmp:
+    # Each `tmp` below is a throwaway git repo torn down at the end of its
+    # own block -- manual mkdtemp + _rmtree_retrying rather than
+    # `tempfile.TemporaryDirectory()`'s own cleanup, which crashed this
+    # entire check once on a CI runner over a transient ENOTEMPTY
+    # (_rmtree_retrying's own docstring has the incident).
+    tmp = tempfile.mkdtemp()
+    try:
         repo = build(tmp, PRIVATE)
         (pathlib.Path(tmp) / 'precedent-team-x' / 'practices').mkdir(parents=True)
         (pathlib.Path(tmp) / 'precedent-team-x' / 'practices' / 'zz.md').write_text(
@@ -21717,14 +21766,19 @@ def check_leak_gate_refuses_a_fresh_container():
         cases.append(('and still says the private half did not run, rather '
                       'than reporting a clean bill',
                       'private ones were not' in out3, out3[-300:]))
+    finally:
+        _rmtree_retrying(tmp)
 
-    with tempfile.TemporaryDirectory() as tmp:
+    tmp = tempfile.mkdtemp()
+    try:
         repo = build(tmp, UNIVERSAL)
         rc2, out2 = run(repo)
         cases.append(('a repo declaring NO private source is unaffected -- it '
                       'never had a vocabulary layer to lose, so this did not '
                       'become a gate everybody has to appease',
                       rc2 == 0, out2[-300:]))
+    finally:
+        _rmtree_retrying(tmp)
 
     # THE CORRECTION, and the case that matters most: declared but NOT
     # resolved. The first version of this gate refused here too, which blocked
@@ -21732,7 +21786,8 @@ def check_leak_gate_refuses_a_fresh_container():
     # container". The session that could not attach the source never read its
     # text and has nothing from it to leak; refusing bought no safety and cost
     # repo-is-memory. The path below simply does not exist.
-    with tempfile.TemporaryDirectory() as tmp:
+    tmp = tempfile.mkdtemp()
+    try:
         repo = build(tmp, UNIVERSAL + [{'level': 'team', 'name': 'precedent-team-absent',
                                         'path': '../precedent-team-absent'}])
         rc4, out4 = run(repo)
@@ -21744,8 +21799,10 @@ def check_leak_gate_refuses_a_fresh_container():
                       'does NOT cover rather than reporting a clean bill',
                       'nothing from them to leak' in out4
                       and 'some other way' in out4, out4[-400:]))
+    finally:
+        _rmtree_retrying(tmp)
 
-    _fixture_home_ctx.cleanup()
+    _rmtree_retrying(str(_fixture_home))
 
     ok = all(c[1] for c in cases)
     check(f'the leak gate requires the blocklist when a private source '
