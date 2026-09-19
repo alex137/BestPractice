@@ -7171,7 +7171,8 @@ def check_precedent_check_fires():
             'def _code_cites_practice(ctx):\n'
             '    raise RuntimeError("planted: an unrelated check\'s own bug")\n'))
         r_boom = subprocess.run(
-            [sys.executable, str(boom_repo / 'tools' / 'precedent_check.py')],
+            [sys.executable, str(boom_repo / 'tools' / 'precedent_check.py'),
+             '--full-sweep'],
             capture_output=True, text=True, cwd=str(boom_repo))
         boom_out = r_boom.stdout + r_boom.stderr
         m_passed = re.search(r'precedent_check: (\d+) passed,', boom_out)
@@ -13984,7 +13985,8 @@ def check_precedent_check_degrades_in_a_source_set():
                       set(in_force) >= {'headline-capitalization', 'source-naming'},
                       f'in force: {in_force}'))
 
-        r = subprocess.run([sys.executable, 'tools/precedent_check.py'],
+        r = subprocess.run([sys.executable, 'tools/precedent_check.py',
+                            '--full-sweep'],
                            cwd=str(dest), capture_output=True, text=True)
         out = r.stdout + r.stderr
         cases.append(('it runs in a source set without a traceback',
@@ -18258,7 +18260,8 @@ def check_not_binding_actually_exempts_a_check():
             }, indent=2) + '\n', encoding='utf-8')
 
         def run_check():
-            r = subprocess.run([sys.executable, 'tools/precedent_check.py'],
+            r = subprocess.run([sys.executable, 'tools/precedent_check.py',
+                                '--full-sweep'],
                                cwd=str(repo), capture_output=True, text=True)
             return r.returncode, r.stdout + r.stderr
 
