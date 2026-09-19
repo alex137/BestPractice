@@ -6,15 +6,14 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 
 ## The practice catalogue
 
-`practices/` holds 127 practice files (11 resident, 116 on-demand). One file per practice. See [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md) for the design.
+`practices/` holds 126 practice files (11 resident, 115 on-demand). One file per practice. See [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md) for the design.
 
 | Practice | Tier | Occasion / scope |
 |---|---|---|
 | [acronyms-glossary](practices/acronyms-glossary.md) | on-demand | writing or editing a document |
 | [affordance-is-shared](practices/affordance-is-shared.md) | on-demand | building a mechanism that makes something discoverable or reachable |
 | [answer-first-ask-before-long-work](practices/answer-first-ask-before-long-work.md) | resident | a turn that could start a computation, search or build lasting longer than a few minutes |
-| [archive-command](practices/archive-command.md) | on-demand | a message says "Archive" standing alone, about a session |
-| [archive-status-check](practices/archive-status-check.md) | on-demand | a message asks whether the session can be archived, or plainly carries that feeling |
+| [archive-status-check](practices/archive-status-check.md) | on-demand | a message says "Archive", with or without a question mark, or otherwise asks whether the session can be archived |
 | [attach-the-original](practices/attach-the-original.md) | on-demand | asked to include an image, logo, or other binary asset the person is supplying, rather than approximate one from a description |
 | [base-branch-is-the-record](practices/base-branch-is-the-record.md) | on-demand | starting work another session may already have done, or opening a pull request |
 | [bold-key-phrases](practices/bold-key-phrases.md) | resident | writing any document meant to be read |
@@ -140,10 +139,11 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 
 ## Withdrawn practices
 
-5 practice file(s) here are **not in force** and are left out of every table above. **The files are kept on purpose** -- a withdrawn rule and the argument against it are worth re-reading, and `retired` is not a synonym for deleted (that is `decommission-deletes-files`, and it is about mechanisms, not rules). Read one in full with `python3 tools/precedent_show.py SLUG`.
+6 practice file(s) here are **not in force** and are left out of every table above. **The files are kept on purpose** -- a withdrawn rule and the argument against it are worth re-reading, and `retired` is not a synonym for deleted (that is `decommission-deletes-files`, and it is about mechanisms, not rules). Read one in full with `python3 tools/precedent_show.py SLUG`.
 
 | Practice | Status | Now in force at | Why it was withdrawn |
 |---|---|---|---|
+| [archive-command](practices/archive-command.md) | deduplicated | [archive-status-check](practices/archive-status-check.md) | **Deduplicated 2026-09-19, folded into `archive-status-check`.** Morgan: *"Note that 'Archive' and 'Archive?' are the same thing. |
 | [brief-it](practices/brief-it.md) | deduplicated | [my-options](practices/my-options.md) | Coined by Morgan, 2026-09-19. |
 | [handoff-is-pasteable](practices/handoff-is-pasteable.md) | deduplicated | [the-boildown](practices/the-boildown.md) | Asked for by Morgan on 2026-09-10, in his own words: instructions should give *"the name of the repo* and the exact text to copy paste in*, and then those instructions should always finish with, reminding me to return to the original session with a message to copy-paste there confirming its success or sharing other issues."* |
 | [merge-authorization-keyword](practices/merge-authorization-keyword.md) | deduplicated | [go-merge](practices/go-merge.md) | **The 2026-09-07 retirement was reversed on 2026-09-08, and this is now a deduplication rather than a withdrawal.** `status: retired` said nobody wanted this rule anywhere. |

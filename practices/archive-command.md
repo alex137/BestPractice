@@ -10,8 +10,8 @@ index_clause: "\"Archive\" alone means archive the session meant (default: this 
 checked_by:  null
 defines:     ["Archive"]
 command:     {"Archive": "Archive the session meant -- this one, unless another is named -- right now. It's reversible if it wasn't meant."}
-status:      active
-in_force_at: null
+status:      deduplicated
+in_force_at: archive-status-check
 supersedes:  []
 overrides:   null
 added:       "2026-09-16"
@@ -46,6 +46,17 @@ When a message says **"Archive"** -- standing alone, case-insensitive, as its ow
 The standing-phrase mechanism already exists for exactly this shape of thing -- [go-merge](go-merge.md), [park-it](park-it.md), [weak-yes](weak-yes.md) -- so a one-word trigger for archiving is the same mechanism, not a new one. Encoding it as a command rather than leaving it to plain conversation is what makes it reach a session that has never talked to the person before but has this set loaded -- the same argument `go-merge`'s own Story already makes about definitions sitting where a session can't read them.
 
 ## Story
+**Deduplicated 2026-09-19, folded into `archive-status-check`.**
+Morgan: *"Note that 'Archive' and 'Archive?' are the same thing. Even with
+no question mark, you should first check to see what's outstanding and if
+there is anything, tell me to make sure I want to archive it."* (strength:
+decided). The "no confirmation, no recap first" reading the Rule above
+describes is retired -- the bare word now runs the same three-condition
+check `archive-status-check` already ran for the question-mark spelling,
+before acting. The Rule and Detail above are kept as the record of what
+the word used to authorize on its own; [archive-status-check](archive-status-check.md)
+is where the current behavior lives.
+
 Coined 2026-09-16 in Morgan's individual set, the same day he asked whether archiving a session works only through the UI or also through a command and, told it works as a direct tool call already, asked for "archive" itself as a standing word.
 
 Moved to universal the same day, on his decision that it belongs alongside the project's other commands rather than staying his own habit: *"I think this should be a universal command not just for me."*
