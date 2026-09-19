@@ -201,6 +201,15 @@ every step's answer is wrong if the one before it was skipped.
    sources in hand-written prose that went stale the day a team set was
    split by subject. **Not one produced a failing check.**
 
+   **Once the answer changes what this repo declares, grep before moving
+   on.** Run `grep -n '<name>' AGENTS.md CLAUDE.md` for every source name
+   now declared, one name at a time. A hit outside a dated Story, gotcha,
+   or incident write-up is a standing enumeration of the declared sources
+   sitting in hand-authored prose — the same staleness risk this whole step
+   exists to catch, one level down. Reword it to describe the set
+   dynamically (a count, or a pointer to `precedent.json`) rather than
+   naming it.
+
 10. **Sweep this repo's own `.github/workflows/` against the retired-file
     table** ([spec/MIGRATING_EXISTING_INSTALLS.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/MIGRATING_EXISTING_INSTALLS.md)'s
     step 6, added 2026-09-16) — an ordinary update touches the same
