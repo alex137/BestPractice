@@ -79,8 +79,9 @@ The rule sits at creation rather than at any later point because that is the
 only moment with both pieces of information in one place: **the spawning
 session knows what the work is about, and the spawned one does not yet exist
 to be asked.** This is the same argument
-[session-text](session-text.md) makes for enumerating before spawning — the
-check can only happen at the spawner, because nothing downstream can reach it.
+[prompt-please](prompt-please.md) makes for checking cross-repository reach
+before handing work off — the check can only happen at the session doing
+the handing off, because nothing downstream can reach it.
 
 **Four namespaces rather than free strings**, because the value of a tag is
 that two sessions written by different people agree on it. Ad-hoc single-word
