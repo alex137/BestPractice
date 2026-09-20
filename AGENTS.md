@@ -45,16 +45,17 @@ ask because what they trigger is too expensive to run on a guess; each
 names why in its own file.
 
 - **"Go update"**, **"Approved"**, and **"Go merge"** ([go-merge](practices/go-merge.md)) —
-  classify first: **trivial** (wording, a typo, a dead link — content this
-  repo already allows a direct edit to) commits and pushes straight to the
-  branch, no PR; **substantial** (anything that changes what a document
-  requires or what code does) syncs, says the branch out loud, commits,
-  pushes, opens the pull request, and merges — **without asking again.**
-  Unsure which it is? Substantial. A step this session cannot perform hands
-  off rather than coming back as a question: the authorization travels with
-  the work. One rule, three triggers, and `Go update` is the one to lead
-  with — it names what actually happens whether or not a merge is literally
-  in the picture — with `Go merge` exactly as valid, just second.
+  classify first: a direct push, straight to the branch, no PR, is now the
+  **default**; only a **huge** change (touches enforcement/gating code,
+  changes a governance or authorization practice, is hard to reverse once
+  live, or you're not confident it's none of those) runs the full chain —
+  syncs, says the branch out loud, commits, pushes, opens the pull request,
+  and merges — **without asking again.** Unsure which it is? Huge. A step
+  this session cannot perform hands off rather than coming back as a
+  question: the authorization travels with the work. One rule, three
+  triggers, and `Go update` is the one to lead with — it names what
+  actually happens whether or not a merge is literally in the picture —
+  with `Go merge` exactly as valid, just second.
   `Approved` is also an ordinary adjective, so *"the approved plan of
   record"* is not the command, and `Go merge` is not the command when
   "merge" has its own object, as in *"let's go merge those two lists."*
@@ -327,7 +328,7 @@ When a document replaces or is replaced by an earlier one:
 When a judgment call is needed to keep work moving:
   small-calls — make small calls yourself; note them; stop only for big ones
 When a message carries the merge phrase, or plainly authorizes a merge:
-  go-merge — "Go update"/"Approved"/"Go merge": trivial -> push; else sync, branch, PR, merge
+  go-merge — "Go update"/"Approved"/"Go merge": default push; huge -> sync, branch, PR, merge
 When a message says "Archive", with or without a question mark, or otherwise asks whether the session can be archived:
   archive-status-check — "Archive"/"Archive?" -- check pending; archive if clear, else say what isn't
 When a message says "Update Vendors", or an upstream update is being taken into a repo that vendors a practice layer:
