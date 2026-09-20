@@ -18,7 +18,7 @@
      this file wrote `process/upstream/` outright and §0 step 5 said to
      install it "unchanged by which install model this is", so a §0 install
      shipped its members three dead references on day one. Assistant-capability statements carry their as-of
-     dates (practice `volatile-rules-carry-dates`); refresh them from the upstream MOBILE.md when
+     dates (practice `volatile-rules-carry-dates`); refresh them from the upstream documentation/MOBILE.md when
      taking updates. -->
 
 Welcome. This project runs on a simple idea: **the project's memory lives
@@ -141,7 +141,7 @@ Codex; the project's automatic checks protect the result either way.
 
 Working from an iPhone a lot? This project includes an iPhone Shortcut
 recipe that prepares this starting message for you — see the phone guide
-in [MOBILE.md](<upstream-docs>/MOBILE.md).
+in [MOBILE.md](<upstream-docs>/documentation/MOBILE.md).
 
 ### Gemini Users
 

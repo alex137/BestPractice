@@ -109,7 +109,7 @@ not it is read.
 | Member onboarding page (template + rendered sample) | [templates/GETTING_STARTED.md](templates/GETTING_STARTED.md) |
 | Git/GitHub concepts for this workflow | [GIT.md](GIT.md) |
 | The working method (branches, plain text, critique, prompts) | [METHOD.md](METHOD.md) |
-| Phone / ChatGPT / Grok workflows + assistant reliability status | [MOBILE.md](MOBILE.md) |
+| Phone / ChatGPT / Grok workflows + assistant reliability status | [MOBILE.md](documentation/MOBILE.md) |
 | A brainstormed chat bridge — reaching a Claude session by voice, Telegram as proof of concept and WhatsApp as destination — **speculative: nobody decided to build it, and no claim in it came from a primary source** | [spec/SPECULATIVE_WHATSAPP_BRIDGE.md](spec/SPECULATIVE_WHATSAPP_BRIDGE.md) |
 | The ten ideas underneath Precedent on one page — work through an assistant, the repository is the memory, practices, proposal and approval, routing, enforcement, four levels, three permission levels, the standing phrases, privacy — each linked into both guides | [documentation/TEN_THINGS.md](documentation/TEN_THINGS.md) |
 | Every GitHub setting a Precedent project depends on, who clicks it, what fails without it — roles, branch protection with the four values, what GitHub does with CODEOWNERS and how this system generates it, Actions permissions and secrets, practice-set repositories | [documentation/GITHUB_SETTINGS.md](documentation/GITHUB_SETTINGS.md) |

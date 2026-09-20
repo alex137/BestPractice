@@ -17,7 +17,7 @@ closed:            null
 ## What
 
 - <a id="grok-workflow"></a>**Verify a Grok workflow.** Untested as of 2026-08 — see
-   [MOBILE.md](../MOBILE.md). If Grok gains repository access, the universal
+   [MOBILE.md](../documentation/MOBILE.md). If Grok gains repository access, the universal
    starting instruction should apply unchanged; verify and document.
 
 ## How It Closes

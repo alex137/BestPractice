@@ -368,7 +368,7 @@ All 24 files. `→ spec/` means it stays.
 | [TODO.md](../TODO.md) | root | Live, and referenced by tooling and by resident practices. |
 | [PRACTICE_ENGINE_PLAN.md](PRACTICE_ENGINE_PLAN.md) | **moved 2026-09-13**, → spec/ **until phase 7** | The approved plan of record, still being worked, and internal planning rather than front-door material — which is why Morgan moved it off the root ahead of this plan's own sequencing. `kind: reference`, `status: current`. When phase 7 folds the branch into `main`, it becomes `kind: record`, `status: closed`, and moves to `record/`. |
 | [METHOD.md](../METHOD.md) | → [documentation/](../documentation/) | The working method, for adopters. |
-| [MOBILE.md](../MOBILE.md) | → [documentation/](../documentation/) | Per-assistant setup, for adopters. |
+| [documentation/MOBILE.md](../documentation/MOBILE.md) | **moved 2026-09-20**, → [documentation/](../documentation/) | Per-assistant setup, for adopters. Morgan asked for the move. |
 | [GITHUB_ACTIONS.md](../GITHUB_ACTIONS.md) | → [documentation/](../documentation/) | Operational how-to, for adopters. |
 | [GIT.md](../GIT.md) | → [documentation/](../documentation/) | **The debatable one.** It is reader-facing and adopter-shaped, but [README.md](../README.md) leans on it as a first-visit explainer. Move it, or leave it at root and say why — do not leave the question open. |
 | [PRACTICES.md](../PRACTICES.md) | → `record/`, `status: superseded`, `superseded_by: practices/` | 134 KB, described by [README.md](../README.md) as the pre-split catalogue. **Highest-churn move in this plan** — 181 tracked files mention the name. Sequenced last. |
@@ -501,11 +501,16 @@ the deep check is green.
 
 ### Phase 5 — the root tidy
 
-Move [METHOD.md](../METHOD.md), [MOBILE.md](../MOBILE.md),
-[GITHUB_ACTIONS.md](../GITHUB_ACTIONS.md) and — if the judgment goes that
-way — [GIT.md](../GIT.md) into [documentation/](../documentation/), and
+Move [METHOD.md](../METHOD.md), [GITHUB_ACTIONS.md](../GITHUB_ACTIONS.md)
+and — if the judgment goes that way — [GIT.md](../GIT.md) into
+[documentation/](../documentation/), and
 [CHANGES_TO_TELL_ALEX.md](CHANGES_TO_TELL_ALEX.md) into `record/`. Same
 same-commit link discipline.
+
+**[documentation/MOBILE.md](../documentation/MOBILE.md) already moved,
+2026-09-20** — done ahead of the rest of this phase, on a direct request,
+following the same pattern `documentation/examples/` used a day earlier
+(root tidy is a per-file judgment call, not a single atomic step).
 
 **Check the external surface before moving anything in this phase.**
 [README.md](../README.md), [SETUP.md](../SETUP.md) and

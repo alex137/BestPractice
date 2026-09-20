@@ -18,7 +18,7 @@ closed:            null
 
 - <a id="companion-mobile-app"></a>**Companion mobile app, if the Shortcut proves insufficient.** The
    iPhone Shortcut and text-replacement setups in
-   [MOBILE.md](../MOBILE.md) approximate a Claude-Code-like entry point for
+   [MOBILE.md](../documentation/MOBILE.md) approximate a Claude-Code-like entry point for
    ChatGPT users without custom development. If they prove too clumsy in
    practice, a small companion app (pick repo → type task → open
    assistant with the bootstrap prompt) is the next step — noting that

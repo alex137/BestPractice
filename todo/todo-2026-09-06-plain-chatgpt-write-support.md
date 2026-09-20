@@ -17,7 +17,7 @@ closed:            null
 ## What
 
 - <a id="plain-chatgpt-write-support"></a>**Re-verify plain-ChatGPT write support.** As of 2026-08,
-   [MOBILE.md](../MOBILE.md) treats writing (branches, file updates, PRs)
+   [MOBILE.md](../documentation/MOBILE.md) treats writing (branches, file updates, PRs)
    from a plain GitHub-connected ChatGPT conversation as not reliably
    available and documents a split workflow instead. Re-test when
    OpenAI's connector capabilities change, and update MOBILE.md either

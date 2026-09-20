@@ -176,7 +176,7 @@ run prompted on every single run.
    Morgan's call, made during this audit. Renamed across
    [README.md](../README.md), all four [documentation/](../documentation/)
    guides, [SETUP.md](../SETUP.md), [INSTALL.md](../INSTALL.md),
-   [GITHUB_ACTIONS.md](../GITHUB_ACTIONS.md), [MOBILE.md](../MOBILE.md),
+   [GITHUB_ACTIONS.md](../GITHUB_ACTIONS.md), [MOBILE.md](../documentation/MOBILE.md),
    [GIT.md](../GIT.md), and every template an adopter instantiates.
 
    **What a later rename pass must not touch**, because each of these
@@ -842,7 +842,7 @@ remaining 32.
 - **`volatile-rules-carry-dates`** — [GITHUB_ACTIONS.md](../GITHUB_ACTIONS.md)
   contained **no date anywhere**, while its entire framing rests on two
   claims about what a GitHub-connected ChatGPT conversation can and cannot do.
-  Both now carry *as of 2026-08* and point at [MOBILE.md](../MOBILE.md), which
+  Both now carry *as of 2026-08* and point at [MOBILE.md](../documentation/MOBILE.md), which
   tracks that capability and is where it gets re-dated.
 - **`resolved-issue-note-updates`** — violated by this session, hours earlier.
   [spec/MIGRATING_EXISTING_INSTALLS.md](MIGRATING_EXISTING_INSTALLS.md)'s

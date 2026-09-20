@@ -40,9 +40,9 @@ What works today *(as of 2026-08)*: a ChatGPT conversation connected to
 GitHub can read your project and answer questions dependably. What
 doesn't work reliably yet: making changes (editing files, proposing
 updates) from a plain ChatGPT conversation. Until that improves (tracked
-in [TODO.md](TODO.md)), do the asking and reviewing in ChatGPT, and
+in [TODO.md](../TODO.md)), do the asking and reviewing in ChatGPT, and
 route actual changes through Codex or a teammate with a coding agent —
-the project's automatic checks ([GITHUB_ACTIONS.md](GITHUB_ACTIONS.md))
+the project's automatic checks ([GITHUB_ACTIONS.md](../GITHUB_ACTIONS.md))
 protect the result no matter which tool made the change.
 
 To set up:
@@ -79,7 +79,7 @@ as any assistant with no repository access.
 
 **Grok Build** (`xai-org/grok-build`) is a separate, real terminal coding
 agent — like Codex CLI or Gemini CLI, not a phone app — with its own
-[adapter](templates/harness/grok-build/README.md) as of 2026-09-17, built
+[adapter](../templates/harness/grok-build/README.md) as of 2026-09-17, built
 from xAI's own current documentation. It reads `AGENTS.md` natively.
 **Not yet run against this repository by an actual session** — the
 adapter says plainly what's confirmed from documentation versus what
@@ -126,7 +126,7 @@ question and copy only the opener.
 If the Shortcut approach proves too clumsy in practice, the next step is
 a small companion app — pick a repository, type the task, open the
 assistant with the prompt prepared. That is real app development rather
-than documentation, and is tracked as an open item in [TODO.md](TODO.md).
+than documentation, and is tracked as an open item in [TODO.md](../TODO.md).
 
 ## Even Lighter: A Text Replacement
 
@@ -144,7 +144,7 @@ form and fill in the repository name after pasting.
 
 A Precedent repository's README carries a short entry block, installed
 from
-[templates/README_AGENT_ENTRY.md.template](templates/README_AGENT_ENTRY.md.template):
+[templates/README_AGENT_ENTRY.md.template](../templates/README_AGENT_ENTRY.md.template):
 
 ```markdown
 <!-- bestpractice-agent-entry:start -->
