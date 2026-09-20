@@ -92,7 +92,8 @@ Pillars](philosophy/CORE_PILLARS.md).
 
 Learn more about it: [the guide for adopting
 it](documentation/ADOPTING.md), [The Working
-Method](documentation/METHOD.md), [INSTALL.md](INSTALL.md).
+Method](documentation/METHOD.md), [the non-technical install
+guide](SETUP.md).
 
 ## The Philosophy Behind This
 
@@ -103,6 +104,26 @@ and AI should work together. **That fuller argument lives in
 [philosophy/README.md](philosophy/README.md). It is argument and
 observation: none of it binds work anywhere else in this repository, which
 is what [practices/](practices/) is for.
+
+Here are the core pillars of our philosophy:
+
+- **Human-led for human collaboration.** A person sets the direction,
+  decides what "right" looks like, and owns the outcome while the agents
+  do the producing.
+- **Focus on whys and problems.** Every request opens with the problem
+  and the reason behind it, not a prescribed fix, so the assistant spends
+  its effort solving the actual problem instead of executing a guess.
+- **Rules emerge from precedents decided, person-approved.** The rules
+  that govern how the work gets done are extracted automatically, as a
+  side effect of doing the work, rather than written up separately
+  afterward.
+- **Chat and voice messages as the primary human entry point.** A
+  person's way of touching any document here is to talk to their
+  assistant and have it make the change, never to open the file and edit
+  it directly.
+
+[Core Pillars](philosophy/CORE_PILLARS.md), then [Our
+Philosophy](philosophy/OUR_PHILOSOPHY.md).
 
 The individual pages, if you want to go deeper on any one idea:
 [Core Pillars](philosophy/CORE_PILLARS.md),
