@@ -65,11 +65,15 @@ names why in its own file.
   sentence could honestly go either way, say the read out loud and get it
   confirmed before the push, the pull request, or the merge — commit locally
   regardless, and hold only the shared-branch steps on the answer.
-- **"Push directly"** ([push-directly](practices/push-directly.md)) — the
-  classification's own override, named: skip it outright and push straight
-  to the branch, no PR, whatever `Go update` would otherwise call for on
-  this one change. Not a standing exemption — it authorizes the change in
-  front of it, not every change after it.
+- **"Push directly to [branch]"** ([push-directly](practices/push-directly.md))
+  — the classification's own override, named: skip it outright and push
+  straight to that branch, no PR, whatever `Go update` would otherwise call
+  for on this one change. Name the branch ("push directly to main") to
+  target it explicitly; say it bare and it defaults to the primary branch
+  the work is already on — `precedent-beta-v01` here, per the rule at the
+  top of this file, never `main` just because that is the repository's
+  configured default. Not a standing exemption — it authorizes the change
+  in front of it, not every change after it.
 - **"Drop it"** ([park-it](practices/park-it.md)) — write
   `**Disposition:** parked (<date>, <who said it>)` into the item meant, in
   that same turn, say which item was marked, and **never raise it unprompted
@@ -335,8 +339,8 @@ When a message says "Archive", with or without a question mark, or otherwise ask
   archive-status-check — "Archive"/"Archive?" -- check pending; archive if clear, else say what isn't
 When a message says "Go update" or "Approved", or plainly authorizes a merge:
   go-merge — "Go update"/"Approved": default push; huge -> sync, branch, PR, merge
-When a message says "Push directly", or gives a specific instruction to skip the PR for this one change:
-  push-directly — "Push directly" -- skip the judgment, push straight to the branch, no PR
+When a message says "Push directly", naming a branch ("push directly to main") or not, or gives a specific instruction to skip the PR for this one change:
+  push-directly — "Push directly [to BRANCH]" -- no PR; unnamed defaults to the branch in play
 When a message says "Update Vendors", or an upstream update is being taken into a repo that vendors a practice layer:
   vendor-update-runbook — "Update Vendors" -- source clone first, both layers move separately, then merge
 When a model, study or comparison table rests on an operating constant nobody decided — a margin, a cap, a rate, a floor:
