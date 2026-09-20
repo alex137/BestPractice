@@ -37,8 +37,8 @@ Claude Code attached to that repo.
 
 Here's what you'll actually see:
 
-1. **The assistant pushes back on you**, instead of just typing whatever
-   you say.
+1. **The AI assistant pushes back on you**, instead of just typing
+   whatever you say.
 2. **When you explain why you disagreed with it, it writes that down** —
    as a rule, a "Practice," committed to the repo, not left sitting in the
    chat.
@@ -84,11 +84,11 @@ Pillars](philosophy/CORE_PILLARS.md).
   Precedent's practice engine into it — that's what turns everything below
   from a wish into something that actually happens.
 - **Everyone works through their own AI.** Every teammate connects their
-  assistant to that same repo and works through it — nobody opens the
+  AI assistant to that same repo and works through it — nobody opens the
   files directly.
 - **You brainstorm and direct it together.** The team argues the idea out
-  with their assistants and gives it direction; the repo is what catches
-  everything that comes out of that.
+  with their AI assistants and gives it direction; the repo is what
+  catches everything that comes out of that.
 
 Learn more about it: [the guide for adopting
 it](documentation/ADOPTING.md), [The Working
@@ -112,14 +112,15 @@ philosophy](philosophy/OUR_PHILOSOPHY.md):
   decides what "right" looks like, and owns the outcome while the agents
   do the producing.
 - **Focus on whys and problems.** Every request opens with the problem
-  and the reason behind it, not a prescribed fix, so the assistant spends
-  its effort solving the actual problem instead of executing a guess.
+  and the reason behind it, not a prescribed fix, so the AI assistant
+  spends its effort solving the actual problem instead of executing a
+  guess.
 - **Rules emerge from precedents decided, person-approved.** The rules
   that govern how the work gets done are extracted automatically, as a
   side effect of doing the work, rather than written up separately
   afterward.
 - **Chat and voice messages as the primary human entry point.** A
-  person's way of touching any document here is to talk to their
+  person's way of touching any document here is to talk to their AI
   assistant and have it make the change, never to open the file and edit
   it directly.
 
@@ -142,7 +143,7 @@ code](documentation/FOR_DEVELOPERS.md), or [if you
 don't](documentation/FOR_EVERYONE_ELSE.md).
 
 **Already set up?** [How to Use This Day to Day](documentation/DAILY_HABITS.md)
-has the daily habits and the phrases your assistant is guaranteed to
+has the daily habits and the phrases your AI assistant is guaranteed to
 recognize. Installing on your own project doesn't require writing any
 code yourself: open a session on your project with an AI assistant and
 paste it [SETUP.md](SETUP.md), which runs the whole install as a
