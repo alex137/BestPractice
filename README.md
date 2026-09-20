@@ -24,6 +24,10 @@ angle:
   generated from a team's own history, and put up for approval, never
   landed unapproved.
 
+Learn more about it: [Reasons Why](philosophy/REASONS_WHY.md),
+[Our Philosophy](philosophy/OUR_PHILOSOPHY.md), [Core
+Pillars](philosophy/CORE_PILLARS.md).
+
 ## What This Looks Like in Practice
 
 Next time you're brainstorming or working through a problem with your
@@ -47,6 +51,11 @@ Here's what you'll actually see:
    and it lives in your own GitHub repo, not locked inside one AI
    provider or held in one person's head.
 
+Learn more about it: [The Working
+Loop](philosophy/THE_WORKING_LOOP.md), [The Talmudic
+Method](philosophy/THE_TALMUDIC_METHOD.md), [Ten Things to Know About How
+Precedent Works](documentation/TEN_THINGS.md).
+
 ## Why this matters
 
 - **Plain text and git are the source of truth.** Every rule, every
@@ -63,6 +72,11 @@ Here's what you'll actually see:
   what was decided, but why, with a link back to the conversation that
   produced it — nobody has to dig through chat history to find out.
 
+Learn more about it: [What This Is (and Why Explore Using
+Precedent)](documentation/WHY_PRECEDENT.md), [AI Governance to
+Co-Create](philosophy/AI_GOVERNANCE_TO_COCREATE.md), [Core
+Pillars](philosophy/CORE_PILLARS.md).
+
 ## How
 
 - **Start a repo, not a doc — then vendor-in Precedent.** Spin the repo up
@@ -75,6 +89,10 @@ Here's what you'll actually see:
 - **You brainstorm and direct it together.** The team argues the idea out
   with their assistants and gives it direction; the repo is what catches
   everything that comes out of that.
+
+Learn more about it: [the guide for adopting
+it](documentation/ADOPTING.md), [The Working
+Method](documentation/METHOD.md), [INSTALL.md](INSTALL.md).
 
 ## The Philosophy Behind This
 
@@ -116,6 +134,9 @@ open a session on your project with an AI assistant and paste it
 
 To get going, vendor in Precedent to a repo, connect that repo to your
 favorite AI via their coding platform — and go!
+
+Learn more about it: [the guide for adopting
+it](documentation/ADOPTING.md), [SETUP.md](SETUP.md).
 
 ## Manually Install
 
