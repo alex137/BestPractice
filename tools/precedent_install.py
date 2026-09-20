@@ -228,7 +228,7 @@ _CI_PARAGRAPH_ON = (
     "  appear on a pull request's checks, GitHub Actions may be disabled for\n"
     "  this repository — an administrator can turn it on at repository\n"
     "  **Settings → Actions**. Details:\n"
-    f"  [GITHUB_ACTIONS.md]({UPSTREAM_DOCS}/GITHUB_ACTIONS.md)."
+    f"  [GITHUB_ACTIONS.md]({UPSTREAM_DOCS}/documentation/GITHUB_ACTIONS.md)."
 )
 
 
@@ -246,7 +246,7 @@ def _ci_paragraph_off():
         "  source this project resolves, then re-run the installer with `--force`\n"
         "  — or copy the template in by hand any time. Details, including a\n"
         "  lower-cost scheduled variant for a project pushed to very frequently:\n"
-        f"  [GITHUB_ACTIONS.md]({UPSTREAM_DOCS}/GITHUB_ACTIONS.md)."
+        f"  [GITHUB_ACTIONS.md]({UPSTREAM_DOCS}/documentation/GITHUB_ACTIONS.md)."
     )
 
 

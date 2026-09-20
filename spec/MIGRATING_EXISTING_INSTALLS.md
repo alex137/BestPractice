@@ -557,7 +557,7 @@ one.
    | `light-check.yml`, `commit-identity.yml` (the ordinary dependent-repo copy, not the practice-set workflow this step already covers), `status-claims-check.yml`, `unified-prompt-check.yml`, `platform-docs-check.yml` | **No trace in this repo's own history** — none of them were ever a Precedent template, in this branch or any other this repo can see. Confirm in the repo carrying the file what each one actually checks before touching it; a check with no equivalent anywhere in the current engine is a gap to raise with the person, not a file to delete on a guess. |
 
    Applying `ci_workflows` and `ci_debounce_minutes`
-   ([GITHUB_ACTIONS.md](../GITHUB_ACTIONS.md)) to whatever CI templates this
+   ([GITHUB_ACTIONS.md](../documentation/GITHUB_ACTIONS.md)) to whatever CI templates this
    migration keeps is part of the same pass, per
    [spec/INSTALL_QUESTIONS.md](INSTALL_QUESTIONS.md)'s two rows for both.
 

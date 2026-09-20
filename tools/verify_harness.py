@@ -3261,10 +3261,10 @@ def check_all_workflows_disclosed():
     if not workflows_dir.is_dir():
         not_applicable('all workflows disclosed', 'no .github/workflows/ directory')
         return
-    doc_path = ROOT / 'GITHUB_ACTIONS.md'
+    doc_path = ROOT / 'documentation' / 'GITHUB_ACTIONS.md'
     if not doc_path.exists():
         check('all workflows disclosed', False,
-              'no GITHUB_ACTIONS.md exists to disclose any workflow in')
+              'no documentation/GITHUB_ACTIONS.md exists to disclose any workflow in')
         return
     doc = doc_path.read_text(encoding='utf-8', errors='ignore')
     ok = True
@@ -7005,6 +7005,28 @@ def check_precedent_check_fires():
                       'the check -- the document the Rule actually names, and '
                       'the one root hygiene lets a dependent repo have',
                       rc_disc == 0 and 'VIOLATION' not in out_disc))
+
+        # ...and disclosure in documentation/GITHUB_ACTIONS.md must pass too
+        # -- BestPractice's own self-disclosure path since its copy moved
+        # off the root on 2026-09-20 (DISCLOSURE_DOCS in precedent_check.py).
+        # Never exercised before this: the only other positive case tests
+        # GETTING_STARTED.md, so a typo in the third DISCLOSURE_DOCS entry
+        # would have shipped silently.
+        def _disclosed_in_doc_github_actions(repo):
+            (repo / '.github' / 'workflows' / 'zzz-planted.yml').write_text(
+                'name: planted\non: push\njobs: {}\n', encoding='utf-8')
+            (repo / 'documentation').mkdir(parents=True, exist_ok=True)
+            (repo / 'documentation' / 'GITHUB_ACTIONS.md').write_text(
+                '# GitHub Actions\n\nRuns `zzz-planted.yml` on every push.\n',
+                encoding='utf-8')
+        disclosed_doc_ga = fresh('github-setup-disclosed-documentation-github-actions')
+        _disclosed_in_doc_github_actions(disclosed_doc_ga)
+        rc_doc_ga, out_doc_ga = run(disclosed_doc_ga, 'github-setup-disclosed')
+        cases.append(('github-setup-disclosed: a workflow named in '
+                      'documentation/GITHUB_ACTIONS.md satisfies the check -- '
+                      "BestPractice's own self-disclosure path now that its "
+                      'copy is not at the root',
+                      rc_doc_ga == 0 and 'VIOLATION' not in out_doc_ga))
 
         # docs-are-current-state -- an in-document revision annotation
         case('docs-are-current-state',

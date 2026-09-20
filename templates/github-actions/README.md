@@ -31,7 +31,7 @@ Copy [`doc-lint.yml.template`](doc-lint.yml.template) to
 enabled` is declared in the individual or team source it resolves; absent
 resolves to disabled, the engine's own default, since GitHub Actions
 minutes are metered per private repository. See
-[GITHUB_ACTIONS.md](../../GITHUB_ACTIONS.md), "Controlling Actions
+[GITHUB_ACTIONS.md](../../documentation/GITHUB_ACTIONS.md), "Controlling Actions
 Minutes".
 
 The installed workflow **discovers** the vendored linter rather than naming
@@ -47,7 +47,7 @@ relative to the default branch. Its `concurrency` block cancels an
 in-flight run when a second push on the same branch arrives before it
 finishes, so an overlapping pair of pushes bills once rather than twice.
 
-See [GitHub Actions checks](../../GITHUB_ACTIONS.md) for installation,
+See [GitHub Actions checks](../../documentation/GITHUB_ACTIONS.md) for installation,
 permissions, verification, required-check, update, and manifest guidance.
 
 ## The scheduled Markdown lint template
@@ -61,7 +61,7 @@ fixed cadence: however many saves land in one window, they cost one run.
 **Never installed automatically**, by either the installer or the
 `ci_workflows` field: a `schedule:` is a clock in somebody else's
 repository that they never picked
-([GITHUB_ACTIONS.md](../../GITHUB_ACTIONS.md)'s Limits section). Copying it
+([GITHUB_ACTIONS.md](../../documentation/GITHUB_ACTIONS.md)'s Limits section). Copying it
 in is a deliberate, per-repository choice, and its header cron line is a
 starting point to edit, not a shipped default to keep. It gates the
 **whole tracked Markdown corpus** on each run rather than "what changed
@@ -106,5 +106,5 @@ as missing until it is there.
 from sources a runner cannot reach), when the loader block turns out to be
 built from unreachable sources, or when no engine is vendored at all. The
 job's own comments say which case is which, and
-[GITHUB_ACTIONS.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/GITHUB_ACTIONS.md)
+[GITHUB_ACTIONS.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/documentation/GITHUB_ACTIONS.md)
 covers what gates a consuming repo instead.

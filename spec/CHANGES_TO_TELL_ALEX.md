@@ -625,7 +625,7 @@ pull request). Naming a standing trio is new normative content.
 
 **Where it landed besides the practice**: [INSTALL.md](../INSTALL.md) §1 step 10
 and §0 step 9, [SETUP.md](../SETUP.md) step 7 (the guided conversation's
-plain-language wording), [GITHUB_ACTIONS.md](../GITHUB_ACTIONS.md) beside the
+plain-language wording), [GITHUB_ACTIONS.md](../documentation/GITHUB_ACTIONS.md) beside the
 workflow the two Actions settings affect, and a "Settings Only You Can Turn
 On" section in
 [templates/GETTING_STARTED.md](../templates/GETTING_STARTED.md) so every
