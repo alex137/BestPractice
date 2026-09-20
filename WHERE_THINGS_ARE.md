@@ -108,7 +108,7 @@ not it is read.
 | Guided-install entry point admins paste to their agent | [SETUP.md](SETUP.md) |
 | The one-command loader install (INSTALL.md §0 performed mechanically; prints the placeholders it left) | [tools/precedent_install.py](tools/precedent_install.py) — `--help`; its fixture in [tools/verify_harness.py](tools/verify_harness.py) installs into a scratch project on every run |
 | Member onboarding page (template + rendered sample) | [templates/GETTING_STARTED.md](templates/GETTING_STARTED.md) |
-| Git/GitHub concepts for this workflow | [GIT.md](GIT.md) |
+| Git/GitHub concepts for this workflow | [GIT.md](documentation/GIT.md) |
 | The working method (branches, plain text, critique, prompts) | [METHOD.md](documentation/METHOD.md) |
 | Phone / ChatGPT / Grok workflows + assistant reliability status | [MOBILE.md](documentation/MOBILE.md) |
 | A brainstormed chat bridge — reaching a Claude session by voice, Telegram as proof of concept and WhatsApp as destination — **speculative: nobody decided to build it, and no claim in it came from a primary source** | [spec/SPECULATIVE_WHATSAPP_BRIDGE.md](spec/SPECULATIVE_WHATSAPP_BRIDGE.md) |

@@ -260,7 +260,7 @@ Hand installation, updates, and contributing improvements back:
 per-assistant setups: [documentation/MOBILE.md](../documentation/MOBILE.md).
 Automatic repository checks:
 [documentation/GITHUB_ACTIONS.md](../documentation/GITHUB_ACTIONS.md). Git in
-eight ideas: [GIT.md](../GIT.md). Open items and roadmap:
+eight ideas: [GIT.md](../documentation/GIT.md). Open items and roadmap:
 [TODO.md](../TODO.md). Repository index for agents:
 [AGENTS.md](../AGENTS.md). The pitch and how-to guides for people outside
 the project: [documentation/](../documentation/).

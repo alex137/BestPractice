@@ -177,7 +177,7 @@ run prompted on every single run.
    [README.md](../README.md), all four [documentation/](../documentation/)
    guides, [SETUP.md](../SETUP.md), [INSTALL.md](../INSTALL.md),
    [GITHUB_ACTIONS.md](../documentation/GITHUB_ACTIONS.md), [MOBILE.md](../documentation/MOBILE.md),
-   [GIT.md](../GIT.md), and every template an adopter instantiates.
+   [GIT.md](../documentation/GIT.md), and every template an adopter instantiates.
 
    **What a later rename pass must not touch**, because each of these
    means something the rename would falsify:

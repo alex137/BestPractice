@@ -157,6 +157,15 @@
         "templates/harness/grok-build/README.md"
       ],
       "why": "It is the per-assistant status page for working from a phone or a plain-chat AI tool -- what each one can read and write today, and the agent-entry opener every assistant is routed through. It goes stale when an assistant's capability changes or the opener template does."
+    },
+    "documentation/GIT.md": {
+      "describes": [
+        ".github/workflows/docs.yml",
+        ".github/workflows/leak-gate.yml",
+        "tools/doc_lint.py",
+        ".claude/hooks"
+      ],
+      "why": "It is the git/GitHub glossary and the eight-ideas explainer this project's own workflow rests on, with the machinery files (workflows, hooks, templates) as worked examples. It goes stale when a cited example is renamed or a workflow's trigger shape changes."
     }
   },
   "must_mention": {
