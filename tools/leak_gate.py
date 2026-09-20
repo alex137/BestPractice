@@ -940,6 +940,58 @@ def _stale_blocklist_clone_note():
             f"as real.")
 
 
+def _try_refresh_private_blocklist_clone(timeout=20):
+    """One bounded `git pull --ff-only` attempt on the private blocklist's
+    own clone. -> True if it is now at its upstream tip (fast-forwarded, or
+    was already there); False if there is nothing to try, or the pull is
+    refused (dirty tree, diverged, no upstream, network failure, timeout).
+
+    practice: durable-fix, cite-the-incident. 2026-09-20: the gate reported
+    110 undeclared-repo hits, all false, all in a file the session had not
+    touched -- the private clone was behind an upstream rename, the exact
+    shape _stale_blocklist_clone_note() above already names. The note
+    correctly pointed at `git -C <root> pull --ff-only`; the common case is
+    that command succeeding, which nothing until now did automatically.
+
+    Called ONLY once real hits exist, from main() below -- never at the top
+    of an ordinary run. That is deliberate: _stale_blocklist_clone_note()'s
+    own docstring declines to fetch because this gate "runs on every push"
+    and a network call there would cost every clean push a round-trip. A
+    push with no hit never reaches this function, so that push still never
+    touches the network; only a run that was already about to fail pays for
+    one bounded attempt, on the chance the failure is stale input rather
+    than a real leak.
+
+    Never forces anything a person has to decide: a dirty tree, or a real
+    divergence (local commits ahead as well as behind, exactly 2026-09-20's
+    case), is left untouched, and this function simply declines rather than
+    guessing which side to keep -- the same refusal
+    tools/precedent_source_bootstrap.py's own sync already makes for the
+    same reason.
+    """
+    path = _PRIVATE_BLOCKLIST_PATH
+    if path is None:
+        return False
+    root = path.parent
+
+    def git(*args):
+        try:
+            r = subprocess.run(['git', '-C', str(root), *args],
+                               capture_output=True, text=True, timeout=timeout)
+        except (OSError, subprocess.SubprocessError):
+            return 1, ''
+        return r.returncode, r.stdout.strip()
+
+    rc, _ = git('rev-parse', '--show-toplevel')
+    if rc != 0:
+        return False  # not a clone: somebody's loose file, nothing to pull
+    rc, dirty = git('status', '--porcelain')
+    if rc != 0 or dirty.strip():
+        return False  # somebody's working copy; not this gate's call to touch
+    rc, _ = git('pull', '--ff-only', '--quiet')
+    return rc == 0
+
+
 INDIVIDUAL_BLOCKLIST_NAME = 'leak-blocklist.txt'
 
 
@@ -1276,6 +1328,28 @@ def main():
              if (_policy[0] and _bl_path is not None
                  and auto_cover_enabled(_bl_path)) else [])
     hits = scan(units, blocklist, _policy, _auto)
+
+    # SELF-CORRECT THE COMMON CASE. A private blocklist clone that is
+    # simply behind makes a real tree look like it leaks something that
+    # was renamed or allowed upstream since this clone's last pull
+    # (2026-09-11 and 2026-09-20 both). One bounded fast-forward attempt,
+    # tried only now that there is a hit to lose by NOT trying it, fixes
+    # that -- see _try_refresh_private_blocklist_clone()'s own docstring
+    # for why this never runs on a clean push. Recomputing blocklist,
+    # source, configured, _policy and _auto here means everything below --
+    # the allowlist notes, the stem-gap survey, the hit list itself, and
+    # _stale_blocklist_clone_note() -- reports the refreshed reality
+    # rather than the stale one. A refused pull (dirty tree, real
+    # divergence) changes nothing: hits stays exactly what it was.
+    if hits and _try_refresh_private_blocklist_clone():
+        blocklist, source, configured = load_blocklist()
+        if _bl_path is not None and _bl_path.is_file():
+            _policy = parse_repo_policy(_bl_path)
+            _auto = (auto_private_name_patterns(local_clone_refs(ROOT), _policy[0],
+                                                _policy[1])
+                     if (_policy[0] and auto_cover_enabled(_bl_path)) else [])
+        hits = scan(units, blocklist, _policy, _auto)
+
     # SAY WHEN THE ALLOWLIST IS OFF. It only does anything once somebody
     # declares an owner private-by-default, and a clone that never did would
     # otherwise get a clean "OK" covering a rule that inspected nothing --
