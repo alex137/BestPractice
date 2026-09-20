@@ -5317,7 +5317,21 @@ def _code_cites_practice(ctx):
                 fm, _sections = sp._read_practice_file(f)
             except sp.PracticeFileError:
                 continue
-            known[fm['slug']] = fm.get('status')
+            slug = fm['slug']
+            status = fm.get('status')
+            # A LOCAL `status: deduplicated` stub whose `in_force_at` names
+            # its OWN slug is the "promoted elsewhere, still in force under
+            # this name" idiom (`_sibling_not_in_force` above tests the same
+            # condition for links) -- it must not overwrite the materialized
+            # copy's real, active status. Without this, a citation of that
+            # slug in tools/ gets reported as citing a retired practice, when
+            # the practice is very much in force, just under a copy that sits
+            # earlier in this loop.
+            in_force_at = (fm.get('in_force_at') or 'null').strip().strip('"').strip("'")
+            if status == 'deduplicated' and in_force_at == slug and slug in known:
+                pass
+            else:
+                known[slug] = status
             # A slug some IN-FORCE practice declares it overrides is
             # superseded, not missing. In a consuming repo a higher-precedence
             # source can replace a universal practice under a different name
