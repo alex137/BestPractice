@@ -1365,6 +1365,15 @@ Last because none of it strands an adopter, and none of it is cheap.
   should be in very deep check too" — decided, not a proposal he merely
   didn't object to.)*
 
+  **The branches chief-of-staff's half of this surfaces are the same
+  population the branches bullet below gives a full verdict to — one pass
+  over them covers both, never two separate sweeps disagreeing about whether
+  a branch has been judged.** Chief of staff itself always gives a verdict
+  now too — merge, cherry-pick, or close, per its own Detail — so folding it
+  in here does not create a branch report with no recommendation; it only
+  means this section can point at the fuller check's answer instead of
+  re-deriving a lighter one when both run in the same pass.
+
 - **What landed on the base branch and never came across.** The cheap half
   of the same relationship the rehearsal below tests, asked much earlier.
   Runs only where the branch this repo works on is not its base branch —
@@ -1864,6 +1873,15 @@ then this pass could only see the git-visible half of what a session leaves
 behind — a commit, a branch, a dirty tree — and had no way to say a session
 is sitting blocked, or that two of them are colliding on the same subject,
 both of which chief-of-staff already knew how to find.
+
+**The same message asked whether this pass's own branches bullet still gave
+a verdict**: *"Chief of staff should also give verdicts on whether to close
+them or not (as should very deep check)."* It already did — "Give every one
+a verdict: merge it, or close it with the reason recorded," above — so
+nothing there needed to change; what moved was chief-of-staff, whose newly
+widened rule had shipped surfacing branches with no verdict at all. Recorded
+here so the next reader of this pass does not go looking for a second fix
+that already never applied to it.
 
 ## Install
 [tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/very_deep_check.py) enumerates the scope

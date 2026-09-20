@@ -103,7 +103,7 @@ each one saves you a paragraph of explaining:
 |---|---|
 | **Archive** | Check whether anything from this session is still outstanding -- a merge, something the assistant is waiting on, a recommendation -- and either archive it right then or tell you exactly what's left. Synonym: Archive? |
 | **Brainstorm** | Think it through with you and write nothing down — no files, no edits, nothing saved — until you say to. |
-| **Chief of Staff** | Stop and route this: tell you what every open session is blocked on, what is colliding, and what it has left uncommitted to the routine branch, with a clickable link to each. |
+| **Chief of Staff** | Stop and route this: tell you what every open session is blocked on, what is colliding, and what it has left uncommitted to the routine branch with a verdict on each, all with a clickable link. |
 | **Drop it** | Mark the open question as parked and drop the subject. It won't be raised again unless you raise it. |
 | **Go update** | Save the work, publish it, and tell you where it went — without asking anything further. Synonym: Approved |
 | **My options** | Lay out the real choices in plainer words, the good and the bad of each, and tell you which one it recommends and why -- and when it's about a current issue meant for another session, add that session's id and link, which repository has to be the primary seed root, and which others need to be attached, then hand the whole thing back as one paste-ready block. |
