@@ -1,4 +1,4 @@
-# Precedent
+# Precedent: Defining Your Rules While Working
 
 Precedent solves the three biggest frustrations of working with people
 and AI together:
@@ -8,9 +8,9 @@ and AI together:
 2. **Nobody remembers why a decision was made, even a small one** — and
    on the rare occasion someone does, they've forgotten why it mattered
    enough to decide.
-3. **People forget small details, the why, and the how.** And when one
-   person does remember, your team is permanently dependent on that one
-   person.
+3. **People forget even the big details, the why, and the how.** And
+   when one person does remember, your team is permanently dependent on
+   that one person.
 
 It solves them by approaching human/AI collaboration from a different
 angle:
