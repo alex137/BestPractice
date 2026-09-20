@@ -234,7 +234,7 @@ every step's answer is wrong if the one before it was skipped.
     blanket delete: the table names what each one is, and which are a
     confirm-before-delete rather than an automatic one. While here, check
     `ci_workflows` and `ci_debounce_minutes`
-    ([GITHUB_ACTIONS.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/GITHUB_ACTIONS.md))
+    ([GITHUB_ACTIONS.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/documentation/GITHUB_ACTIONS.md))
     are set the way the person actually wants, not just inherited from
     whatever an earlier install or migration left.
 11. **Verify by content on the remote**, never by ref equality

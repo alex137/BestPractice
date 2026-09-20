@@ -42,7 +42,7 @@ doesn't work reliably yet: making changes (editing files, proposing
 updates) from a plain ChatGPT conversation. Until that improves (tracked
 in [TODO.md](../TODO.md)), do the asking and reviewing in ChatGPT, and
 route actual changes through Codex or a teammate with a coding agent —
-the project's automatic checks ([GITHUB_ACTIONS.md](../GITHUB_ACTIONS.md))
+the project's automatic checks ([GITHUB_ACTIONS.md](GITHUB_ACTIONS.md))
 protect the result no matter which tool made the change.
 
 To set up:

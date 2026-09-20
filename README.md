@@ -115,9 +115,9 @@ each machine — most people, working on Claude Code on the web, only need
 
 Hand installation, updates, and contributing improvements back:
 [INSTALL.md](INSTALL.md). The working method, for power users:
-[METHOD.md](METHOD.md). Phone and per-assistant setups:
+[METHOD.md](documentation/METHOD.md). Phone and per-assistant setups:
 [MOBILE.md](documentation/MOBILE.md). Automatic repository checks:
-[GITHUB_ACTIONS.md](GITHUB_ACTIONS.md). The pre-split practice catalog
+[GITHUB_ACTIONS.md](documentation/GITHUB_ACTIONS.md). The pre-split practice catalog
 (53 of the current, larger set — see [practices/](practices/) for the
 complete, current one): [PRACTICES.md](PRACTICES.md). Slide decks built
 from plain files: [deck/](deck/). Git in eight ideas: [GIT.md](GIT.md).

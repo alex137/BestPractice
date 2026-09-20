@@ -1,6 +1,6 @@
 # The Working Method: Branches, Plain Text, and Composed Prompts
 
-The [README](README.md) says where a project's state lives and what working
+The [README](../README.md) says where a project's state lives and what working
 through an assistant feels like. This document is the philosophy of how a
 human actually drives the work — four commitments that make the whole
 system compose:
@@ -28,7 +28,7 @@ system compose:
   branches, and can't be reviewed in a PR, so as sources they break every
   mechanism this repo relies on. When a .docx, .xlsx, .pdf, or slide deck
   must ship, a builder generates it from the plain-text source (practice 8
-  in [PRACTICES.md](PRACTICES.md) gives it provenance) and nobody ever
+  in [PRACTICES.md](../PRACTICES.md) gives it provenance) and nobody ever
   hand-edits the output. Files that *arrive* in office formats go the other
   way: an agent extracts and analyzes them into the sources, and the
   original is committed for the record rather than worked on.
@@ -45,7 +45,7 @@ system compose:
   editor — the length of a considered email — then paste them to the agent.
   On a phone that editor is the notepad app: capture and shape the thought
   there, then paste it into the assistant (see
-  [MOBILE.md](documentation/MOBILE.md)). The strongest version: refine the prompt in a
+  [MOBILE.md](MOBILE.md)). The strongest version: refine the prompt in a
   separate chat instance first, and hand the working session the result.
   Type directly only for short commands ("merge"). Pure dictation is an
   anti-pattern: cleaning up your own thinking before tasking an agent is
