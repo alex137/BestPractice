@@ -15,7 +15,11 @@ in_force_at: null
 supersedes:  []
 overrides:   null
 added:       "2026-09-18"
-approved_by: "Morgan, 2026-09-18"
+approved_by: "Morgan, 2026-09-18. Extended 2026-09-20, on instruction to
+  this practice, My options and Prompt Please together: a proposed solution
+  that is itself a cross-repo change must account for the upstream template
+  it comes from and say whether it needs a clean rollout to the repos
+  vendoring this one."
 strength:    decided
 ---
 ## Rule
@@ -30,6 +34,16 @@ situation is currently in front of the session:
    - what the situation or issue is;
    - the context and the sequence of events that led to it;
    - the proposed solution.
+   - **when the proposed solution would itself change something this repo
+     ships to other repos** -- a practice file, a template, a hook, a
+     vendored engine file, the same scope
+     [vendor-rollout-disclosed](vendor-rollout-disclosed.md) already names
+     -- the original template or mechanism in the upstream repo that
+     organizes those other repos, not just the symptom in the repo the
+     report was written in, and whether the fix needs a clean rollout
+     through an updated template and
+     [vendor-update-runbook](vendor-update-runbook.md)'s mechanism to reach
+     them, when that's relevant.
 
    Put in everything that reader would need and nothing they'd have to ask
    a second time for. This is the opposite of a terse summary: completeness
@@ -86,6 +100,18 @@ rather than re-describing the request whenever he needed it.
 when Morgan coined that command and drew the boundary himself: this command
 is bigger and formally committed to GitHub; `Prompt Please` is smaller, and
 just a prompt.
+
+**Extended the same day**, on Morgan's instruction to this practice,
+[My options](my-options.md) and [Prompt Please](prompt-please.md)
+together: *"Any change that would effect other repos must take into
+account the original templates in the mother system that organizes the
+other repos, and must be rolled out cleanly in updated templates/migrations
+to the others (if relevant)."* This repo is that mother system for
+whatever it vendors this practice layer to, so the requirement is stated
+here in the repo-agnostic form
+[vendor-rollout-disclosed](vendor-rollout-disclosed.md) already uses --
+"the repos vendoring this one" -- rather than naming BestPractice, so it
+reads correctly from inside a consumer repo too. Strength: decided.
 
 ## Install
 No mechanical check: like [go-merge](go-merge.md), whether a given reply

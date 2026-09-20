@@ -28,7 +28,11 @@ approved_by: "Morgan, 2026-09-20 -- described the two cases and the phrase
   actually deliver the copy-in-one-click block both promise and finding the
   answer was often no: \"You often don't do that and I want to enforce
   it.\" The Rule now names the mechanism -- a fenced code block -- rather
-  than just the outcome."
+  than just the outcome. Extended again the same day, on instruction to
+  this practice, My options and Write it up together: a recommended action
+  that is itself a cross-repo change must account for the upstream
+  template it comes from and say whether it needs a clean rollout to the
+  repos vendoring this one."
 strength:    decided
 source_practice_number: null
 ---
@@ -80,6 +84,15 @@ following, every time:
 - **Which other repositories, if any, need to be attached alongside it.**
   Say "none" explicitly rather than leaving the reader to guess whether the
   question was even considered.
+- **When the recommended action would itself change something this repo
+  ships to other repos** -- a practice file, a template, a hook, a vendored
+  engine file, the same scope [vendor-rollout-disclosed](vendor-rollout-disclosed.md)
+  already names -- say that the receiving session must work from the
+  original template or mechanism in the upstream repo that organizes those
+  other repos, not just patch the symptom in the repo it lands in, and
+  whether the change needs a clean rollout through an updated template and
+  [vendor-update-runbook](vendor-update-runbook.md)'s mechanism to reach
+  them, when that's relevant.
 
 **Delivered as one fenced markdown code block (triple backticks), not a
 paragraph of prose** -- the fence is what makes the client render a
@@ -184,6 +197,18 @@ that and I want to enforce it."* "Ready to copy in one click" was true but
 not mechanical -- nothing said the block had to be an actual fenced code
 block rather than a paragraph that merely reads as paste-ready. Both
 practices now name the mechanism directly. Strength: decided.
+
+**Extended again the same day**, on Morgan's instruction to this practice,
+[My options](my-options.md) and [Write it up](write-it-up.md) together:
+*"Any change that would effect other repos must take into account the
+original templates in the mother system that organizes the other repos,
+and must be rolled out cleanly in updated templates/migrations to the
+others (if relevant)."* This repo is that mother system for whatever it
+vendors this practice layer to, so the requirement is stated here in the
+repo-agnostic form [vendor-rollout-disclosed](vendor-rollout-disclosed.md)
+already uses -- "the repos vendoring this one" -- rather than naming
+BestPractice, so it reads correctly from inside a consumer repo too.
+Strength: decided.
 
 ## Install
 Nothing for an adopter to set up. The occasion index entry is generated
