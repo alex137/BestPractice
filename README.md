@@ -1,52 +1,19 @@
 # Precedent
 
-Precedent is a layer that sits between a group of people and their shared
-work — built for teams who collaborate through an AI assistant rather than
-a shared live document.
+**Precedent solves the three biggest frustrations of working with people
+and AI together:**
 
-**We are unique on a few axes:** automatic rule generation based on
-behaviour, smooth team-based rule sharing, all knowledge stored in open
-formats on GitHub, and a design meant for groups of humans to use AI as a
-middle layer between them and the work.
+1. **Nobody notices the pattern** — and even when someone does, enforcing
+   it costs real time and attention, every single time.
+2. **Nobody remembers why a decision was made, even a small one** — and
+   on the rare occasion someone does, they've forgotten why it mattered
+   enough to decide.
+3. **People forget small details, the why, and the how.** And when one
+   person does remember, your team is permanently dependent on that one
+   person.
 
-You work by talking to an assistant — it does the editing — and as it works
-it notices how your team wants things done and writes those habits down as
-rules, so every later conversation follows them without anyone maintaining
-a policy document by hand. The rules, the documents, and the reasoning
-behind both live in your own GitHub repository.
-
-> **This branch is the Precedent restructuring of BestPractice.** If you have arrived
-> here wanting to *use* the practice engine on your own project, read
-> [documentation/ADOPTING.md](documentation/ADOPTING.md) — it is written for that, and assumes no
-> programming. The design and its evidence are in
-> [spec/PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md). Alex merged this
-> branch into `main` on 2026-09-14 (pull request #367), so `main` carries
-> Precedent too, and Morgan merges this branch into `main` regularly; work
-> still lands here, on this branch.
-
-**New here?** [Ten Things to Know About How Precedent
-Works](documentation/TEN_THINGS.md) is the one page to read first — the
-ideas underneath everything, each linked to where both guides say more.
-Then [What This Is (and Why Explore Using
-Precedent)](documentation/WHY_PRECEDENT.md) for
-the pitch, and the how-to guide for your situation:
-[if you write code](documentation/FOR_DEVELOPERS.md), or
-[if you don't](documentation/FOR_EVERYONE_ELSE.md).
-
-**Already set up and just want the daily habits?** [How to Use This Day to
-Day](documentation/DAILY_HABITS.md) — four habits and the
-handful of phrases the assistant is guaranteed to recognize.
-
-## The Philosophy Behind This Project
-
-Precedent is one working expression of a broader philosophy about how
-people and AI should work together. **That theory lives in
-[philosophy/](philosophy/)** — start at
-[philosophy/README.md](philosophy/README.md). It is argument and
-observation: none of it binds work anywhere else in this repository, which
-is what [practices/](practices/) is for.
-
-In short, it is built on three ideas:
+It solves them by approaching human/AI collaboration from a different
+angle:
 
 - **Human collaboration comes first.** The tool exists to make people
   working together better, not to route around them.
@@ -57,77 +24,114 @@ In short, it is built on three ideas:
   generated from a team's own history, and put up for approval, never
   landed unapproved.
 
-**Keep the project's memory in GitHub, and let people work with that
-memory through AI conversations.** Nothing is lost in chat history: the
-conversation itself becomes part of the record, so the *why* behind a
-change stays on record along with the *what*. And instead of everyone
-editing one live document and pausing for big changes, every person (and
-AI thread) works at full speed on a private copy, joining the project
-through review — each change credited to whoever drove it, reason
-recorded.
+## What This Looks Like in Practice
 
-Behind the scenes, the project lives in a GitHub repository — a durable,
-shared memory that every person and every new AI session can pick up cold.
-Precedent adapts it so you don't need to be a programmer to get those
-advantages; you just need a few ground rules, in [Git, minimally](documentation/GIT.md).
+Next time you're brainstorming or working through a problem with your
+team — especially a team project — try this instead of a chat window or a
+shared doc: open a GitHub repo for the project, and work through it with
+Claude Code attached to that repo.
 
-The main shift: you use **Claude Code** instead of general-purpose chat
-apps. Other assistants have supported paths too; see [MOBILE.md](documentation/MOBILE.md).
+Here's what you'll actually see:
 
-## Built for Many Hands
+1. **The assistant pushes back on you**, instead of just typing whatever
+   you say.
+2. **When you explain why you disagreed with it, it writes that down** —
+   as a rule, a "Practice," committed to the repo, not left sitting in the
+   chat.
+3. **The next time the same situation comes up, it enforces the rule and
+   cites it**, instead of the two of you relitigating the same argument.
+4. **Every decision cites the decisions and preferences that came before
+   it**, the reasoning behind it, and an audit trail back to the
+   conversation that produced it.
+5. **The people on the team guide, correct, and build up the ruleset** —
+   and it lives in your own GitHub repo, not locked inside one AI
+   provider or held in one person's head.
 
-Conventions the assistants follow automatically handle what a shared
-document can't:
+## Why this matters
 
-- **No duplicated work.** An assistant claims a to-do item under its
-  member's name and warns others off overlapping it.
-- **Nothing lands by surprise.** The assistant finds who a change matters
-  to and requests their review.
-- **Authors keep the credit**, with the AI as co-author.
-- **Every session starts caught up**, summarizing what changed since that
-  member last worked.
-- **Tracks who made what decision, why, and what incident sparked it** —
-  for every decision.
+- **Plain text and git are the source of truth.** Every rule, every
+  document, and the reasoning behind each one lives in your own GitHub
+  repository — nothing sits in a chat log or a memory feature only one
+  person can see.
+- **No proprietary format, no vendor lock-in.** This is open source, built
+  on a platform you already control your own data in. Nothing here can
+  shut down and take your project's memory with it.
+- **Enforcement instead of vigilance.** The rules that matter are backed
+  by small programs that fail loudly, so a project set up this way can
+  check a convention instead of hoping someone remembers it.
+- **Every decision carries its reasoning and an audit trail.** Not just
+  what was decided, but why, with a link back to the conversation that
+  produced it — nobody has to dig through chat history to find out.
 
-Say *"what's waiting for me?"* and your assistant merges on your word.
+## How
 
-## What Your Members Will See
+- **Start a repo, not a doc — then vendor-in Precedent.** Spin the repo up
+  for the idea the same way you'd start a shared doc, then bring
+  Precedent's practice engine into it — that's what turns everything below
+  from a wish into something that actually happens.
+- **Everyone works through their own AI.** Every teammate connects their
+  assistant to that same repo and works through it — nobody opens the
+  files directly.
+- **You brainstorm and direct it together.** The team argues the idea out
+  with their assistants and gives it direction; the repo is what catches
+  everything that comes out of that.
 
-Members receive one link: to the project's own Getting Started page,
-which opens with the short case for working this way and then gives
-specific instructions for each kind of AI user — Claude, Codex, ChatGPT,
-Gemini, and Grok. **[Read the sample here.](templates/GETTING_STARTED.md)**
-Installing Precedent creates a version of that page adapted to your
-project, and improvements projects make to their onboarding pages flow
-back into Precedent for everyone ([INSTALL.md](INSTALL.md) §4).
+## The Philosophy Behind This
 
-## Installing Precedent on Your Project
+The three ideas above aren't just this project's engineering choices —
+they're one working expression of a broader philosophy about how people
+and AI should work together. **That fuller argument lives in
+[philosophy/](philosophy/)**, starting at
+[philosophy/README.md](philosophy/README.md). It is argument and
+observation: none of it binds work anywhere else in this repository, which
+is what [practices/](practices/) is for.
 
-Setup doesn't require you to write any code yourself: open a session on
-your project with an AI assistant and paste it [SETUP.md](SETUP.md), which
-runs the whole install as a conversation. Developers who want the files and
-commands have [INSTALL.md](INSTALL.md), the assistant-facing runbook, and
-[PER_MACHINE_SETUP.md](documentation/PER_MACHINE_SETUP.md) for what each person sets on
-each machine — most people, working on Claude Code on the web, only need
-[CLOUD_SETUP.md](documentation/CLOUD_SETUP.md), the cloud-first fast path through it.
+The individual pages, if you want to go deeper on any one idea:
+[Core Pillars](philosophy/CORE_PILLARS.md),
+[Our Philosophy](philosophy/OUR_PHILOSOPHY.md),
+[The Working Loop](philosophy/THE_WORKING_LOOP.md),
+[Reasons Why](philosophy/REASONS_WHY.md),
+[The Talmudic Method](philosophy/THE_TALMUDIC_METHOD.md),
+[Company Building Rules](philosophy/COMPANY_BUILDING_RULES.md),
+[AI Governance to Co-Create](philosophy/AI_GOVERNANCE_TO_COCREATE.md), and
+[Humans at Our Best](philosophy/HUMANS_AT_OUR_BEST.md).
 
-## Everything Else
+## Get Started
+
+**New here?** [Ten Things to Know About How Precedent
+Works](documentation/TEN_THINGS.md) is the one page to read first, then
+[What This Is (and Why Explore Using
+Precedent)](documentation/WHY_PRECEDENT.md) for the fuller pitch, and
+the how-to guide for your situation: [if you write
+code](documentation/FOR_DEVELOPERS.md), or [if you
+don't](documentation/FOR_EVERYONE_ELSE.md). **Already set up?** [How to
+Use This Day to Day](documentation/DAILY_HABITS.md) has the daily
+habits and the phrases your assistant is guaranteed to recognize.
+
+Installing on your own project doesn't require writing any code yourself:
+open a session on your project with an AI assistant and paste it
+[SETUP.md](SETUP.md), which runs the whole install as a conversation.
+Developers who want the files and commands have
+[INSTALL.md](INSTALL.md), and
+[PER_MACHINE_SETUP.md](documentation/PER_MACHINE_SETUP.md) for what
+each person sets on each machine — most people, working on Claude Code on
+the web, only need
+[CLOUD_SETUP.md](documentation/CLOUD_SETUP.md).
+
+## Get Up and Running!
+
+To get going, vendor in Precedent to a repo, connect that repo to your
+favorite AI via their coding platform — and go!
+
+## Manually Install
 
 Hand installation, updates, and contributing improvements back:
 [INSTALL.md](INSTALL.md). The working method, for power users:
-[METHOD.md](documentation/METHOD.md). Phone and per-assistant setups:
-[MOBILE.md](documentation/MOBILE.md). Automatic repository checks:
-[GITHUB_ACTIONS.md](documentation/GITHUB_ACTIONS.md). The pre-split practice catalog
-(53 of the current, larger set — see [practices/](practices/) for the
-complete, current one): [PRACTICES.md](PRACTICES.md). Slide decks built
-from plain files: [deck/](deck/). Git in eight ideas: [GIT.md](documentation/GIT.md).
-Open items and roadmap: [TODO.md](TODO.md). Repository index for agents:
-[AGENTS.md](AGENTS.md). The pitch and how-to guides for people outside the
-project: [documentation/](documentation/).
-
-A separate project grew out of this one:
-**[GitAround](https://github.com/alex137/GitAround)**, a way to read a
-project and follow what is changing in it from a browser, for people who
-would rather not work through GitHub's own screens. It has been a
-separate, standalone product since 2026-08-14, no longer a proposal
-staged inside this repo.
+[documentation/METHOD.md](documentation/METHOD.md). Phone and
+per-assistant setups: [documentation/MOBILE.md](documentation/MOBILE.md).
+Automatic repository checks:
+[documentation/GITHUB_ACTIONS.md](documentation/GITHUB_ACTIONS.md). Git in
+eight ideas: [documentation/GIT.md](documentation/GIT.md). Open items and roadmap:
+[TODO.md](TODO.md). Repository index for agents:
+[AGENTS.md](AGENTS.md). The pitch and how-to guides for people outside
+the project: [documentation/](documentation/).
