@@ -114,7 +114,7 @@ exits 0.
 One file per practice at `practices/<slug>.md`, five body sections
 (`## Rule`, `## Detail`, `## Why`, `## Story`, `## Install`) and the
 frontmatter documented in [spec/PRACTICE_FORMAT.md](PRACTICE_FORMAT.md).
-[examples/practice-set/](../examples/practice-set) is a working three-practice
+[documentation/examples/practice-set/](../documentation/examples/practice-set) is a working three-practice
 individual set with its user-level config — copy its *shape*, not its content,
 which is invented and illustrative.
 

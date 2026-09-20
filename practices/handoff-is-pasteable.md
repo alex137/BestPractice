@@ -9,8 +9,8 @@ index_clause: "any reply that sends them elsewhere ships the words: repo, copy b
 gates:       ["reply"]
 checked_by:  null
 defines:     []
-status:      active
-in_force_at: null
+status:      deduplicated
+in_force_at: the-boildown
 supersedes:  []
 overrides:   null
 added:       "2026-09-10"
@@ -25,7 +25,7 @@ source_practice_number: null
 **First, before any of this: the question of whether the work belongs in
 another session is asked before the work starts, not after — and the
 repositories are checked first.** That is
-[spawn-session](spawn-session.md)'s, and this rule begins where it ends.
+[session-text](session-text.md)'s, and this rule begins where it ends.
 **Where the harness can create the session itself, do that instead of
 writing a paste block**: a link, rooted in the right repository and already
 carrying the prompt, put near the top of the reply with a plain instruction
@@ -213,6 +213,8 @@ rules in force ask for it. What was missing is everything after the
 pointing: this rule now supplies it, so "go tell that window" and "here are
 the words" stop being two separate decisions. **Strength:** decided
 (2026-09-14, Morgan).
+
+**Deduplicated 2026-09-15, into [the-boildown](the-boildown.md), on Morgan's decision.** The three-things-always shape (repository, exact paste text, way back) now lives there, as the mechanic behind any Boildown bullet that points the person to another session -- the mandatory closing section already gives every reply a slot for this, so the standalone occasion trigger is no longer needed. Authorized: *"Let's go - go merge, do it, go update."*
 
 ## Install
 Nothing to configure. It fires when a reply asks the person to go elsewhere.

@@ -15,9 +15,22 @@
       "path": "philosophy/OPEN_QUESTIONS.md",
       "reason": "its five items were folded into philosophy/ASSORTED_NOTES.md's closing Open Questions section on 2026-09-09; a five-item list is a section, not a document",
       "decommissioned_at": "2026-09-09"
+    },
+    {
+      "path": "templates/VOICE.md.template",
+      "reason": "this project's own voice is now a repo-local practice, templates/local-practices/project-voice.md.template, instantiated at local/practices/project-voice.md instead of a root document -- see that template's own header",
+      "decommissioned_at": "2026-09-17"
     }
   ],
   "exempt_files": [
-    "philosophy/README.md"
+    "philosophy/README.md",
+    "INSTALL.md",
+    "practices/no-invented-specifics.md",
+    "practices/write-like-a-human.md",
+    "practices/very-deep-check.md",
+    "templates/local-practices/project-voice.md.template",
+    "tools/very_deep_check.py",
+    "evals/routing/answers/c07.review-hop2.json",
+    "evals/routing/answers-v3-pre-enforcement/c07.treatment2.json"
   ]
 }

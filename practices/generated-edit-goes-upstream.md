@@ -5,6 +5,7 @@ tier:        on-demand
 severity:    default
 applies_to:  ["AGENTS.md", "MAP.md", "GLOSSARY.md"]
 occasion:    "asked to add, change or remove something in a generated file"
+index_required: false
 gates:       []
 index_clause: "change the input the file is built from, never the file -- and say which input"
 checked_by:  "tools/precedent_check.py"
@@ -46,7 +47,7 @@ hand edit the generator will overwrite.
 **Finding the input is the session's job, not the person's.** They asked for
 the output because the output is what they read. A session that answers
 *"which practice's `defines:` field did you want that in?"* has handed back
-the work it was given — see [handoff-is-pasteable](handoff-is-pasteable.md)
+the work it was given — see [the-boildown](the-boildown.md)
 for what an honest handoff looks like, and note that this is not one.
 
 **Every generated file says where its own source is, in its header**, so the

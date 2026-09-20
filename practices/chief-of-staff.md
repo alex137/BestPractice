@@ -142,6 +142,14 @@ clock. The missing piece was a command.
 report carrying rows the person has already dealt with teaches them to skim it,
 and a skimmed report is worth less than none — they will trust it exactly once.
 
+**Kept on the literal phrase, as a session's own judgment call, when the
+2026-09-16 conversation widened several other commands to plain intent.**
+A full fleet sweep is exactly the automatic-invocation shape Morgan ruled
+out above, so reading "how are my sessions doing" as this command would be
+undoing that instruction by another route. Ask when a message plainly
+means the fleet sweep and does not say the phrase — the cost of guessing
+wrong here is a sweep nobody asked for, not a differently-worded reply.
+
 ## Story
 **Proposed by Morgan on 2026-09-13** and written up at
 [spec/CHIEF_OF_STAFF.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/CHIEF_OF_STAFF.md)

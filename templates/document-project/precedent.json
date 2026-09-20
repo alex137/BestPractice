@@ -181,5 +181,41 @@
     "`severity: blocking` practice cannot be exempted at all. Neither bites",
     "here: all 66 are exemptible (the only blocking practice in Precedent is",
     "repo-local to BestPractice and is not in this project's resolved set)."
+  ],
+  "_boundary_comment": [
+    "THE CONTRIBUTOR BOUNDARY (spec/CONTRIBUTOR_ACCESS.md, layer 2), as a",
+    "registry. `maintainers` review the machinery; `owned_paths` ARE the",
+    "machinery, each with a reason. `python3 tools/build_codeowners.py`",
+    "generates .github/CODEOWNERS from these two fields -- never hand-edit",
+    "that file; edit this one and regenerate (practice:",
+    "registry-source-of-truth). Everything NOT listed is content, and",
+    "content is any contributor's to write and merge.",
+    "",
+    "Replace {{MAINTAINER_NAME}} and {{MAINTAINER_GITHUB}} at instantiation",
+    "(README step 7) and regenerate. The list binds nothing on its own:",
+    "branch protection on the base branch (README step 6) is what makes",
+    "GitHub require the review, and",
+    "`python3 tools/precedent_boundary_check.py` says whether it is on.",
+    "",
+    "MAP.md and GLOSSARY.md are deliberately NOT owned (2026-09-14). In a",
+    "document project they index content -- orientation-map has every",
+    "thread that adds a document add its row to MAP.md -- so owning them",
+    "made every add-a-document pull request wait for the maintainer, which",
+    "is the bottleneck the boundary exists to avoid. A wrong row in an",
+    "index is a content mistake, and content is the contributor's."
+  ],
+  "maintainers": [
+    {"name": "{{MAINTAINER_NAME}}", "github": "{{MAINTAINER_GITHUB}}"}
+  ],
+  "owned_paths": [
+    {"path": "/.github/", "why": "Workflow files are executable code holding a token; anyone who can edit one can rewrite every other protection here -- including CODEOWNERS, which lives under it. The one path that cannot be left out."},
+    {"path": "/.claude/", "why": "Session configuration and hooks: the harness executes these."},
+    {"path": "/tools/", "why": "The vendored Precedent engine."},
+    {"path": "/precedent/", "why": "The vendored universal practice catalogue."},
+    {"path": "/practices/", "why": "Practice text, wherever this install materializes it."},
+    {"path": "/local/", "why": "Repo-local practice text."},
+    {"path": "/precedent.json", "why": "Declares the sources in force, the visibility, the base branch -- and this boundary."},
+    {"path": "/AGENTS.md", "why": "The instructions every session loads."},
+    {"path": "/CLAUDE.md", "why": "The instructions every session loads."}
   ]
 }

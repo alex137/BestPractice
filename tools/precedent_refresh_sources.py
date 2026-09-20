@@ -30,9 +30,39 @@ WHAT IT DELIBERATELY DOES NOT DO. It never pushes and never opens a pull
 request. `--apply` refreshes the vendored files and regenerates the views,
 and `--commit` will commit that on a branch in the target repo; publishing
 it stays a person's (or a session's) explicit act, per that repo's own
-merge rules, which this tool has no way to know. The unattended path is the
-scheduled workflow the source templates now ship, which runs in the source
-repo itself where its own rules apply.
+merge rules, which this tool has no way to know.
+
+THERE IS NO UNATTENDED PATH, AND THAT IS THE DECISION (2026-09-14). This
+paragraph used to end by naming one -- "the scheduled workflow the source
+templates now ship" -- which was wrong twice over: the templates never
+shipped one (added 2026-09-06, pulled the same day), and as of 2026-09-14
+no repository runs a scheduled engine refresh at all. Morgan, in his own
+words: "I think that engine-refresh.yml is now doing an automatic update
+weekly. Let's stop that. No weekly updates. I had that weeks ago, but we're
+not doing that anymore; this is now really complex and deserves hand
+attention and issues come up every time and I'm on it every day anyway."
+The replacement channel is a person saying "Update Vendors" in a session
+(practices/vendor-update-runbook.md). So this tool's report, and the
+session-start line it prints, are the whole notification story -- if
+nobody is looking, nothing tells anybody.
+
+CLARIFIED 2026-09-15: the paragraph above was about the WEEKLY, unattended
+workflow specifically, not about a session's own bootstrap applying this
+tool's report to its own working tree. Morgan: "my objection was to the
+WEEKLY updates that were automatic; I never objected to START OF SESSION
+checks that are automatic, I LOVE THAT." (strength: decided).
+`.claude/hooks/session-start.sh` now calls this with `--apply`
+unconditionally, every session, for the reason its own comment gives: a
+session working from a BestPractice checkout already has everything this
+tool needs, so applying costs nothing further and closes the round trip
+every earlier session had to make by hand (notice STALE, then run
+--apply). This is still not the retired mechanism -- it runs once, inside
+a session someone is sitting in, against that session's own working tree,
+and it still never commits or pushes on its own; --commit remains a
+separate, explicit flag. The dirty-tree check in the stale loop below
+(added the same day) is what keeps this from being the auto-apply that
+would have made 2026-09-14's decision moot: a source with its own
+uncommitted changes is left alone rather than silently overwritten.
 
 A SECOND THING THIS COVERS, AND WHY IT IS THE SAME TOOL (added
 2026-09-09). A source set also carries its own session hooks -- the
@@ -167,7 +197,7 @@ def declared_paths():
     out = []
     try:
         for s in precedent_resolve.load_config(ROOT):
-            if s.get('level') in ('team', 'individual') and s.get('path'):
+            if s.get('level') in ('shared', 'team', 'individual') and s.get('path'):
                 out.append(pathlib.Path(s['path']).expanduser().resolve())
     except Exception:
         # Any config problem is precedent_resolve's to report, loudly, in
@@ -530,15 +560,22 @@ def apply_to(entry, commit=False, branch=None):
     # SET's views ARE its own practices/, so build_views.py is the whole job
     # there. A CONSUMER's views are materialized from several sources first,
     # and its entry point for that is precedent_sync_views.py; running plain
-    # build_views.py against one renders MAP.md's "## The engine" table over
-    # the consumer's tools/ directory, which holds the consumer's OWN scripts
-    # alongside the vendored engine -- and that table asserts every file
-    # beside the script has a TOOLS_DESCRIPTIONS entry, which a script this
-    # repo wrote can never have for a script it has never seen. Found
-    # 2026-09-14 against a real consumer, on `tools/check_file_mention_links.py`:
-    # the refresh had already written the new engine and then hard-failed
-    # before regenerating anything, leaving exactly the engine-ahead-of-its-
-    # output state the comment above exists to prevent.
+    # build_views.py against one used to render MAP.md's "## The engine"
+    # table over the consumer's whole tools/ directory, which holds the
+    # consumer's OWN scripts alongside the vendored engine, and hard-fail
+    # the moment one of them had no TOOLS_DESCRIPTIONS entry -- a script
+    # this repo wrote can never have one for a script it has never seen.
+    # Found 2026-09-14 against a real consumer, on
+    # `tools/check_file_mention_links.py`: the refresh had already written
+    # the new engine and then hard-failed before regenerating anything,
+    # leaving exactly the engine-ahead-of-its-output state the comment above
+    # exists to prevent. build_views.py's own table-building
+    # (_engine_scope_files()) now scopes that assertion to the files
+    # ENGINE_MANIFEST.json actually recorded as vendored here, so running it
+    # against a consumer no longer hard-fails on the consumer's own
+    # scripts -- but MAP.md and GLOSSARY.md are still not what a consumer's
+    # views should be (see build_views.py's own --agents-only note), so the
+    # routing below is unchanged.
     sync = repo / 'tools' / 'precedent_sync_views.py'
     if entry.get('kind') == 'consumer' and sync.is_file():
         cmd = [sys.executable, 'tools/precedent_sync_views.py', '--repo', '.']
@@ -741,6 +778,20 @@ def main(argv):
     for e in stale:
         e['tip'] = tip
         print(f"\n--- {_label(e['repo'])}")
+        # practice: durable-fix -- session-start.sh now calls --apply
+        # unconditionally, every session, so this guard is what keeps that
+        # safe. Without it, a person's own uncommitted edit in this source
+        # (a new practice file, a hand fix mid-review) would be sitting in
+        # the same working tree that `refresh` and `build_views` write
+        # into, and their diff would land tangled with a regenerated one
+        # they never asked for -- indistinguishable after the fact from
+        # having clobbered it outright.
+        ok_status, dirty = _git('status', '--porcelain', cwd=e['repo'])
+        if ok_status and dirty:
+            print(f"  SKIP refresh: uncommitted changes present in this "
+                  f"source, not auto-applying over them -- commit or stash "
+                  f"there, then re-run")
+            continue
         for name, ok, out in apply_to(e, commit='--commit' in argv):
             print(f"  {'ok ' if ok else 'FAIL'} {name}: {out.splitlines()[-1] if out else ''}")
             failed = failed or not ok

@@ -1,4 +1,4 @@
-<!-- Last updated: 2026-09-03 (Buenos Aires) by a follow-up session, rewriting "What happens as you work" as "How an idea becomes a practice" -->
+<!-- Last updated: 2026-09-14 (Buenos Aires), correcting the precedence paragraph under "Sharing Practices With a Team" to the order the engine actually applies -->
 
 # Precedent
 
@@ -45,7 +45,10 @@ down makes anyone follow it. It measurably does not.
 
 ## Adding It to a Project You Already Have
 
-This is the common case and it should be the shortest.
+This is the common case and it should be the shortest. **You do not do
+these steps yourself**: paste [SETUP.md](../SETUP.md) to your assistant and
+it does them as a conversation, with one command doing the file work. The
+three-step shape below is the idea, not a checklist to follow by hand.
 
 1. Copy Precedent's practice library into your project, as ordinary files
    kept alongside everything else there. It becomes part of the project,
@@ -79,7 +82,7 @@ You make one, you name it in your own settings (not in any shared project),
 and it follows you into every project you work in. You write a personal
 practice once; you never copy it, re-approve it, or remember it in three
 places. There is a worked example to copy in
-[examples/practice-set/](../examples/practice-set).
+[examples/practice-set/](examples/practice-set).
 
 **You don't need this to already exist before you start.** If you don't
 have one yet, just say so — your assistant sets it up in the same
@@ -136,14 +139,16 @@ permission, and offering it to the team is a separate step you can take
 whenever. An approval queue slows down *sharing* a practice, never *using*
 one.
 
-**When two practices disagree**, the more specific one wins: yours beats your
-team's, your team's beats the general library. There is one deliberate
-exception. A team can mark a practice as one that **cannot be overridden** —
-and then it cannot, including by you. Your preference for a casual tone is
-about how you work; your team's rule that anything going to a client is
-formal is about what you all ship, and the second one has to win. Whenever
-that happens, you are told which practice is in force and which one was set
-aside. Nothing is dropped quietly.
+**When two practices disagree, the order is fixed**: your team's rule wins
+over a rule that belongs to the one project, which wins over your own, which
+wins over the general library. The team sits above you on purpose. Your
+preference for a casual tone is about how you work; your team's rule that
+anything going to a client is formal is about what you all ship, and the
+second one has to win. Below the team, your own rules still beat the general
+library, so a personal habit is never overridden by a public default. A
+practice marked as one that **cannot be overridden** stays in force whatever
+sits above it. Whenever two disagree, you are told which practice is in
+force and which one was set aside. Nothing is dropped quietly.
 
 ## How an Idea Becomes a Practice
 
@@ -178,10 +183,10 @@ trusts. Who has to give that yes depends on which of the three it belongs to:
   alone, however sure you are about it — instead it becomes a suggestion
   sitting where an approver will actually see it (a notification wherever
   they already get them), and it lands only once one of them agrees.
-- **Everyone's?** No single person's word is enough here, not even whoever
-  runs this whole shared library — it always goes up for a real, visible
-  review, and someone other than whoever proposed it has to accept it
-  before it's real.
+- **Everyone's?** It always goes up as a real, visible pull request against
+  the shared library, and lands once that PR's own deep check passes —
+  the same gate as any other change there, not a second person's
+  sign-off.
 
 **Then it routes and enforces.** Once it lands, the practice is filed where
 it belongs, shows up when the work calls for it, and — if it can be checked
@@ -226,5 +231,5 @@ you have already decided. It has no opinion about whether you decided well.
 | The full design, and why each part is the way it is | [PRACTICE_ENGINE_PLAN.md](../spec/PRACTICE_ENGINE_PLAN.md) |
 | What a practice file looks like | [spec/PRACTICE_FORMAT.md](../spec/PRACTICE_FORMAT.md) |
 | How the right practices get picked out, and what was measured | [spec/LOADER.md](../spec/LOADER.md) |
-| How the three libraries combine, and which wins | [spec/SOURCES.md](../spec/SOURCES.md) |
-| An example of a personal set | [examples/practice-set/](../examples/practice-set) |
+| How the four sources combine — team, this project's own, yours, the general library — and which wins | [spec/SOURCES.md](../spec/SOURCES.md) |
+| An example of a personal set | [examples/practice-set/](examples/practice-set) |

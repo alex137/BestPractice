@@ -11,7 +11,12 @@ Per the convention-becomes-audit rule, the steps are now a tool; every
 mutation it performs is gated by a check that fails loudly.
 
 Four subcommands — update takes upstream changes IN, the other three drive
-a check-in OUT:
+a check-in OUT. Each takes `--source NAME` to run the same loop for a SHARED
+practice set that ships code (practice: source-naming, 2026-09-18): the
+vendored tree is then process/<name>/, the manifest process/manifest_<name>.json,
+and only the directories the set's own precedent-source.json lists under
+`code` are mirrored; its practices resolve live and are never vendored.
+Without --source the universal set is mirrored whole, as always:
 
   status <upstream-clone>   Compare the vendored tree against the clone's
                             working tree: list Added/Modified/Deleted files
@@ -19,7 +24,7 @@ a check-in OUT:
                             recorded upstream.commit vs the clone's HEAD.
                             Exit 1 if the trees differ (so it can gate).
 
-  update <upstream-clone> [--force]
+  update <upstream-clone> [--force] [--allow-pinned]
                             The INSTALL.md §2 direction: mirror the clone's
                             tree, at the branch THIS install tracks
                             (manifest `upstream.branch`, else the clone's
@@ -30,8 +35,12 @@ a check-in OUT:
                             other than the clone's default: that is
                             spec/MIGRATING_EXISTING_INSTALLS.md's pinned-
                             branch hold, and the remedy is a one-off manual
-                            mirror (override for one run with
-                            PRECEDENT_ALLOW_PINNED_UPDATE=1).
+                            mirror (override for one run with --allow-pinned,
+                            or the equivalent PRECEDENT_ALLOW_PINNED_UPDATE=1
+                            -- prefer the flag: the env var's name reads as a
+                            safety-bypass pattern to at least one harness's
+                            own permission classifier, which refuses it
+                            before checkin.py ever runs).
                             Also REFUSES if the vendored tree differs from
                             the recorded upstream.commit — that difference
                             is unexported local work the mirror would
@@ -98,6 +107,65 @@ _top = subprocess.run(['git', 'rev-parse', '--show-toplevel'], cwd=HERE.parent,
 ROOT = pathlib.Path(_top) if _top else HERE.parents[3]
 UPSTREAM = ROOT / 'process' / 'upstream'
 MANIFEST = ROOT / 'process' / 'manifest.json'
+# `--source NAME` (2026-09-18, practice: source-naming): the same loop for a
+# SHARED practice set that ships code alongside its practices. The
+# vendored tree is process/<name>/, its manifest process/manifest_<name>.json,
+# and only the directories the set's own precedent-source.json lists under
+# `code` are mirrored -- the practices themselves resolve live from the
+# sibling clone and are never vendored. With no --source the universal set
+# is mirrored whole, exactly as before.
+SOURCE = None
+SOURCE_MANIFEST = 'precedent-source.json'
+CODE_DIRS = None
+
+
+def _select_source(name):
+    global SOURCE, UPSTREAM, MANIFEST
+    SOURCE = name
+    UPSTREAM = ROOT / 'process' / name
+    MANIFEST = ROOT / 'process' / f'manifest_{name}.json'
+
+
+def _read_source_manifest(clone):
+    """-> the clone's own precedent-source.json (dict) or {}. Read from the
+    tracked branch's remote ref when it has one, so the working tree's state
+    is never what decides what gets mirrored."""
+    for ref in (f'origin/{_tracked_branch(clone)}', 'HEAD'):
+        rc, out = _git_rc(clone, 'show', f'{ref}:{SOURCE_MANIFEST}')
+        if rc == 0 and out.strip():
+            try:
+                return json.loads(out)
+            except ValueError:
+                sys.exit(f"checkin FAIL: {clone}'s {SOURCE_MANIFEST} at {ref} is not "
+                         f"valid JSON")
+    f = clone / SOURCE_MANIFEST
+    if f.is_file():
+        try:
+            return json.loads(f.read_text(encoding='utf-8'))
+        except ValueError:
+            sys.exit(f"checkin FAIL: {f} is not valid JSON")
+    return {}
+
+
+def _bind_source(clone):
+    """With --source: the clone must be the set it is declared to be, and
+    its manifest decides which directories are code. Identity is read off
+    the source, never inferred from a name."""
+    global CODE_DIRS
+    if SOURCE is None:
+        return
+    m = _read_source_manifest(clone)
+    own = m.get('name')
+    if own and own != SOURCE:
+        sys.exit(f"checkin FAIL: {clone} calls itself {own!r} in its "
+                 f"{SOURCE_MANIFEST}; --source named {SOURCE!r}. Point at the "
+                 f"right clone, or declare the source by the name it gives itself.")
+    dirs = [str(d).strip().strip('/') for d in (m.get('code') or []) if str(d).strip()]
+    if not dirs:
+        sys.exit(f"checkin FAIL: {clone}'s {SOURCE_MANIFEST} lists no `code` "
+                 f"directories, so there is nothing to vendor -- a set whose "
+                 f"practices resolve live needs no mirror at all.")
+    CODE_DIRS = dirs
 
 
 def _same_commit(a, b):
@@ -165,7 +233,146 @@ def _rev_parse_quiet(clone, ref):
 # directory simply stops being told it drifted; deleting the stale copy is
 # the consumer's own next re-vendor, not something this tool reaches in and
 # does.
-NOT_VENDORED = frozenset({'evals'})
+# `philosophy/` is the second entry, added 2026-09-14 after Morgan read the
+# vendoring instructions and asked why it was in them at all: it is the
+# argument FOR the ideas Precedent implements -- essays, notes, rules being
+# tried -- and it is neither part of the system nor instructions for using it.
+# The repo already says so in two places and had not joined them up:
+# local/practices/philosophy-is-not-repo-policy.md says philosophy/ binds
+# nothing outside itself, and spec/DOCUMENT_LIFECYCLE.md's placement table
+# sorts every directory by AUDIENCE -- documentation/ is "someone using
+# Precedent on their own project", which is exactly who a vendored tree is
+# for, and philosophy/ is not in that table at all. A consumer was cloning,
+# scanning and scrubbing a case for adopting a thing they had adopted.
+#
+# No link goes dead: doc_lint.py skips the link check inside a mirrored tree
+# outright (see check_broken_links), so the references into philosophy/ from
+# the vendored README.md, METHOD.md and MAP.md report nothing in a consumer.
+# The two checks that read philosophy/ (verify_harness.py) already report
+# not-applicable when the directory is absent rather than passing blind.
+#
+# Five more joined 2026-09-17, checked against spec/DOCUMENT_LIFECYCLE.md's
+# own audience table (contributor/session-building-Precedent = cut,
+# adopter/session-using-Precedent = keep) -- but the table alone is not what
+# decided any of these; each was verified against its ACTUAL current
+# content first, because the table's classification of one candidate
+# (gotchas/, considered and rejected -- see below) turned out to be wrong on
+# a real consumer and nearly cost 52 lines of live content:
+#
+#   spec/, todo/, decisions/, deck/ -- BestPractice's own build plans,
+#   backlog and dated design decisions about the ENGINE, plus pitch-deck
+#   tooling. Every citation into these four from a vendored (resident or
+#   universal) practice file is a full external github.com URL, not a local
+#   relative link -- the same pattern already accepted for philosophy/ -- so
+#   a consumer session can always follow the citation over the network; it
+#   never depends on a local copy under process/upstream/.
+#
+#   record/ -- the closer call of the five, flagged rather than asserted.
+#   It is NOT what spec/DOCUMENT_LIFECYCLE.md's still-unexecuted migration
+#   proposal describes (that would move BestPractice's own phase briefs
+#   here; none of that has landed). What actually lives in record/ today is
+#   record/GOTCHAS.md and record/GOTCHAS_ARCHIVE.md -- the pre-migration,
+#   monolithic predecessor to the current gotchas/*.md per-file split, kept
+#   as the fuller story text and cited by #gN anchor from several resident
+#   practices (session-text.md, very-deep-check.md, grep-before-search.md,
+#   chief-of-staff.md, vendor-update-runbook.md). Those citations are also
+#   full external URLs (same reasoning as above), and the LIVE, current
+#   mechanism -- gotchas/*.md -- is not excluded (below). record/GOTCHAS.md
+#   itself carries `audience: session` in its own frontmatter, which reads
+#   against excluding it; this was weighed and record/ was excluded anyway
+#   on the strength of the external-URL pattern and the gotchas/*.md split
+#   already covering the live/operational half. Reopen this one specifically
+#   if a session hits a case where the local copy was actually needed.
+#
+# CONSIDERED AND REJECTED: gotchas/. The original candidate list (drafted
+# from a check-in session's own experience in a consumer repo) grouped it
+# with todo/decisions/ by name-association, but its actual content is
+# troubleshooting for RUNNING the vendored tooling (checkin.py itself,
+# freshness-guard.sh, add_repo interactions, precedent_check.py), not
+# planning for building it -- and it is reached the one way none of the
+# above are: environment-gotchas.md, a RESIDENT universal practice, has its
+# own Rule say "hit an unexplained failure, grep `gotchas/` before
+# concluding it's new." A grep is a local filesystem operation; it finds
+# nothing that is not actually vendored. Excluding gotchas/ would have left
+# that instruction pointing at an empty directory in every consumer.
+#
+# ALSO CONSIDERED, kept IN: examples/ (now documentation/examples/, moved
+# 2026-09-19 -- see below). Its README says plainly what it is for -- "here
+# so that someone setting up their own [personal practice set] has
+# something concrete to copy" -- which is an adopter activity (a consumer
+# building their OWN practice set), not a contributor activity. Because it
+# now lives under documentation/, which was never itself a NOT_VENDORED
+# candidate, it is not even reachable by this comment's own top-level
+# component-match test any more -- the move settles the audience question
+# structurally instead of by a name-based judgment call.
+#
+# The move followed a relayed, unverified claim that a consumer repo was
+# hand-deleting this directory after every Update Vendors pass; rather than
+# exclude adopter-facing content on hearsay, it was relocated into
+# documentation/ (the tree the repo's own audience table already assigns to
+# "someone using Precedent on their own project") and a revisit was filed:
+# todo/todo-2026-09-19-revisit-examples-vendoring.md. The staleness worry
+# behind the same claim is separately covered by
+# tools/verify_harness.py's check_example_set, which parses and resolves
+# this example against the CURRENT format on every deep check and fails if
+# it drifts -- so nothing new was built for that half of the concern.
+#
+# ALSO CONSIDERED, but out of THIS mechanism's scope: top-level .claude/ and
+# .github/ (BestPractice's own dev/CI config, distinct from
+# templates/harness/claude-code/ and templates/github-actions/, the actual
+# instantiation sources -- confirmed absent from
+# precedent_vendor_engine.py's CONSUMER_ENGINE_FILES and unreferenced
+# anywhere as process/upstream/.claude or process/upstream/.github) and
+# local/ (BestPractice's own repo-local practice layer -- vendoring a
+# repo-local layer into another repo is a category error by definition; no
+# reference to "upstream/local" or "upstream.local" found anywhere in this
+# repo's own tooling). Both read as clear NOT_VENDORED candidates on the
+# same audience test, but adding them is deferred rather than folded in
+# here silently -- flag for confirmation before extending NOT_VENDORED to
+# non-spec-lifecycle top-level directories.
+NOT_VENDORED = frozenset({'evals', 'philosophy', 'spec', 'todo', 'decisions',
+                          'deck', 'record'})
+
+# Root-only exclusions -- matched by exact top-level path, NEVER as a path
+# component the way NOT_VENDORED is. `_files()`'s component match is right
+# for a subject-matter directory (the same "gotchas" can only ever mean
+# BestPractice's own gotchas/ at the top level) but wrong here: component
+# matching on 'AGENTS.md'/'CLAUDE.md' would ALSO catch
+# templates/harness/claude-code/CLAUDE.md and
+# templates/document-project/AGENTS.md -- real TEMPLATE SOURCES a consumer
+# instantiates from (INSTALL.md sec.2), not copies of this repo's own root
+# files. Confirmed both exist and must stay vendored before adding this.
+#
+# Why exclude the root files at all, added 2026-09-17: AGENTS.md/CLAUDE.md
+# are the one class of vendored file a harness auto-loads BY FILENAME as
+# live instructions for whatever directory a session is working in --
+# every other vendored file is read only when something goes looking for
+# it. This repo's own root AGENTS.md has an explicit internal divider
+# ("The rest of this file (below) is BestPractice's own pre-fork
+# orientation") separating a generic loader section from content that is
+# BestPractice talking about itself ("Default branch is main... this repo
+# is public and is the shared upstream", "Most changes arrive as check-in
+# PRs from dependent repos") -- and the whole file, tail included, was
+# vendored as an ordinary byte-for-byte mirror. On 2026-09-17 that tail
+# bled into a real consumer session as if it were live instructions about
+# THAT repo's own workflow.
+#
+# Truncating just the tail at that divider was the first design tried and
+# was rejected: _diff() and everything built on it (record()'s
+# byte-identical verification, push()'s mirror-BACK guard, _carry_check())
+# assume the vendored tree is either byte-identical to source or fully
+# absent -- nothing in this tool has a third state of "present but
+# deliberately transformed". Giving AGENTS.md that third state means
+# teaching every one of those functions to compare through a transform
+# instead of raw bytes, for one file, forever -- and getting push() wrong
+# once means a consumer's local truncated copy overwrites this repo's own
+# real AGENTS.md. Full exclusion costs nothing a consumer needs: their own
+# root AGENTS.md already carries ITS OWN generic loader section, generated
+# fresh from ITS OWN attached sources (templates/AGENTS.md.template),
+# never derived from this file -- so there is no loader content to lose,
+# only the self-referential tail that was the actual problem.
+NOT_VENDORED_ROOT_FILES = frozenset({'AGENTS.md', 'CLAUDE.md'})
+_NOT_VENDORED_ROOT_PATHS = frozenset(pathlib.Path(n) for n in NOT_VENDORED_ROOT_FILES)
 
 
 def not_vendored_share(base=None):
@@ -184,7 +391,8 @@ def not_vendored_share(base=None):
         if p.suffix in ('.pyc', '.pyo'):
             continue
         total += 1
-        if any(part in NOT_VENDORED for part in p.parts):
+        rel = p.relative_to(base)
+        if any(part in NOT_VENDORED for part in rel.parts) or rel in _NOT_VENDORED_ROOT_PATHS:
             excluded += 1
             try:
                 excluded_bytes += p.stat().st_size
@@ -202,11 +410,20 @@ def _files(base):
     # diverged from main's with its own fixes and never picked this one up;
     # see AGENTS.md's gotchas section on re-checking main for drift before
     # phase 5.)
-    return {p.relative_to(base) for p in base.rglob('*')
-            if p.is_file() and '.git' not in p.parts
-            and '__pycache__' not in p.parts
-            and not any(part in NOT_VENDORED for part in p.parts)
-            and p.suffix not in ('.pyc', '.pyo')}
+    files = {p.relative_to(base) for p in base.rglob('*')
+             if p.is_file() and '.git' not in p.parts
+             and '__pycache__' not in p.parts
+             and not any(part in NOT_VENDORED for part in p.parts)
+             and p.relative_to(base) not in _NOT_VENDORED_ROOT_PATHS
+             and p.suffix not in ('.pyc', '.pyo')}
+    if CODE_DIRS is not None:
+        # A shared set's mirror is its declared code directories and nothing
+        # else -- never its manifest (a private set's manifest in a consumer's
+        # tree is what the leak gate refuses), never its practices.
+        files = {f for f in files
+                 if any(f.as_posix() == d or f.as_posix().startswith(d + '/')
+                        for d in CODE_DIRS)}
+    return files
 
 
 def _diff(clone):
@@ -418,7 +635,7 @@ def _tracked_branch(clone):
     return recorded or _default_branch(clone)
 
 
-def _pinned_branch_hold(clone):
+def _pinned_branch_hold(clone, allow=False):
     """Refuse `update` while this install is pinned to a non-default branch.
 
     spec/MIGRATING_EXISTING_INSTALLS.md's "The default-branch gotcha" has
@@ -452,8 +669,21 @@ def _pinned_branch_hold(clone):
     is the hold's own, recorded by Morgan 2026-09-06: guessing wrong here
     costs a silent overwrite of a repo's practices, and refusing wrongly
     costs one manual mirror.
+
+    THE OVERRIDE HAS TWO SPELLINGS, and the CLI one is the one to reach for
+    first. `--allow-pinned` and `PRECEDENT_ALLOW_PINNED_UPDATE=1` do the
+    same thing; the flag exists because the env var alone doesn't. Reproduced
+    2026-09-17 from a real pinned-branch consumer: Claude Code Web's own
+    permission classifier refused the env-var form outright, before
+    checkin.py ever ran -- the name matches the shape it looks for ("ALLOW"
+    overriding a hold) closely enough to read as a safety-bypass flag to the
+    harness, not just to this tool. Every pinned-branch consumer running
+    under it hit that same refusal on every Update Vendors pass. The env var
+    still works for scripts and other harnesses that don't classify it that
+    way; the flag is what a session running under a classifier like that
+    should type instead.
     """
-    if os.environ.get('PRECEDENT_ALLOW_PINNED_UPDATE') == '1':
+    if allow or os.environ.get('PRECEDENT_ALLOW_PINNED_UPDATE') == '1':
         return
     pinned = (_manifest().get('upstream', {}) or {}).get('branch')
     if not pinned:
@@ -469,20 +699,80 @@ def _pinned_branch_hold(clone):
         f"gotcha\" holds `checkin.py update` while a non-default branch is "
         f"pinned: vendor as a one-off manual mirror instead -- replace the "
         f"vendored tree wholesale from a checkout of {pinned!r} -- and leave "
-        f"the scheduled sync's `schedule:` block commented out.\n"
+        f"the sync workflow on `workflow_dispatch` only. Its `schedule:` "
+        f"block is gone for good since 2026-09-14, not paused pending this "
+        f"hold: nothing schedules a vendor update any more, so lifting the "
+        f"hold does not bring a clock back.\n"
         f"  The hold lifts when {pinned!r} merges into the default branch and "
         f"this repo's process/manifest.json is repointed there; this guard "
         f"then stops firing by itself.\n"
         f"  Deliberate override, for one run: "
-        f"PRECEDENT_ALLOW_PINNED_UPDATE=1 checkin.py update ...")
+        f"checkin.py update ... --allow-pinned (or, if you're not running "
+        f"under a harness that flags the env var as a bypass: "
+        f"PRECEDENT_ALLOW_PINNED_UPDATE=1 checkin.py update ...)")
 
 
-def update(clone, force=False):
+def _report_excluded_content():
+    """Print what is sitting under a NOT_VENDORED path in the vendored tree,
+    every `update` run, whether or not anything else changed this hop.
+
+    Never deletes anything -- this is the mechanism fix for the failure
+    that motivated it: `_files()`'s NOT_VENDORED filter already stops
+    comparing an excluded path going forward, but a path excluded AFTER a
+    tree was already vendored just sits there, invisible to every later
+    `update`, because nothing ever looked at it again. That is exactly what
+    happened to philosophy/ and evals/ in a real consumer repo -- vendored
+    2026-09-12, excluded 2026-09-14, still sitting there three days later
+    with nothing pointing at them, until an unrelated check (record()'s
+    _carry_check, which walks the tree unfiltered) flagged 52 real lines as
+    "lost" and nearly had them discarded by an --accept-loss call before a
+    human caught it.
+    (practice: durable-fix -- this is the mechanism fix, not the one-time
+    manual cleanup a consumer's own re-vendor would otherwise have to
+    remember to do.)
+
+    Deliberately NOT auto-delete: NOT_VENDORED is a per-repo judgment call
+    about what is operational, and it has already been wrong once on a real
+    consumer (gotchas/ was drafted for exclusion, then confirmed to still be
+    load-bearing -- see the comment on NOT_VENDORED itself). Pairing a
+    fallible judgment call with automatic, silent deletion across every
+    consumer on every run is a worse failure mode than the stale-content
+    problem this closes: a wrong exclusion would DESTROY content instead of
+    merely ignoring it. Reporting loudly and leaving removal to a human
+    keeps the fix reversible. tools/very_deep_check.py's matching finding
+    is the audit-time half of the same signal, for a consumer that never
+    happens to run `update` again.
+    """
+    if not UPSTREAM.is_dir():
+        return
+    hits = {}
+    for p in UPSTREAM.rglob('*'):
+        if not p.is_file() or '.git' in p.parts:
+            continue
+        rel = p.relative_to(UPSTREAM)
+        excluded = [part for part in rel.parts if part in NOT_VENDORED]
+        if not excluded and rel in _NOT_VENDORED_ROOT_PATHS:
+            excluded = [str(rel)]
+        if excluded:
+            hits[excluded[0]] = hits.get(excluded[0], 0) + 1
+    if not hits:
+        return
+    names = ', '.join(sorted(hits))
+    total = sum(hits.values())
+    rm = ' '.join(f'process/upstream/{n}' for n in sorted(hits))
+    print(f"checkin update: {total} stale file(s) under excluded path(s) still in "
+          f"the vendored tree: {names} (excluded from vendoring, so no longer "
+          f"compared or refreshed -- present because they were vendored before "
+          f"being excluded, or copied in by hand). Not removed automatically: "
+          f"confirm nothing there is still needed, then  git rm -r {rm}  and commit.")
+
+
+def update(clone, force=False, allow_pinned=False):
     """INSTALL.md §2 step 5: mirror the clone's tree at the branch this
     install tracks into the vendored tree, refusing to clobber unexported
     local work. Reads the clone; never checks it out, pulls in it, or moves
     its HEAD."""
-    _pinned_branch_hold(clone)
+    _pinned_branch_hold(clone, allow=allow_pinned)
     branch = _tracked_branch(clone)
     # Fetch updates remote-tracking refs only -- it does not touch the
     # clone's working tree, HEAD, or any local branch.
@@ -531,6 +821,7 @@ def update(clone, force=False):
             _stamp_synced_from(src_ref)
             print(f"checkin update: vendored tree already identical to "
                   f"{branch} @ {src_ref[:12]} — nothing to do.")
+            _report_excluded_content()
             return 0
         for p in vendored_only:
             (UPSTREAM / p).unlink()
@@ -543,6 +834,7 @@ def update(clone, force=False):
           f"{src_ref[:12]})")
     print("next: propagate template changes into instantiated files (INSTALL.md §2),")
     print("      update manifest entries, then run:  checkin.py record " + str(clone))
+    _report_excluded_content()
     return 0
 
 
@@ -783,7 +1075,11 @@ def record(clone, note, accept_loss=False):
                  f"merge/pull upstream first (or push the missing export); nothing recorded")
     head = _git(clone, 'rev-parse', 'HEAD')
     manifest = _manifest()
-    old = manifest['upstream'].get('commit')
+    up = manifest.setdefault('upstream', {})
+    if SOURCE and 'source' not in manifest:
+        manifest['source'] = SOURCE
+        up.setdefault('branch', _tracked_branch(clone))
+    old = up.get('commit')
     manifest['upstream']['commit'] = head
     # record() has just verified the vendored tree is byte-identical to what
     # landed upstream -- which is STRONGER evidence of currency than the mirror
@@ -800,7 +1096,7 @@ def record(clone, note, accept_loss=False):
     MANIFEST.write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + '\n',
                         encoding='utf-8')
     print(f"checkin record OK: upstream.commit {old} -> {head}")
-    print("next: commit process/manifest.json in this repo.")
+    print(f"next: commit {MANIFEST.relative_to(ROOT)} in this repo.")
     return 0
 
 
@@ -820,9 +1116,10 @@ def main():
             print(f"checkin not-vendored: nothing to measure under {base} -- "
                   f"no files found, so this figure is not zero, it is unknown")
             return 1
-        names = ', '.join(sorted(NOT_VENDORED)) or '(nothing excluded)'
+        names = ', '.join(sorted(NOT_VENDORED) + sorted(NOT_VENDORED_ROOT_FILES)) \
+            or '(nothing excluded)'
         print(f"tree measured:  {base}")
-        print(f"excluded dirs:  {names}")
+        print(f"excluded:       {names}")
         # Bytes, explicitly labelled: `du` reports DISK BLOCKS, and 557 small
         # files round up to roughly four times their real size at a 4K block.
         # A session quoting "2.4 MB" from `du` next to "557 files" from here
@@ -836,13 +1133,21 @@ def main():
         print("practices/ is never excluded -- this is measurement fixtures, "
               "not rules.")
         return 0
+    if '--source' in args:
+        i = args.index('--source')
+        if i + 1 >= len(args):
+            sys.exit('checkin FAIL: --source needs the set\'s name')
+        _select_source(args[i + 1])
+        args = args[:i] + args[i + 2:]
     if len(args) < 2 or args[0] not in ('status', 'update', 'push', 'record'):
         sys.exit(__doc__)
     clone = _clone_or_die(args[1])
+    _bind_source(clone)
     if args[0] == 'status':
         return status(clone)
     if args[0] == 'update':
-        return update(clone, force='--force' in args)
+        return update(clone, force='--force' in args,
+                     allow_pinned='--allow-pinned' in args)
     if args[0] == 'push':
         return push(clone, force='--force' in args)
     note = args[args.index('--note') + 1] if '--note' in args else ''

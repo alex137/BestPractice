@@ -156,8 +156,8 @@ python3 tools/precedent_bootstrap_source.py --level team \
     --approver "Morgan:<github-handle>"
 ```
 
-This copies [templates/practice-set-team/](../templates/practice-set-team/)
-(`practices/` and an `example-starter.md` to delete once a real first
+This copies [templates/practice-set-shared/](../templates/practice-set-shared/)
+(`practices/` and an `example-starter-shared.md` to delete once a real first
 practice replaces it, `approvers.json`, a `leak-blocklist.txt` — included by
 the skeleton, not something this plan needs to populate or switch on, since
 nothing in this new repo is checked into the public Precedent tree unless a

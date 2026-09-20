@@ -32,6 +32,16 @@ deliverables and indexes which documents back each part of each one.
 
 - At session start, run `bash tools/bootstrap.sh` before other work (harnesses
   with a hook mechanism run it automatically — see `templates/harness/`).
+- **A session already scoped to more than one repo from the start — not one
+  attached mid-session — never gets this automatically for ANY of them.** A
+  harness's own SessionStart hook (which sets `commit-author`'s declared
+  identity and installs its pre-commit backstop) fires only for its
+  *primary* project directory; a sibling repo in the same multi-repo session
+  is never that, for the session's entire duration, not just its first turn
+  (practice `session-bootstrap`). Run `bash tools/bootstrap.sh` by hand,
+  once per repo, before that repo's first commit — the existing fallback
+  for a harness with no hook mechanism at all applies here for the same
+  reason.
 
 ### Two check levels
 
@@ -43,8 +53,9 @@ deliverables and indexes which documents back each part of each one.
 - **Light check** — `python3 process/upstream/tools/doc_lint.py` on the markdown you touched.
   Fast, run before every commit without thinking about it. Gates a commit.
 - **Deep check** — the full suite: `python3 process/upstream/tools/precedent_check.py`,
-  `python3 process/upstream/tools/practice_audit.py`, and `<your own audits>`.
-  Gates a push and a merge.
+  `python3 process/upstream/tools/practice_audit.py`, `python3 tools/precedent_sync_views.py --repo . --check`
+  (only if this repo declares any source beyond universal in `precedent.json`),
+  and `<your own audits>`. Gates a push and a merge.
 
 ### Build-environment gotchas — do NOT rediscover these
 

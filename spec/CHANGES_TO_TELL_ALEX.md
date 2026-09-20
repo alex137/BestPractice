@@ -53,9 +53,9 @@ Before the list: **how much of this catalogue enforces itself.**
 <!--gen:merge-back-->
 | | |
 |---|---|
-| Practices in force | 116 |
-| **Enforced by a check** | **46 of 116 practices carry a `checked_by`** |
-| Advisory only | 70 of 116 practices |
+| Practices in force | 133 |
+| **Enforced by a check** | **48 of 133 practices carry a `checked_by`** |
+| Advisory only | 85 of 133 practices |
 <!--/gen:merge-back-->
 
 **Advisory means a session is told the rule and may still not follow it**, and
@@ -625,7 +625,7 @@ pull request). Naming a standing trio is new normative content.
 
 **Where it landed besides the practice**: [INSTALL.md](../INSTALL.md) §1 step 10
 and §0 step 9, [SETUP.md](../SETUP.md) step 7 (the guided conversation's
-plain-language wording), [GITHUB_ACTIONS.md](../GITHUB_ACTIONS.md) beside the
+plain-language wording), [GITHUB_ACTIONS.md](../documentation/GITHUB_ACTIONS.md) beside the
 workflow the two Actions settings affect, and a "Settings Only You Can Turn
 On" section in
 [templates/GETTING_STARTED.md](../templates/GETTING_STARTED.md) so every
@@ -676,9 +676,9 @@ and this repository had neither the rule nor the script.
 landed at universal the same day with a real check in
 [tools/precedent_check.py](../tools/precedent_check.py) — the promotion half of
 [spec/MOVING_PRACTICES.md](MOVING_PRACTICES.md)'s two-step. The
-individual copy is still standing; deduplicating it needs a session that can
-reach that repository, and is queued at
-[TODO.md's `deduplicate-practice-links-travel` item](../TODO.md#deduplicate-practice-links-travel).
+individual copy's deduplication was tracked at TODO.md's
+`deduplicate-practice-links-travel` item, since closed and pruned (done
+2026-09-11): the individual copy is now `status: deduplicated`.
 
 **The public/private answers differ on purpose, and the practice says so.**
 An absolute URL is right from a public upstream and wrong from a private set,
@@ -1024,6 +1024,6 @@ before.
 
 The file lists, the reason an earlier rehearsal concluded the opposite, and
 the same hazard in the reverse direction are in
-[TODO.md's `retire-merge-target-practice` item](../TODO.md#retire-merge-target-practice).
+[TODO.md's `retire-merge-target-practice` item](../todo/todo-2026-09-06-retire-merge-target-practice.md).
 
 Numbers by: catalogue_stats.py

@@ -20,23 +20,49 @@ log, final assistant message included, on disk, before the hook runs
 model and the turn continues -- so a reply that broke the rule is rewritten
 before the person ever sees it. That is enforcement, not a reminder.
 
-WHAT IT CHECKS, AND WHY NOT ONE WORD OF IT IS IN THIS FILE. The requirement
-this was built for is an INDIVIDUAL practice -- one person's standing rule
-about how replies to him close. Compiling his two sentences into the
-universal engine would bind every adopter of Precedent to one person's reply
-convention, which is exactly the reach mistake practices/rule-level-by-reach
-exists to stop. So the engine ships the MECHANISM and every source declares
-its own requirements, in a `reply_check.json` at the source root:
+WHAT IT CHECKS, AND WHY NOT ONE WORD OF IT IS IN THIS FILE. Nothing here
+says how a reply should end. The engine ships the MECHANISM, and every
+source declares its own requirements, in a `reply_check.json` at the source
+root. The shape, with an invented requirement so the example is not
+mistaken for a live declaration:
 
     {
-      "practice": "next-steps-after-commit",
-      "require_heading_matching": "next step",
-      "require_one_of": ["You can close this session",
-                         "Don't close this session"],
-      "why": "so I never have to re-read a reply to find out what is on me"
+      "practice": "<the slug this enforces>",
+      "require_heading_matching": "what I need from you",
+      "require_one_of": ["Nothing is blocked", "Blocked on:"],
+      "why": "<what goes wrong when the reply omits it>"
     }
 
-A source may declare one requirement (an object) or several (a list).
+A source may declare one requirement (an object) or several (a list). Add
+`"advisory": true` to a requirement and an unmet one is still detected and
+named (by `violations()`, to whoever reads `--explain` or calls this
+programmatically) but never enters the blocking set `main()` acts on --
+so it can never refuse a turn. That is the one way this file's mechanism
+stops being "enforcement, not a reminder" for a specific requirement,
+deliberately: a source declares `advisory` when it wants the SHAPE of a
+recommendation -- reviewed, stated one way or the other -- without the
+gate that gave next-steps-after-commit its teeth. (the-boildown's own
+compact-check and archive-line requirements are the first to use it,
+2026-09-17.)
+
+THAT SPLIT IS STILL THE POINT, AND ONE REQUIREMENT HAS SINCE CROSSED IT.
+`next-steps-after-commit` -- the closing `## Next Steps` heading and one of
+two session-disposition sentences -- was an INDIVIDUAL practice when this
+file was written, and this docstring used it as the worked example of
+something the engine must not compile into itself: binding every adopter of
+Precedent to one person's reply convention is exactly the reach mistake
+practices/rule-level-by-reach exists to stop. Morgan moved it to universal
+on 2026-09-14 (*"I think we should move the next steps at the end to be
+universal"*), so it is now declared in THIS repository's own
+reply_check.json and does bind every adopter -- deliberately, and said out
+loud in the pull request that moved it rather than left to be discovered.
+
+That changes which source declares one requirement. It changes nothing
+about the mechanism: this file still has no requirement of its own, reads
+every source's declaration the same way, and a repo where no source
+declares one checks nothing and says nothing. A source that wants different
+wording than the universal declaration has no override key yet; that is
+real follow-up work, not a property of the split.
 
 WHAT A REQUIREMENT MAY BE CONDITIONED ON. `require_when_context_grew_tokens`
 makes a requirement fire only once the conversation has grown by that many
@@ -229,7 +255,17 @@ def _norm(s):
 def violations(text, reqs, timeline=None):
     """-> list of records, one per unmet requirement:
 
-        {'kind': 'heading' | 'sentence', 'message': <human-readable>}
+        {'kind': 'heading' | 'sentence', 'message': <human-readable>,
+         'advisory': bool}
+
+    `advisory` mirrors the requirement's own `"advisory": true` declaration
+    (default false). main() still detects and names an unmet advisory
+    requirement -- a session should still hear about it -- but never lets
+    one refuse the turn: `advisory` marks a recommendation the person can
+    take or leave, not a shape the reply must have. (Morgan, 2026-09-17,
+    on the-boildown's own compact/archive lines specifically: give the
+    honest answer after actually reviewing which situation applies, "and
+    note these aren't binding, it's just recommendations.")
 
     The KIND is the reason this returns records rather than the plain strings
     it used to. A reply that is missing the HEADING has to write the whole
@@ -269,8 +305,9 @@ def violations(text, reqs, timeline=None):
         heading_present = None
         if pat:
             heading_present = any(re.search(pat, h, re.I) for h in headings)
+        advisory = bool(r.get('advisory'))
         if pat and not heading_present:
-            out.append({'kind': 'heading', 'message': (
+            out.append({'kind': 'heading', 'advisory': advisory, 'message': (
                 f"[{r.get('_source', '?')}] this reply has no MARKDOWN HEADING "
                 f"matching /{pat}/i. Bold text is not a heading -- the closing "
                 f"list has to be a real `## ` heading, or it is exactly as "
@@ -278,16 +315,17 @@ def violations(text, reqs, timeline=None):
                 + (f" (practice: {r['practice']})" if r.get('practice') else ''))})
         one_of = r.get('require_one_of') or []
         if one_of and not any(_norm(o) in _norm(text) for o in one_of):
-            out.append({'kind': 'sentence', 'message': (
+            out.append({'kind': 'sentence', 'advisory': advisory, 'message': (
                 f"[{r.get('_source', '?')}] this reply says none of: "
                 + '; '.join(f'"{o}"' for o in one_of)
-                + ". One of them has to be there, in those words -- an absent "
-                  "line and a 'nothing is outstanding' line look identical on "
-                  "the page and mean opposite things."
+                + ("." if advisory else
+                   ". One of them has to be there, in those words -- an absent "
+                   "line and a 'nothing is outstanding' line look identical on "
+                   "the page and mean opposite things.")
                 + (" Your reply ALREADY CARRIES the heading this belongs "
                    "under, so add the sentence as one more line there -- do "
                    "NOT write that section a second time."
-                   if heading_present else '')
+                   if heading_present and not advisory else '')
                 + (f" ({r['_context_note']})" if r.get('_context_note') else '')
                 + (f" (practice: {r['practice']})" if r.get('practice') else ''))})
     return out
@@ -320,6 +358,8 @@ def main():
                 bits.append("ONLY once the context has grown "
                             f"{int(r['require_when_context_grew_tokens']):,} "
                             "tokens since that was last said")
+            if r.get('advisory'):
+                bits.append("ADVISORY -- named when unmet, never blocks")
             print(f"  {r.get('_source')}: " + ', '.join(bits))
         return 0
 
@@ -352,7 +392,7 @@ def main():
     # this block?" about a tool-only turn.
     if not reqs or not text.strip():
         return 0
-    bad = violations(text, reqs, timeline)
+    bad = [b for b in violations(text, reqs, timeline) if not b.get('advisory')]
     if not bad:
         return 0
     # The reply that was just refused has ALREADY been shown to the person --

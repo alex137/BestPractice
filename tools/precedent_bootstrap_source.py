@@ -8,7 +8,7 @@ repo already exists somewhere -- INSTALL.md step 9 and SETUP.md step 2 both
 ask "do you already have one?" and simply stop if the answer is no. Nothing
 in this repo has ever handed a new adopter a place to start. This tool does:
 it instantiates templates/practice-set-individual/ or
-templates/practice-set-team/ into a target directory, fills in the owner's
+templates/practice-set-shared/ into a target directory, fills in the owner's
 name (and, for a team, its first approver), and prints -- or, opted in,
 writes -- the exact wiring a consuming repo or a person's own environment
 needs next. See spec/BOOTSTRAP_NEW_SOURCES.md for the full procedure this
@@ -77,13 +77,15 @@ import sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+import precedent_identity
 import precedent_resolve
 import precedent_vendor_engine
 
-LEVELS = {'individual', 'team'}
+LEVELS = {'individual', 'shared'}
+LEVEL_ALIASES = {'team': 'shared'}   # the pre-2026-09-18 spelling still reads
 SKELETONS = {
     'individual': ROOT / 'templates' / 'practice-set-individual',
-    'team': ROOT / 'templates' / 'practice-set-team',
+    'shared': ROOT / 'templates' / 'practice-set-shared',
 }
 DEFAULT_USER_CONFIG = pathlib.Path.home() / '.config' / 'precedent' / 'config.json'
 USER_CONFIG_ENV = 'PRECEDENT_USER_CONFIG'
@@ -189,22 +191,56 @@ HARNESS_SETTINGS_REL = 'templates/harness/claude-code/settings.json'
 
 WORKFLOW_TEMPLATES = (
     # (template under templates/github-actions/, path in the new set, why a
-    # set without it is under-gated -- the reason is per-workflow because
-    # they cover different things, and a shared sentence went stale the
-    # moment one of them changed. It did: this tuple's reason used to be a
-    # single hardcoded string in verify() still claiming that
-    # precedent_check.py's provenance check "skips itself in a source set",
-    # which binds_publishers (#261) made false on 2026-09-12.)
-    ('views-drift.yml.template', '.github/workflows/views-drift.yml',
-     'nothing checks this set\'s generated views for drift on a pull '
-     'request -- the vendored provenance check covers the same three views '
-     'since binds_publishers, but only when somebody runs it by hand'),
+    # set without it is under-gated.)
+    #
+    # ONE ENTRY, NOT TWO, since 2026-09-19: this used to be
+    # views-drift.yml.template and precedent-check.yml.template separately,
+    # each its own workflow file with its own debounce step. Merged the same
+    # day precedent-check.yml.template's own header explains why (two
+    # workflows billed two job-minutes on a debounced push regardless of
+    # what the debounce window decided; one workflow with the debounce
+    # decision in its own gating job bills one). The views-drift CHECK
+    # still exists -- it is a job inside precedent-check.yml now, not a
+    # dropped feature. spec/CI_MINUTES_PLAN.md item 9 has the full account.
     ('precedent-check.yml.template', '.github/workflows/precedent-check.yml',
      'nothing runs the CHECK SUITE here at all -- a set gated only on the '
      'one or two rules it hand-wired a workflow for is silent on the rest '
-     'of its own catalogue'),
+     'of its own catalogue, and nothing checks this set\'s generated views '
+     'for drift on a pull request either -- the vendored provenance check '
+     'covers the same three views since binds_publishers, but only when '
+     'somebody runs it by hand'),
 )
+# Same (template, dest path) pairs precedent_vendor_engine.CI_WORKFLOW_
+# TEMPLATES['source'] declares for refresh()'s own use -- checked here,
+# once, at import time, rather than trusted to stay in sync by eye: this
+# tuple carries a third field (the "why", above) that engine's registry has
+# no use for, so it is not simply replaced by it (practice:
+# registry-source-of-truth -- the pairing itself has one source; the extra
+# field this file alone needs stays here).
+assert tuple((t, r) for t, r, _why in WORKFLOW_TEMPLATES) == \
+    precedent_vendor_engine.CI_WORKFLOW_TEMPLATES['source'], (
+    'WORKFLOW_TEMPLATES has drifted from '
+    "precedent_vendor_engine.CI_WORKFLOW_TEMPLATES['source'] -- update both "
+    'together, refresh() vendors by the latter.')
 WORKFLOWS_REL = 'templates/github-actions/'
+
+
+def _ci_preference(dest):
+    """(enabled: bool, note: str) -- same resolution as
+    precedent_install.py's `_ci_preference`, reused here rather than
+    re-derived, so a set and a dependent repo answer "should CI be
+    installed" from the identical field. practice: declared-default-is-applied
+    -- nothing here asks; absent resolves to the engine's own default,
+    which is disabled."""
+    try:
+        pref = precedent_identity.ci_preference(dest)
+    except precedent_identity.NoDeclaredIdentity:
+        return False, ('no individual source declares ci_workflows -- '
+                        "disabled by default (GITHUB_ACTIONS.md)")
+    if pref['enabled']:
+        return True, f"ci_workflows: enabled ({pref['source']})"
+    shown = pref['value'] or '(absent)'
+    return False, f"ci_workflows: {shown} ({pref['source']})"
 
 
 def _install_workflows(dest):
@@ -221,20 +257,33 @@ def _install_workflows(dest):
     header claiming a guard was failing the build on exactly that.
 
     THAT SKIP IS OVER as of binds_publishers (PR #261, 2026-09-12): the check
-    runs in a source set now, and covers the same three views this workflow
-    does (measured 2026-09-13 in a freshly bootstrapped set -- `1 passed`,
-    and red on planted drift in each view). The workflow stays because it is
-    wired to `pull_request` and the vendored check is not, which is a
-    different property than coverage. Whether a set that also gains a
-    whole-suite workflow should keep both is TODO.md's
-    `views-drift-vs-suite-workflow`.
+    runs in a source set now, and covers the same three views the
+    views-drift job in this workflow does (measured 2026-09-13 in a freshly
+    bootstrapped set -- `1 passed`, and red on planted drift in each view).
+    That job stays because it is wired to `pull_request` and the vendored
+    check is not, which is a different property than coverage. TODO.md's
+    `views-drift-vs-suite-workflow` closed 2026-09-19: keep both, as jobs in
+    one workflow rather than two separate files.
 
-    Same reasoning as _install_session_hooks: the workflow FILES are
+    Same reasoning as _install_session_hooks: the workflow FILE is
     rewritten on every call, so a set this is re-run against picks up the
     current template, and verify() reports a set that never got one --
     every set created before this date is in that position, and this tool
     cannot reach them on its own.
+
+    GATED ON ci_workflows (2026-09-16), same field and same default as
+    precedent_install.py's dependent-repo install: this workflow is
+    CI this repo vendors into another repo, not this repo's own structural
+    backstop, so it belongs to the same off-by-default policy -- measured
+    against a real account's usage report, `views-drift.yml` and
+    `precedent-check.yml`, then two separate files, together cost more than
+    a quarter of one reporting period's total minutes across four practice
+    sets, none of which had ever been asked whether they wanted it.
     """
+    enabled, note = _ci_preference(dest)
+    if not enabled:
+        print(f"workflows: NOT written -- {note}")
+        return []
     written = []
     for template, rel, _why in WORKFLOW_TEMPLATES:
         out = dest / rel
@@ -549,6 +598,7 @@ def verify(level, path):
 
     An empty blocklist stays fine on purpose (`blank-blocklist`): an empty
     one is a deliberate state, an absent one is a gap."""
+    level = LEVEL_ALIASES.get(level, level)
     skeleton = SKELETONS.get(level)
     if skeleton is None or not skeleton.is_dir():
         return []
@@ -643,11 +693,49 @@ def verify(level, path):
 
     # Like the hooks, the workflows are not in either skeleton -- they come
     # from templates/github-actions/, one copy, shared with dependent repos.
-    # A set bootstrapped before 2026-09-11 has none of them.
-    for _template, rel, why in WORKFLOW_TEMPLATES:
-        if not (path / rel).exists():
-            missing.append(f"{rel} (from {WORKFLOWS_REL}{_template}; without "
-                           f"it {why})")
+    # A set bootstrapped before 2026-09-11 has none of them. Since 2026-09-16
+    # they are also gated on ci_workflows (declared-default-is-applied:
+    # absent means disabled) -- a set that resolves disabled and has none of
+    # them is correctly configured, not behind, so it is not reported missing.
+    _ci_enabled, _ci_note = _ci_preference(path)
+    if _ci_enabled:
+        # Since 2026-09-18: a workflow file that EXISTS can still be
+        # STALE -- "Update Vendors" only just started re-copying an
+        # already-installed CI workflow's body on refresh
+        # (vendor-update-runbook.md step 3); a set refreshed before that
+        # shipped still runs whatever it was installed with. Reported as
+        # its own category, never folded into "missing" outright: a
+        # missing file has no workflow running at all, a stale one has one
+        # running an OLDER version of it -- different gaps, different
+        # remedies (install vs. refresh). Only reported when the manifest
+        # shows the file was never hand-edited: a hand-edit is
+        # `precedent_vendor_engine refresh`'s own drift check to report,
+        # not this one's, and a manifest with no record at all for this
+        # file yet (vendored before this feature existed) is the one-time
+        # catch-up refresh() handles silently -- also not this one's to
+        # flag.
+        _ci_manifest = _load_json(path / 'tools' / 'ENGINE_MANIFEST.json') or {}
+        _ci_recorded = _ci_manifest.get('ci_workflows_sha256') or {}
+        for _template, rel, why in WORKFLOW_TEMPLATES:
+            wf_path = path / rel
+            if not wf_path.exists():
+                missing.append(f"{rel} (from {WORKFLOWS_REL}{_template}; "
+                               f"without it {why})")
+                continue
+            _recorded_hash = _ci_recorded.get(rel)
+            if _recorded_hash is None:
+                continue  # never tracked yet -- refresh's own catch-up covers it
+            _live_hash = precedent_vendor_engine._sha256(wf_path)
+            if _live_hash != _recorded_hash:
+                continue  # hand-edited -- refresh's own drift check covers it, not this one
+            _current_hash = precedent_vendor_engine._sha256(
+                ROOT / 'templates' / 'github-actions' / _template)
+            if _live_hash != _current_hash:
+                missing.append(
+                    f"{rel} is STALE (from {WORKFLOWS_REL}{_template}; content was "
+                    f"never hand-edited but no longer matches the current template) "
+                    f"-- run `python3 tools/precedent_vendor_engine.py refresh "
+                    f"<bestpractice-clone>` to pick it up")
 
     # A vendored engine older than binds_publishers (#261, 2026-09-12) turns
     # the workflow above into a decoration rather than a gate, and nothing
@@ -704,6 +792,30 @@ def verify(level, path):
             missing.append(f"freshness-guard.sh `{mode}` is installed but NOT "
                            f"WIRED in .claude/settings.json (the adapter at "
                            f"{HARNESS_SETTINGS_REL} wires it)")
+
+    # The set's own instructions file, with the markers its generator
+    # writes between. Not in either skeleton and not written by bootstrap
+    # until 2026-09-14, so every set created before then has whatever its
+    # author wrote by hand -- usually a file, sometimes without the
+    # markers, in which case `build_views.py` fails on the set's first
+    # pull request and precedent_move.py cannot regenerate the set's views
+    # after landing a practice in it.
+    agents = path / 'AGENTS.md'
+    if not agents.is_file():
+        missing.append("AGENTS.md (written by this tool's bootstrap since "
+                       "2026-09-14; without it the set's own build_views.py "
+                       "fails, so the drift workflow is red and "
+                       "precedent_move.py cannot regenerate the set's views)")
+    else:
+        try:
+            body = agents.read_text(encoding='utf-8', errors='ignore')
+        except OSError:
+            body = ''
+        if 'BEGIN GENERATED: precedent-loader' not in body:
+            missing.append("AGENTS.md carries no "
+                           "`<!-- BEGIN GENERATED: precedent-loader -->` "
+                           "marker, so build_views.py has nowhere to write "
+                           "the loader block and fails")
     return missing + _malformed(level, path)
 
 
@@ -851,7 +963,7 @@ def _malformed(level, path):
         if found:
             out.append(f'{rel} still holds unfilled {", ".join(found)}')
 
-    if level == 'team':
+    if level == 'shared':
         f = path / 'approvers.json'
         if f.is_file():
             # Exactly what build_codeowners.py refuses. A source that fails
@@ -896,6 +1008,16 @@ def _malformed(level, path):
                                'answer in (`he/him`, `she/her`, `they/them`); '
                                'until then `declared-pronouns` falls back to '
                                'they/them for them')
+                # `register` is the same shape (2026-09-14): how technical a
+                # reply should be is the person's to declare, and a set built
+                # before the key existed holds no key at all.
+                # practice: technical-describes-people
+                if not (data.get('register') or '').strip():
+                    out.append('identity.json declares no "register" -- ask '
+                               'the person whose set this is how technical '
+                               'their replies should be and write their '
+                               'answer in, in their own words; until then a '
+                               'team-level default may decide it for them')
 
         f = path / 'config.json.sample'
         if f.is_file():
@@ -974,6 +1096,7 @@ def _git(*args):
 
 
 def bootstrap(level, name, dest, approvers=None, force=False):
+    level = LEVEL_ALIASES.get(level, level)
     if level not in LEVELS:
         raise BootstrapRefused(f"--level must be one of {sorted(LEVELS)}, got {level!r}")
     dest = pathlib.Path(dest).expanduser().resolve()
@@ -982,22 +1105,23 @@ def bootstrap(level, name, dest, approvers=None, force=False):
             f"{dest} already exists and is not empty -- pass --force true to "
             f"write into it anyway (existing files with the same name are "
             f"overwritten; anything else already there is left alone)")
-    if level == 'team' and not approvers:
+    if level == 'shared' and not approvers:
         raise BootstrapRefused(
-            "a team set needs at least one approver -- pass "
+            "a shared set needs at least one approver -- pass "
             '--approver "Full Name:github-handle" (whoever is creating this '
             "set is its first approver, per PRACTICE_ENGINE_PLAN.md's Stage 4)")
 
     dest.mkdir(parents=True, exist_ok=True)
     mapping = {'NAME': name, 'DEST_PATH': str(dest)}
-    if level == 'team':
+    if level == 'shared':
         first = approvers[0]
         mapping['APPROVER_NAME'] = first['name']
         mapping['APPROVER_GITHUB'] = first['github']
 
     _warn_if_clone_is_stale()
     written = _copy_skeleton(SKELETONS[level], dest, mapping)
-    if level == 'team':
+    written.append(_write_source_manifest(dest, level, name))
+    if level == 'shared':
         _seed_approvers_json(dest, approvers)
     written += _install_session_hooks(dest)
     written += _install_workflows(dest)
@@ -1008,8 +1132,89 @@ def bootstrap(level, name, dest, approvers=None, force=False):
     if _changed:
         written.append(_cfg)
     written += precedent_vendor_engine.seed(dest)
+    # AFTER seed(), not before: seed()/_write_engine_files builds
+    # ENGINE_MANIFEST.json fresh on every call, so recording the CI
+    # workflow files' hashes before this point would be silently wiped the
+    # moment seed() ran (see record_ci_workflow_files's own docstring). The
+    # workflow files themselves are already on disk from _install_workflows
+    # above -- this only computes and records their hashes.
+    written += precedent_vendor_engine.record_ci_workflow_files(dest, 'source')
+    written += _write_instructions_and_views(dest, level, name)
 
     return {'dest': dest, 'written': written}
+
+
+def _write_source_manifest(dest, level, name):
+    """The set's own identity file (precedent_resolve.SOURCE_MANIFEST): the
+    name its author chose, its level, and that it is private. A consumer
+    declares the name; the resolver checks the clone answers to it. The
+    repository may be called anything (practice: source-naming)."""
+    path = pathlib.Path(dest) / precedent_resolve.SOURCE_MANIFEST
+    path.write_text(json.dumps({
+        'name': name,
+        'level': level,
+        'visibility': 'private',
+        'subject': '',
+        'code': [],
+        '_comment': [
+            'This file is what makes the directory a practice-set source: its',
+            'name is chosen once, here, and every consumer declares it verbatim.',
+            'The repository holding it may be called anything. `subject` is a',
+            'sentence saying what the set is about; `code` lists directories',
+            'a consumer vendors alongside the practices (tools/, for a set',
+            'whose practices are about a tool it ships).',
+        ],
+    }, indent=2) + '\n', encoding='utf-8')
+    return path
+
+
+def _write_instructions_and_views(dest, level, name):
+    """A set's AGENTS.md with the loader markers, then its generated views.
+
+    Until 2026-09-14 bootstrap seeded build_views.py and installed a
+    workflow that runs `build_views.py --check`, and wrote no AGENTS.md for
+    either to read -- so a new set's own generator failed on its first run
+    (`AGENTS.md does not exist`), the drift workflow went red on the set's
+    first pull request, and precedent_move.py could not regenerate the
+    views of a set it had just landed a practice in. Every real set carries
+    the file; the skeleton did not, and nothing said to write one. The
+    opening paragraph is the set's own to rewrite; the markers and the
+    block between them are the generator's
+    (practice: generated-artifact-provenance)."""
+    dest = pathlib.Path(dest)
+    agents = dest / 'AGENTS.md'
+    written = []
+    if not agents.exists():
+        what = ('a **shared** source, named for its subject; any repository whose '
+                'work includes that subject declares it alongside its own'
+                if level == 'shared' else
+                'an **individual** source: one person\'s own practices, declared in '
+                'their own user-level config and never in a shared project')
+        agents.write_text(
+            f'# Repository notes for agents\n\n'
+            f'This repo IS `{name}` -- {what} -- for '
+            f'[Precedent](https://github.com/alex137/BestPractice). '
+            f'[README.md](README.md) says what is here and how a practice lands.\n\n'
+            f'<!-- BEGIN GENERATED: precedent-loader -->\n'
+            f'<!-- END GENERATED -->\n',
+            encoding='utf-8')
+        written.append(agents)
+    bv = dest / 'tools' / 'build_views.py'
+    if bv.is_file():
+        # -B: the generator runs INSIDE the set, and a tools/__pycache__/ it
+        # left behind read as bootstrap drift in every audit afterwards.
+        r = subprocess.run([sys.executable, '-B', str(bv)], cwd=str(dest),
+                           capture_output=True, text=True)
+        if r.returncode != 0:
+            # Never fatal: the set is complete without views, and the drift
+            # workflow says so on its first run. Say what happened rather
+            # than nothing (practice: fail-gracefully).
+            print(f'bootstrap: the new set\'s views were not generated -- '
+                  f'{(r.stdout + r.stderr).strip().splitlines()[-1] if (r.stdout + r.stderr).strip() else "build_views exit " + str(r.returncode)}',
+                  file=sys.stderr)
+        else:
+            written += [dest / n for n in ('MAP.md', 'GLOSSARY.md') if (dest / n).is_file()]
+    return written
 
 
 def _load_json(path):
@@ -1121,17 +1326,17 @@ def write_repo_config(repo_config_dir, name, dest, force=False):
     data = _load_json(config_path) or {'format_version': 1, 'sources': []}
     sources = data.setdefault('sources', [])
     rel_path = os.path.relpath(dest, repo_config_dir)
-    existing = next((s for s in sources if s.get('level') == 'team'
+    existing = next((s for s in sources if s.get('level') in ('shared', 'team')
                       and s.get('name') == name), None)
     if existing:
         if existing.get('path') != rel_path and not force:
             raise BootstrapRefused(
-                f"{config_path} already has a team source named {name!r} at "
+                f"{config_path} already has a shared source named {name!r} at "
                 f"a different path ({existing.get('path')!r}) -- pass "
                 f"--force true to overwrite it")
         existing['path'] = rel_path
     else:
-        sources.append({'level': 'team', 'name': name, 'path': rel_path})
+        sources.append({'level': 'shared', 'name': name, 'path': rel_path})
     config_path.write_text(json.dumps(data, indent=2) + '\n', encoding='utf-8')
     return config_path
 
@@ -1158,7 +1363,7 @@ def _parse_args(argv):
 
 
 def _infer_level(path):
-    """-> 'team' | 'individual' | None, read off the set itself.
+    """-> 'shared' | 'individual' | None, read off the set itself.
 
     Asking the operator for --level on a set that already exists is asking
     them to restate something the directory already says: a team set carries
@@ -1166,8 +1371,11 @@ def _infer_level(path):
     individual set carries an identity or a config naming its owner. Guessing
     wrong is cheap to notice and never destructive -- verify() only reads.
     """
+    m = _load_json(path / precedent_resolve.SOURCE_MANIFEST) or {}
+    if m.get('level'):
+        return LEVEL_ALIASES.get(m['level'], m['level'])
     if (path / 'approvers.json').exists():
-        return 'team'
+        return 'shared'
     for name in ('identity.json', 'config.json', 'config.json.sample'):
         if (path / name).exists():
             return 'individual'
@@ -1188,7 +1396,7 @@ def main():
         if not target.is_dir():
             sys.exit(f"precedent_bootstrap_source FAIL: --verify {target} is "
                      f"not a directory")
-        level = args.get('--level') or _infer_level(target)
+        level = LEVEL_ALIASES.get(args.get('--level'), args.get('--level')) or _infer_level(target)
         if level not in LEVELS:
             sys.exit(f"precedent_bootstrap_source FAIL: cannot tell whether "
                      f"{target} is a team or an individual set (no "
@@ -1205,7 +1413,7 @@ def main():
             print(f"  - {m}")
         return 1
 
-    level = args.get('--level')
+    level = LEVEL_ALIASES.get(args.get('--level'), args.get('--level'))
     name = args.get('--name')
     dest = args.get('--dest')
 
@@ -1330,7 +1538,7 @@ def main():
             else:
                 print("Next step -- add this to the consuming project's own "
                       "precedent.json \"sources\" list:")
-                print(json.dumps({'level': 'team', 'name': name, 'path': str(dest_path)}, indent=2))
+                print(json.dumps({'level': 'shared', 'name': name, 'path': str(dest_path)}, indent=2))
     except BootstrapRefused as e:
         print(f"REFUSED (wiring not written; the set itself is): {e}")
         return 1

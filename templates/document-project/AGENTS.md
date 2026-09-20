@@ -97,10 +97,21 @@ per project, before relying on it.
 
 **Branch protection plus [`.github/CODEOWNERS`](.github/CODEOWNERS) — the
 boundary.** The base branch requires a pull request and a review **from code
-owners**. `CODEOWNERS` names the maintainer against `/.github/`, `/.claude/`,
-`/tools/`, `/precedent/`, `/practices/`, `/local/`, `/precedent.json`,
-`/AGENTS.md`, `/CLAUDE.md`, `/MAP.md` and `/GLOSSARY.md`. Everything else is
-content, and content is the contributor's. **`/.github/` is the one that
+owners**. `CODEOWNERS` is generated from [`precedent.json`](precedent.json)'s
+`maintainers` and `owned_paths` by `python3 tools/build_codeowners.py` —
+never hand-edit it — and names the maintainer against `/.github/`,
+`/.claude/`, `/tools/`, `/precedent/`, `/practices/`, `/local/`,
+`/precedent.json`, `/AGENTS.md` and `/CLAUDE.md`. Everything else is content,
+and content is the contributor's — `MAP.md` and `GLOSSARY.md` included, on
+purpose: a thread that adds a document adds its row to the map, and that must
+not make every document wait for the maintainer.
+
+**Before every pull request, run `python3 tools/precedent_owned_paths.py`
+and say what it says.** It lists which changed files will wait for the
+maintainer and which are the contributor's, and prints the sentence to relay
+— in their words, not git's. If a change mixes the two, offer to put the
+document part in on its own first. The tool informs; the boundary is
+GitHub's. **`/.github/` is the one that
 cannot be left out** — a workflow file is executable code holding a token, so
 anyone who can edit one can rewrite every other protection here, `CODEOWNERS`
 itself included.
@@ -208,8 +219,9 @@ Conflicts in shared files are EXPECTED. The fast, safe path:
   [`templates/AGENTS.md.loader.template`](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/templates/AGENTS.md.loader.template)'s
   own "Add project members" section, with one addition: grant **Write**, and
   check that [`.github/CODEOWNERS`](.github/CODEOWNERS) and branch protection
-  are both in place first. Without them, Write is unrestricted — see
-  "Contributor access" above.
+  are both in place first — `python3 tools/precedent_boundary_check.py`
+  answers that, and only PASS counts. Without them, Write is unrestricted —
+  see "Contributor access" above.
 
 ## Practice sources — Precedent loader (policy)
 

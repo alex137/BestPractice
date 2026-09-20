@@ -1,11 +1,28 @@
 [
   {
-    "practice": "session-spend-follows-the-task",
+    "practice": "the-boildown",
+    "require_heading_matching": "boildown",
+    "why": "Long replies bury the trailing detail -- a question that was asked, a step still on the person -- and a real heading is the only thing that survives skimming. Declared in this person's individual set 2026-09-13, moved to universal 2026-09-14 as next-steps-after-commit, and consolidated 2026-09-15 into the-boildown along with five other closing-section practices, under a renamed heading. The mechanism is tools/precedent_reply_check.py, which checks whatever a source declares and has no requirements of its own. Split from the archive-sentence requirement below 2026-09-17: the heading stays a real, blocking requirement -- it is what makes the rest of this list findable -- independent of whether the archive sentence, now advisory, is present.",
+    "checks_practice_at": "practices/the-boildown.md"
+  },
+  {
+    "practice": "the-boildown",
     "require_one_of": [
       "This is a cheap point to compact",
       "Not a cheap point to compact"
     ],
     "require_when_context_grew_tokens": 100000,
-    "why": "so a long session hears the offer instead of the rule quietly not firing for hours"
+    "advisory": true,
+    "why": "so a long session hears the offer instead of the rule quietly not firing for hours -- absorbed 2026-09-15 from session-spend-follows-the-task, which kept only its unrelated model-choice guidance. Downgraded to advisory 2026-09-17 (Morgan, direct instruction): give the reviewed, honest answer -- one of the two sentences, whichever actually applies -- but it is a recommendation, and an absent one must never refuse the turn."
+  },
+  {
+    "practice": "the-boildown",
+    "require_one_of": [
+      "You can archive this session",
+      "Don't archive this session"
+    ],
+    "advisory": true,
+    "why": "One of the two closing sentences is the only thing that tells 'nothing is outstanding' apart from 'the session forgot'. Same history as the heading requirement above, from which this was split 2026-09-17 and downgraded to advisory (Morgan, direct instruction): give the reviewed, honest answer -- whichever of the two actually applies -- but it is a recommendation, and an absent one must never refuse the turn.",
+    "checks_practice_at": "practices/the-boildown.md"
   }
 ]

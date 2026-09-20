@@ -4,7 +4,7 @@ title:       "\"Three Things\" asks for the three most important things to know 
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
-occasion:    "a person says \"Three Things\""
+occasion:    "a person says \"Three Things\", or plainly asks for exactly this shape of answer"
 gates:       ["reply"]
 index_clause: "\"Three Things\" -- the three that matter now, one bold phrase and two lines each"
 checked_by:  null
@@ -15,10 +15,14 @@ in_force_at: null
 supersedes:  []
 overrides:   null
 added:       "2026-09-08"
-approved_by: "Morgan, 2026-09-08 -- coined and placed at universal in the same message"
+approved_by: "Morgan, 2026-09-08 -- coined and placed at universal in the same
+  message; extended 2026-09-16, Morgan, on Alex's intent-over-keyword point"
 ---
 ## Rule
-When the person says **"Three Things"**, answer as if they had asked this:
+**The phrase is the clean trigger, not the only one** — "what do I actually
+need to know right now" or "give me the headlines" asks for the same shape
+of answer and gets it. When the person says **"Three Things"**, or plainly
+asks for that, answer as if they had asked this:
 
 > Based on everything you know about this repository itself and its content,
 > including its recent activity, and based on everything you know about me,
@@ -99,6 +103,12 @@ earlier command in this set (`go-merge`) was retired once and reinstated
 because the version that survived had told each adopter to invent their own
 phrasing, and a phrase nobody spells out is a phrase every session guesses
 at.
+
+**Extended 2026-09-16, on Alex's design point, that a plain ask for the same
+shape of answer should count too** — low-stakes here, unlike `go-merge` and
+`weak-yes` from the same conversation: guessing wrong just produces a
+differently-shaped reply, not an action to undo, so no confirmation step was
+added.
 
 ## Install
 Nothing mechanical checks that a reply obeyed the shape — like `go-merge` and

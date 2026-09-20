@@ -1,4 +1,4 @@
-<!-- Last updated: 2026-09-11 (Buenos Aires) by the session that made the philosophy cross-references bidirectional; written here, not copied. -->
+<!-- Last updated: 2026-09-20 (Buenos Aires) by the session that dropped the empty-slot exception once every item in HUMANS_AT_OUR_BEST.md was given a citation; written here, not copied. -->
 
 # Recipe: Cross-References That Run Both Ways
 
@@ -15,6 +15,13 @@ both ways.
   list entries, it opens the bullet. The slug is the citation handle, so
   **it never changes** once written — retitle an item freely, renumber the
   list freely, leave the slug alone.
+- **A citation never targets its own item's slug.** An item can name the
+  concept it's already discussing without linking the word to itself — the
+  link only earns its place pointing somewhere else in the document. Caught
+  2026-09-16 in [../THE_TALMUDIC_METHOD.md](../THE_TALMUDIC_METHOD.md): an
+  item linked its own defining word to a *different* item's slug, which
+  read as self-referential because the word and the item were the same
+  concept, not because the anchor was technically wrong.
 - **Core documents are the seven the index calls essays and lists**, named
   in `DOCS` in
   [../../tools/philosophy_backlinks.py](../../tools/philosophy_backlinks.py).
@@ -55,7 +62,16 @@ both ways.
   for no new argument, which Morgan read as the sections having become too
   long. **A connection that cannot be carried by a sentence already there
   usually needs a longer look at whether the two items are really related.**
-- **An item nothing cites gets no sentence, and that is allowed.** Do not
-  manufacture a citation to fill the gap
-  ([no-invented-specifics](../../practices/no-invented-specifics.md)). The
-  honest empty slots show which ideas nothing in the corpus leans on.
+- **Every item carries a citation into another core document.** This
+  reverses the original rule here, which let an item nothing cites get no
+  sentence rather than have one manufactured to fill the gap. That held
+  until 2026-09-20, when six items in
+  [../HUMANS_AT_OUR_BEST.md](../HUMANS_AT_OUR_BEST.md) — Asking hard
+  questions, Verification, Managing the dirtiness of real life, Why,
+  Weirdness, Understanding problems — were each given one on request, at
+  which point an unfilled slot became the exception to argue for rather
+  than the default. A citation still has to be a real connection an essay
+  elsewhere actually makes, never invented to satisfy the letter of this
+  rule ([no-invented-specifics](../../practices/no-invented-specifics.md))
+  — an item with no honest match yet is a sign the item, or the corpus,
+  needs another look, not license to leave the slot empty.

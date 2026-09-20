@@ -81,11 +81,12 @@ being checked by it.
 | `docs-track-models` | tree | a figure a script declares it owns is not hand-typed into the prose around its generated block |
 | `document-status-header` | tree | every document under spec/ and record/ that CARRIES a lifecycle frontmatter header declares a legal kind/status pair, a title matching its own first heading, a `closed:` date exactly when it is closed, a `superseded_by:` that resolves exactly when it is superseded, and no competing hand-maintained `Last updated:` comment |
 | `engine-plus-host-shims` | tree | no file outside the vendored tree duplicates a run of lines from inside it — that is a fork, not a shim |
-| `environment-gotchas` | tree | the session instructions carry a "do NOT rediscover these" section, and every entry in it carries what failed, not only the fix — following the link into the record when the section is a split index |
+| `environment-gotchas` | tree | the session instructions point at a gotcha catalogue and every live entry in it carries what failed, not only the fix — reading gotchas/*.md directly where a repo has migrated to that shape, or following the link into the record on the pre-migration shape |
 | `filename-separator` | tree | files of the same kind in one directory use one word separator, never both - and _ |
 | `generated-artifact-provenance` | tree | every generated view names the script that builds it and says it is generated, and regenerating it changes nothing |
 | `generated-edit-goes-upstream` | tree | every `do not hand-edit` header also names a Source -- where the file's content actually comes from -- and every path an unqualified `Source:` names exists here. A `Source (in <place>):` names somewhere this repo is not, so its paths are reported COULD NOT VERIFY rather than resolved |
-| `github-setup-disclosed` | change | a newly added GitHub Actions workflow file is named in GETTING_STARTED.md's administrator section -- the document a dependent repo's own people read -- or in a repo's own root GITHUB_ACTIONS.md |
+| `github-api-budget` | tree | every tool that builds a GitHub API URL is routed through tools/github_budget.py or declared in tools/github_api_budgets.json with a reason, the registry declares a core floor and a budget per tool that still exists, and nothing has quietly gone back to reading /rate_limit |
+| `github-setup-disclosed` | change | a newly added GitHub Actions workflow file is named in GETTING_STARTED.md's administrator section -- the document a dependent repo's own people read -- or in a repo's own root GITHUB_ACTIONS.md, or in documentation/GITHUB_ACTIONS.md |
 | `heading-outline` | change | a changed document never jumps a heading level -- no heading is more than one level deeper than the one before it |
 | `headline-capitalization` | change | a changed outward-facing document has every heading in New York Times headline capitalization |
 | `index-remembers-past` | change | a changed document does not carry inline lineage language naming what it replaced or what replaced it, since provenance belongs in the repository index, not annotated into the documents themselves |
@@ -107,14 +108,15 @@ being checked by it.
 | `search-by-purpose` | change | a document carrying generated numbers is reachable from an index a reader actually consults |
 | `session-bootstrap` | tree | if the session instructions name a setup command, a session-start hook must run it |
 | `session-load-budget` | tree | every file a session loads before it works is declared in tools/session_load_budgets.json and is under its declared ceiling, and a change does not add text the practice catalogue already holds |
-| `source-naming` | tree | every precedent.json in the tree names each source by the shape its level fixes -- `precedent`, `precedent-individual`, `precedent-team-<slug>`, `local` |
+| `source-naming` | tree | every precedent.json in the tree names each source by a name its level allows -- `precedent` and `local` for universal and repo-local, a slug for a shared or individual set -- and every declared source on disk that carries a precedent-source.json answers to the name and level declared for it |
 | `speculation-is-marked` | tree | a speculative document under spec/ or record/ carries all four of its markers or none of them: the SPECULATIVE_ filename prefix requires a matching title, `kind: proposal`, a drafted/abandoned status and a warning block directly under the heading -- and, in the other direction, a document whose title or opening paragraph calls itself speculative must carry the prefix |
 | `technical-describes-people` | tree | no tracked path labels a FILE or DIRECTORY with a skill level; 'technical' and 'non-technical' describe people |
 | `timestamps-carry-offset` | tree | no tracked Python file stamps a moment with a bare `date.today()`, `utcnow()`, `utcfromtimestamp()` or a zero-argument `datetime.now()` -- every one of those resolves to whatever zone the machine is on, which in a container is UTC and in a record is unrecoverable. And the ENGINE's fallback zone is the SAME string in all three engine files that hold it: the time engine and both copies of the commit hook |
+| `todo-migrate-available-but-unused` | tree | a repo that has tools/todo_migrate.py vendored in (source or consumer engine alike) but has never run it -- TODO.md still carries real old-format item bullets, no todo/ directory exists, and the file does not open on the "# TODO has moved" stub heading |
 | `two-check-levels` | tree | the session instructions name two fixed, distinct check levels ("light check" / "deep check") and say which gates a commit versus a push |
 | `verify-postcondition` | turn-end | the state you wanted after the operations this turn: nothing committed but unpushed on any local branch, and no tracked file left modified |
 
-46 of 116 practices are enforced. Run `python3 tools/precedent_check.py --explain` for what each check does **not** catch.
+48 of 133 practices are enforced. Run `python3 tools/precedent_check.py --explain` for what each check does **not** catch.
 <!--/gen:enforcement-->
 
 Numbers by: catalogue_stats.py
@@ -212,7 +214,7 @@ Three checks carry the flag, each with its own incident recorded beside it:
 `generated-artifact-provenance`. **Widening it is per-check judgment, not a
 sweep** — the flag removes the gate, it does not make a check that needs
 resolved sources work without them — and the remaining skips in a source set
-are what [`coverage-report-for-registered-checks`](../TODO.md#coverage-report-for-registered-checks)
+are what [`coverage-report-for-registered-checks`](../todo/todo-2026-09-12-coverage-report-for-registered-checks.md)
 is for. `verify_harness.py`'s
 `check_publisher_bound_checks_run_in_a_source_set` asserts both directions
 against a fixture that plants the link which really shipped: a publisher fails

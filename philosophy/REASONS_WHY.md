@@ -5,7 +5,7 @@
 *Not "AI produces better results" or "collaboration beats solo work" —
 true, but said so often they've stopped meaning anything. These are the
 specific, less obvious effects of working the way
-[OUR_PHILOSOPHY.md](OUR_PHILOSOPHY.md) and this repo describe.*
+[Our Philosophy](OUR_PHILOSOPHY.md) and this repo describe.*
 
 ## Knowledge That Stays Yours
 
@@ -66,7 +66,7 @@ automatically, since no one finds the time to write them by hand.** Writing
 up a record loses to what's due today; the same work turning into rules the
 next session inherits does not
 ([`rules-generated-automatically`](OUR_PHILOSOPHY.md#rules-generated-automatically); a
-[CORE_PILLARS.md](CORE_PILLARS.md) pillar,
+[Core Pillars](CORE_PILLARS.md) pillar,
 [`rules-emerge-person-approved`](CORE_PILLARS.md#rules-emerge-person-approved)).
 Knowledge outliving employment
 ([`transcribe-everything`](COMPANY_BUILDING_RULES.md#transcribe-everything)'s Ghost) makes a
@@ -109,9 +109,7 @@ meeting reconstructing who approved what
 dies before it acquires allies, which makes
 [`build-five-kill-four`](COMPANY_BUILDING_RULES.md#build-five-kill-four) cheap and
 [`own-every-word`](COMPANY_BUILDING_RULES.md#own-every-word) urgent. Drift is the same failure,
-caught by raw contact ([`human-only-zones`](COMPANY_BUILDING_RULES.md#human-only-zones)) and
-periodic contradiction-checks
-([`contradiction-scanning`](RULES_NOW_TESTING.md#contradiction-scanning)).
+caught by periodic contradiction-checks.
 
 <a id="instinct-catches-what-checklists-miss"></a>
 
@@ -124,16 +122,21 @@ judgment this repo routes to people
 
 ## See Also
 
-- [CORE_PILLARS.md](CORE_PILLARS.md) — the one-page pitch: the core ideas
+- [Core Pillars](CORE_PILLARS.md) — the one-page pitch: the core ideas
   this approach argues are unique, specifically taken together.
-- [OUR_PHILOSOPHY.md](OUR_PHILOSOPHY.md) — the underlying theoretical
+- [Our Philosophy](OUR_PHILOSOPHY.md) — the underlying theoretical
   ideas everything else here assumes, named and explained on their own
   terms.
-- [COMPANY_BUILDING_RULES.md](COMPANY_BUILDING_RULES.md) — the standalone
+- [The Working Loop](THE_WORKING_LOOP.md) — the six-step cycle those
+  ideas run through, end to end.
+- [The Talmudic Method](THE_TALMUDIC_METHOD.md) — the resemblance between
+  what this system insists on and how the Talmud gets studied, argument
+  by argument.
+- [Company Building Rules](COMPANY_BUILDING_RULES.md) — the standalone
   essay on rules for building a company around AI.
-- [AI_GOVERNANCE_TO_COCREATE.md](AI_GOVERNANCE_TO_COCREATE.md) — the
+- [AI Governance to Co-Create](AI_GOVERNANCE_TO_COCREATE.md) — the
   standalone essay on how AI systems themselves should be configured,
   built, and run.
-- [HUMANS_AT_OUR_BEST.md](HUMANS_AT_OUR_BEST.md) — the one list of what
+- [Humans at Our Best](HUMANS_AT_OUR_BEST.md) — the one list of what
   humans are good at, gathered from the shorter versions scattered here
   and elsewhere.

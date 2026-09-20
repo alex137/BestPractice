@@ -14,6 +14,7 @@ side**, so different agents can work the same repo under the same contract.
 | [claude-code/](claude-code/) | `CLAUDE.md` → one-line import of `AGENTS.md` | SessionStart hook (automatic) | Stop hook: blocks ending a turn with uncommitted, untracked, or unpushed work, and fires the `reply` gate | `settings.json` allowlist |
 | [codex/](codex/) | `AGENTS.md` read natively | environment setup script | n/a | n/a |
 | [gemini-cli/](gemini-cli/) | `GEMINI.md` → pointer to `AGENTS.md` | instructions-file directive | n/a | n/a |
+| [grok-build/](grok-build/) | `AGENTS.md` read natively | `.grok/hooks.json` lifecycle hook (exact syntax unverified as of 2026-09-17 — see the adapter's own README before relying on it) | n/a | n/a |
 
 **Enforcement caveat.** Adapters with a hook mechanism give *hard* guarantees
 (bootstrap always runs); adapters without one rely on the agent following the

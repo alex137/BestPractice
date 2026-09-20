@@ -131,7 +131,7 @@ not start the work itself.
 Said in the Chief of Staff session it is a status request. Said anywhere
 else it is a redirect — *this belongs in Chief of Staff, here is the link* —
 which is the same shape as
-[spawn-session](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/spawn-session.md)'s
+[session-text](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/session-text.md)'s
 honest "this session is the right one" answer.
 
 The phrase is Morgan's, proposed 2026-09-13: *"Maybe the phrase is just
@@ -141,7 +141,7 @@ The phrase is Morgan's, proposed 2026-09-13: *"Maybe the phrase is just
 [three-things](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/three-things.md),
 [plain-words](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/plain-words.md),
 [weak-yes](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/weak-yes.md),
-[spawn-session](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/spawn-session.md)
+[session-text](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/session-text.md)
 and [my-options](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/my-options.md)
 in the universal command vocabulary.
 
@@ -376,7 +376,7 @@ Built 2026-09-14, on Morgan's authorization:
 
 - **The tag namespaces**, [practices/session-tags.md](../practices/session-tags.md) —
   `subject:`, `repo:`, `role:`, `wants:`, applied in the `create_session` call
-  and wired into [spawn-session](../practices/spawn-session.md), which is the
+  and wired into [session-text](../practices/session-text.md), which is the
   practice that creates sessions. The live fleet was retagged by hand the same
   day, which answers open question 3 below.
 

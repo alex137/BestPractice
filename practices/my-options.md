@@ -4,18 +4,24 @@ title:       "\"My options\" asks for the real choices, plainly, with a recommen
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
-occasion:    "a person says \"My options\", or asks to have a decision's options laid out"
+occasion:    "a person says \"My options\", asks to have a decision's options laid out, or asks -- about a current issue -- for the options to hand off to another session"
 gates:       ["reply"]
-index_clause: "\"My options\" -- every option, plainer, both sides, then your pick and why"
+index_clause: "\"My options\" -- every option, plainer, your pick -- or a paste-ready handoff"
 checked_by:  null
 defines:     ["My options"]
-command:     {"My options": "Lay out the real choices in plainer words, the good and the bad of each, and tell you which one it recommends and why."}
+command:     {"My options": "Lay out the real choices in plainer words, the good and the bad of each, and tell you which one it recommends and why -- and when it's about a current issue meant for another session, add that session's id and link, which repository has to be the primary seed root, and which others need to be attached, then hand the whole thing back as one paste-ready block."}
 status:      active
 in_force_at: null
 supersedes:  []
 overrides:   null
 added:       "2026-09-12"
-approved_by: "Morgan, 2026-09-12 -- asked for the command, chose the name from the recommendation"
+approved_by: "Morgan, 2026-09-12 -- asked for the command, chose the name from
+  the recommendation. Extended 2026-09-19, Morgan, after declining a separate
+  command (\"Brief it\") proposed for the same shape aimed at a handoff:
+  \"I still like 'my options' and then it triggers when you realize it's
+  similar to 'show me options' etc. Let's use that,\" and asking that the
+  extension focus on \"the options to prevent\" rather than a single flat
+  recommendation."
 strength:    decided
 source_practice_number: null
 ---
@@ -43,6 +49,37 @@ Four things, all four required:
 **It governs that one answer**, not the rest of the conversation. That is
 what separates it from [plain-words](plain-words.md), which is a standing
 change of register.
+
+**The same four things answer a different question when what's on the table
+is a current issue rather than an ordinary decision** -- "my options here",
+"show me options", or anything else that plainly asks for this shape about
+handing an issue off to a session that was not in this conversation. The
+options themselves become **the ways to prevent or resolve it**, held to the
+same discipline -- every real one, plain words, the cost of each stated
+flatly, a named pick -- rather than one flat recommendation with nothing to
+compare it against.
+
+**Three more things are owed in that case, because the reader is a session
+with none of this conversation:**
+- **This session's own id and title, with a link, and that a session wrote
+  it rather than a person** -- the header
+  [seeded-prompt-names-its-origin](seeded-prompt-names-its-origin.md)
+  already requires of any prompt one session hands to another, carried here
+  for the same reason: whoever reads this needs to know where the claims
+  came from.
+- **Which repository has to be the primary seed root** -- the one the
+  receiving session needs opened or rooted in before any of the options are
+  actionable.
+- **Which other repositories, if any, need to be attached alongside it.**
+  Say "none" when that is the honest answer -- never leave the reader to
+  guess whether it was considered.
+
+**Delivered as one block, ready to copy in one click** -- the same
+requirement [the-boildown](the-boildown.md) already states for any handoff:
+the words are the session's to write, not the reader's to compose. Producing
+it does not, by itself, authorize anything in the repository or
+repositories it names -- that is not committing, pushing, or merging
+anything, whatever the receiving session goes on to do there.
 
 ## Detail
 **The recommendation is the part that gets dropped, and it is the part they
@@ -76,6 +113,24 @@ often the right answer and is the easiest to leave out — and Morgan parked it
 on 2026-09-12 as something to consider later rather than settle in the same
 message that coined the command.
 
+**Where the handoff case differs from [Write it up](write-it-up.md).** That
+command's deliverable is a file committed to the repo, reached later by a
+link -- built for the record. This one's deliverable is the reply itself,
+meant to be pasted directly into a different window with nothing to click
+through and nothing to memorialize. Nothing stops using both on the same
+issue -- write it up for the durable record, then ask for `My options` on
+what should happen next -- but this practice does not depend on a commit
+existing first, and does not make one.
+
+**Where this differs from [Prompt Please](prompt-please.md).** Both produce
+a paste-ready block naming a repository to root a new session in, and the
+line between them is *when in the decision* each is reached for.
+`My options` is for *before* a recommendation is settled -- every real
+choice, plainly, with its cost, so the person can weigh them even if they
+end up taking the pick anyway. `Prompt Please` is for *after* that point: a
+recommendation already exists, and what's wanted is the clean handoff text
+to act on it, not another comparison.
+
 ## Why
 The four demands are one request that had to be retyped every time, and a
 phrase is cheaper than a paragraph. That is the same argument every other
@@ -90,7 +145,7 @@ leaves the reader exactly where they started.
 
 ## Story
 **Coined by Morgan on 2026-09-12**, in the same thread that renamed
-[spawn-session](spawn-session.md). He described the request rather than
+`session-text`. He described the request rather than
 naming it: *"I also tell you a lot 'explain the options more clearly, in
 somewhat less technical wording, the positives and negatives of each, and
 which you recommend and why' - maybe we should have a command for that one
@@ -102,6 +157,31 @@ in force, found nothing covering the shape of a decision answer, proposed
 had been happening often enough that he had a sentence memorized for it:
 having to ask, each time, for the comparison rather than the material — and
 then, having asked, getting the options without the pick.
+
+**Extended 2026-09-19, on Morgan turning down a separate command for the
+handoff case.** Asked for a phrase covering roughly what
+[write-it-up](write-it-up.md) does but smaller, paste-ready, and never
+memorialized in the repo, he proposed "options" himself; the session raised
+that a bare "options" would sit ambiguously next to this practice's own
+"My options" and built a separate command, "Brief it", instead. He turned
+that down on read: *"I hear 'brief' and I think something bigger and more
+formal in github -- which is exactly what we did a few days ago with the
+command 'write it up'! This is more something to paste in, something smaller
+and shorter... I still like 'my options' and then it triggers when you
+realize it's similar to 'show me options' etc. Let's use that."* -- and, in
+the same message, that the content should read as **options to prevent** the
+issue rather than a single flat pick. The session judged the cleanest way to
+honor "let's use that" was folding the handoff case into this file rather
+than declaring a second practice with the same trigger phrase, which two
+active practices cannot both own; that mechanics decision was not put to
+him. `brief-it.md`, the file this superseded, records its own short life --
+unlinked here since it deduplicates into this same file. Strength: decided.
+
+**Cross-referenced against [Prompt Please](prompt-please.md), 2026-09-20**,
+when Morgan coined that command and drew the boundary himself: `My options`
+is for seeing the choices before mostly following whichever one gets
+recommended; `Prompt Please` is for once a recommendation is already the
+plan and only the handoff prompt is wanted.
 
 ## Install
 Nothing to configure. The occasion index entry is generated, so an adopter

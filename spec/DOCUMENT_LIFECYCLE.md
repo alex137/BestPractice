@@ -367,10 +367,10 @@ All 24 files. `→ spec/` means it stays.
 | [documentation/ADOPTING.md](../documentation/ADOPTING.md) | **moved 2026-09-13**, → [documentation/](../documentation/) | It is a reader-facing guide, so it belongs with the other reader-facing guides rather than beside the machinery. Morgan asked for the move; the install path still links it from the root. |
 | [TODO.md](../TODO.md) | root | Live, and referenced by tooling and by resident practices. |
 | [PRACTICE_ENGINE_PLAN.md](PRACTICE_ENGINE_PLAN.md) | **moved 2026-09-13**, → spec/ **until phase 7** | The approved plan of record, still being worked, and internal planning rather than front-door material — which is why Morgan moved it off the root ahead of this plan's own sequencing. `kind: reference`, `status: current`. When phase 7 folds the branch into `main`, it becomes `kind: record`, `status: closed`, and moves to `record/`. |
-| [METHOD.md](../METHOD.md) | → [documentation/](../documentation/) | The working method, for adopters. |
-| [MOBILE.md](../MOBILE.md) | → [documentation/](../documentation/) | Per-assistant setup, for adopters. |
-| [GITHUB_ACTIONS.md](../GITHUB_ACTIONS.md) | → [documentation/](../documentation/) | Operational how-to, for adopters. |
-| [GIT.md](../GIT.md) | → [documentation/](../documentation/) | **The debatable one.** It is reader-facing and adopter-shaped, but [README.md](../README.md) leans on it as a first-visit explainer. Move it, or leave it at root and say why — do not leave the question open. |
+| [documentation/METHOD.md](../documentation/METHOD.md) | **moved 2026-09-20**, → [documentation/](../documentation/) | The working method, for adopters. Morgan asked for the move. |
+| [documentation/MOBILE.md](../documentation/MOBILE.md) | **moved 2026-09-20**, → [documentation/](../documentation/) | Per-assistant setup, for adopters. Morgan asked for the move. |
+| [documentation/GITHUB_ACTIONS.md](../documentation/GITHUB_ACTIONS.md) | **moved 2026-09-20**, → [documentation/](../documentation/) | Operational how-to, for adopters. Morgan asked for the move. |
+| [documentation/GIT.md](../documentation/GIT.md) | **moved 2026-09-20**, → [documentation/](../documentation/) | Was **the debatable one**: reader-facing and adopter-shaped, but README.md leaned on it as a first-visit explainer. Moved anyway — README.md's two references were repointed in the same commit. Morgan asked for the move. |
 | [PRACTICES.md](../PRACTICES.md) | → `record/`, `status: superseded`, `superseded_by: practices/` | 134 KB, described by [README.md](../README.md) as the pre-split catalogue. **Highest-churn move in this plan** — 181 tracked files mention the name. Sequenced last. |
 | [CHANGES_TO_TELL_ALEX.md](CHANGES_TO_TELL_ALEX.md) | **moved 2026-09-13**, → spec/, then `record/` | A live internal handoff note, not front-door material. Off the root as of 2026-09-13, stamped `kind: record`, `status: live`; it lands in `record/` when this plan's directory change executes. |
 
@@ -501,11 +501,23 @@ the deep check is green.
 
 ### Phase 5 — the root tidy
 
-Move [METHOD.md](../METHOD.md), [MOBILE.md](../MOBILE.md),
-[GITHUB_ACTIONS.md](../GITHUB_ACTIONS.md) and — if the judgment goes that
-way — [GIT.md](../GIT.md) into [documentation/](../documentation/), and
-[CHANGES_TO_TELL_ALEX.md](CHANGES_TO_TELL_ALEX.md) into `record/`. Same
-same-commit link discipline.
+Move [CHANGES_TO_TELL_ALEX.md](CHANGES_TO_TELL_ALEX.md) into `record/`.
+Same same-commit link discipline.
+
+**[documentation/MOBILE.md](../documentation/MOBILE.md),
+[documentation/METHOD.md](../documentation/METHOD.md),
+[documentation/GITHUB_ACTIONS.md](../documentation/GITHUB_ACTIONS.md) and
+[documentation/GIT.md](../documentation/GIT.md) already moved, 2026-09-20**
+— done ahead of this phase's own sequencing, on direct requests, following
+the same pattern `documentation/examples/` used a day earlier (root tidy
+is a per-file judgment call, not a single atomic step). The
+GITHUB_ACTIONS.md move also touched code, not just links:
+`tools/precedent_check.py`'s `github-setup-disclosed` check and
+`tools/verify_harness.py`'s `check_all_workflows_disclosed` both read a
+root `GITHUB_ACTIONS.md` as BestPractice's own self-disclosure location,
+and now also read `documentation/GITHUB_ACTIONS.md`. Every root file this
+phase named has moved; only `CHANGES_TO_TELL_ALEX.md` → `record/` remains,
+and that one waits on `record/` existing (phase 4).
 
 **Check the external surface before moving anything in this phase.**
 [README.md](../README.md), [SETUP.md](../SETUP.md) and
@@ -564,7 +576,11 @@ Queued rather than answered, each with the reason
   the leak gate has been over all of it — but the question deserves an
   explicit answer before record/README.md ships, not after.
 - **`PREFORK_AUDIT.html`.** Committed build output; decide separately.
-- **[GIT.md](../GIT.md)'s destination.** Named above as a real judgment call.
+- ~~**[GIT.md](../documentation/GIT.md)'s destination.**~~ Settled
+  2026-09-20: moved into `documentation/`, same as the other three. The
+  "leans on it as a first-visit explainer" concern named above did not
+  block it — README.md's two references were repointed in the same
+  commit, the same way every other inbound link was.
 
 ## What happens to this document
 

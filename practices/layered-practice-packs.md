@@ -49,13 +49,15 @@ path-triggered channel as every other on-demand practice. The decision rule
 above still holds; only the *implementation* of the middle tier changed.
 Recorded in [CHANGES_TO_TELL_ALEX.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/CHANGES_TO_TELL_ALEX.md).
 
-**Still open, not solved by the loader: a domain bundle shared across more
-than one team.** The loader routes a single source's own practices; it does
-not give a domain's rules a home independent of any one team's roster, which
-a compliance- or lab-workflow domain used by several different teams would
-need. Tracked in `PRACTICE_ENGINE_PLAN.md`'s Deferred section, merged with
-"a practice belonging to more than one team" — the same underlying gap seen
-from the other direction.
+**Closed 2026-09-18: a domain bundle shared across more than one team is a
+`shared` source.** The level that used to be called `team` is any set a
+repository declares beside the universal one and its own `local/` — a
+compliance or lab-workflow domain, a filing pipeline with its tools, a
+presentation kit — declared by every repository whose work includes that
+subject, whatever team does it. A shared set names the code directories it
+ships in its own `precedent-source.json`, and a consumer vendors them with
+`checkin.py --source <name>`, so the pack mechanism below is the same shape
+under the loader ([source-naming](source-naming.md)).
 
 **The pack mechanism, for a pre-migration consumer repo.** Domain rules are
 collected into a **practice pack**: a vendored tree at `process/<pack>/` with

@@ -14,10 +14,57 @@
 # Rather than ship two variants that drift apart, the linter is DISCOVERED at
 # run time and every candidate path is watched. Nothing here needs editing
 # for either install model.
+#
+# TWO JOBS, NOT ONE (2026-09-19, practice: cite-the-incident). Until then
+# this was a single job with a debounce STEP at the top: the step could skip
+# every step after it, but the job itself had already started a runner and
+# checked out the tree to reach that decision, and GitHub bills a job for at
+# least one whole minute no matter how quickly it finishes. A step-level
+# skip is a cheaper run, not a free one. Split into a `debounce` job (always
+# runs, decides) and a `markdown` job (`needs: debounce`, `if:` gated), a
+# debounced push now bills one job-minute (the debounce decision) instead of
+# whatever the single-job version cost -- a job whose `if:` evaluates false
+# is reported SKIPPED and never allocates a runner. See
+# precedent-check.yml.template's own header for the fuller account and the
+# real-account measurement that prompted it (spec/CI_MINUTES_PLAN.md item 8
+# in this repo), from which this same split is copied.
 name: Precedent documentation checks
 
 on:
+  # pull_request (opened, synchronize) PLUS push scoped to the branch(es)
+  # that actually receive merges -- `main` below is the default a fresh
+  # install gets. CUSTOMIZE THE BRANCH LIST if this repo's own routine merge
+  # target is not just `main`: Precedent's own equivalent workflow in this
+  # repo lists `[main, precedent-beta-v01]`, because routine work here lands
+  # on precedent-beta-v01, not main (see GITHUB_ACTIONS.md). Whatever
+  # branch(es) a session actually merges into in the repo this installs
+  # into, list them here.
+  #
+  # push only, unrestricted to any branch, was this template's design from
+  # 2026-09-15 to 2026-09-19 -- kept deliberately narrow THEN because this
+  # template previously shipped both `pull_request:` and `push:` together on
+  # every branch, and that measured as exact duplicate runs: 235 runs since
+  # 2026-08-28 in matched pairs, each pair billing at least two minutes on a
+  # private repo, because a push to a branch with an open PR fired both
+  # events for the identical tree. Dropping `pull_request:` fixed the
+  # duplicate but reopened a different gap: a branch pushed to directly, no
+  # PR yet, got no check at all -- and a different repo's CI caught a real
+  # error on an open PR on 2026-09-19, exactly the case that gap gives up on.
+  #
+  # `pull_request:` is back, scoped differently than the version dropped in
+  # 2026-09-15: with push now restricted to the branch(es) named above --
+  # none of which is ever a PR's own head branch -- a PR's branch only ever
+  # gets pull_request events, and a named branch only ever gets push events
+  # (a PR's merge commit landing on main is a push to main, not a
+  # synchronize on the now-closed PR branch). Nothing here fires twice for
+  # the same commit, so the 2026-08-28 measurement does not reapply.
+  #
+  # PUT `pull_request:` BACK EVEN WIDER IF THIS REPO EVER TAKES A PR FROM A
+  # FORK -- a fork's pushes do not fire `push` in the repo being contributed
+  # to at all, on ANY branch, so `pull_request:` (already present above) is
+  # what would check it; nothing further to add.
   pull_request:
+    types: [opened, synchronize]
     paths:
       - "**/*.md"
       # §1 (vendored under process/upstream/) and §0 (engine in the repo's
@@ -27,19 +74,8 @@ on:
       - "process/upstream/tools/doc_lint.py"
       - "tools/doc_lint.py"
       - ".github/workflows/bestpractice-docs.yml"
-  # EVERY BRANCH, not just the default one (2026-09-14). This read
-  # `branches: [main]` until then, which covers the branch a repo merges
-  # INTO and leaves every branch work actually happens on unchecked until
-  # somebody opens a pull request. Upstream had the identical bug in its own
-  # .github/workflows/docs.yml, where the branch carrying all the traffic is
-  # not `main` at all, so the linter watched an empty branch for weeks.
-  #
-  # `pull_request:` above stays, unlike upstream's copy, and the difference
-  # is deliberate: this file lands in repositories nobody here controls, and
-  # a fork's pushes do not fire `push` in the repo being contributed to. A
-  # duplicate run on a PR from an internal branch is the price of covering
-  # the fork case in a repo we cannot inspect.
   push:
+    branches: [main]
     paths:
       - "**/*.md"
       - "process/upstream/tools/doc_lint.py"
@@ -47,18 +83,126 @@ on:
       - ".github/workflows/bestpractice-docs.yml"
   workflow_dispatch:
 
+# CONCURRENCY, so a burst of pushes to the same branch does not pay for
+# every run in the burst (2026-09-15). If a second run starts on this
+# branch while an earlier one is still going, GitHub cancels the earlier
+# one instead of billing both to completion. This only helps the OVERLAP
+# case -- two pushes close enough together that the first run had not
+# finished yet. This job runs well under a minute, so a steady stream of
+# saves spaced further apart than that has nothing in flight to cancel --
+# this is a cheap backstop, not the fix for a repo pushed to constantly.
+# For that, see doc-lint-scheduled.yml.template, which trades per-push
+# billing for a fixed cadence. GITHUB_ACTIONS.md says which to install.
+concurrency:
+  group: docs-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
+  actions: read
 
+# RUNNER, OVERRIDABLE PER REPO (2026-09-20). Both jobs below run on
+# `ubuntu-latest` unless this repo declares a `PRECEDENT_RUNNER` repository
+# variable (Settings -> Secrets and variables -> Actions -> Variables) --
+# e.g. `self-hosted`, for an adopter who already operates their own runner.
+# Left unset, nothing here changes. This is an adopter's own opt-in, not
+# something Precedent can provide for them: a self-hosted runner means
+# their code executing on infrastructure they control, which nobody else
+# can stand up on their behalf. spec/CI_MINUTES_PLAN.md item 6 has the
+# trade-offs; GITHUB_ACTIONS.md's "Controlling Actions Minutes" is where
+# this variable is documented alongside the levers that need no opt-in at
+# all (ci_workflows disabled by default, the debounce job, branch scoping).
 jobs:
+  # ONE job, so the "have we looked recently" decision is billed once. The
+  # markdown job below is gated with `needs: debounce` + `if:`, never a step
+  # inside a job that already started -- see the header comment for why
+  # that distinction is the entire point of this file's shape.
+  debounce:
+    name: Decide whether this push needs a fresh check
+    runs-on: ${{ vars.PRECEDENT_RUNNER || 'ubuntu-latest' }}
+    outputs:
+      skip: ${{ steps.debounce.outputs.skip }}
+    steps:
+      # No fetch-depth override -- this job only reads precedent.json out of
+      # the working tree, never git history, so the default shallow
+      # checkout is enough. The markdown job below takes its own full
+      # checkout when it actually runs.
+      - uses: actions/checkout@v4
+
+      # DEBOUNCE (2026-09-16, moved into its own job 2026-09-19), for the
+      # steady-drip case concurrency's own comment above says it cannot
+      # reach: a repo pushed to every few minutes pays for a full check on
+      # every one of them even with no two runs ever overlapping. Reads
+      # `ci_debounce_minutes` from precedent.json (default 360 = 6 hours; 0
+      # disables it) and skips the markdown job below when the last
+      # COMPLETED run of this workflow on this branch finished inside that
+      # window -- spec/CI_MINUTES_PLAN.md's item 4. This is an advisory
+      # check (a broken link sits uncaught for at most one window); a
+      # workflow standing in for a security backstop should not carry this
+      # step at all. 360 is a starting point, not a fixed answer -- a repo
+      # with heavy churn on the branch(es) named above may want it shorter;
+      # item 8's incident is the precedent for that call, made per-repo in
+      # precedent.json, not by editing this template.
+      - name: Skip if checked recently (debounce)
+        id: debounce
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -eu
+          minutes="$(python3 - <<'PY'
+          import json, pathlib
+          try:
+              d = json.loads(pathlib.Path('precedent.json').read_text())
+          except (OSError, ValueError):
+              d = {}
+          try:
+              v = int(d.get('ci_debounce_minutes', 360))
+          except (TypeError, ValueError):
+              v = 360
+          print(v)
+          PY
+          )"
+          if [ "$minutes" -le 0 ]; then
+            echo "ci_debounce_minutes: $minutes -- debounce off, running"
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          last="$(gh run list --workflow "${{ github.workflow }}" \
+                   --branch "${{ github.ref_name }}" --status completed \
+                   --limit 1 --json updatedAt --jq '.[0].updatedAt // empty' \
+                   2>/dev/null || true)"
+          if [ -z "$last" ]; then
+            echo "no prior completed run on this branch -- running"
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          elapsed=$(( ($(date -u +%s) - $(date -u -d "$last" +%s)) / 60 ))
+          if [ "$elapsed" -lt "$minutes" ]; then
+            echo "last completed run was ${elapsed}m ago, inside the " \
+                 "${minutes}m window -- skipping"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "last completed run was ${elapsed}m ago, outside the " \
+                 "${minutes}m window -- running"
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
   markdown:
     name: Markdown lint
-    runs-on: ubuntu-latest
+    needs: debounce
+    if: needs.debounce.outputs.skip != 'true'
+    runs-on: ${{ vars.PRECEDENT_RUNNER || 'ubuntu-latest' }}
 
     steps:
+      # The PR HEAD, not refs/pull/N/merge -- auditing the merge tree
+      # reports findings belonging to neither branch, which the author
+      # cannot act on. Empty (a push event, not pull_request) falls back to
+      # actions/checkout's own default, the triggering ref -- correct for a
+      # push to a named branch above.
       - name: Check out repository
         uses: actions/checkout@v4
         with:
+          ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
 
       - name: Set up Python

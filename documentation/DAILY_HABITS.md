@@ -72,19 +72,22 @@ If the answer is written down somewhere, you'll get it with a link; if it
 isn't, you'll be told that, which is also an answer — usually it means
 something worth writing down never was.
 
-## 4. Say "Go Merge" When You're Ready
+## 4. Say "Go Update" When You're Ready
 
 Everything you do in a conversation is, until you say otherwise, **only
 in that conversation.** It hasn't been shared, and if you close the tab it
 may not survive.
 
-**"Go merge"** is how you end that. Say it and your assistant saves the
+**"Go update"** is how you end that. Say it and your assistant saves the
 work properly, publishes it where your colleagues can see it, and tells
 you where it went — no further questions, no checklist to confirm.
+("Go merge" means exactly the same thing, and still works — "update" is
+just the more honest word, since plenty of what it does isn't a merge at
+all, but a direct edit.)
 
 Say it when you're done with a piece of work and want other people to
 have it, or when you simply want it saved outside the conversation before
-you stop for the day. **When in doubt, say it** — merging something small
+you stop for the day. **When in doubt, say it** — updating something small
 costs nothing, and losing an afternoon's work because it was never saved
 costs an afternoon.
 
@@ -97,22 +100,26 @@ each one saves you a paragraph of explaining:
 <!--gen:vocabulary-->
 | Say this | And it will |
 |---|---|
-| **Approved** | The same as **Go merge**: save the work, publish it, and tell you where it went. |
+| **Approved** | The same as **Go update**: save the work, publish it, and tell you where it went. |
+| **Archive** | Check whether anything from this session is still outstanding -- a merge, something the assistant is waiting on, a recommendation -- and either archive it right then or tell you exactly what's left. |
+| **Archive?** | Check whether anything from this session is still outstanding -- a merge, something the assistant is waiting on, a recommendation -- and either archive it right then or tell you exactly what's left. |
 | **Brainstorm** | Think it through with you and write nothing down — no files, no edits, nothing saved — until you say to. |
 | **Chief of Staff** | Stop and route this: tell you what every open session is blocked on and what is colliding, with a clickable link to each. |
-| **Go merge** | Save the work, publish it, and tell you where it went — without asking anything further. |
-| **My options** | Lay out the real choices in plainer words, the good and the bad of each, and tell you which one it recommends and why. |
+| **Go merge** | The same as **Go update**: save the work, publish it, and tell you where it went. |
+| **Go update** | Save the work, publish it, and tell you where it went — without asking anything further. |
+| **My options** | Lay out the real choices in plainer words, the good and the bad of each, and tell you which one it recommends and why -- and when it's about a current issue meant for another session, add that session's id and link, which repository has to be the primary seed root, and which others need to be attached, then hand the whole thing back as one paste-ready block. |
 | **Park it** | Mark the open question as parked and drop the subject. It won't be raised again unless you raise it. |
 | **Plain words** | Drop the formal register and explain it the way somebody would say it out loud — same answer, plainer telling. |
 | **Practice check** | Go through every rule in force, one at a time, and report on each — the slow, complete version of the routine checks. |
+| **Prompt Please** | Write up the situation, the problem, your recommended action and why, and hand it back as one prompt ready to paste straight into a new session -- naming which repository to root it in and which others to attach. |
 | **Reduction pass** | Measure everything a session loads before it starts work, make room by moving things rather than deleting them, and show you exactly what moved and what it saved. |
-| **Spawn session** | Check whether this work belongs in a different conversation — usually because it needs a project this one cannot reach — and hand you a link to that one, ready to go. |
 | **Three Things** | Tell you the three most important things you need to know right now, in three short lines. |
 | **Todo reminder** | Write the thing into the open-items file AND mark it as something to remind you about, so later sessions bring it up rather than waiting to be asked. |
 | **Update Vendors** | Pull in the latest version of the shared rules from the project they come from, and publish the result -- the merge is part of the phrase. |
 | **Very deep check** | Run a full review of the whole project — slow, occasional, and worth it before showing the work to someone new. |
 | **Vocabulary** | List every standing phrase this project recognizes, and what each one does. |
 | **Weak yes** | Go ahead with it, and record that you were not convinced. Nobody will ask you why. |
+| **Write it up** | Write a full report on the issue -- what it is, the context that led to it, and the proposed fix -- for a reader with none of this conversation, commit it to the branch you're on, and give the link. |
 <!--/gen:vocabulary-->
 
 *That table is built from the rules themselves every time this page is
@@ -141,7 +148,8 @@ questions instead of trying to remember the answers.
 
 ## Learn More
 
-[What This Is (and Why Explore Using
+[Ten Things to Know About How Precedent Works](TEN_THINGS.md) for the
+ideas underneath these habits, one page. [What This Is (and Why Explore Using
 Precedent)](WHY_PRECEDENT.md) for the bigger picture. [How to
 Use This — A Guide for Everyone
 Else](FOR_EVERYONE_ELSE.md) for how an idea becomes an

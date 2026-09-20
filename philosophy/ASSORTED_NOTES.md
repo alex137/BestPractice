@@ -18,7 +18,7 @@ and push the sharpened version back in.
 
 - **Rules for building a company around AI** — a full essay, promoted
   to its own document because it's one sustained argument rather than a
-  loose list: [COMPANY_BUILDING_RULES.md](COMPANY_BUILDING_RULES.md). Covers context as the
+  loose list: [Company Building Rules](COMPANY_BUILDING_RULES.md). Covers context as the
   scarce capital asset, transcription discipline (the "Ghost"), owning
   every word you pass on, treating the AI Chat as the intermediary for
   the work itself, co-creating instead of delegating, building
@@ -30,14 +30,14 @@ and push the sharpened version back in.
   how the AI systems themselves should be configured, built, and run so
   the healthy pattern is the default rather than something a disciplined
   user has to manufacture by hand:
-  [AI_GOVERNANCE_TO_COCREATE.md](AI_GOVERNANCE_TO_COCREATE.md). Covers durable memory as
+  [AI Governance to Co-Create](AI_GOVERNANCE_TO_COCREATE.md). Covers durable memory as
   the default substrate, push-back as a config switch keyed to task shape,
   arguing in the open instead of posting finished-looking suggestions,
   visibly non-uniform confidence, situational (not fixed) cost-awareness,
   a structural check for AI-sounding prose, and self-surfacing of dark
   processes.
 - **Where an idea from either essay actually goes next** —
-  [RULES_NOW_TESTING.md](RULES_NOW_TESTING.md), added 2026-08-27. Neither essay
+  `RULES_NOW_TESTING.md`, added 2026-08-27. Neither essay
   above is itself a set of rules anyone follows day to day; this is the
   document that turns an argument into a checklist actually in force, and
   tracks which of those checklist items have proven themselves enough to
@@ -143,11 +143,11 @@ and WordPress (WP) is the blogging platform.*
 > explosive.
 
 **Update, same day:** the three-part uniqueness thesis is now promoted —
-see [CORE_PILLARS.md](CORE_PILLARS.md), a
+see [Core Pillars](CORE_PILLARS.md), a
 one-page pitch naming the same three ideas (linked from
-[OUR_PHILOSOPHY.md](OUR_PHILOSOPHY.md),
-[COMPANY_BUILDING_RULES.md](COMPANY_BUILDING_RULES.md), and
-[REASONS_WHY.md](REASONS_WHY.md)). One correction from the chat discussion
+[Our Philosophy](OUR_PHILOSOPHY.md),
+[Company Building Rules](COMPANY_BUILDING_RULES.md), and
+[Reasons Why](REASONS_WHY.md)). One correction from the chat discussion
 that led there: "chat as the sole intermediary" means chat is how a
 *person* touches any document or artifact — talk to AI Assistant and have
 AI Assistant edit it, instead of opening a doc and editing it yourself — not a claim
@@ -168,7 +168,7 @@ contribute a practice back (the WordPress Plugins comparison) — still
 doesn't have a home: it's a genuine complication for
 [`co-create-dont-delegate`](COMPANY_BUILDING_RULES.md#co-create-dont-delegate)'s
 "practices arise organically" framing, only partly answered by this repo's
-own three-stage pipeline ([RULES_NOW_TESTING.md](RULES_NOW_TESTING.md)),
+own three-stage pipeline (`RULES_NOW_TESTING.md`),
 which gives "one person enforcing" but not yet a trivially-easy way for
 someone else to contribute a practice back.
 
@@ -191,13 +191,13 @@ pushes them there. Candidate mechanisms, none decided yet (this is a
   nobody re-reads.
 
 Push-back mode (the first candidate above) is decided and promoted — see
-[`push-back-writing-thinking`](RULES_NOW_TESTING.md#push-back-writing-thinking).
+`push-back-writing-thinking`.
 The rest — visible
 reminders, in-your-face rule-extraction, proactive resurfacing — remain
 open; proactive resurfacing specifically also shows up as one of
-[AI_GOVERNANCE_TO_COCREATE.md](AI_GOVERNANCE_TO_COCREATE.md)'s "Memory & context" ideas,
+[AI Governance to Co-Create](AI_GOVERNANCE_TO_COCREATE.md)'s "Memory & context" ideas,
 tracked as a not-yet-ready item in
-[RULES_NOW_TESTING.md](RULES_NOW_TESTING.md) pending real infrastructure.
+`RULES_NOW_TESTING.md` pending real infrastructure.
 
 ## Observations From Other Conversations
 
@@ -305,7 +305,7 @@ call as much as mine):
   ([`capital-asset`](COMPANY_BUILDING_RULES.md#capital-asset)), not just
   the conclusion.
 - **When a topic outgrows a bullet, promote it**, exactly as
-  [COMPANY_BUILDING_RULES.md](COMPANY_BUILDING_RULES.md) just was. A dedicated file gets its
+  [Company Building Rules](COMPANY_BUILDING_RULES.md) just was. A dedicated file gets its
   own version history, so you can watch one idea sharpen over many sessions
   instead of only ever seeing its latest state.
 - **Periodically ask AI Assistant to look for contradictions across entries.**
@@ -319,7 +319,7 @@ call as much as mine):
   won't notice but a deliberate re-read will.
 
 **2026-08-29 entry — a dropped rule, worth reconsidering later.**
-[COMPANY_BUILDING_RULES.md](COMPANY_BUILDING_RULES.md) used to carry a
+[Company Building Rules](COMPANY_BUILDING_RULES.md) used to carry a
 rule, "own the spec and the eval before you own the output" — whoever
 writes the acceptance criteria sets the direction, and if you can't say
 how you'd know the result is right, you don't have a project. Morgan
@@ -341,20 +341,19 @@ pack." Morgan's correction: this repo's actual job is to *try* an idea in
 real work first — going straight from an essay here to a rule that rolls
 out to every project skips the step that's supposed to catch a good-sounding
 idea that doesn't actually hold up. The fix wasn't a new rule, it was
-naming the stage that was missing: [RULES_NOW_TESTING.md](RULES_NOW_TESTING.md),
+naming the stage that was missing: `RULES_NOW_TESTING.md`,
 sitting between the essays here and RepoPersonalPreferences, holding
 whatever's currently on trial. See [README.md](README.md)'s new pipeline
 section and [the Open Questions section below](#open-questions) for what is still open.
 
 ## Ideas Set Aside, Not Carried Forward
 
-*Surfaced while drafting [AI_GOVERNANCE_TO_COCREATE.md](AI_GOVERNANCE_TO_COCREATE.md),
+*Surfaced while drafting [AI Governance to Co-Create](AI_GOVERNANCE_TO_COCREATE.md),
 moved here instead of staying in that essay.*
 
 - A mandatory eval-file gate before any output ships — unclear how it
   generalizes past code, where "eval" has an obvious technical meaning.
-- Having the AI itself pick which raw, unfiltered sample a human reviews
-  for [`human-only-zones`](COMPANY_BUILDING_RULES.md#human-only-zones) —
+- Having the AI itself pick which raw, unfiltered sample a human reviews —
   the idea didn't land clearly enough in discussion to write down yet;
   worth re-raising once it's sharper, rather than forcing it in now.
 
@@ -391,7 +390,7 @@ Look for tensions between entries in this document — for
 example `build-five-kill-four` against
 [`think-in-workflows`](COMPANY_BUILDING_RULES.md#think-in-workflows)'s
 "don't systematize a one-off". Worth a dedicated pass once there is enough
-material for real tensions to surface. [RULES_NOW_TESTING.md](RULES_NOW_TESTING.md)'s
+material for real tensions to surface. `RULES_NOW_TESTING.md`'s
 contradiction-scanning rule is the same job described from the other side.
 
 ### Active Resurfacing
@@ -405,7 +404,7 @@ when asked. **No design has been proposed.**
 
 Mining commit and session history for a recurring task shape, instead of
 relying on a human noticing. Today the reflex in
-[RULES_NOW_TESTING.md](RULES_NOW_TESTING.md) is human-triggered, which is
+`RULES_NOW_TESTING.md` was human-triggered, which is
 the part the idea says should not stay true.
 
 ### Situational, Inferred Cost-Awareness
@@ -425,18 +424,23 @@ whether it earns a place as a recurring check or stays ad hoc.
 
 ## See Also
 
-- [CORE_PILLARS.md](CORE_PILLARS.md) — the one-page pitch: the core ideas
+- [Core Pillars](CORE_PILLARS.md) — the one-page pitch: the core ideas
   this approach argues are unique, specifically taken together.
-- [OUR_PHILOSOPHY.md](OUR_PHILOSOPHY.md) — the underlying theoretical
+- [Our Philosophy](OUR_PHILOSOPHY.md) — the underlying theoretical
   ideas everything else here assumes, named and explained on their own
   terms.
-- [REASONS_WHY.md](REASONS_WHY.md) — the less obvious benefits those
+- [The Working Loop](THE_WORKING_LOOP.md) — the six-step cycle those
+  ideas run through, end to end.
+- [Reasons Why](REASONS_WHY.md) — the less obvious benefits those
   ideas actually produce in practice.
-- [COMPANY_BUILDING_RULES.md](COMPANY_BUILDING_RULES.md) — the standalone
+- [The Talmudic Method](THE_TALMUDIC_METHOD.md) — the resemblance between
+  what this system insists on and how the Talmud gets studied, argument
+  by argument.
+- [Company Building Rules](COMPANY_BUILDING_RULES.md) — the standalone
   essay on rules for building a company around AI.
-- [AI_GOVERNANCE_TO_COCREATE.md](AI_GOVERNANCE_TO_COCREATE.md) — the
+- [AI Governance to Co-Create](AI_GOVERNANCE_TO_COCREATE.md) — the
   standalone essay on how AI systems themselves should be configured,
   built, and run.
-- [HUMANS_AT_OUR_BEST.md](HUMANS_AT_OUR_BEST.md) — the one list of what
+- [Humans at Our Best](HUMANS_AT_OUR_BEST.md) — the one list of what
   humans are good at, gathered from the shorter versions scattered here
   and elsewhere.

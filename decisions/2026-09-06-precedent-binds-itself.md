@@ -76,7 +76,7 @@ record fixes.
 
 ## 2. Why `not_binding`, and why not the other two shapes
 
-[TODO.md's `unreachable-practices` item](../TODO.md#unreachable-practices)
+[TODO.md's `unreachable-practices` item](../todo/todo-2026-09-06-unreachable-practices.md)
 named three shapes. The measurement behind it
 ([spec/PRELAUNCH_AUDIT.md](../spec/PRELAUNCH_AUDIT.md)) is what decides
 between them: running the source-supplied checks against this tree, five

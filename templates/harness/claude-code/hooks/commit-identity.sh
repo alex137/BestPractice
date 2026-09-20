@@ -48,6 +48,19 @@
 #   6. An identity already configured locally, as long as it is not the
 #      container's own bot identity -- the one thing that is never a human.
 #
+# CLOSING THE LOOP ON A GUESS. Rungs 4-6 are inferences, not declarations --
+# nobody chose them, this hook worked them out. When a commit is about to run
+# on one, this hook says so and invites the fix (below), but it cannot hear a
+# person answer -- only a live session can. So: when someone tells a session
+# running here their name (and, optionally, their email) for commits, that
+# session writes an identity.json for them (their individual source if one
+# resolves, else asks where) rather than letting the guess repeat next
+# session. See spec/COMMIT_IDENTITY_PLAN.md for why this replaced an earlier,
+# repo-scoped design -- BestPractice never needed a different identity than
+# the person running it; a repository cannot need one at all, since GitHub's
+# own verified-commit check is scoped to the signing account, never to a
+# repository.
+#
 # TIMEZONE. Nothing in a GitHub profile says where someone is. So: an
 # explicit override, else the individual source's declared timezone, else
 # America/New_York -- the DECLARED FALLBACK.
@@ -185,8 +198,35 @@ if [ -z "$email" ] && [ -n "${CCR_SESSION_ACCOUNT_EMAIL:-}" ]; then
 fi
 
 # --- 5. the GitHub account this session is authenticated as
+#
+# Sends an Authorization header when GH_TOKEN or GITHUB_TOKEN is set (same
+# precedence gh CLI itself uses), because the unauthenticated call this had
+# before only ever worked by accident, under one specific harness. Claude
+# Code Remote's own outbound proxy silently attaches GitHub credentials to
+# every HTTPS request, so a bare, header-less curl to api.github.com/user
+# succeeded here -- and nowhere else, since api.github.com/user requires
+# auth and answers 401 without it. Verified 2026-09-17 against each
+# platform's own docs (Codex Cloud, Gemini CLI): neither injects an ambient
+# GitHub credential into arbitrary outbound calls the way this proxy does;
+# both instead expect the person to export a token themselves (gh CLI setup
+# for Codex, GITHUB_PERSONAL_ACCESS_TOKEN for Gemini CLI's own GitHub MCP).
+# GITHUB_TOKEN is also what GitHub Actions itself sets automatically on
+# every runner, so this same change is what makes the call work there too.
+# Absent either variable, this falls through to mechanism 6 exactly as
+# before -- nothing about the fallback chain changes, only the odds that
+# this specific rung actually returns something outside Claude Code Remote.
+gh_token="${GH_TOKEN:-${GITHUB_TOKEN:-}}"
 if [ -z "$email" ] && command -v curl >/dev/null 2>&1 && command -v python3 >/dev/null 2>&1; then
-  gh="$(curl -s --max-time 10 https://api.github.com/user 2>/dev/null | python3 -c '
+  # No token in the environment falls back to the pre-2026-09-17 bare call.
+  # That fallback is what makes this rung succeed under Claude Code Remote,
+  # whose own outbound proxy injects the credential this call never has to
+  # ask for. Everywhere else, api.github.com/user requires auth and an
+  # unauthenticated call comes back empty, which is correct: falling
+  # through to mechanism 6 is the honest answer when nothing here actually
+  # knows who is asking.
+  gh_auth_header=()
+  [ -n "$gh_token" ] && gh_auth_header=(-H "Authorization: Bearer $gh_token")
+  gh="$(curl -s --max-time 10 "${gh_auth_header[@]}" https://api.github.com/user 2>/dev/null | python3 -c '
 import json, sys
 try:
     d = json.load(sys.stdin)
@@ -328,9 +368,12 @@ if [ -n "$email" ]; then
     [ -n "$name" ] && git -C "$ROOT" config --local user.name "$name" 2>/dev/null
     git -C "$ROOT" config --local user.email "$email" 2>/dev/null
     echo "NOTE: commit-identity: commits from this checkout will be authored as '${name:-$email}' <$email>, from $source." >&2
+    if [ "$declared" -eq 0 ]; then
+      echo "NOTE: commit-identity: that identity was inferred, not declared -- tell Claude your name (and email, if you want one other than the above) and it becomes permanent, written into your individual source's identity.json, the same way declaring a timezone already is." >&2
+    fi
   fi
 else
-  echo "WARN: commit-identity: could not work out who is running this session, from any of the six sources this hook knows. Commits will use whatever git is already configured with -- and the pre-commit backstop will refuse them if that is the container's own bot identity. Set PRECEDENT_COMMIT_NAME/PRECEDENT_COMMIT_EMAIL to settle it." >&2
+  echo "WARN: commit-identity: could not work out who is running this session, from any of the six sources this hook knows. Commits will use whatever git is already configured with -- and the pre-commit backstop will refuse them if that is the container's own bot identity. Set PRECEDENT_COMMIT_NAME/PRECEDENT_COMMIT_EMAIL to settle it, or just tell Claude your name and email -- it will write an identity.json for you." >&2
 fi
 
 # ---- the SAME identity, GLOBALLY -- the half that reaches a repo which does
@@ -363,18 +406,32 @@ fi
 _set_global_identity() {
   [ "$declared" -eq 1 ] || return 0
   [ -n "$email" ] || return 0
-  local g_name g_email
+  local g_name g_email g_gpgsign
   g_name="$(git config --global --get user.name 2>/dev/null || true)"
   g_email="$(git config --global --get user.email 2>/dev/null || true)"
-  if [ "$g_email" = "$email" ] && [ "$g_name" = "$name" ]; then
+  g_gpgsign="$(git config --global --get commit.gpgsign 2>/dev/null || true)"
+  if [ "$g_email" = "$email" ] && [ "$g_name" = "$name" ] && [ "$g_gpgsign" != "true" ]; then
     return 0                      # already right: no churn, no message
   fi
   [ -n "$name" ] && git config --global user.name "$name" 2>/dev/null
   git config --global user.email "$email" 2>/dev/null
+  local gpgsign_note=""
+  if [ "$g_gpgsign" = "true" ]; then
+    # The container signs commits as its own bot identity by default, so
+    # GitHub can verify them -- deliberately, per THE PROBLEM above. Once a
+    # real person's identity is declared, their commits do not need that
+    # signature, and leaving it on means the stop hook keeps recommending
+    # the bot identity back, on every commit, which this same backstop then
+    # refuses -- forever, until one of them stops asking. Measured
+    # 2026-09-17: three commits in a row, in one session, before anyone
+    # traced why.
+    git config --global commit.gpgsign false 2>/dev/null
+    gpgsign_note=" Global commit signing (which asserted the container's own identity) is off now too, so it stops recommending that identity back."
+  fi
   if _is_bot "$g_email" "$g_name"; then
-    echo "NOTE: commit-identity: the GLOBAL git identity was the container's own agent account ($g_email). Set to '${name:-$email}' <$email>, so a repository attached or cloned LATER in this session inherits a person rather than the bot -- which is the gap a per-checkout fix cannot close." >&2
+    echo "NOTE: commit-identity: the GLOBAL git identity was the container's own agent account ($g_email). Set to '${name:-$email}' <$email>, so a repository attached or cloned LATER in this session inherits a person rather than the bot -- which is the gap a per-checkout fix cannot close.$gpgsign_note" >&2
   else
-    echo "NOTE: commit-identity: global git identity set to '${name:-$email}' <$email>, so repositories attached later in this session inherit it." >&2
+    echo "NOTE: commit-identity: global git identity set to '${name:-$email}' <$email>, so repositories attached later in this session inherit it.$gpgsign_note" >&2
   fi
 }
 _set_global_identity

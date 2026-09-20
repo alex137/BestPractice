@@ -24,7 +24,7 @@ a separate step, not part of the production flow**, re-reading its own
 reasoning against a short checklist: (a) did every idea discussed reach its
 **durable artifact**, or does it live only in prose or conversation? (b) do
 **parallel artifacts** that must track this change have their transfer
-verdicts ([parallel-artifact-ledger](parallel-artifact-ledger.md))? (c) did technical value get its **cross-ledger
+verdicts ([parallel-artifact-ledger](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/parallel-artifact-ledger.md))? (c) did technical value get its **cross-ledger
 capture** — the business, operational, or planning implication recorded where
 those live? (d) are open decisions **queued in the typed TODO**
 ([repo-is-memory](repo-is-memory.md))

@@ -105,7 +105,7 @@ approval this rule was written to remove. That is a trade, not an oversight.
 A rule that tells the sender to relay and leaves the receiver no way to act
 on the relay has not moved the work — it has moved where the work stops.
 Both halves were individually correct, which is what made the failure
-expensive: the sender obeyed [spawn-session](spawn-session.md), the receiver
+expensive: the sender obeyed `session-text`, the receiver
 obeyed its harness, and the person paid for both.
 
 The general shape is worth keeping past this instance. **When a rule depends
@@ -121,7 +121,7 @@ repository — a private practice set under a different owner, refused by
 `add_repo` with *"cross-tier adds are not supported in v1"*, with the git
 proxy declining to inject a credential for it. It relayed the authorization
 to a session that could reach the repository, which is what
-[spawn-session](spawn-session.md) tells it to do, bounded exactly as
+[prompt-please](prompt-please.md) tells it to do, bounded exactly as
 [go-merge](go-merge.md) requires.
 
 The receiving session did the work, opened a green pull request, and refused

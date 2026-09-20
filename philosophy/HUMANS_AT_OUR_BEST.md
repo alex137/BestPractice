@@ -27,6 +27,10 @@ this page doesn't replace them.*
   every last thing that's wrong — a bug, a sloppy paragraph, a process that
   half-works — with the intensity and creativity that comes from treating it
   as theirs ([`own-every-word`](COMPANY_BUILDING_RULES.md#own-every-word) is the narrow case).
+- <a id="questions"></a>**Asking hard questions.** Letting nothing stop you from getting to the
+  bottom of the "why" you need to know — the same "why"
+  [`explain-the-why`](OUR_PHILOSOPHY.md#explain-the-why) says has to reach
+  the model before it can push back on anything.
 - <a id="boundary-pushing"></a>**Boundary pushing.** AI tends to under-push the boundaries a situation
   actually calls for, held back by rules built strict on purpose
   ([`push-back-as-config-switch`](AI_GOVERNANCE_TO_COCREATE.md#push-back-as-config-switch) is the same
@@ -51,8 +55,9 @@ this page doesn't replace them.*
   staffed role, [`manager-of-agents`](COMPANY_BUILDING_RULES.md#manager-of-agents)).
 - <a id="verification"></a>**Verification.** Machines can only go so far in making sure that what
   they are doing is correctly reflected in the real world — most of all
-  where the real world is physical
-  ([`digitize-the-edge`](COMPANY_BUILDING_RULES.md#digitize-the-edge)).
+  where the real world is physical, past whatever
+  [`context-is-capital`](OUR_PHILOSOPHY.md#context-is-capital) managed to
+  capture in writing.
 - <a id="trade-offs-and-hard-decisions"></a>**Trade-offs and hard decisions.** Nothing worth choosing comes free:
   speed against care, this client against that one, the person you like
   against the person who is right. Somebody has to pick, knowing what the
@@ -60,11 +65,17 @@ this page doesn't replace them.*
   [`build-five-kill-four`](COMPANY_BUILDING_RULES.md#build-five-kill-four) stops applying.
 - <a id="dirtiness-of-real-life"></a>**Managing the dirtiness of real life.** When you leave the digital world,
   and more often than not when you're on it, very little works smoothly or
-  the way it seems to "on paper" — the frontier
-  [`digitize-the-edge`](COMPANY_BUILDING_RULES.md#digitize-the-edge) is about reaching.
+  the way it seems to "on paper" — no amount of
+  [`context-is-capital`](OUR_PHILOSOPHY.md#context-is-capital) written down
+  survives contact with it unchanged.
 
 ### People
 
+- <a id="why"></a>**Why.** Kids ask "why" about everything the moment they learn to talk;
+  digging to the root instead of stopping at the symptom is human nature,
+  not a trained skill —
+  [`five-whys`](COMPANY_BUILDING_RULES.md#five-whys) just turns the same
+  instinct into a practice anyone can run on purpose.
 - <a id="relationships"></a>**Relationships.** A counterparty trusts because of who's on the other
   end of them
   ([`structurally-human`](COMPANY_BUILDING_RULES.md#structurally-human));
@@ -77,12 +88,11 @@ this page doesn't replace them.*
   charts; reading it and managing it is a human job. Every dark process is
   dark for a political reason
   ([`no-dark-processes`](COMPANY_BUILDING_RULES.md#no-dark-processes)).
-- <a id="sense-of-smell"></a>**Sense of smell.** Understanding how reality actually plays out, past
+- <a id="sense-of-smell"></a>**Sense of smell.** Understanding how reality plays out, past
   anything a machine's formal analysis can show: *this vendor is sketchy*,
   *those guys are always in disasters*, *we just don't get along*. Sometimes
   literal — the Ghost can't smell burnt wiring
-  ([`digitize-the-edge`](COMPANY_BUILDING_RULES.md#digitize-the-edge)) — and the general case is
-  [`instinct-catches-what-checklists-miss`](REASONS_WHY.md#instinct-catches-what-checklists-miss).
+  ([`instinct-catches-what-checklists-miss`](REASONS_WHY.md#instinct-catches-what-checklists-miss)).
 
 ### The Intangible
 
@@ -90,18 +100,21 @@ this page doesn't replace them.*
   ([`structurally-human`](COMPANY_BUILDING_RULES.md#structurally-human);
   [`people-manage-agents-execute`](OUR_PHILOSOPHY.md#people-manage-agents-execute)).
   The bottleneck [`hire-for-drive`](COMPANY_BUILDING_RULES.md#hire-for-drive) is really about:
-  judging fast, not producing. A model can hand it a starting point by
-  flagging its own weak claims
-  ([`non-uniform-confidence`](AI_GOVERNANCE_TO_COCREATE.md#non-uniform-confidence)).
+  judging fast, not producing.
 - <a id="instinct"></a>**Instinct.** Reading a room, sensing what a client meant but didn't
   say, pushing someone harder when the moment calls for it
   ([`humans-do-what-humans-do-best`](OUR_PHILOSOPHY.md#humans-do-what-humans-do-best));
   the answer that felt off and passed every check
   ([`instinct-catches-what-checklists-miss`](REASONS_WHY.md#instinct-catches-what-checklists-miss)).
-- <a id="questions"></a>**The right questions.** Asking the right one at the right time may be
-  the hardest of the skills that matter;
-  [`three-questions`](COMPANY_BUILDING_RULES.md#three-questions) is the
-  drillable substitute.
+- <a id="weirdness"></a>**Weirdness.** AI normalizes away that which is strange or wildly
+  creative — the same flattening
+  [`no-ai-voice`](COMPANY_BUILDING_RULES.md#no-ai-voice) is naming when it
+  shows up in prose.
+- <a id="understanding-problems"></a>**Understanding problems.** People sense that something is wrong almost
+  without trying; working out what would actually fix it is a different
+  skill, and an unnatural, hard-won one for most — the discipline
+  [`focus-on-whys-problems`](CORE_PILLARS.md#focus-on-whys-problems) asks
+  for on every request.
 - <a id="the-human-spark"></a>**The human spark.** What makes someone worth working for, not merely
   alongside
   ([`structurally-human`](COMPANY_BUILDING_RULES.md#structurally-human)).
@@ -111,15 +124,20 @@ this page doesn't replace them.*
 
 ## See Also
 
-- [CORE_PILLARS.md](CORE_PILLARS.md) — the one-page pitch: the core ideas
+- [Core Pillars](CORE_PILLARS.md) — the one-page pitch: the core ideas
   this approach argues are unique, specifically taken together.
-- [OUR_PHILOSOPHY.md](OUR_PHILOSOPHY.md) — the underlying theoretical
+- [Our Philosophy](OUR_PHILOSOPHY.md) — the underlying theoretical
   ideas everything else here assumes, named and explained on their own
   terms.
-- [REASONS_WHY.md](REASONS_WHY.md) — the less obvious benefits those
+- [The Working Loop](THE_WORKING_LOOP.md) — the six-step cycle those
+  ideas run through, end to end.
+- [Reasons Why](REASONS_WHY.md) — the less obvious benefits those
   ideas actually produce in practice.
-- [COMPANY_BUILDING_RULES.md](COMPANY_BUILDING_RULES.md) — the standalone
+- [The Talmudic Method](THE_TALMUDIC_METHOD.md) — the resemblance between
+  what this system insists on and how the Talmud gets studied, argument
+  by argument.
+- [Company Building Rules](COMPANY_BUILDING_RULES.md) — the standalone
   essay on rules for building a company around AI.
-- [AI_GOVERNANCE_TO_COCREATE.md](AI_GOVERNANCE_TO_COCREATE.md) — the
+- [AI Governance to Co-Create](AI_GOVERNANCE_TO_COCREATE.md) — the
   standalone essay on how AI systems themselves should be configured,
   built, and run.

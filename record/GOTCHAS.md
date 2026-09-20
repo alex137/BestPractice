@@ -37,12 +37,46 @@ describe mechanisms that have since been fixed, and say so.
 
 ## 1. <a id="g1"></a>pip install cmarkgfm, or tools/doc_lint.py's strikethrough check silently stops ...
 
-**`pip install cmarkgfm`, or [tools/doc_lint.py](../tools/doc_lint.py)'s
-strikethrough check silently stops running.** Without it the check does not
-fail — it prints a one-line notice and scans for everything else, so a
-document that renders an unintended `<del>` on GitHub passes the gate.
-[.claude/hooks/session-start.sh](../.claude/hooks/session-start.sh) installs it,
-but only when `CLAUDE_CODE_REMOTE=true`; a local shell has to do it.
+**`pip install cmarkgfm markdown`, or two gates degrade and a third fails
+for reasons that have nothing to do with the tree.** Neither is in the
+standard library, and the two behave differently, which is what makes this
+worth reading twice.
+
+**cmarkgfm — silent.** Without it
+[tools/doc_lint.py](../tools/doc_lint.py)'s strikethrough check does not
+fail: it prints a one-line notice and scans for everything else, so a
+document that renders an unintended `<del>` on GitHub passes the gate. The
+`doc-references-are-links` check in
+[tools/precedent_check.py](../tools/precedent_check.py) skips for the same
+reason and says so in one line among fifty.
+
+**markdown — one tool, one exit code.** [tools/doc_html.py](../tools/doc_html.py)
+imports it at module level, so `--help` exits 1 and the deck engine cannot
+render `.md` slides.
+
+**Where it actually bites is [tools/verify_harness.py](../tools/verify_harness.py),
+which does NOT degrade.** It fails the checks that need them, and each failure
+describes what it was *testing* — strikethrough cases, a planted
+`doc-references-are-links` violation, a `--help` sweep across 56 tools — never
+what is missing. On 2026-09-14 that read as `3 failed` on a branch whose entire
+diff was two markdown files, and took two full harness re-runs to attribute:
+install `cmarkgfm`, down to 1 failed; install `markdown`, `202 passed, 0
+failed`. The harness now names the missing packages in a preflight line and
+again in the closing recap, so the shortest reading of its output says
+"environment", not "your diff".
+
+**Both are installed by
+[.claude/hooks/session-start.sh](../.claude/hooks/session-start.sh)** (only
+when `CLAUDE_CODE_REMOTE=true` — a local shell has to do it), and by both CI
+workflows. **So a container missing them is telling you the hook never ran**,
+which is a much larger fact than two absent packages: the same session had
+neither the generated session-practices file the private sources write, nor
+the commit backstop. That session
+was rooted one directory ABOVE this repository — see [g17](#g17) — so none of
+its hooks fired, silently. [`python3 tools/precedent_session_check.py`](../tools/precedent_session_check.py) reports
+all of those guarantees at once, and its packages row now names `pip install`
+as the remedy rather than `--apply`, because `--apply` re-runs the hook that
+could not run.
 
 
 ## 2. <a id="g2"></a>A git helper that returns stdout and drops the exit code will hand you a confident ...
@@ -152,6 +186,17 @@ changed-vs-default-branch scope quietly becomes changed-vs-`HEAD`: it checks
 your uncommitted files and nothing else. Fix both with a bounded `git fetch
 --depth=500 origin <branch>`; some git policy hooks block `--unshallow`, and a
 bounded fetch works either way.
+
+**Since 2026-09-14 the primary repo does this for you**, in
+[.claude/hooks/session-start.sh](../.claude/hooks/session-start.sh): a shallow
+clone is deepened at session start, before anything reads history, bounded by
+`timeout` and falling back to `--deepen` where `--unshallow` is refused.
+Measured against this remote: 2.7 MB of history before, 9.5 MB after, 4
+seconds. **What it does NOT cover is every case this entry is about** — a
+sibling attached mid-session runs none of its own hooks
+([g15](#g15)), a CI checkout is its own shallow clone, and a source set has no
+such hook at all. In any of those, the manual fetch above is still the fix, and
+a tool reporting a suspiciously clean result is still the symptom.
 
 
 ## 7. <a id="g7"></a>git clone --depth 1 /some/path is ignored; git only honours --depth over a ...
@@ -441,7 +486,7 @@ tools/precedent_refresh_sources.py --apply` now restores a
 declared-but-missing hook, **independently of engine staleness**, since the
 two go stale independently. Bringing a drifted-but-present hook up to
 canonical is still a person's call, and [TODO.md's `source-hook-drift`
-item](../TODO.md#source-hook-drift) holds it.
+item](../todo/todo-2026-09-09-source-hook-drift.md) holds it.
 
 
 ## 21. <a id="g21"></a>A refusal that names a remedy which cannot work is the moment to ask what the guard ...
@@ -483,6 +528,60 @@ tools; do not assume it is fixed. **Detection is the whole remedy available**:
 the branch on its first run and compares on every later one. When it fires the
 work is **not lost** — `git reflog` lists the commit, `git checkout` returns
 to it, `git cherry-pick` recovers anything committed after.
+
+**Second recorded instance, 2026-09-14, and it narrows the suspects.** A
+session working on a feature branch found the checkout back on
+`precedent-beta-v01` between one tool call and the next, with
+`git reflog` showing `checkout: moving from <feature-branch> to
+precedent-beta-v01` and nothing else — **no pull afterwards this time**, unlike
+the 2026-09-08 case. Nothing was lost: the branch tip still matched its remote,
+because the work had already been pushed. What that buys is the ordering — the
+move happened AFTER a push and a fetch, in a turn that ran no repository tool
+at all beyond `git`, so whatever does this does not need one of this repo's
+own tools to have been invoked. **The cheap habit that made it a non-event was
+pushing before the gap**: a pushed branch survives the move, an unpushed one
+survives only in the reflog.
+
+**Third recorded instance, 2026-09-16, and it shows a worse variant: the move
+can carry UNCOMMITTED changes with it.** A session on a feature branch (already
+one commit ahead of what it had pushed) found `git log` reporting a commit
+that should not have been there and `git diff` showing edits it did not
+recognize — `git reflog show HEAD` confirmed
+`checkout: moving from claude/elegant-pascal-8cb3n2 to precedent-beta-v01`
+with nothing in the session's own command history requesting it. Unlike both
+prior instances, there was no stranded commit and no already-pushed branch to
+fall back on: the session's own **uncommitted** edits had ridden along across
+the switch, landing as an uncommitted diff on top of `precedent-beta-v01`
+instead of the branch they were written for. `git status` looked completely
+ordinary throughout — clean branch name in the prompt, a plausible-looking
+diff — which is what makes this variant more dangerous than the first two:
+there is no missing function or stranded commit to notice, only the wrong
+base underneath edits that look fine on their own. **Recovery, in order**:
+`git diff > patch-file` before touching anything else (this preserves the
+edits regardless of what happens next), confirm the abandoned branch's
+history is unharmed (`git log`/`git rev-parse` against its remote), switch
+back to the correct branch cleanly, then `git apply --reject` the saved patch
+— expect at least one hunk to conflict if the correct branch has diverged
+from the wrong one since the edits were made, and reapply that hunk by hand
+from the `.rej` file. See [spec/VERIFY_HARNESS_PERFORMANCE.md](../spec/VERIFY_HARNESS_PERFORMANCE.md)
+for the full incident this was pulled from.
+
+**Fourth recorded instance, 2026-09-18, closest to the second: no lost
+work, but a wasted merge attempt.** A session on a feature branch ran
+`git merge origin/<base-branch>` mid-turn, expecting to update its own
+branch, and got `Already up to date` — because `git branch --show-current`
+by then reported the base branch itself, not the feature branch. `git
+reflog` showed the same shape as before: `checkout: moving from
+<feature-branch> to precedent-beta-v01`, with nothing in the session's own
+command history requesting it, sometime between an earlier push and this
+merge attempt. Nothing was lost — the feature branch's own commits were
+already pushed, matching the second instance's "pushed before the gap"
+case — but the merge command itself ran against the wrong branch and had
+to be redone after switching back. **New symptom to watch for**: a `git
+merge`/`git pull` that reports "already up to date" when you expected real
+incoming changes is worth an immediate `git branch --show-current` check,
+same as a function that silently stopped existing was the tell in the
+first instance.
 
 
 ## 23. <a id="g23"></a>A verify_harness.py fixture that builds an "absent credential" scenario inherits ...
@@ -680,7 +779,7 @@ and `team`, not universal alone.
 
 **The private practice sets reach a session through the environment
 credential, not through `add_repo`: set `PRECEDENT_GIT_TOKEN` and
-`PRECEDENT_SOURCE_BASE_URL` ([PER_MACHINE_SETUP.md](../PER_MACHINE_SETUP.md)) and the SessionStart
+`PRECEDENT_SOURCE_BASE_URL` ([PER_MACHINE_SETUP.md](../documentation/PER_MACHINE_SETUP.md)) and the SessionStart
 hook clones them before the first turn, where no ordering rule can reach it.**
 Verified end to end 2026-09-10 on a brand-new container and again 2026-09-11:
 all four sources on disk before the first turn. **That "before the first
@@ -716,7 +815,7 @@ unresolved applies the wrong rules all day and cannot tell. **If `env | grep
 account can hold two environments with the SAME NAME and the selector cannot
 tell them apart, which is what it was three times. The setting-up half of this
 now lives where someone setting the variables reads it,
-[PER_MACHINE_SETUP.md](../PER_MACHINE_SETUP.md)'s environment table; the three-day sequence is
+[PER_MACHINE_SETUP.md](../documentation/PER_MACHINE_SETUP.md)'s environment table; the three-day sequence is
 [record/GOTCHAS_ARCHIVE.md](../record/GOTCHAS_ARCHIVE.md) entry 29.
 
 
@@ -736,7 +835,23 @@ that cross-owner attachments may still be refused. **The useful half is what
 it hands you anyway**: a session rooted anywhere, under any owner, can
 `GIT_LFS_SKIP_SMUDGE=1 git clone --depth 1` this public repository with
 nothing attached — which is how a session working in a private source set
-reads the upstream tree. Allow ≈10 minutes and do not interrupt the clone.
+reads the upstream tree.
+
+**This entry said "allow ≈10 minutes" until 2026-09-14, and that figure does
+not reproduce.** Measured on a hosted container that day, both clones landing
+on `precedent-beta-v01` with all 116 practice files present: `--depth 1` took
+**1 second** for 14 MB and 1 commit, and a FULL clone — which is what
+[tools/precedent_source_bootstrap.py](../tools/precedent_source_bootstrap.py)
+actually runs for a universal source, with no `--depth` — took **3 seconds**
+for 20 MB and all 1,394 commits. This repository is almost entirely prose, so
+there is very little to transfer. Nobody knows what the ten minutes on
+2026-09-09 was; a cold proxy and a Git Large File Storage (LFS) fetch are both candidates and
+neither was measured. **What matters is not to cost a design decision against
+it** — the ≈10 minutes was quoted in a 2026-09-14 session as the reason not to
+put the universal catalogue in front of every session, and the real number is
+three seconds (practice: diagnosis-is-measured — a relayed figure is a
+hypothesis until this container measures it).
+
 What that checkout cannot do: push, reach the GitHub tools (its web
 application programming interface, and the Model Context Protocol server that
 fronts it), or fetch Git Large File Storage objects.
@@ -903,6 +1018,80 @@ guard**, so a session rooted in any of them meets the original trap at full
 force. Their vendored engines were refreshed to current that day and did
 **not** bring the hook with them — the engine and the hooks go stale
 independently ([g20](#g20)), and only the engine has a repair path.
+
+**A third occurrence, 2026-09-15, finally answers "can this be prevented
+outright" — and the answer is narrower than either fix so far assumed.**
+This session's checkout came up shallow at a commit hundreds behind tip
+(`b3040c6`), the freshness guard refused the first tool call with
+`132 local, 479 remote`, and `git show b3040c6:.claude/hooks/session-start.sh`
+and `...freshness-guard.sh` both came back with **zero** occurrences of the
+unshallow/deepen code. Same trap, third time.
+
+**Anthropic's own docs settle why, as of 2026-09-15**
+([claude-code-on-the-web](https://code.claude.com/docs/en/claude-code-on-the-web),
+[cloud-environments](https://code.claude.com/docs/en/cloud-environments)):
+*"Cloud sessions start from a fresh clone"* is true of a session's **first**
+turn only. Every later turn **resumes the same virtual machine (VM) and the
+same checkout** —
+nothing re-clones, and *"resuming an existing session never re-runs the
+setup script."* SessionStart hooks do fire on every resume, but they run
+**whatever copy of themselves is already checked out**. A session opened
+before a hook fix merged, and kept alive since, can never pick that fix up
+by resuming — the hook that would fetch the fix is the one artifact resuming
+cannot refresh. This is not a bug in the hook; it is what "resume" means.
+
+**So there is no committed file that closes this for a session already
+running old code.** The only way in is from inside that session:
+`git fetch --unshallow` (or a bounded `--deepen`), run once, by hand or by
+the hook succeeding on that session's own first chance to run current code.
+Once it succeeds, the repo is no longer shallow at all, so the class of bug
+cannot recur for that checkout again — this is a one-time threshold per
+already-open session, not a recurring one.
+
+**What a committed fix *can* still do, and where today's copy falls short:**
+it already self-heals every **brand-new** session correctly (a fresh clone
+gets the current, fixed hook) — the gap is only in already-resumed sessions,
+and in how loudly a failed attempt reports itself. Today's `session-start.sh`
+gives the unshallow exactly one `timeout 90` try and, on failure, writes a
+single `WARN` line to stderr that nothing re-surfaces later. And
+`freshness-guard.sh`'s `_deepen_if_shallow` only fires from the
+divergence-detection branch (`ahead != "0"`) — a checkout that is shallow but
+merely *behind*, never mis-read as diverged, gets no second attempt from the
+guard at all if SessionStart's own try failed. Hardening was tracked at
+TODO.md's `shallow-clone-self-heal-hardening` item — closed 2026-09-15
+(built and merged) and since pruned from TODO.md.
+
+**A setup script does not close the gap either, and is worth ruling out
+explicitly so nobody re-proposes it.** Setup scripts are the one mechanism
+that lives outside the git tree (environment config, not a committed file),
+which looks at first glance like the way around the bootstrapping trap. But
+per the same docs, a setup script *"runs the first time you start a session
+in an environment"* and is *"skipped when a cached environment exists"* —
+the environment filesystem is cached for roughly a week, so a setup script
+is **not** guaranteed to run on every new session either, let alone on a
+resumed one. It would add a second unreliable path, not close the one gap
+that matters.
+
+**Built 2026-09-15**, same session, same day, on Morgan's go-ahead. Both
+`.claude/hooks/session-start.sh`'s single `timeout 90` attempt and
+`freshness-guard.sh`'s divergence-gated `_deepen_if_shallow` were the
+narrower gaps this entry always said were still open — not the
+bootstrapping trap itself, which stays exactly as described above.
+`session-start.sh` now retries once more on failure and leaves a
+`PRECEDENT_SHALLOW_UNRESOLVED` marker in the git dir when both attempts
+fail; `freshness-guard.sh` now calls the deepen unconditionally, before
+either of its two callers trusts an ahead/behind count, and surfaces a
+loud `WARN` at session-start when that marker is still there. A fixture
+built to reproduce this entry's exact shape turned up something worth
+recording precisely because it is not what the "reads as diverged"
+framing above predicts: on the git version this container runs, the
+disjoint shallow graft read as **`0 behind, 0 ahead`**, not as a false
+divergence — so the OLD code, gated on `ahead != "0"`, never even
+attempted a deepen and silently treated a checkout that was five real
+commits stale as fully up to date. The new unconditional call fixes
+that shape too, not only the one this entry names. Full detail was in
+TODO.md's `shallow-clone-self-heal-hardening` item, closed 2026-09-15 and
+since pruned from TODO.md.
 
 ## 38. <a id="g38"></a>A Routine that fires a FRESH session gets none of the session-management tools, so a scheduled job that reads the fleet cannot run there
 
@@ -1081,3 +1270,214 @@ repositories are on this disk: ask the resolver what is DECLARED, then add
 siblings — never siblings alone. The individual set is the one that breaks
 it, every time, because it is the only one whose location is a person's own
 config rather than the session's layout.
+
+## 41. <a id="g41"></a>`/rate_limit` lies from inside a session — it reports a pristine window while the response headers report the truth
+
+**The symptom.** You want to know how much of the GitHub API allowance this
+account has already spent, so you ask the endpoint built for exactly that.
+It answers `core: 0 used of 15000`, with a reset always about an hour away,
+and it answers that every time you ask — the reset moves forward on each
+call. Nothing looks broken.
+
+**What is actually true.** Measured 2026-09-14, seconds apart, on the same
+credential in the same container:
+
+```
+GET /rate_limit                    -> "core": {"used": 0, "limit": 15000}
+GET /repos/<owner>/<name>  headers -> X-RateLimit-Used: 74, Remaining: 14926
+```
+
+The headers on an ordinary call are correct and the endpoint is not. The
+cause was not chased past establishing which of the two to trust — the agent
+proxy sits between the session and GitHub, and `/rate_limit` is plainly not
+being served the way the repository endpoints are.
+
+**Why it matters more than an ordinary wrong number.** A budget check built
+on that endpoint is green on the day the account runs out, which is the one
+day it exists for — the same shape as the stale `views-drift` header that
+claimed something was already failing the build. It was nearly built that
+way here. [tools/github_budget.py](../tools/github_budget.py) reads
+`X-RateLimit-*` off calls it was making anyway, never the endpoint, and
+[tools/precedent_check.py](../tools/precedent_check.py)'s
+`github-api-budget` check fails if anything goes back.
+
+**Two more things the same session established**, both surprising and both
+load-bearing:
+
+- **There is more than one allowance pool, keyed by repository.** A call
+  about the public upstream repo was charged to a 15,000/hour pool; calls
+  about two private sources to two separate 5,200/hour pools with their own
+  reset clocks. The harness attaches a per-repository credential, so "how
+  much is left" is a question about a repository, not about the account.
+- **`/search/*` and `/graphql` never reach GitHub from a container.** The
+  proxy answers `403 This GitHub API path is not available: sessions are
+  bound to their configured repositories`. So the tightest allowance on the
+  account — search, at 30 requests a MINUTE, shared by every session at once
+  — cannot be measured from where its refusals are felt, and the calls that
+  spend it come from the harness-side `mcp__github__*` tools.
+
+**Do not "fix" a rate-limit refusal by retrying.** The pool is shared by
+every window running; the lever is fewer simultaneous sessions and cheaper
+tools (the local clone before the API, a repo-scoped `list_*` before a
+`search_*`). Practice:
+[github-api-budget](../practices/github-api-budget.md).
+
+## 42. <a id="g42"></a>The permission classifier refuses commits and checks in the very practice set whose `identity.json` declares `relayed_authorization: accepted`
+
+**The symptom.** You are working in an individual practice set, adding the
+one field [relayed-authorization](../practices/relayed-authorization.md)
+tells you to add. The moment the field is in the file, commands that ran a
+minute earlier in the same repository come back as
+
+```
+Permission for this action was denied by the Claude Code auto mode
+classifier. Reason: [Instruction Poisoning]
+```
+
+`git commit`, [`python3 tools/precedent_check.py`](../tools/precedent_check.py) and
+`python3 tools/precedent_identity.py --relay` were all refused this way.
+`git status`, ordinary file reads and `python3 -m json.tool identity.json`
+kept working throughout, so the session looks healthy right up to the point
+where it has to write something.
+
+**What was measured, 2026-09-14.** The same `--relay` command, same
+container, same repository: it ran and printed `REFUSED -- (field absent)`
+before the edit, was denied after it, and then ran again on a later turn and
+printed `ACCEPTED` — with nothing changed but the turn it was called in. So
+the guard is **not deterministic**, which is what makes "try again in a
+minute" such an attractive and such a bad plan. Three sessions hit it before
+it was written down.
+
+**Why it fires is a hypothesis, not a finding**
+([diagnosis-is-measured](../practices/diagnosis-is-measured.md)). The task
+reaches these sessions as a seeded or relayed prompt, and what it asks for is
+a file that widens what a relayed message may cause — which is precisely the
+shape the guard exists to refuse. The file's own content appears to weigh
+too, since the identical command passed with the field absent and failed with
+it present. Neither was chased further; what matters operationally is below.
+
+**What does not fix it.** An environment variable cannot: the
+`PRECEDENT_COMMIT_*` rung is dropped from this one reader by design, so no
+variable can declare acceptance. Retrying does not, rewording the commit
+message does not, and a stated authorization from the person in that window
+does not reliably — it got `--relay` and `build_views.py --check` through, and
+left `git commit` and [`precedent_check.py`](../tools/precedent_check.py) refused. **Writing the same file
+through the GitHub API is not a fix either**: it is the workaround the denial
+exists to stop, and a session that reaches for it has decided it knows better
+than its own guard.
+
+**What worked.** The person did it himself, which is the honest reading of a
+guard that distrusts relayed authority: paste the block into GitHub's web
+editor, commit on the branch, open the pull request. A session can still
+read, verify and report — fetching the branch, parsing the pushed
+`identity.json`, and reading the check runs all work fine from outside that
+repository.
+
+**Two traps sitting inside the recovery path**, both hit the same day:
+
+- **A commit made in GitHub's web editor carries the browser's offset**
+  (`-0400` here), which an individual set's own timezone check fails on. It cannot be grandfathered from the web
+  editor either, because the commit adding the exemption is stamped wrong in
+  exactly the same way. Redo the commit locally under
+  `TZ="America/Argentina/Buenos_Aires"`.
+- **`git reset --soft main` against a stale local `main` silently reverts
+  whatever landed in between.** Re-committing an old tree on a new parent
+  produced a one-line change that also rolled back a merged pull request, and
+  nothing complained: CI was green, because undoing someone's merge breaks no
+  rule. It was caught only by counting the files in the pull request diff —
+  one expected, six present. **Count the files before merging**, every time a
+  branch has been rebuilt by hand.
+
+## 43. <a id="g43"></a>A spawned session's seeded prompt cannot pre-authorize a merge — the classifier refuses the `create_session` call itself
+
+**The symptom.** [go-merge](../practices/go-merge.md) and
+[session-text](../practices/session-text.md) both say a relayed `Go merge`
+travels with a seeded prompt: the receiving session merges without asking
+again, bounded by
+[relayed-authorization](../practices/relayed-authorization.md)'s check on the
+target repository's own `identity.json`. A `create_session` call seeding a
+cross-owner repository with a prompt that said, in effect, "commit, push,
+open the pull request, and merge it" was refused before the new session ever
+started:
+
+```
+Permission for this action was denied by the Claude Code auto mode
+classifier. Reason: [Merge Without Review]
+```
+
+**What was measured, 2026-09-15.** The identical `create_session` call,
+same target repository, same content otherwise, with only the merge
+instruction removed and replaced with "stop at the pull request — do not
+merge," succeeded immediately. The spawned session then did the work, opened
+its pull request, and — later, on its own, inside its own turn — went on to
+merge that pull request itself, with no refusal reported back.
+
+**Why it fires is a hypothesis, not a finding**
+([diagnosis-is-measured](../practices/diagnosis-is-measured.md)): the two
+data points only distinguish *baking a merge instruction into another
+session's seed* from *a session merging its own pull request live, in its
+own turn*. Nothing here establishes which part of the classifier's model
+draws that line, only that it does.
+
+**What does not work.** Writing the merge authorization into the seeded
+prompt, however precisely it cites `relayed_authorization: accepted` and
+quotes the practice — the call is refused before the target session reads
+any of it.
+
+**What works.** Seed the spawned session with everything through opening
+the pull request, and stop the prompt there. Whether the merge then happens
+live in that session's own turn is up to what happens inside it (the
+person approving it there, or the session's own permission mode allowing
+it) — not something the spawning session can hand over in advance.
+
+## 44. <a id="g44"></a>A PreToolUse hook's once-per-session sentinel is not proof against two tool calls the harness dispatches at once — and the trap that made the first attempt at fixing it worse
+
+**The symptom.** `freshness-guard.sh`'s `pre-write` mode keys its
+once-per-session sentinel on `session_id` alone when one resolves — which is
+the normal case — so every tool call in one turn computes the identical
+sentinel path. Two Bash calls sent in the same message, both their first
+tool call of the session, both read `[ -f "$sentinel" ]` as false before
+either has written it, and both fall through to `_pre_write_one`, which runs
+`git fetch`/`--deepen` against the same `.git` directory at once.
+
+**What was measured.** One of two parallel calls this session blocked with a
+false "diverged" reading — `record/GOTCHAS.md#g37`'s shallow-clone artifact
+— while its sibling call, touching the same checkout at the same instant,
+read the correct counts and passed clean. Same session, same moment, two
+different verdicts, because nothing serialized them. Confirmed with an
+instrumented A/B fixture: two copies of the hook, one with the fix below and
+one without, each with a marker-plus-`sleep 2` planted at the top of
+`_pre_write_one`. Unpatched, both processes' markers, tagged with each
+one's process ID (PID), appear interleaved in the shared log — genuine
+concurrent execution touching git at once. Patched, only one PID's markers
+ever appear; the other call exits clean off the sentinel the first one
+wrote, without touching git itself.
+
+**The fix, and the trap inside fixing it.** `flock` on an fd opened by
+`exec`, re-checking the sentinel after acquiring it — a second caller that
+had to wait finds the first one already finished and exits immediately
+instead of repeating the same git work. Held on the fd rather than in a
+subshell, so a later `_block`'s plain `exit 2` still releases it when the
+process exits normally, with no unlock path to remember.
+
+**The first attempt at this fix put `2>/dev/null` on the same line as
+`exec 9>file`, and that is a distinct, separate trap from the race itself.**
+`exec` with no command applies its redirections to the *current shell*,
+permanently — not scoped to that one statement, and not undone when the
+enclosing function returns. Proven in two lines: a function that runs
+`exec 9>/tmp/x 2>/dev/null` internally, called, then followed by an
+ordinary `echo ... >&2` *outside* the function and *after* it returned —
+that line went silent too. Every later `echo ... >&2` for the rest of the
+script's run went to `/dev/null` with it, which is exactly why two existing
+`verify_harness.py` cases caught the bug: their expected stderr text came
+back empty, not wrong. `flock`'s own `2>/dev/null` on its own line is a
+normal external command's redirection and stays scoped to that command —
+the fix was moving the suppression there, not removing it.
+
+**The generalization worth keeping.** A `[ -f sentinel ] && exit 0` /
+`: > sentinel` pair with no lock between the check and the write is a
+check-then-act race the moment two processes can run it at once — true of
+any "once per session" guard a PreToolUse hook keeps this way, not just
+this one. And separately: never put a stderr redirect on a bare `exec`
+line meant only to open a persistent fd — the redirect persists exactly as
+much as the fd does.

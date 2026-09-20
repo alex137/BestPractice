@@ -74,7 +74,7 @@ PRACTICES_DIR = ROOT / 'practices'
 
 sys.path.insert(0, str(_ENGINE_DIR))
 import split_practices as sp
-# TODO.md item 20 (was 19): this channel read practices/*.md directly,
+# Closed and pruned from TODO.md (was the `gate-and-paths-unreachable-source` item): this channel read practices/*.md directly,
 # bypassing precedent_show.py's materialized-source reachability note
 # (PR #114). Fixed by importing precedent_show.py's two helpers directly
 # -- same discipline this file already uses for split_practices.py, not a

@@ -6,14 +6,12 @@
 run them so co-creation —
 [`co-create-dont-delegate`](COMPANY_BUILDING_RULES.md#co-create-dont-delegate) —
 is the default, not something a disciplined person manufactures by hand.
-[COMPANY_BUILDING_RULES.md](COMPANY_BUILDING_RULES.md) makes the case for
+[Company Building Rules](COMPANY_BUILDING_RULES.md) makes the case for
 running a company this way; this document is one level down, about the
-systems. See also [OUR_PHILOSOPHY.md](OUR_PHILOSOPHY.md) (the theory),
-[REASONS_WHY.md](REASONS_WHY.md) (the payoffs), and
-[HUMANS_AT_OUR_BEST.md](HUMANS_AT_OUR_BEST.md) (what stays human).
-Promoted out of [ASSORTED_NOTES.md](ASSORTED_NOTES.md);
-[RULES_NOW_TESTING.md](RULES_NOW_TESTING.md) is where an idea from either
-essay gets tried before it's called a rule.*
+systems. See also [Our Philosophy](OUR_PHILOSOPHY.md) (the theory),
+[Reasons Why](REASONS_WHY.md) (the payoffs), and
+[Humans at Our Best](HUMANS_AT_OUR_BEST.md) (what stays human).
+Promoted out of [Assorted Notes](ASSORTED_NOTES.md).*
 
 ## Memory & Context
 
@@ -73,28 +71,22 @@ possible; this is what it is for).
 Argue a genuine counter-case on writing/thinking work, comply on
 technical execution — the switch should track task shape, not sit fixed
 at the system level, where a rule built strict on purpose under-serves the
-case in front of it ([`boundary-pushing`](HUMANS_AT_OUR_BEST.md#boundary-pushing)). Being run
-by hand meanwhile as
-[`push-back-writing-thinking`](RULES_NOW_TESTING.md#push-back-writing-thinking).
+case in front of it ([`boundary-pushing`](HUMANS_AT_OUR_BEST.md#boundary-pushing)).
 
 <a id="three-reflexes-in-system-prompt"></a>
 
-**7. The three reflexes from
-[`three-questions`](COMPANY_BUILDING_RULES.md#three-questions) belong in
-the system prompt, not just a human's habit.** An agent that asks itself
-"have I done this shape before" mid-task, and says so, does more of
+**7. The reflex belongs in the system prompt, not just a human's habit.**
+An agent that asks itself "have I done this shape before" mid-task, and
+says so, does more of
 [`think-in-workflows`](COMPANY_BUILDING_RULES.md#think-in-workflows)'s
-work than a person remembering to ask. Until it is configured, a person
-asks them out loud:
-[`three-reflexes-out-loud`](RULES_NOW_TESTING.md#three-reflexes-out-loud).
+work than a person remembering to ask.
 
 <a id="argue-in-the-open"></a>
 
 **8. Argue in the open.** An AI reviewer that holds a half-formed
 position and invites disagreement, rather than posting a clean
 finished-looking suggestion, keeps the disagreement itself in the record.
-The system-level form of [`arguing-with-the-model`](OUR_PHILOSOPHY.md#arguing-with-the-model),
-asked of people first as [`argue-in-the-open`](RULES_NOW_TESTING.md#argue-in-the-open).
+The system-level form of [`arguing-with-the-model`](OUR_PHILOSOPHY.md#arguing-with-the-model).
 
 ## Interface
 
@@ -175,7 +167,7 @@ voice.
 claim reads with the same even prose confidence,
 [`hire-for-drive`](COMPANY_BUILDING_RULES.md#hire-for-drive)'s "find the one false paragraph"
 skill has nothing to grab onto. Flag the weaker claims — a hedge, a
-citation, an assumption — so [`taste`](HUMANS_AT_OUR_BEST.md#taste) has a place to start.
+citation, an assumption — rather than let them read as settled.
 
 ## Surfacing Blind Spots
 
@@ -185,8 +177,6 @@ citation, an assumption — so [`taste`](HUMANS_AT_OUR_BEST.md#taste) has a plac
 periodically list workflows whose only interface is a human inbox —
 including its own — and propose an addressable alternative, per
 [`no-dark-processes`](COMPANY_BUILDING_RULES.md#no-dark-processes).
-Running by hand today as
-[`dark-process-self-audit`](RULES_NOW_TESTING.md#dark-process-self-audit).
 
 <a id="periodic-checkins-not-expiry"></a>
 
@@ -218,15 +208,20 @@ the platform it's sitting in today. What the hedge looks like in practice:
 
 ## See Also
 
-- [CORE_PILLARS.md](CORE_PILLARS.md) — the one-page pitch: the core ideas
+- [Core Pillars](CORE_PILLARS.md) — the one-page pitch: the core ideas
   this approach argues are unique, specifically taken together.
-- [OUR_PHILOSOPHY.md](OUR_PHILOSOPHY.md) — the underlying theoretical
+- [Our Philosophy](OUR_PHILOSOPHY.md) — the underlying theoretical
   ideas everything else here assumes, named and explained on their own
   terms.
-- [REASONS_WHY.md](REASONS_WHY.md) — the less obvious benefits those
+- [The Working Loop](THE_WORKING_LOOP.md) — the six-step cycle those
+  ideas run through, end to end.
+- [Reasons Why](REASONS_WHY.md) — the less obvious benefits those
   ideas actually produce in practice.
-- [COMPANY_BUILDING_RULES.md](COMPANY_BUILDING_RULES.md) — the standalone
+- [The Talmudic Method](THE_TALMUDIC_METHOD.md) — the resemblance between
+  what this system insists on and how the Talmud gets studied, argument
+  by argument.
+- [Company Building Rules](COMPANY_BUILDING_RULES.md) — the standalone
   essay on rules for building a company around AI.
-- [HUMANS_AT_OUR_BEST.md](HUMANS_AT_OUR_BEST.md) — the one list of what
+- [Humans at Our Best](HUMANS_AT_OUR_BEST.md) — the one list of what
   humans are good at, gathered from the shorter versions scattered here
   and elsewhere.

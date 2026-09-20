@@ -24,8 +24,10 @@ gives for enumerating practices instead of leaving that to the session too.
 Reading the enumerated scope for contradiction, staleness, repetition,
 disproportion, formatting drift, self-application gaps, and backlog drift
 is the part only a session can do -- see practices/very-deep-check.md's
-Detail section for the fixed checklist, printed again at the end of this
-tool's own output so it travels with the enumeration.
+Detail section for the fixed checklist. A pointer to it closes this tool's
+output; `--checklist` prints it in full beside the enumeration (off by
+default since 2026-09-14 -- it was 46% of every run's output, and a session
+that has loaded the practice already holds it).
 
 READ practices/very-deep-check.md's Why section before trusting this
 mechanism's own reliability -- it has not been evaluated the way
@@ -135,7 +137,12 @@ session records what one cost with --record-pass, from its own measurement.
 
 Run:
   python3 tools/very_deep_check.py [--repo PATH] [--user-config PATH]
-      -- the scope to read, plus the checklist, as plain text.
+      -- the scope to read, as plain text, with a pointer to the checklist.
+  python3 tools/very_deep_check.py --checklist
+      -- also print the four passes in full (practices/very-deep-check.md's
+      Detail, ~10,000 tokens). Off by default since 2026-09-14: the ledger
+      measured it at 46% of every run's output, and a session that has
+      loaded the practice already holds it.
   python3 tools/very_deep_check.py --json [--repo PATH] [--user-config PATH]
       -- the same enumeration as structured data.
   python3 tools/very_deep_check.py --target BRANCH
@@ -173,6 +180,11 @@ Run:
   python3 tools/very_deep_check.py --allow-stale
       -- run anyway on a tree that is not provably current. For a
       deliberately offline run only; every finding is then provisional.
+  python3 tools/very_deep_check.py --emit merged-stale-checkout
+      -- print this checkout's merged-and-stale (safe-to-delete) branch
+      list, as markdown, and exit -- nothing else runs. The block
+      tools/doc_sync.py embeds into spec/VERY_DEEP_CHECK.md, never
+      truncated (practice: very-deep-check, computed-numbers-in-scripts).
   python3 tools/very_deep_check.py --record-pass '2=done,findings=3,tokens=120000,note=...'
       -- record a hand-worked pass's outcome against the most recent run in
       the ledger, and exit. `findings`, `tokens` and `note` are each
@@ -180,6 +192,12 @@ Run:
   python3 tools/very_deep_check.py --ledger PATH
       -- read and write the run ledger somewhere else (a fixture, or a
       second repository's own ledger).
+  python3 tools/very_deep_check.py --branch-report PATH
+      -- write the branch sweep's committable Markdown (every merged,
+      merged-elsewhere and unmerged branch, one clickable delete or
+      compare link per row) somewhere other than the checked repo's own
+      record/stale_branches.md. Written on every run that does not pass
+      --skip-branch-scan; this only relocates it.
 Exit: 1 if any repo in force is not provably current (unless --allow-stale),
 or if a declared team/individual source is missing (unless
 --allow-missing-sources); 0 otherwise.
@@ -190,7 +208,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'tools'))
 import precedent_resolve as pr
 
-FATAL_MISSING_LEVELS = ('team', 'individual')
+FATAL_MISSING_LEVELS = ('shared', 'team', 'individual')
 
 # How old a MERGED, undeleted branch has to be before the sweep marks it
 # stale. A threshold nobody decided is doctrine, so this is a declared,
@@ -235,11 +253,23 @@ import split_practices as sp  # noqa: E402
 import build_views as bv  # noqa: E402
 import leak_gate  # noqa: E402
 
+# Optional, and deliberately so: this engine is vendored into trees older
+# than github_budget.py, and a visibility audit that refused to run there
+# would be a regression dressed as a fix (practice: fail-gracefully). Where
+# it IS present, every API call this tool makes goes through it -- one
+# implementation, one cache, one counter.
+try:
+    import github_budget as gh_budget  # noqa: E402
+except Exception:                      # noqa: BLE001 -- reported, never raised
+    gh_budget = None
+
 # practice: one-formatter-per-quantity -- every moment in time this project
 # writes down comes from ONE module, in the person's zone, carrying its
 # offset. Never a bare datetime.date.today(): that is the container's UTC.
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 import precedent_time  # noqa: E402
+import build_todo_index as bti  # noqa: E402 -- reads todo/*.md's frontmatter,
+                                 # the one place that parsing lives
 
 
 # The passes the invoking session actually works are read from the practice
@@ -569,6 +599,69 @@ def _declared_base_branch(repo_dir):
     except Exception:
         return None
 
+def _vendored_exclusion_findings(repo_dir):
+    """-> [str] findings, or None if `repo_dir` is not a vendored consumer.
+
+    A vendored consumer is one with a process/upstream/ directory, or a
+    process/manifest.json declaring upstream.commit -- the same two signals
+    tools/checkin.py itself looks for. Reads NOT_VENDORED from checkin.py by
+    import, not a second copy, so the two can never disagree about what is
+    excluded (practice: registry-source-of-truth).
+
+    This is the audit-time half of the NOT_VENDORED mechanism fix
+    (practice: very-deep-check); checkin.py's own `update` prints the same
+    signal every time it runs, but only for a repo that actually runs
+    `update` again after a path is newly excluded. This check is what still
+    catches the other case -- a consumer that has not re-run `update` since,
+    or is vendoring from a pre-fix engine copy that never had the sweep at
+    all -- since a very deep check reads the tree as it sits, not as the
+    last `update` left it.
+    """
+    repo_dir = pathlib.Path(repo_dir)
+    upstream_dir = repo_dir / 'process' / 'upstream'
+    is_consumer = upstream_dir.is_dir()
+    if not is_consumer:
+        manifest_path = repo_dir / 'process' / 'manifest.json'
+        try:
+            manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
+            is_consumer = bool((manifest.get('upstream') or {}).get('commit'))
+        except Exception:                                        # noqa: BLE001
+            pass
+    if not is_consumer:
+        return None
+    try:
+        import checkin
+        not_vendored = checkin.NOT_VENDORED
+        not_vendored_root = checkin._NOT_VENDORED_ROOT_PATHS
+    except Exception as exc:                                      # noqa: BLE001
+        return [f"could not read NOT_VENDORED from tools/checkin.py -- "
+                f"{type(exc).__name__}: {exc} -- so this repo's "
+                f"process/upstream/ was NOT checked against it"]
+    if not upstream_dir.is_dir():
+        return []              # manifest declares a consumer, tree not present locally
+    hits = {}          # name -> (file count, is a root file rather than a dir)
+    for p in upstream_dir.rglob('*'):
+        if not p.is_file() or '.git' in p.parts:
+            continue
+        rel = p.relative_to(upstream_dir)
+        excluded = [part for part in rel.parts if part in not_vendored]
+        is_root = not excluded and rel in not_vendored_root
+        if is_root:
+            excluded = [str(rel)]
+        if excluded:
+            name = excluded[0]
+            n, _ = hits.get(name, (0, is_root))
+            hits[name] = (n + 1, is_root)
+    out = []
+    for name, (n, is_root) in sorted(hits.items()):
+        where = f"process/upstream/{name}" if is_root else f"process/upstream/{name}/"
+        out.append(f"{where} still present, {n} file(s) under an excluded path -- "
+                   f"either checkin.py update's sweep has not run here since "
+                   f"{name!r} was excluded (re-run it: it now reports this every "
+                   f"time), or this repo vendors from a pre-fix engine copy")
+    return out
+
+
 def _declared_stale_days(repo_dir):
     """-> a repo's own `branch_stale_days` from its precedent.json, or None.
 
@@ -634,6 +727,30 @@ def _merge_base_resolves(repo_dir, target_ref, ref):
     return rc == 0 and bool(out.strip())
 
 
+def _github_slug(repo_dir):
+    """-> 'owner/repo' for repo_dir's origin, or None when it is not GitHub.
+
+    Shared by every URL-builder below -- _branch_url and _compare_url both
+    need exactly this parse and used to each carry their own copy."""
+    rc, url, _ = _run_git(repo_dir, 'config', '--get', 'remote.origin.url')
+    if rc != 0 or not url:
+        return None
+    url = url.strip()
+    if url.endswith('.git'):
+        url = url[:-4]
+    if 'github.com' not in url:
+        return None
+    # Both remote forms -- the https one, and the SSH one whose host is
+    # written with a user@ prefix and a colon before the owner. Spelled
+    # out rather than shown: the literal example is email-shaped, and
+    # the leak gate's secret-scan correctly refuses it in a tracked file.
+    tail = url.split('github.com', 1)[1].lstrip(':/')
+    parts = [x for x in tail.split('/') if x]
+    if len(parts) >= 2:
+        return f'{parts[0]}/{parts[1]}'
+    return None
+
+
 def _branch_url(repo_dir, branch):
     """-> a URL that lands on GitHub's branches page filtered to `branch`,
     where the Delete button is, or None when the remote is not GitHub.
@@ -647,26 +764,30 @@ def _branch_url(repo_dir, branch):
 
     Parsed from the remote rather than assumed: a repository whose origin is
     not GitHub gets no link instead of a wrong one."""
-    rc, url, _ = _run_git(repo_dir, 'config', '--get', 'remote.origin.url')
-    if rc != 0 or not url:
-        return None
-    url = url.strip()
-    if url.endswith('.git'):
-        url = url[:-4]
-    slug = None
-    if 'github.com' in url:
-        # Both remote forms -- the https one, and the SSH one whose host is
-        # written with a user@ prefix and a colon before the owner. Spelled
-        # out rather than shown: the literal example is email-shaped, and
-        # the leak gate's secret-scan correctly refuses it in a tracked file.
-        tail = url.split('github.com', 1)[1].lstrip(':/')
-        parts = [x for x in tail.split('/') if x]
-        if len(parts) >= 2:
-            slug = f'{parts[0]}/{parts[1]}'
+    slug = _github_slug(repo_dir)
     if not slug:
         return None
     return (f'https://github.com/{slug}/branches/all?query='
             + urllib.parse.quote(branch, safe=''))
+
+
+def _compare_url(repo_dir, target, branch):
+    """-> a GitHub compare-view URL for `branch` against `target`, or None
+    when the remote is not GitHub.
+
+    Pass 4's spec (item 2 of the four things an unmerged branch is written up
+    with, practice: very-deep-check) wants a link on every unmerged row: its
+    most recent pull request when one exists, else "the branch's own compare
+    view". This offline scan has no GitHub API access to look up a PR (see
+    scan_branches' own docstring), so it can only ever produce the fallback
+    -- the compare view is what it links, always, rather than silently
+    omitting the row's link because the better one is out of reach."""
+    slug = _github_slug(repo_dir)
+    if not slug:
+        return None
+    return (f'https://github.com/{slug}/compare/'
+            + urllib.parse.quote(target, safe='')
+            + '...' + urllib.parse.quote(branch, safe=''))
 
 
 def _orphan_scan(repo_dir):
@@ -767,16 +888,20 @@ def _last_commit(repo_dir, path):
 
 
 def _spoken_commands(repo_dir):
-    """-> sorted [(phrase, slug)] for every active practice defining a phrase
-    that begins with a capital letter.
+    """-> sorted [(phrase, slug)] for every active practice that declares a
+    `command:` field -- the phrases a person SAYS.
 
-    The capital is the whole test, and it is a convention rather than a
-    field: a `defines:` entry is either a term this catalogue names
-    ("capture gate", "negative control") or a phrase a person SAYS
-    ("Go merge", "Park it"). Only the second kind is capitalized, because
-    only the second kind is quoted back in a sentence. Measured against the
-    catalogue when this was written: 23 active practices define something,
-    4 of them capitalized, and those 4 are exactly the standing commands.
+    The field is the test, and it is the same field tools/precedent_vocabulary.py
+    reads to build the page this scan checks. Until 2026-09-14 this function
+    used a different test -- any capitalized `defines:` entry -- on the
+    reasoning that only a spoken phrase is capitalized. That held for the four
+    commands that existed when it was written and failed the first time a
+    practice defined a capitalized TERM ("API budget", "Relayed authorization"):
+    this scan reported two commands missing from DAILY_HABITS.md while
+    doc_sync, reading the real field, reported the page current. Two
+    definitions of one thing, one of them wrong (practice: very-deep-check,
+    pass 2 question 8). A phrase in `command:` and nowhere else is still a
+    command; a capitalized term in `defines:` alone is not.
     """
     found = []
     for sub in ('practices', 'local/practices'):
@@ -790,12 +915,20 @@ def _spoken_commands(repo_dir):
             fm = sp.parse_frontmatter_fields(text.split('---', 2)[1], decode=True)
             if (fm.get('status') or 'active').strip() != 'active':
                 continue
-            defines = fm.get('defines') or []
-            if isinstance(defines, str):
-                defines = [defines]
-            for phrase in defines:
-                if isinstance(phrase, str) and phrase[:1].isupper():
-                    found.append((phrase, fm.get('slug', f.stem)))
+            raw = fm.get('command')
+            if not raw or raw == 'null':
+                continue
+            if isinstance(raw, str):
+                try:
+                    raw = json.loads(raw)
+                except ValueError:
+                    # A malformed field is precedent_vocabulary.py's to
+                    # report; here it is simply not a readable command.
+                    continue
+            phrases = raw.keys() if isinstance(raw, dict) else raw
+            for phrase in phrases:
+                if isinstance(phrase, str) and phrase.strip():
+                    found.append((phrase.strip(), fm.get('slug', f.stem)))
     return sorted(set(found))
 
 
@@ -1157,35 +1290,97 @@ def _follow_gotcha_index(root, entries):
     return out
 
 
-def _gotchas_currency(repo_dir):
-    """-> (rows, findings) -- a reading list for the gotchas section.
+def _reroot_md_links(body, base):
+    """-> body with every markdown link's target rewritten from being
+    relative to `base` to being relative to the repo root.
 
-    rows are (tokens, line, title, [signals]) for every entry, so the caller
-    can order a reduction pass by what trimming each one would actually save
-    rather than by which happened to trip a signal.
+    Same normalization _follow_gotcha_index needs for a record living in a
+    subdirectory, needed here for the same reason: gotchas/*.md's own
+    relative links (`../tools/x.py`) are correct from gotchas/, and every
+    signal below resolves a named path against the repo root, so handed the
+    text unrooted the pass reports every such link as missing. Backtick
+    paths (`tools/x.py`, no link markup) are untouched -- they are prose
+    written root-relative already and were never relocated.
+    """
+    import posixpath
+    return re.sub(
+        r'\]\((?!https?://|mailto:|#)([^)]+)\)',
+        lambda m: '](' + posixpath.normpath(posixpath.join(base, m.group(1)))
+                  + ')',
+        body)
+
+
+def _gotcha_file_entries(gotchas_dir):
+    """-> [(loc, title, body)] for every status: live gotchas/gotcha-*.md
+    file, `loc` being the file's own slug (there is no AGENTS.md line number
+    once the catalogue lives here) and `body` its Story text, which is what
+    every signal below actually scans (dates, remedy paths, check slugs,
+    fixture names)."""
+    import posixpath
+    base = posixpath.basename(str(gotchas_dir).rstrip('/'))
+    out = []
+    for p in sorted(gotchas_dir.glob('gotcha-*.md')):
+        text = p.read_text(encoding='utf-8', errors='replace')
+        status_m = re.search(r'^status:\s*(\S+)', text, re.M)
+        if not status_m or status_m.group(1).strip() != 'live':
+            continue
+        sm = re.search(r'^##\s*Symptom\s*\n+(.+?)(?:\n\n|\n##|\Z)', text,
+                       re.M | re.S)
+        title = ' '.join((sm.group(1) if sm else p.stem).split())
+        story_m = re.search(r'^##\s*Story\s*\n+(.*?)(?:\n##\s*Fix|\Z)', text,
+                            re.M | re.S)
+        body = story_m.group(1) if story_m else text
+        out.append((p.stem, title, _reroot_md_links(body, base)))
+    return out
+
+
+def _gotchas_currency(repo_dir):
+    """-> (rows, findings) -- a reading list for the gotcha catalogue.
+
+    rows are (tokens, loc, title, [signals]) for every live entry, so the
+    caller can order a reduction pass by what trimming each one would
+    actually save rather than by which happened to trip a signal. `loc` is
+    an AGENTS.md line number (as `L123`) on the pre-migration shape, or a
+    gotchas/*.md slug once a repo has migrated -- cosmetic either way, never
+    parsed back.
     """
     root = pathlib.Path(repo_dir)
-    f = root / 'AGENTS.md'
-    if not f.is_file():
-        return [], []
-    text = f.read_text(encoding='utf-8', errors='replace')
-    head = re.search(r'(?m)^## .*' + re.escape(_GOTCHA_HEADING) + r'.*$', text)
-    if not head:
-        return [], []
-    after = re.search(r'(?m)^## ', text[head.end():])
-    sec = text[head.start():head.end() + (after.start() if after else len(text))]
-    entries = _md_bullet_entries(sec, text[:head.start()].count('\n'))
-    if not entries:
-        return [], []
 
-    # A SPLIT section is an index: one line per trap in AGENTS.md, the entry
-    # itself in a linked record (practice: environment-gotchas). Every signal
-    # below reads the entry's BODY -- the dates, the remedy paths, the check
-    # slugs, the fixture names -- so on a split section the bodies here are
-    # one sentence of symptom and the pass would go quietly blind, reporting
-    # a clean bill of health for a section it never actually read. Follow the
-    # link. Unsplit repos are untouched: nothing matches, nothing is swapped.
-    entries = _follow_gotcha_index(root, entries)
+    # The 2026-09-16 shape (spec/OPEN_ITEM_AND_GOTCHA_PLAN.md Part 2): one
+    # file per trap under gotchas/, AGENTS.md carrying only a pointer with
+    # no entries of its own. Checked FIRST and unconditionally -- a repo
+    # that has migrated has nothing left in AGENTS.md's section for the
+    # fallback below to find, which is the point of the migration, not a
+    # degradation this pass should read as "nothing to check".
+    gotchas_dir = root / 'gotchas'
+    if gotchas_dir.is_dir() and sorted(gotchas_dir.glob('gotcha-*.md')):
+        entries = _gotcha_file_entries(gotchas_dir)
+        if not entries:
+            return [], []
+    else:
+        f = root / 'AGENTS.md'
+        if not f.is_file():
+            return [], []
+        text = f.read_text(encoding='utf-8', errors='replace')
+        head = re.search(r'(?m)^## .*' + re.escape(_GOTCHA_HEADING) + r'.*$', text)
+        if not head:
+            return [], []
+        after = re.search(r'(?m)^## ', text[head.end():])
+        sec = text[head.start():head.end() + (after.start() if after else len(text))]
+        entries = _md_bullet_entries(sec, text[:head.start()].count('\n'))
+        if not entries:
+            return [], []
+
+        # A SPLIT section is an index: one line per trap in AGENTS.md, the
+        # entry itself in a linked record (practice: environment-gotchas).
+        # Every signal below reads the entry's BODY -- the dates, the remedy
+        # paths, the check slugs, the fixture names -- so on a split section
+        # the bodies here are one sentence of symptom and the pass would go
+        # quietly blind, reporting a clean bill of health for a section it
+        # never actually read. Follow the link. Unsplit repos are untouched:
+        # nothing matches, nothing is swapped.
+        entries = _follow_gotcha_index(root, entries)
+        entries = [(f'L{line}', title, body) for line, title, body in entries]
 
     slugs = _gotcha_check_slugs(repo_dir)
     tools_text = ''
@@ -1215,7 +1410,7 @@ def _gotchas_currency(repo_dir):
         return val
 
     rows, findings, undated = [], [], []
-    for line, title, body in entries:
+    for loc, title, body in entries:
         signals, named = [], set()
         for raw in _GOTCHA_MD_LINK.findall(body):
             tgt = raw.split('#')[0].strip()
@@ -1271,18 +1466,18 @@ def _gotchas_currency(repo_dir):
                 if lead:
                     signals.append(f'the tree moved on after {newest}: '
                                    + '; '.join(lead[:2]))
-        rows.append((bv._approx_tokens(body), line, title, signals))
+        rows.append((bv._approx_tokens(body), loc, title, signals))
         if not dates:
-            undated.append((bv._approx_tokens(body), line))
+            undated.append((bv._approx_tokens(body), loc))
 
     flagged = [r for r in rows if r[3]]
     if flagged:
         findings.append(
-            'REVIEW   AGENTS.md :: the gotchas section -- '
+            'REVIEW   the gotcha catalogue -- '
             f'{len(flagged)} of {len(rows)} entries raise a currency question '
             f'({sum(r[0] for r in flagged):,} tokens between them).')
-        for tok, line, title, signals in sorted(flagged, key=lambda r: -r[0]):
-            findings.append(f'  {tok:5,d} tok  L{line}  "{title[:64]}"')
+        for tok, loc, title, signals in sorted(flagged, key=lambda r: -r[0]):
+            findings.append(f'  {tok:5,d} tok  {loc}  "{title[:64]}"')
             for s in signals:
                 findings.append(f'            - {s}')
         findings.append(
@@ -1290,8 +1485,10 @@ def _gotchas_currency(repo_dir):
             'anything.\n  An entry may name a file that is gone precisely '
             'because it tells the story\n  of a decommission, and an old date '
             'on a trap nobody has hit lately is not\n  a trap that cannot '
-            'fire. Verify against the tree, then move what no longer\n  bites '
-            'to record/GOTCHAS_ARCHIVE.md IN FULL, with the verdict that '
+            'fire. Verify against the tree, then retire what no longer bites '
+            'IN FULL --\n  flip `status: retired` in its own gotchas/*.md '
+            'file (or move it to\n  record/GOTCHAS_ARCHIVE.md on the '
+            'pre-migration shape), with the verdict that '
             'moved it.')
     if undated:
         findings.append(
@@ -1306,6 +1503,155 @@ def _gotchas_currency(repo_dir):
             'run --\n  every path answers with the boundary commit\'s date. '
             '`git fetch --depth=500`\n  first to get that signal.')
     return rows, findings
+
+
+# spec/OPEN_ITEM_AND_GOTCHA_PLAN.md Part 3, "Open-item sweep": reads every
+# todo/*.md and reports, without closing anything. Below this threshold a
+# Reminder that has just come due is not yet worth a session's unprompted
+# attention (todo/TODO.md's own Due Reminders view already surfaces it the
+# moment it arrives, per the format's normal, non-sweep channel); above it,
+# nobody has been working here to see the due view, which is exactly the
+# safety-net case Part 3 names this pass for.
+_REMINDER_WELL_PAST_DAYS = 7
+_OPEN_ITEM_OLDEST_N = 5
+
+
+def _open_item_sweep(repo_dir):
+    """-> findings (list[str]) for the OPEN ITEMS section. Three mechanical
+    signals, each a question rather than a verdict -- matching
+    _gotchas_currency's own discipline, and item-closes-on-its-condition's:
+    a resemblance to done is not done."""
+    todo_dir = pathlib.Path(repo_dir) / 'todo'
+    if not todo_dir.is_dir():
+        return []
+    items = [it for it in bti.load_items(todo_dir)
+             if it.get('status', 'open') == 'open']
+    if not items:
+        return []
+
+    try:
+        today = datetime.date.fromisoformat(precedent_time.today(repo_dir))
+    except Exception:
+        today = None
+
+    out = []
+
+    unblocked = sorted(
+        (it for it in items
+         if it.get('kind') == 'analysis' and not it.get('blocked_on')),
+        key=lambda it: it.get('noted') or '')
+    if unblocked:
+        out.append(f'  UNBLOCKED -- {len(unblocked)} open, kind: analysis '
+                   f'item(s) with no stated blocker. Either do them now or '
+                   f'say why not:')
+        for it in unblocked:
+            out.append(f'    {it.slug} -- {it.title[:80]}')
+
+    named_gone = []
+    for it in items:
+        blocked = it.get('blocked_on') or ''
+        named = set(_GOTCHA_MD_LINK.findall(blocked))
+        named |= set(_GOTCHA_PATH_IN_TICKS.findall(blocked))
+        gone = sorted(p for p in named
+                     if not p.startswith(('http', 'mailto:', '#'))
+                     and not p.endswith('/')
+                     # resolved against todo/, not the repo root -- these
+                     # are links as written INSIDE a todo/*.md file, so a
+                     # bare sibling name or a "../" prefix both mean what
+                     # they say from there, same as a browser would read it
+                     and not (todo_dir / p.split('#')[0]).resolve().exists())
+        if gone:
+            named_gone.append((it, gone))
+    if named_gone:
+        out.append(f'  BLOCKED-ON NAMES SOMETHING GONE -- {len(named_gone)} '
+                   f'item(s). Either the blocker\n  cleared under another '
+                   f'name or the reference rotted -- read the item\'s own '
+                   f'stated\n  condition before touching `status`:')
+        for it, gone in named_gone:
+            out.append(f'    {it.slug} -- {it.title[:80]}')
+            for g in gone[:3]:
+                out.append(f'        missing: {g}')
+
+    if today:
+        aged = []
+        for it in items:
+            noted = it.get('noted')
+            try:
+                age = (today - datetime.date.fromisoformat(noted)).days
+            except (TypeError, ValueError):
+                continue
+            aged.append((age, it))
+        aged.sort(key=lambda r: -r[0])
+        if aged:
+            out.append(f'  OLDEST {min(_OPEN_ITEM_OLDEST_N, len(aged))} of '
+                       f'{len(aged)} open item(s), by age:')
+            for age, it in aged[:_OPEN_ITEM_OLDEST_N]:
+                out.append(f'    {age:4d}d  {it.slug} -- {it.title[:70]}')
+
+        due = []
+        for it in items:
+            if it.get('disposition') != 'ask':
+                continue
+            remind_on = it.get('remind_on')
+            if not remind_on:
+                continue
+            try:
+                gap = (today - datetime.date.fromisoformat(remind_on)).days
+            except ValueError:
+                continue
+            if gap >= _REMINDER_WELL_PAST_DAYS:
+                due.append((gap, it))
+        if due:
+            due.sort(key=lambda r: -r[0])
+            out.append(f'  REMINDER WELL PAST DUE -- {len(due)} item(s), due '
+                       f'{_REMINDER_WELL_PAST_DAYS}+ days ago and (this run '
+                       f'aside) nobody has surfaced them since. '
+                       f'todo/TODO.md\'s own Due\n  Reminders view is the '
+                       f'normal channel; this is the safety net for a '
+                       f'Reminder\n  that arrived while nobody was working '
+                       f'here to see it:')
+            for gap, it in due:
+                out.append(f'    {gap:4d}d overdue  {it.slug} -- {it.title[:60]}')
+
+    if not out:
+        out.append('  none -- no unblocked analysis item, no blocked_on '
+                   'naming something gone, and no\n  Reminder overdue by '
+                   f'{_REMINDER_WELL_PAST_DAYS}+ days.')
+    out.append('  This pass proposes and never closes. An item closes only '
+               'when its OWN\n  stated condition is met -- a resemblance is '
+               'not that, and a closed item\n  is not re-read.')
+    return out
+
+
+def _gotcha_retirement_candidates(repo_dir):
+    """spec/OPEN_ITEM_AND_GOTCHA_PLAN.md Part 3's other half: "extended to
+    read retires_when and report entries whose condition looks met."
+    `retires_when` is declared in the schema now and populated later
+    (Part 2) -- as of this migration every gotchas/*.md carries it `null`,
+    so this reports NOTHING today and is wired for the day a future
+    session (Part 4.1 step 9) starts filling it in. Deliberately does not
+    try to judge whether a stated condition is MET: the three shapes Part
+    2 gives as examples ("a check refuses this", "the harness fixes X",
+    "nothing has hit this since DATE") are freeform prose, and guessing at
+    which read as satisfied is exactly the auto-closer Part 5 rules out --
+    this surfaces every entry that has one stated, for a person to judge."""
+    gotchas_dir = pathlib.Path(repo_dir) / 'gotchas'
+    if not gotchas_dir.is_dir():
+        return []
+    out = []
+    for p in sorted(gotchas_dir.glob('gotcha-*.md')):
+        text = p.read_text(encoding='utf-8', errors='replace')
+        m = re.search(r'^retires_when:\s*(.+)$', text, re.M)
+        if not m:
+            continue
+        val = m.group(1).strip()
+        if val in ('null', ''):
+            continue
+        status_m = re.search(r'^status:\s*(\S+)', text, re.M)
+        if status_m and status_m.group(1).strip() == 'retired':
+            continue  # already retired -- nothing left to judge
+        out.append(f'  {p.stem} -- retires_when: {val}')
+    return out
 
 
 def _shipped_rules(repo_dir):
@@ -1578,7 +1924,7 @@ def _template_freshness(sources):
     by_level = {}
     for s in sources:
         lvl, path = s.get('level'), s.get('path')
-        if lvl in ('team', 'individual') and path:
+        if lvl in FATAL_MISSING_LEVELS and path:
             p = pathlib.Path(path)
             if p.is_dir():
                 by_level.setdefault(lvl, []).append((s.get('name'), p))
@@ -1645,6 +1991,7 @@ def _skeleton_rel_paths(level):
     bootstrap() writes it at the destination (`.template` stripped, the
     `.sample` suffix kept -- _copy_skeleton strips one and not the other,
     and a check that guesses at that mismatches every file it touches)."""
+    level = getattr(bootstrap_source, 'LEVEL_ALIASES', {}).get(level, level)
     skeleton = bootstrap_source.SKELETONS.get(level)
     if skeleton is None or not skeleton.is_dir():
         return set()
@@ -1727,7 +2074,37 @@ def _extra_lines(gen_path, real_path, gen_root, real_root):
         if line not in gen_lines and len(line.strip()) > 3)
 
 
-def _convergent_drift(collect):
+_LEDGER_VERDICTS = {'intentional-customization', 'template-candidate',
+                     'stale-shared-build', 'tracked-elsewhere'}
+
+
+def _load_decisions_ledger(root_path):
+    """-> {(section, key): entry} the per-repo dedup ledger a SOURCE holds at
+    <root_path>/very-deep-check-decisions.json (VERY_DEEP_CHECK_DEDUP_LEDGER_PROPOSAL.md,
+    precedent-individual). {} when the file is absent, unparseable, or has no
+    `entries` -- a source that has never judged a finding behaves exactly as
+    one with an empty ledger, which is what keeps this additive rather than a
+    breaking change to the section that reads it (practice: fail-gracefully).
+
+    An entry whose `verdict` is not one of the four fixed values is dropped
+    rather than trusted -- the ledger is closed vocabulary so the tool can
+    act on it, and an unrecognized value is safer read as no decision at all
+    than as some fifth verdict nothing here knows how to handle."""
+    try:
+        data = json.loads(
+            (pathlib.Path(root_path) / 'very-deep-check-decisions.json')
+            .read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return {}
+    out = {}
+    for entry in data.get('entries') or ():
+        section, key = entry.get('section'), entry.get('key')
+        if section and key and entry.get('verdict') in _LEDGER_VERDICTS:
+            out[(section, key)] = entry
+    return out
+
+
+def _convergent_drift(collect, sources=None):
     """-> [str] changes that SEVERAL sets of a level made the same way, which
     is the template being wrong rather than several people living in their
     sets.
@@ -1760,10 +2137,47 @@ def _convergent_drift(collect):
     rather than reporting nothing, since a section that prints nothing when it
     compared nothing reads exactly like a clean result (practice:
     fail-gracefully, and the same n=1 reasoning _template_freshness() gives).
+
+    THE DEDUP LEDGER (VERY_DEEP_CHECK_DEDUP_LEDGER_PROPOSAL.md, proposed by
+    Morgan, 2026-09-20, from a session rooted in precedent-individual with no
+    push access here). Without `sources`, a file that converges prints as a
+    fresh FINDING on every single run forever, including one a person has
+    already read and judged -- exactly the expense this section's own Rule
+    says a person should not have to keep paying. `sources` -- the same list
+    `_bootstrap_drift()` was already given -- lets this read each converged
+    SET's own `very-deep-check-decisions.json` (a file that lives in the set,
+    not here, for the reason `beta-branch-watermark.json` lives in
+    precedent-individual rather than in BestPractice: the decision belongs to
+    the repo the finding is about). When every set that shares a convergence
+    has recorded the SAME verdict there and no `revisit` date has passed, the
+    line prints as DECIDED instead of FINDING. Disagreement, a partial
+    decision, or an expired `revisit` all still print the ordinary FINDING,
+    annotated with what is already on record -- a person is never talked out
+    of seeing a real disagreement, only spared re-litigating a settled one. A
+    ledger entry whose file no longer exists in that set prints as its own
+    ORPHANED LEDGER ENTRY line rather than being silently ignored, matching
+    the `ORPHANS` section's own philosophy elsewhere in this tool. A repo
+    with no ledger file, or `sources=None`, behaves exactly as before this
+    was added -- additive, never a breaking change to what was already here.
     """
     if collect is None:
         return ['nothing was collected, so no set was compared against any '
                 'other -- this is a skip, not a clean result']
+    today_iso = precedent_time.today()
+    name_to_path = {s.get('name'): s.get('path') for s in (sources or ())
+                    if s.get('name') and s.get('path')}
+    _ledgers = {}
+
+    def ledger_for(name):
+        if name not in _ledgers:
+            path = name_to_path.get(name)
+            _ledgers[name] = _load_decisions_ledger(path) if path else {}
+        return _ledgers[name]
+
+    def entry_active(entry):
+        revisit = entry.get('revisit')
+        return not (revisit and revisit <= today_iso)
+
     by_level = {}
     for (level, rel), per_source in collect.items():
         by_level.setdefault(level, set()).update(per_source)
@@ -1801,6 +2215,32 @@ def _convergent_drift(collect):
             continue
         widest = max(len(names) for names, _ in shared)
         sets = sorted({n for names, _ in shared for n in names})
+
+        # Every set that shares this convergence gets one chance to have
+        # already judged it. A verdict past its own `revisit` date counts as
+        # no decision, not as a stale yes -- entry_active() is what makes
+        # that re-surface rather than trusting a September call into March.
+        decisions = {}
+        for n in sets:
+            entry = ledger_for(n).get(('CONVERGENT DRIFT', rel))
+            if entry and entry_active(entry):
+                decisions[n] = entry
+        verdicts = {e['verdict'] for e in decisions.values()}
+
+        if decisions and len(decisions) == len(sets) and len(verdicts) == 1:
+            verdict = next(iter(verdicts))
+            # Attributed to whoever decided first, so two sets agreeing on
+            # the same call are not double-counted as two decisions.
+            lead_name = min(decisions, key=lambda n: (decisions[n].get('decided') or '', n))
+            lead = decisions[lead_name]
+            out.append(
+                f'DECIDED {level}: {rel!r} -- {verdict} (by '
+                f'{lead.get("decided_by", "?")} {lead.get("decided", "?")}). '
+                f'{len(shared)} converged line(s) across {", ".join(sets)} '
+                f'already judged; suppressed rather than reprinted -- see '
+                f'that set\'s very-deep-check-decisions.json to revisit.')
+            continue
+
         out.append(
             f'FINDING {level}: {len(shared)} line(s) in {rel!r} appear in up '
             f'to {widest} of {total} sets ({", ".join(sets)}) and in nothing '
@@ -1816,6 +2256,30 @@ def _convergent_drift(collect):
         if len(shared) > 8:
             out.append(f'    ... and {len(shared) - 8} more line(s); '
                        f'diff {rel!r} across those sets for the rest')
+        if decisions:
+            # Only some of the converged sets agree, or they agree with each
+            # other but not on the SAME verdict -- either way this is not a
+            # settled question, and the finding stays a FINDING. What was
+            # already decided is on record so nobody re-argues it from zero.
+            noted = ', '.join(
+                (f'{n} decided {decisions[n]["verdict"]} (by '
+                 f'{decisions[n].get("decided_by", "?")} '
+                 f'{decisions[n].get("decided", "?")})')
+                if n in decisions else f'{n} undecided'
+                for n in sets)
+            out.append(f'    ledger: {noted}')
+
+    for name, path in sorted(name_to_path.items()):
+        root = pathlib.Path(path)
+        for (section, key), entry in sorted(ledger_for(name).items()):
+            if section != 'CONVERGENT DRIFT' or (root / key).is_file():
+                continue
+            out.append(
+                f'ORPHANED LEDGER ENTRY: {name} recorded {key!r} as '
+                f'{entry.get("verdict", "?")} (by '
+                f'{entry.get("decided_by", "?")} {entry.get("decided", "?")}) '
+                f'but that file no longer exists in {name} -- nothing left '
+                f'for the decision to suppress; remove or update the entry')
     return out
 
 
@@ -1863,7 +2327,7 @@ def _bootstrap_drift_one(level, name, path, collect=None):
 
     real_root = pathlib.Path(path)
     approvers = None
-    if level == 'team':
+    if level in ('shared', 'team'):
         try:
             data = json.loads((real_root / 'approvers.json').read_text(encoding='utf-8'))
             approvers = data.get('approvers') or None
@@ -1909,7 +2373,32 @@ def _bootstrap_drift_one(level, name, path, collect=None):
             if not gen_path.is_file():
                 continue
             rel = str(gen_path.relative_to(gen_root))
-            # practices/ is the set's own content, and example-starter is
+            # __pycache__ is a Python runtime artifact, never a generator
+            # output -- comparing it reads a bytecode cache Python happened
+            # to write during THIS run of the generator as drift. Found
+            # 2026-09-16: bootstrap()'s own build_views.py subprocess is
+            # already `-B` (its own comment: "a tools/__pycache__/ it left
+            # behind read as bootstrap drift in every audit afterwards"),
+            # but that only covers build_views.py's own execution -- it does
+            # not stop whatever else in this process's run of bootstrap()
+            # writes bytecode into gen_root along the way. Measured: 100%
+            # reproducible through _bootstrap_drift_one, 0% through a direct
+            # bootstrap_source.bootstrap() call replaying the same
+            # arguments -- so the cache is a real side effect of THIS
+            # code path, whatever its exact trigger, and belongs excluded
+            # here rather than chased further upstream.
+            if '__pycache__' in pathlib.Path(rel).parts:
+                continue
+            # .precedent/ is session state the set's own .gitignore excludes:
+            # SESSION_PRACTICES.md is rendered for the session that is
+            # running, and since the stale-render self-heal (2026-09-18)
+            # bootstrap()'s own build_views run renders it into a brand-new
+            # set too -- so two generations of the same set differ there by
+            # construction, and the first real run of this check reported a
+            # just-generated set as drifted (2026-09-19).
+            if rel.split(os.sep)[0] == '.precedent':
+                continue
+            # practices/ is the set's own content, and example-starter-<level> is
             # the one file an adopter is told to delete.
             if rel.split(os.sep)[0] == 'practices':
                 continue
@@ -2028,7 +2517,7 @@ def _bootstrap_drift(sources, collect=None):
     out, seen = [], False
     for s in sources:
         level, path = s.get('level'), s.get('path')
-        if level not in ('team', 'individual') or not path:
+        if level not in FATAL_MISSING_LEVELS or not path:
             continue
         if not pathlib.Path(path).is_dir():
             continue
@@ -2140,11 +2629,9 @@ def _unmerged_row(repo_dir, name, ref, target_ref, target, stale_days=None):
     # belong on the row rather than on the half of the sweep that ends in a
     # deletion.
     row.update(_branch_meta(repo_dir, ref, stale_days))
-    rc, out, _ = _run_git(repo_dir, 'rev-list', '--count', f'{target_ref}..{ref}')
-    if rc == 0 and out.isdigit():
-        row['ahead'] = int(out)
     # `git cherry` is only meaningful if a merge base between the two refs
-    # actually resolves in THIS clone, so ask for one first.
+    # actually resolves in THIS clone, so ask for one first -- and `ahead`
+    # below needs exactly the same precondition, for the same reason.
     #
     # Guarding on `git cherry`'s exit code -- which is what this did until
     # 2026-09-08 -- never fires, because on a shallow clone there is no
@@ -2166,7 +2653,21 @@ def _unmerged_row(repo_dir, name, ref, target_ref, target, stale_days=None):
     # bounded fetch works on a shallow and a full clone alike.
     if not _merge_base_resolves(repo_dir, target_ref, ref):
         _run_git(repo_dir, 'fetch', '--depth=5000', 'origin')
-    if _merge_base_resolves(repo_dir, target_ref, ref):
+    resolves = _merge_base_resolves(repo_dir, target_ref, ref)
+    # `rev-list --count target..ref` moved here, gated on the SAME
+    # precondition as `cherry` (practice: very-deep-check). On a shallow
+    # clone whose merge-base does not truly resolve, `rev-list` does not
+    # fail the way `cherry` used to -- it silently counts every commit
+    # reachable from `ref` back to the grafted shallow boundary and calls
+    # that "ahead", which is a fabricated boundary, not history. Found
+    # 2026-09-19, pass 4 of a very deep check: four branches that were
+    # plain, fully-landed ancestors of the target read as 210-485 commits
+    # "ahead" on a shallow clone, and 0 once genuinely resolved.
+    if resolves:
+        rc, out, _ = _run_git(repo_dir, 'rev-list', '--count',
+                              f'{target_ref}..{ref}')
+        if rc == 0 and out.isdigit():
+            row['ahead'] = int(out)
         rc, out, _ = _run_git(repo_dir, 'cherry', target_ref, ref)
         if rc == 0:
             row['unique'] = sum(1 for ln in out.splitlines()
@@ -2224,9 +2725,19 @@ def _fetch_all_heads(repo_dir):
                  '+refs/heads/*:refs/remotes/origin/*')
     # Bounded: --unshallow is blocked by some git policy hooks, and a
     # depth-limited fetch works on a shallow and a full clone alike.
-    rc, _, _ = _run_git(repo_dir, 'fetch', '--depth=50', 'origin')
+    #
+    # --prune (practice: very-deep-check), added 2026-09-19: without it, a
+    # remote-tracking ref for a branch someone already deleted on the server
+    # sits here forever, and scan_branches below enumerates it as if it were
+    # live. Found the same run as the `ahead`/`cherry` fix above: 4 of 8
+    # branches this check reported as carrying hundreds of unlanded commits
+    # were plain, already-merged, ALREADY-DELETED-ON-THE-REMOTE stale refs --
+    # `have - server` never having been computed here is why nothing caught
+    # it. `--prune` deletes only local tracking refs; it touches nothing on
+    # the remote.
+    rc, _, _ = _run_git(repo_dir, 'fetch', '--prune', '--depth=50', 'origin')
     if rc != 0:
-        _run_git(repo_dir, 'fetch', 'origin')
+        _run_git(repo_dir, 'fetch', '--prune', 'origin')
     # ls-remote asks the SERVER and ignores local refs entirely, so it is the
     # only thing that can say what this clone is still missing.
     rc, heads, _ = _run_git(repo_dir, 'ls-remote', '--heads', 'origin')
@@ -2783,15 +3294,19 @@ def _api_token():
 def _api_json(path, timeout=20, auth=True):
     """-> (parsed, error). Never raises: the caller reports, it does not crash.
 
-    AUTHENTICATES WHEN A TOKEN IS SET, because unauthenticated is not a
-    milder version of the same question -- it is a different question. The
-    API answers `Not Found` for a private repository and for a deleted one
-    alike, so a caller asking anonymously about this project's own private
-    sources learns nothing at all about whether they still exist. The token
-    is passed through a curl config on STDIN rather than an `-H` argument:
-    an argument list is world-readable in /proc on a shared machine, and
-    this one would carry the credential itself.
+    DELEGATES TO github_budget.call, which is the one implementation of "ask
+    GitHub something" in this engine. It caches within a run and counts what
+    the run spent, so the GITHUB API BUDGET section below can report this
+    tool's own bill rather than guessing at it -- and the second ask about a
+    repository two of these trees both mention costs nothing.
+
+    Degrades to the older uncached path where the module is absent: this
+    engine is vendored into trees older than it, and a visibility audit that
+    refused to run there would be a regression dressed as a fix.
     """
+    if gh_budget is not None:
+        return gh_budget.call(path, timeout=timeout, auth=auth)
+
     token, _var = _api_token() if auth else (None, None)
     argv = ['curl', '-s', '--max-time', str(timeout),
             '-H', 'Accept: application/vnd.github+json']
@@ -3187,67 +3702,20 @@ def _repos_in_force(repo_root, sources=(), missing=(), base_url=None):
     return rows
 
 
-def can_land_here(repo_dir):
-    """-> (verdict, detail). Can THIS session put work into this repo?
-
-    verdict is 'land', 'handoff' or 'unknown'.
-
-    A DIFFERENT QUESTION from the liveness audit below, and the difference is
-    the whole point. That one asks whether the REPOSITORY accepts work -- is
-    it archived, disabled, renamed. This asks whether this SESSION can put
-    work into it, which is a fact about the credentials in this container and
-    not about the repository at all. A repo can be perfectly live, writable by
-    its owner, and unreachable from here.
-
-    MEASURED, not inferred, because a guess here is the expensive kind.
-    `git push --dry-run` to a ref name nothing uses asks the server and
-    changes nothing: the server answers before any object is written, so a
-    'land' verdict is a real permission answer and a 403 is quotable. The
-    alternative -- reasoning from the owner in the URL -- is exactly the
-    inference spawn-session says to stop making
-    (https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/spawn-session.md).
-
-    WHY THE CHECK NEEDS THIS AT ALL. On 2026-09-13 a very deep check read 200
-    practice files across six sources; 89 of them were in four repos this
-    session got 403 on, and nothing in the output said so. Every finding in
-    those 89 files was a finding the reading session could not act on without
-    a handoff it would only discover at the moment of trying to fix it -- the
-    cost paid after the reading, the reasoning and the context, which is the
-    failure spawn-session already names. Morgan, that day: "There's no point
-    in including in the very deep check a repo that you don't have access to
-    suggest changes to nor to make changes to."
-
-    NOT USED TO DROP A REPO FROM SCOPE, deliberately. A finding is as likely
-    to sit in the seam between two repos as inside one, and a set's practice
-    contradicting universal's is a finding about BOTH -- dropping the set
-    loses it. And a repo this session cannot push to is not unactionable, only
-    more expensive: it needs a woken session, which is a route that works.
-    So the verdict LABELS the repo and groups the findings; --landable-only
-    is there for the person who wants the narrow run, and is never the default.
-    """
-    if not repo_dir or not pathlib.Path(repo_dir).is_dir():
-        return 'unknown', 'no local clone to probe'
-    probe = 'refs/heads/precedent-access-probe-do-not-use'
-    # _run_git(repo_dir, *args) -- the repo is the FIRST positional and it
-    # inserts `-C` itself; passing '-C' again puts it in the arg list where
-    # git reads it as a refspec.
-    code, stdout, stderr = _run_git(repo_dir, 'push', '--dry-run',
-                                    '--porcelain', 'origin', f'HEAD:{probe}')
-    out = f'{stdout}\n{stderr}'.strip()
-    if code == 0:
-        return 'land', 'push --dry-run accepted'
-    low = out.lower()
-    if ('403' in low or 'permission' in low or 'denied' in low
-            or 'read-only' in low or 'not authorized' in low):
-        first = next((l.strip() for l in out.splitlines() if l.strip()),
-                     'no message')
-        return 'handoff', first[:160]
-    # Could not reach the server, or something else entirely. NOT 'handoff':
-    # reporting a network blip as "you have no access here" sends somebody to
-    # spawn a session they did not need (practice: fail-gracefully).
-    first = next((l.strip() for l in out.splitlines() if l.strip()),
-                 'git said nothing')
-    return 'unknown', first[:160]
+# THE PROBE MOVED, 2026-09-14, and this import is the point of the move.
+# `can_land_here` was defined here from 2026-09-13 and was correct. But this
+# file is in neither ENGINE_FILES nor CONSUMER_ENGINE_FILES, so it reaches no
+# adopting repo -- and the probe was wanted at SESSION START, where it would
+# have saved a session four days and about a hundred dollars (see
+# precedent_access_check's own docstring). A session-start step importing THIS
+# module would have worked in the upstream repo and silently WARNed in every
+# repo that actually vendors the engine.
+#
+# So the definition went DOWN into the small file that travels, and the big
+# on-request audit imports it (practice: fix-the-original). Keeping a copy
+# here is how two probes drift apart; `access_audit` below is unchanged and
+# still owns the TABLE, which is this tool's own presentation concern.
+from precedent_access_check import can_land_here  # noqa: E402
 
 
 def access_audit(repo_root, sources=(), out=None):
@@ -3275,10 +3743,104 @@ def access_audit(repo_root, sources=(), out=None):
         notes.append(
             f'{n_handoff} repo(s) need a handoff and {n_unknown} could not be '
             f'probed. A finding in one of those does not end in a commit from '
-            f'this session -- it ends in a woken session '
-            f'(practice: spawn-session). Group them that way when you report.')
+            f'this session -- it ends in a paste-ready prompt for a new session '
+            f'(practice: prompt-please). Group them that way when you report.')
         print('  ' + notes[-1], file=out)
     return rows, notes
+
+
+def boundary_audit(repo_root, sources=(), skip_api=False, out=None):
+    """-> (findings, notes). One row per repo in force that draws a
+    contributor boundary, plus the document-project skeleton.
+
+    A boundary is a SETTING, not a document (practice: very-deep-check,
+    pass 2, "is a boundary a setting or a document?"). spec/CONTRIBUTOR_ACCESS.md
+    keeps a contributor out of the machinery with two things that can each
+    silently stop being true while every document goes on describing them:
+    a generated CODEOWNERS that a hand-edit or a stale registry can leave
+    saying something other than its source, and branch protection that
+    lives on a GitHub settings page nothing in the tree can see. So this
+    reads both, per repo:
+
+      - build_codeowners --check: is the generated file current with the
+        registry that owns it (a project's `owned_paths` + `maintainers` in
+        precedent.json, a practice set's approvers.json)?
+      - precedent_boundary_check: is the base branch protected the way the
+        plan needs? PASS is a row, FAIL is a finding, and UNVERIFIED is a
+        NOTE and never a pass -- a session without a token that can read
+        protection settings learns here that it could not look, which is
+        different from learning that the boundary is off
+        (practice: fail-gracefully).
+
+    A repo with neither registry draws no boundary and says so in one line;
+    that is the normal state of this repository and of an individual set.
+    The document-project skeleton under templates/ gets the generator check
+    only -- its origin is this repository's, so asking GitHub about "its"
+    protection would answer a question about the wrong repo.
+    """
+    import contextlib
+    out = out if out is not None else sys.stdout
+    findings, notes = [], []
+    try:
+        import build_codeowners as bco
+        import precedent_boundary_check as pbc
+    except ImportError as exc:  # an engine vendored without the pair
+        notes.append(f'not checked: {exc}')
+        return findings, notes
+    root = pathlib.Path(repo_root)
+    targets = [('this checkout', root, True)]
+    for s in sources or ():
+        targets.append((f"{s['level']} source {s['name']!r}",
+                        pathlib.Path(s['path']), True))
+    skeleton = root / 'templates' / 'document-project'
+    if (skeleton / 'precedent.json').is_file():
+        targets.append(('templates/document-project (skeleton: generator only)',
+                        skeleton, False))
+    for label, path, ask_github in targets:
+        cfg, approvers = path / 'precedent.json', path / 'approvers.json'
+        draws = False
+        if cfg.is_file():
+            try:
+                draws = json.loads(cfg.read_text(encoding='utf-8')).get(
+                    'owned_paths') is not None
+            except ValueError as exc:
+                findings.append(f'{label}: precedent.json does not parse ({exc})')
+                print(f'  FINDING    {label} -- precedent.json does not parse',
+                      file=out)
+                continue
+        if not draws and not approvers.is_file():
+            print(f'  none       {label} -- draws no boundary (no owned_paths, '
+                  f'no approvers.json)', file=out)
+            continue
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            rc = bco.main(check_only=True, root=path)
+        text = buf.getvalue().strip()
+        line = text.splitlines()[-1] if text else '(no output)'
+        if rc != 0:
+            findings.append(f'{label}: {line}')
+            print(f'  FINDING    {label} -- {line}', file=out)
+        else:
+            print(f'  current    {label} -- {line}', file=out)
+        if not draws or not ask_github:
+            continue
+        if skip_api:
+            notes.append(f'{label}: protection not asked (--skip-liveness); '
+                         f'not a pass')
+            print(f'  not asked  {label} -- --skip-liveness', file=out)
+            continue
+        r = pbc.assess(path)
+        why = '; '.join(r['reasons'])
+        if r['verdict'] == 'FAIL':
+            findings.append(f'{label}: protection FAIL -- {why}')
+            print(f'  FINDING    {label} -- protection FAIL -- {why}', file=out)
+        elif r['verdict'] == 'UNVERIFIED':
+            notes.append(f'{label}: protection UNVERIFIED -- {why} -- not a pass')
+            print(f'  UNVERIFIED {label} -- {why}', file=out)
+        else:
+            print(f'  PASS       {label} -- protection on, shaped as the plan '
+                  f'needs, CODEOWNERS in the tree', file=out)
+    return findings, notes
 
 
 def repos_in_force_audit(repo_root, sources=(), missing=(), base_url=None,
@@ -3783,6 +4345,263 @@ def _record_pass(value, path=None, repo=None):
     return 0
 
 
+# Where the branch sweep's own write-up lands, same reasoning and same
+# per-repo anchoring as LEDGER_RELPATH just above: the file describes the
+# REPO BEING CHECKED, not this engine's own checkout, so a fixture that
+# points --repo at a scratch directory must write there, never here.
+#
+# Underscore, not hyphen (practice: filename-separator): record/ already
+# carries GOTCHAS_ARCHIVE.md, and a hyphenated name sitting next to it is
+# exactly the mixed-separator case the practice's own planted fixture
+# exists to catch -- it did, the first time this file was ever committed.
+BRANCH_REPORT_RELPATH = pathlib.Path('record') / 'stale_branches.md'
+
+
+def branch_report_path_for(repo_root=None):
+    return pathlib.Path(repo_root or ROOT) / BRANCH_REPORT_RELPATH
+
+
+def _delete_row_lines(r, path, show_into=False):
+    """-> the bullet + delete-link lines for one merged branch row.
+
+    Shared by `_write_branch_report` (every section, every repo) and
+    `emit_merged_stale_checkout` (just the checkout's safe-to-delete list,
+    for the `--emit` block spec/VERY_DEEP_CHECK.md embeds) so the two
+    never drift into two different renderings of the same row."""
+    age = (f"last commit {r['last']}, {r['age_days']} day(s) old"
+           if r['last'] else "last commit date unreadable in this clone")
+    who = f", last touched by {r['author']}" if r.get('author') else ''
+    into = f", merged into `{r['into']}`" if show_into and r.get('into') else ''
+    lines = [f"- **`{r['name']}`** -- {age}{who}{into}"]
+    url = _branch_url(path, r['name'])
+    if url:
+        lines.append(f"  [Delete branch →]({url})")
+    return lines
+
+
+def _merged_stale_checkout_markdown(scan):
+    """-> the merged-and-stale (safe-to-delete) branch list from an
+    already-computed `scan_branches()` result, as markdown. Shared by
+    `emit_merged_stale_checkout` (its own fresh scan, for `--emit`) and the
+    main run (the scan it already paid for), so the two never drift into
+    two different renderings of the same list."""
+    if scan is None:
+        return ('(this checkout could not be scanned -- not its own git '
+                'checkout, or its integration branch could not be '
+                'resolved)')
+    path = scan.get('path')
+    sd = scan.get('stale_days') or STALE_DAYS_DEFAULT
+    stale = [r for r in scan['merged'] if r.get('stale')]
+    if not stale:
+        return f'(none -- no merged branch is >= {sd} days stale right now)'
+    lines = []
+    for r in stale:
+        lines.extend(_delete_row_lines(r, path))
+    return '\n'.join(lines)
+
+
+def emit_merged_stale_checkout(repo_root=None):
+    """-> the merged-and-stale (safe-to-delete) branch list for THIS
+    checkout alone, as markdown, for `--emit` (practice: very-deep-check).
+
+    WHY THIS EXISTS AND WHY IT IS SEPARATE FROM record/stale_branches.md
+    (2026-09-19). The full branch report already carries this list, but a
+    session handed a run's write-up read the file's EXISTENCE and still
+    did not carry the list itself into the reply -- "you named there were
+    10 but never actually gave them the list to act on". Morgan: "This
+    list should be generated and included in the VERY DEEP CHECK MD
+    document when it's generated... And if there are more than 10,
+    include them!" A pointer that still requires a session to remember to
+    open, read and paste a second file is the same failure
+    record/stale_branches.md itself was built to end
+    ([spawn-session]'s own Story: "existed only in that Sunday session's
+    own transcript"). NEVER truncated -- every merged-and-stale branch is
+    listed, however many there are.
+
+    NOT wired into `doc_sync.py` -- see the comment above `PAIRS` in
+    [tools/doc_sync.py](../tools/doc_sync.py) for why a live remote scan
+    cannot be a doc_sync-gated invariant. `_update_spec_doc_block()` below
+    is what actually keeps spec/VERY_DEEP_CHECK.md current, writing this
+    same markdown whenever the checkout's own branch scan runs for real."""
+    return _merged_stale_checkout_markdown(scan_branches(repo_root or ROOT))
+
+
+SPEC_DOC_RELPATH = pathlib.Path('spec') / 'VERY_DEEP_CHECK.md'
+_VDC_EMBED_RE = re.compile(
+    r'(<!--vdc-embed:merged-stale-checkout:[^>]*-->\n).*?'
+    r'(\n<!--/vdc-embed:merged-stale-checkout-->)', re.S)
+
+
+def _update_spec_doc_block(repo_root, markdown):
+    """Rewrite the `<!--vdc-embed:merged-stale-checkout:...-->` block in
+    THIS repo's own spec/VERY_DEEP_CHECK.md, in place -- never in a
+    checked repo other than this one, since that document and this
+    practice both live only here. A silent no-op when the file or the
+    block is absent (a checked repo that vendors this engine has neither,
+    and a run against it must not fail over a document it does not own)."""
+    path = pathlib.Path(repo_root) / SPEC_DOC_RELPATH
+    if not path.is_file():
+        return False
+    text = path.read_text(encoding='utf-8')
+    if not _VDC_EMBED_RE.search(text):
+        return False
+    new_text = _VDC_EMBED_RE.sub(lambda m: m.group(1) + markdown + m.group(2),
+                                 text, count=1)
+    if new_text != text:
+        path.write_text(new_text, encoding='utf-8')
+        return True
+    return False
+
+
+def _write_branch_report(branch_scans, out_path, repo_root):
+    """Write `branch_scans` (the same dict the console BRANCHES section
+    prints, and --json's 'branches' key) to `out_path` as committable
+    Markdown, with a real clickable link on every row.
+
+    WHY A FILE, NOT JUST THE PRINTED SECTION (practice: very-deep-check,
+    pass 4). The console section already lists every merged-and-stale,
+    merged-and-recent, merged-elsewhere and unmerged branch, one repo at a
+    time, with a link under each row -- everything asked for is already
+    computed. What is missing is durability: a run's stdout lives in that
+    session's chat transcript, which is disposable (practice:
+    repo-is-memory), so a person who wants the list later has to ask a
+    session to re-run the whole check and scroll to find it again, or hope
+    it was pasted somewhere. A committed file is a page they can open and
+    click links on directly.
+
+    Every branch is written here exactly as the console prints it --
+    whoever last touched it, not filtered to the person running the check
+    (practice: very-deep-check's `_branch_meta` docstring: "you do not
+    delete somebody else's branch" is why the author is named, never why a
+    row is dropped)."""
+    out_path = pathlib.Path(out_path)
+    today = precedent_time.today(repo_root)
+    lines = []
+    # Lifecycle frontmatter (practice: document-status-header): this file
+    # lands in record/, which the check requires it of. It is a full
+    # snapshot rewritten on every run, never partially written, so it is
+    # `closed` the moment it is generated rather than cycling through
+    # `live` the way a progressively-written record does.
+    lines.append('---')
+    lines.append('title:         Stale and unmerged branches')
+    lines.append('kind:          record')
+    lines.append('status:        closed')
+    lines.append(f'opened:        {today}')
+    lines.append(f'closed:        {today}')
+    lines.append('superseded_by: null')
+    lines.append('supersedes:    []')
+    lines.append('audience:      session')
+    lines.append('summary:       "The branch sweep from the most recent '
+                 'very deep check: every merged-and-undeleted and every '
+                 'unmerged branch across this checkout and its declared '
+                 'sources, one verdict owed per row."')
+    lines.append('---')
+    lines.append('')
+    lines.append('# Stale and unmerged branches')
+    lines.append('')
+    lines.append('<!-- GENERATED by tools/very_deep_check.py -- never '
+                 'hand-edit. Regenerated on every `very_deep_check.py` run '
+                 'that does not pass --skip-branch-scan; run it again and '
+                 'commit the result to refresh this file. Source: '
+                 'practices/very-deep-check.md, pass 4. -->')
+    lines.append('')
+    lines.append(f'Generated {precedent_time.stamp_iso(repo_root)}, '
+                 f'sweeping this checkout plus every source its '
+                 f'`precedent.json` declares. A repo-local source living '
+                 f'inside the parent checkout shares its parent\'s '
+                 f'branches and is not swept separately; every other '
+                 f'declared source that is its own git checkout is -- '
+                 f'whoever last touched a branch, not only the person who '
+                 f'ran this check.')
+    lines.append('')
+
+    def _row(r, path, show_into):
+        lines.extend(_delete_row_lines(r, path, show_into=show_into))
+
+    def _section(title, rows, empty_note, path, show_into=False):
+        lines.append(f'### {title}')
+        lines.append('')
+        if not rows:
+            lines.append(empty_note)
+            lines.append('')
+            return
+        for r in rows:
+            _row(r, path, show_into)
+        lines.append('')
+
+    for name, scan in branch_scans.items():
+        lines.append(f'## {name}')
+        lines.append('')
+        if scan is None:
+            lines.append('Not its own git checkout, or its integration '
+                         'branch could not be resolved -- skipped.')
+            lines.append('')
+            continue
+        path = scan.get('path')
+        lines.append(f"Repository: `{path}`  \nIntegration branch: "
+                     f"`{scan['target']}`")
+        lines.append('')
+        incomplete = scan.get('unreachable') or scan.get('unfetched')
+        empty = ('(none)' if not incomplete
+                 else '(CANNOT TELL -- see the incomplete-scan note below)')
+        sd = scan.get('stale_days') or STALE_DAYS_DEFAULT
+        stale = [r for r in scan['merged'] if r.get('stale')]
+        recent = [r for r in scan['merged'] if not r.get('stale')]
+
+        _section(f'Merged and STALE (>= {sd} days) -- safest deletions '
+                 f'here', stale, empty, path)
+        _section(f'Merged, not deleted, still recent (< {sd} days) -- '
+                 f'same proof, but someone may still have it checked out',
+                 recent, empty, path)
+
+        others = [b for b in scan.get('protected', []) if b != scan['target']]
+        elsewhere = scan.get('merged_elsewhere') or []
+        if others:
+            _section(f"Merged into {', '.join(f'`{o}`' for o in others)} "
+                     f"but NOT into `{scan['target']}` -- equally proven "
+                     f"safe to delete; their work is finished elsewhere",
+                     elsewhere, empty, path, show_into=len(others) > 1)
+
+        lines.append('### NOT merged anywhere -- needs a verdict (merge or '
+                     'close), not a deletion')
+        lines.append('')
+        if scan['unmerged']:
+            for r in scan['unmerged']:
+                ahead = f", {r['ahead']} commit(s) ahead" if r.get('ahead') is not None else ''
+                who = f", last touched by {r['author']}" if r.get('author') else ''
+                age = f", last commit {r['last']}" if r['last'] else ''
+                lines.append(f"- **`{r['name']}`**{ahead}{age}{who}")
+                lines.append(f"  {r['verdict']}")
+                for label, url in (('Branches page', _branch_url(path, r['name'])),
+                                   ('Compare view',
+                                    _compare_url(path, scan['target'], r['name']))):
+                    if url:
+                        lines.append(f"  [{label} →]({url})")
+        else:
+            lines.append(empty)
+        lines.append('')
+
+        if scan.get('unreachable'):
+            lines.append(f"**INCOMPLETE SCAN:** {scan['unreachable']}. "
+                         f"Treat every list above as partial, not as clean.")
+            lines.append('')
+        elif scan.get('unfetched'):
+            n = len(scan['unfetched'])
+            shown = ', '.join(scan['unfetched'][:5])
+            more = f' (+{n - 5} more)' if n > 5 else ''
+            lines.append(f"**INCOMPLETE SCAN:** {n} branch(es) on origin "
+                         f"were never fetched into this clone and so were "
+                         f"NOT judged: {shown}{more}. Treat every list "
+                         f"above as partial, not as clean. Run "
+                         f"`git -C {path} fetch --depth=50 origin` and "
+                         f"re-run this check.")
+            lines.append('')
+
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_text('\n'.join(lines).rstrip() + '\n', encoding='utf-8')
+    return out_path
+
+
 def _exit(message):
     print(message, file=sys.stderr)
     return 1
@@ -3856,12 +4675,37 @@ def _main(box):
             sys.exit("very deep check FAIL: --ledger needs a path.")
         ledger_path = pathlib.Path(args[i + 1])
         args = args[:i] + args[i + 2:]
+    branch_report_path = None   # default: the checked repo's own report
+    if '--branch-report' in args:
+        i = args.index('--branch-report')
+        if i + 1 >= len(args):
+            sys.exit("very deep check FAIL: --branch-report needs a path.")
+        branch_report_path = pathlib.Path(args[i + 1])
+        args = args[:i] + args[i + 2:]
     if record_pass is not None:
         return _record_pass(record_pass, ledger_path, repo)
+    if '--emit' in args:
+        # doc_sync's own contract (practice: computed-numbers-in-scripts):
+        # print exactly the named block's content and exit -- no ledger, no
+        # freshness gate, no other section. Deliberately its own path
+        # through main() rather than reusing the full pipeline below,
+        # which reads and judges everything in force; a doc_sync gate
+        # needs only this checkout's own branches, fast.
+        i = args.index('--emit')
+        if i + 1 >= len(args):
+            sys.exit("very deep check FAIL: --emit needs a block name.")
+        name = args[i + 1]
+        if name != 'merged-stale-checkout':
+            sys.exit(f"very deep check FAIL: --emit {name!r} is not a "
+                     f"block this script owns; the only one is "
+                     f"'merged-stale-checkout'.")
+        print(emit_merged_stale_checkout(repo))
+        return 0
 
     as_json = '--json' in args
     allow_missing = '--allow-missing-sources' in args
     skip_branch_scan = '--skip-branch-scan' in args
+    print_checklist = '--checklist' in args
     skip_visibility = '--skip-visibility' in args
     skip_liveness = '--skip-liveness' in args
     # Narrow the read to repos this session can actually land work in. NOT the
@@ -3942,6 +4786,24 @@ def _main(box):
                  f"not parse. Fix those first -- this tool reads "
                  f"precedent.json to enumerate its own scope, so it cannot "
                  f"report anything else while one of them is malformed.")
+
+    if led:
+        led.start('VENDORING EXCLUSIONS')
+    _vendor_findings = _vendored_exclusion_findings(_root)
+    if not as_json:
+        print("VENDORING EXCLUSIONS -- a vendored consumer's process/upstream/ "
+              "checked against\ntools/checkin.py's NOT_VENDORED\n")
+        if _vendor_findings is None:
+            print("  N/A: not a vendored consumer (no process/upstream/, no "
+                  "process/manifest.json upstream.commit).")
+        elif not _vendor_findings:
+            print("  OK: process/upstream/ carries nothing under an excluded path.")
+        else:
+            for _f in _vendor_findings:
+                print(f"  FINDING: {_f}")
+        print()
+    if led:
+        led.end(findings=len(_vendor_findings or []))
 
     data = enumerate_scope(repo, user_config)
 
@@ -4043,6 +4905,28 @@ def _main(box):
         led.skipped('REPOS IN FORCE -- still there, still writable',
                     '--skip-liveness')
 
+    # CONTRIBUTOR BOUNDARY (practice: very-deep-check, pass 2). Right after
+    # ACCESS, because it answers the next question about the same repos: not
+    # whether THIS session can land work there, but whether the repository's
+    # own line between content and machinery is enforced by a setting or
+    # merely described by a document. Findings are a stale generated
+    # CODEOWNERS or protection that is off; "could not ask GitHub" is a note
+    # and is never counted as clean.
+    if not as_json:
+        if led:
+            led.start('CONTRIBUTOR BOUNDARY -- CODEOWNERS current, protection on')
+        print("CONTRIBUTOR BOUNDARY -- is each repo's boundary a setting, or "
+              "only a document\n")
+        _cb, _cn = boundary_audit(repo_root, data['sources'],
+                                  skip_api=skip_liveness)
+        for n in _cn:
+            print(f'  note: {n}')
+        if not _cb and not _cn:
+            print('  clean -- every boundary drawn here is current and on')
+        print()
+        if led:
+            led.end(findings=len(_cb))
+
     # EVERY source precedent.json declares, not only the private ones.
     # This used to be gated on FATAL_MISSING_LEVELS ('team', 'individual'),
     # which is the answer to a DIFFERENT question -- "whose absence should
@@ -4070,6 +4954,7 @@ def _main(box):
     # added to that section's row, so the ledger's cost column is about the
     # work and not about where the text happened to be printed.
     _scan_secs = 0.0
+    _branch_report_path = None
     if not skip_branch_scan:
         _scan_t0 = time.monotonic()
         _, checkout_branch, _ = _run_git(repo_root, 'rev-parse', '--abbrev-ref', 'HEAD')
@@ -4091,6 +4976,18 @@ def _main(box):
                 s['path'], exclude=(src_branch,) if src_branch else (),
                 stale_days=stale_days)
         _scan_secs = round(time.monotonic() - _scan_t0, 2)
+        # Written every time the scan runs, --json included, so the
+        # committable list is never behind whatever the console happened to
+        # print (practice: very-deep-check, pass 4; repo-is-memory).
+        _branch_report_path = _write_branch_report(
+            branch_scans, branch_report_path or branch_report_path_for(repo_root),
+            repo_root)
+        # This repo's own spec/VERY_DEEP_CHECK.md only, never a checked
+        # repo's -- see _update_spec_doc_block's docstring.
+        if pathlib.Path(repo_root).resolve() == ROOT.resolve():
+            _update_spec_doc_block(
+                repo_root, _merged_stale_checkout_markdown(
+                    branch_scans.get('checkout')))
 
     # THE REPO SIDE of the live-session sweep, gathered here beside the
     # branch scan because it reads the same clones and asks the neighbouring
@@ -4232,7 +5129,7 @@ def _main(box):
     _shape_any = False
     for _s in data['sources']:
         _lvl, _path = _s.get('level'), _s.get('path')
-        if _lvl not in ('team', 'individual') or not _path:
+        if _lvl not in FATAL_MISSING_LEVELS or not _path:
             continue
         _shape_any = True
         _missing = bootstrap_source.verify(_lvl, _path)
@@ -4305,7 +5202,7 @@ def _main(box):
     # (practice: very-deep-check, pass 1).
     print("CONVERGENT DRIFT -- changes several sets made the same way, which "
           "the generator does not\n")
-    _cd = _convergent_drift(_collect)
+    _cd = _convergent_drift(_collect, sources=data['sources'])
     if _cd:
         for _m in _cd:
             print(f"  {_m}")
@@ -4380,7 +5277,7 @@ def _main(box):
     _orph_targets = [('this checkout', repo_root)]
     for _s in data['sources']:
         _p = _s.get('path')
-        if _s.get('level') in ('team', 'individual') and _p:
+        if _s.get('level') in FATAL_MISSING_LEVELS and _p:
             _orph_targets.append((_s.get('name'), pathlib.Path(_p)))
     for _name, _p in _orph_targets:
         if not pathlib.Path(_p).is_dir():
@@ -4412,7 +5309,7 @@ def _main(box):
     _sl_targets = [('this checkout', repo_root)]
     for _s in data['sources']:
         _p = _s.get('path')
-        if _s.get('level') in ('team', 'individual') and _p:
+        if _s.get('level') in FATAL_MISSING_LEVELS and _p:
             _sl_targets.append((_s.get('name'), pathlib.Path(_p)))
     _grand, _sl = 0, []
     for _sname, _sp in _sl_targets:
@@ -4461,8 +5358,8 @@ def _main(box):
         _big = sorted(_gc_rows, key=lambda r: -r[0])[:5]
         print("\n  Largest entries, whatever they signalled -- a reduction "
               "pass ordered by\n  what it would actually save:")
-        for _tok, _line, _title, _sig in _big:
-            print(f"  {_tok:5,d} tok  L{_line}  {_title[:62]}")
+        for _tok, _loc, _title, _sig in _big:
+            print(f"  {_tok:5,d} tok  {_loc}  {_title[:62]}")
         print(f"  {sum(r[0] for r in _gc_rows):5,d} tok  "
               f"{len(_gc_rows)} entries, whole section")
     print("\n  Do NOT optimise for the total. These entries exist because "
@@ -4471,6 +5368,14 @@ def _main(box):
           "question is \"would a session hit\n  this today\", never \"how big "
           "is it\". What no longer bites moves to a\n  linked archive IN FULL, "
           "never to a deletion.")
+    _gr_candidates = _gotcha_retirement_candidates(repo_root)
+    if _gr_candidates:
+        print("\n  RETIRES_WHEN STATED -- the condition is written, judging "
+              "whether it is MET\n  is a person's call (Part 5 rules out an "
+              "auto-closer for the same reason\n  item-closes-on-its-condition "
+              "does):")
+        for _line in _gr_candidates:
+            print(_line)
     print()
 
     # OPEN ITEMS. The deep read is the one moment somebody is looking at the
@@ -4480,43 +5385,19 @@ def _main(box):
     # file the tree no longer has -- which is what an item that quietly got
     # done under another name looks like from outside
     # (practice: item-closes-on-its-condition).
-    _todo_n = 0
-    try:
-        import todo_progress as _tp
-        _todo_f = pathlib.Path(repo_root) / 'TODO.md'
-        _todo_text = _todo_f.read_text(encoding='utf-8', errors='replace') \
-            if _todo_f.is_file() else None
-    except Exception:
-        _tp, _todo_text = None, None
-    if _tp is not None and _todo_text is not None:
+    # spec/OPEN_ITEM_AND_GOTCHA_PLAN.md Part 4.1 step 8: since the
+    # 2026-09-16 migration, open items live one-per-file under todo/, not
+    # as TODO.md bullets -- todo_progress.py's TODO.md-shaped reading
+    # would silently report "none" against the redirect stub it now finds
+    # there, which is worse than not running at all
+    # (practice: fail-gracefully). _open_item_sweep reads todo/*.md
+    # directly, per Part 3's "Open-item sweep".
+    _todo_findings = _open_item_sweep(repo_root)
+    _todo_n = len(_todo_findings)
+    if _todo_findings:
         print("OPEN ITEMS -- what the queue says about itself\n")
-        _rem = _tp.reminders(_todo_text)
-        _stale = _tp.stale_paths(_todo_text)
-        _todo_n = len(_rem) + len(_stale)
-        _by = {s: b for _n2, s, b in _tp.items(_todo_text)}
-        if _rem:
-            print(f"  REMINDERS -- {len(_rem)} item(s) he asked to be "
-                  f"reminded of:")
-            for _n2, _slug, _note in _rem:
-                print(f"  TODO {_n2} ({_slug}) -- {_tp.title_of(_by[_slug])}")
-                print(f"      {_note}")
-            print()
-        if _stale:
-            print(f"  NAMES A FILE THAT IS GONE -- {len(_stale)} open item(s). "
-                  f"Either the work\n  landed under another name, or the item "
-                  f"has rotted. Read the item's own\n  stated condition before "
-                  f"closing anything:")
-            for _n2, _slug, _gone in _stale:
-                print(f"  TODO {_n2} ({_slug}) -- {_tp.title_of(_by[_slug])}")
-                for _g in _gone[:3]:
-                    print(f"      missing: {_g}")
-            print()
-        if not _rem and not _stale:
-            print("  none -- no reminder-marked item, and every open item's "
-                  "named files are\n  present.\n")
-        print("  This pass proposes and never closes. An item closes only "
-              "when its OWN\n  stated condition is met -- a resemblance is "
-              "not that, and a closed item\n  is not re-read.")
+        for _line in _todo_findings:
+            print(_line)
         print()
     if led:
         led.end(findings=len(_sl) + len(_gc_msgs if _gc_rows else []) + _todo_n)
@@ -4777,7 +5658,24 @@ def _main(box):
 
     if led:
         led.start('CHECKLIST -- the four passes a session works', kind='read')
-    print(checklist())
+    if print_checklist:
+        print(checklist())
+    else:
+        # CHEAPENED 2026-09-14, on the component ledger's own reading: this
+        # section printed ~9,900 tokens a run, 46% of the whole output, and it
+        # is a verbatim copy of a section the session loads anyway with
+        # `precedent_show.py very-deep-check --detail` before it can work a
+        # single pass. The pointer is the section now; `--checklist` prints
+        # the text for a session that wants it beside the enumeration.
+        print('CHECKLIST -- the four passes a session works')
+        print()
+        print('  Not printed here (pass --checklist to print it). Read it from '
+              'the practice:\n'
+              '  python3 tools/precedent_show.py very-deep-check --detail\n'
+              '  Pass 1 — adopter installs; Pass 2 — mechanisms; Pass 3 — '
+              'coherence read;\n  Pass 4 — catalogue, backlog and branches. '
+              'Work them in order.')
+        print()
     if led:
         led.end()
 
@@ -4788,6 +5686,10 @@ def _main(box):
               "clutter; an unmerged branch nobody decided about is lost work, and\n"
               "the second costs more. Every branch below needs a verdict -- see\n"
               "practices/very-deep-check.md:\n")
+        if _branch_report_path:
+            print(f"Also written, with a clickable delete link on every row, to "
+                  f"{_branch_report_path} -- commit it, then work from that page "
+                  f"instead of this transcript.\n")
         for name, scan in branch_scans.items():
             if scan is None:
                 print(f"{name}: not its own git checkout, or integration "
@@ -5013,6 +5915,31 @@ def _main(box):
                     extra_seconds=_endgame_secs)
     elif led:
         led.skipped('ENDGAME MERGE', '--skip-endgame-merge')
+
+    # WHAT THIS RUN COST, AND WHAT THE ACCOUNT HAS LEFT (practice:
+    # github-api-budget). Last, deliberately: the spend figure is only
+    # complete once every section that calls the API has finished, and the
+    # headroom figure is read off the headers those calls already returned
+    # rather than bought with one more (probe=False below).
+    #
+    # It reports and never refuses. A run that stopped because somebody
+    # else's session had spent the pool would be the wrong remedy for the
+    # right finding -- the remedy is fewer simultaneous sessions and cheaper
+    # tools, and neither is this tool's to apply mid-run.
+    if gh_budget is not None:
+        if led:
+            led.start('GITHUB API BUDGET')
+        print('\nGITHUB API BUDGET -- what the account has left, and what '
+              'this run spent\n')
+        _bf, _bn, _brows = gh_budget.audit(tool='very_deep_check.py',
+                                           probe=False)
+        gh_budget.render(_bf, _bn, _brows)
+        print()
+        if led:
+            led.end(findings=len(_bf))
+    elif led:
+        led.skipped('GITHUB API BUDGET',
+                    'tools/github_budget.py is not present in this tree')
 
     if led:
         led.report()

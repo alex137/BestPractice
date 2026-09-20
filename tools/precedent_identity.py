@@ -31,6 +31,7 @@ consumer that already imports them from there keeps working.
 Public interface:
   declared_identity(repo, user_config=None) -> {name, email, timezone, source}
   relayed_authorization(repo, user_config=None) -> {value, accepted, who, source}
+  ci_preference(repo, user_config=None)      -> {value, enabled, who, source}
   NoDeclaredIdentity                          raised when nobody is declared
 
 CLI: `precedent_identity.py --relay` prints whether the person this
@@ -229,6 +230,76 @@ def relayed_authorization(repo, user_config=None):
         f'declared whether they accept a relayed authorization. Treat that '
         f'as refused: stop at the pull request and ask the person in the '
         f'window they are actually in')
+
+
+# practice: declared-default-is-applied -- absent means the engine's own
+# default, applied silently, never a question back to the person.
+CI_ENABLED = 'enabled'
+
+
+def ci_preference(repo, user_config=None):
+    """-> {'value', 'enabled', 'who', 'source'}: does the person this repo
+    resolves want precedent_install.py to write Precedent's GitHub Actions
+    workflow into a dependent repository at install time?
+
+    `value` is what was declared (`''` when nothing was), `enabled` is True
+    only for the exact string 'enabled', `who` is the declared name, and
+    `source` is the file it was read from.
+
+    ABSENT MEANS DISABLED (practice: declared-default-is-applied). GitHub
+    Actions minutes are metered per PRIVATE repository and billed in
+    whole-minute increments per run; a person vendoring Precedent into many
+    private repos, committing the way a save button is used, pays for a
+    workflow they never asked to have installed, on every one of those
+    saves. So a person who has never declared a preference gets the same
+    answer as a person who declared it off: precedent_install.py writes no
+    workflow, until they say otherwise. This REVERSES the engine's older
+    behaviour, which installed the workflow unconditionally -- raised by
+    the person it was costing, 2026-09-15: 'I think it should be disabled
+    BY DEFAULT because most people will have limits like mine.'
+
+    Same resolution order as relayed_authorization(): this repo's own
+    identity.json when it IS an individual source, else the one the
+    user-level config names. Raises NoDeclaredIdentity when neither
+    resolves -- a caller treats that exactly like a declared 'disabled'.
+    """
+    def _read(path, where):
+        try:
+            ident = json.loads(pathlib.Path(path).read_text(encoding='utf-8'))
+        except (ValueError, OSError, AttributeError):
+            return None
+        if not isinstance(ident, dict) or not ident.get('email'):
+            return None
+        value = ident.get('ci_workflows') or ''
+        return {'value': value if isinstance(value, str) else '',
+                'enabled': value == CI_ENABLED,
+                'who': ident.get('name') or '',
+                'source': where}
+
+    repo_root = pathlib.Path(repo).resolve()
+    own = _read(repo_root / 'identity.json', str(repo_root / 'identity.json'))
+    if own:
+        return own
+
+    cfg_path = pathlib.Path(user_config) if user_config else pathlib.Path(
+        os.environ.get(USER_CONFIG_ENV, str(DEFAULT_USER_CONFIG))).expanduser()
+    try:
+        cfg = json.loads(cfg_path.read_text(encoding='utf-8'))
+        indiv_path = (cfg.get('individual') or {}).get('path')
+    except (ValueError, OSError, AttributeError):
+        indiv_path = None
+    if indiv_path:
+        resolved = _read(
+            pathlib.Path(indiv_path).expanduser() / 'identity.json',
+            str(pathlib.Path(indiv_path).expanduser() / 'identity.json'))
+        if resolved:
+            return resolved
+
+    raise NoDeclaredIdentity(
+        f'no identity.json resolves from {repo_root}, so nobody here has '
+        f'declared whether precedent_install.py should write its GitHub '
+        f'Actions workflow. Treated as disabled: install it by hand '
+        f'(GITHUB_ACTIONS.md) whenever you actually want it')
 
 
 def _main(argv):

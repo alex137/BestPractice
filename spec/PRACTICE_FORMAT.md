@@ -30,10 +30,12 @@ slug:        the-slug-hyphenated
 title:       Human-readable title (no leading practice number)
 tier:        on-demand          # resident | on-demand
 severity:    default            # blocking | default | advisory
+scope:       any-adopter        # any-adopter | engine-dev -- see "scope" section
 applies_to:  ["**"]             # path globs
 occasion:    "prose trigger"
 gates:       []                  # named moments -- see below
 index_clause: "the one line the occasion index shows"   # see below
+index_required: null          # OPTIONAL -- true keeps the index line; see below
 checked_by:  tools/x.py or null
 defines:     []
 command:     null             # OPTIONAL -- the standing phrases this practice defines; see below
@@ -47,6 +49,39 @@ approved_by: "BestPractice (pre-fork)"
 strength:    null             # OPTIONAL -- decided | assented; see below
 source_practice_number: N        # see "Beyond the plan's example" below
 ---
+
+### `index_required` — who still earns a line in the occasion index
+
+The occasion index is loaded **in full by every session before it does any
+work**, so a line in it is paid for on every turn. A practice that already has
+a channel does not need one: a real `applies_to` glob fires through
+`precedent_paths.py` when the file is edited, and a `gates:` entry fires
+through `precedent_gate.py` at the moment it names. `build_views.py` therefore
+**omits a practice from the index when it declares either one**, and the
+generated block says so and points at `precedent_show.py --index-omitted`.
+
+Two things are never omitted:
+
+- **`applies_to: ["**"]` with no gate.** That glob matches everything and so
+  routes nothing; the index is the practice's only channel, and dropping the
+  line would un-route the rule silently.
+- **A spoken trigger** — something the *person* says. Neither channel can
+  reach one: a glob needs a file, and every gate moment
+  (`merge`/`review`/`push`/`reply`) arrives at the **end** of the work the
+  phrase was meant to redirect. `Go merge` is the worked case, and its own
+  history is the citation: while its definition sat in a private set a session
+  could not read, one went and asked what the phrase meant — the exact
+  interruption the phrase exists to prevent.
+
+A `command:` is a spoken trigger by construction and needs no extra field.
+Anything else that is spoken sets **`index_required: true`**.
+`tools/precedent_check.py --only index-required-is-declared` reads occasion
+text for the shapes a spoken trigger takes and fails any practice that looks
+like one and has not declared the field either way — so the judgment is made
+**once, by a person, in the practice file**, rather than re-guessed by a
+regular expression at every build. Setting **`index_required: false`** records
+the opposite finding: this reads as spoken, and the glob or gate really does
+route it.
 
 ## Rule
 ...
@@ -721,6 +756,70 @@ aloud rather than left to inference. It carries no claim, so the check's
 takes `--strength` and omits the field when the flag is absent, rather than
 writing `decided` — a tool that assumed enthusiasm would manufacture the
 endorsement this field exists to stop manufacturing.
+
+## `scope` — which practices travel to every adopter
+
+**Optional; absent means `any-adopter`.** Almost every practice in this
+catalogue is written for someone using Precedent in an ordinary repository —
+whatever they are actually building. A few are written for someone
+developing the ENGINE itself: whether the loader's resident/occasion split
+still holds together, whether the routing table's globs still fire, whether
+the harness adapters under `templates/harness/` still agree with each
+other. Those only make sense inside this repository — an adopter's session
+has no `philosophy/` tree, no loader to routing-audit, no sibling harness
+copies to keep in sync — and until this field existed, every one of them
+still cost every adopter an occasion-index line, forever, for a trigger
+that could never fire there.
+
+| `scope:` | Means | Materialized into an adopter? |
+|---|---|---|
+| `any-adopter` (default) | Applies to anyone running Precedent, whatever they are building | Yes |
+| `engine-dev` | Applies only to a session developing or auditing the practice engine itself | No — [tools/precedent_materialize.py](../tools/precedent_materialize.py) drops it |
+
+**This is a materialization-time filter, not a resolution-time one.** The
+practice's file, its Rule, its history all stay exactly where they are, in
+this repository's own `practices/`, and this repository's own generated
+loader block still carries it — a session working ON the engine still needs
+`very-deep-check` in its own occasion index. What changes is only what the
+materializer copies into a CONSUMING repo's `practices/` directory.
+**Nothing is deleted and nothing becomes unreachable**: an
+adopter who genuinely wants to run a very deep check attaches this
+repository (or asks a session that already has it attached) exactly as they
+would today. They just stop paying for a trigger phrase every session there
+will never say.
+
+**Set it, don't infer it from `tier` or from level.** A practice can be
+`tier: on-demand` and universal-level and still be `engine-dev` scoped —
+`scope` is about AUDIENCE (who could ever act on this), `tier` is about
+LOADING (resident vs. on-demand), and level is about PRECEDENCE (universal
+vs. team vs. individual vs. repo-local). A repo-local practice needs no
+`scope` at all: `local/practices/` already never travels to another repo,
+by a different mechanism entirely.
+
+**Drafted 2026-09-15**, out of a conversation about why a content-only
+adopter's loaded file is dominated by triggers it can never use. Four
+practices are tagged so far —
+[very-deep-check](../practices/very-deep-check.md),
+[full-practice-audit](../practices/full-practice-audit.md),
+[routing-audit](../practices/routing-audit.md) and
+[parallel-artifact-ledger](../practices/parallel-artifact-ledger.md) — as
+the clearest, least arguable cases: each one audits a mechanism (the
+loader, the routing table, the harness adapter tree) that exists only in
+this repository. **Reclassifying the rest of the catalogue by this same
+question is real follow-on work, not attempted here** — swept in a first
+pass on resemblance alone is exactly the failure mode
+[decision-strength](../practices/decision-strength.md) and
+[mistakes-become-rules](../practices/mistakes-become-rules.md) warn about
+for a judgment call like this one; an unreviewed practice keeps its default
+(`any-adopter`) rather than being guessed into `engine-dev`.
+
+**Not yet mechanically checked.** Nothing in
+[tools/verify_harness.py](../tools/verify_harness.py) validates that
+`scope:` holds one of its two legal values, or flags a repo-local practice
+that redundantly declares `engine-dev`. Per
+[checkable-gets-checked](../practices/checkable-gets-checked.md) this is
+owed a check before the field is more than advisory — named here as an
+open gap rather than left to be discovered.
 
 ## `source_practice_number`
 

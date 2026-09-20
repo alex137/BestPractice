@@ -6,9 +6,10 @@
      has its own instantiated AGENTS.md at ITS root. -->
 
 **TEMPORARY, read before opening or merging any pull request (PR) here:
-every PR in this repository targets `precedent-beta-v01`, never `main`, until Alex reviews
-and merges `precedent-beta-v01` into `main` for real — a deliberate,
-phase-7 act, not something any routine PR does incidentally. Merging a PR
+every PR in this repository targets `precedent-beta-v01`, never `main`.
+Alex merged the branch into `main` on 2026-09-14 and Morgan merges it there
+regularly; **that does not retire this rule** — work still lands here, and
+`main` takes it by those merges only (Morgan, 2026-09-14). Merging a PR
 into `precedent-beta-v01` needs no sign-off from Alex — once its deep
 check passes, a session may merge it directly; that branch is where
 routine work lands, not a gate he sits behind. Alex's approval is reserved
@@ -26,47 +27,88 @@ origin incident happened. Full story, the mechanical check, and the
 retirement condition:
 [local/practices/merge-target-is-beta-branch.md](local/practices/merge-target-is-beta-branch.md).**
 
-**Precedent commands.** Each of these is a phrase in his message that means a
-fixed thing, and each is a universal practice: the trigger and the meaning are
-here, and the rule, the argument and the story of its coining are in the
-practice file — `python3 tools/precedent_show.py SLUG` for any of them.
+**Precedent commands.** Each of these names a thing a session recognizes by
+what the message is actually asking for, not by scanning it for a keyword —
+each has a phrase that is always sufficient and never ambiguous, and each is
+a universal practice: the trigger and the meaning are here, and the rule,
+the argument and the story of its coining are in the practice file —
+`python3 tools/precedent_show.py SLUG` for any of them. **The phrase removes
+doubt; it does not create a requirement.** A message that plainly asks for
+the same thing in other words gets the same treatment, and where a command
+authorizes something hard to reverse (a push, a merge, a mark recording how
+convinced he was) and the reading is a genuine judgment call rather than a
+clean one, that is said out loud and confirmed rather than guessed —
+[go-merge](practices/go-merge.md) and [weak-yes](practices/weak-yes.md)
+spell out exactly how, below. A few — a full practice audit, a very deep
+check, the fleet sweep — are the deliberate exception, kept to the literal
+ask because what they trigger is too expensive to run on a guess; each
+names why in its own file.
 
-- **"Go merge"**, and **"Approved"** ([go-merge](practices/go-merge.md)) —
-  sync, say which branch out loud, commit, push, open the pull request, merge,
-  **without asking again.** A step this session cannot perform hands off
-  rather than coming back as a question: the authorization travels with the
-  work. One rule, two triggers — and `Approved` is also an ordinary
-  adjective, so *"the approved plan of record"* is not the command.
+- **"Go update"**, **"Approved"**, and **"Go merge"** ([go-merge](practices/go-merge.md)) —
+  classify first: **trivial** (wording, a typo, a dead link — content this
+  repo already allows a direct edit to) commits and pushes straight to the
+  branch, no PR; **substantial** (anything that changes what a document
+  requires or what code does) syncs, says the branch out loud, commits,
+  pushes, opens the pull request, and merges — **without asking again.**
+  Unsure which it is? Substantial. A step this session cannot perform hands
+  off rather than coming back as a question: the authorization travels with
+  the work. One rule, three triggers, and `Go update` is the one to lead
+  with — it names what actually happens whether or not a merge is literally
+  in the picture — with `Go merge` exactly as valid, just second.
+  `Approved` is also an ordinary adjective, so *"the approved plan of
+  record"* is not the command, and `Go merge` is not the command when
+  "merge" has its own object, as in *"let's go merge those two lists."*
+  **None of the three is required for the authorization to exist** —
+  "sold, ship it" reads as this command as plainly as the phrase does.
+  What the phrase buys is certainty:
+  say one of them and the chain runs, full stop. Where it's absent and the
+  sentence could honestly go either way, say the read out loud and get it
+  confirmed before the push, the pull request, or the merge — commit locally
+  regardless, and hold only the shared-branch steps on the answer.
 - **"Park it"** ([park-it](practices/park-it.md)) — write
   `**Disposition:** parked (<date>, <who said it>)` into the item meant, in
   that same turn, say which item was marked, and **never raise it unprompted
   again** — not this session, and not a later one that decides it has become
   urgent. Nobody owes an explanation for parking something: do it, and never
-  ask a follow-up about it.
+  ask a follow-up about it. **Kept to the literal word, deliberately** —
+  parking has no built-in correction, so where it only *sounds* like the
+  phrase ("that can wait", "let's not worry about that one") ask which they
+  mean rather than guess.
 - **"Three Things"** ([three-things](practices/three-things.md)) — the three
   most important things he needs to know now, each a bolded phrase and at most
   two sentences, and nothing around them: no preamble, no fourth item, no
   closing offer. It asks for **attention rather than action**: an answer
-  assembled from what is already in context is the failure it prevents.
+  assembled from what is already in context is the failure it prevents. A
+  plain ask for the same shape of answer ("what do I actually need to know
+  right now") gets it too — low stakes if the read is wrong, so no
+  confirmation step.
 - **"Plain words"** ([plain-words](practices/plain-words.md)) — the same
   answer said the way you would say it out loud: short sentences, the concrete
   case before the general principle, no hedging. **It governs the rest of the
   conversation, not just the next reply**, and nothing about the substance
-  changes — a plainer reply that quietly says less has failed it.
+  changes — a plainer reply that quietly says less has failed it. Asking for
+  this register in other words counts the same as the phrase.
 - **"Weak yes"** ([weak-yes](practices/weak-yes.md)) — go ahead, and record
   that he was not convinced: `strength: assented`, written into whatever the
   approval is being recorded in, that same turn. **Not an invitation to talk
-  him into it.**
-- **"Spawn session"** ([spawn-session](practices/spawn-session.md)) — before
+  him into it.** Most weak agreement arrives without the phrase, and still
+  gets marked `assented` ([decision-strength](practices/decision-strength.md))
+  — but where that reading is a genuine judgment call rather than a clean
+  one, `weak-yes`'s own worked example says how to disclose it instead of
+  writing it silently.
+- **"Session Text"** ([session-text](practices/session-text.md)) — before
   starting what he just asked for, check whether it belongs in a different
   session, repositories first; then **wake a live session** that already holds
-  the context, or, where none fits, hand him a link to a new one, rooted in
-  the right repository and already seeded with the prompt. **Waking beats
-  spawning**: a spawned session re-reads its repository from nothing. The
-  check runs whether or not he says the phrase, and an
-  honest "this session is the right one" answers it. **The
-  prompt you seed carries the merge authorization**, bounded to the seeded
-  work, that repository's routine branch and its own checks passing.
+  the context, or, where none fits, tell him to open a new window, name the
+  repositories to seed it with, and hand him the opening text in a
+  copy-pasteable block. **Never `create_session`** for this — sessions it
+  creates have been coming back rejected as unsafe, so the mechanism is
+  retired outright, not just renamed. Waking still beats a new window: a
+  fresh one re-reads its repository from nothing. The check runs whether or
+  not he says the phrase, and an honest "this session is the right one"
+  answers it. **The text you hand him carries the merge authorization**,
+  bounded to the seeded work, that repository's routine branch and its own
+  checks passing.
 - **"My options"** ([my-options](practices/my-options.md)) — every real choice
   on the table in plainer words, a short block each, the cost said as flatly
   as the benefit, then **a named recommendation with its reason** — never a
@@ -98,21 +140,25 @@ never "you decided this."** A session may write `decided` only if it can quote
 the person choosing it; a bare "ok" to the session's own proposal is
 `assented`, written that way without asking.
 
-**What a merge authorization's ABSENCE means is a separate question**, and its
-interim answer is: **use judgment, and do not ask him.** Morgan, 2026-09-07,
-ruled out "use judgment" as the content of the hard rule he wants eventually,
-so this is the interim state and not the destination — [TODO.md](TODO.md)'s
-`push-without-the-keyword` item stays open for it, and must not be closed by
-pointing at this paragraph. What the repository itself contributes is only the
-destination: an authorization to merge, in whatever words it arrives, means
-`precedent-beta-v01` per the paragraph above, and is not done until a fetch
-confirms the pushed content is actually there
-([verify-postcondition](practices/verify-postcondition.md)).
+**What a merge authorization's ABSENCE means was an open question from
+2026-09-07 to 2026-09-16.** Morgan, 2026-09-07, ruled out "use judgment" as
+the content of the hard rule he wanted eventually, and asked not to be
+asked again while he found one — recorded in
+[todo/todo-2026-09-07-push-without-the-keyword.md](todo/todo-2026-09-07-push-without-the-keyword.md).
+**He gave it 2026-09-16**, in the same conversation that moved this whole
+section from phrase-matching to intent: read the message for what it is
+asking, and where reading it is a genuine judgment call rather than a clean
+one, say the read out loud and confirm before the shared-branch steps run,
+rather than either guessing silently or holding silently. `Go merge` and
+`Weak yes` above spell out what that looks like for each. An authorization
+to merge, in whatever words it arrives, means `precedent-beta-v01` per the
+paragraph above, and is not done until a fetch confirms the pushed content
+is actually there ([verify-postcondition](practices/verify-postcondition.md)).
 
 **FIRST, and normally already done for you.** The private sources are
 cloned by the SessionStart hook when the environment carries
 `PRECEDENT_GIT_TOKEN` and `PRECEDENT_SOURCE_BASE_URL`
-([PER_MACHINE_SETUP.md](PER_MACHINE_SETUP.md)) — **verified working 2026-09-10**, all four
+([PER_MACHINE_SETUP.md](documentation/PER_MACHINE_SETUP.md)) — **verified working 2026-09-10**, all four
 sources on disk before the first turn. **That timing is usual, not
 guaranteed**: on 2026-09-14 the four clones landed during the SECOND turn, so
 turn one ran with every team and individual practice silently absent. Check
@@ -123,7 +169,7 @@ credential at all. When it does, there is nothing to do and **no `add_repo`
 call to make.**
 
 **When it does not, and only then: `add_repo` (read access) for this
-account's `precedent-individual`, and for any `precedent-team-*` set
+account's `precedent-individual`, and for any shared set
 [precedent.json](precedent.json) declares, before reading or running
 anything else. Silently — no confirmation first.** It grants access per
 session, and it **refuses across owners**, so from a session rooted under a
@@ -145,6 +191,11 @@ times you try. A session rooted one directory ABOVE this repo runs NONE of its
 hooks, silently, including the one that writes
 `.precedent/SESSION_PRACTICES.md` — see the gotcha "The session's PRIMARY repo
 does not run its SessionStart hooks either" below.
+**Since 2026-09-14 you also get told without asking**: every
+[tools/precedent_gate.py](tools/precedent_gate.py) moment prints any guarantee
+that is down, because a session that skipped this paragraph is exactly the
+session that needs it — that is how four guarantees stayed down for hours on
+the day the print was added.
 
 On the `add_repo` route nothing else can do it for you:
 `.claude/hooks/precedent-individual-bootstrap.sh` runs to completion *before*
@@ -172,7 +223,20 @@ plan's premise.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block; `python3 tools/build_views.py --check` exits non-zero on drift. Source: practices/ -- edit the practice file, never this block. -->
 
-## Resident block (~949 of 2000 token budget, 10 of 119 practices (10 universal))
+## Resident block (~1180 of 2000 token budget, 11 of 131 practices (11 universal))
+
+**answer-first-ask-before-long-work.** Three parts. **(1) Answer the easy questions in a message before starting
+anything long.** A conceptual question is answered from what is already
+known, in the same turn, before any long run is launched; the run never
+gates the answer. **(2) A task that will run longer than a few minutes —
+a cold solve, a search family, a re-solve cascade, a whole-tree gate —
+is proposed, not started:** say what it is, how long it will take (from
+the tool's own cost line), what it blocks and what it does not, and get
+the go-ahead. The exceptions are the checks a commit needs on the files
+the turn touched, and a run the person has already asked for by name.
+**(3) When idle on a wait, say what the wait is for, what it will change,
+and how to stop it** — never a bare "still running". A background task
+nobody asked for is stopped, not waited on.
 
 **bold-key-phrases.** People don't read; they skim, and bolding makes skimming easy. Bold the key phrases in a document by default, without being asked, scaling with length -- a long paragraph or document is where a skimmer most needs a spine to follow, a short note usually needs little or none.
 
@@ -194,14 +258,19 @@ question inside the brainstorm is not authorization**, and neither is their
 enthusiasm for the idea.
 
 **environment-gotchas.** Every expensive environment discovery (a package that must be installed, a
-tool that silently doesn't work, a path that does work) is written down **with
-the story of what failed and why, not just the fix**, and a "do NOT rediscover
-these" section in the instructions file is where a session finds it.
+tool that silently doesn't work, a path that does work) is written down
+**with the story of what failed and why, not just the fix**, in its own
+file — one trap, one file, forever — under `gotchas/gotcha-<date>-<slug>.md`
+(directory and frontmatter shape:
+[spec/OPEN_ITEM_AND_GOTCHA_PLAN.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/OPEN_ITEM_AND_GOTCHA_PLAN.md)
+Part 2).
 
-**When the stories outgrow what every session can afford to load, split them.**
-The section then keeps **one line per trap** — the symptom, and a link — and
-the stories move to a linked record, in full. A split changes the loading,
-never the text.
+**None of that catalogue loads into the instructions file, at any size.**
+The instructions file carries a short pointer instead — hit an unexplained
+failure, grep `gotchas/` before concluding it's new — never the stories,
+and never even a one-line-per-trap index. A generated overview (symptom
+plus link, one line per live entry) exists for the deliberate read; nothing
+loads it automatically.
 
 **no-invented-specifics.** Being concrete makes writing better, and **it never licenses invention.** Do
 not manufacture a statistic, a date, a name, a version number or a citation
@@ -251,128 +320,70 @@ cheapest evidence a reader has that somebody did.
 ## Occasion index
 
 ```
-When a change here has implications for how an attached team, individual, or repo-local source should work:
-  cross-source-rollout — roll it out to attached sources now; else a blocked-on TODO
-When a change must propagate across several parallel artifacts:
-  parallel-artifact-ledger — ledger the transfer verdict per member, per change
 When a computation books a transfer between two parties:
   name-both-sides-of-ledger — name both sides; check what is charged against what is received
-When a convention is violated for the first time:
-  convention-to-audit — promote a costly broken convention to a script that exits non-zero
-When a defect is fixed -- whether a review found it, the person reported it, or the session hit it itself:
-  mistakes-become-rules — root-cause the miss, then encode the prevention
-When a document presents a script-derived figure:
-  docs-track-models — every script-derived figure sits inside a generated block
 When a document replaces or is replaced by an earlier one:
   index-remembers-past — put the lineage in the index, not in either document
-When a leak gate, blocklist, or scrub result is in front of you, or you are about to mention one to the person:
-  leak-gate-is-background — never relay a blocklist note or ask for a term; the deep review is its place
-When a merged session closes as ready to archive:
-  merged-session-offers-a-practice — one candidate at most, in the closing list, from this session's work
-When a message carries a standing merge-authorization phrase:
-  go-merge — "Go merge"/"Approved": sync, branch, commit, push, PR, merge; blocked hands off
+When a judgment call is needed to keep work moving:
+  small-calls — make small calls yourself; note them; stop only for big ones
+When a message carries the merge phrase, or plainly authorizes a merge:
+  go-merge — "Go update"/"Approved"/"Go merge": trivial -> push; else sync, branch, PR, merge
+When a message says "Archive", with or without a question mark, or otherwise asks whether the session can be archived:
+  archive-status-check — "Archive"/"Archive?" -- check pending; archive if clear, else say what isn't
 When a message says "Update Vendors", or an upstream update is being taken into a repo that vendors a practice layer:
   vendor-update-runbook — "Update Vendors" -- source clone first, both layers move separately, then merge
 When a model, study or comparison table rests on an operating constant nobody decided — a margin, a cap, a rate, a floor:
   constants-are-risk-inputs — a constant nobody decided is a swept, registered input -- never doctrine
+When a person asks, in whatever words, for a write-up of the issue or bug being worked:
+  write-it-up — "Write it up" -- commit a full report of the issue and fix, then link it
 When a person explicitly asks for a "very deep check" across the whole repo, or after work that invites drift:
   very-deep-check — read every repo in force against itself, pass by pass; never a routine gate
 When a person explicitly asks for a full practice audit (or "practice check") across the whole catalogue:
   full-practice-audit — sweep every source's full catalogue, one practice at a time, on request only
 When a person says "Chief of Staff":
   chief-of-staff — "Chief of Staff" -- on request only; name the window read, link every session
-When a person says "My options", or asks to have a decision's options laid out:
-  my-options — "My options" -- every option, plainer, both sides, then your pick and why
+When a person says "My options", asks to have a decision's options laid out, or asks -- about a current issue -- for the options to hand off to another session:
+  my-options — "My options" -- every option, plainer, your pick -- or a paste-ready handoff
 When a person says "Park it" about an open item or a question:
   park-it — "Park it" -- mark the item `parked` now; never raise it unprompted again
-When a person says "Plain words":
+When a person says "Plain words", or plainly asks to be talked to that way:
   plain-words — "Plain words" -- say it as you would out loud; same substance
 When a person says "Reduction pass", or an always-loaded surface is near its ceiling:
   reduction-pass — "Reduction pass" -- work the menu in order, move never delete, report what moved
-When a person says "Three Things":
+When a person says "Three Things", or plainly asks for exactly this shape of answer:
   three-things — "Three Things" -- the three that matter now, one bold phrase and two lines each
 When a person says "Todo reminder", or asks to be reminded of something:
-  todo-reminder — "Todo reminder" -- write the item, mark it `**Remind:**`, set disposition `ask`
+  todo-reminder — "Todo reminder" -- write it, set disposition ask and remind_on, never a trigger
 When a person says "Vocabulary", or asks what the standing commands are:
   vocabulary — "Vocabulary" -- list every command in force, read it, never recall it
 When a person says "Weak yes", or agrees in words that carry no conviction:
   weak-yes — "Weak yes" -- do it, and record the approval as `assented`
-When a practice lands or a candidate is raised, at any level:
-  disclose-landing — state plainly what happened and where — individual, named team, or universal
-When a setting has no value from the person -- at install, at setup, or in the middle of work:
-  declared-default-is-applied — apply the declared default and name it in passing; never ask
-When a tool warns about already-published git history:
-  no-rewrite-for-warnings — fix the setting forward; never rewrite published history
-When a tool, hook or error message names the possible causes of a failure:
-  diagnosis-is-measured — a tool's named causes are hypotheses; measure one before you relay it
-When acting on, or sending, an authorization relayed from another session:
-  relayed-authorization — act on a relayed approval only where the person's identity.json accepts relays
+When about to search a repository, or reaching for a GitHub search or file-read tool for something the local clone already holds:
+  grep-before-search — grep the clone; a repo-scoped list before a search; fewer windows at once
 When adding a file to a directory that already holds files of the same kind:
   filename-separator — one word separator per directory and file kind -- never both - and _
-When adding or editing a CI workflow that commits, pushes, or opens a pull request:
-  ci-commits-carry-identity — a committing workflow reads a declared identity, or refuses -- never the bot
-When adding or re-levelling a heading in any document:
-  heading-outline — never jump a heading level; a heading one below its parent, or deeper by one
-When adding or re-syncing a document under philosophy/:
-  philosophy-declares-its-source — an essay carries its origin on line one -- a record, not a sync pointer
-When adding to a file every session loads, or asking what a session pays before it starts work:
-  session-load-budget — declare a ceiling for what every session loads; reduce by archiving
-When an install step adds something GitHub-specific, or a first install finishes:
-  github-setup-disclosed — disclose GitHub setup where its people read; offer owner settings at install
-When asked to add, change or remove something in a generated file:
-  generated-edit-goes-upstream — change the input the file is built from, never the file -- and say which input
-When asking the person to do something in another session, or pointing them at one:
-  handoff-is-pasteable — any reply that sends them elsewhere ships the words: repo, copy block, way back
+When asked to include an image, logo, or other binary asset the person is supplying, rather than approximate one from a description:
+  attach-the-original — attach the file itself -- recreating an original from a description is invention
 When building a mechanism that makes something discoverable or reachable:
   affordance-is-shared — name who else the mechanism you just built now serves
 When building a permutation or configuration-sweep table:
   permutation-frontier-column — one full table with a computed Frontier column
 When building a variant of an existing thing:
   variant-re-derives — re-derive what a variant inherits; limits bind, choices do not
-When building or committing a generated artifact:
-  generated-artifact-provenance — stamp a build code and a manifest; never hand-edit output
-When changing a mechanism, a workflow or a behaviour that some document describes:
-  change-updates-its-docs — update the document that describes it, in the same commit -- never later
 When checking whether the practices that should have fired for recent work actually fired:
   routing-audit — run the mechanical coverage check now; roll the deep-read slice forward
-When committing anything that touches the vendored/public tree:
-  scrub-gate — the public tree is public-safe at all times, not just at check-in
 When comparing an option against a baseline:
   check-source-architecture — check both options exist in the source before costing them
-When creating a session, or deciding when to compact one:
-  session-spend-follows-the-task — say out loud when a compact is cheap, never take one; model follows the task
-When creating a session, or retagging one:
-  session-tags — tag a session at creation -- subject, repo, role, wants; never retrofitted
-When creating, migrating, closing or superseding a document under spec/ or record/:
-  document-status-header — kind and status in frontmatter; a reader must not have to infer either
-When deciding where a new rule belongs:
-  layered-practice-packs — generic, domain, repo-local — each rule to its own layer
+When creating a session:
+  session-spend-follows-the-task — pick the model for the job -- reading runs small, judgment doesn't
 When deciding whether to build or buy a component:
   build-buy-decompose — decompose first; one verdict per part, on ownership grounds
-When deciding which practice set a new rule belongs in -- repo-local, team, individual or universal:
-  rule-level-by-reach — pick the set by reach -- not by the repo you can write to
 When decommissioning a mechanism — a workflow, a tool, a vendored tree, a config — that leaves files behind with no remaining job:
   decommission-deletes-files — delete what the decommissioned mechanism owned; audit first, never on a hunch
-When discovering something a session in another window will need:
-  findings-return-through-repo — commit it; never leave it for the person to carry to the next window
-When exporting a tool across a repo boundary:
-  engine-plus-host-shims — one vendored engine, thin host shims, never a fork
-When finishing a substantial work-product, before the merge-time capture gate:
-  second-pass-capture — a separate capture pass after the work, not inside it
-When fixing a file that came from somewhere else -- a template, a vendored tree, another repo's copy:
-  fix-the-original — fix the origin first, then every copy -- name them all in the reply
-When handing the person work to do, creating a session, or starting work that may touch a repository this session cannot reach:
-  spawn-session — cross-repo check; wake, never spawn beside; link every session at the end
-When importing, creating, or declaring a repository that holds practices:
-  source-naming — names are fixed by level; say the convention before anyone picks a name
-When landing practices in bulk -- a migration, an import, or a move between sources:
-  catalogue-carries-stories — no active practice sits with an empty ## Story
-When merging a branch:
-  capture-gate — capture the follow-on work in the thread that created the need
-When merging a branch that improved a generic practice:
-  practice-export-loop — vendor upstream as tracked files; check improvements back in
-When merging a branch that touches shared files:
-  merge-runbook — write conflict resolution per file class, once, then follow it
+When drafting or reviewing prose meant to persuade or be judged:
+  push-back — argue a real counter-case before building on a stated stance
+When handing the person work to do, starting work that may touch a repository this session cannot reach, or the person wants to act on a recommendation already given by opening a fresh session:
+  prompt-please — "Prompt Please" -- recommendation or unreachable work, one paste-ready prompt
 When migrating a repo off an old practice system onto Precedent:
   migration-scrubs-vocabulary — scrub the old system's vocabulary the same session, not on request
 When naming a new file:
@@ -383,91 +394,41 @@ When naming what "run the checks" means in a repo:
   two-check-levels — name a fast check and a full check; say which gates what
 When opening or merging a pull request in this repository:
   merge-target-is-beta-branch — Alex approves only major main merges; precedent-beta-v01 is unrestricted
-When ordering sections in a document:
-  section-order-by-frequency — order sections by how often the reader needs them
 When printing a numeric quantity that will be compared across rows:
   one-formatter-per-quantity — one formatter per quantity kind, declared in one module
 When publishing a document with a multi-column sortable table:
   tabular-shared-renderer — ship a sortable render from the one shared renderer
 When quoting or compressing someone else's figures:
   quote-discipline — compression rounds against you; qualifiers travel with the figure
-When recording exploratory thinking -- an idea nobody has committed to -- as a document:
-  speculation-is-marked — mark it in filename, title, opening block and PR -- four places, or none
-When recording that someone approved a practice or a decision, or citing their past approval back to them:
-  decision-strength — record `decided` or `assented`; unmarked means unknown, never "you decided this"
 When renaming, moving, or deleting a file other files may link to:
   rename-updates-links — renaming a file means repointing every link to it, in the same commit
 When reporting a computed total or a negative feasibility result:
   verify-decomposition — check the parts, not the total; never assert an impossibility
 When seeding a prompt into another session -- spawning one, or scheduling a message into one:
   seeded-prompt-names-its-origin — a seeded or scheduled prompt opens by naming the session that sent it
-When setting up a new repo's session start:
-  session-bootstrap — setup lives in a session-start hook, not in memory
 When starting an outward-facing deliverable:
   frame-from-audience-question — build it around the audience's question, not your material
-When starting work another session may already have done, or opening a pull request:
-  base-branch-is-the-record — read the base branch before starting and before the PR -- a summary lags
 When starting work the repository may already cover:
   search-by-purpose — search by purpose and by mechanism before concluding nothing exists
 When tracking state that multiple documents need to agree on:
   registry-source-of-truth — state lives in one machine-readable registry; documents derive
-When when fixing anything -- a bug, a stale file, a broken environment:
-  durable-fix — prefer the fix that survives a fresh container; name a band-aid as one
-When work touches something an open item is about, or a branch is merged:
-  item-closes-on-its-condition — record what you established into the item; close only on its stated condition
-When writing a README or other project-facing entry document:
-  lead-with-what-it-is — say what the project is before how it is maintained
-When writing a document that cites a computed number:
-  computed-numbers-in-scripts — computed content lives in a sync-gated generated block
-When writing a new convention or rule:
-  checkable-gets-checked — attempt a mechanical check before leaving a new practice advisory-only
-  cite-the-incident — record the failure a rule prevents, inline with the rule
-When writing a reader-facing deliverable with supporting apparatus:
-  deliverables-look-like-output — the deliverable holds only what its audience needs
+When writing a hook, script, or practice-file rule in this repository that a dependent repo will vendor or install:
+  vendor-neutral-by-default — this repo ships out whole -- default new code and rules to provider-neutral
 When writing a rule that depends on the outside world:
   volatile-rules-carry-dates — a rule about the outside world carries its date, inline
 When writing a script whose numbers a document will cite:
   scripts-assert-properties — scripts assert their own properties and their cited anchors
-When writing a test, fixture or control that proves a guard fires:
-  control-asserts-which-failure — a non-zero exit is not evidence; assert the message that guard prints
-When writing a test, fixture or control that reads or edits state it did not create:
-  fixture-owns-its-state — a fixture that inherits real state is testing the environment too
-When writing about a person in the third person -- a reply, a document, a commit message, a pull-request body:
-  declared-pronouns — use the pronouns a person declares; none declared means they/them, never guess
-When writing an outward-facing document:
-  readers-vocabulary — use the reader's words; gloss inline or replace
 When writing an outward-facing summary of claims:
   outward-summary-discipline — claims-to-source table, honest sums, a recorded adversarial pass
-When writing code because a specific practice requires it:
-  code-cites-practice — cite the practice's slug in a comment, right where the code is
-When writing code that depends on something outside its own control, handling a part that could not run, or deciding how loudly to report one:
-  fail-gracefully — keep going, never look complete — match the telling to stake and reader
-When writing code that stamps a date or a time into a file, a record or a document:
-  timestamps-carry-offset — a stamp carries its offset; never a bare date.today()
-When writing or editing a document:
-  acronyms-glossary — expand acronyms on first use; keep one central glossary
-  doc-references-are-links — reference repo files as relative links; use ≈, never ~
-  docs-are-current-state — state what is true now; version control holds the history
-  label-describes-content — "one line" must be one line; else name it for its content
-When writing or editing a heading in an outward-facing document:
-  headline-capitalization — outward-facing headings are New York Times headline case, applied by tool
-When writing or editing a practice file:
-  practice-links-travel — link only what travels with the file; the rest is an absolute upstream URL
-When writing or editing anything under philosophy/, or citing it from a rule:
-  philosophy-is-not-repo-policy — philosophy/ is argument; a rule that earned its way out gets written as a practice file
-When writing or filling out a pull-request description:
-  pr-template-honest-gates — write the body from the diff; an unchecked box is fine
 When writing or running a gate, audit or solve that takes more than about a minute:
   slow-steps-report-and-cache — a long step prints elapsed and remaining; a heavy solve caches to disk
-When writing or triaging an open item:
-  todo-is-a-handoff — queue only for a stated blocked-on/out-of-scope reason — otherwise just do it
-When writing or triaging an open item, or deciding whether to raise one in a reply:
-  open-item-disposition — an item is raised in chat only if it says `ask`; absent means stay quiet
+
+(More on-demand practices are not listed here: one whose applies_to names real paths, or which declares a gate, is reached by those channels instead -- `precedent_paths.py FILE` and `precedent_gate.py MOMENT`. A trigger a PERSON SAYS cannot be reached that way and is always listed above. `precedent_show.py --index-omitted` names the omitted ones.)
 ```
 
 ## Standing instruction
 
-Before starting work of a kind named in the occasion index above, run `python3 tools/precedent_show.py SLUG` for each listed slug to load its Rule. When editing a file, `python3 tools/precedent_paths.py FILE` prints any on-demand practice whose `applies_to` matches it, without needing the index at all. At a named moment — merging a branch, reviewing work, before pushing, ending a turn and writing the reply — run `python3 tools/precedent_gate.py merge|review|push|reply`: some practices fire at a moment rather than in a file, and no path glob reaches those. If `.precedent/SESSION_PRACTICES.md` exists, read it too: it carries the practices in force from this repo's team, individual and repo-local sources, which are NOT in this block and bind work here exactly as these do. It is regenerated at session start and is deliberately untracked — never commit it or quote it into a pull request.
+Before starting work of a kind named in the occasion index above, run `python3 tools/precedent_show.py SLUG` for each listed slug to load its Rule. When editing a file, `python3 tools/precedent_paths.py FILE` prints any on-demand practice whose `applies_to` matches it, without needing the index at all. At a named moment — merging a branch, reviewing work, before pushing, ending a turn and writing the reply — run `python3 tools/precedent_gate.py merge|review|push|reply`: some practices fire at a moment rather than in a file, and no path glob reaches those. If `.precedent/SESSION_PRACTICES.md` exists, read it too: it carries the practices in force from the other sources this repo declares, which are NOT in this block and bind work here exactly as these do. It is regenerated at session start and is deliberately untracked — never commit it or quote it into a pull request.
 
 <!-- END GENERATED -->
 
@@ -487,7 +448,7 @@ that skips them in this repo of all places is the joke writing itself.
 ## Where things are (quick index — check here BEFORE searching)
 
 **The dozen rows sessions reach for constantly are below. The full
-88-row index is [WHERE_THINGS_ARE.md](WHERE_THINGS_ARE.md)** — check it
+index is [WHERE_THINGS_ARE.md](WHERE_THINGS_ARE.md)** — check it
 before searching the repo, and add new rows there rather than here.
 
 | Looking for… | Go to |
@@ -503,187 +464,42 @@ before searching the repo, and add new rows there rather than here.
 | Repo map, generated (phase 2) | [MAP.md](MAP.md) — regenerate with `tools/build_views.py`, never hand-edit |
 | Install / update / check-in playbook (dependent repos) | [INSTALL.md](INSTALL.md) — the assistant-facing runbook; the person-facing routes are [SETUP.md](SETUP.md) (guided, non-technical) and [documentation/FOR_DEVELOPERS.md](documentation/FOR_DEVELOPERS.md) (short form plus what actually bites) |
 | Upstream open items / roadmap | [TODO.md](TODO.md) |
-| The full story behind any line in the gotchas index, unabridged | [record/GOTCHAS.md](record/GOTCHAS.md) |
-| Anything else — the full 88-row index | [WHERE_THINGS_ARE.md](WHERE_THINGS_ARE.md) |
+| The full story behind any environment trap, and the generated overview of all of them | [gotchas/](gotchas/), [gotchas/INDEX.md](gotchas/INDEX.md) |
+| Anything else — the full index | [WHERE_THINGS_ARE.md](WHERE_THINGS_ARE.md) |
 
 
-## Build-environment gotchas — do NOT rediscover these
+## Build-environment gotchas — search before you rediscover one
 
-One line per trap; the story is in [record/GOTCHAS.md](record/GOTCHAS.md).
-The split itself is [environment-gotchas](practices/environment-gotchas.md)'s,
-carried in full in the resident block above, so it is not restated here.
+44 environment/tooling traps are catalogued, one file per trap, under
+[gotchas/](gotchas/) — each with its own Symptom, Story and Fix (practice:
+[environment-gotchas](practices/environment-gotchas.md)). Nothing here loads
+that catalogue for you: **hit a confusing, hard-to-explain failure? Before
+concluding it's new, grep for it** —
+`grep -ril '<a keyword from what you are seeing>' gotchas/` — rather than
+spending an hour on the wrong hypothesis (practice: `grep-before-search`).
 
-**When a symptom below matches what you are seeing, stop and open its entry
-before acting on the line** — several describe mechanisms that have since been
-fixed, and only the entry says which.
+A generated overview — symptom plus link, one line per live trap — is at
+[gotchas/INDEX.md](gotchas/INDEX.md) for the deliberate read: browsing the
+whole catalogue during a `very-deep-check` sweep, or when a grep comes up
+empty and a wider look is warranted. It is not `@`-included here and nothing
+loads it automatically, which is the whole point of this split.
 
-**Adding one?** A trap that can no longer fire moves on to
-[record/GOTCHAS_ARCHIVE.md](record/GOTCHAS_ARCHIVE.md) with the verdict that
-retired it. Nothing is ever deleted.
-
-- **`pip install cmarkgfm`, or [tools/doc_lint.py](tools/doc_lint.py)'s
-  strikethrough check silently stops running.** [story](record/GOTCHAS.md#g1)
-
-- **A git helper that returns stdout and drops the exit code will hand you a
-  confident wrong answer — this is the most-repeated bug in the project.**
-  [story](record/GOTCHAS.md#g2)
-
-- **A repository attached mid-session clones single-branch, so every branch
-  you create there reads as "unpushed" forever — including to a Stop hook that
-  then blocks the turn.** [story](record/GOTCHAS.md#g3)
-
-- **`git clone` with no `--branch` asks the SERVER which branch to check out,
-  and the answer is a setting on a web page that nothing in this repository
-  can see.** [story](record/GOTCHAS.md#g4)
-
-- **A stale checkout is indistinguishable from missing work, and the guard
-  cannot save the sessions that most need it.** [story](record/GOTCHAS.md#g5)
-
-- **This repo is normally cloned `--depth 1`, and several tools degrade rather
-  than fail on that.** [story](record/GOTCHAS.md#g6)
-
-- **`git clone --depth 1 /some/path` is ignored; git only honours `--depth`
-  over a transport.** [story](record/GOTCHAS.md#g7)
-
-- **A `scope: 'tree'` check in `tools/precedent_check.py` can silently report
-  a false *pass* on an under-fetched local clone, not just degrade loudly like
-  the two entries above.** [story](record/GOTCHAS.md#g8)
-
-- **The leak gate's vocabulary layer fails open unless you also set the git
-  config.** [story](record/GOTCHAS.md#g9)
-
-- **A bare `python3 tools/leak_gate.py` refuses when a private source RESOLVED
-  and no blocklist is set — and allows, loudly, when the private sources could
-  not be attached at all.** [story](record/GOTCHAS.md#g10)
-
-- **Setting `git config precedent.requireVocabulary true` to satisfy the leak
-  gate makes `verify_harness.py` fail two of its own leak-gate checks.**
-  [story](record/GOTCHAS.md#g11)
-
-- **On a shallow clone, `git merge-base` between two *different* branches can
-  exit 1 ("no common ancestor") even when the branches genuinely share history
-  — and that false negative reads exactly like a destructive force-push.**
-  [story](record/GOTCHAS.md#g12)
-
-- **`git log --format=%P` silently reports no parents at all for a commit
-  sitting at a shallow clone's boundary, even when it really has two.**
-  [story](record/GOTCHAS.md#g13)
-
-- **A consuming repo's own mechanical check against materialized
-  `tools/checks/`/`practices/` output cannot resolve sources live and trust
-  every one it lists.** [story](record/GOTCHAS.md#g14)
-
-- **A repo attached mid-session never runs its own SessionStart hook, so every
-  environment guarantee that hook provides is silently absent while you work
-  in it.** [story](record/GOTCHAS.md#g15)
-
-- **A merge conflict in `.claude/hooks/freshness-guard.sh` locks the session
-  out of every tool that could repair it, and `git` being exempt does not
-  help.** [story](record/GOTCHAS.md#g16)
-
-- **The session's PRIMARY repo does not run its SessionStart hooks either,
-  when the harness rooted the session one directory ABOVE it — and this
-  project's own required layout is what causes that.**
-  [story](record/GOTCHAS.md#g17)
-
-- **Your commits are authored by the bot because the harness sets that
-  identity in git's GLOBAL config AND in every clone's LOCAL config — so a
-  global-only fix is silently overridden.** [story](record/GOTCHAS.md#g18)
-
-- **The absence of `.claude/hooks/` is NOT evidence that a repo's hooks are
-  missing — resolve the paths its settings.json actually declares.**
-  [story](record/GOTCHAS.md#g19)
-
-- **A source set's hooks drift after installation and nothing has ever
-  refreshed them — there was an install path and no repair path.**
-  [story](record/GOTCHAS.md#g20)
-
-- **A refusal that names a remedy which cannot work is the moment to ask what
-  the guard actually measured, not to disable it.**
-  [story](record/GOTCHAS.md#g21)
-
-- **Something can move this checkout off your working branch mid-session, and
-  the cause is NOT known — treat a silently-vanished edit as this before you
-  re-derive it.** [story](record/GOTCHAS.md#g22)
-
-- **A `verify_harness.py` fixture that builds an "absent credential" scenario
-  inherits the container's real one, and so asserts the opposite of what it
-  ran.** [story](record/GOTCHAS.md#g23)
-
-- **A harness run that overlaps a write to the tree fails on a change
-  belonging to no commit, and the count alone cannot tell you that.**
-  [story](record/GOTCHAS.md#g24)
-
-- **Pointing a fixture's `HOME` at an empty directory does not keep it empty:
-  `precedent_resolve.load_config()` CLONES the individual source into it.**
-  [story](record/GOTCHAS.md#g25)
-
-- **The individual source resolves to a clone you are probably not editing,
-  and it can be many commits stale.** [story](record/GOTCHAS.md#g26)
-
-- **A sibling clone that was current when you took it can rot while you work,
-  and a "these copies do not match" failure will blame the code rather than
-  your clone.** [story](record/GOTCHAS.md#g27)
-
-- **A scratch COPY of this repo, taken to prototype a change without touching
-  the working tree, goes stale the moment the freshness guard fast-forwards
-  the real checkout under you — and copying the prototyped files back reverts
-  every commit that arrived in between, silently.**
-  [story](record/GOTCHAS.md#g28)
-
-- **`HEAD == origin/<branch>` and a clean tree is NOT evidence that your work
-  landed — it is the exact reading you get when your commit has been thrown
-  away.** [story](record/GOTCHAS.md#g29)
-
-- **The commit backstop is GLOBAL (`core.hooksPath`), so it reaches throwaway
-  fixture repositories too — and refused them.**
-  [story](record/GOTCHAS.md#g30)
-
-- **"no individual source resolved" is not noise — it means every personal and
-  team practice is silently absent, and the session will confidently apply the
-  wrong rules.** [story](record/GOTCHAS.md#g31)
-
-- **The private practice sets reach a session through the environment
-  credential, not through `add_repo`: set `PRECEDENT_GIT_TOKEN` and
-  `PRECEDENT_SOURCE_BASE_URL` ([PER_MACHINE_SETUP.md](PER_MACHINE_SETUP.md)) and the
-  SessionStart hook clones them -- usually before the first turn, but NOT
-  guaranteed: on 2026-09-14 they landed mid-session and turn one ran on the
-  universal set alone.** [story](record/GOTCHAS.md#g32)
-
-- **`add_repo` on a PUBLIC repository attaches nothing and never reaches the
-  cross-owner check, so testing that wall with `access: "read"` measures
-  nothing at all.** [story](record/GOTCHAS.md#g33)
-
-- **A session you spawn can lose its Model Context Protocol (MCP) tools
-  mid-run, and it cannot report back to you either — so a spawned session must
-  take the measurement it was spawned for in its OPENING turn.**
-  [story](record/GOTCHAS.md#g34)
-
-- **A private repo name reaches a public tree by nobody having predicted it,
-  so repo references are an ALLOWLIST, not a blocklist.**
-  [story](record/GOTCHAS.md#g35)
-
-- **A background `sleep` is not a wait, and using one as a wait makes you
-  invent elapsed time.** [story](record/GOTCHAS.md#g36)
-
-- **A shallow clone makes a merely-behind checkout read as diverged, so the
-  freshness guard refuses to update it and the session works from a day-old
-  tree.** [story](record/GOTCHAS.md#g37)
-
-- **A Routine that fires a FRESH session gets none of the session-management
-  tools, and the run still records SUCCEEDED — so a scheduled job that reads
-  the fleet quietly does nothing.** [story](record/GOTCHAS.md#g38)
-
-- **A session can push a branch but not delete one: the 403 wears a
-  dropped-connection message, so it reads as a flake.**
-  [story](record/GOTCHAS.md#g39)
-
-- **The session-start identity block reached every Precedent repo except the
-  individual set it read the identity from, so that one set kept committing as
-  the container's bot.** [story](record/GOTCHAS.md#g40)
+**Adding one?** Write it as `gotchas/gotcha-<date>-<slug>.md`
+([spec/OPEN_ITEM_AND_GOTCHA_PLAN.md](spec/OPEN_ITEM_AND_GOTCHA_PLAN.md) Part
+2), then regenerate the overview: `python3 tools/build_gotcha_index.py`. A
+trap that can no longer fire gets `status: retired` in its own file, in
+place — nothing is ever deleted, and nothing moves.
 
 ## Working in this repo
 
+- **Not running under Claude Code (Codex, Gemini CLI, or another agent)?
+  Run `bash tools/bootstrap.sh` at session start.** Claude Code gets this
+  automatically from its SessionStart hook; every other harness only gets
+  it if the agent actually runs it, per
+  [templates/harness/README.md](templates/harness/README.md)'s adapter
+  table — [GEMINI.md](GEMINI.md) at the root already says so for Gemini
+  CLI, and [templates/harness/codex/README.md](templates/harness/codex/README.md)
+  covers Codex.
 - **Default branch is `main`; work on a feature branch; PRs are the norm**
   here (this repo is public and is the shared upstream).
 - **Most changes arrive as check-in PRs from dependent repos** (INSTALL.md
@@ -703,6 +519,10 @@ retired it. Nothing is ever deleted.
 - **Direct edits are fine** for content about this repo itself (README,
   practice wording, engine code); abstracted lessons still only enter via
   a scrubbed check-in from where they were learned.
+- **A pull request touching `TODO.md` after the 2026-09-16 todo/gotcha
+  migration is refused by CI** (`precedent_check.py --only
+  todo-gotcha-stale-reference`). File the item under `todo/` instead
+  ([spec/OPEN_ITEM_AND_GOTCHA_PLAN.md](spec/OPEN_ITEM_AND_GOTCHA_PLAN.md)).
 - **Before committing:** `python3 tools/doc_lint.py` on markdown you
   touched (`pip install cmarkgfm` — the session-start hook does this);
   after touching the deck engine, rebuild the sample both ways:

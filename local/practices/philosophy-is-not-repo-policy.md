@@ -64,7 +64,8 @@ strongly-argued prose sitting one directory above a practice catalogue,
 with nothing saying which of the two a session is supposed to obey.
 
 The asymmetry matters. An essay can be wrong, half-finished, or actively
-under argument — [RULES_NOW_TESTING.md](../../philosophy/RULES_NOW_TESTING.md) tags its own entries *Trial* — and
+under argument — `RULES_NOW_TESTING.md`, since removed as a vestige of the
+source repository, tagged its own entries *Trial* — and
 that is fine, because an essay is a claim. A practice is a commitment the
 repository's checks enforce. Collapsing the two costs the essays their
 freedom to be provisional and costs the catalogue its meaning.
@@ -76,7 +77,7 @@ for, because the incident is the change itself.
 
 that repository's `content/` tree was copied into this repository's
 `philosophy/`. In its home repository that material is not inert: its
-[RULES_NOW_TESTING.md](../../philosophy/RULES_NOW_TESTING.md) is explicitly "the checklist a session in any of
+`RULES_NOW_TESTING.md` was explicitly "the checklist a session in any of
 Morgan's real work is expected to follow today", and that repository's own instructions file
 named five of these documents as durable rule lists cited by slug from
 elsewhere. It reads, correctly for that repository, as instructions.

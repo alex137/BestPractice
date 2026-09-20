@@ -105,7 +105,7 @@ where it was has to follow it.
 
 **This does not license trimming a source you do not own.** A team or
 individual source over its ceiling is a finding to report to whoever owns it
-([cross-source-rollout](cross-source-rollout.md)), not an edit to make from
+([cross-source-rollout](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/cross-source-rollout.md)), not an edit to make from
 here.
 
 ## Why
@@ -129,7 +129,7 @@ does the work.
 
 ## Story
 **Morgan asked for it on 2026-09-11**, as a question about
-[very-deep-check](very-deep-check.md): does the very deep check review token
+[very-deep-check](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/very-deep-check.md): does the very deep check review token
 use across the repo *and the repos it calls*, check the 2,000-token cap at
 its various points, and then look for where usage can be reduced — and if
 not, that should be a rule.
@@ -199,5 +199,5 @@ surface with no entry, and on one over its ceiling. An adopting repo with no
 registry gets a named skip, not a pass.
 
 The sum across every repo in force — and the reduction pass itself — is
-[very-deep-check](very-deep-check.md)'s SESSION LOAD section, which prints
+[very-deep-check](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/very-deep-check.md)'s SESSION LOAD section, which prints
 this checkout and each attached source, section by section.

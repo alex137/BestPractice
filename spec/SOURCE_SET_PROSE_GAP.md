@@ -14,7 +14,7 @@ summary:       What it costs to close the gap where universal guidance text neve
 **A session rooted in a practice-source set reads that set's own catalogue
 and nothing else.** Universal rules do not bind it, because it never sees
 them. The open item is
-[TODO.md's `universal-prose-does-not-reach-a-source-set`](../TODO.md#universal-prose-does-not-reach-a-source-set);
+[TODO.md's `universal-prose-does-not-reach-a-source-set`](../todo/todo-2026-09-13-universal-prose-does-not-reach-a-source-set.md);
 this brief costs the ways out of it. **Morgan approved the costing on
 2026-09-13** (`assented` — he approved this session's recommendation to cost
 both shapes rather than picking one blind). **Nothing here is decided.**
@@ -147,6 +147,7 @@ the brief looked at levels where the real rule is about trees.
 | A `sources` entry per set | Held, and it needed a path expansion (`~`, `$HOME`) that the brief did name. |
 | One hook line per set | Held. |
 | — | **Missed entirely: nothing put universal's tree on disk beside a set.** `~/BestPractice` is wrong wherever `$HOME` and the sibling clones diverge, which is this container. `precedent_source_bootstrap.py`'s team-cloning loop now covers `universal` too, taking the URL and the pinned branch from `ENGINE_MANIFEST.json`'s own `source_repo`/`source_branch` — no credential, since this repo is public, and nothing new declared. |
+| — | **Missed entirely: nothing told the session to READ the file.** The standing instruction's pointer at `.precedent/SESSION_PRACTICES.md` was conditional on `repo_is_public()` — one of the two reasons a source gets deferred — so it was suppressed in all four sets, which are private. The file was written correctly and never mentioned. Found 2026-09-14; the condition is now "did `sources_for_tracked_block()` defer anything", asked of the split itself. |
 | — | **Missed entirely: `.precedent/` is not gitignored in a set.** Measured against a real set: `git check-ignore` said not ignored, so the generated file was offered to the next `git add -A` — which would commit universal's text into the set, the one thing shape 3 exists to prevent. Written by `precedent_bootstrap_source.py` for new sets and repaired by `precedent_refresh_sources.py --apply` for existing ones. |
 
 **Measured working end to end, 2026-09-13**, against the real
@@ -161,7 +162,17 @@ source as tracked and universal as deferred, which is the difference between
 shape 3 and shape 2. The test mutations were reverted; the rollout is its
 own step.
 
+**One thing this brief measured and could not see, 2026-09-14.** The
+end-to-end test above checked that the file was written and what was in it.
+Nobody checked whether a session is *told* to read it — and it was not, for a
+day, in all four sets. Morgan found it from the outside, as the symptom:
+sessions open on a practice repo and *"most of the rules I want aren't
+loaded"*. **A generated artifact being correct is not the same as a session
+loading it**, and only the second one is the point
+([verify-postcondition](../practices/verify-postcondition.md) — the
+postcondition here was never "the file exists").
+
 **What shape 3 does NOT do**, and it is now an open item rather than a
 footnote: a set reads the universal rules and still runs none of universal's
 mechanical checks —
-[TODO.md's `source-set-runs-no-universal-checks`](../TODO.md#source-set-runs-no-universal-checks).
+[TODO.md's `source-set-runs-no-universal-checks`](../todo/todo-2026-09-13-source-set-runs-no-universal-checks.md).

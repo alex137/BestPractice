@@ -15,7 +15,11 @@ in_force_at: null
 supersedes:  []
 overrides:   null
 added:       "2026-09-09"
-approved_by: "Morgan, 2026-09-09 -- asked for the phrase and named it"
+approved_by: "Morgan, 2026-09-09 -- asked for the phrase and named it;
+  extended 2026-09-16, Morgan, on Alex's intent-over-keyword point -- \"apply
+  the same to the ones that are a serious decision such as Go Merge, Weak Yes,
+  etc -- and just note that (if the exact phrase isn't used), then use your
+  judgment and ASK the person if you have doubt\""
 strength:    decided
 ---
 ## Rule
@@ -29,6 +33,16 @@ approval is being recorded in, **in that same turn**, per
 **It is not an invitation to talk them into it.** No follow-up asking what
 their reservation is, no case for the design they just let through. They said
 yes; take the yes and note its weight.
+
+**The phrase is the unambiguous case, not the only one.** Most weak agreement
+arrives without it -- "sure, why not", "I guess", "let's try it" -- and
+[decision-strength](decision-strength.md) reads those for `assented` whether
+or not the phrase was ever said. **Where that reading is a genuine judgment
+call rather than a clean match to decision-strength's table, say it out loud
+instead of writing the mark silently**: *"I'm reading your 'sure, why not' as
+a Weak yes -- say so if that's not what you meant."* Proceed either way; a
+wrong `assented` costs one correction, so this is a disclosure that rides
+along with the work, not a question that holds it up.
 
 ## Detail
 **Say back which thing you marked**, in one line, the way `Park it` does —
@@ -69,6 +83,16 @@ a phrase to use that notes the weakness somewhere."*
 The need is the one recorded in that practice's own Story — his "ok" arriving
 in the catalogue as `approved_by: Morgan` and reading, forever after, as a
 rule he had wanted.
+
+**Extended 2026-09-16, on Alex's design point and Morgan's decision.** Alex
+argued the assistant should read for intent rather than scan for the
+keyword; Morgan agreed and named this practice, alongside `go-merge`, as
+where the doubt case needs a stated confirmation rather than a silent guess:
+*"apply the same to the ones that are a serious decision such as Go Merge,
+Weak Yes, etc -- and just note that (if the exact phrase isn't used), then
+use your judgment and ASK the person if you have doubt: 'I am interpreting
+your "sure, why not" to be a "Weak Yes", tell me if I'm wrong.'"* The example
+is now this file's own.
 
 ## Install
 Nothing mechanical checks that the phrase was honoured; like `go-merge` and

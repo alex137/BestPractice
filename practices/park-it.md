@@ -42,6 +42,16 @@ same as forgotten.
 thinks a parked item has become urgent may act on the item's content if the
 work in front of it needs that, but does not put the question back to them.
 
+**Kept to the literal phrase, deliberately, unlike most of this catalogue's
+other commands.** Parking has no built-in correction: it is silent by design
+and nothing surfaces a wrongly-parked item again on its own, so a guessed
+intent that misses costs exactly the thing [repo-is-memory](repo-is-memory.md)
+exists to prevent -- a real concern nobody raises twice. Where the words
+plainly are the phrase, act on it; where they only sound like it -- "let's
+not worry about that one", "that can wait" -- ask which they mean rather than
+guess, the same way [go-merge](go-merge.md) asks about the object, never the
+phrasing, when several things are genuinely in play.
+
 What `parked` then means, and the two other dispositions an open item can
 carry, is [open-item-disposition](open-item-disposition.md)'s: an item with
 no disposition is `wait`, and a session raises an item only if it says
@@ -84,6 +94,13 @@ anywhere better. **Moved to universal 2026-09-08**, along with `go-merge`,
 on Morgan's decision that these are the project's own commands rather than
 one person's habits: *"we should have our own commands we use for people who
 live in our universe."*
+
+**2026-09-16: kept on the literal phrase, as a session's own judgment call,**
+in the conversation where Morgan asked for intent-recognition to widen
+across the command set generally, and for `go-merge` and `weak-yes`
+specifically to gain an ask-if-in-doubt step. This one takes neither change:
+widening it risks a false trigger that never surfaces itself again, which
+neither of those two risks.
 
 ## Install
 Nothing mechanical checks that the phrase was *honoured* -- like `go-merge`,

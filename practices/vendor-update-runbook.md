@@ -73,6 +73,58 @@ every step's answer is wrong if the one before it was skipped.
 3. **Refresh the engine, and take the branch tip.** Expect two passes when
    the tool replaces itself; the second is not a retry, it is the new copy
    running its own corrected file list.
+   **Since 2026-09-15 this also refreshes `.claude/hooks/*.sh`**, drift-checked
+   and tracked in the same `ENGINE_MANIFEST.json` as `tools/`
+   (`hook_files`/`hooks_sha256`) — before that date the hook scripts were
+   copied once at initial install and never refreshed again, so a fix
+   landing in one (the `freshness-guard.sh` shallow-clone false-positive,
+   `record/GOTCHAS.md#g12`, is the incident that prompted this) never
+   reached an already-vendored repo no matter how many times "Update
+   Vendors" ran. A repo vendored before this date has no `hook_files` in
+   its manifest yet; its first refresh after taking this change prints a
+   one-time catch-up notice and vendors all of them, even though the
+   `tools/` commit may already match. `.claude/settings.json` is still never
+   touched — only the hook scripts it calls are vendored engine code, and a
+   consumer's own hook wiring is its own.
+   **Since 2026-09-18 this also refreshes the installed CI workflow file(s)**
+   vendored from `templates/github-actions/*.template` — a dependent repo's
+   `.github/workflows/bestpractice-docs.yml` (from `doc-lint.yml.template`),
+   a practice set's `.github/workflows/views-drift.yml` and
+   `precedent-check.yml` (from their own templates) — drift-checked and
+   tracked the same way, in the same `ENGINE_MANIFEST.json`
+   (`ci_workflow_files`/`ci_workflows_sha256`). Before this date these files
+   were written once, at initial install, and never refreshed: a template fix
+   landing after install — the `concurrency:` block `doc-lint.yml.template`
+   gained on 2026-09-15, then
+   [spec/CI_MINUTES_PLAN.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/CI_MINUTES_PLAN.md)'s
+   Phase C debounce-guard step the very next day — reached an already-installed
+   `bestpractice-docs.yml` only if that repo happened to reinstall from
+   scratch. A repo vendored before this date has no `ci_workflows_sha256` in
+   its manifest yet; its first refresh after taking this change records a
+   baseline hash for whichever of these files it has installed and prints a
+   one-time catch-up notice — but, **unlike the hooks catch-up above, does
+   NOT rewrite the file's content on that first run.** A CI workflow is
+   exactly the kind of file a real repo hand-tunes (an extra job, a changed
+   schedule, a repo-specific secret), so overwriting an unrecorded one the
+   first time this shipped would have discarded that with no warning. Run
+   `refresh` again once the baseline is recorded to pick up template changes
+   normally from then on.
+   **Since 2026-09-19, check whether this refresh newly vendors
+   `tools/todo_migrate.py` or `tools/build_todo_index.py`** — the one-time
+   per-item TODO migration tool and its ongoing index generator
+   ([spec/OPEN_ITEM_AND_GOTCHA_PLAN.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/OPEN_ITEM_AND_GOTCHA_PLAN.md)
+   Part 4.2). Vendoring the tool is not the same as running it, and nothing
+   else says so: this repo shipped both to every consumer on 2026-09-15/16
+   and, once source sets turned out to need them too, to every source set
+   on 2026-09-19 — and confirmed the same day that most consumers had
+   never run it, three or more days after it arrived. If `TODO.md` is
+   still the old single-file format (no `todo/` directory, no `# TODO has
+   moved` stub heading), run `python3 tools/todo_migrate.py --apply` then
+   `python3 tools/build_todo_index.py` as part of this refresh, not as a
+   follow-up. Step 6's full check also catches this —
+   [todo-migrate-available-but-unused](todo-migrate-available-but-unused.md)
+   — but the fix belongs here, at the refresh that brought the tool in,
+   not deferred to whoever next happens to run the check.
    **When the same update is going into more than one repo, note the tip
    before you start and check every repo against it at the end.** Each refresh
    resolves the tip at the moment it runs, so two repos updated an hour apart
@@ -141,9 +193,53 @@ every step's answer is wrong if the one before it was skipped.
    path inside `process/`, the engine copy you are running predates that
    fix: pass `--repo .` and take the answer from that run.**
 
-9. **Verify by content on the remote**, never by ref equality
+9. **Ask the person whether a source should be ADDED or DROPPED.** Steps 7
+   and 8 both ask about the sources this repo already declares — can they
+   be reached, are they still called that. Neither can ask the question
+   underneath: *should this repo be declaring something it isn't?* **A set
+   that was never declared is invisible.** It produces no `MISSING`, no
+   `UNVERIFIED`, no error and no absent file — only a repo quietly
+   resolving fewer practices than its owner believes, and no check will
+   ever report it, because **the sets a repo COULD declare are not
+   derivable from the sets it does.**
+
+   So this one is answered by a person, not a tool, and an update is when
+   to ask: somebody is already looking at how this repo gets its practices.
+   Name what it declares now and ask outright. Do not infer it from the
+   tree, and do not skip the question because nothing looks wrong — nothing
+   looking wrong is the symptom, not the all-clear.
+
+   Measured, 2026-09-09, across five repositories that each looked healthy:
+   one had no session-start instruction at all, so nothing ever fetched the
+   sources its config named; one had never declared `visibility`, and an
+   absent field counts as public, which silently excluded every
+   private-level source from its generated views; and three named their
+   sources in hand-written prose that went stale the day a team set was
+   split by subject. **Not one produced a failing check.**
+
+   **Once the answer changes what this repo declares, grep before moving
+   on.** Run `grep -n '<name>' AGENTS.md CLAUDE.md` for every source name
+   now declared, one name at a time. A hit outside a dated Story, gotcha,
+   or incident write-up is a standing enumeration of the declared sources
+   sitting in hand-authored prose — the same staleness risk this whole step
+   exists to catch, one level down. Reword it to describe the set
+   dynamically (a count, or a pointer to `precedent.json`) rather than
+   naming it.
+
+10. **Sweep this repo's own `.github/workflows/` against the retired-file
+    table** ([spec/MIGRATING_EXISTING_INSTALLS.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/MIGRATING_EXISTING_INSTALLS.md)'s
+    step 6, added 2026-09-16) — an ordinary update touches the same
+    workflow files a migration would, and a repo that migrated before this
+    table existed has never had the chance to apply it. Per file, never a
+    blanket delete: the table names what each one is, and which are a
+    confirm-before-delete rather than an automatic one. While here, check
+    `ci_workflows` and `ci_debounce_minutes`
+    ([GITHUB_ACTIONS.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/documentation/GITHUB_ACTIONS.md))
+    are set the way the person actually wants, not just inherited from
+    whatever an earlier install or migration left.
+11. **Verify by content on the remote**, never by ref equality
    ([verify-postcondition](verify-postcondition.md)).
-10. **Publish it, without asking again.** Run [go-merge](go-merge.md)'s
+12. **Publish it, without asking again.** Run [go-merge](go-merge.md)'s
     chain on the result and report which branch it landed on. The phrase
     authorizes this step; do not stop at step 9 and ask. Every condition
     `Go merge` carries still holds -- a branch the repository restricts is

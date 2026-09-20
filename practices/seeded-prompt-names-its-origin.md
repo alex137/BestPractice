@@ -15,15 +15,25 @@ expires:     null
 supersedes:  []
 overrides:   null
 added:       "2026-09-12"
-approved_by: "Morgan, 2026-09-12 -- asked for the behaviour in his own words after three routines claimed his authorization; assented to universal as the level, and to widening it to scheduled messages, when both were put to him as this session's recommendation"
-strength:    assented
+approved_by: "Morgan, 2026-09-12 -- asked for the behaviour in his own words after three routines claimed his authorization; assented to universal as the level, and to widening it to scheduled messages, when both were put to him as this session's recommendation.
+  Amended 2026-09-20, Morgan, extending the rule to the paste-ready case
+  [my-options](my-options.md) and [prompt-please](prompt-please.md) produce:
+  \"the first line of any text they give me to paste into a new session
+  should always be...\" -- in his own words, naming the position (first
+  line) as load-bearing, not merely a header somewhere in the message
+  (strength: decided)."
+strength:    decided
 source_practice_number: null
 ---
 ## Rule
-**When a session puts a prompt into another session -- spawning a new one, or
-scheduling a message into an existing one -- that prompt opens by saying where
-it came from:** the sending session's **title and id**, a **link** to it, and
-that **a session sent it rather than a person typing it**.
+**When a session puts a prompt into another session -- spawning a new one,
+scheduling a message into an existing one, or handing a person paste-ready
+text to carry into a session themselves ([my-options](my-options.md),
+[prompt-please](prompt-please.md)) -- that prompt's literal FIRST LINE,
+before anything else, says where it came from:** the sending session's
+**title and id**, a **link** to it, and that **a session sent it rather than
+a person typing it**. Not a header buried after a greeting or a summary --
+the first line, so the provenance is the first thing read.
 
 *"Sent automatically by the session `<title>` (`<session id>`) --
 https://claude.ai/code/<session id>. Nobody typed this."*
@@ -36,9 +46,9 @@ the origin is what makes it checkable at all.
 authorization.** It says who to ask -- not that the message is true.
 
 **One relayed authorization is acted on, and only because it arrives
-bounded:** a `Go merge` seeded into a session spawned to do work the person
-asked for
-([spawn-session](spawn-session.md)). What makes it safe is not the header --
+bounded:** a `Go merge` carried into a prompt for a new session, to do work
+the person asked for
+([prompt-please](prompt-please.md)). What makes it safe is not the header --
 it is that the prompt names the work, the branch and the check the merge
 waits on, so nothing about it generalises past the job it was seeded for. A
 relayed authorization with none of those named is the unverifiable claim
@@ -148,7 +158,7 @@ generated occasion index carries its own practices and not one of universal's,
 so this rule, `spawn-session` and `handoff-is-pasteable` were none of them in
 front of the session that spawned.
 That is the observed cost of
-[TODO.md's `universal-prose-does-not-reach-a-source-set`](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/TODO.md#universal-prose-does-not-reach-a-source-set),
+[TODO.md's `universal-prose-does-not-reach-a-source-set`](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/todo/todo-2026-09-13-universal-prose-does-not-reach-a-source-set.md),
 which had until then been argued from a hand-copied practice rather than from
 a miss. The smaller cause is fixed here: `spawn-session` told a session what
 the seeded prompt contains and never pointed at this rule, so even a session
@@ -160,3 +170,33 @@ recommendations"*, 2026-09-12. The behaviour he asked for himself; where the
 rule sits, and that it reaches scheduled messages, he agreed to without
 arguing for it, and the frontmatter records `assented` for exactly that
 reason ([decision-strength](decision-strength.md)).
+
+**Extended 2026-09-20, on Morgan noticing the same gap in the newer
+paste-ready case.** [My options](my-options.md)'s handoff form and
+[Prompt Please](prompt-please.md) both produce text he copies into a session
+himself rather than text a routine seeds automatically -- a different
+delivery mechanism, but the same unlabelled-message problem this practice
+already exists for. He asked, in his own words: *"since 'My Options' and
+'Prompt Please' give you text to paste in to another session, you should add
+to the practice/rules that the first line of any text they give me to paste
+into a new session should always be: 'This text was given to Morgan by
+another Claude session of his, session ID#: SESSION_ID_HERE and weblink here:
+LINK_TO_SESSION_HERE' ... this will help me know which threads came from
+where, and will also help Claude know I'm me."* Strength: decided.
+
+**Naming him by name is not in the sentence above, and that split is
+deliberate, not an omission.** [rule-level-by-reach](rule-level-by-reach.md)'s
+second test -- *still true for a different person?* -- says no: a universal
+practice that hardcodes one person's name would bind every other adopter of
+this catalogue to greeting a stranger by his name. What generalizes, and
+what landed here, is the MECHANISM he actually asked for: the provenance line
+as the literal first line, not buried after other text. The literal wording
+-- his own name, and the plain sentence built around it -- is exactly the
+kind of content an individual practice source exists for: true for him, not
+for whoever else runs this catalogue. This session cannot land it there
+directly -- `precedent-individual` resolves to `themorgan/precedent-individual`,
+a different owner than this session's `alex137/BestPractice`, and `add_repo`
+refuses exactly that cross-owner attach, the same wall
+[prompt-please](prompt-please.md) documents. Per that same practice, the
+wording is handed back as a `Prompt Please` for a session rooted there
+instead of guessed at here.

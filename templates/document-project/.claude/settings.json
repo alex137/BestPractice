@@ -76,7 +76,12 @@
       "Bash(python3 tools/precedent_sync_views.py)",
       "Bash(python3 tools/precedent_sync_views.py *)",
       "Bash(python3 tools/doc_lint.py)",
-      "Bash(python3 tools/doc_lint.py *)"
+      "Bash(python3 tools/doc_lint.py *)",
+      "Bash(python3 tools/precedent_owned_paths.py)",
+      "Bash(python3 tools/precedent_owned_paths.py *)",
+      "Bash(python3 tools/precedent_boundary_check.py)",
+      "Bash(python3 tools/precedent_boundary_check.py *)",
+      "Bash(python3 tools/build_codeowners.py --check)"
     ],
     "deny": [
       "Bash(rm *)"

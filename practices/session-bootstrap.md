@@ -85,6 +85,29 @@ See `tools/precedent_show.py`'s own module docstring for the mechanism
 and its deliberate limits (a cheap directory probe, not a full re-resolve
 or a content-drift check).
 
+**A third variant, found 2026-09-18, working across this repo and two
+private consumer repos in one session** (not named here — which private
+repo hit this is not this file's business to carry; see
+[environment-gotchas](environment-gotchas.md)'s own convention for why).
+The Detail above covers a repo *attached mid-session* never getting its
+SessionStart hook. The unrelated case: a session scoped to **more than one
+repo from the very start** — every repo in that session was declared up
+front, none attached later — still never got any of their own
+`.claude/settings.json` `env` blocks or hooks (`commit-identity.sh` among
+them), for the session's *entire* duration, because a harness only loads a
+repo's own settings for its *primary* project directory, and a multi-repo
+session's primary directory is neither a git repository nor any one of the
+repos it works in. Every commit made in any of them fell through to the
+container's own bot identity instead of the declared one — confirmed
+directly against `~/.gitconfig`, not guessed at. `commit-author`'s own
+check caught it in one repo before a bad commit reached its trunk;
+in another it did not, and the wrong-author commit had to be
+grandfathered by SHA rather than rewritten (`no-rewrite-for-warnings`) —
+see that repo's own `identity.json` for the accounting, private and not
+this file's to link. Same family of gap as the two variants above (a hook
+the harness's own timing model cannot guarantee runs), same fix in kind:
+don't wait for the harness, run it by hand. See Install below.
+
 ## Why
 The gotchas of [environment-gotchas](environment-gotchas.md), applied: writing the fix down is good;
 having it apply itself is better. The hook is where "install the one package
@@ -128,7 +151,7 @@ first turn (and therefore its `add_repo` call) never overlap in time, so
 retrying inside the hook is not a partial mitigation, it is inert — every
 attempt, at any count or delay, runs before `add_repo` could possibly
 have fired even once. It had also been quietly costing every cold session
-real latency (up to ~12 seconds) for that zero benefit. The lazy
+real latency (up to ≈12 seconds) for that zero benefit. The lazy
 self-heal half was unaffected and independently confirmed to work — it
 runs from inside the agent's own turn, after `add_repo`, which is exactly
 where the access exists. Fixed by defaulting
@@ -184,6 +207,15 @@ also supports a blocking stop/teardown hook (Claude Code does; see
 install that too — some managed environments already provide an equivalent
 check outside the repo, but this makes the same guarantee travel with the
 practice layer for the ones that don't.
+
+**A multi-repo session (Detail's third variant, above) gets neither
+guarantee for any repo but its harness's primary one — run
+`bash tools/bootstrap.sh` by hand, once per repo, before that repo's first
+commit.** [templates/AGENTS.md.template](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/templates/AGENTS.md.template)'s
+own Session start section says so directly, for a fresh install; an
+already-installed repo gets the same instruction by reading this
+practice's own materialized copy, which is why it lives here and not only
+in the template.
 
 **The bootstrap also checks upstream freshness — detection automated, the
 take deliberate.** A dependent repo learns its practice layer is stale only

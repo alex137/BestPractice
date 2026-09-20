@@ -42,13 +42,15 @@ Three things follow from this that are worth knowing:
   same time** without waiting for each other or overwriting each other,
   because each is on its own copy. This is the thing a shared live document
   cannot do.
-- **Whose yes it is depends on the project.** Most people here can propose
-  freely and cannot merge — see [What you can't do (on
-  purpose)](#what-you-cant-do-on-purpose) below, which is a deliberate
-  wall, not a comment on you. **If you are one of the people who can say
-  yes**, and you want the assistant to stop asking every time, say **"Go
-  merge"** — a standing phrase this project understands to mean *do all of
-  it, including the merge, without checking back.*
+- **Whose yes it is depends on what the change touches.** Your own
+  documents are usually yours to merge; the project's settings, its
+  automatic checks and its rules wait for whoever maintains the project —
+  see [What you can't do (on purpose)](#what-you-cant-do-on-purpose)
+  below, which is a deliberate wall, not a comment on you. **When the yes
+  is yours**, and you want the assistant to stop asking every time, say
+  **"Go update"** — a standing phrase this project understands to mean *do
+  all of it, including the merge, without checking back.* ("Go merge"
+  means the same thing.)
 
 There are a few more of those standing phrases — **"Park it"**, **"Plain
 words"**, **"Three Things"** — and [How to Use This Day to
@@ -155,7 +157,7 @@ nobody raises it on day one: a date stamped in the wrong city's time is a
 small, visible, one-sentence fix whenever you happen to notice it. If you
 want the technical version — what each setting is called and what breaks
 without it — it is
-[Per-Machine Setup](../PER_MACHINE_SETUP.md).
+[Per-Machine Setup](PER_MACHINE_SETUP.md).
 
 ## Two Things You Can Fill in Whenever You Like
 
@@ -163,16 +165,19 @@ Whoever set this project up was told to do the essentials and stop, so two
 files were created empty on purpose and are waiting for you. Neither is
 urgent, and a project works perfectly well with both left blank.
 
-- **`VOICE.md`** — how this project should sound. Who it sounds like, who
-  reads it, the words your field insists on and the ones it can't use, and
-  anything you want done differently from the general rules.
+- **Your project's own voice** — how this project should sound. Who it
+  sounds like, who reads it, the words your field insists on and the ones
+  it can't use, and anything you want done differently from the general
+  rules. (Kept at `local/practices/project-voice.md`, if you ever go
+  looking for it.)
 - **`STYLEGUIDE.md`** — how it should look. Colors, fonts, logo rules —
   whatever your brand guideline says, if you have one.
 
-**To fill either in, just say so to your assistant** — *"help me fill in
-VOICE.md"* — and it will ask you questions and write down your answers. You
-can do it today, next month, or never. **Both stay entirely inside your own
-project**; nothing in them is ever shared with anyone outside it.
+**To fill either in, just say so to your assistant** — *"help me fill in my
+project's voice"* — and it will ask you questions and write down your
+answers. You can do it today, next month, or never. **Both stay entirely
+inside your own project**; nothing in them is ever shared with anyone
+outside it.
 
 **Anything you leave blank is a real answer**, not a hole. A project that
 hasn't decided how it sounds yet is better off saying so than having someone
@@ -180,14 +185,36 @@ guess on its behalf.
 
 ## What You Can't Do (on Purpose)
 
-Your access is deliberately limited so nothing you do can break the
-project or publish something by accident — you can comment and propose,
-but you can't push changes live or approve them yourself. This isn't
-about trust in you personally; it just means a mistake, including the
-assistant's, stops at a wall instead of reaching anyone else.
+The line is drawn by *what* a change touches, never by who you are. There
+are three levels of say-so on a project, and knowing them makes the wall
+less mysterious:
+
+- **Anyone who writes for the project** — you, most days — changes and
+  merges their own document changes, once the project is set up that way.
+- **Whoever maintains the project** looks at anything touching its
+  settings, its automatic checks, or the rules everyone follows, before
+  that change lands — no matter who asked for it.
+- **Approvers** — a named list, sometimes just one person — are the only
+  ones who can make a suggested rule official, at whichever shelf (your
+  own, your team's, or the public one) it's aimed at.
+
+Your assistant tells you before it proposes anything which of these the
+change falls under, so the wall is never a surprise. Whoever administers
+the project sets this line up on GitHub itself;
+[GITHUB_SETTINGS.md](GITHUB_SETTINGS.md) is their page, not yours — worth
+knowing only because that page notes GitHub gives this wall for free on a
+public project, but a private one on a personal account needs a paid plan
+to turn it on. If your project is private and the wall seems to be missing,
+that is usually why, and it's a question for whoever administers it, not
+something to chase yourself. This isn't about trust in you personally; it
+just means a mistake, including the assistant's, stops at a wall instead of
+reaching anyone else.
 
 ## Learn More
 
+[Ten Things to Know About How Precedent Works](TEN_THINGS.md) is the one
+page with the ideas underneath all of this, each linked back into the
+section here that says more.
 [How to Use This Day to Day](DAILY_HABITS.md) is the
 companion to this page: this one is how an idea becomes a rule, that one
 is what an ordinary working day looks like. [What This Is (and Why Explore

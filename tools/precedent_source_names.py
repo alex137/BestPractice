@@ -309,9 +309,12 @@ def assess(repo, env=None, user_config=None):
         # The OFFLINE half, reported whether or not the API answers: the
         # declared name and the clone's own remote disagreeing is a drift
         # nothing else prints, and it costs no network to see.
-        if src['level'] in ('team', 'individual') and name != src['name']:
+        declared_repo = (src.get('repo') or '').rstrip('/').rsplit('/', 1)[-1]
+        declared_repo = declared_repo[:-4] if declared_repo.endswith('.git') else declared_repo
+        expected = declared_repo or src['name']
+        if src['level'] in ('shared', 'team', 'individual') and name != expected:
             row['declared_drift'] = (
-                f'precedent.json (or the user config) declares {src["name"]!r} '
+                f'precedent.json (or the user config) declares {expected!r} '
                 f'while the clone fetches from {owner}/{name}')
         full, why, renamed = api_full_name(owner, name, env)
         if full is None:

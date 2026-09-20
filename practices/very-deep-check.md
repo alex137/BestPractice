@@ -3,6 +3,7 @@ slug:        very-deep-check
 title:       The very deep check — a whole-repo coherence review, on request only
 tier:        on-demand
 severity:    advisory
+scope:       engine-dev
 applies_to:  ["**"]
 occasion:    "a person explicitly asks for a \"very deep check\" across the whole repo, or after work that invites drift"
 gates:       []
@@ -15,7 +16,12 @@ in_force_at: null
 supersedes:  []
 overrides:   null
 added:       null
-approved_by: "pending review; revised 2026-09-05, Morgan F, to require every
+approved_by: "extended 2026-09-14, Morgan F -- after a session was refused by
+  GitHub with a rate-limit error, he asked for the cause investigated, the
+  fixes made, and this check to report the account's API limits so normal
+  usage can be seen not to overspend them (strength: decided; the section's
+  shape is the session's, the requirement is his);
+  pending review; revised 2026-09-05, Morgan F, to require every
   declared team/individual source actually be in the session before the check
   runs, and to add a stale-branch sweep across every repo the check touches;
   revised again same day, Morgan F, to add a cross-source-staleness check;
@@ -77,7 +83,73 @@ approved_by: "pending review; revised 2026-09-05, Morgan F, to require every
   beside every run -- \"you look to see if anything is being leaked that you
   think shouldn't be and you make the recommendation to me ... but only when
   I ask for it as part of a very thorough review I'm in the mindset of
-  doing\""
+  doing\"; extended 2026-09-14, Morgan F (strength: decided), so pass 1
+  rehearses a practice moved between levels and pass 3 reads every document
+  that describes a mechanism against what that mechanism does now -- \"does
+  very deep check do a read of the documentation to make sure it's
+  consistent with how it works now? If not add that too\";
+  extended 2026-09-15, Morgan (strength: decided), so the branch sweep's
+  list is written to a committable file with a clickable link on every row
+  instead of only being printed, after two Sunday runs produced it and he
+  never saw it -- \"it should put those links in the document it creates
+  so I can just go there and click - it shouldn't live in the chat\";
+  extended 2026-09-17, Morgan (strength: decided), with a pass-3 bullet
+  asking whether every file, documentation included, lives in the directory
+  its kind already uses -- \"in very_deep_check, can you update it to make
+  sure that files including documentation are in their right
+  folder/location?\" -- after two person-facing setup guides were found
+  sitting at repo root while documentation/ held every other reader-facing
+  page;
+  extended again 2026-09-17, Morgan (strength: decided), with a pass-2 item
+  reading the harness-adapter ledger's verdicts for whether they are
+  actually correct, not merely present -- \"update the very deep check
+  definition to do a focused and detailed check to make sure that the
+  system works in each of the LLMs (codex gemini grok) cross-platform? I
+  want this to detect errors where, a change was made to how we do
+  something with Claude, but it wasn't rolled out to the others\" -- after
+  the same conversation found that `parallel-artifact-ledger`'s enforced
+  check only proves a row exists per change, by its own docstring's
+  admission, and a live example where two recent rows promised a codex or
+  gemini-cli user a hand-run workaround that neither adapter's own README
+  mentions anywhere; extended again 2026-09-17, Morgan (strength: decided),
+  with a pass-4 item that inventories every cron, scheduled workflow and
+  session trigger across every repo and account in force, gives each a
+  verdict, disables or deletes what nobody needs, and writes the whole list
+  to a committed report -- \"To very deep check, we should also add: a check
+  of any crons or other automated actions - and delete or disable not needed
+  ones, and to make a list of all of them that goes into the very deep check
+  report\"; extended in the same turn, Morgan (strength: decided), with a
+  companion item closing the cheaper half of
+  [todo-2026-09-07-undeclared-deprecated-files](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/todo/todo-2026-09-07-undeclared-deprecated-files.md)
+  -- reading every mechanism in force against whether it is still the thing
+  that runs, deleting what plainly is not, writing into the same report, and
+  asking the session's user wherever a verdict is unclear -- \"And also the
+  same for any deprecated files - look for them, delete them, note it in the
+  big document made with the findings. And if there is any doubt or
+  questions, ask the session user\"; extended 2026-09-18, Morgan
+  (strength: decided), so pass 2's item 17 names `grok-build/` as a fourth
+  harness-adapter directory and drops the stale present-tense count that
+  still read three -- \"Fix the stale count in item #17 now, and add in
+  the grok, please\", after a session answering a question about this
+  check found `templates/harness/grok-build/` already on disk, researched
+  and dated 2026-09-17, un-named by either the item's own prose or
+  `templates/harness/LEDGER.md`'s family line;
+  extended 2026-09-19, Morgan (strength: decided), so a session that runs
+  less than the full four passes says so BEFORE running, never only in the
+  honest write-up after -- \"the whole point of 'very deep check' is to do
+  a very deep check. If I wanted a light check, I wouldn't ask for a very
+  deep check!\", after a session ran only the mechanical half of passes 2
+  and 4 and reported the rest PARTIAL without flagging the narrowed scope
+  up front;
+  extended again 2026-09-19, Morgan (strength: decided), so the checkout's
+  merged-and-stale branch list is embedded, in full and never truncated,
+  in spec/VERY_DEEP_CHECK.md itself, written directly by the checkout's own
+  branch scan rather than left for a session to remember to open and paste
+  from record/stale_branches.md -- \"This list should be generated and included
+  in the VERY DEEP CHECK MD document when it's generated... And if there
+  are more than 10, include them!\", after a session named ten safe
+  deletions without ever printing them and had to be asked for the list a
+  second time"
 ---
 ## Rule
 When a person explicitly asks for a "very deep check", or after work that
@@ -89,7 +161,8 @@ passes in Detail, in that order. The tool enumerates the scope — this
 checkout's own top-level documents, plus the `practices/*.md` tree of every
 source in force, resolved exactly the way
 [tools/precedent_resolve.py](../tools/precedent_resolve.py) resolves them for
-ordinary loading — and prints the passes; reading and judging that scope is
+ordinary loading — and points at the passes (`--checklist` prints them in
+full); reading and judging that scope is
 the session's work, and is nearly the whole cost of this check. Never wired
 into a commit, push, or merge gate — the mechanical audits and
 [routing-audit](routing-audit.md) already cover what can be checked cheaply
@@ -116,11 +189,23 @@ would lose every finding in the seam between it and a repo still in scope,
 which is the class this check exists for — a set's practice contradicting
 universal's is a finding about both. What the verdict changes is the
 *reporting*: a finding in a `LAND` repo ends in a commit from this session,
-and one in a `HANDOFF` repo ends in a woken session
-([spawn-session](spawn-session.md)). Saying which is which before the reading
+and one in a `HANDOFF` repo ends in a paste-ready prompt for a new session
+([prompt-please](prompt-please.md)). Saying which is which before the reading
 starts is the point; discovering it at the moment of trying to fix something
 is the cost. `--landable-only` narrows scope for a deliberately cheap run and
 says out loud what it made unreachable.
+
+**The check reads its own GitHub API bill, and the account's, in its last
+section** ([github-api-budget](github-api-budget.md)). What the run spent,
+against a declared budget; what each allowance pool has left, read off the
+headers of the calls it already made rather than bought with another one; and
+plainly, as unmeasured rather than as clean, the allowances a session cannot
+see from inside a container — `search`, at 30 requests a minute shared across
+every window at once, and the secondary limit on creating content, which
+nothing anywhere reports. **It reports and never refuses.** The pool is shared
+by every session running, so a run that stopped because somebody else had
+spent it would be punishing the wrong session; the remedy is fewer
+simultaneous windows and cheaper tools, and neither is this tool's to apply.
 
 **Before anything is read, every repo in force must be provably current
 against its origin, and must still be a repository work can land in** — this checkout and every attached source.
@@ -169,6 +254,26 @@ too.** A from-scratch install or a migration that strands an adopter is a
 roadblock; a heading capitalized two ways is not. Never let a pass-3 finding
 queue ahead of a pass-1 one because it is easier to fix, and never report a
 run as done with a pass-1 roadblock still open.
+
+**Defaulting to the cheap half is not a smaller version of this check — it
+is a different check, and the person asked for this one.** The mechanical
+half (running the tool, running `verify_harness.py`/`precedent_check.py`/
+`doc_lint.py`/`doc_sync.py`/`leak_gate.py`, reading what they print) finishes
+in minutes because it costs the session nothing to run scripts. Passes 1 and
+3, and the real half of pass 4 — rehearsing an install, reading the
+catalogue and the branches by eye, judging rather than printing — are where
+the 30-40 minutes a real run takes actually goes, and are the reason the
+phrase exists rather than "run the checks." A session that quietly runs only
+the mechanical half and records the rest as PARTIAL has followed the letter
+of "never quietly skip a pass" above while missing the whole point: the
+record being honest after the fact does not make the choice to narrow the
+check one the person agreed to. **Say the scope out loud before running, not
+in the write-up after** — either commit to the full four passes, or, if a
+smaller run is the right call (a time-box, a narrow follow-up on what
+changed since the last run), say so as the first line of the reply and let
+the person confirm or widen it, the same way a time-box any run has used
+before was always the person's own bound, stated up front, never the
+session's quiet default.
 
 **This is more than one session's work, and is meant to be split.** Keep the
 run's state in [spec/VERY_DEEP_CHECK.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/VERY_DEEP_CHECK.md): which
@@ -256,14 +361,19 @@ cannot tell a drift this run introduced from one that was there before. So:
    so an attached sibling has never been checked by anything. The
    liveness half runs in the same breath and is a finding rather than a
    refusal: a deleted, renamed or archived repo in force does not make the
-   reading below wrong, it makes the writing above it pointless.
+   reading below wrong, it makes the writing above it pointless. **And if
+   the checkout moved under you here, re-read the instructions file**: a
+   session is handed `AGENTS.md` before any guard can fast-forward the
+   tree, so after a fast-forward the copy in context is the stale one
+   (2026-09-14: 983 lines behind the tip, for a whole first turn).
 2. **Run the deep check suite as it stands** — the five gates
    [AGENTS.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/AGENTS.md) names ([two-check-levels](two-check-levels.md))
    — and fix what it reports, before this check reads a line. `0 failed` and
    `0 violated` is the starting line, not the finish.
 3. **Run [tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/very_deep_check.py)** for the
-   enumeration, the machine-readable parse, the source-shape check, and the
-   branch scan. A missing declared source stops the run here.
+   enumeration, the machine-readable parse, the source-shape check, the
+   branch scan, and the GitHub API budget. A missing declared source stops
+   the run here.
 4. **Read the unmerged-branch inventory, before any pass begins.** Not the
    verdicts — those are pass 4's expensive half and stay there. Just the
    list, and enough of each branch's diff to know *what already exists
@@ -321,6 +431,35 @@ audit came from **building the thing the document describes and running the
 checks on it** ([spec/PRELAUNCH_AUDIT.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/PRELAUNCH_AUDIT.md), "The
 method"). Build the fixtures.
 
+- **Rehearse each install path with fresh eyes, as the person it is
+  written for.** Not a fixture built by the session that knows the
+  documents: a session with no prior context — a subagent, told which
+  document to follow, whom to play, and to report every point where the
+  document is ambiguous, self-contradictory, names something that does not
+  exist, or asks a question the person cannot answer, with path and line —
+  one per path, in parallel. Five paths: the guided install
+  ([SETUP.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/SETUP.md), as a non-technical administrator),
+  the loader install ([INSTALL.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/INSTALL.md) §0, as a developer — both by
+  running `tools/precedent_install.py` as an adopter would and by reading
+  the numbered steps against what it did), the migration, the update
+  below, and **a practice moved between levels**
+  ([spec/MOVING_PRACTICES.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/MOVING_PRACTICES.md)):
+  two bootstrapped sets and a consumer in scratch, every direction the
+  page offers (individual → team, team → individual, team → universal),
+  with `tools/precedent_move.py` and, separately, by hand against the
+  page's two steps — then the copy-and-delete the page forbids, to see
+  which check names it. Added 2026-09-14, the day Morgan asked whether
+  the run had tested it and it had not: the rehearsal returned thirteen
+  findings and the move tool. Each rehearsal ends by running the result's
+  own checks and reporting the real output. **Then ask one more question of each: is what
+  landed what the pitch promised?** Read the result against
+  [documentation/ADOPTING.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/documentation/ADOPTING.md) and the README, not
+  only against the install document — on 2026-09-14 every sentence of the
+  guided install was correct and the person following it received a
+  system without the loader the pitch describes, which no single-document
+  reading could see. Fresh eyes are what made the difference: the
+  2026-09-14 run found 65 defects this way where the previous run's
+  session-built fixtures found five.
 - **A real from-scratch install.** A scratch repository with nothing in it,
   installed per [INSTALL.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/INSTALL.md) §0 against `precedent-beta-v01`
   alone — no team set, no individual set, none of the sibling clones this
@@ -397,6 +536,17 @@ method"). Build the fixtures.
   checkout is what separates them — a finding that asserted the first would
   send somebody to copy a stale build upstream. An untracked file is
   container state, not a shape the skeleton is missing, and does not count.
+  **A verdict, once a person has one, does not have to be re-argued on every
+  run.** Each converged set may hold its own `very-deep-check-decisions.json`
+  — one of four fixed verdicts, dated, with who decided and why, modeled on
+  `identity.json`'s `grandfathered_commit_shas` — and when every set sharing
+  a convergence has recorded the *same* verdict there, still live (no
+  `revisit` date passed), the section prints `DECIDED` instead of reprinting
+  the `FINDING` from zero. Disagreement between sets, a partial decision, or
+  an expired `revisit` all still print the ordinary `FINDING`, annotated with
+  what is already on record. A repo that holds no such file is unaffected —
+  this is additive, never a gate (`VERY_DEEP_CHECK_DEDUP_LEDGER_PROPOSAL.md`,
+  proposed by Morgan, 2026-09-20; Install section below).
 - **Cross-repo relationships and permissions.** Walk who must be able to read
   or write what, for a *new* repo and a *new* person: the vendored engine,
   each declared source, approvers and CODEOWNERS, and the protected paths
@@ -571,6 +721,69 @@ confidently.
     published the violation. The same skip hid
     [generated-artifact-provenance](generated-artifact-provenance.md), whose
     own file names a check for it.)*
+16. **Is a boundary a setting or a document?** A rule that says *a
+    contributor cannot change X* is enforced by a setting somewhere -- a
+    branch-protection rule, a `CODEOWNERS` file GitHub actually reads, a
+    role on an invitation -- or it is a sentence. For each boundary a repo
+    in force describes, name the setting that enforces it and **read that
+    setting**, never the document describing it. Where the file that
+    carries the boundary is generated (a `CODEOWNERS` from a registry),
+    check the generated copy against its source: a hand-edit there is the
+    boundary changing with nothing announcing it.
+    [tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/very_deep_check.py)'s
+    `CONTRIBUTOR BOUNDARY` section does both per repo in force and prints
+    `UNVERIFIED` rather than a pass when it could not ask GitHub -- which is
+    the answer a session without a token that can read protection settings
+    gets, and it is not the same answer as *off*. *(Found: the contributor
+    boundary in
+    [spec/CONTRIBUTOR_ACCESS.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/CONTRIBUTOR_ACCESS.md)
+    described in three documents and enforced by a setting nothing had ever
+    read -- a forgotten instantiation step would have left Write as
+    unrestricted write while every document still described a wall,
+    2026-09-14.)*
+17. **Does the harness-adapter ledger's verdict match what each member's own
+    documentation actually tells its user?** `parallel-artifact-ledger`'s
+    enforced check
+    ([tools/precedent_check.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/precedent_check.py))
+    only proves a row EXISTS for every commit that touched a harness-adapter
+    member -- its own docstring says so: "whether a referenced row is
+    actually CORRECT ... only that a row exists." This is the ledger's own
+    version of question 15's gap between a check running and a check's
+    claim being true, so it gets the same treatment: read a sample of
+    rows, newest first, against the real state of each named member. Where
+    a row claims a mechanism transferred, does the named file actually
+    carry it. Where a row claims a workaround "needs no harness at all" and
+    a member without a hook mechanism could still get it by running a
+    script once by hand, does that member's own README say so anywhere a
+    person reading it would find it -- or does the workaround live only in
+    the ledger row's own prose, reachable by nobody who starts from the
+    adapter they actually use. Every family member with an adapter
+    directory gets read this way, present tense: today that is
+    `claude-code/`, `codex/`, `gemini-cli/`, and `grok-build/`. The last of
+    these deliberately carries no ledger rows to check yet --
+    [templates/harness/grok-build/README.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/templates/harness/grok-build/README.md)
+    says outright that it is not wired into `LEDGER.md`'s enforced
+    tracking, because the hooks syntax it would need to confirm is
+    unverified against xAI's docs, and extending enforcement on a guess
+    would be worse than leaving the gap named -- so its read is narrower
+    than the other three: confirm that disclaimer is still true (the
+    directory still isn't in `LEDGER.md`'s family line, the unverified
+    claims are still unverified) rather than comparing rows that don't
+    exist. A fifth member joins the full read the day it gets a directory
+    of its own -- there is nothing to check for one that does not exist
+    yet, which is a finding this pass should say plainly rather than
+    passing over in silence. *(Found, 2026-09-17: `templates/harness/LEDGER.md`'s `ffcae058`
+    row, and two rows above it for the same file, each say a codex or
+    gemini-cli user could get the fix by running `commit-identity.sh` once
+    by hand -- `commit.gpgsign false`, the global commit identity, the
+    timezone symlink, none of which need a hook mechanism neither member
+    has. Neither `templates/harness/codex/README.md` nor
+    `templates/harness/gemini-cli/GEMINI.md` mentioned this anywhere; the
+    workaround was written down exactly once, in
+    [documentation/CLOUD_SETUP.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/documentation/CLOUD_SETUP.md),
+    framed entirely as a Claude Code Remote concern. A codex or gemini-cli
+    user reading their own adapter's README had no way to discover it.
+    Closed the same session by pointing both READMEs at that section.)*
 
 ### Pass 3 — Does the writing still hold together?
 The coherence read, across every repo in scope. Run the mechanical audits
@@ -578,6 +791,28 @@ first so this pass spends its attention on what they cannot see.
 
 - **Contradictions** — two rules, or two documents, that can't both be
   followed; a rule whose own carve-outs have eaten it.
+- **Documents against the mechanisms they describe.** A document that
+  says what a tool, hook, workflow or check DOES is a set of claims about
+  behaviour, and behaviour moves under it. For each such document — the
+  install and setup routes, the specs that describe a tool (the loader,
+  moving practices, the candidate pipeline, enforcement), the
+  developer-facing documentation, the README's pitch, and the messages the
+  tools themselves print, which are documents a person reads at the moment
+  they most need them to be true — take each claim of behaviour and test it
+  against the mechanism as it is now: run the command, or read the code
+  path that would have to produce the claimed result. Not a read for
+  broken links or stale names; those are the bullets below. A sentence
+  that was true when written and is false now is a finding, and the fix
+  is the sentence unless the behaviour is the thing that drifted. *(Added
+  2026-09-14, the day a run found three in one afternoon without a bullet
+  asking for them: a tool's post-landing line said the private sets carried
+  no generated views, months after bootstrap started generating them; a
+  spec said "the check can resolve it against the real sources" for a
+  check nothing outside this repo's harness ran; and the guided install's
+  every sentence was correct while the system it produced was not the one
+  the pitch described. Each was found by rehearsal, which is pass 1's job
+  and expensive; this is the cheap read that should have found them
+  first.)*
 - **Rules we ship somewhere else** — the contradiction this pass kept
   missing, and it is missed for a structural reason rather than
   carelessness. **A template is inert here and binding there.** Read as a
@@ -739,6 +974,26 @@ first so this pass spends its attention on what they cannot see.
   breaks the slug convention — nor two directories that disagree where a
   person moves files between them, nor an exemption whose stated reason has
   stopped being true. Read those.
+- **File location — does every file, documentation included, live where its
+  kind already lives?** The mechanical checks assume placement is already
+  right and test only naming and content; nothing here reads a file against
+  the directory it sits in. Walk the top level and every directory with a
+  declared purpose (`documentation/`, `spec/`, `practices/`, `tools/`,
+  `todo/`, `gotchas/`, `record/`) and ask, for each file outside them,
+  whether its kind already has a home: a reader-facing setup or how-to page
+  at repo root while `documentation/` holds every other one, a design
+  document outside `spec/`, a script outside `tools/`. Moving one is
+  [rename-updates-links](rename-updates-links.md): search the whole tracked
+  tree for the old path and repoint every reference in the same commit, not
+  only the ones a grep for the bare filename happens to catch. *(Found
+  2026-09-17: `PER_MACHINE_SETUP.md` and `CLOUD_SETUP.md` — both person-facing
+  setup guides — sitting at repo root while `documentation/` already held
+  `FOR_DEVELOPERS.md`, `FOR_EVERYONE_ELSE.md`, `GITHUB_SETTINGS.md` and every
+  other reader-facing page; moved into `documentation/`, with roughly two
+  dozen files across `README.md`, `AGENTS.md`, `SETUP.md`, `INSTALL.md`,
+  `WHERE_THINGS_ARE.md`, `todo/`, `spec/`, `gotchas/`, `record/` and
+  `documentation/` itself carrying a link to one or both, repointed the same
+  commit.)*
 - **Fragments** — a sentence, note, or heading left behind by an earlier
   edit: a "temporary" caveat whose occasion has passed, a note about a
   reorganization that already happened.
@@ -794,6 +1049,21 @@ Last because none of it strands an adopter, and none of it is cheap.
   line each; pass 2's *read each enforced practice's check against its own
   Rule* is where those get their real read, so the two
   together are what "every single practice was looked at" actually means.
+- **Every universal, on-demand practice's `scope`.** The same read as the
+  bullet above, one axis over: for each one, ask whether it could ever fire
+  in an adopter repo, or only inside this repository's own mechanism (the
+  loader, the routing table, the harness adapter tree, the philosophy tree).
+  A wrong answer in either direction is a real cost — `any-adopter` on
+  something that can only ever fire here is the token tax every adopter was
+  paying before this field existed; `engine-dev` on something an adopter
+  genuinely needs silently starves every adopter of a real practice, which
+  is the worse of the two and the reason this is a judgment pass, not a
+  regex. Fix drift in place, the same as any other catalogue finding here,
+  and check that a newly `engine-dev`-scoped practice carries no relative
+  link from a still-traveling sibling — [practice-links-travel](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/practice-links-travel.md)'s
+  own check catches this mechanically, but only once the mismatch already
+  exists; this pass is what catches a practice that *should* be re-scoped
+  before that.
 - **Private names in a public tree, and the leak recommendations.**
   [tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/very_deep_check.py)'s
   `REPOSITORY VISIBILITY` section asks two questions that neither the push
@@ -820,6 +1090,51 @@ Last because none of it strands an adopter, and none of it is cheap.
   backlog — [todo-is-a-handoff](todo-is-a-handoff.md) queues only what is
   blocked or out of scope, so anything else there is either doable now or
   should be closed.
+- **Automated actions and schedules — crons, scheduled workflows, session
+  triggers — across every repo and account in force.** Nothing else here
+  sweeps these: a `schedule:` trigger in a `.github/workflows/*.yml`, an
+  OS-level cron, and a session Routine or trigger this harness itself can
+  create (its own trigger-listing tool enumerates them) all run in total
+  silence between the moment they are set up and the moment somebody happens
+  to look. None of it shows up in a diff the way a stale branch does — a
+  schedule keeps firing, or keeps *not* firing, and either way the file that
+  defines it goes on looking exactly as intentional as a live one. Enumerate
+  every one: what it runs, on what schedule, when it last actually fired,
+  and what changed when it did. Then give each a verdict — **needed**,
+  **disable**, or **delete**. Disabling is a real, worth-keeping state for a
+  workflow file (comment out the schedule, keep `workflow_dispatch` —
+  [decommission-deletes-files](decommission-deletes-files.md) already names
+  this as mid-decommissioning, not abandonment); it is not worth keeping for
+  a session trigger, where re-creating one costs nothing and a stale one
+  left enabled is a session that can wake unattended and act on
+  instructions nobody has re-read. **Where the verdict is unclear, name it
+  and ask the session's user rather than guessing** — a schedule paused on
+  purpose, with a stated reason to resume it, reads identically in the file
+  to one somebody forgot to finish decommissioning, and only a person who
+  remembers the reason can tell the two apart. Write the full inventory —
+  live and retired alike, with its verdict and the reason — to a committed
+  `record/automated-actions.md`, for the same reason the branch sweep
+  stopped living in the chat transcript: a list nobody can reopen gets
+  rediscovered from scratch next run rather than read.
+- **Deprecated files nothing has decommissioned.**
+  [todo-2026-09-07-undeclared-deprecated-files](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/todo/todo-2026-09-07-undeclared-deprecated-files.md)
+  named this gap and split it in two: a fully mechanical version was
+  designed and rejected, because it cannot tell a deliberate pause from an
+  abandoned one — the same ambiguity the bullet above now asks a person to
+  resolve file by file. What it left for this pass is the cheaper half:
+  read every mechanism in force — a tool, a workflow, a vendored tree, a
+  config — against whether anything still calls it, and where it plainly
+  does not, run
+  [tools/precedent_decommission.py](../tools/precedent_decommission.py) on
+  the path and act on a clean report exactly as
+  [decommission-deletes-files](decommission-deletes-files.md) already
+  requires for a deliberate decommissioning. **Where the audit is not
+  clean, or the file's status is genuinely unclear, name it and ask the
+  session's user** rather than deleting on a hunch or leaving it for the
+  next run to rediscover unchanged. Record every path this pass looked at,
+  and its verdict, in the same `record/automated-actions.md` the bullet
+  above writes, so a path already cleared as deliberate is not re-examined
+  from nothing next time.
 - **Branches, both directions, one verdict each.** The *inventory* was
   already read at step 4 of the order of operations, for a different
   reason — to stop this run rediscovering work that exists. What is left
@@ -832,6 +1147,46 @@ Last because none of it strands an adopter, and none of it is cheap.
   decides is whether the path is its own git checkout, which the tool
   settles by looking, not the source's level. A vendored tree inside the
   parent has no branches of its own; a sibling clone has plenty.
+
+  **The list is also written to a file, not only printed.** A run's stdout
+  is that session's chat transcript, which [repo-is-memory](repo-is-memory.md)
+  already names as disposable — a person reading a run days later had
+  nothing to open but a scrollback nobody kept. `_write_branch_report()`
+  writes the same sweep, one clickable delete link (or, for an unmerged
+  branch, a branches-page link and a compare-view link) per row, to
+  `record/stale_branches.md` in the checked repo — regenerated on every run
+  that does not pass `--skip-branch-scan`, and relocatable with
+  `--branch-report PATH`. Commit the result so the links are live on the
+  branch a person actually opens, the same way `MAP.md` and the ledger are
+  committed rather than left as a run's private output (Morgan, reading a
+  Sunday run that had produced the list twice and shown it neither time:
+  *"it shouldn't live in the chat"*).
+
+  **Committing the file is not the same as the run's own write-up carrying
+  it**, and this repeated the exact failure once already, in a different
+  shape: a session can point at `record/stale_branches.md` existing and
+  still never put the checkout's safe-to-delete list in front of the
+  person. `tools/very_deep_check.py --emit merged-stale-checkout` prints
+  just the checkout's merged-and-stale list, and every real run of the
+  checkout's branch scan writes that same markdown directly into a
+  `<!--vdc-embed:merged-stale-checkout:...-->` block in
+  [spec/VERY_DEEP_CHECK.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/VERY_DEEP_CHECK.md)
+  — so the list is IN the document a session writes up, not one file
+  reference away from it, and **never truncated regardless of count**.
+  **Deliberately NOT** the
+  [computed-numbers-in-scripts](computed-numbers-in-scripts.md)/`doc_sync.py`
+  gen-block mechanism most other script-computed tables in this repo use —
+  that contract needs a script's output to be REPRODUCIBLE from the
+  repository's own tracked files, and this one makes a live `git
+  fetch`/`ls-remote` against the real GitHub origin, so its answer depends
+  on the moment it runs, not on anything a commit fixes. Registering it in
+  `doc_sync.py`'s `PAIRS` failed CI on the very first PR: the harness's own
+  `enforced channel fires` self-test builds a scratch copy of the tree with
+  no working remote to test a single planted violation, and the live scan
+  inside that copy produced a different answer than whatever was committed
+  — a drift with nothing to do with the violation under test. See the
+  comment above `PAIRS` in
+  [tools/doc_sync.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/doc_sync.py).
 
   *Merged and not deleted* — every branch fully merged into that repo's
   integration branch and still sitting there: a mechanical, offline fact
@@ -1064,6 +1419,13 @@ enforcement cannot reach, not a substitute for enforcement, until it has its
 own evaluation. Pass 1 is the partial exception, and the reason it is first:
 building a fixture and running the checks on it produces evidence, not a
 judgment, so its findings do not depend on this caveat.
+
+**Kept on the explicit ask, as a session's own judgment call, when the
+2026-09-16 conversation widened several other commands to plain intent.**
+This is the same reasoning [full-practice-audit](full-practice-audit.md)
+gives for itself: a whole-repo, multi-pass review is expensive to run
+unprompted, so a message that only sounds like it might want one earns a
+clarifying question, not a launch.
 
 ## Story
 **The live-session sweep and the wider branch sweep were Morgan's,
@@ -1424,6 +1786,30 @@ legitimately wire its hooks from somewhere other than `.claude/hooks/`, which
 `verify()` already allows and one live set deliberately does, so calling that
 drift reported a decision as a defect on every run.
 
+**The dedup ledger was Morgan's, 2026-09-20**, raised in a session rooted in
+`precedent-individual` rather than here — that session had no push access to
+this repository, so what it could actually do was write up the design in
+full and hand it off, which is where `VERY_DEEP_CHECK_DEDUP_LEDGER_PROPOSAL.md`
+comes from — that repo's own root, private, so named rather than linked here
+(`check_practices_link_only_reachable_repos`, verify_harness.py). No verbatim
+quotation mark here, deliberately: that document paraphrases the conversation
+it came out of rather than quoting it, and this entry follows what it
+actually says rather than inventing a quote the handoff itself does not
+carry — [no-invented-specifics](no-invented-specifics.md).
+`CONVERGENT DRIFT`, as built, has no memory across runs: a file two or more
+sets have drifted onto the same way prints as a fresh `FINDING` forever,
+including one a person already read and judged **never going to
+generalize**. Investigating found the noise was never the comparison logic
+— that was already right — it was the absence of anywhere to put a verdict
+once a person had one. Asked whether the fix should live as a private detail
+inside `_convergent_drift()`, the answer was broader: a convention any repo
+can hold its own record in, matching why `beta-branch-watermark.json` lives
+in `precedent-individual` rather than in this repository — the decision
+belongs to the repo the finding is about, not to the tool reading it. The
+session that wrote the proposal created `very-deep-check-decisions.json` at
+that repo's own root, empty and schema-documented, ready for the read side
+built here to consume without rework.
+
 ## Install
 [tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/very_deep_check.py) enumerates the scope
 (this checkout's own top-level documents plus every active source's
@@ -1498,3 +1884,81 @@ different form: building a fresh install and a migration and then judging
 what the documents failed to say is not a thing a script can assert about
 itself, and a scripted install would test the script rather than the
 instructions an adopter actually follows.
+
+**The report file was Morgan's, 2026-09-15**, and it named a run that had
+already happened twice without it: he asked for the branch sweep across
+this repo and every vendored one, "including links... so I can delete
+them," and could not point to having received it from the Sunday run —
+"I don't remember getting that when we ran it on Sunday (and I ran it
+twice on Sunday — the second one short but the first time long)." The
+sweep and its links were not missing; the ANSWER was, because it existed
+only in that Sunday session's own transcript and nobody carried it
+forward. **The fix is not a smarter sweep — `scan_branches` and
+`_branch_url` already computed everything asked for — it is a place for
+the answer to live that isn't a chat window**: `_write_branch_report()`
+writes the same rows to `record/stale_branches.md`, committed like
+`MAP.md` or the run ledger, so the next person who wants the list opens a
+page instead of asking a session to reproduce one.
+
+**The cheap-default correction was Morgan's, 2026-09-19**, after
+a session asked for a very deep check ran only the mechanical half of
+passes 2 and 4 — the tool's own scans and the deep-check gate suite — and
+recorded passes 1 and 3, and the real half of pass 4, as PARTIAL or not run,
+without saying so before it started. Told this in a follow-up, the session
+explained itself honestly: it had scoped the run down given the size of what
+was actually there, "rather than committing 30-40 minutes upfront without
+checking... That was my call to make it move quickly, not a technical limit."
+The correction was one sentence: *"the whole point of 'very deep check' is
+to do a very deep check. If I wanted a light check, I wouldn't ask for a
+very deep check!"* The rule above already required a skipped pass to be
+recorded honestly, and the session did that; what it did not do was ask, or
+even say out loud, before quietly substituting a faster check for the one
+asked for. An honest log of a choice nobody agreed to is not the same thing
+as the choice being fine.
+
+**The embedded stale-branch list was Morgan's too, later the same day
+(strength: decided)**, and it is the same lesson landing a second time in a
+narrower place. The corrected run committed `record/stale_branches.md` and
+told him ten branches were safe to delete — then never actually printed
+them, so he had to ask *"Don't you have to give me in the very deep check a
+list of the stale branches to review?"* before getting one. Handed the
+list, he deleted all ten in the same turn and named the fix precisely:
+*"This list should be generated and included in the VERY DEEP CHECK MD
+document when it's generated... And if there are more than 10, include
+them!"* — pointing at [spec/VERY_DEEP_CHECK.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/VERY_DEEP_CHECK.md)
+by name, not `record/stale_branches.md`, and ruling out any version that
+truncates. A committed file a session has to remember to open and paste
+from is the same shape of loss as a Sunday run's stdout — just one file
+closer to durable — so the fix is not "remember to paste it next time," it
+is removing the step that can be forgotten:
+`tools/very_deep_check.py --emit merged-stale-checkout` plus a block the
+checkout's own branch scan writes directly on every real run. The first
+version of this fix registered the block with `tools/doc_sync.py`, the
+mechanism every other script-computed table in this repository uses, and
+that failed its own first CI run: the live GitHub fetch the emitter makes
+has no reproducible answer inside the harness's scratch-copy fixtures, so
+the gate reported drift unrelated to whatever it was actually testing.
+Corrected the same day to write the block directly instead of gating it.
+
+**The dedup ledger, 2026-09-20** (Story above). `_convergent_drift()` reads
+`sources` — the same list `BOOTSTRAP DRIFT` already gathers — and, for each
+converged file, checks every involved set's own
+`very-deep-check-decisions.json` for an entry keyed `("CONVERGENT DRIFT",
+<file path>)`. **A repo with no such file, or `sources` omitted entirely, is
+unaffected** — every call site that predates this change kept working
+exactly as before, which is what makes this additive rather than a breaking
+change to a section other checks already depend on. When every set sharing
+a convergence has recorded the *same* one of the four fixed verdicts
+(`intentional-customization`, `template-candidate`, `stale-shared-build`,
+`tracked-elsewhere`) and no entry's `revisit` date has passed, the line
+prints `DECIDED` instead of `FINDING` — visible, not silent, the same
+"quiet is not the same as useless" principle this file states elsewhere for
+a guard that never fires. Disagreement between sets, a decision by only
+some of them, or a `revisit` date that has passed all still print the
+ordinary `FINDING`, annotated with whatever is already on record rather
+than reprinted from zero. A ledger entry naming a file no longer present in
+that set prints its own `ORPHANED LEDGER ENTRY` line, matching the
+`ORPHANS` section's own philosophy of naming a stale record instead of
+dropping it quietly. The verdict is never written automatically — same
+manual, dated, quoted-judgment shape as `identity.json`'s
+`grandfathered_commit_shas`, which this design is modeled on directly.

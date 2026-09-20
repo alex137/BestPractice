@@ -108,8 +108,8 @@ from what the last one already rejected.
 
 ## Story
 **Coined by Morgan, 2026-09-14**, closing the thread that answered
-[TODO.md's `agents-md-ceiling-policy` item](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/TODO.md#agents-md-ceiling-policy).
-Handed a costed menu of five options for what to do when `AGENTS.md` meets
+TODO.md's `agents-md-ceiling-policy` item (since closed and pruned from
+TODO.md). Handed a costed menu of five options for what to do when `AGENTS.md` meets
 its ceiling, he chose three of them and then asked for this: *"And document
 these options, it's a good list for reducing it in the future. Do we have a
 command to do a 'reduction' pass listing what you did? Let's define that

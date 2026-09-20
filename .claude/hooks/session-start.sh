@@ -23,8 +23,8 @@ set -euo pipefail
 # reason to gate the pip install (do not touch a developer's own environment)
 # does not apply to reading and repairing git state.
 if [ "${CLAUDE_CODE_REMOTE:-}" = "true" ]; then
-  pip install --quiet cmarkgfm markdown 2>/dev/null || \
-    echo "WARN: pip install failed - doc_lint strikethrough check, .md deck slides, and tools/doc_html.py all degrade" >&2
+  pip_err="$(pip install --quiet cmarkgfm markdown 2>&1 1>/dev/null)" || \
+    echo "WARN: pip install failed - doc_lint strikethrough check, .md deck slides, and tools/doc_html.py all degrade - pip stderr: ${pip_err}" >&2
 fi
 
 # Repair a single-branch clone's refspec before anything tries to fetch.
@@ -47,6 +47,63 @@ if git rev-parse --git-dir >/dev/null 2>&1; then
   if ! git config --get-all remote.origin.fetch 2>/dev/null | grep -q 'refs/heads/\*'; then
     git config --add remote.origin.fetch '+refs/heads/*:refs/remotes/origin/*' 2>/dev/null && \
       echo "NOTE: this clone fetched only one branch; widened remote.origin.fetch so other branches resolve. (See AGENTS.md gotchas: a single-branch clone makes every other branch read as 'unpushed' forever.)" >&2
+  fi
+fi
+
+# Make this checkout's HISTORY complete, not just its files.
+#
+# practice: durable-fix. The container clones this repo `--depth 1`, so every
+# file of the branch is present and current and almost none of the past is.
+# The files are what a person notices; the past is what the TOOLS read, and
+# three of them degrade on a truncated one without ever failing:
+# behavioral_replay.py has nothing to replay, doc_lint.py silently narrows
+# from "the files changed against the base branch" to "the files not
+# committed yet", and precedent_check.py's `scope: tree` checks read an empty
+# `git log` as `0 violated` rather than as "could not check"
+# (record/GOTCHAS.md#g6, #g8). Git itself is not immune: a branch that is
+# merely BEHIND reads as diverged when the two truncated stretches do not
+# overlap, which cost a whole session on 2026-09-14 (#g37) before the
+# freshness guard learned to deepen before believing its own counts.
+#
+# Measured 2026-09-14 against this remote through this container's proxy, in
+# exactly the order below (refspec widened first, so the deepen reaches every
+# branch rather than one): 2.7 MB of history before, 9.5 MB after, 4 seconds.
+# That is the whole cost, once per session, which is why this is
+# unconditional rather than clever about which sessions need it.
+#
+# Bounded and never fatal. `timeout` caps a slow or hanging network so a
+# session cannot be held at the door, and `--deepen` is the fallback because
+# some git policy hooks refuse `--unshallow` outright. A failure reports and
+# continues: a session with a short history is worse off than one without,
+# and far better off than a session that does not start.
+# TODO.md's shallow-clone-self-heal-hardening item, g37's third recurrence.
+# ONE bounded attempt used to be the whole mechanism: on failure this printed
+# a WARN nothing re-surfaced, and the next chance to fix it was whatever this
+# checkout's freshness-guard.sh happened to do on its own (previously: only
+# when it looked diverged, never for a checkout that was merely shallow and
+# behind). A second, independently-bounded attempt costs nothing when the
+# first succeeds, and turns a single transient network hiccup through this
+# container's proxy into a recoverable one instead of a silent WARN.
+if git rev-parse --git-dir >/dev/null 2>&1 \
+   && [ "$(git rev-parse --is-shallow-repository 2>/dev/null)" = "true" ]; then
+  _shallow_fixed=0
+  if timeout 90 git fetch --quiet --unshallow 2>/dev/null \
+     || timeout 90 git fetch --quiet --deepen=1000 2>/dev/null; then
+    _shallow_fixed=1
+  elif timeout 60 git fetch --quiet --deepen=1000 2>/dev/null; then
+    _shallow_fixed=1
+  fi
+  _shallow_gitdir="$(git rev-parse --absolute-git-dir 2>/dev/null || true)"
+  if [ "$_shallow_fixed" = "1" ]; then
+    echo "NOTE: this clone carried only the most recent commits; fetched the rest of the history so history-reading tools do not silently degrade. (See AGENTS.md gotchas g6, g8, g37.)" >&2
+    [ -n "$_shallow_gitdir" ] && rm -f "$_shallow_gitdir/PRECEDENT_SHALLOW_UNRESOLVED" 2>/dev/null || true
+  else
+    # A marker, not just a log line: freshness-guard.sh checks for this on
+    # every session-start, throttled prompt, and first tool call, and says so
+    # out loud if it is STILL shallow after its own retry too -- instead of
+    # this WARN sitting in stdout nobody reads back.
+    echo "WARN: could not deepen this shallow clone after two attempts -- behavioral_replay.py, doc_lint.py's changed-files scope and precedent_check.py's tree checks may report success while checking little or nothing. freshness-guard.sh will keep retrying. Remedy by hand: git fetch --unshallow" >&2
+    [ -n "$_shallow_gitdir" ] && : > "$_shallow_gitdir/PRECEDENT_SHALLOW_UNRESOLVED" 2>/dev/null || true
   fi
 fi
 
@@ -100,8 +157,9 @@ fi
 # PRECEDENT_GIT_TOKEN is the durable fix and `add_repo` is the per-session
 # one (practice: durable-fix).
 #
-# The team sets are cloned as SIBLINGS, from $PRECEDENT_SOURCE_BASE_URL/<name>,
-# because that is how tools/precedent_resolve.py resolves a team source. The
+# The shared sets are cloned as SIBLINGS, from $PRECEDENT_SOURCE_BASE_URL/<name>
+# (or /<repo>, when the declaration says the repository is called something
+# else), because that is how tools/precedent_resolve.py resolves one. The
 # individual set needs nothing here: precedent_resolve.py's own self-heal
 # already re-runs its bootstrap hook, and with a token set that attempt now
 # succeeds where it used to fail for want of access.
@@ -125,14 +183,24 @@ fi
 # generating a loader block with a defect fixed upstream days earlier, and
 # it surfaced only because a session happened to run a check by hand.
 #
-# Report only -- it never refreshes anything on its own. `--apply` is a
-# person's decision (or a session acting on one), because the result has to
-# be reviewed and published under each set's own merge rules, which this
-# hook cannot know. Exit 0 regardless: a session that fails to START over
-# an advisory notice about a DIFFERENT repository is a far worse outcome
-# than one that misses the notice.
+# APPLIED, NOT JUST REPORTED (2026-09-15). Morgan: "my objection was to the
+# WEEKLY updates that were automatic; I never objected to START OF SESSION
+# checks that are automatic, I LOVE THAT." (strength: decided). This does
+# not reopen precedent_refresh_sources.py's own 2026-09-14 "no unattended
+# path" paragraph -- that decision killed a scheduled workflow running on
+# its own cadence, unattended, with nobody watching. This is the opposite
+# shape: it runs once, inside a session someone is sitting in, against
+# that session's own working tree, and it still never commits or pushes --
+# publishing stays "Update Vendors" or a person reading the diff by hand.
+# See that file's docstring for the fuller record.
+#
+# A source with its own uncommitted changes is left alone rather than
+# refreshed -- precedent_refresh_sources.py checks for that before writing
+# anything, so a person's in-progress edit in precedent-individual or a
+# team set is never interleaved with a regenerated diff it did not ask
+# for. Reports and never gates on failure, like everything else here.
 if [ -f tools/precedent_refresh_sources.py ]; then
-  python3 tools/precedent_refresh_sources.py 2>/dev/null || true
+  python3 tools/precedent_refresh_sources.py --apply 2>/dev/null || true
 fi
 
 # ---- commit identity, for EVERY Precedent repo in the session
@@ -219,6 +287,33 @@ if [ -n "$_ident_script" ]; then
   done
 fi
 
+# WHICH REPOS IN FORCE THIS SESSION CAN ACTUALLY LAND WORK IN.
+#
+# practice: spawn-session, which has said "settle who merges before the work
+# starts" since 2026-09-12 -- and the sentence alone did not carry. On
+# 2026-09-10 a session rooted in a private practice set migrated twelve
+# repositories and built a seven-commit patch for THIS repo that it could not
+# push, because a session holding one owner's repositories is refused
+# another's. It sat blocked four days on "root session at alex137/BestPractice
+# to land the team-set declaration in precedent.json", having spent about a
+# hundred dollars to reach a branch nobody could land. The rule was right; the
+# MOMENT was missing, and the session least likely to stop and read a practice
+# file is the one already deep enough in the work for this to cost the most.
+#
+# So the question is asked here, where nobody has to remember it and the
+# answer lands before the first turn. The probe is
+# tools/very_deep_check.py's `can_land_here` -- imported, never copied, since
+# two copies is how one silently stops matching the other (the freshness block
+# above was deleted for exactly that reason).
+#
+# Reports and never gates, like everything else here, and bounded: the tool
+# caps its own probing so an unreachable remote cannot hold a session at the
+# door. A repo it could not reach is printed as unanswered, never as refused.
+if [ -f tools/precedent_access_check.py ]; then
+  python3 tools/precedent_access_check.py . || \
+    echo "WARN: access check did not run -- whether this session can land work in each repo in force is unknown" >&2
+fi
+
 # Say whether Alex has moved `main` since the last time somebody carried it
 # onto this branch. It PRINTS and stops there: Morgan asked for the reminder
 # in a session he is sitting in rather than a job that merges behind his back
@@ -234,6 +329,17 @@ fi
 _hook_repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd -P)"
 python3 "$_hook_repo/tools/precedent_upstream_check.py" || \
   echo "WARN: upstream check did not run -- whether main has moved since the last carry is unknown this session" >&2
+
+# Say whether anyone other than Morgan has pushed to `precedent-beta-v01`
+# since he was last told -- Alex also commits here, and unlike the upstream
+# check above, this one auto-advances the moment it reports (see
+# tools/precedent_beta_watermark_check.py's own header for why the two
+# watermarks are not the same shape). Session start always gets a line, the
+# same way the upstream check above always does; the reply gate's own copy
+# of this check (tools/precedent_gate.py) stays silent except on a real
+# alert, which is where the "never repeat it every message" half lives.
+python3 "$_hook_repo/tools/precedent_beta_watermark_check.py" || \
+  echo "WARN: beta-branch watermark check did not run -- whether anyone else pushed to precedent-beta-v01 is unknown this session" >&2
 
 # A bootstrap that blocks startup is worse than anything it protects against,
 # and `set -e` above would otherwise let a non-zero last command take the

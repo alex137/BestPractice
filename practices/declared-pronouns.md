@@ -62,8 +62,8 @@ argument: it is a fact about a person, and no shared repository can know it.
 ## Story
 **2026-09-12.** The rule existed here, and only for one person, as a single
 clause buried in the Detail section of `commit-author` in the individual
-set — a practice about which name and address git records: *"where a
-document refers to me by name or pronoun, use 'Morgan' and he/him."*
+set — a practice about which name and address git records — spelling out
+that one person's own name and pronoun directly in its prose.
 
 Two things were wrong with that. It sat in a practice about git config, so
 the only route to it was reading a git-identity rule to the end; and being
@@ -71,7 +71,7 @@ prose in one private set, it answered the question for its author and left
 it permanently unanswered for everybody else — a session working with any
 other person had nothing to read and nothing telling it not to guess.
 
-Morgan raised it himself and chose the shape: *"in each person's identity
+The repo's owner raised it and chose the shape: *"in each person's identity
 file, it should define it for that one individual"*, and — the half that
 turns a field into an answered question — *"as part of the installation or
 the migration, if the pronouns is blank, I think it should just ask you and

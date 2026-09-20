@@ -21,7 +21,7 @@ Two KINDS, sharing one mechanism:
                full precedent_materialize.py/precedent_sync_views.py
                toolchain that resolves all of them into one materialized
                tree). Needs CONSUMER_ENGINE_FILES: everything 'source'
-               needs, PLUS those materializing tools — see TODO.md item 18 and this repo's own
+               needs, PLUS those materializing tools — see this repo's own
                engine-plus-host-shims practice ("domain-neutral mechanism
                lives in the vendored tree"). Piloted 2026-09-05 against
                a private consumer repo — INSTALL.md §1 step 12 and §2
@@ -37,8 +37,8 @@ one, and precedent-team-tms's copy was simply missing outright.
 
 THE GAP 'consumer' CLOSES. A real consumer's own tools/ needing the same
 treatment was named explicitly as future work when 'source' shipped
-(TODO.md item 18: "not piloted... deliberately not folded into the
-source-repo fix"). A private consumer repo — a real four-source
+(the TODO item that named it — since closed and removed — said: "not
+piloted... deliberately not folded into the source-repo fix"). A private consumer repo — a real four-source
 consumer, not a fixture — had the identical undocumented-hand-copy problem
 'source' closed for practice sets: its top-level tools/ held
 build_views.py, precedent_gate.py, precedent_paths.py, precedent_show.py,
@@ -116,7 +116,18 @@ existed, or was extended to the consumer kind); this tool just makes that
 trim mechanical instead of a fact only the session that did it once
 remembered.
 
-Four subcommands:
+SINCE 2026-09-15, the .claude/hooks/*.sh adapter scripts travel with the
+engine too -- seed/status/refresh all cover them alongside tools/, tracked
+in the same ENGINE_MANIFEST.json (see the HOOK_SOURCE_DIR block below for
+why they are a second, smaller mechanism rather than folded into
+ENGINE_FILES). Before this date they were installed once by
+precedent_install.py and never refreshed, so a fix landing in a hook script
+-- the freshness-guard.sh shallow-clone false-positive, record/GOTCHAS.md#g12,
+is the incident that prompted this -- never reached an already-vendored
+repo no matter how many times it ran `refresh`. .claude/settings.json itself
+is still never touched by this tool, on purpose; see that block.
+
+Five subcommands:
 
   seed <dest-dir> [--kind source|consumer]
                                   Run from BESTPRACTICE'S OWN checkout (the
@@ -168,10 +179,27 @@ Four subcommands:
                                   an unreachable remote must never read as
                                   "confirmed fresh").
 
+  record-ci                      Clone-free, like `fresh`: re-baseline THIS
+                                  repo's own ci_workflow_files/ci_workflows_
+                                  sha256 against whatever CI workflow
+                                  file(s) are on disk right now, for the
+                                  kind ENGINE_MANIFEST.json already
+                                  declares. Content is never touched -- only
+                                  the recorded hash. For the moment a CI
+                                  workflow file was fixed BY HAND (an
+                                  incident too urgent to wait for a
+                                  `refresh --force`, which would also
+                                  overwrite it back to the generic
+                                  template) and now needs the manifest to
+                                  stop calling it drifted. Also drops any
+                                  RETIRED_CI_WORKFLOW_FILES entry the
+                                  manifest still carries.
+
 Run (from an already-vendored repo's own checkout, either kind):
   python3 tools/precedent_vendor_engine.py fresh
   python3 tools/precedent_vendor_engine.py status  ../BestPractice
   python3 tools/precedent_vendor_engine.py refresh ../BestPractice
+  python3 tools/precedent_vendor_engine.py record-ci
 
 Run once, from BestPractice's own checkout, to vendor a NEW consumer repo
 (status/refresh above then work unchanged, kind auto-detected):
@@ -188,6 +216,7 @@ import hashlib
 import json
 import os
 import pathlib
+import re
 import shutil
 import subprocess
 import sys
@@ -201,6 +230,16 @@ SOURCE_BRANCH = 'precedent-beta-v01'  # see docstring: NOT the configured defaul
 
 ENGINE_FILES = [
     'build_views.py',
+    # The one place this engine asks GitHub anything, and the counter behind
+    # precedent_check.py's github-api-budget check (added 2026-09-14). It
+    # travels with the engine because the check travels with it: a consumer
+    # told to "route this caller through tools/github_budget.py" needs the
+    # file the finding names, and its own API-calling tools draw on the same
+    # account allowances this repo's do. Its companion registry
+    # (github_api_budgets.json) is deliberately NOT vendored -- a repo's
+    # floors and per-tool budgets are its own declaration, the same way
+    # session_load_budgets.json is.
+    'github_budget.py',
     # build_views.py's companion word list, and the reason it is here rather
     # than left behind: the engine vocabulary it declares (level, source,
     # catalogue, slug, gate, resident block) is what an adopter needs to read
@@ -328,6 +367,21 @@ ENGINE_FILES = [
     # ModuleNotFoundError from its own session-start hook.
     'precedent_resolve.py',
     'precedent_session_practices.py',
+    # Whether this session can actually PUSH to each repo in force, probed at
+    # session start (added 2026-09-14). In ENGINE_FILES rather than
+    # consumer-only because the question is sharpest exactly where a practice
+    # SET is attached: a set is normally another owner's repository, which is
+    # the wall that produced the incident in this file's own docstring -- a
+    # session that built a seven-commit patch it could not push and sat
+    # blocked on it for four days.
+    #
+    # It imports precedent_resolve (above, and in both lists) to enumerate the
+    # sources, and precedent_source_credentials (also in both) to authenticate
+    # the probe; both degrade to a narrower answer rather than raising, so a
+    # tree older than either still starts. It deliberately does NOT import
+    # very_deep_check, which is in neither list -- the probe was moved out of
+    # that file into this one precisely so it would travel.
+    'precedent_access_check.py',
     # The command vocabulary, read off the `command:` field of every
     # practice a repo resolves (added 2026-09-13 with practices/vocabulary.md).
     # In ENGINE_FILES rather than the consumer half for the same reason
@@ -361,6 +415,27 @@ ENGINE_FILES = [
     # repo receives a detector that detects nothing until a source declares
     # what it should fire on -- which is the honest default, not a gap.
     'precedent_close_detect.py',
+    # The generator and the one-time converter for the 2026-09-16 todo/gotcha
+    # migration's per-item TODO.md format (spec/OPEN_ITEM_AND_GOTCHA_PLAN.md
+    # Part 1 and Part 4.2). Both were CONSUMER-only until 2026-09-19, on the
+    # reasoning that "a source set has no TODO.md of its own to convert" --
+    # wrong: confirmed the same day that precedent-individual and
+    # precedent-team-writing (both `kind: source`) carry real, long-lived
+    # TODO.mds of their own (520 and 112 lines) and were structurally unable
+    # to run the migration, exactly like todo-migrate-available-but-unused's
+    # own Story. A practice set is a repository somebody works in like any
+    # other and accumulates its own open items the same way a consumer does.
+    'build_todo_index.py',
+    'todo_migrate.py',
+    # title_case.py was CONSUMER-only until 2026-09-19, since headline
+    # capitalization was thought of as a consumer-catalogue concern. Moved
+    # here the same day build_todo_index.py was: it imports title_case at
+    # module level, and vendored-import-refs-resolve caught the resulting
+    # gap directly -- a source set receiving build_todo_index.py without
+    # this would crash importing it with ModuleNotFoundError on its first
+    # real run, the same failure shape precedent_check.py's own promotion
+    # (see below) was caught by.
+    'title_case.py',
     'precedent_vendor_engine.py',
 ]
 
@@ -409,14 +484,33 @@ CONSUMER_ENGINE_FILES = ENGINE_FILES[:-1] + [
     'doc_lint.py',
     'doc_sync.py',
     'routing_audit.py',
-    # headline-capitalization's check imports it. Added 2026-09-06, after a
-    # consumer that re-vendored the catalogue got the practice but not the
-    # module, and precedent_check.py reported the check as ERRORED
-    # ("ModuleNotFoundError: No module named 'title_case'") rather than
-    # passed or skipped -- honest, and useless. Same class as doc_lint.py
-    # above: a universal practice's own Install names a module, so every
-    # repo that resolves that practice needs it vendored alongside.
-    'title_case.py',
+    # Move tracked files or directories and repoint every reference in the
+    # same change (rename-updates-links made mechanical; added 2026-09-17
+    # from a consumer's repository reshape -- 366 files, 2,900 references,
+    # four tranches). A consumer's own tools are what reshape its tree, so
+    # the tool lives in the consumer half; a practice set moves nothing.
+    'move_paths.py',
+    # title_case.py was listed here until 2026-09-19 and is now in
+    # ENGINE_FILES -- build_todo_index.py imports it at module level and
+    # moved into the shared list the same day, so a source set that got one
+    # without the other would crash on its first real run. See the entry
+    # there. Repeating it here is refused by the duplicate guard below.
+    #
+    # The gotcha-catalogue generator for the 2026-09-16 todo/gotcha migration's
+    # per-item format (spec/OPEN_ITEM_AND_GOTCHA_PLAN.md Part 2). Missing from
+    # this list since the migration -- found 2026-09-16 when a consumer taking
+    # the vendor update went looking for build_gotcha_index.py to do its own
+    # gotcha-catalogue split and it simply was not there, no error, no
+    # SKIPPED, nothing named it as missing. CONSUMER-only: a source set
+    # materializes no catalogue of its own gotchas/*.md items, so it has
+    # nothing for this generator to read.
+    #
+    # build_todo_index.py and todo_migrate.py were listed here alongside it
+    # until 2026-09-19 and are now in ENGINE_FILES -- a source set turned out
+    # to have its own TODO.md after all (see the entry there). Repeating them
+    # here is refused by the duplicate guard below, which is how a stray
+    # re-listing would be caught.
+    'build_gotcha_index.py',
     # precedent_source_bootstrap.py is NOT re-listed here, for the same
     # reason precedent_check.py is not (see the note below): it was
     # consumer-only when this list was written -- the individual-source
@@ -489,6 +583,113 @@ RETIRED_ENGINE_FILES = {
         '(the mechanism sense of "retire" became "decommission")',
 }
 _SECOND_PASS_ENV = 'PRECEDENT_VENDOR_ENGINE_SECOND_PASS'
+
+# --- Hook files: the .claude/hooks/*.sh adapter scripts --------------------
+# Distinct from ENGINE_FILES above in two ways: they live in a different
+# source directory (templates/harness/claude-code/hooks/, not tools/) and a
+# different destination (.claude/hooks/, not tools/). Until now they were
+# installed once by precedent_install.py's _harness() and never refreshed --
+# "Update Vendors" refreshed tools/ and the catalogue and silently left the
+# hook scripts wherever initial install had put them. That is the same gap
+# ENGINE_FILES closed for tools/precedent_reply_check.py and
+# tools/precedent_close_detect.py (see this file's docstring above): a fix
+# that lands upstream and never reaches an already-vendored repo because
+# nothing carries it there. The freshness-guard.sh shallow-clone false-
+# positive (record/GOTCHAS.md#g12) is the concrete incident this closes --
+# every consumer that vendored before that fix landed would otherwise keep
+# hitting it, forever, no matter how many times it ran "Update Vendors".
+#
+# Deliberately NOT folded into ENGINE_FILES/KINDS: that machinery assumes one
+# shared source dir and one shared dest dir (both `tools/`). Reusing it here
+# would mean smuggling a relative `../` path into a manifest key to reach
+# outside tools/ -- workable, but a trap for the next reader who assumes
+# every name in `files` resolves inside tools/. A second, smaller, explicitly
+# separate mechanism is the honest shape, tracked in the SAME
+# ENGINE_MANIFEST.json under its own `hook_files`/`hooks_sha256` keys so
+# there is still one provenance record per repo, not two.
+#
+# WHAT THIS DELIBERATELY DOES NOT DO YET, said out loud rather than silently
+# missing (same discipline as the "what is deliberately in neither list"
+# passage above). No RETIRED_HOOK_FILES tombstone and no per-kind file list:
+# both kinds run the same Claude Code adapter, so every hook applies to
+# both. No untracked-hand-copy detector (_untracked_engine_files's hook
+# analog) -- a stray hand-copied hook is a real but unmeasured risk, not
+# something this pass closes. If a hook is ever renamed or dropped upstream,
+# the old copy is left behind in a consumer's .claude/hooks/, the same way
+# an engine file used to be before _remove_dropped_engine_files existed --
+# a known gap, not a silent one, closed properly if and when it happens.
+#
+# .claude/settings.json is deliberately NOT vendored here.
+# precedent_install.py's _harness() already leaves it alone once it exists,
+# on purpose -- a consumer may have wired its own extra hooks alongside the
+# vendored ones -- and a routine refresh has no business overwriting a
+# repo's own hook wiring. Only the hook SCRIPTS are vendored engine code;
+# the settings that call them are the consumer's own.
+HOOK_SOURCE_DIR = 'templates/harness/claude-code/hooks'
+HOOK_DEST_DIR = '.claude/hooks'
+
+
+def _hook_file_names(hooks_dir):
+    """Every real (non-template) hook script BestPractice SHIPS at this
+    source directory -- not what any one repo wants. `.template` files (e.g.
+    individual-source-bootstrap.sh.template) are a different mechanism
+    (rendered per-source, not copied verbatim) and are excluded by the glob.
+
+    Callers vendoring INTO a repo must intersect this with
+    _wired_hook_names(dest_root) -- see that function's docstring for why:
+    the shared hooks/ directory holds scripts that only a practice SET wires
+    (precedent-universal-catalogue.sh) alongside ones only a CONSUMER wires,
+    and vendoring the full glob into every repo regardless of kind is
+    exactly how hooks-on-disk-are-reachable's own incident happened."""
+    if not hooks_dir.is_dir():
+        return []
+    return sorted(p.name for p in hooks_dir.glob('*.sh'))
+
+
+_HOOK_CMD_RE = re.compile(r'hooks/([\w.-]+\.sh)')
+
+
+def _wired_hook_names(dest_root):
+    """Hook script basenames `dest_root`'s OWN .claude/settings.json
+    actually wires -- the same regex precedent_install.py's _harness() uses
+    to decide what to copy at initial install.
+
+    THE BUG THIS CLOSES. A first version of hook-vendoring vendored every
+    `*.sh` HOOK_SOURCE_DIR contains, unconditionally. That is wrong for two
+    reasons at once: a source practice set and a consumer repo wire
+    different subsets of the same shared hooks/ directory (only a set wires
+    precedent-universal-catalogue.sh, only a consumer's settings.json wires
+    the rest), and a repo that deliberately declined an adapter (see
+    tools/precedent_check.py's hooks-on-disk-are-reachable and its
+    `declined_adapters` mechanism) must stay declined -- a routine refresh
+    re-planting a hook nobody wired is exactly the orphan that check exists
+    to catch. Caught here, before ever shipping, by running verify_harness.py
+    before push: `tools/precedent_install.py yields a project whose own
+    gates come back clean` failed with exactly that VIOLATION the moment
+    this vendored precedent-universal-catalogue.sh into a plain consumer
+    install. Scoping to what settings.json already wires makes this
+    impossible by construction -- there is no name to vendor that the repo
+    did not already choose to wire.
+
+    Returns an empty set, never an error, when settings.json does not exist
+    yet: INSTALL.md's own order writes it (precedent_install.py) before this
+    tool ever runs, so an absence here means "nothing to reconcile yet", not
+    "broken" (practice: fail-gracefully)."""
+    settings_path = dest_root / '.claude' / 'settings.json'
+    if not settings_path.is_file():
+        return set()
+    try:
+        settings = json.loads(settings_path.read_text(encoding='utf-8'))
+    except (ValueError, OSError):
+        return set()
+    names = set()
+    for group in (settings.get('hooks') or {}).values():
+        for entry in group:
+            for h in entry.get('hooks', []):
+                m = _HOOK_CMD_RE.search(h.get('command', '') or '')
+                if m:
+                    names.add(m.group(1))
+    return names
 
 
 def _sha256(path):
@@ -640,6 +841,428 @@ def _write_engine_files(dest_tools, engine_dir, source_commit, kind=DEFAULT_KIND
     return written
 
 
+def _adapter_claimed_paths(dest_root):
+    """Destination paths (relative to dest_root, e.g.
+    '.claude/hooks/freshness-guard.sh') that a declared source's OWN
+    `adapters` mechanism claims -- read from precedent_materialize.py's
+    MANIFEST.json, the record of what its last run actually wrote. Maps
+    path -> the claiming source's name.
+
+    THE BUG THIS CLOSES. A consuming repo can declare a source
+    (precedent_materialize.py's ADAPTER_DECL_KEY) that maintains its own
+    copy of a file this engine ALSO vendors under the same destination --
+    `.claude/hooks/freshness-guard.sh` is the concrete case:
+    precedent-individual ships its own bootstrap/freshness-guard.sh,
+    declared as an adapter to that exact path, independent of
+    BestPractice's own bundled
+    templates/harness/claude-code/hooks/freshness-guard.sh. Before this
+    check existed, `status`/`refresh` compared the on-disk file --
+    legitimately overwritten by that source's adapter -- against this
+    engine's OWN `hooks_sha256` and reported the divergence as a hand-edit;
+    `refresh` refused outright, and its own suggested `--force` fixed
+    nothing durably, since the next materialize run would just overwrite the
+    file right back to the adapter's content. Reproduced verbatim in a real
+    consumer repo, 2026-09-15 (see the source's own trace for the repro).
+
+    Returns {} if MANIFEST.json does not exist or cannot be parsed -- a repo
+    that has never run precedent_materialize.py has no adapters to know
+    about, and that is not this function's failure to report
+    (practice: fail-gracefully)."""
+    path = pathlib.Path(dest_root) / 'MANIFEST.json'
+    if not path.is_file():
+        return {}
+    try:
+        data = json.loads(path.read_text(encoding='utf-8'))
+    except (ValueError, OSError):
+        return {}
+    return {a['path']: a.get('source') for a in (data.get('adapters') or [])
+            if isinstance(a, dict) and a.get('path')}
+
+
+def _write_hook_files(dest_root, hooks_src_dir):
+    """Copy every hook script in `hooks_src_dir` into
+    <dest_root>/.claude/hooks/, and record them in the SAME
+    ENGINE_MANIFEST.json _write_engine_files just wrote (one provenance
+    record per repo, not two) under `hook_files`/`hooks_sha256`.
+
+    Read-modify-write on the manifest rather than folding this into
+    _write_engine_files itself: that function's `manifest` dict is built
+    fresh every call and knows nothing about a destination directory outside
+    dest_tools, and giving it a second, differently-rooted output would blur
+    what "dest_tools" means at every one of its call sites. This runs
+    strictly AFTER _write_engine_files, so the manifest it reads back always
+    exists.
+
+    `hooks_src_dir` may not exist (an old commit predating HOOK_SOURCE_DIR,
+    or a working tree with no templates/ at all in a bootstrapped source
+    set) -- then this writes nothing and leaves the manifest's hook keys as
+    they were, rather than erasing a previously-vendored record.
+
+    Scoped to _wired_hook_names(dest_root) -- see that function's docstring.
+    Vendoring everything HOOK_SOURCE_DIR ships, unconditionally, is the bug
+    it exists to prevent: this repo's own verify_harness.py caught it before
+    it shipped. Also excludes any name a declared source's own adapter
+    already claims at this destination (_adapter_claimed_paths) -- that
+    source maintains the file independently, and this engine vendoring its
+    own bundled copy over the same path is exactly the double-maintenance
+    that reads as a hand-edit later. See _adapter_claimed_paths' docstring."""
+    available = set(_hook_file_names(hooks_src_dir))
+    wired = _wired_hook_names(dest_root)
+    claimed = _adapter_claimed_paths(dest_root)
+    adapter_owned = {n for n in available
+                     if f'{HOOK_DEST_DIR}/{n}' in claimed}
+    names = sorted((available & wired) - adapter_owned)
+    skipped = sorted(available - wired - adapter_owned)
+    if skipped:
+        print(f"NOTE: precedent_vendor_engine: {len(skipped)} hook script(s) "
+              f"BestPractice ships are not wired in this repo's own "
+              f".claude/settings.json ({', '.join(skipped)}) -- not vendored. "
+              f"That is expected for a hook only a different repo kind wires "
+              f"(a practice set vs. a consumer), or one this repo declined on "
+              f"purpose.", file=sys.stderr)
+    for n in sorted(adapter_owned & wired):
+        source_name = claimed[f'{HOOK_DEST_DIR}/{n}']
+        print(f"NOTE: precedent_vendor_engine: {n} is not vendored by this "
+              f"engine -- {source_name!r}'s own adapters mechanism owns "
+              f"{HOOK_DEST_DIR}/{n} in this repo (see precedent_materialize.py's "
+              f"MANIFEST.json). That copy is maintained independently; this "
+              f"engine's own bundled {n} is not applied here.", file=sys.stderr)
+    if not names:
+        return []
+    dest_hooks = dest_root / HOOK_DEST_DIR
+    dest_hooks.mkdir(parents=True, exist_ok=True)
+    written = []
+    hashes = {}
+    for name in names:
+        src = hooks_src_dir / name
+        out = dest_hooks / name
+        shutil.copy2(src, out)
+        out.chmod(0o755)
+        written.append(out)
+        hashes[name] = _sha256(out)
+
+    manifest_path = dest_root / 'tools' / MANIFEST_NAME
+    manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
+    manifest['hook_files'] = names
+    manifest['hooks_sha256'] = hashes
+    manifest_path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + '\n',
+                             encoding='utf-8')
+    return written
+
+
+def _hook_drift(dest_root, manifest):
+    """Hook-file analog of _local_drift: [(name, why)] for a vendored hook
+    whose on-disk sha256 no longer matches what the manifest recorded, or
+    that has gone missing. A manifest with no `hook_files` yet (vendored
+    before this mechanism existed) reports no drift -- there is nothing
+    recorded to have drifted from, and that state is handled by refresh()
+    choosing to vendor hooks for the first time, not by this function.
+
+    A name a declared source's own adapter now claims at this destination
+    (_adapter_claimed_paths) is never reported here, missing or mismatched:
+    that divergence is that source maintaining its own file, not a hand-edit
+    of this engine's copy. A manifest can still carry hooks_sha256 for such a
+    name from before the source's adapter took the path over -- the next
+    `refresh` drops it from tracking entirely once this check stops flagging
+    it (_write_hook_files excludes it from what it (re)vendors)."""
+    claimed = _adapter_claimed_paths(dest_root)
+    drifted = []
+    for name, recorded_hash in (manifest.get('hooks_sha256') or {}).items():
+        if f'{HOOK_DEST_DIR}/{name}' in claimed:
+            continue
+        path = dest_root / HOOK_DEST_DIR / name
+        if not path.is_file():
+            drifted.append((name, 'missing'))
+            continue
+        if _sha256(path) != recorded_hash:
+            drifted.append((name, 'hand-edited (sha256 differs from manifest)'))
+    return drifted
+
+
+# --- CI workflow files: templates/github-actions/*.template ----------------
+# Distinct from the tools/ engine files and the .claude/hooks/ scripts above
+# in the same two ways HOOK_SOURCE_DIR's own comment names for itself: a
+# different source directory (templates/github-actions/, not tools/) and a
+# different destination (.github/workflows/, not tools/ or .claude/hooks/).
+# Until 2026-09-18 these files were installed ONCE -- precedent_install.py's
+# _bootstrap_and_ci and precedent_bootstrap_source.py's _install_workflows
+# both write `if not wf.exists() or force`, never on an ordinary refresh --
+# so "Update Vendors" never re-copied the template body into an
+# already-installed file. Reached a real consumer this way: doc-lint.yml.
+# template's `concurrency:` block (2026-09-15) reached an already-installed
+# bestpractice-docs.yml only when that repo reinstalled from scratch, and
+# spec/CI_MINUTES_PLAN.md's Phase C debounce-guard step (added the next day)
+# never reached it at all -- the same class of gap the hooks block above
+# closed for .claude/hooks/*.sh on 2026-09-15.
+#
+# KIND-SPECIFIC, unlike the hooks above (which vendor the SAME scripts into
+# both kinds, narrowed only by what a repo's own settings.json wires). A
+# consumer installs bestpractice-docs.yml from doc-lint.yml.template; a
+# source set installs precedent-check.yml (which since 2026-09-19 also
+# carries the views-drift check as one of its jobs -- see
+# templates/github-actions/precedent-check.yml.template's own header,
+# spec/CI_MINUTES_PLAN.md item 9) from its own template --
+# CI_WORKFLOW_TEMPLATES is the one place that pairing is declared, so
+# precedent_bootstrap_source.py's own WORKFLOW_TEMPLATES reuses it rather
+# than repeating it (practice: registry-source-of-truth).
+#
+# Both are gated on `ci_workflows` at the point they are WRITTEN
+# (precedent_install.py's / precedent_bootstrap_source.py's own
+# `_ci_preference`) -- nothing below this line asks that question again. A
+# file this kind's list names but that is not present on disk is simply not
+# this mechanism's business: correctly absent because CI is declined, same
+# as always.
+#
+# THE CATCH-UP IS DELIBERATELY DIFFERENT FROM THE HOOKS ONE ABOVE. A hook
+# script is engine code this repo ships as an unmodified adapter -- "this
+# engine has no local variance by design" -- so the hooks catch-up
+# overwrites an untracked one outright. A CI workflow YAML is exactly the
+# kind of file a real repo hand-tunes (an extra job, a changed schedule, a
+# repo-specific secret), so the first refresh after this shipped must not
+# silently discard that. `_refresh_ci_workflow_files` below records a
+# baseline hash for an untracked file and leaves its content alone; only a
+# LATER refresh, once that baseline exists, can tell "matches what we
+# recorded" from "hand-edited" and act on it.
+CI_WORKFLOWS_SOURCE_DIR = 'templates/github-actions'
+CI_WORKFLOW_TEMPLATES = {
+    'consumer': (
+        ('doc-lint.yml.template', '.github/workflows/bestpractice-docs.yml'),
+    ),
+    'source': (
+        ('precedent-check.yml.template', '.github/workflows/precedent-check.yml'),
+    ),
+}
+
+# CI-workflow analog of RETIRED_ENGINE_FILES above -- a relative path this
+# manifest may still be tracking in ci_workflow_files/ci_workflows_sha256
+# whose template CI_WORKFLOW_TEMPLATES no longer lists at all.
+#
+# THE GAP THIS CLOSES, found 2026-09-19 in a real individual practice set.
+# views-drift.yml.template was folded into precedent-check.yml.template as
+# its own job (spec/CI_MINUTES_PLAN.md item 9), and the four repos that hand-
+# applied that fix the same day deleted the now-redundant views-drift.yml
+# file -- but nothing told refresh() the old entry was retired, so
+# ci_workflows_sha256 kept recording a hash for a file that no longer
+# existed. _ci_workflow_drift reads "recorded, but missing on disk" as a
+# hand-edit needing --force, so the NEXT refresh() in that repo would have
+# refused entirely over a file the fix had already, correctly, removed --
+# not the file-content drift that check exists to catch.
+#
+# WHY A TOMBSTONE, MIRRORING RETIRED_ENGINE_FILES, RATHER THAN JUST DIFFING
+# CI_WORKFLOW_TEMPLATES. A name gone from the current mapping is ambiguous
+# on its own: it could mean "retired, fold its job into the survivor" (safe
+# to stop tracking) or "a repo's own tools/ vendored an older engine that
+# still lists a file dropped since" (nothing to clean up, this repo simply
+# has not refreshed yet). Naming the retirement explicitly, with the reason,
+# is what makes automatic cleanup safe to do unconditionally rather than
+# guessing from absence.
+#
+# WHY THIS NEVER DELETES THE FILE ITSELF, unlike _remove_dropped_engine_
+# files for an ordinary tools/*.py engine file. refresh()'s own comment on
+# ci_incomplete says why: "deleting somebody's .github/workflows/*.yml out
+# from under them on a routine refresh is a different, larger decision than
+# this fix makes." A retired CI workflow file still on disk is reported
+# (see _remove_retired_ci_workflow_files below), never removed -- only the
+# stale manifest tracking is.
+RETIRED_CI_WORKFLOW_FILES = {
+    '.github/workflows/views-drift.yml':
+        'folded into precedent-check.yml.template as its own job, 2026-09-19 '
+        '(spec/CI_MINUTES_PLAN.md item 9)',
+}
+
+
+def record_ci_workflow_files(dest_root, kind):
+    """Read-modify-write ENGINE_MANIFEST.json's `ci_workflow_files`/
+    `ci_workflows_sha256` from whichever of this kind's CI workflow files
+    actually exist on disk at `dest_root` right now -- called by
+    precedent_install.py and precedent_bootstrap_source.py right after they
+    write .github/workflows/*.yml from templates/github-actions/*.template,
+    AFTER precedent_vendor_engine.seed() has already written
+    ENGINE_MANIFEST.json. Necessarily after: seed()/_write_engine_files
+    build that file FRESH on every call (see its own docstring), so
+    anything recorded here before seed runs would be silently wiped -- the
+    same way hook_files would be if _write_hook_files ran before
+    _write_engine_files instead of after.
+
+    Does not copy anything -- by the time either caller reaches this point
+    the workflow file is already on disk, written by that caller's own
+    template substitution. This only computes and records its hash. A file
+    this kind's CI_WORKFLOW_TEMPLATES names but that does not exist here
+    (ci_workflows disabled) is simply left out -- not an error, and not
+    recorded as missing; that is ci_workflows's own gate to report, not
+    this one's.
+
+    Returns [] when there is no manifest yet to write into (seed() failed,
+    or was never run) -- fail-gracefully, matching _write_hook_files' own
+    early-return shape."""
+    manifest_path = dest_root / 'tools' / MANIFEST_NAME
+    if not manifest_path.is_file():
+        return []
+    manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
+    names, hashes = [], {}
+    for _template, rel in CI_WORKFLOW_TEMPLATES.get(kind, ()):
+        path = dest_root / rel
+        if path.is_file():
+            names.append(rel)
+            hashes[rel] = _sha256(path)
+    manifest['ci_workflow_files'] = sorted(names)
+    manifest['ci_workflows_sha256'] = hashes
+    manifest_path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + '\n',
+                             encoding='utf-8')
+    return [manifest_path]
+
+
+def _ci_workflow_drift(dest_root, manifest):
+    """CI-workflow analog of _hook_drift: [(rel, why)] for a vendored CI
+    workflow file the manifest's `ci_workflows_sha256` already records a
+    hash for, whose on-disk sha256 no longer matches it -- a hand-edit (or
+    a removal) since it was last recorded. A `rel` this manifest carries no
+    hash for at all is NOT drift -- see CI_WORKFLOW_TEMPLATES' catch-up
+    note above; there is nothing recorded yet to have drifted from.
+
+    A `rel` in RETIRED_CI_WORKFLOW_FILES is ALSO not drift, missing or not:
+    its retirement is already known and explained, and refresh() cleans up
+    the stale tracking itself (_remove_retired_ci_workflow_files, called
+    before this function ever runs) rather than refusing the whole run over
+    a file whose disappearance a previous, correct fix already caused."""
+    drifted = []
+    for rel, recorded_hash in (manifest.get('ci_workflows_sha256') or {}).items():
+        if rel in RETIRED_CI_WORKFLOW_FILES:
+            continue
+        path = dest_root / rel
+        if not path.is_file():
+            drifted.append((rel, 'missing'))
+            continue
+        if _sha256(path) != recorded_hash:
+            drifted.append((rel, 'hand-edited (sha256 differs from manifest)'))
+    return drifted
+
+
+def _remove_retired_ci_workflow_files(dest_root, manifest):
+    """Drop every RETIRED_CI_WORKFLOW_FILES entry from a manifest that still
+    carries one, and report (never delete) a retired file still on disk.
+
+    Idempotent and safe to call unconditionally: a manifest with no such
+    entry writes nothing and returns []. Called at the very top of refresh(),
+    before _ci_workflow_drift ever runs, so a retirement this old cannot
+    cause the "missing" drift RETIRED_CI_WORKFLOW_FILES exists to defuse --
+    see that dict's own comment for the incident.
+
+    Returns the list of rel paths dropped from the manifest, for refresh()'s
+    own reporting."""
+    manifest_path = dest_root / 'tools' / MANIFEST_NAME
+    if not manifest_path.is_file():
+        return []
+    recorded = dict(manifest.get('ci_workflows_sha256') or {})
+    dropped = sorted(rel for rel in recorded if rel in RETIRED_CI_WORKFLOW_FILES)
+    if not dropped:
+        return []
+    for rel in dropped:
+        recorded.pop(rel, None)
+        if (dest_root / rel).is_file():
+            print(f"WARN: precedent_vendor_engine: {rel} was retired "
+                  f"({RETIRED_CI_WORKFLOW_FILES[rel]}) but is still on disk -- "
+                  f"left in place, not deleted (a CI workflow file is never "
+                  f"removed automatically). Safe to delete by hand once its "
+                  f"replacement is confirmed working.", file=sys.stderr)
+    live = json.loads(manifest_path.read_text(encoding='utf-8'))
+    live['ci_workflow_files'] = sorted(recorded)
+    live['ci_workflows_sha256'] = recorded
+    manifest_path.write_text(json.dumps(live, indent=2, ensure_ascii=False) + '\n',
+                             encoding='utf-8')
+    manifest['ci_workflow_files'] = sorted(recorded)
+    manifest['ci_workflows_sha256'] = recorded
+    print(f"precedent_vendor_engine: dropped {len(dropped)} retired CI workflow "
+          f"tracking entry(s) from the manifest ({', '.join(dropped)}).")
+    return dropped
+
+
+def _ci_workflow_incomplete(dest_root, kind, ci_workflows_dir, manifest):
+    """-> [rel, ...] every CI workflow file refresh() actually has safe
+    work to do for right now: present on disk, its template fetched for the
+    commit being vendored, and EITHER not yet recorded in the manifest at
+    all (a catch-up baseline to write) OR recorded, unchanged since, and
+    different from the current template.
+
+    Used only to decide refresh()'s early-exit ("already current -- nothing
+    to do"). A hand-edited file (recorded, but no longer matching) is
+    deliberately excluded: reaching this function at all means the upfront
+    _ci_workflow_drift refusal already let this run proceed, which happens
+    only when there was no such mismatch, or --force overrode it -- and
+    --force alone is why refresh() never reaches its early exit at all (see
+    the `not force` in that check)."""
+    recorded = manifest.get('ci_workflows_sha256') or {}
+    out = []
+    for template, rel in CI_WORKFLOW_TEMPLATES.get(kind, ()):
+        path = dest_root / rel
+        if not path.is_file():
+            continue
+        src = ci_workflows_dir / template
+        if not src.is_file():
+            continue
+        if rel not in recorded:
+            out.append(rel)
+            continue
+        if _sha256(path) == recorded[rel] and _sha256(path) != _sha256(src):
+            out.append(rel)
+    return out
+
+
+def _refresh_ci_workflow_files(dest_root, kind, ci_workflows_dir, manifest):
+    """Bring each installed CI workflow file that is safe to touch up to
+    the current template, and read-modify-write ENGINE_MANIFEST.json's
+    ci_workflow_files/ci_workflows_sha256 -- same shape as
+    _write_hook_files, run strictly AFTER _write_engine_files (and
+    _write_hook_files, when it ran), whose own manifest write knows nothing
+    about these keys and would otherwise silently drop them.
+
+    `manifest` is the manifest as loaded BEFORE this refresh -- the same
+    one refresh() already keeps for _remove_dropped_engine_files -- and the
+    one whose ci_workflows_sha256 is being compared against.
+
+    Per file: not on disk (ci_workflows disabled, or genuinely absent) ->
+    left alone. Not yet recorded -> baseline recorded, content UNTOUCHED
+    (see CI_WORKFLOW_TEMPLATES' catch-up note above). Recorded, and its
+    on-disk hash differs from the CURRENT template -> rewritten to that
+    template, hash updated. This one rule covers both an ordinary refresh
+    (where, by the time this runs, an on-disk mismatch against the recorded
+    hash can only mean --force accepted a hand-edit, since the upfront
+    drift check already refused otherwise) and --force overwriting a
+    hand-edited file outright, the same way --force already treats every
+    other drifted file in this tool.
+
+    Returns (refreshed, catchup): rel paths rewritten to the current
+    template, and rel paths whose hash was recorded for the first time."""
+    if not any((dest_root / rel).is_file()
+               for _t, rel in CI_WORKFLOW_TEMPLATES.get(kind, ())):
+        return [], []
+    recorded = dict(manifest.get('ci_workflows_sha256') or {})
+    refreshed, catchup = [], []
+    for template, rel in CI_WORKFLOW_TEMPLATES.get(kind, ()):
+        path = dest_root / rel
+        if not path.is_file():
+            continue
+        src = ci_workflows_dir / template
+        if not src.is_file():
+            continue                  # this commit predates the template
+        template_hash = _sha256(src)
+        if rel not in recorded:
+            recorded[rel] = _sha256(path)
+            catchup.append(rel)
+            continue
+        if _sha256(path) != template_hash:
+            shutil.copy2(src, path)
+            recorded[rel] = template_hash
+            refreshed.append(rel)
+    manifest_path = dest_root / 'tools' / MANIFEST_NAME
+    live = json.loads(manifest_path.read_text(encoding='utf-8'))
+    live['ci_workflow_files'] = sorted(recorded)
+    live['ci_workflows_sha256'] = recorded
+    manifest_path.write_text(json.dumps(live, indent=2, ensure_ascii=False) + '\n',
+                             encoding='utf-8')
+    return refreshed, catchup
+
+
 def _git(cwd, *args):
     """Run git and return stdout, DISCARDING the exit code.
 
@@ -699,8 +1322,12 @@ def _head_commit(repo_dir):
     return _rev(repo_dir, 'HEAD')
 
 
-def _seed_write(dest_tools, engine_dir, stamp, kind):
-    """_write_engine_files, plus the cleanup seed never did.
+def _seed_write(dest_tools, engine_dir, stamp, kind, hooks_dir=None):
+    """_write_engine_files, plus the cleanup seed never did, plus the hook
+    scripts when `hooks_dir` is given -- seed()'s two branches source hooks
+    from different places (the working tree vs. an extracted commit), so the
+    directory is resolved by the caller rather than derived from `engine_dir`
+    here.
 
     RESEEDING IS THE DOCUMENTED RECOVERY from a bricked refresh -- a
     consumer whose vendored copy predates the removed-file fix cannot
@@ -743,6 +1370,8 @@ def _seed_write(dest_tools, engine_dir, stamp, kind):
     written = _write_engine_files(dest_tools, engine_dir, stamp, kind)
     if previous:
         _remove_dropped_engine_files(dest_tools, previous, kind)
+    if hooks_dir is not None:
+        written += _write_hook_files(dest_tools.parent, hooks_dir)
     return written
 
 
@@ -794,7 +1423,8 @@ def seed(dest, kind=DEFAULT_KIND):
                   f"{commit[:12]}+dirty. Commit and re-seed for a clean "
                   f"provenance record.", file=sys.stderr)
         stamp = commit if commit == 'unknown' else f'{commit}+dirty'
-        return _seed_write(dest / 'tools', ENGINE_DIR, stamp, kind)
+        return _seed_write(dest / 'tools', ENGINE_DIR, stamp, kind,
+                           hooks_dir=ROOT / HOOK_SOURCE_DIR)
     _c, engine_dir = _source_tools_at(ROOT, kind=kind, ref=commit, fetch=False)
     try:
         dirty = [n for n in wanted
@@ -806,7 +1436,8 @@ def seed(dest, kind=DEFAULT_KIND):
                   f"changes to {', '.join(dirty)} are NOT in what was "
                   f"written; commit them and re-run to ship them.",
                   file=sys.stderr)
-        return _seed_write(dest / 'tools', engine_dir, commit, kind)
+        return _seed_write(dest / 'tools', engine_dir, commit, kind,
+                           hooks_dir=engine_dir / 'hooks')
     finally:
         shutil.rmtree(engine_dir, ignore_errors=True)
 
@@ -891,6 +1522,28 @@ def status(clone):
     drift = _local_drift(dest_tools, manifest)
     for name, why in drift:
         print(f"  LOCAL DRIFT: {name} -- {why}")
+    hook_drift = _hook_drift(ROOT, manifest)
+    for name, why in hook_drift:
+        print(f"  LOCAL DRIFT: {HOOK_DEST_DIR}/{name} -- {why}")
+    claimed = _adapter_claimed_paths(ROOT)
+    adapter_owned = sorted(n for n in (manifest.get('hook_files') or [])
+                           if f'{HOOK_DEST_DIR}/{n}' in claimed)
+    for name in adapter_owned:
+        print(f"  NOTE: {HOOK_DEST_DIR}/{name} is now owned by "
+              f"{claimed[f'{HOOK_DEST_DIR}/{name}']!r}'s own adapters "
+              f"mechanism, not this engine -- expected divergence, not a "
+              f"hand-edit; `refresh` will stop vendoring and tracking it.")
+    if not manifest.get('hook_files'):
+        print(f"  NOTE: this manifest has no hook_files recorded yet -- vendored before hook "
+              f"scripts were tracked. `refresh` will pick them up on the next run.")
+    ci_drift = _ci_workflow_drift(ROOT, manifest)
+    for rel, why in ci_drift:
+        print(f"  LOCAL DRIFT: {rel} -- {why}")
+    if not manifest.get('ci_workflows_sha256'):
+        print(f"  NOTE: this manifest has no ci_workflows_sha256 recorded yet -- vendored "
+              f"before CI workflow files were tracked. `refresh` will record a baseline "
+              f"for them (not rewrite them) on the next run.")
+    drift = drift + hook_drift + ci_drift
     untracked = _untracked_engine_files(dest_tools, manifest)
     for name in untracked:
         print(f"  UNTRACKED ENGINE FILE: {name} is an engine file this "
@@ -1034,6 +1687,60 @@ def _source_tools_at(clone, kind=DEFAULT_KIND, ref=None, fetch=True):
         out.write_bytes(blob.stdout)          # bytes, not text: no newline munging
         if modes.get(name, '').endswith('755'):
             out.chmod(0o755)
+
+    # Hook scripts, into tmp/hooks/ -- same commit, same read-only blob
+    # discipline, listed from THIS commit's tree rather than from disk so a
+    # hook added or removed upstream is picked up without a code change here
+    # (practice: durable-fix -- see _hook_file_names). No skip-and-converge
+    # dance for a missing one: hooks have no self-reference problem the way
+    # this tool's own file does, so a hook name from this commit's own tree
+    # listing cannot fail to `git show` from the same commit.
+    hook_ok, hook_tree = _git_read(clone, 'ls-tree', f'{commit}:{HOOK_SOURCE_DIR}')
+    if hook_ok:
+        hook_modes = {}
+        hook_names = []
+        for line in hook_tree.splitlines():
+            meta, _tab, name = line.partition('\t')
+            if meta and name and name.endswith('.sh'):
+                hook_modes[name] = meta.split()[0]
+                hook_names.append(name)
+        hooks_tmp = tmp / 'hooks'
+        hooks_tmp.mkdir(exist_ok=True)
+        for name in hook_names:
+            blob = subprocess.run(
+                ['git', '-C', str(clone), 'show', f'{commit}:{HOOK_SOURCE_DIR}/{name}'],
+                capture_output=True)
+            if blob.returncode != 0:
+                continue  # listed but unreadable -- treat like any other transient git failure
+            out = hooks_tmp / name
+            out.write_bytes(blob.stdout)
+            if hook_modes.get(name, '').endswith('755'):
+                out.chmod(0o755)
+    # else: this commit predates HOOK_SOURCE_DIR, or the clone cannot list it
+    # -- tmp/hooks/ is simply absent, and callers treat "no hooks dir" as
+    # "nothing to vendor" rather than an error (fail-gracefully: a repo
+    # vendoring from an old commit should not lose its tools/ refresh over a
+    # directory that commit never had).
+
+    # CI workflow templates, into tmp/ci-workflows/ -- same commit, same
+    # read-only blob discipline as the hooks block above, but kind-specific:
+    # there is no destination-wiring signal for a CI workflow file the way
+    # _wired_hook_names gives one for a hook, so what's fetched is exactly
+    # this kind's own declared CI_WORKFLOW_TEMPLATES list. A missing blob
+    # (this commit predates the template) is skipped, not fatal -- the same
+    # fail-gracefully discipline as the hooks block: a repo vendoring from
+    # an old commit should not lose its tools/ refresh over a template that
+    # commit never had.
+    ci_tmp = tmp / 'ci-workflows'
+    ci_tmp.mkdir(exist_ok=True)
+    for template, _rel in CI_WORKFLOW_TEMPLATES.get(kind, ()):
+        blob = subprocess.run(
+            ['git', '-C', str(clone), 'show',
+             f'{commit}:{CI_WORKFLOWS_SOURCE_DIR}/{template}'],
+            capture_output=True)
+        if blob.returncode != 0:
+            continue
+        (ci_tmp / template).write_bytes(blob.stdout)
     return commit, tmp
 
 
@@ -1163,15 +1870,23 @@ def refresh(clone, force=False, ref=None):
     manifest = _load_manifest(dest_tools)
     kind = manifest.get('kind', DEFAULT_KIND)  # older manifests predate 'kind' -- 'source'
 
+    # Before anything else, including the drift check below: a retired CI
+    # workflow entry is cleaned up unconditionally, --force or not, so its
+    # own retirement can never be the reason refresh refuses. See
+    # RETIRED_CI_WORKFLOW_FILES' own comment for the incident this closes.
+    _remove_retired_ci_workflow_files(ROOT, manifest)
+
     if not force:
-        drift = _local_drift(dest_tools, manifest)
+        drift = (_local_drift(dest_tools, manifest) + _hook_drift(ROOT, manifest)
+                 + _ci_workflow_drift(ROOT, manifest))
         if drift:
             for name, why in drift:
                 print(f"  {name}: {why}")
-            sys.exit("precedent_vendor_engine FAIL: a vendored engine file was hand-edited "
-                     "since the last seed/refresh -- refreshing would silently discard that "
-                     "edit. Move the edit upstream into BestPractice instead (this engine has "
-                     "no local variance by design), or pass --force to overwrite anyway.")
+            sys.exit("precedent_vendor_engine FAIL: a vendored engine, hook or CI "
+                     "workflow file was hand-edited since the last seed/refresh -- "
+                     "refreshing would silently discard that edit. Move the edit "
+                     "upstream into BestPractice instead (this engine has no local "
+                     "variance by design), or pass --force to overwrite anyway.")
 
     new_commit, engine_dir = _source_tools_at(clone, kind, ref=ref,
                                               fetch=ref is None)
@@ -1229,8 +1944,32 @@ def refresh(clone, force=False, ref=None):
                   f"({', '.join(set_orphaned)}) -- removing them.")
             _remove_dropped_engine_files(dest_tools, manifest, kind)
             _rewrite_manifest_file_list(dest_tools, kind)
+
+        # Hook analog of set_incomplete, above -- but the "wanted" hook names
+        # are read from THIS commit's own listing at HOOK_SOURCE_DIR,
+        # intersected with what THIS repo's own settings.json actually wires
+        # (_wired_hook_names) -- never the full glob. Vendoring a hook this
+        # repo never wired is the orphan hooks-on-disk-are-reachable exists
+        # to catch; see _wired_hook_names's docstring for the incident.
+        # No hook analog of set_orphaned -- see HOOK_SOURCE_DIR's own comment
+        # on the deliberately-missing tombstone/removal mechanism.
+        new_hook_names = set(_hook_file_names(engine_dir / 'hooks')) & _wired_hook_names(ROOT)
+        hooks_incomplete = sorted(
+            n for n in new_hook_names
+            if n not in set(manifest.get('hook_files') or [])
+            or not (ROOT / HOOK_DEST_DIR / n).is_file())
+
+        # CI-workflow analog of set_incomplete/hooks_incomplete, above --
+        # see _ci_workflow_incomplete's own docstring for exactly what
+        # counts. No analog of set_orphaned/set_incomplete's REMOVAL side:
+        # a CI workflow this repo no longer vendors is left alone, not
+        # deleted -- deleting somebody's `.github/workflows/*.yml` out from
+        # under them on a routine refresh is a different, larger decision
+        # than this fix makes.
+        ci_incomplete = _ci_workflow_incomplete(ROOT, kind, engine_dir / 'ci-workflows', manifest)
+
         if new_commit == manifest.get('source_commit') and not force \
-                and not set_incomplete:
+                and not set_incomplete and not hooks_incomplete and not ci_incomplete:
             print(f"precedent_vendor_engine refresh: already current with {SOURCE_BRANCH} "
                   f"@ {new_commit[:12]} -- nothing to do.")
             # Reported here too, and this is the case that matters MOST: a
@@ -1248,6 +1987,17 @@ def refresh(clone, force=False, ref=None):
                   f"repo's vendored engine is missing {len(set_incomplete)} "
                   f"file(s) this kind now includes "
                   f"({', '.join(set_incomplete)}) -- refreshing anyway.")
+        if hooks_incomplete and new_commit == manifest.get('source_commit'):
+            print(f"NOTICE: the recorded commit already matches, but this "
+                  f"repo's vendored hooks are missing {len(hooks_incomplete)} "
+                  f"file(s) BestPractice now ships "
+                  f"({', '.join(hooks_incomplete)}) -- refreshing anyway. This is the "
+                  f"one-time catch-up for a repo vendored before hooks were tracked "
+                  f"at all (manifest has no 'hook_files' yet).")
+        if ci_incomplete and new_commit == manifest.get('source_commit'):
+            print(f"NOTICE: the recorded commit already matches, but this "
+                  f"repo's CI workflow file(s) need attention "
+                  f"({', '.join(ci_incomplete)}) -- refreshing anyway.")
 
         self_before = _sha256(HERE) if HERE.is_file() else None
         written = _write_engine_files(dest_tools, engine_dir, new_commit, kind)
@@ -1257,10 +2007,24 @@ def refresh(clone, force=False, ref=None):
         # is nothing left to find it by. `manifest` is the copy loaded at the
         # top of this function, which is the one that still remembers.
         _remove_dropped_engine_files(dest_tools, manifest, kind)
+        written += _write_hook_files(ROOT, engine_dir / 'hooks')
+        ci_refreshed, ci_catchup = _refresh_ci_workflow_files(
+            ROOT, kind, engine_dir / 'ci-workflows', manifest)
+        written += [ROOT / rel for rel in ci_refreshed]
     finally:
         shutil.rmtree(engine_dir, ignore_errors=True)
     print(f"precedent_vendor_engine refresh OK ({kind}): {len(written)} file(s) refreshed "
           f"from {SOURCE_BRANCH} @ {new_commit[:12]} (was {manifest.get('source_commit', '?')[:12]})")
+    if ci_refreshed:
+        print(f"precedent_vendor_engine refresh: refreshed {len(ci_refreshed)} CI "
+              f"workflow file(s) to the current template ({', '.join(ci_refreshed)}).")
+    if ci_catchup:
+        print(f"NOTICE: precedent_vendor_engine refresh: recording a baseline hash "
+              f"for {len(ci_catchup)} CI workflow file(s) this manifest never tracked "
+              f"before ({', '.join(ci_catchup)}) -- vendored before this feature "
+              f"existed. Not rewritten this run, so a hand customization is never "
+              f"silently discarded -- run `refresh` again to pick up template "
+              f"changes now that a baseline is recorded.")
     # ROOT, not `dest`: refresh()'s local for the repo being refreshed is
     # `dest_tools` (ROOT / 'tools'), and there has never been a `dest` here.
     # Landed 2026-09-06 as a NameError that crashed EVERY refresh, after the
@@ -1293,8 +2057,54 @@ def refresh(clone, force=False, ref=None):
         if r.returncode != 0:
             return r.returncode
 
-    print("next: review the diff, run this repo's own light check, then commit.")
+    _warn_bare_sync_invocations(ROOT)
+    print("next: review the diff, then `python3 tools/precedent_sync_views.py "
+          "--repo .` (a refresh changes what the loader renders, so `--check` "
+          "is expected to FAIL until the sync has run), review that diff too, "
+          "run this repo's own light check, then commit the two together.")
     return 0
+
+
+_BARE_SYNC_RE = re.compile(r'\bpython3\s+\S*precedent_sync_views\.py(?![^\n]*--repo)')
+
+
+def _warn_bare_sync_invocations(root):
+    """Name every wiring file that still invokes precedent_sync_views.py
+    without `--repo`, which the engine has refused since 2026-09-10.
+
+    The engine's manifest does not cover tools/bootstrap.sh, the harness
+    hooks or the instructions file -- those are instantiated from templates
+    and adapted, so a refresh cannot rewrite them. Measured 2026-09-14 on a
+    consumer vendored six days earlier: its refreshed engine refused the
+    bare `--check` its own bootstrap.sh runs at every session start, so
+    every session opened with a WARN naming a fix that failed the same way.
+    Nothing in the refresh had told it (practice: change-updates-its-docs --
+    the mechanism moved, the wiring that calls it did not).
+    """
+    candidates = [root / 'tools' / 'bootstrap.sh', root / 'AGENTS.md',
+                  root / 'CLAUDE.md']
+    hooks = root / '.claude' / 'hooks'
+    if hooks.is_dir():
+        candidates += sorted(hooks.glob('*.sh'))
+    hits = []
+    for path in candidates:
+        try:
+            text = path.read_text(encoding='utf-8')
+        except (OSError, UnicodeDecodeError):
+            continue
+        for n, line in enumerate(text.splitlines(), 1):
+            if 'precedent_sync_views.py' in line and _BARE_SYNC_RE.search(line) \
+                    and not line.lstrip().startswith('#'):
+                hits.append(f'{path.relative_to(root)}:{n}')
+    if hits:
+        print("NOTICE: precedent_sync_views.py is invoked WITHOUT --repo in "
+              + ', '.join(hits)
+              + " -- the refreshed engine refuses that call, so a session-start "
+                "check there will WARN on every session and name a fix that "
+                "fails the same way. Re-instantiate tools/bootstrap.sh and the "
+                "harness hooks from upstream's templates/, or add `--repo .` "
+                "to each line; these files are not in the engine manifest, so "
+                "a refresh never rewrites them.")
 
 
 def fresh():
@@ -1353,10 +2163,59 @@ def _credential_reminder(where):
         print(f"\n{line}")
 
 
+def _cli_record_ci(rest):
+    """CLI body of `record-ci`. Clone-free, like `fresh` -- unlike `status`/
+    `refresh`, it never reads BestPractice at all, only this repo's own
+    manifest and its own CI workflow file(s) on disk, exactly what
+    record_ci_workflow_files() needs.
+
+    THE GAP THIS CLOSES. record_ci_workflow_files() already does the right
+    thing -- record what's on disk now, touch no content -- but before this
+    it was reachable only from inside precedent_install.py/precedent_
+    bootstrap_source.py at initial install, or by importing the module and
+    calling it directly (which is what fixing two real consumer repos'
+    stale post-hand-fix hashes took, 2026-09-19, since neither repo's
+    session could run a full `refresh` against a live BestPractice clone
+    mid-incident without either leaving the hash stale -- refused by the
+    next refresh -- or accepting `refresh --force`
+    overwriting the hand-authored fix with the generic template). A session
+    in that position needs a supported way to say "this content is correct
+    now, just re-baseline" without a clone and without risking an overwrite;
+    this is that command.
+
+    Also runs _remove_retired_ci_workflow_files first, so a `record-ci` run
+    on a manifest with a stale retired entry does not leave it stranded."""
+    if rest:
+        sys.exit(f"precedent_vendor_engine FAIL: unknown argument(s) to "
+                 f"record-ci: {', '.join(rest)}.")
+    dest_tools = ROOT / 'tools'
+    manifest = _load_manifest(dest_tools)
+    kind = manifest.get('kind', DEFAULT_KIND)
+    _remove_retired_ci_workflow_files(ROOT, manifest)
+    before = dict(_load_manifest(dest_tools).get('ci_workflows_sha256') or {})
+    written = record_ci_workflow_files(ROOT, kind)
+    if not written:
+        sys.exit(f"precedent_vendor_engine FAIL: no {MANIFEST_NAME} at "
+                 f"{dest_tools} to record into -- run `seed` first.")
+    after = dict(_load_manifest(dest_tools).get('ci_workflows_sha256') or {})
+    changed = sorted(k for k in set(before) | set(after) if before.get(k) != after.get(k))
+    if changed:
+        print(f"precedent_vendor_engine record-ci OK ({kind}): re-recorded "
+              f"{len(changed)} CI workflow file hash(es) from what's on disk "
+              f"right now ({', '.join(changed)}). Content was not touched -- "
+              f"this only updates {MANIFEST_NAME}.")
+    else:
+        print(f"precedent_vendor_engine record-ci ({kind}): already matches "
+              f"what's on disk -- nothing to do.")
+    return 0
+
+
 def main():
     args = sys.argv[1:]
     if args and args[0] == 'fresh':
         return fresh()
+    if args and args[0] == 'record-ci':
+        return _cli_record_ci(args[1:])
     if len(args) < 2 or args[0] not in ('seed', 'status', 'refresh'):
         sys.exit(__doc__)
     if args[0] == 'seed':

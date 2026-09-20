@@ -77,7 +77,7 @@
       "describes": [
         "tools/precedent_bootstrap_source.py",
         "templates/practice-set-individual",
-        "templates/practice-set-team"
+        "templates/practice-set-shared"
       ],
       "why": "It is the conversational front door to the same install, so it drifts from INSTALL.md's mechanics rather than from the code directly."
     },
@@ -95,6 +95,77 @@
         "spec/SOURCE_NAMING.md"
       ],
       "why": "It explains the three-source model to someone deciding whether to adopt it; the source model changing is what dates it."
+    },
+    "documentation/GITHUB_SETTINGS.md": {
+      "describes": [
+        "tools/build_codeowners.py",
+        "tools/precedent_owned_paths.py",
+        "tools/precedent_boundary_check.py",
+        "templates/document-project/precedent.json",
+        "documentation/GITHUB_ACTIONS.md",
+        "documentation/PER_MACHINE_SETUP.md"
+      ],
+      "why": "It is the one-page account of every GitHub setting Precedent depends on: roles, branch protection, CODEOWNERS and the tokens. A change to how CODEOWNERS is generated, which paths a project owns, or which token a workflow needs is what dates it."
+    },
+    "documentation/GITHUB_ACTIONS.md": {
+      "describes": [
+        ".github/workflows",
+        "templates/github-actions",
+        "tools/precedent_identity.py",
+        "tools/precedent_check.py"
+      ],
+      "why": "It is the account of which CI checks exist, how they're installed and disabled, and how they read the ci_workflows preference. A new or changed workflow, template, or the identity resolution it reads from is what dates it."
+    },
+    "documentation/METHOD.md": {
+      "describes": [
+        "documentation/MOBILE.md"
+      ],
+      "why": "It is the working method for driving a session -- branches, plain text, composed prompts -- and points a phone-based reader at MOBILE.md for the mechanics. It goes stale if that phone workflow changes."
+    },
+    "documentation/TEN_THINGS.md": {
+      "describes": [
+        "documentation/DAILY_HABITS.md",
+        "documentation/FOR_EVERYONE_ELSE.md",
+        "documentation/FOR_DEVELOPERS.md",
+        "documentation/ADOPTING.md",
+        "spec/SOURCES.md",
+        "spec/LOADER.md",
+        "tools/leak_gate.py"
+      ],
+      "why": "It is the ten-point summary of how the system works, each point linking into a longer document. It goes stale when any of those documents changes its account of the mechanism it points at."
+    },
+    "documentation/CLOUD_SETUP.md": {
+      "describes": [
+        "documentation/PER_MACHINE_SETUP.md",
+        ".claude/hooks/commit-identity.sh",
+        "identity.json"
+      ],
+      "why": "It is the fast-path environment-variable setup for a hosted session, drawn from PER_MACHINE_SETUP.md. It goes stale when the variables it names, or the reference page it is drawn from, change."
+    },
+    "documentation/PER_MACHINE_SETUP.md": {
+      "describes": [
+        "tools/precedent_bootstrap_source.py",
+        "identity.json",
+        ".claude/hooks/commit-identity.sh",
+        ".claude/settings.json"
+      ],
+      "why": "It is the complete per-person, per-machine settings reference -- environment variables, identity.json, and the leak gate's vocabulary layer -- and goes stale when any of those mechanisms change."
+    },
+    "documentation/MOBILE.md": {
+      "describes": [
+        "templates/README_AGENT_ENTRY.md.template",
+        "templates/harness/grok-build/README.md"
+      ],
+      "why": "It is the per-assistant status page for working from a phone or a plain-chat AI tool -- what each one can read and write today, and the agent-entry opener every assistant is routed through. It goes stale when an assistant's capability changes or the opener template does."
+    },
+    "documentation/GIT.md": {
+      "describes": [
+        ".github/workflows/docs.yml",
+        ".github/workflows/leak-gate.yml",
+        "tools/doc_lint.py",
+        ".claude/hooks"
+      ],
+      "why": "It is the git/GitHub glossary and the eight-ideas explainer this project's own workflow rests on, with the machinery files (workflows, hooks, templates) as worked examples. It goes stale when a cited example is renamed or a workflow's trigger shape changes."
     }
   },
   "must_mention": {

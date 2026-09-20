@@ -64,11 +64,13 @@ Run:
   python3 tools/precedent_resolve.py --json          # the resolved set as data
   python3 tools/precedent_resolve.py --repo DIR      # resolve for another repo
   python3 tools/precedent_resolve.py --explain SLUG  # how one slug resolved
-  python3 tools/precedent_resolve.py --strict        # a missing source is fatal
-Exit: 0 on a resolved set, 1 on a conflict, a malformed source, or --strict
-with a source missing.
+  python3 tools/precedent_resolve.py --strict        # a missing source, or a
+                                                      # deduplication pointing
+                                                      # IN FORCE NOWHERE, is fatal
+Exit: 0 on a resolved set, 1 on a conflict, a malformed source, --strict with
+a source missing or a dangling deduplication, or the resident budget over cap.
 """
-import json, os, pathlib, posixpath, re, subprocess, sys
+import json, os, pathlib, posixpath, re, subprocess, sys, time
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'tools'))
@@ -129,6 +131,147 @@ def _self_heal_individual_source(repo_root):
         pass
     return 'attempted'
 
+def _self_heal_universal_source(repo_root):
+    """practice: session-bootstrap -- the mirror-image gap to
+    _self_heal_individual_source above, for a SOURCE-kind repo (an
+    individual or team practice set) that declares the universal source
+    (BestPractice) in its own precedent.json.
+
+    NO TIMING RACE HERE, unlike the individual case: BestPractice is
+    PUBLIC, so cloning it needs no token and no wait for this session's own
+    `add_repo` call to have happened. What is actually missing is any
+    non-SessionStart path that ever attempts the clone at all.
+    bootstrap/precedent-universal-catalogue.sh does it, but only at
+    SessionStart -- and a practice set opened as one of several repos in a
+    session, attached alongside others rather than as the session's own
+    primary project, never runs a SessionStart hook that is not its own
+    (this repo's own record/GOTCHA.md g15/g17). A session reaching this
+    set's declared universal source through the engine's ordinary tools
+    (precedent_check.py, precedent_paths.py,
+    precedent_session_practices.py -- all of which run through load_config
+    below) would otherwise see it declared and simply absent, forever, with
+    nothing left to try -- the same silence the individual-source heal
+    above exists to break for the private case.
+
+    Deliberately narrow, same as the function above: only fires when the
+    repo actually ships tools/precedent_source_bootstrap.py (a source set
+    whose engine predates ENGINE_FILES picking it up has neither the tool
+    nor the gap this closes). Never raises: a failed clone here is reported
+    by the ordinary 'missing source' path load_config's caller already has,
+    not a new failure mode."""
+    tool = repo_root / 'tools' / 'precedent_source_bootstrap.py'
+    if not tool.is_file():
+        return 'no-tool'
+    try:
+        subprocess.run([sys.executable, str(tool), '--sources-from',
+                        str(repo_root)], cwd=str(repo_root),
+                       capture_output=True, timeout=60)
+    except (OSError, subprocess.TimeoutExpired):
+        pass
+    return 'attempted'
+
+
+def _stale_render_hours(repo_root):
+    """-> the age, in hours, past which .precedent/SESSION_PRACTICES.md
+    counts as stale rather than merely old -- read from THIS repo's own
+    `stale_render_hours` (precedent.json), or the engine default (1) when
+    the key is absent or malformed.
+
+    ITS OWN KEY, DELIBERATELY SEPARATE FROM `stale_checkout_hours`
+    (.claude/hooks/freshness-guard.sh's threshold for how old a git
+    CHECKOUT may be). Until 2026-09-18 this function borrowed that key
+    outright -- same name, same 24h fallback -- reasoning that a threshold
+    nobody decided is doctrine (practice: constants-are-risk-inputs) and a
+    declared number beats a second hardcoded one. That reasoning held for
+    reuse, not for the number itself: checkout staleness and render
+    staleness are different questions with different failure shapes.
+    Stale checkout is LOUD -- freshness-guard prints a banner a person acts
+    on -- so tolerating it for up to a day, as Morgan's own 24h reasoning
+    argues ("an hour behind, not much changed; a few days behind, a lot
+    probably did"), is a reasonable place to draw that line. Stale render
+    is SILENT by design -- the self-heal has no banner, because a session
+    should never notice it ran -- which is exactly what let the
+    2026-09-18 incident stay undetected for a full day: nothing was
+    watching for it at all. A silent failure mode wants a much shorter
+    leash than a loud one, so this now has its own key and its own
+    default -- 1 hour, not 24 -- rather than continuing to inherit an
+    answer measured for a different question.
+    spec/SESSION_PRACTICES_RENDER_SELF_HEAL.md has the fuller comparison
+    of the two cases and the reasoning behind the number.
+    Never raises: an unreadable or absent precedent.json is the ordinary
+    case for a repo with no declared threshold, not a failure."""
+    try:
+        cfg = json.loads((repo_root / 'precedent.json').read_text(encoding='utf-8'))
+    except (OSError, json.JSONDecodeError):
+        return 1
+    hours = cfg.get('stale_render_hours')
+    return hours if isinstance(hours, int) and hours > 0 else 1
+
+
+# Set in the environment of the renderer _self_heal_stale_render spawns, so
+# the renderer's own load_config() never spawns a second one.
+SELF_HEAL_RENDER_ENV = 'PRECEDENT_SELF_HEAL_RENDER'
+
+
+def _self_heal_stale_render(repo_root):
+    """practice: session-bootstrap -- the other half of the render gap
+    _self_heal_universal_source above does not close. That function fires
+    only when a declared universal source's CLONE is entirely missing, and
+    even then it only clones -- it never re-renders
+    .precedent/SESSION_PRACTICES.md, the file precedent_session_practices.py
+    writes and that AGENTS.md tells every session to read. The 2026-09-18
+    incident this closes had every clone present the whole session; the
+    render was simply a day stale, so `entry_path / 'practices'` was always
+    True and the clone-heal never fired -- see
+    spec/SESSION_PRACTICES_RENDER_SELF_HEAL.md (Shape C, the shape this
+    implements) for the fuller account.
+
+    Fires when the rendered file is ABSENT or older than
+    _stale_render_hours() above. Judged from the file's mtime ON DISK,
+    never from session state: there is no reliable in-session signal for
+    whether SessionStart actually ran (CLAUDE_PROJECT_DIR being unset
+    proves nothing either way, per tools/precedent_session_check.py's own
+    docstring).
+
+    Deliberately narrow, same shape as _self_heal_universal_source above:
+    only fires when the repo actually ships
+    tools/precedent_session_practices.py (a source set whose engine
+    predates this addition simply doesn't get it, rather than failing).
+    Never raises: a failed render here is reported by whatever ordinary
+    path the caller already has for a missing or stale
+    SESSION_PRACTICES.md, not a new failure mode."""
+    # NEVER FROM INSIDE ITS OWN RENDER. precedent_session_practices.py calls
+    # load_config(), which lands here, which ran precedent_session_practices.py
+    # again -- and that child's load_config() ran here again, before any
+    # render had been written to read as fresh. Every level of the recursion
+    # spawned the next, and nothing bounded it but the 60-second timeout:
+    # a single bootstrap of a new set stood up over two thousand renderers
+    # in a few seconds (2026-09-19, found the first time the harness's
+    # bootstrap-drift check actually ran after this heal landed; the
+    # session-wide OOM kills recorded the day before were the same fork
+    # bomb, seen from the memory cgroup). The child is told it IS the heal,
+    # and a process told that does not start another.
+    if os.environ.get(SELF_HEAL_RENDER_ENV):
+        return 'nested'
+    tool = repo_root / 'tools' / 'precedent_session_practices.py'
+    if not tool.is_file():
+        return 'no-tool'
+    target = repo_root / '.precedent' / 'SESSION_PRACTICES.md'
+    if target.is_file():
+        try:
+            age_hours = (time.time() - target.stat().st_mtime) / 3600
+        except OSError:
+            age_hours = None
+        if age_hours is not None and age_hours < _stale_render_hours(repo_root):
+            return 'fresh'
+    try:
+        subprocess.run([sys.executable, str(tool), '--repo', str(repo_root)],
+                       cwd=str(repo_root), capture_output=True, timeout=60,
+                       env=dict(os.environ, **{SELF_HEAL_RENDER_ENV: '1'}))
+    except (OSError, subprocess.TimeoutExpired):
+        pass
+    return 'attempted'
+
 # HIGHEST PRECEDENCE FIRST -- read this tuple left to right as strongest to
 # weakest. (Changed 2026-09-03: this used to be listed lowest-first, weakest
 # to strongest, which reads backwards to an English speaker scanning a
@@ -141,7 +284,27 @@ def _self_heal_individual_source(repo_root):
 # resolve() below), so every place that turns a level into a walk position
 # reads this tuple in reverse: `_precedence_rank()` gives the weakest level
 # rank 0, not `PRECEDENCE` itself.
-PRECEDENCE = ('team', 'repo-local', 'individual', 'universal')
+PRECEDENCE = ('shared', 'repo-local', 'individual', 'universal')
+
+# `shared` is the level of any practice set a repository declares beside
+# the universal one and its own local/ -- a team's house rules, a subject
+# system (a filing pipeline, a presentation kit), a code style. It was
+# called `team` until 2026-09-18, when the first subject set to be built
+# showed that "team" named one kind of shared set and excluded the rest
+# (Morgan approved the change; relayed by Alex). The old word still reads:
+# a declaration saying `team` resolves as `shared`, so no existing
+# precedent.json breaks. New declarations say `shared`.
+LEVEL_ALIASES = {'team': 'shared'}
+# The levels whose sources are private by default -- never vendored into a
+# public tree, never named in one except by the name their consumer
+# declares. Read by the leak gate, the views and the gate.
+PRIVATE_LEVELS = ('shared', 'individual')
+
+
+def normalize_level(level):
+    """The canonical level for a declared one: `team` -> `shared`; anything
+    else unchanged (an unknown level is refused where it is read)."""
+    return LEVEL_ALIASES.get(level, level)
 
 
 def _precedence_rank(level):
@@ -151,51 +314,106 @@ def _precedence_rank(level):
     rather than re-deriving the inversion locally."""
     return len(PRECEDENCE) - 1 - PRECEDENCE.index(level)
 
-# practice: source-naming -- a source's NAME is fixed by its level, exactly
-# as its `path` already is for repo-local. The convention was written down
-# early (PRACTICE_ENGINE_PLAN.md's naming section) and left in a plan's human
-# checklist rather than here, and it drifted where it mattered most: the one
-# document a new adopter follows was telling them to pick
-# `<your-name>-individual` OR SIMILAR -- dropping the prefix, repeating the
-# owner the account already namespaces, and inviting a third variant -- while
-# this very module had meanwhile begun defaulting an unnamed individual source
-# to `precedent-individual`, and precedent_materialize.py had begun recording
-# the name as per-file attribution in a committed MANIFEST.json, where a
-# rename silently stops matching. See spec/SOURCE_NAMING.md.
+# practice: source-naming -- a source's NAME is chosen once by its author,
+# recorded in the source's own manifest (SOURCE_MANIFEST below) and declared
+# verbatim by every consumer; the REPOSITORY may be called anything. Only
+# two names are fixed: the universal set is `precedent` (it is the product)
+# and a repo-local source is `local` (it is a directory, like its path).
+# Until 2026-09-18 a shared set's name was fixed to `precedent-team-<slug>`
+# and an individual's to `precedent-individual`, and the machinery keyed on
+# those shapes -- the clone URL, the leak gate's path rules, the level. A
+# name was doing work that belongs in a file: the first subject set to be
+# built could not be called what its author called it. Identity now lives
+# in the manifest, and the shape a name must have is only what a slug
+# needs to be a path segment and a manifest key. See spec/SOURCE_NAMING.md.
 SOURCE_NAME_SHAPE = {
     'universal':  (re.compile(r'^precedent$'), 'precedent'),
-    'individual': (re.compile(r'^precedent-individual$'), 'precedent-individual'),
-    'team':       (re.compile(r'^precedent-team-[a-z0-9]+(?:-[a-z0-9]+)*$'),
-                   'precedent-team-<slug>, slug lowercase and hyphenated'),
     'repo-local': (re.compile(r'^local$'), 'local'),
 }
+# A shared or individual source: lowercase, digits and single hyphens, so it
+# is a clone directory, a manifest key and a path segment the leak gate can
+# match whole. Nothing else about it is prescribed.
+SLUG_RE = re.compile(r'^[a-z0-9]+(?:-[a-z0-9]+)*$')
+# Every person's own set defaults to this name when their config names none;
+# it is a default, not a requirement.
+DEFAULT_INDIVIDUAL_NAME = 'precedent-individual'
+# The file a source carries at its root to say what it is: {"name", "level",
+# "visibility", "subject", "code"}. A consumer declares the name; the
+# resolver checks the clone at that path calls itself the same thing.
+SOURCE_MANIFEST = 'precedent-source.json'
 
 
 def check_source_name(level, name, where):
-    """Raise ResolveError unless `name` matches the shape its level fixes.
-
-    Shared with tools/precedent_check.py so the engine and the gate cannot
-    disagree about what the convention is -- one regular expression per
-    level, in one place."""
+    """Raise ResolveError unless `name` is a name a source may carry at its
+    level: the two fixed names for universal and repo-local, a slug for the
+    rest. Shared with tools/precedent_check.py so the engine and the gate
+    cannot disagree about what the convention is."""
+    level = normalize_level(level)
     shape = SOURCE_NAME_SHAPE.get(level)
-    if shape is None:
-        return
-    pattern, expected = shape
-    if isinstance(name, str) and pattern.match(name):
+    if shape is not None:
+        pattern, expected = shape
+        if isinstance(name, str) and pattern.match(name):
+            return
+        raise ResolveError(
+            f"{where}: the {level} source named {name!r} is not the name its "
+            f"level fixes -- expected {expected}. The universal set is the "
+            f"product and a repo-local source is a directory, so neither is "
+            f"named per repository. See spec/SOURCE_NAMING.md.")
+    if isinstance(name, str) and SLUG_RE.match(name):
         return
     raise ResolveError(
-        f"{where}: the {level} source named {name!r} is not the name its "
-        f"level fixes -- expected {expected}. A source's name is not chosen. "
-        f"The owning "
-        f"account already namespaces the repository, so the owner is never "
-        f"repeated in the name, and every person's individual set carries the "
-        f"same name in their own account. This is a fixed convention rather "
-        f"than a per-repo choice for the same reason repo-local's `path` is: "
-        f"tools/precedent_materialize.py records this exact string as the "
-        f"attribution for every check it materializes, so a differently-named "
-        f"source stops matching its own committed MANIFEST.json -- and a name "
-        f"nobody can predict is one a session cannot carry from one Precedent "
-        f"repository to the next. See spec/SOURCE_NAMING.md.")
+        f"{where}: the {level} source named {name!r} is not a slug (lowercase "
+        f"letters, digits and single hyphens). A source's name is chosen once "
+        f"by its author and written into its {SOURCE_MANIFEST}; the "
+        f"repository may be called anything, but the name is a clone "
+        f"directory, a manifest key and a path segment, so it has to be "
+        f"spellable as one. See spec/SOURCE_NAMING.md.")
+
+
+def read_source_manifest(path):
+    """-> the source's own manifest (dict) or None when it carries none.
+    Malformed JSON is a ResolveError: a manifest the resolver cannot read is
+    not an absent one."""
+    f = pathlib.Path(path) / SOURCE_MANIFEST
+    if not f.is_file():
+        return None
+    try:
+        data = json.loads(f.read_text(encoding='utf-8'))
+    except (OSError, ValueError) as e:
+        raise ResolveError(f"{f} is not valid JSON ({e}).")
+    if not isinstance(data, dict):
+        raise ResolveError(f"{f} must hold a JSON object.")
+    return data
+
+
+def check_source_manifest(source):
+    """The identity check that replaced the name-shape check: when the clone
+    at a declared path carries a manifest, its name and level must be the
+    ones the consumer declared. A mismatch is the wrong repository at that
+    path -- a typo in `path`, a stale clone, a rename nobody finished -- and
+    it is refused, because materializing from it would attribute every
+    check to a name the source itself does not answer to. A clone with no
+    manifest is accepted as declared (sets predating 2026-09-18 carry none).
+    Returns the manifest, or None."""
+    m = read_source_manifest(source['path'])
+    if m is None:
+        return None
+    declared_name, declared_level = source['name'], normalize_level(source['level'])
+    own_name = m.get('name')
+    own_level = normalize_level(m.get('level'))
+    if own_name and own_name != declared_name:
+        raise ResolveError(
+            f"the source at {source['path']} calls itself {own_name!r} in its "
+            f"{SOURCE_MANIFEST}, but this repository declares it as "
+            f"{declared_name!r}. A consumer declares a source by the name the "
+            f"source gives itself; fix the declaration, or the path if the "
+            f"clone is the wrong repository.")
+    if own_level and own_level != declared_level:
+        raise ResolveError(
+            f"the source at {source['path']} says it is a {own_level} source in "
+            f"its {SOURCE_MANIFEST}, but this repository declares it as "
+            f"{declared_level}.")
+    return m
 
 
 def warn_name_matches_path(level, name, path, where):
@@ -359,7 +577,7 @@ def load_config(repo, user_config=None):
     if repo_cfg_path.exists():
         cfg = _read_json(repo_cfg_path, 'the repository config')
         for entry in cfg.get('sources', []):
-            level = entry.get('level')
+            level = normalize_level(entry.get('level'))
             if level == 'individual':
                 raise ResolveError(
                     f"{repo_cfg_path} declares an individual source "
@@ -417,8 +635,26 @@ def load_config(repo, user_config=None):
                 os.path.expandvars(str(entry['path']))).expanduser()
             entry_path = (entry_path if entry_path.is_absolute()
                           else repo_root / entry_path).resolve()
-            sources.append({'level': level, 'name': entry.get('name', level),
-                            'path': str(entry_path)})
+            # practice: session-bootstrap -- a universal source declared but
+            # not yet on disk (never cloned, because the SessionStart hook
+            # that clones it never ran for this session -- see
+            # _self_heal_universal_source above) gets one clone attempt now,
+            # before load_source() reports it missing. A path that already
+            # has a practices/ dir is left alone: this never re-clones or
+            # refreshes an existing checkout, only creates an absent one.
+            if level == 'universal' and not (entry_path / 'practices').is_dir():
+                _self_heal_universal_source(repo_root)
+            src = {'level': level, 'name': entry.get('name', level),
+                   'path': str(entry_path)}
+            # Where the source is cloned from, when that is not `<base
+            # url>/<name>`: a bare repository name (joined to the base URL,
+            # so a public consumer still names no account) or a full URL
+            # (a private consumer only -- the leak gate's repo-reference
+            # rule reads a public tree for exactly this). Optional; absent
+            # means the repository is called what the source is.
+            if entry.get('repo'):
+                src['repo'] = str(entry['repo']).strip()
+            sources.append(src)
 
     user_cfg_path = pathlib.Path(user_config) if user_config else pathlib.Path(
         os.environ.get(USER_CONFIG_ENV, str(DEFAULT_USER_CONFIG))).expanduser()
@@ -442,8 +678,10 @@ def load_config(repo, user_config=None):
             return None, False, 'config-declares-none'
         path = pathlib.Path(ind['path']).expanduser()
         entry = {'level': 'individual',
-                 'name': ind.get('name', 'precedent-individual'),
+                 'name': ind.get('name', DEFAULT_INDIVIDUAL_NAME),
                  'path': str(path)}
+        if ind.get('repo_url'):
+            entry['repo'] = str(ind['repo_url']).strip()
         return entry, (path / 'practices').is_dir(), 'declared'
 
     entry, usable, why = _individual_entry()
@@ -471,15 +709,22 @@ def load_config(repo, user_config=None):
         print(f"precedent resolve: {INDIVIDUAL_STATUS['message']}",
               file=sys.stderr)
     if entry is not None:
-        # practice: source-naming -- _individual_entry()'s own default is the
-        # convention, so an unnamed individual source always passes; a
-        # differently-named one is refused here rather than carried into a
-        # MANIFEST.json that will stop matching it.
+        # practice: source-naming -- _individual_entry()'s own default is a
+        # default; any slug is a name. It is checked here rather than
+        # carried into a MANIFEST.json that could never match it.
         check_source_name('individual', entry['name'], str(user_cfg_path))
         warn_name_matches_path('individual', entry['name'], entry['path'],
                                str(user_cfg_path))
         sources.append(entry)
     sources.sort(key=lambda s: _precedence_rank(s['level']))
+    # practice: session-bootstrap -- every load_config() caller (_check,
+    # _paths, _show, _gate) is a chance to notice the rendered catalogue is
+    # stale, not just a missing clone (_self_heal_universal_source above
+    # only ever catches the latter). Only when this repo actually declares
+    # something to render for: a bare load_config() call against a repo
+    # with no sources has nothing SESSION_PRACTICES.md would carry.
+    if sources:
+        _self_heal_stale_render(repo_root)
     return sources
 
 
@@ -676,6 +921,9 @@ def load_source(source):
     d = pathlib.Path(source['path']) / 'practices'
     if not d.is_dir():
         return {}, f"{source['path']} has no practices/ directory"
+    # practice: source-naming -- identity is read off the source, never
+    # inferred from its name.
+    source['manifest'] = check_source_manifest(source)
     out = {}
     for f in sorted(d.glob('*.md')):
         try:
@@ -799,8 +1047,33 @@ def resolve(sources):
                         f"one to a different level.")
                 shadowed.append({'slug': slug, 'shadowed': prior_own, 'by': practice})
             resolved[slug] = practice
+    # A non-active practice's forwarding address, checked against what this
+    # resolution actually put in force -- the callable build_views'
+    # status_contract_violation asks for and, until 2026-09-14, only the
+    # harness ever passed. Every set and consumer ran the shape check alone,
+    # so `in_force_at:` naming a slug that resolved nowhere was reported by
+    # nothing they could run (practice: verify-postcondition). This is the
+    # state a rule is in when it was withdrawn at one level and the landing
+    # at the other never reached this repo: a copy-and-delete, a destination
+    # set not declared here, or a universal landing this consumer has not
+    # taken yet.
+    # Deduplicated ones only: a retirement's own contract (a Story saying
+    # why nobody wants the rule) is the publishing set's to keep, and its
+    # own check reports it there; repeating it into every consumer's sync
+    # would be noise nobody downstream can act on.
+    dangling = []
+    for practice in retired:
+        if bv.practice_status(practice['fm']) != bv.DEDUPLICATED_STATUS:
+            continue
+        msg = bv.status_contract_violation(
+            practice['fm'], practice.get('sections'),
+            slug_in_force=lambda s: s in resolved)
+        if msg:
+            dangling.append({'slug': practice['slug'], 'source': practice['source'],
+                             'level': practice['level'], 'file': practice['file'],
+                             'why': msg})
     return {'practices': resolved, 'shadowed': shadowed, 'blocked': blocked,
-            'missing': missing, 'retired': retired}
+            'missing': missing, 'retired': retired, 'dangling': dangling}
 
 
 def _is_blocking(practice):
@@ -869,6 +1142,12 @@ def _report(res, sources, out=sys.stdout):
     for r in res['retired']:
         print(f"  not in force: {r['slug']} ({r['source']}) is status: "
               f"{bv._json_str(r['fm'].get('status'))}", file=out)
+    for d in res.get('dangling', ()):
+        print(f"  IN FORCE NOWHERE: {d['slug']} ({d['source']}) -- {d['why']}",
+              file=out)
+    if res.get('dangling'):
+        print(f"  {len(res['dangling'])} deduplication(s) unreachable from "
+              f"here -- rerun with --strict to fail on this", file=out)
     rstats = resident_stats(res)
     if rstats['practices']:
         who = ', '.join(f"{p['slug']} ({p['level']})" for p in rstats['practices'])
@@ -933,14 +1212,21 @@ def main():
         print(f"precedent resolve: the {m['level']} source {m['name']!r} is not "
               f"available ({m['reason']}). Running WITHOUT it -- the practices it "
               f"holds are not in force in this session.", file=sys.stderr)
-    if res['missing'] and '--strict' in args:
+    if (res['missing'] or res.get('dangling')) and '--strict' in args:
         return 1
 
     if explain:
         return _explain(explain, res, sources)
 
     rstats = resident_stats(res)
-    rc = 1 if (res['missing'] and '--strict' in args) else 0
+    # A dedup pointing IN FORCE NOWHERE is real exposure -- a rule someone
+    # believes is still binding is reachable by nobody, for this repo -- but
+    # it is a PRE-EXISTING condition every consumer inherited silently, not
+    # something this run caused. Flipping the default exit code for it would
+    # turn every consumer's next `--check` red with no warning. --strict is
+    # the same opt-in already used for a missing source, for the same
+    # reason; the count above makes it visible either way.
+    rc = 1 if ((res['missing'] or res.get('dangling')) and '--strict' in args) else 0
     # OVER BUDGET is not gated behind --strict: PRACTICE_ENGINE_PLAN.md's
     # "The Resident Budget" is explicit that exceeding the cap "fails the
     # build outright... mechanically, not by discipline" for the single-repo
@@ -962,6 +1248,8 @@ def main():
             'blocked': [{'slug': b['slug'], 'kept': b['kept']['level'],
                          'refused': b['refused']['level']} for b in res['blocked']],
             'missing': res['missing'],
+            'dangling': [{'slug': d['slug'], 'source': d['source'],
+                          'why': d['why']} for d in res.get('dangling', ())],
             # None when an individual source was declared (its fate is then
             # in 'missing' like any other source's). Otherwise says whether
             # "no individual practices" is a finding or merely a silence.

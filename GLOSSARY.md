@@ -6,8 +6,12 @@ Built from every practice's `defines:` frontmatter field -- the terms that pract
 
 | Term | Defined in |
 |---|---|
+| allowance pool | [github-api-budget](practices/github-api-budget.md) |
 | always-loaded surface | [session-load-budget](practices/session-load-budget.md) |
+| API budget | [github-api-budget](practices/github-api-budget.md) |
 | Approved | [go-merge](practices/go-merge.md) |
+| Archive | [archive-status-check](practices/archive-status-check.md) |
+| Archive? | [archive-status-check](practices/archive-status-check.md) |
 | assented | [decision-strength](practices/decision-strength.md) |
 | bet-relevant | [constants-are-risk-inputs](practices/constants-are-risk-inputs.md) |
 | Brainstorm | [brainstorm-holds-commits](practices/brainstorm-holds-commits.md) |
@@ -26,8 +30,10 @@ Built from every practice's `defines:` frontmatter field -- the terms that pract
 | full practice audit | [full-practice-audit](practices/full-practice-audit.md) |
 | generated artifact | [generated-artifact-provenance](practices/generated-artifact-provenance.md) |
 | Go merge | [go-merge](practices/go-merge.md) |
+| Go update | [go-merge](practices/go-merge.md) |
 | headline capitalization | [headline-capitalization](practices/headline-capitalization.md) |
 | light check | [two-check-levels](practices/two-check-levels.md) |
+| long task | [answer-first-ask-before-long-work](practices/answer-first-ask-before-long-work.md) |
 | merge runbook | [merge-runbook](practices/merge-runbook.md) |
 | My options | [my-options](practices/my-options.md) |
 | negative control | [control-asserts-which-failure](practices/control-asserts-which-failure.md) |
@@ -37,6 +43,7 @@ Built from every practice's `defines:` frontmatter field -- the terms that pract
 | positive control | [control-asserts-which-failure](practices/control-asserts-which-failure.md) |
 | practice pack | [layered-practice-packs](practices/layered-practice-packs.md) |
 | practice-set source | [source-naming](practices/source-naming.md) |
+| Prompt Please | [prompt-please](practices/prompt-please.md) |
 | pronouns | [declared-pronouns](practices/declared-pronouns.md) |
 | Reduction pass | [reduction-pass](practices/reduction-pass.md) |
 | Relayed authorization | [relayed-authorization](practices/relayed-authorization.md) |
@@ -44,9 +51,10 @@ Built from every practice's `defines:` frontmatter field -- the terms that pract
 | retired vocabulary | [migration-scrubs-vocabulary](practices/migration-scrubs-vocabulary.md) |
 | role: | [session-tags](practices/session-tags.md) |
 | routing audit | [routing-audit](practices/routing-audit.md) |
+| search allowance | [grep-before-search](practices/grep-before-search.md) |
 | session load | [session-load-budget](practices/session-load-budget.md) |
 | skipped heading level | [heading-outline](practices/heading-outline.md) |
-| Spawn session | [spawn-session](practices/spawn-session.md) |
+| source manifest | [source-naming](practices/source-naming.md) |
 | speculative document | [speculation-is-marked](practices/speculation-is-marked.md) |
 | subject: | [session-tags](practices/session-tags.md) |
 | the desk | [chief-of-staff](practices/chief-of-staff.md) |
@@ -59,6 +67,7 @@ Built from every practice's `defines:` frontmatter field -- the terms that pract
 | Vocabulary | [vocabulary](practices/vocabulary.md) |
 | wants: | [session-tags](practices/session-tags.md) |
 | Weak yes | [weak-yes](practices/weak-yes.md) |
+| Write it up | [write-it-up](practices/write-it-up.md) |
 
 ## Engine vocabulary
 

@@ -91,7 +91,7 @@ except Exception:                  # a vendored tree older than that module --
 ROOT = _consuming(_ENGINE_DIR.parent)  # unchanged default when --repo is omitted
 sys.path.insert(0, str(_ENGINE_DIR))
 import split_practices as sp
-# TODO.md item 20 (was 19): this channel read practices/*.md directly,
+# Closed and pruned from TODO.md (was the `gate-and-paths-unreachable-source` item): this channel read practices/*.md directly,
 # bypassing precedent_show.py's materialized-source reachability note
 # (PR #114) the same way precedent_paths.py did. Fixed by importing
 # precedent_show.py's two helpers directly -- same discipline this file
@@ -150,7 +150,7 @@ def practices_by_gate(practices_dir=None):
 # repositories, and this repo is public. Imported from build_views where it
 # is declared, with a literal fallback for a partial vendor: the two
 # answering differently is the failure this whole split exists to prevent.
-PRIVATE_LEVELS = getattr(bv, 'PRIVATE_LEVELS', ('team', 'individual'))
+PRIVATE_LEVELS = getattr(bv, 'PRIVATE_LEVELS', ('shared', 'team', 'individual'))
 
 
 def resolved_gate_practices(root, gate):
@@ -359,6 +359,52 @@ def main():
                 print(f"{line}\n")
         except ImportError:
             pass
+
+        # Whether anyone other than Morgan has pushed to precedent-beta-v01
+        # since he was last told -- silent except on a real alert, which is
+        # the whole point: the always-printed status line lives in
+        # .claude/hooks/session-start.sh's own call to the same module,
+        # once per session, not here on every single reply. This module is
+        # repo-local to alex137/BestPractice (its own two-branch carry
+        # model), not a vendored engine file, so a consuming repo's copy of
+        # this gate script simply has no sibling to import and stays quiet.
+        try:
+            sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+            import precedent_beta_watermark_check as pbw
+            alert = pbw.remind(root)
+            if alert:
+                print(f"{alert}\n")
+        except ImportError:
+            pass
+
+    # EVERY gate, not one of them: a session whose SessionStart hooks never
+    # ran is working under rules it cannot see, with an identity it did not
+    # choose, and nothing in its own output says so.
+    #
+    # tools/precedent_session_check.py has answered this since 2026-09-08,
+    # and its own docstring names its two routes: AGENTS.md's opening banner,
+    # and somebody remembering to run it. On 2026-09-14 a session read that
+    # banner, did not run it, and spent hours with four guarantees down --
+    # noticing only when two uninstalled packages surfaced as three
+    # unrelated-looking verify_harness failures (record/GOTCHAS.md#g1,
+    # #g17). Guidance a session can skip is not a mechanism. A gate is
+    # something it runs at a named moment, so the gate is where this belongs.
+    #
+    # Offline, so it costs a tenth of a second and never fetches; silent
+    # when every guarantee holds, which is the normal case and prints
+    # nothing at all. Never fatal: the gate's job is the practices, and a
+    # session with a broken environment still needs them (fail-gracefully).
+    try:
+        sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+        import precedent_session_check as psck
+        block = psck.remind(prefix='precedent gate')
+        if block:
+            print(f"{block}\n")
+    except Exception:
+        # This tool reads git config and the filesystem; on a repo shape it
+        # does not expect it may raise, and a gate that dies because its
+        # ADVISORY block failed would be worse than one that stays quiet.
+        pass
     # A session about to PUBLISH is the last point at which the always-loaded
     # surfaces can still be looked at cheaply, and the only point at which
     # somebody is certainly paying attention to gates. The ceiling check is

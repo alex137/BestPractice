@@ -115,19 +115,26 @@ installed for this project," naming each workflow and what it does. Any
 future GitHub-specific addition — a required secret, a new required check —
 gets a line there too, added by whichever install step introduces it.
 
-**What the check reads, and why it reads two files.** `github-setup-disclosed`
-in [tools/precedent_check.py](../tools/precedent_check.py) fires when a
+**What the check reads, and why it reads more than one file.**
+`github-setup-disclosed` in
+[tools/precedent_check.py](../tools/precedent_check.py) fires when a
 change adds a `.github/workflows/*.yml` file whose filename appears in
-neither the repo's root `GETTING_STARTED.md` nor its root
-`GITHUB_ACTIONS.md`. Until 2026-09-10 it read only the second, which put
-this practice, its check, and [INSTALL.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/INSTALL.md) §1 step 6's
+none of the repo's root `GETTING_STARTED.md`, a repo's own root
+`GITHUB_ACTIONS.md`, or `documentation/GITHUB_ACTIONS.md`. Until
+2026-09-10 it read only a root `GITHUB_ACTIONS.md`, which put this
+practice, its check, and [INSTALL.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/INSTALL.md) §1 step 6's
 root-hygiene list in a three-way contradiction: the Rule named
-GETTING_STARTED.md, the check demanded GITHUB_ACTIONS.md, and root hygiene
-forbade GITHUB_ACTIONS.md at a dependent repo's root. A repo that followed
-the Rule failed the check; a repo that satisfied the check tripped root
-hygiene. The Rule won, because it is the one of the three that carries the
-reasoning. GITHUB_ACTIONS.md is still accepted for a repo that has its own
-— this repo, being the upstream, is exactly that case.
+GETTING_STARTED.md, the check demanded a root GITHUB_ACTIONS.md, and root
+hygiene forbade a vendored GITHUB_ACTIONS.md at a dependent repo's root. A
+repo that followed the Rule failed the check; a repo that satisfied the
+check tripped root hygiene. The Rule won, because it is the one of the
+three that carries the reasoning. A root `GITHUB_ACTIONS.md` is still
+accepted for a repo that has written its own there — distinct from a
+vendored copy, which root hygiene still forbids at the root. **This repo's
+own copy is no longer that case**: it moved to
+[documentation/GITHUB_ACTIONS.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/documentation/GITHUB_ACTIONS.md)
+on 2026-09-20, so the check reads that path for BestPractice's own
+self-disclosure now.
 
 The owner-only settings above are the first-install case of the same rule,
 and they ship as procedure rather than as a thing to remember:

@@ -13,5 +13,6 @@
   and the four subsection headings are title case. Retitling an item is free:
   citations use its slug, never its label, so a renamed entry keeps every
   link pointing at it
-  ([backlinks.recipe.md](backlinks.recipe.md)). `questions` reads "The right
-  questions." for this reason and keeps its original slug.
+  ([backlinks.recipe.md](backlinks.recipe.md)). `questions` moved from The
+  Intangible to Drive and now reads "Asking hard questions." for this
+  reason and keeps its original slug.

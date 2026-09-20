@@ -5,11 +5,12 @@ tier:        on-demand
 severity:    blocking
 applies_to:  ["**"]
 occasion:    "opening or merging a pull request in this repository"
+index_required: true
 gates:       ["merge"]
 index_clause: "Alex approves only major main merges; precedent-beta-v01 is unrestricted"
 checked_by:  "tools/checks/check_merge_target_is_beta_branch.py"
 defines:     []
-expires:     "when precedent-beta-v01 is merged into main (the phase-7 fold-in)"
+expires:     "when Morgan or Alex says work moves to main -- NOT when the branch is merged into main, which happened on 2026-09-14 (PR #367) and recurs on Morgan's regular merges"
 status:      active
 in_force_at: null
 supersedes:  []
@@ -18,10 +19,15 @@ added:       null
 approved_by: "Alex, 2026-09-03 (original rule); approval scope narrowed by Morgan, 2026-09-04"
 ---
 ## Rule
-Until Alex reviews and approves `precedent-beta-v01` and merges it into
-`main` — a deliberate, phase-7 act Alex performs or explicitly authorizes —
-every pull request (PR) opened in this repository targets
-`precedent-beta-v01`, never `main`. Before opening or merging a PR, confirm
+Every pull request (PR) opened in this repository targets
+`precedent-beta-v01`, never `main`. Alex merged `precedent-beta-v01` into
+`main` on 2026-09-14 ([PR #367](https://github.com/alex137/BestPractice/pull/367))
+and Morgan merges it into `main` regularly from then on — **that does not
+end this rule**: work keeps landing on `precedent-beta-v01`, and `main`
+receives it through those merges, never through a PR opened against it
+(Morgan, 2026-09-14: *"work should still land to the precedent-beta-v01
+branch; but I will regularly merge the precedent branch with main"* —
+`strength: decided`). Before opening or merging a PR, confirm
 the base branch is `precedent-beta-v01` — do not assume `main` is the
 default just because it is the repository's configured default branch.
 
@@ -109,8 +115,11 @@ a universal practice would. `AGENTS.md`'s hand-authored "Working in this
 repo" section carries the same rule directly, in prose, for exactly that
 reason — belt and suspenders, not redundancy.
 
-**Retirement.** The moment Alex actually reviews and merges
-`precedent-beta-v01` into `main` for real, delete this file,
-remove the `merge-target-is-beta-branch` check from
-`tools/precedent_check.py`, and remove the pointer from `AGENTS.md` — in
-that same PR, not left as later cleanup.
+**Retirement.** When Morgan or Alex says work moves to `main` — a
+decision, not an event: the merge into `main` already happened on
+2026-09-14 and is repeated regularly, and this rule outlived it on purpose
+— delete this file, delete
+`local/tools/checks/check_merge_target_is_beta_branch.py`, remove the
+pointer from `AGENTS.md`, flip `base_branch` in `precedent.json` and
+rewrite the catalogue's absolute links, in that same PR, not left as later
+cleanup.

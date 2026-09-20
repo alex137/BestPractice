@@ -4,7 +4,7 @@ title:       "\"Plain words\" asks for the same substance in speech, not prose"
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
-occasion:    "a person says \"Plain words\""
+occasion:    "a person says \"Plain words\", or plainly asks to be talked to that way"
 gates:       ["reply"]
 index_clause: "\"Plain words\" -- say it as you would out loud; same substance"
 checked_by:  null
@@ -15,13 +15,18 @@ in_force_at: null
 supersedes:  []
 overrides:   null
 added:       "2026-09-08"
-approved_by: "Morgan, 2026-09-08 -- asked for the phrase, chose this one, placed at universal"
+approved_by: "Morgan, 2026-09-08 -- asked for the phrase, chose this one,
+  placed at universal; extended 2026-09-16, Morgan, on Alex's
+  intent-over-keyword point"
 ---
 ## Rule
-When the person says **"Plain words"**, explain it the way you would say it
-out loud to them across a desk. Short sentences. Everyday vocabulary. The
-concrete case before the general principle. **No hedging, no caveat stack, no
-survey of positions you are not taking.**
+**The phrase is the clean trigger, not the only one** — "can you just say
+that plainly" or "talk to me like I'm across the desk from you" ask for the
+same thing and get it. When the person says **"Plain words"**, or plainly
+asks for it, explain it the way you would say it out loud to them across a
+desk. Short sentences. Everyday vocabulary. The concrete case before the
+general principle. **No hedging, no caveat stack, no survey of positions you
+are not taking.**
 
 It governs that reply **and every reply after it in the conversation**, until
 they say otherwise. It is a request about register, not about that one answer.
@@ -95,6 +100,11 @@ recurring one. The original reply was accurate and dense; the second attempt
 said the same things with the example first and the hedges gone, and was
 better by every measure except effort. **Nothing stopped the first reply from
 being written that way except that nobody had asked.**
+
+**Extended 2026-09-16, on Alex's design point**, that a plain request for
+this register should count as much as the phrase itself — low-stakes here,
+unlike the same conversation's changes to `go-merge` and `weak-yes`: a wrong
+read just gets corrected with "no, plainer" and costs nothing else.
 
 ## Install
 Nothing mechanical checks it, and the attempt was considered rather than

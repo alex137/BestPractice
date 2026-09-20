@@ -70,6 +70,26 @@ class MaterializeError(Exception):
     pass
 
 
+# practice: session-load-budget -- a practice whose occasion can only ever
+# fire inside the engine's own repository (auditing the loader, the routing
+# table, the harness adapter tree) still cost every adopter an occasion-index
+# line for a trigger it could never say. THIS TOOL WRITES WHAT A SOURCE
+# PUBLISHES, NOT THE ENGINE (see module docstring) -- so an engine-dev
+# practice is withheld here, at the boundary where a source's content
+# becomes a consumer's tree. ENGINE_DEV_SCOPE and the predicate itself live
+# in build_views.py now (relocated 2026-09-15, not duplicated: this module
+# already imports it as `pr.bv` for `_json_str`), because build_views.py's
+# own loader_practices() resolves the identical multi-source set a SECOND
+# time, independently, for a repo's AGENTS.md -- and disagreed with what
+# this tool writes until it had the same predicate to filter with. See the
+# `scope` field: spec/PRACTICE_FORMAT.md.
+ENGINE_DEV_SCOPE = pr.bv.ENGINE_DEV_SCOPE
+
+
+def _is_engine_dev_scoped(practice):
+    return pr.bv._is_engine_dev_scoped(practice['fm'])
+
+
 def _self_referential_sources(sources, out_dir):
     """A source whose declared `path` resolves to THIS run's own `out_dir`
     is not a separate tree materialize() can safely delete-and-rewrite: it
@@ -731,8 +751,11 @@ def materialize(sources, res, out_dir, dry_run=False, withheld=None):
     practices_dir = out_dir / 'practices'
     checks_dir = out_dir / 'tools' / 'checks'
 
+    excluded_engine_dev = sorted(slug for slug, practice in res['practices'].items()
+                                  if _is_engine_dev_scoped(practice))
     practice_plan = {slug: (practice, pathlib.Path(practice['file']).read_bytes())
-                      for slug, practice in res['practices'].items()}
+                      for slug, practice in res['practices'].items()
+                      if not _is_engine_dev_scoped(practice)}
     checks_plan = _plan_checks(sources, res)   # raises MaterializeError before any write
     adapters_plan = _plan_adapters(sources)    # same -- reads, never writes
 
@@ -838,7 +861,8 @@ def materialize(sources, res, out_dir, dry_run=False, withheld=None):
             f"resident practice in one of the sources first.")
 
     manifest = _build_manifest(sources, written, checks_written, rstats,
-                               adapters_written, withheld=withheld)
+                               adapters_written, withheld=withheld,
+                               excluded_engine_dev=excluded_engine_dev)
     if not dry_run:
         (out_dir / 'MANIFEST.json').write_text(
             json.dumps(manifest, indent=2, sort_keys=True) + '\n', encoding='utf-8')
@@ -846,7 +870,8 @@ def materialize(sources, res, out_dir, dry_run=False, withheld=None):
 
 
 def _build_manifest(sources, written, checks_written, rstats,
-                    adapters_written=(), withheld=None):
+                    adapters_written=(), withheld=None,
+                    excluded_engine_dev=None):
     """`withheld` names the slugs a PUBLIC repo's visibility keeps out of this
     tree -- recorded because "absent" and "never existed" look identical on
     disk, and several checks turn that difference into a finding.
@@ -857,7 +882,16 @@ def _build_manifest(sources, written, checks_written, rstats,
     excluding a public consumer's private practices produced 26 such findings
     in one repo, six of them inside a vendored tree nobody can edit there. The
     practices were not renamed or deleted; they are published elsewhere and
-    withheld here, which is a third state those checks had no way to see."""
+    withheld here, which is a third state those checks had no way to see.
+
+    `excluded_engine_dev` is a DIFFERENT third state, on a different axis:
+    slugs resolved with `scope: engine-dev`, which this repo (whichever one
+    this run is materializing INTO) is deliberately never given, regardless
+    of that repo's visibility. Recorded separately from `withheld` rather
+    than folded into it -- one is about who may see a practice, the other
+    about who could ever act on it, and the two lists can overlap for
+    unrelated reasons (name-both-sides-of-ledger: keep what is excluded and
+    why distinguishable, not just the fact that something was)."""
     return {
         'generated_by': 'tools/precedent_materialize.py',
         'generated_at_utc': precedent_time.utc_iso(),
@@ -872,6 +906,7 @@ def _build_manifest(sources, written, checks_written, rstats,
         'checks': checks_written,
         'adapters': list(adapters_written),
         'withheld': sorted(withheld or []),
+        'excluded_engine_dev': sorted(excluded_engine_dev or []),
     }
 
 
@@ -911,6 +946,12 @@ def drift(sources, res, out_dir, withheld=None):
     out_dir = pathlib.Path(out_dir)
     written, checks_written, adapters_written, rstats = materialize(
         sources, res, out_dir, withheld=withheld, dry_run=True)
+    # Derived from res alone, so -- unlike withheld -- it is safe to
+    # recompute here rather than thread through: the same bug shape as the
+    # withheld one above, caught the same way, by --check refusing to agree
+    # with itself.
+    excluded_engine_dev = sorted(slug for slug, practice in res['practices'].items()
+                                  if _is_engine_dev_scoped(practice))
     found = []
 
     def _compare(rel_dir, planned, label):
@@ -964,7 +1005,8 @@ def drift(sources, res, out_dir, withheld=None):
     # every run report drift against itself.
     mf = out_dir / 'MANIFEST.json'
     want = _build_manifest(sources, written, checks_written, rstats,
-                           adapters_written, withheld=withheld)
+                           adapters_written, withheld=withheld,
+                           excluded_engine_dev=excluded_engine_dev)
     if not mf.is_file():
         found.append('MANIFEST.json is missing -- a fresh sync writes it')
     else:

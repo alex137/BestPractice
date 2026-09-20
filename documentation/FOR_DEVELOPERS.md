@@ -10,26 +10,41 @@ it's there.
 
 ## Installing It on a Project
 
-The model in one paragraph: the project **vendors** Precedent at
-`process/upstream/` as plain tracked files; **install is adaptive** (you
-instantiate templates with the project's own subject matter, at their real
-locations); **export is abstractive** (an improvement made here is folded
-back into `process/upstream/` in generic form); a **manifest** records the
-mapping both ways and an **audit** makes drift and private-vocabulary
-leakage loud instead of silent.
+The model in one paragraph: the project **vendors** Precedent as plain
+tracked files — the practice catalogue and the engine that reads it — and
+declares in a `precedent.json` which practice sources bind it; a generated
+block in `AGENTS.md` then puts the handful of practices that matter in
+front of every session, and the ones that can be checked mechanically are
+checked on every run. **Install is adaptive**: you instantiate templates
+with the project's own subject matter, at their real locations. Nothing is
+fetched while you work.
 
-Two paths, and most projects still take the first:
+Two paths, and since 2026-09-14 the default is the first:
 
-- **[INSTALL.md §1](../INSTALL.md#1-install-into-a-dependent-repo)** — the
-  classic vendored model. The right default today.
 - **[INSTALL.md §0](../INSTALL.md#0-installing-directly-onto-the-precedent-loader-new-2026-09-03--read-the-caveat-before-using)**
-  — straight onto Precedent's three-source loader, no `process/upstream/`
-  at all. Newer, and carries its own caveat; read it before choosing it.
-  A project that *already* vendored BestPractice the old way wants
-  [spec/MIGRATING_EXISTING_INSTALLS.md](../spec/MIGRATING_EXISTING_INSTALLS.md)
-  instead of either.
+  — straight onto Precedent's three-source loader: the practice catalogue
+  vendored at `precedent/universal/`, the engine at `tools/`, and
+  `AGENTS.md`'s generated block (resident practices, occasion index,
+  enforced checks). **One command does it**, from a sibling clone of
+  Precedent:
 
-The §1 sequence, in short — each step is spelled out in full at the link:
+  ```
+  python3 tools/precedent_install.py <project path> --project-name "<name>"
+  ```
+
+  It prints the placeholders it left for you to adapt and stops before
+  committing. What it does step by step is §0's numbered list.
+- **[INSTALL.md §1](../INSTALL.md#1-install-into-a-dependent-repo)** — the
+  older vendored model: the whole upstream tree at `process/upstream/`, a
+  **manifest** recording the mapping both ways, and a check-in loop in
+  which an improvement made here is folded back upstream in generic form.
+  It installs the practice *prose* and none of the loader; take it only if
+  the project specifically wants the export-and-check-in loop. A project
+  that *already* vendored BestPractice this way and wants the loader takes
+  [spec/MIGRATING_EXISTING_INSTALLS.md](../spec/MIGRATING_EXISTING_INSTALLS.md).
+
+The §1 sequence, in short, for a project that takes that path — each step
+is spelled out in full at the link:
 
 1. **Vendor** this repo's working tree (not its `.git`) into
    `process/upstream/`, as ordinary tracked files, and record the upstream
@@ -40,7 +55,8 @@ The §1 sequence, in short — each step is spelled out in full at the link:
    `TODO.md`, `GLOSSARY.md`, `GETTING_STARTED.md`, the PR template, the
    `.gitignore` baseline, and the harness adapter(s) from
    [templates/harness/](../templates/harness/) for whichever assistant
-   will work the repo. `VOICE.md` and `STYLEGUIDE.md` are the exception:
+   will work the repo. `local/practices/project-voice.md` (a repo-local
+   practice, not a plain document) and `STYLEGUIDE.md` are the exception:
    both ship near-empty and **stay that way** — see "Optional, and
    deliberately left for later" below.
 3. **Ask the two questions only a person can answer** — which private
@@ -57,7 +73,7 @@ upstream update (the `Update Vendors` command), **[§3](../INSTALL.md#3-optional
 and **[§4](../INSTALL.md#4-optional-periodic-check-in--propose-your-improvements-upstream)**
 flow an improvement back upstream, **[§7](../INSTALL.md#7-practice-packs-domain-layers)**
 covers domain practice packs, and
-**[PER_MACHINE_SETUP.md](../PER_MACHINE_SETUP.md)**
+**[PER_MACHINE_SETUP.md](PER_MACHINE_SETUP.md)**
 is what each person sets on each machine — including the credential that
 lets a hosted session reach a private practice source without an
 `add_repo` dance.
@@ -69,17 +85,19 @@ lets a hosted session reach a private practice source without an
 Two files ship near-empty on purpose and are not filled in by an install,
 an upgrade or a migration:
 
-- **`VOICE.md`** — how this project sounds: its voice, its audiences, its
-  domain vocabulary, and any deliberate departure from a catalogue rule.
-  General writing quality is not in it; the practice catalogue covers that
-  for every project at once.
+- **`local/practices/project-voice.md`** — how this project sounds: its
+  voice, its audiences, its domain vocabulary, and any deliberate departure
+  from a catalogue rule. A repo-local practice, not a plain document —
+  reached through the same occasion index as every other rule in force
+  here. General writing quality is not in it; the practice catalogue
+  covers that for every project at once.
 - **`STYLEGUIDE.md`** — the visual identity, transcribed as plain text from
   whatever brand guideline exists. Never attach, vendor or link the source
   document into the repo.
 
 Both stay local to the project and are never exported upstream. **Fill
 either in whenever you want by asking your assistant** — *"help me fill in
-VOICE.md"* — and a section left `<undecided>` is a real answer, not a gap.
+my project's voice"* — and a section left `<undecided>` is a real answer, not a gap.
 The same goes for anything else that would refine a working project rather
 than make it work: it is a later conversation by design, not an oversight.
 
@@ -113,7 +131,7 @@ here rather than leaving to be discovered at the link.
   authenticated as, so a half-filled identity looks fine; nothing anywhere
   can resolve a zone, so the author-date check drops from enforced to
   guessed and wrong-offset commits reach the remote.
-  [PER_MACHINE_SETUP.md](../PER_MACHINE_SETUP.md).
+  [PER_MACHINE_SETUP.md](PER_MACHINE_SETUP.md).
 - **A repo attached mid-session runs none of its own hooks**, so every
   guarantee the install wired up is absent while you work in it — and the
   failure looks like a broken tool rather than an unrun hook. The
@@ -135,7 +153,7 @@ You don't edit the project's files directly, and running the practice
 tooling by hand isn't the normal way of working here. Connect the
 repository to a large language model (LLM) assistant of your choice —
 Claude Code is the best-supported (*as of 2026-09*); other assistants have
-supported paths, see [MOBILE.md](../MOBILE.md) — and talk to it about the
+supported paths, see [MOBILE.md](MOBILE.md) — and talk to it about the
 work. The
 assistant reads and writes the repository, runs the checks, and drafts
 changes for review. Every session starts by reading the repo's own
@@ -152,7 +170,12 @@ Before explaining how practices are created, it's useful to understand the
 different levels a practice can live at — every stage below names one.
 
 A practice lives at one of four levels, in precedence order (highest wins
-on conflict): **team > repo-local > individual > universal**.
+on conflict): **team > repo-local > individual > universal**. The team
+sits above the individual on purpose: your preference for a casual tone is
+about how you work, your team's rule that anything sent to a client is
+formal is about what you all ship, and the second has to win. A practice
+marked `severity: blocking` cannot be overridden from above at all, and
+every override is reported rather than applied silently.
 
 - **Universal** — the shared, public Precedent library everyone starts
   from.
@@ -161,7 +184,9 @@ on conflict): **team > repo-local > individual > universal**.
   editorial-conventions team repo, say).
 - **Individual** — a private, personal set of practices, declared in your
   own user-level configuration, never in a shared project's tracked
-  files. You can keep more than one if you work across separate contexts.
+  files. One per person, however many teams you are on: your own facts
+  (name, timezone, pronouns, how technical your replies should be) and
+  your own habits, which follow you into every project.
 - **Repo-local** — practices that live inside the project repository
   itself, at a `practices/` directory named `local`, for rules specific to
   that one project only.
@@ -259,7 +284,52 @@ runs at each one:
    naming a listed approver. For universal, `precedent_land.py` only
    *drafts* `practices/<slug>.md` — landing it for real means committing
    that draft to a branch and opening a pull request (PR) against
-   Precedent, reviewed and merged by someone else.
+   Precedent, merged once its own deep check passes — no second sign-off
+   required, same as any other PR into `precedent-beta-v01`.
+
+## Who May Change What
+
+Three roles, and each is a list in a file rather than a label on a person
+— nothing anywhere records whether somebody is "technical"
+([technical-describes-people](../practices/technical-describes-people.md)):
+
+- **Collaborator** — anyone invited to the project repository with GitHub's
+  Write role. They write, change and merge the project's content, through
+  their assistant, with `Go merge`.
+- **Maintainer** — named under `maintainers` in the project's
+  `precedent.json`. Their review is required before a change to the
+  machinery lands: `.github/`, `.claude/`, `tools/`, the vendored catalogue,
+  `precedent.json`, `AGENTS.md`. Which paths count is the `owned_paths` list
+  beside it, each with its reason.
+- **Approver** — named in a practice set's `approvers.json`. Only an
+  approver lands a practice at that level; everyone else, developer or not,
+  suggests one (next section).
+
+What makes the maintainer line real is one generated file and one GitHub
+setting. `python3 tools/build_codeowners.py` writes `.github/CODEOWNERS`
+from the registry (never hand-edit it; `--check` says whether it is
+current), and branch protection on the base branch — require a pull
+request, required approvals 0, require review from code owners, no bypass —
+is what makes GitHub enforce the file (a paid GitHub plan on a private
+personal-account repository; see [GITHUB_SETTINGS.md](GITHUB_SETTINGS.md)'s
+"Plan limits"). A documents-only pull request is then
+its author's to merge; one touching an owned path waits for the maintainer.
+Two tools keep it honest: `python3 tools/precedent_boundary_check.py` asks
+GitHub whether the protection is actually on (`PASS`, `FAIL` naming the
+setting, or `UNVERIFIED` when it could not ask — never a pass by silence),
+and `python3 tools/precedent_owned_paths.py` says before a pull request
+which changed files will wait for review, in words a contributor can act on.
+Keep workflows secret-free: `CODEOWNERS` gates the merge of an edited
+workflow, not its first run on a collaborator's branch.
+
+Every GitHub setting in this section, and what GitHub itself does with a
+CODEOWNERS file, is [GITHUB_SETTINGS.md](GITHUB_SETTINGS.md). The install
+step is [INSTALL.md §0 step 10](../INSTALL.md#0-installing-directly-onto-the-precedent-loader-new-2026-09-03--read-the-caveat-before-using);
+the design, and the three GitHub behaviours it still rests on unverified,
+is [spec/CONTRIBUTOR_ACCESS.md](../spec/CONTRIBUTOR_ACCESS.md);
+[templates/document-project/](../templates/document-project/) is the
+ready-made shape for a project where most collaborators only ever touch
+documents.
 
 ## How Practices Are Approved
 
@@ -277,9 +347,9 @@ has to say yes?*
   proposing a candidate is a slower path here on purpose, not a shortcut
   around needing someone else's agreement.
 - **Everyone's (universal):** goes up as a PR against the shared
-  Precedent repository, reviewed and merged by someone other than
-  whoever proposed it. No single person, including whoever maintains the
-  library, can land a universal practice alone.
+  Precedent repository, merged once its own deep check passes — the same
+  branch-level gate as any other PR into `precedent-beta-v01`, not a
+  second reviewer's sign-off.
 
 ## How Enforcement Works
 
@@ -332,6 +402,8 @@ as landing one.
 
 ## Where to Go Next
 
+[TEN_THINGS.md](TEN_THINGS.md) is the one-page map of the ideas above,
+each linked to its section here and in the plain-language guide.
 [DAILY_HABITS.md](DAILY_HABITS.md) for the
 working habits and the standing command vocabulary — short, and worth
 reading even if everything above was obvious.

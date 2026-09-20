@@ -3,6 +3,7 @@ slug:        full-practice-audit
 title:       A full practice audit — an on-demand, whole-catalogue sweep, on request only
 tier:        on-demand
 severity:    advisory
+scope:       engine-dev
 applies_to:  ["**"]
 occasion:    "a person explicitly asks for a full practice audit (or \"practice check\") across the whole catalogue"
 gates:       []
@@ -64,6 +65,12 @@ discipline, so still not something to lean on routinely at higher stakes
 without the fuller evaluation
 [spec/UNBUILT_PLAN_ITEMS.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/UNBUILT_PLAN_ITEMS.md) still names as
 open.
+
+**Kept on the explicit ask, as a session's own judgment call, when the
+2026-09-16 conversation widened several other commands to plain intent.**
+This one is heavy on purpose — a full-catalogue sweep, not a quick reply —
+so "explicitly asks" stays the bar; a message that only sounds like it might
+want one is a question worth one clarifying line, not grounds to run it.
 
 ## Story
 Raised 2026-09-03 in a brainstorm about a missed headline-formatting issue

@@ -238,6 +238,42 @@ def main():
     root = pathlib.Path(repo).resolve() if repo else ROOT
     practices_dir = root / 'practices'
 
+    # The occasion index names this flag in its own footer, so a session that
+    # notices practices are missing from the index can see WHICH ones without
+    # knowing how the routing policy works (practice: affordance-is-shared).
+    if '--index-omitted' in args:
+        sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+        import build_views as bv
+        rows = []
+        for fm, _sections, _f in bv.load_practices(practices_dir):
+            # Same population build_views' index is built from: on-demand tier
+            # only. Counting a wider set here would print a number that
+            # disagrees with the footer that sent the reader to this flag.
+            if fm.get('tier') != 'on-demand':
+                continue
+            occasion = bv._json_str(fm.get('occasion', ''))
+            if occasion and bv.index_is_redundant(fm):
+                globs = bv._json_list(fm.get('applies_to', '')) or []
+                gates = bv._json_list(fm.get('gates', '')) or []
+                via = []
+                if globs and globs != ['**']:
+                    via.append('paths ' + ', '.join(globs))
+                if gates:
+                    via.append('gates ' + ', '.join(gates))
+                rows.append((fm['slug'], occasion, ' + '.join(via)))
+        if not rows:
+            print('precedent show: no practice is omitted from the occasion '
+                  'index here -- every on-demand practice with an occasion '
+                  'carries its own line.')
+            return 0
+        print(f'{len(rows)} practice(s) omitted from the occasion index, each '
+              f'reached by the channel named beside it:\n')
+        for slug, occasion, via in sorted(rows):
+            print(f'  {slug}')
+            print(f'      when: {occasion}')
+            print(f'      via:  {via}')
+        return 0
+
     section = 'rule'
     for flag, sec in SECTION_FLAGS.items():
         if flag in args:
