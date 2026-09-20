@@ -8,8 +8,7 @@ The **three biggest frustrations** of working with people and/or AI
 are solved by Precedent:
 
 1. **Nobody notices patterns** — and even when someone does, enforcing
-   it costs real time and attention, every single time... or an AI
-   Assistant does and keeps it to itself.
+   it costs real time and attention, every single time.
 2. **Nobody remembers why a decision was made, even a small one** — and
    on the rare occasion someone does, they've forgotten why it mattered
    enough to decide.
@@ -39,8 +38,8 @@ Pillars](philosophy/CORE_PILLARS.md).
 ## What This Looks Like in Practice
 
 Next time you're brainstorming or working through a problem with your
-team — especially a team project — try this instead of a chat window or a
-shared doc: open a GitHub repo for the project, and work through it with
+team try this instead of a chat window or a shared doc: open a GitHub
+repo for the project, and work through it with
 Claude Code attached to that repo.
 
 Here's what you'll actually see:
