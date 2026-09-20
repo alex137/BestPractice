@@ -4368,6 +4368,16 @@ REVISION_ANNOTATION_RE = re.compile(
 def _docs_are_current_state(ctx):
     out = []
     for f in _md_in_scope(ctx):
+        # Exemption (d) of the practice, the same one index-remembers-past
+        # honours: a document whose own stated purpose is a historical
+        # record -- the `<!--record-doc-->` marker, a record-shaped name, a
+        # records directory -- carries dates as its content. An open-items
+        # file that stamps when each item was opened is the origin case
+        # (2026-09-20): it declared itself a record and was still flagged
+        # for three item dates, because only the lineage check read the
+        # declaration.
+        if _is_historical_record(f):
+            continue
         text = ctx.read(f)
         for i, line in enumerate(text.splitlines(), 1):
             if REVISION_ANNOTATION_RE.search(line):
