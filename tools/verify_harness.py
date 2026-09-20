@@ -6701,6 +6701,21 @@ def check_precedent_check_fires():
                       'commit-identity.sh does not exist'
                       in planted['declared-hooks-exist'][1]))
 
+        # dogfooded-hooks-match-template -- this repo's own installed copy
+        # of a hook drifts from the template it was installed from. The
+        # realistic shape is a fix landing in the live copy alone (exactly
+        # what happened to freshness-guard.sh on 2026-09-15), so the plant
+        # edits the INSTALLED side, not the template.
+        def _plant_dogfooded_drift(repo):
+            f = repo / '.claude' / 'hooks' / 'precedent-paths.sh'
+            f.write_text(f.read_text(encoding='utf-8') + '\n# drift\n',
+                        encoding='utf-8')
+        case('dogfooded-hooks-match-template', _plant_dogfooded_drift)
+        cases.append(('dogfooded-hooks-match-template: the planted violation '
+                      'names the drifted hook, not just that something differs',
+                      'precedent-paths.sh' in
+                      planted['dogfooded-hooks-match-template'][1]))
+
         # hooks-on-disk-are-reachable -- the other end of the same failure.
         # declared-hooks-exist above plants a settings entry whose file is
         # gone; this plants a file no settings entry, no other hook and no
