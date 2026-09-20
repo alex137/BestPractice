@@ -1870,7 +1870,8 @@ def check_leak_gate_discovers_the_individual_blocklist():
 
 
 def check_leak_gate_names_a_stale_blocklist_clone():
-    """The gate says where its blocklist came from when it FAILS.
+    """The gate says where its blocklist came from when it FAILS, and --
+    since 2026-09-20 -- tries one bounded fast-forward before saying so.
 
     THE INCIDENT, 2026-09-11. The gate reported 30 undeclared-repo hits
     against Precedent's own tree. A session read them as a defect in the
@@ -1881,16 +1882,25 @@ def check_leak_gate_names_a_stale_blocklist_clone():
     line those 30 references needed -- so the gate was right about its input
     and its input was stale.
 
-    WHY IT NEEDS A MECHANISM rather than a gotcha alone: a correct gate with
-    correct output and stale input is indistinguishable from a real failure
-    by construction. Nothing in the 30 lines could have said otherwise, and
-    the reflex they produce ("this tree is wrong") points the expensive way.
+    THE SECOND INCIDENT, 2026-09-20: the same shape, 110 hits, and by then
+    the gate already told the session to run `git -C <root> pull --ff-only`.
+    Running it by hand is the common remedy; leak_gate.py now tries it
+    itself, once, only after a hit already exists to lose from not trying --
+    see _try_refresh_private_blocklist_clone()'s own docstring in
+    tools/leak_gate.py for why that is still never on a clean push.
 
-    Both branches are asserted, because the useful half is the one that
-    fires when the clone IS behind and the honest half is the one that
-    refuses to claim currency when it is not -- a note that said "your
-    blocklist is current" off an unfetched remote-tracking ref would be the
-    same false all-clear one level out.
+    WHY THE NOTE STILL NEEDS TO EXIST: the self-heal only covers the clean
+    fast-forward case. A clone that has genuinely diverged -- local commits
+    of its own, same as 2026-09-20's actual clone, which had advanced a
+    watermark file and not yet pushed it -- gets an honest BEHIND note
+    exactly as before, because `pull --ff-only` refuses a non-fast-forward
+    and this function refuses to guess which side to keep.
+
+    Four branches are asserted: a clone that fast-forwards cleanly and the
+    fast-forward clears the only hit (the gate passes); a clone that cannot
+    fast-forward (diverged, same as the real incident) and still fails,
+    reported honestly as behind; a clone already current (unaffected either
+    way); and a loose file in no repository at all (no note is a guess).
     """
     import shutil, tempfile
 
@@ -1903,19 +1913,26 @@ def check_leak_gate_names_a_stale_blocklist_clone():
 
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='leak-stale-'))
     try:
-        repo = tmp / 'repo'
-        (repo / 'tools').mkdir(parents=True)
-        shutil.copy(ROOT / 'tools' / 'leak_gate.py', repo / 'tools' / 'leak_gate.py')
-        shutil.copy(ROOT / 'tools' / 'leak-blocklist.default.txt',
-                    repo / 'tools' / 'leak-blocklist.default.txt')
-        git(repo, 'init', '-q')
-        git(repo, 'config', 'user.email', 'harness@example.com')
-        git(repo, 'config', 'user.name', 'harness')
-        # One hit, so the gate fails and the note is reached at all.
-        (repo / 'names.md').write_text(
-            'this tree names fixtureacct/Kestrelwood\n', encoding='utf-8')
-        git(repo, 'add', '-A')
-        git(repo, 'commit', '-qm', 'base')
+        # Two trees to scan: one names a repo NEVER allow-listed (a real,
+        # persistent hit, whatever the blocklist's own freshness), the other
+        # names one allow-listed only in the blocklist's SECOND commit (a
+        # hit caused purely by staleness -- refreshing the clone clears it).
+        def make_tree(name, mentions):
+            r = tmp / name
+            (r / 'tools').mkdir(parents=True)
+            shutil.copy(ROOT / 'tools' / 'leak_gate.py', r / 'tools' / 'leak_gate.py')
+            shutil.copy(ROOT / 'tools' / 'leak-blocklist.default.txt',
+                        r / 'tools' / 'leak-blocklist.default.txt')
+            git(r, 'init', '-q')
+            git(r, 'config', 'user.email', 'harness@example.com')
+            git(r, 'config', 'user.name', 'harness')
+            (r / 'names.md').write_text(f'this tree names {mentions}\n', encoding='utf-8')
+            git(r, 'add', '-A')
+            git(r, 'commit', '-qm', 'base')
+            return r
+
+        repo_persistent = make_tree('repo-persistent', 'fixtureacct/Kestrelwood')
+        repo_healable = make_tree('repo-healable', 'fixtureacct/Willowmere')
 
         # The blocklist lives in its own repository, the way a private
         # practice set's does. `upstream` stands in for the remote.
@@ -1928,17 +1945,22 @@ def check_leak_gate_names_a_stale_blocklist_clone():
         # A real pattern as well as the owner line: a blocklist of
         # comments alone is refused earlier, for a different reason, and
         # the fixture would never reach the note it exists to test.
+        # Kestrelwood is never allow-listed, in either commit -- the
+        # persistent-hit tree above always fails, refresh or not.
         declared = ('# visibility-audit: private-owner fixtureacct -- fixture\n'
                     '\\bquillon[\\w-]*\n')
         bl.write_text(declared, encoding='utf-8')
         git(upstream, 'add', '-A')
         git(upstream, 'commit', '-qm', 'first')
-        bl.write_text(declared + '# a later commit the stale clone does not have\n',
+        # The rename/allowlist commit a stale clone does not have yet --
+        # Willowmere only stops being a hit from here on.
+        bl.write_text(declared +
+                      '# visibility-audit: allow fixtureacct/Willowmere -- fixture, renamed\n',
                       encoding='utf-8')
         git(upstream, 'add', '-A')
         git(upstream, 'commit', '-qm', 'second')
 
-        def gate(blocklist_path):
+        def gate(blocklist_path, repo):
             env = {k: v for k, v in os.environ.items()}
             env['PRECEDENT_LEAK_BLOCKLIST'] = str(blocklist_path)
             r = subprocess.run(
@@ -1946,31 +1968,56 @@ def check_leak_gate_names_a_stale_blocklist_clone():
                 capture_output=True, text=True, cwd=str(repo), env=env)
             return r.returncode, r.stdout + r.stderr
 
-        # 1. A clone that is genuinely behind.
-        behind = tmp / 'behind'
-        git(tmp, 'clone', '-q', str(upstream), str(behind))
-        git(behind, 'reset', '-q', '--hard', 'HEAD~1')
-        rc_behind, out_behind = gate(behind / 'blocklist.txt')
+        # 1. A clean clone, purely behind: the self-heal fast-forwards it,
+        # and the only hit was the staleness itself -- the gate now PASSES.
+        healed = tmp / 'healed'
+        git(tmp, 'clone', '-q', str(upstream), str(healed))
+        git(healed, 'reset', '-q', '--hard', 'HEAD~1')
+        rc_healed, out_healed = gate(healed / 'blocklist.txt', repo_healable)
+        healed_head = git(healed, 'rev-parse', 'HEAD')
+        upstream_head = git(upstream, 'rev-parse', 'HEAD')
 
-        # 2. A clone that is current.
+        # 2. A diverged clone -- a local commit of its own, same shape as
+        # 2026-09-20's real clone (an unpushed watermark advance). No
+        # fast-forward is possible, so this still fails and still reports
+        # BEHIND honestly, against a persistent, staleness-independent hit.
+        diverged = tmp / 'diverged'
+        git(tmp, 'clone', '-q', str(upstream), str(diverged))
+        git(diverged, 'reset', '-q', '--hard', 'HEAD~1')
+        (diverged / 'local-only.txt').write_text('not on the remote\n', encoding='utf-8')
+        git(diverged, 'add', '-A')
+        git(diverged, 'commit', '-qm', 'local commit the remote does not have')
+        rc_diverged, out_diverged = gate(diverged / 'blocklist.txt', repo_persistent)
+
+        # 3. A clone that is already current.
         current = tmp / 'current'
         git(tmp, 'clone', '-q', str(upstream), str(current))
-        rc_current, out_current = gate(current / 'blocklist.txt')
+        rc_current, out_current = gate(current / 'blocklist.txt', repo_persistent)
 
-        # 3. A loose file in no repository at all.
+        # 4. A loose file in no repository at all.
         loose = tmp / 'loose.txt'
         loose.write_text(declared, encoding='utf-8')
-        _rc_loose, out_loose = gate(loose)
+        _rc_loose, out_loose = gate(loose, repo_persistent)
 
         cases = [
-            ('a clone that is behind is reported as BEHIND',
-             'BEHIND its upstream' in out_behind),
+            ('a clean, purely-behind clone is fast-forwarded and the gate '
+             'PASSES once the only hit was the staleness itself',
+             rc_healed == 0),
+            ('the fast-forward actually happened on disk, not just in the '
+             'gate\'s report', healed_head == upstream_head),
+            ('the healed run never prints a LEAK line for a hit that '
+             'stopped being one', 'LEAK:' not in out_healed),
+            ('a diverged clone (local commit the remote lacks -- the real '
+             'incident\'s shape) is reported as BEHIND', 'BEHIND its upstream' in out_diverged),
             ('the note names the clone, so the reader knows which one to pull',
-             str(behind) in out_behind),
+             str(diverged) in out_diverged),
             ('the note gives the command that settles it',
-             'pull --ff-only' in out_behind),
+             'pull --ff-only' in out_diverged),
             ('the note appears only after the hits, as context for them',
-             out_behind.find('LEAK:') < out_behind.find('Before acting on these:')),
+             out_diverged.find('LEAK:') < out_diverged.find('Before acting on these:')),
+            ('a diverged clone is genuinely untouched: still behind, still '
+             'carrying its own local commit',
+             git(diverged, 'rev-parse', 'HEAD') != upstream_head),
             ('a current clone is NOT called current -- an unfetched '
              'remote-tracking ref cannot prove that',
              'BEHIND its upstream' not in out_current
@@ -1979,16 +2026,85 @@ def check_leak_gate_names_a_stale_blocklist_clone():
              str(current) in out_current),
             ('a blocklist in no repository produces no note rather than a guess',
              'Before acting on these:' not in out_loose),
-            ('the note never changes the verdict: a hit is still a failure',
-             rc_behind == 1 and rc_current == 1),
+            ('a real, staleness-independent hit still fails the push either '
+             'way', rc_diverged == 1 and rc_current == 1),
         ]
         ok = all(passed for _, passed in cases)
         for name, passed in cases:
             if not passed:
                 print(f"  stale-blocklist note did NOT behave as stated: {name}")
-        check(f'the leak gate names a stale blocklist clone when it fails '
-              f'({len(cases)} stated cases, each asserting the printed text)', ok)
+        check(f'the leak gate names a stale blocklist clone when it fails, '
+              f'and self-heals the clean case ({len(cases)} stated cases)', ok)
     finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def check_leak_gate_refresh_declines_a_dirty_clone():
+    """_try_refresh_private_blocklist_clone() never touches uncommitted
+    work. A working copy with local edits in progress is somebody's, not
+    this gate's, and the same refusal tools/precedent_source_bootstrap.py's
+    own sync already makes for the same reason (see its _sync_once, the
+    "uncommitted work... not this tool's call to make" branch).
+    """
+    import shutil, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import leak_gate as _lg
+
+    def git(cwd, *args):
+        r = subprocess.run(['git', '-C', str(cwd), *args],
+                           capture_output=True, text=True)
+        if r.returncode != 0:
+            raise RuntimeError(f"git {' '.join(args)}: {r.stderr.strip()}")
+        return r.stdout.strip()
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='leak-refresh-dirty-'))
+    saved_path = _lg._PRIVATE_BLOCKLIST_PATH
+    try:
+        upstream = tmp / 'upstream'
+        upstream.mkdir()
+        git(upstream, 'init', '-q', '-b', 'main')
+        git(upstream, 'config', 'user.email', 'harness@example.com')
+        git(upstream, 'config', 'user.name', 'harness')
+        bl = upstream / 'blocklist.txt'
+        bl.write_text('\\bquillon[\\w-]*\n', encoding='utf-8')
+        git(upstream, 'add', '-A')
+        git(upstream, 'commit', '-qm', 'first')
+        bl.write_text('\\bquillon[\\w-]*\n# a later commit\n', encoding='utf-8')
+        git(upstream, 'add', '-A')
+        git(upstream, 'commit', '-qm', 'second')
+
+        clone = tmp / 'clone'
+        git(tmp, 'clone', '-q', str(upstream), str(clone))
+        git(clone, 'reset', '-q', '--hard', 'HEAD~1')
+        # An uncommitted edit -- clean history, dirty working tree.
+        (clone / 'blocklist.txt').write_text(
+            '\\bquillon[\\w-]*\n# an uncommitted local edit\n', encoding='utf-8')
+        head_before = git(clone, 'rev-parse', 'HEAD')
+
+        _lg._PRIVATE_BLOCKLIST_PATH = clone / 'blocklist.txt'
+        refreshed = _lg._try_refresh_private_blocklist_clone()
+        head_after = git(clone, 'rev-parse', 'HEAD')
+        dirty_after = git(clone, 'status', '--porcelain')
+
+        cases = [
+            ('a dirty clone is declined, not silently repaired', refreshed is False),
+            ('HEAD is untouched', head_before == head_after),
+            ('the uncommitted edit is still there, unstashed and uncommitted',
+             'an uncommitted local edit' in (clone / 'blocklist.txt').read_text(encoding='utf-8')
+             and dirty_after.strip() != ''),
+        ]
+
+        _lg._PRIVATE_BLOCKLIST_PATH = None
+        cases.append(('no private path configured means nothing to try',
+                      _lg._try_refresh_private_blocklist_clone() is False))
+        ok = all(passed for _, passed in cases)
+        for name, passed in cases:
+            if not passed:
+                print(f"  dirty-clone refresh did NOT behave as stated: {name}")
+        check(f'the leak gate\'s clone refresh declines a dirty working tree '
+              f'({len(cases)} stated cases)', ok)
+    finally:
+        _lg._PRIVATE_BLOCKLIST_PATH = saved_path
         shutil.rmtree(tmp, ignore_errors=True)
 
 
@@ -24473,6 +24589,7 @@ def main():
     check_leak_gate_notes_an_uncovered_private_repo()
     check_leak_gate_discovers_the_individual_blocklist()
     check_leak_gate_names_a_stale_blocklist_clone()
+    check_leak_gate_refresh_declines_a_dirty_clone()
     check_visibility_audit_reads_the_blocklist_as_patterns()
     check_rendered_docs_are_current()
     check_install_names_every_not_vendored_dir()
