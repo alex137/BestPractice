@@ -1,7 +1,8 @@
 # Precedent: Defining Your Rules While Working
 
 *Humans should do what humans do best, and leave the rest to the
-machines.*
+machines. ([Humans at our
+Best](philosophy/HUMANS_AT_OUR_BEST.md))*
 
 Precedent solves the three biggest frustrations of working with people
 and AI together:
