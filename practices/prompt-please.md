@@ -37,7 +37,14 @@ approved_by: "Morgan, 2026-09-20 -- described the two cases and the phrase
   act on it: the seed root and repos to attach have to be said once more in
   ordinary prose outside the fenced block, not only inside it, since the
   block is addressed to the new session and he is the one reading this
-  reply."
+  reply. Extended a fourth time 2026-09-20, same day: a session obeyed
+  that version and he still had to ask again, because the seed root sat
+  at the bottom of the required-content list inside the block rather than
+  the top. \"GREAT SUGGESTION. Prompt please, give that to me so I can
+  paste it into the correctly-rooted session,\" approving a session's
+  proposal to require the seed root and attach list immediately after
+  seeded-prompt-names-its-origin's provenance line -- second in the
+  block, not buried among the other required content."
 strength:    decided
 source_practice_number: null
 ---
@@ -98,6 +105,17 @@ following, every time:
   whether the change needs a clean rollout through an updated template and
   [vendor-update-runbook](vendor-update-runbook.md)'s mechanism to reach
   them, when that's relevant.
+
+**Two of those items are required at a fixed position, not just required
+content.** [seeded-prompt-names-its-origin](seeded-prompt-names-its-origin.md)
+already fixes the provenance line -- this session's id and title, its link,
+and that a session wrote it -- as the block's literal first line, and that
+does not change here. **The seed root and the attach list come immediately
+after it: second, before the situation, the problem, the recommendation, or
+anything else in the list above.** A requirement that is just one bullet
+among several in an unordered list is easy to satisfy and easy to bury --
+the single fact that tells a reader where to open this is neither optional
+content nor free to place last.
 
 **Render it as one actual fenced code block (triple backticks), never a
 paragraph that only reads as paste-ready** -- the fence is what gives the
@@ -231,6 +249,23 @@ session, root it in X, attaching repos Y and Z."* The fenced block already
 named the seed root and the repositories to attach, but for the new
 session's reader, not for the person reading this reply, who is the one
 who actually has to go open it. Strength: decided.
+
+**Extended a fourth time, 2026-09-20, the same day.** A session obeyed the
+version above and Morgan asked again anyway: a two-prompt handoff put the
+seed root at the bottom of each fenced block, as the fifth bullet in the
+required-content list, present and correctly worded but not where anyone
+scanning the top of the block would see it. The previous extension had
+fixed the sentence outside the block; it had not fixed the block itself,
+where the single most operational fact -- where does this get opened --
+could still be satisfied last. The Rule now requires the seed root and
+attach list immediately after
+[seeded-prompt-names-its-origin](seeded-prompt-names-its-origin.md)'s
+provenance line, which keeps first position -- second, not fifth or
+sixth -- so the block serves both of its readers, the new session that
+needs the routing before it can act at all and the person scanning for
+where to paste it, from the same position. Approved on a session's
+proposal: *"GREAT SUGGESTION. Prompt please, give that to me so I can
+paste it into the correctly-rooted session."* Strength: decided.
 
 ## Install
 Nothing for an adopter to set up. The occasion index entry is generated
