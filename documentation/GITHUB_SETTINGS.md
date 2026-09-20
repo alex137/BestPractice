@@ -291,5 +291,5 @@ and the list of what is still unverified;
 form; [FOR_EVERYONE_ELSE.md](FOR_EVERYONE_ELSE.md)'s "What You Can't Do
 (on Purpose)" is the contributor's version;
 [GITHUB_ACTIONS.md](GITHUB_ACTIONS.md) is the workflows themselves; and
-[GIT.md](../GIT.md) explains the words — branch, pull request, merge — for
+[GIT.md](GIT.md) explains the words — branch, pull request, merge — for
 someone meeting them for the first time.
