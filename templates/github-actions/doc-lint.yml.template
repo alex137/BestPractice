@@ -129,17 +129,18 @@ jobs:
       # checkout when it actually runs.
       - uses: actions/checkout@v4
 
-      # DEBOUNCE (2026-09-16, moved into its own job 2026-09-19), for the
-      # steady-drip case concurrency's own comment above says it cannot
-      # reach: a repo pushed to every few minutes pays for a full check on
-      # every one of them even with no two runs ever overlapping. Reads
-      # `ci_debounce_minutes` from precedent.json (default 360 = 6 hours; 0
-      # disables it) and skips the markdown job below when the last
+      # DEBOUNCE (2026-09-16, moved into its own job 2026-09-19, default
+      # widened 360 -> 720 on 2026-09-20 -- spec/CI_MINUTES_PLAN.md item 11),
+      # for the steady-drip case concurrency's own comment above says it
+      # cannot reach: a repo pushed to every few minutes pays for a full
+      # check on every one of them even with no two runs ever overlapping.
+      # Reads `ci_debounce_minutes` from precedent.json (default 720 = 12
+      # hours; 0 disables it) and skips the markdown job below when the last
       # COMPLETED run of this workflow on this branch finished inside that
       # window -- spec/CI_MINUTES_PLAN.md's item 4. This is an advisory
       # check (a broken link sits uncaught for at most one window); a
       # workflow standing in for a security backstop should not carry this
-      # step at all. 360 is a starting point, not a fixed answer -- a repo
+      # step at all. 720 is a starting point, not a fixed answer -- a repo
       # with heavy churn on the branch(es) named above may want it shorter;
       # item 8's incident is the precedent for that call, made per-repo in
       # precedent.json, not by editing this template.
@@ -156,9 +157,9 @@ jobs:
           except (OSError, ValueError):
               d = {}
           try:
-              v = int(d.get('ci_debounce_minutes', 360))
+              v = int(d.get('ci_debounce_minutes', 720))
           except (TypeError, ValueError):
-              v = 360
+              v = 720
           print(v)
           PY
           )"
