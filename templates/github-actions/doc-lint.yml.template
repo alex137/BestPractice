@@ -101,6 +101,17 @@ permissions:
   contents: read
   actions: read
 
+# RUNNER, OVERRIDABLE PER REPO (2026-09-20). Both jobs below run on
+# `ubuntu-latest` unless this repo declares a `PRECEDENT_RUNNER` repository
+# variable (Settings -> Secrets and variables -> Actions -> Variables) --
+# e.g. `self-hosted`, for an adopter who already operates their own runner.
+# Left unset, nothing here changes. This is an adopter's own opt-in, not
+# something Precedent can provide for them: a self-hosted runner means
+# their code executing on infrastructure they control, which nobody else
+# can stand up on their behalf. spec/CI_MINUTES_PLAN.md item 6 has the
+# trade-offs; GITHUB_ACTIONS.md's "Controlling Actions Minutes" is where
+# this variable is documented alongside the levers that need no opt-in at
+# all (ci_workflows disabled by default, the debounce job, branch scoping).
 jobs:
   # ONE job, so the "have we looked recently" decision is billed once. The
   # markdown job below is gated with `needs: debounce` + `if:`, never a step
@@ -108,7 +119,7 @@ jobs:
   # that distinction is the entire point of this file's shape.
   debounce:
     name: Decide whether this push needs a fresh check
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.PRECEDENT_RUNNER || 'ubuntu-latest' }}
     outputs:
       skip: ${{ steps.debounce.outputs.skip }}
     steps:
@@ -180,7 +191,7 @@ jobs:
     name: Markdown lint
     needs: debounce
     if: needs.debounce.outputs.skip != 'true'
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.PRECEDENT_RUNNER || 'ubuntu-latest' }}
 
     steps:
       # The PR HEAD, not refs/pull/N/merge -- auditing the merge tree

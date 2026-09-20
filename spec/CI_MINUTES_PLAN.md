@@ -514,6 +514,54 @@ covered by a new `check_vendor_engine_retires_ci_workflow_files` in
 the existing CI-workflow refresh coverage. Deep check run clean before
 push, same as item 9.
 
+## Item 10 — item 6 generalized: a runner override any adopter can opt into (2026-09-20)
+
+Item 6's self-hosted-runner pilot is scoped to Morgan's own repos — it
+solves the metered-minutes problem for the account running the pilot, not
+for anyone else who installs Precedent as open-source software into their
+own repo. Raised the same way: **"a self-hosted runner solves the problem
+FOR ME, but not for the other random people we want to use this open
+source software."**
+
+Two things were already true and needed no work: a **public** repo's
+Actions minutes are unmetered on standard runners regardless of any of
+this, so an open-source adopter who keeps their repo public already gets
+item 6's outcome for free; and for a **private** adopter, the four levers
+items 1–5/8/9 already ship (opt-in `ci_workflows`, branch-scoped
+`push:`/`pull_request:`, the job-level debounce, `concurrency`) already
+shrink cost automatically, with no setup, for every install.
+
+**What was missing:** the templates had no way for an adopter who *does*
+already operate a self-hosted runner to point their own install at it
+without hand-editing the workflow file. Added:
+`runs-on: ${{ vars.PRECEDENT_RUNNER || 'ubuntu-latest' }}` on every job in
+[doc-lint.yml.template](../templates/github-actions/doc-lint.yml.template)
+and
+[precedent-check.yml.template](../templates/github-actions/precedent-check.yml.template).
+Unset, nothing changes for anyone. Set as a repository variable, every job
+in that workflow moves to the named runner — the same escape hatch item 6
+describes, generalized from something only this session can apply to
+Morgan's own repos into something any adopter can flip for themselves.
+Documented in [documentation/GITHUB_ACTIONS.md](../documentation/GITHUB_ACTIONS.md)'s
+"Controlling Actions Minutes" (now four levers, plus the public-repo note)
+and [templates/github-actions/README.md](../templates/github-actions/README.md).
+
+**This does not replace item 6/Phase D.** Whether to actually run a
+self-hosted-runner pilot on Morgan's own repos, and which ones, is still
+open — this item only makes the mechanism available to whoever wants it,
+including Morgan, without deciding the pilot question for him.
+
+**Reaches dependent repos only when they take an update.** Per
+`vendor-rollout-disclosed`: this changes shipped template content
+(`templates/github-actions/*.template`), so it needs
+[vendor-update-runbook](../practices/vendor-update-runbook.md)'s normal
+"Update Vendors" path to reach an already-installed repo — nothing here
+pushes it there automatically, and a repo on an older template keeps
+running unconditionally on `ubuntu-latest` until it takes that update.
+
+Authorized: *"On #3 -- do it, go update -- and also update the developer
+documentation."* strength: decided.
+
 ## Sequencing and status
 
 Morgan approved phases 1–5 on 2026-09-16, holding items 6 and 7 for later
@@ -584,8 +632,15 @@ repo, the next time it installs, migrates, or takes an update.
   a branch-scoped `push:` plus `pull_request:`, which is the volume fix
   the debounce guard alone was never designed to provide. Full account:
   items 8 and 9 above.
-- **Phase D — held.** Self-hosted runner pilot (item 6), per the todo
-  reminder above.
+- **Phase D — held; item 10 shipped alongside it, 2026-09-20.** The
+  self-hosted runner *pilot* on Morgan's own repos (item 6) is still held,
+  per the todo reminder above. What shipped is a different, narrower piece:
+  the `PRECEDENT_RUNNER` template variable (item 10) that lets *any*
+  adopter opt a private install onto their own runner, and the
+  [documentation/GITHUB_ACTIONS.md](../documentation/GITHUB_ACTIONS.md)/[templates/github-actions/README.md](../templates/github-actions/README.md)
+  updates describing it — this closes the "other random people" gap item 6
+  never addressed, without deciding the pilot question for Morgan's own
+  repos.
 
 ## Open decisions
 
