@@ -833,6 +833,23 @@ first so this pass spends its attention on what they cannot see.
   the pitch described. Each was found by rehearsal, which is pass 1's job
   and expensive; this is the cheap read that should have found them
   first.)*
+- **What's new since the last run, and whether a reader would ever learn it
+  exists.** The bullet above tests a claim that already exists against the
+  mechanism it describes; it has nothing to say about a mechanism that never
+  became a claim anywhere a person reads. Walk what landed since the last
+  recorded run — `git log` from that run's date, across this checkout and
+  every attached source, read against
+  [record/very-deep-check-ledger.json](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/record/very-deep-check-ledger.json)'s
+  own dates — and for each new practice, tool, command, or capability, check
+  the surfaces a person actually reads for it: the README's pitch,
+  [SETUP.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/SETUP.md),
+  [INSTALL.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/INSTALL.md),
+  [documentation/](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/documentation/), and
+  [GLOSSARY.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/GLOSSARY.md). A
+  person-facing addition with no mention anywhere on that list is a finding.
+  An addition that is not person-facing — an internal refactor, a check only
+  a session ever touches — clears this bullet by saying so, not by the
+  question going unasked.
 - **Rules we ship somewhere else** — the contradiction this pass kept
   missing, and it is missed for a structural reason rather than
   carelessness. **A template is inert here and binding there.** Read as a
