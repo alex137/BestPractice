@@ -88,6 +88,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [pr-template-honest-gates](practices/pr-template-honest-gates.md) | on-demand | writing or filling out a pull-request description |
 | [practice-export-loop](practices/practice-export-loop.md) | on-demand | merging a branch that improved a generic practice |
 | [practice-links-travel](practices/practice-links-travel.md) | on-demand | writing or editing a practice file |
+| [prompt-please](practices/prompt-please.md) | on-demand | handing the person work to do, starting work that may touch a repository this session cannot reach, or the person wants to act on a recommendation already given by opening a fresh session |
 | [push-back](practices/push-back.md) | on-demand | drafting or reviewing prose meant to persuade or be judged |
 | [quick-index](practices/quick-index.md) | resident | looking for where something lives, before searching |
 | [quote-discipline](practices/quote-discipline.md) | on-demand | quoting or compressing someone else's figures |
@@ -110,7 +111,6 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [session-load-budget](practices/session-load-budget.md) | on-demand | adding to a file every session loads, or asking what a session pays before it starts work |
 | [session-spend-follows-the-task](practices/session-spend-follows-the-task.md) | on-demand | creating a session |
 | [session-tags](practices/session-tags.md) | on-demand | creating a session, or retagging one |
-| [session-text](practices/session-text.md) | on-demand | handing the person work to do, or starting work that may touch a repository this session cannot reach |
 | [session-title-names-the-difference](practices/session-title-names-the-difference.md) | on-demand | naming or renaming a session, at creation or once its differentiator is known |
 | [slow-steps-report-and-cache](practices/slow-steps-report-and-cache.md) | on-demand | writing or running a gate, audit or solve that takes more than about a minute |
 | [small-calls](practices/small-calls.md) | on-demand | a judgment call is needed to keep work moving |
@@ -139,7 +139,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 
 ## Withdrawn practices
 
-6 practice file(s) here are **not in force** and are left out of every table above. **The files are kept on purpose** -- a withdrawn rule and the argument against it are worth re-reading, and `retired` is not a synonym for deleted (that is `decommission-deletes-files`, and it is about mechanisms, not rules). Read one in full with `python3 tools/precedent_show.py SLUG`.
+7 practice file(s) here are **not in force** and are left out of every table above. **The files are kept on purpose** -- a withdrawn rule and the argument against it are worth re-reading, and `retired` is not a synonym for deleted (that is `decommission-deletes-files`, and it is about mechanisms, not rules). Read one in full with `python3 tools/precedent_show.py SLUG`.
 
 | Practice | Status | Now in force at | Why it was withdrawn |
 |---|---|---|---|
@@ -149,6 +149,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [merge-authorization-keyword](practices/merge-authorization-keyword.md) | deduplicated | [go-merge](practices/go-merge.md) | **The 2026-09-07 retirement was reversed on 2026-09-08, and this is now a deduplication rather than a withdrawal.** `status: retired` said nobody wanted this rule anywhere. |
 | [merged-session-offers-a-practice](practices/merged-session-offers-a-practice.md) | deduplicated | [the-boildown](practices/the-boildown.md) | Morgan, 2026-09-14, on the practice engine he had been feeding by hand for weeks: *"I love the methodology of turning what we decide into Practices to be followed or enforced, but it seems like I'm always the one making the suggestions. |
 | [next-steps-after-commit](practices/next-steps-after-commit.md) | deduplicated | [the-boildown](practices/the-boildown.md) | Raised by Morgan as a standing personal preference, rather than in response to a specific missed handoff, and it lived in his individual set from 2026-09-04 to 2026-09-14. |
+| [session-text](practices/session-text.md) | deduplicated | [prompt-please](practices/prompt-please.md) | **Coined by Morgan, 2026-09-11**, in his own words: *"When you give me what I need to do, first look to see if it should be in a different session, and that includes most importantly checking for cross repo issues first. |
 
 ## The engine
 

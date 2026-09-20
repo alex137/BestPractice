@@ -122,6 +122,15 @@ issue -- write it up for the durable record, then ask for `My options` on
 what should happen next -- but this practice does not depend on a commit
 existing first, and does not make one.
 
+**Where this differs from [Prompt Please](prompt-please.md).** Both produce
+a paste-ready block naming a repository to root a new session in, and the
+line between them is *when in the decision* each is reached for.
+`My options` is for *before* a recommendation is settled -- every real
+choice, plainly, with its cost, so the person can weigh them even if they
+end up taking the pick anyway. `Prompt Please` is for *after* that point: a
+recommendation already exists, and what's wanted is the clean handoff text
+to act on it, not another comparison.
+
 ## Why
 The four demands are one request that had to be retyped every time, and a
 phrase is cheaper than a paragraph. That is the same argument every other
@@ -136,7 +145,7 @@ leaves the reader exactly where they started.
 
 ## Story
 **Coined by Morgan on 2026-09-12**, in the same thread that renamed
-[session-text](session-text.md). He described the request rather than
+`session-text`. He described the request rather than
 naming it: *"I also tell you a lot 'explain the options more clearly, in
 somewhat less technical wording, the positives and negatives of each, and
 which you recommend and why' - maybe we should have a command for that one
@@ -167,6 +176,12 @@ than declaring a second practice with the same trigger phrase, which two
 active practices cannot both own; that mechanics decision was not put to
 him. `brief-it.md`, the file this superseded, records its own short life --
 unlinked here since it deduplicates into this same file. Strength: decided.
+
+**Cross-referenced against [Prompt Please](prompt-please.md), 2026-09-20**,
+when Morgan coined that command and drew the boundary himself: `My options`
+is for seeing the choices before mostly following whichever one gets
+recommended; `Prompt Please` is for once a recommendation is already the
+plan and only the handoff prompt is wanted.
 
 ## Install
 Nothing to configure. The occasion index entry is generated, so an adopter

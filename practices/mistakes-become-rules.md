@@ -127,7 +127,7 @@ changes, and it calibrates proportionality.
 working in a private team practice source fixed a real defect, then wrote eight
 operational rules about running a fleet of sessions into that set's own
 instructions file and merged them. Most of the material was **already at universal**, which is
-verifiable from here: [session-text](session-text.md) landed 2026-09-11 and
+verifiable from here: `session-text` landed 2026-09-11 and
 already required naming the repositories the work must read, write or push to
 and comparing them against the ones the session holds — and its Detail already
 cited `add_repo` refusing a cross-owner attach, which was one of the eight.

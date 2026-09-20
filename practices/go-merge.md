@@ -134,12 +134,12 @@ question.** If the push, the pull request or the merge is refused because
 this session cannot reach the repository -- a cross-owner `add_repo`
 refusal, no push access, a repository nobody attached -- **the
 authorization is still good and it travels with the work.** Run
-[session-text](session-text.md) on the spot: wake a live session that
-already holds that repository, or, where none does, create one seeded with
-the steps that are left, and put the link in the reply. **Finish everything
-this session can do first** -- sync, commit, push where the push works --
-so only the residue moves. Reporting the refusal and stopping there is the
-one wrong answer.
+[prompt-please](prompt-please.md) on the spot: write up the residue as one
+paste-ready prompt naming which repository to root a new session in, carry
+the authorization with it per that practice's own bounds, and put the
+prompt in the reply. **Finish everything this session can do first** --
+sync, commit, push where the push works -- so only the residue moves.
+Reporting the refusal and stopping there is the one wrong answer.
 
 **What the receiving session may then DO with the relayed phrase is
 [relayed-authorization](relayed-authorization.md)'s**: it merges only where
@@ -290,7 +290,7 @@ just run that came back as a repository-permissions problem: *"if you don't
 have permission to do the go merge (or a part of it) because of cross repo
 issues, then you can spawn a new session to do so."* The chain in the Rule
 had always assumed every step of it was reachable from wherever the phrase
-was read, and [session-text](session-text.md) -- written about work that
+was read, and `session-text` -- written about work that
 has not started yet -- did not obviously govern a chain that stopped
 halfway. So the session that hit it reported the refusal and stopped, which
 is what he was looking at when he asked.
