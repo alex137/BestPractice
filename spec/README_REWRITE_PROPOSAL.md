@@ -155,8 +155,9 @@ and AI together:**
 2. **Nobody remembers why a decision was made, even a small one** — and
    on the rare occasion someone does, they've forgotten why it mattered
    enough to decide.
-3. **People forget.** And when one person does remember, your team is
-   permanently dependent on that one person.
+3. **People forget small details, the why, and the how.** And when one
+   person does remember, your team is permanently dependent on that one
+   person.
 
 It solves them by approaching human/AI collaboration from a different
 angle:
@@ -193,7 +194,7 @@ Here's what you'll actually see:
    and it lives in your own GitHub repo, not locked inside one AI
    provider or held in one person's head.
 
-### Why This Matters if You Write Code
+### Why this matters
 
 - **Plain text and git are the source of truth.** Every rule, every
   document, and the reasoning behind each one lives in your own GitHub
@@ -209,6 +210,18 @@ Here's what you'll actually see:
   what was decided, but why, with a link back to the conversation that
   produced it — nobody has to dig through chat history to find out.
 
+### How
+
+- **Start a repo, not a doc.** Spin one up for the idea the same way
+  you'd start a shared doc — except this one is a GitHub repo, not a
+  Google Doc.
+- **Everyone works through their own AI.** Every teammate connects their
+  assistant to that same repo and works through it — nobody opens the
+  files directly.
+- **You brainstorm and direct it together.** The team argues the idea out
+  with their assistants and gives it direction; the repo is what catches
+  everything that comes out of that.
+
 ### The Philosophy Behind This
 
 The three ideas above aren't just this project's engineering choices —
@@ -218,6 +231,17 @@ and AI should work together. **That fuller argument lives in
 [philosophy/README.md](../philosophy/README.md). It is argument and
 observation: none of it binds work anywhere else in this repository, which
 is what [practices/](../practices/) is for.
+
+The individual pages, if you want to go deeper on any one idea:
+[Core Pillars](../philosophy/CORE_PILLARS.md),
+[Our Philosophy](../philosophy/OUR_PHILOSOPHY.md),
+[The Working Loop](../philosophy/THE_WORKING_LOOP.md),
+[Reasons Why](../philosophy/REASONS_WHY.md),
+[The Talmudic Method](../philosophy/THE_TALMUDIC_METHOD.md),
+[Company Building Rules](../philosophy/COMPANY_BUILDING_RULES.md),
+[AI Governance to Co-Create](../philosophy/AI_GOVERNANCE_TO_COCREATE.md),
+[Humans at Our Best](../philosophy/HUMANS_AT_OUR_BEST.md), and
+[Assorted Notes](../philosophy/ASSORTED_NOTES.md).
 
 ### Get Started
 
