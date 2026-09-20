@@ -91,12 +91,13 @@ with none of this conversation:**
   Say "none" when that is the honest answer -- never leave the reader to
   guess whether it was considered.
 
-**Delivered as one fenced markdown code block (triple backticks), not a
-paragraph of prose** -- the fence is what makes the client render a
-one-click copy button; a block described in words but not actually fenced
-has not delivered this, whatever else the reply says. Same
-requirement [the-boildown](the-boildown.md) already states for any handoff:
-the words are the session's to write, not the reader's to compose. Producing
+**The block has to actually be fenced markdown (triple backticks), not a
+paragraph that merely reads as paste-ready** -- the fence is the only thing
+that makes the client render a one-click copy button, so prose describing a
+block, without the block itself, has not delivered this, whatever else the
+reply says. Same requirement [the-boildown](the-boildown.md) already states
+for any handoff: the words are the session's to write, not the reader's to
+compose. Producing
 it does not, by itself, authorize anything in the repository or
 repositories it names -- that is not committing, pushing, or merging
 anything, whatever the receiving session goes on to do there.
@@ -217,11 +218,12 @@ decided.
 other repos must take into account the original templates in the mother
 system that organizes the other repos, and must be rolled out cleanly in
 updated templates/migrations to the others (if relevant)."* This repo is
-that mother system for whatever it vendors this practice layer to, so the
-requirement is stated here in the repo-agnostic form
-[vendor-rollout-disclosed](vendor-rollout-disclosed.md) already uses --
-"the repos vendoring this one" -- rather than naming BestPractice, so it
-reads correctly from inside a consumer repo too. Strength: decided.
+the mother system for whatever it vendors this practice layer to, so the
+wording is kept in the repo-agnostic form
+[vendor-rollout-disclosed](vendor-rollout-disclosed.md) already settled on
+-- "the repos vendoring this one" in place of BestPractice's own name --
+so the sentence still holds when read from inside a repo that only
+consumes it. Strength: decided.
 
 ## Install
 Nothing to configure. The occasion index entry is generated, so an adopter
