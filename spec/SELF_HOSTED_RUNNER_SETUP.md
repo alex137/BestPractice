@@ -54,14 +54,32 @@ in place of `runs-on: ubuntu-latest`.
 
 ## Step 1 — get the server into RunCloud
 
+**Decide Native or Docker/Containerized first -- this cannot be changed
+after the server is added.** RunCloud offers two server types at creation
+time: **Native** installs the stack directly on the server's OS (Linux
+user separation only -- a compromised process reaches whatever that
+system user can reach, same kernel as everything else on the box);
+**Docker/Containerized** installs it inside Docker containers instead,
+and confines each system user to its own container via RunCloud's
+`rc-shell`, so a compromised process is contained to that container
+rather than reaching the host. If containing a misbehaving job is the
+actual goal, **Docker/Containerized is the server type that buys it, and
+it has to be chosen now, not retrofitted later.** Per RunCloud's own docs,
+checked 2026-09-20 --
+["RunCloud Docker – Introduction & Overview"](https://runcloud.io/docs/an-introduction-to-runcloud-docker),
+["Creating a System User on Docker Servers"](https://runcloud.io/docs/creating-a-system-user-on-docker-servers)
+-- worth re-checking against RunCloud's current docs before relying on it,
+since this is a claim about someone else's product that can change.
+
 If the server is not already connected to RunCloud: create the server
-record in the RunCloud dashboard, then run RunCloud's own connect script
-over SSH (Secure Shell) as `root` on the box (RunCloud's dashboard gives
-you this exact command when you add a server -- copy it from there rather
-than from memory, since it is versioned and can change). This installs
-RunCloud's agent, which manages Nginx and web applications on top of the
-server; it does not take away your own root SSH access, which the rest of
-this guide uses directly.
+record in the RunCloud dashboard, choosing the server type per the above,
+then run RunCloud's own connect script over SSH (Secure Shell) as `root`
+on the box (RunCloud's dashboard gives you this exact command when you add
+a server -- copy it from there rather than from memory, since it is
+versioned and can change). This installs RunCloud's agent, which manages
+Nginx and web applications on top of the server; on a Native server it
+does not take away your own root SSH access, which the rest of this guide
+uses directly.
 
 ## Step 2 — create a dedicated system user for the runner
 
@@ -124,10 +142,18 @@ and starts on boot. Check it with `sudo ./svc.sh status`.
 
 **Option B — RunCloud's Supervisor.** RunCloud's own Supervisor feature (on
 the server's dashboard) keeps an arbitrary long-running command alive and
-restarts it if it dies, without touching systemd directly. Point it at
-`/path/to/actions-runner/run.sh` if you would rather manage the runner
-through RunCloud's own UI alongside your web applications. Do not run both
-options at once against the same runner directory.
+restarts it if it dies. Point it at `/path/to/actions-runner/run.sh` if you
+would rather manage the runner through RunCloud's own UI alongside your web
+applications. **What this actually isolates depends on the server type
+chosen in Step 1**: on a Native server it is a plain OS process, no more
+contained than option A; on a Docker/Containerized server, the Supervisor
+job runs inside that system user's own container, which is real
+containment. On a Docker/Containerized server, note RunCloud's documented
+caveat that Supervisor jobs run as root inside the container by default
+("Fake Run As" simulates running as your chosen user) -- read
+["Setting Up Cron and Supervisor Jobs for Docker Servers"](https://runcloud.io/docs/setting-up-cron-and-supervisor-jobs-for-docker-servers)
+before relying on that distinction. Do not run both options at once
+against the same runner directory.
 
 ## Step 6 — point the workflow at it
 
