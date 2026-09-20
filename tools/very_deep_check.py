@@ -864,6 +864,67 @@ def _orphan_scan(repo_dir):
     return out
 
 
+def _workflow_liveness_scan(repo_dir):
+    """-> [str] CANDIDATES for a human to read, in one repo -- never a claim
+    that any of them is actually dead.
+    (practice: workflow-file-outside-vendoring)
+
+    NOT A FIFTH KIND OF ORPHAN. _orphan_scan's four kinds above all report
+    a firm claim ("the manifest records it but the current kind no longer
+    includes it") because each is keyed against a list that says so
+    definitively. A .github/workflows/*.yml file outside what
+    ci_workflow_files tracks has no such list to be definitive against --
+    CI_WORKFLOW_TEMPLATES names exactly one file per kind, so almost any
+    repo with more than that single workflow file will have entries here BY
+    DESIGN, most of them completely legitimate (a practice set's own
+    commit-identity.yml and engine-refresh.yml, or a repo's own
+    hand-authored check unrelated to Precedent entirely). Reusing
+    _orphan_scan's confident wording here would be the exact mistake this
+    function exists to prevent repeating -- see the incident below.
+
+    THE INCIDENT THIS GUARDS AGAINST, 2026-09-20. A sweep list built by
+    matching filenames against a table of names spec/CI_MINUTES_PLAN.md
+    recorded as retired flagged `light-check.yml` in a real dependent repo
+    as a retired duplicate. Verified directly: it was a
+    live, required, hand-authored check with no relationship to anything
+    Precedent ever templated. This function enumerates by CONTENT tracking
+    (the manifest's own ci_workflow_files, not a name list) and reports
+    candidates for a person to read -- it never classifies one as orphaned,
+    which is exactly the step that mistake skipped."""
+    repo_dir = pathlib.Path(repo_dir)
+    try:
+        import precedent_vendor_engine as pve
+    except ImportError:
+        return ['could not import precedent_vendor_engine, so no workflow '
+                'file could be checked against this repo\'s manifest']
+
+    mpath = repo_dir / 'tools' / getattr(pve, 'MANIFEST_NAME', 'ENGINE_MANIFEST.json')
+    if not mpath.is_file():
+        return []                     # nothing vendored here -- nothing to compare
+    try:
+        manifest = json.loads(mpath.read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return ['tools/ENGINE_MANIFEST.json is present but unreadable, so '
+               'workflow files could not be checked against it']
+
+    exempt = set()
+    cfg_path = repo_dir / 'precedent.json'
+    if cfg_path.is_file():
+        try:
+            cfg = json.loads(cfg_path.read_text(encoding='utf-8'))
+            exempt = {e['path'] for e in
+                     (cfg.get('ci_workflow_outside_vendoring_exempt') or [])
+                     if e.get('reason') and e.get('path')}
+        except (OSError, ValueError):
+            pass
+
+    return [f'.github/workflows/{pathlib.PurePosixPath(rel).name} -- not in '
+           f'ci_workflow_files, not a known retired entry -- CANDIDATE, '
+           f'read its content before concluding anything'
+           for rel in pve._untracked_ci_workflow_files(repo_dir, manifest)
+           if rel not in exempt]
+
+
 def _last_commit(repo_dir, path):
     """-> (unix timestamp, short hash, subject) for the newest commit
     touching `path`, or None when git can name none.
@@ -5299,6 +5360,50 @@ def _main(box):
     print()
     if led:
         led.end(findings=_orph_n if _orph_seen else None)
+        led.start('CI WORKFLOW FILES OUTSIDE VENDORING')
+
+    # Scope is honest, not aspirational: this checkout plus every FATAL_
+    # MISSING_LEVELS source reachable on disk -- the SAME _orph_targets
+    # ORPHANS above already computed. There is no existing mechanism
+    # anywhere in this tool for discovering a CONSUMING repo (one that
+    # vendors FROM this one) -- only upstream sources this repo itself
+    # declares are enumerable here. A consuming repo needs its own
+    # very-deep-check run, with itself as the checkout.
+    print("CI WORKFLOW FILES OUTSIDE VENDORING -- candidates for Pass 2's "
+         "own read, never a verdict\n")
+    print("  Scope: this checkout and every attached source reachable on "
+         "disk -- NOT any\n  repo that vendors FROM this one, which this "
+         "tool has no way to discover.\n")
+    _wf_n = 0
+    _wf_any = False
+    _wf_seen = False
+    for _name, _p in _orph_targets:
+        if not pathlib.Path(_p).is_dir():
+            continue
+        _wf_seen = True
+        _wf_found = _workflow_liveness_scan(_p)
+        _wf_n += len(_wf_found)
+        if _wf_found:
+            _wf_any = True
+            print(f"  {_name}:")
+            for _m in _wf_found:
+                print(f"      {_m}")
+    if not _wf_seen:
+        print("  (no repository to scan)")
+    elif not _wf_any:
+        print("  none -- every .github/workflows/*.yml file present is "
+              "either vendored,\n  a known retired entry, or declared "
+              "exempt with a reason.")
+    else:
+        print("\n  Read each one (practice: workflow-file-outside-vendoring): "
+             "open the file,\n  compare what it actually runs "
+             "against what this repo's vendored template\n  provides. "
+             "Verify by content, never by name -- see that practice's own "
+             "Story\n  for the incident this line exists to prevent "
+             "repeating.")
+    print()
+    if led:
+        led.end(findings=_wf_n if _wf_seen else None)
         led.start('SESSION LOAD')
 
     print("SESSION LOAD -- what every session pays before it does anything\n")

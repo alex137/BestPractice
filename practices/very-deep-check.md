@@ -784,6 +784,26 @@ confidently.
     framed entirely as a Claude Code Remote concern. A codex or gemini-cli
     user reading their own adapter's README had no way to discover it.
     Closed the same session by pointing both READMEs at that section.)*
+18. **Read every CI WORKFLOW FILES OUTSIDE VENDORING candidate this run's
+    own mechanical section prints, one at a time.** That section enumerates
+    by content tracking (a repo's own `ci_workflow_files`), never by
+    matching a name against a list — it hands you candidates, not a
+    verdict, and reading each one is this pass's own job, not something the
+    mechanical half can finish for you. Open the file, read what it
+    actually runs, and compare that against what the repo's vendored
+    template provides before concluding anything. **Never classify one as
+    orphaned by its filename alone** — that is exactly the mistake the
+    incident below made, one pass before this item existed to stop it.
+    *(Found, 2026-09-20: a sweep list built by matching filenames against
+    [spec/CI_MINUTES_PLAN.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/CI_MINUTES_PLAN.md)'s own table of
+    retired-workflow names flagged `light-check.yml` in a real dependent
+    repo as a retired duplicate of `bestpractice-docs.yml`.
+    Verified directly, not relayed: it was a live, required, hand-authored
+    check — `tools/light_check.py`, that repo's own `two-check-levels`
+    light check — sharing a name with something Precedent once shipped and
+    later retired, for reasons that had nothing to do with each other. The
+    eleven-repo sweep the same finding was about to authorize would have
+    repeated this on every remaining name match, unverified.)*
 
 ### Pass 3 — Does the writing still hold together?
 The coherence read, across every repo in scope. Run the mechanical audits

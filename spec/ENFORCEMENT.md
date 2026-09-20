@@ -115,8 +115,9 @@ being checked by it.
 | `todo-migrate-available-but-unused` | tree | a repo that has tools/todo_migrate.py vendored in (source or consumer engine alike) but has never run it -- TODO.md still carries real old-format item bullets, no todo/ directory exists, and the file does not open on the "# TODO has moved" stub heading |
 | `two-check-levels` | tree | the session instructions name two fixed, distinct check levels ("light check" / "deep check") and say which gates a commit versus a push |
 | `verify-postcondition` | turn-end | the state you wanted after the operations this turn: nothing committed but unpushed on any local branch, and no tracked file left modified |
+| `workflow-file-outside-vendoring` | tree | every .github/workflows/*.yml or *.yaml file that changed is either the one file this repo's kind vendors through precedent_vendor_engine.py, or already a known RETIRED_CI_WORKFLOW_FILES entry -- anything else is named, once, as worth a second look |
 
-48 of 133 practices are enforced. Run `python3 tools/precedent_check.py --explain` for what each check does **not** catch.
+49 of 134 practices are enforced. Run `python3 tools/precedent_check.py --explain` for what each check does **not** catch.
 <!--/gen:enforcement-->
 
 Numbers by: catalogue_stats.py

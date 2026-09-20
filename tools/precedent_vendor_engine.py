@@ -1153,6 +1153,44 @@ def _ci_workflow_drift(dest_root, manifest):
     return drifted
 
 
+def _untracked_ci_workflow_files(dest_root, manifest):
+    """-> sorted [rel, ...] for every .github/workflows/*.yml or *.yaml file
+    on disk that this repo's manifest does not track under
+    ci_workflow_files, and that is not a known RETIRED_CI_WORKFLOW_FILES
+    entry either.
+
+    THIS IS NOT AN ORPHAN LIST. CI_WORKFLOW_TEMPLATES names exactly one
+    file per kind -- the template-installed workflow -- so almost any repo
+    with more than that single file will have entries here by design: a
+    practice set's own commit-identity.yml and engine-refresh.yml are
+    untracked by this exact definition and are completely legitimate,
+    intentionally never vendored through this mechanism. A hand-authored
+    check unrelated to Precedent is equally untracked and equally
+    legitimate. Reports enumerate; they do not judge -- see
+    spec/CI_WORKFLOW_RETIREMENT_PLAN.md's account of the false positive
+    (light-check.yml, mistaken for a retired duplicate by filename alone)
+    that this function's callers exist to never repeat. A caller decides
+    what these paths mean; this function only says which paths exist
+    outside what the manifest already tracks.
+
+    Returns [] where dest_root has no ENGINE_MANIFEST.json at all (this
+    repo has never vendored, or is the engine's own origin -- BestPractice
+    itself has no manifest to compare against)."""
+    manifest_path = dest_root / 'tools' / MANIFEST_NAME
+    if not manifest_path.is_file():
+        return []
+    tracked = set(manifest.get('ci_workflow_files') or ())
+    wf_dir = dest_root / '.github' / 'workflows'
+    if not wf_dir.is_dir():
+        return []
+    on_disk = sorted(
+        f'.github/workflows/{p.name}'
+        for p in wf_dir.iterdir()
+        if p.is_file() and p.suffix in ('.yml', '.yaml'))
+    return [rel for rel in on_disk
+            if rel not in tracked and rel not in RETIRED_CI_WORKFLOW_FILES]
+
+
 def _remove_retired_ci_workflow_files(dest_root, manifest):
     """Drop every RETIRED_CI_WORKFLOW_FILES entry from a manifest that still
     carries one, and delete a retired file still on disk -- but ONLY when

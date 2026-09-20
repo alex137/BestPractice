@@ -3655,6 +3655,76 @@ def _unguarded_branch_inferences(text):
                   and fn.name not in guarded_callers)
 
 
+@check('workflow-file-outside-vendoring', 'tree',
+       "every .github/workflows/*.yml or *.yaml file that changed is either "
+       "the one file this repo's kind vendors through "
+       "precedent_vendor_engine.py, or already a known "
+       "RETIRED_CI_WORKFLOW_FILES entry -- anything else is named, once, as "
+       "worth a second look",
+       "whether a flagged file is actually a leftover or a legitimate "
+       "hand-authored check -- this function cannot tell, on purpose (see "
+       "precedent_vendor_engine._untracked_ci_workflow_files's own "
+       "docstring), so it never guesses. Fires only when this repo has a "
+       "tools/ENGINE_MANIFEST.json to compare against (never in "
+       "BestPractice itself, the engine's own origin) and only for the "
+       "'tree'-scope tiers this repo's own rotation/applies_to logic "
+       "selects, same as every other tree-scope check here.",
+       advisory=True)
+def _workflow_file_outside_vendoring(ctx):
+    import precedent_vendor_engine as pve
+
+    manifest = _engine_manifest()
+    if not manifest:
+        raise NotApplicable('no tools/ENGINE_MANIFEST.json -- this repo has '
+                            'never vendored the engine, or is the engine\'s '
+                            'own origin, so there is nothing to compare '
+                            'against')
+    untracked = pve._untracked_ci_workflow_files(ctx.root, manifest)
+
+    # DECLARED DECLINE (practice: checks-carry-a-declared-decline). A
+    # correct repo can legitimately carry an untracked workflow file on
+    # purpose -- a real dependent repo's own light-check.yml is the real
+    # incident this exists for -- so there has to be a clean way to say so
+    # once, with a reason, rather than being flagged on every touch forever.
+    # Same shape as filename_separator_exempt: mandatory reason, and an
+    # entry naming a path this run does NOT find untracked is reported
+    # rather than silently accepted -- an exemption that has outlived what
+    # it exempted is a hole nobody can see otherwise.
+    exempt = {}
+    try:
+        cfg = json.loads((ctx.root / 'precedent.json').read_text(encoding='utf-8'))
+        for e in cfg.get('ci_workflow_outside_vendoring_exempt') or []:
+            if e.get('reason') and e.get('path'):
+                exempt[e['path']] = e['reason']
+    except (OSError, ValueError):
+        pass
+
+    findings = []
+    for rel in untracked:
+        if rel in exempt:
+            continue
+        findings.append(Finding(
+            rel,
+            'not in this repo\'s tracked ci_workflow_files, and not a known '
+            'retired entry -- verify by content, never by name (practice: '
+            'workflow-file-outside-vendoring): if this is a deliberate, '
+            'hand-authored check, declare it in precedent.json\'s '
+            'ci_workflow_outside_vendoring_exempt with a reason; if it '
+            'turns out to be a leftover copy of something the vendored '
+            'engine already provides, retire it upstream rather than '
+            'deleting it here on a guess'))
+    stale_exempt = sorted(set(exempt) - set(untracked))
+    for rel in stale_exempt:
+        findings.append(Finding(
+            rel,
+            f'declared in ci_workflow_outside_vendoring_exempt '
+            f'("{exempt[rel]}"), but this run does not find it untracked -- '
+            f'either it is gone, or it is now tracked, or it is now a known '
+            f'retired entry. A stale exemption is a hole nobody sees '
+            f'otherwise; remove the entry once you have confirmed which.'))
+    return findings
+
+
 @check('declared-base-branch', 'tree',
        "every tool that resolves the repo's branch reads precedent.json's "
        "declared `base_branch` before falling back to inferring one from "
