@@ -150,13 +150,13 @@ with the direction; that's the point of drafting it in full.
 **Precedent solves the three biggest frustrations of working with people
 and AI together:**
 
-1. **Nobody notices the pattern — and even when someone does, enforcing it
-   costs real time and attention, every single time.**
-2. **Nobody remembers why a decision was made, even a small one — and on
-   the rare occasion someone does, they've forgotten why it mattered
-   enough to decide.**
-3. **People forget. And when one person does remember, your team is
-   permanently dependent on that one person.**
+1. **Nobody notices the pattern** — and even when someone does, enforcing
+   it costs real time and attention, every single time.
+2. **Nobody remembers why a decision was made, even a small one** — and
+   on the rare occasion someone does, they've forgotten why it mattered
+   enough to decide.
+3. **People forget.** And when one person does remember, your team is
+   permanently dependent on that one person.
 
 It solves them by approaching human/AI collaboration from a different
 angle:
