@@ -45,7 +45,7 @@ system compose:
   editor — the length of a considered email — then paste them to the agent.
   On a phone that editor is the notepad app: capture and shape the thought
   there, then paste it into the assistant (see
-  [MOBILE.md](MOBILE.md)). The strongest version: refine the prompt in a
+  [MOBILE.md](documentation/MOBILE.md)). The strongest version: refine the prompt in a
   separate chat instance first, and hand the working session the result.
   Type directly only for short commands ("merge"). Pure dictation is an
   anti-pattern: cleaning up your own thinking before tasking an agent is

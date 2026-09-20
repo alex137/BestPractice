@@ -27,7 +27,7 @@ agent-agnostic" — and already ships working adapters for
 [templates/harness/claude-code/](../templates/harness/claude-code/). Two
 open items already name pieces of this gap:
 [todo/todo-2026-09-06-actions-as-enforcement-layer.md](../todo/todo-2026-09-06-actions-as-enforcement-layer.md)
-diagnoses the enforcement half, and [MOBILE.md](../MOBILE.md) plus
+diagnoses the enforcement half, and [MOBILE.md](../documentation/MOBILE.md) plus
 [todo/todo-2026-09-06-grok-workflow.md](../todo/todo-2026-09-06-grok-workflow.md)
 and [todo/todo-2026-09-06-plain-chatgpt-write-support.md](../todo/todo-2026-09-06-plain-chatgpt-write-support.md)
 cover the lightweight, ask-questions-from-a-phone surface. What's missing is
@@ -268,8 +268,8 @@ Once phases 1-4 land, re-run the two open verification items —
 and
 [todo/todo-2026-09-06-plain-chatgpt-write-support.md](../todo/todo-2026-09-06-plain-chatgpt-write-support.md)
 — since a Codex adapter with working bootstrap and identity hooks is exactly
-the "coding agent" [MOBILE.md](../MOBILE.md) currently tells ChatGPT and
-Grok users to route changes through. Update [MOBILE.md](../MOBILE.md)
+the "coding agent" [MOBILE.md](../documentation/MOBILE.md) currently tells ChatGPT and
+Grok users to route changes through. Update [MOBILE.md](../documentation/MOBILE.md)
 either way, per those items' own close condition.
 
 **Research pass, 2026-09-17 — corrects an earlier wrong claim in this same
@@ -311,7 +311,7 @@ Code Remote's session-spawning, waking and routine/trigger mechanism may
 have no equivalent primitive on another provider at all; phase 4's second
 option exists because forcing an equivalence that isn't there would be
 inventing capability rather than porting it. **Nor does this plan touch the
-mobile/chat-app surface directly** — that is [MOBILE.md](../MOBILE.md)'s and
+mobile/chat-app surface directly** — that is [MOBILE.md](../documentation/MOBILE.md)'s and
 the two existing todo items' territory, referenced above rather than
 restated.
 

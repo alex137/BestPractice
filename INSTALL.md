@@ -183,7 +183,7 @@ list.)
      the opening pitch to the project, and keep the per-assistant section
      structure so upstream onboarding improvements propagate on updates
      (§2). Refresh its dated assistant-capability notes from the upstream
-     [MOBILE.md](MOBILE.md) when taking updates. Improvements a project
+     [MOBILE.md](documentation/MOBILE.md) when taking updates. Improvements a project
      makes to its own onboarding page are exported like any other
      practice improvement: fold the generic form back into this template
      in `process/upstream/` (§3), so better onboarding reaches every

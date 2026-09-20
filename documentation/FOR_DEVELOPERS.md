@@ -153,7 +153,7 @@ You don't edit the project's files directly, and running the practice
 tooling by hand isn't the normal way of working here. Connect the
 repository to a large language model (LLM) assistant of your choice —
 Claude Code is the best-supported (*as of 2026-09*); other assistants have
-supported paths, see [MOBILE.md](../MOBILE.md) — and talk to it about the
+supported paths, see [MOBILE.md](MOBILE.md) — and talk to it about the
 work. The
 assistant reads and writes the repository, runs the checks, and drafts
 changes for review. Every session starts by reading the repo's own

@@ -54,7 +54,7 @@ threads.
 
 **The reason it exists is adoption, not capability.** Everything Precedent
 does is already reachable from a phone
-([MOBILE.md](../MOBILE.md)). What is not reachable is the person who will
+([MOBILE.md](../documentation/MOBILE.md)). What is not reachable is the person who will
 not open a Claude session, will not learn what a branch is, and will
 cheerfully send a two-minute voice note about the same subject. A chat app
 is where that person already is.
