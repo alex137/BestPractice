@@ -27,7 +27,12 @@ approved_by: "Morgan, 2026-09-12 -- asked for the command, chose the name from
   just the outcome (\"ready to copy in one click\"). Extended again the same
   day, Morgan: any option that is itself a cross-repo change must account
   for the upstream template it comes from and say whether it needs a clean
-  rollout to the repos vendoring this one."
+  rollout to the repos vendoring this one. Extended again 2026-09-20,
+  Morgan, after a `Prompt Please` handoff in another session left him
+  without a plain instruction to act on: the routing has to be said once
+  more in ordinary prose outside the fenced block, not only inside it,
+  since the block is written for the new session and he is the one who has
+  to read this reply and go open one."
 strength:    decided
 source_practice_number: null
 ---
@@ -101,6 +106,14 @@ compose. Producing
 it does not, by itself, authorize anything in the repository or
 repositories it names -- that is not committing, pushing, or merging
 anything, whatever the receiving session goes on to do there.
+
+**Say it plainly too, outside the block.** The block is written for the new
+session to read; the person asking still needs, in this reply, one ordinary
+sentence that is not fenced and not buried inside it: *"Open a new session,
+root it in \<repository\>, attaching \<repositories, or 'none'\>."* Before
+the block or after it, either is fine -- what matters is that the person
+does not have to open and parse the paste target just to learn what to do
+with it.
 
 ## Detail
 **The recommendation is the part that gets dropped, and it is the part they
@@ -224,6 +237,13 @@ wording is kept in the repo-agnostic form
 -- "the repos vendoring this one" in place of BestPractice's own name --
 so the sentence still holds when read from inside a repo that only
 consumes it. Strength: decided.
+
+**Extended again 2026-09-20**, on the same instruction to all three
+commands -- full quote in [Prompt Please](prompt-please.md)'s Story, where
+the gap actually surfaced. The fenced block already carried the seed root
+and the repos to attach, but only for the new session's own reader --
+nothing said it in plain prose to the person sitting in this one, who has
+to act on it first. Strength: decided.
 
 ## Install
 Nothing to configure. The occasion index entry is generated, so an adopter
