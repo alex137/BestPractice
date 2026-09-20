@@ -86,10 +86,12 @@ sold.**
 
 ## Proposed Structure
 
-1. **A one-line hook**, not a definition. Something in the shape of: *your
-   team already has real conventions — they just live in old Slack
-   messages and one person's memory. Precedent notices them and writes
-   them down, in your own repo, enforced instead of hoped for.*
+1. **A one-line hook**, not a definition — sharp enough that the first
+   sentence alone earns the second. Not a description of the architecture
+   ("a layer that sits between..."), and not a scene-setting sentence
+   about where conventions currently live either; the reader should hit
+   the specific, familiar annoyance and feel the relief of the fix in the
+   same breath.
 2. **A concrete before/after**, three or four lines, showing the thing
    actually happening — a team member corrects the assistant once, and
    every session after that follows the correction without being told
@@ -116,28 +118,9 @@ sold.**
    housekeeping — as a closing reference block, clearly labeled as
    reference rather than pitch.
 
-## A Draft of the Opening, to Make the Shape Concrete
-
-This is illustrative, not a final draft — it exists so the structure above
-reads as something rather than a plan for a plan:
-
-> **Your team already has conventions. Right now they live in a Slack
-> thread, an old PR comment, and one person's memory — and they evaporate
-> the day that person is out sick or that channel gets buried.**
->
-> Precedent notices them instead. Tell your assistant once — "we always
-> write dates as YYYY-MM-DD," "never merge without the deep check" — and
-> it writes that down as a rule your whole team's future sessions follow,
-> checked into your own GitHub repo, in the open, enforced by scripts that
-> fail loudly instead of a policy nobody reads.
->
-> You don't switch tools. You keep working through Claude Code, or
-> whichever assistant your team already uses — Precedent is the layer
-> underneath that remembers, so nobody has to.
-
 ## What This Proposal Does Not Decide
 
-- **The exact wording of the hook.** The draft above is one version of the
+- **The exact wording of the hook.** The opening below is one version of the
   idea, not a recommendation to ship verbatim — it needs a pass for voice
   once someone is actually rewriting the page
   ([write-like-a-human](../practices/write-like-a-human.md),
@@ -164,15 +147,13 @@ with the direction; that's the point of drafting it in full.
 
 ### Precedent
 
-**Your team already has real conventions. Right now they live in a Slack
-thread, an old PR comment, and one person's memory — and they evaporate
-the day that person is out sick or that channel gets buried.**
+**Every AI assistant forgets the correction you just gave it. Precedent
+doesn't.**
 
-Precedent notices them instead. Tell your assistant once — "we always
-write dates as YYYY-MM-DD," "never merge without the deep check" — and it
-writes that down as a rule your whole team's future sessions follow:
-checked into your own GitHub repo, in the open, enforced by scripts that
-fail loudly instead of a policy nobody reads.
+Tell it once — "we always write dates as YYYY-MM-DD," "never merge without
+the deep check" — and it writes that down as a rule your whole team's
+future sessions follow: checked into your own GitHub repo, in the open,
+enforced by scripts that fail loudly instead of a policy nobody reads.
 
 You don't switch tools. You keep working through Claude Code, or whichever
 assistant your team already uses — Precedent is the layer underneath that
