@@ -94,10 +94,10 @@ following, every time:
   [vendor-update-runbook](vendor-update-runbook.md)'s mechanism to reach
   them, when that's relevant.
 
-**Delivered as one fenced markdown code block (triple backticks), not a
-paragraph of prose** -- the fence is what makes the client render a
-one-click copy button; a block described in words but not actually fenced
-has not delivered this. [The
+**Render it as one actual fenced code block (triple backticks), never a
+paragraph that only reads as paste-ready** -- the fence is what gives the
+client a one-click copy button, and prose describing the block instead of
+being the block has not delivered this. [The
 three-things-always shape](handoff-is-pasteable.md) any reply that sends
 someone elsewhere already owes: repository, exact paste text, a way back.
 Nothing split into the surrounding prose, nothing left for the reader to
