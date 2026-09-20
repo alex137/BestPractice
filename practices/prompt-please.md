@@ -127,10 +127,10 @@ paste block needs nothing from any one provider's tool surface).
 this handoff**, exactly as `session-text` drew this line before this
 absorbed it. Absent that, the default text says so directly:
 
-> **DO NOT MERGE — STOP AT THE PULL REQUEST. Wait for the word "Go merge" in
+> **DO NOT MERGE — STOP AT THE PULL REQUEST. Wait for the word "Go update" in
 > this session before merging.**
 
-When the person says `Prompt Please` together with `Go merge` (or
+When the person says `Prompt Please` together with `Go update` (or
 `Approved`) -- or anything that plainly gives both in the same breath -- the
 authorization travels with the prompt, bounded exactly as
 [go-merge](go-merge.md) already bound it (and `session-text` bound it

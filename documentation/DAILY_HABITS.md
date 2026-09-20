@@ -140,7 +140,7 @@ scrolled past, closed, or simply too long to find anything in. Anything
 that matters has to end up in the project itself, where the next person
 and the next AI Assistant will actually encounter it.
 
-That's what "make it a rule" is for, and it's what "Go merge" is for.
+That's what "make it a rule" is for, and it's what "Go update" is for.
 Habits 1 and 3 are the same idea from the other direction: work through
 the AI Assistant so the project keeps up with you, and ask the project
 questions instead of trying to remember the answers.

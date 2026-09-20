@@ -49,7 +49,7 @@ Three things follow from this that are worth knowing:
   below, which is a deliberate wall, not a comment on you. **When the yes
   is yours**, and you want the AI Assistant to stop asking every time, say
   **"Go update"** — a standing phrase this project understands to mean *do
-  all of it, including the merge, without checking back.* ("Go merge"
+  all of it, including the merge, without checking back.* ("Approved"
   means the same thing.)
 
 There are a few more of those standing phrases — **"Drop it"**, **"Plain

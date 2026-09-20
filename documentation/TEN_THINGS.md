@@ -27,7 +27,7 @@ matters has to end up in it. Work happens on a private copy, is proposed as
 a pull request, and becomes real only when it is merged — which means
 several people and their AI Assistants can work at once without
 overwriting each other. **"Go update"** is the phrase that ends a piece of work: save it,
-publish it, say where it went, no further questions ("Go merge" says the
+publish it, say where it went, no further questions ("Approved" says the
 same thing).
 
 - Plain: [Nothing Is Real Until It's Merged](FOR_EVERYONE_ELSE.md#nothing-is-real-until-its-merged), [Say "Go Update" When You're Ready](DAILY_HABITS.md#4-say-go-update-when-youre-ready)
@@ -95,7 +95,7 @@ the line runs through paths and lists.
 ## 8. A Few Standing Phrases Mean Exactly One Thing
 
 Plain English always works, but a short vocabulary saves a paragraph each
-time: **Go merge**, **Drop it**, **Three Things**, **Simple words**, **Weak
+time: **Go update**, **Drop it**, **Three Things**, **Simple words**, **Weak
 yes**, and the rest. Each is itself a practice, so its meaning is written
 down and the AI Assistant is guaranteed to recognize it. Say **"Vocabulary"**
 to have the current list read to you.

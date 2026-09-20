@@ -204,7 +204,7 @@ against CODEOWNERS with GitHub's own matching rules and prints the sentence
 to say — *"two of these files are part of the project's machinery, so the
 maintainer has to look at them before this lands; the other three are yours
 to merge. Want those to go in on their own now?"* A documents-only pull
-request is then its author's to merge, with `Go merge`, and no reviewer is
+request is then its author's to merge, with `Go update`, and no reviewer is
 involved. One touching an owned path waits for the maintainer, who reviews
 it on GitHub like any pull request. The boundary is GitHub's; the tool only
 makes sure nobody meets it as a merge button that will not press.

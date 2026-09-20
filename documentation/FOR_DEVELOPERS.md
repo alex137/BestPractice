@@ -295,7 +295,7 @@ Three roles, and each is a list in a file rather than a label on a person
 
 - **Collaborator** — anyone invited to the project repository with GitHub's
   Write role. They write, change and merge the project's content, through
-  their AI Assistant, with `Go merge`.
+  their AI Assistant, with `Go update`.
 - **Maintainer** — named under `maintainers` in the project's
   `precedent.json`. Their review is required before a change to the
   machinery lands: `.github/`, `.claude/`, `tools/`, the vendored catalogue,
