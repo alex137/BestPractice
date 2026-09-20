@@ -252,6 +252,38 @@ def _norm(s):
     return s.replace('’', "'").replace('‘', "'").lower()
 
 
+# practices/the-boildown.md (practice: the-boildown) names one fixed template
+# for a turn where nothing happened that is visible, or non-trivial, to the
+# person -- "Unchanged since the last update: <what it's still waiting on>."
+# -- and says that turn does not owe a fresh Boildown reworded from scratch.
+# Widened 2026-09-20 (Morgan,
+# direct instruction) from "a scheduled wakeup, a reminder firing, or a
+# background-task notification" to any turn that shape fits, including one
+# the stop hook itself forces -- a practice-candidate detector rechecking its
+# own prior false positive is the incident that prompted the widening, and it
+# produced two closing headings in a row with nothing between them but "still
+# not a rule." The practice's own prose changed that day; this is the other
+# half, so the gate matches what the practice now actually says.
+#
+# Matched at the START of the stripped reply, case-insensitively, allowing
+# the phrase to open under light emphasis markup (`**Unchanged...**`) since a
+# session bolding its own lead phrase is expected, not a different sentence.
+# This is a literal, narrow match on the fixed template -- not a heuristic
+# about length, tone, or how "trivial" a reply feels -- because a fuzzy
+# trigger is a fuzzy exemption from a rule declared as blocking, and reads
+# every reply as a candidate for skipping its own gate.
+_TRIVIAL_CHECKIN_RE = re.compile(r'^[\s*_]*unchanged since the last update:', re.I)
+
+
+def is_trivial_checkin(text):
+    """True when `text` opens with the fixed one-line check-in template
+    practices/the-boildown.md names for a turn with nothing visible or
+    non-trivial to report. Such a turn is exempt from every requirement
+    below, the same way an empty reply already is -- it is not a shorter
+    Boildown, it is the documented substitute for one."""
+    return bool(_TRIVIAL_CHECKIN_RE.match(text.strip()))
+
+
 def violations(text, reqs, timeline=None):
     """-> list of records, one per unmet requirement:
 
@@ -390,7 +422,11 @@ def main():
     # path. The transcript branch already returns early for it; --text needs
     # the same, and a blank file is the shape a caller uses to ask "would
     # this block?" about a tool-only turn.
-    if not reqs or not text.strip():
+    #
+    # A turn that opens with the fixed trivial-check-in template is the
+    # documented substitute for a Boildown, not a shorter one -- exempt the
+    # same way (practice: the-boildown).
+    if not reqs or not text.strip() or is_trivial_checkin(text):
         return 0
     bad = [b for b in violations(text, reqs, timeline) if not b.get('advisory')]
     if not bad:

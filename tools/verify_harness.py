@@ -9017,6 +9017,84 @@ def check_compaction_offer_fires_on_context_growth():
           '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad_cases))
 
 
+def check_trivial_checkin_exempts_the_boildown_gate():
+    """practices/the-boildown.md names one fixed template for a turn where
+    nothing happened that is visible, or non-trivial, to the person --
+    "Unchanged since the last update: <X>." -- and says that turn does not
+    owe a fresh Boildown. Widened 2026-09-20 to cover any turn that shape
+    fits, not only a scheduled wakeup or background-task notification --
+    including one the stop hook itself forces, which is what prompted it:
+    a practice-candidate false positive rechecking its own prior output
+    produced two closing headings in a row with nothing between them.
+    `precedent_reply_check.is_trivial_checkin()` is the mechanical half;
+    this proves it actually exempts a reply from a real declared
+    requirement, and the negative control proves an ordinary short reply
+    that merely mentions the phrase in passing still has to carry one.
+    """
+    import tempfile
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-trivial-checkin-'))
+    cases = []
+    try:
+        fx = tmp / 'repo'
+        (fx / 'practices').mkdir(parents=True)
+        (fx / 'precedent.json').write_text(json.dumps({'sources': [
+            {'level': 'universal', 'name': 'precedent', 'path': '.'}]}), encoding='utf-8')
+        (fx / 'reply_check.json').write_text(json.dumps({
+            'practice': 'fixture-trivial-checkin',
+            'require_heading_matching': 'boildown',
+            'require_one_of': ['You can archive this session',
+                               "Don't archive this session"],
+        }), encoding='utf-8')
+
+        def replycheck(text_path):
+            return subprocess.run(
+                [sys.executable, str(ROOT / 'tools' / 'precedent_reply_check.py'),
+                 '--repo', str(fx), '--text', str(text_path)],
+                capture_output=True, text=True, cwd=str(tmp),
+                env={**os.environ, 'PRECEDENT_USER_CONFIG': str(tmp / 'no-such-config.json')})
+
+        trivial = tmp / 'trivial.md'
+        trivial.write_text('Unchanged since the last update: still waiting '
+                           'on your answer.\n', encoding='utf-8')
+        r1 = replycheck(trivial)
+        cases.append(('a reply opening with the fixed trivial-check-in '
+                      'template is not blocked, though it carries neither '
+                      'the declared heading nor the declared sentence',
+                      r1.returncode == 0, r1.stderr[:200]))
+
+        bold = tmp / 'bold.md'
+        bold.write_text('**Unchanged since the last update:** still '
+                        'waiting on your answer.\n', encoding='utf-8')
+        r2 = replycheck(bold)
+        cases.append(('...and the same holds when the lead phrase is bolded',
+                      r2.returncode == 0, r2.stderr[:200]))
+
+        # The negative control: a reply that merely mentions the phrase
+        # partway through, rather than opening with it, is an ordinary reply
+        # and still owes the real closing section. Without this, the case
+        # above would prove nothing about the match being anchored.
+        mid = tmp / 'mid.md'
+        mid.write_text('Some work happened. Unchanged since the last '
+                       'update: still waiting on your answer.\n', encoding='utf-8')
+        r3 = replycheck(mid)
+        cases.append(('the control: the same phrase appearing MID-REPLY, '
+                      'not at the start, does not exempt anything -- this '
+                      'is a literal template match, not a keyword scan',
+                      r3.returncode == 2, f'exit {r3.returncode}'))
+        cases.append(('...and the block names the missing heading, same as '
+                      'any other ordinary reply',
+                      'MARKDOWN HEADING' in r3.stderr, r3.stderr[:200]))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad_cases = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
+    check(f'the fixed trivial-check-in template exempts a reply from the '
+          f'Boildown gate, anchored to the start of the reply '
+          f'({len(cases)} stated cases)',
+          not bad_cases,
+          '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad_cases))
+
+
 def check_close_detection_fires_only_when_all_conditions_hold():
     """precedent_close_detect.py: the noticing end of the engine, and every
     one of its four conditions, each with the control that proves the
@@ -24031,6 +24109,7 @@ def main():
     check_reply_gate_sees_every_source()
     check_advisory_requirement_never_blocks()
     check_compaction_offer_fires_on_context_growth()
+    check_trivial_checkin_exempts_the_boildown_gate()
     check_close_detection_fires_only_when_all_conditions_hold()
     check_loader_block_advertises_only_live_channels()
     check_source_sets_can_learn_they_are_stale()
