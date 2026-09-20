@@ -3,14 +3,14 @@
 # Precedent
 
 *This is written for someone who has not seen Precedent before and wants to
-use it. It assumes no programming, and "assistant" below means whatever
+use it. It assumes no programming, and "AI Assistant" below means whatever
 tool you talk to about your work. If you are working on the rewrite itself,
 [PRACTICE_ENGINE_PLAN.md](../spec/PRACTICE_ENGINE_PLAN.md) is the document for you,
 not this one.*
 
 ## What It Is
 
-*The question this document answers:* **I have a project and an assistant
+*The question this document answers:* **I have a project and an AI Assistant
 that keeps making the same mistakes. What is Precedent, and would it help?**
 
 Precedent captures the way you and your colleagues have decided to work, and
@@ -26,7 +26,7 @@ library of general ones, but the point is the ones you add.
 
 Two things then happen without you doing anything more.
 
-**They show up when they matter.** Your assistant is given the handful of
+**They show up when they matter.** Your AI Assistant is given the handful of
 practices that bear on what it is doing right now, rather than the whole
 library every time. A library that costs more to carry the bigger it gets is
 a library people stop growing.
@@ -46,7 +46,7 @@ down makes anyone follow it. It measurably does not.
 ## Adding It to a Project You Already Have
 
 This is the common case and it should be the shortest. **You do not do
-these steps yourself**: paste [SETUP.md](../SETUP.md) to your assistant and
+these steps yourself**: paste [SETUP.md](../SETUP.md) to your AI Assistant and
 it does them as a conversation, with one command doing the file work. The
 three-step shape below is the idea, not a checklist to follow by hand.
 
@@ -58,13 +58,14 @@ three-step shape below is the idea, not a checklist to follow by hand.
    you just copied. There is an example in
    [precedent.json](../precedent.json) here, which is the one Precedent uses on
    itself.
-3. Tell your assistant about it once, in whatever file it already reads when
+3. Tell your AI Assistant about it once, in whatever file it already reads when
    it starts.
 
-That is the whole setup. Nothing is downloaded while you work, so an
-assistant that starts up with no internet connection still has everything. When the shared library gets
-better, you pull the newer version in when it suits you, the same way you
-would take a newer version of anything else you had copied in.
+That is the whole setup. Nothing is downloaded while you work, so an AI
+Assistant that starts up with no internet connection still has everything. When
+the shared library gets better, you pull the newer version in when it suits
+you, the same way you would take a newer version of anything else you had
+copied in.
 
 **You open one thing to do your work: the project.** The practice libraries
 come along with it; they are not extra places you have to open first. If using this meant opening three places before touching anything, the
@@ -85,7 +86,7 @@ places. There is a worked example to copy in
 [examples/practice-set/](examples/practice-set).
 
 **You don't need this to already exist before you start.** If you don't
-have one yet, just say so — your assistant sets it up in the same
+have one yet, just say so — your AI Assistant sets it up in the same
 conversation: a real starter file in the right format, and the one line of
 your own settings that points at it. Nothing about adopting Precedent
 waits on you having built this ahead of time.
@@ -121,12 +122,12 @@ always at least one and no ceremony to get started. Adding or removing an
 approver is itself a change that the current approvers have to agree to,
 which is what stops someone quietly adding themselves.
 
-**No team space yet? Your assistant can set one up right now** — same as
+**No team space yet? Your AI Assistant can set one up right now** — same as
 the personal case above: a real starter file, and the one small addition
 to your project's own settings that wires it in. You don't need to build
 this ahead of time either.
 
-**What approval looks like day to day:** your assistant writes the practice
+**What approval looks like day to day:** your AI Assistant writes the practice
 and asks an approver to look at it. They get a notification wherever they
 already get them. They say yes, and it lands. If the approver is you — which
 for a small team it usually is — there is no waiting at all: your "yes" in
@@ -153,11 +154,11 @@ force and which one was set aside. Nothing is dropped quietly.
 ## How an Idea Becomes a Practice
 
 You work normally. Around that, one path takes an idea from something that
-happened in conversation to a rule your assistant follows from then on — and
+happened in conversation to a rule your AI Assistant follows from then on — and
 it only ever turns on one question: ***who has to say yes to this?***
 
 **It notices.** When you say *"from now on,"* or *"always,"* or *"never"* —
-or when you rewrite something an assistant produced, or the same instruction
+or when you rewrite something an AI Assistant produced, or the same instruction
 comes up a second time, or a review turns up the same mistake again — that is
 the moment worth writing down, and it gets noticed rather than depending on
 someone remembering later.
@@ -167,8 +168,8 @@ own: a draft of the practice, where it thinks the practice belongs — yours,
 your team's, or everyone's — and why. Ignoring it costs you nothing, and an
 ignored suggestion expires on its own.
 
-**Someone says yes, or it waits.** This step is deliberate and it is not
-going away — an assistant that writes its own binding rules unsupervised is
+**Someone says yes, or it waits.** This step is deliberate and it is not going
+away — an AI Assistant that writes its own binding rules unsupervised is
 exactly how the project that led to this one went from twenty-one rules to
 forty-six in three days, and a rulebook nobody agreed to is a rulebook nobody
 trusts. Who has to give that yes depends on which of the three it belongs to:
@@ -208,7 +209,7 @@ That middle step is the design, not an unfinished corner of it.
 
 **Writing a practice down does not make it happen.** This was measured
 carefully rather than assumed, and the result went against what the project
-expected: an assistant carrying the entire library in front of it still
+expected: an AI Assistant carrying the entire library in front of it still
 missed about one in six of the practices that applied to the work at hand.
 Giving it a smaller, better-targeted selection did not fix that — it missed
 more, while costing far less to run. Both arrangements missed *the same

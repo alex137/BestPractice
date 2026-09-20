@@ -39,13 +39,14 @@ loop; say so and follow §1 instead.
      projects have neither yet — that's a complete answer on its own — but
      it costs nothing to offer setting one up in the same conversation, so
      ask rather than assume no.
-   - *Which AI assistant will actually be working in this repo* — Claude
+   - *Which AI Assistant will actually be working in this repo* — Claude
      Code, ChatGPT connected to GitHub, or something else? Explain in one
-     sentence: an assistant with no access to a terminal needs GitHub's
-     own automated checks for things one with terminal access does not.
+     sentence: an AI Assistant with no access to a terminal needs
+     GitHub's own automated checks for things one with terminal access
+     does not.
    - *Should the vendored GitHub Actions workflow be on or off?* **Default
-     depends on the answer just above.** If the assistant has no terminal
-     access (ChatGPT, or anything else with no local shell), default
+     depends on the answer just above.** If the AI Assistant has no
+     terminal access (ChatGPT, or anything else with no local shell), default
      **enabled** — GitHub Actions is not a cost optimization for that
      case, it is the only place any check can run at all, and defaulting
      it off silently leaves that repo with zero enforcement regardless of
@@ -130,9 +131,10 @@ loop; say so and follow §1 instead.
    one breath and move on**: both shipped empty, both are optional, both
    stay local to their project and are never proposed back to the public
    Precedent repo, and they can fill either in whenever they like by just
-   saying so to an assistant — *"help me fill in my project's voice"*. **Do
-   not walk them through the sections, and do not ask whether a brand
-   guideline exists.** That is a good conversation and it is not this one.
+   saying so to an AI Assistant — *"help me fill in my project's
+   voice"*. **Do not walk them through the sections, and do not ask
+   whether a brand guideline exists.** That is a good conversation and
+   it is not this one.
 5. **Merge for them or with them.** If you can merge, ask "Shall I make
    this live?" and do it on their yes. If only they can merge, give them
    the pull-request link and tell them exactly what to press.
@@ -156,9 +158,9 @@ loop; say so and follow §1 instead.
       create a personal access token that can reach this repository, then
       save it under **Settings → Secrets and variables → Actions → New
       repository secret**, named `PRECEDENT_REPO_TOKEN` unless something
-      already expects another name. Without a key of its own, an assistant
-      working here can read and prepare changes but cannot push them or
-      open a proposal on the project's behalf.
+      already expects another name. Without a key of its own, an AI
+      Assistant working here can read and prepare changes but cannot
+      push them or open a proposal on the project's behalf.
    3. **Check the main line of work is called `main`** — **Settings →
       General → Default branch**, renaming it there if it is called
       anything else. The automatic check installed above watches a branch
@@ -169,9 +171,9 @@ loop; say so and follow §1 instead.
    5. **Put a few settings into Claude itself**, if they work in Claude
       Code on the web. Recommended, not required — but without them,
       every new session re-lives the same three problems: their own
-      practices never load, work gets committed under the assistant's bot
-      account rather than their name, and timestamps land in the wrong
-      timezone. In Claude, open [claude.ai/code](https://claude.ai/code),
+      practices never load, work gets committed under the AI Assistant's
+      bot account rather than their name, and timestamps land in the
+      wrong timezone. In Claude, open [claude.ai/code](https://claude.ai/code),
       go to the environment this project runs in, and find its
       **environment variables** — the full path is in Anthropic's own
       guide at
@@ -210,9 +212,9 @@ loop; say so and follow §1 instead.
    onboarded by saying **"Add project members"** to the project's agent
    (the installed instructions file teaches every future session how to
    guide that); day-to-day work is just asking questions and requesting
-   changes in plain language; and **if anyone tells an assistant working
-   here "always do X" or "never do Y," it will notice and offer to write
-   that down as one of this project's own rules** — captured into the
+   changes in plain language; and **if anyone tells an AI Assistant
+   working here "always do X" or "never do Y," it will notice and offer
+   to write that down as one of this project's own rules** — captured into the
    instructions file every future session reads, not just remembered for
    this one conversation. Nobody has to ask for that by name, and nothing
    gets written down without saying so and getting a yes first.
@@ -232,9 +234,9 @@ it runs inside your ordinary work. The section references are to
   what you built and either approve it or ask for changes.
   `local/practices/project-voice.md` and `STYLEGUIDE.md` are **not** walked
   through and nobody is asked about a brand guideline: both ship empty,
-  stay local to the project, and are filled in whenever they later ask an
-  assistant to.
-- **When a practice is proposed** (a rule their assistant noticed and
+  stay local to the project, and are filled in whenever they later ask
+  an AI Assistant to.
+- **When a practice is proposed** (a rule their AI Assistant noticed and
   wrote down). They say yes or no, at the level it belongs — theirs, the
   team's, or the public library, where it goes up for a visible review.
   This is the one recurring moment where content may leave the project's
@@ -281,8 +283,8 @@ each, not worked through:
 
 **What you do say, once:** these files exist, they are optional, they stay
 local to the project, and **the administrator can fill any of them in at
-any time just by asking an assistant** — *"help me fill in my project's
-voice"*. That sentence is the whole handover.
+any time just by asking an AI Assistant** — *"help me fill in my
+project's voice"*. That sentence is the whole handover.
 
 **What is in scope and must not be skipped as "polish":** the private-word
 blocklist, the commit identity, the team and individual source question,

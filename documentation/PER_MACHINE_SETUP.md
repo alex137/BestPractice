@@ -151,10 +151,10 @@ which carries the same explanation.
 
 **Recommended, not required.** Precedent installs and runs with none of this
 set. What it buys is that three problems stop recurring per session: private
-practices that silently never load, commits authored by the assistant's bot
-account instead of a person, and attached repositories nobody checks for
-staleness. Set on the environment rather than per checkout, they follow a
-session into every repository it touches.
+practices that silently never load, commits authored by the AI Assistant's
+bot account instead of a person, and attached repositories nobody checks
+for staleness. Set on the environment rather than per checkout, they
+follow a session into every repository it touches.
 
 | Variable | Status | Example value |
 |---|---|---|

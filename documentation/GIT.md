@@ -4,7 +4,7 @@
 
 A normal chat thread is useful but temporary. Important context may be
 buried in an old conversation, known to only one person, or missing from
-another assistant's memory. Keeping the project in a GitHub repository
+another AI Assistant's memory. Keeping the project in a GitHub repository
 gives the team a shared, inspectable memory instead:
 
 - Important decisions are written down.
@@ -194,8 +194,8 @@ section covers git's and GitHub's own.
 ### The Files That Run Things
 
 These are not project content. They are the machinery a repository carries
-so that GitHub, git and your assistant know what to do — and they are the
-files most likely to go past unexplained, because everyone assumes you
+so that GitHub, git and your AI Assistant know what to do — and they are
+the files most likely to go past unexplained, because everyone assumes you
 already know what they are.
 
 - **`.github/`** — a folder GitHub itself reads. Nothing in it is part of

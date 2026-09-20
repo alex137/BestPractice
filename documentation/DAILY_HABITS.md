@@ -12,17 +12,17 @@ There are four, and none of them is technical.
 
 ## 1. Don't Edit the Files Yourself — Ask
 
-**Say what you want changed, in your own words, and let the assistant
+**Say what you want changed, in your own words, and let the AI Assistant
 make the change.** *"The second paragraph is too defensive, rewrite it."*
 *"Pull the budget section out into its own document."* *"This date is
 wrong, it should be the 14th."*
 
 This is not a rule about being careful, and it isn't there because your
 edits would be bad. It's that an edit made by hand is invisible to
-everything else here. The assistant writes down *why* a change happened,
+everything else here. The AI Assistant writes down *why* a change happened,
 keeps the documents that describe it in step, and runs the project's own
 checks before anything is saved. **A file quietly changed by hand skips
-all of that** — and the next person, or the next assistant, has no way to
+all of that** — and the next person, or the next AI Assistant, has no way to
 know it happened or what it was for.
 
 If you find yourself opening a file to fix something small, that's the
@@ -32,7 +32,7 @@ moment to paste the sentence into the chat instead.
 
 **This is the habit that pays for itself, and it's the one people skip.**
 
-When the assistant does something you don't want — wrong tone, wrong
+When the AI Assistant does something you don't want — wrong tone, wrong
 format, an assumption it shouldn't have made, a step it skipped — you can
 just correct it and move on. The work gets fixed. But the correction dies
 with the conversation, and in a week you'll be typing it again.
@@ -45,7 +45,7 @@ Instead, say so explicitly:
 >
 > *"That's the second time. Write it down so it doesn't happen a third."*
 
-Your assistant will write the rule down properly, work out whether it's
+Your AI Assistant will write the rule down properly, work out whether it's
 just yours or something your whole team should follow, and tell you where
 it put it. From then on it's automatic — for you, for your teammates, and
 for a session next month that has never met you. [How to Use This — A
@@ -58,7 +58,7 @@ otherwise go wrong again.
 
 ## 3. Ask It Anything
 
-**The assistant has read the whole project, and you can just ask.** This
+**The AI Assistant has read the whole project, and you can just ask.** This
 is underused, because it doesn't feel like a task.
 
 - *"What changed in here this week?"*
@@ -78,7 +78,7 @@ Everything you do in a conversation is, until you say otherwise, **only
 in that conversation.** It hasn't been shared, and if you close the tab it
 may not survive.
 
-**"Go update"** is how you end that. Say it and your assistant saves the
+**"Go update"** is how you end that. Say it and your AI Assistant saves the
 work properly, publishes it where your colleagues can see it, and tells
 you where it went — no further questions, no checklist to confirm.
 (**"Approved"** means exactly the same thing, said as a plain word of
@@ -94,7 +94,7 @@ costs an afternoon.
 
 ## The Rest of the Vocabulary
 
-`Go update` is one of a small set of phrases the assistant is guaranteed to
+`Go update` is one of a small set of phrases the AI Assistant is guaranteed to
 recognize. You never have to use any of them — plain English works — but
 each one saves you a paragraph of explaining:
 

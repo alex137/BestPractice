@@ -25,7 +25,7 @@ Three things, and each maps to a group of settings below.
 
 1. **The repository is the project's memory.** Everything a session needs
    is a committed file, so the repository has to be reachable by every
-   person and every assistant session that works on it. That is
+   person and every AI Assistant session that works on it. That is
    **collaborators and tokens**.
 2. **A pull request is the review.** Nothing is real until it is merged,
    and the merge is where a person's yes is taken. That is **branch
@@ -63,7 +63,7 @@ repository is unrestricted write, and the boundary below does nothing until
 protection exists.
 
 **Whose identity a session acts as** matters as much as the role. The
-boundary binds a contributor only if their assistant authenticates to
+boundary binds a contributor only if their AI Assistant authenticates to
 GitHub as *them*, not through a shared organisation-wide connection. Test
 it once per project: have them try something their role forbids and watch
 GitHub refuse it under their name.
@@ -197,7 +197,7 @@ thread that adds a document adds its row to the map, so owning the map made
 every document wait for the maintainer. A wrong row in an index is a
 content mistake, and content is the contributor's.
 
-**How a pull request then flows.** A contributor's assistant makes the
+**How a pull request then flows.** A contributor's AI Assistant makes the
 change on a branch, and before opening the pull request runs
 `python3 tools/precedent_owned_paths.py`, which diffs the touched paths
 against CODEOWNERS with GitHub's own matching rules and prints the sentence

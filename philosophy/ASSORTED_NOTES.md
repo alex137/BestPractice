@@ -274,7 +274,7 @@ open question above.
 
 **Rejecting a request costs less when it comes from AI than from a
 person.** Morgan's observation, not yet tied to a specific practice: saying
-no to an AI assistant's proposal — a suggested plan, a permission ask, a
+no to an AI Assistant's proposal — a suggested plan, a permission ask, a
 piece of pushed-back-on advice — carries less social weight than saying no
 to the same request from a person. No relationship to manage, no face on
 the other side to consider. Worth tracking as a real effect on its own,
