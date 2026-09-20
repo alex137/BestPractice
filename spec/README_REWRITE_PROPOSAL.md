@@ -86,21 +86,21 @@ sold.**
 
 ## Proposed Structure
 
-1. **A one-line hook**, not a definition — sharp enough that the first
-   sentence alone earns the second. Not a description of the architecture
-   ("a layer that sits between..."), and not a scene-setting sentence
-   about where conventions currently live either; the reader should hit
-   the specific, familiar annoyance and feel the relief of the fix in the
-   same breath.
-2. **A concrete before/after**, three or four lines, showing the thing
-   actually happening — a team member corrects the assistant once, and
-   every session after that follows the correction without being told
-   again. Developers trust a worked example over an adjective; this repo's
-   own [no-invented-specifics](../practices/no-invented-specifics.md)
-   practice means this has to be a real mechanism described honestly, not
-   a fabricated customer story — the walkthrough already in
+1. **A hook that names the frustrations, not the architecture** — not a
+   description ("a layer that sits between..."), and not scene-setting
+   about where conventions currently live; three frustrations any team
+   working with people and AI already recognizes, immediately followed by
+   the different angle Precedent takes on all three at once.
+2. **A concrete walkthrough**, not an adjective — what actually happens
+   when you attach an assistant to a repo and work through something with
+   it: it pushes back, it writes down what you correct it on, it enforces
+   and cites what it already wrote down. Developers trust watching the
+   thing happen over being told it's good; this repo's own
+   [no-invented-specifics](../practices/no-invented-specifics.md) practice
+   means this has to be a real mechanism described honestly, not a
+   fabricated customer story — the walkthrough already in
    [documentation/TEN_THINGS.md](../documentation/TEN_THINGS.md) item 4 is
-   real material to draw the example from.
+   real material to draw from.
 3. **Why a developer specifically should care** — plain text and git as
    the source of truth, no proprietary format, enforcement by scripts that
    fail loudly instead of a policy doc nobody reads, an audit trail for
@@ -147,30 +147,51 @@ with the direction; that's the point of drafting it in full.
 
 ### Precedent
 
-**Every AI assistant forgets the correction you just gave it. Precedent
-doesn't.**
+**Precedent solves the three biggest frustrations of working with people
+and AI together:**
 
-Tell it once — "we always write dates as YYYY-MM-DD," "never merge without
-the deep check" — and it writes that down as a rule your whole team's
-future sessions follow: checked into your own GitHub repo, in the open,
-enforced by scripts that fail loudly instead of a policy nobody reads.
+1. **Nobody notices the pattern — and even when someone does, enforcing it
+   costs real time and attention, every single time.**
+2. **Nobody remembers why a decision was made, even a small one — and on
+   the rare occasion someone does, they've forgotten why it mattered
+   enough to decide.**
+3. **People forget. And when one person does remember, your team is
+   permanently dependent on that one person.**
 
-You don't switch tools. You keep working through Claude Code, or whichever
-assistant your team already uses — Precedent is the layer underneath that
-remembers, so nobody has to.
+It solves them by approaching human/AI collaboration from a different
+angle:
 
-### How It Actually Works
+- **Human collaboration comes first.** The tool exists to make people
+  working together better, not to route around them.
+- **AI sits between the work and the people doing it**, pushing back on
+  ideas to strengthen them and keeping the record of how a decision was
+  reached, not just the decision itself.
+- **AI watches what's actually happening and proposes the rules for it** —
+  generated from a team's own history, and put up for approval, never
+  landed unapproved.
 
-Say something to your assistant once, in your own words — *"from now on,
-always run the deep check before you merge"* — and it doesn't just do it
-this one time. It drafts that instruction as a rule and shows it to you;
-once you say yes, every session after this one — yours, a teammate's, six
-months from now — follows it automatically, with no policy document for
-anyone to remember to reread.
+### What This Looks Like in Practice
 
-Where a rule can be checked mechanically, it is: a small script runs
-before a change lands and fails loudly if the rule was broken, so keeping
-to your own conventions doesn't depend on anyone staying vigilant.
+Next time you're brainstorming or working through a problem with your
+team — especially a team project — try this instead of a chat window or a
+shared doc: open a GitHub repo for the project, and work through it with
+Claude Code attached to that repo.
+
+Here's what you'll actually see:
+
+1. **The assistant pushes back on you**, instead of just typing whatever
+   you say.
+2. **When you explain why you disagreed with it, it writes that down** —
+   as a rule, a "Practice," committed to the repo, not left sitting in the
+   chat.
+3. **The next time the same situation comes up, it enforces the rule and
+   cites it**, instead of the two of you relitigating the same argument.
+4. **Every decision cites the decisions and preferences that came before
+   it**, the reasoning behind it, and an audit trail back to the
+   conversation that produced it.
+5. **The people on the team guide, correct, and build up the ruleset** —
+   and it lives in your own GitHub repo, not locked inside one AI
+   provider or held in one person's head.
 
 ### Why This Matters if You Write Code
 
@@ -190,23 +211,13 @@ to your own conventions doesn't depend on anyone staying vigilant.
 
 ### The Philosophy Behind This
 
-Precedent is one working expression of a broader philosophy about how
-people and AI should work together. **That theory lives in
-[philosophy/](../philosophy/)** — start at
+The three ideas above aren't just this project's engineering choices —
+they're one working expression of a broader philosophy about how people
+and AI should work together. **That fuller argument lives in
+[philosophy/](../philosophy/)**, starting at
 [philosophy/README.md](../philosophy/README.md). It is argument and
 observation: none of it binds work anywhere else in this repository, which
 is what [practices/](../practices/) is for.
-
-Three ideas underneath all of it:
-
-- **Human collaboration comes first.** The tool exists to make people
-  working together better, not to route around them.
-- **AI sits between the work and the people doing it**, pushing back on
-  ideas to strengthen them and keeping the record of how a decision was
-  reached, not just the decision itself.
-- **AI watches what's actually happening and proposes the rules for it** —
-  generated from a team's own history, and put up for approval, never
-  landed unapproved.
 
 ### Get Started
 
