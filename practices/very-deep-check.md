@@ -545,8 +545,7 @@ method"). Build the fixtures.
   the `FINDING` from zero. Disagreement between sets, a partial decision, or
   an expired `revisit` all still print the ordinary `FINDING`, annotated with
   what is already on record. A repo that holds no such file is unaffected —
-  this is additive, never a gate
-  ([VERY_DEEP_CHECK_DEDUP_LEDGER_PROPOSAL.md](https://github.com/themorgan/precedent-individual/blob/main/VERY_DEEP_CHECK_DEDUP_LEDGER_PROPOSAL.md),
+  this is additive, never a gate (`VERY_DEEP_CHECK_DEDUP_LEDGER_PROPOSAL.md`,
   proposed by Morgan, 2026-09-20; Install section below).
 - **Cross-repo relationships and permissions.** Walk who must be able to read
   or write what, for a *new* repo and a *new* person: the vendored engine,
@@ -1790,12 +1789,13 @@ drift reported a decision as a defect on every run.
 **The dedup ledger was Morgan's, 2026-09-20**, raised in a session rooted in
 `precedent-individual` rather than here — that session had no push access to
 this repository, so what it could actually do was write up the design in
-full and hand it off, which is where
-[VERY_DEEP_CHECK_DEDUP_LEDGER_PROPOSAL.md](https://github.com/themorgan/precedent-individual/blob/main/VERY_DEEP_CHECK_DEDUP_LEDGER_PROPOSAL.md)
-comes from (no verbatim quotation mark here, deliberately: that document
-paraphrases the conversation it came out of rather than quoting it, and this
-entry follows what it actually says rather than inventing a quote the
-handoff itself does not carry — [no-invented-specifics](no-invented-specifics.md)).
+full and hand it off, which is where `VERY_DEEP_CHECK_DEDUP_LEDGER_PROPOSAL.md`
+comes from — that repo's own root, private, so named rather than linked here
+(`check_practices_link_only_reachable_repos`, verify_harness.py). No verbatim
+quotation mark here, deliberately: that document paraphrases the conversation
+it came out of rather than quoting it, and this entry follows what it
+actually says rather than inventing a quote the handoff itself does not
+carry — [no-invented-specifics](no-invented-specifics.md).
 `CONVERGENT DRIFT`, as built, has no memory across runs: a file two or more
 sets have drifted onto the same way prints as a fresh `FINDING` forever,
 including one a person already read and judged **never going to
