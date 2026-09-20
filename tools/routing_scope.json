@@ -728,6 +728,17 @@
       "why": "The path IS the distinguishing condition: the rule is about what a file in the published catalogue may link, and every such file is in practices/. local/practices/*.md is deliberately out -- a repo-local source is read in place here and materialized nowhere, so its links travel nowhere.",
       "decided": "2026-09-11, when the practice landed at universal"
     },
+    "prompt-please": {
+      "globs": [
+        "**"
+      ],
+      "why": "A moment, and specifically a phrase in a MESSAGE -- no file path reaches it. Its two occasions (an existing recommendation, or work this session cannot reach) are both facts about the conversation and the session's own repository access, not about any file being edited. Reached through the occasion index and the reply gate.",
+      "decided": "2026-09-20, when the practice landed",
+      "gates": [
+        "reply"
+      ],
+      "gates_why": "The reply is the whole artifact: the prompt either appears there, ready to paste, or it does not."
+    },
     "push-back": {
       "globs": [
         "**"

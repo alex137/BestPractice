@@ -10,8 +10,8 @@ index_clause: "cross-repo check; never create, never wake -- always hand over pa
 checked_by:  null
 defines:     ["Session Text"]
 command:     {"Session Text": "Check whether this work belongs in a different conversation — usually because it needs a project this one cannot reach — and, instead of creating that session itself, tell you to open a new window, name the repositories it needs to be seeded with, and give you the opening text in a copy-pasteable block."}
-status:      active
-in_force_at: null
+status:      deduplicated
+in_force_at: prompt-please
 supersedes:  []
 overrides:   null
 added:       "2026-09-11"
@@ -590,6 +590,16 @@ conversation, which is weaker and does not require the enumeration this
 practice used to reach for. Traded deliberately, for a reason spend can't
 buy back: a mechanism that keeps failing is not cheaper for costing less
 per success.
+
+**Deduplicated 2026-09-20, into [prompt-please](prompt-please.md), on
+Morgan's decision.** He named it directly rather than as a symptom: a
+better version of this practice, coined in the same message as a separate
+command, and one he said he had never actually reached for by its own
+phrase. The unconditional cross-repository check and the never-create,
+never-wake standing instruction both survive, in force exactly as written
+above -- what moved is only the trigger phrase and the file that owns it.
+`Prompt Please` is the explicit command now; this file is kept for its own
+history and because the check it describes is still the check that runs.
 
 ## Install
 Nothing to configure. The occasion index entry above is generated, so an

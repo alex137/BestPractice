@@ -382,8 +382,8 @@ When decommissioning a mechanism — a workflow, a tool, a vendored tree, a conf
   decommission-deletes-files — delete what the decommissioned mechanism owned; audit first, never on a hunch
 When drafting or reviewing prose meant to persuade or be judged:
   push-back — argue a real counter-case before building on a stated stance
-When handing the person work to do, or starting work that may touch a repository this session cannot reach:
-  session-text — cross-repo check; never create, never wake -- always hand over paste text
+When handing the person work to do, starting work that may touch a repository this session cannot reach, or the person wants to act on a recommendation already given by opening a fresh session:
+  prompt-please — "Prompt Please" -- recommendation or unreachable work, one paste-ready prompt
 When migrating a repo off an old practice system onto Precedent:
   migration-scrubs-vocabulary — scrub the old system's vocabulary the same session, not on request
 When naming a new file:

@@ -3626,8 +3626,8 @@ def access_audit(repo_root, sources=(), out=None):
         notes.append(
             f'{n_handoff} repo(s) need a handoff and {n_unknown} could not be '
             f'probed. A finding in one of those does not end in a commit from '
-            f'this session -- it ends in a woken session '
-            f'(practice: session-text). Group them that way when you report.')
+            f'this session -- it ends in a paste-ready prompt for a new session '
+            f'(practice: prompt-please). Group them that way when you report.')
         print('  ' + notes[-1], file=out)
     return rows, notes
 

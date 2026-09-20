@@ -60,6 +60,15 @@ waiting there like any other commit, unless the person separately says
 describes what the report says instead of linking to the committed file has
 not done this.
 
+**Where this differs from [Prompt Please](prompt-please.md).** That command
+is smaller and never committed -- a paste-ready prompt for a new session,
+built around a recommendation rather than a durable record. Reach for
+`Write it up` when the issue needs a file that outlives this conversation;
+reach for `Prompt Please` when all that's needed is to hand the next step to
+a session that can act on it now. Nothing stops using both on the same
+issue: write it up for the record, then ask for `Prompt Please` to actually
+carry the next step elsewhere.
+
 ## Why
 The whole reason to ask for this is to hand a problem to someone (or some
 session) who wasn't there for the conversation that found it -- so the
@@ -72,6 +81,11 @@ Coined by Morgan, 2026-09-18: a standing phrase for something he was typing
 out in full each time -- write up the bug/issue with its context and a
 proposed fix, assuming zero shared context, commit it, and give the link --
 rather than re-describing the request whenever he needed it.
+
+**Cross-referenced against [Prompt Please](prompt-please.md), 2026-09-20**,
+when Morgan coined that command and drew the boundary himself: this command
+is bigger and formally committed to GitHub; `Prompt Please` is smaller, and
+just a prompt.
 
 ## Install
 No mechanical check: like [go-merge](go-merge.md), whether a given reply
