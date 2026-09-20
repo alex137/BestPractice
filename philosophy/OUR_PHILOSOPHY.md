@@ -70,7 +70,9 @@ prescribed fix, is what lets it catch a case you didn't spell out or push
 back when the ask doesn't serve the goal
 ([`five-whys`](COMPANY_BUILDING_RULES.md#five-whys); a
 [Core Pillars](CORE_PILLARS.md) pillar,
-[`focus-on-whys-problems`](CORE_PILLARS.md#focus-on-whys-problems)). It's also the raw
+[`focus-on-whys-problems`](CORE_PILLARS.md#focus-on-whys-problems); the
+human side of it is
+[`questions`](HUMANS_AT_OUR_BEST.md#questions)). It's also the raw
 material a standing rule gets made from — a practice pulled from "always do
 X" has nothing to check itself against, one pulled from "always do X
 because Y" can be tested against Y forever
@@ -86,7 +88,12 @@ makes the case for capturing this. What matters is the residue, not
 the deliverable — the option tried and killed, the correction only
 legible against the draft it corrected. One document carries that
 forward for the next session; another reaches the same conclusion and
-reads as if it had always been obvious. Language works the same way:
+reads as if it had always been obvious. It still has limits no writing
+closes: the physical world a machine can't check
+([`verification`](HUMANS_AT_OUR_BEST.md#verification)) and the friction
+that survives no matter how much got written down
+([`dirtiness-of-real-life`](HUMANS_AT_OUR_BEST.md#dirtiness-of-real-life)).
+Language works the same way:
 the AI carrying the translation keeps thinking real, not thinned
 ([`second-language-stops-costing-quality`](REASONS_WHY.md#second-language-stops-costing-quality)).
 
@@ -158,7 +165,7 @@ its [`relationships`](HUMANS_AT_OUR_BEST.md#relationships) and
 
 ## See Also
 
-- [Our Working Loop](THE_WORKING_LOOP.md) — the six-step cycle these
+- [The Working Loop](THE_WORKING_LOOP.md) — the six-step cycle these
   ideas run through, end to end.
 - [Core Pillars](CORE_PILLARS.md) — the one-page pitch: the core ideas
   this approach argues are unique, specifically taken together.

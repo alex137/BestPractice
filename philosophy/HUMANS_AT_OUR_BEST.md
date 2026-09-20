@@ -28,7 +28,9 @@ this page doesn't replace them.*
   half-works — with the intensity and creativity that comes from treating it
   as theirs ([`own-every-word`](COMPANY_BUILDING_RULES.md#own-every-word) is the narrow case).
 - <a id="questions"></a>**Asking hard questions.** Letting nothing stop you from getting to the
-  bottom of the "why" you need to know.
+  bottom of the "why" you need to know — the same "why"
+  [`explain-the-why`](OUR_PHILOSOPHY.md#explain-the-why) says has to reach
+  the model before it can push back on anything.
 - <a id="boundary-pushing"></a>**Boundary pushing.** AI tends to under-push the boundaries a situation
   actually calls for, held back by rules built strict on purpose
   ([`push-back-as-config-switch`](AI_GOVERNANCE_TO_COCREATE.md#push-back-as-config-switch) is the same
@@ -53,7 +55,9 @@ this page doesn't replace them.*
   staffed role, [`manager-of-agents`](COMPANY_BUILDING_RULES.md#manager-of-agents)).
 - <a id="verification"></a>**Verification.** Machines can only go so far in making sure that what
   they are doing is correctly reflected in the real world — most of all
-  where the real world is physical.
+  where the real world is physical, past whatever
+  [`context-is-capital`](OUR_PHILOSOPHY.md#context-is-capital) managed to
+  capture in writing.
 - <a id="trade-offs-and-hard-decisions"></a>**Trade-offs and hard decisions.** Nothing worth choosing comes free:
   speed against care, this client against that one, the person you like
   against the person who is right. Somebody has to pick, knowing what the
@@ -61,13 +65,17 @@ this page doesn't replace them.*
   [`build-five-kill-four`](COMPANY_BUILDING_RULES.md#build-five-kill-four) stops applying.
 - <a id="dirtiness-of-real-life"></a>**Managing the dirtiness of real life.** When you leave the digital world,
   and more often than not when you're on it, very little works smoothly or
-  the way it seems to "on paper."
+  the way it seems to "on paper" — no amount of
+  [`context-is-capital`](OUR_PHILOSOPHY.md#context-is-capital) written down
+  survives contact with it unchanged.
 
 ### People
 
 - <a id="why"></a>**Why.** Kids ask "why" about everything the moment they learn to talk;
   digging to the root instead of stopping at the symptom is human nature,
-  not a trained skill.
+  not a trained skill —
+  [`five-whys`](COMPANY_BUILDING_RULES.md#five-whys) just turns the same
+  instinct into a practice anyone can run on purpose.
 - <a id="relationships"></a>**Relationships.** A counterparty trusts because of who's on the other
   end of them
   ([`structurally-human`](COMPANY_BUILDING_RULES.md#structurally-human));
@@ -99,10 +107,14 @@ this page doesn't replace them.*
   the answer that felt off and passed every check
   ([`instinct-catches-what-checklists-miss`](REASONS_WHY.md#instinct-catches-what-checklists-miss)).
 - <a id="weirdness"></a>**Weirdness.** AI normalizes away that which is strange or wildly
-  creative.
+  creative — the same flattening
+  [`no-ai-voice`](COMPANY_BUILDING_RULES.md#no-ai-voice) is naming when it
+  shows up in prose.
 - <a id="understanding-problems"></a>**Understanding problems.** People sense that something is wrong almost
   without trying; working out what would actually fix it is a different
-  skill, and an unnatural, hard-won one for most.
+  skill, and an unnatural, hard-won one for most — the discipline
+  [`focus-on-whys-problems`](CORE_PILLARS.md#focus-on-whys-problems) asks
+  for on every request.
 - <a id="the-human-spark"></a>**The human spark.** What makes someone worth working for, not merely
   alongside
   ([`structurally-human`](COMPANY_BUILDING_RULES.md#structurally-human)).
@@ -117,7 +129,7 @@ this page doesn't replace them.*
 - [Our Philosophy](OUR_PHILOSOPHY.md) — the underlying theoretical
   ideas everything else here assumes, named and explained on their own
   terms.
-- [Our Working Loop](THE_WORKING_LOOP.md) — the six-step cycle those
+- [The Working Loop](THE_WORKING_LOOP.md) — the six-step cycle those
   ideas run through, end to end.
 - [Reasons Why](REASONS_WHY.md) — the less obvious benefits those
   ideas actually produce in practice.

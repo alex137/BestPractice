@@ -33,5 +33,20 @@ The same six steps repeat every time, in order:
 
 ## See Also
 
+- [Core Pillars](CORE_PILLARS.md) — the one-page pitch: the core ideas
+  this approach argues are unique, specifically taken together.
 - [Our Philosophy](OUR_PHILOSOPHY.md) — the underlying theoretical
   ideas each step above draws on.
+- [Reasons Why](REASONS_WHY.md) — the less obvious benefits those
+  ideas actually produce in practice.
+- [The Talmudic Method](THE_TALMUDIC_METHOD.md) — the resemblance between
+  what this system insists on and how the Talmud gets studied, argument
+  by argument.
+- [Company Building Rules](COMPANY_BUILDING_RULES.md) — the standalone
+  essay on rules for building a company around AI.
+- [AI Governance to Co-Create](AI_GOVERNANCE_TO_COCREATE.md) — the
+  standalone essay on how AI systems themselves should be configured,
+  built, and run.
+- [Humans at Our Best](HUMANS_AT_OUR_BEST.md) — the one list of what
+  humans are good at, gathered from the shorter versions scattered here
+  and elsewhere.

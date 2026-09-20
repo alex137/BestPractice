@@ -127,7 +127,7 @@ judgment this repo routes to people
 - [Our Philosophy](OUR_PHILOSOPHY.md) — the underlying theoretical
   ideas everything else here assumes, named and explained on their own
   terms.
-- [Our Working Loop](THE_WORKING_LOOP.md) — the six-step cycle those
+- [The Working Loop](THE_WORKING_LOOP.md) — the six-step cycle those
   ideas run through, end to end.
 - [The Talmudic Method](THE_TALMUDIC_METHOD.md) — the resemblance between
   what this system insists on and how the Talmud gets studied, argument

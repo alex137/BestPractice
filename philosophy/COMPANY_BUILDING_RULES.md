@@ -96,7 +96,9 @@ issue. Keep asking why; keep finding and describing problems, and push the
 AI Assistants to solve them — the practice
 [`explain-the-why`](OUR_PHILOSOPHY.md#explain-the-why) asks of every single
 request, and a [Core Pillars](CORE_PILLARS.md) pillar,
-[`focus-on-whys-problems`](CORE_PILLARS.md#focus-on-whys-problems).
+[`focus-on-whys-problems`](CORE_PILLARS.md#focus-on-whys-problems). It's a
+trained method for what starts as a human reflex,
+[`why`](HUMANS_AT_OUR_BEST.md#why).
 
 ## Shipping and Process
 
@@ -137,7 +139,8 @@ nobody thought about. Ship it in your voice; the fingerprints are
 mechanical enough to check for
 ([`structural-ai-voice-check`](AI_GOVERNANCE_TO_COCREATE.md#structural-ai-voice-check)). (Now
 [`write-like-a-human`](../practices/write-like-a-human.md), universal since
-2026-09-07.)
+2026-09-07.) The same flattening shows up past prose, too —
+[`weirdness`](HUMANS_AT_OUR_BEST.md#weirdness) names the general case.
 
 ## People
 
@@ -186,7 +189,7 @@ corrects.
 - [Our Philosophy](OUR_PHILOSOPHY.md) — the underlying theoretical
   ideas everything else here assumes, named and explained on their own
   terms.
-- [Our Working Loop](THE_WORKING_LOOP.md) — the six-step cycle those
+- [The Working Loop](THE_WORKING_LOOP.md) — the six-step cycle those
   ideas run through, end to end.
 - [Reasons Why](REASONS_WHY.md) — the less obvious benefits those
   ideas actually produce in practice.

@@ -213,7 +213,7 @@ the platform it's sitting in today. What the hedge looks like in practice:
 - [Our Philosophy](OUR_PHILOSOPHY.md) — the underlying theoretical
   ideas everything else here assumes, named and explained on their own
   terms.
-- [Our Working Loop](THE_WORKING_LOOP.md) — the six-step cycle those
+- [The Working Loop](THE_WORKING_LOOP.md) — the six-step cycle those
   ideas run through, end to end.
 - [Reasons Why](REASONS_WHY.md) — the less obvious benefits those
   ideas actually produce in practice.
