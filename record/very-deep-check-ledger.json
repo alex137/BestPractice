@@ -2660,6 +2660,163 @@
         }
       ],
       "completed": true
+    },
+    {
+      "run_id": "2026-09-20T15:36:13-03:00",
+      "date": "2026-09-20",
+      "repo": "/home/user/BestPractice",
+      "argv": [
+        "--checklist"
+      ],
+      "seconds": 56.43,
+      "components": [
+        {
+          "name": "FRESHNESS -- this checkout",
+          "kind": "mechanical",
+          "findings": 0,
+          "items": null,
+          "output_tokens": 26,
+          "seconds": 0.81,
+          "status": "clean"
+        },
+        {
+          "name": "MACHINE-READABLE FILES",
+          "kind": "mechanical",
+          "findings": 0,
+          "items": null,
+          "output_tokens": 20,
+          "seconds": 0.09,
+          "status": "clean"
+        },
+        {
+          "name": "VENDORING EXCLUSIONS",
+          "kind": "mechanical",
+          "findings": 0,
+          "items": null,
+          "output_tokens": 27,
+          "seconds": 0.0,
+          "status": "clean"
+        },
+        {
+          "name": "FRESHNESS -- declared sources",
+          "kind": "mechanical",
+          "findings": 0,
+          "items": null,
+          "output_tokens": 74,
+          "seconds": 3.22,
+          "status": "clean"
+        },
+        {
+          "name": "REPOS IN FORCE -- still there, still writable",
+          "kind": "mechanical",
+          "findings": 0,
+          "items": null,
+          "output_tokens": 551,
+          "seconds": 4.69,
+          "status": "clean"
+        },
+        {
+          "name": "CONTRIBUTOR BOUNDARY -- CODEOWNERS current, protection on",
+          "kind": "mechanical",
+          "findings": 0,
+          "items": null,
+          "output_tokens": 171,
+          "seconds": 0.02,
+          "status": "clean"
+        },
+        {
+          "name": "SCOPE -- documents and practices to read",
+          "kind": "read",
+          "findings": null,
+          "items": 370,
+          "output_tokens": 131,
+          "seconds": 0.0,
+          "status": "material"
+        },
+        {
+          "name": "WITHIN-SOURCE CONFLICTS",
+          "kind": "mechanical",
+          "findings": 0,
+          "items": null,
+          "output_tokens": 35,
+          "seconds": 0.04,
+          "status": "clean"
+        },
+        {
+          "name": "SOURCE SHAPE",
+          "kind": "mechanical",
+          "findings": 0,
+          "items": null,
+          "output_tokens": 26,
+          "seconds": 0.01,
+          "status": "clean"
+        },
+        {
+          "name": "TEMPLATE FRESHNESS",
+          "kind": "mechanical",
+          "findings": 5,
+          "items": null,
+          "output_tokens": 202,
+          "seconds": 0.01,
+          "status": "findings"
+        },
+        {
+          "name": "BOOTSTRAP DRIFT",
+          "kind": "mechanical",
+          "findings": 29,
+          "items": null,
+          "output_tokens": 625,
+          "seconds": 13.83,
+          "status": "findings"
+        },
+        {
+          "name": "CONVERGENT DRIFT",
+          "kind": "mechanical",
+          "findings": 5,
+          "items": null,
+          "output_tokens": 826,
+          "seconds": 0.0,
+          "status": "findings"
+        },
+        {
+          "name": "EXPIRING PRACTICES",
+          "kind": "mechanical",
+          "findings": 1,
+          "items": null,
+          "output_tokens": 113,
+          "seconds": 0.02,
+          "status": "findings"
+        },
+        {
+          "name": "ORPHANS",
+          "kind": "mechanical",
+          "findings": 0,
+          "items": null,
+          "output_tokens": 44,
+          "seconds": 0.0,
+          "status": "clean"
+        },
+        {
+          "name": "CI WORKFLOW FILES OUTSIDE VENDORING",
+          "kind": "mechanical",
+          "findings": 2,
+          "items": null,
+          "output_tokens": 156,
+          "seconds": 0.0,
+          "status": "findings"
+        },
+        {
+          "name": "SESSION LOAD",
+          "kind": "mechanical",
+          "findings": null,
+          "items": null,
+          "output_tokens": 1040,
+          "seconds": 0.36,
+          "status": "aborted"
+        }
+      ],
+      "passes": [],
+      "completed": false
     }
   ]
 }
