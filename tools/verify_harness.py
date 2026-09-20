@@ -11619,6 +11619,134 @@ def check_freshness_guard_checks_attached_repositories():
           not failed, '; '.join(failed))
 
 
+def check_freshness_guard_user_prompt_never_resets_mid_session():
+    """`mode_user_prompt` delegates to `mode_session_start` (see the file's
+    own comment on that delegation), which carries a diverged-but-clean
+    auto-reconcile (rescue-ref then `git reset --hard origin/<branch>`)
+    whose safety argument is specific to the real SessionStart call: nothing
+    reachable from local HEAD can be this session's own work yet, because
+    the session has not taken a turn. That premise is false by the time a
+    later `UserPromptSubmit` fires the same delegation, and until fixed
+    2026-09-20 the code did not distinguish the two callers, so a real local
+    commit was discarded mid-session (recovered only because the rescue ref
+    and the reflog both happened to survive) --
+    gotchas/gotcha-2026-09-20-freshness-guard-s-user-prompt-mode-hard-resets-a-mid-sess.md.
+
+    THE CONTROL IS THE POINT, same shape as the other freshness-guard
+    checks: the identical diverged-and-clean fixture run through
+    `session-start` still auto-reconciles (rescue ref, HEAD moves to
+    origin) -- proving the assertion below is about the CALLER, not about
+    the reconcile behavior having been deleted outright."""
+    import tempfile
+
+    guards = [ROOT / '.claude' / 'hooks' / 'freshness-guard.sh',
+              (ROOT / 'templates' / 'harness' / 'claude-code' / 'hooks'
+               / 'freshness-guard.sh')]
+    missing = [str(g.relative_to(ROOT)) for g in guards if not g.exists()]
+    if missing:
+        not_applicable('freshness guard user-prompt never resets mid-session',
+                       f'not in this tree: {missing}')
+        return
+
+    env0 = dict(os.environ, PRECEDENT_ALLOW_ANY_AUTHOR='1',
+                GIT_AUTHOR_NAME='t', GIT_AUTHOR_EMAIL='t@example.com',
+                GIT_COMMITTER_NAME='t', GIT_COMMITTER_EMAIL='t@example.com')
+    env0.pop('PRECEDENT_FRESHNESS_ALSO', None)
+
+    def git(cwd, *args):
+        return subprocess.run(['git', '-C', str(cwd), *args], env=env0,
+                              capture_output=True, text=True)
+
+    cases = []
+    for guard in guards:
+        tag = guard.relative_to(ROOT).as_posix()
+        # The vendored template has never carried the auto-reconcile feature
+        # at all (it just warns), so this guard's own fix has nothing to
+        # regress there -- checked rather than assumed, so a silent skip
+        # never reads as a pass.
+        has_reconcile = 'reset --hard "origin/$branch"' in guard.read_text()
+        if not has_reconcile:
+            cases.append((f'{tag}: has no auto-reconcile to guard against '
+                          f'(checked, not assumed -- nothing to fix here)',
+                          True))
+            continue
+
+        with tempfile.TemporaryDirectory() as td:
+            w = pathlib.Path(td)
+
+            def make_diverged(name):
+                """A clean clone one commit ahead of a LOCAL commit and one
+                commit behind origin -- the exact shape the bug fires on.
+                Each caller gets its own paths: two independent fixtures are
+                built in the same temp dir (one per mode under test), and
+                reusing 'seed'/'clone' across them silently re-initialized
+                the first one instead of building a second."""
+                bare, seed, clone = w / f'{name}-o.git', w / f'{name}-seed', w / f'{name}-clone'
+                subprocess.run(['git', 'init', '-q', '--bare', str(bare)], env=env0)
+                subprocess.run(['git', 'init', '-q', '-b', 'main', str(seed)], env=env0)
+                git(seed, 'remote', 'add', 'origin', str(bare))
+                (seed / 'f').write_text('a\n')
+                git(seed, 'add', 'f'); git(seed, 'commit', '-qm', 'a')
+                git(seed, 'push', '-q', 'origin', 'main')
+                subprocess.run(['git', 'clone', '-q', '-b', 'main', str(bare), str(clone)],
+                               env=env0, capture_output=True)
+                (seed / 'f').write_text('a\nb\n')
+                git(seed, 'commit', '-qam', 'b')
+                git(seed, 'push', '-q', 'origin', 'main')
+                (clone / 'g').write_text('local\n')
+                git(clone, 'add', 'g'); git(clone, 'commit', '-qm', 'local work')
+                git(clone, 'config', 'precedent.freshness.intervalSeconds', '0')
+                return clone
+
+            def run(project, mode):
+                env = dict(env0, CLAUDE_PROJECT_DIR=str(project))
+                r = subprocess.run(['bash', str(guard), mode, 'main'],
+                                   env=env, capture_output=True, text=True,
+                                   cwd=str(project))
+                return r.returncode, r.stderr
+
+            clone = make_diverged('up')
+            local_sha = git(clone, 'rev-parse', 'HEAD').stdout.strip()
+            origin_sha = git(clone, 'rev-parse', 'origin/main').stdout.strip()
+
+            rc, err = run(clone, 'user-prompt')
+            after = git(clone, 'rev-parse', 'HEAD').stdout.strip()
+            cases.append((f'{tag}: user-prompt on a diverged clean branch '
+                          f'reports rather than resets (rc={rc})',
+                          rc == 0 and 'NOT reconciling automatically' in err
+                          and 'mid-session' in err))
+            cases.append((f'{tag}: user-prompt leaves local HEAD exactly '
+                          f'where it was (the commit the bug used to discard)',
+                          after == local_sha))
+
+            # THE CONTROL: the identical fixture through session-start still
+            # auto-reconciles -- the fix narrows the caller, not the feature.
+            clone2 = make_diverged('ss')
+            local_sha2 = git(clone2, 'rev-parse', 'HEAD').stdout.strip()
+            # NOT read yet: the clone's own refs/remotes/origin/main is
+            # whatever it was at clone time until something fetches, so the
+            # commit just pushed to the bare repo above is invisible here
+            # until the guard's own fetch (inside `run`) catches it up.
+            rc2, err2 = run(clone2, 'session-start')
+            after2 = git(clone2, 'rev-parse', 'HEAD').stdout.strip()
+            origin_sha2 = git(clone2, 'rev-parse', 'origin/main').stdout.strip()
+            cases.append((f'{tag}: session-start on the identical fixture '
+                          f'still auto-reconciles (rc={rc2})',
+                          rc2 == 0 and 'reconciled it to origin' in err2
+                          and after2 == origin_sha2 and after2 != local_sha2))
+            rescue = git(clone2, 'for-each-ref',
+                        f'refs/freshness-guard/pre-reset/main-{local_sha2[:12]}').stdout.strip()
+            cases.append((f'{tag}: session-start still rescues the old tip '
+                          f'to a dedicated ref before resetting',
+                          local_sha2[:12] in rescue))
+
+    failed = [n for n, ok in cases if not ok]
+    check(f'freshness guard: user-prompt never auto-resets a mid-session '
+          f'divergence, session-start still safely does '
+          f'({len(cases)} stated cases, both copies)',
+          not failed, '; '.join(failed))
+
+
 def check_freshness_guard_waves_through_a_branch_origin_never_saw():
     """The guard's two fetch failures are not the same failure.
 
@@ -23428,6 +23556,7 @@ def main():
     check_repo_may_declare_its_own_fallback_zone()
     check_session_check_reports_a_dead_also_list_entry()
     check_freshness_guard_checks_attached_repositories()
+    check_freshness_guard_user_prompt_never_resets_mid_session()
     check_freshness_guard_waves_through_a_branch_origin_never_saw()
     check_unmerged_branch_verdicts()
     check_branch_scan_sees_every_branch()
