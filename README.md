@@ -17,8 +17,8 @@ together are solved by Precedent:
    when one person does remember, your team is permanently dependent on
    that one person.
 
-It solves them by approaching human/AI collaboration from a different
-angle:
+Precedent solves them by approaching human/AI collaboration from a
+different angle:
 
 - **Human collaboration comes first.** The tool exists to make people
   working together better, not to route around them.
