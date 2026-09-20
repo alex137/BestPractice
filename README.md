@@ -111,12 +111,6 @@ habits and the phrases your assistant is guaranteed to recognize.
 Installing on your own project doesn't require writing any code yourself:
 open a session on your project with an AI assistant and paste it
 [SETUP.md](SETUP.md), which runs the whole install as a conversation.
-Developers who want the files and commands have
-[INSTALL.md](INSTALL.md), and
-[PER_MACHINE_SETUP.md](documentation/PER_MACHINE_SETUP.md) for what
-each person sets on each machine — most people, working on Claude Code on
-the web, only need
-[CLOUD_SETUP.md](documentation/CLOUD_SETUP.md).
 
 ## Get Up and Running!
 
@@ -126,7 +120,11 @@ favorite AI via their coding platform — and go!
 ## Manually Install
 
 Hand installation, updates, and contributing improvements back:
-[INSTALL.md](INSTALL.md). The working method, for power users:
+[INSTALL.md](INSTALL.md). What each person sets on each machine:
+[documentation/PER_MACHINE_SETUP.md](documentation/PER_MACHINE_SETUP.md) —
+most people, working on Claude Code on the web, only need
+[documentation/CLOUD_SETUP.md](documentation/CLOUD_SETUP.md). The working
+method, for power users:
 [documentation/METHOD.md](documentation/METHOD.md). Phone and
 per-assistant setups: [documentation/MOBILE.md](documentation/MOBILE.md).
 Automatic repository checks:
