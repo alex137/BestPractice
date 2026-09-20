@@ -42,6 +42,15 @@ behavior that GitHub silently neutered):
      origin: a thread spent two commits adding target="_blank" and reverting
      it). Use a plain markdown link instead.
 
+  7. FRONTMATTER NOT VALID YAML (error). A --- fence this repo's own,
+     more forgiving reader accepts but a real YAML parser (PyYAML) rejects
+     -- most often a title with a second, unquoted colon, which PyYAML reads
+     as opening a nested mapping. Whole-file, not line-scoped: a bad fence is
+     a property of the frontmatter block, not of one line inside it. Shares
+     its parser with verify_harness.py's deep-check version of the same
+     check (frontmatter_yaml.py) so a fix lands once. Skipped with a notice
+     where PyYAML isn't installed, same as check 1 when cmark-gfm is absent.
+
 SCOPE: by default, only files CHANGED vs the default branch (the convention is
 "fix the parts you touch"; this also avoids editing frozen documents, where a
 `~`→`≈` change would be content drift). Pass explicit files, or --all to scan
@@ -68,6 +77,7 @@ Run:  python3 tools/doc_lint.py             # changed-vs-default-branch, gate
 process/upstream/tools/doc_lint.py.)
 """
 import re, sys, subprocess, pathlib
+import frontmatter_yaml
 
 def _git(args, cwd=None):
     return subprocess.run(['git'] + args, cwd=cwd, capture_output=True, text=True).stdout.strip()
@@ -822,6 +832,21 @@ def iter_prose_paragraphs(path):
     if para_lines:
         yield para_start, '\n'.join(para_lines)
 
+def check_frontmatter(path):
+    """Real-YAML frontmatter check, folded into the light pass rather than
+    left deep-only (practice: two-check-levels, Install section: "JSON/YAML
+    syntax ... folds into the light name rather than inventing a third
+    gate"). Whole-file, not line-scoped -- a bad fence is a property of the
+    frontmatter block, not of any one line inside it -- so it gates on the
+    file being in scope, the same way check_findability does. None if
+    PyYAML is not installed (skipped with a notice, same as the
+    strikethrough check when cmark-gfm is missing) or the frontmatter is
+    valid; the parser itself is frontmatter_yaml.py, shared with
+    verify_harness.py's own copy of this check so the two never drift."""
+    text = (ROOT / path).read_text(encoding='utf-8', errors='ignore')
+    return frontmatter_yaml.frontmatter_yaml_error(text)
+
+
 def check_file(path, fix=False, known=None):
     strikes, unlinked, unglossed, targeted = [], [], [], []
     changed_lines = {}
@@ -1124,6 +1149,9 @@ def main():
     if not HAVE_GFM:
         print("doc_lint: cmark-gfm not installed — strikethrough check SKIPPED "
               "(pip install cmarkgfm). Running reference check only.")
+    if not frontmatter_yaml.HAVE_YAML:
+        print("doc_lint: PyYAML not installed — frontmatter-validity check "
+              "SKIPPED (pip install pyyaml).")
 
     if '--numbers-report' in flags:
         rows, gated = [], 0
@@ -1149,10 +1177,13 @@ def main():
     total_strikes = total_unlinked = total_unglossed = total_targeted = total_fixed = 0
     strike_lines, unlinked_lines, unglossed_lines, target_lines = [], [], [], []
     unsourced_lines, residue_lines, broken_link_lines = [], [], []
-    skip_lines = []
+    skip_lines, frontmatter_lines = [], []
     for f in files:
         if not (ROOT / f).exists():
             continue
+        fm_err = check_frontmatter(f)
+        if fm_err:
+            frontmatter_lines.append(f"  {f}: {fm_err}")
         for i, why in check_residue(f):
             residue_lines.append(f"  {f}:{i}: {why}")
         for i, target, why in check_broken_links(f):
@@ -1216,12 +1247,22 @@ def main():
               "the line <!--rom-->):")
         print('\n'.join(unsourced_lines[:40]))
 
+    if frontmatter_lines:
+        print(f"\nFRONTMATTER NOT VALID YAML — {len(frontmatter_lines)} file(s) "
+              f"({'FAIL' if gate else 'backlog report'}; the fence says YAML, "
+              "so a real parser has to accept it -- this repo's own reader "
+              "is more forgiving and will not catch this):")
+        print('\n'.join(frontmatter_lines[:40]))
+        if len(frontmatter_lines) > 40:
+            print(f"  … and {len(frontmatter_lines) - 40} more")
+
     if (not strike_lines and not unlinked_lines and not unglossed_lines
             and not target_lines and not unsourced_lines and not broken_link_lines
-            and not skip_lines):
+            and not skip_lines and not frontmatter_lines):
         print(f"doc_lint OK: {len(files)} file(s) checked — no accidental strikethrough, "
               f"no broken relative links, no unlinked references, no unglossed "
-              f"acronyms, no target= anchors, no skipped heading levels.")
+              f"acronyms, no target= anchors, no skipped heading levels, no "
+              f"invalid frontmatter.")
 
     # check 5: findability. Gate mode checks only documents in scope, so a new
     # analysis must be indexed; --all reports the legacy backlog.
@@ -1336,9 +1377,11 @@ def main():
         print('\n'.join(pre_existing[:10]))
         if len(pre_existing) > 10:
             print(f"  … and {len(pre_existing) - 10} more")
-    if gate and (fatal or findability):
+    if gate and (fatal or findability or frontmatter_lines):
         print(f"\ndoc_lint FAIL: {len(fatal)} gating finding(s) on lines this change "
-              f"touched" + (f", {len(findability)} unfindable analysis(es)" if findability else "") + ":")
+              f"touched" + (f", {len(findability)} unfindable analysis(es)" if findability else "")
+              + (f", {len(frontmatter_lines)} file(s) with invalid frontmatter" if frontmatter_lines else "")
+              + ":")
         print('\n'.join(fatal[:40]))
         return 1
     return 0

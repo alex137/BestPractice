@@ -1714,6 +1714,7 @@ TOOLS_DESCRIPTIONS = {
     'doc_html.py': "The one sortable-table HTML renderer for repo documents",
     'parse_check.py': "Does every JSON/YAML file in scope still parse — changed files for the deep check, the whole tree for the very deep check",
     'doc_lint.py': "Markdown hygiene checks — strikethrough, links, acronyms",
+    'frontmatter_yaml.py': "The real-YAML frontmatter parser doc_lint.py and verify_harness.py both check against, shared so the two never drift",
     'doc_lifecycle.py': "The document status header — kind, status, "
                         "supersession — checked across spec/ and record/",
     'doc_sync.py': "Keeps script-generated blocks inside documents in sync with what the script emits",

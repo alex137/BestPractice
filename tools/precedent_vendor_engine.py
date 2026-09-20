@@ -482,6 +482,14 @@ CONSUMER_ENGINE_FILES = ENGINE_FILES[:-1] + [
     #                       only split_practices and precedent_paths, both
     #                       already here.
     'doc_lint.py',
+    # doc_lint.py's own real-YAML frontmatter check imports this at module
+    # level (added 2026-09-20, shared with verify_harness.py's deep-check
+    # copy of the same check so the two never drift). Without it doc_lint.py
+    # itself fails to import in a consumer -- not a SKIPPED finding, a
+    # ModuleNotFoundError on every run, since the import is unconditional at
+    # the top of the file. Caught by check_tools_answer_help_without_writing,
+    # which copies only the tracked tree and runs every tool's --help there.
+    'frontmatter_yaml.py',
     'doc_sync.py',
     'routing_audit.py',
     # Move tracked files or directories and repoint every reference in the
