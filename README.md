@@ -78,6 +78,11 @@ Precedent Works](documentation/TEN_THINGS.md).
 - **Every decision carries its reasoning and an audit trail.** Not just
   what was decided, but why, with a link back to the conversation that
   produced it — nobody has to dig through chat history to find out.
+- **Good push back at every moment is invaluable.** Every idea gets
+  tested before it lands.
+- **Your real practice turned into enforced protocols avoids that
+  endless grating frustration of no one knowing the expected
+  standards.** Everyone works from the same rules.
 
 Learn more about it: [What This Is (and Why Explore Using
 Precedent)](documentation/WHY_PRECEDENT.md), [Ten Things to Know About How
