@@ -44,28 +44,32 @@ check, the fleet sweep — are the deliberate exception, kept to the literal
 ask because what they trigger is too expensive to run on a guess; each
 names why in its own file.
 
-- **"Go update"**, **"Approved"**, and **"Go merge"** ([go-merge](practices/go-merge.md)) —
+- **"Go update"** and **"Approved"** ([go-merge](practices/go-merge.md)) —
   classify first: a direct push, straight to the branch, no PR, is now the
   **default**; only a **huge** change (touches enforcement/gating code,
   changes a governance or authorization practice, is hard to reverse once
   live, or you're not confident it's none of those) runs the full chain —
   syncs, says the branch out loud, commits, pushes, opens the pull request,
-  and merges — **without asking again.** Unsure which it is? Huge. A step
-  this session cannot perform hands off rather than coming back as a
-  question: the authorization travels with the work. One rule, three
-  triggers, and `Go update` is the one to lead with — it names what
-  actually happens whether or not a merge is literally in the picture —
-  with `Go merge` exactly as valid, just second.
+  and merges — **without asking again.** Say which path you took, and why,
+  in the reply. Unsure which it is? Huge. A step this session cannot
+  perform hands off rather than coming back as a question: the
+  authorization travels with the work. One rule, two triggers, and
+  `Go update` is the one to lead with — it names what actually happens
+  whether or not a merge is literally in the picture.
   `Approved` is also an ordinary adjective, so *"the approved plan of
-  record"* is not the command, and `Go merge` is not the command when
-  "merge" has its own object, as in *"let's go merge those two lists."*
-  **None of the three is required for the authorization to exist** —
+  record"* is not the command.
+  **Neither is required for the authorization to exist** —
   "sold, ship it" reads as this command as plainly as the phrase does.
   What the phrase buys is certainty:
   say one of them and the chain runs, full stop. Where it's absent and the
   sentence could honestly go either way, say the read out loud and get it
   confirmed before the push, the pull request, or the merge — commit locally
   regardless, and hold only the shared-branch steps on the answer.
+- **"Push directly"** ([push-directly](practices/push-directly.md)) — the
+  classification's own override, named: skip it outright and push straight
+  to the branch, no PR, whatever `Go update` would otherwise call for on
+  this one change. Not a standing exemption — it authorizes the change in
+  front of it, not every change after it.
 - **"Drop it"** ([park-it](practices/park-it.md)) — write
   `**Disposition:** parked (<date>, <who said it>)` into the item meant, in
   that same turn, say which item was marked, and **never raise it unprompted
@@ -124,7 +128,7 @@ names why in its own file.
   ([vendor-update-runbook](practices/vendor-update-runbook.md)) — the fixed
   sequence for taking an upstream update, starting with making the SOURCE
   clone current against the pinned branch. **It carries the merge too**, since
-  2026-09-14 — its last step runs `Go merge`'s chain on what the update
+  2026-09-14 — its last step runs `Go update`'s chain on what the update
   produced, so nobody is asked a second time for work that is already done and
   already checked. It reverses the sentence that used to sit here; the full
   check at step 6 still gates the push, as it does for any merge.
@@ -224,7 +228,7 @@ plan's premise.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block; `python3 tools/build_views.py --check` exits non-zero on drift. Source: practices/ -- edit the practice file, never this block. -->
 
-## Resident block (~1180 of 2000 token budget, 11 of 132 practices (11 universal))
+## Resident block (~1180 of 2000 token budget, 11 of 133 practices (11 universal))
 
 **answer-first-ask-before-long-work.** Three parts. **(1) Answer the easy questions in a message before starting
 anything long.** A conceptual question is answered from what is already
@@ -327,10 +331,12 @@ When a document replaces or is replaced by an earlier one:
   index-remembers-past — put the lineage in the index, not in either document
 When a judgment call is needed to keep work moving:
   small-calls — make small calls yourself; note them; stop only for big ones
-When a message carries the merge phrase, or plainly authorizes a merge:
-  go-merge — "Go update"/"Approved"/"Go merge": default push; huge -> sync, branch, PR, merge
 When a message says "Archive", with or without a question mark, or otherwise asks whether the session can be archived:
   archive-status-check — "Archive"/"Archive?" -- check pending; archive if clear, else say what isn't
+When a message says "Go update" or "Approved", or plainly authorizes a merge:
+  go-merge — "Go update"/"Approved": default push; huge -> sync, branch, PR, merge
+When a message says "Push directly", or gives a specific instruction to skip the PR for this one change:
+  push-directly — "Push directly" -- skip the judgment, push straight to the branch, no PR
 When a message says "Update Vendors", or an upstream update is being taken into a repo that vendors a practice layer:
   vendor-update-runbook — "Update Vendors" -- source clone first, both layers move separately, then merge
 When a model, study or comparison table rests on an operating constant nobody decided — a margin, a cap, a rate, a floor:

@@ -1,15 +1,15 @@
 ---
 slug:        go-merge
-title:       "\"Go update\", \"Approved\", and \"Go merge\" -- authorize sync, confirm branch, commit, push, PR, and merge (a direct push is the default; the full chain is for huge changes only)"
+title:       "\"Go update\" and \"Approved\" -- authorize sync, confirm branch, commit, push, PR, and merge (a direct push is the default; the full chain is for huge changes only)"
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
-occasion:    "a message carries the merge phrase, or plainly authorizes a merge"
+occasion:    "a message says \"Go update\" or \"Approved\", or plainly authorizes a merge"
 gates:       ["merge"]
-index_clause: "\"Go update\"/\"Approved\"/\"Go merge\": default push; huge -> sync, branch, PR, merge"
+index_clause: "\"Go update\"/\"Approved\": default push; huge -> sync, branch, PR, merge"
 checked_by:  null
-defines:     ["Go update", "Approved", "Go merge"]
-command:     {"Go update": "Save the work, publish it, and tell you where it went — without asking anything further.", "Approved": "The same as **Go update**: save the work, publish it, and tell you where it went.", "Go merge": "The same as **Go update**: save the work, publish it, and tell you where it went."}
+defines:     ["Go update", "Approved"]
+command:     {"Go update": "Save the work, publish it, and tell you where it went — without asking anything further.", "Approved": "The same as **Go update**: save the work, publish it, and tell you where it went."}
 status:      active
 in_force_at: null
 supersedes:  ["merge-authorization-keyword"]
@@ -37,7 +37,12 @@ approved_by: "Morgan, 2026-09-08 -- moved up from his individual set to
   correctly -- \"it is not just SINGLE WORDING changes; it should be for
   all NON-HUGE changes... have VERY STRICT CRITERIA for being a huge
   change\", and \"Make this a universal rule 100%. This should be changed
-  universally\""
+  universally\"; `Go merge` retired as a separate trigger later the same
+  day, Morgan -- \"I think we changed 'go update' and are no longer using
+  'go merge'... let's remove entirely the 'go merge' phrase/trigger, and
+  only 'go update' for that,\" keeping `Go update` and `Approved` as the
+  two -- see push-directly.md for the narrower phrase coined the same
+  conversation"
 strength:    decided
 ---
 ## Rule
@@ -130,17 +135,17 @@ chain, and the identical branch-naming step. There is no weaker reading of
 it: it is not "noted", it is not "go ahead and I will merge it later", and it
 does not become a question about whether he meant the command.
 
-**`Go merge` means the same thing too, permanently, alongside `Go update`
-rather than instead of it.** `Go update` is the one to reach for first:
-"update" names what actually happens whether or not a merge ends up in the
-picture -- a trivial fix can go straight to the branch with no merge in
-sight at all -- where "merge" reads as a promise the phrase might not
-keep. `Go merge` stays exactly as good a way to say it, especially when a
-real merge is literally what is happening; neither phrase retires the
-other, and using one over the other still carries no different meaning or
-weaker authorization -- only which one gets said first changed.
+**`Go merge` is retired as a trigger.** Say `Go update` (or `Approved`)
+instead -- both carry the identical authorization, the identical chain,
+and the identical branch-naming step this file has always described. A
+message that still says "go merge" in plain English is read the way any
+intent is: if it plainly asks for this authorization, treat it as one, per
+the no-phrase-required paragraph below -- it is simply no longer one of the
+phrases guaranteed to be recognized on its own. For the case where the size
+call is already made and the PR should be skipped outright, say
+[push-directly](push-directly.md) instead.
 
-**None of the three phrases is required for the authorization to exist —
+**Neither of the two phrases is required for the authorization to exist —
 they are the unambiguous case, not the only case.** A message can plainly
 authorize a merge without any of them in it: "sold, ship it", "yes, let's
 do this", "that's exactly what I wanted, put it up" all read as this
@@ -208,17 +213,8 @@ merge it.** A message that says `approved` about work you have not yet shown
 him, where nothing is pending, is the one case worth a question -- and the
 question is *which* work, never whether the word meant what it said.
 
-**`Go merge` collides with ordinary language the same way, because
-"merge" names a routine action of its own elsewhere -- two lists, two
-branches, two reports.** "let's go merge those two lists", "go check the
-logs, then merge the report" are not the command -- there `merge` has an
-object of its own, exactly like `update` above. "Go merge it", "go merge,
-no PR needed for this one", and a lone line reading `GO MERGE` do count.
-Same test: if you can tell what would be updated and the word is being
-said about it, do it.
-
 **"Blocked" means a call came back refused, not that you expect one to.**
-`Go merge` is not an invitation to go looking for reasons the merge might
+`Go update` is not an invitation to go looking for reasons the merge might
 not be allowed; try the step, and hand off on what the tool actually said,
 quoting it. A restriction the repository itself declares on a branch is a
 different thing and is handed off nowhere -- the phrase authorizes a merge,
@@ -243,7 +239,7 @@ reverse. **The test is never the size of the diff, and it is no longer
 "did the meaning change" — it is whether the change hits one of the four
 huge criteria in the Rule above.**
 
-**Once one of the three phrases is there, ask about the object, never about
+**Once one of the two phrases is there, ask about the object, never about
 the phrasing.** The one question worth stopping for is *which* pending work
 is meant, and only when several unrelated branches are genuinely in play.
 Asking whether the words were meant as the command produces exactly the
@@ -257,7 +253,7 @@ It says the person has approved *this* merge; it does not widen what may be
 merged, and it does not survive into the next one. Where a repository
 restricts a particular branch -- a release branch, a pinned integration
 branch, a `main` behind review -- that restriction still holds, and
-`Go merge` with no branch named means the branch the repository's own rules
+`Go update` with no branch named means the branch the repository's own rules
 say routine work lands on.
 
 ## Why
@@ -434,6 +430,23 @@ governance practices, hard-to-reverse actions, and doubt itself) are this
 session's own draft against his instruction to make them strict, not
 dictated by him line for line — he set the shape and the bar, not the
 wording.
+
+**`Go merge` retired as a separate trigger, later the same day, on
+Morgan's decision.** Once `Go update` always decided push-vs-huge and
+always announced which path it took, keeping a second, permanently-equal
+phrase stopped earning its keep in his own words: *"I think we changed
+'go update' and are no longer using 'go merge'; 'go update' should now:
+decide if this is big or small, and if it's small, push directly, and if
+it's big, merge it,"* and *"let's remove entirely the 'go merge' phrase/
+trigger, and only 'go update' for that."* Both behaviors were already true
+of the Rule above -- what changed is that `Go merge` no longer stands
+beside `Go update` as a second, guaranteed-recognized trigger. This is not
+the rename declined on 2026-09-15 and 2026-09-18: the slug and file stay
+`go-merge`, so nothing that cites [go-merge](go-merge.md) breaks; only the
+set of phrases a session is guaranteed to recognize shrank by one. A
+separate, narrower phrase, [push-directly](push-directly.md), was coined
+the same conversation for skipping the huge/default judgment call itself,
+which `Go update` still always makes.
 
 ## Install
 No mechanical check, and not for lack of trying: this governs how a chat

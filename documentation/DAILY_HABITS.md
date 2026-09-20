@@ -81,9 +81,10 @@ may not survive.
 **"Go update"** is how you end that. Say it and your assistant saves the
 work properly, publishes it where your colleagues can see it, and tells
 you where it went — no further questions, no checklist to confirm.
-("Go merge" means exactly the same thing, and still works — "update" is
-just the more honest word, since plenty of what it does isn't a merge at
-all, but a direct edit.)
+(**"Approved"** means exactly the same thing, said as a plain word of
+agreement instead of an instruction. Want it pushed live without the
+review step, because you've already decided the change is small? Say
+**"Push directly"** instead.)
 
 Say it when you're done with a piece of work and want other people to
 have it, or when you simply want it saved outside the conversation before
@@ -93,7 +94,7 @@ costs an afternoon.
 
 ## The Rest of the Vocabulary
 
-`Go merge` is one of a small set of phrases the assistant is guaranteed to
+`Go update` is one of a small set of phrases the assistant is guaranteed to
 recognize. You never have to use any of them — plain English works — but
 each one saves you a paragraph of explaining:
 
@@ -104,10 +105,11 @@ each one saves you a paragraph of explaining:
 | **Brainstorm** | Think it through with you and write nothing down — no files, no edits, nothing saved — until you say to. |
 | **Chief of Staff** | Stop and route this: tell you what every open session is blocked on and what is colliding, with a clickable link to each. |
 | **Drop it** | Mark the open question as parked and drop the subject. It won't be raised again unless you raise it. |
-| **Go update** | Save the work, publish it, and tell you where it went — without asking anything further. Synonym: Approved, Go merge |
+| **Go update** | Save the work, publish it, and tell you where it went — without asking anything further. Synonym: Approved |
 | **My options** | Lay out the real choices in plainer words, the good and the bad of each, and tell you which one it recommends and why -- and when it's about a current issue meant for another session, add that session's id and link, which repository has to be the primary seed root, and which others need to be attached, then hand the whole thing back as one paste-ready block. |
 | **Practice check** | Go through every rule in force, one at a time, and report on each — the slow, complete version of the routine checks. |
 | **Prompt Please** | Write up the situation, the problem, your recommended action and why, and hand it back as one prompt ready to paste straight into a new session -- naming which repository to root it in and which others to attach. |
+| **Push directly** | Save the work and push it straight to the branch right now -- no pull request, whatever go-merge's classification would otherwise call for. |
 | **Reduction pass** | Measure everything a session loads before it starts work, make room by moving things rather than deleting them, and show you exactly what moved and what it saved. |
 | **Simple words** | Drop the formal register and explain it the way somebody would say it out loud — same answer, plainer telling. |
 | **Three Things** | Tell you the three most important things you need to know right now, in three short lines. |

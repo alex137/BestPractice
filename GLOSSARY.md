@@ -30,7 +30,6 @@ Built from every practice's `defines:` frontmatter field -- the terms that pract
 | Drop it | [park-it](practices/park-it.md) |
 | full practice audit | [full-practice-audit](practices/full-practice-audit.md) |
 | generated artifact | [generated-artifact-provenance](practices/generated-artifact-provenance.md) |
-| Go merge | [go-merge](practices/go-merge.md) |
 | Go update | [go-merge](practices/go-merge.md) |
 | headline capitalization | [headline-capitalization](practices/headline-capitalization.md) |
 | light check | [two-check-levels](practices/two-check-levels.md) |
@@ -44,6 +43,7 @@ Built from every practice's `defines:` frontmatter field -- the terms that pract
 | practice-set source | [source-naming](practices/source-naming.md) |
 | Prompt Please | [prompt-please](practices/prompt-please.md) |
 | pronouns | [declared-pronouns](practices/declared-pronouns.md) |
+| Push directly | [push-directly](practices/push-directly.md) |
 | Reduction pass | [reduction-pass](practices/reduction-pass.md) |
 | Relayed authorization | [relayed-authorization](practices/relayed-authorization.md) |
 | repo: | [session-tags](practices/session-tags.md) |
