@@ -54,7 +54,7 @@ is spelled out in full at the link:
    subject matter rather than copied verbatim: `AGENTS.md`, `MAP.md`,
    `TODO.md`, `GLOSSARY.md`, `GETTING_STARTED.md`, the PR template, the
    `.gitignore` baseline, and the harness adapter(s) from
-   [templates/harness/](../templates/harness/) for whichever assistant
+   [templates/harness/](../templates/harness/) for whichever AI Assistant
    will work the repo. `local/practices/project-voice.md` (a repo-local
    practice, not a plain document) and `STYLEGUIDE.md` are the exception:
    both ship near-empty and **stay that way** — see "Optional, and

@@ -122,8 +122,8 @@ each one saves you a paragraph of explaining:
 <!--/gen:vocabulary-->
 
 *That table is built from the rules themselves every time this page is
-rebuilt, so it cannot fall behind the assistant. Numbers by:
-precedent_vocabulary.py — or just say **"Vocabulary"** and your assistant
+rebuilt, so it cannot fall behind the AI Assistant. Numbers by:
+precedent_vocabulary.py — or just say **"Vocabulary"** and your AI Assistant
 will read you the current list.*
 
 **"Drop it", "Three Things" and "Simple words" are the three worth learning first.** "Drop
@@ -138,11 +138,11 @@ The single idea underneath all four habits: **the conversation is
 disposable, the project is the memory.** A chat thread is gone in a week —
 scrolled past, closed, or simply too long to find anything in. Anything
 that matters has to end up in the project itself, where the next person
-and the next assistant will actually encounter it.
+and the next AI Assistant will actually encounter it.
 
 That's what "make it a rule" is for, and it's what "Go merge" is for.
 Habits 1 and 3 are the same idea from the other direction: work through
-the assistant so the project keeps up with you, and ask the project
+the AI Assistant so the project keeps up with you, and ask the project
 questions instead of trying to remember the answers.
 
 ## Learn More
