@@ -1,7 +1,7 @@
 # Precedent
 
-**Precedent solves the three biggest frustrations of working with people
-and AI together:**
+Precedent solves the three biggest frustrations of working with people
+and AI together:
 
 1. **Nobody notices the pattern** — and even when someone does, enforcing
    it costs real time and attention, every single time.
