@@ -39,5 +39,35 @@
     ],
     "why": "2026-09-20: a reply said 'no open work is blocking either way' in its own next-steps bullet and then closed with \"Don't archive this session\" -- the two cannot both be true, and nothing caught it before the person did. The advisory require_one_of above only checks that ONE of the two fixed sentences is present; it has no way to notice that the reply also asserts the opposite of the one it picked. Unlike the archive verdict itself -- deliberately left a judgment call, per the-boildown's own Install section, because no script can tell a real reason from a content-free recap -- a reply is never allowed to assert both halves of the same contradiction at once, whatever the real state is, so this one is blocking rather than advisory. Narrow on purpose: it does not try to verify the verdict is CORRECT, only that the reply does not talk itself out of its own answer. Second incident, same day: a reply's own Boildown bullet said \"PR #165 merged... -- nothing left to do there\" (scoped to that one closed PR) and correctly closed with \"Don't archive this session\" because an unrelated question was still open elsewhere -- the flat match had no notion of scope, so a per-item \"nothing left to do\" read identically to a whole-session one. Fixed by excluding an immediately-following scope qualifier (there / on it,that,this / for it,that,this) from both patterns in this entry, same family as the double-quote-citation exemption above it: a phrase scoped away from the whole session is not asserting the opposite of the verdict, any more than a quoted citation is.",
     "checks_practice_at": "practices/the-boildown.md"
+  },
+  {
+    "practice": "rule-links",
+    "require_no_bare_pattern": [
+      {
+        "pattern": "\\bPR #\\d+\\b",
+        "why": "a pull request number names a page with a destination -- link it, rather than naming the bare number"
+      },
+      {
+        "pattern": "\\bsession_[A-Za-z0-9-]+\\b",
+        "why": "a session id names a specific session with its own page -- link it, rather than naming the bare id"
+      },
+      {
+        "pattern": "\\bgithub\\.com/[\\w.-]+/[\\w.-]+/pull/\\d+\\b",
+        "why": "a bare GitHub pull request URL outside a markdown link is unclickable copy, not a citation"
+      }
+    ],
+    "advisory": true,
+    "why": "rule-links says anything mentioned that has a destination gets a link the first time it is named -- a PR, a session, a rule, a file -- and had no mechanical check at all until this predicate (tools/precedent_reply_check.py's require_no_bare_pattern). Added 2026-09-20 after a reply in a downstream consumer repository mentioned 'PR #21' with no link, and nothing caught it before the person had to notice and ask. Declared advisory rather than blocking: markdown links are stripped from the whole reply once, up front, so a thing correctly linked on its FIRST mention and named bare again later in the same reply still matches -- a known imprecision (rule-links only requires the first mention to carry the link), not a bug, and not yet worth refusing a turn over."
+  },
+  {
+    "practice": "branch-links",
+    "require_no_bare_pattern": [
+      {
+        "pattern": "\\bgithub\\.com/[\\w.-]+/[\\w.-]+/tree/[\\w/-]+(?:\\.[\\w/-]+)*",
+        "why": "a bare GitHub branch tree URL outside a markdown link is unclickable copy, not a citation"
+      }
+    ],
+    "advisory": true,
+    "why": "branch-links says a git branch named anywhere in a reply gets a link to its tree view, and its own Install section says a bare branch NAME has no reliable syntactic signature a mechanical check could key off -- a branch's tree URL does, though, so this predicate (tools/precedent_reply_check.py's require_no_bare_pattern) catches that one detectable case rather than the general one. Added 2026-09-20 alongside the rule-links entry above, same incident. Declared advisory for the same reason: a link stripped once, up front, does not know a later bare mention of a URL already linked earlier in the same reply was already covered."
   }
 ]

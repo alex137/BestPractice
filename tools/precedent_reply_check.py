@@ -34,6 +34,10 @@ mistaken for a live declaration:
         {"if_says": "Nothing is blocked",
          "must_not_say_matching": "still (waiting|open|pending)"}
       ],
+      "require_no_bare_pattern": [
+        {"pattern": "\\bPR #\\d+\\b",
+         "why": "a pull request number names a page with a destination"}
+      ],
       "why": "<what goes wrong when the reply omits it>"
     }
 
@@ -43,6 +47,21 @@ from a repo-scoped script, per the-boildown's own Install section), only
 whether the reply asserts it in the same breath as a plain-language phrase
 that means the opposite. Added 2026-09-20 after exactly that: a reply said
 "nothing is blocking" and then closed with "Don't archive this session".
+
+`require_no_bare_pattern` checks a different practice family entirely --
+rule-links and branch-links, both of which say a mentioned destination (a
+PR, a session, a branch, a rule) gets a link the first time it is named, and
+neither of which had a mechanical check before this. Each entry is a
+`{pattern, why}` pair; every markdown link (`[text](url)`) in the reply is
+stripped out FIRST, and each pattern is then tested against what remains --
+a match there is a mention that never appeared inside a link at all. Because
+the strip happens once, up front, a thing linked on its first mention and
+named bare again later in the same reply still matches, which is a known
+imprecision (rule-links only requires the FIRST mention to be linked) rather
+than a bug -- see this repo's own reply_check.json, which declares this
+predicate `advisory` for exactly that reason. Added 2026-09-20 after a bare
+"PR #21" in a chat reply went unlinked and uncaught in a downstream
+consumer.
 
 A source may declare one requirement (an object) or several (a list). Add
 `"advisory": true` to a requirement and an unmet one is still detected and
@@ -289,6 +308,25 @@ def _strip_quoted_spans(s):
     return _DQUOTE_SPAN_RE.sub(' ', s)
 
 
+# A markdown link's text may itself look like the thing require_no_bare_pattern
+# is hunting for ("[PR #21](https://...)"), so the whole `[text](url)` span
+# is blanked out, not just the URL -- otherwise the pattern would still match
+# inside the display text of a link that already satisfies rule-links (a
+# shared-set practice this repo's own catalogue does not carry, so this is
+# named without the anchored `practice:` form -- see
+# todo-2026-09-07-universal-code-cites-team-slug for why, in the fail-gracefully
+# citations that were in exactly this spot until they were promoted).
+_MD_LINK_RE = re.compile(r'\[[^\]]*\]\([^)]*\)')
+
+
+def _strip_markdown_links(s):
+    """Blank out every markdown link in `s`. What is left is prose that was
+    never wrapped in a link at all -- exactly what require_no_bare_pattern
+    tests its patterns against, since a mention already linked is not a bare
+    one, whatever text the link displays."""
+    return _MD_LINK_RE.sub(' ', s)
+
+
 # practices/the-boildown.md (practice: the-boildown) names one fixed template
 # for a turn where nothing happened that is visible, or non-trivial, to the
 # person -- "Unchanged since the last update: <what it's still waiting on>."
@@ -324,8 +362,8 @@ def is_trivial_checkin(text):
 def violations(text, reqs, timeline=None):
     """-> list of records, one per unmet requirement:
 
-        {'kind': 'heading' | 'sentence', 'message': <human-readable>,
-         'advisory': bool}
+        {'kind': 'heading' | 'sentence' | 'contradiction' | 'bare_pattern',
+         'message': <human-readable>, 'advisory': bool}
 
     `advisory` mirrors the requirement's own `"advisory": true` declaration
     (default false). main() still detects and names an unmet advisory
@@ -437,6 +475,28 @@ def violations(text, reqs, timeline=None):
                     "push/fetch or the real condition, not what an earlier line in "
                     "this same reply already claimed) and fix whichever one is wrong."
                     + (f" (practice: {r['practice']})" if r.get('practice') else ''))})
+        # require_no_bare_pattern closes the gap rule-links and branch-links
+        # left mechanically unchecked: both say a mentioned destination gets
+        # a link the first time it is named, and neither had any way to
+        # catch a plain miss until this. (Named without the anchored
+        # `practice:` form -- both live in a shared set this repo's own
+        # catalogue does not carry; see the note beside _MD_LINK_RE above.)
+        # Markdown links are stripped from the whole reply FIRST (a mention
+        # already inside a link is not a bare one), then each declared
+        # pattern is tested against what remains -- a match is a mention
+        # that never appeared in a link anywhere in the reply.
+        link_stripped = _strip_markdown_links(text)
+        for entry in (r.get('require_no_bare_pattern') or []):
+            pattern, pat_why = entry.get('pattern'), entry.get('why')
+            if not pattern:
+                continue
+            m = re.search(pattern, link_stripped)
+            if m:
+                out.append({'kind': 'bare_pattern', 'advisory': advisory, 'message': (
+                    f"[{r.get('_source', '?')}] this reply mentions "
+                    f"\"{m.group(0)}\" without a markdown link to it"
+                    + (f" -- {pat_why}" if pat_why else '') + "."
+                    + (f" (practice: {r['practice']})" if r.get('practice') else ''))})
     return out
 
 
@@ -467,6 +527,9 @@ def main():
                 for pair in r['require_no_contradiction']:
                     bits.append(f"\"{pair.get('if_says')}\" must not also match "
                                 f"/{pair.get('must_not_say_matching')}/i")
+            if r.get('require_no_bare_pattern'):
+                for entry in r['require_no_bare_pattern']:
+                    bits.append(f"no bare (unlinked) match of /{entry.get('pattern')}/")
             if r.get('require_when_context_grew_tokens'):
                 bits.append("ONLY once the context has grown "
                             f"{int(r['require_when_context_grew_tokens']):,} "
@@ -542,6 +605,13 @@ def main():
               '(fetch/push status, what is really outstanding) rather than '
               'trusting either half of the contradiction, then output ONLY a '
               'short correction of whichever line was wrong.', file=sys.stderr)
+    elif any(b['kind'] == 'bare_pattern' for b in bad):
+        print('The reply gate blocked this turn: it names something with a '
+              'destination -- a PR, a session, a branch, a rule -- without '
+              'linking it, named below. The person has ALREADY SEEN the '
+              'reply above -- do NOT repeat it. Output ONLY a short '
+              'correction that adds the missing link(s) in place of the '
+              'bare mention(s).', file=sys.stderr)
     else:
         print('The reply gate blocked this turn. The person has ALREADY SEEN '
               'the reply above, and it ALREADY CARRIES every closing heading '
