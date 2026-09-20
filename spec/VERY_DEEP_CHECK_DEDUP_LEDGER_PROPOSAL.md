@@ -1,5 +1,5 @@
 ---
-title:         Very Deep Check: A Dedup Ledger for Repeat Findings
+title:         "Very Deep Check: A Dedup Ledger for Repeat Findings"
 kind:          proposal
 status:        executed
 opened:        2026-09-20
