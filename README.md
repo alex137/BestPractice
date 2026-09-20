@@ -131,7 +131,6 @@ philosophy](philosophy/OUR_PHILOSOPHY.md):
   it directly.
 
 The individual pages, if you want to go deeper on any one idea:
-[The Working Loop](philosophy/THE_WORKING_LOOP.md),
 [Reasons Why](philosophy/REASONS_WHY.md),
 [The Talmudic Method](philosophy/THE_TALMUDIC_METHOD.md),
 [Company Building Rules](philosophy/COMPANY_BUILDING_RULES.md),
