@@ -4,7 +4,7 @@
 machines. ([Humans at our
 Best](philosophy/HUMANS_AT_OUR_BEST.md))*
 
-The **three biggest frustrations** of working with people and AI
+The **three biggest frustrations** of working with people and/or AI
 together are solved by Precedent:
 
 1. **Nobody notices patterns** — and even when someone does, enforcing
@@ -17,8 +17,9 @@ together are solved by Precedent:
    when one person does remember, your team is permanently dependent on
    that one person.
 
-Precedent solves them by approaching human/AI collaboration from a
-different angle:
+Or when AI realizes the above, it keeps it to itself. So Precedent
+solves this by approaching human/AI collaboration from a different
+angle:
 
 - **Human collaboration comes first.** The tool exists to make people
   working together better, not to route around them.
