@@ -27,6 +27,8 @@ this page doesn't replace them.*
   every last thing that's wrong — a bug, a sloppy paragraph, a process that
   half-works — with the intensity and creativity that comes from treating it
   as theirs ([`own-every-word`](COMPANY_BUILDING_RULES.md#own-every-word) is the narrow case).
+- <a id="questions"></a>**Asking hard questions.** Letting nothing stop you from getting to the
+  bottom of the "why" you need to know.
 - <a id="boundary-pushing"></a>**Boundary pushing.** AI tends to under-push the boundaries a situation
   actually calls for, held back by rules built strict on purpose
   ([`push-back-as-config-switch`](AI_GOVERNANCE_TO_COCREATE.md#push-back-as-config-switch) is the same
@@ -78,11 +80,11 @@ this page doesn't replace them.*
   charts; reading it and managing it is a human job. Every dark process is
   dark for a political reason
   ([`no-dark-processes`](COMPANY_BUILDING_RULES.md#no-dark-processes)).
-- <a id="sense-of-smell"></a>**Sense of smell.** Understanding how reality actually plays out, past
+- <a id="sense-of-smell"></a>**Sense of smell.** Understanding how reality plays out, past
   anything a machine's formal analysis can show: *this vendor is sketchy*,
   *those guys are always in disasters*, *we just don't get along*. Sometimes
-  literal — the Ghost can't smell burnt wiring — and the general case is
-  [`instinct-catches-what-checklists-miss`](REASONS_WHY.md#instinct-catches-what-checklists-miss).
+  literal — the Ghost can't smell burnt wiring
+  ([`instinct-catches-what-checklists-miss`](REASONS_WHY.md#instinct-catches-what-checklists-miss)).
 
 ### The Intangible
 
@@ -90,19 +92,17 @@ this page doesn't replace them.*
   ([`structurally-human`](COMPANY_BUILDING_RULES.md#structurally-human);
   [`people-manage-agents-execute`](OUR_PHILOSOPHY.md#people-manage-agents-execute)).
   The bottleneck [`hire-for-drive`](COMPANY_BUILDING_RULES.md#hire-for-drive) is really about:
-  judging fast, not producing. A model can hand it a starting point by
-  flagging its own weak claims
-  ([`non-uniform-confidence`](AI_GOVERNANCE_TO_COCREATE.md#non-uniform-confidence)).
+  judging fast, not producing.
 - <a id="instinct"></a>**Instinct.** Reading a room, sensing what a client meant but didn't
   say, pushing someone harder when the moment calls for it
   ([`humans-do-what-humans-do-best`](OUR_PHILOSOPHY.md#humans-do-what-humans-do-best));
   the answer that felt off and passed every check
   ([`instinct-catches-what-checklists-miss`](REASONS_WHY.md#instinct-catches-what-checklists-miss)).
+- <a id="weirdness"></a>**Weirdness.** AI normalizes away that which is strange or wildly
+  creative.
 - <a id="understanding-problems"></a>**Understanding problems.** People sense that something is wrong almost
   without trying; working out what would actually fix it is a different
   skill, and an unnatural, hard-won one for most.
-- <a id="questions"></a>**The right questions.** Asking the right one at the right time may be
-  the hardest of the skills that matter.
 - <a id="the-human-spark"></a>**The human spark.** What makes someone worth working for, not merely
   alongside
   ([`structurally-human`](COMPANY_BUILDING_RULES.md#structurally-human)).

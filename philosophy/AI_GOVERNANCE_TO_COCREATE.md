@@ -167,7 +167,7 @@ voice.
 claim reads with the same even prose confidence,
 [`hire-for-drive`](COMPANY_BUILDING_RULES.md#hire-for-drive)'s "find the one false paragraph"
 skill has nothing to grab onto. Flag the weaker claims — a hedge, a
-citation, an assumption — so [`taste`](HUMANS_AT_OUR_BEST.md#taste) has a place to start.
+citation, an assumption — rather than let them read as settled.
 
 ## Surfacing Blind Spots
 
