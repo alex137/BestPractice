@@ -45,13 +45,33 @@ WHAT IT CHECKS, AND WHY EACH ONE BLOCKS.
                  file forever -- and uncommitted content is the one thing
                  deletion destroys outright.
 
-A reference match is a plain substring, deliberately, so decommissioning
-`docs.yml` also blocks on a line naming `bestpractice-docs.yml`. That is a
-false positive in the safe direction, and tightening it to a word boundary
-would trade a look at one printed line for the chance of clearing a path
-something really does point at. The report prints the matching line for
-exactly this reason: dismissing a wrong hit costs a second, and a wrong
-clear costs a cut dependency.
+A reference match is a plain substring on the LEFT, deliberately, so
+decommissioning `docs.yml` also blocks on a line naming
+`bestpractice-docs.yml`. That is a false positive in the safe direction, and
+tightening it to a word boundary would trade a look at one printed line for
+the chance of clearing a path something really does point at. The report
+prints the matching line for exactly this reason: dismissing a wrong hit
+costs a second, and a wrong clear costs a cut dependency.
+
+On the RIGHT the match stops at a name boundary (2026-09-20): a needle
+followed by a letter, digit, `_` or `-` is a LONGER name, never a reference
+to this one -- `process/legacy` is not named by `process/legacy-tools`,
+and a repo that retires the former while adopting the latter would
+otherwise be blocked by every mention of its own replacement, with no
+exemption that is not a lie (the file genuinely references the new path).
+A following `/`, `.`, quote, bracket or end of line still matches, so
+`process/legacy/tools` and `process/legacy.` do. Found retiring a vendored
+pack tree in favour of a sibling whose name extended the old one: seven
+hits, all on the replacement.
+
+The basename pass has one more skip for the same reason (2026-09-20): a
+basename that also occurs as a path SEGMENT elsewhere in the tree -- a
+directory called `legacy` retired from a repo that keeps
+`.claude/skills/legacy/` -- cannot be attributed to the retired path any
+more than a duplicated file basename can, and is reported as skipped, not
+searched. Before this, only FILE basenames were counted, so a retired
+directory's bare-word basename was searched as if it were distinctive and
+matched the word across the whole repo (5,606 lines in the origin case).
 
 WHAT IT IS BLIND TO. A reference built by string concatenation at runtime,
 a path named only in something this repo does not track (a GitHub branch
@@ -184,9 +204,20 @@ def _searchable_names(paths):
     generic to be honest about."""
     tracked = tracked_files()
     basename_counts = {}
+    segment_counts = {}
     for f in tracked:
         basename_counts[os.path.basename(f)] = \
             basename_counts.get(os.path.basename(f), 0) + 1
+        # Every directory on the way, counted ONCE per distinct directory:
+        # a retired directory's own name has to be tested against the rest
+        # of the tree the way a file basename is, and files alone never see
+        # a directory name.
+        parts = f.split('/')[:-1]
+        for depth in range(1, len(parts) + 1):
+            segment_counts.setdefault('/'.join(parts[:depth]), parts[depth - 1])
+    seg_name_counts = {}
+    for name in segment_counts.values():
+        seg_name_counts[name] = seg_name_counts.get(name, 0) + 1
     needles, skipped = [], []
     for p in paths:
         needles.append((p, 'path'))
@@ -197,9 +228,32 @@ def _searchable_names(paths):
             # The same basename elsewhere in the tree means a hit cannot be
             # attributed to this path. Reported, not silently dropped.
             skipped.append(base)
+        elif seg_name_counts.get(base, 0) > (1 if base in segment_counts.values() else 0):
+            # The same name is a directory somewhere else in the tree (a
+            # retired `x/legacy/` beside a kept `y/legacy/`): a hit on the
+            # bare name cannot be attributed to this path either.
+            skipped.append(base)
         elif base != p:
             needles.append((base, 'basename'))
     return needles, skipped
+
+
+# A needle followed by a name character is a LONGER name, not a reference
+# to this one (module docstring, "On the RIGHT"). `/`, `.`, quotes,
+# brackets, whitespace and end of line all still count as a match.
+_NAME_CONTINUES = re.compile(r'[A-Za-z0-9_-]')
+
+
+def _mentions(needle, line):
+    start = 0
+    while True:
+        i = line.find(needle, start)
+        if i < 0:
+            return False
+        end = i + len(needle)
+        if end >= len(line) or not _NAME_CONTINUES.match(line[end]):
+            return True
+        start = i + 1
 
 
 def find_references(paths, exempt):
@@ -227,7 +281,7 @@ def find_references(paths, exempt):
             continue
         for i, line in enumerate(text.splitlines(), 1):
             for needle, kind in needles:
-                if needle in line:
+                if _mentions(needle, line):
                     hits.append((rel, i, needle, kind, line.strip()[:110]))
                     break
     return hits, skipped
