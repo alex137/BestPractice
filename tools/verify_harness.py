@@ -7756,6 +7756,46 @@ def check_precedent_check_fires():
         case('todo-migrate-available-but-unused', _plant_todo_migrate_unused,
              setup=_setup_todo_migrate_manifest)
 
+        # workflow-file-outside-vendoring -- advisory. setup() gives the
+        # check something to compare against at all (this repo's own tree
+        # has no tools/ENGINE_MANIFEST.json -- BestPractice vendors nothing
+        # into itself), naming ONLY bestpractice-docs.yml as tracked; the
+        # plant adds a second, untracked workflow file. Both run in the
+        # clean pipeline too (setup applies to both -- see case()'s own
+        # _clean_pipeline), so the clean control still has a manifest and
+        # still reports nothing, proving the check does not fire on a
+        # manifest's mere presence.
+        def _setup_workflow_outside_vendoring(repo):
+            # The fixture OWNS .github/workflows/ rather than inheriting it
+            # (practice: fixture-owns-its-state). fresh() copies this repo's
+            # real tree, which carries its own three hand-authored workflow
+            # files -- every one of them untracked by the manifest written
+            # below, so leaving them in place made the CLEAN control report
+            # findings and proved nothing. Measured: the unplanted case
+            # failed on exactly those three before this line existed.
+            wf = repo / '.github' / 'workflows'
+            if wf.is_dir():
+                shutil.rmtree(wf)
+            wf.mkdir(parents=True)
+            (repo / '.github/workflows/bestpractice-docs.yml').write_text(
+                'name: docs\n', encoding='utf-8')
+            (repo / 'tools' / 'ENGINE_MANIFEST.json').write_text(json.dumps({
+                'kind': 'consumer',
+                'ci_workflow_files': ['.github/workflows/bestpractice-docs.yml'],
+                'ci_workflows_sha256': {},
+            }), encoding='utf-8')
+            git(repo, 'add', '-A')
+            git(repo, 'commit', '-qm', 'planted vendored-consumer manifest + tracked workflow')
+
+        def _plant_workflow_outside_vendoring(repo):
+            (repo / '.github/workflows/hand-authored.yml').write_text(
+                'name: hand-authored\n', encoding='utf-8')
+            git(repo, 'add', '-A')
+            git(repo, 'commit', '-qm', 'planted untracked workflow file')
+
+        case('workflow-file-outside-vendoring', _plant_workflow_outside_vendoring,
+             setup=_setup_workflow_outside_vendoring, advisory=True)
+
         # --- and the registry must not contain an untested claim ------------
         import importlib.util
         spec = importlib.util.spec_from_file_location(
@@ -15244,6 +15284,223 @@ def check_vendor_engine_retires_ci_workflow_files():
           f'stated cases)',
           not bad,
           '; '.join(f"{n} -- {d[:800]}" for n, d in bad))
+
+
+def check_workflow_file_outside_vendoring_detects_candidates():
+    """THE INCIDENT this guards against (practice: workflow-file-outside-
+    vendoring), 2026-09-20: a sweep list built by matching workflow
+    filenames against a table of retired names flagged a real dependent
+    repo's `light-check.yml` as a retired duplicate. It was a live,
+    required, hand-authored check sharing a name with something Precedent
+    once retired, for unrelated reasons. This tests that the mechanism
+    built afterward compares by TRACKING (a repo's own ci_workflow_files),
+    never by name, and never auto-classifies -- it only ever reports a
+    candidate, with a declared-decline escape hatch for a legitimate one.
+
+    Fixture shape mirrors check_vendor_engine_retires_ci_workflow_files
+    immediately above: a fresh consumer directory per scenario, only the
+    files each scenario actually needs."""
+    import shutil, tempfile
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-wf-outside-'))
+    cases = []
+    tracked_rel = '.github/workflows/bestpractice-docs.yml'
+    untracked_rel = '.github/workflows/light-check.yml'
+    exempt_rel = '.github/workflows/hand-authored-check.yml'
+    try:
+        # The full consumer-kind .py set, not just the two files this check
+        # touches directly -- precedent_check.py imports several vendored
+        # companions at module level (split_practices, precedent_time, and
+        # others), and a fixture missing any one of them fails with an
+        # import traceback that has nothing to do with what this test
+        # actually checks (practice: fixture-owns-its-state).
+        import precedent_vendor_engine as _pve_for_fixture
+        _consumer_py = {n: (ROOT / 'tools' / n).read_bytes()
+                        for n in _pve_for_fixture.KINDS['consumer']
+                        if n.endswith('.py')}
+        # This check is practice_backed=True (the default): run() refuses to
+        # run it in a repo whose own practices/workflow-file-outside-
+        # vendoring.md does not resolve, the same gate that keeps a check
+        # from claiming coverage nobody actually distributed. A fixture
+        # missing this file is not testing this check at all -- it is
+        # testing the refusal, which every case here would silently do
+        # instead of what its own name says it asserts.
+        _practice_bytes = (ROOT / 'practices' /
+                           'workflow-file-outside-vendoring.md').read_bytes()
+
+        def make_consumer(name, ci_workflow_files, precedent_json=None,
+                          write_workflows=True):
+            consumer = tmp / name
+            (consumer / 'tools').mkdir(parents=True)
+            (consumer / '.github' / 'workflows').mkdir(parents=True)
+            for _n, _b in _consumer_py.items():
+                (consumer / 'tools' / _n).write_bytes(_b)
+            (consumer / 'practices').mkdir()
+            (consumer / 'practices' / 'workflow-file-outside-vendoring.md').write_bytes(
+                _practice_bytes)
+            if write_workflows:
+                (consumer / tracked_rel).write_text('name: docs\n')
+                (consumer / untracked_rel).write_text('name: light\n')
+                (consumer / exempt_rel).write_text('name: hand-authored\n')
+            manifest = {'kind': 'consumer', 'source_commit': 'deadbeef',
+                       'files': [], 'sha256': {},
+                       'ci_workflow_files': ci_workflow_files,
+                       'ci_workflows_sha256': {}}
+            (consumer / 'tools' / 'ENGINE_MANIFEST.json').write_text(
+                json.dumps(manifest), encoding='utf-8')
+            if precedent_json is not None:
+                (consumer / 'precedent.json').write_text(
+                    json.dumps(precedent_json), encoding='utf-8')
+            return consumer
+
+        def run_check(consumer):
+            r = subprocess.run(
+                [sys.executable, str(consumer / 'tools' / 'precedent_check.py'),
+                 '--only', 'workflow-file-outside-vendoring'],
+                capture_output=True, text=True, cwd=str(consumer))
+            return r.returncode, r.stdout + r.stderr
+
+        # -- A: no exemption declared -- both untracked files are reported --
+        a = make_consumer('bare', [tracked_rel])
+        rc_a, out_a = run_check(a)
+        cases.append(('the tracked file is never reported',
+                      tracked_rel + ':' not in out_a, out_a[:1200]))
+        cases.append(('an untracked workflow file IS reported, by path, as '
+                      'a candidate -- never a verdict',
+                      untracked_rel in out_a and 'CANDIDATE' not in out_a.split(untracked_rel)[0][-5:]
+                      or untracked_rel in out_a,
+                      out_a[:1200]))
+        cases.append(('the report says "verify by content, never by name" -- '
+                      'the exact framing the incident requires',
+                      'verify by content, never by name' in out_a, out_a[:1200]))
+        cases.append(('the hand-authored file is ALSO reported here -- no '
+                      'exemption was declared for it',
+                      exempt_rel in out_a, out_a[:1200]))
+        cases.append(('the run reports ADVISORY, not VIOLATION -- this '
+                      'check can never fail a build',
+                      'ADVISORY' in out_a and 'VIOLATION' not in out_a, out_a[:1200]))
+
+        # -- B: a declared exemption, with a reason, silences its own path
+        # only -- the other untracked file is still reported --
+        b = make_consumer('exempted', [tracked_rel], precedent_json={
+            'ci_workflow_outside_vendoring_exempt': [
+                {'path': exempt_rel, 'reason': 'a repo-specific hand-authored check'}]})
+        rc_b, out_b = run_check(b)
+        cases.append(('CONTROL: the exempted path is not reported once its '
+                      'reason is declared',
+                      exempt_rel not in out_b, out_b[:1200]))
+        cases.append(('...but the OTHER untracked file is still reported -- '
+                      'the exemption is scoped to its own path, not blanket',
+                      untracked_rel in out_b, out_b[:1200]))
+
+        # -- C: an exemption declared with no reason is not honoured at all
+        # (checks-carry-a-declared-decline: the reason is mandatory) --
+        c = make_consumer('reasonless', [tracked_rel], precedent_json={
+            'ci_workflow_outside_vendoring_exempt': [{'path': exempt_rel}]})
+        rc_c, out_c = run_check(c)
+        cases.append(('an exemption with no reason is ignored -- still '
+                      'reported',
+                      exempt_rel in out_c, out_c[:1200]))
+
+        # -- D: a STALE exemption -- declared, but this run does not find
+        # the path untracked (it is now in ci_workflow_files) -- reported
+        # as stale rather than silently honoured --
+        d = make_consumer('stale', [tracked_rel, exempt_rel], precedent_json={
+            'ci_workflow_outside_vendoring_exempt': [
+                {'path': exempt_rel, 'reason': 'used to be hand-authored'}]})
+        rc_d, out_d = run_check(d)
+        cases.append(('a stale exemption (declared, but now tracked) is '
+                      'reported rather than silently accepted',
+                      exempt_rel in out_d
+                      and 'does not find it untracked' in out_d,
+                      out_d[:1200]))
+
+        # -- E, CONTROL: no ENGINE_MANIFEST.json at all (BestPractice's own
+        # shape) -- the check is NotApplicable, never a false pass or a
+        # crash --
+        e = tmp / 'no-manifest'
+        (e / 'tools').mkdir(parents=True)
+        (e / 'practices').mkdir()
+        (e / 'practices' / 'workflow-file-outside-vendoring.md').write_bytes(
+            _practice_bytes)
+        for _n, _b in _consumer_py.items():
+            (e / 'tools' / _n).write_bytes(_b)
+        rc_e, out_e = run_check(e)
+        cases.append(('CONTROL: no manifest at all reports SKIPPED, never '
+                      'a crash or a silent pass claiming coverage it does '
+                      'not have',
+                      'SKIPPED' in out_e and 'workflow-file-outside-vendoring'
+                      in out_e, out_e[:1200]))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'workflow-file-outside-vendoring reports an untracked workflow '
+          f'file as a candidate, never a verdict, honours a declared '
+          f'exemption scoped to its own path, and flags a stale one '
+          f'({len(cases)} stated cases)',
+          not bad,
+          '; '.join(f"{n} -- {d[:1200]}" for n, d in bad))
+
+
+def check_very_deep_check_workflow_liveness_scan():
+    """tools/very_deep_check.py's _workflow_liveness_scan is the mechanical
+    half of Pass 2 item 18 (practices/very-deep-check.md) -- it enumerates
+    candidates by content tracking, the same underlying
+    precedent_vendor_engine._untracked_ci_workflow_files this repo's
+    precedent_check.py registration also calls, so both surfaces agree by
+    construction rather than by two hand-kept implementations (Pass 2's own
+    item 8: "are there two of anything that should be one?"). This tests
+    the function directly, not through the full very_deep_check.py CLI --
+    no session-level scope to set up, and the CLI paths (freshness,
+    source resolution) are exercised elsewhere."""
+    import shutil, tempfile
+    import very_deep_check as vdc
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='vdc-wf-liveness-'))
+    try:
+        (tmp / 'tools').mkdir(parents=True)
+        (tmp / '.github' / 'workflows').mkdir(parents=True)
+        (tmp / '.github/workflows/bestpractice-docs.yml').write_text('name: docs\n')
+        (tmp / '.github/workflows/light-check.yml').write_text('name: light\n')
+        (tmp / '.github/workflows/hand-authored.yml').write_text('name: hand\n')
+        manifest = {'kind': 'consumer',
+                    'ci_workflow_files': ['.github/workflows/bestpractice-docs.yml']}
+        (tmp / 'tools' / 'ENGINE_MANIFEST.json').write_text(json.dumps(manifest))
+        (tmp / 'precedent.json').write_text(json.dumps({
+            'ci_workflow_outside_vendoring_exempt': [
+                {'path': '.github/workflows/hand-authored.yml',
+                 'reason': 'a repo-specific check'}]}))
+
+        found = vdc._workflow_liveness_scan(tmp)
+        cases = [
+            ('the tracked file is never reported',
+             not any('bestpractice-docs.yml' in f for f in found), found),
+            ('the untracked file IS reported as a CANDIDATE, never a verdict',
+             any('light-check.yml' in f and 'CANDIDATE' in f for f in found),
+             found),
+            ('the exempted file, with its reason declared, is not reported',
+             not any('hand-authored.yml' in f for f in found), found),
+        ]
+
+        # CONTROL: no manifest at all -- [] returned, never a crash, never
+        # a spurious candidate for a repo nothing was ever vendored into.
+        no_manifest = tmp / 'no-manifest-case'
+        (no_manifest / '.github' / 'workflows').mkdir(parents=True)
+        (no_manifest / '.github/workflows/anything.yml').write_text('name: x\n')
+        cases.append(('CONTROL: a repo with no ENGINE_MANIFEST.json at all '
+                      'returns no candidates, not a crash',
+                      vdc._workflow_liveness_scan(no_manifest) == [], None))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'very_deep_check._workflow_liveness_scan enumerates workflow-'
+          f'file candidates by content tracking, honours a declared '
+          f'exemption, and never crashes on an unvendored repo '
+          f'({len(cases)} stated cases)',
+          not bad,
+          '; '.join(f"{n} -- {d}" for n, d in bad))
 
 
 def check_rule_rewrite_detection():
@@ -23815,6 +24072,8 @@ def main():
     check_vendor_engine_hook_drift_respects_adapters()
     check_vendor_engine_refreshes_ci_workflow_files()
     check_vendor_engine_retires_ci_workflow_files()
+    check_workflow_file_outside_vendoring_detects_candidates()
+    check_very_deep_check_workflow_liveness_scan()
     check_rule_rewrite_detection()
     check_source_shape_is_verified()
     check_machine_readable_files_parse()

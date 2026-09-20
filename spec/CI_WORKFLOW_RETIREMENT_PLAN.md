@@ -7,7 +7,7 @@ closed:        null
 superseded_by: null
 supersedes:    []
 audience:      contributor
-summary:       "Four asks from a live incident (a fresh usage-report pull found retired workflow files still billing real minutes) — auto-deletion when it is safe, and where detection/judgment belongs instead. Built: engine auto-delete on retirement, verified safe by hash match. Spec'd, not yet built: a detect-and-fail check for a touched workflow file, a very-deep-check pass over every workflow file's liveness, and a folded-in orphaned-file section. One live false positive already corrected the scope of the last three."
+summary:       "Four asks from a live incident (a fresh usage-report pull found retired workflow files still billing real minutes) — auto-deletion when it is safe, and where detection/judgment belongs instead. All four built and tested: engine auto-delete on retirement (safe by hash match), an advisory check flagging a workflow file outside what the vendored engine tracks, and a very-deep-check pass enumerating the same candidates across every repo in scope. A live false positive, found and verified mid-session, is what made items 2-4 compare by content tracking rather than by filename."
 ---
 
 # Retired CI workflow files stop costing minutes on their own
@@ -112,55 +112,73 @@ add a second piece of manifest state to keep in sync for a compound
 scenario that has not happened. Flagged here so it is a decision on record,
 not a blind spot.
 
-## What's spec'd, not yet built (items 2–4)
+## What's built (items 2–4)
 
-### Item 2 — detect a touched-and-orphaned workflow file, in the check suite; never auto-delete it there
+### Item 2 — `workflow-file-outside-vendoring`: detect, never auto-delete
 
-**Detect and fail, not auto-remove.** Every other check in this repo that
-looks at generated or vendored content gates and does not fix
-(`views-drift`, `precedent-check`'s own non-`--strict` leniency) — a CI run
-mutating a repo's tree and committing the result needs its own identity
-story ([documentation/GITHUB_ACTIONS.md](../documentation/GITHUB_ACTIONS.md)'s
-"Limits" section already covers why a workflow that commits is a bigger
-decision than one that only reports), and nobody has asked for that here.
-The proposed check: for any `.github/workflows/*.yml` touched in a diff,
-verify it corresponds either to a currently-shipped template (matched by
-content, not filename — see the false positive below) or to this repo's
-own hand-authored CI. A file that matches neither is named as a finding,
-not deleted.
+**Detect and fail, not auto-remove — and never by filename.** Every other
+check in this repo that looks at generated or vendored content gates and
+does not fix (`views-drift`, `precedent-check`'s own non-`--strict`
+leniency), and the false positive below (found while building this)
+settled the second half: matching by name was the mistake, so this
+compares by **tracking**, not content-hash-against-a-template as first
+proposed — a consumer repo has no local copy of
+`templates/github-actions/*.template` to hash against, but it always has
+its own `tools/ENGINE_MANIFEST.json`.
 
-**Scope note, found while spec'ing this:** `deep-check.yml` only runs on
-*this* repository, which is already clean (verified 2026-09-20 — see
+`precedent_vendor_engine._untracked_ci_workflow_files()` returns every
+`.github/workflows/*.yml`/`*.yaml` file on disk that this repo's manifest
+does not list under `ci_workflow_files`, and that is not a known
+`RETIRED_CI_WORKFLOW_FILES` entry. Registered in `precedent_check.py` as
+`workflow-file-outside-vendoring` — `'tree'` scope,
+**`advisory=True`** (never fails a build; the manifest only ever tracks
+one file per kind by design, so it cannot tell a leftover from a
+legitimate hand-authored check on its own), backed by a real practice file
+([practices/workflow-file-outside-vendoring.md](../practices/workflow-file-outside-vendoring.md))
+carrying `applies_to: [".github/workflows/**"]` so it fires reliably when
+a workflow file is touched, not only within a rotation window. Carries a
+declared-decline exemption (`ci_workflow_outside_vendoring_exempt` in
+`precedent.json`, reason mandatory, same shape as `filename-separator`'s),
+and flags a stale exemption entry rather than honoring it silently.
+Covered by `check_workflow_file_outside_vendoring_detects_candidates` in
+`tools/verify_harness.py` (10 cases).
+
+**Scope note this design corrects:** `deep-check.yml` only runs on *this*
+repository, which is already clean (verified 2026-09-20 — see
 [spec/CI_MINUTES_PLAN.md](CI_MINUTES_PLAN.md)). The actual leak lives in
 personal repos running `precedent-check.yml.template`, not `deep-check.yml`
-— so this check belongs in that template, not (only) in this repo's own
-workflow, or it protects the one place that was never at risk.
+— this check is registered in `precedent_check.py` itself, which is
+vendored into both, so it reaches consumer/source repos through the
+ordinary "Update Vendors" refresh with no separate rollout step.
 
-### Item 3 — a very-deep-check pass reviewing every workflow file's liveness
+### Item 3/4 — a `very_deep_check.py` section, folded in rather than a second mechanism
 
-Natural fit, no policy question attached:
-[practices/very-deep-check.md](../practices/very-deep-check.md) already
-describes exactly this job — judgment-heavy, deliberately never wired into
-a commit/push/merge gate, scope already spans every repo in force.
-`tools/very_deep_check.py`'s own stated design is "it enumerates; it does
-not read or judge" — so the mechanical half of this pass is: enumerate
-every `.github/workflows/*.yml` across every repo in scope, and for each,
-compute whether its content hash matches a currently-shipped template. A
-match needs no attention. A non-match is handed to the pass for a human (or
-the session, reading) to judge — never auto-classified as "orphaned," which
-is exactly the mistake the finding below made.
-
-### Item 4 — folded into the same tool as a new section, not a second mechanism
-
-Recommend against a wholly separate "very deep check for orphaned files."
+Built as one new ledger section, `CI WORKFLOW FILES OUTSIDE VENDORING`,
+rather than a wholly separate "very deep check for orphaned files" —
 `very_deep_check.py`'s ledger already has a per-section keep/cheapen/retire
-model built for exactly this kind of question — a new section fits that
-shape better than a second top-level command sessions have to remember to
-run. **Scope the first version to workflow files** (item 3, above), where
-there is a measured, real cost problem, rather than an open-ended "any
-orphaned file of any sort" detector with no agreed definition yet of what
-"orphaned" means for a doc, a script, or a generated file. Widen later, if
-the workflow-file version proves useful and a real second case shows up.
+model built for exactly this kind of question, and a second top-level
+command would be one more thing sessions have to remember to run.
+**Scoped to workflow files** (not an open-ended "any orphaned file of any
+sort" detector — no agreed definition exists yet for what "orphaned" means
+for a doc, a script, or a generated file; widen later if a real second
+case shows up).
+
+`_workflow_liveness_scan()` reuses the *same*
+`_untracked_ci_workflow_files()` item 2 calls — one implementation, not two
+(Pass 2's own item 8: "are there two of anything that should be one?") —
+over every repo in scope: this checkout plus every `FATAL_MISSING_LEVELS`
+source reachable on disk, the same set `ORPHANS` already computes. **Scope
+is stated honestly, not aspirationally**: no mechanism anywhere in
+`very_deep_check.py` discovers a repo that *vendors from* this one, so
+"any consuming repo" was never actually reachable — the printed section
+header says so. Deliberately worded as *candidates*, never a verdict
+(`_orphan_scan`'s existing four kinds are confident claims against a firm
+list; this is not that, and reusing that wording would have been the exact
+mistake below, repeated in the tool's own voice). Documented as
+[practices/very-deep-check.md](../practices/very-deep-check.md) Pass 2's
+new item 18, citing the incident below. Covered by
+`check_very_deep_check_workflow_liveness_scan` in `tools/verify_harness.py`
+(4 cases).
 
 ## The false positive that shaped items 2–4's design
 
@@ -182,10 +200,17 @@ touched, not a blind repeat of the same shortcut.
 
 ## Status
 
-- **Built and tested**: engine auto-delete on retirement (item 1), covering
-  both "Update Vendors" and migration through the shared `refresh()` path.
+- **Built and tested, all four items**: engine auto-delete on retirement
+  (item 1), covering both "Update Vendors" and migration through the
+  shared `refresh()` path; `workflow-file-outside-vendoring`, an advisory
+  check in `precedent_check.py`/`precedent-check.yml.template` (item 2);
+  and the `CI WORKFLOW FILES OUTSIDE VENDORING` section in
+  `very_deep_check.py`, documented as Pass 2 item 18 (items 3-4).
 - **Documented, open rather than closed**: the `record-ci`-then-retirement
   gap in "untouched," above.
-- **Spec'd, not yet built**: items 2 (detect-and-fail in the check suite,
-  belongs in `precedent-check.yml.template`), 3 (very-deep-check liveness
-  pass), 4 (folded orphan-file section, scoped to workflow files first).
+- **Not this document's job**: the actual cost backlog — the
+  pre-2026-09-14 legacy files still costing real money — still needs the
+  per-repo, content-verified sweep [spec/CI_MINUTES_PLAN.md](CI_MINUTES_PLAN.md)'s
+  Phase B describes. What's built here catches a *future* recurrence of
+  this exact incident shape and surfaces candidates for that sweep; it
+  does not replace doing the sweep.
