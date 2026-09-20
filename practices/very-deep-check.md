@@ -1356,6 +1356,15 @@ Last because none of it strands an adopter, and none of it is cheap.
   the repository against itself, and this is the failure where the
   repository is internally perfect and the work never arrived in it.)*
 
+  **Run [chief-of-staff](chief-of-staff.md)'s own sweep here too, not only its
+  uncommitted-work half.** A very deep check is exactly the kind of direct ask
+  that phrase's own Story says a fleet sweep needs — widen its window to this
+  pass's `session_window_days` rather than its own default seven, and fold
+  its blocked and colliding-subject rows into this section's write-up beside
+  the uncommitted branches. *(Morgan, 2026-09-20: "all chief of staff does
+  should be in very deep check too" — decided, not a proposal he merely
+  didn't object to.)*
+
 - **What landed on the base branch and never came across.** The cheap half
   of the same relationship the rehearsal below tests, asked much earlier.
   Runs only where the branch this repo works on is not its base branch —
@@ -1846,6 +1855,15 @@ belongs to the repo the finding is about, not to the tool reading it. The
 session that wrote the proposal created `very-deep-check-decisions.json` at
 that repo's own root, empty and schema-documented, ready for the read side
 built here to consume without rework.
+
+**The live-sessions pass folded in [chief-of-staff](chief-of-staff.md)'s own
+sweep on 2026-09-20**, on the same ask that widened chief-of-staff itself to
+cover uncommitted branches: *"all chief of staff does should be in very deep
+check too."* Decided, not assented — he named the fold-in himself. Until
+then this pass could only see the git-visible half of what a session leaves
+behind — a commit, a branch, a dirty tree — and had no way to say a session
+is sitting blocked, or that two of them are colliding on the same subject,
+both of which chief-of-staff already knew how to find.
 
 ## Install
 [tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/very_deep_check.py) enumerates the scope

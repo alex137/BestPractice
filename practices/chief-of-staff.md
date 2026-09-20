@@ -6,10 +6,10 @@ severity:    default
 applies_to:  ["**"]
 occasion:    "a person says \"Chief of Staff\""
 gates:       ["reply"]
-index_clause: "\"Chief of Staff\" -- on request only; name the window read, link every session"
+index_clause: "\"Chief of Staff\" -- on request only; link every blocked session and stray branch"
 checked_by:  null
 defines:     ["Chief of Staff", "the sweeper", "the desk"]
-command:     {"Chief of Staff": "Stop and route this: tell you what every open session is blocked on and what is colliding, with a clickable link to each."}
+command:     {"Chief of Staff": "Stop and route this: tell you what every open session is blocked on, what is colliding, and what it has left uncommitted to the routine branch, with a clickable link to each."}
 status:      active
 in_force_at: null
 supersedes:  []
@@ -29,6 +29,8 @@ Three things make the answer worth anything:
 2. **A row is blocked only if it is blocked NOW** — see the filter below.
 3. **Two live sessions sharing a subject is a finding**, reported even when
    neither is blocked.
+4. **Uncommitted work is a finding too, whether or not the session behind it
+   is still open** — see below.
 
 ## Detail
 ### What counts as blocked, and what does not
@@ -61,6 +63,36 @@ request, an unmerged branch, a spawned session still running. That artifact
 is the row, named as the artifact. **The dead session is not the row**, and
 the fact that its summary asked for something is not evidence the artifact
 exists. Go look at the artifact.
+
+### What counts as uncommitted, and how to report it without redoing the branch sweep
+
+**A session that produced commits and never got them into the repo's declared
+`base_branch`** ([precedent.json](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/precedent.json)) has lost
+that work as surely as a dropped thread, whether or not the session itself is
+still open. Sweep every branch in the repos in force — `git log
+<base_branch>..<branch>` — and report every one still carrying commits,
+alongside the blocked rows, not folded into them.
+
+**Say what changed, not just that something did.** A branch name and a commit
+count hand the reader the whole investigation back. Give one or two sentences
+from the diff, the date it last moved, and a link — its most recent pull
+request, or the branch's own compare view when none exists (say plainly when
+no pull request exists rather than implying one — practice
+[no-invented-specifics](no-invented-specifics.md)).
+
+**Name the session that produced the branch when the fleet actually says so,
+and say plainly when it does not**, rather than guessing which recent session
+a branch belongs to. Not every commit traces to a session this account can
+see — one authored outside a session is real, uncommitted work too, and is
+reported the same way, minus the session link.
+
+**This finds the branch; it does not judge it.** A verdict — merge,
+cherry-pick, or close — is the expensive read
+[very-deep-check](very-deep-check.md)'s own branch pass already does,
+checking what the branch would actually do to the base branch before it
+recommends anything. Chief of Staff hands off there instead of repeating that
+work: surfacing the branch is the job, deciding its fate is the same "the
+work" this practice already declines to do below.
 
 ### What it does not do
 
@@ -178,6 +210,16 @@ The wrong rows were not a reading error over a detail. The session had both
 state fields in front of it and preferred the free-text summary, because the
 summary was more specific and read like a live request. **A stale field and a
 live one render identically**, which is the shape this rule exists to stop.
+
+**Widened on 2026-09-20 to also surface commits sitting outside the base
+branch**, on Morgan's own ask: *"find what recent sessions have done that is
+uncommitted to main / precedent-beta-v01 and give me a list including
+links... all chief of staff does should be in very deep check too."*
+Decision strength: decided — he named the capability, this was not a
+proposal he merely didn't object to. The second half of that same request is
+why [very-deep-check](very-deep-check.md)'s own live-sessions pass now runs
+this sweep too, rather than covering only the half of it visible from `git`
+alone.
 
 ## Install
 The sweeper is a Routine on the person's own account, created once — it is not

@@ -352,7 +352,7 @@ When a person explicitly asks for a "very deep check" across the whole repo, or 
 When a person explicitly asks for a full practice audit (or "practice check") across the whole catalogue:
   full-practice-audit — sweep every source's full catalogue, one practice at a time, on request only
 When a person says "Chief of Staff":
-  chief-of-staff — "Chief of Staff" -- on request only; name the window read, link every session
+  chief-of-staff — "Chief of Staff" -- on request only; link every blocked session and stray branch
 When a person says "Drop it" about an open item or a question:
   park-it — "Drop it" -- mark the item `parked` now; never raise it unprompted again
 When a person says "My options", asks to have a decision's options laid out, or asks -- about a current issue -- for the options to hand off to another session:
