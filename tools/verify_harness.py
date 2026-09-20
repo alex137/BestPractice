@@ -298,6 +298,79 @@ def not_applicable(name, reason):
     print(f"N/A:  {name} -- {reason}")
 
 
+def _ref_including_worktree(repo):
+    """A commit-ish naming `repo`'s state right now -- HEAD plus every
+    uncommitted change, tracked or not -- built without touching `repo`'s
+    real HEAD, index, or working tree. Every fixture below that vendors
+    "from ROOT" through precedent_vendor_engine's `--from-ref` needs this
+    in place of the literal string `'HEAD'`.
+
+    WHY NOT JUST `'HEAD'`. `refresh()` reads source as git blobs rather
+    than a checkout specifically so a vendoring read can never move the
+    caller's own checkout (`_source_tools_at`'s own docstring in
+    precedent_vendor_engine.py tells that incident). But blobs read at
+    literal HEAD miss anything not yet committed -- most acutely a
+    brand-new file not yet `git add`ed -- which is exactly the case
+    `run_refresh`'s own comment below names as the reason `--from-ref`
+    exists at all: "a mechanism landing in the SAME change as this test".
+    Reproduced 2026-09-20: the deep check false-failed twice against an
+    uncommitted tree before the cause was traced to this literal `'HEAD'`.
+
+    WHY NOT `git stash create`. It was tried first and rejected for
+    exactly the gap this closes: `stash create` has no untracked-file
+    option at all (only `git stash push -u` does), so a new, not-yet-added
+    file is invisible to it -- the same blind spot as literal `'HEAD'`,
+    just for a narrower set of edits.
+
+    THE MECHANISM: a scratch index. Read HEAD's tree into a throwaway
+    index file (`GIT_INDEX_FILE`, never `repo`'s real `.git/index`),
+    `add -A` the working tree onto it -- untracked files included,
+    `.gitignore`d ones excluded, same as any other `add -A` -- write that
+    as a tree object, and wrap it in a commit whose only parent is HEAD.
+    Nothing here touches the real index, HEAD, or a single file on disk;
+    the throwaway index file lives in its own temp directory and is
+    discarded once this returns. Returns HEAD itself, untouched, when the
+    tree is already clean -- no synthetic commit needed."""
+    import tempfile
+
+    def _git(*args, env=None):
+        return subprocess.run(['git', '-C', str(repo), *args],
+                              capture_output=True, text=True, env=env)
+
+    head = _git('rev-parse', 'HEAD')
+    if head.returncode != 0:
+        sys.exit(f"verify_harness FAIL: {repo} has no HEAD to snapshot.")
+    head_sha = head.stdout.strip()
+
+    with tempfile.TemporaryDirectory(prefix='precedent-scratch-index-') as idx_dir:
+        env = dict(os.environ, GIT_INDEX_FILE=str(pathlib.Path(idx_dir) / 'index'))
+        r = _git('read-tree', head_sha, env=env)
+        if r.returncode != 0:
+            sys.exit(f"verify_harness FAIL: could not seed a scratch index "
+                     f"for {repo} from {head_sha[:12]}: {r.stderr}")
+        r = _git('add', '-A', env=env)
+        if r.returncode != 0:
+            sys.exit(f"verify_harness FAIL: could not stage {repo}'s working "
+                     f"tree onto a scratch index: {r.stderr}")
+        tree = _git('write-tree', env=env)
+        if tree.returncode != 0:
+            sys.exit(f"verify_harness FAIL: could not write a scratch tree "
+                     f"for {repo}'s current state: {tree.stderr}")
+        tree_sha = tree.stdout.strip()
+
+        head_tree = _git('rev-parse', f'{head_sha}^{{tree}}').stdout.strip()
+        if tree_sha == head_tree:
+            return head_sha  # clean tree -- nothing uncommitted to capture
+
+        commit = _git('commit-tree', tree_sha, '-p', head_sha, '-m',
+                      'verify_harness: scratch snapshot of the working tree '
+                      '(never pushed, never checked out)', env=env)
+        if commit.returncode != 0:
+            sys.exit(f"verify_harness FAIL: could not create a scratch "
+                     f"commit for {repo}'s current state: {commit.stderr}")
+        return commit.stdout.strip()
+
+
 def _rmtree_retrying(path, attempts=5, delay=0.2):
     """Delete a directory tree, retrying a transient ENOTEMPTY instead of
     either crashing the whole run over it or silently swallowing it
@@ -10662,6 +10735,7 @@ def check_refresh_removes_dropped_engine_files():
         return
 
     env = dict(os.environ, PRECEDENT_ALLOW_ANY_AUTHOR='1')
+    ref = _ref_including_worktree(ROOT)
 
     def _consumer(base):
         """Seed a real consumer engine from THIS working tree."""
@@ -10718,7 +10792,7 @@ def check_refresh_removes_dropped_engine_files():
 
         r = subprocess.run(
             [sys.executable, str(base / 'tools' / 'precedent_vendor_engine.py'),
-             'refresh', str(ROOT), '--force', '--from-ref', 'HEAD'],
+             'refresh', str(ROOT), '--force', '--from-ref', ref],
             capture_output=True, text=True, timeout=600, cwd=str(base), env=env)
         out = r.stdout + r.stderr
 
@@ -10743,7 +10817,7 @@ def check_refresh_removes_dropped_engine_files():
                 _json.dumps(m2, indent=2), encoding='utf-8')
             r2 = subprocess.run(
                 [sys.executable, str(base2 / 'tools' / 'precedent_vendor_engine.py'),
-                 'refresh', str(ROOT), '--force', '--from-ref', 'HEAD'],
+                 'refresh', str(ROOT), '--force', '--from-ref', ref],
                 capture_output=True, text=True, timeout=600, cwd=str(base2), env=env)
             out2 = r2.stdout + r2.stderr
             cases.append(('a hand-edited dropped file is KEPT',
@@ -13930,15 +14004,19 @@ def check_bootstrap_source_engine_is_functional():
                                       ['rev-parse', '--abbrev-ref', 'HEAD'],
                                       ['status', '--porcelain']))
 
+        # --from-ref, computed rather than the literal 'HEAD': vendor the
+        # tree under test -- including anything not yet committed, such as
+        # a brand-new file not yet `git add`ed -- not whatever
+        # origin/precedent-beta-v01 holds and not merely whatever HEAD
+        # holds. Without it, adding a file to ENGINE_FILES turns this case
+        # red until the addition is published, and a contributor's stale
+        # local branch, OR simply an uncommitted edit, fails it with a
+        # message that has nothing to do with the property this case
+        # actually asserts. See _ref_including_worktree's own docstring.
+        ref = _ref_including_worktree(ROOT)
         before = root_state()
-        # --from-ref HEAD: vendor the tree under test, not whatever
-        # origin/precedent-beta-v01 holds. Without it, adding a file to
-        # ENGINE_FILES turns this case red until the addition is published,
-        # and a contributor's stale local branch fails it with a message
-        # about a missing engine file that has nothing to do with the
-        # property this case actually asserts.
         r = subprocess.run([sys.executable, str(dest / 'tools' / 'precedent_vendor_engine.py'),
-                            'refresh', str(ROOT), '--force', '--from-ref', 'HEAD'],
+                            'refresh', str(ROOT), '--force', '--from-ref', ref],
                            capture_output=True, text=True)
         after = root_state()
         cases.append(('refresh() against a real BestPractice checkout leaves its HEAD, '
@@ -13957,7 +14035,7 @@ def check_bootstrap_source_engine_is_functional():
         # line before raising, so only an exit code ever showed it. A branch
         # with no case is a branch that gets a crash added to it.
         r2 = subprocess.run([sys.executable, str(dest / 'tools' / 'precedent_vendor_engine.py'),
-                             'refresh', str(ROOT), '--from-ref', 'HEAD'],
+                             'refresh', str(ROOT), '--from-ref', ref],
                             capture_output=True, text=True)
         cases.append(('refresh() on the already-current path returns cleanly '
                       'rather than raising after its own success message',
@@ -14983,23 +15061,28 @@ def check_vendor_engine_refreshes_ci_workflow_files():
                 (consumer / rel).write_bytes(wf_bytes)
             return consumer
 
+        # Computed once, not the literal 'HEAD': this fixture tests a
+        # mechanism landing in the SAME change as this test, so ROOT's own
+        # origin/precedent-beta-v01 has not necessarily picked it up yet --
+        # exactly the gap --from-ref exists to close (see
+        # _source_tools_at's own docstring, and every other fixture here
+        # that vendors a brand-new mechanic under test:
+        # check_vendor_engine_consumer_case and
+        # check_bootstrap_source_engine_is_functional both do the same).
+        # Without it, a run before this PR reaches origin/precedent-beta-v01
+        # vendors the OLD tool, the self-replacing second pass then runs
+        # THAT copy -- missing this feature entirely -- against a manifest
+        # the first (new) pass already updated, and the two passes
+        # disagree. Literal 'HEAD' has the identical failure mode one
+        # commit earlier: it misses the mechanism until this change is
+        # actually committed, which _ref_including_worktree closes too
+        # (see its own docstring).
+        ref = _ref_including_worktree(ROOT)
+
         def run_refresh(consumer, extra=()):
-            # --from-ref HEAD, not a bare `refresh ROOT`: this fixture tests
-            # a mechanism landing in the SAME change as this test, so
-            # ROOT's own origin/precedent-beta-v01 has not necessarily
-            # picked it up yet -- exactly the gap --from-ref exists to
-            # close (see _source_tools_at's own docstring, and every other
-            # fixture here that vendors a brand-new mechanic under test:
-            # check_vendor_engine_consumer_case and
-            # check_bootstrap_source_engine_is_functional both do the
-            # same). Without it, a run before this PR reaches
-            # origin/precedent-beta-v01 vendors the OLD tool, the
-            # self-replacing second pass then runs THAT copy -- missing
-            # this feature entirely -- against a manifest the first (new)
-            # pass already updated, and the two passes disagree.
             r = subprocess.run(
                 [sys.executable, str(consumer / 'tools' / 'precedent_vendor_engine.py'),
-                 'refresh', str(ROOT), '--from-ref', 'HEAD', *extra],
+                 'refresh', str(ROOT), '--from-ref', ref, *extra],
                 capture_output=True, text=True, cwd=str(consumer))
             return r.returncode, r.stdout + r.stderr
 
@@ -15180,10 +15263,15 @@ def check_vendor_engine_retires_ci_workflow_files():
                 json.dumps(manifest), encoding='utf-8')
             return consumer
 
+        # Computed, not the literal 'HEAD' -- see _ref_including_worktree's
+        # own docstring: this vendors the tree under test, uncommitted
+        # changes included, not just whatever HEAD happens to hold.
+        ref = _ref_including_worktree(ROOT)
+
         def run_refresh(consumer):
             r = subprocess.run(
                 [sys.executable, str(consumer / 'tools' / 'precedent_vendor_engine.py'),
-                 'refresh', str(ROOT), '--from-ref', 'HEAD'],
+                 'refresh', str(ROOT), '--from-ref', ref],
                 capture_output=True, text=True, cwd=str(consumer))
             return r.returncode, r.stdout + r.stderr
 
