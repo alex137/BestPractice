@@ -29,11 +29,16 @@
   A page can be left out of the cross-linking on purpose — a draft not yet
   ready to be found, say — but that is a call made out loud for that page,
   not a silent omission.
-- **Link text is the target page's own title, exactly, in both places —
-  never a paraphrase, and never the raw `.md` filename.** Read the
-  target's own `# Heading` and copy it; don't reconstruct a plausible-
-  sounding name from memory. Title case throughout, matching the target's
-  actual heading capitalization.
+- **Link text is the name README's "What's Here" list already gives the
+  target, exactly, in both places — never a paraphrase, and never the raw
+  `.md` filename.** README's name is not always the literal `# Heading`:
+  [COMPANY_BUILDING_RULES.md](../COMPANY_BUILDING_RULES.md)'s heading is
+  "Rules for Building a Company Around AI," but every reference to it
+  anywhere in this directory, README included, calls it "Company Building
+  Rules" — that shorter form is the deliberate, established name, not a
+  drift to fix. Copy README's entry; don't reconstruct a plausible-sounding
+  name from the target's own heading or from memory. Title case throughout,
+  matching README's own capitalization of it.
 - **Caught 2026-09-17:** [THE_TALMUDIC_METHOD.md](../THE_TALMUDIC_METHOD.md)
   was added with its own correct footer, but no other page's footer was
   updated to link back to it — eight pages went quietly out of sync with
@@ -46,3 +51,11 @@
   split out of OUR_PHILOSOPHY.md — carried only one of the other seven
   essays; the split commit never gave it the full treatment this recipe
   already asked for.
+- **Caught 2026-09-20, second pass:** this recipe's own first cut of the
+  link-text rule said to copy the target's `# Heading` exactly — checked
+  against every essay rather than just the one just fixed, that would have
+  flagged all ten existing references to
+  [COMPANY_BUILDING_RULES.md](../COMPANY_BUILDING_RULES.md) as wrong,
+  since every one of them (README included) calls it "Company Building
+  Rules" and none use its actual heading. The rule was reworded to point
+  at README's established name instead of the literal heading.
