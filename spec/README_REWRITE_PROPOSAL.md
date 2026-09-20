@@ -212,9 +212,10 @@ Here's what you'll actually see:
 
 ### How
 
-- **Start a repo, not a doc.** Spin one up for the idea the same way
-  you'd start a shared doc — except this one is a GitHub repo, not a
-  Google Doc.
+- **Start a repo, not a doc — then vendor-in Precedent.** Spin the repo up
+  for the idea the same way you'd start a shared doc, then bring
+  Precedent's practice engine into it — that's what turns everything below
+  from a wish into something that actually happens.
 - **Everyone works through their own AI.** Every teammate connects their
   assistant to that same repo and works through it — nobody opens the
   files directly.
@@ -264,12 +265,12 @@ each person sets on each machine — most people, working on Claude Code on
 the web, only need
 [CLOUD_SETUP.md](../documentation/CLOUD_SETUP.md).
 
-### Everything Else
+### Get Up and Running!
 
-*You're reading the Precedent restructuring of BestPractice, on the
-`precedent-beta-v01` branch — the design and its evidence are in
-[spec/PRACTICE_ENGINE_PLAN.md](PRACTICE_ENGINE_PLAN.md). This branch
-merges into `main` regularly; work lands here first.*
+To get going, vendor in Precedent to a repo, connect that repo to your
+favorite AI via their coding platform — and go!
+
+### Manually Install
 
 Hand installation, updates, and contributing improvements back:
 [INSTALL.md](../INSTALL.md). The working method, for power users:
@@ -281,13 +282,6 @@ eight ideas: [GIT.md](../documentation/GIT.md). Open items and roadmap:
 [TODO.md](../TODO.md). Repository index for agents:
 [AGENTS.md](../AGENTS.md). The pitch and how-to guides for people outside
 the project: [documentation/](../documentation/).
-
-A separate project grew out of this one:
-**[GitAround](https://github.com/alex137/GitAround)**, a way to read a
-project and follow what is changing in it from a browser, for people who
-would rather not work through GitHub's own screens. It has been a
-separate, standalone product since 2026-08-14, no longer a proposal
-staged inside this repo.
 
 ---
 
