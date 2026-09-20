@@ -2074,7 +2074,37 @@ def _extra_lines(gen_path, real_path, gen_root, real_root):
         if line not in gen_lines and len(line.strip()) > 3)
 
 
-def _convergent_drift(collect):
+_LEDGER_VERDICTS = {'intentional-customization', 'template-candidate',
+                     'stale-shared-build', 'tracked-elsewhere'}
+
+
+def _load_decisions_ledger(root_path):
+    """-> {(section, key): entry} the per-repo dedup ledger a SOURCE holds at
+    <root_path>/very-deep-check-decisions.json (VERY_DEEP_CHECK_DEDUP_LEDGER_PROPOSAL.md,
+    precedent-individual). {} when the file is absent, unparseable, or has no
+    `entries` -- a source that has never judged a finding behaves exactly as
+    one with an empty ledger, which is what keeps this additive rather than a
+    breaking change to the section that reads it (practice: fail-gracefully).
+
+    An entry whose `verdict` is not one of the four fixed values is dropped
+    rather than trusted -- the ledger is closed vocabulary so the tool can
+    act on it, and an unrecognized value is safer read as no decision at all
+    than as some fifth verdict nothing here knows how to handle."""
+    try:
+        data = json.loads(
+            (pathlib.Path(root_path) / 'very-deep-check-decisions.json')
+            .read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return {}
+    out = {}
+    for entry in data.get('entries') or ():
+        section, key = entry.get('section'), entry.get('key')
+        if section and key and entry.get('verdict') in _LEDGER_VERDICTS:
+            out[(section, key)] = entry
+    return out
+
+
+def _convergent_drift(collect, sources=None):
     """-> [str] changes that SEVERAL sets of a level made the same way, which
     is the template being wrong rather than several people living in their
     sets.
@@ -2107,10 +2137,47 @@ def _convergent_drift(collect):
     rather than reporting nothing, since a section that prints nothing when it
     compared nothing reads exactly like a clean result (practice:
     fail-gracefully, and the same n=1 reasoning _template_freshness() gives).
+
+    THE DEDUP LEDGER (VERY_DEEP_CHECK_DEDUP_LEDGER_PROPOSAL.md, proposed by
+    Morgan, 2026-09-20, from a session rooted in precedent-individual with no
+    push access here). Without `sources`, a file that converges prints as a
+    fresh FINDING on every single run forever, including one a person has
+    already read and judged -- exactly the expense this section's own Rule
+    says a person should not have to keep paying. `sources` -- the same list
+    `_bootstrap_drift()` was already given -- lets this read each converged
+    SET's own `very-deep-check-decisions.json` (a file that lives in the set,
+    not here, for the reason `beta-branch-watermark.json` lives in
+    precedent-individual rather than in BestPractice: the decision belongs to
+    the repo the finding is about). When every set that shares a convergence
+    has recorded the SAME verdict there and no `revisit` date has passed, the
+    line prints as DECIDED instead of FINDING. Disagreement, a partial
+    decision, or an expired `revisit` all still print the ordinary FINDING,
+    annotated with what is already on record -- a person is never talked out
+    of seeing a real disagreement, only spared re-litigating a settled one. A
+    ledger entry whose file no longer exists in that set prints as its own
+    ORPHANED LEDGER ENTRY line rather than being silently ignored, matching
+    the `ORPHANS` section's own philosophy elsewhere in this tool. A repo
+    with no ledger file, or `sources=None`, behaves exactly as before this
+    was added -- additive, never a breaking change to what was already here.
     """
     if collect is None:
         return ['nothing was collected, so no set was compared against any '
                 'other -- this is a skip, not a clean result']
+    today_iso = precedent_time.today()
+    name_to_path = {s.get('name'): s.get('path') for s in (sources or ())
+                    if s.get('name') and s.get('path')}
+    _ledgers = {}
+
+    def ledger_for(name):
+        if name not in _ledgers:
+            path = name_to_path.get(name)
+            _ledgers[name] = _load_decisions_ledger(path) if path else {}
+        return _ledgers[name]
+
+    def entry_active(entry):
+        revisit = entry.get('revisit')
+        return not (revisit and revisit <= today_iso)
+
     by_level = {}
     for (level, rel), per_source in collect.items():
         by_level.setdefault(level, set()).update(per_source)
@@ -2148,6 +2215,32 @@ def _convergent_drift(collect):
             continue
         widest = max(len(names) for names, _ in shared)
         sets = sorted({n for names, _ in shared for n in names})
+
+        # Every set that shares this convergence gets one chance to have
+        # already judged it. A verdict past its own `revisit` date counts as
+        # no decision, not as a stale yes -- entry_active() is what makes
+        # that re-surface rather than trusting a September call into March.
+        decisions = {}
+        for n in sets:
+            entry = ledger_for(n).get(('CONVERGENT DRIFT', rel))
+            if entry and entry_active(entry):
+                decisions[n] = entry
+        verdicts = {e['verdict'] for e in decisions.values()}
+
+        if decisions and len(decisions) == len(sets) and len(verdicts) == 1:
+            verdict = next(iter(verdicts))
+            # Attributed to whoever decided first, so two sets agreeing on
+            # the same call are not double-counted as two decisions.
+            lead_name = min(decisions, key=lambda n: (decisions[n].get('decided') or '', n))
+            lead = decisions[lead_name]
+            out.append(
+                f'DECIDED {level}: {rel!r} -- {verdict} (by '
+                f'{lead.get("decided_by", "?")} {lead.get("decided", "?")}). '
+                f'{len(shared)} converged line(s) across {", ".join(sets)} '
+                f'already judged; suppressed rather than reprinted -- see '
+                f'that set\'s very-deep-check-decisions.json to revisit.')
+            continue
+
         out.append(
             f'FINDING {level}: {len(shared)} line(s) in {rel!r} appear in up '
             f'to {widest} of {total} sets ({", ".join(sets)}) and in nothing '
@@ -2163,6 +2256,30 @@ def _convergent_drift(collect):
         if len(shared) > 8:
             out.append(f'    ... and {len(shared) - 8} more line(s); '
                        f'diff {rel!r} across those sets for the rest')
+        if decisions:
+            # Only some of the converged sets agree, or they agree with each
+            # other but not on the SAME verdict -- either way this is not a
+            # settled question, and the finding stays a FINDING. What was
+            # already decided is on record so nobody re-argues it from zero.
+            noted = ', '.join(
+                (f'{n} decided {decisions[n]["verdict"]} (by '
+                 f'{decisions[n].get("decided_by", "?")} '
+                 f'{decisions[n].get("decided", "?")})')
+                if n in decisions else f'{n} undecided'
+                for n in sets)
+            out.append(f'    ledger: {noted}')
+
+    for name, path in sorted(name_to_path.items()):
+        root = pathlib.Path(path)
+        for (section, key), entry in sorted(ledger_for(name).items()):
+            if section != 'CONVERGENT DRIFT' or (root / key).is_file():
+                continue
+            out.append(
+                f'ORPHANED LEDGER ENTRY: {name} recorded {key!r} as '
+                f'{entry.get("verdict", "?")} (by '
+                f'{entry.get("decided_by", "?")} {entry.get("decided", "?")}) '
+                f'but that file no longer exists in {name} -- nothing left '
+                f'for the decision to suppress; remove or update the entry')
     return out
 
 
@@ -5085,7 +5202,7 @@ def _main(box):
     # (practice: very-deep-check, pass 1).
     print("CONVERGENT DRIFT -- changes several sets made the same way, which "
           "the generator does not\n")
-    _cd = _convergent_drift(_collect)
+    _cd = _convergent_drift(_collect, sources=data['sources'])
     if _cd:
         for _m in _cd:
             print(f"  {_m}")

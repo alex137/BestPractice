@@ -20945,6 +20945,91 @@ def check_very_deep_check_convergent_drift():
         cases.append(('an UNTRACKED shared change is not drift',
                       not any('untracked convergent line' in m for m in out),
                       repr(out)))
+
+        # The dedup ledger (VERY_DEEP_CHECK_DEDUP_LEDGER_PROPOSAL.md,
+        # precedent-individual, proposed by Morgan 2026-09-20). Reuses the
+        # alpha/beta pair already converged above on README.md's shared
+        # line, so DECIDED has a real FINDING to suppress rather than a
+        # synthetic one.
+        def write_ledger(d, entries):
+            (d / 'very-deep-check-decisions.json').write_text(
+                json.dumps({'entries': entries}), encoding='utf-8')
+
+        collect = {}
+        vdc._bootstrap_drift([a, b], collect=collect)
+
+        out = vdc._convergent_drift(collect, sources=[a, b])
+        cases.append(('no ledger present -> ordinary FINDING, unchanged '
+                      '(must not regress)',
+                      any(m.startswith('FINDING') and 'README.md' in m
+                          for m in out)
+                      and not any(m.startswith('DECIDED') for m in out),
+                      repr(out)))
+
+        decided = {'section': 'CONVERGENT DRIFT', 'key': 'README.md',
+                   'verdict': 'intentional-customization', 'note': 'fixture',
+                   'decided_by': 'Fixture', 'decided': '2026-09-20'}
+        write_ledger(a_dir, [decided])
+        write_ledger(b_dir, [decided])
+        out = vdc._convergent_drift(collect, sources=[a, b])
+        cases.append(('every converged set decided the SAME verdict -> '
+                      'DECIDED, not FINDING',
+                      any(m.startswith('DECIDED') and 'README.md' in m
+                          and 'intentional-customization' in m for m in out)
+                      and not any(m.startswith('FINDING') and 'README.md' in m
+                                  for m in out),
+                      repr(out)))
+
+        write_ledger(b_dir, [])
+        out = vdc._convergent_drift(collect, sources=[a, b])
+        cases.append(('only ONE of the converged sets decided -> FINDING, '
+                      'annotated with the partial verdict',
+                      any(m.startswith('FINDING') and 'README.md' in m
+                          for m in out)
+                      and any('alpha decided intentional-customization' in m
+                              for m in out)
+                      and any('beta undecided' in m for m in out),
+                      repr(out)))
+
+        expired = dict(decided, revisit='2020-01-01')
+        write_ledger(a_dir, [expired])
+        write_ledger(b_dir, [expired])
+        out = vdc._convergent_drift(collect, sources=[a, b])
+        cases.append(("a decision whose revisit date has passed expires -> "
+                      "FINDING again, not DECIDED",
+                      any(m.startswith('FINDING') and 'README.md' in m
+                          for m in out)
+                      and not any(m.startswith('DECIDED') for m in out),
+                      repr(out)))
+
+        write_ledger(a_dir, [{'section': 'CONVERGENT DRIFT',
+                              'key': 'a-file-nobody-ships.md',
+                              'verdict': 'tracked-elsewhere', 'note': 'fixture',
+                              'decided_by': 'Fixture', 'decided': '2026-09-20'}])
+        write_ledger(b_dir, [])
+        out = vdc._convergent_drift(collect, sources=[a, b])
+        cases.append(('a ledger entry naming a file no longer present -> '
+                      'ORPHANED LEDGER ENTRY, not silently ignored',
+                      any(m.startswith('ORPHANED LEDGER ENTRY')
+                          and 'a-file-nobody-ships.md' in m and 'alpha' in m
+                          for m in out),
+                      repr(out)))
+
+        # Ledger files sit on disk in both fixtures at this point (the
+        # orphan case above wrote them). Every existing caller of
+        # _convergent_drift() passes no `sources` at all, so this asserts
+        # that omitting it ignores those files completely rather than
+        # picking them up implicitly.
+        out = vdc._convergent_drift(collect)
+        cases.append(('sources omitted (every caller before this change) '
+                      'ignores ledger files on disk entirely -- ordinary '
+                      'FINDING, no DECIDED, no ORPHANED, no ledger line',
+                      any(m.startswith('FINDING') and 'README.md' in m
+                          for m in out)
+                      and not any(m.startswith(('DECIDED', 'ORPHANED'))
+                                  or m.strip().startswith('ledger:')
+                                  for m in out),
+                      repr(out)))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 

@@ -536,6 +536,18 @@ method"). Build the fixtures.
   checkout is what separates them — a finding that asserted the first would
   send somebody to copy a stale build upstream. An untracked file is
   container state, not a shape the skeleton is missing, and does not count.
+  **A verdict, once a person has one, does not have to be re-argued on every
+  run.** Each converged set may hold its own `very-deep-check-decisions.json`
+  — one of four fixed verdicts, dated, with who decided and why, modeled on
+  `identity.json`'s `grandfathered_commit_shas` — and when every set sharing
+  a convergence has recorded the *same* verdict there, still live (no
+  `revisit` date passed), the section prints `DECIDED` instead of reprinting
+  the `FINDING` from zero. Disagreement between sets, a partial decision, or
+  an expired `revisit` all still print the ordinary `FINDING`, annotated with
+  what is already on record. A repo that holds no such file is unaffected —
+  this is additive, never a gate
+  ([VERY_DEEP_CHECK_DEDUP_LEDGER_PROPOSAL.md](https://github.com/themorgan/precedent-individual/blob/main/VERY_DEEP_CHECK_DEDUP_LEDGER_PROPOSAL.md),
+  proposed by Morgan, 2026-09-20; Install section below).
 - **Cross-repo relationships and permissions.** Walk who must be able to read
   or write what, for a *new* repo and a *new* person: the vendored engine,
   each declared source, approvers and CODEOWNERS, and the protected paths
@@ -1775,6 +1787,29 @@ legitimately wire its hooks from somewhere other than `.claude/hooks/`, which
 `verify()` already allows and one live set deliberately does, so calling that
 drift reported a decision as a defect on every run.
 
+**The dedup ledger was Morgan's, 2026-09-20**, raised in a session rooted in
+`precedent-individual` rather than here — that session had no push access to
+this repository, so what it could actually do was write up the design in
+full and hand it off, which is where
+[VERY_DEEP_CHECK_DEDUP_LEDGER_PROPOSAL.md](https://github.com/themorgan/precedent-individual/blob/main/VERY_DEEP_CHECK_DEDUP_LEDGER_PROPOSAL.md)
+comes from (no verbatim quotation mark here, deliberately: that document
+paraphrases the conversation it came out of rather than quoting it, and this
+entry follows what it actually says rather than inventing a quote the
+handoff itself does not carry — [no-invented-specifics](no-invented-specifics.md)).
+`CONVERGENT DRIFT`, as built, has no memory across runs: a file two or more
+sets have drifted onto the same way prints as a fresh `FINDING` forever,
+including one a person already read and judged **never going to
+generalize**. Investigating found the noise was never the comparison logic
+— that was already right — it was the absence of anywhere to put a verdict
+once a person had one. Asked whether the fix should live as a private detail
+inside `_convergent_drift()`, the answer was broader: a convention any repo
+can hold its own record in, matching why `beta-branch-watermark.json` lives
+in `precedent-individual` rather than in this repository — the decision
+belongs to the repo the finding is about, not to the tool reading it. The
+session that wrote the proposal created `very-deep-check-decisions.json` at
+that repo's own root, empty and schema-documented, ready for the read side
+built here to consume without rework.
+
 ## Install
 [tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/very_deep_check.py) enumerates the scope
 (this checkout's own top-level documents plus every active source's
@@ -1904,3 +1939,26 @@ that failed its own first CI run: the live GitHub fetch the emitter makes
 has no reproducible answer inside the harness's scratch-copy fixtures, so
 the gate reported drift unrelated to whatever it was actually testing.
 Corrected the same day to write the block directly instead of gating it.
+
+**The dedup ledger, 2026-09-20** (Story above). `_convergent_drift()` reads
+`sources` — the same list `BOOTSTRAP DRIFT` already gathers — and, for each
+converged file, checks every involved set's own
+`very-deep-check-decisions.json` for an entry keyed `("CONVERGENT DRIFT",
+<file path>)`. **A repo with no such file, or `sources` omitted entirely, is
+unaffected** — every call site that predates this change kept working
+exactly as before, which is what makes this additive rather than a breaking
+change to a section other checks already depend on. When every set sharing
+a convergence has recorded the *same* one of the four fixed verdicts
+(`intentional-customization`, `template-candidate`, `stale-shared-build`,
+`tracked-elsewhere`) and no entry's `revisit` date has passed, the line
+prints `DECIDED` instead of `FINDING` — visible, not silent, the same
+"quiet is not the same as useless" principle this file states elsewhere for
+a guard that never fires. Disagreement between sets, a decision by only
+some of them, or a `revisit` date that has passed all still print the
+ordinary `FINDING`, annotated with whatever is already on record rather
+than reprinted from zero. A ledger entry naming a file no longer present in
+that set prints its own `ORPHANED LEDGER ENTRY` line, matching the
+`ORPHANS` section's own philosophy of naming a stale record instead of
+dropping it quietly. The verdict is never written automatically — same
+manual, dated, quoted-judgment shape as `identity.json`'s
+`grandfathered_commit_shas`, which this design is modeled on directly.
