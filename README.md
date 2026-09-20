@@ -8,8 +8,7 @@ The **three biggest frustrations** of working with people and/or AI
 are solved by Precedent:
 
 1. **Nobody notices patterns** — and even when someone does, enforcing
-   it costs real time and attention, every single time... or an AI
-   Assistant does and keeps it to itself.
+   it costs real time and attention, every single time.
 2. **Nobody remembers why a decision was made, even a small one** — and
    on the rare occasion someone does, they've forgotten why it mattered
    enough to decide.
