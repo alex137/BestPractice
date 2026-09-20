@@ -18,7 +18,7 @@ being careful; it is that the AI Assistant is the only path along which the
 project stays whole.
 
 - Plain: [Don't Edit the Files Yourself — Ask](DAILY_HABITS.md#1-dont-edit-the-files-yourself--ask)
-- Technical: [All Interaction Happens Through Chat or Voice With an AI Assistant](FOR_DEVELOPERS.md#all-interaction-happens-through-chat-or-voice-with-an-assistant)
+- Technical: [All Interaction Happens Through Chat or Voice With an AI Assistant](FOR_DEVELOPERS.md#all-interaction-happens-through-chat-or-voice-with-an-ai-assistant)
 
 ## 2. The Project on GitHub Is the Memory, and Nothing Is Real Until It Is Merged
 

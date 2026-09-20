@@ -96,7 +96,7 @@ an upgrade or a migration:
   document into the repo.
 
 Both stay local to the project and are never exported upstream. **Fill
-either in whenever you want by asking your assistant** — *"help me fill in
+either in whenever you want by asking your AI Assistant** — *"help me fill in
 my project's voice"* — and a section left `<undecided>` is a real answer, not a gap.
 The same goes for anything else that would refine a working project rather
 than make it work: it is a later conversation by design, not an oversight.
@@ -145,23 +145,23 @@ defines it.
 
 **Not technical, or handing this to someone who isn't?**
 [SETUP.md](../SETUP.md) runs the same install as a conversation: the
-administrator pastes it to their assistant and answers three questions.
+administrator pastes it to their AI Assistant and answers three questions.
 
-## All Interaction Happens Through Chat or Voice With an Assistant
+## All Interaction Happens Through Chat or Voice With an AI Assistant
 
 You don't edit the project's files directly, and running the practice
 tooling by hand isn't the normal way of working here. Connect the
-repository to a large language model (LLM) assistant of your choice —
-Claude Code is the best-supported (*as of 2026-09*); other assistants have
+repository to a large language model (LLM) AI Assistant of your choice —
+Claude Code is the best-supported (*as of 2026-09*); other AI Assistants have
 supported paths, see [MOBILE.md](MOBILE.md) — and talk to it about the
 work. The
-assistant reads and writes the repository, runs the checks, and drafts
+AI Assistant reads and writes the repository, runs the checks, and drafts
 changes for review. Every session starts by reading the repo's own
 instructions file (`AGENTS.md`), so it already knows which practices are
 in force before you say anything.
 
 *This repo expects no files to be touched directly — all interaction
-happens mediated by the AI assistant the repo is attached to. The code
+happens mediated by the AI Assistant the repo is attached to. The code
 and technical descriptions below exist only to clarify how it works.*
 
 ## Four Levels, Each Just Another Repo
@@ -235,12 +235,12 @@ edit or a copy-and-delete (see [spec/MOVING_PRACTICES.md](../spec/MOVING_PRACTIC
 
 ## Walkthrough: Turning a Habit Into a Practice
 
-This is the pipeline underneath "your assistant notices and proposes a
-rule." Four stages, in order, and the commands your assistant actually
+This is the pipeline underneath "your AI Assistant notices and proposes a
+rule." Four stages, in order, and the commands your AI Assistant actually
 runs at each one:
 
 1. **Raise it as a candidate.** Say "from now on, always X" (or the
-   assistant notices a repeated correction). It runs
+   AI Assistant notices a repeated correction). It runs
    `precedent_candidate.py create` at the level the idea belongs to:
    ```
    python3 tools/precedent_candidate.py create \
@@ -295,7 +295,7 @@ Three roles, and each is a list in a file rather than a label on a person
 
 - **Collaborator** — anyone invited to the project repository with GitHub's
   Write role. They write, change and merge the project's content, through
-  their assistant, with `Go merge`.
+  their AI Assistant, with `Go merge`.
 - **Maintainer** — named under `maintainers` in the project's
   `precedent.json`. Their review is required before a change to the
   machinery lands: `.github/`, `.claude/`, `tools/`, the vendored catalogue,
@@ -353,9 +353,9 @@ has to say yes?*
 
 ## How Enforcement Works
 
-Some practices are Rules an assistant is expected to read and follow —
+Some practices are Rules an AI Assistant is expected to read and follow —
 loaded into context when the work at hand matches the practice's stated
-occasion. Nothing structurally stops an assistant from missing one; this
+occasion. Nothing structurally stops an AI Assistant from missing one; this
 channel is advisory. A few concrete commands for working with it day to
 day:
 
