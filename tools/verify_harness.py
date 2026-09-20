@@ -15,6 +15,7 @@ Exit: 0 if every applicable check passes, 1 otherwise.
 """
 import collections, hashlib, json, os, pathlib, re, shutil, subprocess, sys, time
 import importlib.util
+import frontmatter_yaml
 
 # A FIXTURE COMMIT IS NOT A PERSON'S COMMIT. Since 2026-09-07 the commit
 # identity hook installs a backstop at core.hooksPath -- global, because that
@@ -16771,10 +16772,12 @@ def check_frontmatter_is_real_yaml():
     check, which uses PyYAML, reported them as invalid. A format whose
     only conforming parser is its author's is not a format, so the check
     belongs on the producing side. Skipped with a notice where PyYAML
-    isn't installed rather than passing on having parsed nothing."""
-    try:
-        import yaml
-    except ImportError:
+    isn't installed rather than passing on having parsed nothing.
+
+    The parse itself lives in frontmatter_yaml.py, shared with
+    doc_lint.py's own (touched-files-only) copy of this same check -- one
+    parser, not two drifting ones."""
+    if not frontmatter_yaml.HAVE_YAML:
         not_applicable('every --- fence holds valid YAML',
                         'PyYAML is not installed here, so nothing was parsed '
                         '-- `pip install pyyaml` to run it')
@@ -16794,16 +16797,9 @@ def check_frontmatter_is_real_yaml():
             text = f.read_text(encoding='utf-8')
         except OSError:
             continue
-        if not text.startswith('---\n'):
-            continue                      # no frontmatter claimed, none checked
-        m = re.match(r'---\n(.*?)\n---\n', text, re.S)
-        if not m:
-            bad.append((rel, 'opens a --- fence that is never closed'))
-            continue
-        try:
-            yaml.safe_load(m.group(1))
-        except Exception as e:
-            bad.append((rel, str(e).split('\n')[0]))
+        err = frontmatter_yaml.frontmatter_yaml_error(text)
+        if err:
+            bad.append((rel, err))
     for n, why in bad:
         print(f"  {n}: frontmatter is not valid YAML -- {why}")
     check(f"every tracked markdown file that opens a --- fence has "
