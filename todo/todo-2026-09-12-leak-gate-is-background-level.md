@@ -8,7 +8,7 @@ disposition:       wait
 remind_on:         null
 blocked_on:        null
 batch:             null
-decision:          ""Yes, make this one universal." -- Morgan chose universal over individual level for leak-gate-is-background."
+decision:          "\"Yes, make this one universal.\" -- Morgan chose universal over individual level for leak-gate-is-background."
 decision_strength: decided
 waiting_on:        null
 noted:             2026-09-12

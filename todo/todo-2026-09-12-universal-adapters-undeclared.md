@@ -8,7 +8,7 @@ disposition:       wait
 remind_on:         null
 blocked_on:        null
 batch:             null
-decision:          ""Approved - declare the eight adapters" -- Morgan approved declaring the harness adapters (landed as five, after two were found to already be owned by the individual source)."
+decision:          "\"Approved - declare the eight adapters\" -- Morgan approved declaring the harness adapters (landed as five, after two were found to already be owned by the individual source)."
 decision_strength: decided
 waiting_on:        null
 noted:             2026-09-12

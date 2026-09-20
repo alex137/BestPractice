@@ -8,7 +8,7 @@ disposition:       wait
 remind_on:         null
 blocked_on:        null
 batch:             null
-decision:          ""let's get rid of pack-sync" -- Morgan retired the practice, same reasoning as bestpractice-sync."
+decision:          "\"let's get rid of pack-sync\" -- Morgan retired the practice, same reasoning as bestpractice-sync."
 decision_strength: decided
 waiting_on:        null
 noted:             2026-09-11

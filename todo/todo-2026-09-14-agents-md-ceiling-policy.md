@@ -8,7 +8,7 @@ disposition:       parked
 remind_on:         null
 blocked_on:        null
 batch:             null
-decision:          ""I think we should do B, C, and D. now" -- Morgan picked raising the ceiling on purpose (to a number with a stated reason), splitting the quick index, and capping the generated occasion index, from a costed menu of five options."
+decision:          "\"I think we should do B, C, and D. now\" -- Morgan picked raising the ceiling on purpose (to a number with a stated reason), splitting the quick index, and capping the generated occasion index, from a costed menu of five options."
 decision_strength: decided
 waiting_on:        null
 noted:             2026-09-14

@@ -2254,6 +2254,412 @@
         }
       ],
       "completed": true
+    },
+    {
+      "run_id": "2026-09-20T08:49:00-03:00",
+      "date": "2026-09-20",
+      "repo": "/home/user/BestPractice",
+      "argv": [],
+      "seconds": 63.92,
+      "components": [
+        {
+          "name": "FRESHNESS -- this checkout",
+          "kind": "mechanical",
+          "findings": 0,
+          "items": null,
+          "output_tokens": 26,
+          "seconds": 3.78,
+          "status": "clean"
+        },
+        {
+          "name": "MACHINE-READABLE FILES",
+          "kind": "mechanical",
+          "findings": 0,
+          "items": null,
+          "output_tokens": 20,
+          "seconds": 0.08,
+          "status": "clean"
+        },
+        {
+          "name": "VENDORING EXCLUSIONS",
+          "kind": "mechanical",
+          "findings": 0,
+          "items": null,
+          "output_tokens": 27,
+          "seconds": 0.0,
+          "status": "clean"
+        },
+        {
+          "name": "FRESHNESS -- declared sources",
+          "kind": "mechanical",
+          "findings": 0,
+          "items": null,
+          "output_tokens": 74,
+          "seconds": 4.37,
+          "status": "clean"
+        },
+        {
+          "name": "REPOS IN FORCE -- still there, still writable",
+          "kind": "mechanical",
+          "findings": 0,
+          "items": null,
+          "output_tokens": 546,
+          "seconds": 4.61,
+          "status": "clean"
+        },
+        {
+          "name": "CONTRIBUTOR BOUNDARY -- CODEOWNERS current, protection on",
+          "kind": "mechanical",
+          "findings": 0,
+          "items": null,
+          "output_tokens": 171,
+          "seconds": 0.02,
+          "status": "clean"
+        },
+        {
+          "name": "SCOPE -- documents and practices to read",
+          "kind": "read",
+          "findings": null,
+          "items": 364,
+          "output_tokens": 131,
+          "seconds": 0.0,
+          "status": "material"
+        },
+        {
+          "name": "WITHIN-SOURCE CONFLICTS",
+          "kind": "mechanical",
+          "findings": 0,
+          "items": null,
+          "output_tokens": 35,
+          "seconds": 0.07,
+          "status": "clean"
+        },
+        {
+          "name": "SOURCE SHAPE",
+          "kind": "mechanical",
+          "findings": 0,
+          "items": null,
+          "output_tokens": 26,
+          "seconds": 0.01,
+          "status": "clean"
+        },
+        {
+          "name": "TEMPLATE FRESHNESS",
+          "kind": "mechanical",
+          "findings": 5,
+          "items": null,
+          "output_tokens": 201,
+          "seconds": 0.01,
+          "status": "findings"
+        },
+        {
+          "name": "BOOTSTRAP DRIFT",
+          "kind": "mechanical",
+          "findings": 23,
+          "items": null,
+          "output_tokens": 414,
+          "seconds": 16.28,
+          "status": "findings"
+        },
+        {
+          "name": "CONVERGENT DRIFT",
+          "kind": "mechanical",
+          "findings": 4,
+          "items": null,
+          "output_tokens": 705,
+          "seconds": 0.0,
+          "status": "findings"
+        },
+        {
+          "name": "EXPIRING PRACTICES",
+          "kind": "mechanical",
+          "findings": null,
+          "items": null,
+          "output_tokens": 15,
+          "seconds": 0.0,
+          "status": "aborted"
+        }
+      ],
+      "passes": [],
+      "completed": false
+    },
+    {
+      "run_id": "2026-09-20T08:50:19-03:00",
+      "date": "2026-09-20",
+      "repo": "/home/user/BestPractice",
+      "argv": [],
+      "seconds": 73.59,
+      "components": [
+        {
+          "name": "FRESHNESS -- this checkout",
+          "kind": "mechanical",
+          "findings": 0,
+          "items": null,
+          "output_tokens": 26,
+          "seconds": 3.08,
+          "status": "clean"
+        },
+        {
+          "name": "MACHINE-READABLE FILES",
+          "kind": "mechanical",
+          "findings": 0,
+          "items": null,
+          "output_tokens": 20,
+          "seconds": 0.08,
+          "status": "clean"
+        },
+        {
+          "name": "VENDORING EXCLUSIONS",
+          "kind": "mechanical",
+          "findings": 0,
+          "items": null,
+          "output_tokens": 27,
+          "seconds": 0.0,
+          "status": "clean"
+        },
+        {
+          "name": "FRESHNESS -- declared sources",
+          "kind": "mechanical",
+          "findings": 0,
+          "items": null,
+          "output_tokens": 74,
+          "seconds": 3.45,
+          "status": "clean"
+        },
+        {
+          "name": "REPOS IN FORCE -- still there, still writable",
+          "kind": "mechanical",
+          "findings": 0,
+          "items": null,
+          "output_tokens": 546,
+          "seconds": 4.86,
+          "status": "clean"
+        },
+        {
+          "name": "CONTRIBUTOR BOUNDARY -- CODEOWNERS current, protection on",
+          "kind": "mechanical",
+          "findings": 0,
+          "items": null,
+          "output_tokens": 171,
+          "seconds": 0.02,
+          "status": "clean"
+        },
+        {
+          "name": "SCOPE -- documents and practices to read",
+          "kind": "read",
+          "findings": null,
+          "items": 364,
+          "output_tokens": 131,
+          "seconds": 0.0,
+          "status": "material"
+        },
+        {
+          "name": "WITHIN-SOURCE CONFLICTS",
+          "kind": "mechanical",
+          "findings": 0,
+          "items": null,
+          "output_tokens": 35,
+          "seconds": 0.06,
+          "status": "clean"
+        },
+        {
+          "name": "SOURCE SHAPE",
+          "kind": "mechanical",
+          "findings": 0,
+          "items": null,
+          "output_tokens": 26,
+          "seconds": 0.01,
+          "status": "clean"
+        },
+        {
+          "name": "TEMPLATE FRESHNESS",
+          "kind": "mechanical",
+          "findings": 5,
+          "items": null,
+          "output_tokens": 201,
+          "seconds": 0.01,
+          "status": "findings"
+        },
+        {
+          "name": "BOOTSTRAP DRIFT",
+          "kind": "mechanical",
+          "findings": 23,
+          "items": null,
+          "output_tokens": 414,
+          "seconds": 16.11,
+          "status": "findings"
+        },
+        {
+          "name": "CONVERGENT DRIFT",
+          "kind": "mechanical",
+          "findings": 4,
+          "items": null,
+          "output_tokens": 705,
+          "seconds": 0.0,
+          "status": "findings"
+        },
+        {
+          "name": "EXPIRING PRACTICES",
+          "kind": "mechanical",
+          "findings": 1,
+          "items": null,
+          "output_tokens": 113,
+          "seconds": 0.02,
+          "status": "findings"
+        },
+        {
+          "name": "ORPHANS",
+          "kind": "mechanical",
+          "findings": 0,
+          "items": null,
+          "output_tokens": 44,
+          "seconds": 0.0,
+          "status": "clean"
+        },
+        {
+          "name": "SESSION LOAD",
+          "kind": "mechanical",
+          "findings": 59,
+          "items": null,
+          "output_tokens": 2545,
+          "seconds": 0.37,
+          "status": "findings"
+        },
+        {
+          "name": "TIER PLACEMENT",
+          "kind": "read",
+          "findings": null,
+          "items": 11,
+          "output_tokens": 341,
+          "seconds": 0.01,
+          "status": "material"
+        },
+        {
+          "name": "RULES WE SHIP SOMEWHERE ELSE",
+          "kind": "read",
+          "findings": null,
+          "items": 29,
+          "output_tokens": 374,
+          "seconds": 0.03,
+          "status": "material"
+        },
+        {
+          "name": "DOCUMENTATION CURRENCY",
+          "kind": "mechanical",
+          "findings": 12,
+          "items": null,
+          "output_tokens": 1133,
+          "seconds": 0.28,
+          "status": "findings"
+        },
+        {
+          "name": "UNLANDED WORK",
+          "kind": "mechanical",
+          "findings": null,
+          "items": null,
+          "output_tokens": 1232,
+          "seconds": 0.0,
+          "status": "unknown"
+        },
+        {
+          "name": "LIVE SESSIONS -- recent work against the repo",
+          "kind": "read",
+          "findings": null,
+          "items": 1490,
+          "output_tokens": 908,
+          "seconds": 0.0,
+          "status": "partial"
+        },
+        {
+          "name": "REPOSITORY VISIBILITY",
+          "kind": "mechanical",
+          "findings": 0,
+          "items": null,
+          "output_tokens": 206,
+          "seconds": 11.99,
+          "status": "clean"
+        },
+        {
+          "name": "CHECKLIST -- the four passes a session works",
+          "kind": "read",
+          "findings": null,
+          "items": null,
+          "output_tokens": 65,
+          "seconds": 0.0,
+          "status": "material"
+        },
+        {
+          "name": "BRANCHES -- verdicts owed",
+          "kind": "mechanical",
+          "findings": 136,
+          "items": null,
+          "output_tokens": 4095,
+          "seconds": 31.5,
+          "status": "findings"
+        },
+        {
+          "name": "BASE BRANCH DRIFT",
+          "kind": "mechanical",
+          "findings": 0,
+          "items": null,
+          "output_tokens": 66,
+          "seconds": 0.06,
+          "status": "clean"
+        },
+        {
+          "name": "ENDGAME MERGE",
+          "kind": "mechanical",
+          "findings": 0,
+          "items": null,
+          "output_tokens": 130,
+          "seconds": 1.17,
+          "status": "clean"
+        },
+        {
+          "name": "GITHUB API BUDGET",
+          "kind": "mechanical",
+          "findings": 0,
+          "items": null,
+          "output_tokens": 396,
+          "seconds": 0.0,
+          "status": "clean"
+        }
+      ],
+      "passes": [
+        {
+          "pass": "1",
+          "status": "not_run",
+          "recorded": "2026-09-20T08:53:38-03:00",
+          "findings": null,
+          "tokens": null,
+          "note": "narrow follow-up to 2026-09-19's full run; no real consumer/scratch rehearsal this run"
+        },
+        {
+          "pass": "2",
+          "status": "partial",
+          "recorded": "2026-09-20T08:53:39-03:00",
+          "findings": 1,
+          "tokens": 4000,
+          "note": "mechanical five-gate suite + question 6 (real YAML parser vs repo's own reader) only; found and fixed 17 todo files with unescaped-quote frontmatter PyYAML rejects; questions 1-5,7-17 not re-run since 09-19"
+        },
+        {
+          "pass": "3",
+          "status": "partial",
+          "recorded": "2026-09-20T08:53:39-03:00",
+          "findings": 0,
+          "tokens": 3000,
+          "note": "narrow coherence read of the 5 commits landed since the 09-19 run (philosophy/HUMANS_AT_OUR_BEST + 2 doc-recipes) only, not the full 130-file catalogue"
+        },
+        {
+          "pass": "4",
+          "status": "partial",
+          "recorded": "2026-09-20T08:53:39-03:00",
+          "findings": 0,
+          "tokens": 8000,
+          "note": "read unlanded-work inventory and live-session sweep (cross-checked against list_sessions/get_session, clean), base-branch drift and endgame merge mechanical rehearsal (clean); did not write real merge-or-close verdicts for the 11 unlanded branches or the private-source branches"
+        }
+      ],
+      "completed": true
     }
   ]
 }

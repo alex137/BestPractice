@@ -8,7 +8,7 @@ disposition:       wait
 remind_on:         null
 blocked_on:        null
 batch:             null
-decision:          ""build what's needed to implement the spec" -- Morgan approved the write-up wholesale; the session's own pick (unowning MAP.md/GLOSSARY.md in a document project) was applied under that approval."
+decision:          "\"build what's needed to implement the spec\" -- Morgan approved the write-up wholesale; the session's own pick (unowning MAP.md/GLOSSARY.md in a document project) was applied under that approval."
 decision_strength: assented
 waiting_on:        null
 noted:             2026-09-14

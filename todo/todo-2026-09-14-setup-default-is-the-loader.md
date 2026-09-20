@@ -8,7 +8,7 @@ disposition:       wait
 remind_on:         null
 blocked_on:        null
 batch:             null
-decision:          ""anything you think we should do, just do it and Go Merge" -- Morgan delegated the call; SETUP.md was flipped to install the loader (§0) by default instead of the classic vendored model (§1)."
+decision:          "\"anything you think we should do, just do it and Go Merge\" -- Morgan delegated the call; SETUP.md was flipped to install the loader (§0) by default instead of the classic vendored model (§1)."
 decision_strength: assented
 waiting_on:        null
 noted:             2026-09-14

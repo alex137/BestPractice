@@ -8,7 +8,7 @@ disposition:       wait
 remind_on:         null
 blocked_on:        null
 batch:             null
-decision:          ""Yes, please build that. GO merge." -- Morgan approved hardening the shallow-clone self-heal."
+decision:          "\"Yes, please build that. GO merge.\" -- Morgan approved hardening the shallow-clone self-heal."
 decision_strength: decided
 waiting_on:        null
 noted:             2026-09-15

@@ -8,7 +8,7 @@ disposition:       wait
 remind_on:         null
 blocked_on:        null
 batch:             null
-decision:          ""Let's do a reduction pass as you recommend" -- Morgan picked the reduction pass over raising the ceiling."
+decision:          "\"Let's do a reduction pass as you recommend\" -- Morgan picked the reduction pass over raising the ceiling."
 decision_strength: decided
 waiting_on:        null
 noted:             2026-09-14

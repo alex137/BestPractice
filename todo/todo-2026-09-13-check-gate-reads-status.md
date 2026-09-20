@@ -8,7 +8,7 @@ disposition:       wait
 remind_on:         null
 blocked_on:        null
 batch:             null
-decision:          ""Document the disctinction please" -- Morgan chose to document the file-presence-vs-status distinction rather than change the gate."
+decision:          "\"Document the disctinction please\" -- Morgan chose to document the file-presence-vs-status distinction rather than change the gate."
 decision_strength: decided
 waiting_on:        null
 noted:             2026-09-13

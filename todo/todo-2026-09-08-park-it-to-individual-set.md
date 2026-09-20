@@ -8,7 +8,7 @@ disposition:       parked
 remind_on:         null
 blocked_on:        null
 batch:             null
-decision:          ""we should have our own commands we use for people who live in our universe." -- Morgan chose universal over the individual set the item proposed."
+decision:          "\"we should have our own commands we use for people who live in our universe.\" -- Morgan chose universal over the individual set the item proposed."
 decision_strength: decided
 waiting_on:        null
 noted:             2026-09-08

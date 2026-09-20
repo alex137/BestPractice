@@ -8,7 +8,7 @@ disposition:       parked
 remind_on:         null
 blocked_on:        null
 batch:             null
-decision:          ""bolded lead only" -- Morgan picked the gotchas-index-split option from a costed menu of five."
+decision:          "\"bolded lead only\" -- Morgan picked the gotchas-index-split option from a costed menu of five."
 decision_strength: decided
 waiting_on:        null
 noted:             2026-09-13

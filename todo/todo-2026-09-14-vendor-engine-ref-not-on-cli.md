@@ -8,7 +8,7 @@ disposition:       wait
 remind_on:         null
 blocked_on:        null
 batch:             null
-decision:          ""but do we want to install that specific version we told it? Why not install the most recent version?" -- Morgan settled that a rollout takes the tip, not a pinned ref."
+decision:          "\"but do we want to install that specific version we told it? Why not install the most recent version?\" -- Morgan settled that a rollout takes the tip, not a pinned ref."
 decision_strength: decided
 waiting_on:        null
 noted:             2026-09-14

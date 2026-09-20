@@ -8,7 +8,7 @@ disposition:       wait
 remind_on:         null
 blocked_on:        null
 batch:             null
-decision:          ""go ahead and rename the set too" -- Morgan approved renaming precedent-team-repo-maintenance for its subject rather than its roster."
+decision:          "\"go ahead and rename the set too\" -- Morgan approved renaming precedent-team-repo-maintenance for its subject rather than its roster."
 decision_strength: decided
 waiting_on:        null
 noted:             2026-09-11

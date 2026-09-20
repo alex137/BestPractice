@@ -8,7 +8,7 @@ disposition:       wait
 remind_on:         null
 blocked_on:        null
 batch:             null
-decision:          ""if it is just talk like a human rules, then maybe we should eliminate all that text (by default), and leave it only for the unique voice of the project?" -- Morgan chose to drop the generic content from VOICE.md rather than move it, since the catalogue already carries it."
+decision:          "\"if it is just talk like a human rules, then maybe we should eliminate all that text (by default), and leave it only for the unique voice of the project?\" -- Morgan chose to drop the generic content from VOICE.md rather than move it, since the catalogue already carries it."
 decision_strength: decided
 waiting_on:        null
 noted:             2026-09-08

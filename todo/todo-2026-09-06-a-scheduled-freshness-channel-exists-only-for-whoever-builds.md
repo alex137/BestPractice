@@ -8,7 +8,7 @@ disposition:       wait
 remind_on:         null
 blocked_on:        null
 batch:             null
-decision:          ""No weekly updates. I had that weeks ago, but we're not doing that anymore; this is now really complex and deserves hand attention and issues come up every time and I'm on it every day anyway." -- Morgan killed the weekly refresh channel outright."
+decision:          "\"No weekly updates. I had that weeks ago, but we're not doing that anymore; this is now really complex and deserves hand attention and issues come up every time and I'm on it every day anyway.\" -- Morgan killed the weekly refresh channel outright."
 decision_strength: decided
 waiting_on:        null
 noted:             2026-09-06

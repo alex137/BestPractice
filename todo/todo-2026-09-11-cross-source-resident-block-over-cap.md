@@ -8,7 +8,7 @@ disposition:       wait
 remind_on:         null
 blocked_on:        null
 batch:             null
-decision:          ""I want to remove both. The other session is removing buenos-aires-date." -- Morgan chose to demote both buenos-aires-dates and small-calls from the resident block."
+decision:          "\"I want to remove both. The other session is removing buenos-aires-date.\" -- Morgan chose to demote both buenos-aires-dates and small-calls from the resident block."
 decision_strength: decided
 waiting_on:        null
 noted:             2026-09-11

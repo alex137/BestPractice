@@ -8,7 +8,7 @@ disposition:       wait
 remind_on:         null
 blocked_on:        null
 batch:             null
-decision:          ""That was diction. So option #2: I'm a male, him/me, and my name is Morgan." -- confirmed no second prose name is needed; identity.json's name stays what it already was."
+decision:          "\"That was diction. So option #2: I'm a male, him/me, and my name is Morgan.\" -- confirmed no second prose name is needed; identity.json's name stays what it already was."
 decision_strength: decided
 waiting_on:        null
 noted:             2026-09-12
