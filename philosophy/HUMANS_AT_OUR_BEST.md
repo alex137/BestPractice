@@ -2,6 +2,10 @@
 
 # Humans at Our Best
 
+*Humans should do what humans do best, and leave the rest to the
+machines. ([Humans at our
+Best](HUMANS_AT_OUR_BEST.md))*
+
 *Several documents in this repo each restate part of the same idea — what
 humans are good at, and what the work should route to them rather than to a
 model — for their own argument, in their own words. This document doesn't
@@ -10,10 +14,10 @@ The originals
 ([`people-manage-agents-execute`](OUR_PHILOSOPHY.md#people-manage-agents-execute)
 and
 [`humans-do-what-humans-do-best`](OUR_PHILOSOPHY.md#humans-do-what-humans-do-best)
-in OUR_PHILOSOPHY.md,
+in [Our Philosophy](OUR_PHILOSOPHY.md),
 [`structurally-human`](COMPANY_BUILDING_RULES.md#structurally-human) in
-COMPANY_BUILDING_RULES.md) keep their own wording and link back here —
-this page doesn't replace them.*
+[Company Building Rules](COMPANY_BUILDING_RULES.md)) keep their own wording
+and link back here — this page doesn't replace them.*
 
 ## The Four Aspects of the Human Genius
 
