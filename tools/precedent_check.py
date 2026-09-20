@@ -2450,6 +2450,71 @@ def _declared_hooks_exist(ctx):
     return found
 
 
+# This repo dogfoods its own Claude Code template: these three hooks under
+# .claude/hooks/ carry no BestPractice-specific content, so the installed
+# copy is meant to BE templates/harness/claude-code/hooks/<name>, verbatim.
+# session-start.sh, stop-git-check.sh and reply-gate.sh are deliberately
+# NOT here -- each carries real repo-specific content (session-start.sh's
+# own package list, stop-git-check.sh's own tool-path story) and is
+# correctly expected to differ from its generic template counterpart.
+DOGFOODED_HOOKS_MATCH_TEMPLATE = (
+    'commit-identity.sh',
+    'freshness-guard.sh',
+    'precedent-paths.sh',
+)
+
+
+@check('dogfooded-hooks-match-template', 'tree',
+       'each hook in DOGFOODED_HOOKS_MATCH_TEMPLATE is byte-identical '
+       'between .claude/hooks/ and templates/harness/claude-code/hooks/',
+       'a hook this repo deliberately customizes (session-start.sh, '
+       'stop-git-check.sh, reply-gate.sh -- each carries real repo-'
+       'specific content and is correctly not in the list); whether '
+       'either copy is actually correct, only that the two agree',
+       practice_backed=False)
+def _dogfooded_hooks_match_template(ctx):
+    """A fix landed in only one copy on 2026-09-15 (freshness-guard.sh's
+    auto-reconcile feature, added to .claude/hooks/ alone) and nothing
+    caught it: parallel-artifact-ledger watches the three SHIPPED adapters
+    (claude-code/, codex/, gemini-cli/) against each other, and has no idea
+    this repo's own installed .claude/hooks/ copy exists at all -- that
+    relationship was simply unchecked. Four days later a real local commit
+    was discarded mid-session by exactly the half of the drifted file the
+    fix never reached
+    (gotchas/gotcha-2026-09-20-freshness-guard-s-user-prompt-mode-hard-resets-a-mid-sess.md).
+
+    Deliberately narrow and mechanical: byte equality, nothing editorial.
+    Unlike parallel-artifact-ledger (which asks whether a change SHOULD
+    transfer across three peer templates, a judgment call worth a dated
+    row), the three files named here have no legitimate reason to differ
+    at all, so equality is the whole check."""
+    tmpl_dir = ROOT / 'templates' / 'harness' / 'claude-code' / 'hooks'
+    live_dir = ROOT / '.claude' / 'hooks'
+    if not tmpl_dir.is_dir() or not live_dir.is_dir():
+        raise NotApplicable(f'this repo has no {live_dir.relative_to(ROOT)} '
+                            f'or no {tmpl_dir.relative_to(ROOT)} -- nothing '
+                            f'to compare')
+    found = []
+    for name in DOGFOODED_HOOKS_MATCH_TEMPLATE:
+        live = live_dir / name
+        tmpl = tmpl_dir / name
+        live_there, tmpl_there = live.exists(), tmpl.exists()
+        if not (live_there and tmpl_there):
+            found.append(Finding(
+                f'.claude/hooks/{name}',
+                f'one side is missing (installed: {live_there}, template: '
+                f'{tmpl_there}) -- either install the hook or drop it from '
+                f'DOGFOODED_HOOKS_MATCH_TEMPLATE'))
+            continue
+        if live.read_bytes() != tmpl.read_bytes():
+            found.append(Finding(
+                f'.claude/hooks/{name}',
+                f'differs from templates/harness/claude-code/hooks/{name} '
+                f'-- a fix landed in only one copy. Diff them, work out '
+                f'which side is current, and bring the other up to date'))
+    return found
+
+
 def _settings_hook_dirs():
     """-> [Path] every directory a .claude/settings*.json actually wires a
     hook out of, resolved against this repo.
