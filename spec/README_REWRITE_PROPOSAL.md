@@ -246,6 +246,8 @@ The individual pages, if you want to go deeper on any one idea:
 
 **New here?** [Ten Things to Know About How Precedent
 Works](../documentation/TEN_THINGS.md) is the one page to read first, then
+[What This Is (and Why Explore Using
+Precedent)](../documentation/WHY_PRECEDENT.md) for the fuller pitch, and
 the how-to guide for your situation: [if you write
 code](../documentation/FOR_DEVELOPERS.md), or [if you
 don't](../documentation/FOR_EVERYONE_ELSE.md). **Already set up?** [How to
