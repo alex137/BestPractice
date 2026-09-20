@@ -16,6 +16,19 @@ side**, so different agents can work the same repo under the same contract.
 | [gemini-cli/](gemini-cli/) | `GEMINI.md` → pointer to `AGENTS.md` | instructions-file directive | n/a | n/a |
 | [grok-build/](grok-build/) | `AGENTS.md` read natively | `.grok/hooks.json` lifecycle hook (exact syntax unverified as of 2026-09-17 — see the adapter's own README before relying on it) | n/a | n/a |
 
+**A practice SOURCE set installs the claude-code adapter too, and until
+2026-09-20 none did.** The table above reads as wiring a *consuming* repo
+puts in — and a set publishes practices rather than installing them, so
+nobody ever asked which filename the harness auto-loads in one. All four
+sets alive on that date had `AGENTS.md` and no `CLAUDE.md`, and loaded their
+own rules only because Claude Code falls back to `AGENTS.md` where a project
+has no `CLAUDE.md` of its own. A set needs the stub and
+[`hooks/precedent-universal-catalogue.sh`](claude-code/hooks/precedent-universal-catalogue.sh);
+what it does not need is an `@import` of the catalogue that hook renders —
+[`../../spec/PACK_SESSION_DOES_NOT_LOAD_UNIVERSAL.md`](../../spec/PACK_SESSION_DOES_NOT_LOAD_UNIVERSAL.md)
+says why, and it is the same file a session should read before changing what
+any hook here prints to stdout.
+
 **Enforcement caveat.** Adapters with a hook mechanism give *hard* guarantees
 (bootstrap always runs); adapters without one rely on the agent following the
 instructions file — a *soft* guarantee. The audits partially compensate: a

@@ -816,6 +816,17 @@ def verify(level, path):
                            "`<!-- BEGIN GENERATED: precedent-loader -->` "
                            "marker, so build_views.py has nowhere to write "
                            "the loader block and fails")
+
+    # The Claude Code stub. Reported as missing rather than silently
+    # tolerated because its absence is invisible from inside a session: the
+    # harness falls back to AGENTS.md today, so a set with no CLAUDE.md looks
+    # identical to one that has it until the day that default changes.
+    if not (path / 'CLAUDE.md').is_file():
+        missing.append("CLAUDE.md (the Claude Code adapter stub, written by "
+                       "this tool's bootstrap since 2026-09-20; without it "
+                       "the set's AGENTS.md loads only via the harness's "
+                       "AGENTS.md fallback -- add a file whose body is "
+                       "`@AGENTS.md`)")
     return missing + _malformed(level, path)
 
 
@@ -1199,6 +1210,36 @@ def _write_instructions_and_views(dest, level, name):
             f'<!-- END GENERATED -->\n',
             encoding='utf-8')
         written.append(agents)
+
+    # THE CLAUDE CODE STUB, added 2026-09-20, and a set needs it for the same
+    # reason a consuming repo does. templates/harness/README.md's adapter
+    # table frames `CLAUDE.md` -> `@AGENTS.md` as wiring a CONSUMER installs,
+    # so no set ever got one: all four of the sets alive on that date had
+    # AGENTS.md and no CLAUDE.md. It worked only because Claude Code falls
+    # back to AGENTS.md where a project has no CLAUDE.md of its own
+    # (2.1.278, `instructionFiles` defaults to "claude-md-or-agents-md") --
+    # a harness default, changeable by the harness, and not something a set's
+    # rules loading at all should rest on.
+    #
+    # The universal catalogue does NOT travel through this file. The
+    # SessionStart hook renders and injects it; an @import of
+    # .precedent/SESSION_PRACTICES.md here would load a stale copy where the
+    # hook had not run yet and a duplicate where it had
+    # (spec/PACK_SESSION_DOES_NOT_LOAD_UNIVERSAL.md).
+    claude_md = dest / 'CLAUDE.md'
+    if not claude_md.exists():
+        claude_md.write_text(
+            '<!-- Claude Code adapter: CLAUDE.md is the file Claude Code\n'
+            '     auto-loads; the canonical instructions live in AGENTS.md\n'
+            '     (harness-neutral), and the @import below pulls it into\n'
+            '     context natively. Keep repo-specific content in AGENTS.md,\n'
+            '     not here. The universal catalogue arrives separately, from\n'
+            '     the SessionStart hook -- see BestPractice\'s\n'
+            '     spec/PACK_SESSION_DOES_NOT_LOAD_UNIVERSAL.md. -->\n\n'
+            '@AGENTS.md\n',
+            encoding='utf-8')
+        written.append(claude_md)
+
     bv = dest / 'tools' / 'build_views.py'
     if bv.is_file():
         # -B: the generator runs INSIDE the set, and a tools/__pycache__/ it

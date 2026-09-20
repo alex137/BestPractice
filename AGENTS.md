@@ -477,7 +477,7 @@ before searching the repo, and add new rows there rather than here.
 
 ## Build-environment gotchas — search before you rediscover one
 
-44 environment/tooling traps are catalogued, one file per trap, under
+52 environment/tooling traps are catalogued, one file per trap, under
 [gotchas/](gotchas/) — each with its own Symptom, Story and Fix (practice:
 [environment-gotchas](practices/environment-gotchas.md)). Nothing here loads
 that catalogue for you: **hit a confusing, hard-to-explain failure? Before

@@ -104,4 +104,6 @@ Full catalogue, one file per trap. AGENTS.md carries only a pointer to this file
 
 - **`python3` [`tools/verify_harness.py`](../tools/verify_harness.py) crashes with an uncaught `OSError: [Errno 39] Directory not empty` from inside Python's own `tempfile.TemporaryDirectory.__exit__`, rather than printing a `FAIL` line — the whole run dies mid-suite instead of reporting the one check that owns the failing directory.** [story](gotcha-2026-09-19-verify-harnesss-fresh-container-check-can-fail-tempdir.md)
 
+- **A SessionStart hook renders a file correctly, every session, and the session behaves as though the file does not exist — because writing a file is not loading it, and Claude Code auto-loads instruction files only.** [story](gotcha-2026-09-20-a-sessionstart-hook-writing-a-file-is-not-the-session-loadi.md)
+
 - **A local commit made mid-session, on a clean working tree, disappears between one turn and the next -- `git log` shows the branch back at `origin`'s tip, with no error, no warning shown to the model, and no dirty-tree complaint to explain it.** [story](gotcha-2026-09-20-freshness-guard-s-user-prompt-mode-hard-resets-a-mid-sess.md)
