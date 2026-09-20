@@ -52,7 +52,7 @@ Three things follow from this that are worth knowing:
   all of it, including the merge, without checking back.* ("Go merge"
   means the same thing.)
 
-There are a few more of those standing phrases — **"Park it"**, **"Plain
+There are a few more of those standing phrases — **"Drop it"**, **"Plain
 words"**, **"Three Things"** — and [How to Use This Day to
 Day](DAILY_HABITS.md) lists them.
 

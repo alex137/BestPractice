@@ -114,7 +114,7 @@ about laying out decision choices, nothing to do with briefing another
 session on an issue. AGENTS.md's own precedent-commands section states the
 design this would break: "each has a phrase that is always sufficient and
 never ambiguous." "Brief it" was used instead, matching the "<verb> it"
-shape [Park it](park-it.md) and [Write it up](write-it-up.md) already use,
+shape [Drop it](park-it.md) and [Write it up](write-it-up.md) already use,
 and checked against every trigger phrase already in force in this catalogue.
 
 **Deduplicated the same day, into [my-options](my-options.md), on Morgan's

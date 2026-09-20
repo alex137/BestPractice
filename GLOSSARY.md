@@ -27,6 +27,7 @@ Built from every practice's `defines:` frontmatter field -- the terms that pract
 | document kind | [document-status-header](practices/document-status-header.md) |
 | document reference | [doc-references-are-links](practices/doc-references-are-links.md) |
 | document status | [document-status-header](practices/document-status-header.md) |
+| Drop it | [park-it](practices/park-it.md) |
 | full practice audit | [full-practice-audit](practices/full-practice-audit.md) |
 | generated artifact | [generated-artifact-provenance](practices/generated-artifact-provenance.md) |
 | Go merge | [go-merge](practices/go-merge.md) |
@@ -38,7 +39,6 @@ Built from every practice's `defines:` frontmatter field -- the terms that pract
 | My options | [my-options](practices/my-options.md) |
 | negative control | [control-asserts-which-failure](practices/control-asserts-which-failure.md) |
 | parallel-artifact family | [parallel-artifact-ledger](practices/parallel-artifact-ledger.md) |
-| Park it | [park-it](practices/park-it.md) |
 | positive control | [control-asserts-which-failure](practices/control-asserts-which-failure.md) |
 | practice pack | [layered-practice-packs](practices/layered-practice-packs.md) |
 | practice-set source | [source-naming](practices/source-naming.md) |

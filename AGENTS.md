@@ -65,7 +65,7 @@ names why in its own file.
   sentence could honestly go either way, say the read out loud and get it
   confirmed before the push, the pull request, or the merge — commit locally
   regardless, and hold only the shared-branch steps on the answer.
-- **"Park it"** ([park-it](practices/park-it.md)) — write
+- **"Drop it"** ([park-it](practices/park-it.md)) — write
   `**Disposition:** parked (<date>, <who said it>)` into the item meant, in
   that same turn, say which item was marked, and **never raise it unprompted
   again** — not this session, and not a later one that decides it has become
@@ -342,10 +342,10 @@ When a person explicitly asks for a full practice audit (or "practice check") ac
   full-practice-audit — sweep every source's full catalogue, one practice at a time, on request only
 When a person says "Chief of Staff":
   chief-of-staff — "Chief of Staff" -- on request only; name the window read, link every session
+When a person says "Drop it" about an open item or a question:
+  park-it — "Drop it" -- mark the item `parked` now; never raise it unprompted again
 When a person says "My options", asks to have a decision's options laid out, or asks -- about a current issue -- for the options to hand off to another session:
   my-options — "My options" -- every option, plainer, your pick -- or a paste-ready handoff
-When a person says "Park it" about an open item or a question:
-  park-it — "Park it" -- mark the item `parked` now; never raise it unprompted again
 When a person says "Reduction pass", or an always-loaded surface is near its ceiling:
   reduction-pass — "Reduction pass" -- work the menu in order, move never delete, report what moved
 When a person says "Simple words", or plainly asks to be talked to that way:
@@ -454,7 +454,7 @@ before searching the repo, and add new rows there rather than here.
 | Looking for… | Go to |
 |---|---|
 | The restructuring plan (read this first) | [spec/PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md) |
-| Whether an open item may be raised with Morgan at all, and what "Park it" writes | [practices/open-item-disposition.md](practices/open-item-disposition.md), phrase at [practices/park-it.md](practices/park-it.md) |
+| Whether an open item may be raised with Morgan at all, and what "Drop it" writes | [practices/open-item-disposition.md](practices/open-item-disposition.md), phrase at [practices/park-it.md](practices/park-it.md) |
 | What a session pays before its first turn, the declared ceiling on each always-loaded file, and how to reduce one without deleting what still bites | [practices/session-load-budget.md](practices/session-load-budget.md), registry at [tools/session_load_budgets.json](tools/session_load_budgets.json) — `python3 tools/precedent_check.py --only session-load-budget` |
 | Practices that fire at a moment rather than in a file | [tools/precedent_gate.py](tools/precedent_gate.py) — `merge`, `review`, `push`, `reply` |
 | Why the closing **Next Steps** section of a reply is not optional, and what refuses a turn without one | [tools/precedent_reply_check.py](tools/precedent_reply_check.py) — `--explain` says what is declared here; the same requirements are printed at the start of every turn by [tools/precedent_gate.py](tools/precedent_gate.py)'s reply gate |
