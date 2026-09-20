@@ -6551,7 +6551,7 @@ def check_precedent_check_fires():
         # rather than reporting a generic failure.
         def _plant_park_it(repo):
             rewrite(repo, 'AGENTS.md',
-                    lambda s: s.replace('Park it', 'the phrase'))
+                    lambda s: s.replace('Drop it', 'the phrase'))
         case('park-it', _plant_park_it)
 
         # install-declares-its-scope -- SETUP.md put back the way it read

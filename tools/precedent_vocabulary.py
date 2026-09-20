@@ -3,7 +3,7 @@
 themselves (practice: vocabulary).
 
 A Precedent repository carries a small set of standing phrases -- `Go merge`,
-`Park it`, `Three Things` -- that a session is guaranteed to recognize. Each
+`Drop it`, `Three Things` -- that a session is guaranteed to recognize. Each
 one is defined by a practice file, and until this existed the LIST of them
 lived in two hand-maintained places: a paragraph in a project instructions
 file and a table in a reader-facing document. Both drifted the moment a

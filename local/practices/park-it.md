@@ -1,12 +1,12 @@
 ---
 slug:        park-it
-title:       Park it — the phrase that marks an item parked and ends the subject
+title:       Drop it — the phrase that marks an item parked and ends the subject
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
-occasion:    "Morgan says \"Park it\" about an open item or a question"
+occasion:    "Morgan says \"Drop it\" about an open item or a question"
 gates:       ["reply"]
-index_clause: "\"Park it\" -- mark the item `parked` this turn, and never raise it unprompted again"
+index_clause: "\"Drop it\" -- mark the item `parked` this turn, and never raise it unprompted again"
 checked_by:  "local/tools/checks/check_park_it.py"
 defines:     []
 status:      deduplicated
@@ -17,7 +17,7 @@ added:       "2026-09-08"
 approved_by: "Morgan, 2026-09-08"
 ---
 ## Rule
-When Morgan says **"Park it"**, the session writes
+When Morgan says **"Drop it"**, the session writes
 `**Disposition:** parked (<date>, Morgan)` into the item he means, in that
 same turn, and no session raises that item unprompted again. He owes no
 explanation for parking something, and the session asks no follow-up
@@ -30,7 +30,7 @@ play, park the one under discussion and say in one line which anchor was
 marked, so a wrong guess costs him three words to correct rather than a
 re-explanation.
 
-"Park it" can also arrive about a question that is not yet in
+"Drop it" can also arrive about a question that is not yet in
 [TODO.md](../../TODO.md) at all. Then the session writes the item first —
 [repo-is-memory](../../practices/repo-is-memory.md) does not bend, and parked is not the same as
 forgotten — and marks it `parked` in the same commit.
@@ -60,6 +60,9 @@ having if it is written where a session reads before it works — which is why
 this practice is checked on [AGENTS.md](../../AGENTS.md) rather than left as prose.
 
 ## Story
+**Renamed to "Drop it" on 2026-09-20** — same mechanism, only the spoken
+word changed; the full story is in the universal copy's own Story section.
+
 **Deduplicated into the universal catalogue on 2026-09-08, the day after it
 was written here.** The Detail below said this practice was at the wrong
 level on purpose -- one person's phrase, recorded repo-locally only because

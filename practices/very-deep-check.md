@@ -856,7 +856,7 @@ first so this pass spends its attention on what they cannot see.
   trigger word reachable only by already knowing it is not a keyword, it is
   folklore. The usual home is a practice's `defines:` field, which lands it
   in [GLOSSARY.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/GLOSSARY.md) — **but a glossary entry is not the
-  property; being findable is.** "Go merge" and "Park it" are deliberately
+  property; being findable is.** "Go merge" and "Drop it" are deliberately
   NOT in the glossary (Morgan, 2026-09-08: *"Don't put it in the
   glossary."*); both are defined in [AGENTS.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/AGENTS.md), which is
   where a session actually reads them, and `check_park_it.py` fails if that

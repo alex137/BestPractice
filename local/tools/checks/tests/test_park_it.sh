@@ -53,7 +53,7 @@ run "$d"
 [ "$RC" = 1 ] && ok "an instructions file without the phrase fails (exit 1)" \
               || bad "expected exit 1, got $RC"
 case "$OUT" in
-  *"does not carry 'Park it'"*) ok "names the missing phrase" ;;
+  *"does not carry 'Drop it'"*) ok "names the missing phrase" ;;
   *) bad "did not name the missing phrase; said: $OUT" ;;
 esac
 case "$OUT" in
@@ -64,7 +64,7 @@ esac
 # 1b. half-documented is still a violation -- the phrase with no meaning
 # attached is exactly the state that sent a session off to ask.
 d="$(make_fixture half)"
-printf '# Repo notes\n\nWhen he says "Park it", do the right thing.\n' > "$d/AGENTS.md"
+printf '# Repo notes\n\nWhen he says "Drop it", do the right thing.\n' > "$d/AGENTS.md"
 run "$d"
 [ "$RC" = 1 ] && ok "the phrase without its meaning still fails" \
               || bad "expected exit 1 for a half-documented phrase, got $RC"
@@ -75,7 +75,7 @@ esac
 
 # 2. properly documented
 d="$(make_fixture documented)"
-printf '# Repo notes\n\n"Park it" means mark the item `parked` and drop it.\n' > "$d/AGENTS.md"
+printf '# Repo notes\n\n"Drop it" means mark the item `parked`.\n' > "$d/AGENTS.md"
 run "$d"
 [ "$RC" = 0 ] && ok "a documented phrase passes (exit 0)" \
               || bad "expected exit 0, got $RC; said: $OUT"
@@ -83,7 +83,7 @@ run "$d"
 
 # 2b. CLAUDE.md alone counts -- a consuming repo may run the other way round
 d="$(make_fixture claude-md)"
-printf '"Park it" -- mark it `parked`.\n' > "$d/CLAUDE.md"
+printf '"Drop it" -- mark it `parked`.\n' > "$d/CLAUDE.md"
 run "$d"
 [ "$RC" = 0 ] && ok "CLAUDE.md alone satisfies it" || bad "expected exit 0, got $RC; said: $OUT"
 
