@@ -15073,6 +15073,15 @@ def check_vendor_engine_retires_ci_workflow_files():
     template -- the other half of the same incident, found the same day in
     two real consumer repos).
 
+    2026-09-20: _remove_retired_ci_workflow_files stopped only reporting a
+    retired file still on disk and started deleting it -- but ONLY when its
+    current sha256 still matches what the manifest had recorded, the same
+    standard _ci_workflow_drift already uses for "not drifted" everywhere
+    else in this module. Case B below now splits on exactly that hash
+    match/mismatch, since it is now the entire question the old single case
+    collapsed into one "always kept" assumption that would no longer be
+    true.
+
     `kind: source` throughout, since RETIRED_CI_WORKFLOW_FILES' one entry
     (views-drift.yml) is a 'source'-kind retirement; CI_WORKFLOW_TEMPLATES
     is not, so precedent-check.yml.template is the live template refresh()
@@ -15094,21 +15103,31 @@ def check_vendor_engine_retires_ci_workflow_files():
                          'precedent-check.yml.template').read_bytes()
         stub = b'name: stub\n# an older vendored copy\n'
         stub_hash = hashlib.sha256(stub).hexdigest()
+        retired_content = b'name: views-drift\n'
+        retired_content_hash = hashlib.sha256(retired_content).hexdigest()
 
-        def make_set(name, retired_still_on_disk):
+        def make_set(name, retired_still_on_disk, retired_hash_matches=False):
             """A fresh 'source' set carrying a live precedent-check.yml
             (recorded, stale against the current template -- so a
             successful refresh is independently visible) plus a retired
             views-drift.yml manifest entry, with or without the file
-            itself still sitting on disk."""
+            itself still sitting on disk.
+
+            retired_hash_matches selects which of the two on-disk cases a
+            still-present retired file is in: True records the file's OWN
+            real hash (untouched since the manifest last looked -- safe to
+            delete); False records a hash that does not match (stands in
+            for a hand-edit since -- must be kept)."""
             consumer = tmp / name
             (consumer / 'tools').mkdir(parents=True)
             (consumer / '.github' / 'workflows').mkdir(parents=True)
             (consumer / 'tools' / 'precedent_vendor_engine.py').write_bytes(engine_bytes)
             (consumer / rel).write_bytes(stub)
-            ci_hashes = {rel: stub_hash, retired_rel: 'deadbeef' * 8}
+            retired_recorded = (retired_content_hash if retired_hash_matches
+                                 else 'deadbeef' * 8)
+            ci_hashes = {rel: stub_hash, retired_rel: retired_recorded}
             if retired_still_on_disk:
-                (consumer / retired_rel).write_bytes(b'name: views-drift\n')
+                (consumer / retired_rel).write_bytes(retired_content)
             manifest = {
                 'kind': 'source', 'source_commit': 'deadbeef',
                 'files': ['precedent_vendor_engine.py'],
@@ -15148,21 +15167,35 @@ def check_vendor_engine_retires_ci_workflow_files():
         cases.append(('...reported by name, not a silent drop',
                       'views-drift.yml' in out_a and 'retired' in out_a, out_a[:800]))
 
-        # -- B: retired entry, file STILL on disk -- dropped from tracking,
-        # reported, but the file itself is left alone (a CI workflow file is
-        # never deleted automatically, matching refresh()'s own stated
-        # design for ci_incomplete) --
-        b = make_set('kept', retired_still_on_disk=True)
-        rc_b, out_b = run_refresh(b)
-        cases.append(('CONTROL: when the retired file is still on disk, refresh still '
-                      'succeeds and drops the manifest entry',
-                      rc_b == 0 and retired_rel not in manifest_of(b).get('ci_workflows_sha256', {}),
-                      out_b[:800]))
+        # -- B1: retired entry, file STILL on disk, UNTOUCHED since the
+        # manifest last recorded its hash -- deleted, not just reported
+        # (2026-09-20 change) --
+        b1 = make_set('deleted', retired_still_on_disk=True, retired_hash_matches=True)
+        rc_b1, out_b1 = run_refresh(b1)
+        cases.append(('an untouched retired file (on-disk hash matches the manifest) '
+                      'is deleted, and refresh still succeeds',
+                      rc_b1 == 0 and not (b1 / retired_rel).is_file(), out_b1[:800]))
+        cases.append(('...the manifest entry is dropped too',
+                      retired_rel not in manifest_of(b1).get('ci_workflows_sha256', {}),
+                      out_b1[:800]))
+        cases.append(('...and the deletion is reported by name, not silent',
+                      'views-drift.yml' in out_b1 and 'deleted' in out_b1, out_b1[:800]))
+
+        # -- B2: retired entry, file STILL on disk, HAND-EDITED since the
+        # manifest last recorded its hash -- kept and reported, never
+        # deleted, matching refresh()'s existing hand-edit protection
+        # everywhere else (_local_drift, _remove_dropped_engine_files) --
+        b2 = make_set('kept', retired_still_on_disk=True, retired_hash_matches=False)
+        rc_b2, out_b2 = run_refresh(b2)
+        cases.append(('CONTROL: when the retired file has been hand-edited since, '
+                      'refresh still succeeds and drops the manifest entry',
+                      rc_b2 == 0 and retired_rel not in manifest_of(b2).get('ci_workflows_sha256', {}),
+                      out_b2[:800]))
         cases.append(('...but the file itself is left on disk, not deleted',
-                      (b / retired_rel).is_file(), out_b[:400]))
-        cases.append(('...and refresh WARNs that it is still there rather than staying '
-                      'silent about the leftover',
-                      'still on disk' in out_b, out_b[:800]))
+                      (b2 / retired_rel).is_file(), out_b2[:400]))
+        cases.append(('...and refresh WARNs that it was hand-edited rather than '
+                      'staying silent about the leftover',
+                      'hand-edited' in out_b2, out_b2[:800]))
 
         # -- C: `record-ci` re-baselines a hand-fixed file's hash, clone-free,
         # without touching content -- the other half of the same incident --
@@ -15205,7 +15238,8 @@ def check_vendor_engine_retires_ci_workflow_files():
 
     bad = [(c[0], c[2]) for c in cases if not c[1]]
     check(f'a retired CI workflow template (views-drift.yml folded into '
-          f'precedent-check.yml) self-heals on refresh instead of refusing, and '
+          f'precedent-check.yml) self-heals on refresh instead of refusing, deletes '
+          f'the file itself only when untouched since last recorded, and '
           f'`record-ci` re-baselines a hand-fixed file clone-free ({len(cases)} '
           f'stated cases)',
           not bad,
