@@ -105,7 +105,7 @@ and AI should work together. **That fuller argument lives in
 observation: none of it binds work anywhere else in this repository, which
 is what [practices/](practices/) is for.
 
-Here are the core pillars of our philosophy:
+Here are the [core pillars](philosophy/CORE_PILLARS.md) of our philosophy:
 
 - **Human-led for human collaboration.** A person sets the direction,
   decides what "right" looks like, and owns the outcome while the agents
@@ -123,7 +123,6 @@ Here are the core pillars of our philosophy:
   it directly.
 
 The individual pages, if you want to go deeper on any one idea:
-[Core Pillars](philosophy/CORE_PILLARS.md),
 [Our Philosophy](philosophy/OUR_PHILOSOPHY.md),
 [The Working Loop](philosophy/THE_WORKING_LOOP.md),
 [Reasons Why](philosophy/REASONS_WHY.md),
