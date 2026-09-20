@@ -32,7 +32,12 @@ approved_by: "Morgan, 2026-09-20 -- described the two cases and the phrase
   this practice, My options and Write it up together: a recommended action
   that is itself a cross-repo change must account for the upstream
   template it comes from and say whether it needs a clean rollout to the
-  repos vendoring this one."
+  repos vendoring this one. Extended again 2026-09-20, Morgan, after a
+  handoff produced by this practice left him without a plain instruction to
+  act on it: the seed root and repos to attach have to be said once more in
+  ordinary prose outside the fenced block, not only inside it, since the
+  block is addressed to the new session and he is the one reading this
+  reply."
 strength:    decided
 source_practice_number: null
 ---
@@ -102,6 +107,13 @@ three-things-always shape](handoff-is-pasteable.md) any reply that sends
 someone elsewhere already owes: repository, exact paste text, a way back.
 Nothing split into the surrounding prose, nothing left for the reader to
 assemble.
+
+**Say it plainly too, outside the block.** The block is addressed to the new
+session; the person reading this reply needs the same routing without
+opening it first. Before the block or after it, one ordinary sentence, not
+fenced: *"Open a new session, root it in \<repository\>, attaching
+\<repositories, or 'none'\>."* The block is what gets pasted; this sentence
+is what tells the person to go paste it, and where.
 
 **Never call a session-creating or session-messaging tool for this, and
 never wake a live session either.** Produce the prompt and tell the person
@@ -209,6 +221,16 @@ repo-agnostic form [vendor-rollout-disclosed](vendor-rollout-disclosed.md)
 already uses -- "the repos vendoring this one" -- rather than naming
 BestPractice, so it reads correctly from inside a consumer repo too.
 Strength: decided.
+
+**Extended again 2026-09-20.** Morgan reported that a `Prompt Please`
+handoff had otherwise gone well: *"it's for another session and it didn't
+tell me what to root it in... before or after you give me the prompt,
+write a sentence... to tell me, open this new session and what it should
+be rooted in and what other repos should be attached, if any. Open a new
+session, root it in X, attaching repos Y and Z."* The fenced block already
+named the seed root and the repositories to attach, but for the new
+session's reader, not for the person reading this reply, who is the one
+who actually has to go open it. Strength: decided.
 
 ## Install
 Nothing for an adopter to set up. The occasion index entry is generated
