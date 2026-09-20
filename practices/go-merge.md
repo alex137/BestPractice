@@ -6,7 +6,7 @@ severity:    default
 applies_to:  ["**"]
 occasion:    "a message carries the merge phrase, or plainly authorizes a merge"
 gates:       ["merge"]
-index_clause: "\"Go update\"/\"Approved\"/\"Go merge\": push by default; huge (strict test) -> sync, branch, PR, merge"
+index_clause: "\"Go update\"/\"Approved\"/\"Go merge\": default push; huge -> sync, branch, PR, merge"
 checked_by:  null
 defines:     ["Go update", "Approved", "Go merge"]
 command:     {"Go update": "Save the work, publish it, and tell you where it went — without asking anything further.", "Approved": "The same as **Go update**: save the work, publish it, and tell you where it went.", "Go merge": "The same as **Go update**: save the work, publish it, and tell you where it went."}

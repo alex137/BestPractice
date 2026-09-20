@@ -328,7 +328,7 @@ When a document replaces or is replaced by an earlier one:
 When a judgment call is needed to keep work moving:
   small-calls — make small calls yourself; note them; stop only for big ones
 When a message carries the merge phrase, or plainly authorizes a merge:
-  go-merge — "Go update"/"Approved"/"Go merge": push by default; huge (strict test) -> sync, branch, PR, merge
+  go-merge — "Go update"/"Approved"/"Go merge": default push; huge -> sync, branch, PR, merge
 When a message says "Archive", with or without a question mark, or otherwise asks whether the session can be archived:
   archive-status-check — "Archive"/"Archive?" -- check pending; archive if clear, else say what isn't
 When a message says "Update Vendors", or an upstream update is being taken into a repo that vendors a practice layer:
