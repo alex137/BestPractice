@@ -1,6 +1,6 @@
 # GitHub Actions templates
 
-Three templates, for two different kinds of repository. All are read-only:
+Four templates, for two different kinds of repository. All are read-only:
 they report, and none holds a token that could write
 ([ci-commits-carry-identity](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/ci-commits-carry-identity.md)).
 
@@ -9,6 +9,7 @@ they report, and none holds a token that could write
 | [`doc-lint.yml.template`](doc-lint.yml.template) | `.github/workflows/bestpractice-docs.yml` | any dependent repository — but only when `ci_workflows: enabled` is declared; see below |
 | [`doc-lint-scheduled.yml.template`](doc-lint-scheduled.yml.template) | `.github/workflows/bestpractice-docs.yml` (in place of the row above, never alongside it) | a dependent repository pushed to its default branch very frequently, where per-push billing adds up |
 | [`precedent-check.yml.template`](precedent-check.yml.template) | `.github/workflows/precedent-check.yml` | a practice SET only (its own header says why); a consuming repo skips it. Covers the generated-views drift check too (see below) — there is no separate `views-drift.yml.template` any more. |
+| [`leak-gate.yml.template`](leak-gate.yml.template) | `.github/workflows/leak-gate.yml` | any dependent repository or practice SET, gated by `ci_workflows` the same as the row above — see below, its trigger shape is deliberately different from the other three |
 
 **Trigger shape, all three (2026-09-19, spec/CI_MINUTES_PLAN.md item 8):**
 `pull_request: [opened, synchronize]` plus `push:` scoped to the branch(es)
@@ -120,3 +121,38 @@ built from unreachable sources, or when no engine is vendored at all. The
 job's own comments say which case is which, and
 [GITHUB_ACTIONS.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/documentation/GITHUB_ACTIONS.md)
 covers what gates a consuming repo instead.
+
+## The leak gate template
+
+Copy [`leak-gate.yml.template`](leak-gate.yml.template) to
+`.github/workflows/leak-gate.yml`. First vendored 2026-09-20
+([spec/CI_MINUTES_PLAN.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/CI_MINUTES_PLAN.md)
+item 12) — before that date `leak-gate.yml` existed only in this repo,
+un-vendored, run unconditionally on every branch because this repo is
+public and a leak here is already published the instant it is pushed.
+That reasoning does not transfer to a private dependent repo as-is, so this
+template does not just copy this repo's own scope.
+
+**Trigger shape is deliberately NOT the branch-scoped `push:` the other
+three templates use.** GitHub Actions evaluates `on:` before any job runs,
+from the YAML alone — it cannot read this repo's `precedent.json` at that
+point, so "scope the trigger by declared visibility" is not something the
+platform lets a template do. Instead the workflow triggers on every push
+and pull request, and its first job (`scope`) reads this repo's declared
+`visibility` and `base_branch`, then decides whether the real scan job
+(`leak-gate`) runs at all — a job-level `if:`, never a step-level one, so a
+skip is never billed (spec/CI_MINUTES_PLAN.md item 9's own lesson).
+
+**The trade this makes, on a repo declaring `"visibility": "private"`:** a
+push to any branch other than `base_branch` skips the server-side scan —
+caught only if the local pre-push hook ran. A `pull_request:` event is
+never skipped, whatever branch it targets, so a fork's contribution or a
+feature branch's merge candidate is always scanned before it lands. On a
+public repo (visibility absent or `"public"`), nothing narrows: every push
+to every branch is scanned, matching this repo's own `leak-gate.yml`
+exactly.
+
+A practice SET has no `precedent.json` — it reads `precedent-source.json`
+instead, which always declares `"visibility": "private"`
+(`precedent_bootstrap_source.py`'s `_write_source_manifest`), so a set is
+always treated as private here; there is no field for it to opt out of.

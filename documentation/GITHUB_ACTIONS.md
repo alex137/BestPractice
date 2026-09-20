@@ -55,6 +55,26 @@ The supplied workflow:
 
 The linter determines which Markdown files changed relative to the repository's default branch. A full-history checkout is therefore required.
 
+## The Leak Gate Template
+
+**First vendored 2026-09-20** (spec/CI_MINUTES_PLAN.md item 12) —
+[leak-gate.yml.template](../templates/github-actions/leak-gate.yml.template)
+runs [tools/leak_gate.py](../tools/leak_gate.py)'s structural layer, same as
+this repo's own `leak-gate.yml` above, but is not simply a copy of it: this
+repo runs unconditionally on every branch because it is public and a leak
+here is already published; a dependent repo may not be. The template reads
+this repo's declared `visibility` (from `precedent.json`, or always
+`"private"` for a practice set's `precedent-source.json`) and narrows what
+it scans accordingly — full account, including why this has to be a
+job-level runtime check rather than a scoped trigger (GitHub Actions cannot
+read repo config before a trigger fires), in
+[templates/github-actions/README.md](../templates/github-actions/README.md)'s
+"The leak gate template" section. Gated by `ci_workflows`, same as
+`doc-lint.yml.template`; `precedent_install.py` and
+`precedent_bootstrap_source.py` both install it automatically once that
+preference is enabled, and "Update Vendors" refreshes an already-installed
+copy the same way it refreshes the other two CI templates.
+
 ## Controlling Actions Minutes
 
 **`precedent_install.py` does not install this workflow by default (2026-09-15).**
@@ -190,6 +210,11 @@ process/upstream/tools/doc_lint.py
 
 If the dependent repository instead copies or adapts the linter into its own tools directory, update the workflow command to use that local path and record the adaptation in `process/manifest.json`.
 
+The same install step, when `ci_workflows` is enabled, also writes
+`leak-gate.yml` from
+[leak-gate.yml.template](../templates/github-actions/leak-gate.yml.template) —
+see "The Leak Gate Template" above.
+
 ## Install in a Practice-Set Repository
 
 A practice set gets **one** workflow, `precedent-check.yml`, and it answers
@@ -202,6 +227,10 @@ files, merged the same day as the trigger change above). Sets created by
 get it installed automatically; older sets need the copy below, and
 `python3 tools/precedent_bootstrap_source.py --verify <path>` names it as
 missing until it is there.
+
+**A set also gets `leak-gate.yml`**, same tool, same `ci_workflows` gate —
+see "The Leak Gate Template" above for why a set is always treated as
+`visibility: private` there.
 
 ### The Check Suite
 
