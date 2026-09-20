@@ -22,9 +22,9 @@ angle:
 
 - **Human collaboration comes first.** The tool exists to make people
   working together better, not to route around them.
-- **The AI Assistant sits between ALL work requests (even tiny ones) and
-  the work that remains to be done** — pushing back on ideas to
-  strengthen them and keeping the record of how a decision was reached,
+- **The AI Assistant sits between ALL work requests you make (even tiny
+  ones) and the work that remains to be done** — pushing back on ideas
+  to strengthen them and keeping the record of how a decision was reached,
   not just the decision itself.
 - **The AI Assistant watches what's happening and proposes the rules
   around it on the fly** — generated from a team's own history, and put
