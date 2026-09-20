@@ -413,6 +413,16 @@ def violations(text, reqs, timeline=None):
         # and closed with "Don't archive this session" -- exactly this
         # shape, caught by the person, not by any check. practice:
         # the-boildown, cite-the-incident.)
+        #
+        # Both patterns in reply_check.json's require_no_contradiction entry
+        # exclude a trailing scope qualifier ("there", "on it/that/this",
+        # "for it/that/this") via a negative lookahead -- same day, second
+        # incident: "nothing left to do there", scoped to one closed PR
+        # inside a Boildown bullet, is not asserting the opposite of a
+        # correct "Don't archive this session" driven by a different, real
+        # open item elsewhere in the same reply. Same family as the
+        # double-quote citation exemption above: a phrase scoped away from
+        # the whole session is not the assertion this check exists to catch.
         quoted_stripped = _strip_quoted_spans(text)
         for pair in (r.get('require_no_contradiction') or []):
             trigger, pat2 = pair.get('if_says'), pair.get('must_not_say_matching')

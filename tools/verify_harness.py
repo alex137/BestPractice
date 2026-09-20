@@ -8985,14 +8985,15 @@ def check_contradiction_requirement_blocks():
             'require_no_contradiction': [
                 {'if_says': "Don't archive this session",
                  'must_not_say_matching':
-                     r'\bno[\w\s]{0,20}?blocking\b|'
-                     r'\bnothing[\w\s]{0,15}?(?:blocking|outstanding|pending|left to do)\b'},
+                     r'\bno[\w\s]{0,20}?blocking\b(?!\s+(?:there\b|on (?:it|that|this)\b|for (?:it|that|this)\b))|'
+                     r'\bnothing[\w\s]{0,15}?(?:blocking|outstanding|pending|left to do)\b(?!\s+(?:there\b|on (?:it|that|this)\b|for (?:it|that|this)\b))'},
                 {'if_says': 'You can archive this session',
                  'must_not_say_matching':
-                     r'\bstill (?:open|pending|blocking|waiting)\b|'
-                     r'\bwaiting on (?:you|your)\b|\bblocked on\b|'
-                     r'\bneeds? your (?:approval|input|answer|review)\b|'
-                     r'\bnot yet (?:pushed|merged|committed)\b'},
+                     r'\bstill (?:open|pending|blocking|waiting)\b(?!\s+(?:there\b|on (?:it|that|this)\b|for (?:it|that|this)\b))|'
+                     r'\bwaiting on (?:you|your)\b(?!\s+(?:there\b|on (?:it|that|this)\b|for (?:it|that|this)\b))|'
+                     r'\bblocked on\b(?!\s+(?:there\b|on (?:it|that|this)\b|for (?:it|that|this)\b))|'
+                     r'\bneeds? your (?:approval|input|answer|review)\b(?!\s+(?:there\b|on (?:it|that|this)\b|for (?:it|that|this)\b))|'
+                     r'\bnot yet (?:pushed|merged|committed)\b(?!\s+(?:there\b|on (?:it|that|this)\b|for (?:it|that|this)\b))'},
             ],
         }]), encoding='utf-8')
 
@@ -9082,6 +9083,63 @@ def check_contradiction_requirement_blocks():
                        'convention, not an unconditional exemption',
                        r6.returncode == 2 and 'cannot both be true' in r6.stderr,
                        f'exit {r6.returncode}: {r6.stderr[:200]}'))
+
+        # The third incident, same day: the flat match has no notion of
+        # scope, so a per-item "nothing left to do" inside one Boildown
+        # bullet -- about a single closed PR -- read identically to a
+        # whole-session claim. (practice: the-boildown, cite-the-incident)
+        scoped1 = write(
+            'scoped1.md',
+            '## The Boildown\n\n- PR #165 merged, confirmed -- nothing left '
+            'to do there.\n- The source add/drop question is still waiting '
+            "on you -- that's what's outstanding.\n\nDon't archive this "
+            'session.\n')
+        r7 = replycheck(scoped1)
+        cases.append(('scope exemption: "nothing left to do THERE", scoped '
+                       "to one closed item, does not block \"don't archive "
+                       'this session\" driven by a different, real open item',
+                       r7.returncode == 0, f'exit {r7.returncode}: {r7.stderr[:200]}'))
+
+        # Negative control: same wording, scope qualifier removed -- proves
+        # the exemption is on the trailing qualifier, not on bullet-list
+        # phrasing or the presence of a second, genuine open item.
+        scoped1_bare = write(
+            'scoped1_bare.md',
+            '## The Boildown\n\n- PR #165 merged, confirmed -- nothing left '
+            'to do.\n- The source add/drop question is still waiting on '
+            "you -- that's what's outstanding.\n\nDon't archive this "
+            'session.\n')
+        r8 = replycheck(scoped1_bare)
+        cases.append(('negative control: the same reply with the "there" '
+                       'dropped is still blocked -- the exemption is on the '
+                       'scope qualifier, not on any other feature of the text',
+                       r8.returncode == 2 and 'cannot both be true' in r8.stderr,
+                       f'exit {r8.returncode}: {r8.stderr[:200]}'))
+
+        # Same scope exemption, the reverse pairing ("You can archive this
+        # session" / "still open" etc.) -- the fix touches both patterns in
+        # the entry, so both get their own positive/negative pair.
+        scoped2 = write(
+            'scoped2.md',
+            '## The Boildown\n\n- The deploy step is still open on this, '
+            'a separate, already-tracked cleanup with its own owner.\n\n'
+            'You can archive this session.\n')
+        r9 = replycheck(scoped2)
+        cases.append(('scope exemption: "still open ON THIS", scoped to a '
+                       'separate tracked item, does not block "you can '
+                       'archive this session"',
+                       r9.returncode == 0, f'exit {r9.returncode}: {r9.stderr[:200]}'))
+
+        scoped2_bare = write(
+            'scoped2_bare.md',
+            '## The Boildown\n\n- The deploy step is still open, a '
+            'separate, already-tracked cleanup with its own owner.\n\n'
+            'You can archive this session.\n')
+        r10 = replycheck(scoped2_bare)
+        cases.append(('negative control: the same reply with "on this" '
+                       'dropped is still blocked',
+                       r10.returncode == 2 and 'cannot both be true' in r10.stderr,
+                       f'exit {r10.returncode}: {r10.stderr[:200]}'))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
