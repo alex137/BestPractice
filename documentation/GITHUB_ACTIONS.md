@@ -116,7 +116,7 @@ individual's own practice set or dependent project.
   (the latter now covers the generated-views drift check too — see
   "Install in a Practice-Set Repository" below) skips the check job(s) that
   `needs:` it when the last completed run on the same branch finished less
-  than `ci_debounce_minutes` ago (default `360` = 6 hours; `0` disables
+  than `ci_debounce_minutes` ago (default `720` = 12 hours; `0` disables
   it). Read from `precedent.json` in a dependent repo, or `identity.json`
   in an individual practice set — a team set has neither field to read and
   always gets the default. **A separate job, not a step inside one that

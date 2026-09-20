@@ -564,6 +564,52 @@ running unconditionally on `ubuntu-latest` until it takes that update.
 Authorized: *"On #3 -- do it, go update -- and also update the developer
 documentation."* strength: decided.
 
+## Item 11 — debounce default unified and widened to 720 minutes (2026-09-20)
+
+Raising it further was Morgan's own call, after item 8/9's account above:
+*"Please let's raise it to 720."* `strength: decided`.
+
+**Found while making the change: the two templates had already drifted to
+different defaults.** [doc-lint.yml.template](../templates/github-actions/doc-lint.yml.template)
+still shipped item 9's original `360`; [precedent-check.yml.template](../templates/github-actions/precedent-check.yml.template)
+had item 8's incident-driven `30` baked in as its own default, not just as
+the four affected repos' per-repo override — [documentation/GITHUB_ACTIONS.md](../documentation/GITHUB_ACTIONS.md)
+claimed one shared default of `360` for both the whole time, which was
+already wrong for the second template before this item. Both templates now
+read `ci_debounce_minutes` with a single default, **`720` minutes (12
+hours)**, and the doc is corrected to match.
+
+**What this reopens, named rather than left implicit.** Item 8's own
+30-minute figure was not arbitrary — its narrowing was paired with the
+`branches:[main]` restriction specifically so the one branch that matters
+would still be checked promptly after a push, rather than riding out a work
+day stale. Widening to 720 minutes brings that same window back to up to 12
+hours on `main`. This trade is accepted here, explicitly, at Morgan's
+direction, not overlooked — a repo that wants the tighter window back on a
+branch with heavy traffic still sets `ci_debounce_minutes` itself in its
+own `identity.json`/`precedent.json`, same as it always could.
+
+**Reaches an already-installed repo only through "Update Vendors"**, per
+[vendor-rollout-disclosed](../practices/vendor-rollout-disclosed.md): a
+repo that has never overridden `ci_debounce_minutes` picks up `720`
+automatically the next time it refreshes its CI workflow file against the
+current template (`refresh()`'s hash check, item 9a above, only refuses
+when the file was hand-edited away from what was last recorded — an
+unmodified copy is exactly what it *will* overwrite). **A repo carrying an
+explicit override does not move on its own** — the four repos item 8
+touched by hand (`precedent-individual`, `precedent-team-writing`,
+`precedent-team-repo-maintenance`, `precedent-team-working-style`) each
+still has `ci_debounce_minutes: 30` written into its own `identity.json`,
+and that value wins over any template default until someone edits it there
+directly. This session's own GitHub access does not reach those repos (see
+"Sequencing and status" below) — carrying the same change into them is
+still open.
+
+Verified: both templates still parse as valid YAML; deep check
+([tools/verify_harness.py](../tools/verify_harness.py), [tools/doc_lint.py](../tools/doc_lint.py),
+[tools/leak_gate.py](../tools/leak_gate.py), [tools/precedent_check.py](../tools/precedent_check.py),
+[tools/doc_sync.py](../tools/doc_sync.py)) run clean before push.
+
 ## Sequencing and status
 
 Morgan approved phases 1–5 on 2026-09-16, holding items 6 and 7 for later
@@ -664,7 +710,12 @@ repo, the next time it installs, migrates, or takes an update.
    `pull_request:` alongside `push: branches: [main]`, documented in each
    template's own header and in [templates/github-actions/README.md](../templates/github-actions/README.md) as a
    customization point for a repo whose routine merge target isn't just
-   `main`.
+   `main`. **Revised, item 11 (2026-09-20)**: default widened to `720`
+   minutes in both templates, at Morgan's explicit direction, accepting
+   back the staleness window item 8 had narrowed. The four repos still
+   carrying item 8's hand-set `30` override are unaffected until someone
+   edits their own `identity.json` directly — this session's access does
+   not reach them.
 4. **Which workflows are debounce-exempt** — implemented as: every
    vendored template gets it, this repo's own three workflows do not.
 5. **Self-hosted runner pilot scope** — still open, deferred to items 6/7's

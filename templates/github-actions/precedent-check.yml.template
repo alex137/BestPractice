@@ -168,18 +168,22 @@ jobs:
 
       # DEBOUNCE (2026-09-16, moved into its own job 2026-09-19, window
       # tightened 360 -> 30 minutes the same day as the branches:[main]
-      # restriction above): a set pushed to constantly pays for the whole
-      # suite on every push even with nothing ever overlapping enough for
-      # concurrency above to cancel it. Reads `ci_debounce_minutes` from
-      # this set's own identity.json (default 30 minutes; 0 disables it; a
+      # restriction above, widened to 720 on 2026-09-20 -- item 11): a set
+      # pushed to constantly pays for the whole suite on every push even
+      # with nothing ever overlapping enough for concurrency above to
+      # cancel it. Reads `ci_debounce_minutes` from this set's own
+      # identity.json (default 720 minutes = 12 hours; 0 disables it; a
       # TEAM set has no identity.json and always gets the default -- a
       # known limit, not an oversight) and skips both checks below when the
       # last COMPLETED run of this workflow on this branch finished inside
       # that window. spec/CI_MINUTES_PLAN.md's item 4: this is the
-      # whole-catalogue advisory check, not a security backstop. The window
-      # was 6 hours while every branch was in scope; narrowed to 30 minutes
-      # once only main was, so main still gets checked promptly after a
-      # push lands rather than riding out most of a work day stale.
+      # whole-catalogue advisory check, not a security backstop. **This
+      # reopens the exact staleness item 8 narrowed the window to avoid**:
+      # main can now sit unchecked for up to 12 hours after a push, not 30
+      # minutes -- item 11 records that trade as accepted, explicitly, not
+      # overlooked. A repo that wants the tighter window back sets
+      # `ci_debounce_minutes` itself in its own identity.json/precedent.json
+      # rather than waiting on this template's default to change again.
       - name: Skip if checked recently (debounce)
         id: debounce
         env:
@@ -193,9 +197,9 @@ jobs:
           except (OSError, ValueError):
               d = {}
           try:
-              v = int(d.get('ci_debounce_minutes', 30))
+              v = int(d.get('ci_debounce_minutes', 720))
           except (TypeError, ValueError):
-              v = 30
+              v = 720
           print(v)
           PY
           )"
