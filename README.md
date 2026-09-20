@@ -73,8 +73,8 @@ Precedent Works](documentation/TEN_THINGS.md).
   produced it — nobody has to dig through chat history to find out.
 
 Learn more about it: [What This Is (and Why Explore Using
-Precedent)](documentation/WHY_PRECEDENT.md), [AI Governance to
-Co-Create](philosophy/AI_GOVERNANCE_TO_COCREATE.md), [Core
+Precedent)](documentation/WHY_PRECEDENT.md), [Ten Things to Know About How
+Precedent Works](documentation/TEN_THINGS.md), [Core
 Pillars](philosophy/CORE_PILLARS.md).
 
 ## How
@@ -122,9 +122,6 @@ Here are the core pillars of our philosophy:
   assistant and have it make the change, never to open the file and edit
   it directly.
 
-[Core Pillars](philosophy/CORE_PILLARS.md), then [Our
-Philosophy](philosophy/OUR_PHILOSOPHY.md).
-
 The individual pages, if you want to go deeper on any one idea:
 [Core Pillars](philosophy/CORE_PILLARS.md),
 [Our Philosophy](philosophy/OUR_PHILOSOPHY.md),
@@ -143,13 +140,14 @@ Works](documentation/TEN_THINGS.md) is the one page to read first, then
 Precedent)](documentation/WHY_PRECEDENT.md) for the fuller pitch, and
 the how-to guide for your situation: [if you write
 code](documentation/FOR_DEVELOPERS.md), or [if you
-don't](documentation/FOR_EVERYONE_ELSE.md). **Already set up?** [How to
-Use This Day to Day](documentation/DAILY_HABITS.md) has the daily
-habits and the phrases your assistant is guaranteed to recognize.
+don't](documentation/FOR_EVERYONE_ELSE.md).
 
-Installing on your own project doesn't require writing any code yourself:
-open a session on your project with an AI assistant and paste it
-[SETUP.md](SETUP.md), which runs the whole install as a conversation.
+**Already set up?** [How to Use This Day to Day](documentation/DAILY_HABITS.md)
+has the daily habits and the phrases your assistant is guaranteed to
+recognize. Installing on your own project doesn't require writing any
+code yourself: open a session on your project with an AI assistant and
+paste it [SETUP.md](SETUP.md), which runs the whole install as a
+conversation.
 
 ## Get Up and Running!
 
