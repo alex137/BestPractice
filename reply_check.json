@@ -24,5 +24,20 @@
     "advisory": true,
     "why": "One of the two closing sentences is the only thing that tells 'nothing is outstanding' apart from 'the session forgot'. Same history as the heading requirement above, from which this was split 2026-09-17 and downgraded to advisory (Morgan, direct instruction): give the reviewed, honest answer -- whichever of the two actually applies -- but it is a recommendation, and an absent one must never refuse the turn.",
     "checks_practice_at": "practices/the-boildown.md"
+  },
+  {
+    "practice": "the-boildown",
+    "require_no_contradiction": [
+      {
+        "if_says": "Don't archive this session",
+        "must_not_say_matching": "\\bno[\\w\\s]{0,20}?blocking\\b|\\bnothing[\\w\\s]{0,15}?(?:blocking|outstanding|pending|left to do)\\b"
+      },
+      {
+        "if_says": "You can archive this session",
+        "must_not_say_matching": "\\bstill (?:open|pending|blocking|waiting)\\b|\\bwaiting on (?:you|your)\\b|\\bblocked on\\b|\\bneeds? your (?:approval|input|answer|review)\\b|\\bnot yet (?:pushed|merged|committed)\\b"
+      }
+    ],
+    "why": "2026-09-20: a reply said 'no open work is blocking either way' in its own next-steps bullet and then closed with \"Don't archive this session\" -- the two cannot both be true, and nothing caught it before the person did. The advisory require_one_of above only checks that ONE of the two fixed sentences is present; it has no way to notice that the reply also asserts the opposite of the one it picked. Unlike the archive verdict itself -- deliberately left a judgment call, per the-boildown's own Install section, because no script can tell a real reason from a content-free recap -- a reply is never allowed to assert both halves of the same contradiction at once, whatever the real state is, so this one is blocking rather than advisory. Narrow on purpose: it does not try to verify the verdict is CORRECT, only that the reply does not talk itself out of its own answer.",
+    "checks_practice_at": "practices/the-boildown.md"
   }
 ]

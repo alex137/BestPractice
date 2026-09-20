@@ -8955,6 +8955,108 @@ def check_advisory_requirement_never_blocks():
           f'blocks ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
 
+def check_contradiction_requirement_blocks():
+    """`require_no_contradiction` catches a reply that asserts a fixed
+    sentence AND, elsewhere in the same reply, a plain-language phrase that
+    means the opposite -- "nothing blocking" beside "Don't archive this
+    session", or a still-open/waiting-on-you phrase beside "You can archive
+    this session".
+
+    The incident: 2026-09-20, a reply's own bullets said "no open work is
+    blocking either way" and then closed with "Don't archive this session"
+    -- caught by the person, not by any check. This is the check.
+    (practice: the-boildown, cite-the-incident)
+
+    practice: control-asserts-which-failure -- each positive case asserts
+    the guard's own "cannot both be true" message, not just a non-zero
+    exit; the negative controls (the same text with only one half present)
+    prove the match is on the PAIR, not on either phrase alone.
+    """
+    import tempfile
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-contradiction-'))
+    cases = []
+    try:
+        fx = tmp / 'repo'
+        (fx / 'practices').mkdir(parents=True)
+        (fx / 'precedent.json').write_text(json.dumps({'sources': [
+            {'level': 'universal', 'name': 'precedent', 'path': '.'}]}), encoding='utf-8')
+        (fx / 'reply_check.json').write_text(json.dumps([{
+            'practice': 'fixture-contradiction',
+            'require_no_contradiction': [
+                {'if_says': "Don't archive this session",
+                 'must_not_say_matching':
+                     r'\bno[\w\s]{0,20}?blocking\b|'
+                     r'\bnothing[\w\s]{0,15}?(?:blocking|outstanding|pending|left to do)\b'},
+                {'if_says': 'You can archive this session',
+                 'must_not_say_matching':
+                     r'\bstill (?:open|pending|blocking|waiting)\b|'
+                     r'\bwaiting on (?:you|your)\b|\bblocked on\b|'
+                     r'\bneeds? your (?:approval|input|answer|review)\b|'
+                     r'\bnot yet (?:pushed|merged|committed)\b'},
+            ],
+        }]), encoding='utf-8')
+
+        def write(name, text):
+            p = tmp / name
+            p.write_text(text, encoding='utf-8')
+            return p
+
+        def replycheck(path):
+            return subprocess.run(
+                [sys.executable, str(ROOT / 'tools' / 'precedent_reply_check.py'),
+                 '--repo', str(fx), '--text', str(path)],
+                capture_output=True, text=True, cwd=str(tmp),
+                env={**os.environ, 'PRECEDENT_USER_CONFIG': str(tmp / 'no-such-config.json')})
+
+        # Positive: the actual incident shape, reproduced verbatim in kind.
+        bad1 = write('bad1.md',
+                      '## The Boildown\n\n- Nothing further needed on this front.\n\n'
+                      "Don't archive this session -- happy to keep going, but no "
+                      'open work is blocking either way.\n')
+        r1 = replycheck(bad1)
+        cases.append(('the "no open work is blocking" + "don\'t archive" pair is '
+                       'refused, naming the contradiction',
+                       r1.returncode == 2 and 'cannot both be true' in r1.stderr,
+                       r1.stderr[:200]))
+
+        # Positive: the reverse pairing.
+        bad2 = write('bad2.md',
+                      '## The Boildown\n\n- The pull request is still open.\n\n'
+                      'You can archive this session.\n')
+        r2 = replycheck(bad2)
+        cases.append(('the "still open" + "you can archive" pair is refused',
+                       r2.returncode == 2 and 'cannot both be true' in r2.stderr,
+                       r2.stderr[:200]))
+
+        # Negative control 1: the archive sentence alone, no contradicting
+        # phrase anywhere -- must pass, or the check is matching the
+        # sentence by itself rather than the pair.
+        clean1 = write('clean1.md',
+                        "## The Boildown\n\nDon't archive this session -- PR #9 "
+                        'is still waiting on your review.\n')
+        r3 = replycheck(clean1)
+        cases.append(("negative control: \"don't archive\" alone (with a "
+                       'DIFFERENT, non-contradicting reason) is not blocked',
+                       r3.returncode == 0, f'exit {r3.returncode}: {r3.stderr[:160]}'))
+
+        # Negative control 2: the contradicting phrase alone, no fixed
+        # sentence present -- must pass, since there is no pair to compare.
+        clean2 = write('clean2.md',
+                        '## The Boildown\n\nNothing blocking, work continues.\n')
+        r4 = replycheck(clean2)
+        cases.append(('negative control: the phrase alone with neither fixed '
+                       'sentence present is not blocked',
+                       r4.returncode == 0, f'exit {r4.returncode}: {r4.stderr[:160]}'))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad_cases = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
+    check(f'require_no_contradiction refuses a reply asserting both halves of '
+          f'the archive contradiction ({len(cases)} stated cases, each with its control)',
+          not bad_cases,
+          '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad_cases))
+
+
 def check_compaction_offer_fires_on_context_growth():
     """The size-aware half of the reply check: a long session is REFUSED a
     reply that never says whether this is a cheap point to compact.
@@ -24196,6 +24298,7 @@ def main():
     check_gate_channel()
     check_reply_gate_sees_every_source()
     check_advisory_requirement_never_blocks()
+    check_contradiction_requirement_blocks()
     check_compaction_offer_fires_on_context_growth()
     check_trivial_checkin_exempts_the_boildown_gate()
     check_close_detection_fires_only_when_all_conditions_hold()

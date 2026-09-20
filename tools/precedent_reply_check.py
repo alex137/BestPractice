@@ -30,8 +30,19 @@ mistaken for a live declaration:
       "practice": "<the slug this enforces>",
       "require_heading_matching": "what I need from you",
       "require_one_of": ["Nothing is blocked", "Blocked on:"],
+      "require_no_contradiction": [
+        {"if_says": "Nothing is blocked",
+         "must_not_say_matching": "still (waiting|open|pending)"}
+      ],
       "why": "<what goes wrong when the reply omits it>"
     }
+
+`require_no_contradiction` is a narrower kind of check than the other two --
+it never judges whether a verdict sentence is the RIGHT one (unreachable
+from a repo-scoped script, per the-boildown's own Install section), only
+whether the reply asserts it in the same breath as a plain-language phrase
+that means the opposite. Added 2026-09-20 after exactly that: a reply said
+"nothing is blocking" and then closed with "Don't archive this session".
 
 A source may declare one requirement (an object) or several (a list). Add
 `"advisory": true` to a requirement and an unmet one is still detected and
@@ -360,6 +371,34 @@ def violations(text, reqs, timeline=None):
                    if heading_present and not advisory else '')
                 + (f" ({r['_context_note']})" if r.get('_context_note') else '')
                 + (f" (practice: {r['practice']})" if r.get('practice') else ''))})
+        # require_no_contradiction does NOT try to judge whether a verdict
+        # sentence is CORRECT -- the-boildown's own Install section already
+        # tried that and gave up: "no regex distinguishes 'waiting on the
+        # billing number you're pulling' from three bullets that happen to
+        # precede the sentence." This is narrower and does not need to:
+        # it only catches a reply asserting the fixed sentence AND, in the
+        # same breath, a plain-language phrase that means the opposite --
+        # "nothing blocking" beside "Don't archive this session", or a
+        # still-open/waiting-on-you phrase beside "You can archive this
+        # session". Both halves are never simultaneously true, whatever the
+        # real state is, so this needs no judgment about which one is right
+        # -- only that a reply is not allowed to assert both at once.
+        # (2026-09-20: a reply said "no open work is blocking either way"
+        # and closed with "Don't archive this session" -- exactly this
+        # shape, caught by the person, not by any check. practice:
+        # the-boildown, cite-the-incident.)
+        for pair in (r.get('require_no_contradiction') or []):
+            trigger, pat2 = pair.get('if_says'), pair.get('must_not_say_matching')
+            if not trigger or not pat2:
+                continue
+            if _norm(trigger) in _norm(text) and re.search(pat2, text, re.I):
+                out.append({'kind': 'contradiction', 'advisory': advisory, 'message': (
+                    f"[{r.get('_source', '?')}] this reply says \"{trigger}\" and "
+                    f"ALSO matches /{pat2}/i elsewhere in the same reply -- the two "
+                    "cannot both be true. Re-check the actual state (a fresh "
+                    "push/fetch or the real condition, not what an earlier line in "
+                    "this same reply already claimed) and fix whichever one is wrong."
+                    + (f" (practice: {r['practice']})" if r.get('practice') else ''))})
     return out
 
 
@@ -386,6 +425,10 @@ def main():
                 bits.append(f"heading /{r['require_heading_matching']}/i")
             if r.get('require_one_of'):
                 bits.append(f"one of {r['require_one_of']}")
+            if r.get('require_no_contradiction'):
+                for pair in r['require_no_contradiction']:
+                    bits.append(f"\"{pair.get('if_says')}\" must not also match "
+                                f"/{pair.get('must_not_say_matching')}/i")
             if r.get('require_when_context_grew_tokens'):
                 bits.append("ONLY once the context has grown "
                             f"{int(r['require_when_context_grew_tokens']):,} "
@@ -454,6 +497,13 @@ def main():
               'missing closing section(s) named below, as a short addition to '
               'what you already said. Nothing else -- no summary, no '
               'restatement, no apology.', file=sys.stderr)
+    elif any(b['kind'] == 'contradiction' for b in bad):
+        print('The reply gate blocked this turn: it asserts two things named '
+              'below that cannot both be true. The person has ALREADY SEEN '
+              'the reply above -- do NOT repeat it. Re-check the actual state '
+              '(fetch/push status, what is really outstanding) rather than '
+              'trusting either half of the contradiction, then output ONLY a '
+              'short correction of whichever line was wrong.', file=sys.stderr)
     else:
         print('The reply gate blocked this turn. The person has ALREADY SEEN '
               'the reply above, and it ALREADY CARRIES every closing heading '
