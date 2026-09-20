@@ -1,5 +1,5 @@
 ---
-title:         "The README as a Pitch, Not an Index: A Rewrite Proposal"
+title:         "The README as a Pitch, Not an Index"
 kind:          proposal
 status:        drafted
 opened:        2026-09-20
