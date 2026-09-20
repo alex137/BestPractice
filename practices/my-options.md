@@ -21,7 +21,10 @@ approved_by: "Morgan, 2026-09-12 -- asked for the command, chose the name from
   \"I still like 'my options' and then it triggers when you realize it's
   similar to 'show me options' etc. Let's use that,\" and asking that the
   extension focus on \"the options to prevent\" rather than a single flat
-  recommendation."
+  recommendation. Tightened 2026-09-20, Morgan, after noticing the
+  paste-ready block was not consistently delivered as an actual fenced
+  block: the Rule now names the mechanism (a fenced code block) rather than
+  just the outcome (\"ready to copy in one click\")."
 strength:    decided
 source_practice_number: null
 ---
@@ -74,7 +77,10 @@ with none of this conversation:**
   Say "none" when that is the honest answer -- never leave the reader to
   guess whether it was considered.
 
-**Delivered as one block, ready to copy in one click** -- the same
+**Delivered as one fenced markdown code block (triple backticks), not a
+paragraph of prose** -- the fence is what makes the client render a
+one-click copy button; a block described in words but not actually fenced
+has not delivered this, whatever else the reply says. Same
 requirement [the-boildown](the-boildown.md) already states for any handoff:
 the words are the session's to write, not the reader's to compose. Producing
 it does not, by itself, authorize anything in the repository or
@@ -182,6 +188,15 @@ when Morgan coined that command and drew the boundary himself: `My options`
 is for seeing the choices before mostly following whichever one gets
 recommended; `Prompt Please` is for once a recommendation is already the
 plan and only the handoff prompt is wanted.
+
+**Tightened the same day**, after Morgan checked whether this practice and
+`Prompt Please` both actually deliver the copy-in-one-click block they
+promise and said the answer was often no: *"You often don't do that and I
+want to enforce it."* The Rule's own wording -- "ready to copy in one click"
+-- was true but not mechanical: nothing in it said a block had to be an
+actual fenced code block rather than a paragraph that merely reads as
+paste-ready. Both practices now name the mechanism directly. Strength:
+decided.
 
 ## Install
 Nothing to configure. The occasion index entry is generated, so an adopter

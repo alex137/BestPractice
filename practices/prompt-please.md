@@ -23,7 +23,12 @@ approved_by: "Morgan, 2026-09-20 -- described the two cases and the phrase
   one gets recommended. Named it himself: \"Maybe we could call the new one
   'Prompt Please'.\" Folded Session Text into it in the same message: \"this
   new one deprecates session-text, it's basically a better version of it, I
-  never use that anyway.\" Authorized in full: \"Go update.\""
+  never use that anyway.\" Authorized in full: \"Go update.\" Tightened
+  2026-09-20, same day, Morgan, after checking whether this and My options
+  actually deliver the copy-in-one-click block both promise and finding the
+  answer was often no: \"You often don't do that and I want to enforce
+  it.\" The Rule now names the mechanism -- a fenced code block -- rather
+  than just the outcome."
 strength:    decided
 source_practice_number: null
 ---
@@ -76,7 +81,10 @@ following, every time:
   Say "none" explicitly rather than leaving the reader to guess whether the
   question was even considered.
 
-**Delivered as one block, ready to copy in one click** -- [the
+**Delivered as one fenced markdown code block (triple backticks), not a
+paragraph of prose** -- the fence is what makes the client render a
+one-click copy button; a block described in words but not actually fenced
+has not delivered this. [The
 three-things-always shape](handoff-is-pasteable.md) any reply that sends
 someone elsewhere already owes: repository, exact paste text, a way back.
 Nothing split into the surrounding prose, nothing left for the reader to
@@ -168,6 +176,14 @@ it produced, survive here rather than under a separate command he was not
 reaching for. The check itself stays unconditional, exactly as it was: this
 practice is the explicit trigger for the times it did not fire on its own,
 the same role `Session Text` played before it.
+
+**Tightened the same day**, after Morgan checked whether this practice and
+[My options](my-options.md) both actually deliver the copy-in-one-click
+block they promise and said the answer was often no: *"You often don't do
+that and I want to enforce it."* "Ready to copy in one click" was true but
+not mechanical -- nothing said the block had to be an actual fenced code
+block rather than a paragraph that merely reads as paste-ready. Both
+practices now name the mechanism directly. Strength: decided.
 
 ## Install
 Nothing for an adopter to set up. The occasion index entry is generated
