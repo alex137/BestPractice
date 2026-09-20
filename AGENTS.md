@@ -82,7 +82,7 @@ names why in its own file.
   plain ask for the same shape of answer ("what do I actually need to know
   right now") gets it too — low stakes if the read is wrong, so no
   confirmation step.
-- **"Plain words"** ([plain-words](practices/plain-words.md)) — the same
+- **"Simple words"** ([plain-words](practices/plain-words.md)) — the same
   answer said the way you would say it out loud: short sentences, the concrete
   case before the general principle, no hedging. **It governs the rest of the
   conversation, not just the next reply**, and nothing about the substance
@@ -113,7 +113,7 @@ names why in its own file.
   on the table in plainer words, a short block each, the cost said as flatly
   as the benefit, then **a named recommendation with its reason** — never a
   survey that leaves the choice sitting there. It governs that one answer, not
-  the conversation, which is what separates it from `Plain words`.
+  the conversation, which is what separates it from `Simple words`.
 - **"Vocabulary"** ([vocabulary](practices/vocabulary.md)) — every standing
   command in force, one plain sentence each, nothing else. **Read the list,
   never recall it**: `python3 tools/precedent_vocabulary.py` collects it from
@@ -346,10 +346,10 @@ When a person says "My options", asks to have a decision's options laid out, or 
   my-options — "My options" -- every option, plainer, your pick -- or a paste-ready handoff
 When a person says "Park it" about an open item or a question:
   park-it — "Park it" -- mark the item `parked` now; never raise it unprompted again
-When a person says "Plain words", or plainly asks to be talked to that way:
-  plain-words — "Plain words" -- say it as you would out loud; same substance
 When a person says "Reduction pass", or an always-loaded surface is near its ceiling:
   reduction-pass — "Reduction pass" -- work the menu in order, move never delete, report what moved
+When a person says "Simple words", or plainly asks to be talked to that way:
+  plain-words — "Simple words" -- say it as you would out loud; same substance
 When a person says "Three Things", or plainly asks for exactly this shape of answer:
   three-things — "Three Things" -- the three that matter now, one bold phrase and two lines each
 When a person says "Todo reminder", or asks to be reminded of something:
