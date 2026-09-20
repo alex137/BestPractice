@@ -68,13 +68,13 @@ is ever offered).
 declares its own phrases in frontmatter:
 
 ```
-command:     {"Go merge": "Save the work, publish it, and tell you where it went."}
+command:     {"Go update": "Save the work, publish it, and tell you where it went."}
 ```
 
 an object mapping each trigger phrase to the plain sentence a person who is
 not a developer reads ([readers-vocabulary](readers-vocabulary.md) governs
 that sentence -- it is written for them, not for a session). Two phrases for
-one command are two entries in one object, never two practices: `Go merge`
+one command are two entries in one object, never two practices: `Go update`
 and `Approved` are one rule with two triggers.
 
 **Alphabetical, always.** Every other order -- by date coined, by how often

@@ -29,7 +29,7 @@ request, merge -- without going back for a second authorization. That is step
 10, and it is part of the phrase rather than a separate grant.
 
 **This does not lift the gate the chain already runs through**, and it does
-not add one. `Go merge` publishes by the repository's usual conventions, and
+not add one. `Go update` publishes by the repository's usual conventions, and
 those are what decide whether a push may happen at all -- here, the full check
 that gates every push. Step 6 below IS that check, and it sits before the
 merge for that reason: a red check stops this merge exactly as it stops any
@@ -259,7 +259,7 @@ every step's answer is wrong if the one before it was skipped.
 12. **Publish it, without asking again.** Run [go-merge](go-merge.md)'s
     chain on the result and report which branch it landed on. The phrase
     authorizes this step; do not stop at step 9 and ask. Every condition
-    `Go merge` carries still holds -- a branch the repository restricts is
+    `Go update` carries still holds -- a branch the repository restricts is
     still restricted, and a step this session cannot reach hands off rather
     than coming back as a question.
 
@@ -313,7 +313,7 @@ typed one phrase to avoid being asked a question got asked one anyway, at the
 end, about work that was already done and already checked. **What the split
 was protecting is still protected, by the thing that was actually doing it:**
 step 6's full check, which runs before anything is published and is what a
-`Go merge` here would have run into regardless. Removing the sentence removes
+`Go update` here would have run into regardless. Removing the sentence removes
 a second authorization, not a gate.
 
 **Asked for by Morgan, 2026-09-08**, after watching a session do this from
