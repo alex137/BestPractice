@@ -239,9 +239,8 @@ The individual pages, if you want to go deeper on any one idea:
 [Reasons Why](../philosophy/REASONS_WHY.md),
 [The Talmudic Method](../philosophy/THE_TALMUDIC_METHOD.md),
 [Company Building Rules](../philosophy/COMPANY_BUILDING_RULES.md),
-[AI Governance to Co-Create](../philosophy/AI_GOVERNANCE_TO_COCREATE.md),
-[Humans at Our Best](../philosophy/HUMANS_AT_OUR_BEST.md), and
-[Assorted Notes](../philosophy/ASSORTED_NOTES.md).
+[AI Governance to Co-Create](../philosophy/AI_GOVERNANCE_TO_COCREATE.md), and
+[Humans at Our Best](../philosophy/HUMANS_AT_OUR_BEST.md).
 
 ### Get Started
 
