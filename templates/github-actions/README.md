@@ -23,6 +23,18 @@ no `pull_request:` at all) were each tried here first and each cost
 something real: the first billed for branches nobody was reviewing yet,
 the second gave up automatic checking on anything short of a merge.
 
+**Runner, all jobs in `doc-lint.yml.template` and `precedent-check.yml.template`
+(2026-09-20):** `runs-on: ${{ vars.PRECEDENT_RUNNER || 'ubuntu-latest' }}` —
+unset, every job runs on GitHub's own `ubuntu-latest`, same as before. A
+repo that declares a `PRECEDENT_RUNNER` repository variable (Settings →
+Secrets and variables → Actions → Variables) moves every job in that
+workflow onto the named self-hosted runner instead, with no template edit.
+This is opt-in per repo, on purpose: it only helps an adopter who already
+operates and secures their own runner, and
+[GITHUB_ACTIONS.md](../../documentation/GITHUB_ACTIONS.md)'s "Controlling
+Actions Minutes" section has the trade-offs (including why a self-hosted
+runner is not safe on a repo that takes untrusted forked pull requests).
+
 ## The Markdown lint template
 
 Copy [`doc-lint.yml.template`](doc-lint.yml.template) to

@@ -78,7 +78,14 @@ naming the field and where to set it. **This only changes what
 `precedent_install.py` writes by default.** The template is always there to
 copy in by hand, on any one repo, whatever the field says.
 
-**Three more levers, once the workflow is installed at all:**
+**None of this metering applies to a public repository at all.** GitHub
+Actions on standard `ubuntu-latest` runners is unmetered for public repos,
+regardless of how often a workflow runs. Everything below exists for the
+adopter who has vendored Precedent into a *private* repo — which is most of
+it, since a private, single-owner repo is the common case for an
+individual's own practice set or dependent project.
+
+**Four more levers, once the workflow is installed at all:**
 
 - **`concurrency` with `cancel-in-progress: true`** ships in
   [doc-lint.yml.template](../templates/github-actions/doc-lint.yml.template)
@@ -140,6 +147,24 @@ copy in by hand, on any one repo, whatever the field says.
   2026-09-07/2026-09-14 — the fix here is scoping `push:` narrowly enough
   that it never fires on the same branch `pull_request:` is watching, not
   running both wide open.
+- **A `PRECEDENT_RUNNER` repository variable, for an adopter who already
+  operates a self-hosted runner** (2026-09-20). Every job in
+  [doc-lint.yml.template](../templates/github-actions/doc-lint.yml.template)
+  and [precedent-check.yml.template](../templates/github-actions/precedent-check.yml.template)
+  reads `runs-on: ${{ vars.PRECEDENT_RUNNER || 'ubuntu-latest' }}` — set the
+  variable (**Settings → Secrets and variables → Actions → Variables**) to a
+  self-hosted runner label, and every job in that workflow runs there
+  instead, with no template edit. Left unset, nothing changes. **This is
+  the one lever above that is not a safe default for anyone who installs
+  Precedent** — the other three shrink cost automatically; this one only
+  does anything once an adopter has already stood up and secured their own
+  runner, which nobody else can do for them (a self-hosted runner executes
+  whatever code triggered the workflow, so it is a real security posture
+  choice, not a setting to flip casually — [spec/CI_MINUTES_PLAN.md](../spec/CI_MINUTES_PLAN.md)
+  item 6 has the trade-offs in full, including why GitHub itself advises
+  against a self-hosted runner on a repo that takes untrusted forked
+  pull requests). This variable is the mechanism; deciding whether to use
+  it is the adopter's own call, one repo at a time.
 
 ## Install in a Dependent Repository
 
