@@ -54,6 +54,17 @@
 #       stale. ALWAYS exits 0: a UserPromptSubmit hook that exits non-zero
 #       blocks the message, and losing what someone just typed over a
 #       freshness question is far worse than the staleness.
+#       ONE CHECK DOES NOT CARRY OVER FROM SESSION-START: the diverged-but-
+#       clean auto-reconcile (rescue-ref then `git reset --hard`) is safe
+#       only when nothing reachable from local HEAD can be this session's
+#       own work yet, which is true at SessionStart and false here -- a
+#       mid-session tab can hold a real unpushed commit. `_session_start_one`
+#       tells the two apart by checking $MODE, so this mode reports a
+#       divergence instead of resolving it (same as pre-write's identical-
+#       looking branch). Cost of getting this wrong, 2026-09-20: a real
+#       local commit discarded mid-session, recovered only because the
+#       rescue ref and the reflog both happened to still have it -- see
+#       gotchas/gotcha-2026-09-20-freshness-guard-s-user-prompt-mode-hard-resets-a-mid-sess.md.
 #
 #   freshness-guard.sh pre-write [BASE]
 #       A PreToolUse hook. Runs its checks ONCE per session -- the first
@@ -458,22 +469,37 @@ _session_start_one() {
       if _dirty; then
         echo "WARN: freshness-guard: '$branch' is $behind commit(s) behind origin/$branch, and the working tree has uncommitted changes -- NOT updating it automatically.$(_age_phrase "$branch") Commit or stash, then: git merge --ff-only origin/$branch" >&2
       elif [ "$ahead" != "0" ]; then
-        # This is SessionStart, before this session's first turn -- nothing
-        # reachable from local HEAD can be this session's own work yet, so a
-        # diverged-but-CLEAN checkout here is safe to reconcile automatically,
-        # unlike the identical-looking check in mode_pre_write (which runs
-        # mid-session, where a local commit really could be this session's).
-        # "Do not discard either side" still holds: the old tip is kept under
-        # a dedicated ref, never just left to reflog expiry, before origin's
-        # history replaces it.
-        local rescue_ref old_sha
-        old_sha="$(_git rev-parse HEAD 2>/dev/null)"
-        rescue_ref="refs/freshness-guard/pre-reset/${branch}-${old_sha:0:12}"
-        if [ -n "$old_sha" ] && _git update-ref "$rescue_ref" "$old_sha" >/dev/null 2>&1 && \
-           _git reset --hard "origin/$branch" >/dev/null 2>&1; then
-          echo "NOTE: freshness-guard: '$branch' had diverged from origin/$branch ($ahead local commit(s), $behind remote) -- reconciled it to origin/$branch (SessionStart, before this session's first turn, so nothing local could be this session's own work). The old tip is kept at $rescue_ref ($old_sha); nothing was discarded.$(_age_phrase "$branch")" >&2
+        if [ "$MODE" != "session-start" ]; then
+          # mode_user_prompt delegates to mode_session_start (see its own
+          # comment above), which means this branch runs mid-session too --
+          # and mid-session, unlike true SessionStart, local HEAD really can
+          # hold this session's own unpushed work. The auto-reconcile below
+          # is only safe for the case its own comment describes (before the
+          # session's first turn), so anything reached via a mode other than
+          # `session-start` gets the report-only treatment mode_pre_write
+          # already uses for the identical-looking case.
+          # practice: durable-fix -- see
+          # gotchas/gotcha-2026-09-20-freshness-guard-s-user-prompt-mode-hard-resets-a-mid-sess.md
+          echo "WARN: freshness-guard: '$branch' has diverged from origin/$branch ($ahead local commit(s), $behind remote) -- NOT reconciling automatically (this check is running mid-session, not at SessionStart, so local HEAD may hold this session's own unpushed work).$(_age_phrase "$branch") Reconcile deliberately: commit or stash anything of yours, then merge or rebase onto origin/$branch yourself." >&2
         else
-          echo "WARN: freshness-guard: '$branch' has diverged from origin/$branch ($ahead local commit(s), $behind remote) -- could not reconcile it automatically (rescue ref or reset failed), so leaving it as-is.$(_age_phrase "$branch") Reconcile deliberately; do not discard either side." >&2
+          # This is SessionStart, before this session's first turn -- nothing
+          # reachable from local HEAD can be this session's own work yet, so a
+          # diverged-but-CLEAN checkout here is safe to reconcile automatically,
+          # unlike the identical-looking check in mode_pre_write (which runs
+          # mid-session, where a local commit really could be this session's),
+          # and unlike this same branch reached via mode_user_prompt, above.
+          # "Do not discard either side" still holds: the old tip is kept under
+          # a dedicated ref, never just left to reflog expiry, before origin's
+          # history replaces it.
+          local rescue_ref old_sha
+          old_sha="$(_git rev-parse HEAD 2>/dev/null)"
+          rescue_ref="refs/freshness-guard/pre-reset/${branch}-${old_sha:0:12}"
+          if [ -n "$old_sha" ] && _git update-ref "$rescue_ref" "$old_sha" >/dev/null 2>&1 && \
+             _git reset --hard "origin/$branch" >/dev/null 2>&1; then
+            echo "NOTE: freshness-guard: '$branch' had diverged from origin/$branch ($ahead local commit(s), $behind remote) -- reconciled it to origin/$branch (SessionStart, before this session's first turn, so nothing local could be this session's own work). The old tip is kept at $rescue_ref ($old_sha); nothing was discarded.$(_age_phrase "$branch")" >&2
+          else
+            echo "WARN: freshness-guard: '$branch' has diverged from origin/$branch ($ahead local commit(s), $behind remote) -- could not reconcile it automatically (rescue ref or reset failed), so leaving it as-is.$(_age_phrase "$branch") Reconcile deliberately; do not discard either side." >&2
+          fi
         fi
       elif [ "$fetched" -eq 0 ]; then
         echo "WARN: freshness-guard: '$branch' looks $behind commit(s) behind, but the fetch failed -- not acting on an unverified comparison.$(_age_phrase "$branch")" >&2
