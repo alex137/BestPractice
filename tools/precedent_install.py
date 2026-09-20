@@ -405,14 +405,20 @@ def _bootstrap_and_ci(dest, ci_enabled, ci_note, force):
         os.chmod(b, 0o755)
         out.append('tools/bootstrap.sh: written')
     (dest / '.github').mkdir(exist_ok=True)
-    wf = dest / '.github' / 'workflows' / 'bestpractice-docs.yml'
-    if ci_enabled:
-        wf.parent.mkdir(parents=True, exist_ok=True)
-        if not wf.exists() or force:
-            shutil.copy2(TEMPLATES / 'github-actions' / 'doc-lint.yml.template', wf)
-            out.append(f'.github/workflows/bestpractice-docs.yml: written ({ci_note})')
-    else:
-        out.append(f'.github/workflows/bestpractice-docs.yml: NOT written -- {ci_note}')
+    # Loops CI_WORKFLOW_TEMPLATES['consumer'] rather than naming
+    # doc-lint.yml.template alone (as this did before leak-gate.yml.template
+    # joined it, 2026-09-20, spec/CI_MINUTES_PLAN.md item 12) -- one gate,
+    # one loop, so a future consumer-kind template needs no second copy of
+    # this block to be written at all.
+    for _wf_template, _wf_rel in precedent_vendor_engine.CI_WORKFLOW_TEMPLATES['consumer']:
+        wf = dest / _wf_rel
+        if ci_enabled:
+            wf.parent.mkdir(parents=True, exist_ok=True)
+            if not wf.exists() or force:
+                shutil.copy2(TEMPLATES / 'github-actions' / _wf_template, wf)
+                out.append(f'{_wf_rel}: written ({ci_note})')
+        else:
+            out.append(f'{_wf_rel}: NOT written -- {ci_note}')
     pr = dest / '.github' / 'pull_request_template.md'
     if not pr.exists() or force:
         text = (TEMPLATES / 'pull_request_template.md.template').read_text(encoding='utf-8')

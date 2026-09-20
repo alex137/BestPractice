@@ -1035,9 +1035,11 @@ CI_WORKFLOWS_SOURCE_DIR = 'templates/github-actions'
 CI_WORKFLOW_TEMPLATES = {
     'consumer': (
         ('doc-lint.yml.template', '.github/workflows/bestpractice-docs.yml'),
+        ('leak-gate.yml.template', '.github/workflows/leak-gate.yml'),
     ),
     'source': (
         ('precedent-check.yml.template', '.github/workflows/precedent-check.yml'),
+        ('leak-gate.yml.template', '.github/workflows/leak-gate.yml'),
     ),
 }
 

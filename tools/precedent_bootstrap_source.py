@@ -209,6 +209,14 @@ WORKFLOW_TEMPLATES = (
      'for drift on a pull request either -- the vendored provenance check '
      'covers the same three views since binds_publishers, but only when '
      'somebody runs it by hand'),
+    # Added 2026-09-20, spec/CI_MINUTES_PLAN.md item 12 -- leak-gate.yml.
+    # template's own header explains the visibility-aware job gate.
+    ('leak-gate.yml.template', '.github/workflows/leak-gate.yml',
+     'nothing scans this set\'s own tracked tree for a leaked private term '
+     'server-side at all -- a set is always visibility: private per '
+     '_write_source_manifest above, so a session that skips (or bypasses) '
+     'its local pre-push hook has no independent backstop before a push '
+     'reaches main'),
 )
 # Same (template, dest path) pairs precedent_vendor_engine.CI_WORKFLOW_
 # TEMPLATES['source'] declares for refresh()'s own use -- checked here,

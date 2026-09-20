@@ -610,6 +610,76 @@ Verified: both templates still parse as valid YAML; deep check
 [tools/leak_gate.py](../tools/leak_gate.py), [tools/precedent_check.py](../tools/precedent_check.py),
 [tools/doc_sync.py](../tools/doc_sync.py)) run clean before push.
 
+## Item 12 — leak-gate vendored, visibility-aware branch scope (2026-09-20)
+
+Raised against a real case: a private repo (32 branches, nearly all
+transitory) inheriting BestPractice's own `leak-gate.yml` design of
+scanning every branch on every push — reasonable for this repo, since it is
+public and a leak on any branch is already published, but not obviously
+right for a private repo where the audience of an early leak is whoever
+already has repo access, not the public internet. Proposed as a job-level
+runtime check keyed off `precedent.json`'s existing `visibility` and
+`base_branch` fields, described to Morgan before building since it touches
+security-gating code; authorized the same day: *"Please build this."*
+`strength: decided`.
+
+**What shipped.** [`templates/github-actions/leak-gate.yml.template`](../templates/github-actions/leak-gate.yml.template) —
+the first time `leak-gate.yml` has been vendored to a dependent repo or
+practice set at all. Its own header has the full design reasoning; in
+short: `on:` cannot read repo config (GitHub Actions resolves triggers
+before any job runs), so the workflow still fires on every push, and a
+`scope` job decides whether the real `leak-gate` job runs at all —
+job-level `if:`, never a step-level one, so a skip is never billed (item 9's
+lesson, reapplied here). On a repo declaring `"visibility": "private"`, a
+`push` to any branch other than `base_branch` (default `main`) skips the
+scan; a `pull_request:` event is never skipped, whatever branch it targets,
+so a fork's contribution still gets scanned before it can land. A public
+repo (visibility absent or `"public"`) is unaffected — every push to every
+branch is scanned, matching this repo's own `leak-gate.yml` exactly. A
+practice SET (no `precedent.json`, only `precedent-source.json`, which
+always declares `"visibility": "private"`) is always treated as private
+here, with no field to opt out of.
+
+**The trade, stated once more since it is the whole point of item 2b's
+original reasoning being repo-specific rather than universal:** a secret
+pushed to a private repo's throwaway branch and never merged is caught only
+if the local pre-push hook ran, until that branch reaches `base_branch` or
+someone runs it by hand (`workflow_dispatch:`, never skipped). This is the
+same trade item 8 already made by hand for four real repos when branch
+volume was the measured cost driver; this generalizes it into a template
+instead of a one-off edit.
+
+**Wired into the vendoring engine, not just written as a file:**
+`CI_WORKFLOW_TEMPLATES` in
+[tools/precedent_vendor_engine.py](../tools/precedent_vendor_engine.py) now
+lists it for both `consumer` and `source` kinds, so "Update Vendors"
+refreshes, drift-checks and can retire it exactly like the other two CI
+templates, with no separate mechanism. `precedent_bootstrap_source.py`'s
+own `WORKFLOW_TEMPLATES` (which asserts it stays in lockstep with the
+engine's `'source'` list) carries the matching entry. `precedent_install.py`'s
+`_bootstrap_and_ci`, which used to hardcode writing `doc-lint.yml.template`
+alone, now loops `CI_WORKFLOW_TEMPLATES['consumer']` — so this and any
+future consumer-kind CI template need no second copy of that block, gated
+by the same `ci_workflows` preference as before.
+
+**Verified:** the extracted config-reading logic against seven fixtures
+(no config, private with and without a declared `base_branch`, explicit
+public, an invalid `visibility` value, a source-kind manifest with no
+`visibility` key at all, and malformed JSON) — every failure mode resolves
+to `public`/`main`, the safe direction, never a silent under-scan. The
+gate's bash decision logic checked against the five real event/visibility/
+branch combinations that matter. `python3 -c "import ast; ast.parse(...)"`
+on every edited `.py` file and a full YAML parse of the new template.
+`tools/doc_lint.py`, `tools/precedent_check.py`, `tools/leak_gate.py`, and
+`tools/verify_harness.py` all run clean before push.
+
+**Not done here:** actually installing `leak-gate.yml` into the private
+repo that motivated this item, or any other existing dependent repo — that
+is a per-repo "Update Vendors" (for an already-installed repo) or a fresh
+install/migration pass, same as any other CI template, and this session's
+GitHub access does not reach that repo to check what it currently has
+installed, if anything.
+
 ## Sequencing and status
 
 Morgan approved phases 1–5 on 2026-09-16, holding items 6 and 7 for later
