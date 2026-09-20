@@ -125,15 +125,11 @@ name -- so it still reads correctly once vendored into one of them.
 Strength: decided.
 
 **Extended again the same day**, on the same instruction to all three
-commands, after Morgan reported that a `Prompt Please` handoff had gone
-well except for one thing: *"it's for another session and it didn't tell
-me what to root it in... before or after you give me the prompt, write a
-sentence... to tell me, open this new session and what it should be rooted
-in and what other repos should be attached, if any. Open a new session,
-root it in X, attaching repos Y and Z."* `Write it up`'s own deliverable
-stays on this branch, but its proposed solution can still point at work
-that belongs elsewhere, and that routing was missing here the same way it
-was missing from the other two. Strength: decided.
+commands -- full quote in [Prompt Please](prompt-please.md)'s Story, where
+the gap actually surfaced. `Write it up`'s own deliverable stays on this
+branch, but its proposed solution can still point at work that belongs
+elsewhere, and that routing was missing here the same way it was missing
+from the other two. Strength: decided.
 
 ## Install
 No mechanical check: like [go-merge](go-merge.md), whether a given reply

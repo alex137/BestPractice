@@ -239,15 +239,11 @@ so the sentence still holds when read from inside a repo that only
 consumes it. Strength: decided.
 
 **Extended again 2026-09-20**, on the same instruction to all three
-commands, after Morgan reported that a `Prompt Please` handoff had gone
-well except for one thing: *"it's for another session and it didn't tell
-me what to root it in... before or after you give me the prompt, write a
-sentence... to tell me, open this new session and what it should be rooted
-in and what other repos should be attached, if any. Open a new session,
-root it in X, attaching repos Y and Z."* The fenced block already carried
-the seed root and the repos to attach, but only for the new session's own
-reader -- nothing said it in plain prose to the person sitting in this
-one, who has to act on it first. Strength: decided.
+commands -- full quote in [Prompt Please](prompt-please.md)'s Story, where
+the gap actually surfaced. The fenced block already carried the seed root
+and the repos to attach, but only for the new session's own reader --
+nothing said it in plain prose to the person sitting in this one, who has
+to act on it first. Strength: decided.
 
 ## Install
 Nothing to configure. The occasion index entry is generated, so an adopter
