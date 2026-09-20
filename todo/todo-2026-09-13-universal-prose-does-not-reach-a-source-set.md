@@ -126,6 +126,35 @@ closed:            null
     instead of spawning beside whatever is already running.
     **Disposition:** wait
 
+    **THE LOADING HALF, 2026-09-20 — and it is a third half this item did not
+    know it had.** The reading half was declared done on 2026-09-14 when the
+    Standing Instruction's pointer at `.precedent/SESSION_PRACTICES.md`
+    stopped being suppressed. **A pointer is not a load.** For the seven days
+    after that, every set rendered the file correctly at session start and no
+    session had a word of it in context before its first turn: Claude Code
+    auto-loads instruction files and nothing else. Morgan reported the
+    symptom in the plainest possible terms on 2026-09-20 — *"when I load
+    precedent-individual as the seed root repo, it doesn't load
+    bestpractice"* — and every mechanism this item tracks was working as
+    designed while he said it.
+
+    **Fixed for `precedent-individual` the same day**: the SessionStart hook
+    emits the render as `hookSpecificOutput.additionalContext`, and the set
+    gained the `CLAUDE.md` stub no source set had ever been given. The full
+    account, including why a second `@import` was rejected and the four
+    reasons this survived three rounds of fixes, is
+    [spec/PACK_SESSION_DOES_NOT_LOAD_UNIVERSAL.md](../spec/PACK_SESSION_DOES_NOT_LOAD_UNIVERSAL.md).
+
+    **What keeps this item open is the same thing that kept it open on
+    2026-09-14: the other three sets.** `precedent-shared-repo-maintenance`,
+    `precedent-shared-writing` and `precedent-shared-working-style` are
+    outside the authorized repository set of the session that did this work,
+    so they still render a file nobody loads. Neither change is
+    set-specific — copy `bootstrap/precedent-universal-catalogue.sh` and
+    `CLAUDE.md` across, and add the `CLAUDE.md` surface to each set's
+    `tools/session_load_budgets.json`.
+    **Disposition:** wait
+
 ## How It Closes
 
 (not yet stated by the migration -- a session filling this in should read ## What and say what has to be true for `status` to become `done`.)

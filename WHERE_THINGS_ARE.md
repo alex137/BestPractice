@@ -26,6 +26,7 @@ not it is read.
 | Inherited practices whose meaning or mechanism changed under Precedent (Alex needs to hear about these) | [spec/CHANGES_TO_TELL_ALEX.md](spec/CHANGES_TO_TELL_ALEX.md) |
 | The phase-1 per-practice file format | [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) |
 | Why a practice file's references to `spec/`, `templates/` or a root document are full `https://github.com/...` URLs rather than relative links | [practices/practice-links-travel.md](practices/practice-links-travel.md) |
+| Why a session rooted in a practice set saw none of the universal rules, and what actually puts a hook's output in front of the model | [spec/PACK_SESSION_DOES_NOT_LOAD_UNIVERSAL.md](spec/PACK_SESSION_DOES_NOT_LOAD_UNIVERSAL.md) — trap at [gotchas/gotcha-2026-09-20-a-sessionstart-hook-writing-a-file-is-not-the-session-loadi.md](gotchas/gotcha-2026-09-20-a-sessionstart-hook-writing-a-file-is-not-the-session-loadi.md) |
 | The phase-2 loader (resident set, replay measurement) | [spec/LOADER.md](spec/LOADER.md) |
 | The phase-3 brief (what phase 3 was handed) | [spec/PHASE3_BRIEF.md](spec/PHASE3_BRIEF.md) |
 | The phase-3 sources: resolver, precedence, what could not be built here | [spec/SOURCES.md](spec/SOURCES.md) |
