@@ -263,6 +263,32 @@ def _norm(s):
     return s.replace('’', "'").replace('‘', "'").lower()
 
 
+# Double-quoted spans only, never single -- a single quote or curly
+# apostrophe is the same character English contractions use constantly
+# ("Don't", "it's"), so treating it as a span delimiter would eat
+# unpredictable stretches of ordinary prose. Double quotes carry no such
+# collision, and this repo's own convention already uses them (never single
+# quotes) to cite an exact phrase in running prose (this file's own
+# docstring, reply_check.json's `why` fields, every *"..."* quote in the
+# practice files). practice: the-boildown, cite-the-incident.
+_DQUOTE_SPAN_RE = re.compile(r'"[^"]*"|“[^”]*”')
+
+
+def _strip_quoted_spans(s):
+    """Blank out every double-quoted span in `s`. A reply that CITES a
+    phrase as a string -- describing a rule, quoting what a check refuses --
+    is not ASSERTING that phrase, and require_no_contradiction's job is to
+    catch the second, never the first. (2026-09-20: a reply explaining this
+    very check quoted both trigger phrases and both contradiction patterns
+    in the same paragraph, in single quotes -- which _norm() already folds
+    to a bare apostrophe, so nothing distinguished them from the real
+    thing, and the check refused the reply that had just shipped it. Fixed
+    by stripping quoted citations before matching, and by this file's own
+    convention -- double quotes, not single -- for citing these phrases
+    from here on.)"""
+    return _DQUOTE_SPAN_RE.sub(' ', s)
+
+
 # practices/the-boildown.md (practice: the-boildown) names one fixed template
 # for a turn where nothing happened that is visible, or non-trivial, to the
 # person -- "Unchanged since the last update: <what it's still waiting on>."
@@ -387,11 +413,13 @@ def violations(text, reqs, timeline=None):
         # and closed with "Don't archive this session" -- exactly this
         # shape, caught by the person, not by any check. practice:
         # the-boildown, cite-the-incident.)
+        quoted_stripped = _strip_quoted_spans(text)
         for pair in (r.get('require_no_contradiction') or []):
             trigger, pat2 = pair.get('if_says'), pair.get('must_not_say_matching')
             if not trigger or not pat2:
                 continue
-            if _norm(trigger) in _norm(text) and re.search(pat2, text, re.I):
+            if (_norm(trigger) in _norm(quoted_stripped)
+                    and re.search(pat2, quoted_stripped, re.I)):
                 out.append({'kind': 'contradiction', 'advisory': advisory, 'message': (
                     f"[{r.get('_source', '?')}] this reply says \"{trigger}\" and "
                     f"ALSO matches /{pat2}/i elsewhere in the same reply -- the two "

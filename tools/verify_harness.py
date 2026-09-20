@@ -9047,6 +9047,41 @@ def check_contradiction_requirement_blocks():
         cases.append(('negative control: the phrase alone with neither fixed '
                        'sentence present is not blocked',
                        r4.returncode == 0, f'exit {r4.returncode}: {r4.stderr[:160]}'))
+
+        # The second incident, same day: this check's own first landing was
+        # refused by itself -- the reply describing the new check quoted
+        # both trigger phrases AND both contradiction patterns, in single
+        # quotes, while explaining the fix. Citing a phrase as a string is
+        # not asserting it; double-quoted citation is now exempt, single is
+        # deliberately NOT (an apostrophe in "Don't" makes a single-quote
+        # span delimiter unsafe -- see _strip_quoted_spans()'s docstring).
+        meta_dq = write(
+            'meta_dq.md',
+            '## Boildown\n\nA reply asserting "Don\'t archive this session" can '
+            'no longer also contain a "nothing blocking" phrase, and "You can '
+            'archive this session" can no longer co-occur with a "still open" '
+            'phrase.\n\nYou can archive this session -- the fix is pushed.\n')
+        r5 = replycheck(meta_dq)
+        cases.append(('a reply CITING both trigger phrases and both '
+                       'contradiction patterns in double quotes, while its own '
+                       'real (unquoted) verdict matches neither, is not blocked',
+                       r5.returncode == 0, f'exit {r5.returncode}: {r5.stderr[:200]}'))
+
+        # Same text, single quotes instead of double -- the documented
+        # limitation, not exempt. Proves the double-quote convention is
+        # actually load-bearing rather than the fix being unconditional.
+        meta_sq = write(
+            'meta_sq.md',
+            "## Boildown\n\nA reply asserting 'Don't archive this session' can "
+            "no longer also contain a 'nothing blocking' phrase, and 'You can "
+            "archive this session' can no longer co-occur with a 'still open' "
+            "phrase.\n\nYou can archive this session -- the fix is pushed.\n")
+        r6 = replycheck(meta_sq)
+        cases.append(('negative control: the same citation in SINGLE quotes is '
+                       'still blocked -- double quotes are the documented '
+                       'convention, not an unconditional exemption',
+                       r6.returncode == 2 and 'cannot both be true' in r6.stderr,
+                       f'exit {r6.returncode}: {r6.stderr[:200]}'))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
