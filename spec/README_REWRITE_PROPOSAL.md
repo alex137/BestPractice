@@ -7,7 +7,7 @@ closed:        null
 superseded_by: null
 supersedes:    []
 audience:      contributor
-summary:       "The current README reads like a table of contents: a dry definition, an internal branch-status notice, then a list of links. This proposes reordering it around a single hook developers actually feel — your team's unwritten rules get written down for you, in the open, enforced by code — and moves everything else (the branch note, the philosophy bullets, the doc map) to support that hook instead of competing with it. No change is made to README.md itself; this is the plan to review first."
+summary:       "The current README reads like a table of contents: a dry definition, an internal branch-status notice, then a list of links. This proposes reordering it around a single hook developers actually feel — your team's unwritten rules get written down for you, in the open, enforced by code — and moves everything else (the branch note, the philosophy bullets, the doc map) to support that hook instead of competing with it. Includes a full draft of the proposed page itself, not just the structure. No change is made to README.md itself; this is the plan to review first."
 ---
 
 # The README as a Pitch, Not an Index
@@ -151,10 +151,132 @@ reads as something rather than a plan for a plan:
   moving the rest wholesale into
   [documentation/WHY_PRECEDENT.md](../documentation/WHY_PRECEDENT.md).
 
+## The Proposed Rewrite (Full Draft)
+
+**This is the proposed rewrite of the README, as though it were the page
+itself.** It makes concrete calls the sections above left open — where the
+branch note lands, whether "Built for Many Hands" survives as its own
+heading — so there's something whole to react to rather than a structure
+plus a fragment. Disagree with any one of those calls without disagreeing
+with the direction; that's the point of drafting it in full.
+
+---
+
+### Precedent
+
+**Your team already has real conventions. Right now they live in a Slack
+thread, an old PR comment, and one person's memory — and they evaporate
+the day that person is out sick or that channel gets buried.**
+
+Precedent notices them instead. Tell your assistant once — "we always
+write dates as YYYY-MM-DD," "never merge without the deep check" — and it
+writes that down as a rule your whole team's future sessions follow:
+checked into your own GitHub repo, in the open, enforced by scripts that
+fail loudly instead of a policy nobody reads.
+
+You don't switch tools. You keep working through Claude Code, or whichever
+assistant your team already uses — Precedent is the layer underneath that
+remembers, so nobody has to.
+
+### How It Actually Works
+
+Say something to your assistant once, in your own words — *"from now on,
+always run the deep check before you merge"* — and it doesn't just do it
+this one time. It drafts that instruction as a rule and shows it to you;
+once you say yes, every session after this one — yours, a teammate's, six
+months from now — follows it automatically, with no policy document for
+anyone to remember to reread.
+
+Where a rule can be checked mechanically, it is: a small script runs
+before a change lands and fails loudly if the rule was broken, so keeping
+to your own conventions doesn't depend on anyone staying vigilant.
+
+### Why This Matters if You Write Code
+
+- **Plain text and git are the source of truth.** Every rule, every
+  document, and the reasoning behind each one lives in your own GitHub
+  repository — nothing sits in a chat log or a memory feature only one
+  person can see.
+- **No proprietary format, no vendor lock-in.** This is open source, built
+  on a platform you already control your own data in. Nothing here can
+  shut down and take your project's memory with it.
+- **Enforcement instead of vigilance.** The rules that matter are backed
+  by small programs that fail loudly, so a project set up this way can
+  check a convention instead of hoping someone remembers it.
+- **Every decision carries its reasoning and an audit trail.** Not just
+  what was decided, but why, with a link back to the conversation that
+  produced it — nobody has to dig through chat history to find out.
+
+### The Philosophy Behind This
+
+Precedent is one working expression of a broader philosophy about how
+people and AI should work together. **That theory lives in
+[philosophy/](../philosophy/)** — start at
+[philosophy/README.md](../philosophy/README.md). It is argument and
+observation: none of it binds work anywhere else in this repository, which
+is what [practices/](../practices/) is for.
+
+Three ideas underneath all of it:
+
+- **Human collaboration comes first.** The tool exists to make people
+  working together better, not to route around them.
+- **AI sits between the work and the people doing it**, pushing back on
+  ideas to strengthen them and keeping the record of how a decision was
+  reached, not just the decision itself.
+- **AI watches what's actually happening and proposes the rules for it** —
+  generated from a team's own history, and put up for approval, never
+  landed unapproved.
+
+### Get Started
+
+**New here?** [Ten Things to Know About How Precedent
+Works](../documentation/TEN_THINGS.md) is the one page to read first, then
+the how-to guide for your situation: [if you write
+code](../documentation/FOR_DEVELOPERS.md), or [if you
+don't](../documentation/FOR_EVERYONE_ELSE.md). **Already set up?** [How to
+Use This Day to Day](../documentation/DAILY_HABITS.md) has the daily
+habits and the phrases your assistant is guaranteed to recognize.
+
+Installing on your own project doesn't require writing any code yourself:
+open a session on your project with an AI assistant and paste it
+[SETUP.md](../SETUP.md), which runs the whole install as a conversation.
+Developers who want the files and commands have
+[INSTALL.md](../INSTALL.md), and
+[PER_MACHINE_SETUP.md](../documentation/PER_MACHINE_SETUP.md) for what
+each person sets on each machine — most people, working on Claude Code on
+the web, only need
+[CLOUD_SETUP.md](../documentation/CLOUD_SETUP.md).
+
+### Everything Else
+
+*You're reading the Precedent restructuring of BestPractice, on the
+`precedent-beta-v01` branch — the design and its evidence are in
+[spec/PRACTICE_ENGINE_PLAN.md](PRACTICE_ENGINE_PLAN.md). This branch
+merges into `main` regularly; work lands here first.*
+
+Hand installation, updates, and contributing improvements back:
+[INSTALL.md](../INSTALL.md). The working method, for power users:
+[METHOD.md](../METHOD.md). Phone and per-assistant setups:
+[documentation/MOBILE.md](../documentation/MOBILE.md). Automatic
+repository checks: [GITHUB_ACTIONS.md](../GITHUB_ACTIONS.md). Git in
+eight ideas: [GIT.md](../GIT.md). Open items and roadmap:
+[TODO.md](../TODO.md). Repository index for agents:
+[AGENTS.md](../AGENTS.md). The pitch and how-to guides for people outside
+the project: [documentation/](../documentation/).
+
+A separate project grew out of this one:
+**[GitAround](https://github.com/alex137/GitAround)**, a way to read a
+project and follow what is changing in it from a browser, for people who
+would rather not work through GitHub's own screens. It has been a
+separate, standalone product since 2026-08-14, no longer a proposal
+staged inside this repo.
+
+---
+
 ## Next Steps if This Direction Is Approved
 
-Rewrite [README.md](../README.md) section by section against the structure
-above, run [tools/doc_lint.py](../tools/doc_lint.py) and the
-reader's-vocabulary pass
+Land the draft above as [README.md](../README.md) itself (adjusting its relative links
+back to root-level paths), run [tools/doc_lint.py](../tools/doc_lint.py)
+and the reader's-vocabulary pass
 ([readers-vocabulary](../practices/readers-vocabulary.md)), and check every
 internal link still resolves before the deep check gates the push.
