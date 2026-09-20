@@ -491,10 +491,12 @@ itself, not just in those repos' manifests:
    `RETIRED_CI_WORKFLOW_FILES` (a tombstone dict mirroring
    `RETIRED_ENGINE_FILES`) and `_remove_retired_ci_workflow_files`, called
    unconditionally at the top of `refresh()`: a retired entry is dropped
-   from the manifest automatically, and a retired file still on disk is
-   reported, never deleted — matching this repo's own stated design that
-   a CI workflow file is never removed automatically (item 9's own
-   comment on `ci_incomplete`).
+   from the manifest automatically, and — as of 2026-09-20, item 11 below —
+   a retired file still on disk is deleted when it is still exactly what
+   the manifest last recorded (untouched since), and kept and reported
+   otherwise. `refresh()` is the shared code path both "Update Vendors"
+   and an existing repo's migration route through, so this reaches both
+   without a separate fix in either.
 2. **No way to re-baseline a CI workflow's recorded hash without a full
    clone.** `record_ci_workflow_files()` already does exactly this —
    record what's on disk, touch no content — but was reachable only from

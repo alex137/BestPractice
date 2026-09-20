@@ -230,9 +230,26 @@ every step's answer is wrong if the one before it was skipped.
     table** ([spec/MIGRATING_EXISTING_INSTALLS.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/MIGRATING_EXISTING_INSTALLS.md)'s
     step 6, added 2026-09-16) — an ordinary update touches the same
     workflow files a migration would, and a repo that migrated before this
-    table existed has never had the chance to apply it. Per file, never a
-    blanket delete: the table names what each one is, and which are a
-    confirm-before-delete rather than an automatic one. While here, check
+    table existed has never had the chance to apply it. **As of
+    2026-09-20, this step's own table only still matters for two cases**:
+    a file the manifest never tracked a hash for at all (the pre-2026-09-14
+    legacy names — `light-check.yml`, `bestpractice-upstream-sync.yml`, and
+    the rest — [spec/CI_WORKFLOW_RETIREMENT_PLAN.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/CI_WORKFLOW_RETIREMENT_PLAN.md)
+    has the full list), and a `RETIRED_CI_WORKFLOW_FILES` entry that has
+    been hand-edited since the manifest last recorded it. A tracked,
+    untouched retired entry (currently just `views-drift.yml`) is now
+    deleted automatically by the `refresh` step above — nothing left to
+    sweep there. **Never match by filename alone before touching anything
+    on this list** — a name that looks retired can be a live, distinct,
+    repo-specific check that only coincidentally shares it (found
+    2026-09-20 in a real repo: `light-check.yml` running `tools/
+    light_check.py`, that repo's own required light check, not a leftover
+    copy of BestPractice's retired install template of the same name).
+    Diff what the file actually runs against its supposed replacement
+    before deleting or recommending deletion of anything on this table.
+    Per file, never a blanket delete: the table names what each one is, and
+    which are a confirm-before-delete rather than an automatic one. While
+    here, check
     `ci_workflows` and `ci_debounce_minutes`
     ([GITHUB_ACTIONS.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/documentation/GITHUB_ACTIONS.md))
     are set the way the person actually wants, not just inherited from
