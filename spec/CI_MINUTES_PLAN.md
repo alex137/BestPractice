@@ -143,7 +143,7 @@ means editing one table instead of three prose sections that can drift.
 
 - **Which LLM/agent platform will work in this repo** (Claude Code,
   GitHub-connected ChatGPT, other). Not a cosmetic field —
-  [GITHUB_ACTIONS.md](../GITHUB_ACTIONS.md) already explains that GitHub
+  [GITHUB_ACTIONS.md](../documentation/GITHUB_ACTIONS.md) already explains that GitHub
   Actions exists partly to give a platform with no local shell (ChatGPT) the
   execution environment a platform with one does not need. The answer
   changes whether `ci_workflows` should default to disabled at all: for a
@@ -370,7 +370,7 @@ practice sets (`precedent-individual`, `precedent-team-writing`,
 `precedent-team-repo-maintenance`, `precedent-team-working-style`),
 accounting for 86% of the 2026-09-19 total before noon. All four had
 `precedent-check.yml`/`views-drift.yml` installed per "Install in a
-Practice-Set Repository" ([GITHUB_ACTIONS.md](../GITHUB_ACTIONS.md)) — debounce guard included,
+Practice-Set Repository" ([GITHUB_ACTIONS.md](../documentation/GITHUB_ACTIONS.md)) — debounce guard included,
 running at its 360-minute default, exactly as Phase C shipped it.
 
 **Why the debounce guard didn't stop it.** Debounce (Item 4's own design)
@@ -461,7 +461,7 @@ trade, so the branch-scoping reasoning above does not apply to it.
 **Documented, not just changed**, per Morgan's own instruction that this
 be written up for whoever adapts it: [templates/github-actions/README.md](../templates/github-actions/README.md)
 has the trigger shape and the branch-list customization point up front;
-[GITHUB_ACTIONS.md](../GITHUB_ACTIONS.md)'s "Controlling Actions Minutes" and "Install in a
+[GITHUB_ACTIONS.md](../documentation/GITHUB_ACTIONS.md)'s "Controlling Actions Minutes" and "Install in a
 Practice-Set Repository" sections carry the mechanical detail; this item
 is the incident and reasoning. [TODO.md](../TODO.md)'s
 [`views-drift-vs-suite-workflow`](../todo/todo-2026-09-13-views-drift-vs-suite-workflow.md)

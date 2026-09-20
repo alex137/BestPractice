@@ -23,11 +23,11 @@ GitHub is the worked example throughout these documents, and Precedent
 currently leans on GitHub features (pull requests, Actions checks)
 deliberately. The layer itself is plain git, markdown, and Python, so
 equivalents on other hosts such as Gitea can be added later — see
-[TODO.md](TODO.md).
+[TODO.md](../TODO.md).
 
 ## The Eight Ideas
 
-You don't need to know git deeply to use [Precedent](README.md); you
+You don't need to know git deeply to use [Precedent](../README.md); you
 need eight ideas. (Throughout, a "session" is one AI conversation. Every
 git and GitHub word used below is defined in
 [The Words, Defined](#the-words-defined), further down.)
@@ -89,7 +89,7 @@ git and GitHub word used below is defined in
   branches or open PRs there — writes fail even though reads work, which
   is confusing the first time you hit it. So decide up front: if a session's
   plan includes pushing to a second repo (the check-in step in
-  [INSTALL.md](INSTALL.md) §4, for example),
+  [INSTALL.md](../INSTALL.md) §4, for example),
   **select both repos when you create the session** — you generally can't
   add write access mid-session.
 
@@ -100,7 +100,7 @@ that appear in a session's replies, in GitHub's own screens, and in error
 messages, where nobody stops to explain them. **Skim it once; come back to
 it when a word goes past that you nodded at.**
 
-A separate [GLOSSARY.md](GLOSSARY.md) covers terms this project coined. This
+A separate [GLOSSARY.md](../GLOSSARY.md) covers terms this project coined. This
 section covers git's and GitHub's own.
 
 ### Where the Work Lives
@@ -204,8 +204,8 @@ already know what they are.
 - **Workflow** — a program GitHub runs for you, on its own machines, when
   something happens in the repository. One file per workflow, under
   `.github/workflows/`. The filename is whoever wrote it's choice:
-  [`docs.yml`](.github/workflows/docs.yml) here runs the markdown linter,
-  [`leak-gate.yml`](.github/workflows/leak-gate.yml) checks nothing private
+  [`docs.yml`](../.github/workflows/docs.yml) here runs the markdown linter,
+  [`leak-gate.yml`](../.github/workflows/leak-gate.yml) checks nothing private
   is being published.
 - **GitHub Actions** — GitHub's name for the service that runs those
   workflows, and for the tab where you watch them run.
@@ -224,13 +224,13 @@ already know what they are.
 - **Lint (a "linter")** — a program that reads your files and complains
   about small mechanical faults — a link pointing at nothing, a character
   that renders wrong — without understanding a word of what you wrote.
-  [`tools/doc_lint.py`](tools/doc_lint.py) is this project's. Until
+  [`tools/doc_lint.py`](../tools/doc_lint.py) is this project's. Until
   2026-09-14 the workflow running it watched only `main` and pull requests:
   push straight to the working branch, and the link checker didn't run.
 - **Hook** — a script that runs at a fixed moment on *your* machine rather
   than GitHub's: before a commit, before a push, when a session starts. Same
   idea as a workflow, one step earlier. This repository's live in
-  [.claude/hooks/](.claude/hooks/).
+  [.claude/hooks/](../.claude/hooks/).
 - **Webhook** — GitHub's own hooks, and they point the other way: instead of
   running something, GitHub *sends a message* to an address you gave it when
   an event happens — a push, a comment, a check finishing. Nothing runs on
@@ -242,8 +242,8 @@ already know what they are.
 - **`.gitignore`** — a list of files git should pretend are not there:
   build output, scratch files, anything private. They stay untracked
   forever unless someone deliberately overrides it.
-- **Template files** — [`.github/pull_request_template.md`](.github/pull_request_template.md)
-  and the files under [`.github/ISSUE_TEMPLATE/`](.github/ISSUE_TEMPLATE/) are text GitHub pre-fills into the box
+- **Template files** — [`.github/pull_request_template.md`](../.github/pull_request_template.md)
+  and the files under [`.github/ISSUE_TEMPLATE/`](../.github/ISSUE_TEMPLATE/) are text GitHub pre-fills into the box
   when you open a pull request or an issue. A prompt to fill in, never a
   rule that blocks anything.
 - **`CODEOWNERS`** — a file naming who has to review changes to which

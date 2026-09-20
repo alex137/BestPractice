@@ -176,8 +176,8 @@ run prompted on every single run.
    Morgan's call, made during this audit. Renamed across
    [README.md](../README.md), all four [documentation/](../documentation/)
    guides, [SETUP.md](../SETUP.md), [INSTALL.md](../INSTALL.md),
-   [GITHUB_ACTIONS.md](../GITHUB_ACTIONS.md), [MOBILE.md](../documentation/MOBILE.md),
-   [GIT.md](../GIT.md), and every template an adopter instantiates.
+   [GITHUB_ACTIONS.md](../documentation/GITHUB_ACTIONS.md), [MOBILE.md](../documentation/MOBILE.md),
+   [GIT.md](../documentation/GIT.md), and every template an adopter instantiates.
 
    **What a later rename pass must not touch**, because each of these
    means something the rename would falsify:
@@ -839,7 +839,7 @@ remaining 32.
   outward-facing document, and it is the pitch page: the single most
   skim-driven thing here, aimed at people outside the project. Seventeen key
   phrases now carry the emphasis, roughly one spine point per section.
-- **`volatile-rules-carry-dates`** — [GITHUB_ACTIONS.md](../GITHUB_ACTIONS.md)
+- **`volatile-rules-carry-dates`** — [GITHUB_ACTIONS.md](../documentation/GITHUB_ACTIONS.md)
   contained **no date anywhere**, while its entire framing rests on two
   claims about what a GitHub-connected ChatGPT conversation can and cannot do.
   Both now carry *as of 2026-08* and point at [MOBILE.md](../documentation/MOBILE.md), which

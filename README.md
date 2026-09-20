@@ -69,7 +69,7 @@ recorded.
 Behind the scenes, the project lives in a GitHub repository — a durable,
 shared memory that every person and every new AI session can pick up cold.
 Precedent adapts it so you don't need to be a programmer to get those
-advantages; you just need a few ground rules, in [Git, minimally](GIT.md).
+advantages; you just need a few ground rules, in [Git, minimally](documentation/GIT.md).
 
 The main shift: you use **Claude Code** instead of general-purpose chat
 apps. Other assistants have supported paths too; see [MOBILE.md](documentation/MOBILE.md).
@@ -115,12 +115,12 @@ each machine — most people, working on Claude Code on the web, only need
 
 Hand installation, updates, and contributing improvements back:
 [INSTALL.md](INSTALL.md). The working method, for power users:
-[METHOD.md](METHOD.md). Phone and per-assistant setups:
+[METHOD.md](documentation/METHOD.md). Phone and per-assistant setups:
 [MOBILE.md](documentation/MOBILE.md). Automatic repository checks:
-[GITHUB_ACTIONS.md](GITHUB_ACTIONS.md). The pre-split practice catalog
+[GITHUB_ACTIONS.md](documentation/GITHUB_ACTIONS.md). The pre-split practice catalog
 (53 of the current, larger set — see [practices/](practices/) for the
 complete, current one): [PRACTICES.md](PRACTICES.md). Slide decks built
-from plain files: [deck/](deck/). Git in eight ideas: [GIT.md](GIT.md).
+from plain files: [deck/](deck/). Git in eight ideas: [GIT.md](documentation/GIT.md).
 Open items and roadmap: [TODO.md](TODO.md). Repository index for agents:
 [AGENTS.md](AGENTS.md). The pitch and how-to guides for people outside the
 project: [documentation/](documentation/).

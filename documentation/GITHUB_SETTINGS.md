@@ -137,7 +137,7 @@ it treats as an answer rather than as "could not look".
 **Required status checks** are a separate part of the same page: once a
 workflow has run at least once, its job can be added to the protection
 rule's required checks, and then a failing check blocks the merge for
-everyone. [GITHUB_ACTIONS.md](../GITHUB_ACTIONS.md)'s "Make the Check
+everyone. [GITHUB_ACTIONS.md](GITHUB_ACTIONS.md)'s "Make the Check
 Required" covers it.
 
 ## CODEOWNERS
@@ -290,6 +290,6 @@ and the list of what is still unverified;
 [FOR_DEVELOPERS.md](FOR_DEVELOPERS.md)'s "Who May Change What" is the short
 form; [FOR_EVERYONE_ELSE.md](FOR_EVERYONE_ELSE.md)'s "What You Can't Do
 (on Purpose)" is the contributor's version;
-[GITHUB_ACTIONS.md](../GITHUB_ACTIONS.md) is the workflows themselves; and
-[GIT.md](../GIT.md) explains the words — branch, pull request, merge — for
+[GITHUB_ACTIONS.md](GITHUB_ACTIONS.md) is the workflows themselves; and
+[GIT.md](GIT.md) explains the words — branch, pull request, merge — for
 someone meeting them for the first time.

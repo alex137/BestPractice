@@ -207,7 +207,7 @@ opener:
 - **Compose bigger requests.** For anything substantial, draft your
   request in a notes app first, then paste it — the assistant's output
   quality tracks the clarity of what you hand it. (More habits like this
-  in the project's method guide, [METHOD.md](<upstream-docs>/METHOD.md).)
+  in the project's method guide, [METHOD.md](<upstream-docs>/documentation/METHOD.md).)
 
 ## For the Administrator: Approving Changes
 
@@ -289,7 +289,7 @@ Click-paths as of <install date>.
   appear on a pull request's checks, GitHub Actions may be disabled for
   this repository — an administrator can turn it on at repository
   **Settings → Actions**. Details:
-  [GITHUB_ACTIONS.md](<upstream-docs>/GITHUB_ACTIONS.md).
+  [GITHUB_ACTIONS.md](<upstream-docs>/documentation/GITHUB_ACTIONS.md).
 - **Every pull request opens with a standard template** — what changed,
   why, files touched, and a short checklist. An unchecked box on that
   checklist is normal; it means that gate didn't apply to this particular

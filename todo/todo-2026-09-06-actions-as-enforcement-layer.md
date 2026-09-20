@@ -17,7 +17,7 @@ closed:            null
 ## What
 
 - <a id="actions-as-enforcement-layer"></a>**Lean further into GitHub Actions as the enforcement layer.** The
-   markdown-lint workflow ([GITHUB_ACTIONS.md](../GITHUB_ACTIONS.md)) proves
+   markdown-lint workflow ([GITHUB_ACTIONS.md](../documentation/GITHUB_ACTIONS.md)) proves
    the pattern: checks run in CI, so they bind every contributor — human,
    Claude Code, ChatGPT, anyone — regardless of whether the agent has a
    shell. Candidates to add: [practice_audit.py](../tools/practice_audit.py)

@@ -4123,18 +4123,21 @@ def _label_describes_content(ctx):
 # GETTING_STARTED.md, which root hygiene explicitly DOES place at the root.
 #
 # Both are read, rather than swapping one hard-coded filename for another.
-# GITHUB_ACTIONS.md stays a valid home for a repo that has its own --
-# BestPractice itself is exactly that repo, being the upstream, and its
-# root copy is its own document rather than a vendored one. A repo that
-# discloses in either has disclosed.
-DISCLOSURE_DOCS = ('GETTING_STARTED.md', 'GITHUB_ACTIONS.md')
+# A root GITHUB_ACTIONS.md stays a valid home for a repo that has its own --
+# distinct from a vendored copy, which root hygiene still forbids at a
+# dependent repo's root. BestPractice itself no longer IS that root case:
+# its own copy moved to documentation/GITHUB_ACTIONS.md on 2026-09-20 (the
+# same root-tidy pass that moved MOBILE.md and METHOD.md), so that path is
+# read too -- a repo that discloses in any of the three has disclosed.
+DISCLOSURE_DOCS = ('GETTING_STARTED.md', 'GITHUB_ACTIONS.md',
+                    'documentation/GITHUB_ACTIONS.md')
 
 
 @check('github-setup-disclosed', 'change',
        'a newly added GitHub Actions workflow file is named in '
        "GETTING_STARTED.md's administrator section -- the document a "
        "dependent repo's own people read -- or in a repo's own root "
-       'GITHUB_ACTIONS.md',
+       'GITHUB_ACTIONS.md, or in documentation/GITHUB_ACTIONS.md',
        'a workflow file that is EDITED rather than added (this only fires '
        "on new files, per no-version-suffix's ctx.added_files pattern); "
        'WHERE in the document the name appears, so a filename dropped '
