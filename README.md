@@ -101,10 +101,10 @@ patterns and rules emerge that you keep in your open system.
   with their AI Assistants and gives it direction; the repo is what
   catches everything that comes out of that.
 
-Learn more about it: [the guide for adopting
-it](documentation/ADOPTING.md), [The Working
-Method](documentation/METHOD.md), [the non-technical install
-guide](SETUP.md).
+Learn more about it: [Company Building
+Rules](philosophy/COMPANY_BUILDING_RULES.md), [AI Governance to
+Co-Create](philosophy/AI_GOVERNANCE_TO_COCREATE.md), [How to Use This
+Day to Day](documentation/DAILY_HABITS.md).
 
 ## The Philosophy Behind This
 
