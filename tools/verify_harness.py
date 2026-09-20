@@ -1983,6 +1983,8 @@ def check_leak_gate_names_a_stale_blocklist_clone():
         # BEHIND honestly, against a persistent, staleness-independent hit.
         diverged = tmp / 'diverged'
         git(tmp, 'clone', '-q', str(upstream), str(diverged))
+        git(diverged, 'config', 'user.email', 'harness@example.com')
+        git(diverged, 'config', 'user.name', 'harness')
         git(diverged, 'reset', '-q', '--hard', 'HEAD~1')
         (diverged / 'local-only.txt').write_text('not on the remote\n', encoding='utf-8')
         git(diverged, 'add', '-A')
