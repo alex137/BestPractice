@@ -256,9 +256,10 @@ merges into `main` regularly; work lands here first.*
 
 Hand installation, updates, and contributing improvements back:
 [INSTALL.md](../INSTALL.md). The working method, for power users:
-[METHOD.md](../METHOD.md). Phone and per-assistant setups:
-[documentation/MOBILE.md](../documentation/MOBILE.md). Automatic
-repository checks: [GITHUB_ACTIONS.md](../GITHUB_ACTIONS.md). Git in
+[documentation/METHOD.md](../documentation/METHOD.md). Phone and
+per-assistant setups: [documentation/MOBILE.md](../documentation/MOBILE.md).
+Automatic repository checks:
+[documentation/GITHUB_ACTIONS.md](../documentation/GITHUB_ACTIONS.md). Git in
 eight ideas: [GIT.md](../GIT.md). Open items and roadmap:
 [TODO.md](../TODO.md). Repository index for agents:
 [AGENTS.md](../AGENTS.md). The pitch and how-to guides for people outside
