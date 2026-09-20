@@ -117,12 +117,12 @@ just a prompt.
 together: *"Any change that would effect other repos must take into
 account the original templates in the mother system that organizes the
 other repos, and must be rolled out cleanly in updated templates/migrations
-to the others (if relevant)."* This repo is that mother system for
-whatever it vendors this practice layer to, so the requirement is stated
-here in the repo-agnostic form
-[vendor-rollout-disclosed](vendor-rollout-disclosed.md) already uses --
-"the repos vendoring this one" -- rather than naming BestPractice, so it
-reads correctly from inside a consumer repo too. Strength: decided.
+to the others (if relevant)."* BestPractice is that mother system for
+every repo it vendors this layer to, so this stays in the same
+repo-agnostic form [vendor-rollout-disclosed](vendor-rollout-disclosed.md)
+already fixed on -- "the repos vendoring this one," not the repo's own
+name -- so it still reads correctly once vendored into one of them.
+Strength: decided.
 
 **Extended again the same day**, on the same instruction to all three
 commands, after Morgan reported that a `Prompt Please` handoff had gone

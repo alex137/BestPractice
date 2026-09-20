@@ -1,15 +1,15 @@
 ---
 slug:        go-merge
-title:       "\"Go update\", \"Approved\", and \"Go merge\" -- authorize sync, confirm branch, commit, push, PR, and merge (or a direct push, when it's trivial)"
+title:       "\"Go update\" and \"Approved\" -- authorize sync, confirm branch, commit, push, PR, and merge (a direct push is the default; the full chain is for huge changes only)"
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
-occasion:    "a message carries the merge phrase, or plainly authorizes a merge"
+occasion:    "a message says \"Go update\" or \"Approved\", or plainly authorizes a merge"
 gates:       ["merge"]
-index_clause: "\"Go update\"/\"Approved\"/\"Go merge\": trivial -> push; else sync, branch, PR, merge"
+index_clause: "\"Go update\"/\"Approved\": default push; huge -> sync, branch, PR, merge"
 checked_by:  null
-defines:     ["Go update", "Approved", "Go merge"]
-command:     {"Go update": "Save the work, publish it, and tell you where it went — without asking anything further.", "Approved": "The same as **Go update**: save the work, publish it, and tell you where it went.", "Go merge": "The same as **Go update**: save the work, publish it, and tell you where it went."}
+defines:     ["Go update", "Approved"]
+command:     {"Go update": "Save the work, publish it, and tell you where it went — without asking anything further.", "Approved": "The same as **Go update**: save the work, publish it, and tell you where it went."}
 status:      active
 in_force_at: null
 supersedes:  ["merge-authorization-keyword"]
@@ -31,7 +31,18 @@ approved_by: "Morgan, 2026-09-08 -- moved up from his individual set to
   \"let's reverse it so that Go update is the primary one, that you recommend
   and use\" and \"it's not about the merge because many times it's not a merge
   but a direct edit,\" declining a rename again for the same reason as
-  2026-09-15"
+  2026-09-15; trivial/substantial replaced with a push-by-default/huge split
+  2026-09-20, Morgan, after a session's own CI-cost review of a dependent
+  repo found the trivial carve-out too narrow to spend a real cost
+  correctly -- \"it is not just SINGLE WORDING changes; it should be for
+  all NON-HUGE changes... have VERY STRICT CRITERIA for being a huge
+  change\", and \"Make this a universal rule 100%. This should be changed
+  universally\"; `Go merge` retired as a separate trigger later the same
+  day, Morgan -- \"I think we changed 'go update' and are no longer using
+  'go merge'... let's remove entirely the 'go merge' phrase/trigger, and
+  only 'go update' for that,\" keeping `Go update` and `Approved` as the
+  two -- see push-directly.md for the narrower phrase coined the same
+  conversation"
 strength:    decided
 ---
 ## Rule
@@ -59,31 +70,63 @@ punctuation around it, or what was said before it changes the answer, and
 you do not have to have announced that you are ready to commit first. Said
 before you have mentioned committing at all, it means get ready and go.
 
-**Classify the pending change before running that chain.** Two kinds of
-work answer to `Go update`, and they are not treated the same:
+**Classify the pending change before running that chain — and the default
+has flipped.** Until 2026-09-20 the default was the full chain, with a
+narrow trivial carve-out for a direct push. That carve-out was too narrow:
+a dependent repo's own GitHub Actions history, read directly rather than
+assumed, showed a routine pull request billing a Light check plus a full,
+un-debounced documentation check that a direct push to the same branch
+skips outright — cost paid for edits that carried none of the risk a PR
+exists to catch. **The default is now a direct push, straight to the
+branch, no PR — for everything except a narrow, strict set of huge
+changes:**
 
-- **Trivial** — wording, a typo, a dead link, formatting, or any other edit
-  that does not change what a document requires or what code does, *and* it
-  is already the kind of content this repo allows a direct edit to
-  ([its own rule](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/AGENTS.md#working-in-this-repo)
-  — README, practice wording, engine code, never an abstracted lesson
-  arriving as a check-in from elsewhere). For this: commit and push straight
-  to the branch. No pull request. The light check still runs before the
-  commit and the deep check still runs before the push — verification does
-  not get skipped, only the PR wrapper does.
-- **Substantial** — everything else: a new practice, a rule's meaning
-  changing, real logic in code, anything touching more than one system, or
-  anything you are not confident is trivial. Run the chain above, unchanged.
+- **Huge** — the change does at least one of these:
+  - **Touches enforcement or gating code** — a check other work is judged
+    against
+    ([tools/precedent_check.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/precedent_check.py),
+    [tools/leak_gate.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/leak_gate.py),
+    [tools/verify_harness.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/verify_harness.py),
+    a CI workflow file, a repo's own branch-restriction rule). A bad direct
+    push here does not just break one thing — it silently stops catching
+    the next hundred.
+  - **Changes a governance or authorization practice** — one whose job is
+    to grant, gate, or record an approval (this file,
+    [weak-yes.md](weak-yes.md), [decision-strength.md](decision-strength.md),
+    [open-item-disposition.md](open-item-disposition.md), a repo's own
+    merge-target rule). Loosening the rules that govern changes is a
+    different order of risk than loosening anything else.
+  - **Is hard to reverse once live** — a force-push, a delete or overwrite
+    with no straightforward undo, anything touching credentials, billing,
+    or access, or a change to something an outside party already depends
+    on (a link already sent to people, an install script another repo
+    runs unattended).
+  - **You are not confident it falls outside the first three.** Default UP
+    to huge, never down — the cost of one unneeded PR is a few CI
+    minutes; the cost of a bad direct push is whatever it broke, found
+    later, by someone else.
+- **Everything else pushes straight to the branch, no PR.** A new
+  practice, a rule's meaning changing in ordinary content, real logic in
+  ordinary code, a change spanning several files or systems — none of
+  that alone makes a change huge. **Size and reach are not the test; only
+  the four bullets above are.** The light check still runs before the
+  commit and the deep check still runs before the push either way —
+  verification never gets skipped, only the PR wrapper does.
 
-**Default to substantial when you are not sure.** A pull request here costs
-nothing extra — this is the branch that merges without anyone's sign-off —
-while a bad direct push is a silent edit sitting on the branch every session
-reads from. A close call goes through the PR.
+**This is the standing default for how `Go update` (and its synonyms) are
+read when nothing else qualifies them — it does not override a direct,
+specific instruction about this one change.** Told to skip the PR on
+something that would otherwise count as huge, or to open one for something
+that would otherwise push straight through, that instruction governs; the
+classification above is only what runs in its absence.
 
 **Say which path you took and why, in one clause, in the reply.** Not
-"pushed the fix" — *"pushed directly (wording only, no behavior change)"* or
-*"opened a PR (touches engine logic)"*. A path taken without its reason is
-exactly as unreviewable as no reason at all.
+"pushed the fix" — *"pushed directly (content change, not gating code)"*
+or *"opened a PR (touches
+[tools/precedent_check.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/precedent_check.py),
+a gating check)"*. A
+path taken without its reason is exactly as unreviewable as no reason at
+all.
 
 **`Approved` means the same thing.** Said of the work in front of you --
 as its own line, as a whole sentence, or as a clause accepting what you just
@@ -92,17 +135,17 @@ chain, and the identical branch-naming step. There is no weaker reading of
 it: it is not "noted", it is not "go ahead and I will merge it later", and it
 does not become a question about whether he meant the command.
 
-**`Go merge` means the same thing too, permanently, alongside `Go update`
-rather than instead of it.** `Go update` is the one to reach for first:
-"update" names what actually happens whether or not a merge ends up in the
-picture -- a trivial fix can go straight to the branch with no merge in
-sight at all -- where "merge" reads as a promise the phrase might not
-keep. `Go merge` stays exactly as good a way to say it, especially when a
-real merge is literally what is happening; neither phrase retires the
-other, and using one over the other still carries no different meaning or
-weaker authorization -- only which one gets said first changed.
+**`Go merge` is retired as a trigger.** Say `Go update` (or `Approved`)
+instead -- both carry the identical authorization, the identical chain,
+and the identical branch-naming step this file has always described. A
+message that still says "go merge" in plain English is read the way any
+intent is: if it plainly asks for this authorization, treat it as one, per
+the no-phrase-required paragraph below -- it is simply no longer one of the
+phrases guaranteed to be recognized on its own. For the case where the size
+call is already made and the PR should be skipped outright, say
+[push-directly](push-directly.md) instead.
 
-**None of the three phrases is required for the authorization to exist —
+**Neither of the two phrases is required for the authorization to exist —
 they are the unambiguous case, not the only case.** A message can plainly
 authorize a merge without any of them in it: "sold, ship it", "yes, let's
 do this", "that's exactly what I wanted, put it up" all read as this
@@ -170,34 +213,33 @@ merge it.** A message that says `approved` about work you have not yet shown
 him, where nothing is pending, is the one case worth a question -- and the
 question is *which* work, never whether the word meant what it said.
 
-**`Go merge` collides with ordinary language the same way, because
-"merge" names a routine action of its own elsewhere -- two lists, two
-branches, two reports.** "let's go merge those two lists", "go check the
-logs, then merge the report" are not the command -- there `merge` has an
-object of its own, exactly like `update` above. "Go merge it", "go merge,
-no PR needed for this one", and a lone line reading `GO MERGE` do count.
-Same test: if you can tell what would be updated and the word is being
-said about it, do it.
-
 **"Blocked" means a call came back refused, not that you expect one to.**
-`Go merge` is not an invitation to go looking for reasons the merge might
+`Go update` is not an invitation to go looking for reasons the merge might
 not be allowed; try the step, and hand off on what the tool actually said,
 quoting it. A restriction the repository itself declares on a branch is a
 different thing and is handed off nowhere -- the phrase authorizes a merge,
 it does not lift a branch rule, so a merge that waits for review goes on
 waiting for review.
 
-**Trivial reads narrowly, not generously.** "Fixed a typo in
-[README.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/README.md)",
-"corrected a dead link", "reworded a confusing sentence without changing
-what it asks for" are trivial. "Fixed a bug in
+**Huge reads narrowly, not generously — the opposite bias from the old
+trivial test.** "Fixed a bug in
 [tools/precedent_check.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/precedent_check.py)",
-"changed what a check enforces", "added or edited a practice" are not — even at one line,
-even when the fix is obviously correct, because what changed is behavior or
-meaning, not words. **The test is never the size of the diff; it is whether
-the meaning changed.**
+"changed what
+[tools/leak_gate.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/leak_gate.py)
+enforces", "edited `go-merge.md` itself" are huge, even at one line, even
+when the fix is obviously correct — because what they touch is the
+machinery that catches mistakes, or the rule that governs how changes
+land. "Fixed a typo in
+[README.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/README.md)",
+"reworded a confusing sentence", "added a new practice about doc-link
+formatting", "rewrote a function's internals without touching what calls
+it or what it's checked against" are not huge, however large the diff,
+because none of them touches enforcement, governance, or anything hard to
+reverse. **The test is never the size of the diff, and it is no longer
+"did the meaning change" — it is whether the change hits one of the four
+huge criteria in the Rule above.**
 
-**Once one of the three phrases is there, ask about the object, never about
+**Once one of the two phrases is there, ask about the object, never about
 the phrasing.** The one question worth stopping for is *which* pending work
 is meant, and only when several unrelated branches are genuinely in play.
 Asking whether the words were meant as the command produces exactly the
@@ -211,7 +253,7 @@ It says the person has approved *this* merge; it does not widen what may be
 merged, and it does not survive into the next one. Where a repository
 restricts a particular branch -- a release branch, a pinned integration
 branch, a `main` behind review -- that restriction still holds, and
-`Go merge` with no branch named means the branch the repository's own rules
+`Go update` with no branch named means the branch the repository's own rules
 say routine work lands on.
 
 ## Why
@@ -366,6 +408,46 @@ phrases keep meaning exactly the same thing, with the identical
 authorization and the identical chain; only which one comes first, in the
 frontmatter and in the assistant's own mouth, changed.
 
+**The push-by-default/huge split replaced trivial/substantial 2026-09-20,
+on Morgan's decision, after a session reviewing CI cost in a dependent
+repo found two of four recent pull requests
+paying for a Light check and a full documentation-check run that a direct
+push to the same branch would have skipped — for changes the trivial
+carve-out should have caught but an earlier session had classified as
+substantial instead.** Told the fix would cut that class of CI spend by
+roughly two-thirds, Morgan corrected the scope twice before deciding.
+**First**, that "pushed straight to the branch" means the repo's own
+routine branch (`precedent-beta-v01` here, not `main`), not a name to
+hardcode. **Second**, that the carve-out was never about wording alone:
+*"it is not just SINGLE WORDING changes; it should be for all NON-HUGE
+changes... have VERY STRICT CRITERIA for being a huge change."* Asked
+whether this was his own working habit or a change to the shared rule, he
+was explicit: *"Make this a universal rule 100%. This should be changed
+universally"* — while noting that a direct, specific instruction about one
+change always overrides the default, which is what the Rule's closing
+paragraph on this now says. The four huge criteria (gating code,
+governance practices, hard-to-reverse actions, and doubt itself) are this
+session's own draft against his instruction to make them strict, not
+dictated by him line for line — he set the shape and the bar, not the
+wording.
+
+**`Go merge` retired as a separate trigger, later the same day, on
+Morgan's decision.** Once `Go update` always decided push-vs-huge and
+always announced which path it took, keeping a second, permanently-equal
+phrase stopped earning its keep in his own words: *"I think we changed
+'go update' and are no longer using 'go merge'; 'go update' should now:
+decide if this is big or small, and if it's small, push directly, and if
+it's big, merge it,"* and *"let's remove entirely the 'go merge' phrase/
+trigger, and only 'go update' for that."* Both behaviors were already true
+of the Rule above -- what changed is that `Go merge` no longer stands
+beside `Go update` as a second, guaranteed-recognized trigger. This is not
+the rename declined on 2026-09-15 and 2026-09-18: the slug and file stay
+`go-merge`, so nothing that cites [go-merge](go-merge.md) breaks; only the
+set of phrases a session is guaranteed to recognize shrank by one. A
+separate, narrower phrase, [push-directly](push-directly.md), was coined
+the same conversation for skipping the huge/default judgment call itself,
+which `Go update` still always makes.
+
 ## Install
 No mechanical check, and not for lack of trying: this governs how a chat
 message is *read*, not any property of a diff, a commit, or the tree.
@@ -381,16 +463,15 @@ What IS checkable is downstream and already covered: the merge target
 (wherever a repository declares one) and the closing link to the merged pull
 request's page, where the one-click delete-branch button lives.
 
-**The trivial/substantial split is the same shape of judgment call, and just
-as uncheckable from the diff alone.** A one-line fix to
-[tools/precedent_check.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/precedent_check.py)
-and a one-line fix to
-[README.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/README.md)
-are the same shape in a `git log`; only the second is trivial by this rule,
-and telling them apart means reading what changed, not measuring it. One
-slice of it is mechanical and is not built:
-whether a push straight to a branch, with no open pull request, touches
-only the content a repository's own convention already allows a direct edit
-to. For this repo that convention is already written down -- named in the
-Rule above -- and a check could fail a direct push that lands outside it.
-Recorded rather than left silent; not built here.
+**The push-by-default/huge split is partly checkable, which the
+trivial/substantial split it replaced never was.** Two of the four huge
+criteria are still a judgment call no diff can settle alone — "hard to
+reverse" and "not confident" both require reading what changed, not just
+where. But **"touches enforcement or gating code" and "changes a
+governance practice" are close to mechanical**: a fixed list of paths
+([tools/precedent_check.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/precedent_check.py),
+[tools/leak_gate.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/leak_gate.py),
+[tools/verify_harness.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/verify_harness.py),
+`.github/workflows/*`, the governance practices named in the Rule above)
+and a check could flag a direct push landing on one of them with no open
+pull request. Recorded rather than left silent; not built here.

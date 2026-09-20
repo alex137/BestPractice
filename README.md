@@ -1,4 +1,8 @@
-# Precedent
+# Precedent: Defining Your Rules While Working
+
+*Humans should do what humans do best, and leave the rest to the
+machines. ([Humans at our
+Best](philosophy/HUMANS_AT_OUR_BEST.md))*
 
 Precedent solves the three biggest frustrations of working with people
 and AI together:
@@ -8,21 +12,23 @@ and AI together:
 2. **Nobody remembers why a decision was made, even a small one** — and
    on the rare occasion someone does, they've forgotten why it mattered
    enough to decide.
-3. **People forget small details, the why, and the how.** And when one
-   person does remember, your team is permanently dependent on that one
-   person.
+3. **People forget even the big details, the why, and the how.** And
+   when one person does remember, your team is permanently dependent on
+   that one person.
 
 It solves them by approaching human/AI collaboration from a different
 angle:
 
 - **Human collaboration comes first.** The tool exists to make people
   working together better, not to route around them.
-- **AI sits between the work and the people doing it**, pushing back on
-  ideas to strengthen them and keeping the record of how a decision was
-  reached, not just the decision itself.
-- **AI watches what's actually happening and proposes the rules for it** —
-  generated from a team's own history, and put up for approval, never
-  landed unapproved.
+- **The AI Assistant sits between ALL work requests (even tiny ones) and
+  the work that remains to be done** — pushing back on ideas to
+  strengthen them and keeping the record of how a decision was reached,
+  not just the decision itself.
+- **The AI Assistant watches what's happening and proposes the rules
+  around it on the fly** — generated from a team's own history, and put
+  up for approval, never landed unapproved: problems happen once, but
+  then rules are made for the future.
 
 Learn more about it: [Reasons Why](philosophy/REASONS_WHY.md),
 [Our Philosophy](philosophy/OUR_PHILOSOPHY.md), [Core
@@ -37,8 +43,8 @@ Claude Code attached to that repo.
 
 Here's what you'll actually see:
 
-1. **The assistant pushes back on you**, instead of just typing whatever
-   you say.
+1. **The AI Assistant pushes back on you**, instead of just typing
+   whatever you say.
 2. **When you explain why you disagreed with it, it writes that down** —
    as a rule, a "Practice," committed to the repo, not left sitting in the
    chat.
@@ -79,16 +85,20 @@ Pillars](philosophy/CORE_PILLARS.md).
 
 ## How
 
+Precedent can be seen as "Google Docs/Slides meets software" — work
+through the ideas and challenges together, iterating together, and
+patterns and rules emerge that you keep in your open system.
+
 - **Start a repo, not a doc — then vendor-in Precedent.** Spin the repo up
   for the idea the same way you'd start a shared doc, then bring
   Precedent's practice engine into it — that's what turns everything below
   from a wish into something that actually happens.
 - **Everyone works through their own AI.** Every teammate connects their
-  assistant to that same repo and works through it — nobody opens the
+  AI Assistant to that same repo and works through it — nobody opens the
   files directly.
 - **You brainstorm and direct it together.** The team argues the idea out
-  with their assistants and gives it direction; the repo is what catches
-  everything that comes out of that.
+  with their AI Assistants and gives it direction; the repo is what
+  catches everything that comes out of that.
 
 Learn more about it: [the guide for adopting
 it](documentation/ADOPTING.md), [The Working
@@ -112,19 +122,19 @@ philosophy](philosophy/OUR_PHILOSOPHY.md):
   decides what "right" looks like, and owns the outcome while the agents
   do the producing.
 - **Focus on whys and problems.** Every request opens with the problem
-  and the reason behind it, not a prescribed fix, so the assistant spends
-  its effort solving the actual problem instead of executing a guess.
+  and the reason behind it, not a prescribed fix, so the AI Assistant
+  spends its effort solving the actual problem instead of executing a
+  guess.
 - **Rules emerge from precedents decided, person-approved.** The rules
   that govern how the work gets done are extracted automatically, as a
   side effect of doing the work, rather than written up separately
   afterward.
 - **Chat and voice messages as the primary human entry point.** A
-  person's way of touching any document here is to talk to their
-  assistant and have it make the change, never to open the file and edit
+  person's way of touching any document here is to talk to their AI
+  Assistant and have it make the change, never to open the file and edit
   it directly.
 
 The individual pages, if you want to go deeper on any one idea:
-[The Working Loop](philosophy/THE_WORKING_LOOP.md),
 [Reasons Why](philosophy/REASONS_WHY.md),
 [The Talmudic Method](philosophy/THE_TALMUDIC_METHOD.md),
 [Company Building Rules](philosophy/COMPANY_BUILDING_RULES.md),
@@ -142,9 +152,9 @@ code](documentation/FOR_DEVELOPERS.md), or [if you
 don't](documentation/FOR_EVERYONE_ELSE.md).
 
 **Already set up?** [How to Use This Day to Day](documentation/DAILY_HABITS.md)
-has the daily habits and the phrases your assistant is guaranteed to
+has the daily habits and the phrases your AI Assistant is guaranteed to
 recognize. Installing on your own project doesn't require writing any
-code yourself: open a session on your project with an AI assistant and
+code yourself: open a session on your project with an AI Assistant and
 paste it [SETUP.md](SETUP.md), which runs the whole install as a
 conversation.
 

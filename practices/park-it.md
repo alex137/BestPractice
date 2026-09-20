@@ -1,15 +1,15 @@
 ---
 slug:        park-it
-title:       "\"Park it\" marks an item parked and ends the subject"
+title:       "\"Drop it\" marks an item parked and ends the subject"
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
-occasion:    "a person says \"Park it\" about an open item or a question"
+occasion:    "a person says \"Drop it\" about an open item or a question"
 gates:       ["reply"]
-index_clause: "\"Park it\" -- mark the item `parked` now; never raise it unprompted again"
+index_clause: "\"Drop it\" -- mark the item `parked` now; never raise it unprompted again"
 checked_by:  null
-defines:     ["Park it"]
-command:     {"Park it": "Mark the open question as parked and drop the subject. It won't be raised again unless you raise it."}
+defines:     ["Drop it"]
+command:     {"Drop it": "Mark the open question as parked and drop the subject. It won't be raised again unless you raise it."}
 status:      active
 in_force_at: null
 supersedes:  []
@@ -18,7 +18,7 @@ added:       "2026-09-08"
 approved_by: "Morgan, 2026-09-08 -- coined the same day, moved up to universal the same day"
 ---
 ## Rule
-When the person says **"Park it"**, write
+When the person says **"Drop it"**, write
 `**Disposition:** parked (<date>, <who said it>)` into the item they mean,
 **in that same turn**, and no session raises that item unprompted again --
 not this one, and not a later one that decides it has become urgent.
@@ -33,7 +33,7 @@ in play, park the one under discussion and say in one line which anchor was
 marked -- a wrong guess then costs three words to correct rather than a
 re-explanation.
 
-**"Park it" can arrive about something not yet written down at all.** Then
+**"Drop it" can arrive about something not yet written down at all.** Then
 write the item first and mark it `parked` in the same commit:
 [repo-is-memory](repo-is-memory.md) does not bend, and parked is not the
 same as forgotten.
@@ -101,6 +101,14 @@ across the command set generally, and for `go-merge` and `weak-yes`
 specifically to gain an ask-if-in-doubt step. This one takes neither change:
 widening it risks a false trigger that never surfaces itself again, which
 neither of those two risks.
+
+**Renamed to "Drop it" on 2026-09-20.** Morgan doesn't say "park" in
+conversation; he said so directly and asked for the phrase to match how he
+actually talks. The mechanism this practice defines is unchanged — same
+trigger-word discipline, same `parked` disposition it writes, same
+never-raise-it-again guarantee — only the word he says is different. The
+2026-09-08 and 2026-09-16 quotes above are left as spoken; they are what
+was actually said about the phrase "Park it" while that was still its name.
 
 ## Install
 Nothing mechanical checks that the phrase was *honoured* -- like `go-merge`,

@@ -746,6 +746,17 @@
       "why": "The occasion is what the current piece of work is FOR -- prose meant to persuade or be judged by a human reader -- not a file path or a repo; its own Detail says so directly. Reached through the occasion index.",
       "decided": "2026-09-19, when the practice landed at universal from the shared set precedent-team-writing"
     },
+    "push-directly": {
+      "globs": [
+        "**"
+      ],
+      "why": "A moment, and specifically a phrase in a MESSAGE -- no file path reaches it, same as go-merge's own entry above. Routed by the `merge` gate.",
+      "decided": "2026-09-20, when the practice landed",
+      "gates": [
+        "merge"
+      ],
+      "gates_why": "Its whole subject, like go-merge's, is what happens at a merge -- here, skipping it."
+    },
     "quote-discipline": {
       "globs": [
         "**"

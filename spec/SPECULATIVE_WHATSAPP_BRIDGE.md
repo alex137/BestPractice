@@ -232,7 +232,7 @@ already has the vocabulary for this and it was built for typing, not
 speaking, which turns out not to matter: `Go merge` is four syllables and
 means sync, name the branch, commit, push, open the pull request, merge,
 without asking again
-([practices/go-merge.md](../practices/go-merge.md)). So are `Park it`,
+([practices/go-merge.md](../practices/go-merge.md)). So are `Drop it`,
 `Three Things`, `Simple words`, `Weak yes` and `Spawn session`. **A standing
 command vocabulary is exactly what a voice interface needs** — short, fixed,
 unambiguous phrases that survive transcription — and this repository has one

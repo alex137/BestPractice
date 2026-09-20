@@ -95,7 +95,7 @@ the line runs through paths and lists.
 ## 8. A Few Standing Phrases Mean Exactly One Thing
 
 Plain English always works, but a short vocabulary saves a paragraph each
-time: **Go merge**, **Park it**, **Three Things**, **Simple words**, **Weak
+time: **Go merge**, **Drop it**, **Three Things**, **Simple words**, **Weak
 yes**, and the rest. Each is itself a practice, so its meaning is written
 down and the assistant is guaranteed to recognize it. Say **"Vocabulary"**
 to have the current list read to you.

@@ -82,7 +82,7 @@ suits an explanation of that argument to somebody who was not in it.
 
 Placed at universal because it is an opinion about how anyone should be able
 to talk to a session, with nothing in it specific to any project, team or
-person — the same reasoning that put `Go merge`, `Park it` and `Three Things`
+person — the same reasoning that put `Go merge`, `Drop it` and `Three Things`
 here.
 
 ## Story
