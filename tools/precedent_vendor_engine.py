@@ -1155,10 +1155,43 @@ CI_WORKFLOW_TEMPLATES = {
     'consumer': (
         ('leak-gate.yml.template', '.github/workflows/leak-gate.yml'),
     ),
-    'source': (
-        ('precedent-check.yml.template', '.github/workflows/precedent-check.yml'),
-        ('leak-gate.yml.template', '.github/workflows/leak-gate.yml'),
-    ),
+    # A PRACTICE SOURCE RUNS NO CI AT ALL (2026-09-21, Morgan, strength:
+    # decided): "the sets don't need CI; maybe we define the default to be
+    # that the precedent-individual and precedent-shared-* do NOT get CI.
+    # That could be the default rule, for future individual and shared
+    # source repos."
+    #
+    # MEASURED, from his own GitHub usage export for that day. 127 of 143
+    # billed minutes -- 89% -- came from four practice sets running these
+    # two workflows. The twelve CONSUMING repos, all on the one-job
+    # light-check, cost 16 minutes between them. The sets' share had gone
+    # 2% -> 89% in eleven days while the absolute number stayed flat,
+    # because every Update Vendors pass pushes a branch to four repos and
+    # each push fires both workflows in each.
+    #
+    # WHY A SOURCE IS THE RIGHT PLACE TO STOP. Every change to a set
+    # arrives through a session that runs the full gate suite before it
+    # pushes -- the deep check is what gates a push (two-check-levels), and
+    # the commit gate already ran doc_lint. CI there re-checks a tree that
+    # was checked seconds earlier by the same tools. And most of what it
+    # runs does not apply: a set carries few of the practices the registry
+    # binds, so precedent-check SKIPS most of its catalogue there, which is
+    # how two real sets came to report `0 passed` on an ordinary commit.
+    # We were paying per-job minutes, rounded up, for a second opinion that
+    # was mostly skips.
+    #
+    # A CONSUMER IS DIFFERENT and keeps its leak gate. A consuming repo can
+    # receive a contribution from a fork, whose pushes never fire `push` in
+    # the receiving repository -- so without the workflow a contributed
+    # branch reaches it unscanned. A source set is single-owner and takes
+    # no forks.
+    #
+    # The empty tuple is not an oversight and is READ as a decision:
+    # _remove_retired_ci_workflow_files sweeps whatever a kind no longer
+    # ships, and only for a kind it recognises, so `source` being present
+    # and empty propagates the deletion to every set on its next refresh
+    # while an unknown kind still triggers nothing.
+    'source': (),
 }
 
 # CI-workflow analog of RETIRED_ENGINE_FILES above -- a relative path this

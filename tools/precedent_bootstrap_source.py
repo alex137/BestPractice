@@ -201,35 +201,24 @@ INDIVIDUAL_SOURCE_HOOK_REL = (HARNESS_HOOKS_REL
 HARNESS_SETTINGS_REL = 'templates/harness/claude-code/settings.json'
 
 
-WORKFLOW_TEMPLATES = (
-    # (template under templates/github-actions/, path in the new set, why a
-    # set without it is under-gated.)
-    #
-    # ONE ENTRY, NOT TWO, since 2026-09-19: this used to be
-    # views-drift.yml.template and precedent-check.yml.template separately,
-    # each its own workflow file with its own debounce step. Merged the same
-    # day precedent-check.yml.template's own header explains why (two
-    # workflows billed two job-minutes on a debounced push regardless of
-    # what the debounce window decided; one workflow with the debounce
-    # decision in its own gating job bills one). The views-drift CHECK
-    # still exists -- it is a job inside precedent-check.yml now, not a
-    # dropped feature. spec/CI_MINUTES_PLAN.md item 9 has the full account.
-    ('precedent-check.yml.template', '.github/workflows/precedent-check.yml',
-     'nothing runs the CHECK SUITE here at all -- a set gated only on the '
-     'one or two rules it hand-wired a workflow for is silent on the rest '
-     'of its own catalogue, and nothing checks this set\'s generated views '
-     'for drift on a pull request either -- the vendored provenance check '
-     'covers the same three views since binds_publishers, but only when '
-     'somebody runs it by hand'),
-    # Added 2026-09-20, spec/CI_MINUTES_PLAN.md item 12 -- leak-gate.yml.
-    # template's own header explains the visibility-aware job gate.
-    ('leak-gate.yml.template', '.github/workflows/leak-gate.yml',
-     'nothing scans this set\'s own tracked tree for a leaked private term '
-     'server-side at all -- a set is always visibility: private per '
-     '_write_source_manifest above, so a session that skips (or bypasses) '
-     'its local pre-push hook has no independent backstop before a push '
-     'reaches main'),
-)
+WORKFLOW_TEMPLATES = ()
+# EMPTY SINCE 2026-09-21: a practice source installs no CI workflow at all
+# (practice: source-sets-run-no-ci; Morgan, strength: decided -- "the sets
+# don't need CI ... That could be the default rule, for future individual
+# and shared source repos").
+#
+# What used to be here, and why each entry is gone rather than moved:
+# precedent-check.yml ran the check suite, and leak-gate.yml scanned the
+# tracked tree. Both re-ran, on a billed runner, tools that the session
+# pushing the change had already run locally -- the deep check gates a push
+# and the commit gate had already run doc_lint. The measurement that ended
+# it is in the practice: 127 of 143 billed minutes on 2026-09-21 came from
+# four sets running exactly these two, against twelve consuming repos
+# costing 16 minutes between them.
+#
+# The third field each entry carried was "why a set without it is
+# under-gated". That question now has one answer for every set, so it lives
+# in the practice rather than per row.
 # Same (template, dest path) pairs precedent_vendor_engine.CI_WORKFLOW_
 # TEMPLATES['source'] declares for refresh()'s own use -- checked here,
 # once, at import time, rather than trusted to stay in sync by eye: this
