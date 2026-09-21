@@ -774,9 +774,81 @@ largest single line items are not Precedent's to fix from here at all:
 12 repos) and `bestpractice-docs.yml` copies predating the `paths:` filter.
 Phase B's own status line above calls the retired workflows "cosmetic, not
 a live cost" on the grounds that their triggers no longer fire on an
-ordinary push; **the usage export contradicts that directly** — `light-check.yml`
-billed minutes on 2026-09-20 itself. That line is wrong and the sweep it
-defers is the single largest remaining item.
+ordinary push. **Its conclusion is wrong and its premise is right**, which
+this item originally got backwards — see item 14.
+
+## Item 14 — the sweep this plan authorized deleted live checks, and this repo already had a practice saying it would (2026-09-20)
+
+Item 13's closing paragraph sent a session to delete six "retired" workflow
+files across sixteen repos. It ran. **The instruction was wrong in a way
+this repository had already written down**, and the correction belongs here
+rather than in the sweep's own thread.
+
+**What the sweep found, reading the files instead of their names.** Every
+deleted file triggered on `pull_request` (plus `workflow_dispatch`). **Not
+one had a `push:` trigger.** So Phase B's premise was correct all along:
+they do not fire on push. The usage export was also correct: they bill. Both
+are true, because **the minutes arrive through pull-request volume** — about
+fourteen PR runs a day in the busiest repo — not through pushes. Item 13
+read "the export says they bill" as "so the no-push premise must be false",
+which does not follow, and anyone auditing for `push:` triggers on the
+strength of that sentence will keep finding nothing and keep concluding the
+export is lying.
+
+**The serious error: "pre-Precedent leftovers with no replacement" was an
+inference, not a finding.** Its only basis was this document's own table
+saying those filenames are "not in this repo's tree at all" — which means
+BestPractice never templated them, and says nothing whatsoever about
+whether the repo carrying one needs it. The sweep measured what they
+actually ran:
+
+- one repo's `light-check.yml` ran a check script under its own
+  `tools/checks/`, materialized from current Precedent sources;
+- another's ran `tools/precedent_check.py --only light-check`;
+- three voice repos' `unified-prompt-check.yml` / `platform-docs-check.yml`
+  gated generated-prompt staleness, and one of those repos vendors another's
+  generated prompt daily — so a stale prompt can now reach a live app.
+
+These were current-engine checks for live rules. Deleting them removed
+coverage in nine repos and bought nothing back, because the cost was never
+in what they checked.
+
+**This repo predicted it, twice, in writing.**
+[spec/MIGRATING_EXISTING_INSTALLS.md](MIGRATING_EXISTING_INSTALLS.md)'s own
+retired-file table — the authority item 13 should have consulted and did not
+— says of exactly these five names: *"Confirm in the repo carrying the file
+what each one actually checks before touching it; a check with no equivalent
+anywhere in the current engine is a gap to raise with the person, not a file
+to delete on a guess."*
+[vendor-update-runbook](../practices/vendor-update-runbook.md) step 10 says
+it in bold: *"Never match by filename alone before touching anything on this
+list"*, and cites this same `light-check.yml` case from earlier the same day.
+And [workflow-file-outside-vendoring](../practices/workflow-file-outside-vendoring.md)
+exists **because a session already made this precise mistake**: it built a
+fleet-wide sweep list by matching usage-report filenames, flagged
+`light-check.yml` as a retired duplicate, and a sister session proved it was
+a live required check. Item 13 reproduced that failure from the same source,
+and this time the deletions were pushed.
+
+**The mechanism, stated so it is not re-derived wrongly a third time:** a
+filename in a usage report tells you a workflow costs money. It tells you
+nothing about what the workflow does. Only reading the file does that, and
+`verify-decomposition` is the practice — check the parts, never the total.
+
+**Also corrected here:** item 13's sweep figures (735 minutes across six
+files, 609 for `light-check.yml`) are right against the export, but the
+per-repo list handed to the sweep dropped four already-deleted `DEPRECATED-*`
+repos worth 73 minutes without restating the totals, so the session
+reasonably found 662 and 542 and reported the arithmetic as broken. The
+totals and the list were measuring different sets.
+
+**One thing the sweep got right that item 13 got wrong by omission:**
+`bestpractice-upstream-sync.yml` is kept everywhere.
+[spec/MIGRATING_EXISTING_INSTALLS.md](MIGRATING_EXISTING_INSTALLS.md) step 6
+names it as the counter-example — *a hold with a stated condition for
+lifting it, which is exactly what distinguishes one from a leftover* — and
+it is `workflow_dispatch`-only in every copy since its crons came off, so
+deleting it saves nothing forward.
 
 ## Sequencing and status
 
