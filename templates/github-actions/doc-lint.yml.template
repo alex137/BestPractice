@@ -15,19 +15,20 @@
 # run time and every candidate path is watched. Nothing here needs editing
 # for either install model.
 #
-# TWO JOBS, NOT ONE (2026-09-19, practice: cite-the-incident). Until then
-# this was a single job with a debounce STEP at the top: the step could skip
-# every step after it, but the job itself had already started a runner and
-# checked out the tree to reach that decision, and GitHub bills a job for at
-# least one whole minute no matter how quickly it finishes. A step-level
-# skip is a cheaper run, not a free one. Split into a `debounce` job (always
-# runs, decides) and a `markdown` job (`needs: debounce`, `if:` gated), a
-# debounced push now bills one job-minute (the debounce decision) instead of
-# whatever the single-job version cost -- a job whose `if:` evaluates false
-# is reported SKIPPED and never allocates a runner. See
-# precedent-check.yml.template's own header for the fuller account and the
-# real-account measurement that prompted it (spec/CI_MINUTES_PLAN.md item 8
-# in this repo), from which this same split is copied.
+# HOW THIS FILE GOT TO ONE JOB (2026-09-19 and 2026-09-20, practice:
+# cite-the-incident). Until 2026-09-19 this was a single job with a debounce
+# STEP at the top: the step could skip every step after it, but the job
+# itself had already started a runner and checked out the tree to reach that
+# decision, and GitHub bills a job for at least one whole minute no matter
+# how quickly it finishes. A step-level skip is a cheaper run, not a free
+# one. That was correct, and the fix drawn from it was not: the file was
+# split into a `debounce` job (always runs, decides) and a `markdown` job
+# (`needs: debounce`, `if:` gated), on the reasoning that a job whose `if:`
+# evaluates false never allocates a runner and is not billed. True of the
+# SKIPPED job, and beside the point -- the deciding job is billed exactly
+# like the step was. See "ONE JOB, NOT TWO" further down, and
+# precedent-check.yml.template's header for the fuller account and the
+# measurement that settled it (spec/CI_MINUTES_PLAN.md item 13).
 name: Precedent documentation checks
 
 on:
@@ -97,11 +98,28 @@ concurrency:
   group: docs-${{ github.ref }}
   cancel-in-progress: true
 
+# ONE JOB, NOT TWO (2026-09-20). This file carried a `debounce` job whose
+# output gated the markdown job below via `needs:` + `if:`. A job whose
+# `if:` evaluates false is never billed -- but the job that DECIDES is
+# billed like any other, so with S the fraction of triggers the window
+# skips, the two shapes cost:
+#
+#   debounce job + markdown job:  S x 1 + (1-S) x 2  =  2 - S
+#   markdown job alone:                                     1
+#
+# 2 - S > 1 for every S below 1: the debounce job could not pay for itself
+# at any window setting. It is gone, along with `ci_debounce_minutes` and
+# the `actions: read` scope it needed to list this workflow past runs. The
+# `paths:` filter above does the same job for free -- GitHub evaluates it
+# before allocating any runner, so a push touching no Markdown costs
+# nothing at all, which no debounce window could ever match.
+# precedent-check.yml.template header has the full account and the timings
+# that settled it.
+
 permissions:
   contents: read
-  actions: read
 
-# RUNNER, OVERRIDABLE PER REPO (2026-09-20). Both jobs below run on
+# RUNNER, OVERRIDABLE PER REPO (2026-09-20). The single job below runs on
 # `ubuntu-latest` unless this repo declares a `PRECEDENT_RUNNER` repository
 # variable (Settings -> Secrets and variables -> Actions -> Variables) --
 # e.g. `self-hosted`, for an adopter who already operates their own runner.
@@ -111,87 +129,10 @@ permissions:
 # can stand up on their behalf. spec/CI_MINUTES_PLAN.md item 6 has the
 # trade-offs; GITHUB_ACTIONS.md's "Controlling Actions Minutes" is where
 # this variable is documented alongside the levers that need no opt-in at
-# all (ci_workflows disabled by default, the debounce job, branch scoping).
+# all (ci_workflows disabled by default, branch scoping, one job per run).
 jobs:
-  # ONE job, so the "have we looked recently" decision is billed once. The
-  # markdown job below is gated with `needs: debounce` + `if:`, never a step
-  # inside a job that already started -- see the header comment for why
-  # that distinction is the entire point of this file's shape.
-  debounce:
-    name: Decide whether this push needs a fresh check
-    runs-on: ${{ vars.PRECEDENT_RUNNER || 'ubuntu-latest' }}
-    outputs:
-      skip: ${{ steps.debounce.outputs.skip }}
-    steps:
-      # No fetch-depth override -- this job only reads precedent.json out of
-      # the working tree, never git history, so the default shallow
-      # checkout is enough. The markdown job below takes its own full
-      # checkout when it actually runs.
-      - uses: actions/checkout@v4
-
-      # DEBOUNCE (2026-09-16, moved into its own job 2026-09-19, default
-      # widened 360 -> 720 on 2026-09-20 -- spec/CI_MINUTES_PLAN.md item 11),
-      # for the steady-drip case concurrency's own comment above says it
-      # cannot reach: a repo pushed to every few minutes pays for a full
-      # check on every one of them even with no two runs ever overlapping.
-      # Reads `ci_debounce_minutes` from precedent.json (default 720 = 12
-      # hours; 0 disables it) and skips the markdown job below when the last
-      # COMPLETED run of this workflow on this branch finished inside that
-      # window -- spec/CI_MINUTES_PLAN.md's item 4. This is an advisory
-      # check (a broken link sits uncaught for at most one window); a
-      # workflow standing in for a security backstop should not carry this
-      # step at all. 720 is a starting point, not a fixed answer -- a repo
-      # with heavy churn on the branch(es) named above may want it shorter;
-      # item 8's incident is the precedent for that call, made per-repo in
-      # precedent.json, not by editing this template.
-      - name: Skip if checked recently (debounce)
-        id: debounce
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -eu
-          minutes="$(python3 - <<'PY'
-          import json, pathlib
-          try:
-              d = json.loads(pathlib.Path('precedent.json').read_text())
-          except (OSError, ValueError):
-              d = {}
-          try:
-              v = int(d.get('ci_debounce_minutes', 720))
-          except (TypeError, ValueError):
-              v = 720
-          print(v)
-          PY
-          )"
-          if [ "$minutes" -le 0 ]; then
-            echo "ci_debounce_minutes: $minutes -- debounce off, running"
-            echo "skip=false" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          last="$(gh run list --workflow "${{ github.workflow }}" \
-                   --branch "${{ github.ref_name }}" --status completed \
-                   --limit 1 --json updatedAt --jq '.[0].updatedAt // empty' \
-                   2>/dev/null || true)"
-          if [ -z "$last" ]; then
-            echo "no prior completed run on this branch -- running"
-            echo "skip=false" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          elapsed=$(( ($(date -u +%s) - $(date -u -d "$last" +%s)) / 60 ))
-          if [ "$elapsed" -lt "$minutes" ]; then
-            echo "last completed run was ${elapsed}m ago, inside the " \
-                 "${minutes}m window -- skipping"
-            echo "skip=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "last completed run was ${elapsed}m ago, outside the " \
-                 "${minutes}m window -- running"
-            echo "skip=false" >> "$GITHUB_OUTPUT"
-          fi
-
   markdown:
     name: Markdown lint
-    needs: debounce
-    if: needs.debounce.outputs.skip != 'true'
     runs-on: ${{ vars.PRECEDENT_RUNNER || 'ubuntu-latest' }}
 
     steps:

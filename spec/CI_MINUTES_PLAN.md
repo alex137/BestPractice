@@ -680,6 +680,99 @@ install/migration pass, same as any other CI template, and this session's
 GitHub access does not reach that repo to check what it currently has
 installed, if anything.
 
+## Item 13 — the debounce job could never pay for itself; one job per workflow (2026-09-20)
+
+Raised by Morgan the same day item 11 shipped, against a fresh usage
+export: **134 minutes billed in the first three hours of 2026-09-20**, with
+the four practice sets carrying items 8/9/11's full fix contributing 71 of
+them. Items 4, 8, 9 and 11 had all aimed at this number over five days and
+none of them had moved it. His framing, and the reason this item exists:
+he intends to **20x** his usage, at which point today's shape is not an
+annoyance but a budget.
+
+**What every earlier item had in common.** Concurrency, branch scoping and
+the debounce window all reduce **how often** a run is paid for. None of them
+touches **what one run costs**. Nobody had measured what one run costs.
+
+**The measurement, taken in a clone of an installed practice set:**
+
+| What the runner is there to do | Time |
+|---|---:|
+| [`tools/precedent_check.py`](../tools/precedent_check.py) | 0.35s |
+| [`tools/build_views.py`](../tools/build_views.py) `--check` | 0.12s |
+| **Total useful work** | **0.47s** |
+| **Billed for it under the shape item 9 shipped** | **3 minutes** |
+
+GitHub bills **per job, rounded up to the whole minute**. Three jobs
+(`debounce`, `precedent-check`, `views-drift`) is three billed minutes,
+three checkouts and three Python setups, for under half a second of work.
+The overhead is not a tax on the cost — it very nearly *is* the cost.
+
+**The arithmetic that retires the debounce job.** Item 9's reasoning was
+that a job whose `if:` evaluates false is reported SKIPPED, never allocates
+a runner, and is not billed. That is true, and it is not the whole ledger:
+**the job that makes the decision is billed like any other job.** With `S`
+the fraction of triggers the window skips:
+
+```
+precedent-check.yml   debounce + 2 check jobs:  S·1 + (1−S)·3  =  3 − 2S
+                      one job, no debounce:                         1
+
+doc-lint.yml          debounce + 1 check job:   S·1 + (1−S)·2  =  2 − S
+                      one job, no debounce:                         1
+```
+
+Both are worse than no debounce for **every** `S` below 1, tying only at a
+hypothetical 100% skip rate — at which point the workflow is doing nothing
+at all. There is no window setting that wins. That is why `360 → 30 → 720`
+(items 8, 9 and 11) never showed up in the bill: **the quantity being tuned
+was not the one doing the spending**, and three days of tuning it was three
+days not spent counting jobs.
+
+**It also gave up coverage for nothing.** Item 11 accepted, explicitly, that
+`main` could now sit unchecked for up to 12 hours. That trade bought
+negative savings. Removing the debounce returns the 12 hours and costs less.
+
+**What shipped.**
+
+1. `precedent-check.yml.template`: **3 jobs → 1**. The `debounce` job is
+   gone; `views-drift`'s steps moved into the `precedent-check` job, keeping
+   their own step names and failure messages (which is all the separate job
+   was buying — the file's own "FOUR NAMED STEPS, NOT ONE" comment already
+   made that argument about steps within a job). One checkout at
+   `fetch-depth: 0` serves both checks. `actions: read` dropped with the job
+   that needed it.
+2. `doc-lint.yml.template`: **2 jobs → 1**, same reasoning, same dropped
+   scope. Its `paths:` filter already did the debounce's job better and for
+   free — GitHub evaluates `paths:` *before* allocating a runner, so a push
+   touching no Markdown costs zero, which no in-workflow guard can match.
+3. `ci_debounce_minutes` is retired. Nothing reads it; a repo carrying it
+   can delete the field.
+
+**Cost per firing trigger: 3 minutes → 1 for a practice set, 2 → 1 for a
+consuming repo** — before counting the two redundant checkouts and Python
+setups that go with the jobs.
+
+**`paths:` is still absent from `precedent-check.yml.template`, deliberately**
+— the file's own comment gives the reason (this repo's checks read
+frontmatter, the engine, `checked_by:` scripts and `precedent.json`, so a
+filter that misses one input is a green workflow that checked nothing).
+That reason holds. It is worth revisiting only with a filter derived from
+the inputs rather than guessed at.
+
+**What this does NOT fix, and it is most of the bill.** Everything above is
+a template change, and per `vendor-rollout-disclosed` a template reaches an
+installed repo only through "Update Vendors". On the 2026-09-20 export,
+**18 of the 22 repos spending minutes have never taken one** — and the two
+largest single line items are not Precedent's to fix from here at all:
+`light-check.yml` (609 minutes month-to-date, 23.5% of everything, live in
+12 repos) and `bestpractice-docs.yml` copies predating the `paths:` filter.
+Phase B's own status line above calls the retired workflows "cosmetic, not
+a live cost" on the grounds that their triggers no longer fire on an
+ordinary push; **the usage export contradicts that directly** — `light-check.yml`
+billed minutes on 2026-09-20 itself. That line is wrong and the sweep it
+defers is the single largest remaining item.
+
 ## Sequencing and status
 
 Morgan approved phases 1–5 on 2026-09-16, holding items 6 and 7 for later

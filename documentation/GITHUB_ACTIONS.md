@@ -128,34 +128,39 @@ individual's own practice set or dependent project.
   cadence in it; its header explains why it gates the whole tracked
   Markdown corpus each run rather than "what changed", and what that
   trades away.
-- **A debounce, for a repo pushed to constantly that still wants a
-  push-triggered check** (2026-09-16, moved into its own JOB 2026-09-19) —
-  a `debounce` job in
+- **One job per workflow — the lever that replaced the debounce**
+  (2026-09-20, [spec/CI_MINUTES_PLAN.md](../spec/CI_MINUTES_PLAN.md) item
+  13). GitHub bills **per job, rounded up to a whole minute**, so what a
+  workflow costs on a trigger that fires is mostly its job count, not its
+  run time. Measured on a real installed practice set:
+  [precedent_check.py](../tools/precedent_check.py) takes **0.35s** and
+  [build_views.py](../tools/build_views.py) `--check` **0.12s** — 0.47 seconds of
+  work that the three-job shape billed as **three minutes**, paying for
+  three checkouts and three Python setups to carry it. Both
   [doc-lint.yml.template](../templates/github-actions/doc-lint.yml.template)
   and [precedent-check.yml.template](../templates/github-actions/precedent-check.yml.template)
-  (the latter now covers the generated-views drift check too — see
-  "Install in a Practice-Set Repository" below) skips the check job(s) that
-  `needs:` it when the last completed run on the same branch finished less
-  than `ci_debounce_minutes` ago (default `720` = 12 hours; `0` disables
-  it). Read from `precedent.json` in a dependent repo, or `identity.json`
-  in an individual practice set — a team set has neither field to read and
-  always gets the default. **A separate job, not a step inside one that
-  already started** (2026-09-19): a step-level skip still bills a whole
-  runner-minute for the job that reached it, so a debounced push under the
-  old shape cost as much as the decision to skip did. A job whose own `if:`
-  is false is reported SKIPPED and never allocates a runner — not billed at
-  all. Not applied to this repo's own
-  `docs.yml`/`deep-check.yml`/`leak-gate.yml`, or to any workflow standing
-  in for a security backstop: [spec/CI_MINUTES_PLAN.md](../spec/CI_MINUTES_PLAN.md)'s
-  item 4 is the measurement and the reasoning behind that line.
+  now ship **one job**, and a trigger that fires bills one minute.
+- **The `debounce` job and `ci_debounce_minutes` are RETIRED** (2026-09-20).
+  A debounce job skipped the check job(s) that `needs:` it when the last
+  completed run on the branch was recent. A skipped job really is unbilled —
+  but **the job that decides is billed like any other**, which the shape
+  never accounted for. With `S` the fraction of triggers skipped, a
+  debounce job plus `N` check jobs costs `S + (1-S)(1+N)` against `N` for
+  no debounce at all: worse for every `S` below 1, at every window setting.
+  That is why tuning the window `360 → 30 → 720` across three days (items
+  8, 9 and 11) never moved the bill — the cost being tuned was not the one
+  doing the spending. A repo that still carries `ci_debounce_minutes` in
+  its `precedent.json`/`identity.json` can delete the field; nothing reads
+  it any more.
 - **`pull_request:` alongside a branch-scoped `push:`, not push on every
   branch** (2026-09-19, [spec/CI_MINUTES_PLAN.md](../spec/CI_MINUTES_PLAN.md)
   item 8) — both templates ship `push: branches: [main]` plus
   `pull_request: [opened, synchronize]`. A branch with no open PR triggers
   neither event that matches here, so the workflow is never evaluated —
-  cheaper than debounce, which still bills the debounce job's own minute.
-  A branch with an open PR gets checked, debounced the same way repeated
-  pushes to an already-open PR are. Widen the branch list
+  the cheapest lever there is, because GitHub decides it before allocating
+  any runner. A branch with an open PR gets checked on each synchronize,
+  with `concurrency:` collapsing a burst into one surviving run. Widen the
+  branch list
   (`branches: [main, precedent-beta-v01]`, this repo's own pattern) if the
   repo installing this has more than one routine merge target — each
   template's own header says so at the trigger block. Do not add
