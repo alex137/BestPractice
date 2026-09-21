@@ -373,12 +373,14 @@
       "decided": "promoted to universal 2026-09-07"
     },
     "fence-block-for-paste": {
-      "globs": null,
+      "globs": [
+        "**"
+      ],
       "gates": [
         "reply"
       ],
       "gates_why": "Its occasion is the reply itself -- the moment text meant to be pasted is handed over.",
-      "why": "No glob: the artifact is a chat reply, which the tree does not hold, so no path identifies it.",
+      "why": "Left at `**` on purpose, same as reply-links-files: a reply is not a file, so no glob names the moment text meant to be pasted is handed over.",
       "decided": "2026-09-21, when it was demoted from the resident block to the `reply` gate"
     },
     "filename-separator": {
@@ -848,12 +850,14 @@
       "decided": "2026-09-06, when the practice was added"
     },
     "reply-links-files": {
-      "globs": null,
+      "globs": [
+        "**"
+      ],
       "gates": [
         "reply"
       ],
       "gates_why": "Its occasion is the reply itself.",
-      "why": "On-demand since 2026-09-21; its applies_to is not this file's business. The `reply` gate is its channel -- the moment a reply ends is not a place a glob can name.",
+      "why": "Left at `**` on purpose: the artifact is a chat reply, which the tree does not hold, so no path identifies the occasion. The `reply` gate is the channel. Was `null` here while the practice was resident; it became a real answer when the 2026-09-21 reduction pass demoted it.",
       "decided": "phase 4 routing pass; re-stated 2026-09-21 when it was demoted out of the resident block"
     },
     "repo-is-memory": {
