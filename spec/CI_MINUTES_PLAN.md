@@ -666,7 +666,20 @@ by the same `ci_workflows` preference as before.
 (no config, private with and without a declared `base_branch`, explicit
 public, an invalid `visibility` value, a source-kind manifest with no
 `visibility` key at all, and malformed JSON) — every failure mode resolves
-to `public`/`main`, the safe direction, never a silent under-scan. The
+to `public`/`main`, the safe direction, never a silent under-scan.
+
+**That last clause was wrong, and was corrected 2026-09-21.** Those seven
+fixtures cover config that is MISSING or MALFORMED. None of them covers
+config that is present, well-formed and **factually wrong**, which is the
+case that actually occurred: `precedent_bootstrap_source.py` writes
+`"visibility": "private"` into every `precedent-source.json` it creates,
+and two of Morgan's practice sets carrying that line are **public on
+GitHub**. The gate would have read "private", skipped every working-branch
+push, and reported green — on a repo where a leaked secret is published to
+the world the instant it is pushed. The template now takes visibility from
+`github.event.repository.private`, which GitHub supplies and no file in the
+tree can contradict; the declaration is still read, still reported, and can
+no longer narrow the scan. Its own scope-job comment carries the incident. The
 gate's bash decision logic checked against the five real event/visibility/
 branch combinations that matter. `python3 -c "import ast; ast.parse(...)"`
 on every edited `.py` file and a full YAML parse of the new template.
@@ -849,6 +862,50 @@ names it as the counter-example — *a hold with a stated condition for
 lifting it, which is exactly what distinguishes one from a leftover* — and
 it is `workflow_dispatch`-only in every copy since its crons came off, so
 deleting it saves nothing forward.
+
+## Item 15 — the same one-minute floor, measured in a consuming repo (2026-09-21)
+
+Item 13 measured the per-job billing floor in a **practice set**: 0.47
+seconds of work billed as three minutes, fixed by collapsing three jobs into
+one. A session working the sweep across Morgan's **consuming** repos reached
+the identical conclusion from the other direction, and its numbers belong
+here rather than only in a chat thread.
+
+**What it measured.** In the busiest consuming repo, the light check is a
+**13-second job**, billed at GitHub's one-minute-per-job floor, running on
+roughly **14 pull-request runs a day**. That is about **420 minutes a month
+from one repo**, with nothing misconfigured — the floor is the entire cost.
+The same repo also runs the vendored `bestpractice-docs.yml` on the same
+pull request, so **two workflows bill two one-minute minimums for about
+twenty seconds of combined work**.
+
+**Two levers it ruled out, correctly.** `concurrency: cancel-in-progress`
+does nothing at a 13-second runtime: the superseded run has almost always
+finished before the newer one starts, so there is nothing to cancel.
+And `paths:` filters, added during the same pass and derived from each
+check's own extension list rather than guessed, are free and correct but
+will not recover much here — the repo's pull requests are overwhelmingly
+Markdown and Markdown is inside the filter. A filter only helps where the
+excluded extensions are what people actually touch.
+
+**The lever that remains is the one item 13 already named: job count.** Two
+workflows on one pull request is two floors; one workflow with one job is
+one. Folding the vendored doc lint's work into a repo's own check job halves
+the per-pull-request floor with no coverage lost — and in a repo that has
+its own equivalent check, `ci_workflows: disabled`
+([GITHUB_ACTIONS.md](../documentation/GITHUB_ACTIONS.md)) is the supported
+way to stop the vendored one being installed, rather than deleting a
+vendored file, which is item 14's whole lesson.
+
+**What this does not license.** Dropping `pull_request: synchronize` to cut
+the four-to-five runs a branch accumulates would trade away per-push
+verification on open pull requests — the coverage item 9 restored after
+item 8 gave it up, on the strength of a real error caught that way. The run
+volume is the cost of the review model, not a misconfiguration, and it is
+not the thing to cut.
+
+Authorized: *"Go update - fix the leak-gate template and add item 15."*
+`strength: decided`.
 
 ## Sequencing and status
 
