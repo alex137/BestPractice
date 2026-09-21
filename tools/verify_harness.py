@@ -8163,6 +8163,39 @@ def check_precedent_check_fires():
              _plant_wired_hooks_reach,
              setup=_setup_wired_hooks_reach)
 
+        # shipped-hook-carries-its-script (2026-09-21). The check reads a
+        # repo's HOOK_SOURCE_DIR against the REAL engine file lists, so the
+        # fixture supplies only the hook and is judged against the live
+        # registries. Setup ships a hook running a script that IS vendored
+        # to both kinds; the plant rewrites it to run one that is vendored
+        # to neither, reproducing the doc_lint.py incident exactly -- a hook
+        # that lands without the tool it runs and then fails open forever.
+        def _setup_hook_carries_script(repo):
+            d = repo / 'templates' / 'harness' / 'claude-code' / 'hooks'
+            d.mkdir(parents=True, exist_ok=True)
+            (d / 'planted-gate.sh').write_text(
+                '#!/bin/bash\n'
+                '# tools/mentioned_only.py in a COMMENT must not be flagged.\n'
+                'script="$project_dir/tools/doc_lint.py"\n'
+                'exec python3 "$script" "$@"\n', encoding='utf-8')
+            git(repo, 'add', '-A')
+            git(repo, 'commit', '-qm', 'planted a hook whose script is vendored')
+
+        def _plant_hook_carries_script(repo):
+            d = repo / 'templates' / 'harness' / 'claude-code' / 'hooks'
+            (d / 'planted-gate.sh').write_text(
+                '#!/bin/bash\n'
+                '# tools/mentioned_only.py in a COMMENT must not be flagged.\n'
+                'script="$project_dir/tools/never_vendored_anywhere.py"\n'
+                'exec python3 "$script" "$@"\n', encoding='utf-8')
+            git(repo, 'add', '-A')
+            git(repo, 'commit', '-qm', 'planted a hook whose script ships nowhere')
+
+        case('shipped-hook-carries-its-script',
+             _plant_hook_carries_script,
+             setup=_setup_hook_carries_script)
+
+
 
 
         # --- and the registry must not contain an untested claim ------------
@@ -15036,9 +15069,19 @@ def check_precedent_check_degrades_in_a_source_set():
         # fixture is about. Leaving either here made the control assert the
         # opposite of the shipped boundary, which is how both moves were
         # caught.
-        optional = ('doc_lint.py', 'doc_sync.py')
+        # doc_lint.py LEFT THIS TUPLE on 2026-09-21, for the same reason
+        # precedent_resolve.py and title_case.py did before it: a source set
+        # has it now. The Markdown lint left GitHub Actions that day and
+        # .claude/hooks/doc-lint-gate.sh became the only thing checking
+        # Markdown before a shared branch -- and a set was receiving the
+        # hook without the linter, so the hook's own missing-file guard
+        # fired on every commit and it gated nothing. Leaving doc_lint.py
+        # here would make this control assert the opposite of the shipped
+        # boundary, which is exactly how the three earlier moves were
+        # caught.
+        optional = ('doc_sync.py',)
         absent = [m for m in optional if not (dest / 'tools' / m).is_file()]
-        cases.append(('the two optional modules are genuinely absent, so '
+        cases.append(('the consumer-only module(s) are genuinely absent, so '
                       'the skips below are real', len(absent) == len(optional),
                       f'absent: {absent}'))
         cases.append(('and precedent_resolve.py IS present, which is what '
@@ -15049,19 +15092,21 @@ def check_precedent_check_degrades_in_a_source_set():
         # modules IN FORCE here, or the runner skips them for "practice not
         # in force" before either import is ever attempted -- and the guards
         # would go untested while the check reported success.
-        # 'headline-capitalization' was in this tuple until 2026-09-19: its
-        # check imports title_case.py, which a source set now has (see
-        # above), so it no longer demonstrates the skip -- swapped for
-        # 'acronyms-glossary', which imports doc_lint.py, still genuinely
-        # absent here.
-        for slug in ('acronyms-glossary', 'source-naming'):
+        # Swapped twice for the same reason, and the reason is the point:
+        # 'headline-capitalization' went on 2026-09-19 when title_case.py
+        # moved into ENGINE_FILES, replaced by 'acronyms-glossary' for its
+        # doc_lint.py import; 'acronyms-glossary' goes on 2026-09-21 now
+        # that doc_lint.py has moved too. 'computed-numbers-in-scripts'
+        # imports doc_sync.py, which is still consumer-only, so it is the
+        # one that still demonstrates the skip.
+        for slug in ('computed-numbers-in-scripts', 'source-naming'):
             src = ROOT / 'practices' / f'{slug}.md'
             if src.is_file():
                 shutil.copy2(src, dest / 'practices' / f'{slug}.md')
         in_force = sorted(f.stem for f in (dest / 'practices').glob('*.md'))
-        cases.append(('the two import-dependent practices are in force in the '
+        cases.append(('the import-dependent practices are in force in the '
                       'fixture, so their checks actually reach the import',
-                      set(in_force) >= {'acronyms-glossary', 'source-naming'},
+                      set(in_force) >= {'computed-numbers-in-scripts', 'source-naming'},
                       f'in force: {in_force}'))
 
         r = subprocess.run([sys.executable, 'tools/precedent_check.py',

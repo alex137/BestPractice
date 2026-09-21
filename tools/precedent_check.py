@@ -2457,6 +2457,86 @@ def _declared_hooks_exist(ctx):
 # NOT here -- each carries real repo-specific content (session-start.sh's
 # own package list, stop-git-check.sh's own tool-path story) and is
 # correctly expected to differ from its generic template counterpart.
+@check('shipped-hook-carries-its-script', 'tree',
+       "every tools/ script a shipped hook actually RUNS is in the engine "
+       "file list for each kind that hook reaches -- so a repo receiving "
+       "the hook also receives the thing it executes",
+       "a script the hook reaches by a path this parser does not recognise "
+       "(a variable, a computed path). It reads `tools/NAME.py` literals "
+       "out of shell assignments and command positions and nothing "
+       "cleverer, so a finding here is real and a clean run is not proof "
+       "of completeness. It also says nothing about whether the script "
+       "WORKS once delivered -- only that it is delivered.",
+       practice_backed=False)
+def _shipped_hook_carries_its_script(ctx):
+    """A hook that lands without the tool it runs fails open, silently.
+
+    THE INCIDENT (2026-09-21, the same day and the same mistake twice).
+    The Markdown lint was removed from GitHub Actions because
+    doc-lint-gate.sh replaced it. The first bug was that the hook lived
+    outside the mirrored directory and could reach nobody;
+    `wired-hooks-can-reach-a-consumer` now catches that.
+
+    The SECOND bug survived that fix. doc_lint.py was in
+    CONSUMER_ENGINE_FILES and not ENGINE_FILES, so a practice SET received
+    the hook and not the linter. The hook's own
+    `[[ -f "$script" ]] || exit 0` then fired on every commit -- failing
+    open exactly as designed, gating nothing, saying nothing. Four sets had
+    neither the CI check nor its replacement.
+
+    Both bugs are the same shape: a mechanism that cannot do its job where
+    it lands. The first check asks whether the hook can travel. This one
+    asks whether what it RUNS can, which is the question that was still
+    unasked after the first fix.
+
+    WHY IT RUNS WHERE THE ENGINE IS AUTHORED. It reads HOOK_SOURCE_DIR
+    against ENGINE_FILES and CONSUMER_ENGINE_FILES, all three of which
+    exist only here.
+    """
+    import re as _re
+    try:
+        import precedent_vendor_engine as pve
+    except ImportError:
+        raise NotApplicable('precedent_vendor_engine.py did not import, so '
+                            'the engine file lists cannot be read')
+    hook_dir_rel = getattr(pve, 'HOOK_SOURCE_DIR', None)
+    engine = getattr(pve, 'ENGINE_FILES', None)
+    consumer = getattr(pve, 'CONSUMER_ENGINE_FILES', None)
+    if not (hook_dir_rel and engine and consumer):
+        raise NotApplicable('this engine predates the HOOK_SOURCE_DIR / '
+                            'engine-file registries this check reads')
+    hook_dir = ctx.root / hook_dir_rel
+    if not hook_dir.is_dir():
+        raise NotApplicable(
+            f'{hook_dir_rel}/ does not exist here, so this repo does not '
+            f'author the harness adapter and ships no hooks')
+    engine, consumer = set(engine), set(consumer)
+
+    # `script="$project_dir/tools/doc_lint.py"` and `python3 tools/x.py`
+    # both count; a bare mention in a comment does not.
+    ref = _re.compile(r'tools/([A-Za-z0-9_]+\.py)')
+    findings = []
+    hooks = sorted(hook_dir.glob('*.sh')) + sorted(hook_dir.glob('*.sh.template'))
+    for hook in hooks:
+        body = hook.read_text(encoding='utf-8', errors='replace')
+        live = [l for l in body.splitlines() if not l.lstrip().startswith('#')]
+        for script in sorted({m for l in live for m in ref.findall(l)}):
+            missing = sorted(k for k, names in (('source', engine),
+                                                ('consumer', consumer))
+                             if script not in names)
+            if missing:
+                findings.append(Finding(
+                    f'{hook_dir_rel}/{hook.name}',
+                    f'runs tools/{script}, which is not in the engine file '
+                    f'list for kind(s) {", ".join(missing)} -- a repo of '
+                    f'that kind receives this hook and not the script it '
+                    f'executes. The hook then fails open and gates '
+                    f'nothing, which is the failure that looks exactly '
+                    f'like success. Add it to ENGINE_FILES (both kinds) or '
+                    f'CONSUMER_ENGINE_FILES (consumers only)'))
+    return findings
+
+
 @check('wired-hooks-can-reach-a-consumer', 'tree',
        "every hook this repo's own .claude/settings.json wires is present "
        "in the directory the vendoring engine mirrors "

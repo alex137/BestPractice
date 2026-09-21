@@ -520,6 +520,28 @@ ENGINE_FILES = [
     # session_load_trend.py, "Three Things" needs todo_progress.py.
     # precedent_check.py's `vocabulary-reaches-the-consumer` now fails the
     # build if a command practice names a tool that is not here.
+    # THE LIGHT CHECK HAS TO EXIST WHERE THE COMMIT GATE RUNS (2026-09-21).
+    # These two were CONSUMER-ONLY, on the reasoning that a consumer's
+    # enforced checks import doc_lint and a practice set's do not. That was
+    # true and it stopped being sufficient the moment the Markdown lint left
+    # GitHub Actions and .claude/hooks/doc-lint-gate.sh became the only
+    # thing checking Markdown before a shared branch.
+    #
+    # A practice set got the hook and not the tool. The hook's own
+    # `[[ -f "$script" ]] || exit 0` then fired on every commit -- failing
+    # open exactly as designed, and gating nothing at all. All four sets had
+    # neither the CI check nor its replacement, and nothing said so.
+    #
+    # Found by a session auditing the four sets after the update, not by
+    # anything here: `wired-hooks-can-reach-a-consumer` asks whether the
+    # HOOK can travel and never asked whether what it RUNS can.
+    # `shipped-hook-carries-its-script` now does.
+    #
+    # frontmatter_yaml.py rides along because doc_lint.py imports it
+    # unconditionally at module level -- without it doc_lint does not fail a
+    # check, it fails to import.
+    'doc_lint.py',
+    'frontmatter_yaml.py',
     'full_practice_audit.py',
     'session_load_trend.py',
     'todo_progress.py',
@@ -568,15 +590,9 @@ CONSUMER_ENGINE_FILES = ENGINE_FILES[:-1] + [
     #                       as a violation in every consuming repo. It needs
     #                       only split_practices and precedent_paths, both
     #                       already here.
-    'doc_lint.py',
-    # doc_lint.py's own real-YAML frontmatter check imports this at module
-    # level (added 2026-09-20, shared with verify_harness.py's deep-check
-    # copy of the same check so the two never drift). Without it doc_lint.py
-    # itself fails to import in a consumer -- not a SKIPPED finding, a
-    # ModuleNotFoundError on every run, since the import is unconditional at
-    # the top of the file. Caught by check_tools_answer_help_without_writing,
-    # which copies only the tracked tree and runs every tool's --help there.
-    'frontmatter_yaml.py',
+    # doc_lint.py and frontmatter_yaml.py MOVED TO ENGINE_FILES on
+    # 2026-09-21 -- see their entry there. Repeating them here is refused by
+    # the duplicate guard below, which is how a stray re-add gets caught.
     'doc_sync.py',
     'routing_audit.py',
     # Move tracked files or directories and repoint every reference in the

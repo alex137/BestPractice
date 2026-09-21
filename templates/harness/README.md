@@ -16,6 +16,12 @@ side**, so different agents can work the same repo under the same contract.
 | [gemini-cli/](gemini-cli/) | `GEMINI.md` → pointer to `AGENTS.md` | instructions-file directive | n/a | n/a |
 | [grok-build/](grok-build/) | `AGENTS.md` read natively | `.grok/hooks.json` lifecycle hook (exact syntax unverified as of 2026-09-17 — see the adapter's own README before relying on it) | n/a | n/a |
 
+**THE MARKDOWN LINT IS NO LONGER A GITHUB CHECK.** Since 2026-09-21 it
+runs as `.claude/hooks/doc-lint-gate.sh`, which refuses a `git commit`
+whose staged Markdown fails it. **Only Claude Code runs that hook**, and
+the workflow it replaced is retired — so on every other adapter in this
+table, nothing is checking Markdown before it reaches a shared branch.
+
 **IF YOUR HARNESS HAS NO HOOKS, YOU NEED THE GITHUB CHECK — READ THIS
 BEFORE SKIPPING IT.** The Markdown lint left GitHub Actions on 2026-09-21
 and was replaced by `.claude/hooks/doc-lint-gate.sh`, which refuses a
