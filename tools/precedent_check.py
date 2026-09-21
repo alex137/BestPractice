@@ -6534,7 +6534,7 @@ def _touched_files():
     return sorted(out)
 
 
-def _scoped_tree_slugs(tree_slugs):
+def _scoped_tree_slugs(tree_slugs, buckets=None):
     """-> the subset of `tree_slugs` (all `scope: 'tree'` CHECKS keys) to
     actually run this invocation, per Morgan's 2026-09-18 direction: don't
     sweep every tree-scope check every time, but never leave one uncovered
@@ -6546,10 +6546,17 @@ def _scoped_tree_slugs(tree_slugs):
          one of the practice's own `applies_to` globs (narrower than
          `**`; a practice whose only glob is `**` can never be "indirectly"
          matched by a specific file, so it always falls to tier 3).
-      3. A ROTATING 1/ROTATION_BUCKETS slice of whatever's left, keyed by
-         `git rev-list --count HEAD` mod ROTATION_BUCKETS -- deterministic,
-         not random, so ROTATION_BUCKETS consecutive commits cover the
-         whole remaining set exactly once each, not "probably."
+      3. A ROTATING slice of whatever's left, keyed by `git rev-list
+         --count HEAD` mod ROTATION_BUCKETS -- deterministic, not random,
+         so ROTATION_BUCKETS consecutive commits cover the whole remaining
+         set exactly once each, not "probably."
+
+    `buckets` is normally left as `None`, which selects the single current
+    bucket (`commit_count % ROTATION_BUCKETS`) exactly as before. Passing
+    an explicit set of bucket indices instead selects the UNION of those
+    buckets' slices -- the knob `_run_with_coverage_retry` turns when the
+    single current bucket comes back covering nothing (see its docstring
+    for why a single bucket can do that on a small catalogue).
 
     Retired/deduplicated practices are never scheduled at all (tier 3
     would otherwise round-robin dead checks). A slug with no resolvable
@@ -6587,14 +6594,66 @@ def _scoped_tree_slugs(tree_slugs):
     remaining = sorted(set(active) - directly - indirectly)
 
     if remaining:
-        commit_count = int(_git('rev-list', '--count', 'HEAD').stdout.strip() or 0)
-        bucket = commit_count % ROTATION_BUCKETS
+        if buckets is None:
+            commit_count = int(_git('rev-list', '--count', 'HEAD').stdout.strip() or 0)
+            buckets = {commit_count % ROTATION_BUCKETS}
         round_robin = {s for i, s in enumerate(remaining)
-                       if i % ROTATION_BUCKETS == bucket}
+                       if i % ROTATION_BUCKETS in buckets}
     else:
         round_robin = set()
 
     return sorted(directly | indirectly | round_robin)
+
+
+def _run_with_coverage_retry(tree_slugs, other_slugs, ctx, scopes, exempt):
+    """-> (slugs, results, scoped_tree, buckets_added) for the default (not
+    --only, not --full-sweep/--all) selection path, widening the tree-scope
+    rotation slice when the first slice selected turns out to cover nothing.
+
+    Why this exists (practice: cite-the-incident). `_scoped_tree_slugs`'s
+    rotation guarantees coverage of the WHOLE tree-scope catalogue across
+    ROTATION_BUCKETS commits, but says nothing about any SINGLE commit --
+    a repo whose practice catalogue is small relative to the full CHECKS
+    registry (a source set, not BestPractice itself, where most checks bind
+    a practice the set does not carry) can land on a bucket where every
+    slug the rotation slice picked, and every always-run non-tree check
+    besides, is inapplicable there. Measured 2026-09-20 against two real
+    PRs: precedent-shared-repo-maintenance PR #102 (commit count 253,
+    bucket 3) and precedent-shared-writing PR #57 (commit count 146,
+    bucket 6) both reported `0 passed` under the plain default selection,
+    on commits with real, passing coverage elsewhere in the same
+    catalogue -- `--full-sweep` against the identical trees found 19 and 17
+    passing checks respectively. Checked out each repo's pre-change `main`
+    tip too, with the identical zero-passed result, which rules out either
+    PR's own diff as the cause: this is a property of how the rotation
+    interacts with a sparse catalogue, not something either PR introduced.
+
+    The CI backstop ("Refuse a run that checked nothing") did exactly its
+    job given what it was handed -- it saw a summary line with `0 passed`
+    and correctly refused it. The gap is upstream of the backstop, in what
+    got selected to run in the first place, so the fix belongs here rather
+    than in the backstop's bash (fixing it there would only help that one
+    caller; every other caller of this module still gets the false alarm).
+
+    One additional bucket is folded in at a time -- never straight to
+    --full-sweep -- so a repo that is genuinely covered by its second
+    bucket still only pays for two slices, not the whole tree. If every
+    bucket has been folded in and the run STILL reports nothing but SKIPPED
+    and EXEMPT, that is no longer an unlucky rotation number; it is a
+    catalogue with nothing checkable at all, and main()'s own `0 passed`
+    refusal is the correct, loud outcome -- this function must not paper
+    over that by looping forever or manufacturing a result."""
+    commit_count = int(_git('rev-list', '--count', 'HEAD').stdout.strip() or 0)
+    base_bucket = commit_count % ROTATION_BUCKETS
+    buckets = {base_bucket}
+    while True:
+        scoped_tree = _scoped_tree_slugs(tree_slugs, buckets)
+        slugs = sorted(set(other_slugs) | set(scoped_tree))
+        results = run(slugs, ctx, scopes, exempt=exempt)
+        covered = any(r[1] in ('PASS', 'VIOLATION', 'ERROR') for r in results)
+        if covered or len(buckets) >= ROTATION_BUCKETS:
+            return slugs, results, scoped_tree, len(buckets) - 1
+        buckets.add((base_bucket + len(buckets)) % ROTATION_BUCKETS)
 
 
 def run(slugs, ctx, scopes, exempt=None):
@@ -6712,8 +6771,11 @@ def main():
         scopes = {'tree', 'change', 'turn-end'}
     ctx = Ctx(paths=paths, rng=rng, whole_tree='--all' in flags)
     tree_scope_note = None
+    coverage_note = None
+    exempt, refused_exemptions = load_exemptions()
     if only:
         slugs = [only]
+        results = run(slugs, ctx, scopes, exempt=exempt)
     else:
         tree_slugs = sorted(s for s in CHECKS if CHECKS[s]['scope'] == 'tree')
         other_slugs = sorted(s for s in CHECKS if CHECKS[s]['scope'] != 'tree')
@@ -6723,20 +6785,29 @@ def main():
         # (which already means "treat everything as changed" for ctx).
         if '--full-sweep' in flags or '--all' in flags:
             slugs = sorted(set(other_slugs) | set(tree_slugs))
+            results = run(slugs, ctx, scopes, exempt=exempt)
         else:
-            scoped_tree = _scoped_tree_slugs(tree_slugs)
-            slugs = sorted(set(other_slugs) | set(scoped_tree))
+            slugs, results, scoped_tree, buckets_added = _run_with_coverage_retry(
+                tree_slugs, other_slugs, ctx, scopes, exempt)
             skipped_this_run = sorted(set(tree_slugs) - set(scoped_tree))
             if skipped_this_run:
                 tree_scope_note = (
                     f'{len(skipped_this_run)} of {len(tree_slugs)} tree-scope '
                     f'check(s) not run this invocation (not directly or '
-                    f'indirectly touched, and not this commit\'s rotation '
-                    f'slice -- covered within {ROTATION_BUCKETS} commits): '
+                    f'indirectly touched, and not in this commit\'s rotation '
+                    f'slice{" (widened -- see the coverage note below)" if buckets_added else ""} '
+                    f'-- covered within {ROTATION_BUCKETS} commits): '
                     f'{", ".join(skipped_this_run)}. Run --full-sweep for all '
                     f'of them.')
-    exempt, refused_exemptions = load_exemptions()
-    results = run(slugs, ctx, scopes, exempt=exempt)
+            if buckets_added:
+                coverage_note = (
+                    f"this commit's own rotation bucket reported nothing to "
+                    f"verify (every check it selected was SKIPPED or EXEMPT), "
+                    f"so {buckets_added} additional rotation bucket(s) were "
+                    f"pulled in to find real coverage before reporting a "
+                    f"result (practice: cite-the-incident -- see "
+                    f"_run_with_coverage_retry's docstring for the incident "
+                    f"this closes).")
 
     all_violated = [r for r in results if r[1] == 'VIOLATION']
     skipped = [r for r in results if r[1] == 'SKIPPED']
@@ -6803,6 +6874,8 @@ def main():
         print(f'note: {ctx.scope_reason}')
     if tree_scope_note:
         print(f'note: {tree_scope_note}')
+    if coverage_note:
+        print(f'note: {coverage_note}')
 
     n_uv = sum(len(r[4]) for r in unverified)
     print(f'\nprecedent_check: {len(passed)} passed, {len(violated)} violated, '
