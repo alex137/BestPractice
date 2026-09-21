@@ -18,6 +18,9 @@ behavior that GitHub silently neutered):
      is not the text of a markdown link. Per the doc-reference convention, new
      text links its references. Warning-only (index docs legitimately carry many
      bare-backtick references); shown so you can link the ones you just touched.
+     A span carrying whitespace is a COMMAND, and one carrying * or <> is a
+     glob or a placeholder — see is_file_reference() for why neither is a
+     finding.
 
   3. UNGLOSSED ACRONYM (warning) (practice: acronyms-glossary). If the repo has a GLOSSARY.md, this
      flags ALL-CAPS tokens in a changed doc that are NOT in it, not defined inline
@@ -67,11 +70,21 @@ explicitly still scans it.
 Requires cmark-gfm for exact detection:  pip install cmarkgfm
 (If absent, the strikethrough check is SKIPPED with a notice rather than guessing.)
 
+STRICT (--all or named files only). --strict promotes every warning class
+above to a failure and prints per-class and per-file counts — the work list
+for the whole-tree markdown pass of a very deep check
+(practices/very-deep-check.md, pass 3), which is the one caller that asked
+to see the backlog. It REFUSES the changed-file default scope, because that
+combination is the gate that was built and withdrawn on 2026-09-21 after it
+refused a one-line edit over 111 pre-existing warnings. Never wire it into
+a hook or a CI workflow; a light check stays non-strict.
+
 Run:  python3 tools/doc_lint.py             # changed-vs-default-branch, gate
                                              # (fails only on lines the change
                                              # touched; the rest is reported
                                              # as pre-existing -- touched_lines)
       python3 tools/doc_lint.py --all        # whole repo, report-only
+      python3 tools/doc_lint.py --strict --all   # whole repo, warnings fail
       python3 tools/doc_lint.py --fix FILE   # rewrite ~ -> ≈ on struck lines
 (In a repo that vendors this the classic way, the path is
 process/upstream/tools/doc_lint.py.)
@@ -130,6 +143,31 @@ except Exception:
 
 REF_RE = re.compile(r'`([^`]+\.(?:md|py))`')          # backticked filename in code span
 TARGET_RE = re.compile(r'<a\s[^>]*\btarget\s*=', re.IGNORECASE)  # HTML anchor with target=
+
+
+def is_file_reference(span):
+    """-> True if a backticked span names a file a reader could click.
+
+    REF_RE's `[^`]+` swallows a whole command line, so
+    `python3 tools/doc_lint.py` was reported as an unlinked file reference
+    — and there is no link that fixes it, because it is not a reference.
+    The practice (doc-references-are-links) is about references a reader
+    wants to OPEN; a command is text to type. Whitespace is the whole test:
+    a path has none, an invocation always does.
+
+    Measured before the change (2026-09-21, this tree): 177 of 2,323
+    findings were command lines. That is a tenth of the backlog, and it
+    mattered more than its size — --strict promotes this class to a
+    failure, and a strict mode whose first act is to demand a fix nobody
+    can make is a mode that gets run once. Same failure as the withdrawn
+    --strict gate, one layer down: see main()'s --strict refusal.
+
+    A glob or a placeholder is out for the same reason and was found the
+    same way: `practices/*.md`, `gotchas/gotcha-<date>-<slug>.md`,
+    `*_record.md` and `check_<slug>.py` name a SHAPE, not a file, and 148
+    of what remained were those. Nothing exists to link them to."""
+    return (not any(c.isspace() for c in span)
+            and not any(c in span for c in '*<>?'))
 
 # Immutable frozen records: excluded from default/--all selections (unfixable
 # by design). Dependent repos list their frozen-artifact name prefixes here.
@@ -870,7 +908,7 @@ def check_file(path, fix=False, known=None):
         # unlinked refs: a `file.md` code span not immediately followed by ](
         for m in REF_RE.finditer(line):
             after = line[m.end():m.end()+2]
-            if after != '](':
+            if after != '](' and is_file_reference(m.group(1)):
                 unlinked.append((i, m.group(1)))
         # target= anchors: GitHub strips the attribute from rendered HTML (check 4);
         # code spans stripped first so documenting the rule doesn't trip it
@@ -1144,6 +1182,50 @@ def main():
     # other direction, and the same rule applies: a gate whose first act is
     # to refuse work nobody just broke is a gate somebody switches off.
     scope_changed = '--scope-changed' in flags
+    # --strict: the SWEEP mode. Every class this tool can see fails, warnings
+    # included, and the run prints a work list instead of a 40-line sample.
+    # It belongs to one caller -- practices/very-deep-check.md's pass 3 --
+    # and to a session reading the whole tree on purpose.
+    #
+    # IT IS NOT A GATE, AND THE REFUSAL BELOW IS WHAT KEEPS IT FROM BECOMING
+    # ONE. A strict mode promoting the warning classes to gating was built
+    # and withdrawn the same hour on 2026-09-21: measured against
+    # INSTALL.md, a one-line edit that added nothing was refused over 111
+    # unlinked references that had been there for weeks (Morgan, on being
+    # shown the measurement: "Ok so let's not use --strict."). Scoping the
+    # promotion to touched lines does not rescue it either -- the warning
+    # classes are not line-attributed the way the gating classes are. The
+    # same failure arrived again from the other direction a day later, as
+    # whole-file scope in the commit hook (see --scope-changed above).
+    #
+    # So strict is built where it works -- a sweep somebody asked for,
+    # reading everything, fixing a slice -- and refuses the scope that made
+    # it a gate: the changed-file default. Nothing may wire it into a hook,
+    # a commit gate, or a CI workflow.
+    strict = '--strict' in flags
+    unknown = flags - {'--fix', '--all', '--scope-changed', '--numbers-report',
+                       '--strict'}
+    if unknown:
+        # A silently ignored flag is worse than a rejected one: before this
+        # check, `doc_lint.py --strict` ran the ordinary lint and exited 0,
+        # and documentation/GITHUB_ACTIONS.md told adopters to run exactly
+        # that as their by-hand markdown check. It passed every time,
+        # checking what it always checks, for as long as the flag did not
+        # exist (found 2026-09-21).
+        print(f"doc_lint FAIL: unknown option(s): {', '.join(sorted(unknown))}")
+        print("(run --help for the ones this tool takes; an option it does "
+              "not know is refused rather than ignored, because an ignored "
+              "flag reads as a check that ran)")
+        return 2
+    if strict and not ('--all' in flags or args):
+        print("doc_lint FAIL: --strict needs a scope -- pass --all, or name "
+              "the files.")
+        print("(--strict is the very-deep-check sweep, not a gate. Applied "
+              "to the changed-file default it becomes the gate that was "
+              "built and withdrawn on 2026-09-21, which refused a one-line "
+              "edit over 111 pre-existing warnings. Never wire it into a "
+              "hook or a CI workflow.)")
+        return 2
     if '--all' in flags:
         files, gate = drop_frozen(tracked_md()), False
     elif args:
@@ -1416,6 +1498,55 @@ def main():
         print('\n'.join(pre_existing[:10]))
         if len(pre_existing) > 10:
             print(f"  … and {len(pre_existing) - 10} more")
+    if strict:
+        # Every class, gating and warning alike, and the per-file counts a
+        # sweep needs to pick its slice -- the 40-line samples above are for
+        # a reader fixing what they just touched, not for one grinding a
+        # backlog down. Ordered worst-first for the same reason.
+        classes = (('accidental strikethrough', strike_lines),
+                   ('broken relative link', broken_link_lines),
+                   ('invalid frontmatter', frontmatter_lines),
+                   ('skipped heading level', skip_lines),
+                   ('process residue', residue_lines),
+                   ('unsourced quantity', unsourced_lines),
+                   ('unlinked file reference', unlinked_lines),
+                   ('unglossed acronym', unglossed_lines),
+                   ('target= anchor', target_lines))
+        per_file = {}
+        found = 0
+        for _name, group in classes:
+            found += len(group)
+            for finding in group:
+                head = finding.strip().split(':', 1)[0]
+                per_file[head] = per_file.get(head, 0) + 1
+        for doc, _n in findability:
+            per_file[doc] = per_file.get(doc, 0) + 1
+        found += len(findability)
+        if not found:
+            print(f"\ndoc_lint --strict OK: {len(files)} file(s), every class "
+                  f"clean -- warnings included.")
+            return 0
+        print(f"\ndoc_lint --strict FAIL: {found} finding(s) across "
+              f"{len(per_file)} file(s), in {len(files)} scanned. Warnings "
+              f"count here; they do not elsewhere.")
+        print("\n  by class:")
+        for name, group in classes:
+            if group:
+                print(f"    {len(group):6d}  {name}")
+        if findability:
+            print(f"    {len(findability):6d}  unfindable analysis")
+        print("\n  by file, worst first:")
+        for f, n in sorted(per_file.items(), key=lambda kv: (-kv[1], kv[0]))[:40]:
+            print(f"    {n:6d}  {f}")
+        if len(per_file) > 40:
+            print(f"    … and {len(per_file) - 40} more file(s)")
+        print("\n  This is a work list for a sweep somebody asked for "
+              "(practice: very-deep-check),\n  not a gate: fix a slice, "
+              "commit it, and run it again. Nothing is expected to\n  clear "
+              "it in one pass, and an index document carrying bare "
+              "references may be\n  right to -- judge each one.")
+        return 1
+
     if gate and (fatal or findability or frontmatter_lines):
         _where = ("on lines this change touched" if scope is not None
                   else "in the file(s) named")

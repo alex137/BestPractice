@@ -953,12 +953,24 @@ first so this pass spends its attention on what they cannot see.
   been true for weeks. The bullet above this one already said to look for
   contradictions and had never found it — a coherence read reads documents,
   and a skeleton file does not read as a document making claims.)*
-- **Broken and misdirected references** — run
-  [tools/doc_lint.py](../tools/doc_lint.py)'s broken-relative-link check
-  across the whole tree first, then read for what it cannot see: a link that
-  resolves but points at the wrong thing, a click-path into a user interface
-  that has changed, a cross-repo reference into a repo the reader cannot
-  open, a slug or filename that moved.
+- **Broken and misdirected references** — the mechanical half is the
+  **MARKDOWN — STRICT SWEEP** section, which runs
+  [tools/doc_lint.py](../tools/doc_lint.py) `--strict --all` over every
+  tracked document and hands you per-class and per-file counts. **Strict is
+  the point, and this is its only caller.** The light check reads what a
+  change touched and the deep check gates on that; neither ever opens a file
+  nobody has edited in months, and doc_lint's warning classes — unlinked
+  references, unglossed acronyms, `target=` anchors — are gated nowhere at
+  all, deliberately (a gate promoting them was built and withdrawn inside an
+  hour on 2026-09-21, having refused a one-line edit over 111 warnings that
+  predated it). So those classes accumulate exactly where only a sweep
+  somebody asked for will ever look. **Work the list, do not obey it**: it
+  is a work list, not a gate, nothing is expected to clear it in one run,
+  and an index document carrying bare-backtick references may be right to —
+  judge each file, fix a slice, commit it, run it again. Then read for what
+  no linter can see: a link that resolves but points at the wrong thing, a
+  click-path into a user interface that has changed, a cross-repo reference
+  into a repo the reader cannot open, a slug or filename that moved.
 - **Stale references** — a slug, practice number, filename, heading, or
   click-path pointing at something moved or gone; a positional number cited
   as if it were a name; numbering that skips, repeats, or runs out of order;
@@ -1934,6 +1946,56 @@ belongs to the repo the finding is about, not to the tool reading it. The
 session that wrote the proposal created `very-deep-check-decisions.json` at
 that repo's own root, empty and schema-documented, ready for the read side
 built here to consume without rework.
+
+**The strict markdown sweep was Morgan's, 2026-09-21**: *"'Very deep check'
+should include a markdown check that is --strict. We dont' do that upon a
+PR because many give warnings, which is rejected in strict mode. But in a
+full detailed sweep, you can find those cases and fix them."* That names
+the gap exactly, and it is the second half of an ask he had already made
+that morning, in the conversation that took the markdown check out of CI:
+*"remove all markdown checks in the yml github actions check (but we
+should use the strict markdown in our own that we do)."* The removal
+landed; the parenthesis did not, until now.
+[doc_lint.py](../tools/doc_lint.py)'s warning classes had been gated
+nowhere since the strict gate was withdrawn that same day — the right call for a
+commit gate, and it left the classes with no reader at all, because the
+light check only ever sees what a change touched. A sweep is the one
+context where a wall of pre-existing warnings is the thing being asked for
+rather than an obstacle to the work in hand.
+
+Building it surfaced two things worth recording. **`--strict` did not
+exist, and nothing said so**: [doc_lint.py](../tools/doc_lint.py) ignored
+unknown options silently, so [documentation/GITHUB_ACTIONS.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/documentation/GITHUB_ACTIONS.md)
+had been telling adopters to run `doc_lint.py --strict <files>` as their
+by-hand markdown check — an instruction added by the very commit that
+withdrew the flag, so it was stale on arrival, and it had been passing all
+the same: running the ordinary lint, exiting 0. Unknown options are
+refused now. **And a tenth of the backlog was not a finding**: the
+unlinked-reference detector matched any backticked span ending `.md` or
+`.py`, so `python3 tools/doc_lint.py` counted as an unlinked file
+reference — 177 of 2,323 findings in this tree were command lines, which
+no link can fix. A strict mode whose first act is to demand an impossible
+fix is a mode that gets run once, which is the withdrawn gate's failure
+one layer down. The detector now asks whether the span is a path at all —
+which took a second pass, because the same measurement, run again on what
+was left, found 148 globs and placeholders (`practices/*.md`,
+`gotchas/gotcha-<date>-<slug>.md`) in the same position. What remained —
+2,001 references that day — is the real backlog, and it is a work list
+rather than a gate for the reason above.
+
+**Working the first slice proved why the list is judged rather than
+executed.**
+[SETUP.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/SETUP.md)
+carried 21 of them and two were fixable: the rest
+name `AGENTS.md`, `GETTING_STARTED.md`, `STYLEGUIDE.md` and
+`local/practices/project-voice.md` **in the repository the reader is
+installing into**, not in this one, where three of those four do not exist
+at all. Linking them would have manufactured broken links in an
+outward-facing document — the exact incident that put the
+broken-relative-link check here (96 of them, from paths resolved against
+the repo root instead of the linking file's own directory). A document
+describing somebody else's tree is right to carry bare names, and a sweep
+that treats the count as the target will break it.
 
 ## Install
 [tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/very_deep_check.py) enumerates the scope

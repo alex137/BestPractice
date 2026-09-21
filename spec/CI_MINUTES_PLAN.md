@@ -186,7 +186,7 @@ repo's history to check against directly.
 ## Item 2b — pushback: this repo's own three workflows are a different case
 
 **I'm pushing back on this one rather than folding it in.**
-[docs.yml](../.github/workflows/docs.yml),
+docs.yml (retired 2026-09-21),
 [deep-check.yml](../.github/workflows/deep-check.yml), and
 [leak-gate.yml](../.github/workflows/leak-gate.yml) — BestPractice/Precedent's
 own CI, not a template it ships — run unconditionally on every push, every
@@ -537,7 +537,7 @@ shrink cost automatically, with no setup, for every install.
 already operate a self-hosted runner to point their own install at it
 without hand-editing the workflow file. Added:
 `runs-on: ${{ vars.PRECEDENT_RUNNER || 'ubuntu-latest' }}` on every job in
-[doc-lint.yml.template](../templates/github-actions/doc-lint.yml.template)
+doc-lint.yml.template (retired 2026-09-21)
 and
 [precedent-check.yml.template](../templates/github-actions/precedent-check.yml.template).
 Unset, nothing changes for anyone. Set as a repository variable, every job
@@ -570,7 +570,7 @@ Raising it further was Morgan's own call, after item 8/9's account above:
 *"Please let's raise it to 720."* `strength: decided`.
 
 **Found while making the change: the two templates had already drifted to
-different defaults.** [doc-lint.yml.template](../templates/github-actions/doc-lint.yml.template)
+different defaults.** doc-lint.yml.template (retired 2026-09-21)
 still shipped item 9's original `360`; [precedent-check.yml.template](../templates/github-actions/precedent-check.yml.template)
 had item 8's incident-driven `30` baked in as its own default, not just as
 the four affected repos' per-repo override — [documentation/GITHUB_ACTIONS.md](../documentation/GITHUB_ACTIONS.md)

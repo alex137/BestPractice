@@ -2887,6 +2887,25 @@ def check_doc_lint_fires():
         cases.append(('a genuine verify-later flag is still caught',
                       bool(residue2)))
 
+        # REF_RE's `[^`]+` swallows a whole command line, so a backticked
+        # invocation counted as an unlinked file reference -- 177 of 2,323
+        # findings in this tree on 2026-09-21, none of them fixable by a
+        # link. It mattered because --strict promotes this class to a
+        # failure. Both halves here: the command must stop being a finding
+        # AND the bare filename beside it must still be one.
+        (tmp / 'command.md').write_text(
+            "Run `python3 tools/doc_lint.py` before pushing.\n"
+            "One file per trap, at `gotchas/gotcha-<date>-<slug>.md`, and "
+            "the catalogue is `practices/*.md`.\n"
+            "The rule lives in practices/very-deep-check.md, named "
+            "`very-deep-check.md`.\n",
+            encoding='utf-8')
+        _s, cmd_unlinked, *_ = dl.check_file('command.md', fix=False, known=None)
+        cases.append(('a backticked COMMAND, a glob and a <placeholder> are '
+                      'not unlinked file references, while a bare filename '
+                      'in the same document still is',
+                      [r for _i, r in cmd_unlinked] == ['very-deep-check.md']))
+
         # Deep-check regression case: seen_acr used to be recorded only on
         # the VIOLATION branch (inside the `if ... f'({tok})' not in clean`
         # block), so a term correctly glossed on first use never actually
@@ -3090,7 +3109,57 @@ def check_doc_lint_fires():
           f'broken relative link is '
           f'caught while a correct one, a code span, a fenced block, a URL, '
           f'an anchor and a templates/ PATH are not -- though a dead '
-          f'#fragment under templates/ is)', ok)
+          f'#fragment under templates/ is, and a backticked command, glob '
+          f'or placeholder is not an unlinked reference while a bare '
+          f'filename still is)', ok)
+
+
+def check_doc_lint_strict_refuses_the_gate_scope():
+    """--strict is the very-deep-check sweep and must never become the gate
+    that was withdrawn on 2026-09-21 (practice: very-deep-check).
+
+    The withdrawn version promoted doc_lint's warning classes to gating on
+    the CHANGED-FILE scope, and refused a one-line edit over 111 warnings
+    that predated it. What keeps the rebuilt flag from drifting back is one
+    refusal in main(), and a refusal nothing tests is a refusal somebody
+    deletes as dead code.
+
+    Asserts the guard's own words, not just a non-zero exit
+    (control-asserts-which-failure): doc_lint has three exit-2 paths and a
+    bare returncode check cannot tell them apart.
+    And the negative control runs the SAME argv without --strict, so a
+    refusal that had become unconditional would show up as the clean case
+    going red rather than as two passing tests."""
+    script = ROOT / 'tools' / 'doc_lint.py'
+
+    def run(*argv):
+        r = subprocess.run([sys.executable, str(script), *argv],
+                           cwd=str(ROOT), capture_output=True, text=True,
+                           timeout=300)
+        return r.returncode, (r.stdout or '') + (r.stderr or '')
+
+    cases = []
+    rc, out = run('--strict')
+    cases.append(('--strict with no scope is refused, in its own words',
+                  rc == 2 and '--strict needs a scope' in out
+                  and 'not a gate' in out))
+    rc, out = run('--bogus')
+    cases.append(('an unknown option is refused rather than ignored',
+                  rc == 2 and 'unknown option(s): --bogus' in out))
+    # Negative control: the refusal is conditional on --strict. Without it,
+    # the same scopeless invocation is the ordinary changed-files gate and
+    # must not print the refusal at all.
+    rc, out = run()
+    cases.append(('the same scopeless run WITHOUT --strict is not refused '
+                  '(the guard is conditional, not blanket)',
+                  '--strict needs a scope' not in out and rc != 2))
+
+    ok = all(passed for _, passed in cases)
+    for name, passed in cases:
+        if not passed:
+            print(f"  doc_lint --strict did NOT behave as stated: {name}")
+    check(f'doc_lint --strict refuses the withdrawn gate scope '
+          f'({len(cases)} stated cases)', ok)
 
 
 def check_practice_heading_parsing():
@@ -26367,6 +26436,7 @@ def main():
     check_source_precedence()
     check_cross_source_resident_budget()
     check_doc_lint_fires()
+    check_doc_lint_strict_refuses_the_gate_scope()
     check_practice_sections_present()
     check_practice_heading_parsing()
     check_decision_records_not_inline()

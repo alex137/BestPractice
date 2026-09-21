@@ -112,7 +112,7 @@ block leaves out, and in a source set the level left out is universal.
 
 - **No credential.** BestPractice is public, so a source set can clone it with
   nothing attached — recorded in
-  [AGENTS.md's gotchas](../AGENTS.md#build-environment-gotchas--do-not-rediscover-these).
+  [AGENTS.md's gotchas](../AGENTS.md#build-environment-gotchas--search-before-you-rediscover-one).
 - **No leak exposure.** The direction that worried the consumer case was
   private text reaching a public commit. Here public text reaches a private,
   untracked file. The `.precedent/` path is already gitignored by the same

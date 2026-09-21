@@ -57,7 +57,8 @@ loop; say so and follow §1 instead.
      the default out loud and let them override it. If they want it on
      and answered "no" to the third question, say plainly that it stays
      off until a source declares `"ci_workflows": "enabled"`
-     (`GITHUB_ACTIONS.md`), since there is nowhere else this install can
+     ([documentation/GITHUB_ACTIONS.md](documentation/GITHUB_ACTIONS.md)),
+     since there is nowhere else this install can
      record the preference. **What "declares" means, concretely**: this is
      a standing field in `identity.json` — the person's individual (or
      team) source, never `precedent.json` — so activating it is either
@@ -107,7 +108,8 @@ loop; say so and follow §1 instead.
    follow [spec/BOOTSTRAP_NEW_SOURCES.md](spec/BOOTSTRAP_NEW_SOURCES.md) —
    it walks through creating the repository (do it yourself if the session
    can; otherwise hand them the exact command or click-path), running
-   `tools/precedent_bootstrap_source.py`, and wiring the result in exactly
+   [tools/precedent_bootstrap_source.py](tools/precedent_bootstrap_source.py),
+   and wiring the result in exactly
    as INSTALL.md §1 step 9 describes for an existing repo. This is real,
    working tooling, not a promise: it hands them a starter file in the
    right format and the exact config to wire in, in the same sitting.
