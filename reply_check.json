@@ -69,5 +69,17 @@
     ],
     "advisory": true,
     "why": "branch-links says a git branch named anywhere in a reply gets a link to its tree view, and its own Install section says a bare branch NAME has no reliable syntactic signature a mechanical check could key off -- a branch's tree URL does, though, so this predicate (tools/precedent_reply_check.py's require_no_bare_pattern) catches that one detectable case rather than the general one. Added 2026-09-20 alongside the rule-links entry above, same incident. Declared advisory for the same reason: a link stripped once, up front, does not know a later bare mention of a URL already linked earlier in the same reply was already covered."
+  },
+  {
+    "practice": "fence-block-for-paste",
+    "require_paired_with": [
+      {
+        "if_matches": "^\\s*```",
+        "must_also_match": "(?:\\*\\*)?Paste into:|\\bnot for pasting\\b",
+        "why": "a fenced block is either text the person is meant to paste somewhere, in which case the reply must say WHERE -- 'Paste into:' naming an existing session, or a new one with the repo it is rooted in and what is attached -- or it is output and evidence, in which case say 'not for pasting' once and carry on. A block with no destination is not a handoff, it is homework"
+      }
+    ],
+    "why": "Morgan, 2026-09-21 (strength: decided), in capitals, after asking roughly twenty times across two days what session a block he had just been handed was for: 'EVERY TIME YOU GIVE ME SOMETHING TO PASTE, ALWAYS TELL ME IT GOES TO A SESSION ROOTED IN WHAT REPO AND WHAT ATTACHED, OR WHAT EXISTING SESSION.' fence-block-for-paste already made the FENCE mandatory, which is exactly why every one of those blocks was correctly fenced and not one of them said where it went -- the practice enforced the container and said nothing about the address. BLOCKING rather than advisory, deliberately, because he asked for a strong rule and because the failure is cheap to fix in the moment and expensive afterwards: a paste block without a destination costs a whole round trip before anything can happen with it. The escape hatch keeps it honest -- a reply whose only fences are measured output says 'not for pasting' once, which is a sentence, not a ceremony.",
+    "checks_practice_at": "practices/fence-block-for-paste.md"
   }
 ]

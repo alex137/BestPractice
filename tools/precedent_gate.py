@@ -281,6 +281,24 @@ def _print_hard_requirements(root):
                     f"out of caution")
             print(f"- [{src}] the reply contains one of these, verbatim: "
                   f"{quoted}{when}")
+        # THE TWO PREDICATES THIS BLOCK USED TO OMIT, both of them
+        # BLOCKING. Until 2026-09-21 this printer handled
+        # require_heading_matching and require_one_of and silently dropped
+        # the rest, so require_no_contradiction refused turns that had
+        # never been told it existed -- which is precisely the failure this
+        # function's own docstring above describes and was written to end.
+        # A blocking requirement absent from the pre-reply print costs the
+        # person the reply twice: once wrong, once rewritten.
+        for pair in (r.get('require_no_contradiction') or []):
+            if pair.get('if_says') and pair.get('must_not_say_matching'):
+                print(f"- [{src}] a reply saying \"{pair['if_says']}\" must "
+                      f"not ALSO match /{pair['must_not_say_matching']}/i -- "
+                      f"the two cannot both be true. Say the one that is.")
+        for pair in (r.get('require_paired_with') or []):
+            if pair.get('if_matches') and pair.get('must_also_match'):
+                print(f"- [{src}] a reply matching /{pair['if_matches']}/ "
+                      f"must ALSO match /{pair['must_also_match']}/"
+                      + (f" -- {pair['why']}" if pair.get('why') else ''))
     for n in notes:
         print(f"- NOTE: {n}")
 
