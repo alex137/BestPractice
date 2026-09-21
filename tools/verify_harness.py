@@ -6216,6 +6216,67 @@ def check_reply_check_names_what_it_cannot_evaluate():
             '; '.join(f'{n}: {d}' for n, d in bad))
 
 
+def check_suggested_links_keep_a_dotfiles_leading_dot():
+    """`lstrip('./')` takes a character SET, not a prefix.
+
+    So it eats every leading `.` and `/` it finds, and
+    `../.claude/hooks/commit-identity-push-gate.sh` comes back as
+    `claude/hooks/...`. The URL precedent_check.py then hands the author to
+    paste 404s -- silently, because a suggested fix is never fetched by the
+    thing suggesting it.
+
+    It shipped TWICE. Found and fixed inline in the declined-adapters reader
+    on 2026-09-21; the identical expression survived in the travel check's
+    suggested-fix line until a session vendoring a `.claude/hooks/` push gate
+    into the individual source was handed the mangled URL and reported it.
+    Both sites now call one helper, and this asserts the helper's behaviour
+    directly rather than inferring it from a check that happens to pass
+    (practice: control-asserts-which-failure).
+
+    The dotfile cases are the ones that bite: every harness adapter this repo
+    ships lives under a dot directory, so the paths most likely to be
+    suggested are exactly the paths the old expression destroyed."""
+    import importlib.util as _ilu
+    spec = _ilu.spec_from_file_location('_pc_prefix',
+                                        ROOT / 'tools' / 'precedent_check.py')
+    try:
+        mod = _ilu.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        strip = mod._strip_relative_prefix
+    except Exception as exc:                     # noqa: BLE001
+        return (False, '', f'precedent_check.py would not import: {exc}')
+
+    cases = [
+        ('../.claude/hooks/x.sh', '.claude/hooks/x.sh'),
+        ('./.claude/settings.json', '.claude/settings.json'),
+        ('../../.github/workflows/w.yml', '.github/workflows/w.yml'),
+        ('.claude/settings.json', '.claude/settings.json'),
+        ('../tools/precedent_check.py', 'tools/precedent_check.py'),
+        ('tools/precedent_check.py', 'tools/precedent_check.py'),
+        ('./practices/go-merge.md', 'practices/go-merge.md'),
+    ]
+    bad = []
+    for given, want in cases:
+        got = strip(given)
+        if got != want:
+            bad.append((given, f'{got!r} not {want!r}'))
+
+    # And the mistake itself, named, so a later edit that reaches for the
+    # short spelling fails here rather than in a pasted URL.
+    if '../.claude/hooks/x.sh'.lstrip('./') == strip('../.claude/hooks/x.sh'):
+        bad.append(('the helper still behaves like lstrip',
+                    'a dotfile path loses its leading dot'))
+
+    src = (ROOT / 'tools' / 'precedent_check.py').read_text(encoding='utf-8')
+    for spelling in ('.lstrip("./")', ".lstrip('./')"):
+        if spelling in src:
+            bad.append((f'{spelling} is back in precedent_check.py',
+                        'use _strip_relative_prefix'))
+
+    return (not bad, f'{len(cases)} stated paths, both spellings refused',
+            '; '.join(f'{n}: {d}' for n, d in bad))
+
+
 def check_planted_case_rotation_never_narrows_silently():
     """The rotation that decides how much of the push gate runs.
 
@@ -26110,6 +26171,7 @@ def main():
     check_instruction_files_name_repos_that_exist()
     check_a_consumer_may_declare_a_ci_workflow_its_own()
     check_reply_check_names_what_it_cannot_evaluate()
+    check_suggested_links_keep_a_dotfiles_leading_dot()
     check_planted_case_rotation_never_narrows_silently()
     check_precedent_check_fires()
     check_routing_scope(files)

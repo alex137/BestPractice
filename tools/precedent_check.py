@@ -613,6 +613,28 @@ class Ctx:
 # Native checks
 # --------------------------------------------------------------------------
 
+def _strip_relative_prefix(path):
+    """Drop leading `./` and `../` SEGMENTS from a relative path.
+
+    NOT `lstrip('./')`. lstrip takes a character SET, so it eats every
+    leading `.` and `/` it finds: `../.claude/hooks/x.sh` comes back as
+    `claude/hooks/x.sh`, and the suggested GitHub URL built from it 404s on
+    exactly the dotfile paths a harness adapter is made of.
+
+    That bug shipped twice. It was found and fixed inline in the
+    declined-adapters reader on 2026-09-21, and the identical expression
+    survived in the travel check's suggested-fix line until a session
+    vendoring a `.claude/hooks/` push gate was handed the mangled URL and
+    reported it. One helper now, so there is no third site to miss."""
+    while True:
+        if path.startswith('./'):
+            path = path[2:]
+        elif path.startswith('../'):
+            path = path[3:]
+        else:
+            return path
+
+
 _MD_LINK_RE = re.compile(r'\[([^\]\n]*)\]\([^)\s]*\)')
 
 
@@ -1136,7 +1158,8 @@ def _practice_links_travel(ctx):
                     and (ROOT / base[3:]).exists()):
                 continue                        # this source's own check script
             fix = (f'https://github.com/{slug}/blob/{branch or "<branch>"}/'
-                   f'{base.lstrip("./")}' if slug else 'an absolute URL')
+                   f'{_strip_relative_prefix(base)}' if slug
+                   else 'an absolute URL')
             out.append(Finding(
                 where, f'`{target}` does not travel with this file -- it is '
                        f'live here and dead in every repository that receives '
@@ -2991,12 +3014,7 @@ def _hooks_on_disk_are_reachable(ctx):
     for e in cfg.get('declined_adapters') or []:
         if not isinstance(e, dict) or not e.get('path'):
             continue
-        # NOT lstrip('./') -- that strips CHARACTERS, so a path beginning
-        # `.claude/` loses its leading dot and matches nothing. Measured
-        # here by the decline cases failing before this shipped.
-        path = str(e['path'])
-        while path.startswith('./'):
-            path = path[2:]
+        path = _strip_relative_prefix(str(e['path']))
         if str(e.get('reason') or '').strip():
             declined[path] = e['reason']
         else:
