@@ -28,6 +28,7 @@ Built from every practice's `defines:` frontmatter field -- the terms that pract
 | document reference | [doc-references-are-links](practices/doc-references-are-links.md) |
 | document status | [document-status-header](practices/document-status-header.md) |
 | Drop it | [park-it](practices/park-it.md) |
+| fence block | [fence-block-for-paste](practices/fence-block-for-paste.md) |
 | full practice audit | [full-practice-audit](practices/full-practice-audit.md) |
 | generated artifact | [generated-artifact-provenance](practices/generated-artifact-provenance.md) |
 | Go update | [go-merge](practices/go-merge.md) |

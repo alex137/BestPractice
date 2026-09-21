@@ -44,7 +44,13 @@ approved_by: "Morgan, 2026-09-20 -- described the two cases and the phrase
   paste it into the correctly-rooted session,\" approving a session's
   proposal to require the seed root and attach list immediately after
   seeded-prompt-names-its-origin's provenance line -- second in the
-  block, not buried among the other required content."
+  block, not buried among the other required content. Narrowed 2026-09-20,
+  on a fresh session's rule-scope-ask: the fenced-block requirement moved
+  to [fence-block-for-paste](fence-block-for-paste.md) as a resident
+  practice binding every reply, not only this command's; this file now
+  points there and names the mechanism as a fence block explicitly, on his
+  own instruction, to keep it distinct from other uses of \"block\" in this
+  catalogue."
 strength:    decided
 source_practice_number: null
 ---
@@ -117,10 +123,13 @@ among several in an unordered list is easy to satisfy and easy to bury --
 the single fact that tells a reader where to open this is neither optional
 content nor free to place last.
 
-**Render it as one actual fenced code block (triple backticks), never a
-paragraph that only reads as paste-ready** -- the fence is what gives the
-client a one-click copy button, and prose describing the block instead of
-being the block has not delivered this. [The
+**Render it as a fence block** -- an actual fenced markdown block (triple
+backticks), never a paragraph that only reads as paste-ready -- per
+[fence-block-for-paste](fence-block-for-paste.md), which owns this
+requirement and applies it to every reply, not only this one. Named
+explicitly here as a **fence block** to keep it distinct from a "block" of
+prose elsewhere in a reply: prose describing the block instead of being the
+block has not delivered this. [The
 three-things-always shape](handoff-is-pasteable.md) any reply that sends
 someone elsewhere already owes: repository, exact paste text, a way back.
 Nothing split into the surrounding prose, nothing left for the reader to
@@ -266,6 +275,14 @@ needs the routing before it can act at all and the person scanning for
 where to paste it, from the same position. Approved on a session's
 proposal: *"GREAT SUGGESTION. Prompt please, give that to me so I can
 paste it into the correctly-rooted session."* Strength: decided.
+
+**Narrowed 2026-09-20.** The fenced-block clause above is now
+[fence-block-for-paste](fence-block-for-paste.md)'s -- a resident practice
+that binds every reply, not only a `Prompt Please` handoff, with the
+originating incident recorded in that file rather than here. Morgan asked
+in the same breath that the mechanism read as a **fence block** rather
+than a bare "block," so it stays distinct from every other thing this
+catalogue calls one. Strength: decided.
 
 ## Install
 Nothing for an adopter to set up. The occasion index entry is generated

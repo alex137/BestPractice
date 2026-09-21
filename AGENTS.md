@@ -232,7 +232,7 @@ plan's premise.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block; `python3 tools/build_views.py --check` exits non-zero on drift. Source: practices/ -- edit the practice file, never this block. -->
 
-## Resident block (~1180 of 2000 token budget, 11 of 133 practices (11 universal))
+## Resident block (~1400 of 2000 token budget, 12 of 134 practices (12 universal))
 
 **answer-first-ask-before-long-work.** Three parts. **(1) Answer the easy questions in a message before starting
 anything long.** A conceptual question is answered from what is already
@@ -280,6 +280,25 @@ failure, grep `gotchas/` before concluding it's new — never the stories,
 and never even a one-line-per-trap index. A generated overview (symptom
 plus link, one line per live entry) exists for the deliberate read; nothing
 loads it automatically.
+
+**fence-block-for-paste.** Any reply that hands over text meant to be pasted somewhere else — a prompt
+for a new session, a commit message, a PR description, a config snippet, a
+comment for another tool — puts that text in a **fence block**: an actual
+fenced markdown block (triple backticks), never a paragraph that only reads
+as paste-ready. The fence is what gives the client its one-click copy
+button; describing the text without fencing it has not delivered it,
+whatever else the reply says.
+
+**More than one distinct thing to paste gets more than one fence block.** A
+commit message and a separate PR description, two prompts for two different
+sessions — each is its own fence block, never one block holding both, and
+never prose gesturing at several pieces and leaving the reader to split them
+apart.
+
+**This binds every reply, independent of any trigger phrase.**
+[My options](practices/my-options.md) and [Prompt Please](practices/prompt-please.md) each
+already required a fence block for their own occasion; both now point here
+instead of restating it.
 
 **no-invented-specifics.** Being concrete makes writing better, and **it never licenses invention.** Do
 not manufacture a statistic, a date, a name, a version number or a citation

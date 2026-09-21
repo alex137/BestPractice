@@ -32,7 +32,12 @@ approved_by: "Morgan, 2026-09-12 -- asked for the command, chose the name from
   without a plain instruction to act on: the routing has to be said once
   more in ordinary prose outside the fenced block, not only inside it,
   since the block is written for the new session and he is the one who has
-  to read this reply and go open one."
+  to read this reply and go open one. Narrowed 2026-09-20, on a fresh
+  session's rule-scope-ask: the fenced-block requirement moved to
+  [fence-block-for-paste](fence-block-for-paste.md) as a resident practice
+  binding every reply, not only this command's; this file now points there
+  and names the mechanism as a fence block explicitly, on his own
+  instruction, to keep it distinct from an option's own \"block.\""
 strength:    decided
 source_practice_number: null
 ---
@@ -96,13 +101,14 @@ with none of this conversation:**
   Say "none" when that is the honest answer -- never leave the reader to
   guess whether it was considered.
 
-**The block has to actually be fenced markdown (triple backticks), not a
-paragraph that merely reads as paste-ready** -- the fence is the only thing
-that makes the client render a one-click copy button, so prose describing a
-block, without the block itself, has not delivered this, whatever else the
-reply says. Same requirement [the-boildown](the-boildown.md) already states
-for any handoff: the words are the session's to write, not the reader's to
-compose. Producing
+**Render it as a fence block** -- an actual fenced markdown block (triple
+backticks), never a paragraph that merely reads as paste-ready -- per
+[fence-block-for-paste](fence-block-for-paste.md), which owns this
+requirement and applies it to every reply, not only this one. Called out by
+name here to keep it distinct from the other things this practice calls a
+"block" (an option's own short paragraph, above): the paste-ready text is
+specifically a **fence block**, and where the handoff carries more than one
+distinct thing to paste, each gets its own. Producing
 it does not, by itself, authorize anything in the repository or
 repositories it names -- that is not committing, pushing, or merging
 anything, whatever the receiving session goes on to do there.
@@ -244,6 +250,13 @@ the gap actually surfaced. The fenced block already carried the seed root
 and the repos to attach, but only for the new session's own reader --
 nothing said it in plain prose to the person sitting in this one, who has
 to act on it first. Strength: decided.
+
+**Narrowed 2026-09-20**, when the fenced-block clause moved to
+[fence-block-for-paste](fence-block-for-paste.md), a new resident practice
+binding every reply rather than just this command's occasion -- full
+incident in that file's own Story. This file now points there, and names
+the mechanism as a **fence block** on Morgan's own instruction, so it
+reads distinctly from an option's own "block" above. Strength: decided.
 
 ## Install
 Nothing to configure. The occasion index entry is generated, so an adopter
