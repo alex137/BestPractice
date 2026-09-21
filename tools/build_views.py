@@ -1012,6 +1012,38 @@ def build_loader_block(practices, source_levels=None, defers_sources=False,
         lines.append(f"## Resident block (~{token_count} of {budget} token budget, "
                      f"{count_detail})")
         lines.append('')
+        # SAY WHEN THIS TREE IS MACHINE-DEPENDENT, and only then.
+        #
+        # An INDIVIDUAL source resolves through a user-level config, not
+        # through this project's own precedent.json -- by design, decided
+        # 2026-09-21: a person's own practices follow them into every
+        # project they touch, which is the whole point of having them.
+        # What was wrong was that it happened SILENTLY. The same install,
+        # same commit, materialized 142 practices on one machine and 125
+        # with HOME emptied, and the only way to find out was to diff two
+        # trees. That difference masked a real one-line bug for a day.
+        #
+        # So the block discloses it where it is TRUE and stays byte-identical
+        # where it is not: a repo with no individual practice in force (this
+        # one, every public set, every CI checkout) renders exactly as
+        # before. Whoever wants a rule in some repos and not others makes a
+        # SHARED set and declares it per repo --
+        # documentation/SHARED_PRACTICE_SETS.md.
+        _individual = sorted(slug for slug, lvl in (source_levels or {}).items()
+                             if lvl == 'individual')
+        if _individual:
+            lines.append(
+                f"**{len(_individual)} of these practices came from an "
+                f"INDIVIDUAL source**, which resolves through this machine's "
+                f"user-level config rather than through this repository's "
+                f"own `precedent.json`. That is deliberate -- a person's own "
+                f"practices follow them into every project they touch -- but "
+                f"it means this generated tree is **machine-dependent**: the "
+                f"same commit installed by somebody else resolves a "
+                f"different set. A rule you want in SOME repositories and "
+                f"not others belongs in a shared set you declare per "
+                f"repository, not in your individual one.")
+            lines.append('')
         lines.append(resident_text)
         lines.append('')
     if index_text:

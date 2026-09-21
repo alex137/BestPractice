@@ -380,8 +380,9 @@ so neither was reported unplaceable. They just wrote the same link two ways.
 
 Three layers hid it: the check is rotation-gated, so a first reproduction
 came back clean; an undeclared individual source contaminated the
-regeneration with 17 extra practices, masking the one-line cause; and the
-trigger was one day old.
+regeneration with 18 individual-level practices (17 net, since one shadows
+a universal slug), masking the one-line cause; and the trigger was one day
+old.
 
 **Why it belongs in a document about billing.** Cost is not only minutes.
 That red gate cost two near-misses in a single session — a planted test case

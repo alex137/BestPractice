@@ -3,7 +3,7 @@ slug:        very-deep-check
 title:       The very deep check — a whole-repo coherence review, on request only
 tier:        on-demand
 severity:    advisory
-scope:       engine-dev
+scope:       null
 applies_to:  ["**"]
 occasion:    "a person explicitly asks for a \"very deep check\" across the whole repo, or after work that invites drift"
 gates:       []
@@ -1999,3 +1999,19 @@ that set prints its own `ORPHANED LEDGER ENTRY` line, matching the
 dropping it quietly. The verdict is never written automatically — same
 manual, dated, quoted-judgment shape as `identity.json`'s
 `grandfathered_commit_shas`, which this design is modeled on directly.
+
+**It stopped being engine-only on 2026-09-21.** `scope: engine-dev` kept
+this practice out of a consuming repo's materialized tree, on the reasoning
+that the occasion could only ever fire inside the engine's own repository —
+which was true for exactly as long as
+[tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/very_deep_check.py)
+lived only here. The tool is vendored now, so the premise is gone, and the
+scope was doing active harm: a person said "very deep check" in their own
+project, the session did not have the practice, and the word meant nothing
+there. **A standing command a session cannot carry out is worse than one
+that does not exist** — the person says it, and nothing happens for a
+reason nobody can see.
+
+What a consumer's run covers is narrower, and the tool says so rather than
+pretending: passes that name a tool the consumer does not vendor are
+reported as not run, not silently skipped.

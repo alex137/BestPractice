@@ -21,6 +21,7 @@ not it is read.
 | Looking for… | Go to |
 |---|---|
 | The restructuring plan (read this first) | [spec/PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md) |
+| Where a rule goes when you want it in SOME projects and not others, and how to make a shared set | [documentation/SHARED_PRACTICE_SETS.md](documentation/SHARED_PRACTICE_SETS.md) |
 | Whether an open item may be raised with Morgan at all, and what "Drop it" writes | [practices/open-item-disposition.md](practices/open-item-disposition.md), phrase at [practices/park-it.md](practices/park-it.md) |
 | Running many sessions at once — the proposed Chief of Staff session, what `list_sessions` can and cannot do, and the tag namespaces | [spec/CHIEF_OF_STAFF.md](spec/CHIEF_OF_STAFF.md) — decided 2026-09-14 (build it); was tracked at TODO.md's `chief-of-staff-session` item, since closed and pruned |
 | Inherited practices whose meaning or mechanism changed under Precedent (Alex needs to hear about these) | [spec/CHANGES_TO_TELL_ALEX.md](spec/CHANGES_TO_TELL_ALEX.md) |
@@ -117,7 +118,7 @@ not it is read.
 | The ten ideas underneath Precedent on one page — work through an assistant, the repository is the memory, practices, proposal and approval, routing, enforcement, four levels, three permission levels, the standing phrases, privacy — each linked into both guides | [documentation/TEN_THINGS.md](documentation/TEN_THINGS.md) |
 | Every GitHub setting a Precedent project depends on, who clicks it, what fails without it — roles, branch protection with the four values, what GitHub does with CODEOWNERS and how this system generates it, Actions permissions and secrets, practice-set repositories | [documentation/GITHUB_SETTINGS.md](documentation/GITHUB_SETTINGS.md) |
 | CI checks for shell-less agents (install, require) | [GITHUB_ACTIONS.md](documentation/GITHUB_ACTIONS.md) |
-| Whether anything catches a drifted `MAP.md`, `GLOSSARY.md` or loader block in a practice SET (two things do) | [templates/github-actions/views-drift.yml.template](templates/github-actions/views-drift.yml.template) and [templates/github-actions/precedent-check.yml.template](templates/github-actions/precedent-check.yml.template); whether a set needs both is [TODO.md's `views-drift-vs-suite-workflow`](todo/todo-2026-09-13-views-drift-vs-suite-workflow.md) |
+| Whether anything catches a drifted [MAP.md](MAP.md), [GLOSSARY.md](GLOSSARY.md) or loader block in a practice SET | the `views-drift` job inside [templates/github-actions/precedent-check.yml.template](templates/github-actions/precedent-check.yml.template) — there is no separate `views-drift.yml.template` since 2026-09-19, when it was folded in ([templates/github-actions/README.md](templates/github-actions/README.md)) |
 | Upstream open items / roadmap | [TODO.md](TODO.md) |
 | The full story behind any environment trap, one file each | [gotchas/](gotchas/) (generated overview: [gotchas/INDEX.md](gotchas/INDEX.md)) |
 | Gotchas that no longer fire, with the verdict that retired each one | [gotchas/](gotchas/) (`status: retired` in the file, in place -- nothing moves) |

@@ -3,7 +3,7 @@ slug:        full-practice-audit
 title:       A full practice audit — an on-demand, whole-catalogue sweep, on request only
 tier:        on-demand
 severity:    advisory
-scope:       engine-dev
+scope:       null
 applies_to:  ["**"]
 occasion:    "a person explicitly asks for a full practice audit (or \"practice check\") across the whole catalogue"
 gates:       []
@@ -98,3 +98,11 @@ already name. See [routing-audit](routing-audit.md) for the cheaper,
 narrower sibling mechanism this one deliberately does not replace, and
 [spec/UNBUILT_PLAN_ITEMS.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/UNBUILT_PLAN_ITEMS.md) for the
 pre-registered evaluation this practice's own reliability still needs.
+
+**It stopped being engine-only on 2026-09-21**, with
+[very-deep-check](very-deep-check.md) and for the same reason: `scope:
+engine-dev` withheld it from a consuming repo's tree, so "Practice check"
+was a word a session could not act on anywhere but here.
+[tools/full_practice_audit.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/full_practice_audit.py)
+is vendored now. A consumer's catalogue is its own resolved set, which is
+exactly what an audit there should sweep.
