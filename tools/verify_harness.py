@@ -19771,6 +19771,74 @@ def check_stale_render_self_heals():
           '; '.join(f"{n} -- {d[:400]}" for n, d in bad))
 
 
+def check_self_heal_universal_source_leaves_no_bytecode():
+    """precedent_resolve.py's _self_heal_universal_source() runs
+    tools/precedent_source_bootstrap.py AS A SUBPROCESS, inside the very
+    repo it is healing -- the same shape as the build_views.py subprocess
+    precedent_bootstrap_source.py already runs with -B, and for the same
+    reason: precedent_source_bootstrap.py's own _credential_args() imports
+    precedent_source_credentials from ITS OWN DIRECTORY, and an ordinary
+    (non -B) interpreter caches that import as a .pyc right there.
+
+    THE BUG THIS LOCKS IN. Found chasing an intermittent very_deep_check.py
+    false positive (tools/__pycache__/precedent_source_credentials.cpython-
+    311.pyc reading as bootstrap drift, sometimes as a byte mismatch and
+    sometimes as "this set does not have it") -- traced with strace -f to
+    exactly this subprocess, launched without -B. The drift check has its
+    own exclusion for a stray .pyc now (see check_very_deep_check_bootstrap_
+    drift's stray-pycache case), which stops the false positive from being
+    reported as drift; this check is the other half, on the file that
+    actually writes it, so the same litter cannot reappear under some other
+    caller that isn't behind a drift check at all -- a real set's tools/
+    directory, session after session, whenever the universal source has not
+    been cloned next to it yet.
+
+    THE FIXTURE IS MINIMAL RATHER THAN A REAL BOOTSTRAPPED SET (contrast
+    check_very_deep_check_bootstrap_drift's fresh()): only the two files
+    _self_heal_universal_source's subprocess actually reads are copied in
+    (precedent_source_bootstrap.py itself, and precedent_source_credentials.py
+    so the import it triggers is the real one, not an ImportError that would
+    make this pass for the wrong reason), plus the two small JSON files that
+    tell it what to clone. No network call is required to exercise the bug:
+    precedent_source_bootstrap.py's _sync_once() calls _credential_args()
+    -- the import that writes the .pyc -- as its first line, before it runs
+    any git command, so the clone attempt below is expected to fail offline
+    and that failure is not what this check is about."""
+    import shutil, tempfile
+    import precedent_resolve as _pr
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-self-heal-'))
+    try:
+        repo_root = tmp / 'set'
+        tools_dir = repo_root / 'tools'
+        tools_dir.mkdir(parents=True)
+        shutil.copy2(ROOT / 'tools' / 'precedent_source_bootstrap.py',
+                     tools_dir / 'precedent_source_bootstrap.py')
+        shutil.copy2(ROOT / 'tools' / 'precedent_source_credentials.py',
+                     tools_dir / 'precedent_source_credentials.py')
+        (repo_root / 'precedent.json').write_text(json.dumps({
+            'format_version': 1,
+            'sources': [{'level': 'universal', 'name': 'precedent',
+                        'path': '../universal-sibling-not-yet-cloned'}],
+        }), encoding='utf-8')
+        (tools_dir / 'ENGINE_MANIFEST.json').write_text(json.dumps({
+            'source_repo': 'https://github.com/alex137/BestPractice',
+            'source_branch': 'precedent-beta-v01',
+        }), encoding='utf-8')
+
+        _pr._self_heal_universal_source(repo_root)
+
+        stray = tools_dir / '__pycache__'
+        check('_self_heal_universal_source runs precedent_source_bootstrap.py '
+              'with -B, so it leaves no __pycache__ in the repo it just healed',
+              not stray.exists(),
+              f'{stray} exists, containing: '
+              f'{sorted(p.name for p in stray.iterdir())}' if stray.exists()
+              else '(not reproduced this run)')
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 def check_instantiated_template_links_survive_the_copy():
     """A file a template tells you to COPY INTO A REPO ROOT cannot carry a
     link that only resolves from the template's own directory.
@@ -24705,6 +24773,7 @@ def main():
     check_source_supplied_checks_run()
     check_individual_source_bootstrap_self_heals()
     check_stale_render_self_heals()
+    check_self_heal_universal_source_leaves_no_bytecode()
     check_source_credentials()
     check_vendored_engine_reads_the_consumer_root()
     check_source_clone_keeps_its_credential()
