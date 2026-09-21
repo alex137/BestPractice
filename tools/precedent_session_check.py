@@ -419,6 +419,19 @@ def checks(offline=False):
     # Reports and never repairs: which copy is canonical is a judgment
     # about which one holds work (practice: fail-gracefully). Deleting the
     # wrong one loses commits.
+    #
+    # THE REMEDY THIS ROW USED TO GIVE WAS WRONG, and a session proved it by
+    # experiment the same day. It said to remove the copy that does not hold
+    # the work. That cannot hold: the source self-heal re-clones whatever
+    # path the user-level config names, so the directory reappeared within
+    # the minute, twice. The directory was never the cause --
+    # ~/.config/precedent/config.json's individual.path pointed at one copy
+    # while the working tree was the other. Repointing that one field is
+    # what closed it. (The session that found it named leak_gate.py as the
+    # re-cloner; leak_gate.py runs one bounded `git pull --ff-only` and
+    # clones nothing, so the re-clone is the resolve-time self-heal running
+    # underneath it -- worth stating, because the next person will go
+    # looking in leak_gate.py for a clone call that is not there.)
     name = 'each practice source is cloned exactly once on this disk'
     by_name = {}
     for shown, _base in _attachable_sources():
@@ -441,9 +454,16 @@ def checks(offline=False):
                              'and not the other'))
         out.append((name, False, '; '.join(detail) + '. Nothing reports '
                     'which copy the loader read, so a practice written in '
-                    'one may simply not be in force. Work out which holds '
-                    'the work, push it, then remove the other by hand -- '
-                    'this tool never deletes a clone'))
+                    'one may simply not be in force. THE FIX IS THE CONFIG, '
+                    'NOT THE DIRECTORY: point '
+                    '~/.config/precedent/config.json\'s individual.path (and '
+                    'any sibling source path) at the copy that holds the '
+                    'work. Moving or deleting the other one does not hold -- '
+                    'the source self-heal re-clones whatever path the config '
+                    'still names, within the same session. Then confirm from '
+                    'a tool\'s OWN output which path it loaded, rather than '
+                    'assuming the change took. This tool never deletes a '
+                    'clone and never rewrites your config'))
     return out
 
 
