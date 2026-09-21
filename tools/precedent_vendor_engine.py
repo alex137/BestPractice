@@ -86,19 +86,28 @@ in ENGINE_FILES, and the set reads universal out of an UNTRACKED
 .precedent/SESSION_PRACTICES.md rather than a committed copy
 (spec/SOURCE_SET_PROSE_GAP.md, shape 3, approved 2026-09-13).
 
-WHAT IS DELIBERATELY IN NEITHER LIST, said out loud because its absence is
-what makes a whole class of follow-up work unnecessary. verify_harness.py
-(noted again below), and also tools/leak_gate.py and tools/very_deep_check.py:
-both run only from a BestPractice checkout, against whatever repositories that
-session can see, so improving them reaches every repo the moment this repo's
-own copy changes. Nothing to vendor, nothing to refresh.
+WHAT IS DELIBERATELY IN NEITHER LIST: verify_harness.py, and only it. It is
+this repo's own harness for this repo's own engine; a consumer has nothing
+for it to verify.
 
-That is worth stating because the opposite is the natural assumption. On
-2026-09-07 a change to those two tools was written up as needing a
-per-set engine refresh, and a TODO item was opened saying the sets were
-running stale copies -- of files they have never held. The reasoning came
-from cross-source-rollout, which is a real practice and simply did not apply
-here; nobody checked these lists first. Check them before costing a rollout.
+THIS PARAGRAPH USED TO NAME leak_gate.py AND very_deep_check.py TOO, and
+that stopped being true on 2026-09-20/21 -- both are vendored now, in
+ENGINE_FILES above. The old reasoning was that they "run only from a
+BestPractice checkout, against whatever repositories that session can
+see", so improving them reached every repo for free. That was accurate
+while nobody could run them anywhere else, and it is exactly what made
+them unreachable in a consuming repo: a leak gate that only upstream can
+run does not guard a downstream tree, and a "Very deep check" a person
+says in their own project cannot be carried out.
+
+It is kept here rather than deleted because the incident it records still
+teaches: on 2026-09-07 a change to those two tools was written up as
+needing a per-set engine refresh, and an item was opened saying the sets
+were running stale copies -- of files they had never held. The reasoning
+came from cross-source-rollout, a real practice that simply did not apply.
+Nobody checked these lists first. CHECK THEM BEFORE COSTING A ROLLOUT, and
+note that the answer changed: a claim about this file's contents made from
+memory is now wrong in both directions.
 
 routing_scope.json is vendored in both kinds too, but it is not a
 byte-identical copy: precedent_gate.py's SCOPE file carries two things in
@@ -501,6 +510,19 @@ ENGINE_FILES = [
     # precedent_gate.py's push/merge moments precisely because a reminder
     # is what already failed.
     'precedent_engine_freshness.py',
+    # EVERY VOCABULARY WORD HAS TO WORK WHERE THE ENGINE IS VENDORED
+    # (2026-09-21, Morgan: "ALL of our vocabulary words should"). A standing
+    # command a session cannot carry out is worse than one that does not
+    # exist: the person says it, the session recognises it -- the practice
+    # is right there in the loader block -- and then reaches for a tool that
+    # was never shipped. These three are what the audit found missing:
+    # "Practice check" needs full_practice_audit.py, "Reduction pass" needs
+    # session_load_trend.py, "Three Things" needs todo_progress.py.
+    # precedent_check.py's `vocabulary-reaches-the-consumer` now fails the
+    # build if a command practice names a tool that is not here.
+    'full_practice_audit.py',
+    'session_load_trend.py',
+    'todo_progress.py',
     'precedent_vendor_engine.py',
 ]
 

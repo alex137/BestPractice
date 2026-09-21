@@ -3725,6 +3725,140 @@ def _workflow_file_outside_vendoring(ctx):
     return findings
 
 
+@check('vocabulary-reaches-the-consumer', 'tree',
+       "every practice that declares a standing COMMAND is actually "
+       "reachable where the engine is vendored -- not withheld from a "
+       "consuming repo's tree by scope, and every tools/ script its own "
+       "text names is in the engine file list that repo receives",
+       "whether the command WORKS once delivered -- only that the practice "
+       "and its named scripts arrive. It reads `tools/NAME.py` literals out "
+       "of the practice's own text, so a tool reached by a path this parser "
+       "does not see is invisible to it, and a script named only as "
+       "background reading counts the same as one the command runs. A "
+       "finding here is real; a clean run is not proof of completeness.",
+       practice_backed=False)
+def _vocabulary_reaches_the_consumer(ctx):
+    """A standing command a session cannot carry out is worse than one that
+    does not exist.
+
+    THE INCIDENT (2026-09-21). `very-deep-check` and `full-practice-audit`
+    each declare a `command:` -- "Very deep check", "Practice check" -- and
+    each carried `scope: engine-dev`, which precedent_materialize withholds
+    from a consuming repo's materialized practices/. So a person said the
+    words in their own project, the session had no such practice, and
+    nothing happened for a reason nobody in that room could see. The tools
+    had been vendored the day before; the practices had not followed.
+
+    Three more commands named scripts that were in neither engine list:
+    "Practice check" needs full_practice_audit.py, "Reduction pass" needs
+    session_load_trend.py, "Three Things" needs todo_progress.py.
+
+    NOBODY WAS GOING TO NOTICE. Every check in the suite passes in a repo
+    where a command is silently inert: the practice file is well-formed,
+    the vocabulary listing prints it, and the tool's absence only shows
+    when a person says the word. This is the mechanism.
+
+    WHY IT RUNS WHERE THE ENGINE IS AUTHORED. It compares practices/
+    against ENGINE_FILES/CONSUMER_ENGINE_FILES, which exist only here. A
+    consuming repo has the delivered result, not the lists, so its own copy
+    declines rather than passing vacuously.
+    """
+    import re as _re
+    practices_dir = ctx.root / 'practices'
+    if not practices_dir.is_dir():
+        raise NotApplicable(
+            'no practices/ in this repo root -- nothing here declares the '
+            'commands this check is about')
+    try:
+        import precedent_vendor_engine as pve
+    except ImportError:
+        raise NotApplicable('precedent_vendor_engine.py did not import, so '
+                            'the engine file lists cannot be read')
+    consumer = getattr(pve, 'CONSUMER_ENGINE_FILES', None)
+    if not consumer:
+        raise NotApplicable('this engine carries no CONSUMER_ENGINE_FILES '
+                            'to compare -- it predates that registry')
+    consumer = set(consumer)
+
+    # A practice's own text may name a tool as background reading rather
+    # than as the thing the command runs, and this check deliberately does
+    # not try to tell those apart: over-reporting a tool that ought to ship
+    # anyway is cheap, and the alternative is the parser guessing at intent.
+    # What it DOES exclude is the harness, which is this repo's own and has
+    # nothing to verify in a consumer (precedent_vendor_engine's own list
+    # says so), and this check's own file.
+    #
+    # UPSTREAM-ONLY TOOLS ARE DECLARED, WITH A REASON, not inferred. The
+    # first version inferred: it took only tools named in COMMAND position
+    # (`python3 tools/x.py`), on the theory that a prose mention is
+    # background reading. Measured against this catalogue, that theory
+    # dropped two of the three real gaps it was written to catch --
+    # full_practice_audit.py and todo_progress.py are each named as a link,
+    # not as a command line, and each was genuinely missing from both
+    # engine lists. A parser that guesses at intent gets intent wrong.
+    #
+    # So: strict by default, and an exception is a line here that somebody
+    # has to write and a reviewer can see. Same discipline as
+    # leak_structural_exempt and ci_workflow_outside_vendoring_exempt, for
+    # the same reason -- an exemption nobody can see is a hole.
+    UPSTREAM_ONLY = {
+        'verify_harness.py':
+            'this repo\'s own harness for this repo\'s own engine; a '
+            'consumer has nothing for it to verify',
+        'precedent_install.py':
+            'installs Precedent INTO a project; the project that already '
+            'has it does not run it',
+        'precedent_upstream_check.py':
+            'compares this repo against its own origin/main watermark -- a '
+            'fact about the engine\'s repository, not about a consumer',
+        'precedent_simulate.py':
+            'authoring aid for writing practices here; named in '
+            'very-deep-check as the subject of a pass, not as a step a '
+            'consumer runs',
+        'precedent_move.py':
+            'moves a practice between SOURCE sets, which is an authoring '
+            'operation on the catalogue rather than anything a consuming '
+            'repo does',
+        'light_check.py':
+            'very-deep-check names it as "that repo\'s own light check" -- '
+            'each repo declares its own under two-check-levels, and it is '
+            'deliberately not one file shipped from here',
+    }
+    NEVER_VENDORED = set(UPSTREAM_ONLY)
+
+    findings = []
+    for path in sorted(practices_dir.glob('*.md')):
+        text = path.read_text(encoding='utf-8', errors='replace')
+        cmd = _re.search(r'^command:\s*(.+)$', text, _re.M)
+        if not cmd or cmd.group(1).strip() in ('null', '~', ''):
+            continue
+        slug = path.stem
+        scope = _re.search(r'^scope:\s*(\S+)', text, _re.M)
+        if scope and scope.group(1).strip() not in ('null', '~'):
+            findings.append(Finding(
+                f'practices/{slug}.md',
+                f'declares a standing command but carries '
+                f'scope: {scope.group(1).strip()}, which withholds it from '
+                f'a consuming repo\'s materialized practices/. The person '
+                f'can say the word there and the session will not have the '
+                f'practice. Drop the scope, or drop the command.'))
+        named = sorted({m for m in _re.findall(r'tools/([A-Za-z0-9_]+\.py)',
+                                               text)})
+        for script in named:
+            if script in NEVER_VENDORED or script in consumer:
+                continue
+            findings.append(Finding(
+                f'practices/{slug}.md',
+                f'declares a standing command and names tools/{script}, '
+                f'which is in neither ENGINE_FILES nor '
+                f'CONSUMER_ENGINE_FILES -- a repo that vendors the engine '
+                f'gets the practice and not the script it points at. Add '
+                f'it to the engine file list; or, if it genuinely only '
+                f'runs upstream, add it to this check\'s UPSTREAM_ONLY '
+                f'with the reason, so the exception is visible.'))
+    return findings
+
+
 @check('shipped-template-carries-its-script', 'tree',
        "every script a vendored CI workflow template actually RUNS is in "
        "the engine file list for each kind that template ships to -- so a "

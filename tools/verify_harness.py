@@ -8054,6 +8054,77 @@ def check_precedent_check_fires():
              _plant_shipped_template_script,
              setup=_setup_shipped_template_script)
 
+        # vocabulary-reaches-the-consumer (2026-09-21). The check reads THIS
+        # repo's practices/ against the REAL engine file lists imported from
+        # tools/, so the fixture supplies only practice files and is judged
+        # against the live registries. Setup plants a command practice that
+        # is properly reachable; the plant makes it unreachable in BOTH ways
+        # the check catches -- a scope that withholds it from a consumer's
+        # tree, and a named tool that ships to nobody.
+        def _setup_vocabulary_reaches(repo):
+            d = repo / 'practices'
+            d.mkdir(parents=True, exist_ok=True)
+            (d / 'planted-command.md').write_text(
+                '---\n'
+                'slug:        planted-command\n'
+                'title:       Planted\n'
+                'tier:        on-demand\n'
+                'severity:    advisory\n'
+                'scope:       null\n'
+                'applies_to:  ["**"]\n'
+                'occasion:    "a person says the planted word"\n'
+                'gates:       []\n'
+                'index_clause: "planted"\n'
+                'checked_by:  null\n'
+                'defines:     []\n'
+                'command:     {"Planted word": "Do the planted thing."}\n'
+                'status:      active\n'
+                'supersedes:  []\n'
+                'overrides:   null\n'
+                'added:       null\n'
+                'approved_by: "h"\n'
+                '---\n\n'
+                '## Rule\nRun `python3 tools/precedent_show.py SLUG`.\n\n'
+                '## Story\nIt is vendored, so the word works downstream.\n',
+                encoding='utf-8')
+            git(repo, 'add', '-A')
+            git(repo, 'commit', '-qm', 'planted a reachable command practice')
+
+        def _plant_vocabulary_reaches(repo):
+            d = repo / 'practices'
+            (d / 'planted-command.md').write_text(
+                '---\n'
+                'slug:        planted-command\n'
+                'title:       Planted\n'
+                'tier:        on-demand\n'
+                'severity:    advisory\n'
+                'scope:       engine-dev\n'
+                'applies_to:  ["**"]\n'
+                'occasion:    "a person says the planted word"\n'
+                'gates:       []\n'
+                'index_clause: "planted"\n'
+                'checked_by:  null\n'
+                'defines:     []\n'
+                'command:     {"Planted word": "Do the planted thing."}\n'
+                'status:      active\n'
+                'supersedes:  []\n'
+                'overrides:   null\n'
+                'added:       null\n'
+                'approved_by: "h"\n'
+                '---\n\n'
+                '## Rule\nRun `python3 tools/never_vendored_anywhere.py`.\n\n'
+                '## Story\nBOTH failures at once: scope: engine-dev withholds\n'
+                'this from a consuming tree, and the tool it names ships to\n'
+                'nobody. A person can say the word and nothing can happen.\n',
+                encoding='utf-8')
+            git(repo, 'add', '-A')
+            git(repo, 'commit', '-qm', 'planted an unreachable command practice')
+
+        case('vocabulary-reaches-the-consumer',
+             _plant_vocabulary_reaches,
+             setup=_setup_vocabulary_reaches)
+
+
         # --- and the registry must not contain an untested claim ------------
         import importlib.util
         spec = importlib.util.spec_from_file_location(
