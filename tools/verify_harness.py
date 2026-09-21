@@ -8195,6 +8195,69 @@ def check_precedent_check_fires():
              _plant_hook_carries_script,
              setup=_setup_hook_carries_script)
 
+        # claude-only-surface-has-a-parallel (2026-09-21). The check reads
+        # the fixture's OWN .claude/ and templates/harness/PARALLELS.md, so
+        # the fixture supplies both. Setup gives one Claude-only hook and a
+        # table row covering it for all three adapters; the plant deletes
+        # the row, reproducing the shape the check exists for -- a
+        # mechanism that lives in .claude/ and nowhere else, with nothing
+        # recording what the other three harnesses get instead.
+        _PAR_HEAD = ('| Mechanism | What it does | codex | gemini-cli | '
+                     'grok-build |\n|---|---|---|---|---|\n')
+
+        def _par_rows_for(repo):
+            """A covering row for every mechanism the FIXTURE's own .claude/
+            holds. The fixture is a copy of this tree, so it inherits the
+            real hooks; a table naming only the planted one leaves those
+            uncovered and the clean case fails for a reason that has
+            nothing to do with what is being tested."""
+            import json as _vj
+            names = {q.name for q in (repo / '.claude' / 'hooks').glob('*.sh')}
+            for sp in sorted((repo / '.claude').glob('settings*.json')):
+                try:
+                    doc = _vj.loads(sp.read_text(encoding='utf-8'))
+                except Exception:                             # noqa: BLE001
+                    continue
+                for _e, blocks in (doc.get('hooks') or {}).items():
+                    for b in blocks or ():
+                        for h in b.get('hooks') or ():
+                            c = (h.get('command') or '').strip()
+                            if c and c.split()[0].endswith('.sh'):
+                                names.add(c.split()[0].rsplit('/', 1)[-1])
+            return ''.join(
+                f'| `{n}` | fixture row | none, no hook mechanism | '
+                f'none, same | none, same |\n' for n in sorted(names))
+
+        def _setup_surface_parallel(repo):
+            h = repo / '.claude' / 'hooks'
+            h.mkdir(parents=True, exist_ok=True)
+            (h / 'planted-hook.sh').write_text('#!/bin/bash\nexit 0\n',
+                                               encoding='utf-8')
+            d = repo / 'templates' / 'harness'
+            d.mkdir(parents=True, exist_ok=True)
+            (d / 'PARALLELS.md').write_text(
+                '# Planted\n\n' + _PAR_HEAD + _par_rows_for(repo),
+                encoding='utf-8')
+            git(repo, 'add', '-A')
+            git(repo, 'commit', '-qm', 'planted a covered Claude-only hook')
+
+        def _plant_surface_parallel(repo):
+            # Drop exactly one row -- the planted hook's -- and leave every
+            # other row standing. A table emptied wholesale would fail for
+            # a dozen reasons at once; this fails for the one under test.
+            keep = [l for l in (repo / 'templates' / 'harness' /
+                                'PARALLELS.md').read_text(encoding='utf-8')
+                    .splitlines(True)
+                    if not l.startswith('| `planted-hook.sh`')]
+            (repo / 'templates' / 'harness' / 'PARALLELS.md').write_text(
+                ''.join(keep), encoding='utf-8')
+            git(repo, 'add', '-A')
+            git(repo, 'commit', '-qm', 'planted an uncovered Claude-only hook')
+
+        case('claude-only-surface-has-a-parallel',
+             _plant_surface_parallel,
+             setup=_setup_surface_parallel)
+
 
 
 

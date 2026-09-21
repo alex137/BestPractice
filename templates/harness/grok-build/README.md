@@ -45,13 +45,21 @@ Wiring the rest:
   environment carries either of those by default is exactly the kind of
   thing Phase 5's test would answer and this research pass could not.
 
-**This adapter is not yet wired into `templates/harness/LEDGER.md`'s
-enforced transfer tracking** — that check's member-directory list
-(`tools/precedent_check.py`) is hardcoded to the original three and would
-need its own change to add a fourth. Deliberately deferred rather than
-done by guess: extending an enforced check on unverified assumptions about
-a hooks syntax this pass could not confirm is a worse mistake than leaving
-the gap named.
+**Wired into [../LEDGER.md](../LEDGER.md)'s enforced transfer tracking on
+2026-09-21.** This section used to say the opposite, and the deferral was
+half right: extending an enforced check on unverified assumptions about a
+hooks syntax nobody has confirmed would indeed have been a guess. But the
+ledger records *verdicts*, not wirings, and "nobody has confirmed whether
+this can transfer" is a verdict — a more useful one than an absent column.
+So the fourth member-directory went into
+[`tools/precedent_check.py`](../../../tools/precedent_check.py)'s list,
+every row dated before this adapter existed carries a backfilled cell
+saying so, and the unverified-hooks caveat stayed exactly where it belongs:
+in the Bootstrap bullet above, which still refuses to write down a syntax
+it has not seen work.
+
+This adapter's row in [../PARALLELS.md](../PARALLELS.md) is the other half:
+what Claude Code does that this harness does not, mechanism by mechanism.
 
 ## The Markdown Check Does Not Run Here
 

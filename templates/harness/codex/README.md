@@ -59,3 +59,9 @@ Do both of these. Not one:
 session is supposed to run the check before committing" was written down
 and followed for months, and still nothing refused a commit that skipped
 it — which was only ever safe because CI was behind it.
+
+**What this harness does not get that Claude Code does, mechanism by
+mechanism: [../PARALLELS.md](../PARALLELS.md).** The Markdown gate below
+is one row of it. The others are the path-triggered practice loading, the
+reply gate, the turn-end git check, and the private individual source —
+each with the parallel where one exists and the reason where none does.
