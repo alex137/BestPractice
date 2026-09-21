@@ -1119,17 +1119,90 @@ def load_blocklist():
             True)
 
 
+def structural_path_exemptions(root=None):
+    """-> {path_prefix: reason} a repo has DECLARED, with a reason, as a
+    deliberate directory the structural path rules must not flag.
+
+    WHY THIS EXISTS (2026-09-21, practice: cite-the-incident). The
+    FORBIDDEN_PATHS rules above are written on this file's own stated
+    premise -- "Precedent holds universal practices and nothing else" --
+    which is true of BestPractice's public tree and false of every repo the
+    same gate is now vendored into. A practice SET legitimately carries a
+    tracked `candidates/` outbox: that is where its drafts live. Measured:
+    a session installing leak-gate.yml into two real practice sets found it
+    RED ON ARRIVAL, on `candidates/.gitkeep` among others, with nothing
+    wrong in either repo.
+
+    WHY A DECLARED EXEMPTION RATHER THAN SCOPING BY REPO KIND, which was the
+    obvious alternative and is the one this deliberately does not do. Both
+    ways of asking "what kind of repo is this?" fail here:
+
+      - FILE PRESENCE cannot tell a public universal tree from a private
+        set. BestPractice itself carries BOTH precedent.json and
+        precedent-source.json; so do all three of Morgan's shared sets,
+        measured the same day.
+      - SELF-DECLARED `visibility` must never gate a LEAK check. That is
+        precisely the bug corrected in leak-gate.yml.template the day
+        before, where two repos that are public on GitHub declared
+        themselves private. The workflow now asks GitHub -- but this file
+        also runs in a local pre-push hook, where no GitHub context exists.
+
+    So the rule never weakens for a class of repo. A repo that needs such a
+    directory says so ONCE, in writing, with a reason a person can read --
+    the same discipline `ci_workflow_outside_vendoring_exempt` already uses,
+    and the same reason: an exemption nobody can see is a hole.
+
+    A prefix matches on a path SEGMENT boundary, so `candidates` exempts
+    `candidates/x.md` and never `candidates-private/x.md`. Read from
+    precedent.json, falling back to precedent-source.json for a set that has
+    only the one. A malformed file yields {} -- the gate keeps scanning, and
+    nothing is exempted by a parse error.
+    """
+    root = pathlib.Path(root or '.')
+    out = {}
+    for name in ('precedent.json', SOURCE_MANIFEST):
+        f = root / name
+        if not f.is_file():
+            continue
+        try:
+            cfg = json.loads(f.read_text(encoding='utf-8'))
+        except (OSError, ValueError):
+            continue
+        for e in (cfg.get('leak_structural_exempt') or []):
+            if isinstance(e, dict) and e.get('path') and e.get('reason'):
+                out[str(e['path']).strip('/')] = str(e['reason'])
+    return out
+
+
+def _path_is_exempt(rel, exemptions):
+    """True when `rel` sits under a declared exempt prefix, on a segment
+    boundary. `candidates` covers `candidates/a/b.md`, never
+    `candidates-private/b.md` and never `docs/candidates/b.md` -- a prefix
+    is anchored at the repo root, because that is where a person reading
+    the declaration will expect it to apply."""
+    for prefix in exemptions:
+        if rel == prefix or rel.startswith(prefix + '/'):
+            return True
+    return False
+
+
 def scan(units, blocklist, repo_policy=(None, None), auto_names=(),
-         private_names=None):
+         private_names=None, structural_exempt=None):
     owners, allowed = repo_policy
     if private_names is None:
         private_names = private_set_names()
+    if structural_exempt is None:
+        structural_exempt = structural_path_exemptions()
     hits = []
     for display, rel, text in units:
         if rel is not None and rel not in ALLOWED_PATHS:
-            for pat, why in FORBIDDEN_PATHS:
-                if pat.search(rel):
-                    hits.append((display, 0, why, rel))
+            # PATH rules only. A declared exemption says "this DIRECTORY is
+            # deliberate here"; it has never said anything about the file's
+            # CONTENT, and the content rules below still run on every byte.
+            if not _path_is_exempt(rel, structural_exempt):
+                for pat, why in FORBIDDEN_PATHS:
+                    if pat.search(rel):
+                        hits.append((display, 0, why, rel))
             segments = [seg.lower() for seg in rel.split('/')]
             for seg in segments[:-1]:
                 if seg in private_names:

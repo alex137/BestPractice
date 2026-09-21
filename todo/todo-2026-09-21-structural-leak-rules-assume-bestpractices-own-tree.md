@@ -3,16 +3,16 @@ slug:              todo-2026-09-21-structural-leak-rules-assume-bestpractices-ow
 kind:              manual
 domain:            security
 severity:          high
-status:            open
-disposition:       ask
+status:            closed
+disposition:       done
 remind_on:         null
-blocked_on:        "a decision about which repo kinds may legitimately carry a candidates/ or individual/ directory, and how the gate is to know -- the obvious discriminators do not work, see below"
+blocked_on:        null
 batch:             null
-decision:          null
-decision_strength: null
+decision:          "declared per-path exemption with a mandatory reason; the rule never weakens for a class of repo"
+decision_strength: decided
 waiting_on:        null
 noted:             2026-09-21
-closed:            null
+closed:            2026-09-21
 ---
 ## What
 
@@ -72,3 +72,24 @@ says once, with a reason, that its `candidates/` is deliberate.
 
 Until then `leak-gate.yml` stays uninstalled in the practice sets, which is
 where it was already held.
+
+## Resolved, 2026-09-21
+
+**Option C, chosen and built:** `leak_structural_exempt` in a repo's own
+`precedent.json` (or `precedent-source.json`) — a list of `{path, reason}`
+entries. A path under a declared prefix is not flagged by the structural
+PATH rules. **The reason is mandatory**: an entry without one is ignored, so
+the exemption cannot be taken silently.
+
+**The rule never weakens for a class of repo**, which is why this was chosen
+over scoping by kind. Each repo that genuinely needs such a directory says
+so once, in writing, where a person reading the config can see it — the same
+discipline `ci_workflow_outside_vendoring_exempt` already uses.
+
+**Scope, verified against six fixtures:** it covers PATH rules only and
+never content; a prefix matches on a segment boundary and at the repo root,
+so `candidates` exempts a file directly under it and not a nested `docs/candidates/` path;
+and it exempts only what it names — `outbox/` and `personal/` still fire
+under a `candidates` exemption.
+
+`strength: decided` — *"Approved for all, go update."*
