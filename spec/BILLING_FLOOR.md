@@ -255,6 +255,166 @@ against how long the work takes.** If the quotient is a small integer number
 of minutes and the work takes seconds, the cost is structural and no
 frequency lever will touch it.
 
+## What happened after the fix landed (2026-09-20 to 2026-09-21)
+
+The one-job templates were merged on 2026-09-20. **Nobody's bill moved.**
+That gap, and what was built to close it, is the second half of this
+record.
+
+### The templates reached nobody, and it was not a bug
+
+Measured 2026-09-21, in all four practice sets on disk:
+
+| Repo | `precedent-check.yml` jobs | Engine pinned at |
+|---|---|---|
+| `precedent-individual` | 3 (`debounce`, `precedent-check`, `views-drift`) | `de72bc56` |
+| `precedent-shared-writing` | 3 | `de72bc56` |
+| `precedent-shared-repo-maintenance` | 3 | `de72bc56` |
+| `precedent-shared-working-style` | 3 | `de72bc56` |
+
+The first hypothesis was that the vendor engine was failing to overwrite an
+existing workflow file — its recorded hash matched the live one, which
+reads exactly like a refresh that recorded without writing. **It is not
+that.** `git merge-base --is-ancestor fc6e764a2 de72bc568` returns false:
+the one-job template landed in `fc6e764a2`, the sets are pinned at
+`de72bc568`, and the pin is *earlier*. `_refresh_ci_workflow_files()` works;
+it has simply never been asked to run in these repos since the fix.
+
+That is worth writing down precisely because it is the boring answer. The
+interesting answer — a silent write failure in the vendoring engine — was
+one command away from being reported as fact.
+
+### The real gap: "a template changed" and "I am being billed for the old
+one" were different facts
+
+Nothing connected them. The freshness report, when it was built, would say
+`templates/github-actions/precedent-check.yml.template` changed upstream and
+stop. Reading that and knowing your own `.github/workflows/precedent-check.yml`
+is the file it produces required carrying the mapping in your head.
+
+[`precedent_engine_freshness.py`](../tools/precedent_engine_freshness.py)
+now closes it. Run in a repo that is behind, `--files` prints:
+
+```
+-> YOU ARE RUNNING THE OLD ONE: .github/workflows/precedent-check.yml in
+   this repo was installed from precedent-check.yml.template, which is
+   among the changes above. Every run of it until the next "Update
+   Vendors" is the superseded shape.
+```
+
+Verified against `precedent-shared-writing` on 2026-09-21 — a real stale
+repo, not a fixture. The mapping comes from
+`precedent_vendor_engine.CI_WORKFLOW_TEMPLATES`, the one place the
+template-to-installed-path pairing is declared, and the whole thing is
+best-effort: a repo whose vendored engine predates that module gets no
+impact line and an otherwise unchanged report.
+
+### `ci_debounce_minutes` was retired, and two runbooks kept applying it
+
+The field was retired on 2026-09-20 — no Python reads it. But
+[vendor-update-runbook](../practices/vendor-update-runbook.md) step 10 and
+[MIGRATING_EXISTING_INSTALLS.md](MIGRATING_EXISTING_INSTALLS.md) step 6 both
+still told a session to check the field was "set the way the person actually
+wants". Both now say to **delete** it where found. A live-looking knob that
+controls nothing is worse than no knob: somebody tunes it, sees no change,
+and concludes the whole lever class does not work — which is close to what
+five failed interventions already looked like from the outside.
+
+## What was built so a change cannot silently fail to arrive
+
+Morgan's framing, 2026-09-21: *an iron law that every change is tested for
+whether it carries through to the vendored-in versions.* Four mechanisms
+came out of it, and one deleted-checks incident paid for them.
+
+**1. CI workflow deletions propagate by manifest diff.** Engine files always
+did; CI workflows were tombstone-only, so a retired workflow kept running in
+every repo that had ever installed it until somebody deleted it by hand.
+`_remove_retired_ci_workflow_files()` now diffs the manifest's recorded
+`ci_workflow_files` against what the kind actually ships. The tombstone list
+stays for what a diff cannot express, such as a rename.
+
+The `kind` comes from the **caller**, not from the manifest. During a
+source-to-consumer conversion the manifest still names the old kind, so
+reading it there removes the wrong set of files. The harness caught that:
+`check_vendor_engine_consumer_case` stopped reporting `missing`.
+
+**2. The outward check.** Everything else in the suite checks a repo against
+itself, so a consumer could sit months behind with every gate green.
+[precedent_engine_freshness.py](../tools/precedent_engine_freshness.py)
+reads the manifest's `source_commit`,
+`ls-remote`s the pinned branch tip, and says how far behind the repo is. It
+never refreshes anything and **exits 0 in every failure mode**, including no
+network — a freshness notice that can fail a build is a notice people turn
+off. Wired into the session-start hook and into
+[precedent_gate.py](../tools/precedent_gate.py)'s push and merge moments,
+both `--quiet`.
+
+**3. `shipped-template-carries-its-script`.** A shipped workflow template
+that invokes a script out of `tools/` must be shipping that script too. Registered with `practice_backed=False`: it enforces an engine
+property, not a catalogue practice.
+
+**4. The provenance gate was made readable again.** See below — it is the
+one that matters most, and it is not really about billing.
+
+## The finding that outlived the billing question
+
+**`generated-artifact-provenance` was failing on `precedent-beta-v01` through
+eight merges**, and every deep check in that window needed a human to decide
+which failures were new.
+
+Root cause, reduced to one line in a scratch install with `HOME` emptied and
+every `PRECEDENT_*` unset:
+
+```
+precedent_sync_views.py writes:  [My options](practices/my-options.md)
+build_views.py --check wants:    [My options](precedent/universal/practices/my-options.md)
+```
+
+The installer runs the first; the check runs the second. A freshly installed
+project failed its own provenance check from the moment it was created.
+Both were already calling the same renderer — they disagreed on **one
+argument**, the file path passed per practice, which is what decides how a
+sibling citation is rewritten. Both paths exist on disk in a consuming repo,
+so neither was reported unplaceable. They just wrote the same link two ways.
+`build_views.placed_practice_file()` is now the only thing that answers it.
+
+Three layers hid it: the check is rotation-gated, so a first reproduction
+came back clean; an undeclared individual source contaminated the
+regeneration with 17 extra practices, masking the one-line cause; and the
+trigger was one day old.
+
+**Why it belongs in a document about billing.** Cost is not only minutes.
+That red gate cost two near-misses in a single session — a planted test case
+silently disarmed by an unrelated change, and a `--structural-only` fix
+over-corrected to drop both blocklist halves instead of one. Both were
+caught only because somebody read output they had already been told to
+expect. Three of this session's own defects were caught by a harness or a
+sibling session verifying rather than executing; **none was found by the
+session that wrote the code.**
+
+Two rules earned that week:
+
+- **A check that never reads clean is a check nobody reads.**
+- **A detector verified only against a clean tree is indistinguishable from
+  a broken one.** Test both directions or you have tested nothing.
+
+## What is still not done
+
+- **The carry itself.** All four practice sets still run the three-job
+  workflow. It needs an `Update Vendors` in each, run from a session whose
+  GitHub access reaches them; this repository's sessions are scoped to
+  `alex137/bestpractice`, the git proxy returns 403, and `add_repo` refuses
+  cross-owner adds. Tracked in
+  [todo-2026-09-20-carry-one-job-ci-templates-into-installed-repos.md](../todo/todo-2026-09-20-carry-one-job-ci-templates-into-installed-repos.md).
+- **`light-check.yml`**, 609 billed minutes month-to-date across 12 repos —
+  23.5% of the account's whole spend, and it has no template in this tree,
+  so nothing here governs it. Still the single largest line.
+- **`commit-identity.yml`** in `precedent-individual`: every `pull_request`
+  event, `fetch-depth: 0`, 117 minutes month-to-date. Also not ours.
+- **The staleness roll-up** — "which of my repos are behind, and by how
+  much" — still needs cross-repo read access this repository deliberately
+  does not have. Whether it belongs here at all is undecided.
+
 ## Related
 
 - [spec/CI_MINUTES_PLAN.md](CI_MINUTES_PLAN.md) — the running record: item 13
@@ -265,3 +425,6 @@ frequency lever will touch it.
 - [gotchas/gotcha-2026-09-21-github-actions-rejects-yaml-anchors-python-accepts.md](../gotchas/gotcha-2026-09-21-github-actions-rejects-yaml-anchors-python-accepts.md)
   — a near-miss from the fold that would have silently disabled CI in nine
   repositories
+- [todo-2026-09-21-nothing-checks-a-consumer-against-upstream.md](../todo/todo-2026-09-21-nothing-checks-a-consumer-against-upstream.md)
+  — the carry-through item: two of its three pieces are built, the roll-up
+  is not
