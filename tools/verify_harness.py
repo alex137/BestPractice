@@ -17323,6 +17323,84 @@ def check_vendor_engine_refreshes_ci_workflow_files():
           '; '.join(f"{n} -- {d[:800]}" for n, d in bad))
 
 
+def check_vendor_engine_names_a_dependent_of_a_deleted_file():
+    """THE INCIDENT (2026-09-21,
+    todo-2026-09-21-refresh-deletes-a-workflow-another-file-depends-on.md).
+    A refresh deleted .github/workflows/precedent-check.yml from four
+    practice sets. In each of them a second workflow had been PAUSED hours
+    earlier, its header saying its checks "now run as steps in
+    .github/workflows/precedent-check.yml's single job". The destination
+    was gone; two commit-scope checks ran nowhere; nothing said anything.
+
+    The deletion mechanics were already tested -- by the two checks above,
+    thoroughly. What nothing tested, because nothing did it, is the other
+    half: a deletion travels to every installed repo, and the question
+    "does anything here still depend on this" never travelled with it.
+    precedent_decommission.py asks it, within one repo, when a person runs
+    it deliberately.
+
+    Both directions, because the warning half of a reporter is worth
+    nothing without the quiet half: a reporter that fires on a clean case
+    trains people to ignore it, which is the state this was meant to
+    correct.
+
+    Unit-level on purpose: the subject is what _remove_dropped_engine_files
+    PRINTS, and driving a whole refresh to observe one stderr line would
+    make the case slower and its failure harder to read, without testing
+    anything the two end-to-end checks above do not already cover."""
+    import contextlib, io, shutil, tempfile
+    import precedent_vendor_engine as pve
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-deldeps-'))
+    cases = []
+    try:
+        def _fixture(name, referrer_text):
+            repo = tmp / name
+            (repo / 'tools').mkdir(parents=True)
+            dropped = 'zzz_retired_helper.py'
+            body = '# a vendored engine file upstream no longer ships\n'
+            (repo / 'tools' / dropped).write_text(body, encoding='utf-8')
+            if referrer_text:
+                (repo / 'README.md').write_text(referrer_text, encoding='utf-8')
+            manifest = {'files': [dropped],
+                        'sha256': {dropped: hashlib.sha256(
+                            body.encode('utf-8')).hexdigest()}}
+            err = io.StringIO()
+            with contextlib.redirect_stdout(io.StringIO()), \
+                    contextlib.redirect_stderr(err):
+                removed = pve._remove_dropped_engine_files(
+                    repo / 'tools', manifest, 'consumer')
+            return repo, removed, err.getvalue()
+
+        repo_a, removed_a, err_a = _fixture(
+            'with-dependent',
+            'Nightly we run tools/zzz_retired_helper.py against the tree.\n')
+        cases.append(('the dropped engine file is deleted',
+                      removed_a == ['zzz_retired_helper.py'],
+                      repr(removed_a)))
+        cases.append(('the file that still names it is reported, with its '
+                      'path and line',
+                      'README.md:1' in err_a
+                      and 'zzz_retired_helper.py' in err_a,
+                      err_a[:800]))
+        cases.append(('the report does not refuse the refresh -- it warns',
+                      err_a.strip().startswith('WARN'), err_a[:200]))
+
+        _repo_b, removed_b, err_b = _fixture('no-dependent', None)
+        cases.append(('a deletion nothing depends on stays quiet',
+                      removed_b == ['zzz_retired_helper.py']
+                      and 'still names it' not in err_b,
+                      err_b[:800]))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'a refresh that deletes a vendored file names whatever still '
+          f'depends on it ({len(cases)} stated cases)',
+          not bad,
+          '; '.join(f"{n} -- {d[:800]}" for n, d in bad))
+
+
 def check_vendor_engine_retires_ci_workflow_files():
     """THE INCIDENT (2026-09-19, found in themorgan/precedent-individual).
     views-drift.yml.template was folded into precedent-check.yml.template as

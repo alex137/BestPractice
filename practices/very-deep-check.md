@@ -505,6 +505,38 @@ method"). Build the fixtures.
   that has never had to move, so nothing here ever exercised drift — and
   drift is where a consumer spends its whole life. This is the cheap half
   and it needs nobody's permission.
+- **A DELETION, which is the direction nothing rehearsed until
+  2026-09-21.** Every fixture above tests a repo RECEIVING something. A
+  deletion is decided in one tree and executed in many, and for a long time
+  the two vendoring paths did not even agree it happened: engine files
+  diffed the manifest and propagated, CI workflow files waited for somebody
+  to remember a tombstone, so **a template dropped without one stayed
+  installed everywhere, forever, tracked by nothing.** The rehearsal is two
+  assertions, not one — the file is gone, **and nothing left in that repo
+  still names it.**
+
+  The second is the half that bit. *(Found 2026-09-21: a refresh deleted
+  `precedent-check.yml` from four practice sets. A second workflow in each
+  had been paused hours earlier, its own header saying its checks now ran
+  as steps in the file that was about to be deleted. The premise was true
+  when written and false the same afternoon; two commit-scope checks ran
+  nowhere and nothing reported it.)*
+  [tools/precedent_vendor_engine.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/precedent_vendor_engine.py)
+  now names every tracked file that still refers to something it just
+  deleted — **it reports and never refuses**, since a document naming a
+  retired file is usually right to.
+- **What the NEXT refresh would take away, before it does.** The warning
+  above arrives at the moment of deletion, which is the right time to be
+  told and the wrong time to plan.
+  [tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/very_deep_check.py)'s
+  `DELETIONS PENDING` section asks it early: per repo in force, what this
+  checkout's **current** engine lists would remove from that repo on its
+  next refresh, and which tracked files still name each one. Read against
+  the upstream's lists deliberately, never the consumer's own vendored
+  copy, which may be months old. A row with referrers is a finding; a row
+  without is a heads-up. Added 2026-09-21 (Morgan, strength: decided) from
+  [spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md)
+  items 1 and 2.
 - **A REAL consumer repository, brought up to date.** Ask the person to
   attach one, early — see the order of operations, which puts the asking
   before pass 1 for the obvious reason that the answer may not come back.

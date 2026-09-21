@@ -1017,6 +1017,61 @@ def _workflow_liveness_scan(repo_dir):
            if rel not in exempt]
 
 
+def _pending_deletions(repo_dir):
+    """-> (rows, note) for files the NEXT refresh would delete here, each
+    with whatever still names them. rows is [(rel, [(path, line, text)])].
+
+    THE DIRECTION NOTHING ELSE REHEARSES. Pass 1 builds fixtures that
+    install and fixtures that move forward; both test a repo receiving
+    something. A deletion decided in one tree and executed in many is the
+    other direction, and until 2026-09-21 the two vendoring paths did not
+    even agree on whether it happened at all -- engine files diffed the
+    manifest and propagated, CI workflow files waited for somebody to
+    remember a tombstone.
+
+    This asks BEFORE the refresh what that refresh would take away, and who
+    is still leaning on it. precedent_vendor_engine warns after the fact
+    now, which is the same question asked too late to plan around.
+
+    Read against THIS checkout's engine lists deliberately -- the upstream's
+    current ones, which is what the next refresh will actually apply -- and
+    never against the consumer's own vendored copy, which may be months
+    old."""
+    repo_dir = pathlib.Path(repo_dir)
+    mpath = repo_dir / 'tools' / 'ENGINE_MANIFEST.json'
+    if not mpath.is_file():
+        return None, 'nothing vendored here -- no manifest to diff'
+    try:
+        manifest = json.loads(mpath.read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return None, 'tools/ENGINE_MANIFEST.json is unreadable'
+    try:
+        import precedent_vendor_engine as pve
+    except ImportError:
+        return None, 'precedent_vendor_engine did not import'
+    kind = manifest.get('kind', getattr(pve, 'DEFAULT_KIND', None))
+    rels = []
+    if kind in getattr(pve, 'KINDS', {}):
+        ships = set(pve.KINDS.get(kind, ())) | {'routing_scope.json'}
+        rels += [f'tools/{n}' for n in
+                 sorted(set(manifest.get('files') or []) - ships)]
+    recorded = set(manifest.get('ci_workflow_files') or ())
+    if kind in getattr(pve, 'CI_WORKFLOW_TEMPLATES', {}):
+        ships_ci = {ia for _t, ia in pve.CI_WORKFLOW_TEMPLATES[kind]}
+        rels += sorted(recorded - ships_ci)
+    rels += sorted(r for r in recorded
+                   if r in getattr(pve, 'RETIRED_CI_WORKFLOW_FILES', {}))
+    # Only what is actually still on disk: a name the manifest tracks and
+    # the tree no longer has is already gone, and reporting it as pending
+    # would be reporting bookkeeping.
+    rels = sorted({r for r in rels if (repo_dir / r).is_file()})
+    if not rels:
+        return [], (f'kind {kind!r}: nothing this kind stopped shipping is '
+                    f'still on disk here')
+    deps = pve.dependents_of(repo_dir, rels)
+    return [(r, deps.get(r, [])) for r in rels], f'kind {kind!r}'
+
+
 def _workflow_reality(repo_dir, max_workflows=25):
     """-> [(verdict, message)] for one repo, asking GITHUB what it knows
     about each workflow file in the tree. (practice: very-deep-check, pass 2)
@@ -5899,6 +5954,40 @@ def _main(box):
     if led:
         led.end(findings=_wr_n if (_wr_measured and not skip_liveness)
                 else None)
+        led.start('DELETIONS PENDING')
+
+    print("DELETIONS PENDING -- what the next refresh would take away, and "
+          "who still names it\n")
+    _del_n = 0
+    _del_measured = False
+    for _name, _p in _orph_targets:
+        if not pathlib.Path(_p).is_dir():
+            continue
+        _rows, _note = _pending_deletions(_p)
+        if _rows is None:
+            print(f"  {_name}: N/A -- {_note}")
+            continue
+        _del_measured = True
+        if not _rows:
+            print(f"  {_name}: none -- {_note}")
+            continue
+        print(f"  {_name} ({_note}):")
+        for _rel, _refs in _rows:
+            if _refs:
+                _del_n += 1
+                print(f"      FINDING     {_rel} -- the next refresh deletes "
+                      f"it, and {len(_refs)} tracked file(s) still name it:")
+                for _path, _line, _text in _refs[:4]:
+                    print(f"                    {_path}:{_line}  {_text}")
+            else:
+                print(f"      pending     {_rel} -- the next refresh deletes "
+                      f"it; nothing else names it")
+    if not _del_measured:
+        print("  nothing measured -- no repo in force vendors an engine "
+              "manifest to diff.")
+    print()
+    if led:
+        led.end(findings=_del_n if _del_measured else None)
         led.start('SESSION LOAD')
 
     print("SESSION LOAD -- what every session pays before it does anything\n")
