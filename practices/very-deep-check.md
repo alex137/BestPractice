@@ -16,7 +16,16 @@ in_force_at: null
 supersedes:  []
 overrides:   null
 added:       null
-approved_by: "extended 2026-09-21, Morgan (strength: decided), with pass 3's
+approved_by: "extended 2026-09-21, Morgan (strength: decided), with the
+  five additions spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md recommended
+  first and he authorized in that order -- the planted-case rotation
+  settled at step 2 (item 11), WORKFLOW REALITY and the YAML-anchor check
+  (item 5), the deletion rehearsal and DELETIONS PENDING (items 1 and 2),
+  INCIDENT COVERAGE (item 12) and the ACCRETION ranking with its
+  holistic-read registry (item 9); the first forced harness run the new
+  step 2 asked for turned the suite red on its own rotation self-test,
+  which is the kind of thing the item exists to surface;
+  extended 2026-09-21, Morgan (strength: decided), with pass 3's
   close read of every always-loaded instructions file, after an Update
   Vendors pass found a consuming repo's AGENTS.md naming a repository that
   does not exist, twice, in the same file whose own step 1 warns about a
