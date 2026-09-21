@@ -8124,6 +8124,46 @@ def check_precedent_check_fires():
              _plant_vocabulary_reaches,
              setup=_setup_vocabulary_reaches)
 
+        # wired-hooks-can-reach-a-consumer (2026-09-21). The check reads a
+        # repo's own .claude/settings.json against the REAL HOOK_SOURCE_DIR
+        # imported from precedent_vendor_engine, so the fixture supplies
+        # both sides and is judged against the live constant. Setup wires a
+        # hook that IS in the mirrored directory; the plant wires one that
+        # is not, reproducing the doc-lint-gate.sh incident exactly -- a
+        # hook this repo ran and no consumer could ever receive.
+        import json as _pj
+
+        def _settings_wiring(script):
+            return _pj.dumps({'hooks': {'PreToolUse': [{
+                'matcher': 'Bash',
+                'hooks': [{'type': 'command',
+                           'command': '$CLAUDE_PROJECT_DIR/.claude/hooks/' + script}],
+            }]}}, indent=2) + '\n'
+
+        def _setup_wired_hooks_reach(repo):
+            d = repo / 'templates' / 'harness' / 'claude-code' / 'hooks'
+            d.mkdir(parents=True, exist_ok=True)
+            (d / 'planted-hook.sh').write_text('#!/bin/bash\nexit 0\n',
+                                               encoding='utf-8')
+            s = repo / '.claude'
+            s.mkdir(parents=True, exist_ok=True)
+            (s / 'settings.json').write_text(
+                _settings_wiring('planted-hook.sh'), encoding='utf-8')
+            git(repo, 'add', '-A')
+            git(repo, 'commit', '-qm', 'planted a hook that can reach a consumer')
+
+        def _plant_wired_hooks_reach(repo):
+            s = repo / '.claude'
+            (s / 'settings.json').write_text(
+                _settings_wiring('never-shipped-anywhere.sh'), encoding='utf-8')
+            git(repo, 'add', '-A')
+            git(repo, 'commit', '-qm', 'planted a hook no consumer can receive')
+
+        case('wired-hooks-can-reach-a-consumer',
+             _plant_wired_hooks_reach,
+             setup=_setup_wired_hooks_reach)
+
+
 
         # --- and the registry must not contain an untested claim ------------
         import importlib.util
