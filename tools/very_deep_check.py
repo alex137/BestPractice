@@ -763,12 +763,39 @@ def _branch_url(repo_dir, branch):
     view -- the tree view shows the code and offers no way to delete it.
 
     Parsed from the remote rather than assumed: a repository whose origin is
-    not GitHub gets no link instead of a wrong one."""
+    not GitHub gets no link instead of a wrong one.
+
+    THE LINK FORM IS NOT THIS FUNCTION'S TO CHANGE (practice:
+    branch-delete-links). That practice owns the `/branches/all?query=` form,
+    the `safe=''` encoding and the two rules this file implements beside it
+    -- the substring check in `_filter_is_ambiguous` and the separated
+    unmerged list -- because a fleet sweep with no clone to read needs the
+    same mechanism and must not re-derive it. Changing the URL here without
+    changing it there is the drift that practice exists to stop."""
     slug = _github_slug(repo_dir)
     if not slug:
         return None
     return (f'https://github.com/{slug}/branches/all?query='
             + urllib.parse.quote(branch, safe=''))
+
+
+def _filter_is_ambiguous(name, all_names):
+    """True when `name` is a strict substring of some OTHER branch name in
+    the same repo, so the filtered branches page shows more than one row.
+
+    WHY IT IS CHECKED AT ALL (practice: branch-delete-links). The delete link
+    promises ONE row with its trash icon on screen. `?query=` is a substring
+    filter, so a repo holding both `fix-login` and `fix-login-retry` renders
+    an identical-looking link for the first that opens two rows -- and the
+    reader finds that out by clicking, because nothing about the URL or the
+    row says so. The check costs one pass over a list already in memory and
+    the failure it prevents is silent, which is the whole argument for it.
+
+    Measured 2026-09-21 across 110 branches in a nine-repo fleet audit: zero
+    collisions. That is the expected result, not evidence the check is
+    pointless -- a guard whose failure mode is a reader quietly losing trust
+    in the links earns its keep at zero hits."""
+    return any(other != name and name in other for other in all_names)
 
 
 def _compare_url(repo_dir, target, branch):
@@ -2888,11 +2915,19 @@ def scan_branches(repo_dir, target=None, exclude=(), stale_days=None):
     # outnumber the true ones and the list stops being read.
     others = [b for b in sorted(protected) if b != target]
     merged, elsewhere, unmerged = [], [], []
+    # Every name on the branches page, PROTECTED AND EXCLUDED ONES INCLUDED
+    # -- the `?query=` filter does not know this sweep skipped them, so a
+    # branch whose name is a substring of the integration branch's still
+    # opens two rows (practice: branch-delete-links).
+    all_names = []
     for ref in out.splitlines():
         if '/' not in ref:
             continue
         name = ref.split('/', 1)[1]
-        if name == 'HEAD' or name in protected or name in exclude:
+        if name == 'HEAD':
+            continue
+        all_names.append(name)
+        if name in protected or name in exclude:
             continue
         rc, _, _ = _run_git(repo_dir, 'merge-base', '--is-ancestor', ref, target_ref)
         if rc == 0:
@@ -2917,6 +2952,10 @@ def scan_branches(repo_dir, target=None, exclude=(), stale_days=None):
         else:
             unmerged.append(_unmerged_row(repo_dir, name, ref, target_ref,
                                           target, stale_days=stale_days))
+    for _row_list in (merged, elsewhere, unmerged):
+        for _r in _row_list:
+            _r['filter_ambiguous'] = _filter_is_ambiguous(_r['name'],
+                                                          all_names)
     return {'target': target,
             'merged': sorted(merged, key=lambda r: r['name']),
             'merged_elsewhere': sorted(elsewhere, key=lambda r: r['name']),
@@ -4435,7 +4474,13 @@ def _delete_row_lines(r, path, show_into=False):
     into = f", merged into `{r['into']}`" if show_into and r.get('into') else ''
     lines = [f"- **`{r['name']}`** -- {age}{who}{into}"]
     url = _branch_url(path, r['name'])
-    if url:
+    if url and r.get('filter_ambiguous'):
+        # Still linked, never silently dropped -- but the row says what the
+        # reader will actually see, so the one-click promise is not made and
+        # broken (practice: branch-delete-links).
+        lines.append(f"  [Branches page (SEVERAL ROWS -- another branch's "
+                     f"name contains this one; pick the exact match) →]({url})")
+    elif url:
         lines.append(f"  [Delete branch →]({url})")
     return lines
 
@@ -4458,6 +4503,13 @@ def _merged_stale_checkout_markdown(scan):
     lines = []
     for r in stale:
         lines.extend(_delete_row_lines(r, path))
+    # What SUCCESS looks like, said once (practice: branch-delete-links). A
+    # deleted branch's filtered page reads "no branches matched", which reads
+    # as an error to anyone who has not been told otherwise.
+    lines.append('')
+    lines.append('After a deletion the filtered page reads **"no branches '
+                 'matched"** -- that is the success state, not an error. '
+                 'GitHub offers a brief Undo, so a misclick is recoverable.')
     return '\n'.join(lines)
 
 
@@ -4574,6 +4626,13 @@ def _write_branch_report(branch_scans, out_path, repo_root):
                  f'declared source that is its own git checkout is -- '
                  f'whoever last touched a branch, not only the person who '
                  f'ran this check.')
+    lines.append('')
+    lines.append('**After you delete a branch, its filtered page reads "no '
+                 'branches matched" -- that is success, not an error.** '
+                 'GitHub offers a brief Undo immediately afterwards. A row '
+                 'whose link says SEVERAL ROWS is one whose name another '
+                 'branch contains, so the filter cannot narrow to it alone '
+                 '(practice: branch-delete-links).')
     lines.append('')
 
     def _row(r, path, show_into):

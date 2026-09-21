@@ -24,11 +24,13 @@ Built from every practice's `defines:` frontmatter field -- the terms that pract
 | declared fallback zone | [timestamps-carry-offset](practices/timestamps-carry-offset.md) |
 | decommission | [decommission-deletes-files](practices/decommission-deletes-files.md) |
 | deep check | [two-check-levels](practices/two-check-levels.md) |
+| delete link | [branch-delete-links](practices/branch-delete-links.md) |
 | document kind | [document-status-header](practices/document-status-header.md) |
 | document reference | [doc-references-are-links](practices/doc-references-are-links.md) |
 | document status | [document-status-header](practices/document-status-header.md) |
 | Drop it | [park-it](practices/park-it.md) |
 | fence block | [fence-block-for-paste](practices/fence-block-for-paste.md) |
+| filtered branches page | [branch-delete-links](practices/branch-delete-links.md) |
 | full practice audit | [full-practice-audit](practices/full-practice-audit.md) |
 | generated artifact | [generated-artifact-provenance](practices/generated-artifact-provenance.md) |
 | Go update | [go-merge](practices/go-merge.md) |
