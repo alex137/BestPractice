@@ -204,9 +204,11 @@ already know what they are.
 - **Workflow** — a program GitHub runs for you, on its own machines, when
   something happens in the repository. One file per workflow, under
   `.github/workflows/`. The filename is whoever wrote it's choice:
-  [`docs.yml`](../.github/workflows/docs.yml) here runs the markdown linter,
-  [`leak-gate.yml`](../.github/workflows/leak-gate.yml) checks nothing private
-  is being published.
+  [`deep-check.yml`](../.github/workflows/deep-check.yml) here runs the full
+  gate suite, [`leak-gate.yml`](../.github/workflows/leak-gate.yml) checks
+  nothing private is being published. (A third, docs.yml, ran the markdown
+  linter until 2026-09-21, when a commit hook replaced it — see
+  [documentation/GITHUB_ACTIONS.md](GITHUB_ACTIONS.md).)
 - **GitHub Actions** — GitHub's name for the service that runs those
   workflows, and for the tab where you watch them run.
 - **Continuous integration (CI)** — the general name for the idea: checks

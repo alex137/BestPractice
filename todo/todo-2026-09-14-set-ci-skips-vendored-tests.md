@@ -20,9 +20,9 @@ closed:            null
     vendored checks' own test suite, so a red suite sits under a green pull
     request.** Verified 2026-09-14: none of the three workflow templates a set
     is bootstrapped with —
-    [doc-lint](../templates/github-actions/doc-lint.yml.template),
+    doc-lint (retired 2026-09-21),
     [precedent-check](../templates/github-actions/precedent-check.yml.template),
-    [views-drift](../templates/github-actions/views-drift.yml.template) —
+    views-drift (a job inside precedent-check since 2026-09-19) —
     references `tools/checks/tests/run_all.sh`, and the same day a sweep of
     all four private sets' workflows found no reference either.
     The cost is already real: `precedent-team-writing`'s engine-refresh PR

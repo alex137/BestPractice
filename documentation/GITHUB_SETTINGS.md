@@ -258,9 +258,11 @@ are simpler:
   change to the set waits for an approver — the platform-enforced half of
   "only an approver lands a practice". Adding an approver is itself a
   change to `approvers.json`, so it waits for a current approver too.
-- **One workflow**, the views-drift gate
-  ([templates/github-actions/views-drift.yml.template](../templates/github-actions/views-drift.yml.template)),
-  installed by the bootstrap tool, read-only.
+- **One workflow**, carrying the views-drift gate as a job
+  ([templates/github-actions/precedent-check.yml.template](../templates/github-actions/precedent-check.yml.template)),
+  installed by the bootstrap tool, read-only. (It was its own
+  views-drift.yml.template until 2026-09-19, when the two templates were
+  consolidated into one workflow with two jobs.)
 - **A token to reach it from a hosted session**: the read-only
   `PRECEDENT_GIT_TOKEN` plus `PRECEDENT_SOURCE_BASE_URL` on the environment,
   which is [PER_MACHINE_SETUP.md](PER_MACHINE_SETUP.md)'s subject, not

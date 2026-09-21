@@ -86,12 +86,25 @@ the branch.**
 So if that is you, do both of these — not one:
 
 1. **Run it by hand before every commit:**
-   `python3 tools/doc_lint.py --strict <the markdown you touched>`.
+   `python3 tools/doc_lint.py <the markdown you touched>`.
 2. **Turn the GitHub check on as well.** Copy
    [light-check.yml.template](../templates/github-actions/light-check.yml.template)
    to `.github/workflows/light-check.yml`, set its `CUSTOMIZE` command to
-   `python3 tools/doc_lint.py --strict` and its `paths:` to `"**/*.md"`,
+   `python3 tools/doc_lint.py` and its `paths:` to `"**/*.md"`,
    then enable Actions for the repository at **Settings → Actions**.
+
+**Neither of those is `--strict`, and the flag is not an upgrade of them.**
+`doc_lint.py --strict` promotes the warning classes to failures and refuses
+the changed-file scope outright, because that combination is a gate that
+refuses work nobody broke — built and withdrawn inside an hour on
+2026-09-21 after it turned down a one-line edit over 111 pre-existing
+warnings. It is the whole-tree sweep mode, and its one caller is a very
+deep check ([practices/very-deep-check.md](../practices/very-deep-check.md)).
+*(Those two lines said `--strict` until 2026-09-21 — added by the very
+commit that withdrew the flag, so they were stale on arrival.
+[doc_lint.py](../tools/doc_lint.py) ignored unknown options silently, so
+anyone following them ran the ordinary lint and got a pass either way.
+Unknown options are refused now.)*
 
 **Doing only the first is the arrangement that just failed here.** "A
 session is supposed to run it" was written down and followed, and still

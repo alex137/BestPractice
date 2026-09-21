@@ -3428,6 +3428,48 @@ def _api_json(path, timeout=20, auth=True):
         return None, f'not JSON: {r.stdout.strip()[:120]}'
 
 
+def _markdown_sweep(repo_dir, timeout=900):
+    """-> (summary_lines, findings_count, note). The whole tree's markdown,
+    strictly (practice: very-deep-check, pass 3).
+
+    The light check reads what a change TOUCHED and the deep check gates on
+    it; neither ever looks at a file nobody has edited in months, and the
+    warning classes -- unlinked references, unglossed acronyms, target=
+    anchors -- are not gated anywhere at all, by design (they were, for an
+    hour, and the gate refused a one-line edit over 111 pre-existing
+    warnings). So they accumulate where only a sweep will find them, which
+    is what `doc_lint.py --strict` exists for and why this is the only
+    caller of it. It REPORTS a work list; it never refuses the run.
+
+    Shelled out rather than imported: doc_lint computes its ROOT from its
+    own location, so the copy that must run is the one in the repo being
+    swept, not whichever one this module imported first."""
+    script = pathlib.Path(repo_dir) / 'tools' / 'doc_lint.py'
+    if not script.exists():
+        return [], 0, (f'no tools/doc_lint.py in {repo_dir} -- nothing here '
+                       f'checks markdown, which is a finding in itself')
+    try:
+        r = subprocess.run([sys.executable, str(script), '--strict', '--all'],
+                           cwd=str(repo_dir), capture_output=True, text=True,
+                           timeout=timeout)
+    except subprocess.TimeoutExpired:
+        return [], 0, f'doc_lint --strict --all did not finish in {timeout}s'
+    except Exception as e:                      # noqa: BLE001 -- reported
+        return [], 0, f'doc_lint --strict --all could not run: {e}'
+    out = (r.stdout or '') + (r.stderr or '')
+    # The per-class/per-file summary, not the thousands of finding lines
+    # above it -- those are for the session that picks a file and runs
+    # doc_lint on it directly.
+    marker = out.find('doc_lint --strict')
+    if marker < 0:
+        return [], 0, (f'doc_lint --strict --all exited {r.returncode} '
+                       f'without printing a summary: {out.strip()[:200]}')
+    summary = out[marker:].strip().splitlines()
+    m = re.search(r'doc_lint --strict FAIL: ([\d,]+) finding', out)
+    count = int(m.group(1).replace(',', '')) if m else 0
+    return summary, count, None
+
+
 def _tracked_text_files(repo_dir):
     # _run_git returns (rc, stdout, stderr) -- the tuple, not the text. A
     # bare `out or ''` here read as a string and crashed on .splitlines().
@@ -5794,6 +5836,25 @@ def _main(box):
     print()
     if led:
         led.end(findings=len(_doc_find))
+        led.start('MARKDOWN -- STRICT SWEEP')
+
+    _md_summary, _md_count, _md_note = _markdown_sweep(repo_root)
+    print("MARKDOWN -- STRICT SWEEP -- every tracked document, warning "
+          "classes included\n")
+    if _md_note:
+        print(f"  note: {_md_note}")
+    elif not _md_count:
+        print("  clean -- no markdown finding of any class, in any tracked "
+              "document.")
+    else:
+        for _line in _md_summary:
+            print(f"  {_line}" if _line.strip() else "")
+        print("\n  Pass 3 works this list; it does not gate the run. "
+              "`python3 tools/doc_lint.py FILE`\n  for one file's findings "
+              "in full, and `--fix FILE` for the strikethrough class.")
+    print()
+    if led:
+        led.end(findings=_md_count)
 
     # UNLANDED WORK, printed BEFORE the checklist rather than with the rest
     # of the branch scan at the end (practice: very-deep-check, step 4 of its

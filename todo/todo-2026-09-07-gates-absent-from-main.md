@@ -19,7 +19,7 @@ closed:            null
 - <a id="gates-absent-from-main"></a>**Put the leak gate on `main`; the deep
     check cannot go there until the merge-back.** **Deferred by Morgan
     2026-09-07 — worth doing, not now.** `main` carries only
-    [.github/workflows/docs.yml](../.github/workflows/docs.yml), so the official
+    .github/workflows/docs.yml (retired from this branch 2026-09-21), so the official
     branch — the one a visitor lands on and every installer reads — is guarded
     by the markdown lint alone. Neither other gate has ever existed there:
     both were built on `precedent-beta-v01` (leak gate 2026-08-31, deep check

@@ -25,7 +25,9 @@ itself is still open, held for
 ## Why this repo's own workflows are already on record as a separate case
 
 [spec/CI_MINUTES_PLAN.md](CI_MINUTES_PLAN.md) item 2b pushed back on folding
-[docs.yml](../.github/workflows/docs.yml), [deep-check.yml](../.github/workflows/deep-check.yml), and [leak-gate.yml](../.github/workflows/leak-gate.yml) into that plan's general
+docs.yml (retired 2026-09-21),
+[deep-check.yml](../.github/workflows/deep-check.yml), and
+[leak-gate.yml](../.github/workflows/leak-gate.yml) into that plan's general
 sweep, for two reasons that both still hold here:
 
 - **This repo is public, so these three workflows already run free** on
