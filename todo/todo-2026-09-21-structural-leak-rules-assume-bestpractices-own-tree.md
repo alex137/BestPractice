@@ -3,7 +3,7 @@ slug:              todo-2026-09-21-structural-leak-rules-assume-bestpractices-ow
 kind:              manual
 domain:            security
 severity:          high
-status:            closed
+status:            done
 disposition:       done
 remind_on:         null
 blocked_on:        null

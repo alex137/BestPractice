@@ -3,7 +3,7 @@ slug:              todo-2026-09-21-scratch-install-resolved-an-undeclared-indivi
 kind:              manual
 domain:            engine
 severity:          medium
-status:            closed
+status:            done
 disposition:       ask
 remind_on:         null
 blocked_on:        null

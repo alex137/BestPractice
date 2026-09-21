@@ -3,7 +3,7 @@ slug:              todo-2026-09-21-two-tools-generate-agents-md-and-disagree
 kind:              manual
 domain:            engine
 severity:          high
-status:            closed
+status:            done
 disposition:       ask
 remind_on:         null
 blocked_on:        null

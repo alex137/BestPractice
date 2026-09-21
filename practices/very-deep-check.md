@@ -16,7 +16,12 @@ in_force_at: null
 supersedes:  []
 overrides:   null
 added:       null
-approved_by: "bounded 2026-09-21, Morgan (strength: decided, relayed) --
+approved_by: "extended 2026-09-21, Morgan (strength: decided), with pass 3's
+  close read of every always-loaded instructions file, after an Update
+  Vendors pass found a consuming repo's AGENTS.md naming a repository that
+  does not exist, twice, in the same file whose own step 1 warns about a
+  source name going stale silently;
+  bounded 2026-09-21, Morgan (strength: decided, relayed) --
   the branch sweep's delete-link mechanism moved to branch-delete-links
   and is cited here rather than restated, and this pass's branch scope
   was fixed at the checkout and its own source checkouts, never the
@@ -843,6 +848,40 @@ confidently.
 ### Pass 3 — Does the writing still hold together?
 The coherence read, across every repo in scope. Run the mechanical audits
 first so this pass spends its attention on what they cannot see.
+
+- **A close read of every always-loaded instructions file, against
+  reality.** `AGENTS.md` and its siblings in every repo in scope, read
+  line by line and asked four questions: **does this still describe
+  something that exists**; **is it still needed**; **is it saying it the
+  long way**; and **is it duplicating a rule that now lives somewhere
+  else**. This is the one document every session reads before doing
+  anything, so a sentence that has quietly stopped being true costs more
+  here than anywhere else in the tree.
+
+  Added 2026-09-21 (Morgan, strength: decided) after an Update Vendors
+  pass found a consuming repo's `AGENTS.md` naming a repository that does
+  not exist — `VoiceDefinitionMorgan`, twice, where the real one is
+  `VoiceDefMorgan`, in the session-start step and again in a tool's
+  description. **The file's own step 1 warns about exactly that failure**:
+  a source name going stale silently. A document that describes its own
+  failure mode and then exhibits it twice is what an unread instruction
+  file looks like from the inside.
+
+  **Do the checkable half mechanically, not by reading.** Every
+  `owner/repo` string in those files can be asked about: this tool already
+  calls `repos/{owner}/{name}` for each source in force, and the same call
+  answers a name in prose. A close read is the expensive way to catch
+  something one request catches every time — and the way it goes stale
+  again. Automating it is filed as
+  [todo/todo-2026-09-21-instruction-files-name-repos-nobody-checks.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/todo/todo-2026-09-21-instruction-files-name-repos-nobody-checks.md);
+  until that lands, run the probe by hand here and quote what it said.
+
+  **The other three questions are the read, and they are meant to produce
+  deletions.** A rule nobody has needed for a month, a paragraph that
+  restates a practice the loader now carries, a sentence whose precision
+  costs three readings — each is a candidate for removal or for moving,
+  and [reduction-pass](reduction-pass.md) is how it moves. A pass that
+  finds nothing to cut in a file this size has not read it.
 
 - **Contradictions** — two rules, or two documents, that can't both be
   followed; a rule whose own carve-outs have eaten it.
