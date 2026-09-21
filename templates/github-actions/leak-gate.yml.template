@@ -44,22 +44,31 @@
 # template still catches a PR from a fork (a fork's pushes do not fire
 # `push:` in the repo it targets at all).
 #
-# ON A PUBLIC REPO (visibility absent, or declared "public"), nothing above
-# changes anything: the gate step below evaluates true on every push to
-# every branch, matching BestPractice's own leak-gate.yml exactly, because a
-# leak on a public repo is already published the instant it is pushed,
-# whichever branch it landed on.
+# ON A PUBLIC REPO, nothing above changes anything: the gate step below
+# evaluates true on every push to every branch, matching BestPractice's own
+# leak-gate.yml exactly, because a leak on a public repo is already
+# published the instant it is pushed, whichever branch it landed on.
 #
-# WHERE visibility AND base_branch COME FROM. A dependent (consumer) repo
-# declares both in `precedent.json` (absent visibility defaults to "public",
-# matching build_views.py's own repo_is_public convention; absent
-# base_branch defaults to "main"). A practice-set SOURCE repo has no
-# precedent.json -- its `precedent-source.json` always declares
-# `"visibility": "private"` (precedent_bootstrap_source.py's
-# _write_source_manifest writes it unconditionally, since a practice set's
-# own practice text is never meant to be public), and has no base_branch
-# field to read, so this template defaults it to "main" there, matching
-# every other template's own default merge target.
+# WHERE visibility COMES FROM: GITHUB, NOT THIS REPO'S MANIFEST (changed
+# 2026-09-21 -- the scope job's own comment has the incident). The job reads
+# `github.event.repository.private`, which GitHub supplies and no file in
+# the tree can contradict. A `visibility` declared in
+# `precedent.json`/`precedent-source.json` is still read and still reported,
+# but it cannot NARROW the scan: where the two disagree the job warns and
+# uses GitHub's answer. This is not belt-and-braces -- a practice set's
+# `precedent-source.json` always declares `"visibility": "private"`
+# (precedent_bootstrap_source.py's `_write_source_manifest` writes it
+# unconditionally, on the assumption that a practice set's own text is never
+# public), and on 2026-09-21 two real practice sets that are PUBLIC on
+# GitHub carried exactly that declaration.
+#
+# WHERE base_branch COMES FROM: the manifest, and only the manifest. A
+# consumer repo declares it in `precedent.json`; a practice set has no field
+# for it and gets "main". GitHub's context cannot supply this one --
+# `default_branch` is the repository's configured default, which is
+# deliberately NOT the branch routine work lands on in every repo (see
+# AGENTS.md's own routing rule), so reading it would narrow the scan on
+# exactly the branch that matters.
 on:
   push:
   pull_request:
@@ -86,14 +95,42 @@ jobs:
       # when it actually runs.
       - uses: actions/checkout@v4
 
-      - name: Read this repo's declared visibility and base branch
+      # GITHUB DECIDES VISIBILITY, NOT THE MANIFEST (2026-09-21, practice:
+      # cite-the-incident). This step used to read `visibility` out of
+      # precedent.json/precedent-source.json alone, and item 12 claimed
+      # "every failure mode resolves to public/main, the safe direction,
+      # never a silent under-scan". That was true of MISSING and MALFORMED
+      # config and false of config that is confidently WRONG, which is not
+      # a hypothetical: measured 2026-09-21, two practice sets that are
+      # public on GitHub both declared `"visibility": "private"`, because
+      # precedent_bootstrap_source.py writes that string into every
+      # precedent-source.json it creates and nothing ever revisits it. On
+      # those repos this gate would have skipped scanning every
+      # working-branch push -- on a PUBLIC repo, where a leaked secret is
+      # published to the world the instant it is pushed -- and reported
+      # green doing it. Exactly the under-scan the claim ruled out.
+      #
+      # `github.event.repository.private` is supplied by GitHub itself, not
+      # by a file in the tree, so it cannot be stale or wrong. It is
+      # authoritative and the manifest is a declaration, so GITHUB WINS on
+      # any disagreement, and a disagreement resolves toward scanning MORE.
+      # The manifest is still read, for `base_branch` (which GitHub's
+      # context cannot supply -- `default_branch` is the repo's default,
+      # which AGENTS.md's own routing rule says is deliberately NOT the
+      # branch work lands on here) and as a second vote that can only ever
+      # widen the scan, never narrow it.
+      - name: Read this repo's visibility (from GitHub) and base branch
         id: scope
+        env:
+          # Empty string when the context is somehow absent; treated as
+          # public below, which scans everything.
+          GH_PRIVATE: ${{ github.event.repository.private }}
         run: |
           set -eu
           python3 - <<'PY' >> "$GITHUB_OUTPUT"
-          import json, pathlib
+          import json, os, pathlib
 
-          visibility = None
+          declared = None
           base_branch = None
 
           consumer = pathlib.Path('precedent.json')
@@ -103,21 +140,39 @@ jobs:
                   d = json.loads(consumer.read_text())
               except (OSError, ValueError):
                   d = {}
-              visibility = d.get('visibility')
+              declared = d.get('visibility')
               base_branch = d.get('base_branch')
           elif source.exists():
               try:
                   d = json.loads(source.read_text())
               except (OSError, ValueError):
                   d = {}
-              visibility = d.get('visibility', 'private')
+              declared = d.get('visibility', 'private')
 
-          if visibility not in ('public', 'private'):
-              visibility = 'public'
+          if declared not in ('public', 'private'):
+              declared = 'public'
           if not base_branch or not isinstance(base_branch, str):
               base_branch = 'main'
 
-          print(f'visibility={visibility}')
+          # GitHub's own answer, and it outranks the file. Anything that is
+          # not literally the string 'true' -- 'false', '' when the context
+          # is missing, or any surprise value a future runner emits --
+          # resolves to public, which scans every branch.
+          gh_private = os.environ.get('GH_PRIVATE', '').strip().lower()
+          actual = 'private' if gh_private == 'true' else 'public'
+
+          if actual != declared:
+              print(
+                  f'::warning::this repo declares "visibility": "{declared}" '
+                  f'but GitHub reports it is {actual}. Using GitHub. '
+                  f'Correct the declaration in '
+                  f'{"precedent.json" if consumer.exists() else "precedent-source.json"} '
+                  f'-- other tooling reads that field and will not get this '
+                  f'warning.'
+              )
+
+          print(f'visibility={actual}')
+          print(f'declared_visibility={declared}')
           print(f'base_branch={base_branch}')
           PY
 
