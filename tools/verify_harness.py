@@ -14893,6 +14893,149 @@ def check_precedent_check_degrades_in_a_source_set():
               '' if ok else str(detail)[:500])
 
 
+def check_rotation_gap_widens_to_find_coverage():
+    """precedent_check.py's `_run_with_coverage_retry` (added 2026-09-20)
+    against the incident it exists to close: on a sparse catalogue, the
+    single rotation bucket a commit lands on -- unioned with every
+    always-run non-tree check -- can be entirely inapplicable there even
+    though the catalogue has real, passing coverage on OTHER buckets.
+    Measured against two live PRs (see the function's own docstring for
+    the commit counts and buckets): `0 passed`, correctly refused by CI's
+    backstop, on commits where `--full-sweep` found 19 and 17 passing
+    checks. The fix widens the rotation slice one bucket at a time until
+    something is actually verified, or every bucket has been tried.
+
+    Fixture, not the real catalogue (fixture-owns-its-state): ten fake
+    `scope: 'tree'` slugs, `fake-tree-0..9`, only one of which
+    (`fake-tree-7`) has a practices/ file on disk and a check function
+    that reports PASS; the other nine are practice-backed with no file, so
+    `run()` reports them SKIPPED exactly as a source set's own sparse
+    catalogue does. Two fake non-tree slugs are wired the same way, to
+    stand in for the always-run checks that were ALSO inapplicable in both
+    measured PRs. `_touched_files` is stubbed to `[]` so nothing is
+    directly or indirectly touched and the whole scoping question is
+    rotation alone -- and the commit count is stubbed to land the base
+    bucket on index 3, four buckets short of the one slug that can ever
+    report anything (control-asserts-which-failure: the negative control
+    below proves that gap is real before the fix's own retry is asked to
+    close it)."""
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_check as pc
+    import tempfile, types
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-rotation-gap-'))
+    saved_root, saved_checks, saved_git, saved_touched = (
+        pc.ROOT, pc.CHECKS, pc._git, pc._touched_files)
+    cases = []
+    try:
+        (tmp / 'practices').mkdir(parents=True)
+        (tmp / 'practices' / 'fake-tree-7.md').write_text(
+            '---\n'
+            'slug:        fake-tree-7\n'
+            'title:       Fixture practice for the rotation-gap test\n'
+            'tier:        on-demand\n'
+            'severity:    default\n'
+            'applies_to:  []\n'
+            'occasion:    "verify_harness.py fixture only"\n'
+            'gates:       []\n'
+            'checked_by:  "tools/precedent_check.py"\n'
+            'status:      active\n'
+            '---\n'
+            '## Rule\nFixture only -- not a real practice.\n',
+            encoding='utf-8')
+
+        tree_slugs = [f'fake-tree-{i}' for i in range(10)]
+        other_slugs = ['fake-other-0', 'fake-other-1']
+        checks = {}
+        for slug in tree_slugs:
+            checks[slug] = {'scope': 'tree', 'practice_backed': True,
+                             'fn': lambda ctx: [], 'what': 'fixture',
+                             'blind_to': 'fixture'}
+        for slug in other_slugs:
+            checks[slug] = {'scope': 'change', 'practice_backed': True,
+                             'fn': lambda ctx: [], 'what': 'fixture',
+                             'blind_to': 'fixture'}
+
+        pc.ROOT = tmp
+        pc.CHECKS = checks
+        pc._touched_files = lambda: []
+        pc._git = (lambda *a: types.SimpleNamespace(stdout='3\n', returncode=0)
+                   if a == ('rev-list', '--count', 'HEAD')
+                   else saved_git(*a))
+        ctx = pc.Ctx()
+        scopes = {'tree', 'change'}
+
+        # Negative control: the OLD behavior, one fixed bucket, no retry.
+        # Base bucket for commit_count=3 is 3 -- 'fake-tree-3', which (like
+        # every fake-tree slug but 7) has no practices/ file and can only
+        # ever report SKIPPED. This is the bug: real coverage exists
+        # (fake-tree-7) but the single-bucket selection never reaches it.
+        old_scoped = pc._scoped_tree_slugs(tree_slugs, {3})
+        old_slugs = sorted(set(other_slugs) | set(old_scoped))
+        old_results = pc.run(old_slugs, ctx, scopes, exempt={})
+        cases.append(('the negative control reproduces the gap -- a fixed '
+                      'single bucket finds nothing to verify',
+                      not any(r[1] in ('PASS', 'VIOLATION', 'ERROR')
+                              for r in old_results),
+                      [r[:2] for r in old_results]))
+
+        # The fix: widen bucket by bucket until fake-tree-7 is in scope.
+        slugs, results, scoped_tree, buckets_added = pc._run_with_coverage_retry(
+            tree_slugs, other_slugs, ctx, scopes, exempt={})
+        cases.append(('the widened run DOES find the real coverage',
+                      any(r[1] == 'PASS' for r in results),
+                      [r[:2] for r in results]))
+        cases.append(('it found fake-tree-7 specifically, not some other slug '
+                      'passing by accident',
+                      any(r[0] == 'fake-tree-7' and r[1] == 'PASS'
+                          for r in results),
+                      [r[:2] for r in results]))
+        cases.append(('it took exactly 4 extra buckets to reach index 7 from '
+                      'base bucket 3 -- not fewer (lucky) and not a jump '
+                      'straight to --full-sweep',
+                      buckets_added == 4, buckets_added))
+        cases.append(("scoped_tree names fake-tree-7 as run, not the other "
+                      "eight buckets' worth of slugs it never needed",
+                      scoped_tree.count('fake-tree-7') == 1
+                      and len(scoped_tree) < len(tree_slugs),
+                      scoped_tree))
+
+        # Exhaustion: when NOTHING in the whole tree-scope catalogue can
+        # ever report non-SKIPPED, the retry must still terminate -- by
+        # trying every bucket exactly once, not looping forever -- and
+        # come back with an honest all-SKIPPED result rather than
+        # fabricating one (this is main()'s own `0 passed` refusal to
+        # inherit, not something this function should paper over).
+        checks_uncoverable = {s: {'scope': 'tree', 'practice_backed': True,
+                                   'fn': lambda ctx: [], 'what': 'fixture',
+                                   'blind_to': 'fixture'}
+                              for s in tree_slugs}
+        for slug in other_slugs:
+            checks_uncoverable[slug] = {'scope': 'change',
+                                         'practice_backed': True,
+                                         'fn': lambda ctx: [],
+                                         'what': 'fixture', 'blind_to': 'fixture'}
+        pc.CHECKS = checks_uncoverable
+        (tmp / 'practices' / 'fake-tree-7.md').unlink()
+        _, results2, _, buckets_added2 = pc._run_with_coverage_retry(
+            tree_slugs, other_slugs, ctx, scopes, exempt={})
+        cases.append(('exhaustion terminates rather than looping -- every '
+                      'bucket beyond the base one gets tried exactly once',
+                      buckets_added2 == pc.ROTATION_BUCKETS - 1, buckets_added2))
+        cases.append(('...and reports the honest result: nothing covered',
+                      not any(r[1] in ('PASS', 'VIOLATION', 'ERROR')
+                              for r in results2),
+                      [r[:2] for r in results2]))
+    finally:
+        pc.ROOT, pc.CHECKS, pc._git, pc._touched_files = (
+            saved_root, saved_checks, saved_git, saved_touched)
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    for name, ok, detail in cases:
+        check(f'precedent_check.py rotation-gap coverage retry: {name}', ok,
+              '' if ok else str(detail)[:500])
+
+
 def check_vendor_engine_consumer_case():
     """Tested rather than trusted: tools/precedent_vendor_
     engine.py's 'consumer' kind (added 2026-09-05, piloted against a real
@@ -24545,6 +24688,7 @@ def main():
     check_session_start_refreshes_an_attached_team_clone()
     check_views_drift_gate_reaches_a_source_set()
     check_precedent_check_degrades_in_a_source_set()
+    check_rotation_gap_widens_to_find_coverage()
     check_vendor_engine_consumer_case()
     check_vendor_engine_hook_drift_respects_adapters()
     check_vendor_engine_refreshes_ci_workflow_files()
