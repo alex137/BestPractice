@@ -760,6 +760,11 @@ filter that misses one input is a green workflow that checked nothing).
 That reason holds. It is worth revisiting only with a filter derived from
 the inputs rather than guessed at.
 
+Authorized: *"Go update with your changes."* `strength: decided`. Classified
+**high-risk** under [go-merge](../practices/go-merge.md) — vendored gating
+code that other repos install — so it took the full chain rather than the
+direct-push default.
+
 **What this does NOT fix, and it is most of the bill.** Everything above is
 a template change, and per `vendor-rollout-disclosed` a template reaches an
 installed repo only through "Update Vendors". On the 2026-09-20 export,
