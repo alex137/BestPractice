@@ -891,11 +891,31 @@ excluded extensions are what people actually touch.
 **The lever that remains is the one item 13 already named: job count.** Two
 workflows on one pull request is two floors; one workflow with one job is
 one. Folding the vendored doc lint's work into a repo's own check job halves
-the per-pull-request floor with no coverage lost — and in a repo that has
-its own equivalent check, `ci_workflows: disabled`
-([GITHUB_ACTIONS.md](../documentation/GITHUB_ACTIONS.md)) is the supported
-way to stop the vendored one being installed, rather than deleting a
-vendored file, which is item 14's whole lesson.
+the per-pull-request floor with no coverage lost.
+
+**How to remove the now-redundant vendored workflow — corrected 2026-09-21.**
+This item first said to set `ci_workflows: disabled` in the consuming repo's
+`precedent.json` and then delete the file. **That is wrong on three counts,
+and the session told to do it read the engine and refused, correctly.**
+[`ci_preference()`](../tools/precedent_identity.py) resolves
+`ci_workflows` from an **`identity.json` in an individual or team SOURCE** —
+this repo's own when it *is* an individual source, otherwise the one the
+user-level config names. A `ci_workflows` key written into a consuming
+repo's `precedent.json` is read by nothing. It is also not a runtime gate:
+[GITHUB_ACTIONS.md](../documentation/GITHUB_ACTIONS.md) says it "only
+changes what [precedent_install.py](../tools/precedent_install.py) writes by default". And its default is
+already `disabled`, so setting it authorises nothing that was not already
+true. The sequence would have written an inert key and left a plain deletion
+carrying a commit message claiming a toggle permitted it — item 14's mistake
+with a fig leaf.
+
+**The real removal path** is the one the engine already enforces:
+[precedent_decommission.py](../tools/precedent_decommission.py) refuses to
+retire a workflow whose `on:` carries more than `workflow_dispatch`, and
+[practice_audit.py](../tools/practice_audit.py) checks the manifest against
+the tree. A vendored
+workflow is retired through those, against its manifest entry, or it is not
+retired.
 
 **What this does not license.** Dropping `pull_request: synchronize` to cut
 the four-to-five runs a branch accumulates would trade away per-push
