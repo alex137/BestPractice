@@ -14,6 +14,19 @@
 # it for the first real registered document (spec/PREFORK_AUDIT.md) found
 # ModuleNotFoundError: nobody had run this tool successfully in a fresh
 # session before either.
+#
+# ITS PARALLEL ON EVERY OTHER HARNESS IS tools/bootstrap.sh. Codex,
+# gemini-cli and grok-build have no SessionStart hook; templates/harness/
+# README.md tells each of them to wire that script instead, so a step added
+# HERE and not THERE reaches one harness out of four. That is not
+# hypothetical: until 2026-09-21 this hook ran seven things and the script
+# ran three, and the difference included .precedent/SESSION_PRACTICES.md --
+# every team and individual practice in force, which AGENTS.md's Standing
+# instruction tells every session to read and which no non-Claude session
+# had ever been given. Adding a step here? Add it there, or write the
+# reason it cannot travel into templates/harness/PARALLELS.md, which is
+# checked (claude-only-surface-has-a-parallel) and re-judged on every very
+# deep check.
 set -euo pipefail
 
 # Package install is the only remote-gated step. Everything below it used to
@@ -329,6 +342,30 @@ fi
 _hook_repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd -P)"
 python3 "$_hook_repo/tools/precedent_upstream_check.py" || \
   echo "WARN: upstream check did not run -- whether main has moved since the last carry is unknown this session" >&2
+
+# AND, IN A REPO THAT VENDORS THE ENGINE, whether that engine has fallen
+# behind upstream (2026-09-21). The check above is this repo's own question
+# -- has `main` moved since the last carry -- and is meaningless in a
+# dependent repo. This one is the dependent repo's question: is the engine
+# it is enforcing with still the engine upstream ships?
+#
+# Nothing could answer that before. Every other check in this system runs
+# inside one repository and compares it against itself, which is why a fix
+# merged upstream reached an installed repo only when somebody remembered
+# to run "Update Vendors" there, and why running a deep check could never
+# find a stale vendored tree. Measured 2026-09-20: 18 of 22 repositories
+# had never taken an update.
+#
+# Here in BestPractice it prints "not checked -- no ENGINE_MANIFEST.json",
+# which is correct: this is the engine's own origin and has nothing
+# vendored. It earns its place in the repos this hook is copied into.
+#
+# --quiet, so it speaks only when the repo is actually behind: a line that
+# says "current" every single session is a line nobody reads by the third
+# day. It exits 0 on no network, no manifest and a malformed one, so a
+# hiccup cannot block a session start (practice: fail-gracefully).
+python3 "$_hook_repo/tools/precedent_engine_freshness.py" --quiet || \
+  echo "WARN: engine freshness did not run -- whether this repo's vendored engine is current is unknown this session" >&2
 
 # Say whether anyone other than Morgan has pushed to `precedent-beta-v01`
 # since he was last told -- Alex also commits here, and unlike the upstream

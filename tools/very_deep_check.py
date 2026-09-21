@@ -763,12 +763,39 @@ def _branch_url(repo_dir, branch):
     view -- the tree view shows the code and offers no way to delete it.
 
     Parsed from the remote rather than assumed: a repository whose origin is
-    not GitHub gets no link instead of a wrong one."""
+    not GitHub gets no link instead of a wrong one.
+
+    THE LINK FORM IS NOT THIS FUNCTION'S TO CHANGE (practice:
+    branch-delete-links). That practice owns the `/branches/all?query=` form,
+    the `safe=''` encoding and the two rules this file implements beside it
+    -- the substring check in `_filter_is_ambiguous` and the separated
+    unmerged list -- because a fleet sweep with no clone to read needs the
+    same mechanism and must not re-derive it. Changing the URL here without
+    changing it there is the drift that practice exists to stop."""
     slug = _github_slug(repo_dir)
     if not slug:
         return None
     return (f'https://github.com/{slug}/branches/all?query='
             + urllib.parse.quote(branch, safe=''))
+
+
+def _filter_is_ambiguous(name, all_names):
+    """True when `name` is a strict substring of some OTHER branch name in
+    the same repo, so the filtered branches page shows more than one row.
+
+    WHY IT IS CHECKED AT ALL (practice: branch-delete-links). The delete link
+    promises ONE row with its trash icon on screen. `?query=` is a substring
+    filter, so a repo holding both `fix-login` and `fix-login-retry` renders
+    an identical-looking link for the first that opens two rows -- and the
+    reader finds that out by clicking, because nothing about the URL or the
+    row says so. The check costs one pass over a list already in memory and
+    the failure it prevents is silent, which is the whole argument for it.
+
+    Measured 2026-09-21 across 110 branches in a nine-repo fleet audit: zero
+    collisions. That is the expected result, not evidence the check is
+    pointless -- a guard whose failure mode is a reader quietly losing trust
+    in the links earns its keep at zero hits."""
+    return any(other != name and name in other for other in all_names)
 
 
 def _compare_url(repo_dir, target, branch):
@@ -862,6 +889,67 @@ def _orphan_scan(repo_dir):
                            f'practices/{slug}.md in this source for it to '
                            f'check (renamed or retired practice?)')
     return out
+
+
+def _workflow_liveness_scan(repo_dir):
+    """-> [str] CANDIDATES for a human to read, in one repo -- never a claim
+    that any of them is actually dead.
+    (practice: workflow-file-outside-vendoring)
+
+    NOT A FIFTH KIND OF ORPHAN. _orphan_scan's four kinds above all report
+    a firm claim ("the manifest records it but the current kind no longer
+    includes it") because each is keyed against a list that says so
+    definitively. A .github/workflows/*.yml file outside what
+    ci_workflow_files tracks has no such list to be definitive against --
+    CI_WORKFLOW_TEMPLATES names exactly one file per kind, so almost any
+    repo with more than that single workflow file will have entries here BY
+    DESIGN, most of them completely legitimate (a practice set's own
+    commit-identity.yml and engine-refresh.yml, or a repo's own
+    hand-authored check unrelated to Precedent entirely). Reusing
+    _orphan_scan's confident wording here would be the exact mistake this
+    function exists to prevent repeating -- see the incident below.
+
+    THE INCIDENT THIS GUARDS AGAINST, 2026-09-20. A sweep list built by
+    matching filenames against a table of names spec/CI_MINUTES_PLAN.md
+    recorded as retired flagged `light-check.yml` in a real dependent repo
+    as a retired duplicate. Verified directly: it was a
+    live, required, hand-authored check with no relationship to anything
+    Precedent ever templated. This function enumerates by CONTENT tracking
+    (the manifest's own ci_workflow_files, not a name list) and reports
+    candidates for a person to read -- it never classifies one as orphaned,
+    which is exactly the step that mistake skipped."""
+    repo_dir = pathlib.Path(repo_dir)
+    try:
+        import precedent_vendor_engine as pve
+    except ImportError:
+        return ['could not import precedent_vendor_engine, so no workflow '
+                'file could be checked against this repo\'s manifest']
+
+    mpath = repo_dir / 'tools' / getattr(pve, 'MANIFEST_NAME', 'ENGINE_MANIFEST.json')
+    if not mpath.is_file():
+        return []                     # nothing vendored here -- nothing to compare
+    try:
+        manifest = json.loads(mpath.read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return ['tools/ENGINE_MANIFEST.json is present but unreadable, so '
+               'workflow files could not be checked against it']
+
+    exempt = set()
+    cfg_path = repo_dir / 'precedent.json'
+    if cfg_path.is_file():
+        try:
+            cfg = json.loads(cfg_path.read_text(encoding='utf-8'))
+            exempt = {e['path'] for e in
+                     (cfg.get('ci_workflow_outside_vendoring_exempt') or [])
+                     if e.get('reason') and e.get('path')}
+        except (OSError, ValueError):
+            pass
+
+    return [f'.github/workflows/{pathlib.PurePosixPath(rel).name} -- not in '
+           f'ci_workflow_files, not a known retired entry -- CANDIDATE, '
+           f'read its content before concluding anything'
+           for rel in pve._untracked_ci_workflow_files(repo_dir, manifest)
+           if rel not in exempt]
 
 
 def _last_commit(repo_dir, path):
@@ -2827,11 +2915,19 @@ def scan_branches(repo_dir, target=None, exclude=(), stale_days=None):
     # outnumber the true ones and the list stops being read.
     others = [b for b in sorted(protected) if b != target]
     merged, elsewhere, unmerged = [], [], []
+    # Every name on the branches page, PROTECTED AND EXCLUDED ONES INCLUDED
+    # -- the `?query=` filter does not know this sweep skipped them, so a
+    # branch whose name is a substring of the integration branch's still
+    # opens two rows (practice: branch-delete-links).
+    all_names = []
     for ref in out.splitlines():
         if '/' not in ref:
             continue
         name = ref.split('/', 1)[1]
-        if name == 'HEAD' or name in protected or name in exclude:
+        if name == 'HEAD':
+            continue
+        all_names.append(name)
+        if name in protected or name in exclude:
             continue
         rc, _, _ = _run_git(repo_dir, 'merge-base', '--is-ancestor', ref, target_ref)
         if rc == 0:
@@ -2856,6 +2952,10 @@ def scan_branches(repo_dir, target=None, exclude=(), stale_days=None):
         else:
             unmerged.append(_unmerged_row(repo_dir, name, ref, target_ref,
                                           target, stale_days=stale_days))
+    for _row_list in (merged, elsewhere, unmerged):
+        for _r in _row_list:
+            _r['filter_ambiguous'] = _filter_is_ambiguous(_r['name'],
+                                                          all_names)
     return {'target': target,
             'merged': sorted(merged, key=lambda r: r['name']),
             'merged_elsewhere': sorted(elsewhere, key=lambda r: r['name']),
@@ -3326,6 +3426,48 @@ def _api_json(path, timeout=20, auth=True):
         return json.loads(r.stdout), None
     except ValueError:
         return None, f'not JSON: {r.stdout.strip()[:120]}'
+
+
+def _markdown_sweep(repo_dir, timeout=900):
+    """-> (summary_lines, findings_count, note). The whole tree's markdown,
+    strictly (practice: very-deep-check, pass 3).
+
+    The light check reads what a change TOUCHED and the deep check gates on
+    it; neither ever looks at a file nobody has edited in months, and the
+    warning classes -- unlinked references, unglossed acronyms, target=
+    anchors -- are not gated anywhere at all, by design (they were, for an
+    hour, and the gate refused a one-line edit over 111 pre-existing
+    warnings). So they accumulate where only a sweep will find them, which
+    is what `doc_lint.py --strict` exists for and why this is the only
+    caller of it. It REPORTS a work list; it never refuses the run.
+
+    Shelled out rather than imported: doc_lint computes its ROOT from its
+    own location, so the copy that must run is the one in the repo being
+    swept, not whichever one this module imported first."""
+    script = pathlib.Path(repo_dir) / 'tools' / 'doc_lint.py'
+    if not script.exists():
+        return [], 0, (f'no tools/doc_lint.py in {repo_dir} -- nothing here '
+                       f'checks markdown, which is a finding in itself')
+    try:
+        r = subprocess.run([sys.executable, str(script), '--strict', '--all'],
+                           cwd=str(repo_dir), capture_output=True, text=True,
+                           timeout=timeout)
+    except subprocess.TimeoutExpired:
+        return [], 0, f'doc_lint --strict --all did not finish in {timeout}s'
+    except Exception as e:                      # noqa: BLE001 -- reported
+        return [], 0, f'doc_lint --strict --all could not run: {e}'
+    out = (r.stdout or '') + (r.stderr or '')
+    # The per-class/per-file summary, not the thousands of finding lines
+    # above it -- those are for the session that picks a file and runs
+    # doc_lint on it directly.
+    marker = out.find('doc_lint --strict')
+    if marker < 0:
+        return [], 0, (f'doc_lint --strict --all exited {r.returncode} '
+                       f'without printing a summary: {out.strip()[:200]}')
+    summary = out[marker:].strip().splitlines()
+    m = re.search(r'doc_lint --strict FAIL: ([\d,]+) finding', out)
+    count = int(m.group(1).replace(',', '')) if m else 0
+    return summary, count, None
 
 
 def _tracked_text_files(repo_dir):
@@ -3840,6 +3982,140 @@ def boundary_audit(repo_root, sources=(), skip_api=False, out=None):
         else:
             print(f'  PASS       {label} -- protection on, shaped as the plan '
                   f'needs, CODEOWNERS in the tree', file=out)
+    return findings, notes
+
+
+# The files a session reads before it does anything. A wrong repository
+# name here is worse than anywhere else in the tree, because it is the one
+# document nobody chooses to open -- it is simply in force.
+INSTRUCTION_FILES = ('AGENTS.md', 'CLAUDE.md', 'GEMINI.md',
+                     'WHERE_THINGS_ARE.md')
+
+# `github.com/owner/name`, and a bare `owner/name` where the owner is one
+# this session already knows from a real remote. The second half is what
+# makes this usable: an unanchored `\w+/\w+` matches `practices/park-it.md`
+# and `tools/doc_lint.py` on every line of every instructions file. Anchor
+# on owners that actually exist here and the noise goes to zero.
+_GH_URL_REF_RE = re.compile(r'github\.com/([A-Za-z0-9][\w.-]*)/([\w.-]+?)(?=[/\s)\]"\'`>,.]|$)')
+
+
+def _known_owners(rows):
+    """-> {owner} seen in the remotes of the repos in force."""
+    owners = set()
+    for _label, url, _path in rows:
+        m = _GH_REMOTE_RE.search(url or '')
+        if m:
+            owners.add(m.group(1))
+    return owners
+
+
+def _repo_refs_in_instruction_files(rows):
+    """-> {(owner, name): [where, ...]} for every repository an always-loaded
+    instructions file NAMES, across every repo in force.
+
+    WHY THIS IS NOT A CLOSE READ (Morgan, 2026-09-21, strength: decided).
+    An Update Vendors pass found a consuming repo's AGENTS.md naming
+    `VoiceDefinitionMorgan` twice -- in the session-start step and again in
+    a tool's description -- where the real repository is `VoiceDefMorgan`.
+    That file's own step 1 warns about a source name going stale silently.
+
+    Two checks came close and neither asks this. `repo-reference-allowlist`
+    asks whether a name MAY be mentioned -- a leak control, offline by
+    design because it runs in the push gate. `repos_in_force_audit` below
+    asks whether a repository EXISTS, but only about the ones declared as
+    sources. A name in prose is not a source, so a repository reference was
+    checked for permission and never for existence.
+
+    Anchored two ways, and the second is what keeps it quiet: a full
+    github.com URL, or a bare `owner/name` whose owner is one this session
+    has actually seen on a remote. Without that anchor the pattern matches
+    every `practices/foo.md` and `tools/bar.py` in the file.
+    """
+    owners = _known_owners(rows)
+    bare = (re.compile(r'(?<![\w./-])(' + '|'.join(re.escape(o) for o in sorted(owners))
+                       + r')/([A-Za-z0-9][\w.-]*)') if owners else None)
+    found = {}
+    for label, _url, path in rows:
+        if not path:
+            continue
+        for name in INSTRUCTION_FILES:
+            f = pathlib.Path(path) / name
+            try:
+                text = f.read_text(encoding='utf-8', errors='ignore')
+            except OSError:
+                continue
+            hits = set(_GH_URL_REF_RE.findall(text))
+            if bare:
+                hits |= set(bare.findall(text))
+            for owner, repo in hits:
+                repo = repo.rstrip('.,);:')
+                if not repo or repo.endswith('.md') or repo.endswith('.py'):
+                    continue
+                found.setdefault((owner, repo), []).append(f'{label}:{name}')
+    return found
+
+
+def instruction_file_repo_refs_audit(repo_root, sources=(), missing=(),
+                                     base_url=None, out=None, already=()):
+    """-> (findings, notes). One API call per DISTINCT repository named in an
+    always-loaded instructions file and not already probed as a source.
+
+    `already` is the set of (owner, name) repos_in_force_audit has just
+    asked about, so the two sections never pay twice for the same name --
+    this tool reports its own API bill, and a section that silently doubled
+    a cost the run already paid would make that report a lie.
+    """
+    findings, notes = [], []
+    out = out if out is not None else sys.stdout
+    rows = _repos_in_force(repo_root, sources, missing, base_url)
+    refs = _repo_refs_in_instruction_files(rows)
+    already = {(o.lower(), n.lower()) for o, n in already}
+    todo = {k: v for k, v in refs.items()
+            if (k[0].lower(), k[1].lower()) not in already}
+    if not refs:
+        print('  instruction-file repo references: none found', file=out)
+        return findings, notes
+    token, var = _api_token()
+    checked = 0
+    for (owner, name), where in sorted(todo.items()):
+        seen = ', '.join(sorted(set(where)))
+        data, err = _api_json(f'repos/{owner}/{name}')
+        if err:
+            notes.append(f'{owner}/{name} (named in {seen}): not checked ({err})')
+            continue
+        if not isinstance(data, dict) or 'full_name' not in data:
+            msg = str((data or {}).get('message', 'no repository in response'))
+            if 'Not Found' in msg and token:
+                findings.append(
+                    f'{owner}/{name} is named in {seen} and DOES NOT EXIST '
+                    f'-- asked with a credential ({var}). An instructions '
+                    f'file is the one document every session reads before '
+                    f'doing anything, so a name that resolves to nothing '
+                    f'sends every one of them somewhere that is not there. '
+                    f'Find the real name and fix every occurrence, not the '
+                    f'first.')
+            elif 'Not Found' in msg:
+                notes.append(
+                    f'{owner}/{name} (named in {seen}): Not Found asked '
+                    f'ANONYMOUSLY, which is also what a private repository '
+                    f'answers -- says nothing either way. Set '
+                    f'PRECEDENT_GIT_TOKEN and re-run.')
+            else:
+                notes.append(f'{owner}/{name} (named in {seen}): not checked ({msg})')
+            continue
+        checked += 1
+        canonical = str(data.get('full_name') or '')
+        if canonical and canonical.lower() != f'{owner}/{name}'.lower():
+            findings.append(
+                f'{owner}/{name} is named in {seen} and the API answers '
+                f'{canonical} -- it has been RENAMED. The old name keeps '
+                f'working through a redirect that lasts only until somebody '
+                f'creates a repository under it, which is why this is worth '
+                f'fixing before it breaks rather than after.')
+    print(f'  instruction-file repo references: {len(refs)} named, '
+          f'{len(refs) - len(todo)} already asked as sources, '
+          f'{checked} of {len(todo)} answered'
+          + (f' -- {len(findings)} finding(s)' if findings else ''), file=out)
     return findings, notes
 
 
@@ -4374,7 +4650,13 @@ def _delete_row_lines(r, path, show_into=False):
     into = f", merged into `{r['into']}`" if show_into and r.get('into') else ''
     lines = [f"- **`{r['name']}`** -- {age}{who}{into}"]
     url = _branch_url(path, r['name'])
-    if url:
+    if url and r.get('filter_ambiguous'):
+        # Still linked, never silently dropped -- but the row says what the
+        # reader will actually see, so the one-click promise is not made and
+        # broken (practice: branch-delete-links).
+        lines.append(f"  [Branches page (SEVERAL ROWS -- another branch's "
+                     f"name contains this one; pick the exact match) →]({url})")
+    elif url:
         lines.append(f"  [Delete branch →]({url})")
     return lines
 
@@ -4397,6 +4679,13 @@ def _merged_stale_checkout_markdown(scan):
     lines = []
     for r in stale:
         lines.extend(_delete_row_lines(r, path))
+    # What SUCCESS looks like, said once (practice: branch-delete-links). A
+    # deleted branch's filtered page reads "no branches matched", which reads
+    # as an error to anyone who has not been told otherwise.
+    lines.append('')
+    lines.append('After a deletion the filtered page reads **"no branches '
+                 'matched"** -- that is the success state, not an error. '
+                 'GitHub offers a brief Undo, so a misclick is recoverable.')
     return '\n'.join(lines)
 
 
@@ -4513,6 +4802,13 @@ def _write_branch_report(branch_scans, out_path, repo_root):
                  f'declared source that is its own git checkout is -- '
                  f'whoever last touched a branch, not only the person who '
                  f'ran this check.')
+    lines.append('')
+    lines.append('**After you delete a branch, its filtered page reads "no '
+                 'branches matched" -- that is success, not an error.** '
+                 'GitHub offers a brief Undo immediately afterwards. A row '
+                 'whose link says SEVERAL ROWS is one whose name another '
+                 'branch contains, so the filter cannot narrow to it alone '
+                 '(practice: branch-delete-links).')
     lines.append('')
 
     def _row(r, path, show_into):
@@ -4882,6 +5178,23 @@ def _main(box):
         for f in _lf:
             print(f'  FINDING: {f}')
         for n in _ln:
+            print(f'  note: {n}')
+        # AND THE REPOSITORIES THE INSTRUCTIONS FILES NAME, which the audit
+        # above does not reach: it asks about repos declared as SOURCES, and
+        # a name sitting in prose is not a source. Same call, same handling
+        # of Not Found and of a rename; `already` keeps the two sections from
+        # paying twice for one name, since this tool reports its own bill.
+        _already = set()
+        for _lbl, _url, _pth in _repos_in_force(repo_root, data['sources'],
+                                                data['missing']):
+            _m = _GH_REMOTE_RE.search(_url or '')
+            if _m:
+                _already.add((_m.group(1), _m.group(2)))
+        _rf, _rn = instruction_file_repo_refs_audit(
+            repo_root, data['sources'], data['missing'], already=_already)
+        for f in _rf:
+            print(f'  FINDING: {f}')
+        for n in _rn:
             print(f'  note: {n}')
         print()
         # WHETHER THIS SESSION CAN LAND WORK IN EACH ONE, which the audit
@@ -5299,6 +5612,50 @@ def _main(box):
     print()
     if led:
         led.end(findings=_orph_n if _orph_seen else None)
+        led.start('CI WORKFLOW FILES OUTSIDE VENDORING')
+
+    # Scope is honest, not aspirational: this checkout plus every FATAL_
+    # MISSING_LEVELS source reachable on disk -- the SAME _orph_targets
+    # ORPHANS above already computed. There is no existing mechanism
+    # anywhere in this tool for discovering a CONSUMING repo (one that
+    # vendors FROM this one) -- only upstream sources this repo itself
+    # declares are enumerable here. A consuming repo needs its own
+    # very-deep-check run, with itself as the checkout.
+    print("CI WORKFLOW FILES OUTSIDE VENDORING -- candidates for Pass 2's "
+         "own read, never a verdict\n")
+    print("  Scope: this checkout and every attached source reachable on "
+         "disk -- NOT any\n  repo that vendors FROM this one, which this "
+         "tool has no way to discover.\n")
+    _wf_n = 0
+    _wf_any = False
+    _wf_seen = False
+    for _name, _p in _orph_targets:
+        if not pathlib.Path(_p).is_dir():
+            continue
+        _wf_seen = True
+        _wf_found = _workflow_liveness_scan(_p)
+        _wf_n += len(_wf_found)
+        if _wf_found:
+            _wf_any = True
+            print(f"  {_name}:")
+            for _m in _wf_found:
+                print(f"      {_m}")
+    if not _wf_seen:
+        print("  (no repository to scan)")
+    elif not _wf_any:
+        print("  none -- every .github/workflows/*.yml file present is "
+              "either vendored,\n  a known retired entry, or declared "
+              "exempt with a reason.")
+    else:
+        print("\n  Read each one (practice: workflow-file-outside-vendoring): "
+             "open the file,\n  compare what it actually runs "
+             "against what this repo's vendored template\n  provides. "
+             "Verify by content, never by name -- see that practice's own "
+             "Story\n  for the incident this line exists to prevent "
+             "repeating.")
+    print()
+    if led:
+        led.end(findings=_wf_n if _wf_seen else None)
         led.start('SESSION LOAD')
 
     print("SESSION LOAD -- what every session pays before it does anything\n")
@@ -5479,6 +5836,25 @@ def _main(box):
     print()
     if led:
         led.end(findings=len(_doc_find))
+        led.start('MARKDOWN -- STRICT SWEEP')
+
+    _md_summary, _md_count, _md_note = _markdown_sweep(repo_root)
+    print("MARKDOWN -- STRICT SWEEP -- every tracked document, warning "
+          "classes included\n")
+    if _md_note:
+        print(f"  note: {_md_note}")
+    elif not _md_count:
+        print("  clean -- no markdown finding of any class, in any tracked "
+              "document.")
+    else:
+        for _line in _md_summary:
+            print(f"  {_line}" if _line.strip() else "")
+        print("\n  Pass 3 works this list; it does not gate the run. "
+              "`python3 tools/doc_lint.py FILE`\n  for one file's findings "
+              "in full, and `--fix FILE` for the strikethrough class.")
+    print()
+    if led:
+        led.end(findings=_md_count)
 
     # UNLANDED WORK, printed BEFORE the checklist rather than with the rest
     # of the branch scan at the end (practice: very-deep-check, step 4 of its

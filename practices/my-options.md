@@ -21,7 +21,23 @@ approved_by: "Morgan, 2026-09-12 -- asked for the command, chose the name from
   \"I still like 'my options' and then it triggers when you realize it's
   similar to 'show me options' etc. Let's use that,\" and asking that the
   extension focus on \"the options to prevent\" rather than a single flat
-  recommendation."
+  recommendation. Tightened 2026-09-20, Morgan, after noticing the
+  paste-ready block was not consistently delivered as an actual fenced
+  block: the Rule now names the mechanism (a fenced code block) rather than
+  just the outcome (\"ready to copy in one click\"). Extended again the same
+  day, Morgan: any option that is itself a cross-repo change must account
+  for the upstream template it comes from and say whether it needs a clean
+  rollout to the repos vendoring this one. Extended again 2026-09-20,
+  Morgan, after a `Prompt Please` handoff in another session left him
+  without a plain instruction to act on: the routing has to be said once
+  more in ordinary prose outside the fenced block, not only inside it,
+  since the block is written for the new session and he is the one who has
+  to read this reply and go open one. Narrowed 2026-09-20, on a fresh
+  session's rule-scope-ask: the fenced-block requirement moved to
+  [fence-block-for-paste](fence-block-for-paste.md) as a resident practice
+  binding every reply, not only this command's; this file now points there
+  and names the mechanism as a fence block explicitly, on his own
+  instruction, to keep it distinct from an option's own \"block.\""
 strength:    decided
 source_practice_number: null
 ---
@@ -45,6 +61,17 @@ Four things, all four required:
 - **A named recommendation, with the reason.** Not a leaning, not a "it
   depends on your priorities" — the one you would pick, and the thing that
   makes it the pick.
+
+**When an option would itself change something this repo ships to other
+repos** -- a practice file, a template, a hook, a vendored engine file, the
+same scope [vendor-rollout-disclosed](vendor-rollout-disclosed.md) already
+names -- that option's cost has to account for the upstream template or
+mechanism actually governing it, not just the symptom in front of you, and
+say whether the change needs a clean rollout through an updated template
+and [vendor-update-runbook](vendor-update-runbook.md)'s mechanism to reach
+the repos vendoring this one, when that's relevant. An option that patches
+around the template instead of the template itself has an unstated cost:
+it does not survive the next `Update Vendors` run.
 
 **It governs that one answer**, not the rest of the conversation. That is
 what separates it from [plain-words](plain-words.md), which is a standing
@@ -74,12 +101,25 @@ with none of this conversation:**
   Say "none" when that is the honest answer -- never leave the reader to
   guess whether it was considered.
 
-**Delivered as one block, ready to copy in one click** -- the same
-requirement [the-boildown](the-boildown.md) already states for any handoff:
-the words are the session's to write, not the reader's to compose. Producing
+**Render it as a fence block** -- an actual fenced markdown block (triple
+backticks), never a paragraph that merely reads as paste-ready -- per
+[fence-block-for-paste](fence-block-for-paste.md), which owns this
+requirement and applies it to every reply, not only this one. Called out by
+name here to keep it distinct from the other things this practice calls a
+"block" (an option's own short paragraph, above): the paste-ready text is
+specifically a **fence block**, and where the handoff carries more than one
+distinct thing to paste, each gets its own. Producing
 it does not, by itself, authorize anything in the repository or
 repositories it names -- that is not committing, pushing, or merging
 anything, whatever the receiving session goes on to do there.
+
+**Say it plainly too, outside the block.** The block is written for the new
+session to read; the person asking still needs, in this reply, one ordinary
+sentence that is not fenced and not buried inside it: *"Open a new session,
+root it in \<repository\>, attaching \<repositories, or 'none'\>."* Before
+the block or after it, either is fine -- what matters is that the person
+does not have to open and parse the paste target just to learn what to do
+with it.
 
 ## Detail
 **The recommendation is the part that gets dropped, and it is the part they
@@ -182,6 +222,41 @@ when Morgan coined that command and drew the boundary himself: `My options`
 is for seeing the choices before mostly following whichever one gets
 recommended; `Prompt Please` is for once a recommendation is already the
 plan and only the handoff prompt is wanted.
+
+**Tightened the same day**, after Morgan checked whether this practice and
+`Prompt Please` both actually deliver the copy-in-one-click block they
+promise and said the answer was often no: *"You often don't do that and I
+want to enforce it."* The Rule's own wording -- "ready to copy in one click"
+-- was true but not mechanical: nothing in it said a block had to be an
+actual fenced code block rather than a paragraph that merely reads as
+paste-ready. Both practices now name the mechanism directly. Strength:
+decided.
+
+**Extended again the same day**, on Morgan's instruction to `My options`,
+`Prompt Please` and `Write it up` together: *"Any change that would effect
+other repos must take into account the original templates in the mother
+system that organizes the other repos, and must be rolled out cleanly in
+updated templates/migrations to the others (if relevant)."* This repo is
+the mother system for whatever it vendors this practice layer to, so the
+wording is kept in the repo-agnostic form
+[vendor-rollout-disclosed](vendor-rollout-disclosed.md) already settled on
+-- "the repos vendoring this one" in place of BestPractice's own name --
+so the sentence still holds when read from inside a repo that only
+consumes it. Strength: decided.
+
+**Extended again 2026-09-20**, on the same instruction to all three
+commands -- full quote in [Prompt Please](prompt-please.md)'s Story, where
+the gap actually surfaced. The fenced block already carried the seed root
+and the repos to attach, but only for the new session's own reader --
+nothing said it in plain prose to the person sitting in this one, who has
+to act on it first. Strength: decided.
+
+**Narrowed 2026-09-20**, when the fenced-block clause moved to
+[fence-block-for-paste](fence-block-for-paste.md), a new resident practice
+binding every reply rather than just this command's occasion -- full
+incident in that file's own Story. This file now points there, and names
+the mechanism as a **fence block** on Morgan's own instruction, so it
+reads distinctly from an option's own "block" above. Strength: decided.
 
 ## Install
 Nothing to configure. The occasion index entry is generated, so an adopter

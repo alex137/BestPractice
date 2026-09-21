@@ -2,7 +2,7 @@
 
 **Looking for something in this repository? Check here before searching it.**
 Every row is *looking for X → go to Y*, and the table below is the complete
-one: 89 rows.
+one: 109 rows.
 
 [AGENTS.md](AGENTS.md) carries a short version of this table — the dozen rows
 sessions reach for constantly — and links here for the rest. **That split is
@@ -21,11 +21,13 @@ not it is read.
 | Looking for… | Go to |
 |---|---|
 | The restructuring plan (read this first) | [spec/PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md) |
-| Whether an open item may be raised with Morgan at all, and what "Park it" writes | [practices/open-item-disposition.md](practices/open-item-disposition.md), phrase at [practices/park-it.md](practices/park-it.md) |
+| Where a rule goes when you want it in SOME projects and not others, and how to make a shared set | [documentation/SHARED_PRACTICE_SETS.md](documentation/SHARED_PRACTICE_SETS.md) |
+| Whether an open item may be raised with Morgan at all, and what "Drop it" writes | [practices/open-item-disposition.md](practices/open-item-disposition.md), phrase at [practices/park-it.md](practices/park-it.md) |
 | Running many sessions at once — the proposed Chief of Staff session, what `list_sessions` can and cannot do, and the tag namespaces | [spec/CHIEF_OF_STAFF.md](spec/CHIEF_OF_STAFF.md) — decided 2026-09-14 (build it); was tracked at TODO.md's `chief-of-staff-session` item, since closed and pruned |
 | Inherited practices whose meaning or mechanism changed under Precedent (Alex needs to hear about these) | [spec/CHANGES_TO_TELL_ALEX.md](spec/CHANGES_TO_TELL_ALEX.md) |
 | The phase-1 per-practice file format | [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) |
 | Why a practice file's references to `spec/`, `templates/` or a root document are full `https://github.com/...` URLs rather than relative links | [practices/practice-links-travel.md](practices/practice-links-travel.md) |
+| Why a session rooted in a practice set saw none of the universal rules, and what actually puts a hook's output in front of the model | [spec/PACK_SESSION_DOES_NOT_LOAD_UNIVERSAL.md](spec/PACK_SESSION_DOES_NOT_LOAD_UNIVERSAL.md) — trap at [gotchas/gotcha-2026-09-20-a-sessionstart-hook-writing-a-file-is-not-the-session-loadi.md](gotchas/gotcha-2026-09-20-a-sessionstart-hook-writing-a-file-is-not-the-session-loadi.md) |
 | The phase-2 loader (resident set, replay measurement) | [spec/LOADER.md](spec/LOADER.md) |
 | The phase-3 brief (what phase 3 was handed) | [spec/PHASE3_BRIEF.md](spec/PHASE3_BRIEF.md) |
 | The phase-3 sources: resolver, precedence, what could not be built here | [spec/SOURCES.md](spec/SOURCES.md) |
@@ -57,9 +59,11 @@ not it is read.
 | The routing audit: coverage check + rotating deep read, on-demand, never a routine gate | [practices/routing-audit.md](practices/routing-audit.md), engine at [tools/routing_audit.py](tools/routing_audit.py) |
 | The full practice audit: manual, whole-catalogue sweep across every source, on request only | [practices/full-practice-audit.md](practices/full-practice-audit.md), engine at [tools/full_practice_audit.py](tools/full_practice_audit.py) |
 | The very deep check: four ordered passes over every repo in force, on request only — distinct from the full practice audit above | [practices/very-deep-check.md](practices/very-deep-check.md), engine at [tools/very_deep_check.py](tools/very_deep_check.py), run record at [spec/VERY_DEEP_CHECK.md](spec/VERY_DEEP_CHECK.md) |
+| Proposed additions to the very deep check — fourteen, written 2026-09-21 against that week's incidents, none adopted | [spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md](spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md) |
 | What each part of the very deep check returned and cost, run after run, and which parts are owed a keep/cheapen/retire answer | [record/very-deep-check-ledger.json](record/very-deep-check-ledger.json) — **never hand-edit it**; the answers go in [spec/VERY_DEEP_CHECK.md](spec/VERY_DEEP_CHECK.md) |
 | Why `verify_harness.py` (the deep check) takes as long as it does, which checks actually cost the time, a parallelization that was tried and reverted for measuring no real gain, and the change-scoping fix that did measurably help | [spec/VERIFY_HARNESS_PERFORMANCE.md](spec/VERIFY_HARNESS_PERFORMANCE.md) |
 | Cutting GitHub Actions minutes across every vendored repo — where the minutes actually go, the self-hosted-runner pilot (item 6), and what's shipped vs. still open | [spec/CI_MINUTES_PLAN.md](spec/CI_MINUTES_PLAN.md), open item tracked at [todo/todo-2026-09-16-revisit-ci-minutes-items-6-7.md](todo/todo-2026-09-16-revisit-ci-minutes-items-6-7.md) |
+| **Why a CI workflow costs what it costs** — GitHub bills per JOB rounded up to a whole minute, measured at 0.47s of work billed as 3 minutes; why five days of frequency fixes moved nothing, and the arithmetic retiring the debounce job | [spec/BILLING_FLOOR.md](spec/BILLING_FLOOR.md) |
 | Whether THIS repo's own `deep-check.yml` should move to a self-hosted runner for speed — a narrower, harder question than the CI-minutes plan's item 6, since this repo's CI is already free and public | [spec/DEEP_CHECK_SELF_HOSTED_RUNNER.md](spec/DEEP_CHECK_SELF_HOSTED_RUNNER.md) |
 | Step-by-step mechanics for registering a self-hosted GitHub Actions runner on a RunCloud-managed Linux server, for the item 6 pilot once it's authorized | [spec/SELF_HOSTED_RUNNER_SETUP.md](spec/SELF_HOSTED_RUNNER_SETUP.md) |
 | The branch sweep's own list — every merged, merged-elsewhere and unmerged branch in this checkout and every declared source, with a clickable delete or compare link on each row | `record/stale_branches.md` — **never hand-edit it**; written by `python3 tools/very_deep_check.py`'s branch sweep and committed like `MAP.md`, after it clears [tools/leak_gate.py](tools/leak_gate.py). This checkout's own merged-and-stale (safe-to-delete) slice is also embedded live in [spec/VERY_DEEP_CHECK.md](spec/VERY_DEEP_CHECK.md)'s "Branches safe to delete right now", a `tools/doc_sync.py`-gated block — that page, not this file, is where a person actually goes to delete branches |
@@ -115,11 +119,13 @@ not it is read.
 | The ten ideas underneath Precedent on one page — work through an assistant, the repository is the memory, practices, proposal and approval, routing, enforcement, four levels, three permission levels, the standing phrases, privacy — each linked into both guides | [documentation/TEN_THINGS.md](documentation/TEN_THINGS.md) |
 | Every GitHub setting a Precedent project depends on, who clicks it, what fails without it — roles, branch protection with the four values, what GitHub does with CODEOWNERS and how this system generates it, Actions permissions and secrets, practice-set repositories | [documentation/GITHUB_SETTINGS.md](documentation/GITHUB_SETTINGS.md) |
 | CI checks for shell-less agents (install, require) | [GITHUB_ACTIONS.md](documentation/GITHUB_ACTIONS.md) |
-| Whether anything catches a drifted `MAP.md`, `GLOSSARY.md` or loader block in a practice SET (two things do) | [templates/github-actions/views-drift.yml.template](templates/github-actions/views-drift.yml.template) and [templates/github-actions/precedent-check.yml.template](templates/github-actions/precedent-check.yml.template); whether a set needs both is [TODO.md's `views-drift-vs-suite-workflow`](todo/todo-2026-09-13-views-drift-vs-suite-workflow.md) |
+| Whether anything catches a drifted [MAP.md](MAP.md), [GLOSSARY.md](GLOSSARY.md) or loader block in a practice SET | the `views-drift` job inside [templates/github-actions/precedent-check.yml.template](templates/github-actions/precedent-check.yml.template) — there is no separate `views-drift.yml.template` since 2026-09-19, when it was folded in ([templates/github-actions/README.md](templates/github-actions/README.md)) |
 | Upstream open items / roadmap | [TODO.md](TODO.md) |
 | The full story behind any environment trap, one file each | [gotchas/](gotchas/) (generated overview: [gotchas/INDEX.md](gotchas/INDEX.md)) |
 | Gotchas that no longer fire, with the verdict that retired each one | [gotchas/](gotchas/) (`status: retired` in the file, in place -- nothing moves) |
-| GitAround — the reading view this work spun out | [alex137/GitAround](https://github.com/alex137/GitAround), a separate product since 2026-08-14; a branch here still staging it under proposals/ is superseded, and its documents live there now |
+| GitAround — the reading view this work spun out | [alex137/GitAround](https://github.com/alex137/GitAround) — **a PRIVATE repository**, so that link 404s for anyone without access, and this row is the only thing that says so. A separate product since 2026-08-14 (its last push, checked 2026-09-21); a branch here still staging it under proposals/ is superseded, and its documents live there now |
 | Slide-deck engine + deck conventions | [deck/](deck/) — engine [build_deck.py](deck/build_deck.py), practice in [deck/README.md](deck/README.md) |
 | Portable audits | [tools/](tools/) — [doc_lint.py](tools/doc_lint.py), [practice_audit.py](tools/practice_audit.py), [checkin.py](tools/checkin.py) |
+| What a session on codex, gemini-cli or grok-build does **not** get that Claude Code does — one row per mechanism, with the parallel or the reason there is none | [templates/harness/PARALLELS.md](templates/harness/PARALLELS.md), checked by [tools/precedent_check.py](tools/precedent_check.py) `--only claude-only-surface-has-a-parallel`, re-judged on every [very deep check](practices/very-deep-check.md) |
+| How a consuming repo keeps ONE CI workflow deliberately its own, so `refresh` leaves it alone instead of refusing — and why `--force` and `record-ci` are not that | `local_ci_workflows` in that repo's [precedent.json](precedent.json), read by [tools/precedent_vendor_engine.py](tools/precedent_vendor_engine.py)'s `local_ci_workflows()`. A reason is required, and it is printed on every `refresh` and `status` |
 | Skeletons dependent repos instantiate | [templates/](templates/) (+ per-agent adapters in [templates/harness/](templates/harness/)) |

@@ -90,7 +90,7 @@ something to decide which a person is, and nothing can
 
 **GitHub role — Write.** The contributor is a **Write** collaborator here.
 They push branches, open pull requests and merge their own document work,
-through Claude, with `Go merge`; they never need to see git vocabulary to do
+through Claude, with `Go update`; they never need to see git vocabulary to do
 it. This binds anything only if they authenticate to GitHub as themselves
 rather than through a shared organisation-wide connection — confirmed once,
 per project, before relying on it.
@@ -196,8 +196,9 @@ Conflicts in shared files are EXPECTED. The fast, safe path:
   document(s) this project produces are read by an audience outside this
   repo's own work — every term that names a category is either already the
   reader's word, a plain equivalent, or glossed inline on first use.
-- **Reply convention** (practice `reply-links-files`, which is resident —
-  this bullet is a pointer, never a second copy to keep in step): every
+- **Reply convention** (practice `reply-links-files`, reached by the
+  `reply` gate — this bullet is a pointer, never a second copy to keep in
+  step): every
   reply that created, modified or deleted files
   ends with a "Files touched" list — branch link + post-merge link +
   one-line description per file. A **deleted** file is listed too: its

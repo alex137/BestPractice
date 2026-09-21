@@ -30,8 +30,38 @@ mistaken for a live declaration:
       "practice": "<the slug this enforces>",
       "require_heading_matching": "what I need from you",
       "require_one_of": ["Nothing is blocked", "Blocked on:"],
+      "require_no_contradiction": [
+        {"if_says": "Nothing is blocked",
+         "must_not_say_matching": "still (waiting|open|pending)"}
+      ],
+      "require_no_bare_pattern": [
+        {"pattern": "\\bPR #\\d+\\b",
+         "why": "a pull request number names a page with a destination"}
+      ],
       "why": "<what goes wrong when the reply omits it>"
     }
+
+`require_no_contradiction` is a narrower kind of check than the other two --
+it never judges whether a verdict sentence is the RIGHT one (unreachable
+from a repo-scoped script, per the-boildown's own Install section), only
+whether the reply asserts it in the same breath as a plain-language phrase
+that means the opposite. Added 2026-09-20 after exactly that: a reply said
+"nothing is blocking" and then closed with "Don't archive this session".
+
+`require_no_bare_pattern` checks a different practice family entirely --
+rule-links and branch-links, both of which say a mentioned destination (a
+PR, a session, a branch, a rule) gets a link the first time it is named, and
+neither of which had a mechanical check before this. Each entry is a
+`{pattern, why}` pair; every markdown link (`[text](url)`) in the reply is
+stripped out FIRST, and each pattern is then tested against what remains --
+a match there is a mention that never appeared inside a link at all. Because
+the strip happens once, up front, a thing linked on its first mention and
+named bare again later in the same reply still matches, which is a known
+imprecision (rule-links only requires the FIRST mention to be linked) rather
+than a bug -- see this repo's own reply_check.json, which declares this
+predicate `advisory` for exactly that reason. Added 2026-09-20 after a bare
+"PR #21" in a chat reply went unlinked and uncaught in a downstream
+consumer.
 
 A source may declare one requirement (an object) or several (a list). Add
 `"advisory": true` to a requirement and an unmet one is still detected and
@@ -112,7 +142,27 @@ def declared_requirements(repo):
     except Exception as e:                                   # noqa: BLE001
         return reqs, [f'no source set could be read ({e})']
     for s in sources:
-        cfg = pathlib.Path(s['path']) / CONFIG_NAME
+        root = pathlib.Path(s['path'])
+        cfg = root / CONFIG_NAME
+        # A SOURCE THAT IS NOT THERE IS A NOTE; a source that is there and
+        # declares nothing is silence. Until 2026-09-21 both took the same
+        # `continue` and this function's own docstring claimed otherwise.
+        #
+        # The distinction is the whole point. Most sources genuinely have no
+        # reply_check.json, and saying so every turn would be noise. But a
+        # source whose CHECKOUT is missing declares its requirements
+        # somewhere this session cannot read, and "no requirements" and
+        # "requirements I could not reach" must never look the same --
+        # the same rule this repo applies to its own check suite, where a
+        # skip is not a pass. A set whose sibling BestPractice clone is
+        # absent gets none of universal's blocking reply rules, and before
+        # this it got no hint of that either.
+        if not root.is_dir():
+            notes.append(f"{s['level']}/{s['name']} is not on disk at "
+                         f"{s['path']!r}, so any reply requirement it "
+                         f"declares is NOT in force here -- unknown, not "
+                         f"absent")
+            continue
         if not cfg.is_file():
             continue
         try:
@@ -252,11 +302,139 @@ def _norm(s):
     return s.replace('’', "'").replace('‘', "'").lower()
 
 
+# Double-quoted spans only, never single -- a single quote or curly
+# apostrophe is the same character English contractions use constantly
+# ("Don't", "it's"), so treating it as a span delimiter would eat
+# unpredictable stretches of ordinary prose. Double quotes carry no such
+# collision, and this repo's own convention already uses them (never single
+# quotes) to cite an exact phrase in running prose (this file's own
+# docstring, reply_check.json's `why` fields, every *"..."* quote in the
+# practice files). practice: the-boildown, cite-the-incident.
+_DQUOTE_SPAN_RE = re.compile(r'"[^"]*"|“[^”]*”')
+
+
+def _strip_quoted_spans(s):
+    """Blank out every double-quoted span in `s`. A reply that CITES a
+    phrase as a string -- describing a rule, quoting what a check refuses --
+    is not ASSERTING that phrase, and require_no_contradiction's job is to
+    catch the second, never the first. (2026-09-20: a reply explaining this
+    very check quoted both trigger phrases and both contradiction patterns
+    in the same paragraph, in single quotes -- which _norm() already folds
+    to a bare apostrophe, so nothing distinguished them from the real
+    thing, and the check refused the reply that had just shipped it. Fixed
+    by stripping quoted citations before matching, and by this file's own
+    convention -- double quotes, not single -- for citing these phrases
+    from here on.)"""
+    return _DQUOTE_SPAN_RE.sub(' ', s)
+
+
+# A markdown link's text may itself look like the thing require_no_bare_pattern
+# is hunting for ("[PR #21](https://...)"), so the whole `[text](url)` span
+# is blanked out, not just the URL -- otherwise the pattern would still match
+# inside the display text of a link that already satisfies rule-links (a
+# shared-set practice this repo's own catalogue does not carry, so this is
+# named without the anchored `practice:` form -- see
+# todo-2026-09-07-universal-code-cites-team-slug for why, in the fail-gracefully
+# citations that were in exactly this spot until they were promoted).
+_MD_LINK_RE = re.compile(r'\[[^\]]*\]\([^)]*\)')
+
+
+def _strip_markdown_links(s):
+    """Blank out every markdown link in `s`. What is left is prose that was
+    never wrapped in a link at all -- exactly what require_no_bare_pattern
+    tests its patterns against, since a mention already linked is not a bare
+    one, whatever text the link displays."""
+    return _MD_LINK_RE.sub(' ', s)
+
+
+# practices/the-boildown.md (practice: the-boildown) names one fixed template
+# for a turn where nothing happened that is visible, or non-trivial, to the
+# person -- "Unchanged since the last update: <what it's still waiting on>."
+# -- and says that turn does not owe a fresh Boildown reworded from scratch.
+# Widened 2026-09-20 (Morgan,
+# direct instruction) from "a scheduled wakeup, a reminder firing, or a
+# background-task notification" to any turn that shape fits, including one
+# the stop hook itself forces -- a practice-candidate detector rechecking its
+# own prior false positive is the incident that prompted the widening, and it
+# produced two closing headings in a row with nothing between them but "still
+# not a rule." The practice's own prose changed that day; this is the other
+# half, so the gate matches what the practice now actually says.
+#
+# Matched at the START of the stripped reply, case-insensitively, allowing
+# the phrase to open under light emphasis markup (`**Unchanged...**`) since a
+# session bolding its own lead phrase is expected, not a different sentence.
+# This is a literal, narrow match on the fixed template -- not a heuristic
+# about length, tone, or how "trivial" a reply feels -- because a fuzzy
+# trigger is a fuzzy exemption from a rule declared as blocking, and reads
+# every reply as a candidate for skipping its own gate.
+_TRIVIAL_CHECKIN_RE = re.compile(r'^[\s*_]*unchanged since the last update:', re.I)
+
+
+def is_trivial_checkin(text):
+    """True when `text` opens with the fixed one-line check-in template
+    practices/the-boildown.md names for a turn with nothing visible or
+    non-trivial to report. Such a turn is exempt from every requirement
+    below, the same way an empty reply already is -- it is not a shorter
+    Boildown, it is the documented substitute for one."""
+    return bool(_TRIVIAL_CHECKIN_RE.match(text.strip()))
+
+
+# Every key a requirement entry may carry: the predicates this engine can
+# evaluate, plus the metadata that describes one. Anything else is a
+# requirement THIS engine does not understand -- see _unknown_predicates().
+KNOWN_REQUIREMENT_KEYS = frozenset({
+    # predicates
+    'require_heading_matching',
+    'require_one_of',
+    'require_no_contradiction',
+    'require_no_bare_pattern',
+    'require_paired_with',
+    # conditions and metadata
+    'require_when_context_grew_tokens',
+    'advisory',
+    'practice',
+    'why',
+    'checks_practice_at',
+})
+
+
+def _unknown_predicates(req):
+    """-> sorted keys of `req` this engine has no branch for.
+
+    WHY A REQUIREMENT NOBODY CAN EVALUATE MUST SAY SO. A practice source's
+    reply_check.json is read LIVE from that source's own checkout, while the
+    engine that evaluates it is VENDORED into the consuming repo -- two
+    files that travel by completely different routes and go stale
+    independently. So a source can declare a blocking requirement that the
+    consumer's older engine has never heard of.
+
+    Until 2026-09-21 that produced nothing at all: no violation, no warning,
+    no trace. Measured against the requirement added that same day --
+    current engine: 1 violation; an engine without the branch: 0 violations
+    and silence. A set could sit for weeks believing a blocking rule was in
+    force with nothing enforcing it, which is exactly the "reads as coverage
+    and covers nothing" failure, in the one file whose whole job is refusing
+    turns.
+
+    Reported, never enforced. The reply is not what is wrong here -- the
+    ENGINE is old -- and refusing somebody's turn over their vendored copy's
+    age would punish the wrong thing at the wrong moment. The remedy is one
+    command, and the message names it.
+
+    Keys starting with `_` are skipped: declared_requirements() adds its own
+    (`_source`), and a source is free to use the same convention for a
+    comment, exactly as precedent.json does throughout.
+    """
+    return sorted(k for k in req
+                  if not k.startswith('_') and k not in KNOWN_REQUIREMENT_KEYS)
+
+
 def violations(text, reqs, timeline=None):
     """-> list of records, one per unmet requirement:
 
-        {'kind': 'heading' | 'sentence', 'message': <human-readable>,
-         'advisory': bool}
+        {'kind': 'heading' | 'sentence' | 'contradiction' | 'bare_pattern'
+                 | 'paired' | 'unknown_predicate',
+         'message': <human-readable>, 'advisory': bool}
 
     `advisory` mirrors the requirement's own `"advisory": true` declaration
     (default false). main() still detects and names an unmet advisory
@@ -287,6 +465,21 @@ def violations(text, reqs, timeline=None):
     headings = [re.sub(r'^#{1,6}\s+', '', l).strip()
                 for l in text.splitlines() if re.match(r'^#{1,6}\s+\S', l)]
     for r in reqs:
+        _unknown = _unknown_predicates(r)
+        if _unknown:
+            out.append({'kind': 'unknown_predicate', 'advisory': True,
+                        'message': (
+                            f"[{r.get('_source', '?')}] declares "
+                            + ', '.join(sorted(_unknown))
+                            + ", which THIS engine cannot evaluate -- so that "
+                              "requirement is not being enforced here, and "
+                              "until now said nothing. The source is read "
+                              "live; the engine is vendored, so the two go "
+                              "stale independently. Refresh the vendored "
+                              "engine: python3 tools/precedent_vendor_engine.py "
+                              "refresh <bestpractice-clone>"
+                            + (f" (practice: {r['practice']})"
+                               if r.get('practice') else ''))})
         every = r.get('require_when_context_grew_tokens')
         if every:
             phrases = r.get('require_one_of') or []
@@ -328,6 +521,96 @@ def violations(text, reqs, timeline=None):
                    if heading_present and not advisory else '')
                 + (f" ({r['_context_note']})" if r.get('_context_note') else '')
                 + (f" (practice: {r['practice']})" if r.get('practice') else ''))})
+        # require_no_contradiction does NOT try to judge whether a verdict
+        # sentence is CORRECT -- the-boildown's own Install section already
+        # tried that and gave up: "no regex distinguishes 'waiting on the
+        # billing number you're pulling' from three bullets that happen to
+        # precede the sentence." This is narrower and does not need to:
+        # it only catches a reply asserting the fixed sentence AND, in the
+        # same breath, a plain-language phrase that means the opposite --
+        # "nothing blocking" beside "Don't archive this session", or a
+        # still-open/waiting-on-you phrase beside "You can archive this
+        # session". Both halves are never simultaneously true, whatever the
+        # real state is, so this needs no judgment about which one is right
+        # -- only that a reply is not allowed to assert both at once.
+        # (2026-09-20: a reply said "no open work is blocking either way"
+        # and closed with "Don't archive this session" -- exactly this
+        # shape, caught by the person, not by any check. practice:
+        # the-boildown, cite-the-incident.)
+        #
+        # Both patterns in reply_check.json's require_no_contradiction entry
+        # exclude a trailing scope qualifier ("there", "on it/that/this",
+        # "for it/that/this") via a negative lookahead -- same day, second
+        # incident: "nothing left to do there", scoped to one closed PR
+        # inside a Boildown bullet, is not asserting the opposite of a
+        # correct "Don't archive this session" driven by a different, real
+        # open item elsewhere in the same reply. Same family as the
+        # double-quote citation exemption above: a phrase scoped away from
+        # the whole session is not the assertion this check exists to catch.
+        quoted_stripped = _strip_quoted_spans(text)
+        for pair in (r.get('require_no_contradiction') or []):
+            trigger, pat2 = pair.get('if_says'), pair.get('must_not_say_matching')
+            if not trigger or not pat2:
+                continue
+            if (_norm(trigger) in _norm(quoted_stripped)
+                    and re.search(pat2, quoted_stripped, re.I)):
+                out.append({'kind': 'contradiction', 'advisory': advisory, 'message': (
+                    f"[{r.get('_source', '?')}] this reply says \"{trigger}\" and "
+                    f"ALSO matches /{pat2}/i elsewhere in the same reply -- the two "
+                    "cannot both be true. Re-check the actual state (a fresh "
+                    "push/fetch or the real condition, not what an earlier line in "
+                    "this same reply already claimed) and fix whichever one is wrong."
+                    + (f" (practice: {r['practice']})" if r.get('practice') else ''))})
+        # require_no_bare_pattern closes the gap rule-links and branch-links
+        # left mechanically unchecked: both say a mentioned destination gets
+        # a link the first time it is named, and neither had any way to
+        # catch a plain miss until this. (Named without the anchored
+        # `practice:` form -- both live in a shared set this repo's own
+        # catalogue does not carry; see the note beside _MD_LINK_RE above.)
+        # Markdown links are stripped from the whole reply FIRST (a mention
+        # already inside a link is not a bare one), then each declared
+        # pattern is tested against what remains -- a match is a mention
+        # that never appeared in a link anywhere in the reply.
+        link_stripped = _strip_markdown_links(text)
+        for entry in (r.get('require_no_bare_pattern') or []):
+            pattern, pat_why = entry.get('pattern'), entry.get('why')
+            if not pattern:
+                continue
+            m = re.search(pattern, link_stripped)
+            if m:
+                out.append({'kind': 'bare_pattern', 'advisory': advisory, 'message': (
+                    f"[{r.get('_source', '?')}] this reply mentions "
+                    f"\"{m.group(0)}\" without a markdown link to it"
+                    + (f" -- {pat_why}" if pat_why else '') + "."
+                    + (f" (practice: {r['practice']})" if r.get('practice') else ''))})
+
+        # require_paired_with: when the reply contains X, it must also
+        # contain Y. The mirror of require_no_contradiction -- that one
+        # forbids a pairing, this one compels it.
+        #
+        # WHY IT EXISTS (Morgan, 2026-09-21, strength: decided, and the
+        # capitals are his): "EVERY TIME YOU GIVE ME SOMETHING TO PASTE,
+        # ALWAYS TELL ME IT GOES TO A SESSION ROOTED IN WHAT REPO AND WHAT
+        # ATTACHED, OR WHAT EXISTING SESSION. YESTERDAY AND TODAY I ASKED
+        # YOU 20 TIMES 'The text you gave me, what session is it for?'"
+        #
+        # fence-block-for-paste already made the FENCE mandatory, which is
+        # why every one of those twenty blocks was correctly fenced and
+        # none of them said where it went. A block of text with no
+        # destination is not a handoff; it is homework, and the person has
+        # to come back and ask before they can do anything with it.
+        for pair in (r.get('require_paired_with') or []):
+            trigger, needed = pair.get('if_matches'), pair.get('must_also_match')
+            if not (trigger and needed):
+                continue
+            if re.search(trigger, text, re.I | re.M) and not re.search(
+                    needed, text, re.I | re.M):
+                out.append({'kind': 'paired', 'advisory': advisory, 'message': (
+                    f"[{r.get('_source', '?')}] this reply matches "
+                    f"/{trigger}/ but nothing in it matches /{needed}/"
+                    + (f" -- {pair.get('why')}" if pair.get('why') else '')
+                    + "."
+                    + (f" (practice: {r['practice']})" if r.get('practice') else ''))})
     return out
 
 
@@ -354,10 +637,26 @@ def main():
                 bits.append(f"heading /{r['require_heading_matching']}/i")
             if r.get('require_one_of'):
                 bits.append(f"one of {r['require_one_of']}")
+            if r.get('require_no_contradiction'):
+                for pair in r['require_no_contradiction']:
+                    bits.append(f"\"{pair.get('if_says')}\" must not also match "
+                                f"/{pair.get('must_not_say_matching')}/i")
+            if r.get('require_no_bare_pattern'):
+                for entry in r['require_no_bare_pattern']:
+                    bits.append(f"no bare (unlinked) match of /{entry.get('pattern')}/")
+            if r.get('require_paired_with'):
+                for pair in r['require_paired_with']:
+                    bits.append(f"/{pair.get('if_matches')}/ requires "
+                                f"/{pair.get('must_also_match')}/")
             if r.get('require_when_context_grew_tokens'):
                 bits.append("ONLY once the context has grown "
                             f"{int(r['require_when_context_grew_tokens']):,} "
                             "tokens since that was last said")
+            _unk = _unknown_predicates(r)
+            if _unk:
+                bits.append('!! ' + ', '.join(_unk)
+                            + ' -- NOT EVALUATED by this engine (too old); '
+                              'refresh the vendored engine')
             if r.get('advisory'):
                 bits.append("ADVISORY -- named when unmet, never blocks")
             print(f"  {r.get('_source')}: " + ', '.join(bits))
@@ -390,7 +689,11 @@ def main():
     # path. The transcript branch already returns early for it; --text needs
     # the same, and a blank file is the shape a caller uses to ask "would
     # this block?" about a tool-only turn.
-    if not reqs or not text.strip():
+    #
+    # A turn that opens with the fixed trivial-check-in template is the
+    # documented substitute for a Boildown, not a shorter one -- exempt the
+    # same way (practice: the-boildown).
+    if not reqs or not text.strip() or is_trivial_checkin(text):
         return 0
     bad = [b for b in violations(text, reqs, timeline) if not b.get('advisory')]
     if not bad:
@@ -418,6 +721,20 @@ def main():
               'missing closing section(s) named below, as a short addition to '
               'what you already said. Nothing else -- no summary, no '
               'restatement, no apology.', file=sys.stderr)
+    elif any(b['kind'] == 'contradiction' for b in bad):
+        print('The reply gate blocked this turn: it asserts two things named '
+              'below that cannot both be true. The person has ALREADY SEEN '
+              'the reply above -- do NOT repeat it. Re-check the actual state '
+              '(fetch/push status, what is really outstanding) rather than '
+              'trusting either half of the contradiction, then output ONLY a '
+              'short correction of whichever line was wrong.', file=sys.stderr)
+    elif any(b['kind'] == 'bare_pattern' for b in bad):
+        print('The reply gate blocked this turn: it names something with a '
+              'destination -- a PR, a session, a branch, a rule -- without '
+              'linking it, named below. The person has ALREADY SEEN the '
+              'reply above -- do NOT repeat it. Output ONLY a short '
+              'correction that adds the missing link(s) in place of the '
+              'bare mention(s).', file=sys.stderr)
     else:
         print('The reply gate blocked this turn. The person has ALREADY SEEN '
               'the reply above, and it ALREADY CARRIES every closing heading '

@@ -15,7 +15,14 @@ in_force_at: null
 supersedes:  []
 overrides:   null
 added:       "2026-09-14"
-approved_by: "Morgan, 2026-09-14 -- chose it from the options after two wrong rows in a live sweep; strength: decided"
+approved_by: "extended 2026-09-21, Morgan (strength: decided, relayed) --
+  after a fleet audit found 110 merged-but-undeleted branches across 9
+  repos, he asked for them rendered as filtered branches-page links and
+  placed the fleet sweep here, with very-deep-check keeping only its own
+  checkout; the repo-set bound on the branch half is the session's
+  resolution of a question that decision left open;
+  Morgan, 2026-09-14 -- chose it from the options after two wrong rows in
+  a live sweep; strength: decided"
 ---
 ## Rule
 When the person says **"Chief of Staff"**, read the whole fleet and say what
@@ -29,6 +36,14 @@ Three things make the answer worth anything:
 2. **A row is blocked only if it is blocked NOW** — see the filter below.
 3. **Two live sessions sharing a subject is a finding**, reported even when
    neither is blocked.
+
+**It also sweeps the fleet's merged-but-undeleted branches**, in the same
+report and under their own heading. That is the practice's existing rule about
+artifacts, not a new job: a branch that outlived the session that made it is
+named above as exactly the kind of row a dead session leaves behind. Every row
+is a one-click delete link, built the one way
+[branch-delete-links](branch-delete-links.md) specifies — the mechanism is
+there, in full, and is not restated here.
 
 ## Detail
 ### What counts as blocked, and what does not
@@ -100,6 +115,36 @@ wrong however far back it read.
 **The long tail is its own finding, not part of the count.** A fleet carrying
 dozens of ancient blocked sessions is telling the person to archive, and that
 is worth saying once, as a number, separately from the live rows.
+
+### The branch sweep, and the set it reads
+
+**The sessions half of this report is bounded by recency; the branch half is
+bounded by REPO SET, and that is the resolution rather than an oversight.** A
+branch merged five weeks ago is precisely the one no recent session touches, so
+a seven-day window over sessions filters out the exact rows the branch sweep
+exists to find. The two halves answer different questions and take different
+bounds.
+
+**So: every repository the person owns that carries a Precedent install, with
+no recency bound on the branches themselves, and the report names the set it
+swept.** Naming the set is how this half honours the rule above — the rule is
+the naming, not the number, and a report that does not say what it read is
+wrong however far it read. Say the count of repositories swept and say which
+ones, the same way the sessions half says its window.
+
+**Order the repositories smallest-count-first and lead with the total**, per
+[branch-delete-links](branch-delete-links.md). A hundred-row chore worked from
+the smallest repository shrinks visibly; worked from the largest it reads as
+homework.
+
+**The unmerged branches go in their own list, never mixed in.** That is
+load-bearing rather than tidy, and the practice above says why: a branch with
+no merged pull request may be carrying work, and presenting it beside proven
+deletions is how the work gets thrown away.
+
+**This stays inside "it does not do the work."** The sweep emits links; the
+person clicks them. A Chief of Staff that started deleting branches would be
+the second window with a stale view that this practice exists to prevent.
 
 ### Where it runs, and what it costs
 
@@ -178,6 +223,27 @@ The wrong rows were not a reading error over a detail. The session had both
 state fields in front of it and preferred the free-text summary, because the
 summary was more specific and read like a live request. **A stale field and a
 live one render identically**, which is the shape this rule exists to stop.
+
+**The branch sweep arrived on 2026-09-21, from the other direction.** A
+session auditing every repository Morgan owns for its Precedent install
+counted **110 merged-but-undeleted branches across 9 repositories**, the oldest
+merged on 2026-08-16 — an artifact class nothing was reading, sitting in plain
+sight on nine branch pages. Nobody had asked for it, which is the point: it is
+exactly the "artifact that outlived its session" row this practice already
+claimed to cover, and the claim had never been exercised.
+
+**He placed the fleet half here and left the per-repo half where it was.**
+[very-deep-check](very-deep-check.md) sweeps the checkout it runs in and its own
+sources; this sweeps everything. The reason is worth keeping: branch hygiene is
+per-repository bookkeeping, not a finding in the seam between two repositories,
+so running it across the deep check's whole scope would duplicate this and make
+an expensive check more expensive for no new judgment.
+
+**What the placement did not settle was the bound**, and it had to be settled
+rather than inherited. This practice's standing rule is that a report names the
+window it read — seven days over sessions. Branches are not sessions, and a
+seven-day window over them would filter out the rows the sweep is for. The
+resolution is in Detail: bound by repository set, and name the set.
 
 ## Install
 The sweeper is a Routine on the person's own account, created once — it is not

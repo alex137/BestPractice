@@ -3,7 +3,7 @@ slug:        very-deep-check
 title:       The very deep check — a whole-repo coherence review, on request only
 tier:        on-demand
 severity:    advisory
-scope:       engine-dev
+scope:       null
 applies_to:  ["**"]
 occasion:    "a person explicitly asks for a \"very deep check\" across the whole repo, or after work that invites drift"
 gates:       []
@@ -16,7 +16,19 @@ in_force_at: null
 supersedes:  []
 overrides:   null
 added:       null
-approved_by: "extended 2026-09-14, Morgan F -- after a session was refused by
+approved_by: "extended 2026-09-21, Morgan (strength: decided), with pass 3's
+  close read of every always-loaded instructions file, after an Update
+  Vendors pass found a consuming repo's AGENTS.md naming a repository that
+  does not exist, twice, in the same file whose own step 1 warns about a
+  source name going stale silently;
+  bounded 2026-09-21, Morgan (strength: decided, relayed) --
+  the branch sweep's delete-link mechanism moved to branch-delete-links
+  and is cited here rather than restated, and this pass's branch scope
+  was fixed at the checkout and its own source checkouts, never the
+  fleet, which is chief-of-staff's;
+  extended 2026-09-21, Morgan F (strength: decided), with
+  pass 1's adapter-parity item -- \"everything in .claude should have its\n  parallel for the others. This should also be a new item in very deep\n  check: check everything unique to Claude and make sure there's a parallel\n  for the three others\"; the first run of it found that\n  templates/harness/README.md had named tools/bootstrap.sh as\n  session-start.sh's parallel while the script ran three of the hook's\n  seven steps;
+  extended 2026-09-14, Morgan F -- after a session was refused by
   GitHub with a rate-limit error, he asked for the cause investigated, the
   fixes made, and this check to report the account's API limits so normal
   usage can be seen not to overspend them (strength: decided; the section's
@@ -553,6 +565,34 @@ method"). Build the fixtures.
   [spec/CONTRIBUTOR_ACCESS.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/CONTRIBUTOR_ACCESS.md)
   describes. A step that works only because this session's operator already
   has access is a finding.
+- **Everything unique to Claude Code, against the other three adapters.**
+  This repository is developed in Claude Code, so a new mechanism is built
+  as a `.claude/` hook and codex, gemini-cli and grok-build find out later
+  or never. Read
+  [templates/harness/PARALLELS.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/templates/harness/PARALLELS.md)
+  row by row and ask of each cell the one thing its own check cannot:
+  **is this verdict still true today?** `precedent_check.py`'s
+  `claude-only-surface-has-a-parallel` guarantees only that every hook in
+  `.claude/hooks/`, and every hook `.claude/settings*.json` wires, has a
+  row with something written in all three columns — a `none because that
+  harness has no pre-tool hook`, written while it genuinely had none, reads
+  exactly like a current answer for as long as nobody looks. So look: check
+  each harness's own current documentation for the invocation point the
+  cell says is missing, and where one has appeared, the finding is that the
+  mechanism should now transfer.
+
+  **Then go the other way, which is the half a table cannot prompt you to
+  do:** take each `.claude/` mechanism and open the artifact the row names
+  as its parallel, rather than trusting the name. That is how the 2026-09-21
+  run found the largest gap of the set — `templates/harness/README.md` had
+  told three adapters for months to wire `tools/bootstrap.sh` as their
+  equivalent of `session-start.sh`, and the script ran three of the hook's
+  seven steps, so no non-Claude session had ever been handed
+  `.precedent/SESSION_PRACTICES.md`, the file AGENTS.md's own Standing
+  instruction tells every session to read. Nothing was lying; the two files
+  had simply never been read side by side. Added 2026-09-21 at Morgan's
+  request (strength: decided) — "check everything unique to Claude and make
+  sure there's a parallel for the three others."
 - **Not the practice simulation.** This pass installs real fixtures and runs
   the ordinary checks on them. It does not run
   [tools/precedent_simulate.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/precedent_simulate.py) or its
@@ -784,10 +824,66 @@ confidently.
     framed entirely as a Claude Code Remote concern. A codex or gemini-cli
     user reading their own adapter's README had no way to discover it.
     Closed the same session by pointing both READMEs at that section.)*
+18. **Read every CI WORKFLOW FILES OUTSIDE VENDORING candidate this run's
+    own mechanical section prints, one at a time.** That section enumerates
+    by content tracking (a repo's own `ci_workflow_files`), never by
+    matching a name against a list — it hands you candidates, not a
+    verdict, and reading each one is this pass's own job, not something the
+    mechanical half can finish for you. Open the file, read what it
+    actually runs, and compare that against what the repo's vendored
+    template provides before concluding anything. **Never classify one as
+    orphaned by its filename alone** — that is exactly the mistake the
+    incident below made, one pass before this item existed to stop it.
+    *(Found, 2026-09-20: a sweep list built by matching filenames against
+    [spec/CI_MINUTES_PLAN.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/CI_MINUTES_PLAN.md)'s own table of
+    retired-workflow names flagged `light-check.yml` in a real dependent
+    repo as a retired duplicate of `bestpractice-docs.yml`.
+    Verified directly, not relayed: it was a live, required, hand-authored
+    check — `tools/light_check.py`, that repo's own `two-check-levels`
+    light check — sharing a name with something Precedent once shipped and
+    later retired, for reasons that had nothing to do with each other. The
+    eleven-repo sweep the same finding was about to authorize would have
+    repeated this on every remaining name match, unverified.)*
 
 ### Pass 3 — Does the writing still hold together?
 The coherence read, across every repo in scope. Run the mechanical audits
 first so this pass spends its attention on what they cannot see.
+
+- **A close read of every always-loaded instructions file, against
+  reality.** `AGENTS.md` and its siblings in every repo in scope, read
+  line by line and asked four questions: **does this still describe
+  something that exists**; **is it still needed**; **is it saying it the
+  long way**; and **is it duplicating a rule that now lives somewhere
+  else**. This is the one document every session reads before doing
+  anything, so a sentence that has quietly stopped being true costs more
+  here than anywhere else in the tree.
+
+  Added 2026-09-21 (Morgan, strength: decided) after an Update Vendors
+  pass found a consuming repo's `AGENTS.md` naming a repository that does
+  not exist — `VoiceDefinitionMorgan`, twice, where the real one is
+  `VoiceDefMorgan`, in the session-start step and again in a tool's
+  description. **The file's own step 1 warns about exactly that failure**:
+  a source name going stale silently. A document that describes its own
+  failure mode and then exhibits it twice is what an unread instruction
+  file looks like from the inside.
+
+  **The checkable half is not read — it is asked.** Every `owner/repo`
+  string in those files is probed against GitHub by this tool's own
+  `instruction-file repo references` section, which runs beside the
+  repos-in-force audit and shares its API call: a name already asked about
+  as a source is never asked twice. A name that does not resolve is a
+  finding; a name that answers under a DIFFERENT full name has been renamed,
+  which is the more dangerous one, because the old name keeps working
+  through a redirect that lasts only until somebody takes it. Read that
+  section's output; do not re-read the file looking for what it already
+  answered.
+
+  **The other three questions are the read, and they are meant to produce
+  deletions.** A rule nobody has needed for a month, a paragraph that
+  restates a practice the loader now carries, a sentence whose precision
+  costs three readings — each is a candidate for removal or for moving,
+  and [reduction-pass](reduction-pass.md) is how it moves. A pass that
+  finds nothing to cut in a file this size has not read it.
 
 - **Contradictions** — two rules, or two documents, that can't both be
   followed; a rule whose own carve-outs have eaten it.
@@ -813,6 +909,23 @@ first so this pass spends its attention on what they cannot see.
   the pitch described. Each was found by rehearsal, which is pass 1's job
   and expensive; this is the cheap read that should have found them
   first.)*
+- **What's new since the last run, and whether a reader would ever learn it
+  exists.** The bullet above tests a claim that already exists against the
+  mechanism it describes; it has nothing to say about a mechanism that never
+  became a claim anywhere a person reads. Walk what landed since the last
+  recorded run — `git log` from that run's date, across this checkout and
+  every attached source, read against
+  [record/very-deep-check-ledger.json](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/record/very-deep-check-ledger.json)'s
+  own dates — and for each new practice, tool, command, or capability, check
+  the surfaces a person actually reads for it: the README's pitch,
+  [SETUP.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/SETUP.md),
+  [INSTALL.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/INSTALL.md),
+  [documentation/](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/documentation/), and
+  [GLOSSARY.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/GLOSSARY.md). A
+  person-facing addition with no mention anywhere on that list is a finding.
+  An addition that is not person-facing — an internal refactor, a check only
+  a session ever touches — clears this bullet by saying so, not by the
+  question going unasked.
 - **Rules we ship somewhere else** — the contradiction this pass kept
   missing, and it is missed for a structural reason rather than
   carelessness. **A template is inert here and binding there.** Read as a
@@ -840,12 +953,24 @@ first so this pass spends its attention on what they cannot see.
   been true for weeks. The bullet above this one already said to look for
   contradictions and had never found it — a coherence read reads documents,
   and a skeleton file does not read as a document making claims.)*
-- **Broken and misdirected references** — run
-  [tools/doc_lint.py](../tools/doc_lint.py)'s broken-relative-link check
-  across the whole tree first, then read for what it cannot see: a link that
-  resolves but points at the wrong thing, a click-path into a user interface
-  that has changed, a cross-repo reference into a repo the reader cannot
-  open, a slug or filename that moved.
+- **Broken and misdirected references** — the mechanical half is the
+  **MARKDOWN — STRICT SWEEP** section, which runs
+  [tools/doc_lint.py](../tools/doc_lint.py) `--strict --all` over every
+  tracked document and hands you per-class and per-file counts. **Strict is
+  the point, and this is its only caller.** The light check reads what a
+  change touched and the deep check gates on that; neither ever opens a file
+  nobody has edited in months, and doc_lint's warning classes — unlinked
+  references, unglossed acronyms, `target=` anchors — are gated nowhere at
+  all, deliberately (a gate promoting them was built and withdrawn inside an
+  hour on 2026-09-21, having refused a one-line edit over 111 warnings that
+  predated it). So those classes accumulate exactly where only a sweep
+  somebody asked for will ever look. **Work the list, do not obey it**: it
+  is a work list, not a gate, nothing is expected to clear it in one run,
+  and an index document carrying bare-backtick references may be right to —
+  judge each file, fix a slice, commit it, run it again. Then read for what
+  no linter can see: a link that resolves but points at the wrong thing, a
+  click-path into a user interface that has changed, a cross-repo reference
+  into a repo the reader cannot open, a slug or filename that moved.
 - **Stale references** — a slug, practice number, filename, heading, or
   click-path pointing at something moved or gone; a positional number cited
   as if it were a name; numbering that skips, repeats, or runs out of order;
@@ -856,7 +981,7 @@ first so this pass spends its attention on what they cannot see.
   trigger word reachable only by already knowing it is not a keyword, it is
   folklore. The usual home is a practice's `defines:` field, which lands it
   in [GLOSSARY.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/GLOSSARY.md) — **but a glossary entry is not the
-  property; being findable is.** "Go merge" and "Park it" are deliberately
+  property; being findable is.** "Go merge" and "Drop it" are deliberately
   NOT in the glossary (Morgan, 2026-09-08: *"Don't put it in the
   glossary."*); both are defined in [AGENTS.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/AGENTS.md), which is
   where a session actually reads them, and `check_park_it.py` fails if that
@@ -1198,11 +1323,23 @@ Last because none of it strands an adopter, and none of it is cheap.
   practice; the repo is private, so this names the practice rather than
   linking a page most readers cannot open): skip the repo's default branch
   and its protected integration branch, and report each remaining one with
-  a direct link to its most recent PR's page, which is the one-click
-  **Delete branch** control GitHub already shows there. A personal practice
+  a one-click delete link. **The link form, the encoding, the substring
+  check and the separated unmerged list are
+  [branch-delete-links](branch-delete-links.md)'s, in full and not restated
+  here** — this pass is one of its two callers. A personal practice
   may decline to do this retroactive sweep on its own ("a separate, one-off
   task, done only when asked for directly") — a very deep check is exactly
   that direct ask, so this is the one place the sweep is a standing step.
+
+  **This sweep stays inside the repos this check already reads — the
+  checkout and the sources that are their own git checkouts — and is never
+  widened to every Precedent repo the person owns.** That fleet sweep is
+  [chief-of-staff](chief-of-staff.md)'s, placed there by Morgan on
+  2026-09-21 with the reasoning worth keeping: branch hygiene is per-repo
+  bookkeeping, not a finding in the seam between two repos, which is the
+  class this check exists for. Widening it here would duplicate that
+  practice and make an already expensive check more expensive for no new
+  judgment.
 
   **Every branch, whoever wrote it**, and the author named on every row.
   The sweep used to be scoped to the invoking person's own GitHub login,
@@ -1810,6 +1947,56 @@ session that wrote the proposal created `very-deep-check-decisions.json` at
 that repo's own root, empty and schema-documented, ready for the read side
 built here to consume without rework.
 
+**The strict markdown sweep was Morgan's, 2026-09-21**: *"'Very deep check'
+should include a markdown check that is --strict. We dont' do that upon a
+PR because many give warnings, which is rejected in strict mode. But in a
+full detailed sweep, you can find those cases and fix them."* That names
+the gap exactly, and it is the second half of an ask he had already made
+that morning, in the conversation that took the markdown check out of CI:
+*"remove all markdown checks in the yml github actions check (but we
+should use the strict markdown in our own that we do)."* The removal
+landed; the parenthesis did not, until now.
+[doc_lint.py](../tools/doc_lint.py)'s warning classes had been gated
+nowhere since the strict gate was withdrawn that same day — the right call for a
+commit gate, and it left the classes with no reader at all, because the
+light check only ever sees what a change touched. A sweep is the one
+context where a wall of pre-existing warnings is the thing being asked for
+rather than an obstacle to the work in hand.
+
+Building it surfaced two things worth recording. **`--strict` did not
+exist, and nothing said so**: [doc_lint.py](../tools/doc_lint.py) ignored
+unknown options silently, so [documentation/GITHUB_ACTIONS.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/documentation/GITHUB_ACTIONS.md)
+had been telling adopters to run `doc_lint.py --strict <files>` as their
+by-hand markdown check — an instruction added by the very commit that
+withdrew the flag, so it was stale on arrival, and it had been passing all
+the same: running the ordinary lint, exiting 0. Unknown options are
+refused now. **And a tenth of the backlog was not a finding**: the
+unlinked-reference detector matched any backticked span ending `.md` or
+`.py`, so `python3 tools/doc_lint.py` counted as an unlinked file
+reference — 177 of 2,323 findings in this tree were command lines, which
+no link can fix. A strict mode whose first act is to demand an impossible
+fix is a mode that gets run once, which is the withdrawn gate's failure
+one layer down. The detector now asks whether the span is a path at all —
+which took a second pass, because the same measurement, run again on what
+was left, found 148 globs and placeholders (`practices/*.md`,
+`gotchas/gotcha-<date>-<slug>.md`) in the same position. What remained —
+2,001 references that day — is the real backlog, and it is a work list
+rather than a gate for the reason above.
+
+**Working the first slice proved why the list is judged rather than
+executed.**
+[SETUP.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/SETUP.md)
+carried 21 of them and two were fixable: the rest
+name `AGENTS.md`, `GETTING_STARTED.md`, `STYLEGUIDE.md` and
+`local/practices/project-voice.md` **in the repository the reader is
+installing into**, not in this one, where three of those four do not exist
+at all. Linking them would have manufactured broken links in an
+outward-facing document — the exact incident that put the
+broken-relative-link check here (96 of them, from paths resolved against
+the repo root instead of the linking file's own directory). A document
+describing somebody else's tree is right to carry bare names, and a sweep
+that treats the count as the target will break it.
+
 ## Install
 [tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/very_deep_check.py) enumerates the scope
 (this checkout's own top-level documents plus every active source's
@@ -1962,3 +2149,19 @@ that set prints its own `ORPHANED LEDGER ENTRY` line, matching the
 dropping it quietly. The verdict is never written automatically — same
 manual, dated, quoted-judgment shape as `identity.json`'s
 `grandfathered_commit_shas`, which this design is modeled on directly.
+
+**It stopped being engine-only on 2026-09-21.** `scope: engine-dev` kept
+this practice out of a consuming repo's materialized tree, on the reasoning
+that the occasion could only ever fire inside the engine's own repository —
+which was true for exactly as long as
+[tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/very_deep_check.py)
+lived only here. The tool is vendored now, so the premise is gone, and the
+scope was doing active harm: a person said "very deep check" in their own
+project, the session did not have the practice, and the word meant nothing
+there. **A standing command a session cannot carry out is worse than one
+that does not exist** — the person says it, and nothing happens for a
+reason nobody can see.
+
+What a consumer's run covers is narrower, and the tool says so rather than
+pretending: passes that name a tool the consumer does not vendor are
+reported as not run, not silently skipped.

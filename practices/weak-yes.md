@@ -45,7 +45,7 @@ wrong `assented` costs one correction, so this is a disclosure that rides
 along with the work, not a question that holds it up.
 
 ## Detail
-**Say back which thing you marked**, in one line, the way `Park it` does —
+**Say back which thing you marked**, in one line, the way `Drop it` does —
 `assented` recorded on the wrong practice costs three words to correct and
 is otherwise invisible.
 

@@ -25,7 +25,7 @@ Three things, and each maps to a group of settings below.
 
 1. **The repository is the project's memory.** Everything a session needs
    is a committed file, so the repository has to be reachable by every
-   person and every assistant session that works on it. That is
+   person and every AI Assistant session that works on it. That is
    **collaborators and tokens**.
 2. **A pull request is the review.** Nothing is real until it is merged,
    and the merge is where a person's yes is taken. That is **branch
@@ -63,7 +63,7 @@ repository is unrestricted write, and the boundary below does nothing until
 protection exists.
 
 **Whose identity a session acts as** matters as much as the role. The
-boundary binds a contributor only if their assistant authenticates to
+boundary binds a contributor only if their AI Assistant authenticates to
 GitHub as *them*, not through a shared organisation-wide connection. Test
 it once per project: have them try something their role forbids and watch
 GitHub refuse it under their name.
@@ -197,14 +197,14 @@ thread that adds a document adds its row to the map, so owning the map made
 every document wait for the maintainer. A wrong row in an index is a
 content mistake, and content is the contributor's.
 
-**How a pull request then flows.** A contributor's assistant makes the
+**How a pull request then flows.** A contributor's AI Assistant makes the
 change on a branch, and before opening the pull request runs
 `python3 tools/precedent_owned_paths.py`, which diffs the touched paths
 against CODEOWNERS with GitHub's own matching rules and prints the sentence
 to say — *"two of these files are part of the project's machinery, so the
 maintainer has to look at them before this lands; the other three are yours
 to merge. Want those to go in on their own now?"* A documents-only pull
-request is then its author's to merge, with `Go merge`, and no reviewer is
+request is then its author's to merge, with `Go update`, and no reviewer is
 involved. One touching an owned path waits for the maintainer, who reviews
 it on GitHub like any pull request. The boundary is GitHub's; the tool only
 makes sure nobody meets it as a merge button that will not press.
@@ -258,9 +258,11 @@ are simpler:
   change to the set waits for an approver — the platform-enforced half of
   "only an approver lands a practice". Adding an approver is itself a
   change to `approvers.json`, so it waits for a current approver too.
-- **One workflow**, the views-drift gate
-  ([templates/github-actions/views-drift.yml.template](../templates/github-actions/views-drift.yml.template)),
-  installed by the bootstrap tool, read-only.
+- **One workflow**, carrying the views-drift gate as a job
+  ([templates/github-actions/precedent-check.yml.template](../templates/github-actions/precedent-check.yml.template)),
+  installed by the bootstrap tool, read-only. (It was its own
+  views-drift.yml.template until 2026-09-19, when the two templates were
+  consolidated into one workflow with two jobs.)
 - **A token to reach it from a hosted session**: the read-only
   `PRECEDENT_GIT_TOKEN` plus `PRECEDENT_SOURCE_BASE_URL` on the environment,
   which is [PER_MACHINE_SETUP.md](PER_MACHINE_SETUP.md)'s subject, not

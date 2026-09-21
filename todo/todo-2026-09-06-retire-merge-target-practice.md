@@ -100,7 +100,8 @@ closed:            null
       [decisions/2026-09-01-relax-private-repo-isolation.md](../decisions/2026-09-01-relax-private-repo-isolation.md),
       [.github/ISSUE_TEMPLATE/practice-candidate.md](../.github/ISSUE_TEMPLATE/practice-candidate.md)
       and the four files under
-      [examples/practice-set/](../examples/practice-set/). **The miss is worth
+      [documentation/examples/practice-set/](../documentation/examples/practice-set/)
+      (then at `examples/practice-set/`). **The miss is worth
       understanding, because the next rehearsal will be tempted to repeat
       it**: the earlier pass checked
       [tools/routing_audit.py](../tools/routing_audit.py) and

@@ -1,15 +1,15 @@
 ---
 slug:        plain-words
-title:       "\"Plain words\" asks for the same substance in speech, not prose"
+title:       "\"Simple words\" asks for the same substance in speech, not prose"
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
-occasion:    "a person says \"Plain words\", or plainly asks to be talked to that way"
+occasion:    "a person says \"Simple words\", or plainly asks to be talked to that way"
 gates:       ["reply"]
-index_clause: "\"Plain words\" -- say it as you would out loud; same substance"
+index_clause: "\"Simple words\" -- say it as you would out loud; same substance"
 checked_by:  null
-defines:     ["Plain words"]
-command:     {"Plain words": "Drop the formal register and explain it the way somebody would say it out loud — same answer, plainer telling."}
+defines:     ["Simple words"]
+command:     {"Simple words": "Drop the formal register and explain it the way somebody would say it out loud — same answer, plainer telling."}
 status:      active
 in_force_at: null
 supersedes:  []
@@ -17,12 +17,15 @@ overrides:   null
 added:       "2026-09-08"
 approved_by: "Morgan, 2026-09-08 -- asked for the phrase, chose this one,
   placed at universal; extended 2026-09-16, Morgan, on Alex's
-  intent-over-keyword point"
+  intent-over-keyword point; renamed 2026-09-20, Morgan -- \"just because I
+  use the word simple, not plain\": the slug and file stay `plain-words`,
+  matching how `go-merge` kept its slug when `Go update` became the lead
+  phrase"
 ---
 ## Rule
 **The phrase is the clean trigger, not the only one** — "can you just say
 that plainly" or "talk to me like I'm across the desk from you" ask for the
-same thing and get it. When the person says **"Plain words"**, or plainly
+same thing and get it. When the person says **"Simple words"**, or plainly
 asks for it, explain it the way you would say it out loud to them across a
 desk. Short sentences. Everyday vocabulary. The concrete case before the
 general principle. **No hedging, no caveat stack, no survey of positions you
@@ -79,7 +82,7 @@ suits an explanation of that argument to somebody who was not in it.
 
 Placed at universal because it is an opinion about how anyone should be able
 to talk to a session, with nothing in it specific to any project, team or
-person — the same reasoning that put `Go merge`, `Park it` and `Three Things`
+person — the same reasoning that put `Go merge`, `Drop it` and `Three Things`
 here.
 
 ## Story
@@ -105,6 +108,13 @@ being written that way except that nobody had asked.**
 this register should count as much as the phrase itself — low-stakes here,
 unlike the same conversation's changes to `go-merge` and `weak-yes`: a wrong
 read just gets corrected with "no, plainer" and costs nothing else.
+
+**Renamed to `Simple words`, 2026-09-20, Morgan**: *"Let's rename 'Plain
+words' to 'Simple words' just because I use the word simple, not plain."*
+The slug, filename and every historical quote above keep the old wording —
+only the trigger phrase, and every live reference to it, changed. This is
+the same low-stakes shape as the 2026-09-16 extension: a session that hears
+the old word still recognizes the intent and gets corrected once.
 
 ## Install
 Nothing mechanical checks it, and the attempt was considered rather than

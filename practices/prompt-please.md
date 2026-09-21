@@ -23,7 +23,34 @@ approved_by: "Morgan, 2026-09-20 -- described the two cases and the phrase
   one gets recommended. Named it himself: \"Maybe we could call the new one
   'Prompt Please'.\" Folded Session Text into it in the same message: \"this
   new one deprecates session-text, it's basically a better version of it, I
-  never use that anyway.\" Authorized in full: \"Go update.\""
+  never use that anyway.\" Authorized in full: \"Go update.\" Tightened
+  2026-09-20, same day, Morgan, after checking whether this and My options
+  actually deliver the copy-in-one-click block both promise and finding the
+  answer was often no: \"You often don't do that and I want to enforce
+  it.\" The Rule now names the mechanism -- a fenced code block -- rather
+  than just the outcome. Extended again the same day, on instruction to
+  this practice, My options and Write it up together: a recommended action
+  that is itself a cross-repo change must account for the upstream
+  template it comes from and say whether it needs a clean rollout to the
+  repos vendoring this one. Extended again 2026-09-20, Morgan, after a
+  handoff produced by this practice left him without a plain instruction to
+  act on it: the seed root and repos to attach have to be said once more in
+  ordinary prose outside the fenced block, not only inside it, since the
+  block is addressed to the new session and he is the one reading this
+  reply. Extended a fourth time 2026-09-20, same day: a session obeyed
+  that version and he still had to ask again, because the seed root sat
+  at the bottom of the required-content list inside the block rather than
+  the top. \"GREAT SUGGESTION. Prompt please, give that to me so I can
+  paste it into the correctly-rooted session,\" approving a session's
+  proposal to require the seed root and attach list immediately after
+  seeded-prompt-names-its-origin's provenance line -- second in the
+  block, not buried among the other required content. Narrowed 2026-09-20,
+  on a fresh session's rule-scope-ask: the fenced-block requirement moved
+  to [fence-block-for-paste](fence-block-for-paste.md) as a resident
+  practice binding every reply, not only this command's; this file now
+  points there and names the mechanism as a fence block explicitly, on his
+  own instruction, to keep it distinct from other uses of \"block\" in this
+  catalogue."
 strength:    decided
 source_practice_number: null
 ---
@@ -75,12 +102,45 @@ following, every time:
 - **Which other repositories, if any, need to be attached alongside it.**
   Say "none" explicitly rather than leaving the reader to guess whether the
   question was even considered.
+- **When the recommended action would itself change something this repo
+  ships to other repos** -- a practice file, a template, a hook, a vendored
+  engine file, the same scope [vendor-rollout-disclosed](vendor-rollout-disclosed.md)
+  already names -- say that the receiving session must work from the
+  original template or mechanism in the upstream repo that organizes those
+  other repos, not just patch the symptom in the repo it lands in, and
+  whether the change needs a clean rollout through an updated template and
+  [vendor-update-runbook](vendor-update-runbook.md)'s mechanism to reach
+  them, when that's relevant.
 
-**Delivered as one block, ready to copy in one click** -- [the
+**Two of those items are required at a fixed position, not just required
+content.** [seeded-prompt-names-its-origin](seeded-prompt-names-its-origin.md)
+already fixes the provenance line -- this session's id and title, its link,
+and that a session wrote it -- as the block's literal first line, and that
+does not change here. **The seed root and the attach list come immediately
+after it: second, before the situation, the problem, the recommendation, or
+anything else in the list above.** A requirement that is just one bullet
+among several in an unordered list is easy to satisfy and easy to bury --
+the single fact that tells a reader where to open this is neither optional
+content nor free to place last.
+
+**Render it as a fence block** -- an actual fenced markdown block (triple
+backticks), never a paragraph that only reads as paste-ready -- per
+[fence-block-for-paste](fence-block-for-paste.md), which owns this
+requirement and applies it to every reply, not only this one. Named
+explicitly here as a **fence block** to keep it distinct from a "block" of
+prose elsewhere in a reply: prose describing the block instead of being the
+block has not delivered this. [The
 three-things-always shape](handoff-is-pasteable.md) any reply that sends
 someone elsewhere already owes: repository, exact paste text, a way back.
 Nothing split into the surrounding prose, nothing left for the reader to
 assemble.
+
+**Say it plainly too, outside the block.** The block is addressed to the new
+session; the person reading this reply needs the same routing without
+opening it first. Before the block or after it, one ordinary sentence, not
+fenced: *"Open a new session, root it in \<repository\>, attaching
+\<repositories, or 'none'\>."* The block is what gets pasted; this sentence
+is what tells the person to go paste it, and where.
 
 **Never call a session-creating or session-messaging tool for this, and
 never wake a live session either.** Produce the prompt and tell the person
@@ -94,10 +154,10 @@ paste block needs nothing from any one provider's tool surface).
 this handoff**, exactly as `session-text` drew this line before this
 absorbed it. Absent that, the default text says so directly:
 
-> **DO NOT MERGE — STOP AT THE PULL REQUEST. Wait for the word "Go merge" in
+> **DO NOT MERGE — STOP AT THE PULL REQUEST. Wait for the word "Go update" in
 > this session before merging.**
 
-When the person says `Prompt Please` together with `Go merge` (or
+When the person says `Prompt Please` together with `Go update` (or
 `Approved`) -- or anything that plainly gives both in the same breath -- the
 authorization travels with the prompt, bounded exactly as
 [go-merge](go-merge.md) already bound it (and `session-text` bound it
@@ -168,6 +228,61 @@ it produced, survive here rather than under a separate command he was not
 reaching for. The check itself stays unconditional, exactly as it was: this
 practice is the explicit trigger for the times it did not fire on its own,
 the same role `Session Text` played before it.
+
+**Tightened the same day**, after Morgan checked whether this practice and
+[My options](my-options.md) both actually deliver the copy-in-one-click
+block they promise and said the answer was often no: *"You often don't do
+that and I want to enforce it."* "Ready to copy in one click" was true but
+not mechanical -- nothing said the block had to be an actual fenced code
+block rather than a paragraph that merely reads as paste-ready. Both
+practices now name the mechanism directly. Strength: decided.
+
+**Extended again the same day**, on Morgan's instruction to this practice,
+[My options](my-options.md) and [Write it up](write-it-up.md) together:
+*"Any change that would effect other repos must take into account the
+original templates in the mother system that organizes the other repos,
+and must be rolled out cleanly in updated templates/migrations to the
+others (if relevant)."* This repo is that mother system for whatever it
+vendors this practice layer to, so the requirement is stated here in the
+repo-agnostic form [vendor-rollout-disclosed](vendor-rollout-disclosed.md)
+already uses -- "the repos vendoring this one" -- rather than naming
+BestPractice, so it reads correctly from inside a consumer repo too.
+Strength: decided.
+
+**Extended again 2026-09-20.** Morgan reported that a `Prompt Please`
+handoff had otherwise gone well: *"it's for another session and it didn't
+tell me what to root it in... before or after you give me the prompt,
+write a sentence... to tell me, open this new session and what it should
+be rooted in and what other repos should be attached, if any. Open a new
+session, root it in X, attaching repos Y and Z."* The fenced block already
+named the seed root and the repositories to attach, but for the new
+session's reader, not for the person reading this reply, who is the one
+who actually has to go open it. Strength: decided.
+
+**Extended a fourth time, 2026-09-20, the same day.** A session obeyed the
+version above and Morgan asked again anyway: a two-prompt handoff put the
+seed root at the bottom of each fenced block, as the fifth bullet in the
+required-content list, present and correctly worded but not where anyone
+scanning the top of the block would see it. The previous extension had
+fixed the sentence outside the block; it had not fixed the block itself,
+where the single most operational fact -- where does this get opened --
+could still be satisfied last. The Rule now requires the seed root and
+attach list immediately after
+[seeded-prompt-names-its-origin](seeded-prompt-names-its-origin.md)'s
+provenance line, which keeps first position -- second, not fifth or
+sixth -- so the block serves both of its readers, the new session that
+needs the routing before it can act at all and the person scanning for
+where to paste it, from the same position. Approved on a session's
+proposal: *"GREAT SUGGESTION. Prompt please, give that to me so I can
+paste it into the correctly-rooted session."* Strength: decided.
+
+**Narrowed 2026-09-20.** The fenced-block clause above is now
+[fence-block-for-paste](fence-block-for-paste.md)'s -- a resident practice
+that binds every reply, not only a `Prompt Please` handoff, with the
+originating incident recorded in that file rather than here. Morgan asked
+in the same breath that the mechanism read as a **fence block** rather
+than a bare "block," so it stays distinct from every other thing this
+catalogue calls one. Strength: decided.
 
 ## Install
 Nothing for an adopter to set up. The occasion index entry is generated

@@ -5,7 +5,7 @@
 
 Scope: tree. The instructions file a session actually reads before it works
 (AGENTS.md, or CLAUDE.md where that is the entry point) has to define the
-phrase "Park it" and say what it writes.
+phrase "Drop it" and say what it writes.
 
 Why this is the property worth checking, when the practice itself is about
 a conversational trigger: the failure it prevents already happened here to
@@ -18,7 +18,7 @@ annoyance it was invented to remove. A phrase is only worth having if it
 is written where a session reads before it works; this check is that
 sentence, made mechanical.
 
-What it cannot see: whether a session that HEARD "Park it" actually wrote
+What it cannot see: whether a session that HEARD "Drop it" actually wrote
 the disposition line. Nothing in the tree records the utterance, so that
 half stays advisory by nature. The grammar of the line it should have
 written is enforced separately, by tools/precedent_check.py's
@@ -46,7 +46,7 @@ INSTRUCTIONS_FILES = ('AGENTS.md', 'CLAUDE.md')
 # so it is recognized, and what it does so it can be acted on without
 # asking.
 REQUIRED = (
-    ('Park it', 'the phrase itself, so a session recognizes it'),
+    ('Drop it', 'the phrase itself, so a session recognizes it'),
     ('parked', 'the disposition the phrase writes, so a session knows what to do'),
 )
 

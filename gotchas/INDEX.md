@@ -104,4 +104,16 @@ Full catalogue, one file per trap. AGENTS.md carries only a pointer to this file
 
 - **`python3` [`tools/verify_harness.py`](../tools/verify_harness.py) crashes with an uncaught `OSError: [Errno 39] Directory not empty` from inside Python's own `tempfile.TemporaryDirectory.__exit__`, rather than printing a `FAIL` line — the whole run dies mid-suite instead of reporting the one check that owns the failing directory.** [story](gotcha-2026-09-19-verify-harnesss-fresh-container-check-can-fail-tempdir.md)
 
+- **A SessionStart hook renders a file correctly, every session, and the session behaves as though the file does not exist — because writing a file is not loading it, and Claude Code auto-loads instruction files only.** [story](gotcha-2026-09-20-a-sessionstart-hook-writing-a-file-is-not-the-session-loadi.md)
+
 - **A local commit made mid-session, on a clean working tree, disappears between one turn and the next -- `git log` shows the branch back at `origin`'s tip, with no error, no warning shown to the model, and no dirty-tree complaint to explain it.** [story](gotcha-2026-09-20-freshness-guard-s-user-prompt-mode-hard-resets-a-mid-sess.md)
+
+- **`python3 tools/leak_gate.py` reports a wall of undeclared-repo hits against a tree that is actually fine, all naming things the session never touched. The gate's own printed remedy -- `git -C <root> pull --ff-only` -- can itself fail with no further guidance.** [story](gotcha-2026-09-20-leak-gates-private-blocklist-clone-fails-open-stale.md)
+
+- **In a multi-repo session rooted under `/home/user` (rather than a single set), `themorgan/precedent-individual`'s own `precedent.json` names its shared sources as `../precedent-shared-*`, but the sibling clones actually on disk are named `precedent-team-*`, and `PRECEDENT_FRESHNESS_ALSO` names the old paths too.** [story](gotcha-2026-09-20-shared-home-layout-still-names-the-pre-rename-team-sets.md)
+
+- **[tools/verify_harness.py](../tools/verify_harness.py) passes locally with `0 failed`, and the deep-check CI job fails anyway — with a traceback instead of a verdict, before a single `PASS:` line is printed.** [story](gotcha-2026-09-21-a-green-local-verify-harness-run-does-not-mean-green-ci.md)
+
+- **A session is asked whether GitHub Actions is actually **enabled** on a repository — during an install audit, or when a workflow that should be running is not. The obvious answer is `GET /repos/{owner}/{repo}/actions/permissions`, and **there is no way to call it from inside a session.**** [story](gotcha-2026-09-21-actions-permissions-are-unreadable-from-a-session.md)
+
+- **A workflow file uses a YAML **anchor and alias** (`&name` to define, `*name` to reuse) to avoid repeating a list — most naturally a long `paths:` filter that both `push:` and `pull_request:` need. `python3 -c "import yaml; yaml.safe_load(open('w.yml'))"` parses it cleanly, every local check passes, the file looks right. **GitHub's own workflow parser rejects it**, and the workflow does not run at all.** [story](gotcha-2026-09-21-github-actions-rejects-yaml-anchors-python-accepts.md)

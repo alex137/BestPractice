@@ -86,19 +86,28 @@ in ENGINE_FILES, and the set reads universal out of an UNTRACKED
 .precedent/SESSION_PRACTICES.md rather than a committed copy
 (spec/SOURCE_SET_PROSE_GAP.md, shape 3, approved 2026-09-13).
 
-WHAT IS DELIBERATELY IN NEITHER LIST, said out loud because its absence is
-what makes a whole class of follow-up work unnecessary. verify_harness.py
-(noted again below), and also tools/leak_gate.py and tools/very_deep_check.py:
-both run only from a BestPractice checkout, against whatever repositories that
-session can see, so improving them reaches every repo the moment this repo's
-own copy changes. Nothing to vendor, nothing to refresh.
+WHAT IS DELIBERATELY IN NEITHER LIST: verify_harness.py, and only it. It is
+this repo's own harness for this repo's own engine; a consumer has nothing
+for it to verify.
 
-That is worth stating because the opposite is the natural assumption. On
-2026-09-07 a change to those two tools was written up as needing a
-per-set engine refresh, and a TODO item was opened saying the sets were
-running stale copies -- of files they have never held. The reasoning came
-from cross-source-rollout, which is a real practice and simply did not apply
-here; nobody checked these lists first. Check them before costing a rollout.
+THIS PARAGRAPH USED TO NAME leak_gate.py AND very_deep_check.py TOO, and
+that stopped being true on 2026-09-20/21 -- both are vendored now, in
+ENGINE_FILES above. The old reasoning was that they "run only from a
+BestPractice checkout, against whatever repositories that session can
+see", so improving them reached every repo for free. That was accurate
+while nobody could run them anywhere else, and it is exactly what made
+them unreachable in a consuming repo: a leak gate that only upstream can
+run does not guard a downstream tree, and a "Very deep check" a person
+says in their own project cannot be carried out.
+
+It is kept here rather than deleted because the incident it records still
+teaches: on 2026-09-07 a change to those two tools was written up as
+needing a per-set engine refresh, and an item was opened saying the sets
+were running stale copies -- of files they had never held. The reasoning
+came from cross-source-rollout, a real practice that simply did not apply.
+Nobody checked these lists first. CHECK THEM BEFORE COSTING A ROLLOUT, and
+note that the answer changed: a claim about this file's contents made from
+memory is now wrong in both directions.
 
 routing_scope.json is vendored in both kinds too, but it is not a
 byte-identical copy: precedent_gate.py's SCOPE file carries two things in
@@ -436,6 +445,106 @@ ENGINE_FILES = [
     # real run, the same failure shape precedent_check.py's own promotion
     # (see below) was caught by.
     'title_case.py',
+    # THE SCRIPT leak-gate.yml.template RUNS (added 2026-09-21, practice:
+    # cite-the-incident). CI_WORKFLOW_TEMPLATES has listed
+    # leak-gate.yml.template for BOTH kinds since 2026-09-20 (item 12), and
+    # that workflow's only substantive step is
+    # `python3 tools/leak_gate.py --structural-only`. Neither of these two
+    # names was in either engine list, and no step in the workflow fetches
+    # them -- so the workflow shipped WITHOUT the thing it runs. Any repo
+    # installing it got a guaranteed red check and a billed minute per
+    # trigger, on the public repos it was meant to protect.
+    #
+    # Caught 2026-09-21 by a session told to install it: it read
+    # ENGINE_FILES and CONSUMER_ENGINE_FILES, found neither name, refused to
+    # install on a broken premise, and refused equally to hand-copy the
+    # script -- a copy outside ENGINE_MANIFEST.json being exactly what this
+    # mechanism exists to prevent. Both refusals were right.
+    #
+    # The blocklist travels with the script: leak_gate.py resolves
+    # DEFAULT_BLOCKLIST relative to its own __file__, so a vendored copy
+    # without it cannot run. The INDIVIDUAL half (leak-blocklist.txt in a
+    # person's own source) is resolved at runtime and is deliberately not
+    # vendored.
+    'leak_gate.py',
+    'leak-blocklist.default.txt',
+    # THE DEEP CHECK, AND THE MEANS TO AUTHOR A PRACTICE SET (2026-09-21).
+    # very_deep_check.py shipped to nobody until now -- it existed only in
+    # the engine's own repo, which is why running it could never find a
+    # stale or drifted vendored tree: there was no copy in the repo that had
+    # one. A repo carrying its own practices, its own situation and its own
+    # drift is exactly where a deep read pays, and it is now the ONE place
+    # a check can compare a vendored tree against what it was supposed to
+    # be.
+    #
+    # parse_check.py and precedent_bootstrap_source.py come with it because
+    # very_deep_check imports both at MODULE level -- without them the
+    # vendored copy raises ImportError on its first line, which is a worse
+    # failure than not shipping it. (checkin.py is imported too, inside a
+    # function and already guarded; it reaches a consumer through the
+    # vendored process/upstream/ tree rather than through this list.)
+    #
+    # precedent_bootstrap_source.py CREATES a practice set, and shipping it
+    # everywhere is deliberate rather than tolerated. Morgan, 2026-09-21,
+    # on being told it was a cost of vendoring the deep check: "it is GREAT
+    # that the user can create a practice set. WE WANT THEM TO. WE WANT TO
+    # ENCOURAGE THEM TO." A person who has been writing rules into one
+    # repo's instructions file and wants to reuse them across their repos,
+    # or share them with a team, should find the tool already in their
+    # hands -- not discover that authoring a set is something only the
+    # upstream repo can do. See documentation/FOR_DEVELOPERS.md and
+    # templates/GETTING_STARTED.md, which now say so.
+    'very_deep_check.py',
+    'parse_check.py',
+    'precedent_bootstrap_source.py',
+    # THE ONE CHECK THAT LOOKS OUTWARD (2026-09-21). Every other check in
+    # this system runs inside one repository and compares it against
+    # itself. This one reads THIS manifest's source_commit against the live
+    # upstream branch and says whether the vendored engine has fallen
+    # behind -- the question nothing could answer before, which is why a
+    # fix merged upstream reached an installed repo only when somebody
+    # remembered to run "Update Vendors" there. Measured 2026-09-20: 18 of
+    # 22 repositories had never taken one.
+    #
+    # It prints and never refreshes. Wired into the session-start hook and
+    # precedent_gate.py's push/merge moments precisely because a reminder
+    # is what already failed.
+    'precedent_engine_freshness.py',
+    # EVERY VOCABULARY WORD HAS TO WORK WHERE THE ENGINE IS VENDORED
+    # (2026-09-21, Morgan: "ALL of our vocabulary words should"). A standing
+    # command a session cannot carry out is worse than one that does not
+    # exist: the person says it, the session recognises it -- the practice
+    # is right there in the loader block -- and then reaches for a tool that
+    # was never shipped. These three are what the audit found missing:
+    # "Practice check" needs full_practice_audit.py, "Reduction pass" needs
+    # session_load_trend.py, "Three Things" needs todo_progress.py.
+    # precedent_check.py's `vocabulary-reaches-the-consumer` now fails the
+    # build if a command practice names a tool that is not here.
+    # THE LIGHT CHECK HAS TO EXIST WHERE THE COMMIT GATE RUNS (2026-09-21).
+    # These two were CONSUMER-ONLY, on the reasoning that a consumer's
+    # enforced checks import doc_lint and a practice set's do not. That was
+    # true and it stopped being sufficient the moment the Markdown lint left
+    # GitHub Actions and .claude/hooks/doc-lint-gate.sh became the only
+    # thing checking Markdown before a shared branch.
+    #
+    # A practice set got the hook and not the tool. The hook's own
+    # `[[ -f "$script" ]] || exit 0` then fired on every commit -- failing
+    # open exactly as designed, and gating nothing at all. All four sets had
+    # neither the CI check nor its replacement, and nothing said so.
+    #
+    # Found by a session auditing the four sets after the update, not by
+    # anything here: `wired-hooks-can-reach-a-consumer` asks whether the
+    # HOOK can travel and never asked whether what it RUNS can.
+    # `shipped-hook-carries-its-script` now does.
+    #
+    # frontmatter_yaml.py rides along because doc_lint.py imports it
+    # unconditionally at module level -- without it doc_lint does not fail a
+    # check, it fails to import.
+    'doc_lint.py',
+    'frontmatter_yaml.py',
+    'full_practice_audit.py',
+    'session_load_trend.py',
+    'todo_progress.py',
     'precedent_vendor_engine.py',
 ]
 
@@ -481,7 +590,9 @@ CONSUMER_ENGINE_FILES = ENGINE_FILES[:-1] + [
     #                       as a violation in every consuming repo. It needs
     #                       only split_practices and precedent_paths, both
     #                       already here.
-    'doc_lint.py',
+    # doc_lint.py and frontmatter_yaml.py MOVED TO ENGINE_FILES on
+    # 2026-09-21 -- see their entry there. Repeating them here is refused by
+    # the duplicate guard below, which is how a stray re-add gets caught.
     'doc_sync.py',
     'routing_audit.py',
     # Move tracked files or directories and repoint every reference in the
@@ -919,7 +1030,19 @@ def _write_hook_files(dest_root, hooks_src_dir):
               f".claude/settings.json ({', '.join(skipped)}) -- not vendored. "
               f"That is expected for a hook only a different repo kind wires "
               f"(a practice set vs. a consumer), or one this repo declined on "
-              f"purpose.", file=sys.stderr)
+              f"purpose.\n"
+              f"      IF IT IS NEITHER -- if upstream has added a hook this "
+              f"repo wants -- NOTHING WILL DELIVER IT ON ITS OWN. Vendoring "
+              f"is gated on wiring and a refresh never writes your "
+              f"settings.json, so a NEW hook cannot reach a repo that is "
+              f"already installed: it is not vendored until it is wired, and "
+              f"wiring it means naming a file that is not there yet. Break "
+              f"the loop by hand -- copy the entry from "
+              f"templates/harness/claude-code/settings.json in the upstream "
+              f"checkout into yours, then re-run this refresh and the file "
+              f"arrives. Reported 2026-09-21 by a repo that hit exactly "
+              f"this; todo/todo-2026-09-21-a-new-hook-cannot-reach-an-"
+              f"installed-consumer.md has the analysis.", file=sys.stderr)
     for n in sorted(adapter_owned & wired):
         source_name = claimed[f'{HOOK_DEST_DIR}/{n}']
         print(f"NOTE: precedent_vendor_engine: {n} is not vendored by this "
@@ -1025,12 +1148,50 @@ def _hook_drift(dest_root, manifest):
 # recorded" from "hand-edited" and act on it.
 CI_WORKFLOWS_SOURCE_DIR = 'templates/github-actions'
 CI_WORKFLOW_TEMPLATES = {
+    # NO WORKFLOW EXISTS SOLELY TO LINT MARKDOWN (2026-09-21). The consumer
+    # side used to ship doc-lint.yml.template as bestpractice-docs.yml, and
+    # it is retired -- see RETIRED_CI_WORKFLOW_FILES below, which propagates
+    # its deletion to every repo that installed it.
     'consumer': (
-        ('doc-lint.yml.template', '.github/workflows/bestpractice-docs.yml'),
+        ('leak-gate.yml.template', '.github/workflows/leak-gate.yml'),
     ),
-    'source': (
-        ('precedent-check.yml.template', '.github/workflows/precedent-check.yml'),
-    ),
+    # A PRACTICE SOURCE RUNS NO CI AT ALL (2026-09-21, Morgan, strength:
+    # decided): "the sets don't need CI; maybe we define the default to be
+    # that the precedent-individual and precedent-shared-* do NOT get CI.
+    # That could be the default rule, for future individual and shared
+    # source repos."
+    #
+    # MEASURED, from his own GitHub usage export for that day. 127 of 143
+    # billed minutes -- 89% -- came from four practice sets running these
+    # two workflows. The twelve CONSUMING repos, all on the one-job
+    # light-check, cost 16 minutes between them. The sets' share had gone
+    # 2% -> 89% in eleven days while the absolute number stayed flat,
+    # because every Update Vendors pass pushes a branch to four repos and
+    # each push fires both workflows in each.
+    #
+    # WHY A SOURCE IS THE RIGHT PLACE TO STOP. Every change to a set
+    # arrives through a session that runs the full gate suite before it
+    # pushes -- the deep check is what gates a push (two-check-levels), and
+    # the commit gate already ran doc_lint. CI there re-checks a tree that
+    # was checked seconds earlier by the same tools. And most of what it
+    # runs does not apply: a set carries few of the practices the registry
+    # binds, so precedent-check SKIPS most of its catalogue there, which is
+    # how two real sets came to report `0 passed` on an ordinary commit.
+    # We were paying per-job minutes, rounded up, for a second opinion that
+    # was mostly skips.
+    #
+    # A CONSUMER IS DIFFERENT and keeps its leak gate. A consuming repo can
+    # receive a contribution from a fork, whose pushes never fire `push` in
+    # the receiving repository -- so without the workflow a contributed
+    # branch reaches it unscanned. A source set is single-owner and takes
+    # no forks.
+    #
+    # The empty tuple is not an oversight and is READ as a decision:
+    # _remove_retired_ci_workflow_files sweeps whatever a kind no longer
+    # ships, and only for a kind it recognises, so `source` being present
+    # and empty propagates the deletion to every set on its next refresh
+    # while an unknown kind still triggers nothing.
+    'source': (),
 }
 
 # CI-workflow analog of RETIRED_ENGINE_FILES above -- a relative path this
@@ -1057,17 +1218,54 @@ CI_WORKFLOW_TEMPLATES = {
 # is what makes automatic cleanup safe to do unconditionally rather than
 # guessing from absence.
 #
-# WHY THIS NEVER DELETES THE FILE ITSELF, unlike _remove_dropped_engine_
-# files for an ordinary tools/*.py engine file. refresh()'s own comment on
-# ci_incomplete says why: "deleting somebody's .github/workflows/*.yml out
-# from under them on a routine refresh is a different, larger decision than
-# this fix makes." A retired CI workflow file still on disk is reported
-# (see _remove_retired_ci_workflow_files below), never removed -- only the
-# stale manifest tracking is.
+# WHY THIS DELETES THE FILE WHEN IT IS SAFE TO, as of 2026-09-20 --
+# mirroring _remove_dropped_engine_files for an ordinary tools/*.py engine
+# file, not this mechanism's original "never deletes" design. refresh()'s
+# own comment on ci_incomplete still holds the reason a retired workflow
+# file is never deleted UNCONDITIONALLY: "deleting somebody's
+# .github/workflows/*.yml out from under them on a routine refresh is a
+# different, larger decision than this fix makes." What changed is that
+# _remove_retired_ci_workflow_files (below) now only ever deletes a copy
+# whose on-disk content still matches the hash the manifest last recorded
+# for it -- the untouched, stock retired template, and nothing else. A
+# hand-edited copy, or one the manifest never recorded a hash for, is kept
+# and reported exactly as before; only the manifest's stale tracking entry
+# is ever dropped unconditionally. Raised by Morgan
+# ("shouldn't we delete the files? ... it creates confusion and complexity
+# and risk and cost") against a live incident: a fresh usage-report pull
+# found several personal repos still billing real minutes against files
+# this mechanism already knew were retired. This closes the half of that
+# gap this mechanism can reach going forward -- a FUTURE rename/fold, the
+# same way views-drift.yml's own retirement was. It does NOT retroactively
+# clean up a file that predates this tombstone system entirely (nothing
+# ever recorded a hash for it to compare against) -- see
+# spec/CI_MINUTES_PLAN.md's Phase B sweep for that half.
 RETIRED_CI_WORKFLOW_FILES = {
     '.github/workflows/views-drift.yml':
         'folded into precedent-check.yml.template as its own job, 2026-09-19 '
         '(spec/CI_MINUTES_PLAN.md item 9)',
+    # THE MARKDOWN LINT LEAVES CI ENTIRELY, 2026-09-21. Morgan: "I think we
+    # should remove all markdown checks in the yml github actions check (but
+    # we should use the strict markdown in our own that we do)."
+    #
+    # The reasoning, and it is not only cost. Under this system's founding
+    # assumption -- every edit arrives through a cloud session, never a
+    # local checkout and never the GitHub web UI -- doc_lint.py has already
+    # run on every change before it is committed, because it IS the light
+    # check that gates a commit. The CI copy re-ran it against work the
+    # session in front of the person had just cleared. Measured in the
+    # busiest consuming repo: 350 billed minutes over 19 days for that
+    # re-run, on a workflow that was already one job with paths: filters.
+    #
+    # The linter is not retired -- only the workflow whose whole job was to
+    # run it a second time. doc_lint.py still gates every commit, and still
+    # runs inside this repo's own deep-check.yml as a step in a job billed
+    # for other reasons anyway. The rule that came out of it: no workflow
+    # exists solely to lint Markdown.
+    '.github/workflows/bestpractice-docs.yml':
+        'the Markdown lint left CI entirely, 2026-09-21 -- doc_lint.py '
+        'already gates every commit as the light check, so this re-ran it '
+        'on work a session had just cleared (spec/BILLING_FLOOR.md)',
 }
 
 
@@ -1112,6 +1310,56 @@ def record_ci_workflow_files(dest_root, kind):
     return [manifest_path]
 
 
+LOCAL_CI_WORKFLOWS_KEY = 'local_ci_workflows'
+
+
+def local_ci_workflows(dest_root):
+    """-> {rel: reason} for CI workflow files this repo declares as its OWN,
+    read from its precedent.json. Never raises: a malformed config must not
+    take a refresh down, and an unreadable declaration is treated as no
+    declaration -- the refusal it would have waived is the safe direction.
+
+    WHY THIS EXISTS, and why the two escapes that already existed are not
+    escapes. A consuming repo may have a genuine reason to diverge one
+    vendored workflow -- 2026-09-21's case was an identity fold plus a
+    deliberate note about a flag the repo does not want. `refresh` refuses,
+    correctly, because it cannot tell that edit from an accident. But both
+    routes out DESTROY the divergence: `--force` overwrites it on the spot,
+    and `record-ci` re-baselines the hash so the NEXT refresh overwrites it
+    silently, which is worse. The session that hit it swapped the template
+    in, ran the refresh, and put the file back by hand -- a manoeuvre that
+    works exactly once and leaves nothing behind for the next person, who
+    will meet the same wall with no hint that anyone has been here.
+
+    So the divergence becomes a DECLARATION instead of a fight:
+
+        "local_ci_workflows": {
+          ".github/workflows/precedent-check.yml": "why this one is ours"
+        }
+
+    A REASON IS REQUIRED, not optional. A bare list would be an opt-out
+    nobody has to justify, which is how an exemption stops being read; an
+    entry with an empty reason is ignored, exactly as if it were absent,
+    and refresh says so rather than honouring it silently.
+
+    A declared file is then: never overwritten, never drift, never
+    "untracked" -- and PRINTED ON EVERY RUN with its reason, so the
+    exemption stays visible instead of becoming invisible infrastructure.
+    That last part is the whole difference between this and --force.
+    """
+    cfg = dest_root / 'precedent.json'
+    try:
+        declared = json.loads(cfg.read_text(encoding='utf-8')).get(
+            LOCAL_CI_WORKFLOWS_KEY) or {}
+    except (OSError, ValueError, AttributeError):             # noqa: BLE001
+        return {}
+    if not isinstance(declared, dict):
+        return {}
+    return {str(rel): str(reason).strip()
+            for rel, reason in declared.items()
+            if isinstance(rel, str) and str(reason).strip()}
+
+
 def _ci_workflow_drift(dest_root, manifest):
     """CI-workflow analog of _hook_drift: [(rel, why)] for a vendored CI
     workflow file the manifest's `ci_workflows_sha256` already records a
@@ -1126,8 +1374,14 @@ def _ci_workflow_drift(dest_root, manifest):
     before this function ever runs) rather than refusing the whole run over
     a file whose disappearance a previous, correct fix already caused."""
     drifted = []
+    _local = local_ci_workflows(dest_root)
     for rel, recorded_hash in (manifest.get('ci_workflows_sha256') or {}).items():
         if rel in RETIRED_CI_WORKFLOW_FILES:
+            continue
+        # A file this repo DECLARES as its own is not drift. Its divergence
+        # is the point, and it is reported every run rather than refused
+        # (local_ci_workflows' own docstring has the incident).
+        if rel in _local:
             continue
         path = dest_root / rel
         if not path.is_file():
@@ -1138,9 +1392,79 @@ def _ci_workflow_drift(dest_root, manifest):
     return drifted
 
 
-def _remove_retired_ci_workflow_files(dest_root, manifest):
+def _untracked_ci_workflow_files(dest_root, manifest):
+    """-> sorted [rel, ...] for every .github/workflows/*.yml or *.yaml file
+    on disk that this repo's manifest does not track under
+    ci_workflow_files, and that is not a known RETIRED_CI_WORKFLOW_FILES
+    entry either.
+
+    THIS IS NOT AN ORPHAN LIST. CI_WORKFLOW_TEMPLATES names exactly one
+    file per kind -- the template-installed workflow -- so almost any repo
+    with more than that single file will have entries here by design: a
+    practice set's own commit-identity.yml and engine-refresh.yml are
+    untracked by this exact definition and are completely legitimate,
+    intentionally never vendored through this mechanism. A hand-authored
+    check unrelated to Precedent is equally untracked and equally
+    legitimate. Reports enumerate; they do not judge -- see
+    spec/CI_WORKFLOW_RETIREMENT_PLAN.md's account of the false positive
+    (light-check.yml, mistaken for a retired duplicate by filename alone)
+    that this function's callers exist to never repeat. A caller decides
+    what these paths mean; this function only says which paths exist
+    outside what the manifest already tracks.
+
+    Returns [] where dest_root has no ENGINE_MANIFEST.json at all (this
+    repo has never vendored, or is the engine's own origin -- BestPractice
+    itself has no manifest to compare against)."""
+    manifest_path = dest_root / 'tools' / MANIFEST_NAME
+    if not manifest_path.is_file():
+        return []
+    tracked = set(manifest.get('ci_workflow_files') or ())
+    wf_dir = dest_root / '.github' / 'workflows'
+    if not wf_dir.is_dir():
+        return []
+    on_disk = sorted(
+        f'.github/workflows/{p.name}'
+        for p in wf_dir.iterdir()
+        if p.is_file() and p.suffix in ('.yml', '.yaml'))
+    # A file this repo DECLARES as its own is known, not stray. Reporting
+    # it as untracked would be the same wall under another name.
+    _local = local_ci_workflows(dest_root)
+    return [rel for rel in on_disk
+            if rel not in tracked and rel not in RETIRED_CI_WORKFLOW_FILES
+            and rel not in _local]
+
+
+def _remove_retired_ci_workflow_files(dest_root, manifest, kind=None):
     """Drop every RETIRED_CI_WORKFLOW_FILES entry from a manifest that still
-    carries one, and report (never delete) a retired file still on disk.
+    carries one, and delete a retired file still on disk -- but ONLY when
+    its current on-disk sha256 still matches the hash the manifest already
+    had recorded for it under ci_workflows_sha256.
+
+    WHAT "MATCHES THE RECORDED HASH" DOES AND DOES NOT PROVE. The recorded
+    hash is whatever this engine itself last wrote for this path -- from the
+    original record_ci_workflow_files() call at install/refresh time, or a
+    later hand-triggered `record-ci` re-baseline. A match proves the file
+    has not changed since the manifest last looked, which is everything
+    _ci_workflow_drift() means by "not drifted" elsewhere in this module --
+    the SAME standard, not a weaker one invented for this function. It does
+    NOT prove the file was never hand-edited at any point in its history:
+    someone could have edited it and then run `record-ci` to accept that
+    edit as correct (exactly what that subcommand exists for), which
+    updates the recorded hash to match the edit. If that same file's
+    workflow is later retired, this function reads it as "matches the
+    recorded hash" and deletes it -- a real, known gap, not a hypothetical
+    one: see spec/CI_WORKFLOW_RETIREMENT_PLAN.md's "Touched, precisely"
+    section for the full tradeoff and why it was left open rather than
+    closed here.
+
+    A path this function never even considers: one ci_workflows_sha256 has
+    no entry for at all (this kind never vendored it, ci_workflows was
+    disabled, or the file predates this tracking system entirely, like the
+    pre-2026-09-14 legacy templates spec/CI_MINUTES_PLAN.md's Phase B still
+    has to sweep by hand). `dropped` below is built only from paths that ARE
+    manifest keys, so an untracked file is structurally invisible here --
+    this function can delete a file it was already watching, never one it
+    was not.
 
     Idempotent and safe to call unconditionally: a manifest with no such
     entry writes nothing and returns []. Called at the very top of refresh(),
@@ -1149,22 +1473,89 @@ def _remove_retired_ci_workflow_files(dest_root, manifest):
     see that dict's own comment for the incident.
 
     Returns the list of rel paths dropped from the manifest, for refresh()'s
-    own reporting."""
+    own reporting -- deleted or merely reported, both count as dropped from
+    TRACKING; whether the file itself is gone is reported separately."""
     manifest_path = dest_root / 'tools' / MANIFEST_NAME
     if not manifest_path.is_file():
         return []
     recorded = dict(manifest.get('ci_workflows_sha256') or {})
-    dropped = sorted(rel for rel in recorded if rel in RETIRED_CI_WORKFLOW_FILES)
+
+    # TWO WAYS A TRACKED CI WORKFLOW CAN BE OVER (the second added
+    # 2026-09-21, practice: cite-the-incident).
+    #
+    # 1. A RETIRED_CI_WORKFLOW_FILES tombstone -- an explicit, reasoned
+    #    entry, which is the only way a RENAME can be expressed.
+    # 2. THIS KIND NO LONGER SHIPS IT. Until today this function read the
+    #    tombstone dict alone, and _remove_dropped_engine_files -- the
+    #    ordinary tools/ path, six hundred lines up -- has always done the
+    #    opposite: it diffs the PREVIOUS manifest against what the kind
+    #    includes now, so dropping a name propagates its deletion whether
+    #    or not anybody remembered a tombstone.
+    #
+    #    That asymmetry was the concrete hole. Dropping a template from
+    #    CI_WORKFLOW_TEMPLATES without also writing a tombstone left the
+    #    installed workflow in every repo, forever, tracked by a manifest
+    #    entry nothing would ever clear. Found 2026-09-21 while answering
+    #    "are deletions passed through to the vendored-in repos?" -- the
+    #    answer was yes for engine files and no for CI workflows, and
+    #    nobody had noticed the two paths disagreed.
+    #
+    # THE GUARD THE ENGINE PATH DOES NOT NEED. _remove_dropped_engine_files
+    # is called with a `kind` its caller has already validated. Here the
+    # kind comes out of the MANIFEST, which is a file on disk in somebody
+    # else's repository -- and `CI_WORKFLOW_TEMPLATES.get(<unknown>, ())`
+    # is an empty tuple, which would read as "this kind ships nothing, so
+    # delete everything tracked". A manifest with a typo'd or future kind
+    # must not trigger a sweep, so the diff is skipped entirely unless the
+    # kind is a key we recognise. The tombstone half still applies, since
+    # it names paths explicitly and cannot over-reach.
+    # THE KIND COMES FROM THE CALLER, not from the manifest, and that
+    # distinction is load-bearing. During a source->consumer CONVERSION the
+    # manifest on disk still says the OLD kind, so reading it here would
+    # diff against the wrong shipping list and delete the new kind's own
+    # workflows. Both call sites already compute
+    # `manifest.get('kind', DEFAULT_KIND)`; they pass it in.
+    if kind is None:
+        kind = manifest.get('kind', DEFAULT_KIND)
+    superseded = set()
+    if kind in CI_WORKFLOW_TEMPLATES:
+        ships_now = {installed_as
+                     for _tmpl, installed_as in CI_WORKFLOW_TEMPLATES[kind]}
+        superseded = {rel for rel in recorded if rel not in ships_now}
+    elif recorded:
+        print(f"NOTE: precedent_vendor_engine: manifest kind {kind!r} is not "
+              f"one of {sorted(CI_WORKFLOW_TEMPLATES)}, so tracked CI "
+              f"workflow files were NOT checked against what this kind "
+              f"ships. Only explicitly retired entries were considered.",
+              file=sys.stderr)
+
+    dropped = sorted({rel for rel in recorded
+                      if rel in RETIRED_CI_WORKFLOW_FILES} | superseded)
     if not dropped:
         return []
+    deleted, kept = [], []
     for rel in dropped:
-        recorded.pop(rel, None)
-        if (dest_root / rel).is_file():
+        recorded_hash = recorded.pop(rel, None)
+        f = dest_root / rel
+        if not f.is_file():
+            continue                      # already gone: nothing to report
+        if recorded_hash and _sha256(f) == recorded_hash:
+            f.unlink()
+            deleted.append(rel)
+        else:
+            kept.append(rel)
+            why = RETIRED_CI_WORKFLOW_FILES.get(
+                rel, f'this kind ({kind}) no longer ships it')
             print(f"WARN: precedent_vendor_engine: {rel} was retired "
-                  f"({RETIRED_CI_WORKFLOW_FILES[rel]}) but is still on disk -- "
-                  f"left in place, not deleted (a CI workflow file is never "
-                  f"removed automatically). Safe to delete by hand once its "
-                  f"replacement is confirmed working.", file=sys.stderr)
+                  f"({why}) and has been hand-"
+                  f"edited since the manifest last recorded its hash -- left "
+                  f"in place, not deleted. Move the edit upstream, then "
+                  f"delete it by hand once its replacement is confirmed "
+                  f"working.", file=sys.stderr)
+    if deleted:
+        print(f"precedent_vendor_engine refresh: deleted {len(deleted)} "
+              f"retired CI workflow file(s), unmodified since the manifest "
+              f"last recorded them ({', '.join(deleted)}).")
     live = json.loads(manifest_path.read_text(encoding='utf-8'))
     live['ci_workflow_files'] = sorted(recorded)
     live['ci_workflows_sha256'] = recorded
@@ -1237,8 +1628,17 @@ def _refresh_ci_workflow_files(dest_root, kind, ci_workflows_dir, manifest):
                for _t, rel in CI_WORKFLOW_TEMPLATES.get(kind, ())):
         return [], []
     recorded = dict(manifest.get('ci_workflows_sha256') or {})
+    _local = local_ci_workflows(dest_root)
     refreshed, catchup = [], []
     for template, rel in CI_WORKFLOW_TEMPLATES.get(kind, ()):
+        # DECLARED LOCAL: not written, and its recorded hash is DROPPED
+        # rather than updated. Leaving a hash behind would re-arm the
+        # refusal the declaration exists to retire; updating one would
+        # quietly bless whatever the file says today, which is exactly what
+        # `record-ci` does and exactly why it is not an escape.
+        if rel in _local:
+            recorded.pop(rel, None)
+            continue
         path = dest_root / rel
         if not path.is_file():
             continue
@@ -1539,6 +1939,12 @@ def status(clone):
     ci_drift = _ci_workflow_drift(ROOT, manifest)
     for rel, why in ci_drift:
         print(f"  LOCAL DRIFT: {rel} -- {why}")
+    # Declared-local workflows are reported here too, for the same reason
+    # refresh prints them: an exemption that stops being visible stops
+    # being reviewed, and `status` is where somebody looks to find out what
+    # this repo's relationship to upstream actually is.
+    for rel, why in sorted(local_ci_workflows(ROOT).items()):
+        print(f"  LOCAL BY DECLARATION (never refreshed): {rel} -- {why}")
     if not manifest.get('ci_workflows_sha256'):
         print(f"  NOTE: this manifest has no ci_workflows_sha256 recorded yet -- vendored "
               f"before CI workflow files were tracked. `refresh` will record a baseline "
@@ -1874,7 +2280,7 @@ def refresh(clone, force=False, ref=None):
     # workflow entry is cleaned up unconditionally, --force or not, so its
     # own retirement can never be the reason refresh refuses. See
     # RETIRED_CI_WORKFLOW_FILES' own comment for the incident this closes.
-    _remove_retired_ci_workflow_files(ROOT, manifest)
+    _remove_retired_ci_workflow_files(ROOT, manifest, kind)
 
     if not force:
         drift = (_local_drift(dest_tools, manifest) + _hook_drift(ROOT, manifest)
@@ -1886,7 +2292,16 @@ def refresh(clone, force=False, ref=None):
                      "workflow file was hand-edited since the last seed/refresh -- "
                      "refreshing would silently discard that edit. Move the edit "
                      "upstream into BestPractice instead (this engine has no local "
-                     "variance by design), or pass --force to overwrite anyway.")
+                     "variance by design), or pass --force to overwrite anyway.\n"
+                     "       A CI WORKFLOW THIS REPO MEANS TO KEEP is a third "
+                     "option, and the right one when the divergence is "
+                     "deliberate: declare it in this repo's precedent.json as\n"
+                     '         "' + LOCAL_CI_WORKFLOWS_KEY + '": '
+                     '{".github/workflows/<name>.yml": "why it is ours"}\n'
+                     "       and refresh will leave it alone and say so on every "
+                     "run. A reason is required. Do NOT reach for `record-ci` "
+                     "here: it re-baselines the hash, so the NEXT refresh "
+                     "overwrites the file silently.")
 
     new_commit, engine_dir = _source_tools_at(clone, kind, ref=ref,
                                               fetch=ref is None)
@@ -2018,6 +2433,12 @@ def refresh(clone, force=False, ref=None):
     if ci_refreshed:
         print(f"precedent_vendor_engine refresh: refreshed {len(ci_refreshed)} CI "
               f"workflow file(s) to the current template ({', '.join(ci_refreshed)}).")
+    # EVERY RUN, with the reason. This is the whole difference between a
+    # declared local workflow and `--force`: force is a decision taken once
+    # and never seen again, while a declaration announces itself for as long
+    # as it stands, so nobody inherits an exemption they cannot see.
+    for rel, why in sorted(local_ci_workflows(ROOT).items()):
+        print(f"LOCAL (not refreshed, by declaration): {rel} -- {why}")
     if ci_catchup:
         print(f"NOTICE: precedent_vendor_engine refresh: recording a baseline hash "
               f"for {len(ci_catchup)} CI workflow file(s) this manifest never tracked "
@@ -2191,7 +2612,7 @@ def _cli_record_ci(rest):
     dest_tools = ROOT / 'tools'
     manifest = _load_manifest(dest_tools)
     kind = manifest.get('kind', DEFAULT_KIND)
-    _remove_retired_ci_workflow_files(ROOT, manifest)
+    _remove_retired_ci_workflow_files(ROOT, manifest, kind)
     before = dict(_load_manifest(dest_tools).get('ci_workflows_sha256') or {})
     written = record_ci_workflow_files(ROOT, kind)
     if not written:

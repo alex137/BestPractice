@@ -353,7 +353,25 @@ def checks(offline=False):
     raw = os.environ.get('PRECEDENT_FRESHNESS_ALSO')
     name = 'PRECEDENT_FRESHNESS_ALSO names repositories that are there'
     want = _attachable_sources()
-    suggestion = ('Set it to: PRECEDENT_FRESHNESS_ALSO='
+    # COMPUTED FOR THIS DISK, and that sentence is load-bearing.
+    #
+    # 2026-09-21: a known-good value was passed from one container to
+    # another and was wrong in the second one. Both had a duplicated
+    # source; they duplicated DIFFERENT ones. In the first, `~` held the
+    # only copy of the individual set and the stale copies of the shared
+    # sets; in the second, `~` held the STALE individual set and the shared
+    # sets were single. So a line that correctly names `~/precedent-
+    # individual` on one machine names the copy holding no work on the
+    # other -- silently, because an also-list entry that resolves to a real
+    # git repository is never questioned again.
+    #
+    # The value below is read off the directories actually present here,
+    # which is the only way it can be right; the warning is what stops it
+    # being copied somewhere it is not.
+    suggestion = ('Set it to (computed from the clones on THIS disk -- never '
+                  'paste a value from another container, even a known-good '
+                  'one, because which copy of a source is the live one '
+                  'differs per machine): PRECEDENT_FRESHNESS_ALSO='
                   + ';'.join(f'{path}={base}' for path, base in want)) if want else ''
     if raw is None:
         out.append((name, None,
@@ -380,7 +398,154 @@ def checks(offline=False):
                     '; '.join(bad) + '. Each of these is SKIPPED, silently by '
                     'design -- the variable reads as coverage and covers '
                     'nothing. ' + suggestion))
+
+    # 9. One source, one clone.
+    #
+    # Two clones of the SAME practice source on one disk is the quietest
+    # failure in this file. Everything keeps working: the resolver picks
+    # one, the freshness guard checks whichever the also-list names, a
+    # session edits whichever it happened to cd into, and nothing anywhere
+    # says the other exists. Then they diverge, and a practice somebody
+    # wrote this morning is simply not in force, with no error to read.
+    #
+    # Measured 2026-09-21 on this project's own container: three shared
+    # sets were cloned twice, once under $HOME and once beside this repo,
+    # and one of the three (`precedent-shared-writing`) had ALREADY
+    # diverged between its two copies. The also-list suggestion above was
+    # dutifully naming both, which is honest and is also the tell -- a
+    # suggestion listing seven entries for four sources is reporting a
+    # duplicate nobody had noticed.
+    #
+    # Reports and never repairs: which copy is canonical is a judgment
+    # about which one holds work (practice: fail-gracefully). Deleting the
+    # wrong one loses commits.
+    #
+    # THE REMEDY THIS ROW USED TO GIVE WAS WRONG, and a session proved it by
+    # experiment the same day. It said to remove the copy that does not hold
+    # the work. That cannot hold: the source self-heal re-clones whatever
+    # path the user-level config names, so the directory reappeared within
+    # the minute, twice. The directory was never the cause --
+    # ~/.config/precedent/config.json's individual.path pointed at one copy
+    # while the working tree was the other. Repointing that one field is
+    # what closed it. (The session that found it named leak_gate.py as the
+    # re-cloner; leak_gate.py runs one bounded `git pull --ff-only` and
+    # clones nothing, so the re-clone is the resolve-time self-heal running
+    # underneath it -- worth stating, because the next person will go
+    # looking in leak_gate.py for a clone call that is not there.)
+    name = 'each practice source is cloned exactly once on this disk'
+    by_name = {}
+    for shown, _base in _attachable_sources():
+        by_name.setdefault(pathlib.Path(shown).name, []).append(shown)
+    dupes = {n: paths for n, paths in by_name.items() if len(paths) > 1}
+    if not dupes:
+        out.append((name, True, ''))
+    else:
+        detail = []
+        for n, paths in sorted(dupes.items()):
+            heads = []
+            for shown in paths:
+                real = _expand_source_path(shown)
+                code, head = _git_head(real)
+                heads.append(f'{shown} @ {head or "unreadable"}')
+            agree = len({h.split(" @ ")[1] for h in heads}) == 1
+            detail.append(f'{n}: ' + ', '.join(heads)
+                          + ('' if agree else
+                             ' -- THESE HAVE DIVERGED; work is in one copy '
+                             'and not the other'))
+        out.append((name, False, '; '.join(detail) + '. Nothing reports '
+                    'which copy the loader read, so a practice written in '
+                    'one may simply not be in force. THE FIX IS THE CONFIG, '
+                    'NOT THE DIRECTORY: point '
+                    '~/.config/precedent/config.json\'s individual.path (and '
+                    'any sibling source path) at the copy that holds the '
+                    'work. Moving or deleting the other one does not hold -- '
+                    'the source self-heal re-clones whatever path the config '
+                    'still names, within the same session. Then confirm from '
+                    'a tool\'s OWN output which path it loaded, rather than '
+                    'assuming the change took. This tool never deletes a '
+                    'clone and never rewrites your config'))
+    # THE CATALOGUE IS READ OFF THESE WORKING TREES, and nothing fetches
+    # before it reads: precedent_materialize.py has no fetch call in it at
+    # all. So a clone sitting behind its own origin does not fail anything,
+    # it quietly puts an older set of practices in force. Measured
+    # 2026-09-21: all four sources on this disk were 17 to 34 commits
+    # behind, every dirty path was engine output nobody had hand-edited, and
+    # every session start had reported success
+    # (todo-2026-09-21-refresh-output-blocks-the-next-pull).
+    #
+    # Said HERE as well as in the refresh, deliberately: a session is told at
+    # its start rather than six steps into a vendor-update runbook, which is
+    # the difference between a fix and a post-mortem. Morgan, 2026-09-21
+    # (strength: assented).
+    name = 'each practice source clone is current with its own origin'
+    behind = []
+    for shown, _base in _attachable_sources():
+        real = _expand_source_path(shown)
+        state = _clone_behind(real)
+        if state:
+            behind.append(f'{shown} is {state}')
+    if not behind:
+        out.append((name, True, ''))
+    else:
+        out.append((name, False, '; '.join(behind) + '. The catalogue in '
+                    'force is read from these working trees and nothing '
+                    'fetches first, so the practices this session is '
+                    'following may be the older ones. Run '
+                    '`python3 tools/precedent_refresh_sources.py --apply`, '
+                    'which now brings each clone current before refreshing '
+                    'it and refuses to report success when it cannot.'))
     return out
+
+
+def _clone_behind(path):
+    """-> a short phrase describing how this clone differs from its own
+    origin, or '' when it is current (or cannot be told, which is not a
+    finding -- practice: fail-gracefully).
+
+    Compares against the clone's DECLARED base_branch where it has one,
+    never origin/HEAD: origin/HEAD answers "what does GitHub show first",
+    and this repository is the standing counterexample -- default `main`,
+    work on `precedent-beta-v01`."""
+    try:
+        cfg = json.loads((pathlib.Path(path) / 'precedent.json')
+                         .read_text(encoding='utf-8'))
+        branch = cfg.get('base_branch')
+    except Exception:
+        branch = None
+    if not isinstance(branch, str) or not branch.strip():
+        branch = 'main'
+    try:
+        proc = subprocess.run(
+            ['git', '-C', str(path), 'rev-list', '--left-right', '--count',
+             f'origin/{branch}...HEAD'], capture_output=True, text=True)
+    except OSError:
+        return ''
+    if proc.returncode != 0:
+        return ''
+    parts = proc.stdout.split()
+    if len(parts) != 2:
+        return ''
+    back, ahead = parts
+    if back == '0' and ahead == '0':
+        return ''
+    bits = []
+    if back != '0':
+        bits.append(f'{back} commit(s) behind origin/{branch}')
+    if ahead != '0':
+        bits.append(f'{ahead} unpushed commit(s) ahead')
+    return ' and '.join(bits)
+
+
+def _git_head(path):
+    """-> (code, short sha) for a clone, or (1, '') when it cannot be read.
+    Never raises: a directory that vanished between the scan and here is a
+    row that says 'unreadable', not a traceback in a session-start check."""
+    try:
+        proc = subprocess.run(['git', '-C', str(path), 'rev-parse', '--short',
+                               'HEAD'], capture_output=True, text=True)
+    except OSError:
+        return 1, ''
+    return proc.returncode, proc.stdout.strip()
 
 
 

@@ -27,8 +27,10 @@ closed:            null
    `NOT VERIFIABLE` rather than calling the difference drift, which is
    right for a person and a silent green for a gate.
 
-   So [templates/github-actions/views-drift.yml.template](../templates/github-actions/views-drift.yml.template)
-   refuses that layout outright rather than shipping a check that passes
+   So templates/github-actions/views-drift.yml.template — since 2026-09-19 a
+   job inside
+   [precedent-check.yml.template](../templates/github-actions/precedent-check.yml.template)
+   — refuses that layout outright rather than shipping a check that passes
    blind, and what covers a consuming repo is a session remembering to run
    `python3 tools/precedent_sync_views.py --repo . --check` where the sources
    do resolve. That is exactly the "session discipline only" state

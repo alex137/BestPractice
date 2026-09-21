@@ -747,6 +747,38 @@ def _within(path, root):
     return path == root or root in path.parents
 
 
+def placed_practice_file(repo_root, slug, source_file, planned=()):
+    """-> the path a practice's Rule links are placed relative to.
+
+    THE ONE PLACE THAT ANSWERS "where does this practice live, for the
+    purpose of repointing its links". Two callers render AGENTS.md's loader
+    block -- this module for `--repo DIR --check`, and
+    precedent_sync_views.py for the install step -- and they used to answer
+    it differently: sync_views passed the MATERIALIZED path
+    (`<repo>/practices/<slug>.md`), this module passed the SOURCE clone's
+    (`<repo>/precedent/universal/practices/<slug>.md`). Both exist on disk
+    in a consuming repo, so neither was reported unplaceable; they simply
+    rendered a sibling citation two different ways, and
+    `generated-artifact-provenance` then reported an AGENTS.md the
+    documented install step had just written as hand-edited, with no state
+    of the repo able to satisfy it. Found 2026-09-21, after eight merges
+    red; the fix is one function, not two that agree.
+
+    The materialized path wins wherever the run has it: it is inside the
+    repo the block lands in, so the link works for a reader with no source
+    clone at all. `planned` covers the run that is ABOUT to write it --
+    materialize() empties practices/ before refilling it, so asking the
+    disk mid-run answers a question about the previous run
+    (_place_rule_links carries the same argument for the same reason).
+    Where neither holds -- an engine-dev practice withheld from the tree, a
+    source that materializes nothing -- the source path is returned
+    unchanged and _place_rule_links makes its own call about it."""
+    placed = pathlib.Path(repo_root) / 'practices' / f'{slug}.md'
+    if placed.exists() or f'practices/{slug}.md' in planned:
+        return placed
+    return pathlib.Path(source_file)
+
+
 def _place_rule_links(text, practice_file, block_dir, repo_root=None,
                       planned=()):
     """-> (rewritten Rule text, [unplaceable link targets]).
@@ -980,6 +1012,38 @@ def build_loader_block(practices, source_levels=None, defers_sources=False,
         lines.append(f"## Resident block (~{token_count} of {budget} token budget, "
                      f"{count_detail})")
         lines.append('')
+        # SAY WHEN THIS TREE IS MACHINE-DEPENDENT, and only then.
+        #
+        # An INDIVIDUAL source resolves through a user-level config, not
+        # through this project's own precedent.json -- by design, decided
+        # 2026-09-21: a person's own practices follow them into every
+        # project they touch, which is the whole point of having them.
+        # What was wrong was that it happened SILENTLY. The same install,
+        # same commit, materialized 142 practices on one machine and 125
+        # with HOME emptied, and the only way to find out was to diff two
+        # trees. That difference masked a real one-line bug for a day.
+        #
+        # So the block discloses it where it is TRUE and stays byte-identical
+        # where it is not: a repo with no individual practice in force (this
+        # one, every public set, every CI checkout) renders exactly as
+        # before. Whoever wants a rule in some repos and not others makes a
+        # SHARED set and declares it per repo --
+        # documentation/SHARED_PRACTICE_SETS.md.
+        _individual = sorted(slug for slug, lvl in (source_levels or {}).items()
+                             if lvl == 'individual')
+        if _individual:
+            lines.append(
+                f"**{len(_individual)} of these practices came from an "
+                f"INDIVIDUAL source**, which resolves through this machine's "
+                f"user-level config rather than through this repository's "
+                f"own `precedent.json`. That is deliberate -- a person's own "
+                f"practices follow them into every project they touch -- but "
+                f"it means this generated tree is **machine-dependent**: the "
+                f"same commit installed by somebody else resolves a "
+                f"different set. A rule you want in SOME repositories and "
+                f"not others belongs in a shared set you declare per "
+                f"repository, not in your individual one.")
+            lines.append('')
         lines.append(resident_text)
         lines.append('')
     if index_text:
@@ -1411,8 +1475,9 @@ def loader_practices(root, own_practices):
                for s in declared):
         resolved = {slug: v for slug, v in resolved.items()
                     if not _is_engine_dev_scoped(v['fm'])}
-    practices = [(v['fm'], v['sections'], v['file'])
-                 for v in resolved.values()]
+    practices = [(v['fm'], v['sections'],
+                  placed_practice_file(root, slug, v['file']))
+                 for slug, v in resolved.items()]
     levels = {slug: v['level'] for slug, v in resolved.items()}
     return practices, levels
 
@@ -1595,7 +1660,30 @@ def _render_withdrawn(withdrawn):
             # than no link (practice: doc-references-are-links).
             where = (f"`{target}` — in another source; "
                      f"`python3 tools/precedent_show.py {target}`")
-        reason = _withdrawn_reason(sections).replace('|', '\\|') or \
+        # REPOINT THE STORY'S OWN LINKS FIRST. This lands in MAP.md at the
+        # REPO ROOT, and a Story is written inside practices/ -- so a
+        # sibling citation like `[x](x.md)`, correct where it was authored,
+        # resolves to a root-level `x.md` that does not exist. The loader
+        # block has had _place_rule_links for exactly this since 2026-09-11;
+        # this column never did, and copied the prose verbatim.
+        #
+        # Reported 2026-09-21 by a session auditing four practice sets: one
+        # set's MAP.md carried a broken link to reply-fits-one-screen.md
+        # that regenerating did not clear, because the SOURCE is correct and
+        # only the copy is wrong. It does not reproduce in this repo -- none
+        # of these practices happens to carry a sibling link in its Story's
+        # first sentence -- which is why a clean tree here proved nothing.
+        _reason_raw = _withdrawn_reason(sections)
+        if _reason_raw:
+            _reason_raw, _unplaced = _place_rule_links(
+                _reason_raw, _f, ROOT, ROOT)
+            if _unplaced:
+                print(f"build_views NOTE: {slug}'s Story cites "
+                      f"{', '.join(sorted(set(_unplaced)))}, which cannot be "
+                      f"placed relative to the repository root -- left as "
+                      f"written in MAP.md, where it will not resolve.",
+                      file=sys.stderr)
+        reason = _reason_raw.replace('|', '\\|') or \
             '*(no ## Story -- catalogue-carries-stories should have caught this)*'
         lines.append(f"| [{slug}](practices/{slug}.md) | {status} | {where} | {reason} |")
     return lines
@@ -1714,6 +1802,7 @@ TOOLS_DESCRIPTIONS = {
     'doc_html.py': "The one sortable-table HTML renderer for repo documents",
     'parse_check.py': "Does every JSON/YAML file in scope still parse — changed files for the deep check, the whole tree for the very deep check",
     'doc_lint.py': "Markdown hygiene checks — strikethrough, links, acronyms",
+    'frontmatter_yaml.py': "The real-YAML frontmatter parser doc_lint.py and verify_harness.py both check against, shared so the two never drift",
     'doc_lifecycle.py': "The document status header — kind, status, "
                         "supersession — checked across spec/ and record/",
     'doc_sync.py': "Keeps script-generated blocks inside documents in sync with what the script emits",
@@ -1776,6 +1865,7 @@ TOOLS_DESCRIPTIONS = {
     'build_gotcha_index.py': "gotchas/INDEX.md, generated from gotchas/*.md's frontmatter and Symptom sections -- not loaded by AGENTS.md",
     'verify_harness.py': "The verification harness — run before trusting any change here",
     'very_deep_check.py': "The very deep check — on-demand whole-repo coherence review, distinct from full-practice-audit",
+    'precedent_engine_freshness.py': "Says whether this repo's VENDORED engine has fallen behind upstream — the one check that looks outward; prints, never refreshes",
 }
 
 

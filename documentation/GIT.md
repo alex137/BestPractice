@@ -4,7 +4,7 @@
 
 A normal chat thread is useful but temporary. Important context may be
 buried in an old conversation, known to only one person, or missing from
-another assistant's memory. Keeping the project in a GitHub repository
+another AI Assistant's memory. Keeping the project in a GitHub repository
 gives the team a shared, inspectable memory instead:
 
 - Important decisions are written down.
@@ -194,8 +194,8 @@ section covers git's and GitHub's own.
 ### The Files That Run Things
 
 These are not project content. They are the machinery a repository carries
-so that GitHub, git and your assistant know what to do — and they are the
-files most likely to go past unexplained, because everyone assumes you
+so that GitHub, git and your AI Assistant know what to do — and they are
+the files most likely to go past unexplained, because everyone assumes you
 already know what they are.
 
 - **`.github/`** — a folder GitHub itself reads. Nothing in it is part of
@@ -204,9 +204,11 @@ already know what they are.
 - **Workflow** — a program GitHub runs for you, on its own machines, when
   something happens in the repository. One file per workflow, under
   `.github/workflows/`. The filename is whoever wrote it's choice:
-  [`docs.yml`](../.github/workflows/docs.yml) here runs the markdown linter,
-  [`leak-gate.yml`](../.github/workflows/leak-gate.yml) checks nothing private
-  is being published.
+  [`deep-check.yml`](../.github/workflows/deep-check.yml) here runs the full
+  gate suite, [`leak-gate.yml`](../.github/workflows/leak-gate.yml) checks
+  nothing private is being published. (A third, docs.yml, ran the markdown
+  linter until 2026-09-21, when a commit hook replaced it — see
+  [documentation/GITHUB_ACTIONS.md](GITHUB_ACTIONS.md).)
 - **GitHub Actions** — GitHub's name for the service that runs those
   workflows, and for the tab where you watch them run.
 - **Continuous integration (CI)** — the general name for the idea: checks

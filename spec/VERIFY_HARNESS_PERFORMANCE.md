@@ -318,6 +318,100 @@ The process-based `case()` parallelization shipped on
 measured, and reverted entirely within the session — like the 2026-09-16
 threading attempt, it never left the working tree as a commit.
 
+## 2026-09-21: the rotation, which is the change that actually moved it
+
+Morgan, 2026-09-21 (strength: decided), having read the 211.5s breakdown
+above: *"If it is 3.5 minutes to check every enforced rule every time, maybe
+we also add in a '10% each time' there as well?"*
+
+He had already invented the mechanism. `precedent_check.py`'s
+`_scoped_tree_slugs()`, from his own 2026-09-18 direction, runs three tiers
+— directly touched, indirectly touched, and a deterministic rotating slice
+keyed by commit count. This applies the same shape to the planted cases.
+
+**What always runs, and every one of these is load-bearing:**
+
+- a check whose own `practices/<slug>.md` the change touched — editing a
+  rule without re-proving its check still fires is the hole this function
+  exists to close;
+- any case whose recorded output a later assertion reads back out of
+  `planted[...]`. **Derived from this file's own source at run time**, not
+  kept as a hand-list: a hand-list drifts the first time somebody adds a
+  deeper assertion, and the failure surfaces months later as a `KeyError`
+  in an unrelated case. Nine slugs, as of this change;
+- **everything**, when the change touches the check machinery itself
+  (`tools/precedent_check.py`, `tools/verify_harness.py`, or a
+  `tools/checks/` script). A change there can alter any check's behaviour,
+  so no slice is a safe sample of it;
+- **everything**, in CI. `deep-check.yml` sets `PRECEDENT_HARNESS_ALL=1`.
+  Rotation is right for a push a person is standing at and wrong for the
+  run nobody is watching.
+
+**Measured selection**, by calling the selector directly with a fixed
+`touched` set and bucket rather than timing a suite and inferring:
+
+| change | cases selected |
+|---|---|
+| a documentation-only edit | 16 of 71 |
+| one practice file | 17 of 71 |
+| `tools/precedent_check.py` | 71 of 71 |
+
+At the ~1.5s per case this record already measured, that takes the function
+from 107.9s to roughly 25s on an ordinary change, and the whole suite from
+~211s to ~128s.
+
+**The selection is printed in the result line**, never silently narrowed —
+`71 of 71 planted cases ran -- all (…)`, or `16 of 71 … 55 NOT exercised
+this run`. This repo's own rule about its check suite is that a skip is not
+a pass; a scheduler that hid what it declined to run would break that in the
+one place hardest to notice.
+
+**One measured trap, recorded because it cost the first run.**
+`check_precedent_check_fires` contains a local `import importlib.util`
+partway down, which makes `importlib` a local name for the whole enclosing
+scope. The selector's registry read, placed above it, raised
+`UnboundLocalError` — and because the selector is written to run everything
+when it cannot decide, the failure surfaced as a full 81s run reporting
+`all (the registry could not be read)` rather than as a crash. Fixed with
+`import importlib.util as _ilu`, which binds no `importlib` name at all.
+**The fail-open design is what made this survivable and also what made it
+quiet**: worth knowing that any future "why is it still slow" starts by
+reading the reason string in the result line.
+
+**Does it inherit the 2026-09-20 zero-coverage failure?** Morgan asked
+directly, and the answer is measured rather than argued. That day
+`precedent_check.py`'s rotation landed on a bucket where every slug it
+picked was inapplicable to the repo, reported `0 passed`, and CI's
+"refuse a run that checked nothing" backstop correctly refused it — on two
+real pull requests in two different sets (`_run_with_coverage_retry`'s
+docstring has the account).
+
+The shape here is different in two ways that matter. **A planted case has
+no SKIP path**: it plants a violation and requires a non-zero exit, so an
+inapplicable check fails loudly rather than passing vacuously. And nine
+slugs are pinned in every bucket, so the selection never approaches zero —
+measured per bucket, with a documentation-only diff:
+
+```
+selected per bucket: [16, 16, 15, 15, 15, 15, 15, 15, 15, 15]
+minimum 15 of 71 -> 33 stated cases (15 x 2, plus the unplanted baseline
+and the two registry assertions, which always run)
+```
+
+**That floor is a property of today's pinned set, not a guarantee**, and it
+would weaken the day nobody reads `planted[...]` back any more. So it is
+handled twice rather than left to arithmetic that happens to hold: the
+selector returns the FULL set if a slice ever comes back empty, and the
+check asserts both the per-bucket floor and that fail-safe. Ten stated
+cases now, not eight.
+
+Ten stated cases in `check_planted_case_rotation_never_narrows_silently`,
+which assert the two states that must never narrow, that a touched practice
+runs its own case in every bucket, that every pinned slug is pinned in every
+bucket, that ten consecutive commits cover the whole set, that an ordinary
+change really does run well under half, that no bucket selects zero, and
+that an empty slice runs everything.
+
 ## Open follow-ups
 
 - **The cross-session copytree-under-threads discrepancy** (no measurable

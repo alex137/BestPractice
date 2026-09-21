@@ -1,7 +1,7 @@
 # The Working Method: Branches, Plain Text, and Composed Prompts
 
 The [README](../README.md) says where a project's state lives and what working
-through an assistant feels like. This document is the philosophy of how a
+through an AI Assistant feels like. This document is the philosophy of how a
 human actually drives the work — four commitments that make the whole
 system compose:
 
@@ -44,7 +44,7 @@ system compose:
 - **Composed prompts, not dictation.** Draft instructions in a separate
   editor — the length of a considered email — then paste them to the agent.
   On a phone that editor is the notepad app: capture and shape the thought
-  there, then paste it into the assistant (see
+  there, then paste it into the AI Assistant (see
   [MOBILE.md](MOBILE.md)). The strongest version: refine the prompt in a
   separate chat instance first, and hand the working session the result.
   Type directly only for short commands ("merge"). Pure dictation is an

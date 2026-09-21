@@ -39,44 +39,78 @@
 # The views-drift job is the only thing in a source set that catches
 # loader-block drift; that is why it stays its own job with its own failure
 # message rather than folding into precedent-check's registry of checks.
+# ONE JOB, NOT THREE (2026-09-20, practice: cite-the-incident). This file
+# has been through two shapes before this one, and the measurement that
+# settled it is at the bottom of this comment.
 #
-# ONE WORKFLOW, NOT TWO (2026-09-19, practice: cite-the-incident). This file
-# and views-drift.yml.template used to be separate, each its own job with
-# its own debounce STEP. A debounce step only skips the steps AFTER it -- the
-# job itself still starts a runner and checks out the tree to reach that
-# decision, and GitHub bills a job for at least one whole minute no matter
-# how quickly it finishes. Two workflows meant two billed minutes on every
-# push regardless of what the debounce window decided. Measured against a
-# real account's usage report, on four practice sets installed from this
-# template: push-triggered workflows billed 142 of 165 Actions minutes in
-# one morning, almost entirely pushes the debounce window would have
-# skipped, split across two jobs that each paid their own one-minute floor
-# to say so.
+# Shape 1 (to 2026-09-19): two workflows, each one job with a debounce
+# STEP. A step-level skip still starts a runner and checks out the tree to
+# reach its decision, and GitHub bills a job for at least one whole minute
+# however fast it finishes -- so two billed minutes on every push whatever
+# the debounce window decided.
 #
-# The fix is not a cheaper debounce decision -- billing rounds up to a whole
-# minute regardless of how many seconds a job actually runs, so a faster
-# checkout does not lower the bill. The fix is fewer jobs that
-# unconditionally start. This file makes the debounce decision exactly ONCE,
-# in its own `debounce` job below, and the two checks are separate jobs
-# gated on that job's output via `needs:` + `if:` rather than steps inside a
-# job that already started. A job whose `if:` evaluates false is reported
-# SKIPPED and never allocates a runner -- it is not billed at all. On the
-# common (skip) push this workflow bills one job-minute instead of two; on
-# the rare push that actually runs the suite it bills about what it always
-# did (the debounce job's own minute, plus each check's own run, still in
-# parallel).
+# Shape 2 (2026-09-19 to 2026-09-20): one workflow, three jobs -- a
+# `debounce` job whose output gated the two check jobs via `needs:` + `if:`.
+# The reasoning was that a job whose `if:` evaluates false is reported
+# SKIPPED, never allocates a runner, and is not billed at all. That part is
+# true. What it missed is that the DECIDING job is billed like any other:
+# deciding not to spend a minute costs a minute.
 #
-# The full incident, measurements, and the account that hit this are
-# recorded in this repo's own spec/CI_MINUTES_PLAN.md, item 8. That's
-# history worth reading if you're deciding whether to deviate from this
-# template's shape; it is not required reading to install it as shipped.
+# Write the two shapes out as arithmetic, with S the fraction of triggers
+# the debounce window skips:
+#
+#   shape 2 (debounce job + 2 check jobs):  S x 1  +  (1-S) x 3  =  3 - 2S
+#   shape 3 (one job, no debounce):                                     1
+#
+# 3 - 2S > 1 for every S below 1. A debounce job is more expensive than no
+# debounce job at every skip rate except a hypothetical 100%, where it
+# merely ties. There is no window setting that makes shape 2 win. The same
+# algebra retires the `ci_debounce_minutes` field for this template: it was
+# tuned 360 -> 30 -> 720 across three days (spec/CI_MINUTES_PLAN.md items 8,
+# 9 and 11) looking for a value that would bring the bill down, and no value
+# could, because the cost being tuned was not the one doing the spending.
+#
+# MEASURED, on a real practice set, 2026-09-20. The work these checks
+# actually do, timed in a clone of an installed set:
+#
+#   python3 tools/precedent_check.py      0.35s
+#   python3 tools/build_views.py --check  0.12s
+#
+# 0.47 seconds of work, billed under shape 2 as three whole minutes -- with
+# three checkouts, three Python setups and three runners worth of start-up
+# bought to carry it. Every lever tried before this one (concurrency,
+# branch scoping, the debounce window) reduced how OFTEN that was paid.
+# None of them reduced what one payment cost, and what one payment cost was
+# almost entirely per-job overhead.
+#
+# So: one job. The two checks keep their own named steps, which is all the
+# legibility the separate jobs were ever buying -- GitHub shows step names
+# on a run summary page (see "FOUR NAMED STEPS, NOT ONE" below, which
+# already made exactly this argument about steps within a job). The single
+# checkout takes `fetch-depth: 0`, which the suite needs and the views check
+# does not mind. Cost on a trigger that fires: one billed minute, down from
+# three; on a trigger that does not fire: nothing, same as before.
+#
+# The full incident history and measurements are in this repo own
+# spec/CI_MINUTES_PLAN.md, items 8-13. That is history worth reading if you
+# are deciding whether to deviate from this template shape; it is not
+# required reading to install it as shipped.
 
 name: Precedent checks
 
 on:
-  # pull_request (opened, synchronize) PLUS push scoped to the branch(es)
-  # that actually receive merges -- `main` below is the default a fresh
-  # install gets. CUSTOMIZE THE BRANCH LIST if this repo's own routine merge
+  # pull_request (opened, reopened, ready_for_review) PLUS push scoped to
+  # the branch(es) that actually receive merges -- `main` below is the
+  # default a fresh install gets.
+  #
+  # `synchronize` IS DELIBERATELY ABSENT (2026-09-21). It fires on EVERY
+  # push to a pull-request branch, which bills a run per intermediate
+  # commit to check a tree that is superseded minutes later. Measured in a
+  # real consuming repo: 38 runs in one day on a workflow that was already
+  # one job with `paths:` filters. What it trades is re-checking a PR as
+  # you fix it; you still get a check when it opens, when a draft becomes
+  # ready, and when it lands. Put it back for a check whose value depends
+  # on catching a bad state the moment it is pushed. CUSTOMIZE THE BRANCH LIST if this repo's own routine merge
   # target is not just `main`: Precedent's own equivalent workflows in this
   # repo list `[main, precedent-beta-v01]`, because routine work here lands
   # on precedent-beta-v01, not main (see GITHUB_ACTIONS.md). Whatever
@@ -94,8 +128,9 @@ on:
   # exactly the case branch-restriction-alone gives up on. `pull_request:`
   # restores it at close to zero added cost: a branch with NO open PR
   # triggers nothing here at all -- GitHub does not even evaluate this
-  # workflow, cheaper than debounce ever was. A branch WITH an open PR gets
-  # checked, debounced the same way repeated pushes to it already are.
+  # workflow, cheaper than any in-workflow guard could be. A branch WITH an
+  # open PR gets checked when it opens and when a draft becomes ready,
+  # with `concurrency:` below collapsing a burst into one surviving run.
   #
   # WHY THIS DOESN'T DOUBLE-BILL, which is the reason earlier versions of
   # this template ran push alone: a push run and a pull_request run test
@@ -107,10 +142,10 @@ on:
   # below -- none of which is ever a PR's own head branch -- a PR's branch
   # only ever gets pull_request events, and a named branch only ever gets
   # push events (a PR's merge commit landing on main is a push to main, not
-  # a synchronize on the now-closed PR branch). Nothing here fires twice for
+  # an event on the now-closed PR branch). Nothing here fires twice for
   # the same commit.
   pull_request:
-    types: [opened, synchronize]
+    types: [opened, reopened, ready_for_review]
   push:
     branches: [main]
   workflow_dispatch:
@@ -132,13 +167,12 @@ concurrency:
   cancel-in-progress: true
 
 # Read-only on purpose: this reports, and has no business holding a token
-# that could write. actions: read is for the debounce job below, which
-# lists this workflow's own past runs -- still no write access anywhere.
+# that could write. No `actions:` scope any more -- the debounce job that
+# needed it (to list this workflow own past runs) is gone, see the header.
 permissions:
   contents: read
-  actions: read
 
-# RUNNER, OVERRIDABLE PER REPO (2026-09-20). All three jobs below run on
+# RUNNER, OVERRIDABLE PER REPO (2026-09-20). The single job below runs on
 # `ubuntu-latest` unless this repo declares a `PRECEDENT_RUNNER` repository
 # variable (Settings -> Secrets and variables -> Actions -> Variables) --
 # e.g. `self-hosted`, for an adopter who already operates their own runner.
@@ -148,86 +182,14 @@ permissions:
 # can stand up on their behalf. spec/CI_MINUTES_PLAN.md item 6 has the
 # trade-offs; GITHUB_ACTIONS.md's "Controlling Actions Minutes" is where
 # this variable is documented alongside the levers that need no opt-in at
-# all (ci_workflows disabled by default, the debounce job, branch scoping).
+# all (ci_workflows disabled by default, branch scoping, one job per run).
 jobs:
-  # ONE job, so the "have we looked recently" decision is billed once. Every
-  # job below this one is gated with `needs: debounce` + `if:`, never a step
-  # inside a job that already started -- see the header comment for why
-  # that distinction is the entire point of this file's shape.
-  debounce:
-    name: Decide whether this push needs a fresh check
-    runs-on: ${{ vars.PRECEDENT_RUNNER || 'ubuntu-latest' }}
-    outputs:
-      skip: ${{ steps.debounce.outputs.skip }}
-    steps:
-      # No fetch-depth override here -- this job only reads identity.json
-      # out of the working tree, never git history, so the default shallow
-      # checkout is enough. Each check below takes its own full checkout
-      # when it actually runs.
-      - uses: actions/checkout@v4
-
-      # DEBOUNCE (2026-09-16, moved into its own job 2026-09-19, window
-      # tightened 360 -> 30 minutes the same day as the branches:[main]
-      # restriction above): a set pushed to constantly pays for the whole
-      # suite on every push even with nothing ever overlapping enough for
-      # concurrency above to cancel it. Reads `ci_debounce_minutes` from
-      # this set's own identity.json (default 30 minutes; 0 disables it; a
-      # TEAM set has no identity.json and always gets the default -- a
-      # known limit, not an oversight) and skips both checks below when the
-      # last COMPLETED run of this workflow on this branch finished inside
-      # that window. spec/CI_MINUTES_PLAN.md's item 4: this is the
-      # whole-catalogue advisory check, not a security backstop. The window
-      # was 6 hours while every branch was in scope; narrowed to 30 minutes
-      # once only main was, so main still gets checked promptly after a
-      # push lands rather than riding out most of a work day stale.
-      - name: Skip if checked recently (debounce)
-        id: debounce
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -eu
-          minutes="$(python3 - <<'PY'
-          import json, pathlib
-          try:
-              d = json.loads(pathlib.Path('identity.json').read_text())
-          except (OSError, ValueError):
-              d = {}
-          try:
-              v = int(d.get('ci_debounce_minutes', 30))
-          except (TypeError, ValueError):
-              v = 30
-          print(v)
-          PY
-          )"
-          if [ "$minutes" -le 0 ]; then
-            echo "ci_debounce_minutes: $minutes -- debounce off, running"
-            echo "skip=false" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          last="$(gh run list --workflow "${{ github.workflow }}" \
-                   --branch "${{ github.ref_name }}" --status completed \
-                   --limit 1 --json updatedAt --jq '.[0].updatedAt // empty' \
-                   2>/dev/null || true)"
-          if [ -z "$last" ]; then
-            echo "no prior completed run on this branch -- running"
-            echo "skip=false" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          elapsed=$(( ($(date -u +%s) - $(date -u -d "$last" +%s)) / 60 ))
-          if [ "$elapsed" -lt "$minutes" ]; then
-            echo "last completed run was ${elapsed}m ago, inside the " \
-                 "${minutes}m window -- skipping"
-            echo "skip=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "last completed run was ${elapsed}m ago, outside the " \
-                 "${minutes}m window -- running"
-            echo "skip=false" >> "$GITHUB_OUTPUT"
-          fi
-
+  # ONE job. Both checks below are steps in it, not jobs of their own, and
+  # there is no debounce job in front of them -- the header arithmetic is
+  # why. Adding a job back here costs a whole billed minute per trigger for
+  # as long as it stays.
   precedent-check:
-    name: precedent_check.py (whole suite)
-    needs: debounce
-    if: needs.debounce.outputs.skip != 'true'
+    name: Precedent checks (whole suite, and generated views)
     runs-on: ${{ vars.PRECEDENT_RUNNER || 'ubuntu-latest' }}
 
     steps:
@@ -391,55 +353,46 @@ jobs:
           fi
           echo "$summary"
 
-  views-drift:
-    name: Generated views match a fresh regeneration
-    needs: debounce
-    if: needs.debounce.outputs.skip != 'true'
-    runs-on: ${{ vars.PRECEDENT_RUNNER || 'ubuntu-latest' }}
-
-    # WHY THIS CHECK EXISTS (practice: cite-the-incident). Every set that
-    # vendors the engine generates AGENTS.md's loader block, MAP.md and
-    # GLOSSARY.md -- and until 2026-09-11 nothing checked any of them
-    # anywhere but in BestPractice itself, where deep-check.yml runs
-    # verify_harness.py. verify_harness.py is deliberately not vendored into
-    # a source set (precedent_vendor_engine.py says so in as many words), so
-    # the guard existed in exactly one repo out of all of them.
-    #
-    # What that cost, measured: an individual set's MAP.md sat three
-    # practices stale -- claiming 12 practice files while practices/ held
-    # 15 -- under a generated header saying a check was failing the build on
-    # exactly that. Nothing was failing. Nobody looked.
-    #
-    # PARTIALLY, BUT NOT WHOLLY, COVERED BY THE precedent-check JOB ABOVE.
-    # precedent_check.py's own generated-artifact-provenance check (binds
-    # this repo since BestPractice PR #261) runs build_views.py --check as a
-    # subprocess too, but only for MAP.md and GLOSSARY.md -- whole generated
-    # files, checked by their own stamp. AGENTS.md's generated LOADER BLOCK
-    # is a different shape (a hand-authored file with one generated
-    # section), and its own drift check lives in verify_harness.py, which is
-    # deliberately not vendored here. So this job is the ONLY thing in this
-    # repo that catches loader-block drift -- removing it would reopen
-    # exactly the incident above for the one view generated-artifact-
-    # provenance cannot see. Kept as its own job, not folded into the
-    # precedent-check job, so a loader-block drift keeps this check's own
-    # clear failure message instead of surfacing as a generic registry
-    # violation.
-    #
-    # IT GATES, IT DOES NOT FIX. Regenerating in CI would leave the branch's
-    # own diff wrong and put a runner bot in the authorship path that
-    # ci-commits-carry-identity exists to keep clean. The fix is one
-    # `python3 tools/build_views.py` on the branch, by whoever drifted it.
-    steps:
-      - name: Check out the pull request head
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
-          # fetch-depth left at the default: nothing here walks history.
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
+      # ----------------------------------------------------------------
+      # THE GENERATED-VIEWS CHECK STARTS HERE. It was its own job until
+      # 2026-09-20 and is now steps in this one; the header says why. It
+      # needs no checkout or Python setup of its own -- it reuses the ones
+      # above, which is most of what collapsing the job saved. Its own
+      # reasoning, unchanged:
+      #
+      # WHY THIS CHECK EXISTS (practice: cite-the-incident). Every set that
+      # vendors the engine generates AGENTS.md's loader block, MAP.md and
+      # GLOSSARY.md -- and until 2026-09-11 nothing checked any of them
+      # anywhere but in BestPractice itself, where deep-check.yml runs
+      # verify_harness.py. verify_harness.py is deliberately not vendored into
+      # a source set (precedent_vendor_engine.py says so in as many words), so
+      # the guard existed in exactly one repo out of all of them.
+      #
+      # What that cost, measured: an individual set's MAP.md sat three
+      # practices stale -- claiming 12 practice files while practices/ held
+      # 15 -- under a generated header saying a check was failing the build on
+      # exactly that. Nothing was failing. Nobody looked.
+      #
+      # PARTIALLY, BUT NOT WHOLLY, COVERED BY THE precedent-check JOB ABOVE.
+      # precedent_check.py's own generated-artifact-provenance check (binds
+      # this repo since BestPractice PR #261) runs build_views.py --check as a
+      # subprocess too, but only for MAP.md and GLOSSARY.md -- whole generated
+      # files, checked by their own stamp. AGENTS.md's generated LOADER BLOCK
+      # is a different shape (a hand-authored file with one generated
+      # section), and its own drift check lives in verify_harness.py, which is
+      # deliberately not vendored here. So this job is the ONLY thing in this
+      # repo that catches loader-block drift -- removing it would reopen
+      # exactly the incident above for the one view generated-artifact-
+      # provenance cannot see. Kept as its own job, not folded into the
+      # precedent-check job, so a loader-block drift keeps this check's own
+      # clear failure message instead of surfacing as a generic registry
+      # violation.
+      #
+      # IT GATES, IT DOES NOT FIX. Regenerating in CI would leave the branch's
+      # own diff wrong and put a runner bot in the authorship path that
+      # ci-commits-carry-identity exists to keep clean. The fix is one
+      # `python3 tools/build_views.py` on the branch, by whoever drifted it.
+      # ----------------------------------------------------------------
 
       - name: Decide what this repo generates
         id: layout

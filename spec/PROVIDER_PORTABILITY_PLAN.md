@@ -73,7 +73,7 @@ says as much: it is a one-line adapter, not the canonical source.
    something this repo runs on itself.
 2. **The archive-command practice, and — as of 2026-09-16, partially closed
    — session-text.** [practices/archive-command.md](../practices/archive-command.md)
-   still names Claude Code Remote MCP (Model Context Protocol) tool calls
+   still names Claude Code Remote's Model Context Protocol (MCP) tool calls
    directly in its rule text: `get_session`, `list_triggers`,
    `archive_session`, `unarchive_session`. There is no abstraction layer; a
    session on a provider without that MCP server cannot carry out this

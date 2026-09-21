@@ -48,12 +48,17 @@ Usage:
                                       # ~/.config/precedent/config.json is
                                       # read ahead of it anyway.
 
-  precedent_bootstrap_source.py --level team --name NAME --dest PATH \\
+  precedent_bootstrap_source.py --level shared --name NAME --dest PATH \\
       --approver "Full Name:github-handle"[,"Second Name:handle2"...]
-      [--write-repo-config PATH]     # merge the team source into
+      [--write-repo-config PATH]     # merge the shared source into
                                       # PATH/precedent.json (default: cwd)
+                                      # `--level team` is the pre-2026-09-18
+                                      # spelling and still reads, but every
+                                      # message this tool prints says
+                                      # "shared" -- so the two disagreed in
+                                      # the one place a new adopter looks.
 
-  precedent_bootstrap_source.py --verify PATH [--level individual|team]
+  precedent_bootstrap_source.py --verify PATH [--level individual|shared]
                                       # report whether an EXISTING set still
                                       # has the shape this tool gives a new
                                       # one; writes nothing. The level is read
@@ -151,7 +156,14 @@ HARNESS_HOOKS = ROOT / 'templates' / 'harness' / 'claude-code' / 'hooks'
 # need its own copy of each per level and the copies would drift; and
 # because _copy_skeleton() writes text files with default permissions,
 # while a hook that is not executable is a hook that silently never runs.
-SESSION_HOOKS = ('freshness-guard.sh', 'commit-identity.sh')
+SESSION_HOOKS = ('freshness-guard.sh', 'commit-identity.sh',
+                 # Wiring alone does not deliver a file: vendoring is gated
+                 # ON the wiring, so a set must also RECEIVE this hook at
+                 # creation or its first refresh is what finally copies it.
+                 # Named here for the same reason the other two are -- the
+                 # copy happens from the harness adapter, where the one
+                 # maintained version lives.
+                 'doc-lint-gate.sh')
 # The third hook a set gets, kept out of SESSION_HOOKS because it is the one
 # that is NOT a verbatim copy: it is instantiated from a .template with two
 # placeholders substituted, which is write_session_hook()'s job below.
@@ -189,27 +201,24 @@ INDIVIDUAL_SOURCE_HOOK_REL = (HARNESS_HOOKS_REL
 HARNESS_SETTINGS_REL = 'templates/harness/claude-code/settings.json'
 
 
-WORKFLOW_TEMPLATES = (
-    # (template under templates/github-actions/, path in the new set, why a
-    # set without it is under-gated.)
-    #
-    # ONE ENTRY, NOT TWO, since 2026-09-19: this used to be
-    # views-drift.yml.template and precedent-check.yml.template separately,
-    # each its own workflow file with its own debounce step. Merged the same
-    # day precedent-check.yml.template's own header explains why (two
-    # workflows billed two job-minutes on a debounced push regardless of
-    # what the debounce window decided; one workflow with the debounce
-    # decision in its own gating job bills one). The views-drift CHECK
-    # still exists -- it is a job inside precedent-check.yml now, not a
-    # dropped feature. spec/CI_MINUTES_PLAN.md item 9 has the full account.
-    ('precedent-check.yml.template', '.github/workflows/precedent-check.yml',
-     'nothing runs the CHECK SUITE here at all -- a set gated only on the '
-     'one or two rules it hand-wired a workflow for is silent on the rest '
-     'of its own catalogue, and nothing checks this set\'s generated views '
-     'for drift on a pull request either -- the vendored provenance check '
-     'covers the same three views since binds_publishers, but only when '
-     'somebody runs it by hand'),
-)
+WORKFLOW_TEMPLATES = ()
+# EMPTY SINCE 2026-09-21: a practice source installs no CI workflow at all
+# (practice: source-sets-run-no-ci; Morgan, strength: decided -- "the sets
+# don't need CI ... That could be the default rule, for future individual
+# and shared source repos").
+#
+# What used to be here, and why each entry is gone rather than moved:
+# precedent-check.yml ran the check suite, and leak-gate.yml scanned the
+# tracked tree. Both re-ran, on a billed runner, tools that the session
+# pushing the change had already run locally -- the deep check gates a push
+# and the commit gate had already run doc_lint. The measurement that ended
+# it is in the practice: 127 of 143 billed minutes on 2026-09-21 came from
+# four sets running exactly these two, against twelve consuming repos
+# costing 16 minutes between them.
+#
+# The third field each entry carried was "why a set without it is
+# under-gated". That question now has one answer for every set, so it lives
+# in the practice rather than per row.
 # Same (template, dest path) pairs precedent_vendor_engine.CI_WORKFLOW_
 # TEMPLATES['source'] declares for refresh()'s own use -- checked here,
 # once, at import time, rather than trusted to stay in sync by eye: this
@@ -545,6 +554,29 @@ def _install_session_hooks(dest, base_branch='main'):
                         {'type': 'command',
                          'command': '$CLAUDE_PROJECT_DIR/.claude/hooks/freshness-guard.sh pre-write ' + base_branch},
                     ],
+                }, {
+                    # THE MARKDOWN COMMIT GATE, wired from the start so a new
+                    # set never has the gap the four existing ones had.
+                    #
+                    # The lint left GitHub Actions on 2026-09-21 because this
+                    # hook replaced it. Vendoring is gated on wiring, so a set
+                    # that does not wire it never receives the file -- and a
+                    # set created before this line had to be hand-edited to
+                    # break that loop, which is a person doing by hand what
+                    # nothing automates
+                    # (todo-2026-09-21-a-new-hook-cannot-reach-an-installed-
+                    # consumer.md). A set created from here on is wired on
+                    # day one and the refresh delivers the file unasked.
+                    #
+                    # Its own matcher rather than sharing the block above:
+                    # this one only ever needs Bash (it inspects `git commit`),
+                    # and widening the freshness guard's matcher or narrowing
+                    # this one would make each wrong for the other.
+                    'matcher': 'Bash',
+                    'hooks': [
+                        {'type': 'command',
+                         'command': '$CLAUDE_PROJECT_DIR/.claude/hooks/doc-lint-gate.sh'},
+                    ],
                 }],
             },
         }
@@ -816,6 +848,17 @@ def verify(level, path):
                            "`<!-- BEGIN GENERATED: precedent-loader -->` "
                            "marker, so build_views.py has nowhere to write "
                            "the loader block and fails")
+
+    # The Claude Code stub. Reported as missing rather than silently
+    # tolerated because its absence is invisible from inside a session: the
+    # harness falls back to AGENTS.md today, so a set with no CLAUDE.md looks
+    # identical to one that has it until the day that default changes.
+    if not (path / 'CLAUDE.md').is_file():
+        missing.append("CLAUDE.md (the Claude Code adapter stub, written by "
+                       "this tool's bootstrap since 2026-09-20; without it "
+                       "the set's AGENTS.md loads only via the harness's "
+                       "AGENTS.md fallback -- add a file whose body is "
+                       "`@AGENTS.md`)")
     return missing + _malformed(level, path)
 
 
@@ -1199,6 +1242,36 @@ def _write_instructions_and_views(dest, level, name):
             f'<!-- END GENERATED -->\n',
             encoding='utf-8')
         written.append(agents)
+
+    # THE CLAUDE CODE STUB, added 2026-09-20, and a set needs it for the same
+    # reason a consuming repo does. templates/harness/README.md's adapter
+    # table frames `CLAUDE.md` -> `@AGENTS.md` as wiring a CONSUMER installs,
+    # so no set ever got one: all four of the sets alive on that date had
+    # AGENTS.md and no CLAUDE.md. It worked only because Claude Code falls
+    # back to AGENTS.md where a project has no CLAUDE.md of its own
+    # (2.1.278, `instructionFiles` defaults to "claude-md-or-agents-md") --
+    # a harness default, changeable by the harness, and not something a set's
+    # rules loading at all should rest on.
+    #
+    # The universal catalogue does NOT travel through this file. The
+    # SessionStart hook renders and injects it; an @import of
+    # .precedent/SESSION_PRACTICES.md here would load a stale copy where the
+    # hook had not run yet and a duplicate where it had
+    # (spec/PACK_SESSION_DOES_NOT_LOAD_UNIVERSAL.md).
+    claude_md = dest / 'CLAUDE.md'
+    if not claude_md.exists():
+        claude_md.write_text(
+            '<!-- Claude Code adapter: CLAUDE.md is the file Claude Code\n'
+            '     auto-loads; the canonical instructions live in AGENTS.md\n'
+            '     (harness-neutral), and the @import below pulls it into\n'
+            '     context natively. Keep repo-specific content in AGENTS.md,\n'
+            '     not here. The universal catalogue arrives separately, from\n'
+            '     the SessionStart hook -- see BestPractice\'s\n'
+            '     spec/PACK_SESSION_DOES_NOT_LOAD_UNIVERSAL.md. -->\n\n'
+            '@AGENTS.md\n',
+            encoding='utf-8')
+        written.append(claude_md)
+
     bv = dest / 'tools' / 'build_views.py'
     if bv.is_file():
         # -B: the generator runs INSIDE the set, and a tools/__pycache__/ it

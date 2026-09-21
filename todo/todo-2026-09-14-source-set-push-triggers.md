@@ -21,8 +21,8 @@ closed:            null
     nothing.** Upstream's half landed 2026-09-14 in
     [PR #313](https://github.com/alex137/BestPractice/pull/313):
     [templates/github-actions/precedent-check.yml.template](../templates/github-actions/precedent-check.yml.template)
-    and
-    [templates/github-actions/views-drift.yml.template](../templates/github-actions/views-drift.yml.template)
+    and templates/github-actions/views-drift.yml.template (a job inside
+    precedent-check.yml.template since 2026-09-19)
     now carry `push:` with no branch filter, so a set bootstrapped or
     refreshed from here on gets it. **The installed copies in the four
     existing sets do not**, and a refresh does not rewrite a workflow it did

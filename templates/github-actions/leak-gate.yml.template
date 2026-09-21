@@ -1,0 +1,287 @@
+# Install as .github/workflows/leak-gate.yml in a dependent repository or
+# a practice-set source. Runs tools/leak_gate.py --structural-only (never
+# the vocabulary layer -- this runner has no private blocklist and never
+# will, same reasoning as BestPractice's own .github/workflows/leak-gate.yml,
+# which this template is derived from).
+#
+# FIRST TIME THIS HAS BEEN VENDORED AT ALL (2026-09-20, spec/CI_MINUTES_PLAN.md
+# item 12). Until now leak-gate.yml existed only in this repo, unconditionally
+# on every branch, justified by this repo being PUBLIC: "a leak on any branch
+# is already published" (item 2b). That reasoning does not transfer to a
+# private dependent repo as-is -- the audience of an early leak there is
+# whoever already has repo access, not the public internet -- so this
+# template does not just copy BestPractice's own scope. It reads this repo's
+# own declared visibility and narrows accordingly.
+#
+# WHY A RUNTIME CHECK, NOT A NARROWED `on: push: branches:` LIST, THE WAY
+# doc-lint.yml.template AND precedent-check.yml.template DO IT. Those two
+# templates can hardcode their branch list because GitHub Actions evaluates
+# `on:` before any job runs, from the YAML alone -- it cannot read this
+# repo's config at that point, so "scope the trigger by what precedent.json
+# says" is not an option the platform offers. Reading visibility has to
+# happen inside a job, which means the workflow is triggered on every push
+# regardless and decides once it is running.
+#
+# THAT DECISION IS A STEP, NOT A JOB (corrected 2026-09-21; the jobs: block
+# below has the arithmetic). It was its own job for one day, on the
+# reasoning that a job whose `if:` is false is never billed -- true, and
+# beside the point, because the job that DECIDES is billed like any other.
+# A deciding job plus a conditional scan costs `2 - S`; one job that decides
+# in a step costs `1`. The step-level skip does still bill this job's own
+# minute, which item 8 measured and which no in-workflow check can avoid --
+# that is what `on: push: branches:` is for, and why the note below tells an
+# adopter who wants zero to narrow the trigger themselves.
+#
+# THE TRADE, STATED PLAINLY, NOT LEFT IMPLICIT. On a repo declaring
+# `"visibility": "private"`, a push to any branch other than the declared
+# `base_branch` (default `main`) skips the real scan -- caught only if the
+# local pre-push hook ran (templates/hooks/pre-push's own header calls that
+# hook "the complete gate" for exactly this reason: it can load a private
+# blocklist this server-side runner never can). A secret pushed to a
+# throwaway branch and never merged is not caught here until that branch
+# either reaches `base_branch` or is scanned by a `workflow_dispatch` run.
+# This is the same trade spec/CI_MINUTES_PLAN.md item 8 already made for four
+# real repos when branch volume was the measured cost driver -- generalized
+# here into a template instead of a one-off hand edit. A `pull_request:`
+# event is NEVER skipped by this logic, whatever branch it is against --
+# that is the moment a fork's contribution or a feature branch's merge
+# candidate actually gets scanned before landing, and it is also how this
+# template still catches a PR from a fork (a fork's pushes do not fire
+# `push:` in the repo it targets at all).
+#
+# ON A PUBLIC REPO, nothing above changes anything: the gate step below
+# evaluates true on every push to every branch, matching BestPractice's own
+# leak-gate.yml exactly, because a leak on a public repo is already
+# published the instant it is pushed, whichever branch it landed on.
+#
+# WHERE visibility COMES FROM: GITHUB, NOT THIS REPO'S MANIFEST (changed
+# 2026-09-21 -- the scope job's own comment has the incident). The job reads
+# `github.event.repository.private`, which GitHub supplies and no file in
+# the tree can contradict. A `visibility` declared in
+# `precedent.json`/`precedent-source.json` is still read and still reported,
+# but it cannot NARROW the scan: where they disagree the job warns, once per
+# disagreeing file, and uses GitHub's answer. This is not belt-and-braces --
+# a practice set's `precedent-source.json` always declares
+# `"visibility": "private"` (precedent_bootstrap_source.py's
+# `_write_source_manifest` writes it unconditionally, on the assumption that
+# a practice set's own text is never public), and on 2026-09-21 two real
+# practice sets that are PUBLIC on GitHub carried exactly that declaration.
+#
+# BOTH FILES ARE READ, because a repo can carry both. An earlier version of
+# this job read `precedent.json` OR, failing that, `precedent-source.json`,
+# on the premise that a practice set has no `precedent.json`. Measured
+# across four real practice sets on 2026-09-21: three carry both, each with
+# its own `visibility`, and the two that needed correcting needed it in
+# BOTH files. A warning that names one file leaves the other wrong.
+#
+# WHERE base_branch COMES FROM: the manifest, and only the manifest. A
+# consumer repo declares it in `precedent.json`; a practice set has no field
+# for it and gets "main". GitHub's context cannot supply this one --
+# `default_branch` is the repository's configured default, which is
+# deliberately NOT the branch routine work lands on in every repo (see
+# AGENTS.md's own routing rule), so reading it would narrow the scan on
+# exactly the branch that matters.
+on:
+  push:
+  # `synchronize` REMOVED 2026-09-21, and here it was pure duplication
+  # rather than a trade. This workflow's `push:` is unrestricted -- every
+  # push to every branch -- and a push to a branch with an open pull
+  # request fires BOTH `push` and `pull_request.synchronize`. So every
+  # such push ran this gate twice on the identical tree.
+  #
+  # What `pull_request:` is still here FOR is the fork case: a fork's
+  # pushes do not fire `push` in the repository being contributed to, so
+  # without it a contributed branch would reach this repo unscanned. That
+  # case needs the PR event and is unaffected by dropping synchronize --
+  # `opened` and `ready_for_review` both fire for a fork.
+  pull_request:
+    types: [opened, reopened, ready_for_review]
+  workflow_dispatch:
+
+# A second push on the same ref before this finishes cancels the first, so
+# an overlapping pair bills one job-minute instead of two. Added 2026-09-21:
+# every other template here already had one and this did not, which is the
+# kind of gap nobody finds by reading -- a harness case asserting the
+# installed workflow carries a concurrency block is what surfaced it.
+#
+# NOT cancel-in-progress on the branch that receives merges? It is safe
+# here: this gate reads the tree and writes nothing, so a cancelled run has
+# no half-finished state to leave behind, and the run that replaced it
+# scans a strictly newer tree.
+concurrency:
+  group: leak-gate-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  # ONE JOB, NOT TWO (2026-09-21, practice: cite-the-incident). This file
+  # shipped on 2026-09-20 with a separate `scope` job that decided whether
+  # the real `leak-gate` job ran, gated by `needs:` + `if:`, on the
+  # reasoning that a job whose `if:` is false is never billed. That is true
+  # of the SKIPPED job and misses that the DECIDING job is billed like any
+  # other. With S the fraction of triggers it skips:
+  #
+  #   scope job + conditional scan:  S x 1 + (1-S) x 2  =  2 - S
+  #   one job that decides in a step:                         1
+  #
+  # Worse for every S below 1 -- the identical arithmetic that retired the
+  # debounce job from the other two templates the day before, reproduced
+  # here in the one file deliberately left alone because it is a security
+  # gate. Being a security gate is a reason not to WEAKEN it; it was never
+  # a reason to overpay for it.
+  #
+  # And the two visibility cases fail in opposite directions without either
+  # paying: on a PUBLIC repo the decision always comes back "scan", so the
+  # job could not change the answer; on a PRIVATE repo it can, and that is
+  # precisely where minutes are metered.
+  #
+  # So: one job, and the decision is a STEP inside it. An early step that
+  # exits cleanly still bills this job's own minute -- the same limit
+  # spec/CI_MINUTES_PLAN.md item 8 measured -- but one minute is what the
+  # old shape's CHEAPEST case cost, and half its scanning case.
+  #
+  # TO PAY NOTHING on a branch you do not want scanned, narrow `on: push:`
+  # with a `branches:` list, which GitHub evaluates before allocating any
+  # runner. That is the only free lever, and it is left to the adopter
+  # ON PURPOSE: a hardcoded list is a list somebody has to keep correct, and
+  # a stale one under-scans silently. The runtime check below is the safe
+  # default; the trigger filter is the cheap one. spec/BILLING_FLOOR.md has
+  # the full reasoning.
+  leak-gate:
+    name: Leak gate (structural)
+    runs-on: ${{ vars.PRECEDENT_RUNNER || 'ubuntu-latest' }}
+    steps:
+      # No fetch-depth override -- nothing here walks git history. The scan
+      # reads the tracked tree at this ref.
+      - uses: actions/checkout@v4
+
+      # GITHUB DECIDES VISIBILITY, NOT THE MANIFEST (2026-09-21, practice:
+      # cite-the-incident). This step used to read `visibility` out of
+      # precedent.json/precedent-source.json alone, and item 12 claimed
+      # "every failure mode resolves to public/main, the safe direction,
+      # never a silent under-scan". That was true of MISSING and MALFORMED
+      # config and false of config that is confidently WRONG, which is not
+      # a hypothetical: measured 2026-09-21, two practice sets that are
+      # public on GitHub both declared `"visibility": "private"`, because
+      # precedent_bootstrap_source.py writes that string into every
+      # precedent-source.json it creates and nothing ever revisits it. On
+      # those repos this gate would have skipped scanning every
+      # working-branch push -- on a PUBLIC repo, where a leaked secret is
+      # published to the world the instant it is pushed -- and reported
+      # green doing it. Exactly the under-scan the claim ruled out.
+      #
+      # `github.event.repository.private` is supplied by GitHub itself, not
+      # by a file in the tree, so it cannot be stale or wrong. It is
+      # authoritative and the manifest is a declaration, so GITHUB WINS on
+      # any disagreement, and a disagreement resolves toward scanning MORE.
+      # The manifest is still read, for `base_branch` (which GitHub's
+      # context cannot supply -- `default_branch` is the repo's default,
+      # which AGENTS.md's own routing rule says is deliberately NOT the
+      # branch work lands on here) and as a second vote that can only ever
+      # widen the scan, never narrow it.
+      - name: Read this repo's visibility (from GitHub) and base branch
+        id: scope
+        env:
+          # Empty string when the context is somehow absent; treated as
+          # public below, which scans everything.
+          GH_PRIVATE: ${{ github.event.repository.private }}
+        run: |
+          set -eu
+          python3 - <<'PY' >> "$GITHUB_OUTPUT"
+          import json, os, pathlib
+
+          # BOTH MANIFESTS, NOT WHICHEVER COMES FIRST (2026-09-21). This
+          # read used to be `if precedent.json: ... elif
+          # precedent-source.json: ...`, on the stated premise that "a
+          # practice-set SOURCE repo has no precedent.json". That premise is
+          # false, measured across four real practice sets the same day:
+          # three carry BOTH files, each declaring its own `visibility`, and
+          # they can disagree with each other. The `elif` meant the source
+          # manifest's declaration was silently unread in exactly the repos
+          # it describes, and a warning naming one file left the other
+          # wrong. Read both; report every file that disagrees.
+          declared = {}
+          base_branch = None
+
+          for name, default in (('precedent.json', None),
+                                ('precedent-source.json', 'private')):
+              path = pathlib.Path(name)
+              if not path.exists():
+                  continue
+              try:
+                  d = json.loads(path.read_text())
+              except (OSError, ValueError):
+                  d = {}
+              v = d.get('visibility', default)
+              if v is not None:
+                  declared[name] = v if v in ('public', 'private') else 'public'
+              # base_branch is a consumer-manifest field; a source set has
+              # none and falls through to the default below.
+              if base_branch is None:
+                  b = d.get('base_branch')
+                  if isinstance(b, str) and b:
+                      base_branch = b
+
+          if not base_branch:
+              base_branch = 'main'
+
+          # GitHub's own answer, and it outranks the file. Anything that is
+          # not literally the string 'true' -- 'false', '' when the context
+          # is missing, or any surprise value a future runner emits --
+          # resolves to public, which scans every branch.
+          gh_private = os.environ.get('GH_PRIVATE', '').strip().lower()
+          actual = 'private' if gh_private == 'true' else 'public'
+
+          for name, value in sorted(declared.items()):
+              if value != actual:
+                  print(
+                      f'::warning file={name}::{name} declares '
+                      f'"visibility": "{value}" but GitHub reports this repo '
+                      f'is {actual}. Using GitHub. Correct it here -- other '
+                      f'tooling reads this field and gets no warning.'
+                  )
+
+          print(f'visibility={actual}')
+          print('declared_visibility='
+                + (','.join(f'{k}={v}' for k, v in sorted(declared.items()))
+                   or 'none'))
+          print(f'base_branch={base_branch}')
+          PY
+
+      # NEVER skip a pull_request event, whatever branch it targets or comes
+      # from -- see the header comment. Only a `push` to a private repo's
+      # non-primary branch is the case this narrows.
+      - name: Decide whether the real scan runs
+        id: gate
+        env:
+          EVENT: ${{ github.event_name }}
+          REF_NAME: ${{ github.ref_name }}
+          VISIBILITY: ${{ steps.scope.outputs.visibility }}
+          BASE_BRANCH: ${{ steps.scope.outputs.base_branch }}
+        run: |
+          set -eu
+          if [ "$EVENT" != "push" ] || [ "$VISIBILITY" != "private" ] || \
+             [ "$REF_NAME" = "$BASE_BRANCH" ]; then
+            echo "scanning (visibility=$VISIBILITY, event=$EVENT, ref=$REF_NAME, base=$BASE_BRANCH)"
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "private repo, push to '$REF_NAME' (not '$BASE_BRANCH') -- " \
+                 "skipping the server-side scan; the local pre-push hook is " \
+                 "this branch's only gate until it reaches $BASE_BRANCH"
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set up Python
+        if: steps.gate.outputs.run == 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # --structural-only, by name and on purpose. This runner has no private
+      # blocklist and never will, so the vocabulary layer cannot run here --
+      # same reasoning as BestPractice's own leak-gate.yml.
+      - name: Run the leak gate over the tracked tree (structural half only)
+        if: steps.gate.outputs.run == 'true'
+        run: python3 tools/leak_gate.py --structural-only

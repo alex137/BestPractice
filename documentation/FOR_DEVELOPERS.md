@@ -54,7 +54,7 @@ is spelled out in full at the link:
    subject matter rather than copied verbatim: `AGENTS.md`, `MAP.md`,
    `TODO.md`, `GLOSSARY.md`, `GETTING_STARTED.md`, the PR template, the
    `.gitignore` baseline, and the harness adapter(s) from
-   [templates/harness/](../templates/harness/) for whichever assistant
+   [templates/harness/](../templates/harness/) for whichever AI Assistant
    will work the repo. `local/practices/project-voice.md` (a repo-local
    practice, not a plain document) and `STYLEGUIDE.md` are the exception:
    both ship near-empty and **stay that way** — see "Optional, and
@@ -96,7 +96,7 @@ an upgrade or a migration:
   document into the repo.
 
 Both stay local to the project and are never exported upstream. **Fill
-either in whenever you want by asking your assistant** — *"help me fill in
+either in whenever you want by asking your AI Assistant** — *"help me fill in
 my project's voice"* — and a section left `<undecided>` is a real answer, not a gap.
 The same goes for anything else that would refine a working project rather
 than make it work: it is a later conversation by design, not an oversight.
@@ -145,23 +145,23 @@ defines it.
 
 **Not technical, or handing this to someone who isn't?**
 [SETUP.md](../SETUP.md) runs the same install as a conversation: the
-administrator pastes it to their assistant and answers three questions.
+administrator pastes it to their AI Assistant and answers three questions.
 
-## All Interaction Happens Through Chat or Voice With an Assistant
+## All Interaction Happens Through Chat or Voice With an AI Assistant
 
 You don't edit the project's files directly, and running the practice
 tooling by hand isn't the normal way of working here. Connect the
-repository to a large language model (LLM) assistant of your choice —
-Claude Code is the best-supported (*as of 2026-09*); other assistants have
+repository to a large language model (LLM) AI Assistant of your choice —
+Claude Code is the best-supported (*as of 2026-09*); other AI Assistants have
 supported paths, see [MOBILE.md](MOBILE.md) — and talk to it about the
 work. The
-assistant reads and writes the repository, runs the checks, and drafts
+AI Assistant reads and writes the repository, runs the checks, and drafts
 changes for review. Every session starts by reading the repo's own
 instructions file (`AGENTS.md`), so it already knows which practices are
 in force before you say anything.
 
 *This repo expects no files to be touched directly — all interaction
-happens mediated by the AI assistant the repo is attached to. The code
+happens mediated by the AI Assistant the repo is attached to. The code
 and technical descriptions below exist only to clarify how it works.*
 
 ## Four Levels, Each Just Another Repo
@@ -190,6 +190,46 @@ every override is reported rather than applied silently.
 - **Repo-local** — practices that live inside the project repository
   itself, at a `practices/` directory named `local`, for rules specific to
   that one project only.
+
+### Make Your Own — The Tools Are Already in Your Repo
+
+**Two of those four levels are yours to create, and you are encouraged to.**
+If you keep writing the same rule into project after project, that rule
+wants to be an **individual** set. If your team keeps re-agreeing the same
+convention in review, that wants to be a **shared** set (`--level team` is
+the old spelling and still reads).
+
+**Which of the two, decided by one question: do you want this rule in
+EVERY project you touch?** Your individual set resolves through your own
+machine, not through any project's `precedent.json`, so everything in it
+follows you everywhere — that is what it is for, and it is why a rule you
+want in some projects and not others does not belong there. That rule
+wants a shared set, declared per project. A shared set with exactly one
+reader is an ordinary and correct thing to have: "shared" names the
+mechanism, not an obligation to hand it to anybody.
+[SHARED_PRACTICE_SETS.md](SHARED_PRACTICE_SETS.md) is the whole subject —
+naming, cost, private sets in public projects, and why publishing yours is
+worth doing. Either one is a small
+git repository you own, and anything in it applies everywhere you declare
+it — write the rule once, get it in every project.
+
+**You do not need anything from upstream to start.** Since 2026-09-21
+`tools/precedent_bootstrap_source.py` ships with the engine into every
+project that installs Precedent, so the tool that creates a practice set is
+already sitting in your own `tools/` directory:
+
+```
+python3 tools/precedent_bootstrap_source.py --help
+```
+
+Then declare it in the project's `precedent.json` `sources` list, the same
+way the universal library is declared, and your sessions resolve it
+alongside everything else.
+
+**A set is worth making long before it is impressive.** Three rules you are
+tired of repeating is a good set. The catalogue you are reading grew that
+way, one practice at a time, each one written down the first time somebody
+got it wrong twice.
 
 Every level except repo-local is a genuinely separate git repository,
 resolved live into the project rather than copied in — a team or
@@ -235,12 +275,12 @@ edit or a copy-and-delete (see [spec/MOVING_PRACTICES.md](../spec/MOVING_PRACTIC
 
 ## Walkthrough: Turning a Habit Into a Practice
 
-This is the pipeline underneath "your assistant notices and proposes a
-rule." Four stages, in order, and the commands your assistant actually
+This is the pipeline underneath "your AI Assistant notices and proposes a
+rule." Four stages, in order, and the commands your AI Assistant actually
 runs at each one:
 
 1. **Raise it as a candidate.** Say "from now on, always X" (or the
-   assistant notices a repeated correction). It runs
+   AI Assistant notices a repeated correction). It runs
    `precedent_candidate.py create` at the level the idea belongs to:
    ```
    python3 tools/precedent_candidate.py create \
@@ -295,7 +335,7 @@ Three roles, and each is a list in a file rather than a label on a person
 
 - **Collaborator** — anyone invited to the project repository with GitHub's
   Write role. They write, change and merge the project's content, through
-  their assistant, with `Go merge`.
+  their AI Assistant, with `Go update`.
 - **Maintainer** — named under `maintainers` in the project's
   `precedent.json`. Their review is required before a change to the
   machinery lands: `.github/`, `.claude/`, `tools/`, the vendored catalogue,
@@ -353,9 +393,9 @@ has to say yes?*
 
 ## How Enforcement Works
 
-Some practices are Rules an assistant is expected to read and follow —
+Some practices are Rules an AI Assistant is expected to read and follow —
 loaded into context when the work at hand matches the practice's stated
-occasion. Nothing structurally stops an assistant from missing one; this
+occasion. Nothing structurally stops an AI Assistant from missing one; this
 channel is advisory. A few concrete commands for working with it day to
 day:
 

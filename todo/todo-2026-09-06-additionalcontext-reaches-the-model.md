@@ -39,6 +39,29 @@ closed:            null
     several such edits) is itself the answer, and should be recorded here
     either way rather than left unconfirmed indefinitely.
 
+    **NARROWED 2026-09-20, from the shipped CLI rather than from a live
+    turn.** Claude Code 2.1.278's own hook documentation, read out of the
+    installed binary, states it twice: *"`additionalContext` - Text injected
+    into model context"* and *"Exit code 0 - JSON additionalContext shown to
+    Claude"*. That is the vendor saying what the public reference left
+    unstated on 2026-09-03, and it is enough to build on — the caution
+    recorded here had, in the two weeks it stood, kept the field out of the
+    one place it was most needed
+    ([spec/PACK_SESSION_DOES_NOT_LOAD_UNIVERSAL.md](../spec/PACK_SESSION_DOES_NOT_LOAD_UNIVERSAL.md)
+    cause 1). It is not the same as watching a model turn use it, so the item
+    stays open.
+
+    **The test plan no longer needs setting up.** Since 2026-09-20 every
+    session rooted in a practice set is the experiment:
+    `bootstrap/precedent-universal-catalogue.sh` hands the whole universal
+    catalogue back as `additionalContext`, and a set's own tracked block
+    carries none of it. So a session in a set that answers `Three Things`,
+    `My options` or `Vocabulary` **from context, without opening
+    `.precedent/SESSION_PRACTICES.md`**, has confirmed delivery; one that
+    reaches for the file first, or does not know the command, has refuted it.
+    Record whichever happens here rather than leaving this open indefinitely.
+    **Disposition:** wait
+
 ## How It Closes
 
 (not yet stated by the migration -- a session filling this in should read ## What and say what has to be true for `status` to become `done`.)

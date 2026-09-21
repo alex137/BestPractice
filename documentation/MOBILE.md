@@ -27,10 +27,10 @@ There is nothing else to set up, and the same works on desktop.
 
 ## Reviewing Changes From Your Phone
 
-Whichever tool made a change, checking it is the same: the assistant's
+Whichever tool made a change, checking it is the same: the AI Assistant's
 reply ends with links to the files it touched — the proposed version and
 the current shared version. Open them in the GitHub app or your browser,
-then tell the assistant to make the change live, or ask for adjustments.
+then tell the AI Assistant to make the change live, or ask for adjustments.
 Nothing becomes shared until it is approved, and the project's automatic
 checks must pass first.
 
@@ -65,17 +65,17 @@ prepares it for you.
 The Gemini CLI is a desktop tool; installed projects include an adapter
 that points it at the project's instructions. *(As of 2026-08, a
 phone-based Gemini workflow is unverified.)* Gemini app users should
-follow the "Any other assistant" line below for reading and questions,
+follow the "Any other AI Assistant" line below for reading and questions,
 and route changes through a coding agent.
 
 ## Grok
 
 **Two different things share the name, and this repo's workflow only
 concerns one of them.** The Grok app/chat on your phone is a
-disconnected assistant unless it has its own repository connector —
+disconnected AI Assistant unless it has its own repository connector —
 paste in the documents you're discussing, decide what you want changed,
 and hand the change request to a teammate with a coding agent, the same
-as any assistant with no repository access.
+as any AI Assistant with no repository access.
 
 **Grok Build** (`xai-org/grok-build`) is a separate, real terminal coding
 agent — like Codex CLI or Gemini CLI, not a phone app — with its own
@@ -86,9 +86,9 @@ adapter says plainly what's confirmed from documentation versus what
 still needs a real test, and that test is what would move this note from
 "documented" to "verified."
 
-## Any Other Assistant
+## Any Other AI Assistant
 
-Any assistant that can read your repository understands the same opener:
+Any AI Assistant that can read your repository understands the same opener:
 
 > Work on `OWNER/REPOSITORY`. Start with its README and follow the
 > repository's agent instructions before answering.
@@ -125,7 +125,7 @@ question and copy only the opener.
 
 If the Shortcut approach proves too clumsy in practice, the next step is
 a small companion app — pick a repository, type the task, open the
-assistant with the prompt prepared. That is real app development rather
+AI Assistant with the prompt prepared. That is real app development rather
 than documentation, and is tracked as an open item in [TODO.md](../TODO.md).
 
 ## Even Lighter: A Text Replacement
@@ -159,14 +159,14 @@ from
 ```
 
 The agent-entry text is deliberately an HTML comment: invisible on the
-rendered page, but present in the file's source, which is what assistants
-read. So the expected path behind the opener is: README → `AGENTS.md`
-(the working rules) → `MAP.md` (where the knowledge lives) → any
-task-specific instructions. Do not duplicate the agent contract in the
-README; `AGENTS.md` remains authoritative.
+rendered page, but present in the file's source, which is what AI
+Assistants read. So the expected path behind the opener is: README →
+`AGENTS.md` (the working rules) → `MAP.md` (where the knowledge lives) →
+any task-specific instructions. Do not duplicate the agent contract in
+the README; `AGENTS.md` remains authoritative.
 
-For a new assistant, an unfamiliar connector, or sensitive work, use the
-defensive form of the opener:
+For a new AI Assistant, an unfamiliar connector, or sensitive work, use
+the defensive form of the opener:
 
 > Work on `OWNER/REPOSITORY` as a Precedent agent. Read its README and
 > root `AGENTS.md` before answering, then use `MAP.md` to locate relevant

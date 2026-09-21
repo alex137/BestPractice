@@ -15,7 +15,14 @@ in_force_at: null
 supersedes:  []
 overrides:   null
 added:       "2026-09-18"
-approved_by: "Morgan, 2026-09-18"
+approved_by: "Morgan, 2026-09-18. Extended 2026-09-20, on instruction to
+  this practice, My options and Prompt Please together: a proposed solution
+  that is itself a cross-repo change must account for the upstream template
+  it comes from and say whether it needs a clean rollout to the repos
+  vendoring this one. Extended again 2026-09-20, same instruction to all
+  three commands: when the proposed solution belongs in a different
+  session, say the seed root and the repos to attach in plain prose in the
+  reply, not only inside a report or block meant for someone else to read."
 strength:    decided
 ---
 ## Rule
@@ -30,6 +37,16 @@ situation is currently in front of the session:
    - what the situation or issue is;
    - the context and the sequence of events that led to it;
    - the proposed solution.
+   - **when the proposed solution would itself change something this repo
+     ships to other repos** -- a practice file, a template, a hook, a
+     vendored engine file, the same scope
+     [vendor-rollout-disclosed](vendor-rollout-disclosed.md) already names
+     -- the original template or mechanism in the upstream repo that
+     organizes those other repos, not just the symptom in the repo the
+     report was written in, and whether the fix needs a clean rollout
+     through an updated template and
+     [vendor-update-runbook](vendor-update-runbook.md)'s mechanism to reach
+     them, when that's relevant.
 
    Put in everything that reader would need and nothing they'd have to ask
    a second time for. This is the opposite of a terse summary: completeness
@@ -38,6 +55,14 @@ situation is currently in front of the session:
    is currently working in -- never a separate report-tracking repo -- and
    push it there.
 3. Give the person the link to the committed file on that branch.
+4. **When the proposed solution needs a repository this session cannot
+   reach, or plainly belongs in a different session**, say so in the reply
+   itself, separate from the committed report and not fenced: which
+   repository has to be the primary seed root for that session, and which
+   others, if any, need to be attached alongside it -- *"Open a new
+   session, root it in \<repository\>, attaching \<repositories, or
+   'none'\>."* The report is the durable record; this sentence is what
+   gets the person moving on it now.
 
 ## Detail
 **Where the file goes** follows whatever convention the repo already has
@@ -86,6 +111,25 @@ rather than re-describing the request whenever he needed it.
 when Morgan coined that command and drew the boundary himself: this command
 is bigger and formally committed to GitHub; `Prompt Please` is smaller, and
 just a prompt.
+
+**Extended the same day**, on Morgan's instruction to this practice,
+[My options](my-options.md) and [Prompt Please](prompt-please.md)
+together: *"Any change that would effect other repos must take into
+account the original templates in the mother system that organizes the
+other repos, and must be rolled out cleanly in updated templates/migrations
+to the others (if relevant)."* BestPractice is that mother system for
+every repo it vendors this layer to, so this stays in the same
+repo-agnostic form [vendor-rollout-disclosed](vendor-rollout-disclosed.md)
+already fixed on -- "the repos vendoring this one," not the repo's own
+name -- so it still reads correctly once vendored into one of them.
+Strength: decided.
+
+**Extended again the same day**, on the same instruction to all three
+commands -- full quote in [Prompt Please](prompt-please.md)'s Story, where
+the gap actually surfaced. `Write it up`'s own deliverable stays on this
+branch, but its proposed solution can still point at work that belongs
+elsewhere, and that routing was missing here the same way it was missing
+from the other two. Strength: decided.
 
 ## Install
 No mechanical check: like [go-merge](go-merge.md), whether a given reply

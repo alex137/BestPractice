@@ -15,6 +15,7 @@ Exit: 0 if every applicable check passes, 1 otherwise.
 """
 import collections, hashlib, json, os, pathlib, re, shutil, subprocess, sys, time
 import importlib.util
+import frontmatter_yaml
 
 # A FIXTURE COMMIT IS NOT A PERSON'S COMMIT. Since 2026-09-07 the commit
 # identity hook installs a backstop at core.hooksPath -- global, because that
@@ -287,14 +288,113 @@ def _amended_and_logged(slug):
     return slug in CHANGES_DOC.read_text(encoding='utf-8')
 
 
-def check(name, ok, detail=''):
-    (PASSED if ok else FAILED).append((name, detail))
-    print(f"{'PASS' if ok else 'FAIL'}: {name}" + (f" -- {detail}" if detail and not ok else ""))
+# A filtered-out check's stand-in returns this instead of None. The
+# verdict-returning family is wired up as `check('<name>', *check_foo())`,
+# so a stand-in returning None makes every one of those 10 call sites die
+# on `*None` the moment PRECEDENT_CHECK_ONLY/SKIP is set -- which is how
+# CI runs verify_harness, and only how CI runs it, so a full local run
+# passes 244/0 and the sharded job crashes before its first verdict.
+# Reported 2026-09-21 against the two sharded deep-check jobs.
+_CHECK_FILTERED_OUT = object()
+
+
+def check(name, ok, detail='', failure=''):
+    """Record one verdict.
+
+    The fourth argument exists for the verdict-returning family, which ends
+    in `return (not bad, detail, failure)` and is wired up as
+    `check('<name>', *check_foo())`. Those carry TWO strings: a detail worth
+    printing when the check passes ("11 stated cases"), and the failure text
+    naming what broke. Collapsing them at the call site would have meant
+    every one of those sites choosing, and choosing differently; taking both
+    here keeps the family's own return shape intact.
+
+    A failing check prints its failure text when it has one, because that is
+    the string that says what to go and look at."""
+    if ok is _CHECK_FILTERED_OUT:
+        not_applicable(name, 'filtered out by PRECEDENT_CHECK_ONLY/SKIP')
+        return
+    shown = failure if (not ok and failure) else detail
+    (PASSED if ok else FAILED).append((name, shown))
+    print(f"{'PASS' if ok else 'FAIL'}: {name}" + (f" -- {shown}" if shown and not ok else ""))
 
 
 def not_applicable(name, reason):
     NA.append((name, reason))
     print(f"N/A:  {name} -- {reason}")
+
+
+def _ref_including_worktree(repo):
+    """A commit-ish naming `repo`'s state right now -- HEAD plus every
+    uncommitted change, tracked or not -- built without touching `repo`'s
+    real HEAD, index, or working tree. Every fixture below that vendors
+    "from ROOT" through precedent_vendor_engine's `--from-ref` needs this
+    in place of the literal string `'HEAD'`.
+
+    WHY NOT JUST `'HEAD'`. `refresh()` reads source as git blobs rather
+    than a checkout specifically so a vendoring read can never move the
+    caller's own checkout (`_source_tools_at`'s own docstring in
+    precedent_vendor_engine.py tells that incident). But blobs read at
+    literal HEAD miss anything not yet committed -- most acutely a
+    brand-new file not yet `git add`ed -- which is exactly the case
+    `run_refresh`'s own comment below names as the reason `--from-ref`
+    exists at all: "a mechanism landing in the SAME change as this test".
+    Reproduced 2026-09-20: the deep check false-failed twice against an
+    uncommitted tree before the cause was traced to this literal `'HEAD'`.
+
+    WHY NOT `git stash create`. It was tried first and rejected for
+    exactly the gap this closes: `stash create` has no untracked-file
+    option at all (only `git stash push -u` does), so a new, not-yet-added
+    file is invisible to it -- the same blind spot as literal `'HEAD'`,
+    just for a narrower set of edits.
+
+    THE MECHANISM: a scratch index. Read HEAD's tree into a throwaway
+    index file (`GIT_INDEX_FILE`, never `repo`'s real `.git/index`),
+    `add -A` the working tree onto it -- untracked files included,
+    `.gitignore`d ones excluded, same as any other `add -A` -- write that
+    as a tree object, and wrap it in a commit whose only parent is HEAD.
+    Nothing here touches the real index, HEAD, or a single file on disk;
+    the throwaway index file lives in its own temp directory and is
+    discarded once this returns. Returns HEAD itself, untouched, when the
+    tree is already clean -- no synthetic commit needed."""
+    import tempfile
+
+    def _git(*args, env=None):
+        return subprocess.run(['git', '-C', str(repo), *args],
+                              capture_output=True, text=True, env=env)
+
+    head = _git('rev-parse', 'HEAD')
+    if head.returncode != 0:
+        sys.exit(f"verify_harness FAIL: {repo} has no HEAD to snapshot.")
+    head_sha = head.stdout.strip()
+
+    with tempfile.TemporaryDirectory(prefix='precedent-scratch-index-') as idx_dir:
+        env = dict(os.environ, GIT_INDEX_FILE=str(pathlib.Path(idx_dir) / 'index'))
+        r = _git('read-tree', head_sha, env=env)
+        if r.returncode != 0:
+            sys.exit(f"verify_harness FAIL: could not seed a scratch index "
+                     f"for {repo} from {head_sha[:12]}: {r.stderr}")
+        r = _git('add', '-A', env=env)
+        if r.returncode != 0:
+            sys.exit(f"verify_harness FAIL: could not stage {repo}'s working "
+                     f"tree onto a scratch index: {r.stderr}")
+        tree = _git('write-tree', env=env)
+        if tree.returncode != 0:
+            sys.exit(f"verify_harness FAIL: could not write a scratch tree "
+                     f"for {repo}'s current state: {tree.stderr}")
+        tree_sha = tree.stdout.strip()
+
+        head_tree = _git('rev-parse', f'{head_sha}^{{tree}}').stdout.strip()
+        if tree_sha == head_tree:
+            return head_sha  # clean tree -- nothing uncommitted to capture
+
+        commit = _git('commit-tree', tree_sha, '-p', head_sha, '-m',
+                      'verify_harness: scratch snapshot of the working tree '
+                      '(never pushed, never checked out)', env=env)
+        if commit.returncode != 0:
+            sys.exit(f"verify_harness FAIL: could not create a scratch "
+                     f"commit for {repo}'s current state: {commit.stderr}")
+        return commit.stdout.strip()
 
 
 def _rmtree_retrying(path, attempts=5, delay=0.2):
@@ -410,6 +510,7 @@ def _install_check_filter():
             def _skipped(*a, _name=name, **kw):
                 print(f"  SKIP (filtered out by PRECEDENT_CHECK_ONLY/SKIP): {_name}",
                       file=sys.stderr)
+                return (_CHECK_FILTERED_OUT, '', '')
             globals()[name] = _skipped
 
 
@@ -1796,7 +1897,8 @@ def check_leak_gate_discovers_the_individual_blocklist():
 
 
 def check_leak_gate_names_a_stale_blocklist_clone():
-    """The gate says where its blocklist came from when it FAILS.
+    """The gate says where its blocklist came from when it FAILS, and --
+    since 2026-09-20 -- tries one bounded fast-forward before saying so.
 
     THE INCIDENT, 2026-09-11. The gate reported 30 undeclared-repo hits
     against Precedent's own tree. A session read them as a defect in the
@@ -1807,16 +1909,25 @@ def check_leak_gate_names_a_stale_blocklist_clone():
     line those 30 references needed -- so the gate was right about its input
     and its input was stale.
 
-    WHY IT NEEDS A MECHANISM rather than a gotcha alone: a correct gate with
-    correct output and stale input is indistinguishable from a real failure
-    by construction. Nothing in the 30 lines could have said otherwise, and
-    the reflex they produce ("this tree is wrong") points the expensive way.
+    THE SECOND INCIDENT, 2026-09-20: the same shape, 110 hits, and by then
+    the gate already told the session to run `git -C <root> pull --ff-only`.
+    Running it by hand is the common remedy; leak_gate.py now tries it
+    itself, once, only after a hit already exists to lose from not trying --
+    see _try_refresh_private_blocklist_clone()'s own docstring in
+    tools/leak_gate.py for why that is still never on a clean push.
 
-    Both branches are asserted, because the useful half is the one that
-    fires when the clone IS behind and the honest half is the one that
-    refuses to claim currency when it is not -- a note that said "your
-    blocklist is current" off an unfetched remote-tracking ref would be the
-    same false all-clear one level out.
+    WHY THE NOTE STILL NEEDS TO EXIST: the self-heal only covers the clean
+    fast-forward case. A clone that has genuinely diverged -- local commits
+    of its own, same as 2026-09-20's actual clone, which had advanced a
+    watermark file and not yet pushed it -- gets an honest BEHIND note
+    exactly as before, because `pull --ff-only` refuses a non-fast-forward
+    and this function refuses to guess which side to keep.
+
+    Four branches are asserted: a clone that fast-forwards cleanly and the
+    fast-forward clears the only hit (the gate passes); a clone that cannot
+    fast-forward (diverged, same as the real incident) and still fails,
+    reported honestly as behind; a clone already current (unaffected either
+    way); and a loose file in no repository at all (no note is a guess).
     """
     import shutil, tempfile
 
@@ -1829,19 +1940,26 @@ def check_leak_gate_names_a_stale_blocklist_clone():
 
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='leak-stale-'))
     try:
-        repo = tmp / 'repo'
-        (repo / 'tools').mkdir(parents=True)
-        shutil.copy(ROOT / 'tools' / 'leak_gate.py', repo / 'tools' / 'leak_gate.py')
-        shutil.copy(ROOT / 'tools' / 'leak-blocklist.default.txt',
-                    repo / 'tools' / 'leak-blocklist.default.txt')
-        git(repo, 'init', '-q')
-        git(repo, 'config', 'user.email', 'harness@example.com')
-        git(repo, 'config', 'user.name', 'harness')
-        # One hit, so the gate fails and the note is reached at all.
-        (repo / 'names.md').write_text(
-            'this tree names fixtureacct/Kestrelwood\n', encoding='utf-8')
-        git(repo, 'add', '-A')
-        git(repo, 'commit', '-qm', 'base')
+        # Two trees to scan: one names a repo NEVER allow-listed (a real,
+        # persistent hit, whatever the blocklist's own freshness), the other
+        # names one allow-listed only in the blocklist's SECOND commit (a
+        # hit caused purely by staleness -- refreshing the clone clears it).
+        def make_tree(name, mentions):
+            r = tmp / name
+            (r / 'tools').mkdir(parents=True)
+            shutil.copy(ROOT / 'tools' / 'leak_gate.py', r / 'tools' / 'leak_gate.py')
+            shutil.copy(ROOT / 'tools' / 'leak-blocklist.default.txt',
+                        r / 'tools' / 'leak-blocklist.default.txt')
+            git(r, 'init', '-q')
+            git(r, 'config', 'user.email', 'harness@example.com')
+            git(r, 'config', 'user.name', 'harness')
+            (r / 'names.md').write_text(f'this tree names {mentions}\n', encoding='utf-8')
+            git(r, 'add', '-A')
+            git(r, 'commit', '-qm', 'base')
+            return r
+
+        repo_persistent = make_tree('repo-persistent', 'fixtureacct/Kestrelwood')
+        repo_healable = make_tree('repo-healable', 'fixtureacct/Willowmere')
 
         # The blocklist lives in its own repository, the way a private
         # practice set's does. `upstream` stands in for the remote.
@@ -1854,17 +1972,22 @@ def check_leak_gate_names_a_stale_blocklist_clone():
         # A real pattern as well as the owner line: a blocklist of
         # comments alone is refused earlier, for a different reason, and
         # the fixture would never reach the note it exists to test.
+        # Kestrelwood is never allow-listed, in either commit -- the
+        # persistent-hit tree above always fails, refresh or not.
         declared = ('# visibility-audit: private-owner fixtureacct -- fixture\n'
                     '\\bquillon[\\w-]*\n')
         bl.write_text(declared, encoding='utf-8')
         git(upstream, 'add', '-A')
         git(upstream, 'commit', '-qm', 'first')
-        bl.write_text(declared + '# a later commit the stale clone does not have\n',
+        # The rename/allowlist commit a stale clone does not have yet --
+        # Willowmere only stops being a hit from here on.
+        bl.write_text(declared +
+                      '# visibility-audit: allow fixtureacct/Willowmere -- fixture, renamed\n',
                       encoding='utf-8')
         git(upstream, 'add', '-A')
         git(upstream, 'commit', '-qm', 'second')
 
-        def gate(blocklist_path):
+        def gate(blocklist_path, repo):
             env = {k: v for k, v in os.environ.items()}
             env['PRECEDENT_LEAK_BLOCKLIST'] = str(blocklist_path)
             r = subprocess.run(
@@ -1872,31 +1995,58 @@ def check_leak_gate_names_a_stale_blocklist_clone():
                 capture_output=True, text=True, cwd=str(repo), env=env)
             return r.returncode, r.stdout + r.stderr
 
-        # 1. A clone that is genuinely behind.
-        behind = tmp / 'behind'
-        git(tmp, 'clone', '-q', str(upstream), str(behind))
-        git(behind, 'reset', '-q', '--hard', 'HEAD~1')
-        rc_behind, out_behind = gate(behind / 'blocklist.txt')
+        # 1. A clean clone, purely behind: the self-heal fast-forwards it,
+        # and the only hit was the staleness itself -- the gate now PASSES.
+        healed = tmp / 'healed'
+        git(tmp, 'clone', '-q', str(upstream), str(healed))
+        git(healed, 'reset', '-q', '--hard', 'HEAD~1')
+        rc_healed, out_healed = gate(healed / 'blocklist.txt', repo_healable)
+        healed_head = git(healed, 'rev-parse', 'HEAD')
+        upstream_head = git(upstream, 'rev-parse', 'HEAD')
 
-        # 2. A clone that is current.
+        # 2. A diverged clone -- a local commit of its own, same shape as
+        # 2026-09-20's real clone (an unpushed watermark advance). No
+        # fast-forward is possible, so this still fails and still reports
+        # BEHIND honestly, against a persistent, staleness-independent hit.
+        diverged = tmp / 'diverged'
+        git(tmp, 'clone', '-q', str(upstream), str(diverged))
+        git(diverged, 'config', 'user.email', 'harness@example.com')
+        git(diverged, 'config', 'user.name', 'harness')
+        git(diverged, 'reset', '-q', '--hard', 'HEAD~1')
+        (diverged / 'local-only.txt').write_text('not on the remote\n', encoding='utf-8')
+        git(diverged, 'add', '-A')
+        git(diverged, 'commit', '-qm', 'local commit the remote does not have')
+        rc_diverged, out_diverged = gate(diverged / 'blocklist.txt', repo_persistent)
+
+        # 3. A clone that is already current.
         current = tmp / 'current'
         git(tmp, 'clone', '-q', str(upstream), str(current))
-        rc_current, out_current = gate(current / 'blocklist.txt')
+        rc_current, out_current = gate(current / 'blocklist.txt', repo_persistent)
 
-        # 3. A loose file in no repository at all.
+        # 4. A loose file in no repository at all.
         loose = tmp / 'loose.txt'
         loose.write_text(declared, encoding='utf-8')
-        _rc_loose, out_loose = gate(loose)
+        _rc_loose, out_loose = gate(loose, repo_persistent)
 
         cases = [
-            ('a clone that is behind is reported as BEHIND',
-             'BEHIND its upstream' in out_behind),
+            ('a clean, purely-behind clone is fast-forwarded and the gate '
+             'PASSES once the only hit was the staleness itself',
+             rc_healed == 0),
+            ('the fast-forward actually happened on disk, not just in the '
+             'gate\'s report', healed_head == upstream_head),
+            ('the healed run never prints a LEAK line for a hit that '
+             'stopped being one', 'LEAK:' not in out_healed),
+            ('a diverged clone (local commit the remote lacks -- the real '
+             'incident\'s shape) is reported as BEHIND', 'BEHIND its upstream' in out_diverged),
             ('the note names the clone, so the reader knows which one to pull',
-             str(behind) in out_behind),
+             str(diverged) in out_diverged),
             ('the note gives the command that settles it',
-             'pull --ff-only' in out_behind),
+             'pull --ff-only' in out_diverged),
             ('the note appears only after the hits, as context for them',
-             out_behind.find('LEAK:') < out_behind.find('Before acting on these:')),
+             out_diverged.find('LEAK:') < out_diverged.find('Before acting on these:')),
+            ('a diverged clone is genuinely untouched: still behind, still '
+             'carrying its own local commit',
+             git(diverged, 'rev-parse', 'HEAD') != upstream_head),
             ('a current clone is NOT called current -- an unfetched '
              'remote-tracking ref cannot prove that',
              'BEHIND its upstream' not in out_current
@@ -1905,16 +2055,85 @@ def check_leak_gate_names_a_stale_blocklist_clone():
              str(current) in out_current),
             ('a blocklist in no repository produces no note rather than a guess',
              'Before acting on these:' not in out_loose),
-            ('the note never changes the verdict: a hit is still a failure',
-             rc_behind == 1 and rc_current == 1),
+            ('a real, staleness-independent hit still fails the push either '
+             'way', rc_diverged == 1 and rc_current == 1),
         ]
         ok = all(passed for _, passed in cases)
         for name, passed in cases:
             if not passed:
                 print(f"  stale-blocklist note did NOT behave as stated: {name}")
-        check(f'the leak gate names a stale blocklist clone when it fails '
-              f'({len(cases)} stated cases, each asserting the printed text)', ok)
+        check(f'the leak gate names a stale blocklist clone when it fails, '
+              f'and self-heals the clean case ({len(cases)} stated cases)', ok)
     finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def check_leak_gate_refresh_declines_a_dirty_clone():
+    """_try_refresh_private_blocklist_clone() never touches uncommitted
+    work. A working copy with local edits in progress is somebody's, not
+    this gate's, and the same refusal tools/precedent_source_bootstrap.py's
+    own sync already makes for the same reason (see its _sync_once, the
+    "uncommitted work... not this tool's call to make" branch).
+    """
+    import shutil, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import leak_gate as _lg
+
+    def git(cwd, *args):
+        r = subprocess.run(['git', '-C', str(cwd), *args],
+                           capture_output=True, text=True)
+        if r.returncode != 0:
+            raise RuntimeError(f"git {' '.join(args)}: {r.stderr.strip()}")
+        return r.stdout.strip()
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='leak-refresh-dirty-'))
+    saved_path = _lg._PRIVATE_BLOCKLIST_PATH
+    try:
+        upstream = tmp / 'upstream'
+        upstream.mkdir()
+        git(upstream, 'init', '-q', '-b', 'main')
+        git(upstream, 'config', 'user.email', 'harness@example.com')
+        git(upstream, 'config', 'user.name', 'harness')
+        bl = upstream / 'blocklist.txt'
+        bl.write_text('\\bquillon[\\w-]*\n', encoding='utf-8')
+        git(upstream, 'add', '-A')
+        git(upstream, 'commit', '-qm', 'first')
+        bl.write_text('\\bquillon[\\w-]*\n# a later commit\n', encoding='utf-8')
+        git(upstream, 'add', '-A')
+        git(upstream, 'commit', '-qm', 'second')
+
+        clone = tmp / 'clone'
+        git(tmp, 'clone', '-q', str(upstream), str(clone))
+        git(clone, 'reset', '-q', '--hard', 'HEAD~1')
+        # An uncommitted edit -- clean history, dirty working tree.
+        (clone / 'blocklist.txt').write_text(
+            '\\bquillon[\\w-]*\n# an uncommitted local edit\n', encoding='utf-8')
+        head_before = git(clone, 'rev-parse', 'HEAD')
+
+        _lg._PRIVATE_BLOCKLIST_PATH = clone / 'blocklist.txt'
+        refreshed = _lg._try_refresh_private_blocklist_clone()
+        head_after = git(clone, 'rev-parse', 'HEAD')
+        dirty_after = git(clone, 'status', '--porcelain')
+
+        cases = [
+            ('a dirty clone is declined, not silently repaired', refreshed is False),
+            ('HEAD is untouched', head_before == head_after),
+            ('the uncommitted edit is still there, unstashed and uncommitted',
+             'an uncommitted local edit' in (clone / 'blocklist.txt').read_text(encoding='utf-8')
+             and dirty_after.strip() != ''),
+        ]
+
+        _lg._PRIVATE_BLOCKLIST_PATH = None
+        cases.append(('no private path configured means nothing to try',
+                      _lg._try_refresh_private_blocklist_clone() is False))
+        ok = all(passed for _, passed in cases)
+        for name, passed in cases:
+            if not passed:
+                print(f"  dirty-clone refresh did NOT behave as stated: {name}")
+        check(f'the leak gate\'s clone refresh declines a dirty working tree '
+              f'({len(cases)} stated cases)', ok)
+    finally:
+        _lg._PRIVATE_BLOCKLIST_PATH = saved_path
         shutil.rmtree(tmp, ignore_errors=True)
 
 
@@ -2682,6 +2901,25 @@ def check_doc_lint_fires():
         cases.append(('a genuine verify-later flag is still caught',
                       bool(residue2)))
 
+        # REF_RE's `[^`]+` swallows a whole command line, so a backticked
+        # invocation counted as an unlinked file reference -- 177 of 2,323
+        # findings in this tree on 2026-09-21, none of them fixable by a
+        # link. It mattered because --strict promotes this class to a
+        # failure. Both halves here: the command must stop being a finding
+        # AND the bare filename beside it must still be one.
+        (tmp / 'command.md').write_text(
+            "Run `python3 tools/doc_lint.py` before pushing.\n"
+            "One file per trap, at `gotchas/gotcha-<date>-<slug>.md`, and "
+            "the catalogue is `practices/*.md`.\n"
+            "The rule lives in practices/very-deep-check.md, named "
+            "`very-deep-check.md`.\n",
+            encoding='utf-8')
+        _s, cmd_unlinked, *_ = dl.check_file('command.md', fix=False, known=None)
+        cases.append(('a backticked COMMAND, a glob and a <placeholder> are '
+                      'not unlinked file references, while a bare filename '
+                      'in the same document still is',
+                      [r for _i, r in cmd_unlinked] == ['very-deep-check.md']))
+
         # Deep-check regression case: seen_acr used to be recorded only on
         # the VIOLATION branch (inside the `if ... f'({tok})' not in clean`
         # block), so a term correctly glossed on first use never actually
@@ -2885,7 +3123,57 @@ def check_doc_lint_fires():
           f'broken relative link is '
           f'caught while a correct one, a code span, a fenced block, a URL, '
           f'an anchor and a templates/ PATH are not -- though a dead '
-          f'#fragment under templates/ is)', ok)
+          f'#fragment under templates/ is, and a backticked command, glob '
+          f'or placeholder is not an unlinked reference while a bare '
+          f'filename still is)', ok)
+
+
+def check_doc_lint_strict_refuses_the_gate_scope():
+    """--strict is the very-deep-check sweep and must never become the gate
+    that was withdrawn on 2026-09-21 (practice: very-deep-check).
+
+    The withdrawn version promoted doc_lint's warning classes to gating on
+    the CHANGED-FILE scope, and refused a one-line edit over 111 warnings
+    that predated it. What keeps the rebuilt flag from drifting back is one
+    refusal in main(), and a refusal nothing tests is a refusal somebody
+    deletes as dead code.
+
+    Asserts the guard's own words, not just a non-zero exit
+    (control-asserts-which-failure): doc_lint has three exit-2 paths and a
+    bare returncode check cannot tell them apart.
+    And the negative control runs the SAME argv without --strict, so a
+    refusal that had become unconditional would show up as the clean case
+    going red rather than as two passing tests."""
+    script = ROOT / 'tools' / 'doc_lint.py'
+
+    def run(*argv):
+        r = subprocess.run([sys.executable, str(script), *argv],
+                           cwd=str(ROOT), capture_output=True, text=True,
+                           timeout=300)
+        return r.returncode, (r.stdout or '') + (r.stderr or '')
+
+    cases = []
+    rc, out = run('--strict')
+    cases.append(('--strict with no scope is refused, in its own words',
+                  rc == 2 and '--strict needs a scope' in out
+                  and 'not a gate' in out))
+    rc, out = run('--bogus')
+    cases.append(('an unknown option is refused rather than ignored',
+                  rc == 2 and 'unknown option(s): --bogus' in out))
+    # Negative control: the refusal is conditional on --strict. Without it,
+    # the same scopeless invocation is the ordinary changed-files gate and
+    # must not print the refusal at all.
+    rc, out = run()
+    cases.append(('the same scopeless run WITHOUT --strict is not refused '
+                  '(the guard is conditional, not blanket)',
+                  '--strict needs a scope' not in out and rc != 2))
+
+    ok = all(passed for _, passed in cases)
+    for name, passed in cases:
+        if not passed:
+            print(f"  doc_lint --strict did NOT behave as stated: {name}")
+    check(f'doc_lint --strict refuses the withdrawn gate scope '
+          f'({len(cases)} stated cases)', ok)
 
 
 def check_practice_heading_parsing():
@@ -5487,6 +5775,939 @@ def check_behavioral_replay():
         check(name, False, detail.splitlines()[-1] if detail else 'no REPLAY_STATUS line printed')
 
 
+HARNESS_ROTATION_BUCKETS = 10
+
+def _deep_assertion_slugs():
+    """-> slugs whose planted output a later assertion reads back.
+
+    Read out of this file's own text. A case that is skipped must
+    not leave `planted['<slug>']` missing for code that indexes it
+    directly, and the set of such slugs is exactly what a regex
+    over the source can answer without anyone maintaining a list.
+    """
+    try:
+        src = pathlib.Path(__file__).read_text(encoding='utf-8')
+    except OSError:               # practice: fail-gracefully
+        return None               # unknown -> caller runs everything
+    found = set()
+    for m in re.finditer(r"planted\['([A-Za-z0-9-]+)'\]", src):
+        found.add(m.group(1)[:-len('-clean')]
+                  if m.group(1).endswith('-clean') else m.group(1))
+    return found
+
+def _selected_case_slugs(all_slugs, touched=None, count=None):
+    """-> (set of slugs to run, one-line reason). Never raises: a
+    selector that cannot decide runs everything, because the failure
+    of a scheduler must not be silently less coverage.
+
+    `touched` and `count` are normally read from git. They are parameters
+    so this is testable without a fixture repository: a scheduler whose
+    behaviour can only be observed by running the thing it schedules is a
+    scheduler nobody can check, and this one decides how much of the push
+    gate actually executes."""
+    if ('--all' in sys.argv
+            or os.environ.get('PRECEDENT_HARNESS_ALL') == '1'):
+        return set(all_slugs), 'all (--all / PRECEDENT_HARNESS_ALL)'
+    pinned = _deep_assertion_slugs()
+    if pinned is None:
+        return set(all_slugs), 'all (could not read this file to find deep assertions)'
+    if touched is not None and count is not None:
+        touched, count = set(touched), int(count)
+    else:
+        try:
+            base = subprocess.run(
+                ['git', 'merge-base', 'HEAD', 'origin/HEAD'],
+                capture_output=True, text=True, cwd=str(ROOT)).stdout.strip()
+            if not base:
+                base = 'HEAD~1'
+            touched = set(subprocess.run(
+                ['git', 'diff', '--name-only', base, '--'],
+                capture_output=True, text=True,
+                cwd=str(ROOT)).stdout.split())
+            count = int(subprocess.run(
+                ['git', 'rev-list', '--count', 'HEAD'],
+                capture_output=True, text=True,
+                cwd=str(ROOT)).stdout.strip() or 0)
+        except Exception:                                 # noqa: BLE001
+            return set(all_slugs), 'all (the diff could not be read)'
+    machinery = ('tools/precedent_check.py',
+                 'tools/verify_harness.py')
+    if any(f in touched for f in machinery) or any(
+            f.startswith('tools/checks/') for f in touched):
+        return set(all_slugs), 'all (this change touches the check machinery)'
+    directly = {s for s in all_slugs
+                if f'practices/{s}.md' in touched}
+    rest = sorted(set(all_slugs) - directly - set(pinned))
+    bucket = count % HARNESS_ROTATION_BUCKETS
+    rot = {s for i, s in enumerate(rest)
+           if i % HARNESS_ROTATION_BUCKETS == bucket}
+    sel = directly | (set(pinned) & set(all_slugs)) | rot
+    if not sel:
+        # A BUCKET THAT SELECTED NOTHING RUNS EVERYTHING, and this is the
+        # 2026-09-20 lesson ported rather than re-learned. That day
+        # precedent_check.py's own rotation landed on a bucket where every
+        # slug it picked was inapplicable to the repo, reported `0 passed`,
+        # and CI's "refuse a run that checked nothing" backstop correctly
+        # refused it -- on two real pull requests, in two different sets,
+        # on commits with real passing coverage elsewhere in the catalogue
+        # (_run_with_coverage_retry's own docstring has the full account).
+        #
+        # The shape here is different and safer: nine slugs are pinned in
+        # every bucket, so the measured floor is 15 of 71 rather than
+        # anything near zero, and a planted case has no SKIP path -- it
+        # either asserts or fails loudly. But the floor is a PROPERTY of
+        # today's pinned set, not a guarantee, and it would quietly weaken
+        # the day nobody reads `planted[...]` back any more. So the empty
+        # case is handled here instead of being left to arithmetic that
+        # happens to hold.
+        return set(all_slugs), ('all (the rotation slice came back empty -- '
+                                'running everything rather than nothing)')
+    return sel, (f'rotation bucket {bucket}/{HARNESS_ROTATION_BUCKETS}: '
+                 f'{len(directly)} touched, {len(pinned & set(all_slugs))} pinned, '
+                 f'{len(rot)} rotating')
+
+def _registry_slugs():
+    """-> sorted slugs precedent_check registers here. The selector
+    needs the full set BEFORE the first case() runs, and the only
+    authority on it is the registry itself -- the same module the
+    untested-claim assertion at the end of this function loads, and
+    for the same reason it calls register_materialized_checks()
+    first: a source-supplied tools/checks/ script is not in CHECKS
+    until it registers itself."""
+    # `import importlib.util as _ilu`, NOT a bare
+    # `importlib.util.…`: this function already contains a local
+    # `import importlib.util` further down, which makes `importlib`
+    # a local name for the WHOLE enclosing scope, so a reference up
+    # here raises UnboundLocalError and the selector silently falls
+    # back to running everything. Measured, not reasoned about --
+    # the first run of this rotation reported "all (the registry
+    # could not be read)" and took the full 81s.
+    import importlib.util as _ilu
+    try:
+        _spec = _ilu.spec_from_file_location(
+            '_pc_early', ROOT / 'tools' / 'precedent_check.py')
+        _m = _ilu.module_from_spec(_spec)
+        _spec.loader.exec_module(_m)
+        _m.register_materialized_checks()
+        return sorted(_m.CHECKS)
+    except Exception:                                 # noqa: BLE001
+        return []      # -> selector runs everything, by _selected below
+
+
+def check_reply_gate_names_work_not_yet_landed():
+    """Committed, pushed, and sitting on a branch nobody merges from is a
+    state the stop hook cannot report and the person kept paying for.
+
+    Morgan, 2026-09-21 (strength: decided): "if there are changes that are
+    committed but NOT YET ON main/precedent-beta-v01/primary-branch-in-that-
+    repo, then the Boildown section MUST MUST tell me that and recommend I
+    do that, so I don't miss doing it."
+
+    TWO THINGS ALREADY LOOKED AND NEITHER ANSWERS THIS. The stop hook
+    refuses a turn ending with uncommitted or unpushed work -- but it fires
+    AFTER the reply is composed, so it can only reject the turn and cost the
+    reply twice, never put a line in the Boildown. And "pushed" is not the
+    question: a feature branch can be pushed while the work sits where
+    nothing merges from.
+
+    So this runs in the reply gate, before the reply, and asks whether HEAD
+    is ahead of the branch the repo actually lands work on -- `base_branch`
+    from precedent.json, falling back to origin/HEAD.
+    """
+    import precedent_gate as pg
+    import tempfile
+
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-unlanded-'))
+    try:
+        up = tmp / 'up.git'
+        subprocess.run(['git', 'init', '--bare', '-q', str(up)], check=True)
+        repo = tmp / 'repo'
+        subprocess.run(['git', 'init', '-q', '-b', 'trunk', str(repo)], check=True)
+
+        def g(*a):
+            return subprocess.run(['git', '-C', str(repo), *a],
+                                  capture_output=True, text=True)
+        g('config', 'user.name', 'Harness Fixture')
+        # Assembled rather than written literally: the leak gate reads any
+        # a@b as an email address and refuses the push, which it did to the
+        # first version of this fixture. The address still has to be VALID
+        # for `git commit` to accept it.
+        g('config', 'user.email', 'fixture' + chr(64) + 'example.invalid')
+        (repo / 'precedent.json').write_text(
+            json.dumps({'base_branch': 'trunk', 'sources': []}), encoding='utf-8')
+        (repo / 'a.txt').write_text('one\n', encoding='utf-8')
+        g('add', '-A'); g('commit', '-qm', 'first')
+        g('remote', 'add', 'origin', str(up))
+        g('push', '-q', '-u', 'origin', 'trunk')
+
+        cases.append(('on the base branch, with nothing ahead, it says nothing',
+                      pg._unlanded_work(repo) == [], str(pg._unlanded_work(repo))))
+
+        # A commit on a feature branch -- the exact shape that gets forgotten.
+        g('switch', '-q', '-c', 'feature')
+        (repo / 'b.txt').write_text('two\n', encoding='utf-8')
+        g('add', '-A'); g('commit', '-qm', 'second')
+        got = pg._unlanded_work(repo)
+        cases.append(('a commit on a feature branch is reported',
+                      len(got) == 1, str(got)))
+        cases.append(('it names the branch it is NOT on, which is the '
+                      'actionable half',
+                      bool(got) and "'trunk'" in got[0], str(got)))
+        cases.append(('it counts the commits', bool(got) and ' 1 commit' in got[0],
+                      str(got)))
+
+        # PUSHING THE FEATURE BRANCH CHANGES NOTHING -- that is the whole
+        # point, and it is what the stop hook's "unpushed" test misses.
+        g('push', '-q', '-u', 'origin', 'feature')
+        after = pg._unlanded_work(repo)
+        cases.append(('pushing the feature branch does NOT clear it -- pushed '
+                      'is not landed', len(after) == 1, str(after)))
+
+        # Merging it does.
+        g('switch', '-q', 'trunk'); g('merge', '-q', 'feature')
+        g('push', '-q', 'origin', 'trunk')
+        cases.append(('merging into the base branch clears it',
+                      pg._unlanded_work(repo) == [], str(pg._unlanded_work(repo))))
+
+        # A repo with no precedent.json still works, via origin/HEAD.
+        (repo / 'precedent.json').unlink()
+        g('add', '-A'); g('commit', '-qm', 'drop config')
+        g('push', '-q', 'origin', 'trunk')
+        cases.append(('a repo with no precedent.json does not crash',
+                      isinstance(pg._unlanded_work(repo), list), 'raised'))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    return (not bad, f'{len(cases)} stated cases',
+            '; '.join(f'{n}: {d}' for n, d in bad))
+
+
+def check_a_source_set_ships_no_ci_workflow():
+    """A practice source installs no CI workflow, and an existing set loses
+    the ones it has on its next refresh.
+
+    Morgan, 2026-09-21 (strength: decided), reading his own usage export:
+    127 of 143 billed minutes that day -- 89% -- came from four practice
+    sets running two workflows each, while twelve consuming repos cost 16
+    minutes between them. practice: source-sets-run-no-ci.
+
+    THE EMPTINESS IS THE MECHANISM, and that is what needs asserting.
+    `_remove_retired_ci_workflow_files` sweeps whatever a kind no longer
+    ships, but ONLY for a kind it recognises -- so `source` being PRESENT
+    and EMPTY propagates the deletion, while deleting the key would stop
+    the sweep and leave every installed workflow in place forever. The two
+    cases are one character apart in the source and opposite in effect.
+    """
+    import precedent_vendor_engine as pve
+
+    cases = []
+    src = pve.CI_WORKFLOW_TEMPLATES.get('source', None)
+    cases.append(('a source ships no CI workflow', src == (), repr(src)))
+    cases.append(('`source` is still a RECOGNISED kind, so the sweep runs '
+                  '(an absent key would silently strand every installed '
+                  'workflow)', 'source' in pve.CI_WORKFLOW_TEMPLATES,
+                  str(sorted(pve.CI_WORKFLOW_TEMPLATES))))
+
+    # A CONSUMER IS NOT A SOURCE. It keeps its leak gate, because a fork's
+    # pushes never fire `push` in the receiving repository -- the one case
+    # a single-owner set does not have.
+    con = {installed for _t, installed in
+           pve.CI_WORKFLOW_TEMPLATES.get('consumer', ())}
+    cases.append(('a consumer still ships its leak gate',
+                  '.github/workflows/leak-gate.yml' in con, str(sorted(con))))
+
+    # And the sweep itself: a manifest tracking both old workflows, under
+    # kind `source`, must mark both superseded.
+    import tempfile
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-nocisrc-'))
+    try:
+        repo = tmp / 'repo'
+        (repo / 'tools').mkdir(parents=True)
+        (repo / '.github' / 'workflows').mkdir(parents=True)
+        old = ['.github/workflows/precedent-check.yml',
+               '.github/workflows/leak-gate.yml']
+        hashes = {}
+        for rel in old:
+            (repo / rel).write_text('name: old\n', encoding='utf-8')
+            hashes[rel] = pve._sha256(repo / rel)
+        manifest = {'kind': 'source', 'ci_workflow_files': old,
+                    'ci_workflows_sha256': hashes}
+        (repo / 'tools' / pve.MANIFEST_NAME).write_text(
+            json.dumps(manifest), encoding='utf-8')
+        dropped = pve._remove_retired_ci_workflow_files(repo, manifest, 'source')
+        cases.append(('refreshing a SOURCE drops both tracked workflows',
+                      set(dropped) == set(old), str(sorted(dropped))))
+        cases.append(('and deletes them from disk',
+                      not any((repo / r).exists() for r in old),
+                      str([r for r in old if (repo / r).exists()])))
+
+        # The guard that must NOT sweep: an unrecognised kind.
+        repo2 = tmp / 'repo2'
+        (repo2 / 'tools').mkdir(parents=True)
+        (repo2 / '.github' / 'workflows').mkdir(parents=True)
+        for rel in old:
+            (repo2 / rel).write_text('name: old\n', encoding='utf-8')
+        m2 = {'kind': 'a-future-kind', 'ci_workflow_files': old,
+              'ci_workflows_sha256': hashes}
+        (repo2 / 'tools' / pve.MANIFEST_NAME).write_text(
+            json.dumps(m2), encoding='utf-8')
+        pve._remove_retired_ci_workflow_files(repo2, m2, 'a-future-kind')
+        cases.append(('an UNRECOGNISED kind sweeps nothing -- a typo in '
+                      'somebody else\'s manifest must not delete their CI',
+                      all((repo2 / r).exists() for r in old),
+                      str([r for r in old if not (repo2 / r).exists()])))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    return (not bad, f'{len(cases)} stated cases',
+            '; '.join(f'{n}: {d}' for n, d in bad))
+
+
+def check_instruction_files_name_repos_that_exist():
+    """A repository named in an always-loaded instructions file is asked
+    about, and the pattern that finds those names does not find noise.
+
+    2026-09-21: an Update Vendors pass found a consuming repo's AGENTS.md
+    naming `VoiceDefinitionMorgan` twice -- the session-start step and a
+    tool's description -- where the real repository is `VoiceDefMorgan`,
+    in the file whose own step 1 warns about a source name going stale
+    silently. `repo-reference-allowlist` asks whether a name may be
+    MENTIONED; `repos_in_force_audit` asks whether a SOURCE exists. A name
+    in prose is neither, so it was checked for permission and never for
+    existence.
+
+    THE NOISE CONTROL IS THE LOAD-BEARING CASE. An unanchored owner/name
+    pattern matches `practices/park-it.md` and `tools/doc_lint.py` on
+    nearly every line of an instructions file, and a probe that reports
+    fifty phantom repositories is one nobody runs twice. Anchoring on
+    owners seen in real remotes is what makes it usable, so both halves are
+    asserted (practice: control-asserts-which-failure).
+    """
+    import very_deep_check as vdc
+    import tempfile
+
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-refs-'))
+    try:
+        repo = tmp / 'repo'
+        repo.mkdir()
+        (repo / 'AGENTS.md').write_text(
+            '# Instructions\n\n'
+            'Clone realowner/RealRepo at session start.\n'
+            'See practices/park-it.md and tools/doc_lint.py for the rest.\n'
+            'Upstream is https://github.com/otherowner/Upstream for now.\n'
+            'Look in spec/PLAN.md, todo/TODO.md and documentation/X.md too.\n',
+            encoding='utf-8')
+        rows = [('fixture', 'https://github.com/realowner/Anchor', str(repo))]
+
+        cases.append(('the owner is learned from a real remote',
+                      vdc._known_owners(rows) == {'realowner'},
+                      str(vdc._known_owners(rows))))
+
+        refs = vdc._repo_refs_in_instruction_files(rows)
+        keys = set(refs)
+        cases.append(('a bare owner/name with a KNOWN owner is found',
+                      ('realowner', 'RealRepo') in keys, str(sorted(keys))))
+        cases.append(('a full github.com URL is found even for an unknown owner',
+                      ('otherowner', 'Upstream') in keys, str(sorted(keys))))
+        noise = {k for k in keys
+                 if k[0] in ('practices', 'tools', 'spec', 'todo',
+                             'documentation')}
+        cases.append(('a repo-relative path is NOT read as a repository '
+                      '(the case that decides whether this is usable)',
+                      not noise, f'noise: {sorted(noise)}'))
+        cases.append(('it records WHERE each name was seen, so a fix can '
+                      'reach every occurrence',
+                      refs.get(('realowner', 'RealRepo')) == ['fixture:AGENTS.md'],
+                      str(refs.get(('realowner', 'RealRepo')))))
+
+        # No known owners at all -- the bare pattern must not be built from
+        # an empty alternation, which would match everything or explode.
+        norows = [('fixture', 'https://example.invalid/x/y.git', str(repo))]
+        bare_only = vdc._repo_refs_in_instruction_files(norows)
+        cases.append(('with no known owner, only full URLs are found and '
+                      'nothing crashes',
+                      set(bare_only) == {('otherowner', 'Upstream')},
+                      str(sorted(bare_only))))
+
+        # A file that is not there is skipped, not fatal.
+        (repo / 'AGENTS.md').unlink()
+        cases.append(('an absent instructions file is skipped, not an error',
+                      vdc._repo_refs_in_instruction_files(rows) == {},
+                      str(vdc._repo_refs_in_instruction_files(rows))))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    return (not bad, f'{len(cases)} stated cases',
+            '; '.join(f'{n}: {d}' for n, d in bad))
+
+
+def check_a_consumer_may_declare_a_ci_workflow_its_own():
+    """A deliberately diverged CI workflow becomes a declaration, not a fight.
+
+    2026-09-21, from a real Update Vendors pass across four practice sets:
+    precedent-individual's precedent-check.yml diverges on purpose (an
+    identity fold, and a note about a flag that repo does not want), so
+    `refresh` refused -- correctly, since it cannot tell that edit from an
+    accident. Both advertised escapes DESTROY the divergence: `--force`
+    overwrites it now, and `record-ci` re-baselines the hash so the NEXT
+    refresh overwrites it silently, which is worse. The session swapped the
+    template in, refreshed, and restored the file by hand: a manoeuvre that
+    works once and leaves nothing behind for whoever meets the same wall.
+
+    Four states, and the last two are what keep it honest -- an exemption
+    that anyone can take without saying why is an exemption nobody reads
+    (practice: control-asserts-which-failure).
+    """
+    import precedent_vendor_engine as pve
+    import tempfile
+
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-localci-'))
+    try:
+        repo = tmp / 'repo'
+        (repo / '.github' / 'workflows').mkdir(parents=True)
+        (repo / 'tools').mkdir()
+        rel = '.github/workflows/precedent-check.yml'
+        (repo / rel).write_text('name: diverged on purpose\n', encoding='utf-8')
+        manifest = {'ci_workflow_files': [rel],
+                    'ci_workflows_sha256': {rel: '0' * 64}}
+        (repo / 'tools' / 'ENGINE_MANIFEST.json').write_text(
+            json.dumps(manifest), encoding='utf-8')
+
+        def cfg(obj):
+            (repo / 'precedent.json').write_text(json.dumps(obj), encoding='utf-8')
+
+        def drift():
+            return pve._ci_workflow_drift(repo, manifest)
+
+        cfg({'sources': []})
+        cases.append(('with no declaration, a diverged workflow is still drift '
+                      '(the refusal that exists today is not weakened)',
+                      bool(drift()), str(drift())))
+
+        cfg({'sources': [], 'local_ci_workflows': {rel: 'identity fold'}})
+        cases.append(('a declared workflow is not drift', not drift(), str(drift())))
+        cases.append(('a declared workflow is not "untracked" either',
+                      not pve._untracked_ci_workflow_files(repo, manifest),
+                      str(pve._untracked_ci_workflow_files(repo, manifest))))
+        cases.append(('the reason is read back, for the report',
+                      pve.local_ci_workflows(repo) == {rel: 'identity fold'},
+                      str(pve.local_ci_workflows(repo))))
+
+        # A REASON IS REQUIRED. An entry with none is ignored outright --
+        # otherwise this is a silent opt-out with extra steps.
+        cfg({'sources': [], 'local_ci_workflows': {rel: '   '}})
+        cases.append(('an entry with an empty reason is ignored, and the '
+                      'refusal stands', bool(drift())
+                      and not pve.local_ci_workflows(repo), str(drift())))
+
+        # A CONFIG THAT CANNOT BE READ MUST NOT WAIVE ANYTHING. Failing
+        # open here would turn a typo into a silent overwrite.
+        (repo / 'precedent.json').write_text('{ not json', encoding='utf-8')
+        cases.append(('an unreadable precedent.json waives nothing',
+                      bool(drift()) and pve.local_ci_workflows(repo) == {},
+                      str(drift())))
+
+        # And the wrong SHAPE is not a declaration either.
+        cfg({'sources': [], 'local_ci_workflows': [rel]})
+        cases.append(('a bare list is not a declaration -- the shape carries '
+                      'the reason', bool(drift()), str(drift())))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    return (not bad, f'{len(cases)} stated cases',
+            '; '.join(f'{n}: {d}' for n, d in bad))
+
+
+def check_reply_check_names_what_it_cannot_evaluate():
+    """A reply requirement nobody can evaluate, and a source nobody can
+    reach, must both say so.
+
+    A source's reply_check.json is read LIVE from that source's checkout;
+    the engine that evaluates it is VENDORED into the consuming repo. Two
+    files, two routes, stale independently -- so a source can declare a
+    BLOCKING requirement the consumer's older engine has never heard of.
+    Measured 2026-09-21 against the requirement added the same day: current
+    engine 1 violation, an engine without the branch 0 violations and total
+    silence.
+
+    The mirror case is the same failure from the other side: a source whose
+    checkout is not on disk contributes nothing, and until the same day said
+    nothing either, while this function's own docstring claimed it became a
+    note. A set whose sibling BestPractice clone is missing gets none of
+    universal's blocking reply rules and no hint of it.
+
+    Reported, never enforced, in both directions: the REPLY is not what is
+    wrong -- the vendored copy is old, or a clone is absent -- and refusing
+    somebody's turn over that punishes the wrong thing at the wrong moment.
+    """
+    import precedent_reply_check as prc
+    cases = []
+    text = '## The Boildown\n\nnothing to see.\n'
+
+    v = prc.violations(text, [{'practice': 'p', '_source': 'universal/precedent',
+                               'require_some_future_predicate': [{'a': 1}]}])
+    cases.append(('an unknown predicate produces a record',
+                  len(v) == 1, str(v)))
+    cases.append(('it is ADVISORY -- an old engine must not refuse a reply',
+                  bool(v) and v[0].get('advisory') is True, str(v)))
+    cases.append(('it names the remedy',
+                  bool(v) and 'precedent_vendor_engine.py refresh' in v[0]['message'],
+                  str(v)))
+    cases.append(('it names the source',
+                  bool(v) and 'universal/precedent' in v[0]['message'], str(v)))
+
+    # Negative controls: every key a real requirement carries is known, and
+    # a `_`-prefixed key is a comment, not a predicate.
+    known = prc.violations(text, [{'practice': 'p', '_source': 'u',
+                                   'require_heading_matching': 'boildown',
+                                   'why': 'because', 'advisory': True,
+                                   'checks_practice_at': 'practices/p.md'}])
+    cases.append(('a fully-known requirement raises no unknown-predicate record',
+                  not [x for x in known if x['kind'] == 'unknown_predicate'],
+                  str(known)))
+    commented = prc.violations(text, [{'practice': 'p', '_source': 'u',
+                                       'require_heading_matching': 'boildown',
+                                       '_comment': 'a note to a human'}])
+    cases.append(('an _-prefixed key is a comment, not an unknown predicate',
+                  not [x for x in commented if x['kind'] == 'unknown_predicate'],
+                  str(commented)))
+
+    # THE LIVE REGISTRY must be complete: every predicate this engine has a
+    # branch for is in KNOWN_REQUIREMENT_KEYS, or its own requirement would
+    # report itself as unevaluable. Read from this module's source rather
+    # than listed here, so adding a predicate cannot forget this.
+    src = (ROOT / 'tools' / 'precedent_reply_check.py').read_text(encoding='utf-8')
+    branches = set(re.findall(r"r\.get\('(require_[a-z_]+)'\)", src))
+    missing = sorted(branches - set(prc.KNOWN_REQUIREMENT_KEYS))
+    cases.append(('every predicate the engine evaluates is in '
+                  'KNOWN_REQUIREMENT_KEYS', not missing, f'missing: {missing}'))
+
+    # And the reachability half, against a real scratch config.
+    import tempfile
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-replysrc-'))
+    try:
+        fx = tmp / 'repo'
+        (fx / 'practices').mkdir(parents=True)
+        (fx / 'precedent.json').write_text(json.dumps({'sources': [
+            {'level': 'universal', 'name': 'precedent',
+             'path': '../not-there'}]}),
+            encoding='utf-8')
+        _reqs, notes = prc.declared_requirements(str(fx))
+        cases.append(('a source that is not on disk becomes a NOTE, not silence',
+                      any('not on disk' in n for n in notes), str(notes)))
+        cases.append(('the note says the requirement is unknown, not absent',
+                      any('unknown, not' in n for n in notes), str(notes)))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    return (not bad, f'{len(cases)} stated cases',
+            '; '.join(f'{n}: {d}' for n, d in bad))
+
+
+def check_every_verdict_returning_check_is_recorded():
+    """A verdict nobody reads is not a check.
+
+    Most `check_*` functions here report by calling `check(name, ok, detail)`
+    themselves and return nothing. A newer family instead ends in
+    `return (not bad, detail, failure)` and is recorded by its CALL SITE --
+    `check('...', *check_foo())`. Call one of those bare and it still runs,
+    so an exception still fails the suite, but a returned False is dropped on
+    the floor and the run prints `0 failed`.
+
+    Found 2026-09-21 by noticing that adding two checks left the total at
+    233. NINE were in that state: eight called bare, and one never called at
+    all. Eight of the nine had been written that same week, which is the
+    whole argument for asserting the wiring instead of the behaviour -- the
+    mistake is invisible in every way a person reads a passing run, and it
+    is the kind you make once per new check.
+
+    So this reads the source rather than the results: every function whose
+    body ends in a verdict tuple must appear in `main()` as an argument to
+    `check(`, not as a bare statement, and must appear at all."""
+    src = (ROOT / 'tools' / 'verify_harness.py').read_text(encoding='utf-8')
+    lines = src.splitlines()
+
+    returning, cur = [], None
+    for line in lines:
+        m = re.match(r'^def (check_[a-z_0-9]+)\(', line)
+        if m:
+            cur = m.group(1)
+        if cur and re.match(r'^    return \(not bad,', line):
+            if cur not in returning:
+                returning.append(cur)
+
+    bad = []
+    for fn in returning:
+        bare = re.search(rf'^\s+{re.escape(fn)}\(\)\s*$', src, re.M)
+        wired = re.search(rf'\*{re.escape(fn)}\(\)', src)
+        if bare:
+            bad.append((fn, 'called bare -- its verdict is discarded; '
+                            f"call it as check('<name>', *{fn}())"))
+        elif not wired:
+            bad.append((fn, 'defined but never called from main()'))
+
+    return (not bad,
+            f'{len(returning)} verdict-returning check(s), all recorded',
+            '; '.join(f'{n}: {d}' for n, d in bad))
+
+
+def check_a_stale_source_clone_is_made_current_not_reported_clean():
+    """The loop that put four sources 17 to 34 commits behind.
+
+    The refresh writes engine files into a source clone and never commits
+    them -- deliberately, `this tool never publishes`. The clone is then
+    dirty, so the next session's ff-only pull refuses and the refresh's own
+    dirty-guard skips. Nothing exited non-zero and the closing line read
+    `applied.` either way, so it ran that way for weeks while every session
+    start reported success. Every dirty path in all four clones was engine
+    output nobody had hand-edited: the tool's own output disarmed the tool.
+
+    Morgan, 2026-09-21 (strength: decided): make it current, do not merely
+    check. So the four behaviours that carry that are asserted here against
+    real git repositories rather than inferred from a passing run -- above
+    all the TWO REFUSALS, which are what keep "discard the engine's output"
+    from becoming "discard somebody's work" (practice:
+    control-asserts-which-failure)."""
+    import importlib.util as _ilu
+    import tempfile
+    spec = _ilu.spec_from_file_location(
+        '_rs_probe', ROOT / 'tools' / 'precedent_refresh_sources.py')
+    try:
+        rs = _ilu.module_from_spec(spec)
+        spec.loader.exec_module(rs)
+    except Exception as exc:                     # noqa: BLE001
+        return (False, '', f'precedent_refresh_sources.py would not import: {exc}')
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='vh-stale-source-'))
+
+    def git(repo, *args):
+        return subprocess.run(['git', '-C', str(repo), *args],
+                              capture_output=True, text=True)
+
+    def new_repo(name):
+        # fixture-owns-its-state: its own identity and its own branch name,
+        # so a machine's global git config cannot change the answer.
+        r = tmp / name
+        r.mkdir(parents=True)
+        git(r, 'init', '--quiet', '--initial-branch', 'main')
+        git(r, 'config', 'user.email', 'fixture' + chr(64) + 'example.invalid')
+        git(r, 'config', 'user.name', 'Fixture')
+        return r
+
+    cases = []
+    try:
+        origin = new_repo('origin')
+        (origin / 'tools').mkdir()
+        manifest = {'format_version': 1, 'kind': 'source',
+                    'source_branch': 'main', 'files': ['engine_a.py'],
+                    'hook_files': [], 'ci_workflow_files': []}
+        (origin / 'tools' / 'ENGINE_MANIFEST.json').write_text(
+            json.dumps(manifest), encoding='utf-8')
+        (origin / 'tools' / 'engine_a.py').write_text('v1\n', encoding='utf-8')
+        (origin / 'practices').mkdir()
+        (origin / 'practices' / 'p.md').write_text('one\n', encoding='utf-8')
+        (origin / 'precedent.json').write_text('{"base_branch": "main"}',
+                                               encoding='utf-8')
+        git(origin, 'add', '-A')
+        git(origin, 'commit', '--quiet', '-m', 'first')
+
+        clone = tmp / 'clone'
+        subprocess.run(['git', 'clone', '--quiet', str(origin), str(clone)],
+                       capture_output=True, text=True)
+        # fixture-owns-its-state, same as new_repo above: a CLONE inherits no
+        # identity, so without these two lines every `git commit` below falls
+        # back to the machine's global config. On a developer box that config
+        # exists and the commits land; in CI it does not, the commits fail
+        # silently, and the "diverged clone" this fixture believes it built is
+        # just a clone sitting at origin -- which make_current then correctly
+        # fast-forwards, failing the two refusal cases for the one reason they
+        # were never testing. Reported 2026-09-21 by the sharded CI job, after
+        # a crash in the check filter stopped masking it.
+        git(clone, 'config', 'user.email', 'fixture' + chr(64) + 'example.invalid')
+        git(clone, 'config', 'user.name', 'Fixture')
+
+        # origin moves on; the clone does not.
+        (origin / 'practices' / 'p.md').write_text('two\n', encoding='utf-8')
+        git(origin, 'add', '-A')
+        git(origin, 'commit', '--quiet', '-m', 'second')
+
+        # 1. The engine's own output is recognised as the engine's.
+        (clone / 'tools' / 'engine_a.py').write_text('v2\n', encoding='utf-8')
+        engine, other = rs.classify_dirt(clone)
+        cases.append(('a modified manifest-listed file is engine dirt',
+                      engine == ['tools/engine_a.py'] and not other,
+                      f'engine={engine} other={other}'))
+
+        # 2. A person's file is NEVER the engine's, even beside engine dirt.
+        #    IT MUST BE TRACKED AND MODIFIED. An untracked file reads as `??`
+        #    and lands in `other` whatever the owned-set says, so a fixture
+        #    built that way exercises nothing -- proven by planting "every
+        #    modified file is engine output" and watching this case pass.
+        #    The status code is the wrong half of the test; the owned-set
+        #    membership is the half that matters.
+        (clone / 'practices' / 'mine.md').write_text('hand\n', encoding='utf-8')
+        git(clone, 'add', '-A')
+        git(clone, 'commit', '--quiet', '-m', 'a file of my own')
+        (clone / 'practices' / 'mine.md').write_text('hand, edited\n',
+                                                     encoding='utf-8')
+        engine, other = rs.classify_dirt(clone)
+        cases.append(("a TRACKED, MODIFIED file the manifest does not list "
+                      "is a person's",
+                      'practices/mine.md' in other
+                      and 'practices/mine.md' not in engine,
+                      f'engine={engine} other={other}'))
+        git(clone, 'checkout', '--', 'practices/mine.md')
+        git(clone, 'reset', '--quiet', '--hard', 'HEAD~1')
+
+        # 3. make_current brings it current, and the file it discarded was
+        #    only ever the engine's.
+        ok, note = rs.make_current(clone, 'main')
+        counts = git(clone, 'rev-list', '--left-right', '--count',
+                     'origin/main...HEAD').stdout.split()
+        cases.append(('a behind clone with engine dirt is made current',
+                      ok and counts == ['0', '0'], f'{note} counts={counts}'))
+        cases.append(('and its working tree carries the new content',
+                      (clone / 'practices' / 'p.md').read_text().strip() == 'two',
+                      (clone / 'practices' / 'p.md').read_text().strip()))
+
+        # 4. A PERSON'S dirt refuses, and changes nothing. The whole safety
+        #    of part 2 rests on this one.
+        (origin / 'practices' / 'p.md').write_text('three\n', encoding='utf-8')
+        git(origin, 'add', '-A')
+        git(origin, 'commit', '--quiet', '-m', 'third')
+        git(clone, 'fetch', '--quiet', 'origin', 'main')
+        (clone / 'practices' / 'mine.md').write_text('hand\n', encoding='utf-8')
+        git(clone, 'add', '-A')
+        git(clone, 'commit', '--quiet', '-m', 'a file of my own')
+        (clone / 'practices' / 'mine.md').write_text('mid-review\n',
+                                                     encoding='utf-8')
+        engine, other = rs.classify_dirt(clone)
+        cases.append(("a person's dirt is reported so the caller can refuse",
+                      other == ['practices/mine.md']
+                      and 'practices/mine.md' not in engine, f'other={other}'))
+        cases.append(("and that edit is still on disk, unread by the engine",
+                      (clone / 'practices' / 'mine.md').read_text().strip()
+                      == 'mid-review', 'changed'))
+        git(clone, 'checkout', '--', 'practices/mine.md')
+        git(clone, 'reset', '--quiet', '--hard', 'HEAD~1')
+        git(clone, 'merge', '--ff-only', 'origin/main')
+
+        # 5. A DIVERGED clone refuses, and changes nothing.
+        (clone / 'practices' / 'local.md').write_text('local\n', encoding='utf-8')
+        git(clone, 'add', '-A')
+        git(clone, 'commit', '--quiet', '-m', 'local only')
+        (origin / 'practices' / 'p.md').write_text('four\n', encoding='utf-8')
+        git(origin, 'add', '-A')
+        git(origin, 'commit', '--quiet', '-m', 'fourth')
+        head_before = git(clone, 'rev-parse', 'HEAD').stdout.strip()
+        # The fixture asserts its own setup: if the local commit did not
+        # land, everything below tests a clone that never diverged.
+        _ahead = git(clone, 'rev-list', '--count', 'origin/main..HEAD').stdout.strip()
+        cases.append(('the fixture really built a diverged clone',
+                      _ahead == '1', f'{_ahead} local commit(s), expected 1'))
+        ok, note = rs.make_current(clone, 'main')
+        head_after = git(clone, 'rev-parse', 'HEAD').stdout.strip()
+        cases.append(('a diverged clone refuses rather than rebasing anybody',
+                      not ok and 'local commit' in note, note))
+        cases.append(('and its HEAD is exactly where it was',
+                      head_before == head_after,
+                      f'{head_before[:12]} -> {head_after[:12]}'))
+        cases.append(('and the unpushed commit is still there',
+                      (clone / 'practices' / 'local.md').is_file(), 'gone'))
+
+        # 6. The postcondition is real: make_current returns False when the
+        #    tree did not arrive, rather than trusting the command.
+        src = (ROOT / 'tools' / 'precedent_refresh_sources.py').read_text(
+            encoding='utf-8')
+        cases.append(('make_current verifies HEAD against origin afterwards',
+                      'verify-postcondition' in src
+                      and 'merge reported success but HEAD is' in src, ''))
+
+        # 7. A skip is not a success -- the line and the exit code both.
+        cases.append(('a skipped source is named and exits non-zero',
+                      'NOT APPLIED to' in src
+                      and 'return 1 if (failed or skipped) else 0' in src, ''))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    return (not bad, f'{len(cases)} stated cases, two refusals among them',
+            '; '.join(f'{n}: {d}' for n, d in bad))
+
+
+def check_suggested_links_keep_a_dotfiles_leading_dot():
+    """`lstrip('./')` takes a character SET, not a prefix.
+
+    So it eats every leading `.` and `/` it finds, and
+    `../.claude/hooks/commit-identity-push-gate.sh` comes back as
+    `claude/hooks/...`. The URL precedent_check.py then hands the author to
+    paste 404s -- silently, because a suggested fix is never fetched by the
+    thing suggesting it.
+
+    It shipped TWICE. Found and fixed inline in the declined-adapters reader
+    on 2026-09-21; the identical expression survived in the travel check's
+    suggested-fix line until a session vendoring a `.claude/hooks/` push gate
+    into the individual source was handed the mangled URL and reported it.
+    Both sites now call one helper, and this asserts the helper's behaviour
+    directly rather than inferring it from a check that happens to pass
+    (practice: control-asserts-which-failure).
+
+    The dotfile cases are the ones that bite: every harness adapter this repo
+    ships lives under a dot directory, so the paths most likely to be
+    suggested are exactly the paths the old expression destroyed."""
+    import importlib.util as _ilu
+    spec = _ilu.spec_from_file_location('_pc_prefix',
+                                        ROOT / 'tools' / 'precedent_check.py')
+    try:
+        mod = _ilu.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        strip = mod._strip_relative_prefix
+    except Exception as exc:                     # noqa: BLE001
+        return (False, '', f'precedent_check.py would not import: {exc}')
+
+    cases = [
+        ('../.claude/hooks/x.sh', '.claude/hooks/x.sh'),
+        ('./.claude/settings.json', '.claude/settings.json'),
+        ('../../.github/workflows/w.yml', '.github/workflows/w.yml'),
+        ('.claude/settings.json', '.claude/settings.json'),
+        ('../tools/precedent_check.py', 'tools/precedent_check.py'),
+        ('tools/precedent_check.py', 'tools/precedent_check.py'),
+        ('./practices/go-merge.md', 'practices/go-merge.md'),
+    ]
+    bad = []
+    for given, want in cases:
+        got = strip(given)
+        if got != want:
+            bad.append((given, f'{got!r} not {want!r}'))
+
+    # And the mistake itself, named, so a later edit that reaches for the
+    # short spelling fails here rather than in a pasted URL.
+    if '../.claude/hooks/x.sh'.lstrip('./') == strip('../.claude/hooks/x.sh'):
+        bad.append(('the helper still behaves like lstrip',
+                    'a dotfile path loses its leading dot'))
+
+    src = (ROOT / 'tools' / 'precedent_check.py').read_text(encoding='utf-8')
+    for spelling in ('.lstrip("./")', ".lstrip('./')"):
+        if spelling in src:
+            bad.append((f'{spelling} is back in precedent_check.py',
+                        'use _strip_relative_prefix'))
+
+    return (not bad, f'{len(cases)} stated paths, both spellings refused',
+            '; '.join(f'{n}: {d}' for n, d in bad))
+
+
+def check_planted_case_rotation_never_narrows_silently():
+    """The rotation that decides how much of the push gate runs.
+
+    `check_precedent_check_fires` was 107.9s of a 211.5s suite -- 71 cases,
+    each copying the whole tree twice and starting two interpreters. Morgan,
+    2026-09-21 (strength: decided): build the 10% rotation. The risk of any
+    such scheduler is that it quietly runs less than it claims, so the
+    behaviour is asserted here directly rather than inferred from a fast
+    suite (practice: control-asserts-which-failure).
+
+    The four states that matter, and the two that must NEVER narrow:
+    a forced full run, and any change to the check machinery itself.
+    """
+    cases = []
+    slugs = _registry_slugs()
+    if not slugs:
+        return (False, '', 'the check registry could not be read at all, so '
+                           'the selector cannot be exercised')
+
+    saved = os.environ.get('PRECEDENT_HARNESS_ALL')
+    try:
+        os.environ['PRECEDENT_HARNESS_ALL'] = '1'
+        sel, why = _selected_case_slugs(slugs, touched={'README.md'}, count=1)
+        cases.append(('PRECEDENT_HARNESS_ALL=1 runs every case',
+                      sel == set(slugs), f'{len(sel)}/{len(slugs)}: {why}'))
+    finally:
+        if saved is None:
+            os.environ.pop('PRECEDENT_HARNESS_ALL', None)
+        else:
+            os.environ['PRECEDENT_HARNESS_ALL'] = saved
+
+    for touched, label in (({'tools/precedent_check.py'}, 'precedent_check.py'),
+                           ({'tools/verify_harness.py'}, 'verify_harness.py'),
+                           ({'tools/checks/anything.py'}, 'a tools/checks/ script')):
+        sel, why = _selected_case_slugs(slugs, touched=touched, count=1)
+        cases.append((f'a change to {label} runs every case',
+                      sel == set(slugs), f'{len(sel)}/{len(slugs)}: {why}'))
+
+    # A practice file in the diff always runs ITS OWN case -- the whole
+    # point: editing a rule without re-proving its check still fires is the
+    # hole this function exists to close.
+    probe = sorted(s for s in slugs if (ROOT / 'practices' / f'{s}.md').exists())
+    if probe:
+        one = probe[0]
+        # count chosen so `one` is NOT in the rotating slice by luck.
+        for count in range(HARNESS_ROTATION_BUCKETS):
+            sel, _ = _selected_case_slugs(slugs, touched={f'practices/{one}.md'},
+                                          count=count)
+            if one not in sel:
+                cases.append((f'a touched practice always runs its own case '
+                              f'({one}, bucket {count})', False, 'missing'))
+                break
+        else:
+            cases.append(('a touched practice always runs its own case, in '
+                          'every bucket', True, ''))
+
+    # Every slug a later assertion reads back out of `planted[...]` is
+    # pinned, in every bucket -- otherwise a skipped case leaves a KeyError
+    # for unrelated code.
+    pinned = _deep_assertion_slugs() & set(slugs)
+    missing = []
+    for count in range(HARNESS_ROTATION_BUCKETS):
+        sel, _ = _selected_case_slugs(slugs, touched={'README.md'}, count=count)
+        missing += sorted(pinned - sel)
+    cases.append((f'every deep-assertion slug is pinned in all '
+                  f'{HARNESS_ROTATION_BUCKETS} buckets ({len(pinned)} of them)',
+                  not missing, f'missing: {sorted(set(missing))}'))
+
+    # Ten consecutive commits cover the whole set -- "probably" is not the
+    # guarantee, and a rotation that left a check uncovered for longer than
+    # it claims would be worse than no rotation at all.
+    union = set()
+    for count in range(HARNESS_ROTATION_BUCKETS):
+        union |= _selected_case_slugs(slugs, touched={'README.md'}, count=count)[0]
+    uncovered = sorted(set(slugs) - union)
+    cases.append((f'{HARNESS_ROTATION_BUCKETS} consecutive commits cover every '
+                  f'case', not uncovered, f'never covered: {uncovered}'))
+
+    # And it must actually narrow, or it is ceremony.
+    sel, _ = _selected_case_slugs(slugs, touched={'README.md'}, count=0)
+    cases.append(('an ordinary docs change runs well under half the cases',
+                  len(sel) * 2 < len(slugs), f'{len(sel)}/{len(slugs)}'))
+
+    # NO BUCKET MAY SELECT NOTHING -- the 2026-09-20 failure, asked of this
+    # rotation before it could happen rather than after. That day
+    # precedent_check.py's rotation landed on a bucket covering nothing and
+    # CI refused the run. Here the floor is structural (pinned slugs, and a
+    # planted case cannot SKIP), but a floor nobody asserts is a floor that
+    # erodes silently, so both the selector's fail-safe and the measured
+    # minimum are checked.
+    per_bucket = [len(_selected_case_slugs(slugs, touched={'README.md'},
+                                           count=c)[0])
+                  for c in range(HARNESS_ROTATION_BUCKETS)]
+    cases.append((f'no bucket selects zero cases (per-bucket: {per_bucket})',
+                  all(n > 0 for n in per_bucket), ''))
+    empty, why = _selected_case_slugs([], touched={'README.md'}, count=0)
+    cases.append(('an empty slice runs everything rather than nothing',
+                  'empty' in why or empty == set(), why))
+
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    return (not bad, f'{len(cases)} stated cases',
+            '; '.join(f'{n}: {d}' for n, d in bad))
+
+
 def check_precedent_check_fires():
     """The enforced channel's own behaviour, as stated cases against throwaway
     repositories -- one planted violation per enforced practice.
@@ -5584,6 +6805,44 @@ def check_precedent_check_fires():
 
         # --- one planted violation per enforced practice --------------------
         planted = {}
+        declared = set()          # every slug case() was ASKED for
+        ran, skipped = [], []     # and which of those actually executed
+
+        # ROTATION (Morgan, 2026-09-21, strength: decided -- "build the 10%
+        # rotation"). This function was 107.9s of a 211.5s suite: 71 cases,
+        # each copying the whole tree twice and starting two interpreters.
+        # Running all 71 before every push is the cost; running none of them
+        # is not an option, so this is the same three-tier shape Morgan
+        # already directed for precedent_check.py on 2026-09-18
+        # (_scoped_tree_slugs there), applied to the planted cases.
+        #
+        # WHAT ALWAYS RUNS, and each of these is load-bearing:
+        #   - a check whose own practices/<slug>.md this change touched.
+        #     Editing a rule without re-proving its check still fires is
+        #     the exact hole this whole function exists to close.
+        #   - ANY case whose recorded output a later assertion in this file
+        #     reads back out of `planted[...]`. Those are derived from this
+        #     file's own source below rather than kept as a hand-list,
+        #     because a hand-list drifts the first time somebody adds a
+        #     deeper assertion, and the failure would be a KeyError in an
+        #     unrelated case months later.
+        #   - EVERYTHING, when the change touches the check machinery
+        #     itself (tools/precedent_check.py, this file, or a
+        #     tools/checks/ script). A change there can alter any check's
+        #     behaviour, so no rotation slice is a safe sample of it.
+        #
+        # The rest rotate deterministically by commit count, so ten
+        # consecutive commits cover the whole set exactly once each -- not
+        # "probably", the same guarantee _scoped_tree_slugs gives.
+        #
+        # --all, or PRECEDENT_HARNESS_ALL=1, forces the full set. CI sets
+        # it: a gate that runs a tenth of itself is right for a push a
+        # person is standing at, and wrong for the run nobody is watching.
+        _all_case_slugs = _registry_slugs()
+        if _all_case_slugs:
+            _selected, _selection_reason = _selected_case_slugs(_all_case_slugs)
+        else:
+            _selected, _selection_reason = None, 'all (the registry could not be read)'
 
         # case()'s two sub-runs -- the planted fixture and the clean fixture
         # -- are provably independent: different directories, no shared
@@ -5618,6 +6877,17 @@ def check_precedent_check_fires():
                 q.put(('error', e))
 
         def case(slug, plant, extra=(), setup=None, advisory=False):
+            # DECLARED is recorded before the rotation decision, and is what
+            # the untested-claim assertion at the end of this function reads.
+            # A case that this invocation did not RUN is still a case this
+            # file HAS -- conflating the two would turn the rotation into a
+            # report that the registry is missing coverage it actually has.
+            declared.add(slug)
+            if _selected is not None and slug not in _selected:
+                skipped.append(slug)
+                return
+            ran.append(slug)
+
             def _planted_pipeline():
                 repo = fresh(slug)
                 if setup:
@@ -6180,13 +7450,27 @@ def check_precedent_check_fires():
 
         # vendored-import-refs-resolve -- a vendored file (precedent_paths.py,
         # in both ENGINE_FILES and CONSUMER_ENGINE_FILES) module-level
-        # imports parse_check.py, which is vendored in neither -- reproducing
-        # the 2026-09-19 incident this check exists for
-        # (precedent_check.py did exactly this to itself and broke
-        # check_installer_produces_a_clean_install).
+        # imports a tool vendored in NEITHER -- reproducing the 2026-09-19
+        # incident this check exists for (precedent_check.py did exactly
+        # this to itself and broke check_installer_produces_a_clean_install).
+        #
+        # THE PLANTED IMPORT WAS parse_check UNTIL 2026-09-21, and vendoring
+        # very_deep_check.py that day brought parse_check.py into both lists
+        # with it -- so the planted "violation" resolved cleanly and this
+        # case silently stopped testing anything. The harness caught it in
+        # the same run: "a planted violation fails the check". That is the
+        # planted-case mechanism doing precisely its job, and it is the
+        # reason a check without one is refused.
+        #
+        # precedent_upstream_check.py is the replacement because it is
+        # unvendored BY DESIGN rather than by omission: it compares this
+        # repo's own main against its carry watermark, a question no other
+        # repository has. A future list change is unlikely to absorb it the
+        # way parse_check.py was absorbed -- but if one ever does, this case
+        # will fail exactly like this one did, which is the point.
         case('vendored-import-refs-resolve',
              lambda repo: rewrite(repo, 'tools/precedent_paths.py',
-                                  lambda t: 'import parse_check\n' + t))
+                                  lambda t: 'import precedent_upstream_check\n' + t))
 
         # generated-artifact-provenance -- a hand-edited generated view
         case('generated-artifact-provenance',
@@ -6551,7 +7835,7 @@ def check_precedent_check_fires():
         # rather than reporting a generic failure.
         def _plant_park_it(repo):
             rewrite(repo, 'AGENTS.md',
-                    lambda s: s.replace('Park it', 'the phrase'))
+                    lambda s: s.replace('Drop it', 'the phrase'))
         case('park-it', _plant_park_it)
 
         # install-declares-its-scope -- SETUP.md put back the way it read
@@ -7756,6 +9040,305 @@ def check_precedent_check_fires():
         case('todo-migrate-available-but-unused', _plant_todo_migrate_unused,
              setup=_setup_todo_migrate_manifest)
 
+        # workflow-file-outside-vendoring -- advisory. setup() gives the
+        # check something to compare against at all (this repo's own tree
+        # has no tools/ENGINE_MANIFEST.json -- BestPractice vendors nothing
+        # into itself), naming ONLY bestpractice-docs.yml as tracked; the
+        # plant adds a second, untracked workflow file. Both run in the
+        # clean pipeline too (setup applies to both -- see case()'s own
+        # _clean_pipeline), so the clean control still has a manifest and
+        # still reports nothing, proving the check does not fire on a
+        # manifest's mere presence.
+        def _setup_workflow_outside_vendoring(repo):
+            # The fixture OWNS .github/workflows/ rather than inheriting it
+            # (practice: fixture-owns-its-state). fresh() copies this repo's
+            # real tree, which carries its own three hand-authored workflow
+            # files -- every one of them untracked by the manifest written
+            # below, so leaving them in place made the CLEAN control report
+            # findings and proved nothing. Measured: the unplanted case
+            # failed on exactly those three before this line existed.
+            wf = repo / '.github' / 'workflows'
+            if wf.is_dir():
+                shutil.rmtree(wf)
+            wf.mkdir(parents=True)
+            (repo / '.github/workflows/bestpractice-docs.yml').write_text(
+                'name: docs\n', encoding='utf-8')
+            (repo / 'tools' / 'ENGINE_MANIFEST.json').write_text(json.dumps({
+                'kind': 'consumer',
+                'ci_workflow_files': ['.github/workflows/bestpractice-docs.yml'],
+                'ci_workflows_sha256': {},
+            }), encoding='utf-8')
+            git(repo, 'add', '-A')
+            git(repo, 'commit', '-qm', 'planted vendored-consumer manifest + tracked workflow')
+
+        def _plant_workflow_outside_vendoring(repo):
+            (repo / '.github/workflows/hand-authored.yml').write_text(
+                'name: hand-authored\n', encoding='utf-8')
+            git(repo, 'add', '-A')
+            git(repo, 'commit', '-qm', 'planted untracked workflow file')
+
+        case('workflow-file-outside-vendoring', _plant_workflow_outside_vendoring,
+             setup=_setup_workflow_outside_vendoring, advisory=True)
+
+        # shipped-template-carries-its-script (2026-09-21). The check reads
+        # THIS repo's templates/github-actions/ against the REAL
+        # CI_WORKFLOW_TEMPLATES/KINDS imported from tools/ -- so the fixture
+        # supplies only the template, and the registries it is judged
+        # against are the live ones. Setup writes a template running a
+        # script that IS vendored (clean); the plant rewrites it to run one
+        # that is not, reproducing the leak_gate.py incident exactly.
+        def _setup_shipped_template_script(repo):
+            d = repo / 'templates' / 'github-actions'
+            d.mkdir(parents=True, exist_ok=True)
+            (d / 'leak-gate.yml.template').write_text(
+                'name: Leak gate\n'
+                'on:\n'
+                '  push:\n'
+                'jobs:\n'
+                '  leak-gate:\n'
+                '    runs-on: ubuntu-latest\n'
+                '    steps:\n'
+                '      - uses: actions/checkout@v4\n'
+                '      - name: Run it\n'
+                '        run: python3 tools/leak_gate.py --structural-only\n',
+                encoding='utf-8')
+            git(repo, 'add', '-A')
+            git(repo, 'commit', '-qm',
+                'planted CI template running a vendored script')
+
+        def _plant_shipped_template_script(repo):
+            d = repo / 'templates' / 'github-actions'
+            (d / 'leak-gate.yml.template').write_text(
+                'name: Leak gate\n'
+                'on:\n'
+                '  push:\n'
+                'jobs:\n'
+                '  leak-gate:\n'
+                '    runs-on: ubuntu-latest\n'
+                '    steps:\n'
+                '      - uses: actions/checkout@v4\n'
+                '      # tools/mentioned_only.py here is a COMMENT and must\n'
+                '      # not be flagged -- the false-positive direction.\n'
+                '      - name: Advise\n'
+                "        run: echo \"run 'python3 tools/advised_only.py' yourself\"\n"
+                '      - name: Run it\n'
+                '        run: python3 tools/never_vendored_anywhere.py\n',
+                encoding='utf-8')
+            git(repo, 'add', '-A')
+            git(repo, 'commit', '-qm',
+                'planted CI template running an unvendored script')
+
+        case('shipped-template-carries-its-script',
+             _plant_shipped_template_script,
+             setup=_setup_shipped_template_script)
+
+        # vocabulary-reaches-the-consumer (2026-09-21). The check reads THIS
+        # repo's practices/ against the REAL engine file lists imported from
+        # tools/, so the fixture supplies only practice files and is judged
+        # against the live registries. Setup plants a command practice that
+        # is properly reachable; the plant makes it unreachable in BOTH ways
+        # the check catches -- a scope that withholds it from a consumer's
+        # tree, and a named tool that ships to nobody.
+        def _setup_vocabulary_reaches(repo):
+            d = repo / 'practices'
+            d.mkdir(parents=True, exist_ok=True)
+            (d / 'planted-command.md').write_text(
+                '---\n'
+                'slug:        planted-command\n'
+                'title:       Planted\n'
+                'tier:        on-demand\n'
+                'severity:    advisory\n'
+                'scope:       null\n'
+                'applies_to:  ["**"]\n'
+                'occasion:    "a person says the planted word"\n'
+                'gates:       []\n'
+                'index_clause: "planted"\n'
+                'checked_by:  null\n'
+                'defines:     []\n'
+                'command:     {"Planted word": "Do the planted thing."}\n'
+                'status:      active\n'
+                'supersedes:  []\n'
+                'overrides:   null\n'
+                'added:       null\n'
+                'approved_by: "h"\n'
+                '---\n\n'
+                '## Rule\nRun `python3 tools/precedent_show.py SLUG`.\n\n'
+                '## Story\nIt is vendored, so the word works downstream.\n',
+                encoding='utf-8')
+            git(repo, 'add', '-A')
+            git(repo, 'commit', '-qm', 'planted a reachable command practice')
+
+        def _plant_vocabulary_reaches(repo):
+            d = repo / 'practices'
+            (d / 'planted-command.md').write_text(
+                '---\n'
+                'slug:        planted-command\n'
+                'title:       Planted\n'
+                'tier:        on-demand\n'
+                'severity:    advisory\n'
+                'scope:       engine-dev\n'
+                'applies_to:  ["**"]\n'
+                'occasion:    "a person says the planted word"\n'
+                'gates:       []\n'
+                'index_clause: "planted"\n'
+                'checked_by:  null\n'
+                'defines:     []\n'
+                'command:     {"Planted word": "Do the planted thing."}\n'
+                'status:      active\n'
+                'supersedes:  []\n'
+                'overrides:   null\n'
+                'added:       null\n'
+                'approved_by: "h"\n'
+                '---\n\n'
+                '## Rule\nRun `python3 tools/never_vendored_anywhere.py`.\n\n'
+                '## Story\nBOTH failures at once: scope: engine-dev withholds\n'
+                'this from a consuming tree, and the tool it names ships to\n'
+                'nobody. A person can say the word and nothing can happen.\n',
+                encoding='utf-8')
+            git(repo, 'add', '-A')
+            git(repo, 'commit', '-qm', 'planted an unreachable command practice')
+
+        case('vocabulary-reaches-the-consumer',
+             _plant_vocabulary_reaches,
+             setup=_setup_vocabulary_reaches)
+
+        # wired-hooks-can-reach-a-consumer (2026-09-21). The check reads a
+        # repo's own .claude/settings.json against the REAL HOOK_SOURCE_DIR
+        # imported from precedent_vendor_engine, so the fixture supplies
+        # both sides and is judged against the live constant. Setup wires a
+        # hook that IS in the mirrored directory; the plant wires one that
+        # is not, reproducing the doc-lint-gate.sh incident exactly -- a
+        # hook this repo ran and no consumer could ever receive.
+        import json as _pj
+
+        def _settings_wiring(script):
+            return _pj.dumps({'hooks': {'PreToolUse': [{
+                'matcher': 'Bash',
+                'hooks': [{'type': 'command',
+                           'command': '$CLAUDE_PROJECT_DIR/.claude/hooks/' + script}],
+            }]}}, indent=2) + '\n'
+
+        def _setup_wired_hooks_reach(repo):
+            d = repo / 'templates' / 'harness' / 'claude-code' / 'hooks'
+            d.mkdir(parents=True, exist_ok=True)
+            (d / 'planted-hook.sh').write_text('#!/bin/bash\nexit 0\n',
+                                               encoding='utf-8')
+            s = repo / '.claude'
+            s.mkdir(parents=True, exist_ok=True)
+            (s / 'settings.json').write_text(
+                _settings_wiring('planted-hook.sh'), encoding='utf-8')
+            git(repo, 'add', '-A')
+            git(repo, 'commit', '-qm', 'planted a hook that can reach a consumer')
+
+        def _plant_wired_hooks_reach(repo):
+            s = repo / '.claude'
+            (s / 'settings.json').write_text(
+                _settings_wiring('never-shipped-anywhere.sh'), encoding='utf-8')
+            git(repo, 'add', '-A')
+            git(repo, 'commit', '-qm', 'planted a hook no consumer can receive')
+
+        case('wired-hooks-can-reach-a-consumer',
+             _plant_wired_hooks_reach,
+             setup=_setup_wired_hooks_reach)
+
+        # shipped-hook-carries-its-script (2026-09-21). The check reads a
+        # repo's HOOK_SOURCE_DIR against the REAL engine file lists, so the
+        # fixture supplies only the hook and is judged against the live
+        # registries. Setup ships a hook running a script that IS vendored
+        # to both kinds; the plant rewrites it to run one that is vendored
+        # to neither, reproducing the doc_lint.py incident exactly -- a hook
+        # that lands without the tool it runs and then fails open forever.
+        def _setup_hook_carries_script(repo):
+            d = repo / 'templates' / 'harness' / 'claude-code' / 'hooks'
+            d.mkdir(parents=True, exist_ok=True)
+            (d / 'planted-gate.sh').write_text(
+                '#!/bin/bash\n'
+                '# tools/mentioned_only.py in a COMMENT must not be flagged.\n'
+                'script="$project_dir/tools/doc_lint.py"\n'
+                'exec python3 "$script" "$@"\n', encoding='utf-8')
+            git(repo, 'add', '-A')
+            git(repo, 'commit', '-qm', 'planted a hook whose script is vendored')
+
+        def _plant_hook_carries_script(repo):
+            d = repo / 'templates' / 'harness' / 'claude-code' / 'hooks'
+            (d / 'planted-gate.sh').write_text(
+                '#!/bin/bash\n'
+                '# tools/mentioned_only.py in a COMMENT must not be flagged.\n'
+                'script="$project_dir/tools/never_vendored_anywhere.py"\n'
+                'exec python3 "$script" "$@"\n', encoding='utf-8')
+            git(repo, 'add', '-A')
+            git(repo, 'commit', '-qm', 'planted a hook whose script ships nowhere')
+
+        case('shipped-hook-carries-its-script',
+             _plant_hook_carries_script,
+             setup=_setup_hook_carries_script)
+
+        # claude-only-surface-has-a-parallel (2026-09-21). The check reads
+        # the fixture's OWN .claude/ and templates/harness/PARALLELS.md, so
+        # the fixture supplies both. Setup gives one Claude-only hook and a
+        # table row covering it for all three adapters; the plant deletes
+        # the row, reproducing the shape the check exists for -- a
+        # mechanism that lives in .claude/ and nowhere else, with nothing
+        # recording what the other three harnesses get instead.
+        _PAR_HEAD = ('| Mechanism | What it does | codex | gemini-cli | '
+                     'grok-build |\n|---|---|---|---|---|\n')
+
+        def _par_rows_for(repo):
+            """A covering row for every mechanism the FIXTURE's own .claude/
+            holds. The fixture is a copy of this tree, so it inherits the
+            real hooks; a table naming only the planted one leaves those
+            uncovered and the clean case fails for a reason that has
+            nothing to do with what is being tested."""
+            import json as _vj
+            names = {q.name for q in (repo / '.claude' / 'hooks').glob('*.sh')}
+            for sp in sorted((repo / '.claude').glob('settings*.json')):
+                try:
+                    doc = _vj.loads(sp.read_text(encoding='utf-8'))
+                except Exception:                             # noqa: BLE001
+                    continue
+                for _e, blocks in (doc.get('hooks') or {}).items():
+                    for b in blocks or ():
+                        for h in b.get('hooks') or ():
+                            c = (h.get('command') or '').strip()
+                            if c and c.split()[0].endswith('.sh'):
+                                names.add(c.split()[0].rsplit('/', 1)[-1])
+            return ''.join(
+                f'| `{n}` | fixture row | none, no hook mechanism | '
+                f'none, same | none, same |\n' for n in sorted(names))
+
+        def _setup_surface_parallel(repo):
+            h = repo / '.claude' / 'hooks'
+            h.mkdir(parents=True, exist_ok=True)
+            (h / 'planted-hook.sh').write_text('#!/bin/bash\nexit 0\n',
+                                               encoding='utf-8')
+            d = repo / 'templates' / 'harness'
+            d.mkdir(parents=True, exist_ok=True)
+            (d / 'PARALLELS.md').write_text(
+                '# Planted\n\n' + _PAR_HEAD + _par_rows_for(repo),
+                encoding='utf-8')
+            git(repo, 'add', '-A')
+            git(repo, 'commit', '-qm', 'planted a covered Claude-only hook')
+
+        def _plant_surface_parallel(repo):
+            # Drop exactly one row -- the planted hook's -- and leave every
+            # other row standing. A table emptied wholesale would fail for
+            # a dozen reasons at once; this fails for the one under test.
+            keep = [l for l in (repo / 'templates' / 'harness' /
+                                'PARALLELS.md').read_text(encoding='utf-8')
+                    .splitlines(True)
+                    if not l.startswith('| `planted-hook.sh`')]
+            (repo / 'templates' / 'harness' / 'PARALLELS.md').write_text(
+                ''.join(keep), encoding='utf-8')
+            git(repo, 'add', '-A')
+            git(repo, 'commit', '-qm', 'planted an uncovered Claude-only hook')
+
+        case('claude-only-surface-has-a-parallel',
+             _plant_surface_parallel,
+             setup=_setup_surface_parallel)
+
+
+
+
         # --- and the registry must not contain an untested claim ------------
         import importlib.util
         spec = importlib.util.spec_from_file_location(
@@ -7769,7 +9352,12 @@ def check_precedent_check_fires():
         # script would look unregistered here (and its check would look
         # untested), which is the opposite of the truth.
         pc.register_materialized_checks()
-        untested = sorted(set(pc.CHECKS) - set(planted))
+        # `declared`, not `planted`: with the rotation on, `planted` holds
+        # only the cases this invocation ran, and every skipped one would
+        # read as an untested claim. What this assertion is actually about
+        # is whether the FILE has a case for every registered check, which
+        # is a property of the source, not of one run's rotation slice.
+        untested = sorted(set(pc.CHECKS) - declared)
         cases.append(('every registered check has a planted case here',
                       not untested, f'untested: {untested}' if untested else ''))
         claimed = sorted(
@@ -7791,8 +9379,17 @@ def check_precedent_check_fires():
                 if any(slug in n for n, _ in bad):
                     detail += f"\n    --- {slug} planted run (rc={rc}):\n" + \
                         '\n'.join('    ' + l for l in out.splitlines()[:12])
-        check(f"enforced channel fires ({len(cases)} stated cases: one planted "
-              f"violation per enforced practice, plus the unplanted baseline)",
+        # THE SELECTION IS PART OF THE RESULT LINE, never a silent
+        # narrowing. A rotated run and a full run must not read the same:
+        # "a skip is not a pass" is this repo's own rule about its check
+        # suite, and a scheduler that hid what it declined to run would
+        # break it in the one place it is hardest to notice.
+        _sel = (f"{len(ran)} of {len(declared)} planted cases ran -- "
+                f"{_selection_reason}"
+                + (f"; {len(skipped)} NOT exercised this run, covered within "
+                   f"{HARNESS_ROTATION_BUCKETS} commits (--all forces every "
+                   f"one)" if skipped else ""))
+        check(f"enforced channel fires ({len(cases)} stated cases; {_sel})",
               not bad, detail)
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
@@ -8841,6 +10438,318 @@ def check_advisory_requirement_never_blocks():
           f'blocks ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
 
+def check_contradiction_requirement_blocks():
+    """`require_no_contradiction` catches a reply that asserts a fixed
+    sentence AND, elsewhere in the same reply, a plain-language phrase that
+    means the opposite -- "nothing blocking" beside "Don't archive this
+    session", or a still-open/waiting-on-you phrase beside "You can archive
+    this session".
+
+    The incident: 2026-09-20, a reply's own bullets said "no open work is
+    blocking either way" and then closed with "Don't archive this session"
+    -- caught by the person, not by any check. This is the check.
+    (practice: the-boildown, cite-the-incident)
+
+    practice: control-asserts-which-failure -- each positive case asserts
+    the guard's own "cannot both be true" message, not just a non-zero
+    exit; the negative controls (the same text with only one half present)
+    prove the match is on the PAIR, not on either phrase alone.
+    """
+    import tempfile
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-contradiction-'))
+    cases = []
+    try:
+        fx = tmp / 'repo'
+        (fx / 'practices').mkdir(parents=True)
+        (fx / 'precedent.json').write_text(json.dumps({'sources': [
+            {'level': 'universal', 'name': 'precedent', 'path': '.'}]}), encoding='utf-8')
+        (fx / 'reply_check.json').write_text(json.dumps([{
+            'practice': 'fixture-contradiction',
+            'require_no_contradiction': [
+                {'if_says': "Don't archive this session",
+                 'must_not_say_matching':
+                     r'\bno[\w\s]{0,20}?blocking\b(?!\s+(?:there\b|on (?:it|that|this)\b|for (?:it|that|this)\b))|'
+                     r'\bnothing[\w\s]{0,15}?(?:blocking|outstanding|pending|left to do)\b(?!\s+(?:there\b|on (?:it|that|this)\b|for (?:it|that|this)\b))'},
+                {'if_says': 'You can archive this session',
+                 'must_not_say_matching':
+                     r'\bstill (?:open|pending|blocking|waiting)\b(?!\s+(?:there\b|on (?:it|that|this)\b|for (?:it|that|this)\b))|'
+                     r'\bwaiting on (?:you|your)\b(?!\s+(?:there\b|on (?:it|that|this)\b|for (?:it|that|this)\b))|'
+                     r'\bblocked on\b(?!\s+(?:there\b|on (?:it|that|this)\b|for (?:it|that|this)\b))|'
+                     r'\bneeds? your (?:approval|input|answer|review)\b(?!\s+(?:there\b|on (?:it|that|this)\b|for (?:it|that|this)\b))|'
+                     r'\bnot yet (?:pushed|merged|committed)\b(?!\s+(?:there\b|on (?:it|that|this)\b|for (?:it|that|this)\b))'},
+            ],
+        }]), encoding='utf-8')
+
+        def write(name, text):
+            p = tmp / name
+            p.write_text(text, encoding='utf-8')
+            return p
+
+        def replycheck(path):
+            return subprocess.run(
+                [sys.executable, str(ROOT / 'tools' / 'precedent_reply_check.py'),
+                 '--repo', str(fx), '--text', str(path)],
+                capture_output=True, text=True, cwd=str(tmp),
+                env={**os.environ, 'PRECEDENT_USER_CONFIG': str(tmp / 'no-such-config.json')})
+
+        # Positive: the actual incident shape, reproduced verbatim in kind.
+        bad1 = write('bad1.md',
+                      '## The Boildown\n\n- Nothing further needed on this front.\n\n'
+                      "Don't archive this session -- happy to keep going, but no "
+                      'open work is blocking either way.\n')
+        r1 = replycheck(bad1)
+        cases.append(('the "no open work is blocking" + "don\'t archive" pair is '
+                       'refused, naming the contradiction',
+                       r1.returncode == 2 and 'cannot both be true' in r1.stderr,
+                       r1.stderr[:200]))
+
+        # Positive: the reverse pairing.
+        bad2 = write('bad2.md',
+                      '## The Boildown\n\n- The pull request is still open.\n\n'
+                      'You can archive this session.\n')
+        r2 = replycheck(bad2)
+        cases.append(('the "still open" + "you can archive" pair is refused',
+                       r2.returncode == 2 and 'cannot both be true' in r2.stderr,
+                       r2.stderr[:200]))
+
+        # Negative control 1: the archive sentence alone, no contradicting
+        # phrase anywhere -- must pass, or the check is matching the
+        # sentence by itself rather than the pair.
+        clean1 = write('clean1.md',
+                        "## The Boildown\n\nDon't archive this session -- PR #9 "
+                        'is still waiting on your review.\n')
+        r3 = replycheck(clean1)
+        cases.append(("negative control: \"don't archive\" alone (with a "
+                       'DIFFERENT, non-contradicting reason) is not blocked',
+                       r3.returncode == 0, f'exit {r3.returncode}: {r3.stderr[:160]}'))
+
+        # Negative control 2: the contradicting phrase alone, no fixed
+        # sentence present -- must pass, since there is no pair to compare.
+        clean2 = write('clean2.md',
+                        '## The Boildown\n\nNothing blocking, work continues.\n')
+        r4 = replycheck(clean2)
+        cases.append(('negative control: the phrase alone with neither fixed '
+                       'sentence present is not blocked',
+                       r4.returncode == 0, f'exit {r4.returncode}: {r4.stderr[:160]}'))
+
+        # The second incident, same day: this check's own first landing was
+        # refused by itself -- the reply describing the new check quoted
+        # both trigger phrases AND both contradiction patterns, in single
+        # quotes, while explaining the fix. Citing a phrase as a string is
+        # not asserting it; double-quoted citation is now exempt, single is
+        # deliberately NOT (an apostrophe in "Don't" makes a single-quote
+        # span delimiter unsafe -- see _strip_quoted_spans()'s docstring).
+        meta_dq = write(
+            'meta_dq.md',
+            '## Boildown\n\nA reply asserting "Don\'t archive this session" can '
+            'no longer also contain a "nothing blocking" phrase, and "You can '
+            'archive this session" can no longer co-occur with a "still open" '
+            'phrase.\n\nYou can archive this session -- the fix is pushed.\n')
+        r5 = replycheck(meta_dq)
+        cases.append(('a reply CITING both trigger phrases and both '
+                       'contradiction patterns in double quotes, while its own '
+                       'real (unquoted) verdict matches neither, is not blocked',
+                       r5.returncode == 0, f'exit {r5.returncode}: {r5.stderr[:200]}'))
+
+        # Same text, single quotes instead of double -- the documented
+        # limitation, not exempt. Proves the double-quote convention is
+        # actually load-bearing rather than the fix being unconditional.
+        meta_sq = write(
+            'meta_sq.md',
+            "## Boildown\n\nA reply asserting 'Don't archive this session' can "
+            "no longer also contain a 'nothing blocking' phrase, and 'You can "
+            "archive this session' can no longer co-occur with a 'still open' "
+            "phrase.\n\nYou can archive this session -- the fix is pushed.\n")
+        r6 = replycheck(meta_sq)
+        cases.append(('negative control: the same citation in SINGLE quotes is '
+                       'still blocked -- double quotes are the documented '
+                       'convention, not an unconditional exemption',
+                       r6.returncode == 2 and 'cannot both be true' in r6.stderr,
+                       f'exit {r6.returncode}: {r6.stderr[:200]}'))
+
+        # The third incident, same day: the flat match has no notion of
+        # scope, so a per-item "nothing left to do" inside one Boildown
+        # bullet -- about a single closed PR -- read identically to a
+        # whole-session claim. (practice: the-boildown, cite-the-incident)
+        scoped1 = write(
+            'scoped1.md',
+            '## The Boildown\n\n- PR #165 merged, confirmed -- nothing left '
+            'to do there.\n- The source add/drop question is still waiting '
+            "on you -- that's what's outstanding.\n\nDon't archive this "
+            'session.\n')
+        r7 = replycheck(scoped1)
+        cases.append(('scope exemption: "nothing left to do THERE", scoped '
+                       "to one closed item, does not block \"don't archive "
+                       'this session\" driven by a different, real open item',
+                       r7.returncode == 0, f'exit {r7.returncode}: {r7.stderr[:200]}'))
+
+        # Negative control: same wording, scope qualifier removed -- proves
+        # the exemption is on the trailing qualifier, not on bullet-list
+        # phrasing or the presence of a second, genuine open item.
+        scoped1_bare = write(
+            'scoped1_bare.md',
+            '## The Boildown\n\n- PR #165 merged, confirmed -- nothing left '
+            'to do.\n- The source add/drop question is still waiting on '
+            "you -- that's what's outstanding.\n\nDon't archive this "
+            'session.\n')
+        r8 = replycheck(scoped1_bare)
+        cases.append(('negative control: the same reply with the "there" '
+                       'dropped is still blocked -- the exemption is on the '
+                       'scope qualifier, not on any other feature of the text',
+                       r8.returncode == 2 and 'cannot both be true' in r8.stderr,
+                       f'exit {r8.returncode}: {r8.stderr[:200]}'))
+
+        # Same scope exemption, the reverse pairing ("You can archive this
+        # session" / "still open" etc.) -- the fix touches both patterns in
+        # the entry, so both get their own positive/negative pair.
+        scoped2 = write(
+            'scoped2.md',
+            '## The Boildown\n\n- The deploy step is still open on this, '
+            'a separate, already-tracked cleanup with its own owner.\n\n'
+            'You can archive this session.\n')
+        r9 = replycheck(scoped2)
+        cases.append(('scope exemption: "still open ON THIS", scoped to a '
+                       'separate tracked item, does not block "you can '
+                       'archive this session"',
+                       r9.returncode == 0, f'exit {r9.returncode}: {r9.stderr[:200]}'))
+
+        scoped2_bare = write(
+            'scoped2_bare.md',
+            '## The Boildown\n\n- The deploy step is still open, a '
+            'separate, already-tracked cleanup with its own owner.\n\n'
+            'You can archive this session.\n')
+        r10 = replycheck(scoped2_bare)
+        cases.append(('negative control: the same reply with "on this" '
+                       'dropped is still blocked',
+                       r10.returncode == 2 and 'cannot both be true' in r10.stderr,
+                       f'exit {r10.returncode}: {r10.stderr[:200]}'))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad_cases = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
+    check(f'require_no_contradiction refuses a reply asserting both halves of '
+          f'the archive contradiction ({len(cases)} stated cases, each with its control)',
+          not bad_cases,
+          '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad_cases))
+
+
+def check_reply_check_requires_a_destination_for_a_fence_block():
+    """`require_paired_with` catches a reply that hands over a fenced block
+    and never says where it goes.
+
+    The incident: across 2026-09-20 and 21, Morgan asked roughly twenty
+    times what session a block he had just been handed was for. Every one
+    of those blocks was correctly fenced, because fence-block-for-paste
+    already made the fence mandatory and said nothing about the address --
+    the practice enforced the container and left out the destination.
+    (practice: fence-block-for-paste, cite-the-incident)
+
+    practice: control-asserts-which-failure -- the positive case asserts
+    the guard's own message, and the two negatives prove BOTH escape routes
+    work: naming a destination, and declaring the block to be output.
+    """
+    import tempfile
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-paired-'))
+    cases = []
+    try:
+        fx = tmp / 'repo'
+        (fx / 'practices').mkdir(parents=True)
+        (fx / 'precedent.json').write_text(json.dumps({'sources': [
+            {'level': 'universal', 'name': 'precedent', 'path': '.'}]}),
+            encoding='utf-8')
+        # The gate REFUSES to print anything for a gate with no practices
+        # registered to it ("an empty gate is a step that loads nothing and
+        # looks like it worked"), so the fixture needs one -- otherwise the
+        # print case below would pass or fail for a reason unrelated to
+        # what it is testing (practice: fixture-owns-its-state).
+        (fx / 'practices' / 'fixture-paired.md').write_text(
+            '---\n'
+            'slug:        fixture-paired\n'
+            'title:       A fixture practice wired to the reply gate\n'
+            'tier:        on-demand\n'
+            'severity:    default\n'
+            'applies_to:  []\n'
+            'occasion:    "a fixture needs one practice on the reply gate"\n'
+            'gates:       ["reply"]\n'
+            'index_clause: "a fixture rule"\n'
+            'checked_by:  null\n'
+            'status:      active\n'
+            'in_force_at: null\n'
+            'supersedes:  []\n'
+            'overrides:   null\n'
+            'added:       null\n'
+            'approved_by: null\n'
+            '---\n\n## Rule\nA fixture rule, present so the reply gate has '
+            'something registered to it.\n', encoding='utf-8')
+        (fx / 'reply_check.json').write_text(json.dumps([{
+            'practice': 'fixture-paired',
+            'require_paired_with': [
+                {'if_matches': r'^\s*```',
+                 'must_also_match': r'(?:\*\*)?Paste into:|\bnot for pasting\b',
+                 'why': 'say where it goes'},
+            ],
+        }]), encoding='utf-8')
+
+        def write(name, text):
+            q = tmp / name
+            q.write_text(text, encoding='utf-8')
+            return q
+
+        def replycheck(path):
+            return subprocess.run(
+                [sys.executable, str(ROOT / 'tools' / 'precedent_reply_check.py'),
+                 '--repo', str(fx), '--text', str(path)],
+                capture_output=True, text=True, cwd=str(tmp),
+                env={**os.environ,
+                     'PRECEDENT_USER_CONFIG': str(tmp / 'no-such-config.json')})
+
+        bad = write('bad.md', '## The Boildown\n\nHere it is.\n\n'
+                              '```\nsome text\n```\n')
+        r1 = replycheck(bad)
+        cases.append(('a fence block with no destination is refused, naming '
+                      'the requirement',
+                      r1.returncode == 2 and 'nothing in it matches' in r1.stderr,
+                      f'exit {r1.returncode}: {r1.stderr[:200]}'))
+
+        good = write('good.md', '## The Boildown\n\n**Paste into:** the session '
+                                'rooted in FooRepo.\n\n```\nsome text\n```\n')
+        r2 = replycheck(good)
+        cases.append(('negative control: a block WITH a named destination '
+                      'passes',
+                      r2.returncode == 0, f'exit {r2.returncode}: {r2.stderr[:160]}'))
+
+        out = write('out.md', '## The Boildown\n\nMeasured, not for pasting:'
+                              '\n\n```\noutput\n```\n')
+        r3 = replycheck(out)
+        cases.append(('negative control: a block declared output is not asked '
+                      'for a destination',
+                      r3.returncode == 0, f'exit {r3.returncode}: {r3.stderr[:160]}'))
+
+        none = write('none.md', '## The Boildown\n\nNo fenced block anywhere.\n')
+        r4 = replycheck(none)
+        cases.append(('negative control: a reply with no fence block is '
+                      'unaffected',
+                      r4.returncode == 0, f'exit {r4.returncode}: {r4.stderr[:160]}'))
+
+        # The pre-reply print must NAME it. A blocking requirement that is
+        # enforced and never announced costs the person the reply twice --
+        # the exact failure precedent_gate.py's own docstring records.
+        r5 = subprocess.run(
+            [sys.executable, str(ROOT / 'tools' / 'precedent_gate.py'),
+             '--repo', str(fx), 'reply'],
+            capture_output=True, text=True, cwd=str(tmp),
+            env={**os.environ,
+                 'PRECEDENT_USER_CONFIG': str(tmp / 'no-such-config.json')})
+        cases.append(('the reply gate PRINTS this requirement before the reply',
+                      'must ALSO match' in r5.stdout, r5.stdout[-200:]))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad_cases = [(n, d) for n, ok, d in cases if not ok]
+    return (not bad_cases, f'{len(cases)} stated cases',
+            '; '.join(f'{n}: {d}' for n, d in bad_cases))
+
+
 def check_compaction_offer_fires_on_context_growth():
     """The size-aware half of the reply check: a long session is REFUSED a
     reply that never says whether this is a cheap point to compact.
@@ -8972,6 +10881,84 @@ def check_compaction_offer_fires_on_context_growth():
     bad_cases = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
     check(f'the compaction offer is demanded once a session has grown, and only '
           f'then ({len(cases)} stated cases)',
+          not bad_cases,
+          '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad_cases))
+
+
+def check_trivial_checkin_exempts_the_boildown_gate():
+    """practices/the-boildown.md names one fixed template for a turn where
+    nothing happened that is visible, or non-trivial, to the person --
+    "Unchanged since the last update: <X>." -- and says that turn does not
+    owe a fresh Boildown. Widened 2026-09-20 to cover any turn that shape
+    fits, not only a scheduled wakeup or background-task notification --
+    including one the stop hook itself forces, which is what prompted it:
+    a practice-candidate false positive rechecking its own prior output
+    produced two closing headings in a row with nothing between them.
+    `precedent_reply_check.is_trivial_checkin()` is the mechanical half;
+    this proves it actually exempts a reply from a real declared
+    requirement, and the negative control proves an ordinary short reply
+    that merely mentions the phrase in passing still has to carry one.
+    """
+    import tempfile
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-trivial-checkin-'))
+    cases = []
+    try:
+        fx = tmp / 'repo'
+        (fx / 'practices').mkdir(parents=True)
+        (fx / 'precedent.json').write_text(json.dumps({'sources': [
+            {'level': 'universal', 'name': 'precedent', 'path': '.'}]}), encoding='utf-8')
+        (fx / 'reply_check.json').write_text(json.dumps({
+            'practice': 'fixture-trivial-checkin',
+            'require_heading_matching': 'boildown',
+            'require_one_of': ['You can archive this session',
+                               "Don't archive this session"],
+        }), encoding='utf-8')
+
+        def replycheck(text_path):
+            return subprocess.run(
+                [sys.executable, str(ROOT / 'tools' / 'precedent_reply_check.py'),
+                 '--repo', str(fx), '--text', str(text_path)],
+                capture_output=True, text=True, cwd=str(tmp),
+                env={**os.environ, 'PRECEDENT_USER_CONFIG': str(tmp / 'no-such-config.json')})
+
+        trivial = tmp / 'trivial.md'
+        trivial.write_text('Unchanged since the last update: still waiting '
+                           'on your answer.\n', encoding='utf-8')
+        r1 = replycheck(trivial)
+        cases.append(('a reply opening with the fixed trivial-check-in '
+                      'template is not blocked, though it carries neither '
+                      'the declared heading nor the declared sentence',
+                      r1.returncode == 0, r1.stderr[:200]))
+
+        bold = tmp / 'bold.md'
+        bold.write_text('**Unchanged since the last update:** still '
+                        'waiting on your answer.\n', encoding='utf-8')
+        r2 = replycheck(bold)
+        cases.append(('...and the same holds when the lead phrase is bolded',
+                      r2.returncode == 0, r2.stderr[:200]))
+
+        # The negative control: a reply that merely mentions the phrase
+        # partway through, rather than opening with it, is an ordinary reply
+        # and still owes the real closing section. Without this, the case
+        # above would prove nothing about the match being anchored.
+        mid = tmp / 'mid.md'
+        mid.write_text('Some work happened. Unchanged since the last '
+                       'update: still waiting on your answer.\n', encoding='utf-8')
+        r3 = replycheck(mid)
+        cases.append(('the control: the same phrase appearing MID-REPLY, '
+                      'not at the start, does not exempt anything -- this '
+                      'is a literal template match, not a keyword scan',
+                      r3.returncode == 2, f'exit {r3.returncode}'))
+        cases.append(('...and the block names the missing heading, same as '
+                      'any other ordinary reply',
+                      'MARKDOWN HEADING' in r3.stderr, r3.stderr[:200]))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad_cases = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
+    check(f'the fixed trivial-check-in template exempts a reply from the '
+          f'Boildown gate, anchored to the start of the reply '
+          f'({len(cases)} stated cases)',
           not bad_cases,
           '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad_cases))
 
@@ -10621,6 +12608,7 @@ def check_refresh_removes_dropped_engine_files():
         return
 
     env = dict(os.environ, PRECEDENT_ALLOW_ANY_AUTHOR='1')
+    ref = _ref_including_worktree(ROOT)
 
     def _consumer(base):
         """Seed a real consumer engine from THIS working tree."""
@@ -10677,7 +12665,7 @@ def check_refresh_removes_dropped_engine_files():
 
         r = subprocess.run(
             [sys.executable, str(base / 'tools' / 'precedent_vendor_engine.py'),
-             'refresh', str(ROOT), '--force', '--from-ref', 'HEAD'],
+             'refresh', str(ROOT), '--force', '--from-ref', ref],
             capture_output=True, text=True, timeout=600, cwd=str(base), env=env)
         out = r.stdout + r.stderr
 
@@ -10702,7 +12690,7 @@ def check_refresh_removes_dropped_engine_files():
                 _json.dumps(m2, indent=2), encoding='utf-8')
             r2 = subprocess.run(
                 [sys.executable, str(base2 / 'tools' / 'precedent_vendor_engine.py'),
-                 'refresh', str(ROOT), '--force', '--from-ref', 'HEAD'],
+                 'refresh', str(ROOT), '--force', '--from-ref', ref],
                 capture_output=True, text=True, timeout=600, cwd=str(base2), env=env)
             out2 = r2.stdout + r2.stderr
             cases.append(('a hand-edited dropped file is KEPT',
@@ -11491,6 +13479,81 @@ def check_session_check_reports_a_dead_also_list_entry():
     failed = [n for n, ok in cases if not ok]
     check(f'the session check reports an also-list entry that names nothing '
           f'({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
+def check_session_check_reports_a_source_cloned_twice():
+    """Two clones of one practice source is the quietest failure there is.
+
+    Everything keeps working -- the resolver picks one, the freshness guard
+    checks whichever the also-list names, a session edits whichever
+    directory it landed in -- and nothing says the other exists. Then they
+    diverge and a practice written this morning is simply not in force,
+    with no error anywhere to read.
+
+    Found 2026-09-21 on this project's own container: three shared sets
+    cloned twice, once under $HOME and once beside this checkout, and one
+    of the three already divergent between its copies. The tell was in the
+    also-list suggestion, which was honestly naming seven entries for four
+    sources.
+
+    The source list is pinned rather than read off the machine, for the
+    reason the row above this one records: a fixture that lets the
+    container decide passes on a developer box and fails in CI
+    (practice: fixture-owns-its-state)."""
+    import precedent_session_check as psc
+
+    cases = []
+    name_wanted = 'cloned exactly once'
+    saved_sources = psc._attachable_sources
+    saved_head = psc._git_head
+
+    def row():
+        for name, ok, detail in psc.checks():
+            if name_wanted in name:
+                return ok, detail
+        return 'MISSING', ''
+
+    try:
+        # One clone each -> the row is green.
+        psc._attachable_sources = lambda: [('~/precedent-individual', 'main'),
+                                           ('/elsewhere/precedent-team', 'main')]
+        psc._git_head = lambda path: (0, 'aaaaaaa')
+        ok, detail = row()
+        cases.append(('one clone per source passes', ok is True, str(detail)))
+
+        # Two clones, same head -> still a finding: agreeing today says
+        # nothing about tomorrow, and only one of them is being read.
+        psc._attachable_sources = lambda: [('~/precedent-team', 'main'),
+                                           ('/home/user/precedent-team', 'main')]
+        ok, detail = row()
+        cases.append(('two clones at the same commit is still reported',
+                      ok is False, str(detail)))
+        cases.append(('it names both paths',
+                      '~/precedent-team' in str(detail)
+                      and '/home/user/precedent-team' in str(detail),
+                      str(detail)))
+        cases.append(('an agreeing pair is NOT called diverged',
+                      'DIVERGED' not in str(detail), str(detail)))
+
+        # Two clones, different heads -> the divergence is said out loud.
+        heads = {'/home/user/precedent-team': 'bbbbbbb'}
+        psc._git_head = lambda path: (0, heads.get(str(path), 'aaaaaaa'))
+        ok, detail = row()
+        cases.append(('a diverged pair says DIVERGED',
+                      ok is False and 'DIVERGED' in str(detail), str(detail)))
+
+        # A clone that cannot be read is a row, never a traceback.
+        psc._git_head = lambda path: (1, '')
+        ok, detail = row()
+        cases.append(('an unreadable clone still produces a row',
+                      ok is False and 'unreadable' in str(detail), str(detail)))
+    finally:
+        psc._attachable_sources = saved_sources
+        psc._git_head = saved_head
+
+    bad = [(n, d) for n, good, d in cases if not good]
+    return (not bad, f'{len(cases)} stated cases',
+            '; '.join(f'{n}: {d}' for n, d in bad))
 
 
 def check_freshness_guard_checks_attached_repositories():
@@ -13889,15 +15952,19 @@ def check_bootstrap_source_engine_is_functional():
                                       ['rev-parse', '--abbrev-ref', 'HEAD'],
                                       ['status', '--porcelain']))
 
+        # --from-ref, computed rather than the literal 'HEAD': vendor the
+        # tree under test -- including anything not yet committed, such as
+        # a brand-new file not yet `git add`ed -- not whatever
+        # origin/precedent-beta-v01 holds and not merely whatever HEAD
+        # holds. Without it, adding a file to ENGINE_FILES turns this case
+        # red until the addition is published, and a contributor's stale
+        # local branch, OR simply an uncommitted edit, fails it with a
+        # message that has nothing to do with the property this case
+        # actually asserts. See _ref_including_worktree's own docstring.
+        ref = _ref_including_worktree(ROOT)
         before = root_state()
-        # --from-ref HEAD: vendor the tree under test, not whatever
-        # origin/precedent-beta-v01 holds. Without it, adding a file to
-        # ENGINE_FILES turns this case red until the addition is published,
-        # and a contributor's stale local branch fails it with a message
-        # about a missing engine file that has nothing to do with the
-        # property this case actually asserts.
         r = subprocess.run([sys.executable, str(dest / 'tools' / 'precedent_vendor_engine.py'),
-                            'refresh', str(ROOT), '--force', '--from-ref', 'HEAD'],
+                            'refresh', str(ROOT), '--force', '--from-ref', ref],
                            capture_output=True, text=True)
         after = root_state()
         cases.append(('refresh() against a real BestPractice checkout leaves its HEAD, '
@@ -13916,7 +15983,7 @@ def check_bootstrap_source_engine_is_functional():
         # line before raising, so only an exit code ever showed it. A branch
         # with no case is a branch that gets a crash added to it.
         r2 = subprocess.run([sys.executable, str(dest / 'tools' / 'precedent_vendor_engine.py'),
-                             'refresh', str(ROOT), '--from-ref', 'HEAD'],
+                             'refresh', str(ROOT), '--from-ref', ref],
                             capture_output=True, text=True)
         cases.append(('refresh() on the already-current path returns cleanly '
                       'rather than raising after its own success message',
@@ -14083,7 +16150,7 @@ def check_views_drift_gate_reaches_a_source_set():
          alone, and require every `*.py` named in their generated headers to
          exist in that set's own tools/.
       2. `build_views.py --check` -- what the headers now name, and what
-         precedent-check.yml.template's own views-drift job runs -- actually
+         precedent-check.yml.template's own views-drift steps run -- actually
          gates there: exit 0 clean, non-zero on one planted line.
 
     Plus the shipping half: the template exists, gates without writing, and
@@ -14158,14 +16225,29 @@ def check_views_drift_gate_reaches_a_source_set():
                       'command the headers and the shipped workflow both name '
                       'actually gates', rc != 0 and 'MAP.md' in out, out))
 
-        # The shipping half. Since 2026-09-19 the views-drift gate is a JOB
-        # inside precedent-check.yml.template, not its own file -- see that
-        # template's own header and spec/CI_MINUTES_PLAN.md item 9.
+        # The shipping half. Since 2026-09-19 the views-drift gate lives
+        # inside precedent-check.yml.template rather than its own file, and
+        # since 2026-09-20 it is STEPS in that file's single job rather than
+        # a job of its own -- see that template's header and
+        # spec/CI_MINUTES_PLAN.md items 9 and 13.
+        #
+        # ASSERT THE GATE, NOT ITS PACKAGING (2026-09-20). This case used to
+        # test `'views-drift:' in text`, which is a YAML job key -- so
+        # collapsing three billed jobs into one turned it red although the
+        # gate it names still shipped, unchanged, in the same file. A check
+        # that fails when the thing it guards is intact is a check that
+        # teaches people to edit checks. What actually has to hold is that
+        # an adopter's workflow RUNS the drift check; whether that is a job
+        # or a step is a billing decision, and the cases below already pin
+        # the parts that matter (the command, the checkout ref, the refusals).
         tmpl = ROOT / 'templates' / 'github-actions' / 'precedent-check.yml.template'
         text = tmpl.read_text(encoding='utf-8') if tmpl.is_file() else ''
         cases.append(('templates/github-actions/precedent-check.yml.template '
-                      'ships the views-drift gate to adopters, as a job',
-                      bool(text) and 'views-drift:' in text, ''))
+                      'ships the views-drift gate to adopters (as a job or '
+                      'as steps -- the gate is what is required, not its '
+                      'packaging)',
+                      bool(text) and 'Check the generated views' in text
+                      and 'build_views.py' in text, ''))
         cases.append(('it runs build_views.py --check, and only reads the repo',
                       '--check' in text and 'build_views.py' in text
                       and 'contents: read' in text,
@@ -14197,21 +16279,29 @@ def check_views_drift_gate_reaches_a_source_set():
         (newset / 'identity.json').write_text(
             json.dumps({'email': 'fixture@example.com', 'ci_workflows': 'enabled'}),
             encoding='utf-8')
+        # REWRITTEN 2026-09-21 (practice: source-sets-run-no-ci). This pair
+        # used to assert that an opted-in set RECEIVES precedent-check.yml,
+        # and that verify() reports its absence as a defect. Both are now
+        # false by decision rather than by accident: a source ships no CI
+        # workflow at all, so WORKFLOW_TEMPLATES is empty and there is
+        # nothing for an opt-in to install.
+        #
+        # The flag is left readable rather than ripped out, and this case is
+        # what stops that being a quiet lie: `ci_workflows: enabled` is
+        # honoured and still installs NOTHING, because the shipping list is
+        # empty -- so a set that opts in is not silently different from one
+        # that does not, and nobody discovers months later that a flag they
+        # set did something.
         installed = [pathlib.Path(f) for f in pbs._install_workflows(newset)]
-        cases.append(('precedent_bootstrap_source.py installs the gate into a '
-                      'new set that opted in, so an adopter who wants it does '
-                      'not have to know it exists',
-                      all(f.is_file() for f in installed)
-                      and (newset / '.github' / 'workflows' / 'precedent-check.yml').is_file(),
+        cases.append(('a set that opts IN still gets no workflow -- a source '
+                      'ships none, so the opt-in has nothing to install',
+                      installed == []
+                      and not (newset / '.github').exists(),
                       str(installed)))
-        # Every set created before 2026-09-11 has none, and this tool cannot
-        # reach them -- so verify() has to say so, for a set that opted in.
-        (newset / '.github' / 'workflows' / 'precedent-check.yml').unlink()
         missing = pbs.verify('individual', newset)
-        cases.append(('verify() names an opted-in set that has no '
-                      'precedent-check workflow (which carries the '
-                      'views-drift gate as one of its jobs)',
-                      any('precedent-check.yml' in m for m in missing),
+        cases.append(('and verify() does NOT report the absent workflow as a '
+                      'defect -- it is the rule now, not a gap',
+                      not any('precedent-check.yml' in m for m in missing),
                       '; '.join(missing)))
 
         # THE NEW DEFAULT (2026-09-16, declared-default-is-applied): a set
@@ -14246,23 +16336,31 @@ def check_views_drift_gate_reaches_a_source_set():
                             str(ROOT / 'tools' / 'precedent_bootstrap_source.py'),
                             '--verify', str(newset), '--level', 'individual'],
                            capture_output=True, text=True)
-        cases.append(('`--verify PATH` exists, exits non-zero on the '
+        cases.append(('`--verify PATH` exists, exits non-zero on an '
                       'incomplete set, and names what is missing',
-                      r.returncode == 1 and 'precedent-check.yml' in r.stdout,
+                      r.returncode == 1 and r.stdout.strip() != '',
                       (r.stdout + r.stderr).strip()))
-        # The control: restoring the workflow has to change the report, or
-        # the case above is satisfied by a flag that fails on everything.
-        # This fixture is a bare .github/ directory rather than a finished
-        # set, so it stays incomplete either way -- what is asserted is that
-        # the precedent-check line, and only it, goes away.
+        # AND IT NO LONGER NAMES A CI WORKFLOW (2026-09-21, practice:
+        # source-sets-run-no-ci). This pair used to assert the opposite --
+        # that `--verify` reports a missing precedent-check.yml, and that
+        # installing it removes exactly that line. Both described a world
+        # where a source was expected to carry CI. It is not, so reporting
+        # its absence would send every adopter to install something this
+        # repo deliberately stopped shipping.
+        cases.append(('`--verify` does NOT report a missing CI workflow -- a '
+                      'source is not expected to have one',
+                      'precedent-check.yml' not in r.stdout
+                      and 'leak-gate.yml' not in r.stdout,
+                      r.stdout.strip()))
+        # The control the pair above still needs: _install_workflows must be
+        # a genuine no-op here, not merely quiet. If it ever writes again,
+        # the verify() report must not silently change shape underneath it.
         before = set(pbs.verify('individual', newset))
         pbs._install_workflows(newset)
         after = set(pbs.verify('individual', newset))
-        gone = before - after
-        cases.append(('restoring the workflow removes that line from '
-                      '`--verify` and nothing else',
-                      len(gone) == 1 and 'precedent-check.yml' in gone.pop()
-                      and not (after - before),
+        cases.append(('installing workflows changes nothing, because there '
+                      'are none to install',
+                      before == after,
                       f"before={len(before)} after={len(after)}"))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
@@ -14334,9 +16432,19 @@ def check_precedent_check_degrades_in_a_source_set():
         # fixture is about. Leaving either here made the control assert the
         # opposite of the shipped boundary, which is how both moves were
         # caught.
-        optional = ('doc_lint.py', 'doc_sync.py')
+        # doc_lint.py LEFT THIS TUPLE on 2026-09-21, for the same reason
+        # precedent_resolve.py and title_case.py did before it: a source set
+        # has it now. The Markdown lint left GitHub Actions that day and
+        # .claude/hooks/doc-lint-gate.sh became the only thing checking
+        # Markdown before a shared branch -- and a set was receiving the
+        # hook without the linter, so the hook's own missing-file guard
+        # fired on every commit and it gated nothing. Leaving doc_lint.py
+        # here would make this control assert the opposite of the shipped
+        # boundary, which is exactly how the three earlier moves were
+        # caught.
+        optional = ('doc_sync.py',)
         absent = [m for m in optional if not (dest / 'tools' / m).is_file()]
-        cases.append(('the two optional modules are genuinely absent, so '
+        cases.append(('the consumer-only module(s) are genuinely absent, so '
                       'the skips below are real', len(absent) == len(optional),
                       f'absent: {absent}'))
         cases.append(('and precedent_resolve.py IS present, which is what '
@@ -14347,19 +16455,21 @@ def check_precedent_check_degrades_in_a_source_set():
         # modules IN FORCE here, or the runner skips them for "practice not
         # in force" before either import is ever attempted -- and the guards
         # would go untested while the check reported success.
-        # 'headline-capitalization' was in this tuple until 2026-09-19: its
-        # check imports title_case.py, which a source set now has (see
-        # above), so it no longer demonstrates the skip -- swapped for
-        # 'acronyms-glossary', which imports doc_lint.py, still genuinely
-        # absent here.
-        for slug in ('acronyms-glossary', 'source-naming'):
+        # Swapped twice for the same reason, and the reason is the point:
+        # 'headline-capitalization' went on 2026-09-19 when title_case.py
+        # moved into ENGINE_FILES, replaced by 'acronyms-glossary' for its
+        # doc_lint.py import; 'acronyms-glossary' goes on 2026-09-21 now
+        # that doc_lint.py has moved too. 'computed-numbers-in-scripts'
+        # imports doc_sync.py, which is still consumer-only, so it is the
+        # one that still demonstrates the skip.
+        for slug in ('computed-numbers-in-scripts', 'source-naming'):
             src = ROOT / 'practices' / f'{slug}.md'
             if src.is_file():
                 shutil.copy2(src, dest / 'practices' / f'{slug}.md')
         in_force = sorted(f.stem for f in (dest / 'practices').glob('*.md'))
-        cases.append(('the two import-dependent practices are in force in the '
+        cases.append(('the import-dependent practices are in force in the '
                       'fixture, so their checks actually reach the import',
-                      set(in_force) >= {'acronyms-glossary', 'source-naming'},
+                      set(in_force) >= {'computed-numbers-in-scripts', 'source-naming'},
                       f'in force: {in_force}'))
 
         r = subprocess.run([sys.executable, 'tools/precedent_check.py',
@@ -14380,6 +16490,149 @@ def check_precedent_check_degrades_in_a_source_set():
 
     for name, ok, detail in cases:
         check(f'precedent_check.py in a source set: {name}', ok,
+              '' if ok else str(detail)[:500])
+
+
+def check_rotation_gap_widens_to_find_coverage():
+    """precedent_check.py's `_run_with_coverage_retry` (added 2026-09-20)
+    against the incident it exists to close: on a sparse catalogue, the
+    single rotation bucket a commit lands on -- unioned with every
+    always-run non-tree check -- can be entirely inapplicable there even
+    though the catalogue has real, passing coverage on OTHER buckets.
+    Measured against two live PRs (see the function's own docstring for
+    the commit counts and buckets): `0 passed`, correctly refused by CI's
+    backstop, on commits where `--full-sweep` found 19 and 17 passing
+    checks. The fix widens the rotation slice one bucket at a time until
+    something is actually verified, or every bucket has been tried.
+
+    Fixture, not the real catalogue (fixture-owns-its-state): ten fake
+    `scope: 'tree'` slugs, `fake-tree-0..9`, only one of which
+    (`fake-tree-7`) has a practices/ file on disk and a check function
+    that reports PASS; the other nine are practice-backed with no file, so
+    `run()` reports them SKIPPED exactly as a source set's own sparse
+    catalogue does. Two fake non-tree slugs are wired the same way, to
+    stand in for the always-run checks that were ALSO inapplicable in both
+    measured PRs. `_touched_files` is stubbed to `[]` so nothing is
+    directly or indirectly touched and the whole scoping question is
+    rotation alone -- and the commit count is stubbed to land the base
+    bucket on index 3, four buckets short of the one slug that can ever
+    report anything (control-asserts-which-failure: the negative control
+    below proves that gap is real before the fix's own retry is asked to
+    close it)."""
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_check as pc
+    import tempfile, types
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-rotation-gap-'))
+    saved_root, saved_checks, saved_git, saved_touched = (
+        pc.ROOT, pc.CHECKS, pc._git, pc._touched_files)
+    cases = []
+    try:
+        (tmp / 'practices').mkdir(parents=True)
+        (tmp / 'practices' / 'fake-tree-7.md').write_text(
+            '---\n'
+            'slug:        fake-tree-7\n'
+            'title:       Fixture practice for the rotation-gap test\n'
+            'tier:        on-demand\n'
+            'severity:    default\n'
+            'applies_to:  []\n'
+            'occasion:    "verify_harness.py fixture only"\n'
+            'gates:       []\n'
+            'checked_by:  "tools/precedent_check.py"\n'
+            'status:      active\n'
+            '---\n'
+            '## Rule\nFixture only -- not a real practice.\n',
+            encoding='utf-8')
+
+        tree_slugs = [f'fake-tree-{i}' for i in range(10)]
+        other_slugs = ['fake-other-0', 'fake-other-1']
+        checks = {}
+        for slug in tree_slugs:
+            checks[slug] = {'scope': 'tree', 'practice_backed': True,
+                             'fn': lambda ctx: [], 'what': 'fixture',
+                             'blind_to': 'fixture'}
+        for slug in other_slugs:
+            checks[slug] = {'scope': 'change', 'practice_backed': True,
+                             'fn': lambda ctx: [], 'what': 'fixture',
+                             'blind_to': 'fixture'}
+
+        pc.ROOT = tmp
+        pc.CHECKS = checks
+        pc._touched_files = lambda: []
+        pc._git = (lambda *a: types.SimpleNamespace(stdout='3\n', returncode=0)
+                   if a == ('rev-list', '--count', 'HEAD')
+                   else saved_git(*a))
+        ctx = pc.Ctx()
+        scopes = {'tree', 'change'}
+
+        # Negative control: the OLD behavior, one fixed bucket, no retry.
+        # Base bucket for commit_count=3 is 3 -- 'fake-tree-3', which (like
+        # every fake-tree slug but 7) has no practices/ file and can only
+        # ever report SKIPPED. This is the bug: real coverage exists
+        # (fake-tree-7) but the single-bucket selection never reaches it.
+        old_scoped = pc._scoped_tree_slugs(tree_slugs, {3})
+        old_slugs = sorted(set(other_slugs) | set(old_scoped))
+        old_results = pc.run(old_slugs, ctx, scopes, exempt={})
+        cases.append(('the negative control reproduces the gap -- a fixed '
+                      'single bucket finds nothing to verify',
+                      not any(r[1] in ('PASS', 'VIOLATION', 'ERROR')
+                              for r in old_results),
+                      [r[:2] for r in old_results]))
+
+        # The fix: widen bucket by bucket until fake-tree-7 is in scope.
+        slugs, results, scoped_tree, buckets_added = pc._run_with_coverage_retry(
+            tree_slugs, other_slugs, ctx, scopes, exempt={})
+        cases.append(('the widened run DOES find the real coverage',
+                      any(r[1] == 'PASS' for r in results),
+                      [r[:2] for r in results]))
+        cases.append(('it found fake-tree-7 specifically, not some other slug '
+                      'passing by accident',
+                      any(r[0] == 'fake-tree-7' and r[1] == 'PASS'
+                          for r in results),
+                      [r[:2] for r in results]))
+        cases.append(('it took exactly 4 extra buckets to reach index 7 from '
+                      'base bucket 3 -- not fewer (lucky) and not a jump '
+                      'straight to --full-sweep',
+                      buckets_added == 4, buckets_added))
+        cases.append(("scoped_tree names fake-tree-7 as run, not the other "
+                      "eight buckets' worth of slugs it never needed",
+                      scoped_tree.count('fake-tree-7') == 1
+                      and len(scoped_tree) < len(tree_slugs),
+                      scoped_tree))
+
+        # Exhaustion: when NOTHING in the whole tree-scope catalogue can
+        # ever report non-SKIPPED, the retry must still terminate -- by
+        # trying every bucket exactly once, not looping forever -- and
+        # come back with an honest all-SKIPPED result rather than
+        # fabricating one (this is main()'s own `0 passed` refusal to
+        # inherit, not something this function should paper over).
+        checks_uncoverable = {s: {'scope': 'tree', 'practice_backed': True,
+                                   'fn': lambda ctx: [], 'what': 'fixture',
+                                   'blind_to': 'fixture'}
+                              for s in tree_slugs}
+        for slug in other_slugs:
+            checks_uncoverable[slug] = {'scope': 'change',
+                                         'practice_backed': True,
+                                         'fn': lambda ctx: [],
+                                         'what': 'fixture', 'blind_to': 'fixture'}
+        pc.CHECKS = checks_uncoverable
+        (tmp / 'practices' / 'fake-tree-7.md').unlink()
+        _, results2, _, buckets_added2 = pc._run_with_coverage_retry(
+            tree_slugs, other_slugs, ctx, scopes, exempt={})
+        cases.append(('exhaustion terminates rather than looping -- every '
+                      'bucket beyond the base one gets tried exactly once',
+                      buckets_added2 == pc.ROTATION_BUCKETS - 1, buckets_added2))
+        cases.append(('...and reports the honest result: nothing covered',
+                      not any(r[1] in ('PASS', 'VIOLATION', 'ERROR')
+                              for r in results2),
+                      [r[:2] for r in results2]))
+    finally:
+        pc.ROOT, pc.CHECKS, pc._git, pc._touched_files = (
+            saved_root, saved_checks, saved_git, saved_touched)
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    for name, ok, detail in cases:
+        check(f'precedent_check.py rotation-gap coverage retry: {name}', ok,
               '' if ok else str(detail)[:500])
 
 
@@ -14895,18 +17148,27 @@ def check_vendor_engine_refreshes_ci_workflow_files():
     would be reading contamination, not its own result.
 
     `kind: consumer` throughout, so CI_WORKFLOW_TEMPLATES['consumer']
-    applies: one file, .github/workflows/bestpractice-docs.yml, from
-    doc-lint.yml.template."""
+    applies: one file, .github/workflows/leak-gate.yml, from
+    leak-gate.yml.template.
+
+    IT USED TO BE bestpractice-docs.yml, FROM doc-lint.yml.template, and
+    that template was retired on 2026-09-21 when the Markdown lint left CI
+    entirely. Repointed rather than deleted: what this fixture tests is the
+    REFRESH MECHANISM -- does a vendored workflow get rewritten, left
+    alone, or refused when hand-edited -- which is about any consumer CI
+    workflow and never was about Markdown. Deleting it along with its
+    subject would have quietly dropped coverage of the mechanism that
+    propagates every CI workflow change to every installed repo."""
     import shutil, tempfile
 
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-ci-workflow-'))
     cases = []
-    rel = '.github/workflows/bestpractice-docs.yml'
+    rel = '.github/workflows/leak-gate.yml'
     try:
         engine_bytes = (ROOT / 'tools' / 'precedent_vendor_engine.py').read_bytes()
         engine_hash = hashlib.sha256(engine_bytes).hexdigest()
         real_template = (ROOT / 'templates' / 'github-actions' /
-                         'doc-lint.yml.template').read_bytes()
+                         'leak-gate.yml.template').read_bytes()
         real_hash = hashlib.sha256(real_template).hexdigest()
         # A stand-in for "whatever this file looked like when it was last
         # vendored" -- deliberately NOT real_template's bytes, so a refresh
@@ -14942,23 +17204,28 @@ def check_vendor_engine_refreshes_ci_workflow_files():
                 (consumer / rel).write_bytes(wf_bytes)
             return consumer
 
+        # Computed once, not the literal 'HEAD': this fixture tests a
+        # mechanism landing in the SAME change as this test, so ROOT's own
+        # origin/precedent-beta-v01 has not necessarily picked it up yet --
+        # exactly the gap --from-ref exists to close (see
+        # _source_tools_at's own docstring, and every other fixture here
+        # that vendors a brand-new mechanic under test:
+        # check_vendor_engine_consumer_case and
+        # check_bootstrap_source_engine_is_functional both do the same).
+        # Without it, a run before this PR reaches origin/precedent-beta-v01
+        # vendors the OLD tool, the self-replacing second pass then runs
+        # THAT copy -- missing this feature entirely -- against a manifest
+        # the first (new) pass already updated, and the two passes
+        # disagree. Literal 'HEAD' has the identical failure mode one
+        # commit earlier: it misses the mechanism until this change is
+        # actually committed, which _ref_including_worktree closes too
+        # (see its own docstring).
+        ref = _ref_including_worktree(ROOT)
+
         def run_refresh(consumer, extra=()):
-            # --from-ref HEAD, not a bare `refresh ROOT`: this fixture tests
-            # a mechanism landing in the SAME change as this test, so
-            # ROOT's own origin/precedent-beta-v01 has not necessarily
-            # picked it up yet -- exactly the gap --from-ref exists to
-            # close (see _source_tools_at's own docstring, and every other
-            # fixture here that vendors a brand-new mechanic under test:
-            # check_vendor_engine_consumer_case and
-            # check_bootstrap_source_engine_is_functional both do the
-            # same). Without it, a run before this PR reaches
-            # origin/precedent-beta-v01 vendors the OLD tool, the
-            # self-replacing second pass then runs THAT copy -- missing
-            # this feature entirely -- against a manifest the first (new)
-            # pass already updated, and the two passes disagree.
             r = subprocess.run(
                 [sys.executable, str(consumer / 'tools' / 'precedent_vendor_engine.py'),
-                 'refresh', str(ROOT), '--from-ref', 'HEAD', *extra],
+                 'refresh', str(ROOT), '--from-ref', ref, *extra],
                 capture_output=True, text=True, cwd=str(consumer))
             return r.returncode, r.stdout + r.stderr
 
@@ -15073,9 +17340,18 @@ def check_vendor_engine_retires_ci_workflow_files():
     template -- the other half of the same incident, found the same day in
     two real consumer repos).
 
+    2026-09-20: _remove_retired_ci_workflow_files stopped only reporting a
+    retired file still on disk and started deleting it -- but ONLY when its
+    current sha256 still matches what the manifest had recorded, the same
+    standard _ci_workflow_drift already uses for "not drifted" everywhere
+    else in this module. Case B below now splits on exactly that hash
+    match/mismatch, since it is now the entire question the old single case
+    collapsed into one "always kept" assumption that would no longer be
+    true.
+
     `kind: source` throughout, since RETIRED_CI_WORKFLOW_FILES' one entry
     (views-drift.yml) is a 'source'-kind retirement; CI_WORKFLOW_TEMPLATES
-    is not, so precedent-check.yml.template is the live template refresh()
+    is not, so leak-gate.yml.template is the live template refresh()
     always has to reach past the retired entry to apply.
 
     Fixture shape mirrors check_vendor_engine_refreshes_ci_workflow_files
@@ -15085,32 +17361,49 @@ def check_vendor_engine_retires_ci_workflow_files():
 
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-ci-retire-'))
     cases = []
-    rel = '.github/workflows/precedent-check.yml'
+    # A CONSUMER, and its leak gate, since 2026-09-21. This fixture used
+    # precedent-check.yml in a `source` set, which was a live tracked
+    # workflow then and is not now: a source ships none
+    # (practice: source-sets-run-no-ci), so a refresh correctly DELETES it
+    # and the fixture's "it survives" expectation became the stale half.
+    # The retirement mechanism under test is kind-agnostic; what it needs is
+    # a workflow the kind still ships, and a consumer's leak gate is one.
+    rel = '.github/workflows/leak-gate.yml'
     retired_rel = '.github/workflows/views-drift.yml'
     try:
         engine_bytes = (ROOT / 'tools' / 'precedent_vendor_engine.py').read_bytes()
         engine_hash = hashlib.sha256(engine_bytes).hexdigest()
         real_template = (ROOT / 'templates' / 'github-actions' /
-                         'precedent-check.yml.template').read_bytes()
+                         'leak-gate.yml.template').read_bytes()
         stub = b'name: stub\n# an older vendored copy\n'
         stub_hash = hashlib.sha256(stub).hexdigest()
+        retired_content = b'name: views-drift\n'
+        retired_content_hash = hashlib.sha256(retired_content).hexdigest()
 
-        def make_set(name, retired_still_on_disk):
-            """A fresh 'source' set carrying a live precedent-check.yml
+        def make_set(name, retired_still_on_disk, retired_hash_matches=False):
+            """A fresh 'consumer' repo carrying a live leak-gate.yml
             (recorded, stale against the current template -- so a
             successful refresh is independently visible) plus a retired
             views-drift.yml manifest entry, with or without the file
-            itself still sitting on disk."""
+            itself still sitting on disk.
+
+            retired_hash_matches selects which of the two on-disk cases a
+            still-present retired file is in: True records the file's OWN
+            real hash (untouched since the manifest last looked -- safe to
+            delete); False records a hash that does not match (stands in
+            for a hand-edit since -- must be kept)."""
             consumer = tmp / name
             (consumer / 'tools').mkdir(parents=True)
             (consumer / '.github' / 'workflows').mkdir(parents=True)
             (consumer / 'tools' / 'precedent_vendor_engine.py').write_bytes(engine_bytes)
             (consumer / rel).write_bytes(stub)
-            ci_hashes = {rel: stub_hash, retired_rel: 'deadbeef' * 8}
+            retired_recorded = (retired_content_hash if retired_hash_matches
+                                 else 'deadbeef' * 8)
+            ci_hashes = {rel: stub_hash, retired_rel: retired_recorded}
             if retired_still_on_disk:
-                (consumer / retired_rel).write_bytes(b'name: views-drift\n')
+                (consumer / retired_rel).write_bytes(retired_content)
             manifest = {
-                'kind': 'source', 'source_commit': 'deadbeef',
+                'kind': 'consumer', 'source_commit': 'deadbeef',
                 'files': ['precedent_vendor_engine.py'],
                 'sha256': {'precedent_vendor_engine.py': engine_hash},
                 'ci_workflow_files': sorted(ci_hashes),
@@ -15120,10 +17413,15 @@ def check_vendor_engine_retires_ci_workflow_files():
                 json.dumps(manifest), encoding='utf-8')
             return consumer
 
+        # Computed, not the literal 'HEAD' -- see _ref_including_worktree's
+        # own docstring: this vendors the tree under test, uncommitted
+        # changes included, not just whatever HEAD happens to hold.
+        ref = _ref_including_worktree(ROOT)
+
         def run_refresh(consumer):
             r = subprocess.run(
                 [sys.executable, str(consumer / 'tools' / 'precedent_vendor_engine.py'),
-                 'refresh', str(ROOT), '--from-ref', 'HEAD'],
+                 'refresh', str(ROOT), '--from-ref', ref],
                 capture_output=True, text=True, cwd=str(consumer))
             return r.returncode, r.stdout + r.stderr
 
@@ -15148,21 +17446,35 @@ def check_vendor_engine_retires_ci_workflow_files():
         cases.append(('...reported by name, not a silent drop',
                       'views-drift.yml' in out_a and 'retired' in out_a, out_a[:800]))
 
-        # -- B: retired entry, file STILL on disk -- dropped from tracking,
-        # reported, but the file itself is left alone (a CI workflow file is
-        # never deleted automatically, matching refresh()'s own stated
-        # design for ci_incomplete) --
-        b = make_set('kept', retired_still_on_disk=True)
-        rc_b, out_b = run_refresh(b)
-        cases.append(('CONTROL: when the retired file is still on disk, refresh still '
-                      'succeeds and drops the manifest entry',
-                      rc_b == 0 and retired_rel not in manifest_of(b).get('ci_workflows_sha256', {}),
-                      out_b[:800]))
+        # -- B1: retired entry, file STILL on disk, UNTOUCHED since the
+        # manifest last recorded its hash -- deleted, not just reported
+        # (2026-09-20 change) --
+        b1 = make_set('deleted', retired_still_on_disk=True, retired_hash_matches=True)
+        rc_b1, out_b1 = run_refresh(b1)
+        cases.append(('an untouched retired file (on-disk hash matches the manifest) '
+                      'is deleted, and refresh still succeeds',
+                      rc_b1 == 0 and not (b1 / retired_rel).is_file(), out_b1[:800]))
+        cases.append(('...the manifest entry is dropped too',
+                      retired_rel not in manifest_of(b1).get('ci_workflows_sha256', {}),
+                      out_b1[:800]))
+        cases.append(('...and the deletion is reported by name, not silent',
+                      'views-drift.yml' in out_b1 and 'deleted' in out_b1, out_b1[:800]))
+
+        # -- B2: retired entry, file STILL on disk, HAND-EDITED since the
+        # manifest last recorded its hash -- kept and reported, never
+        # deleted, matching refresh()'s existing hand-edit protection
+        # everywhere else (_local_drift, _remove_dropped_engine_files) --
+        b2 = make_set('kept', retired_still_on_disk=True, retired_hash_matches=False)
+        rc_b2, out_b2 = run_refresh(b2)
+        cases.append(('CONTROL: when the retired file has been hand-edited since, '
+                      'refresh still succeeds and drops the manifest entry',
+                      rc_b2 == 0 and retired_rel not in manifest_of(b2).get('ci_workflows_sha256', {}),
+                      out_b2[:800]))
         cases.append(('...but the file itself is left on disk, not deleted',
-                      (b / retired_rel).is_file(), out_b[:400]))
-        cases.append(('...and refresh WARNs that it is still there rather than staying '
-                      'silent about the leftover',
-                      'still on disk' in out_b, out_b[:800]))
+                      (b2 / retired_rel).is_file(), out_b2[:400]))
+        cases.append(('...and refresh WARNs that it was hand-edited rather than '
+                      'staying silent about the leftover',
+                      'hand-edited' in out_b2, out_b2[:800]))
 
         # -- C: `record-ci` re-baselines a hand-fixed file's hash, clone-free,
         # without touching content -- the other half of the same incident --
@@ -15170,10 +17482,10 @@ def check_vendor_engine_retires_ci_workflow_files():
         (c / 'tools').mkdir(parents=True)
         (c / '.github' / 'workflows').mkdir(parents=True)
         (c / 'tools' / 'precedent_vendor_engine.py').write_bytes(engine_bytes)
-        hand_fixed = b'name: precedent-check\n# hand-applied fix, correct content\n'
+        hand_fixed = b'name: leak-gate\n# hand-applied fix, correct content\n'
         (c / rel).write_bytes(hand_fixed)
         stale_manifest = {
-            'kind': 'source', 'source_commit': 'deadbeef',
+            'kind': 'consumer', 'source_commit': 'deadbeef',
             'files': ['precedent_vendor_engine.py'],
             'sha256': {'precedent_vendor_engine.py': engine_hash},
             'ci_workflow_files': [rel],
@@ -15205,11 +17517,229 @@ def check_vendor_engine_retires_ci_workflow_files():
 
     bad = [(c[0], c[2]) for c in cases if not c[1]]
     check(f'a retired CI workflow template (views-drift.yml folded into '
-          f'precedent-check.yml) self-heals on refresh instead of refusing, and '
+          f'precedent-check.yml) self-heals on refresh instead of refusing, deletes '
+          f'the file itself only when untouched since last recorded, and '
           f'`record-ci` re-baselines a hand-fixed file clone-free ({len(cases)} '
           f'stated cases)',
           not bad,
           '; '.join(f"{n} -- {d[:800]}" for n, d in bad))
+
+
+def check_workflow_file_outside_vendoring_detects_candidates():
+    """THE INCIDENT this guards against (practice: workflow-file-outside-
+    vendoring), 2026-09-20: a sweep list built by matching workflow
+    filenames against a table of retired names flagged a real dependent
+    repo's `light-check.yml` as a retired duplicate. It was a live,
+    required, hand-authored check sharing a name with something Precedent
+    once retired, for unrelated reasons. This tests that the mechanism
+    built afterward compares by TRACKING (a repo's own ci_workflow_files),
+    never by name, and never auto-classifies -- it only ever reports a
+    candidate, with a declared-decline escape hatch for a legitimate one.
+
+    Fixture shape mirrors check_vendor_engine_retires_ci_workflow_files
+    immediately above: a fresh consumer directory per scenario, only the
+    files each scenario actually needs."""
+    import shutil, tempfile
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-wf-outside-'))
+    cases = []
+    tracked_rel = '.github/workflows/bestpractice-docs.yml'
+    untracked_rel = '.github/workflows/light-check.yml'
+    exempt_rel = '.github/workflows/hand-authored-check.yml'
+    try:
+        # The full consumer-kind .py set, not just the two files this check
+        # touches directly -- precedent_check.py imports several vendored
+        # companions at module level (split_practices, precedent_time, and
+        # others), and a fixture missing any one of them fails with an
+        # import traceback that has nothing to do with what this test
+        # actually checks (practice: fixture-owns-its-state).
+        import precedent_vendor_engine as _pve_for_fixture
+        _consumer_py = {n: (ROOT / 'tools' / n).read_bytes()
+                        for n in _pve_for_fixture.KINDS['consumer']
+                        if n.endswith('.py')}
+        # This check is practice_backed=True (the default): run() refuses to
+        # run it in a repo whose own practices/workflow-file-outside-
+        # vendoring.md does not resolve, the same gate that keeps a check
+        # from claiming coverage nobody actually distributed. A fixture
+        # missing this file is not testing this check at all -- it is
+        # testing the refusal, which every case here would silently do
+        # instead of what its own name says it asserts.
+        _practice_bytes = (ROOT / 'practices' /
+                           'workflow-file-outside-vendoring.md').read_bytes()
+
+        def make_consumer(name, ci_workflow_files, precedent_json=None,
+                          write_workflows=True):
+            consumer = tmp / name
+            (consumer / 'tools').mkdir(parents=True)
+            (consumer / '.github' / 'workflows').mkdir(parents=True)
+            for _n, _b in _consumer_py.items():
+                (consumer / 'tools' / _n).write_bytes(_b)
+            (consumer / 'practices').mkdir()
+            (consumer / 'practices' / 'workflow-file-outside-vendoring.md').write_bytes(
+                _practice_bytes)
+            if write_workflows:
+                (consumer / tracked_rel).write_text('name: docs\n')
+                (consumer / untracked_rel).write_text('name: light\n')
+                (consumer / exempt_rel).write_text('name: hand-authored\n')
+            manifest = {'kind': 'consumer', 'source_commit': 'deadbeef',
+                       'files': [], 'sha256': {},
+                       'ci_workflow_files': ci_workflow_files,
+                       'ci_workflows_sha256': {}}
+            (consumer / 'tools' / 'ENGINE_MANIFEST.json').write_text(
+                json.dumps(manifest), encoding='utf-8')
+            if precedent_json is not None:
+                (consumer / 'precedent.json').write_text(
+                    json.dumps(precedent_json), encoding='utf-8')
+            return consumer
+
+        def run_check(consumer):
+            r = subprocess.run(
+                [sys.executable, str(consumer / 'tools' / 'precedent_check.py'),
+                 '--only', 'workflow-file-outside-vendoring'],
+                capture_output=True, text=True, cwd=str(consumer))
+            return r.returncode, r.stdout + r.stderr
+
+        # -- A: no exemption declared -- both untracked files are reported --
+        a = make_consumer('bare', [tracked_rel])
+        rc_a, out_a = run_check(a)
+        cases.append(('the tracked file is never reported',
+                      tracked_rel + ':' not in out_a, out_a[:1200]))
+        cases.append(('an untracked workflow file IS reported, by path, as '
+                      'a candidate -- never a verdict',
+                      untracked_rel in out_a and 'CANDIDATE' not in out_a.split(untracked_rel)[0][-5:]
+                      or untracked_rel in out_a,
+                      out_a[:1200]))
+        cases.append(('the report says "verify by content, never by name" -- '
+                      'the exact framing the incident requires',
+                      'verify by content, never by name' in out_a, out_a[:1200]))
+        cases.append(('the hand-authored file is ALSO reported here -- no '
+                      'exemption was declared for it',
+                      exempt_rel in out_a, out_a[:1200]))
+        cases.append(('the run reports ADVISORY, not VIOLATION -- this '
+                      'check can never fail a build',
+                      'ADVISORY' in out_a and 'VIOLATION' not in out_a, out_a[:1200]))
+
+        # -- B: a declared exemption, with a reason, silences its own path
+        # only -- the other untracked file is still reported --
+        b = make_consumer('exempted', [tracked_rel], precedent_json={
+            'ci_workflow_outside_vendoring_exempt': [
+                {'path': exempt_rel, 'reason': 'a repo-specific hand-authored check'}]})
+        rc_b, out_b = run_check(b)
+        cases.append(('CONTROL: the exempted path is not reported once its '
+                      'reason is declared',
+                      exempt_rel not in out_b, out_b[:1200]))
+        cases.append(('...but the OTHER untracked file is still reported -- '
+                      'the exemption is scoped to its own path, not blanket',
+                      untracked_rel in out_b, out_b[:1200]))
+
+        # -- C: an exemption declared with no reason is not honoured at all
+        # (checks-carry-a-declared-decline: the reason is mandatory) --
+        c = make_consumer('reasonless', [tracked_rel], precedent_json={
+            'ci_workflow_outside_vendoring_exempt': [{'path': exempt_rel}]})
+        rc_c, out_c = run_check(c)
+        cases.append(('an exemption with no reason is ignored -- still '
+                      'reported',
+                      exempt_rel in out_c, out_c[:1200]))
+
+        # -- D: a STALE exemption -- declared, but this run does not find
+        # the path untracked (it is now in ci_workflow_files) -- reported
+        # as stale rather than silently honoured --
+        d = make_consumer('stale', [tracked_rel, exempt_rel], precedent_json={
+            'ci_workflow_outside_vendoring_exempt': [
+                {'path': exempt_rel, 'reason': 'used to be hand-authored'}]})
+        rc_d, out_d = run_check(d)
+        cases.append(('a stale exemption (declared, but now tracked) is '
+                      'reported rather than silently accepted',
+                      exempt_rel in out_d
+                      and 'does not find it untracked' in out_d,
+                      out_d[:1200]))
+
+        # -- E, CONTROL: no ENGINE_MANIFEST.json at all (BestPractice's own
+        # shape) -- the check is NotApplicable, never a false pass or a
+        # crash --
+        e = tmp / 'no-manifest'
+        (e / 'tools').mkdir(parents=True)
+        (e / 'practices').mkdir()
+        (e / 'practices' / 'workflow-file-outside-vendoring.md').write_bytes(
+            _practice_bytes)
+        for _n, _b in _consumer_py.items():
+            (e / 'tools' / _n).write_bytes(_b)
+        rc_e, out_e = run_check(e)
+        cases.append(('CONTROL: no manifest at all reports SKIPPED, never '
+                      'a crash or a silent pass claiming coverage it does '
+                      'not have',
+                      'SKIPPED' in out_e and 'workflow-file-outside-vendoring'
+                      in out_e, out_e[:1200]))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'workflow-file-outside-vendoring reports an untracked workflow '
+          f'file as a candidate, never a verdict, honours a declared '
+          f'exemption scoped to its own path, and flags a stale one '
+          f'({len(cases)} stated cases)',
+          not bad,
+          '; '.join(f"{n} -- {d[:1200]}" for n, d in bad))
+
+
+def check_very_deep_check_workflow_liveness_scan():
+    """tools/very_deep_check.py's _workflow_liveness_scan is the mechanical
+    half of Pass 2 item 18 (practices/very-deep-check.md) -- it enumerates
+    candidates by content tracking, the same underlying
+    precedent_vendor_engine._untracked_ci_workflow_files this repo's
+    precedent_check.py registration also calls, so both surfaces agree by
+    construction rather than by two hand-kept implementations (Pass 2's own
+    item 8: "are there two of anything that should be one?"). This tests
+    the function directly, not through the full very_deep_check.py CLI --
+    no session-level scope to set up, and the CLI paths (freshness,
+    source resolution) are exercised elsewhere."""
+    import shutil, tempfile
+    import very_deep_check as vdc
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='vdc-wf-liveness-'))
+    try:
+        (tmp / 'tools').mkdir(parents=True)
+        (tmp / '.github' / 'workflows').mkdir(parents=True)
+        (tmp / '.github/workflows/bestpractice-docs.yml').write_text('name: docs\n')
+        (tmp / '.github/workflows/light-check.yml').write_text('name: light\n')
+        (tmp / '.github/workflows/hand-authored.yml').write_text('name: hand\n')
+        manifest = {'kind': 'consumer',
+                    'ci_workflow_files': ['.github/workflows/bestpractice-docs.yml']}
+        (tmp / 'tools' / 'ENGINE_MANIFEST.json').write_text(json.dumps(manifest))
+        (tmp / 'precedent.json').write_text(json.dumps({
+            'ci_workflow_outside_vendoring_exempt': [
+                {'path': '.github/workflows/hand-authored.yml',
+                 'reason': 'a repo-specific check'}]}))
+
+        found = vdc._workflow_liveness_scan(tmp)
+        cases = [
+            ('the tracked file is never reported',
+             not any('bestpractice-docs.yml' in f for f in found), found),
+            ('the untracked file IS reported as a CANDIDATE, never a verdict',
+             any('light-check.yml' in f and 'CANDIDATE' in f for f in found),
+             found),
+            ('the exempted file, with its reason declared, is not reported',
+             not any('hand-authored.yml' in f for f in found), found),
+        ]
+
+        # CONTROL: no manifest at all -- [] returned, never a crash, never
+        # a spurious candidate for a repo nothing was ever vendored into.
+        no_manifest = tmp / 'no-manifest-case'
+        (no_manifest / '.github' / 'workflows').mkdir(parents=True)
+        (no_manifest / '.github/workflows/anything.yml').write_text('name: x\n')
+        cases.append(('CONTROL: a repo with no ENGINE_MANIFEST.json at all '
+                      'returns no candidates, not a crash',
+                      vdc._workflow_liveness_scan(no_manifest) == [], None))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'very_deep_check._workflow_liveness_scan enumerates workflow-'
+          f'file candidates by content tracking, honours a declared '
+          f'exemption, and never crashes on an unvendored repo '
+          f'({len(cases)} stated cases)',
+          not bad,
+          '; '.join(f"{n} -- {d}" for n, d in bad))
 
 
 def check_rule_rewrite_detection():
@@ -15857,6 +18387,18 @@ def check_title_case_leaves_code_and_first_word_alone():
          "`git rev-parse --verify`", 'a command with flags is untouched'),
         ("A Heading About `AGENTS.md` and `tools/doc_lint.py`",
          "`tools/doc_lint.py`", 'two spans in one heading'),
+        # KEEP_PHRASES, both shapes. `The Why` is a noun phrase the SMALL
+        # rule would lowercase; `See also` is the mirror image -- `also` is
+        # not in SMALL, so headline style reaches for "See Also", which no
+        # style guide asks for. The second was carried BY HAND in a dependent
+        # repo for a day, re-applied after every engine refresh ate it, with
+        # 16 live headings depending on it. It is asserted here because the
+        # whole point of upstreaming it was that nobody should have to
+        # notice again.
+        ("see also", "See also", 'a lowercase cross-reference heading'),
+        ("See Also", "See also", 'and one already miscapitalized'),
+        ("Notes and see also", "See also", 'mid-heading, not only at the start'),
+        ("the why", "The Why", 'the other keep-phrase still keeps its caps'),
     ]
     bad = []
     for text, must, why in cases:
@@ -16480,10 +19022,12 @@ def check_frontmatter_is_real_yaml():
     check, which uses PyYAML, reported them as invalid. A format whose
     only conforming parser is its author's is not a format, so the check
     belongs on the producing side. Skipped with a notice where PyYAML
-    isn't installed rather than passing on having parsed nothing."""
-    try:
-        import yaml
-    except ImportError:
+    isn't installed rather than passing on having parsed nothing.
+
+    The parse itself lives in frontmatter_yaml.py, shared with
+    doc_lint.py's own (touched-files-only) copy of this same check -- one
+    parser, not two drifting ones."""
+    if not frontmatter_yaml.HAVE_YAML:
         not_applicable('every --- fence holds valid YAML',
                         'PyYAML is not installed here, so nothing was parsed '
                         '-- `pip install pyyaml` to run it')
@@ -16503,16 +19047,9 @@ def check_frontmatter_is_real_yaml():
             text = f.read_text(encoding='utf-8')
         except OSError:
             continue
-        if not text.startswith('---\n'):
-            continue                      # no frontmatter claimed, none checked
-        m = re.match(r'---\n(.*?)\n---\n', text, re.S)
-        if not m:
-            bad.append((rel, 'opens a --- fence that is never closed'))
-            continue
-        try:
-            yaml.safe_load(m.group(1))
-        except Exception as e:
-            bad.append((rel, str(e).split('\n')[0]))
+        err = frontmatter_yaml.frontmatter_yaml_error(text)
+        if err:
+            bad.append((rel, err))
     for n, why in bad:
         print(f"  {n}: frontmatter is not valid YAML -- {why}")
     check(f"every tracked markdown file that opens a --- fence has "
@@ -18862,6 +21399,74 @@ def check_stale_render_self_heals():
           '; '.join(f"{n} -- {d[:400]}" for n, d in bad))
 
 
+def check_self_heal_universal_source_leaves_no_bytecode():
+    """precedent_resolve.py's _self_heal_universal_source() runs
+    tools/precedent_source_bootstrap.py AS A SUBPROCESS, inside the very
+    repo it is healing -- the same shape as the build_views.py subprocess
+    precedent_bootstrap_source.py already runs with -B, and for the same
+    reason: precedent_source_bootstrap.py's own _credential_args() imports
+    precedent_source_credentials from ITS OWN DIRECTORY, and an ordinary
+    (non -B) interpreter caches that import as a .pyc right there.
+
+    THE BUG THIS LOCKS IN. Found chasing an intermittent very_deep_check.py
+    false positive (tools/__pycache__/precedent_source_credentials.cpython-
+    311.pyc reading as bootstrap drift, sometimes as a byte mismatch and
+    sometimes as "this set does not have it") -- traced with strace -f to
+    exactly this subprocess, launched without -B. The drift check has its
+    own exclusion for a stray .pyc now (see check_very_deep_check_bootstrap_
+    drift's stray-pycache case), which stops the false positive from being
+    reported as drift; this check is the other half, on the file that
+    actually writes it, so the same litter cannot reappear under some other
+    caller that isn't behind a drift check at all -- a real set's tools/
+    directory, session after session, whenever the universal source has not
+    been cloned next to it yet.
+
+    THE FIXTURE IS MINIMAL RATHER THAN A REAL BOOTSTRAPPED SET (contrast
+    check_very_deep_check_bootstrap_drift's fresh()): only the two files
+    _self_heal_universal_source's subprocess actually reads are copied in
+    (precedent_source_bootstrap.py itself, and precedent_source_credentials.py
+    so the import it triggers is the real one, not an ImportError that would
+    make this pass for the wrong reason), plus the two small JSON files that
+    tell it what to clone. No network call is required to exercise the bug:
+    precedent_source_bootstrap.py's _sync_once() calls _credential_args()
+    -- the import that writes the .pyc -- as its first line, before it runs
+    any git command, so the clone attempt below is expected to fail offline
+    and that failure is not what this check is about."""
+    import shutil, tempfile
+    import precedent_resolve as _pr
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-self-heal-'))
+    try:
+        repo_root = tmp / 'set'
+        tools_dir = repo_root / 'tools'
+        tools_dir.mkdir(parents=True)
+        shutil.copy2(ROOT / 'tools' / 'precedent_source_bootstrap.py',
+                     tools_dir / 'precedent_source_bootstrap.py')
+        shutil.copy2(ROOT / 'tools' / 'precedent_source_credentials.py',
+                     tools_dir / 'precedent_source_credentials.py')
+        (repo_root / 'precedent.json').write_text(json.dumps({
+            'format_version': 1,
+            'sources': [{'level': 'universal', 'name': 'precedent',
+                        'path': '../universal-sibling-not-yet-cloned'}],
+        }), encoding='utf-8')
+        (tools_dir / 'ENGINE_MANIFEST.json').write_text(json.dumps({
+            'source_repo': 'https://github.com/alex137/BestPractice',
+            'source_branch': 'precedent-beta-v01',
+        }), encoding='utf-8')
+
+        _pr._self_heal_universal_source(repo_root)
+
+        stray = tools_dir / '__pycache__'
+        check('_self_heal_universal_source runs precedent_source_bootstrap.py '
+              'with -B, so it leaves no __pycache__ in the repo it just healed',
+              not stray.exists(),
+              f'{stray} exists, containing: '
+              f'{sorted(p.name for p in stray.iterdir())}' if stray.exists()
+              else '(not reproduced this run)')
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 def check_instantiated_template_links_survive_the_copy():
     """A file a template tells you to COPY INTO A REPO ROOT cannot carry a
     link that only resolves from the template's own directory.
@@ -19369,14 +21974,23 @@ def check_installer_produces_a_clean_install():
         env2 = dict(env, PRECEDENT_USER_CONFIG=str(user_cfg))
         r = subprocess.run([sys.executable, tool, str(proj2), '--project-name', 'Second Notes',
                             '--admin', 'dana'], cwd=str(ROOT), capture_output=True, text=True, env=env2)
-        wf2 = proj2 / '.github' / 'workflows' / 'bestpractice-docs.yml'
+        # leak-gate.yml, not bestpractice-docs.yml: the Markdown workflow was
+        # retired 2026-09-21 and the leak gate is what a consumer now gets.
+        wf2 = proj2 / '.github' / 'workflows' / 'leak-gate.yml'
         gs2 = (proj2 / 'GETTING_STARTED.md').read_text(encoding='utf-8') if (proj2 / 'GETTING_STARTED.md').is_file() else ''
         cases.append(('a declared ci_workflows: enabled installs the workflow WITH its '
                       'concurrency block, and GETTING_STARTED.md carries the "on" paragraph',
                       r.returncode == 0 and wf2.is_file()
                       and 'concurrency:' in wf2.read_text(encoding='utf-8')
-                      and 'A Markdown check runs on every pull request' in gs2,
+                      and 'A leak check runs on every push and pull request' in gs2,
                       (r.stdout + r.stderr)[-500:]))
+        # AND the Markdown lint is NOT a GitHub check any more -- the
+        # direction that would otherwise go untested, since every assertion
+        # above is about a file being present.
+        cases.append(('...and no Markdown workflow is installed at all, on either path',
+                      not (proj2 / '.github' / 'workflows' / 'bestpractice-docs.yml').exists()
+                      and not (proj / '.github' / 'workflows' / 'bestpractice-docs.yml').exists(),
+                      'bestpractice-docs.yml was retired 2026-09-21'))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
@@ -22629,6 +25243,161 @@ def check_leak_gate_refuses_a_fresh_container():
           '; '.join(f'{n}: {d}' for n, o, d in cases if not o)[:900])
 
 
+def check_structural_only_actually_drops_the_private_half():
+    """`--structural-only` must make the gate's verdict INDEPENDENT of
+    whether a private blocklist is reachable -- that is the whole point of
+    the flag, and it is what lets a CI runner and a developer's machine
+    agree on the same tree.
+
+    THE INCIDENT, 2026-09-21, and it took three corrections in one day.
+    The flag originally only cleared whether the vocabulary layer was
+    REQUIRED, never whether it was APPLIED. The first fix dropped BOTH
+    blocklist halves, which over-shot: the default list is committed and
+    publishable, so CI can and should keep running it. The second fix
+    dropped the private half correctly -- and a sibling session measuring
+    the flag against a real practice set STILL saw private patterns fire.
+    There were three routes, not one:
+
+      1. the vocabulary patterns themselves (the one that was fixed),
+      2. the repo-reference policy and its owner rules, read from the SAME
+         private file, plus the auto-derived bare-name patterns, which come
+         from the sibling CLONES ON THIS DISK, and
+      3. the self-heal, which reloaded the FULL blocklist as soon as a run
+         had any hit at all -- so the flag worked on a clean tree and
+         stopped working on exactly the runs whose verdict mattered.
+
+    ROUTE 3 IS WHY THIS PLANTS A TREE THAT FAILS UNDER THE FLAG, not only
+    one that passes -- though see the note at its own case: the reload is
+    guarded, and this fixture cannot yet make it fire. A detector verified against a clean tree alone is
+    indistinguishable from a broken one: under the flag a clean tree never
+    reaches the self-heal, so route 3 stays invisible. The discriminating
+    fixture trips a DEFAULT-list pattern -- reaching the self-heal -- while
+    also containing a name only the PRIVATE list knows. If the reload comes
+    back, that name is in the output. It must not be."""
+    import tempfile
+
+    _home = pathlib.Path(tempfile.mkdtemp())
+
+    def run(cwd, *extra, blocklist=None):
+        env = {k: v for k, v in os.environ.items()
+               if k != 'PRECEDENT_LEAK_BLOCKLIST'}
+        env['PRECEDENT_ALLOW_ANY_AUTHOR'] = '1'
+        env['HOME'] = str(_home)          # practice: fixture-owns-its-state
+        if blocklist:
+            env['PRECEDENT_LEAK_BLOCKLIST'] = blocklist
+        r = subprocess.run(
+            [sys.executable, str(cwd / 'tools' / 'leak_gate.py'), *extra],
+            capture_output=True, text=True, cwd=str(cwd), env=env)
+        return r.returncode, r.stdout + r.stderr
+
+    cases = []
+    tmp = tempfile.mkdtemp()
+    try:
+        repo = pathlib.Path(tmp) / 'r'
+        (repo / 'tools').mkdir(parents=True)
+        _seed_consumer_engine(repo / 'tools',
+                              extra=('leak_gate.py',
+                                     'leak-blocklist.default.txt',
+                                     'routing_scope.json',
+                                     'glossary_terms.json'))
+        (repo / 'precedent.json').write_text(json.dumps(
+            {'format_version': 1, 'visibility': 'public',
+             'sources': [{'level': 'universal', 'name': 'precedent',
+                          'path': '.'}]}), encoding='utf-8')
+
+        # A word the COMMITTED default list already matches, read out of the
+        # shipped file rather than hardcoded -- so editing that list cannot
+        # silently leave this check trying to trip a pattern that is gone.
+        _default = (repo / 'tools' / 'leak-blocklist.default.txt').read_text(
+            encoding='utf-8')
+        _seed = None
+        for _line in _default.splitlines():
+            _m = re.match(r'^\\b([a-z]{3,})', _line.strip())
+            if _m:
+                _seed = _m.group(1)
+                break
+        cases.append(('the fixture found a literal word in the shipped '
+                      'DEFAULT list to trip -- without one, route 3 is '
+                      'never reached and this check would pass while '
+                      'proving nothing',
+                      _seed is not None, f'default list: {_default[-300:]!r}'))
+        _seed = _seed or 'zzzznotfound'
+
+        # The private list: a vocabulary pattern AND an owner declared
+        # private-by-default, so the repo-reference rule has something to
+        # enforce. Both come out of this one file, which is route 2.
+        priv = pathlib.Path(tmp) / 'private-blocklist.txt'
+        priv.write_text(
+            '# private fixture list\n'
+            '# visibility-audit: private-owner fixtureowner -- fixture\n'
+            r'\bZarquonProject\b' + '\n', encoding='utf-8')
+
+        (repo / 'README.md').write_text(
+            '# fixture\n\n'
+            'ZarquonProject is a private name only the private list knows.\n'
+            'fixtureowner/UndeclaredThing is an undeclared repo reference.\n'
+            f'The word {_seed} is on the committed default list.\n',
+            encoding='utf-8')
+        subprocess.run(['git', 'init', '-q', str(repo)], capture_output=True)
+        subprocess.run(['git', '-C', str(repo), 'add', '-A'],
+                       capture_output=True)
+
+        # DIRTY DIRECTION FIRST. Without the flag, with the private list
+        # reachable, both private routes must fire -- otherwise the clean
+        # direction below proves nothing at all about the flag.
+        rc_full, out_full = run(repo, blocklist=str(priv))
+        cases.append(('WITHOUT the flag the private vocabulary pattern '
+                      'fires -- the control that makes route 1+3 mean '
+                      'something',
+                      rc_full == 1 and 'ZarquonProject' in out_full,
+                      out_full[-500:]))
+        cases.append(('WITHOUT the flag the private repo-reference policy '
+                      'fires too -- the control for route 2',
+                      'UndeclaredThing' in out_full, out_full[-500:]))
+
+        rc_so, out_so = run(repo, '--structural-only', blocklist=str(priv))
+        cases.append(('WITH the flag the run still FAILS -- it tripped the '
+                      'committed default list, which must keep biting in CI',
+                      rc_so == 1, out_so[-500:]))
+        cases.append(('...and names the default-list word, so the failure '
+                      'is the one intended', _seed in out_so, out_so[-500:]))
+        # ROUTE 3 IS GUARDED BUT NOT EXERCISED HERE, said plainly rather
+        # than counted as covered: _try_refresh_private_blocklist_clone()
+        # returns False in this fixture (there is no clone to fast-forward),
+        # so the reload never runs even with the guard removed. What this
+        # case proves is route 1 on a run that HAS hits. Exercising the
+        # reload needs a real git clone as the private source; filed rather
+        # than claimed (practice: speculation-is-marked).
+        cases.append(('ROUTE 1: the private vocabulary name is NOT named, '
+                      'on a run that HAD a hit -- the state in which the '
+                      'flag used to quietly stop working',
+                      'ZarquonProject' not in out_so, out_so[-800:]))
+        cases.append(('ROUTE 2: no undeclared-repo finding, since the owner '
+                      'policy lives in the private file this run did not '
+                      'read', 'UndeclaredThing' not in out_so,
+                      out_so[-800:]))
+        cases.append(('the output says the private half was skipped rather '
+                      'than reporting a clean bill over it',
+                      'private half skipped' in out_so, out_so[-500:]))
+
+        # THE REPRODUCIBILITY CLAIM ITSELF: the same flag with no private
+        # list reachable at all -- what a CI runner sees -- must reach the
+        # same verdict on the same tree.
+        rc_ci, out_ci = run(repo, '--structural-only')
+        cases.append(('same flag with NO private list reachable gives the '
+                      'SAME exit code -- the verdict does not depend on the '
+                      'machine, which is the only reason the flag exists',
+                      rc_ci == rc_so, f'{rc_ci} vs {rc_so}: {out_ci[-400:]}'))
+    finally:
+        _rmtree_retrying(tmp)
+        _rmtree_retrying(str(_home))
+
+    ok = all(c[1] for c in cases)
+    check(f'--structural-only drops every route the private half reaches, '
+          f'including on a run that HAS hits ({len(cases)} stated cases)',
+          ok, '; '.join(f'{n}: {d}' for n, o, d in cases if not o)[:900])
+
+
 def check_title_case_knows_the_files_it_ships():
     """Every root file this project INSTANTIATES into an adopter must be
     classified correctly by title_case, including the ones upstream never
@@ -23643,6 +26412,63 @@ def _print_checkout_banner():
     print(f"verify_harness: checking {ROOT} @ {b.stdout.strip()} ({h.stdout.strip()})\n")
 
 
+def check_filtered_check_does_not_break_the_unpack_family():
+    """A check filtered out by PRECEDENT_CHECK_ONLY/SKIP must unpack
+    through `check('<name>', *check_foo())` without raising, and must land
+    as N/A -- never as a pass.
+
+    Both halves have been wrong in production. Before 2026-09-21 the
+    stand-in returned a truthy value and a skipped check REPORTED SUCCESS;
+    the fix for that returned None instead, which made `*None` a TypeError
+    at all 10 unpack sites the moment either variable was set. CI is the
+    only caller that sets them, so a full local run passed 244/0 while
+    both sharded deep-check jobs died before their first verdict. This
+    check is the control that refuses either regression.
+
+    practice: control-asserts-which-failure -- the negative case below is
+    the old None-returning stand-in, which must still raise.
+    """
+    import subprocess
+    cases, bad = [], []
+    probe = (
+        "import os, sys\n"
+        "sys.path.insert(0, %r)\n"
+        "os.environ['PRECEDENT_CHECK_ONLY'] = 'check_nothing_matches_this'\n"
+        "import verify_harness as vh\n"
+        "vh._install_check_filter()\n"
+        "stand_in = vh.check_advisory_requirement_never_blocks\n"
+        "got = stand_in()\n"
+        "assert got is not None, 'stand-in returned None -- *None will raise'\n"
+        "assert got[0] is vh._CHECK_FILTERED_OUT, 'first element is not the sentinel'\n"
+        "vh.PASSED.clear(); vh.FAILED.clear(); vh.NA.clear()\n"
+        "vh.check('fixture', *stand_in())\n"
+        "assert not vh.PASSED, 'a filtered check reported SUCCESS'\n"
+        "assert not vh.FAILED, 'a filtered check reported a FAILURE'\n"
+        "assert len(vh.NA) == 1, 'a filtered check was not recorded as N/A'\n"
+        "print('ok')\n"
+    ) % str(ROOT / 'tools')
+    r = subprocess.run([sys.executable, '-c', probe],
+                       capture_output=True, text=True, cwd=str(ROOT))
+    if r.returncode != 0 or 'ok' not in r.stdout:
+        bad.append('the filtered-check stand-in no longer unpacks as N/A: '
+                   + (r.stderr.strip().splitlines() or ['(no stderr)'])[-1])
+    cases.append('filtered check unpacks and lands as N/A')
+
+    # Negative control: the shape the bug had must still be an error.
+    ctl = subprocess.run(
+        [sys.executable, '-c',
+         "def f(*a, **k):\n    return None\n"
+         "def check(name, ok, detail='', failure=''):\n    pass\n"
+         "try:\n    check('x', *f())\n"
+         "except TypeError:\n    print('raised')\n"],
+        capture_output=True, text=True)
+    if 'raised' not in ctl.stdout:
+        bad.append('negative control did not raise -- this check proves nothing')
+    cases.append('negative control (None stand-in) still raises')
+
+    return (not bad, f'{len(cases)} stated cases', '; '.join(bad))
+
+
 def main():
     _install_check_filter()
     _install_check_timing()
@@ -23700,6 +26526,7 @@ def main():
     check_shallow_clone_never_fabricates_unlanded_work()
     check_a_renamed_engine_file_never_survives_a_reseed()
     check_leak_gate_refuses_a_fresh_container()
+    check_structural_only_actually_drops_the_private_half()
     check_title_case_knows_the_files_it_ships()
     check_carry_check_never_invents_lost_content()
     check_doc_currency_finds_a_stale_document()
@@ -23708,6 +26535,7 @@ def main():
     check_source_precedence()
     check_cross_source_resident_budget()
     check_doc_lint_fires()
+    check_doc_lint_strict_refuses_the_gate_scope()
     check_practice_sections_present()
     check_practice_heading_parsing()
     check_decision_records_not_inline()
@@ -23735,6 +26563,28 @@ def main():
     check_retired_practices_leave_the_views()
     check_resident_subset(files)
     check_behavioral_replay()
+    check('the reply gate names work committed but not landed',
+          *check_reply_gate_names_work_not_yet_landed())
+    check('a filtered-out check unpacks as N/A, never as a pass',
+          *check_filtered_check_does_not_break_the_unpack_family())
+    check('a practice source ships no CI workflow, and an existing set loses one',
+          *check_a_source_set_ships_no_ci_workflow())
+    check('the instruction files name only repositories that exist',
+          *check_instruction_files_name_repos_that_exist())
+    check('a consumer may declare a CI workflow its own and keep it',
+          *check_a_consumer_may_declare_a_ci_workflow_its_own())
+    check('the reply check names every predicate it cannot evaluate',
+          *check_reply_check_names_what_it_cannot_evaluate())
+    check('the session check reports a source cloned twice on one disk',
+          *check_session_check_reports_a_source_cloned_twice())
+    check('every verdict-returning check is actually recorded',
+          *check_every_verdict_returning_check_is_recorded())
+    check('a stale source clone is made current, and a skip is never a success',
+          *check_a_stale_source_clone_is_made_current_not_reported_clean())
+    check("a suggested link keeps a dotfile path's leading dot",
+          *check_suggested_links_keep_a_dotfiles_leading_dot())
+    check('the planted-case rotation never narrows silently',
+          *check_planted_case_rotation_never_narrows_silently())
     check_precedent_check_fires()
     check_routing_scope(files)
     check_routing_audit_coverage()
@@ -23743,7 +26593,9 @@ def main():
     check_gate_channel()
     check_reply_gate_sees_every_source()
     check_advisory_requirement_never_blocks()
+    check_contradiction_requirement_blocks()
     check_compaction_offer_fires_on_context_growth()
+    check_trivial_checkin_exempts_the_boildown_gate()
     check_close_detection_fires_only_when_all_conditions_hold()
     check_loader_block_advertises_only_live_channels()
     check_source_sets_can_learn_they_are_stale()
@@ -23777,10 +26629,13 @@ def main():
     check_session_start_refreshes_an_attached_team_clone()
     check_views_drift_gate_reaches_a_source_set()
     check_precedent_check_degrades_in_a_source_set()
+    check_rotation_gap_widens_to_find_coverage()
     check_vendor_engine_consumer_case()
     check_vendor_engine_hook_drift_respects_adapters()
     check_vendor_engine_refreshes_ci_workflow_files()
     check_vendor_engine_retires_ci_workflow_files()
+    check_workflow_file_outside_vendoring_detects_candidates()
+    check_very_deep_check_workflow_liveness_scan()
     check_rule_rewrite_detection()
     check_source_shape_is_verified()
     check_machine_readable_files_parse()
@@ -23791,6 +26646,7 @@ def main():
     check_source_supplied_checks_run()
     check_individual_source_bootstrap_self_heals()
     check_stale_render_self_heals()
+    check_self_heal_universal_source_leaves_no_bytecode()
     check_source_credentials()
     check_vendored_engine_reads_the_consumer_root()
     check_source_clone_keeps_its_credential()
@@ -23821,6 +26677,7 @@ def main():
     check_leak_gate_notes_an_uncovered_private_repo()
     check_leak_gate_discovers_the_individual_blocklist()
     check_leak_gate_names_a_stale_blocklist_clone()
+    check_leak_gate_refresh_declines_a_dirty_clone()
     check_visibility_audit_reads_the_blocklist_as_patterns()
     check_rendered_docs_are_current()
     check_install_names_every_not_vendored_dir()

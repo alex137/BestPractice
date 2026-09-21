@@ -24,12 +24,15 @@ Built from every practice's `defines:` frontmatter field -- the terms that pract
 | declared fallback zone | [timestamps-carry-offset](practices/timestamps-carry-offset.md) |
 | decommission | [decommission-deletes-files](practices/decommission-deletes-files.md) |
 | deep check | [two-check-levels](practices/two-check-levels.md) |
+| delete link | [branch-delete-links](practices/branch-delete-links.md) |
 | document kind | [document-status-header](practices/document-status-header.md) |
 | document reference | [doc-references-are-links](practices/doc-references-are-links.md) |
 | document status | [document-status-header](practices/document-status-header.md) |
+| Drop it | [park-it](practices/park-it.md) |
+| fence block | [fence-block-for-paste](practices/fence-block-for-paste.md) |
+| filtered branches page | [branch-delete-links](practices/branch-delete-links.md) |
 | full practice audit | [full-practice-audit](practices/full-practice-audit.md) |
 | generated artifact | [generated-artifact-provenance](practices/generated-artifact-provenance.md) |
-| Go merge | [go-merge](practices/go-merge.md) |
 | Go update | [go-merge](practices/go-merge.md) |
 | headline capitalization | [headline-capitalization](practices/headline-capitalization.md) |
 | light check | [two-check-levels](practices/two-check-levels.md) |
@@ -38,13 +41,12 @@ Built from every practice's `defines:` frontmatter field -- the terms that pract
 | My options | [my-options](practices/my-options.md) |
 | negative control | [control-asserts-which-failure](practices/control-asserts-which-failure.md) |
 | parallel-artifact family | [parallel-artifact-ledger](practices/parallel-artifact-ledger.md) |
-| Park it | [park-it](practices/park-it.md) |
-| Plain words | [plain-words](practices/plain-words.md) |
 | positive control | [control-asserts-which-failure](practices/control-asserts-which-failure.md) |
 | practice pack | [layered-practice-packs](practices/layered-practice-packs.md) |
 | practice-set source | [source-naming](practices/source-naming.md) |
 | Prompt Please | [prompt-please](practices/prompt-please.md) |
 | pronouns | [declared-pronouns](practices/declared-pronouns.md) |
+| Push directly | [push-directly](practices/push-directly.md) |
 | Reduction pass | [reduction-pass](practices/reduction-pass.md) |
 | Relayed authorization | [relayed-authorization](practices/relayed-authorization.md) |
 | repo: | [session-tags](practices/session-tags.md) |
@@ -53,6 +55,7 @@ Built from every practice's `defines:` frontmatter field -- the terms that pract
 | routing audit | [routing-audit](practices/routing-audit.md) |
 | search allowance | [grep-before-search](practices/grep-before-search.md) |
 | session load | [session-load-budget](practices/session-load-budget.md) |
+| Simple words | [plain-words](practices/plain-words.md) |
 | skipped heading level | [heading-outline](practices/heading-outline.md) |
 | source manifest | [source-naming](practices/source-naming.md) |
 | speculative document | [speculation-is-marked](practices/speculation-is-marked.md) |

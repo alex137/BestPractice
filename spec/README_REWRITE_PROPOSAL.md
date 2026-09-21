@@ -1,19 +1,24 @@
 ---
 title:         "The README as a Pitch, Not an Index"
 kind:          proposal
-status:        drafted
+status:        executed
 opened:        2026-09-20
 closed:        null
 superseded_by: null
 supersedes:    []
 audience:      contributor
-summary:       "The current README reads like a table of contents: a dry definition, an internal branch-status notice, then a list of links. This proposes reordering it around a single hook developers actually feel — your team's unwritten rules get written down for you, in the open, enforced by code — and moves everything else (the branch note, the philosophy bullets, the doc map) to support that hook instead of competing with it. Includes a full draft of the proposed page itself, not just the structure. No change is made to README.md itself; this is the plan to review first."
+summary:       "The current README reads like a table of contents: a dry definition, an internal branch-status notice, then a list of links. This proposes reordering it around a single hook developers actually feel — your team's unwritten rules get written down for you, in the open, enforced by code — and moves everything else (the branch note, the philosophy bullets, the doc map) to support that hook instead of competing with it. Includes a full draft of the proposed page itself, not just the structure. Landed as README.md the same day (commit 03f72b9a), which then kept moving under 20+ follow-on edits — read this as the proposal that started the rewrite, not as what README.md says now."
 ---
 
 # The README as a Pitch, Not an Index
 
-**Nothing here touches [README.md](../README.md).** This is the proposal to
-react to before anyone rewrites it.
+**Executed.** This direction was approved and landed as
+[README.md](../README.md) the same day, in commit `03f72b9a`. README.md then
+kept moving under its own edits — more than twenty follow-on commits the
+same day alone — so the live page has already diverged from the draft
+below in wording and detail. Read what follows as the proposal that started
+the rewrite and the reasoning behind it, not as a description of
+README.md's current text; for that, read README.md itself.
 
 ## The Problem, in One Paragraph
 
@@ -287,8 +292,8 @@ the project: [documentation/](../documentation/).
 
 ## Next Steps if This Direction Is Approved
 
-Land the draft above as [README.md](../README.md) itself (adjusting its relative links
-back to root-level paths), run [tools/doc_lint.py](../tools/doc_lint.py)
-and the reader's-vocabulary pass
-([readers-vocabulary](../practices/readers-vocabulary.md)), and check every
-internal link still resolves before the deep check gates the push.
+Done — landed as [README.md](../README.md) in commit `03f72b9a`, with
+[tools/doc_lint.py](../tools/doc_lint.py) and the reader's-vocabulary pass
+([readers-vocabulary](../practices/readers-vocabulary.md)) run against the
+result. README.md is the current source; this section is left as the
+record of what "approved" meant at the time.

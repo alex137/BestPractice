@@ -44,28 +44,37 @@ check, the fleet sweep — are the deliberate exception, kept to the literal
 ask because what they trigger is too expensive to run on a guess; each
 names why in its own file.
 
-- **"Go update"**, **"Approved"**, and **"Go merge"** ([go-merge](practices/go-merge.md)) —
-  classify first: **trivial** (wording, a typo, a dead link — content this
-  repo already allows a direct edit to) commits and pushes straight to the
-  branch, no PR; **substantial** (anything that changes what a document
-  requires or what code does) syncs, says the branch out loud, commits,
-  pushes, opens the pull request, and merges — **without asking again.**
-  Unsure which it is? Substantial. A step this session cannot perform hands
-  off rather than coming back as a question: the authorization travels with
-  the work. One rule, three triggers, and `Go update` is the one to lead
-  with — it names what actually happens whether or not a merge is literally
-  in the picture — with `Go merge` exactly as valid, just second.
+- **"Go update"** and **"Approved"** ([go-merge](practices/go-merge.md)) —
+  classify first: a direct push, straight to the branch, no PR, is now the
+  **default**; only a **high-risk** change (touches enforcement/gating code,
+  changes a governance or authorization practice, is hard to reverse once
+  live, or you're not confident it's none of those) runs the full chain —
+  syncs, says the branch out loud, commits, pushes, opens the pull request,
+  and merges — **without asking again.** Say which path you took, and why,
+  in the reply. Unsure which it is? High-risk. A step this session cannot
+  perform hands off rather than coming back as a question: the
+  authorization travels with the work. One rule, two triggers, and
+  `Go update` is the one to lead with — it names what actually happens
+  whether or not a merge is literally in the picture.
   `Approved` is also an ordinary adjective, so *"the approved plan of
-  record"* is not the command, and `Go merge` is not the command when
-  "merge" has its own object, as in *"let's go merge those two lists."*
-  **None of the three is required for the authorization to exist** —
+  record"* is not the command.
+  **Neither is required for the authorization to exist** —
   "sold, ship it" reads as this command as plainly as the phrase does.
   What the phrase buys is certainty:
   say one of them and the chain runs, full stop. Where it's absent and the
   sentence could honestly go either way, say the read out loud and get it
   confirmed before the push, the pull request, or the merge — commit locally
   regardless, and hold only the shared-branch steps on the answer.
-- **"Park it"** ([park-it](practices/park-it.md)) — write
+- **"Push directly to [branch]"** ([push-directly](practices/push-directly.md))
+  — the classification's own override, named: skip it outright and push
+  straight to that branch, no PR, whatever `Go update` would otherwise call
+  for on this one change. Name the branch ("push directly to main") to
+  target it explicitly; say it bare and it defaults to the primary branch
+  the work is already on — `precedent-beta-v01` here, per the rule at the
+  top of this file, never `main` just because that is the repository's
+  configured default. Not a standing exemption — it authorizes the change
+  in front of it, not every change after it.
+- **"Drop it"** ([park-it](practices/park-it.md)) — write
   `**Disposition:** parked (<date>, <who said it>)` into the item meant, in
   that same turn, say which item was marked, and **never raise it unprompted
   again** — not this session, and not a later one that decides it has become
@@ -82,7 +91,7 @@ names why in its own file.
   plain ask for the same shape of answer ("what do I actually need to know
   right now") gets it too — low stakes if the read is wrong, so no
   confirmation step.
-- **"Plain words"** ([plain-words](practices/plain-words.md)) — the same
+- **"Simple words"** ([plain-words](practices/plain-words.md)) — the same
   answer said the way you would say it out loud: short sentences, the concrete
   case before the general principle, no hedging. **It governs the rest of the
   conversation, not just the next reply**, and nothing about the substance
@@ -113,7 +122,7 @@ names why in its own file.
   on the table in plainer words, a short block each, the cost said as flatly
   as the benefit, then **a named recommendation with its reason** — never a
   survey that leaves the choice sitting there. It governs that one answer, not
-  the conversation, which is what separates it from `Plain words`.
+  the conversation, which is what separates it from `Simple words`.
 - **"Vocabulary"** ([vocabulary](practices/vocabulary.md)) — every standing
   command in force, one plain sentence each, nothing else. **Read the list,
   never recall it**: `python3 tools/precedent_vocabulary.py` collects it from
@@ -123,7 +132,7 @@ names why in its own file.
   ([vendor-update-runbook](practices/vendor-update-runbook.md)) — the fixed
   sequence for taking an upstream update, starting with making the SOURCE
   clone current against the pinned branch. **It carries the merge too**, since
-  2026-09-14 — its last step runs `Go merge`'s chain on what the update
+  2026-09-14 — its last step runs `Go update`'s chain on what the update
   produced, so nobody is asked a second time for work that is already done and
   already checked. It reverses the sentence that used to sit here; the full
   check at step 6 still gates the push, as it does for any merge.
@@ -223,39 +232,30 @@ plan's premise.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block; `python3 tools/build_views.py --check` exits non-zero on drift. Source: practices/ -- edit the practice file, never this block. -->
 
-## Resident block (~1180 of 2000 token budget, 11 of 131 practices (11 universal))
+## Resident block (~895 of 2000 token budget, 10 of 138 practices (10 universal))
 
 **answer-first-ask-before-long-work.** Three parts. **(1) Answer the easy questions in a message before starting
-anything long.** A conceptual question is answered from what is already
-known, in the same turn, before any long run is launched; the run never
-gates the answer. **(2) A task that will run longer than a few minutes —
-a cold solve, a search family, a re-solve cascade, a whole-tree gate —
-is proposed, not started:** say what it is, how long it will take (from
-the tool's own cost line), what it blocks and what it does not, and get
-the go-ahead. The exceptions are the checks a commit needs on the files
-the turn touched, and a run the person has already asked for by name.
-**(3) When idle on a wait, say what the wait is for, what it will change,
-and how to stop it** — never a bare "still running". A background task
-nobody asked for is stopped, not waited on.
+anything long** — in the same turn; the long run never gates the answer.
+**(2) A task that will run longer than a few minutes is proposed, not
+started:** what it is, how long from the tool's own cost line, what it
+blocks and what it does not, then the go-ahead. The exceptions are the
+checks a commit needs on the files the turn touched, and a run already
+asked for by name. **(3) When idle on a wait, say what the wait is for,
+what it will change, and how to stop it** — never a bare "still running".
+A background task nobody asked for is stopped, not waited on.
 
 **bold-key-phrases.** People don't read; they skim, and bolding makes skimming easy. Bold the key phrases in a document by default, without being asked, scaling with length -- a long paragraph or document is where a skimmer most needs a spine to follow, a short note usually needs little or none.
 
 **brainstorm-holds-commits.** When a conversation is a **Brainstorm** -- the person says the word, or the
 thread is plainly exploratory ("I'm wondering", "what are my options", "do
-you have ideas", "maybe this is a terrible idea") -- **write nothing to the
-repository and commit nothing until they say to.** Research freely, read
-whatever you need, argue the case, propose the design. Do not create, edit,
-commit, push, open a pull request, or merge.
+you have ideas") -- **write nothing to the repository and commit nothing
+until they say to.** Research, read, argue the case, propose the design; do
+not create, edit, commit, push, open a pull request, or merge. **The edit is
+the thing to hold, not just the commit.**
 
-**The edit is the thing to hold, not just the commit.** A session that
-writes files and then asks whether to commit has already made the decision,
-because a working tree it left dirty is one a Stop hook or a later turn will
-push to finish. Say what you would write and where; wait to be told.
-
-A brainstorm ends only when the person authorizes the work -- `Go merge`,
-"do it", "write it up", or anything else unambiguous. **Their answering a
-question inside the brainstorm is not authorization**, and neither is their
-enthusiasm for the idea.
+It ends only when the person authorizes the work. Their answering a question
+inside it is not authorization, and neither is their enthusiasm for the
+idea. **When in doubt, it is a brainstorm.**
 
 **environment-gotchas.** Every expensive environment discovery (a package that must be installed, a
 tool that silently doesn't work, a path that does work) is written down
@@ -265,12 +265,10 @@ file — one trap, one file, forever — under `gotchas/gotcha-<date>-<slug>.md`
 [spec/OPEN_ITEM_AND_GOTCHA_PLAN.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/OPEN_ITEM_AND_GOTCHA_PLAN.md)
 Part 2).
 
-**None of that catalogue loads into the instructions file, at any size.**
-The instructions file carries a short pointer instead — hit an unexplained
-failure, grep `gotchas/` before concluding it's new — never the stories,
-and never even a one-line-per-trap index. A generated overview (symptom
-plus link, one line per live entry) exists for the deliberate read; nothing
-loads it automatically.
+**None of that catalogue loads into the instructions file, at any size** —
+not the stories, and not even a one-line-per-trap index. The file carries a
+pointer instead: hit an unexplained failure, grep `gotchas/` before
+concluding it's new.
 
 **no-invented-specifics.** Being concrete makes writing better, and **it never licenses invention.** Do
 not manufacture a statistic, a date, a name, a version number or a citation
@@ -288,14 +286,6 @@ each part of each deliverable. Every session reads it before doing anything.
 **quick-index.** The project instructions file carries a "check here BEFORE searching
 the repo" table: *looking for X → go to Y*, one row per thing sessions
 actually hunt for.
-
-**reply-links-files.** A session's reply that created, modified or deleted files ends with a
-"Files touched" list: each entry links the file on the working branch *and*
-its post-merge location, with a one-line description. The reader must be able
-to open the work from the chat, not merely learn it exists. **A deleted file
-is listed too** — its path, why it went, and a link to the commit that
-removed it. It is the one entry with nothing to open on the branch, which is
-exactly why a reader will not find it on their own.
 
 **repo-is-memory.** Everything a future session needs — orientation, open items,
 decisions, lessons — lives in committed files. A session's chat thread is
@@ -320,16 +310,20 @@ cheapest evidence a reader has that somebody did.
 ## Occasion index
 
 ```
+When a branch has done its job -- a pull request merged, a tidy-up, or a person saying to delete some branches:
+  never-delete-a-remote-branch — never attempt a remote branch delete; hand over the one-click link
 When a computation books a transfer between two parties:
   name-both-sides-of-ledger — name both sides; check what is charged against what is received
 When a document replaces or is replaced by an earlier one:
   index-remembers-past — put the lineage in the index, not in either document
 When a judgment call is needed to keep work moving:
   small-calls — make small calls yourself; note them; stop only for big ones
-When a message carries the merge phrase, or plainly authorizes a merge:
-  go-merge — "Go update"/"Approved"/"Go merge": trivial -> push; else sync, branch, PR, merge
 When a message says "Archive", with or without a question mark, or otherwise asks whether the session can be archived:
   archive-status-check — "Archive"/"Archive?" -- check pending; archive if clear, else say what isn't
+When a message says "Go update" or "Approved", or plainly authorizes a merge:
+  go-merge — "Go update"/"Approved": default push; high-risk -> sync, branch, PR, merge
+When a message says "Push directly", naming a branch ("push directly to main") or not, or gives a specific instruction to skip the PR for this one change:
+  push-directly — "Push directly [to BRANCH]" -- no PR; unnamed defaults to the branch in play
 When a message says "Update Vendors", or an upstream update is being taken into a repo that vendors a practice layer:
   vendor-update-runbook — "Update Vendors" -- source clone first, both layers move separately, then merge
 When a model, study or comparison table rests on an operating constant nobody decided — a margin, a cap, a rate, a floor:
@@ -342,14 +336,14 @@ When a person explicitly asks for a full practice audit (or "practice check") ac
   full-practice-audit — sweep every source's full catalogue, one practice at a time, on request only
 When a person says "Chief of Staff":
   chief-of-staff — "Chief of Staff" -- on request only; name the window read, link every session
+When a person says "Drop it" about an open item or a question:
+  park-it — "Drop it" -- mark the item `parked` now; never raise it unprompted again
 When a person says "My options", asks to have a decision's options laid out, or asks -- about a current issue -- for the options to hand off to another session:
   my-options — "My options" -- every option, plainer, your pick -- or a paste-ready handoff
-When a person says "Park it" about an open item or a question:
-  park-it — "Park it" -- mark the item `parked` now; never raise it unprompted again
-When a person says "Plain words", or plainly asks to be talked to that way:
-  plain-words — "Plain words" -- say it as you would out loud; same substance
 When a person says "Reduction pass", or an always-loaded surface is near its ceiling:
   reduction-pass — "Reduction pass" -- work the menu in order, move never delete, report what moved
+When a person says "Simple words", or plainly asks to be talked to that way:
+  plain-words — "Simple words" -- say it as you would out loud; same substance
 When a person says "Three Things", or plainly asks for exactly this shape of answer:
   three-things — "Three Things" -- the three that matter now, one bold phrase and two lines each
 When a person says "Todo reminder", or asks to be reminded of something:
@@ -358,6 +352,8 @@ When a person says "Vocabulary", or asks what the standing commands are:
   vocabulary — "Vocabulary" -- list every command in force, read it, never recall it
 When a person says "Weak yes", or agrees in words that carry no conviction:
   weak-yes — "Weak yes" -- do it, and record the approval as `assented`
+When a person states a fact about their own situation -- cost, risk, time, priorities, how they work -- that the session's own reading of the evidence would soften or contradict:
+  their-constraints-are-given — their own situation is given -- say it once, then work from theirs
 When about to search a repository, or reaching for a GitHub search or file-read tool for something the local clone already holds:
   grep-before-search — grep the clone; a repo-scoped list before a search; fewer windows at once
 When adding a file to a directory that already holds files of the same kind:
@@ -454,7 +450,7 @@ before searching the repo, and add new rows there rather than here.
 | Looking for… | Go to |
 |---|---|
 | The restructuring plan (read this first) | [spec/PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md) |
-| Whether an open item may be raised with Morgan at all, and what "Park it" writes | [practices/open-item-disposition.md](practices/open-item-disposition.md), phrase at [practices/park-it.md](practices/park-it.md) |
+| Whether an open item may be raised with Morgan at all, and what "Drop it" writes | [practices/open-item-disposition.md](practices/open-item-disposition.md), phrase at [practices/park-it.md](practices/park-it.md) |
 | What a session pays before its first turn, the declared ceiling on each always-loaded file, and how to reduce one without deleting what still bites | [practices/session-load-budget.md](practices/session-load-budget.md), registry at [tools/session_load_budgets.json](tools/session_load_budgets.json) — `python3 tools/precedent_check.py --only session-load-budget` |
 | Practices that fire at a moment rather than in a file | [tools/precedent_gate.py](tools/precedent_gate.py) — `merge`, `review`, `push`, `reply` |
 | Why the closing **Next Steps** section of a reply is not optional, and what refuses a turn without one | [tools/precedent_reply_check.py](tools/precedent_reply_check.py) — `--explain` says what is declared here; the same requirements are printed at the start of every turn by [tools/precedent_gate.py](tools/precedent_gate.py)'s reply gate |
@@ -470,7 +466,7 @@ before searching the repo, and add new rows there rather than here.
 
 ## Build-environment gotchas — search before you rediscover one
 
-44 environment/tooling traps are catalogued, one file per trap, under
+52 environment/tooling traps are catalogued, one file per trap, under
 [gotchas/](gotchas/) — each with its own Symptom, Story and Fix (practice:
 [environment-gotchas](practices/environment-gotchas.md)). Nothing here loads
 that catalogue for you: **hit a confusing, hard-to-explain failure? Before
@@ -542,9 +538,11 @@ place — nothing is ever deleted, and nothing moves.
 
 ## Conventions (every session, every reply)
 
-The loader carries three more in full — `reply-links-files` in the resident
-block above, `doc-references-are-links` and `volatile-rules-carry-dates` in the
-occasion index — so they are not repeated here.
+The loader carries three more in full — `doc-references-are-links` and
+`volatile-rules-carry-dates` in the occasion index above, and
+`reply-links-files` through the `reply` gate
+([tools/precedent_gate.py](tools/precedent_gate.py)) since it was demoted out
+of the resident block on 2026-09-21 — so they are not repeated here.
 
 - **Outward-facing documents use the reader's words** ([readers-vocabulary](practices/readers-vocabulary.md)): this
   repo's README, [SETUP.md](SETUP.md), and

@@ -215,6 +215,81 @@ def resolved_gate_practices(root, gate):
     return entries, notes
 
 
+def _unlanded_work(root):
+    """-> [str] one line per repo in this session whose committed work is not
+    on the branch that repo actually merges into. Never raises.
+
+    WHY THE REPLY GATE AND NOT THE STOP HOOK (Morgan, 2026-09-21, strength:
+    decided): "if there are changes that are committed but NOT YET ON
+    main/precedent-beta-v01/primary-branch-in-that-repo, then the Boildown
+    section MUST MUST tell me that and recommend I do that, so I don't miss
+    doing it."
+
+    The stop hook already refuses a turn that ends with uncommitted or
+    unpushed work, and that is a different question with a different timing.
+    It fires AFTER the reply is written, so it cannot put a line in the
+    Boildown -- it can only reject the turn and cost the reply twice. And it
+    asks whether a branch is PUSHED, which a feature branch can be while the
+    work still sits nowhere anybody merges from.
+
+    This fires BEFORE the reply, at the one moment a session can still write
+    the sentence, and asks the question a person actually cares about: is
+    this on the branch the repo lands work on, or is it parked on a branch
+    somebody has to remember to merge?
+    """
+    import subprocess as _sp
+
+    def _git(cwd, *args):
+        try:
+            r = _sp.run(['git', '-C', str(cwd), *args], capture_output=True,
+                        text=True, timeout=20)
+        except Exception:                                     # noqa: BLE001
+            return ''
+        return r.stdout.strip() if r.returncode == 0 else ''
+
+    out = []
+    roots = [pathlib.Path(root)]
+    # Sibling Precedent repos this session may also have committed in. A
+    # session that made a commit in a source set and left it on a branch has
+    # the same problem, and nothing else in this preamble looks there.
+    for parent in {pathlib.Path(root).parent, pathlib.Path.home()}:
+        try:
+            entries = sorted(parent.iterdir())
+        except OSError:
+            continue
+        for d in entries:
+            if d.name.startswith('precedent-') and (d / '.git').exists():
+                if d.resolve() not in {r.resolve() for r in roots}:
+                    roots.append(d)
+
+    for repo in roots:
+        head = _git(repo, 'rev-parse', '--abbrev-ref', 'HEAD')
+        if not head or head == 'HEAD':
+            continue
+        # The branch this repo actually lands work on. precedent.json's
+        # base_branch is the declaration; origin/HEAD is the fallback.
+        base = ''
+        try:
+            import json as _j
+            base = (_j.loads((repo / 'precedent.json').read_text(
+                encoding='utf-8')).get('base_branch') or '').strip()
+        except Exception:                                     # noqa: BLE001
+            base = ''
+        if not base:
+            ref = _git(repo, 'symbolic-ref', '--quiet', 'refs/remotes/origin/HEAD')
+            base = ref.rsplit('/', 1)[-1] if ref else 'main'
+        if head == base:
+            continue
+        ahead = _git(repo, 'rev-list', '--count', f'origin/{base}..HEAD')
+        if not ahead or ahead == '0':
+            continue
+        name = repo.name if repo.resolve() != pathlib.Path(root).resolve() \
+            else 'this checkout'
+        out.append(f"{name}: {ahead} commit(s) on '{head}' that are NOT on "
+                   f"'{base}' -- the branch this repo lands work on")
+    return out
+
+
 def _print_hard_requirements(root):
     """The reply requirements a source DECLARES, printed verbatim at the
     start of the turn.
@@ -281,6 +356,37 @@ def _print_hard_requirements(root):
                     f"out of caution")
             print(f"- [{src}] the reply contains one of these, verbatim: "
                   f"{quoted}{when}")
+        # THE TWO PREDICATES THIS BLOCK USED TO OMIT, both of them
+        # BLOCKING. Until 2026-09-21 this printer handled
+        # require_heading_matching and require_one_of and silently dropped
+        # the rest, so require_no_contradiction refused turns that had
+        # never been told it existed -- which is precisely the failure this
+        # function's own docstring above describes and was written to end.
+        # A blocking requirement absent from the pre-reply print costs the
+        # person the reply twice: once wrong, once rewritten.
+        for pair in (r.get('require_no_contradiction') or []):
+            if pair.get('if_says') and pair.get('must_not_say_matching'):
+                print(f"- [{src}] a reply saying \"{pair['if_says']}\" must "
+                      f"not ALSO match /{pair['must_not_say_matching']}/i -- "
+                      f"the two cannot both be true. Say the one that is.")
+        for pair in (r.get('require_paired_with') or []):
+            if pair.get('if_matches') and pair.get('must_also_match'):
+                print(f"- [{src}] a reply matching /{pair['if_matches']}/ "
+                      f"must ALSO match /{pair['must_also_match']}/"
+                      + (f" -- {pair['why']}" if pair.get('why') else ''))
+        # A REQUIREMENT THIS ENGINE CANNOT EVALUATE, named here rather than
+        # left silent. A source's reply_check.json is read live; the engine
+        # is vendored; they go stale independently, so a source can declare
+        # a blocking rule this copy has never heard of. getattr, because
+        # this file and precedent_reply_check.py are vendored as one unit
+        # but a partial or older vendor is exactly the state this reports.
+        _unk_fn = getattr(prc, '_unknown_predicates', None)
+        for _k in (_unk_fn(r) if _unk_fn else ()):
+            print(f"- NOT ENFORCED HERE: [{src}] declares {_k}, which this "
+                  f"engine cannot evaluate. Its requirement is NOT in force "
+                  f"in this repo. Refresh the vendored engine: python3 "
+                  f"tools/precedent_vendor_engine.py refresh "
+                  f"<bestpractice-clone>")
     for n in notes:
         print(f"- NOTE: {n}")
 
@@ -436,6 +542,32 @@ def main():
                   f"({e}). Treat that as unknown, not as room to spare; "
                   f"`python3 tools/session_load_trend.py` reports it "
                   f"directly.\n")
+    # THE VENDORED ENGINE'S OWN FRESHNESS, at the two moments work leaves
+    # this repo (2026-09-21). Every other check here compares a repo
+    # against itself; this one compares this repo's manifest against live
+    # upstream and says whether the engine it is enforcing with has fallen
+    # behind. Pushing or merging on a months-old engine is the case that
+    # kept happening silently -- 18 of 22 repositories had never taken an
+    # update, measured 2026-09-20.
+    #
+    # --quiet: it prints ONLY when this repo is actually behind. A gate
+    # that says "current" at every push is a gate people stop reading, and
+    # the notice has to stay worth noticing. Never fatal, and the tool
+    # itself exits 0 on no network, no manifest and a malformed one, so
+    # this cannot block a push over a hiccup (practice: fail-gracefully).
+    if gate in ('merge', 'push'):
+        try:
+            sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+            import precedent_engine_freshness as pef
+            pef.report(root, quiet=True)
+        except ImportError:
+            pass          # partial vendor, same as the block above
+        except Exception as e:                               # noqa: BLE001
+            print(f"NOTE: the vendored engine's freshness could not be "
+                  f"checked ({e}). Treat that as unknown, not as current; "
+                  f"`python3 tools/precedent_engine_freshness.py` reports "
+                  f"it directly.\n")
+
     for n in source_notes:
         print(f"NOTE: {n}\n")
     if any(registered[s][0] in PRIVATE_LEVELS for s in slugs):
@@ -479,6 +611,17 @@ def main():
         print(f"{block}\n")
     if gate == 'reply':
         _print_hard_requirements(root)
+        # COMMITTED, BUT NOT WHERE WORK LANDS. Printed with the hard
+        # requirements because for this person it is one: a reply that does
+        # not say so is how a branch gets forgotten.
+        try:
+            _unlanded = _unlanded_work(root)
+        except Exception:                                     # noqa: BLE001
+            _unlanded = []
+        for _line in _unlanded:
+            print(f"- NOT YET LANDED: {_line}. The Boildown MUST say so and "
+                  f"recommend merging it -- do not close a turn leaving this "
+                  f"unsaid (practice: the-boildown).")
     if '--brief' in flags:
         print(f"\nFull text: `python3 tools/precedent_gate.py {gate}`.")
     return 0

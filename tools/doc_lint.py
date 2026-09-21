@@ -18,6 +18,9 @@ behavior that GitHub silently neutered):
      is not the text of a markdown link. Per the doc-reference convention, new
      text links its references. Warning-only (index docs legitimately carry many
      bare-backtick references); shown so you can link the ones you just touched.
+     A span carrying whitespace is a COMMAND, and one carrying * or <> is a
+     glob or a placeholder — see is_file_reference() for why neither is a
+     finding.
 
   3. UNGLOSSED ACRONYM (warning) (practice: acronyms-glossary). If the repo has a GLOSSARY.md, this
      flags ALL-CAPS tokens in a changed doc that are NOT in it, not defined inline
@@ -42,6 +45,15 @@ behavior that GitHub silently neutered):
      origin: a thread spent two commits adding target="_blank" and reverting
      it). Use a plain markdown link instead.
 
+  7. FRONTMATTER NOT VALID YAML (error). A --- fence this repo's own,
+     more forgiving reader accepts but a real YAML parser (PyYAML) rejects
+     -- most often a title with a second, unquoted colon, which PyYAML reads
+     as opening a nested mapping. Whole-file, not line-scoped: a bad fence is
+     a property of the frontmatter block, not of one line inside it. Shares
+     its parser with verify_harness.py's deep-check version of the same
+     check (frontmatter_yaml.py) so a fix lands once. Skipped with a notice
+     where PyYAML isn't installed, same as check 1 when cmark-gfm is absent.
+
 SCOPE: by default, only files CHANGED vs the default branch (the convention is
 "fix the parts you touch"; this also avoids editing frozen documents, where a
 `~`→`≈` change would be content drift). Pass explicit files, or --all to scan
@@ -58,16 +70,27 @@ explicitly still scans it.
 Requires cmark-gfm for exact detection:  pip install cmarkgfm
 (If absent, the strikethrough check is SKIPPED with a notice rather than guessing.)
 
+STRICT (--all or named files only). --strict promotes every warning class
+above to a failure and prints per-class and per-file counts — the work list
+for the whole-tree markdown pass of a very deep check
+(practices/very-deep-check.md, pass 3), which is the one caller that asked
+to see the backlog. It REFUSES the changed-file default scope, because that
+combination is the gate that was built and withdrawn on 2026-09-21 after it
+refused a one-line edit over 111 pre-existing warnings. Never wire it into
+a hook or a CI workflow; a light check stays non-strict.
+
 Run:  python3 tools/doc_lint.py             # changed-vs-default-branch, gate
                                              # (fails only on lines the change
                                              # touched; the rest is reported
                                              # as pre-existing -- touched_lines)
       python3 tools/doc_lint.py --all        # whole repo, report-only
+      python3 tools/doc_lint.py --strict --all   # whole repo, warnings fail
       python3 tools/doc_lint.py --fix FILE   # rewrite ~ -> ≈ on struck lines
 (In a repo that vendors this the classic way, the path is
 process/upstream/tools/doc_lint.py.)
 """
 import re, sys, subprocess, pathlib
+import frontmatter_yaml
 
 def _git(args, cwd=None):
     return subprocess.run(['git'] + args, cwd=cwd, capture_output=True, text=True).stdout.strip()
@@ -120,6 +143,31 @@ except Exception:
 
 REF_RE = re.compile(r'`([^`]+\.(?:md|py))`')          # backticked filename in code span
 TARGET_RE = re.compile(r'<a\s[^>]*\btarget\s*=', re.IGNORECASE)  # HTML anchor with target=
+
+
+def is_file_reference(span):
+    """-> True if a backticked span names a file a reader could click.
+
+    REF_RE's `[^`]+` swallows a whole command line, so
+    `python3 tools/doc_lint.py` was reported as an unlinked file reference
+    — and there is no link that fixes it, because it is not a reference.
+    The practice (doc-references-are-links) is about references a reader
+    wants to OPEN; a command is text to type. Whitespace is the whole test:
+    a path has none, an invocation always does.
+
+    Measured before the change (2026-09-21, this tree): 177 of 2,323
+    findings were command lines. That is a tenth of the backlog, and it
+    mattered more than its size — --strict promotes this class to a
+    failure, and a strict mode whose first act is to demand a fix nobody
+    can make is a mode that gets run once. Same failure as the withdrawn
+    --strict gate, one layer down: see main()'s --strict refusal.
+
+    A glob or a placeholder is out for the same reason and was found the
+    same way: `practices/*.md`, `gotchas/gotcha-<date>-<slug>.md`,
+    `*_record.md` and `check_<slug>.py` name a SHAPE, not a file, and 148
+    of what remained were those. Nothing exists to link them to."""
+    return (not any(c.isspace() for c in span)
+            and not any(c in span for c in '*<>?'))
 
 # Immutable frozen records: excluded from default/--all selections (unfixable
 # by design). Dependent repos list their frozen-artifact name prefixes here.
@@ -822,6 +870,21 @@ def iter_prose_paragraphs(path):
     if para_lines:
         yield para_start, '\n'.join(para_lines)
 
+def check_frontmatter(path):
+    """Real-YAML frontmatter check, folded into the light pass rather than
+    left deep-only (practice: two-check-levels, Install section: "JSON/YAML
+    syntax ... folds into the light name rather than inventing a third
+    gate"). Whole-file, not line-scoped -- a bad fence is a property of the
+    frontmatter block, not of any one line inside it -- so it gates on the
+    file being in scope, the same way check_findability does. None if
+    PyYAML is not installed (skipped with a notice, same as the
+    strikethrough check when cmark-gfm is missing) or the frontmatter is
+    valid; the parser itself is frontmatter_yaml.py, shared with
+    verify_harness.py's own copy of this check so the two never drift."""
+    text = (ROOT / path).read_text(encoding='utf-8', errors='ignore')
+    return frontmatter_yaml.frontmatter_yaml_error(text)
+
+
 def check_file(path, fix=False, known=None):
     strikes, unlinked, unglossed, targeted = [], [], [], []
     changed_lines = {}
@@ -845,7 +908,7 @@ def check_file(path, fix=False, known=None):
         # unlinked refs: a `file.md` code span not immediately followed by ](
         for m in REF_RE.finditer(line):
             after = line[m.end():m.end()+2]
-            if after != '](':
+            if after != '](' and is_file_reference(m.group(1)):
                 unlinked.append((i, m.group(1)))
         # target= anchors: GitHub strips the attribute from rendered HTML (check 4);
         # code spans stripped first so documenting the rule doesn't trip it
@@ -1107,6 +1170,62 @@ def main():
     args = [a for a in sys.argv[1:] if not a.startswith('-')]
     flags = {a for a in sys.argv[1:] if a.startswith('-')}
     fix = '--fix' in flags
+    # --scope-changed: keep the touched-lines scope EVEN WHEN paths are
+    # named. Without it, naming a path switches the gate to the whole file,
+    # and that asymmetry is a live defect rather than a subtlety --
+    # .claude/hooks/doc-lint-gate.sh always names the staged files, so the
+    # commit gate refused commits over findings on lines the change never
+    # touched. Reported 2026-09-21 by a repo where a pre-existing broken
+    # link already on main would have blocked every commit.
+    #
+    # It is the same failure the withdrawn --strict had, reached from the
+    # other direction, and the same rule applies: a gate whose first act is
+    # to refuse work nobody just broke is a gate somebody switches off.
+    scope_changed = '--scope-changed' in flags
+    # --strict: the SWEEP mode. Every class this tool can see fails, warnings
+    # included, and the run prints a work list instead of a 40-line sample.
+    # It belongs to one caller -- practices/very-deep-check.md's pass 3 --
+    # and to a session reading the whole tree on purpose.
+    #
+    # IT IS NOT A GATE, AND THE REFUSAL BELOW IS WHAT KEEPS IT FROM BECOMING
+    # ONE. A strict mode promoting the warning classes to gating was built
+    # and withdrawn the same hour on 2026-09-21: measured against
+    # INSTALL.md, a one-line edit that added nothing was refused over 111
+    # unlinked references that had been there for weeks (Morgan, on being
+    # shown the measurement: "Ok so let's not use --strict."). Scoping the
+    # promotion to touched lines does not rescue it either -- the warning
+    # classes are not line-attributed the way the gating classes are. The
+    # same failure arrived again from the other direction a day later, as
+    # whole-file scope in the commit hook (see --scope-changed above).
+    #
+    # So strict is built where it works -- a sweep somebody asked for,
+    # reading everything, fixing a slice -- and refuses the scope that made
+    # it a gate: the changed-file default. Nothing may wire it into a hook,
+    # a commit gate, or a CI workflow.
+    strict = '--strict' in flags
+    unknown = flags - {'--fix', '--all', '--scope-changed', '--numbers-report',
+                       '--strict'}
+    if unknown:
+        # A silently ignored flag is worse than a rejected one: before this
+        # check, `doc_lint.py --strict` ran the ordinary lint and exited 0,
+        # and documentation/GITHUB_ACTIONS.md told adopters to run exactly
+        # that as their by-hand markdown check. It passed every time,
+        # checking what it always checks, for as long as the flag did not
+        # exist (found 2026-09-21).
+        print(f"doc_lint FAIL: unknown option(s): {', '.join(sorted(unknown))}")
+        print("(run --help for the ones this tool takes; an option it does "
+              "not know is refused rather than ignored, because an ignored "
+              "flag reads as a check that ran)")
+        return 2
+    if strict and not ('--all' in flags or args):
+        print("doc_lint FAIL: --strict needs a scope -- pass --all, or name "
+              "the files.")
+        print("(--strict is the very-deep-check sweep, not a gate. Applied "
+              "to the changed-file default it becomes the gate that was "
+              "built and withdrawn on 2026-09-21, which refused a one-line "
+              "edit over 111 pre-existing warnings. Never wire it into a "
+              "hook or a CI workflow.)")
+        return 2
     if '--all' in flags:
         files, gate = drop_frozen(tracked_md()), False
     elif args:
@@ -1124,6 +1243,9 @@ def main():
     if not HAVE_GFM:
         print("doc_lint: cmark-gfm not installed — strikethrough check SKIPPED "
               "(pip install cmarkgfm). Running reference check only.")
+    if not frontmatter_yaml.HAVE_YAML:
+        print("doc_lint: PyYAML not installed — frontmatter-validity check "
+              "SKIPPED (pip install pyyaml).")
 
     if '--numbers-report' in flags:
         rows, gated = [], 0
@@ -1149,10 +1271,13 @@ def main():
     total_strikes = total_unlinked = total_unglossed = total_targeted = total_fixed = 0
     strike_lines, unlinked_lines, unglossed_lines, target_lines = [], [], [], []
     unsourced_lines, residue_lines, broken_link_lines = [], [], []
-    skip_lines = []
+    skip_lines, frontmatter_lines = [], []
     for f in files:
         if not (ROOT / f).exists():
             continue
+        fm_err = check_frontmatter(f)
+        if fm_err:
+            frontmatter_lines.append(f"  {f}: {fm_err}")
         for i, why in check_residue(f):
             residue_lines.append(f"  {f}:{i}: {why}")
         for i, target, why in check_broken_links(f):
@@ -1216,12 +1341,22 @@ def main():
               "the line <!--rom-->):")
         print('\n'.join(unsourced_lines[:40]))
 
+    if frontmatter_lines:
+        print(f"\nFRONTMATTER NOT VALID YAML — {len(frontmatter_lines)} file(s) "
+              f"({'FAIL' if gate else 'backlog report'}; the fence says YAML, "
+              "so a real parser has to accept it -- this repo's own reader "
+              "is more forgiving and will not catch this):")
+        print('\n'.join(frontmatter_lines[:40]))
+        if len(frontmatter_lines) > 40:
+            print(f"  … and {len(frontmatter_lines) - 40} more")
+
     if (not strike_lines and not unlinked_lines and not unglossed_lines
             and not target_lines and not unsourced_lines and not broken_link_lines
-            and not skip_lines):
+            and not skip_lines and not frontmatter_lines):
         print(f"doc_lint OK: {len(files)} file(s) checked — no accidental strikethrough, "
               f"no broken relative links, no unlinked references, no unglossed "
-              f"acronyms, no target= anchors, no skipped heading levels.")
+              f"acronyms, no target= anchors, no skipped heading levels, no "
+              f"invalid frontmatter.")
 
     # check 5: findability. Gate mode checks only documents in scope, so a new
     # analysis must be indexed; --all reports the legacy backlog.
@@ -1276,7 +1411,34 @@ def main():
     # Line scope (see touched_lines): in the default gate a finding fails
     # only on a line this change added or rewrote. An explicit path argument
     # gates the whole file, and --all reports everything.
-    scope = touched_lines(merge_base()) if (gate and not args) else None
+    if gate and (scope_changed or not args):
+        _base = merge_base()
+        # A BASE THAT DOES NOT RESOLVE MEANS NO SCOPE, AND AN EMPTY SCOPE
+        # GATES NOTHING WHILE REPORTING OK. merge_base() falls back to the
+        # literal `origin/<default>` string when `git merge-base` fails, and
+        # diffing against a ref that does not exist yields nothing -- so a
+        # fresh container before its first fetch, or a checkout whose origin
+        # is missing, prints "0 file(s) checked" and exits 0. That reads
+        # exactly like a clean tree.
+        #
+        # Found 2026-09-21 while testing --scope-changed, by a fixture whose
+        # own origin was misconfigured: the case that was supposed to FAIL
+        # passed, and the fixture was wrong rather than the flag -- but the
+        # silence it revealed is real, and it matters more now that
+        # .claude/hooks/doc-lint-gate.sh is the only thing checking Markdown
+        # before a shared branch. Still fails open, deliberately, because
+        # refusing every commit on an unfetched checkout is worse -- but it
+        # no longer does so quietly.
+        if not _git(['rev-parse', '--verify', '--quiet', _base], cwd=ROOT):
+            print(f"doc_lint NOTE: {_base} does not resolve in this "
+                  f"checkout, so 'what this change touched' cannot be "
+                  f"computed and NOTHING IS BEING GATED. This is not a "
+                  f"clean bill. Fetch the base branch and re-run, or pass "
+                  f"the file paths without --scope-changed to check them "
+                  f"whole.", file=sys.stderr)
+        scope = touched_lines(_base)
+    else:
+        scope = None
     loc_re = re.compile(r'^\s*(.+?):(\d+): ')
 
     def pre_image_has(kind, finding, removed):
@@ -1336,9 +1498,61 @@ def main():
         print('\n'.join(pre_existing[:10]))
         if len(pre_existing) > 10:
             print(f"  … and {len(pre_existing) - 10} more")
-    if gate and (fatal or findability):
-        print(f"\ndoc_lint FAIL: {len(fatal)} gating finding(s) on lines this change "
-              f"touched" + (f", {len(findability)} unfindable analysis(es)" if findability else "") + ":")
+    if strict:
+        # Every class, gating and warning alike, and the per-file counts a
+        # sweep needs to pick its slice -- the 40-line samples above are for
+        # a reader fixing what they just touched, not for one grinding a
+        # backlog down. Ordered worst-first for the same reason.
+        classes = (('accidental strikethrough', strike_lines),
+                   ('broken relative link', broken_link_lines),
+                   ('invalid frontmatter', frontmatter_lines),
+                   ('skipped heading level', skip_lines),
+                   ('process residue', residue_lines),
+                   ('unsourced quantity', unsourced_lines),
+                   ('unlinked file reference', unlinked_lines),
+                   ('unglossed acronym', unglossed_lines),
+                   ('target= anchor', target_lines))
+        per_file = {}
+        found = 0
+        for _name, group in classes:
+            found += len(group)
+            for finding in group:
+                head = finding.strip().split(':', 1)[0]
+                per_file[head] = per_file.get(head, 0) + 1
+        for doc, _n in findability:
+            per_file[doc] = per_file.get(doc, 0) + 1
+        found += len(findability)
+        if not found:
+            print(f"\ndoc_lint --strict OK: {len(files)} file(s), every class "
+                  f"clean -- warnings included.")
+            return 0
+        print(f"\ndoc_lint --strict FAIL: {found} finding(s) across "
+              f"{len(per_file)} file(s), in {len(files)} scanned. Warnings "
+              f"count here; they do not elsewhere.")
+        print("\n  by class:")
+        for name, group in classes:
+            if group:
+                print(f"    {len(group):6d}  {name}")
+        if findability:
+            print(f"    {len(findability):6d}  unfindable analysis")
+        print("\n  by file, worst first:")
+        for f, n in sorted(per_file.items(), key=lambda kv: (-kv[1], kv[0]))[:40]:
+            print(f"    {n:6d}  {f}")
+        if len(per_file) > 40:
+            print(f"    … and {len(per_file) - 40} more file(s)")
+        print("\n  This is a work list for a sweep somebody asked for "
+              "(practice: very-deep-check),\n  not a gate: fix a slice, "
+              "commit it, and run it again. Nothing is expected to\n  clear "
+              "it in one pass, and an index document carrying bare "
+              "references may be\n  right to -- judge each one.")
+        return 1
+
+    if gate and (fatal or findability or frontmatter_lines):
+        _where = ("on lines this change touched" if scope is not None
+                  else "in the file(s) named")
+        print(f"\ndoc_lint FAIL: {len(fatal)} gating finding(s) {_where}" + (f", {len(findability)} unfindable analysis(es)" if findability else "")
+              + (f", {len(frontmatter_lines)} file(s) with invalid frontmatter" if frontmatter_lines else "")
+              + ":")
         print('\n'.join(fatal[:40]))
         return 1
     return 0

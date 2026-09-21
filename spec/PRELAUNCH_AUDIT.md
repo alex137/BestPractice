@@ -214,8 +214,9 @@ run prompted on every single run.
    already met it: of its 26 files, zero link targets, zero URLs, zero
    code spans, zero filenames and zero anchors changed. The one thing
    worth naming because it looks like an exception and is not:
-   [templates/github-actions/doc-lint.yml.template](../templates/github-actions/doc-lint.yml.template)'s
-   workflow `name:` became "Precedent documentation checks". That is a
+   the then templates/github-actions/doc-lint.yml.template (retired
+   2026-09-21) — its workflow `name:` became "Precedent documentation
+   checks". That is a
    display label. A repository's branch-protection rules key off the
    **job** name, which is still `Markdown lint`, so no adopter's required
    check changes identity.

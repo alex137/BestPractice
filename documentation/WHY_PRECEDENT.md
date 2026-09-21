@@ -4,14 +4,15 @@
 would a team want it?**
 
 Precedent is a layer that sits between a group of people and their
-shared work — **built for teams who collaborate through an AI assistant
+shared work — **built for teams who collaborate through an AI Assistant
 rather than a shared live document.**
 
-You talk to an assistant about the work: what to write, what to decide,
-what to change. The assistant does the actual editing — you never touch a
-file directly. As it works, it also **notices how your team wants to work,
-and turns that into written rules** that every future conversation follows
-automatically, without anyone having to write a policy document by hand.
+You talk to an AI Assistant about the work: what to write, what to decide,
+what to change. The AI Assistant does the actual editing — you never touch
+a file directly. As it works, it also **notices how your team wants to
+work, and turns that into written rules** that every future conversation
+follows automatically, without anyone having to write a policy document by
+hand.
 
 This grew out of a broader philosophy about how people and AI should work
 together, written up in **[philosophy/](../philosophy/)**. What follows
@@ -25,18 +26,19 @@ built around that rather than around one person and a chatbot.
 
 ### Designed for Multi-Person Collaboration to Shape the Output
 
-**Several people, each with their own assistant, work on the same project at
-the same time** — proposing, arguing, adding, cutting — so what finally lands
-is shaped by all of them, not by whoever happened to type into the document
-last. Nobody has to wait their turn to edit.
+**Several people, each with their own AI Assistant, work on the same
+project at the same time** — proposing, arguing, adding, cutting — so
+what finally lands is shaped by all of them, not by whoever happened to
+type into the document last. Nobody has to wait their turn to edit.
 
 ### Real Sharing With Review
 
-**The project is shared by construction.** Everyone on it — people and their
-assistants alike — works from the same map of the project, the same list of
-open items, and the same rules, and proposes changes the others can read and
-comment on before anything lands. Nobody forwards a chat transcript, and
-nobody has to hope that everyone else's assistant remembers the same things.
+**The project is shared by construction.** Everyone on it — people and
+their AI Assistants alike — works from the same map of the project, the
+same list of open items, and the same rules, and proposes changes the
+others can read and comment on before anything lands. Nobody forwards a
+chat transcript, and nobody has to hope that everyone else's AI Assistant
+remembers the same things.
 
 ### Granular Permission Access & Protocol Applicability
 
@@ -53,24 +55,24 @@ maintainer, and a rule is made official only by a listed approver.
 Two people can rewrite different parts of the same document at once, each on
 their own private copy, and their work is combined automatically — not just
 one-word tweaks, but **whole rewritten sections**. If two edits genuinely
-contradict each other, your assistant **shows you both and asks**, rather than
-silently picking a winner.
+contradict each other, your AI Assistant **shows you both and asks**,
+rather than silently picking a winner.
 
-## Co-Creating With Your Assistant
+## Co-Creating With Your AI Assistant
 
-Every change is worked out with an assistant that argues back — and
+Every change is worked out with an AI Assistant that argues back — and
 nothing lands until a person says so.
 
 ### You Work Through Your Agents
 
 There's no separate track for "small" changes that you just make yourself —
-**even a one-word edit goes through the assistant**, so every change is
+**even a one-word edit goes through the AI Assistant**, so every change is
 something you and it worked out together, not something that slipped in
 unreviewed.
 
 ### An AI Assistant Designed to Push Back Smartly on Your Ideas for the Best Result
 
-The assistant isn't there to type whatever you say — it's **expected to
+The AI Assistant isn't there to type whatever you say — it's **expected to
 question a weak idea or suggest a better one**, so what actually lands is
 the strongest version of what you wanted, not just the first draft of it.
 
@@ -84,7 +86,7 @@ outright — set per person, not all-or-nothing.
 
 ### Everything Runs Through the Claude Code App — Desktop or Mobile
 
-**You can tell your assistant what to do by voice, while walking, or from
+**You can tell your AI Assistant what to do by voice, while walking, or from
 anywhere at all** — and there is nothing to install on your own computer. If
 you would rather run it on your own machine, it still works that way too
 (*as of 2026-09*).
@@ -125,8 +127,8 @@ why a rule exists or dig through chat logs to find out.
 
 **Every change is recorded: who made it, when, what changed, and — because the
 practices here require it — why.** Anything can be undone, and any two
-versions of anything can be compared side by side. An assistant's memory
-feature offers none of that.
+versions of anything can be compared side by side. An AI Assistant's
+memory feature offers none of that.
 
 ## Invisible Memory
 
@@ -138,8 +140,8 @@ depends on anyone remembering it.
 Documents, the decisions made about them, and the reasoning behind each one
 are all kept together in **one place your team already owns** — so the project
 remembers itself. **A git repository is the shared file system**: a project
-folder that keeps every version of everything in it, and that every person and
-every assistant works out of.
+folder that keeps every version of everything in it, and that every person
+and every AI Assistant works out of.
 
 ### State That Doesn't Decay
 
@@ -148,14 +150,14 @@ all committed text.** A session six months from now — on a different model, in
 a different tool, or run by a different person — picks up exactly where the
 last one left off, because "where we left off" is a file.
 
-### You Control What the Assistant Knows
+### You Control What the AI Assistant Knows
 
 **Every session starts by reading the project's map ([MAP.md](../MAP.md)) and
-its instructions file**, so what the assistant knows is something you decide,
-by editing files. Nothing load-bearing lives in a hidden memory store or
-depends on a lucky recollection from an old conversation. If sessions keep
-missing something, you add a row to the map's quick index — a one-line,
-permanent fix.
+its instructions file**, so what the AI Assistant knows is something you
+decide, by editing files. Nothing load-bearing lives in a hidden memory
+store or depends on a lucky recollection from an old conversation. If
+sessions keep missing something, you add a row to the map's quick index
+— a one-line, permanent fix.
 
 ## Open Source and Open Documents
 

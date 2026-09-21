@@ -23,7 +23,7 @@ run through end to end, step by step, is
 "work better with AI" advice makes one person faster at their own
 work. This repo assumes something different: several people solving the
 same problem together, with chat as what connects them, not a private
-assistant each person also has, where joining costs a repository access
+AI Assistant each person also has, where joining costs a repository access
 rather than a day of setup ([`cloud-not-local`](AI_GOVERNANCE_TO_COCREATE.md#cloud-not-local)). (One
 part of [Core Pillars](CORE_PILLARS.md)'s case for what makes this
 approach unique —

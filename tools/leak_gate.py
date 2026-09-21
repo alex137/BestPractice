@@ -421,6 +421,40 @@ def _blob(spec):
 # put here would be published by the commit itself, long before any scan.
 SCAN_EXEMPT = {'tools/leak-blocklist.default.txt'}
 
+# A REPO'S OWN ROOT MANIFEST IS NOT A LEAK OF ITS OWNER (2026-09-21,
+# practice: cite-the-incident). These three files exist, at a repo root, to
+# say who owns the repo and how it is configured. identity.json's whole
+# content is a name, an email and a timezone. Flagging them for containing
+# an email address is the rule firing on a file doing its job.
+#
+# Measured: a session installing leak-gate.yml into two real practice sets
+# smoke-tested it first and got exit 1 on arrival -- 7 and 13 hits, of which
+# 3 in each were `precedent.json: an email address`. Nothing was wrong with
+# either repo. The FORBIDDEN_CONTENT layer is written on this file's own
+# stated premise, "Precedent holds universal practices and nothing else",
+# which is true of BestPractice's public tree and false of a practice set
+# that legitimately records its owner.
+#
+# ROOT ONLY, and that is the whole safety argument. A manifest NESTED inside
+# another repository is a vendored copy of somebody's private set, which is
+# a real leak and is still caught -- by this exemption not applying, and
+# separately by the SOURCE_MANIFEST check above, which fires on exactly that
+# shape. The exemption is for `precedent.json`, never `vendor/x/precedent.json`.
+#
+# NOT EXEMPTED HERE, deliberately: the `candidates/`, `individual/`,
+# `personal/` and `private/` DIRECTORY rules, which the same smoke test also
+# tripped. Those need a judgment about which repo kinds may legitimately
+# carry such a directory, and the obvious discriminators do not work --
+# BestPractice itself carries BOTH precedent.json and precedent-source.json,
+# so file presence cannot tell a public universal tree from a private set,
+# and keying a LEAK gate off self-declared `visibility` is the precise bug
+# corrected in leak-gate.yml.template the day before. Left for a decision
+# rather than guessed at. See todo-2026-09-21-structural-leak-rules-assume-
+# bestpractices-own-tree.
+OWNER_MANIFESTS_AT_ROOT = frozenset({
+    'precedent.json', 'precedent-source.json', 'identity.json',
+})
+
 
 def is_texty(rel):
     p = pathlib.Path(rel)
@@ -940,6 +974,58 @@ def _stale_blocklist_clone_note():
             f"as real.")
 
 
+def _try_refresh_private_blocklist_clone(timeout=20):
+    """One bounded `git pull --ff-only` attempt on the private blocklist's
+    own clone. -> True if it is now at its upstream tip (fast-forwarded, or
+    was already there); False if there is nothing to try, or the pull is
+    refused (dirty tree, diverged, no upstream, network failure, timeout).
+
+    practice: durable-fix, cite-the-incident. 2026-09-20: the gate reported
+    110 undeclared-repo hits, all false, all in a file the session had not
+    touched -- the private clone was behind an upstream rename, the exact
+    shape _stale_blocklist_clone_note() above already names. The note
+    correctly pointed at `git -C <root> pull --ff-only`; the common case is
+    that command succeeding, which nothing until now did automatically.
+
+    Called ONLY once real hits exist, from main() below -- never at the top
+    of an ordinary run. That is deliberate: _stale_blocklist_clone_note()'s
+    own docstring declines to fetch because this gate "runs on every push"
+    and a network call there would cost every clean push a round-trip. A
+    push with no hit never reaches this function, so that push still never
+    touches the network; only a run that was already about to fail pays for
+    one bounded attempt, on the chance the failure is stale input rather
+    than a real leak.
+
+    Never forces anything a person has to decide: a dirty tree, or a real
+    divergence (local commits ahead as well as behind, exactly 2026-09-20's
+    case), is left untouched, and this function simply declines rather than
+    guessing which side to keep -- the same refusal
+    tools/precedent_source_bootstrap.py's own sync already makes for the
+    same reason.
+    """
+    path = _PRIVATE_BLOCKLIST_PATH
+    if path is None:
+        return False
+    root = path.parent
+
+    def git(*args):
+        try:
+            r = subprocess.run(['git', '-C', str(root), *args],
+                               capture_output=True, text=True, timeout=timeout)
+        except (OSError, subprocess.SubprocessError):
+            return 1, ''
+        return r.returncode, r.stdout.strip()
+
+    rc, _ = git('rev-parse', '--show-toplevel')
+    if rc != 0:
+        return False  # not a clone: somebody's loose file, nothing to pull
+    rc, dirty = git('status', '--porcelain')
+    if rc != 0 or dirty.strip():
+        return False  # somebody's working copy; not this gate's call to touch
+    rc, _ = git('pull', '--ff-only', '--quiet')
+    return rc == 0
+
+
 INDIVIDUAL_BLOCKLIST_NAME = 'leak-blocklist.txt'
 
 
@@ -1033,17 +1119,90 @@ def load_blocklist():
             True)
 
 
+def structural_path_exemptions(root=None):
+    """-> {path_prefix: reason} a repo has DECLARED, with a reason, as a
+    deliberate directory the structural path rules must not flag.
+
+    WHY THIS EXISTS (2026-09-21, practice: cite-the-incident). The
+    FORBIDDEN_PATHS rules above are written on this file's own stated
+    premise -- "Precedent holds universal practices and nothing else" --
+    which is true of BestPractice's public tree and false of every repo the
+    same gate is now vendored into. A practice SET legitimately carries a
+    tracked `candidates/` outbox: that is where its drafts live. Measured:
+    a session installing leak-gate.yml into two real practice sets found it
+    RED ON ARRIVAL, on `candidates/.gitkeep` among others, with nothing
+    wrong in either repo.
+
+    WHY A DECLARED EXEMPTION RATHER THAN SCOPING BY REPO KIND, which was the
+    obvious alternative and is the one this deliberately does not do. Both
+    ways of asking "what kind of repo is this?" fail here:
+
+      - FILE PRESENCE cannot tell a public universal tree from a private
+        set. BestPractice itself carries BOTH precedent.json and
+        precedent-source.json; so do all three of Morgan's shared sets,
+        measured the same day.
+      - SELF-DECLARED `visibility` must never gate a LEAK check. That is
+        precisely the bug corrected in leak-gate.yml.template the day
+        before, where two repos that are public on GitHub declared
+        themselves private. The workflow now asks GitHub -- but this file
+        also runs in a local pre-push hook, where no GitHub context exists.
+
+    So the rule never weakens for a class of repo. A repo that needs such a
+    directory says so ONCE, in writing, with a reason a person can read --
+    the same discipline `ci_workflow_outside_vendoring_exempt` already uses,
+    and the same reason: an exemption nobody can see is a hole.
+
+    A prefix matches on a path SEGMENT boundary, so `candidates` exempts
+    `candidates/x.md` and never `candidates-private/x.md`. Read from
+    precedent.json, falling back to precedent-source.json for a set that has
+    only the one. A malformed file yields {} -- the gate keeps scanning, and
+    nothing is exempted by a parse error.
+    """
+    root = pathlib.Path(root or '.')
+    out = {}
+    for name in ('precedent.json', SOURCE_MANIFEST):
+        f = root / name
+        if not f.is_file():
+            continue
+        try:
+            cfg = json.loads(f.read_text(encoding='utf-8'))
+        except (OSError, ValueError):
+            continue
+        for e in (cfg.get('leak_structural_exempt') or []):
+            if isinstance(e, dict) and e.get('path') and e.get('reason'):
+                out[str(e['path']).strip('/')] = str(e['reason'])
+    return out
+
+
+def _path_is_exempt(rel, exemptions):
+    """True when `rel` sits under a declared exempt prefix, on a segment
+    boundary. `candidates` covers `candidates/a/b.md`, never
+    `candidates-private/b.md` and never `docs/candidates/b.md` -- a prefix
+    is anchored at the repo root, because that is where a person reading
+    the declaration will expect it to apply."""
+    for prefix in exemptions:
+        if rel == prefix or rel.startswith(prefix + '/'):
+            return True
+    return False
+
+
 def scan(units, blocklist, repo_policy=(None, None), auto_names=(),
-         private_names=None):
+         private_names=None, structural_exempt=None):
     owners, allowed = repo_policy
     if private_names is None:
         private_names = private_set_names()
+    if structural_exempt is None:
+        structural_exempt = structural_path_exemptions()
     hits = []
     for display, rel, text in units:
         if rel is not None and rel not in ALLOWED_PATHS:
-            for pat, why in FORBIDDEN_PATHS:
-                if pat.search(rel):
-                    hits.append((display, 0, why, rel))
+            # PATH rules only. A declared exemption says "this DIRECTORY is
+            # deliberate here"; it has never said anything about the file's
+            # CONTENT, and the content rules below still run on every byte.
+            if not _path_is_exempt(rel, structural_exempt):
+                for pat, why in FORBIDDEN_PATHS:
+                    if pat.search(rel):
+                        hits.append((display, 0, why, rel))
             segments = [seg.lower() for seg in rel.split('/')]
             for seg in segments[:-1]:
                 if seg in private_names:
@@ -1061,7 +1220,10 @@ def scan(units, blocklist, repo_policy=(None, None), auto_names=(),
                              rel))
         if text is None:
             continue
+        owner_manifest = rel in OWNER_MANIFESTS_AT_ROOT
         for pat, why in FORBIDDEN_CONTENT:
+            if owner_manifest and why == 'an email address':
+                continue          # see OWNER_MANIFESTS_AT_ROOT above
             for m in pat.finditer(text):
                 line_no = text.count('\n', 0, m.start()) + 1
                 hits.append((display, line_no, why, m.group(0).strip()[:70]))
@@ -1235,12 +1397,56 @@ def main():
                           or _require_vocabulary_configured()
                           or _priv_resolved))
     blocklist, source, configured = load_blocklist()
+    # AND --structural-only MUST ACTUALLY DROP THEM (2026-09-21, practice:
+    # cite-the-incident). Until today the flag only cleared `require_vocab`
+    # -- whether the vocabulary layer was REQUIRED -- and never touched
+    # whether it was APPLIED. So a caller asking for "the structural half
+    # alone", in the words of this very block, still got every private
+    # pattern load_blocklist() happened to find.
+    #
+    # Measured in this repo, same tree, same commit: `leak_gate.py` and
+    # `leak_gate.py --structural-only` printed the IDENTICAL line, both
+    # "15 blocklist pattern(s) ... default (6) + <private set> (9)". The
+    # flag changed nothing it claimed to change.
+    #
+    # Why it matters beyond tidiness, and this is how it was found: a
+    # session refused to install leak-gate.yml off a local pass, because
+    # the gate's verdict was not reproducible across environments. A CI
+    # runner resolves no private set and so scans 6 patterns; a developer's
+    # machine resolves one and scans 15 -- under the same flag, the one the
+    # workflow passes. Local red predicted nothing about CI, and local
+    # green predicted nothing either. A gate whose answer depends on where
+    # it ran is not a gate anyone can act on.
+    if structural_only:
+        # THE DEFAULT HALF STAYS. Corrected within the hour: the first
+        # version of this dropped BOTH halves, which over-shot. The default
+        # list is COMMITTED and publishable -- its own header says so, and
+        # profanity is the first thing in it -- so it is exactly as safe on
+        # a CI runner as in this repo, and the harness asserts that a word
+        # from it still fails the gate under this flag. What CI cannot have,
+        # and what made the verdict differ by machine, is the PRIVATE half.
+        # So: drop that one, keep the default.
+        _d = load_default_blocklist()
+        blocklist = _d
+        source = (f'{DEFAULT_BLOCKLIST.name} ({len(_d)} pattern(s)); '
+                  f'private half skipped (--structural-only)')
+        configured = False
     units = units_to_scan(mode, rev_range)
     # The repo-reference allowlist is read from the SAME private file as the
     # vocabulary patterns, so a clone with no private blocklist configured
     # gets no owner policy either -- and says so through the existing
     # PARTIAL reporting, rather than silently enforcing nothing.
     _bl_path, _bl_how = resolve_blocklist_path()
+    # ...AND UNDER --structural-only IT IS NOT READ AT ALL. Dropping the
+    # vocabulary patterns was only the first of THREE ways the private half
+    # reached a run that asked for the structural half alone (found by a
+    # sibling session measuring the flag against a real set, 2026-09-21, and
+    # this is the one its report named): the repo-reference policy and its
+    # owner rules come out of the same private file, so a machine that
+    # resolves one enforced `undeclared repo reference` and a CI runner did
+    # not. Same flag, different verdict, which is the whole defect.
+    if structural_only:
+        _bl_path = None
     if _bl_path is not None and _bl_path.is_file():
         _errs = repo_policy_errors(_bl_path)
         if _errs:
@@ -1271,11 +1477,45 @@ def main():
     # reaching a public tree. It is derived from the clones on this disk
     # rather than from anything anybody wrote down, which is the point:
     # nobody has to predict the name of a repository they created today.
+    # THE SECOND WAY, and the subtlest: these are derived from the CLONES ON
+    # THIS DISK, so they are environment state by construction -- the exact
+    # thing --structural-only exists to remove. `_bl_path` being None above
+    # already empties this, since `_policy[0]` is then empty; it is spelled
+    # out here so the next reader does not restore one without the other.
     _auto = (auto_private_name_patterns(local_clone_refs(ROOT), _policy[0],
                                         _policy[1])
-             if (_policy[0] and _bl_path is not None
+             if (not structural_only and _policy[0] and _bl_path is not None
                  and auto_cover_enabled(_bl_path)) else [])
     hits = scan(units, blocklist, _policy, _auto)
+
+    # SELF-CORRECT THE COMMON CASE. A private blocklist clone that is
+    # simply behind makes a real tree look like it leaks something that
+    # was renamed or allowed upstream since this clone's last pull
+    # (2026-09-11 and 2026-09-20 both). One bounded fast-forward attempt,
+    # tried only now that there is a hit to lose by NOT trying it, fixes
+    # that -- see _try_refresh_private_blocklist_clone()'s own docstring
+    # for why this never runs on a clean push. Recomputing blocklist,
+    # source, configured, _policy and _auto here means everything below --
+    # the allowlist notes, the stem-gap survey, the hit list itself, and
+    # _stale_blocklist_clone_note() -- reports the refreshed reality
+    # rather than the stale one. A refused pull (dirty tree, real
+    # divergence) changes nothing: hits stays exactly what it was.
+    # THE THIRD WAY, and the worst of them: this reloads the FULL blocklist,
+    # which silently undid the --structural-only swap above the moment a run
+    # had any hit at all. So the flag worked on a clean tree and stopped
+    # working on exactly the runs whose verdict mattered -- a detector
+    # verified only against a clean tree is indistinguishable from a broken
+    # one. There is nothing for it to self-heal under this flag anyway: no
+    # private clone is being consulted.
+    if hits and not structural_only and _try_refresh_private_blocklist_clone():
+        blocklist, source, configured = load_blocklist()
+        if _bl_path is not None and _bl_path.is_file():
+            _policy = parse_repo_policy(_bl_path)
+            _auto = (auto_private_name_patterns(local_clone_refs(ROOT), _policy[0],
+                                                _policy[1])
+                     if (_policy[0] and auto_cover_enabled(_bl_path)) else [])
+        hits = scan(units, blocklist, _policy, _auto)
+
     # SAY WHEN THE ALLOWLIST IS OFF. It only does anything once somebody
     # declares an owner private-by-default, and a clone that never did would
     # otherwise get a clean "OK" covering a rule that inspected nothing --

@@ -39,6 +39,61 @@ if [ -f .claude/hooks/commit-identity.sh ]; then
     echo "WARN: commit-identity.sh failed - commits may be authored as whatever git is already configured with" >&2
 fi
 
+# ---- THE SESSION-START WORK THAT IS NOT CLAUDE-CODE-SPECIFIC ------------
+#
+# Added 2026-09-21, and the gap it closes had been open since this script
+# existed. templates/harness/README.md's adapter table told codex,
+# gemini-cli and grok-build to wire "`bash tools/bootstrap.sh`, the same
+# harness-neutral script" as their parallel of Claude Code's SessionStart
+# hook -- but .claude/hooks/session-start.sh ran seven things and this
+# script ran three, so the sentence named a parallel that was not one. The
+# three steps below are the ones whose logic is plain Python in tools/,
+# depends on nothing about the harness, and had simply never been invoked
+# anywhere else.
+#
+# The one that matters most is the last: AGENTS.md's Standing instruction
+# tells EVERY session to read .precedent/SESSION_PRACTICES.md, which
+# carries the practices in force from every other source this repo
+# declares. Nothing outside Claude Code has ever written that file, so a
+# codex or gemini-cli session read the instruction, found no file, and
+# worked without a single team or individual practice -- silently, which
+# is the same failure mode the file itself exists to prevent.
+#
+# Order matches session-start.sh's deliberately, so the two can be read
+# against each other line by line. Each step reports and never gates,
+# exactly like every other block here.
+
+# Clone the declared TEAM sources, where the environment carries a
+# credential (PRECEDENT_GIT_TOKEN / PRECEDENT_SOURCE_BASE_URL --
+# documentation/PER_MACHINE_SETUP.md). No token, no network call: the tool
+# says which sources are missing and why, and startup continues. The
+# INDIVIDUAL source is not reachable from here on any harness -- it needs
+# a per-account URL that no tracked file may carry (see
+# templates/harness/claude-code/hooks/individual-source-bootstrap.sh.template),
+# so on a harness with no equivalent of Claude Code's own per-adopter
+# bootstrap hook it stays a manual step.
+if [ -f tools/precedent_source_bootstrap.py ]; then
+  python3 tools/precedent_source_bootstrap.py --teams-from . --remote-only false || true
+fi
+
+# Bring an attached source's vendored engine forward when it has fallen
+# behind this repo. Never commits and never pushes -- publishing stays a
+# person reading the diff (see the tool's own docstring for the decision
+# behind that). A source with uncommitted changes of its own is left
+# alone.
+if [ -f tools/precedent_refresh_sources.py ]; then
+  python3 tools/precedent_refresh_sources.py --apply 2>/dev/null || true
+fi
+
+# Render .precedent/SESSION_PRACTICES.md -- the practices in force from
+# every source this repo declares, which may not be COMMITTED here and so
+# are generated per session into a gitignored file. Without this the
+# Standing instruction points at nothing.
+if [ -f tools/precedent_session_practices.py ]; then
+  python3 tools/precedent_session_practices.py || \
+    echo "WARN: could not write .precedent/SESSION_PRACTICES.md - this session is not being shown the team/individual practices in force here" >&2
+fi
+
 # Repair a single-branch clone's refspec before anything tries to fetch.
 # A repository attached mid-session (Claude Code's `add_repo`, and any
 # `git clone --single-branch`) is handed exactly one refspec --

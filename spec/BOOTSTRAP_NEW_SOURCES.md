@@ -129,9 +129,12 @@ assume a session has:
   session nothing, and a set with the wiring and no declaration runs a step
   that finds nothing to do. All four sets that existed on 2026-09-13 have
   neither.
-- **Installs the generated-views drift gate** —
-  [`templates/github-actions/views-drift.yml.template`](../templates/github-actions/views-drift.yml.template)
-  as the new set's `.github/workflows/views-drift.yml`, new 2026-09-11. A set
+- **Installs the generated-views drift gate** — then its own
+  views-drift.yml.template, as the new set's
+  `.github/workflows/views-drift.yml`, new 2026-09-11; since 2026-09-19 it
+  is a job inside
+  [`templates/github-actions/precedent-check.yml.template`](../templates/github-actions/precedent-check.yml.template).
+  A set
   that generates `AGENTS.md`'s loader block, `MAP.md` and `GLOSSARY.md` had
   nothing checking any of them: `verify_harness.py` is deliberately not
   vendored into a source set, and

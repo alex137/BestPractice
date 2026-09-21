@@ -3,7 +3,7 @@
 themselves (practice: vocabulary).
 
 A Precedent repository carries a small set of standing phrases -- `Go merge`,
-`Park it`, `Three Things` -- that a session is guaranteed to recognize. Each
+`Drop it`, `Three Things` -- that a session is guaranteed to recognize. Each
 one is defined by a practice file, and until this existed the LIST of them
 lived in two hand-maintained places: a paragraph in a project instructions
 file and a table in a reader-facing document. Both drifted the moment a
@@ -17,7 +17,9 @@ A command practice declares itself in ONE frontmatter field:
 
 -- an object mapping each trigger phrase to the plain-English sentence a
 person who is not a developer reads. Two phrases for one command (`Go merge`
-and `Approved`) are two entries in one object, not two practices.
+and `Approved`) are two entries in one object, not two practices, and they
+render as ONE row: the first key is the phrase the list leads with, and
+every other key trails it as "Synonym: ...", in the order declared.
 
     python3 tools/precedent_vocabulary.py             # the list, for a session
     python3 tools/precedent_vocabulary.py --plain     # just phrase + gloss
@@ -72,8 +74,12 @@ def _commands_in(fm):
 
 
 def collect(root=ROOT):
-    """-> (entries, notes). entries are (phrase, gloss, slug, level, source),
-    sorted by phrase, case-insensitively."""
+    """-> (entries, notes). entries are
+    (phrase, gloss, slug, level, source, synonyms), sorted by phrase,
+    case-insensitively. `phrase` is the first key declared in the
+    practice's `command:` object; `synonyms` is every other key it
+    declares, in that same order -- one row per command, never one per
+    trigger phrase."""
     notes = []
     found = {}                      # slug -> (level, source, fm)
 
@@ -115,8 +121,12 @@ def collect(root=ROOT):
             notes.append(f"{slug}'s `command:` field did not parse ({e}), so "
                          f"its phrases are missing from this list.")
             continue
-        for phrase, gloss in commands.items():
-            entries.append((phrase, gloss, slug, level, source))
+        if not commands:
+            continue
+        pairs = list(commands.items())            # insertion order, preserved
+        phrase, gloss = pairs[0]
+        synonyms = [p for p, _ in pairs[1:]]
+        entries.append((phrase, gloss, slug, level, source, synonyms))
     entries.sort(key=lambda e: (e[0].lower(), e[2]))
     return entries, notes
 
@@ -125,8 +135,9 @@ def emit_vocabulary(root=ROOT):
     """The generated block for the reader-facing vocabulary table."""
     entries, _notes = collect(root)
     lines = ['| Say this | And it will |', '|---|---|']
-    for phrase, gloss, _slug, _level, _source in entries:
-        lines.append(f'| **{phrase}** | {gloss} |')
+    for phrase, gloss, _slug, _level, _source, synonyms in entries:
+        syn = f' Synonym: {", ".join(synonyms)}' if synonyms else ''
+        lines.append(f'| **{phrase}** | {gloss}{syn} |')
     return '\n'.join(lines)
 
 
@@ -158,12 +169,13 @@ def main(argv=None):
         return 1
 
     width = max(len(p) for p, *_ in entries)
-    for phrase, gloss, slug, level, source in entries:
+    for phrase, gloss, slug, level, source, synonyms in entries:
+        syn = f'  Synonym: {", ".join(synonyms)}' if synonyms else ''
         if args.plain:
-            print(f'{phrase.ljust(width)}  {gloss}')
+            print(f'{phrase.ljust(width)}  {gloss}{syn}')
         else:
             where = f'{level}/{source}' if source else level
-            print(f'{phrase.ljust(width)}  {gloss}  [{slug}, {where}]')
+            print(f'{phrase.ljust(width)}  {gloss}{syn}  [{slug}, {where}]')
     for n in notes:
         print(f'\nnote: {n}')
     return 0

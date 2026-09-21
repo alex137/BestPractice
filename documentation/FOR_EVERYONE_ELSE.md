@@ -5,13 +5,13 @@ or GitHub — how do I actually use this?**
 
 Someone — usually whoever set up the project — has already installed
 Precedent before you ever open it. If that's you and it isn't set up
-yet, see [SETUP.md](../SETUP.md) — you paste it to an assistant and it does
+yet, see [SETUP.md](../SETUP.md) — you paste it to an AI Assistant and it does
 the install as a conversation, no code required. Everything below assumes
 it's already running.
 
-You talk to an assistant, the same way you'd talk to a capable colleague.
+You talk to an AI Assistant, the same way you'd talk to a capable colleague.
 You describe what you want written, changed, or fixed, in your own words.
-The assistant does the actual work — you never touch a technical tool
+The AI Assistant does the actual work — you never touch a technical tool
 yourself, and your account is deliberately set up so nothing you do can
 break the project, even by accident.
 
@@ -20,10 +20,10 @@ break the project, even by accident.
 This is the one piece of machinery worth understanding, because you will
 meet the words on your first day and everything else rests on it.
 
-When you ask for a change, the assistant does not edit the live project.
+When you ask for a change, the AI Assistant does not edit the live project.
 It makes a **private copy** of it — a *branch* — and works there. Nobody
 else sees it, and the real project is untouched no matter how badly the
-work goes. When it's ready, the assistant opens a **pull request**: a
+work goes. When it's ready, the AI Assistant opens a **pull request**: a
 proposal, sitting on a page, saying *here is the change and here is why*.
 Somebody with the authority to say yes reads it and **merges** it, which is
 the moment it becomes part of the real project.
@@ -38,7 +38,7 @@ Three things follow from this that are worth knowing:
 - **You can't break anything.** The worst outcome of a bad request is a
   proposal somebody declines. That's the whole point of the arrangement,
   and it's why your account is set up the way it is.
-- **Several people — and several assistant conversations — can work at the
+- **Several people — and several AI Assistant conversations — can work at the
   same time** without waiting for each other or overwriting each other,
   because each is on its own copy. This is the thing a shared live document
   cannot do.
@@ -47,12 +47,12 @@ Three things follow from this that are worth knowing:
   automatic checks and its rules wait for whoever maintains the project —
   see [What you can't do (on purpose)](#what-you-cant-do-on-purpose)
   below, which is a deliberate wall, not a comment on you. **When the yes
-  is yours**, and you want the assistant to stop asking every time, say
+  is yours**, and you want the AI Assistant to stop asking every time, say
   **"Go update"** — a standing phrase this project understands to mean *do
-  all of it, including the merge, without checking back.* ("Go merge"
+  all of it, including the merge, without checking back.* ("Approved"
   means the same thing.)
 
-There are a few more of those standing phrases — **"Park it"**, **"Plain
+There are a few more of those standing phrases — **"Drop it"**, **"Plain
 words"**, **"Three Things"** — and [How to Use This Day to
 Day](DAILY_HABITS.md) lists them.
 
@@ -80,7 +80,7 @@ there if that's genuinely where it belongs.
 **Moving a rule from one shelf to another** happens the same way it was
 created — just say so. For example, something that started as your own
 habit turns out to be something your whole team should do too: say *"I
-think everyone should do this, not just me."* Your assistant proposes it
+think everyone should do this, not just me."* Your AI Assistant proposes it
 on your team's shelf, using the same approval step described below, and
 only removes it from your own shelf once it's actually adopted on the new
 one — so there's never a moment where the rule exists nowhere, and never a
@@ -94,7 +94,7 @@ Say you're drafting client emails, and you notice something:
 
 1. **You say it out loud, in conversation:** *"We should always put the
    client's name at the start of the subject line."*
-2. **Your assistant repeats it back**, in your own words, to make sure it
+2. **Your AI Assistant repeats it back**, in your own words, to make sure it
    understood before doing anything: *"Got it — every outgoing email's
    subject line should start with the client's name, from now on. Did I
    get that right?"* You confirm, or correct it.
@@ -103,7 +103,7 @@ Say you're drafting client emails, and you notice something:
    your team do it too?
    - **Just you:** it applies from this point on. Nothing else happens —
      there's nobody else who needs to agree.
-   - **Your whole team:** your assistant posts the idea somewhere your
+   - **Your whole team:** your AI Assistant posts the idea somewhere your
      team's approvers — the people trusted to say yes to shared rules —
      will see it, the same way you'd leave a comment on a shared document
      for someone to respond to. (Technically this is a "GitHub Issue," a
@@ -113,7 +113,7 @@ Say you're drafting client emails, and you notice something:
    conversation with you right then, this can happen immediately — their
    agreement *is* the approval. Otherwise, you'll hear back once someone
    responds; nothing is silently dropped in the meantime.
-5. **From then on, it's automatic.** Every assistant working on this
+5. **From then on, it's automatic.** Every AI Assistant working on this
    project — yours, a teammate's, in a session next month — already knows
    the rule and follows it without being told again.
 
@@ -132,7 +132,7 @@ forgotten. An idea nobody has acted on yet stays on record, not lost.
 
 ## What It Knows About You, and How to Change It
 
-A handful of small things about you are used by every assistant working on
+A handful of small things about you are used by every AI Assistant working on
 the project, and **you will never be asked for any of them.** Each one has a
 sensible answer that applies until you say otherwise:
 
@@ -148,9 +148,10 @@ sensible answer that applies until you say otherwise:
   need one, and most people start without.
 
 **To change any of it, just say so** — *"my timezone is Madrid"*, *"refer to
-me as he"*, *"my work email is the other one"* — at any moment, in the middle
-of anything else. The assistant knows where each one is written down and puts
-it there. **You can also ask what it currently has**, the same way.
+me as he"*, *"my work email is the other one"* — at any moment, in the
+middle of anything else. The AI Assistant knows where each one is written
+down and puts it there. **You can also ask what it currently has**, the
+same way.
 
 **None of this is worth a wrong-footed setup conversation**, which is why
 nobody raises it on day one: a date stamped in the wrong city's time is a
@@ -173,7 +174,7 @@ urgent, and a project works perfectly well with both left blank.
 - **`STYLEGUIDE.md`** — how it should look. Colors, fonts, logo rules —
   whatever your brand guideline says, if you have one.
 
-**To fill either in, just say so to your assistant** — *"help me fill in my
+**To fill either in, just say so to your AI Assistant** — *"help me fill in my
 project's voice"* — and it will ask you questions and write down your
 answers. You can do it today, next month, or never. **Both stay entirely
 inside your own project**; nothing in them is ever shared with anyone
@@ -198,7 +199,7 @@ less mysterious:
   ones who can make a suggested rule official, at whichever shelf (your
   own, your team's, or the public one) it's aimed at.
 
-Your assistant tells you before it proposes anything which of these the
+Your AI Assistant tells you before it proposes anything which of these the
 change falls under, so the wall is never a surprise. Whoever administers
 the project sets this line up on GitHub itself;
 [GITHUB_SETTINGS.md](GITHUB_SETTINGS.md) is their page, not yours — worth
@@ -207,7 +208,7 @@ public project, but a private one on a personal account needs a paid plan
 to turn it on. If your project is private and the wall seems to be missing,
 that is usually why, and it's a question for whoever administers it, not
 something to chase yourself. This isn't about trust in you personally; it
-just means a mistake, including the assistant's, stops at a wall instead of
+just means a mistake, including the AI Assistant's, stops at a wall instead of
 reaching anyone else.
 
 ## Learn More

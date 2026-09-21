@@ -186,7 +186,7 @@ repo's history to check against directly.
 ## Item 2b — pushback: this repo's own three workflows are a different case
 
 **I'm pushing back on this one rather than folding it in.**
-[docs.yml](../.github/workflows/docs.yml),
+docs.yml (retired 2026-09-21),
 [deep-check.yml](../.github/workflows/deep-check.yml), and
 [leak-gate.yml](../.github/workflows/leak-gate.yml) — BestPractice/Precedent's
 own CI, not a template it ships — run unconditionally on every push, every
@@ -491,10 +491,12 @@ itself, not just in those repos' manifests:
    `RETIRED_CI_WORKFLOW_FILES` (a tombstone dict mirroring
    `RETIRED_ENGINE_FILES`) and `_remove_retired_ci_workflow_files`, called
    unconditionally at the top of `refresh()`: a retired entry is dropped
-   from the manifest automatically, and a retired file still on disk is
-   reported, never deleted — matching this repo's own stated design that
-   a CI workflow file is never removed automatically (item 9's own
-   comment on `ci_incomplete`).
+   from the manifest automatically, and — as of 2026-09-20, item 11 below —
+   a retired file still on disk is deleted when it is still exactly what
+   the manifest last recorded (untouched since), and kept and reported
+   otherwise. `refresh()` is the shared code path both "Update Vendors"
+   and an existing repo's migration route through, so this reaches both
+   without a separate fix in either.
 2. **No way to re-baseline a CI workflow's recorded hash without a full
    clone.** `record_ci_workflow_files()` already does exactly this —
    record what's on disk, touch no content — but was reachable only from
@@ -535,7 +537,7 @@ shrink cost automatically, with no setup, for every install.
 already operate a self-hosted runner to point their own install at it
 without hand-editing the workflow file. Added:
 `runs-on: ${{ vars.PRECEDENT_RUNNER || 'ubuntu-latest' }}` on every job in
-[doc-lint.yml.template](../templates/github-actions/doc-lint.yml.template)
+doc-lint.yml.template (retired 2026-09-21)
 and
 [precedent-check.yml.template](../templates/github-actions/precedent-check.yml.template).
 Unset, nothing changes for anyone. Set as a repository variable, every job
@@ -561,6 +563,369 @@ running unconditionally on `ubuntu-latest` until it takes that update.
 
 Authorized: *"On #3 -- do it, go update -- and also update the developer
 documentation."* strength: decided.
+
+## Item 11 — debounce default unified and widened to 720 minutes (2026-09-20)
+
+Raising it further was Morgan's own call, after item 8/9's account above:
+*"Please let's raise it to 720."* `strength: decided`.
+
+**Found while making the change: the two templates had already drifted to
+different defaults.** doc-lint.yml.template (retired 2026-09-21)
+still shipped item 9's original `360`; [precedent-check.yml.template](../templates/github-actions/precedent-check.yml.template)
+had item 8's incident-driven `30` baked in as its own default, not just as
+the four affected repos' per-repo override — [documentation/GITHUB_ACTIONS.md](../documentation/GITHUB_ACTIONS.md)
+claimed one shared default of `360` for both the whole time, which was
+already wrong for the second template before this item. Both templates now
+read `ci_debounce_minutes` with a single default, **`720` minutes (12
+hours)**, and the doc is corrected to match.
+
+**What this reopens, named rather than left implicit.** Item 8's own
+30-minute figure was not arbitrary — its narrowing was paired with the
+`branches:[main]` restriction specifically so the one branch that matters
+would still be checked promptly after a push, rather than riding out a work
+day stale. Widening to 720 minutes brings that same window back to up to 12
+hours on `main`. This trade is accepted here, explicitly, at Morgan's
+direction, not overlooked — a repo that wants the tighter window back on a
+branch with heavy traffic still sets `ci_debounce_minutes` itself in its
+own `identity.json`/`precedent.json`, same as it always could.
+
+**Reaches an already-installed repo only through "Update Vendors"**, per
+[vendor-rollout-disclosed](../practices/vendor-rollout-disclosed.md): a
+repo that has never overridden `ci_debounce_minutes` picks up `720`
+automatically the next time it refreshes its CI workflow file against the
+current template (`refresh()`'s hash check, item 9a above, only refuses
+when the file was hand-edited away from what was last recorded — an
+unmodified copy is exactly what it *will* overwrite). **A repo carrying an
+explicit override does not move on its own** — the four repos item 8
+touched by hand (`precedent-individual`, `precedent-team-writing`,
+`precedent-team-repo-maintenance`, `precedent-team-working-style`) each
+still has `ci_debounce_minutes: 30` written into its own `identity.json`,
+and that value wins over any template default until someone edits it there
+directly. This session's own GitHub access does not reach those repos (see
+"Sequencing and status" below) — carrying the same change into them is
+still open.
+
+Verified: both templates still parse as valid YAML; deep check
+([tools/verify_harness.py](../tools/verify_harness.py), [tools/doc_lint.py](../tools/doc_lint.py),
+[tools/leak_gate.py](../tools/leak_gate.py), [tools/precedent_check.py](../tools/precedent_check.py),
+[tools/doc_sync.py](../tools/doc_sync.py)) run clean before push.
+
+## Item 12 — leak-gate vendored, visibility-aware branch scope (2026-09-20)
+
+Raised against a real case: a private repo (32 branches, nearly all
+transitory) inheriting BestPractice's own `leak-gate.yml` design of
+scanning every branch on every push — reasonable for this repo, since it is
+public and a leak on any branch is already published, but not obviously
+right for a private repo where the audience of an early leak is whoever
+already has repo access, not the public internet. Proposed as a job-level
+runtime check keyed off `precedent.json`'s existing `visibility` and
+`base_branch` fields, described to Morgan before building since it touches
+security-gating code; authorized the same day: *"Please build this."*
+`strength: decided`.
+
+**What shipped.** [`templates/github-actions/leak-gate.yml.template`](../templates/github-actions/leak-gate.yml.template) —
+the first time `leak-gate.yml` has been vendored to a dependent repo or
+practice set at all. Its own header has the full design reasoning; in
+short: `on:` cannot read repo config (GitHub Actions resolves triggers
+before any job runs), so the workflow still fires on every push, and a
+`scope` job decides whether the real `leak-gate` job runs at all —
+job-level `if:`, never a step-level one, so a skip is never billed (item 9's
+lesson, reapplied here). On a repo declaring `"visibility": "private"`, a
+`push` to any branch other than `base_branch` (default `main`) skips the
+scan; a `pull_request:` event is never skipped, whatever branch it targets,
+so a fork's contribution still gets scanned before it can land. A public
+repo (visibility absent or `"public"`) is unaffected — every push to every
+branch is scanned, matching this repo's own `leak-gate.yml` exactly. A
+practice SET (no `precedent.json`, only `precedent-source.json`, which
+always declares `"visibility": "private"`) is always treated as private
+here, with no field to opt out of.
+
+**The trade, stated once more since it is the whole point of item 2b's
+original reasoning being repo-specific rather than universal:** a secret
+pushed to a private repo's throwaway branch and never merged is caught only
+if the local pre-push hook ran, until that branch reaches `base_branch` or
+someone runs it by hand (`workflow_dispatch:`, never skipped). This is the
+same trade item 8 already made by hand for four real repos when branch
+volume was the measured cost driver; this generalizes it into a template
+instead of a one-off edit.
+
+**Wired into the vendoring engine, not just written as a file:**
+`CI_WORKFLOW_TEMPLATES` in
+[tools/precedent_vendor_engine.py](../tools/precedent_vendor_engine.py) now
+lists it for both `consumer` and `source` kinds, so "Update Vendors"
+refreshes, drift-checks and can retire it exactly like the other two CI
+templates, with no separate mechanism. `precedent_bootstrap_source.py`'s
+own `WORKFLOW_TEMPLATES` (which asserts it stays in lockstep with the
+engine's `'source'` list) carries the matching entry. `precedent_install.py`'s
+`_bootstrap_and_ci`, which used to hardcode writing `doc-lint.yml.template`
+alone, now loops `CI_WORKFLOW_TEMPLATES['consumer']` — so this and any
+future consumer-kind CI template need no second copy of that block, gated
+by the same `ci_workflows` preference as before.
+
+**Verified:** the extracted config-reading logic against seven fixtures
+(no config, private with and without a declared `base_branch`, explicit
+public, an invalid `visibility` value, a source-kind manifest with no
+`visibility` key at all, and malformed JSON) — every failure mode resolves
+to `public`/`main`, the safe direction, never a silent under-scan.
+
+**That last clause was wrong, and was corrected 2026-09-21.** Those seven
+fixtures cover config that is MISSING or MALFORMED. None of them covers
+config that is present, well-formed and **factually wrong**, which is the
+case that actually occurred: `precedent_bootstrap_source.py` writes
+`"visibility": "private"` into every `precedent-source.json` it creates,
+and two of Morgan's practice sets carrying that line are **public on
+GitHub**. The gate would have read "private", skipped every working-branch
+push, and reported green — on a repo where a leaked secret is published to
+the world the instant it is pushed. The template now takes visibility from
+`github.event.repository.private`, which GitHub supplies and no file in the
+tree can contradict; the declaration is still read, still reported, and can
+no longer narrow the scan. Its own scope-job comment carries the incident. The
+gate's bash decision logic checked against the five real event/visibility/
+branch combinations that matter. `python3 -c "import ast; ast.parse(...)"`
+on every edited `.py` file and a full YAML parse of the new template.
+`tools/doc_lint.py`, `tools/precedent_check.py`, `tools/leak_gate.py`, and
+`tools/verify_harness.py` all run clean before push.
+
+**Not done here:** actually installing `leak-gate.yml` into the private
+repo that motivated this item, or any other existing dependent repo — that
+is a per-repo "Update Vendors" (for an already-installed repo) or a fresh
+install/migration pass, same as any other CI template, and this session's
+GitHub access does not reach that repo to check what it currently has
+installed, if anything.
+
+## Item 13 — the debounce job could never pay for itself; one job per workflow (2026-09-20)
+
+Raised by Morgan the same day item 11 shipped, against a fresh usage
+export: **134 minutes billed in the first three hours of 2026-09-20**, with
+the four practice sets carrying items 8/9/11's full fix contributing 71 of
+them. Items 4, 8, 9 and 11 had all aimed at this number over five days and
+none of them had moved it. His framing, and the reason this item exists:
+he intends to **20x** his usage, at which point today's shape is not an
+annoyance but a budget.
+
+**What every earlier item had in common.** Concurrency, branch scoping and
+the debounce window all reduce **how often** a run is paid for. None of them
+touches **what one run costs**. Nobody had measured what one run costs.
+
+**The measurement, taken in a clone of an installed practice set:**
+
+| What the runner is there to do | Time |
+|---|---:|
+| [`tools/precedent_check.py`](../tools/precedent_check.py) | 0.35s |
+| [`tools/build_views.py`](../tools/build_views.py) `--check` | 0.12s |
+| **Total useful work** | **0.47s** |
+| **Billed for it under the shape item 9 shipped** | **3 minutes** |
+
+GitHub bills **per job, rounded up to the whole minute**. Three jobs
+(`debounce`, `precedent-check`, `views-drift`) is three billed minutes,
+three checkouts and three Python setups, for under half a second of work.
+The overhead is not a tax on the cost — it very nearly *is* the cost.
+
+**The arithmetic that retires the debounce job.** Item 9's reasoning was
+that a job whose `if:` evaluates false is reported SKIPPED, never allocates
+a runner, and is not billed. That is true, and it is not the whole ledger:
+**the job that makes the decision is billed like any other job.** With `S`
+the fraction of triggers the window skips:
+
+```
+precedent-check.yml   debounce + 2 check jobs:  S·1 + (1−S)·3  =  3 − 2S
+                      one job, no debounce:                         1
+
+doc-lint.yml          debounce + 1 check job:   S·1 + (1−S)·2  =  2 − S
+                      one job, no debounce:                         1
+```
+
+Both are worse than no debounce for **every** `S` below 1, tying only at a
+hypothetical 100% skip rate — at which point the workflow is doing nothing
+at all. There is no window setting that wins. That is why `360 → 30 → 720`
+(items 8, 9 and 11) never showed up in the bill: **the quantity being tuned
+was not the one doing the spending**, and three days of tuning it was three
+days not spent counting jobs.
+
+**It also gave up coverage for nothing.** Item 11 accepted, explicitly, that
+`main` could now sit unchecked for up to 12 hours. That trade bought
+negative savings. Removing the debounce returns the 12 hours and costs less.
+
+**What shipped.**
+
+1. `precedent-check.yml.template`: **3 jobs → 1**. The `debounce` job is
+   gone; `views-drift`'s steps moved into the `precedent-check` job, keeping
+   their own step names and failure messages (which is all the separate job
+   was buying — the file's own "FOUR NAMED STEPS, NOT ONE" comment already
+   made that argument about steps within a job). One checkout at
+   `fetch-depth: 0` serves both checks. `actions: read` dropped with the job
+   that needed it.
+2. `doc-lint.yml.template`: **2 jobs → 1**, same reasoning, same dropped
+   scope. Its `paths:` filter already did the debounce's job better and for
+   free — GitHub evaluates `paths:` *before* allocating a runner, so a push
+   touching no Markdown costs zero, which no in-workflow guard can match.
+3. `ci_debounce_minutes` is retired. Nothing reads it; a repo carrying it
+   can delete the field.
+
+**Cost per firing trigger: 3 minutes → 1 for a practice set, 2 → 1 for a
+consuming repo** — before counting the two redundant checkouts and Python
+setups that go with the jobs.
+
+**`paths:` is still absent from `precedent-check.yml.template`, deliberately**
+— the file's own comment gives the reason (this repo's checks read
+frontmatter, the engine, `checked_by:` scripts and `precedent.json`, so a
+filter that misses one input is a green workflow that checked nothing).
+That reason holds. It is worth revisiting only with a filter derived from
+the inputs rather than guessed at.
+
+Authorized: *"Go update with your changes."* `strength: decided`. Classified
+**high-risk** under [go-merge](../practices/go-merge.md) — vendored gating
+code that other repos install — so it took the full chain rather than the
+direct-push default.
+
+**What this does NOT fix, and it is most of the bill.** Everything above is
+a template change, and per `vendor-rollout-disclosed` a template reaches an
+installed repo only through "Update Vendors". On the 2026-09-20 export,
+**18 of the 22 repos spending minutes have never taken one** — and the two
+largest single line items are not Precedent's to fix from here at all:
+`light-check.yml` (609 minutes month-to-date, 23.5% of everything, live in
+12 repos) and `bestpractice-docs.yml` copies predating the `paths:` filter.
+Phase B's own status line above calls the retired workflows "cosmetic, not
+a live cost" on the grounds that their triggers no longer fire on an
+ordinary push. **Its conclusion is wrong and its premise is right**, which
+this item originally got backwards — see item 14.
+
+## Item 14 — the sweep this plan authorized deleted live checks, and this repo already had a practice saying it would (2026-09-20)
+
+Item 13's closing paragraph sent a session to delete six "retired" workflow
+files across sixteen repos. It ran. **The instruction was wrong in a way
+this repository had already written down**, and the correction belongs here
+rather than in the sweep's own thread.
+
+**What the sweep found, reading the files instead of their names.** Every
+deleted file triggered on `pull_request` (plus `workflow_dispatch`). **Not
+one had a `push:` trigger.** So Phase B's premise was correct all along:
+they do not fire on push. The usage export was also correct: they bill. Both
+are true, because **the minutes arrive through pull-request volume** — about
+fourteen PR runs a day in the busiest repo — not through pushes. Item 13
+read "the export says they bill" as "so the no-push premise must be false",
+which does not follow, and anyone auditing for `push:` triggers on the
+strength of that sentence will keep finding nothing and keep concluding the
+export is lying.
+
+**The serious error: "pre-Precedent leftovers with no replacement" was an
+inference, not a finding.** Its only basis was this document's own table
+saying those filenames are "not in this repo's tree at all" — which means
+BestPractice never templated them, and says nothing whatsoever about
+whether the repo carrying one needs it. The sweep measured what they
+actually ran:
+
+- one repo's `light-check.yml` ran a check script under its own
+  `tools/checks/`, materialized from current Precedent sources;
+- another's ran `tools/precedent_check.py --only light-check`;
+- three voice repos' `unified-prompt-check.yml` / `platform-docs-check.yml`
+  gated generated-prompt staleness, and one of those repos vendors another's
+  generated prompt daily — so a stale prompt can now reach a live app.
+
+These were current-engine checks for live rules. Deleting them removed
+coverage in nine repos and bought nothing back, because the cost was never
+in what they checked.
+
+**This repo predicted it, twice, in writing.**
+[spec/MIGRATING_EXISTING_INSTALLS.md](MIGRATING_EXISTING_INSTALLS.md)'s own
+retired-file table — the authority item 13 should have consulted and did not
+— says of exactly these five names: *"Confirm in the repo carrying the file
+what each one actually checks before touching it; a check with no equivalent
+anywhere in the current engine is a gap to raise with the person, not a file
+to delete on a guess."*
+[vendor-update-runbook](../practices/vendor-update-runbook.md) step 10 says
+it in bold: *"Never match by filename alone before touching anything on this
+list"*, and cites this same `light-check.yml` case from earlier the same day.
+And [workflow-file-outside-vendoring](../practices/workflow-file-outside-vendoring.md)
+exists **because a session already made this precise mistake**: it built a
+fleet-wide sweep list by matching usage-report filenames, flagged
+`light-check.yml` as a retired duplicate, and a sister session proved it was
+a live required check. Item 13 reproduced that failure from the same source,
+and this time the deletions were pushed.
+
+**The mechanism, stated so it is not re-derived wrongly a third time:** a
+filename in a usage report tells you a workflow costs money. It tells you
+nothing about what the workflow does. Only reading the file does that, and
+`verify-decomposition` is the practice — check the parts, never the total.
+
+**Also corrected here:** item 13's sweep figures (735 minutes across six
+files, 609 for `light-check.yml`) are right against the export, but the
+per-repo list handed to the sweep dropped four already-deleted `DEPRECATED-*`
+repos worth 73 minutes without restating the totals, so the session
+reasonably found 662 and 542 and reported the arithmetic as broken. The
+totals and the list were measuring different sets.
+
+**One thing the sweep got right that item 13 got wrong by omission:**
+`bestpractice-upstream-sync.yml` is kept everywhere.
+[spec/MIGRATING_EXISTING_INSTALLS.md](MIGRATING_EXISTING_INSTALLS.md) step 6
+names it as the counter-example — *a hold with a stated condition for
+lifting it, which is exactly what distinguishes one from a leftover* — and
+it is `workflow_dispatch`-only in every copy since its crons came off, so
+deleting it saves nothing forward.
+
+## Item 15 — the same one-minute floor, measured in a consuming repo (2026-09-21)
+
+Item 13 measured the per-job billing floor in a **practice set**: 0.47
+seconds of work billed as three minutes, fixed by collapsing three jobs into
+one. A session working the sweep across Morgan's **consuming** repos reached
+the identical conclusion from the other direction, and its numbers belong
+here rather than only in a chat thread.
+
+**What it measured.** In the busiest consuming repo, the light check is a
+**13-second job**, billed at GitHub's one-minute-per-job floor, running on
+roughly **14 pull-request runs a day**. That is about **420 minutes a month
+from one repo**, with nothing misconfigured — the floor is the entire cost.
+The same repo also runs the vendored `bestpractice-docs.yml` on the same
+pull request, so **two workflows bill two one-minute minimums for about
+twenty seconds of combined work**.
+
+**Two levers it ruled out, correctly.** `concurrency: cancel-in-progress`
+does nothing at a 13-second runtime: the superseded run has almost always
+finished before the newer one starts, so there is nothing to cancel.
+And `paths:` filters, added during the same pass and derived from each
+check's own extension list rather than guessed, are free and correct but
+will not recover much here — the repo's pull requests are overwhelmingly
+Markdown and Markdown is inside the filter. A filter only helps where the
+excluded extensions are what people actually touch.
+
+**The lever that remains is the one item 13 already named: job count.** Two
+workflows on one pull request is two floors; one workflow with one job is
+one. Folding the vendored doc lint's work into a repo's own check job halves
+the per-pull-request floor with no coverage lost.
+
+**How to remove the now-redundant vendored workflow — corrected 2026-09-21.**
+This item first said to set `ci_workflows: disabled` in the consuming repo's
+`precedent.json` and then delete the file. **That is wrong on three counts,
+and the session told to do it read the engine and refused, correctly.**
+[`ci_preference()`](../tools/precedent_identity.py) resolves
+`ci_workflows` from an **`identity.json` in an individual or team SOURCE** —
+this repo's own when it *is* an individual source, otherwise the one the
+user-level config names. A `ci_workflows` key written into a consuming
+repo's `precedent.json` is read by nothing. It is also not a runtime gate:
+[GITHUB_ACTIONS.md](../documentation/GITHUB_ACTIONS.md) says it "only
+changes what [precedent_install.py](../tools/precedent_install.py) writes by default". And its default is
+already `disabled`, so setting it authorises nothing that was not already
+true. The sequence would have written an inert key and left a plain deletion
+carrying a commit message claiming a toggle permitted it — item 14's mistake
+with a fig leaf.
+
+**The real removal path** is the one the engine already enforces:
+[precedent_decommission.py](../tools/precedent_decommission.py) refuses to
+retire a workflow whose `on:` carries more than `workflow_dispatch`, and
+[practice_audit.py](../tools/practice_audit.py) checks the manifest against
+the tree. A vendored
+workflow is retired through those, against its manifest entry, or it is not
+retired.
+
+**What this does not license.** Dropping `pull_request: synchronize` to cut
+the four-to-five runs a branch accumulates would trade away per-push
+verification on open pull requests — the coverage item 9 restored after
+item 8 gave it up, on the strength of a real error caught that way. The run
+volume is the cost of the review model, not a misconfiguration, and it is
+not the thing to cut.
+
+Authorized: *"Go update - fix the leak-gate template and add item 15."*
+`strength: decided`.
 
 ## Sequencing and status
 
@@ -662,7 +1027,12 @@ repo, the next time it installs, migrates, or takes an update.
    `pull_request:` alongside `push: branches: [main]`, documented in each
    template's own header and in [templates/github-actions/README.md](../templates/github-actions/README.md) as a
    customization point for a repo whose routine merge target isn't just
-   `main`.
+   `main`. **Revised, item 11 (2026-09-20)**: default widened to `720`
+   minutes in both templates, at Morgan's explicit direction, accepting
+   back the staleness window item 8 had narrowed. The four repos still
+   carrying item 8's hand-set `30` override are unaffected until someone
+   edits their own `identity.json` directly — this session's access does
+   not reach them.
 4. **Which workflows are debounce-exempt** — implemented as: every
    vendored template gets it, this repo's own three workflows do not.
 5. **Self-hosted runner pilot scope** — still open, deferred to items 6/7's

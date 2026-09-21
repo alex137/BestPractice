@@ -94,6 +94,15 @@
             "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/freshness-guard.sh pre-write main"
           }
         ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/doc-lint-gate.sh"
+          }
+        ]
       }
     ],
     "Stop": [

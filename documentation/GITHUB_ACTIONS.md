@@ -1,6 +1,6 @@
 # GitHub Actions Checks
 
-Precedent uses repository checks for rules that should not depend on a particular person or AI assistant remembering to run them.
+Precedent uses repository checks for rules that should not depend on a particular person or AI Assistant remembering to run them.
 
 This is especially important when working through GitHub-connected ChatGPT. A normal ChatGPT conversation can read and update repository files, but it does not receive a local checkout or an interactive shell *(as of 2026-08 — [MOBILE.md](MOBILE.md) tracks this capability and is the place to re-date it)*. GitHub Actions supplies the missing execution environment: ChatGPT prepares a branch, GitHub runs the checks, and the result appears on the pull request.
 
@@ -43,17 +43,94 @@ Three workflows run on this repo itself, in [.github/workflows/](../.github/work
   `check_all_workflows_disclosed` for the tree-wide check added in
   response, which does catch this going forward.)
 
-## What the Markdown Check Does
+## The Markdown Check Left CI On 2026-09-21
 
-The supplied workflow:
+**There is no Markdown workflow any more.** `doc-lint.yml.template` (which
+installed as `bestpractice-docs.yml`) and `doc-lint-scheduled.yml.template`
+are deleted, and `.github/workflows/bestpractice-docs.yml` is tombstoned in
+`precedent_vendor_engine.RETIRED_CI_WORKFLOW_FILES` — so the next
+`Update Vendors` removes it from every repository that installed it.
 
-1. checks out the complete repository history;
-2. installs Python and `cmarkgfm`;
-3. runs the Precedent Markdown linter;
-4. reports warnings in the job log; and
-5. fails the pull request when changed Markdown contains accidental strikethrough or a relative link that lands nowhere.
+**The linter is not retired.** Only the workflow whose whole job was to run
+it a second time. Under this system's founding assumption every edit
+arrives through a cloud session, never a local checkout and never the
+GitHub web UI, so
+[doc_lint.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/doc_lint.py)
+has already run on every change before it is committed. CI was re-checking
+work the session in front of the person had just cleared — a measured 350
+billed minutes over 19 days in one repository, on a workflow that was
+already one job with `paths:` filters from the day it was installed
+([spec/BILLING_FLOOR.md](../spec/BILLING_FLOOR.md)).
 
-The linter determines which Markdown files changed relative to the repository's default branch. A full-history checkout is therefore required.
+**What replaced it is stricter than what went.** "The light check gates a
+commit" was written down and followed, but nothing refused a commit that
+skipped it — so CI was the real backstop. `.claude/hooks/doc-lint-gate.sh`
+now denies a `git commit` whose staged Markdown fails the linter, handing
+back the linter's own output. It costs no Actions minutes and it catches
+the problem **before** the commit rather than after the push.
+
+**The rule: no workflow exists solely to lint Markdown.** A check that only
+re-runs what a session already ran is not a backstop; it is a second
+invoice for the same work.
+
+### If You Are NOT Working Through Claude Code, Put the Check Back
+
+**The commit gate is a Claude Code mechanism.** A hook needs a shell. A
+Claude Code session has one; a GitHub-connected ChatGPT conversation does
+not (see the note at the top of this document), and
+[templates/harness/README.md](../templates/harness/README.md)'s adapter
+table shows the other harnesses carrying `n/a` or an unverified lifecycle
+hook. **On any of those, nothing checks your Markdown before it reaches
+the branch.**
+
+So if that is you, do both of these — not one:
+
+1. **Run it by hand before every commit:**
+   `python3 tools/doc_lint.py <the markdown you touched>`.
+2. **Turn the GitHub check on as well.** Copy
+   [light-check.yml.template](../templates/github-actions/light-check.yml.template)
+   to `.github/workflows/light-check.yml`, set its `CUSTOMIZE` command to
+   `python3 tools/doc_lint.py` and its `paths:` to `"**/*.md"`,
+   then enable Actions for the repository at **Settings → Actions**.
+
+**Neither of those is `--strict`, and the flag is not an upgrade of them.**
+`doc_lint.py --strict` promotes the warning classes to failures and refuses
+the changed-file scope outright, because that combination is a gate that
+refuses work nobody broke — built and withdrawn inside an hour on
+2026-09-21 after it turned down a one-line edit over 111 pre-existing
+warnings. It is the whole-tree sweep mode, and its one caller is a very
+deep check ([practices/very-deep-check.md](../practices/very-deep-check.md)).
+*(Those two lines said `--strict` until 2026-09-21 — added by the very
+commit that withdrew the flag, so they were stale on arrival.
+[doc_lint.py](../tools/doc_lint.py) ignored unknown options silently, so
+anyone following them ran the ordinary lint and got a pass either way.
+Unknown options are refused now.)*
+
+**Doing only the first is the arrangement that just failed here.** "A
+session is supposed to run it" was written down and followed, and still
+nothing refused a commit that skipped it — which was only ever safe
+because CI was behind it. On a harness with less enforcement than the one
+that had that gap, the CI check is not optional.
+
+## The Leak Gate Template
+
+**First vendored 2026-09-20** (spec/CI_MINUTES_PLAN.md item 12) —
+[leak-gate.yml.template](../templates/github-actions/leak-gate.yml.template)
+runs [tools/leak_gate.py](../tools/leak_gate.py)'s structural layer, same as
+this repo's own `leak-gate.yml` above, but is not simply a copy of it: this
+repo runs unconditionally on every branch because it is public and a leak
+here is already published; a dependent repo may not be. The template reads
+this repo's declared `visibility` (from `precedent.json`, or always
+`"private"` for a practice set's `precedent-source.json`) and narrows what
+it scans accordingly — full account, including why this has to be a
+job-level runtime check rather than a scoped trigger (GitHub Actions cannot
+read repo config before a trigger fires), in
+[templates/github-actions/README.md](../templates/github-actions/README.md)'s
+"The leak gate template" section. Gated by `ci_workflows`, same as
+`doc-lint.yml.template`; `precedent_install.py` and
+`precedent_bootstrap_source.py` both install it automatically once that
+preference is enabled, and "Update Vendors" refreshes an already-installed
+copy the same way it refreshes the other two CI templates.
 
 ## Controlling Actions Minutes
 
@@ -88,7 +165,7 @@ individual's own practice set or dependent project.
 **Four more levers, once the workflow is installed at all:**
 
 - **`concurrency` with `cancel-in-progress: true`** ships in
-  [doc-lint.yml.template](../templates/github-actions/doc-lint.yml.template)
+  `doc-lint.yml.template` (retired 2026-09-21)
   itself now: if a second run starts on the same branch while an earlier
   one is still going, GitHub cancels the earlier one instead of billing
   both. It only helps the *overlap* case — two pushes closer together than
@@ -96,7 +173,7 @@ individual's own practice set or dependent project.
   saving for a steady stream of spaced-out saves, not the fix for that
   case.
 - **A scheduled cadence instead of per-push billing** —
-  [doc-lint-scheduled.yml.template](../templates/github-actions/doc-lint-scheduled.yml.template) —
+  `doc-lint-scheduled.yml.template` (retired 2026-09-21) —
   is the actual fix for a repo pushed to constantly, direct to its default
   branch, with no pull request in the loop: however many saves land in one
   window, they cost one run. It is **not** installed by either default —
@@ -108,40 +185,45 @@ individual's own practice set or dependent project.
   cadence in it; its header explains why it gates the whole tracked
   Markdown corpus each run rather than "what changed", and what that
   trades away.
-- **A debounce, for a repo pushed to constantly that still wants a
-  push-triggered check** (2026-09-16, moved into its own JOB 2026-09-19) —
-  a `debounce` job in
-  [doc-lint.yml.template](../templates/github-actions/doc-lint.yml.template)
+- **One job per workflow — the lever that replaced the debounce**
+  (2026-09-20, [spec/CI_MINUTES_PLAN.md](../spec/CI_MINUTES_PLAN.md) item
+  13). GitHub bills **per job, rounded up to a whole minute**, so what a
+  workflow costs on a trigger that fires is mostly its job count, not its
+  run time. Measured on a real installed practice set:
+  [precedent_check.py](../tools/precedent_check.py) takes **0.35s** and
+  [build_views.py](../tools/build_views.py) `--check` **0.12s** — 0.47 seconds of
+  work that the three-job shape billed as **three minutes**, paying for
+  three checkouts and three Python setups to carry it. Both
+  `doc-lint.yml.template` (retired 2026-09-21)
   and [precedent-check.yml.template](../templates/github-actions/precedent-check.yml.template)
-  (the latter now covers the generated-views drift check too — see
-  "Install in a Practice-Set Repository" below) skips the check job(s) that
-  `needs:` it when the last completed run on the same branch finished less
-  than `ci_debounce_minutes` ago (default `360` = 6 hours; `0` disables
-  it). Read from `precedent.json` in a dependent repo, or `identity.json`
-  in an individual practice set — a team set has neither field to read and
-  always gets the default. **A separate job, not a step inside one that
-  already started** (2026-09-19): a step-level skip still bills a whole
-  runner-minute for the job that reached it, so a debounced push under the
-  old shape cost as much as the decision to skip did. A job whose own `if:`
-  is false is reported SKIPPED and never allocates a runner — not billed at
-  all. Not applied to this repo's own
-  `docs.yml`/`deep-check.yml`/`leak-gate.yml`, or to any workflow standing
-  in for a security backstop: [spec/CI_MINUTES_PLAN.md](../spec/CI_MINUTES_PLAN.md)'s
-  item 4 is the measurement and the reasoning behind that line.
+  now ship **one job**, and a trigger that fires bills one minute.
+- **The `debounce` job and `ci_debounce_minutes` are RETIRED** (2026-09-20).
+  A debounce job skipped the check job(s) that `needs:` it when the last
+  completed run on the branch was recent. A skipped job really is unbilled —
+  but **the job that decides is billed like any other**, which the shape
+  never accounted for. With `S` the fraction of triggers skipped, a
+  debounce job plus `N` check jobs costs `S + (1-S)(1+N)` against `N` for
+  no debounce at all: worse for every `S` below 1, at every window setting.
+  That is why tuning the window `360 → 30 → 720` across three days (items
+  8, 9 and 11) never moved the bill — the cost being tuned was not the one
+  doing the spending. A repo that still carries `ci_debounce_minutes` in
+  its `precedent.json`/`identity.json` can delete the field; nothing reads
+  it any more.
 - **`pull_request:` alongside a branch-scoped `push:`, not push on every
   branch** (2026-09-19, [spec/CI_MINUTES_PLAN.md](../spec/CI_MINUTES_PLAN.md)
   item 8) — both templates ship `push: branches: [main]` plus
   `pull_request: [opened, synchronize]`. A branch with no open PR triggers
   neither event that matches here, so the workflow is never evaluated —
-  cheaper than debounce, which still bills the debounce job's own minute.
-  A branch with an open PR gets checked, debounced the same way repeated
-  pushes to an already-open PR are. Widen the branch list
+  the cheapest lever there is, because GitHub decides it before allocating
+  any runner. A branch with an open PR gets checked on each synchronize,
+  with `concurrency:` collapsing a burst into one surviving run. Widen the
+  branch list
   (`branches: [main, precedent-beta-v01]`, this repo's own pattern) if the
   repo installing this has more than one routine merge target — each
   template's own header says so at the trigger block. Do not add
   `pull_request:` to a `push:` that still covers every branch: that
   reintroduces the exact duplicate-run problem
-  [doc-lint.yml.template](../templates/github-actions/doc-lint.yml.template)'s
+  `doc-lint.yml.template` (retired 2026-09-21)'s
   own header measured (235 runs in matched pairs) before this repo's own
   `docs.yml`/`deep-check.yml` dropped `pull_request:` outright on
   2026-09-07/2026-09-14 — the fix here is scoping `push:` narrowly enough
@@ -149,7 +231,7 @@ individual's own practice set or dependent project.
   running both wide open.
 - **A `PRECEDENT_RUNNER` repository variable, for an adopter who already
   operates a self-hosted runner** (2026-09-20). Every job in
-  [doc-lint.yml.template](../templates/github-actions/doc-lint.yml.template)
+  `doc-lint.yml.template` (retired 2026-09-21)
   and [precedent-check.yml.template](../templates/github-actions/precedent-check.yml.template)
   reads `runs-on: ${{ vars.PRECEDENT_RUNNER || 'ubuntu-latest' }}` — set the
   variable (**Settings → Secrets and variables → Actions → Variables**) to a
@@ -190,6 +272,11 @@ process/upstream/tools/doc_lint.py
 
 If the dependent repository instead copies or adapts the linter into its own tools directory, update the workflow command to use that local path and record the adaptation in `process/manifest.json`.
 
+The same install step, when `ci_workflows` is enabled, also writes
+`leak-gate.yml` from
+[leak-gate.yml.template](../templates/github-actions/leak-gate.yml.template) —
+see "The Leak Gate Template" above.
+
 ## Install in a Practice-Set Repository
 
 A practice set gets **one** workflow, `precedent-check.yml`, and it answers
@@ -202,6 +289,10 @@ files, merged the same day as the trigger change above). Sets created by
 get it installed automatically; older sets need the copy below, and
 `python3 tools/precedent_bootstrap_source.py --verify <path>` names it as
 missing until it is there.
+
+**A set also gets `leak-gate.yml`**, same tool, same `ci_workflows` gate —
+see "The Leak Gate Template" above for why a set is always treated as
+`visibility: private` there.
 
 ### The Check Suite
 
@@ -452,9 +543,8 @@ push on a branch with an open pull request (measured here over 13 paired
 runs, never once disagreeing), and a `schedule:` inherited by every adopter
 is a clock in somebody else's repository that they never picked.
 
-Precedent itself ships no committing workflow — its three
+Precedent itself ships no committing workflow — its two
 ([deep-check](../.github/workflows/deep-check.yml),
-[docs](../.github/workflows/docs.yml),
 [leak-gate](../.github/workflows/leak-gate.yml)) all read and none writes — so
 there is nothing to fix here. This is a limit to know before you add one.
 

@@ -25,14 +25,16 @@ file — one trap, one file, forever — under `gotchas/gotcha-<date>-<slug>.md`
 [spec/OPEN_ITEM_AND_GOTCHA_PLAN.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/OPEN_ITEM_AND_GOTCHA_PLAN.md)
 Part 2).
 
-**None of that catalogue loads into the instructions file, at any size.**
-The instructions file carries a short pointer instead — hit an unexplained
-failure, grep `gotchas/` before concluding it's new — never the stories,
-and never even a one-line-per-trap index. A generated overview (symptom
-plus link, one line per live entry) exists for the deliberate read; nothing
-loads it automatically.
+**None of that catalogue loads into the instructions file, at any size** —
+not the stories, and not even a one-line-per-trap index. The file carries a
+pointer instead: hit an unexplained failure, grep `gotchas/` before
+concluding it's new.
 
 ## Detail
+**A generated overview** — symptom plus link, one line per live entry —
+exists for the deliberate read; nothing loads it automatically. That
+sentence was in the Rule until 2026-09-21 (see `## Story`).
+
 **Every entry is its own file from the first one.** There is no size below
 which stories live inline "for now": the instructions file never carries
 the catalogue, so there is nothing to gain by deferring the split, and a
@@ -69,6 +71,14 @@ paid before any real work starts found several thousand tokens spent on
 traps most sessions never touch. The index moved out into a generated,
 not-loaded overview (2026-09-16); the instructions file kept only a pointer
 and a grep instruction.
+
+
+**Rule compressed 2026-09-21**, in the reduction pass recorded in
+[todo-2026-09-21-resident-cap-was-measured-on-the-wrong-shape.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/todo/todo-2026-09-21-resident-cap-was-measured-on-the-wrong-shape.md).
+153 tokens -> 100. The "none of it loads, at any size" clause stayed, because
+it is the rule that keeps an instructions file from regrowing the catalogue;
+what left is the sentence about the generated overview, which is a pointer
+to a convenience rather than a constraint on anybody.
 
 ## Install
 A short pointer section in the instructions file naming `gotchas/` and the

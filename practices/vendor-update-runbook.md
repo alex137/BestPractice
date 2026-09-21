@@ -16,7 +16,8 @@ supersedes:  []
 overrides:   null
 added:       "2026-09-08"
 approved_by: "Morgan; amended 2026-09-14, Morgan -- the phrase now carries
-  the merge as well as the update"
+  the merge as well as the update; amended 2026-09-21, Morgan (decided) --
+  step 1 makes the clone current rather than telling somebody to"
 ---
 ## Rule
 **"Update Vendors" is the phrase that asks for this**, and it authorizes the
@@ -29,7 +30,7 @@ request, merge -- without going back for a second authorization. That is step
 10, and it is part of the phrase rather than a separate grant.
 
 **This does not lift the gate the chain already runs through**, and it does
-not add one. `Go merge` publishes by the repository's usual conventions, and
+not add one. `Go update` publishes by the repository's usual conventions, and
 those are what decide whether a push may happen at all -- here, the full check
 that gates every push. Step 6 below IS that check, and it sits before the
 merge for that reason: a red check stops this merge exactly as it stops any
@@ -44,6 +45,39 @@ every step's answer is wrong if the one before it was skipped.
    pinned to** — not the source's default branch. A stale source makes
    every later step confidently wrong: the diff is against the wrong
    lineage, and "already up to date" is the answer you get.
+
+   **The two vendored layers do not both need this, and knowing which is
+   which is the whole point of the step.** The ENGINE is read by blob out of
+   a freshly fetched commit (see the pin note below), so the clone's checkout
+   is irrelevant to it. The CATALOGUE is read from the clone's WORKING TREE —
+   [tools/precedent_materialize.py](../tools/precedent_materialize.py) has no
+   fetch call in it at all — so for that half, whatever is checked out *is*
+   the input. Step 1 is not hygiene; it is the correctness argument for
+   step 2.
+
+   **It is done, then checked — an instruction alone was proven not to
+   work.** `precedent_refresh_sources.py --apply` now brings each clone to
+   its declared `base_branch` as its first action, verifies the working tree
+   actually arrived there, and **refuses to report success when it could
+   not**: a skipped source is named, and the run exits non-zero. Before
+   2026-09-21 it printed `applied.` and exited 0 however many sources it had
+   declined, and four of them drifted 17 to 34 commits behind while every
+   session start reported success
+   ([todo-2026-09-21-refresh-output-blocks-the-next-pull](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/todo/todo-2026-09-21-refresh-output-blocks-the-next-pull.md)).
+
+   **Two things it deliberately does not do.** It never touches a modified
+   file the clone's own `ENGINE_MANIFEST.json` does not list — the engine may
+   discard its own output, never a person's edit — and it never repairs a
+   clone carrying unpushed commits of its own. Both are reported and left
+   alone: rebasing somebody's work to get a vendoring tool unstuck is the
+   trade that made this loop in the first place.
+
+   Morgan, 2026-09-21 (strength: decided): *"would this force it to clone the
+   most updated version first thing? I think that's what we need."* A check
+   that merely refused on a stale clone was the first proposal, and the
+   measurement retired it — it would have fired on all four sources every
+   session for weeks and changed nothing, because nothing in the sequence was
+   ever going to make them current.
 
    **You do not have to name that branch, and you must not check it out.**
    The pin is compiled into the vendored tool as `SOURCE_BRANCH` in
@@ -144,6 +178,16 @@ every step's answer is wrong if the one before it was skipped.
    pin this is the manual mirror, never a tool that resolves the remote's
    *default* branch — that mirrors the wrong lineage over a pinned tree,
    which is a wholesale revert wearing an update's clothes.
+
+   **`checkin.py record`'s carry check reads the COMMITTED tree on the
+   remote, not your working tree**, so restoring a file locally after a
+   `record` and re-running changes nothing it sees: it lists
+   `origin/<branch>` with `git ls-tree` and reads each file back with
+   `git show origin/<branch>:<path>`. The "restore it and re-record" move is
+   not a way around `--accept-loss`; it only works once the restore is
+   itself committed and pushed. Reported from a dependent repo that hit it
+   twice in one hop, 2026-09-21, and verified here against the tool's own
+   git calls rather than taken on the report.
 5. **Regenerate the generated views in the same change.** A refreshed
    generator whose output has not been re-run leaves the repo's committed
    views describing the old engine, and its own `--check` then fails on
@@ -230,19 +274,41 @@ every step's answer is wrong if the one before it was skipped.
     table** ([spec/MIGRATING_EXISTING_INSTALLS.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/MIGRATING_EXISTING_INSTALLS.md)'s
     step 6, added 2026-09-16) — an ordinary update touches the same
     workflow files a migration would, and a repo that migrated before this
-    table existed has never had the chance to apply it. Per file, never a
-    blanket delete: the table names what each one is, and which are a
-    confirm-before-delete rather than an automatic one. While here, check
-    `ci_workflows` and `ci_debounce_minutes`
+    table existed has never had the chance to apply it. **As of
+    2026-09-20, this step's own table only still matters for two cases**:
+    a file the manifest never tracked a hash for at all (the pre-2026-09-14
+    legacy names — `light-check.yml`, `bestpractice-upstream-sync.yml`, and
+    the rest — [spec/CI_WORKFLOW_RETIREMENT_PLAN.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/CI_WORKFLOW_RETIREMENT_PLAN.md)
+    has the full list), and a `RETIRED_CI_WORKFLOW_FILES` entry that has
+    been hand-edited since the manifest last recorded it. A tracked,
+    untouched retired entry (currently just `views-drift.yml`) is now
+    deleted automatically by the `refresh` step above — nothing left to
+    sweep there. **Never match by filename alone before touching anything
+    on this list** — a name that looks retired can be a live, distinct,
+    repo-specific check that only coincidentally shares it (found
+    2026-09-20 in a real repo: `light-check.yml` running `tools/
+    light_check.py`, that repo's own required light check, not a leftover
+    copy of BestPractice's retired install template of the same name).
+    Diff what the file actually runs against its supposed replacement
+    before deleting or recommending deletion of anything on this table.
+    Per file, never a blanket delete: the table names what each one is, and
+    which are a confirm-before-delete rather than an automatic one. While
+    here, check
+    `ci_workflows`
     ([GITHUB_ACTIONS.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/documentation/GITHUB_ACTIONS.md))
-    are set the way the person actually wants, not just inherited from
-    whatever an earlier install or migration left.
+    is set the way the person actually wants, not just inherited from
+    whatever an earlier install or migration left. **`ci_debounce_minutes`
+    is retired** (2026-09-20) -- nothing reads it, and a repo still
+    carrying it should have the field DELETED here rather than retuned,
+    because a live-looking knob that controls nothing is worse than no
+    knob. Why it went, and the arithmetic that retired it, is in
+    [spec/BILLING_FLOOR.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/BILLING_FLOOR.md).
 11. **Verify by content on the remote**, never by ref equality
    ([verify-postcondition](verify-postcondition.md)).
 12. **Publish it, without asking again.** Run [go-merge](go-merge.md)'s
     chain on the result and report which branch it landed on. The phrase
     authorizes this step; do not stop at step 9 and ask. Every condition
-    `Go merge` carries still holds -- a branch the repository restricts is
+    `Go update` carries still holds -- a branch the repository restricts is
     still restricted, and a step this session cannot reach hands off rather
     than coming back as a question.
 
@@ -296,7 +362,7 @@ typed one phrase to avoid being asked a question got asked one anyway, at the
 end, about work that was already done and already checked. **What the split
 was protecting is still protected, by the thing that was actually doing it:**
 step 6's full check, which runs before anything is published and is what a
-`Go merge` here would have run into regardless. Removing the sentence removes
+`Go update` here would have run into regardless. Removing the sentence removes
 a second authorization, not a gate.
 
 **Asked for by Morgan, 2026-09-08**, after watching a session do this from

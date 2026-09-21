@@ -4,6 +4,10 @@
 
 | Item | What | Status | Closed |
 |---|---|---|---|
+| [`todo-2026-09-21-instruction-files-name-repos-nobody-checks`](todo-2026-09-21-instruction-files-name-repos-nobody-checks.md) | twice | done | 2026-09-21 |
+| [`todo-2026-09-21-scratch-install-resolved-an-undeclared-individual-source`](todo-2026-09-21-scratch-install-resolved-an-undeclared-individual-source.md) | A project whose `precedent.json` declares only `universal` and `repo-local` resolved an INDIVIDUAL source anyway. | done | 2026-09-21 |
+| [`todo-2026-09-21-structural-leak-rules-assume-bestpractices-own-tree`](todo-2026-09-21-structural-leak-rules-assume-bestpractices-own-tree.md) | this | done | 2026-09-21 |
+| [`todo-2026-09-21-two-tools-generate-agents-md-and-disagree`](todo-2026-09-21-two-tools-generate-agents-md-and-disagree.md) | [tools/precedent_sync_views.py](../tools/precedent_sync_views.py) and [tools/build_views.py](../tools/build_views.py) bo | done | 2026-09-21 |
 | [`todo-2026-09-13-views-drift-vs-suite-workflow`](todo-2026-09-13-views-drift-vs-suite-workflow.md) | Decide whether a source set that runs the whole check suite in continuous integration should still carry `views-drift.ym | done | 2026-09-19 |
 | [`todo-2026-09-19-migration-dropped-54-items`](todo-2026-09-19-migration-dropped-54-items.md) | The 2026-09-16 todo/gotcha migration (`9a08363b`) dropped 54 of the 161 items in the pre-migration `TODO.md` — about a t | done | 2026-09-19 |
 | [`todo-2026-09-19-pr-template-todo-md-wording-is-stale-post-migration`](todo-2026-09-19-pr-template-todo-md-wording-is-stale-post-migration.md) | This repo's PR template still told contributors to work with `TODO.md` directly | done | 2026-09-19 |
