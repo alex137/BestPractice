@@ -459,6 +459,35 @@ ENGINE_FILES = [
     # vendored.
     'leak_gate.py',
     'leak-blocklist.default.txt',
+    # THE DEEP CHECK, AND THE MEANS TO AUTHOR A PRACTICE SET (2026-09-21).
+    # very_deep_check.py shipped to nobody until now -- it existed only in
+    # the engine's own repo, which is why running it could never find a
+    # stale or drifted vendored tree: there was no copy in the repo that had
+    # one. A repo carrying its own practices, its own situation and its own
+    # drift is exactly where a deep read pays, and it is now the ONE place
+    # a check can compare a vendored tree against what it was supposed to
+    # be.
+    #
+    # parse_check.py and precedent_bootstrap_source.py come with it because
+    # very_deep_check imports both at MODULE level -- without them the
+    # vendored copy raises ImportError on its first line, which is a worse
+    # failure than not shipping it. (checkin.py is imported too, inside a
+    # function and already guarded; it reaches a consumer through the
+    # vendored process/upstream/ tree rather than through this list.)
+    #
+    # precedent_bootstrap_source.py CREATES a practice set, and shipping it
+    # everywhere is deliberate rather than tolerated. Morgan, 2026-09-21,
+    # on being told it was a cost of vendoring the deep check: "it is GREAT
+    # that the user can create a practice set. WE WANT THEM TO. WE WANT TO
+    # ENCOURAGE THEM TO." A person who has been writing rules into one
+    # repo's instructions file and wants to reuse them across their repos,
+    # or share them with a team, should find the tool already in their
+    # hands -- not discover that authoring a set is something only the
+    # upstream repo can do. See documentation/FOR_DEVELOPERS.md and
+    # templates/GETTING_STARTED.md, which now say so.
+    'very_deep_check.py',
+    'parse_check.py',
+    'precedent_bootstrap_source.py',
     'precedent_vendor_engine.py',
 ]
 

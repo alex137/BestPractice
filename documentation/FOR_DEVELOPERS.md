@@ -191,6 +191,33 @@ every override is reported rather than applied silently.
   itself, at a `practices/` directory named `local`, for rules specific to
   that one project only.
 
+### Make Your Own — The Tools Are Already in Your Repo
+
+**Two of those four levels are yours to create, and you are encouraged to.**
+If you keep writing the same rule into project after project, that rule
+wants to be an **individual** set. If your team keeps re-agreeing the same
+convention in review, that wants to be a **team** set. Either one is a small
+git repository you own, and anything in it applies everywhere you declare
+it — write the rule once, get it in every project.
+
+**You do not need anything from upstream to start.** Since 2026-09-21
+`tools/precedent_bootstrap_source.py` ships with the engine into every
+project that installs Precedent, so the tool that creates a practice set is
+already sitting in your own `tools/` directory:
+
+```
+python3 tools/precedent_bootstrap_source.py --help
+```
+
+Then declare it in the project's `precedent.json` `sources` list, the same
+way the universal library is declared, and your sessions resolve it
+alongside everything else.
+
+**A set is worth making long before it is impressive.** Three rules you are
+tired of repeating is a good set. The catalogue you are reading grew that
+way, one practice at a time, each one written down the first time somebody
+got it wrong twice.
+
 Every level except repo-local is a genuinely separate git repository,
 resolved live into the project rather than copied in — a team or
 individual source is a sibling checkout your session needs read access
