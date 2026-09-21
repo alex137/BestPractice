@@ -1,0 +1,147 @@
+# Install as .github/workflows/light-check.yml in a dependent repository.
+#
+# WHY THIS TEMPLATE EXISTS AT ALL (2026-09-21, practice: cite-the-incident).
+# `two-check-levels` tells every adopter to name a fast check and a full
+# check. Precedent shipped the RULE and never shipped a SHAPE. So twelve
+# repositories each invented their own `light-check.yml`, uncoordinated, and
+# not one of them got the discipline the other templates here have -- one
+# job, and a `paths:` filter. Measured on the 2026-09-01..19 usage export:
+# 609 billed minutes across those twelve, 23.5% of the whole account, the
+# single largest line on the bill. We caused twelve variants by publishing a
+# rule without a shape. See spec/BILLING_FLOOR.md.
+#
+# IT IS ALSO WHY THIS FILE REFUSES TO GUESS WHAT YOUR LIGHT CHECK IS.
+# `two-check-levels` deliberately does not mandate the words or the script:
+# the value is in the distinction being nameable, not in the names. Those
+# twelve repositories run twelve different things, and at least one of them
+# is a real, required, current-engine check. On 2026-09-20 a sweep deleted
+# nine live checks across nine repositories on the theory that a filename
+# absent from this tree meant a retired file. It did not. READ YOUR EXISTING
+# light-check.yml BEFORE REPLACING IT WITH THIS, and carry whatever it
+# actually runs into the CUSTOMIZE block below.
+#
+# BEFORE YOU INSTALL THIS, CHECK IT IS NOT A DUPLICATE. If your existing
+# light check runs the same script as `bestpractice-docs.yml` over the same
+# paths on the same triggers, you are paying two billing floors for one
+# check, and the fix is to delete one -- not to template both. That case is
+# common enough to be the first thing to rule out.
+#
+# ONE JOB, NOT TWO. GitHub bills a job for at least one whole minute however
+# fast it finishes, so a second job that exists to DECIDE whether to run the
+# first costs exactly the minute it was deciding whether to spend. Two
+# templates here were split that way and both were folded back. The full
+# arithmetic is in precedent-check.yml.template's header and in
+# spec/BILLING_FLOOR.md; the short version is that no debounce, cache or
+# early-exit is free once a runner has been allocated.
+#
+# THE `paths:` FILTER IS THE ONLY GENUINELY FREE LEVER IN THIS FILE, because
+# GitHub evaluates it BEFORE allocating a runner. A run it skips costs
+# nothing at all -- not a rounded-up minute, nothing. Everything else here
+# makes a run cheaper; this makes runs not happen. Spend your attention on
+# getting the list right: it should name what your light check actually
+# INSPECTS, and nothing else.
+name: Light check
+
+on:
+  # pull_request (opened, synchronize) PLUS push scoped to the branch(es)
+  # that actually receive merges. CUSTOMIZE THE BRANCH LIST if this repo's
+  # routine merge target is not just `main`. A branch with no open pull
+  # request costs nothing; a branch with one gets checked.
+  pull_request:
+    types: [opened, synchronize]
+    paths:
+      # CUSTOMIZE: what your light check actually inspects. The defaults
+      # below are a starting point for a documentation-shaped repo, NOT a
+      # shipped answer -- a repo whose light check reads Python wants
+      # "**/*.py" here and probably not "**/*.md".
+      #
+      # Leaving this list off entirely is the expensive mistake: the
+      # workflow then runs on every pull-request event in the repository,
+      # including ones that touch nothing it looks at, and each of those is
+      # a billed minute for a guaranteed no-op.
+      - "**/*.md"
+      - "process/upstream/tools/**"
+      - "tools/**"
+      - "local/practices/**"
+      - "practices/**"
+      - ".github/workflows/light-check.yml"
+  push:
+    branches: [main]
+    paths:
+      - "**/*.md"
+      - "process/upstream/tools/**"
+      - "tools/**"
+      - "local/practices/**"
+      - "practices/**"
+      - ".github/workflows/light-check.yml"
+  workflow_dispatch:
+
+# A second push on the same branch before this finishes cancels the first,
+# so an overlapping pair bills once rather than twice.
+concurrency:
+  group: light-check-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  light-check:
+    name: Light check
+    runs-on: ${{ vars.PRECEDENT_RUNNER || 'ubuntu-latest' }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          # CUSTOMIZE: fetch-depth 0 clones the whole history and is what a
+          # check comparing against the base branch needs. If yours does
+          # not compare, 1 is cheaper in wall-clock -- but measure before
+          # changing it. On a repo where the median run is 12 seconds
+          # against a 60-second billing floor, a faster checkout saves
+          # nothing at all, and one audit found the full history was
+          # load-bearing: the checks exited non-zero on a shallow clone.
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Locate the vendored engine
+        id: engine
+        run: |
+          set -eu
+          for candidate in \
+            process/upstream/tools \
+            tools; do
+            if [ -f "$candidate/precedent_check.py" ]; then
+              echo "dir=$candidate" >> "$GITHUB_OUTPUT"
+              echo "Using $candidate"
+              exit 0
+            fi
+          done
+          echo "No vendored engine found at either install model's path" \
+               "(process/upstream/tools/ for INSTALL.md section 1," \
+               "tools/ for section 0). Either the engine was never" \
+               "vendored, or it lives somewhere this workflow does not" \
+               "know about -- add that path here and to the two 'paths:'" \
+               "lists above." >&2
+          exit 1
+
+      - name: Run the light check
+        run: |
+          set -eu
+          # CUSTOMIZE: THIS IS THE LINE YOUR REPO OWNS. Replace it with
+          # whatever this repo's GLOSSARY.md declares its light check to be
+          # (practice: two-check-levels -- the pair of names is per-repo on
+          # purpose). The default below runs the vendored check suite,
+          # which is the closest thing to a generic fast pass; it is a
+          # placeholder, not a recommendation, and it is wrong for any repo
+          # whose light check is something else.
+          #
+          # If you are replacing an existing light-check.yml, the command
+          # that belongs here is the one THAT file ran. Copy it across
+          # rather than deciding afresh.
+          python3 "${{ steps.engine.outputs.dir }}/precedent_check.py"

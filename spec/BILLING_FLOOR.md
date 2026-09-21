@@ -399,6 +399,135 @@ Two rules earned that week:
 - **A detector verified only against a clean tree is indistinguishable from
   a broken one.** Test both directions or you have tested nothing.
 
+## The largest line on the bill: `light-check.yml`, and what it says about us
+
+Measured from the 2026-09-01..19 usage export, not inferred:
+
+| Repo | `light-check.yml` minutes | Share | Active days | Per day |
+|---|---:|---:|---:|---:|
+| the busiest repo on the account | 277 | 45.5% | 19 | 14.6 |
+| second | 101 | 16.6% | 14 | 7.2 |
+| third — a repo whose own name marks it for deletion | 67 | 11.0% | 7 | 9.6 |
+| fourth | 49 | 8.0% | 8 | 6.1 |
+| fifth | 36 | 5.9% | 11 | 3.3 |
+| sixth | 33 | 5.4% | 7 | 4.7 |
+| seventh | 29 | 4.8% | 5 | 5.8 |
+| five others | 17 | 2.8% | — | — |
+| **total** | **609** | **23.5% of the account** | | |
+
+(Repository names are deliberately absent: this repository is public, and
+they are not. The leak gate caught the first draft of this table, which is
+the gate doing exactly its job on exactly its author.)
+
+**A head and a long tail, not one offender.** The working hypothesis before
+this table was "almost certainly one or two repos" — reasoning from 609
+across 12 against ~14 pull-request events a day in the busiest repo. The
+top three are 73%; the top one is 45%. The hypothesis was directionally
+right and quantitatively wrong, which is the usual outcome of arithmetic
+done on two numbers instead of the data that was sitting in the export the
+whole time.
+
+**67 of those minutes belong to a repository whose own name marks it as
+deprecated and awaiting deletion.** Free money, if it goes.
+
+### Why it is ours, although no template shipped it
+
+`two-check-levels` tells every adopter to name a fast check and a full
+check. **This repository shipped the rule and never shipped a shape.** So
+twelve repositories each invented a `light-check.yml`, uncoordinated, and
+not one of them got the one-job or `paths:` discipline the other templates
+here now have. Nothing propagated, because there was nothing to propagate
+from.
+
+That is a general failure mode worth naming: **a rule published without a
+shape is a rule everybody implements differently, and expensively.** The
+rule was right. The gap was that it named an outcome and left every adopter
+to invent the mechanism, twelve times, in private.
+
+[templates/github-actions/light-check.yml.template](../templates/github-actions/light-check.yml.template)
+is the shape, added 2026-09-21. It is deliberately **not** auto-installed
+and `ci_workflows` does not reach it: what a light check runs is a
+per-repository decision, those twelve repos run twelve different things,
+and at least one is a live required check. The command is a marked
+`CUSTOMIZE` line whose instruction is to carry across whatever the existing
+file ran rather than decide afresh — the discipline the 2026-09-20 sweep
+skipped when it deleted nine live checks on the strength of a filename.
+
+### The busiest repo, where the money actually is
+
+| Workflow | Minutes | Share of repo | Per active day |
+|---|---:|---:|---:|
+| `bestpractice-docs.yml` | 350 | 55.3% | 18.4 |
+| `light-check.yml` | 277 | 43.8% | 14.6 |
+| `bestpractice-upstream-sync.yml` | 4 | 0.6% | 2.0 |
+| `personal-pack-sync.yml` | 2 | 0.3% | 2.0 |
+| **total** | **633** | **24.4% of the whole account** | |
+
+**The bigger half is ours, and an ordinary "Update Vendors" is the fix.**
+`bestpractice-docs.yml` is `doc-lint.yml.template`'s install. The current
+template is one job (it was two) and carries `paths:` filters; a copy
+predating both pays twice per trigger and pays on triggers that touch no
+Markdown at all. Nothing bespoke is required — the repo is simply behind.
+
+**So the single highest-value action available on this account is a vendor
+update in one repository.** Not a fleet sweep, not a new mechanism: the
+work was already done upstream and had not arrived. That is the same
+sentence as this document's other half, which is why both halves are here.
+
+## The number nobody looked for: Precedent's own sets are 39.6% of the bill
+
+The investigation spent a day on a consuming repository's workflows. Then
+somebody read the export by repository instead of by workflow:
+
+| Repository | Minutes | Share of account |
+|---|---:|---:|
+| the busiest consuming repo | 633 | 24.4% |
+| `precedent-individual` | 468 | 18.0% |
+| `precedent-shared-writing` | 223 | 8.6% |
+| `precedent-shared-repo-maintenance` | 194 | 7.5% |
+| `precedent-shared-working-style` | 143 | 5.5% |
+| **the four practice sets together** | **1028** | **39.6%** |
+
+**The rule-keeping infrastructure costs more than the work it governs.**
+Four repositories that hold practice text, and nothing else, out-spend the
+single busiest project by 60%.
+
+That is not an argument against the sets. It is an argument that the
+cheapest thing in this system to get wrong is the thing that runs on every
+pull request in every repository, and that the people best placed to notice
+are the ones who never look at their own tooling's bill because it is
+tooling.
+
+### `precedent-individual`, broken out
+
+| Workflow | Minutes | Per active day | Status |
+|---|---:|---:|---|
+| `precedent-check.yml` | 218 | 27.2 | **three jobs until 2026-09-21**; now one |
+| `views-drift.yml` | 130 | 14.4 | retired; last billed 2026-09-19, file already gone |
+| `commit-identity.yml` | 117 | 11.7 | live, one job, trigger narrowed 2026-09-21 |
+| `engine-refresh.yml` | 3 | 1.0 | `workflow_dispatch` only; nothing to do |
+
+**27.2 minutes a day for a three-job workflow whose work takes under half a
+second** is the billing floor stated as plainly as it can be: roughly nine
+triggers a day, three billed minutes each. One job makes the same nine
+triggers cost nine.
+
+`views-drift.yml` is worth its own line as the shape of the whole problem.
+It was folded into `precedent-check.yml.template` upstream on 2026-09-19,
+and it went on billing in this set until somebody deleted the file. A
+retirement upstream is not a deletion downstream — which is exactly the
+asymmetry the CI-workflow manifest diff now closes, and this is the case
+that would have exercised it.
+
+**What is left there is `commit-identity.yml`'s 117 minutes**, and the
+session that audited it measured the shape: 118 runs, median run 12
+seconds, against a 60-second floor. `fetch-depth: 0` is not the problem and
+is load-bearing (both checks are tree-scope and exit non-zero on a shallow
+clone). The remaining lever is folding its checks into
+`precedent-check.yml`'s now-single job, which takes 117 minutes to zero
+incremental, because a job already being billed absorbs another twelve
+seconds for free.
+
 ## What is still not done
 
 - **The carry itself.** All four practice sets still run the three-job

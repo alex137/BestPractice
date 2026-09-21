@@ -97,3 +97,32 @@ Two runbooks that still told a session to apply the retired
 [vendor-update-runbook](../practices/vendor-update-runbook.md) step 10 and
 [MIGRATING_EXISTING_INSTALLS.md](../spec/MIGRATING_EXISTING_INSTALLS.md)
 step 6.
+
+## The Light-Check Half, Measured (2026-09-21)
+
+`light-check.yml`'s 609 minutes are now broken down per repo from the
+export rather than left as a total, and the shape that was missing is
+shipped:
+[templates/github-actions/light-check.yml.template](../templates/github-actions/light-check.yml.template).
+Full table and the reasoning in
+[spec/BILLING_FLOOR.md](../spec/BILLING_FLOOR.md).
+
+**The finding: it is ours even though no template shipped it.**
+`two-check-levels` asked every adopter for a fast check and this repository
+never shipped a shape for one, so twelve repos each invented a workflow and
+none got the one-job or `paths:` discipline. A rule published without a
+shape is a rule everybody implements differently, and expensively.
+
+**The busiest repo on the account is the whole first move.** 633 minutes,
+24.4% of the account, and its BIGGER workflow is `bestpractice-docs.yml` at 350 — ours,
+and an ordinary `Update Vendors` brings it to the current one-job,
+`paths:`-filtered template. `light-check.yml` is the other 277 and needs
+its existing file read before anything replaces it.
+
+**Not attempted, and deliberately:** the other eleven repos. Morgan,
+2026-09-21: *"It's not worth today our energy to go measure more
+specifically the other repos, let's first fix [the busiest one]."*
+`decided`,
+quoted. The table above is there for whenever that changes; one row of it
+is a repo whose own name says `DEPRECATED-TO-DELETE` and is worth 67
+minutes for free.

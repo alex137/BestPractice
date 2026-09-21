@@ -1,6 +1,6 @@
 # GitHub Actions templates
 
-Four templates, for two different kinds of repository. All are read-only:
+Five templates, for two different kinds of repository. All are read-only:
 they report, and none holds a token that could write
 ([ci-commits-carry-identity](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/ci-commits-carry-identity.md)).
 
@@ -10,6 +10,7 @@ they report, and none holds a token that could write
 | [`doc-lint-scheduled.yml.template`](doc-lint-scheduled.yml.template) | `.github/workflows/bestpractice-docs.yml` (in place of the row above, never alongside it) | a dependent repository pushed to its default branch very frequently, where per-push billing adds up |
 | [`precedent-check.yml.template`](precedent-check.yml.template) | `.github/workflows/precedent-check.yml` | a practice SET only (its own header says why); a consuming repo skips it. Covers the generated-views drift check too (see below) — there is no separate `views-drift.yml.template` any more. |
 | [`leak-gate.yml.template`](leak-gate.yml.template) | `.github/workflows/leak-gate.yml` | any dependent repository or practice SET, gated by `ci_workflows` the same as the row above — see below, its trigger shape is deliberately different from the other three |
+| [`light-check.yml.template`](light-check.yml.template) | `.github/workflows/light-check.yml` | any dependent repository that declares a light check — **never installed automatically**, and never installed without reading the existing file first; see below |
 
 **Trigger shape, all three (2026-09-19, spec/CI_MINUTES_PLAN.md item 8):**
 `pull_request: [opened, synchronize]` plus `push:` scoped to the branch(es)
@@ -123,6 +124,47 @@ built from unreachable sources, or when no engine is vendored at all. The
 job's own comments say which case is which, and
 [GITHUB_ACTIONS.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/documentation/GITHUB_ACTIONS.md)
 covers what gates a consuming repo instead.
+
+## The light check template
+
+Copy [`light-check.yml.template`](light-check.yml.template) to
+`.github/workflows/light-check.yml` — **by hand, after reading whatever is
+already there.** The installer does not place it and `ci_workflows` does
+not reach it, for the same reason `doc-lint-scheduled.yml.template` is
+never automatic: what it runs is a per-repository decision this repo cannot
+make for you.
+
+**Why it exists** ([spec/BILLING_FLOOR.md](../../spec/BILLING_FLOOR.md)).
+[two-check-levels](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/two-check-levels.md)
+tells every adopter to name a fast check and a full check. This repository
+shipped the **rule** and never shipped a **shape**, so twelve repositories
+each invented their own `light-check.yml` and not one got the one-job or
+`paths:` discipline the other templates here have. Measured on the
+2026-09-01..19 usage export: **609 billed minutes across those twelve,
+23.5% of the whole account** — the single largest line on the bill. A rule
+published without a shape is a rule everybody implements differently and
+expensively.
+
+**It refuses to guess what your light check is,** and that refusal is the
+template's main feature. `two-check-levels` deliberately does not mandate
+the script; those twelve repositories run twelve different things, and at
+least one is a live required check. On 2026-09-20 a sweep deleted nine live
+checks across nine repositories on the theory that a filename absent from
+this tree meant a retired file. So the command is a marked `CUSTOMIZE`
+line, and the instruction is to carry across whatever your existing file
+ran rather than decide afresh.
+
+**Rule out the duplicate first.** If your light check runs the same script
+as `bestpractice-docs.yml` over the same paths on the same triggers, you
+are paying two billing floors for one check, and the fix is to delete one —
+not to template both.
+
+**The `paths:` filter is the only genuinely free lever in the file**, since
+GitHub evaluates it before allocating a runner: a run it skips costs
+nothing, where everything else here only makes a run cheaper. The shipped
+list is a documentation-shaped starting point and is explicitly not an
+answer — a repo whose light check reads Python source wants the Python glob
+there, and probably not the Markdown one.
 
 ## The leak gate template
 
