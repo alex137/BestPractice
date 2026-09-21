@@ -91,8 +91,10 @@ alongside `precedent-check.yml`. It is now the `views-drift` job inside
 `precedent-check.yml.template` itself — folded in the same day as the
 trigger change above, for the same reason: two separate workflow files each
 billed their own one-job-minute floor on every push regardless of what
-either one's debounce window decided, and a single file with one shared
-debounce job halves that. Installing `precedent-check.yml.template` installs
+either one's debounce window decided. Both debounce jobs are gone as of
+2026-09-20 (they cost a billed minute to decide not to spend one — see
+GITHUB_ACTIONS.md, "Controlling Actions Minutes"), and the merged file ships
+a single job. Installing `precedent-check.yml.template` installs
 this check; there is nothing further to copy.
 
 It runs `python3 tools/build_views.py --repo . --check`, which exits
