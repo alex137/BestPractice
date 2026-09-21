@@ -1,12 +1,12 @@
 ---
 slug:        go-merge
-title:       "\"Go update\" and \"Approved\" -- authorize sync, confirm branch, commit, push, PR, and merge (a direct push is the default; the full chain is for huge changes only)"
+title:       "\"Go update\" and \"Approved\" -- authorize sync, confirm branch, commit, push, PR, and merge (a direct push is the default; the full chain is for high-risk changes only)"
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
 occasion:    "a message says \"Go update\" or \"Approved\", or plainly authorizes a merge"
 gates:       ["merge"]
-index_clause: "\"Go update\"/\"Approved\": default push; huge -> sync, branch, PR, merge"
+index_clause: "\"Go update\"/\"Approved\": default push; high-risk -> sync, branch, PR, merge"
 checked_by:  null
 defines:     ["Go update", "Approved"]
 command:     {"Go update": "Save the work, publish it, and tell you where it went — without asking anything further.", "Approved": "The same as **Go update**: save the work, publish it, and tell you where it went."}
@@ -31,8 +31,8 @@ approved_by: "Morgan, 2026-09-08 -- moved up from his individual set to
   \"let's reverse it so that Go update is the primary one, that you recommend
   and use\" and \"it's not about the merge because many times it's not a merge
   but a direct edit,\" declining a rename again for the same reason as
-  2026-09-15; trivial/substantial replaced with a push-by-default/huge split
-  2026-09-20, Morgan, after a session's own CI-cost review of a dependent
+  2026-09-15; trivial/substantial replaced with a push-by-default/high-risk
+  split 2026-09-20, Morgan, after a session's own CI-cost review of a dependent
   repo found the trivial carve-out too narrow to spend a real cost
   correctly -- \"it is not just SINGLE WORDING changes; it should be for
   all NON-HUGE changes... have VERY STRICT CRITERIA for being a huge
@@ -78,10 +78,10 @@ assumed, showed a routine pull request billing a Light check plus a full,
 un-debounced documentation check that a direct push to the same branch
 skips outright — cost paid for edits that carried none of the risk a PR
 exists to catch. **The default is now a direct push, straight to the
-branch, no PR — for everything except a narrow, strict set of huge
+branch, no PR — for everything except a narrow, strict set of high-risk
 changes:**
 
-- **Huge** — the change does at least one of these:
+- **High-risk** — the change does at least one of these:
   - **Touches enforcement or gating code** — a check other work is judged
     against
     ([tools/precedent_check.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/precedent_check.py),
@@ -102,13 +102,13 @@ changes:**
     on (a link already sent to people, an install script another repo
     runs unattended).
   - **You are not confident it falls outside the first three.** Default UP
-    to huge, never down — the cost of one unneeded PR is a few CI
+    to high-risk, never down — the cost of one unneeded PR is a few CI
     minutes; the cost of a bad direct push is whatever it broke, found
     later, by someone else.
 - **Everything else pushes straight to the branch, no PR.** A new
   practice, a rule's meaning changing in ordinary content, real logic in
   ordinary code, a change spanning several files or systems — none of
-  that alone makes a change huge. **Size and reach are not the test; only
+  that alone makes a change high-risk. **Size and reach are not the test; only
   the four bullets above are.** The light check still runs before the
   commit and the deep check still runs before the push either way —
   verification never gets skipped, only the PR wrapper does.
@@ -116,7 +116,7 @@ changes:**
 **This is the standing default for how `Go update` (and its synonyms) are
 read when nothing else qualifies them — it does not override a direct,
 specific instruction about this one change.** Told to skip the PR on
-something that would otherwise count as huge, or to open one for something
+something that would otherwise count as high-risk, or to open one for something
 that would otherwise push straight through, that instruction governs; the
 classification above is only what runs in its absence.
 
@@ -221,23 +221,23 @@ different thing and is handed off nowhere -- the phrase authorizes a merge,
 it does not lift a branch rule, so a merge that waits for review goes on
 waiting for review.
 
-**Huge reads narrowly, not generously — the opposite bias from the old
+**High-risk reads narrowly, not generously — the opposite bias from the old
 trivial test.** "Fixed a bug in
 [tools/precedent_check.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/precedent_check.py)",
 "changed what
 [tools/leak_gate.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/leak_gate.py)
-enforces", "edited `go-merge.md` itself" are huge, even at one line, even
+enforces", "edited `go-merge.md` itself" are high-risk, even at one line, even
 when the fix is obviously correct — because what they touch is the
 machinery that catches mistakes, or the rule that governs how changes
 land. "Fixed a typo in
 [README.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/README.md)",
 "reworded a confusing sentence", "added a new practice about doc-link
 formatting", "rewrote a function's internals without touching what calls
-it or what it's checked against" are not huge, however large the diff,
+it or what it's checked against" are not high-risk, however large the diff,
 because none of them touches enforcement, governance, or anything hard to
 reverse. **The test is never the size of the diff, and it is no longer
 "did the meaning change" — it is whether the change hits one of the four
-huge criteria in the Rule above.**
+high-risk criteria in the Rule above.**
 
 **Once one of the two phrases is there, ask about the object, never about
 the phrasing.** The one question worth stopping for is *which* pending work
@@ -408,7 +408,7 @@ phrases keep meaning exactly the same thing, with the identical
 authorization and the identical chain; only which one comes first, in the
 frontmatter and in the assistant's own mouth, changed.
 
-**The push-by-default/huge split replaced trivial/substantial 2026-09-20,
+**The push-by-default/high-risk split replaced trivial/substantial 2026-09-20,
 on Morgan's decision, after a session reviewing CI cost in a dependent
 repo found two of four recent pull requests
 paying for a Light check and a full documentation-check run that a direct
@@ -425,14 +425,14 @@ whether this was his own working habit or a change to the shared rule, he
 was explicit: *"Make this a universal rule 100%. This should be changed
 universally"* — while noting that a direct, specific instruction about one
 change always overrides the default, which is what the Rule's closing
-paragraph on this now says. The four huge criteria (gating code,
+paragraph on this now says. The four high-risk criteria (gating code,
 governance practices, hard-to-reverse actions, and doubt itself) are this
 session's own draft against his instruction to make them strict, not
 dictated by him line for line — he set the shape and the bar, not the
 wording.
 
 **`Go merge` retired as a separate trigger, later the same day, on
-Morgan's decision.** Once `Go update` always decided push-vs-huge and
+Morgan's decision.** Once `Go update` always decided push-vs-high-risk and
 always announced which path it took, keeping a second, permanently-equal
 phrase stopped earning its keep in his own words: *"I think we changed
 'go update' and are no longer using 'go merge'; 'go update' should now:
@@ -445,8 +445,20 @@ the rename declined on 2026-09-15 and 2026-09-18: the slug and file stay
 `go-merge`, so nothing that cites [go-merge](go-merge.md) breaks; only the
 set of phrases a session is guaranteed to recognize shrank by one. A
 separate, narrower phrase, [push-directly](push-directly.md), was coined
-the same conversation for skipping the huge/default judgment call itself,
-which `Go update` still always makes.
+the same conversation for skipping the high-risk/default judgment call
+itself, which `Go update` still always makes.
+
+**Renamed `huge` to `high-risk` 2026-09-21, on Morgan's decision, for
+formality — no change to the four criteria themselves.** Asked to
+recommend a less informal replacement, the session proposed `high-risk`
+over `major` specifically because [merge-target-is-beta-branch](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/local/practices/merge-target-is-beta-branch.md)
+already uses "major changes" for a different gate (Alex's sign-off on a
+`main` merge) — reusing it here would have made two distinct gates read
+as one. Morgan confirmed and asked for the rename to reach every mention.
+The two direct quotes from the 2026-09-20 decision above, which used
+`huge`/`NON-HUGE` in Morgan's own words, are left as said rather than
+edited to match; only this file's own vocabulary — the Rule, the Detail,
+and the surrounding narration in this Story — changed.
 
 ## Install
 No mechanical check, and not for lack of trying: this governs how a chat
@@ -463,8 +475,8 @@ What IS checkable is downstream and already covered: the merge target
 (wherever a repository declares one) and the closing link to the merged pull
 request's page, where the one-click delete-branch button lives.
 
-**The push-by-default/huge split is partly checkable, which the
-trivial/substantial split it replaced never was.** Two of the four huge
+**The push-by-default/high-risk split is partly checkable, which the
+trivial/substantial split it replaced never was.** Two of the four high-risk
 criteria are still a judgment call no diff can settle alone — "hard to
 reverse" and "not confident" both require reading what changed, not just
 where. But **"touches enforcement or gating code" and "changes a
