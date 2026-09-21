@@ -100,3 +100,70 @@ Nor is it an argument that nothing here should be compressed.
 of the whole budget for two rules, and both can be said shorter. That is a
 [reduction-pass](../practices/reduction-pass.md), worth doing on its own
 merits, and it does not answer the structural question.
+
+## Reduction Pass Run 2026-09-21 — the Report
+
+**This does not close this item.** It bought headroom; the structural
+question above — a universal sub-cap plus an adopter allowance, instead of
+one number measured against a single-source tree — is untouched and still
+`waiting_on` Morgan. At the growth rate this item records, headroom is the
+thing that runs out.
+
+Morgan picked all three routes from a costed menu, 2026-09-21: *"Do A and B
+and C - I like all"*. strength: decided.
+
+| Surface | Before | After | Cap |
+|---|---:|---:|---:|
+| universal (this repo) | 1379 | **1055** | — |
+| individual | 447 | **392** | 550 |
+| shared/working-style | 351 | **144** | 425 |
+| **combined resident block** | **2198** | **1591** | **2000** |
+
+Measured with [tools/build_views.py](../tools/build_views.py)'s own `_approx_tokens` (`words × 1.3`) over
+the rendered blocks, before and after. Headroom went from −198 to +409.
+
+### What moved
+
+**A — two universal practices demoted to `tier: on-demand`, −324.**
+[fence-block-for-paste](../practices/fence-block-for-paste.md) (219) and
+[reply-links-files](../practices/reply-links-files.md) (124). Nothing was
+rewritten and no rule changed: both already declared `gates: ["reply"]`, so
+the `UserPromptSubmit` hook prints their clause before every reply is
+written and the full Rule is one `precedent_gate.py reply` away. This is
+reduction-pass step 1 — text a session already reaches at a guaranteed
+moment. **The cost, stated plainly:** `reply-gate.sh` is the Claude Code
+adapter's hook, so on Codex and Gemini CLI these two now arrive through the
+standing instruction rather than automatically. Each file's `## Story`
+records this.
+
+**B — [default-register](https://github.com/themorgan/precedent-shared-working-style)'s
+Rule compressed, −207.** 293 → 87. Its fallback body moved into `## Detail`
+word for word; the precedence sentence stayed in the Rule. The body only
+fires where no reader has declared a register, and Morgan's
+`audience-register` resolves in every repository he works in — so those
+tokens were paid on every turn for text switched off before it was read.
+Approved by Morgan, sole approver in that set's `approvers.json`.
+
+**C — `reply-fits-one-screen` deduplicated into `reply-is-short`, −55.**
+Two resident rules about reply length became one. Every clause survives in
+the surviving Rule; the retired file keeps its Why, its Story and the
+verbatim quote that killed `half-the-words`, and carries
+`status: deduplicated`, `in_force_at: reply-is-short`.
+
+### What this pass did NOT do, and why
+
+- **Did not touch `no-invented-specifics`, `verify-postcondition`,
+  `repo-is-memory` or `write-like-a-human`**, though all four are in the
+  reply gate too and demoting them would have been another ~323. They bind
+  *during* the work, not at the moment a reply is written, so a reply-time
+  reminder arrives after the damage. The gate is the wrong channel for them.
+- **Did not compress `brainstorm-holds-commits` (221),
+  `answer-first-ask-before-long-work` (208) or `environment-gotchas` (153)**,
+  now the three largest universal residents. Each has an argument paragraph
+  that could go to `## Detail`, worth roughly 250 together — but that is
+  rewriting a rule, not moving text, and with 409 tokens of headroom there
+  was no reason to spend judgment on it today. **This is the obvious next
+  pass, and the reason it is written down here.**
+- **Did not raise any ceiling.** Route C returned 55 against the ~115 this
+  session estimated when it costed the menu; the merged rule kept every
+  clause, which is where the difference went.

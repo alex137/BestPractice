@@ -232,7 +232,7 @@ plan's premise.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block; `python3 tools/build_views.py --check` exits non-zero on drift. Source: practices/ -- edit the practice file, never this block. -->
 
-## Resident block (~1400 of 2000 token budget, 12 of 135 practices (12 universal))
+## Resident block (~1055 of 2000 token budget, 10 of 135 practices (10 universal))
 
 **answer-first-ask-before-long-work.** Three parts. **(1) Answer the easy questions in a message before starting
 anything long.** A conceptual question is answered from what is already
@@ -281,25 +281,6 @@ and never even a one-line-per-trap index. A generated overview (symptom
 plus link, one line per live entry) exists for the deliberate read; nothing
 loads it automatically.
 
-**fence-block-for-paste.** Any reply that hands over text meant to be pasted somewhere else — a prompt
-for a new session, a commit message, a PR description, a config snippet, a
-comment for another tool — puts that text in a **fence block**: an actual
-fenced markdown block (triple backticks), never a paragraph that only reads
-as paste-ready. The fence is what gives the client its one-click copy
-button; describing the text without fencing it has not delivered it,
-whatever else the reply says.
-
-**More than one distinct thing to paste gets more than one fence block.** A
-commit message and a separate PR description, two prompts for two different
-sessions — each is its own fence block, never one block holding both, and
-never prose gesturing at several pieces and leaving the reader to split them
-apart.
-
-**This binds every reply, independent of any trigger phrase.**
-[My options](practices/my-options.md) and [Prompt Please](practices/prompt-please.md) each
-already required a fence block for their own occasion; both now point here
-instead of restating it.
-
 **no-invented-specifics.** Being concrete makes writing better, and **it never licenses invention.** Do
 not manufacture a statistic, a date, a name, a version number or a citation
 because the sentence would be stronger with one, and do not invent
@@ -316,14 +297,6 @@ each part of each deliverable. Every session reads it before doing anything.
 **quick-index.** The project instructions file carries a "check here BEFORE searching
 the repo" table: *looking for X → go to Y*, one row per thing sessions
 actually hunt for.
-
-**reply-links-files.** A session's reply that created, modified or deleted files ends with a
-"Files touched" list: each entry links the file on the working branch *and*
-its post-merge location, with a one-line description. The reader must be able
-to open the work from the chat, not merely learn it exists. **A deleted file
-is listed too** — its path, why it went, and a link to the commit that
-removed it. It is the one entry with nothing to open on the branch, which is
-exactly why a reader will not find it on their own.
 
 **repo-is-memory.** Everything a future session needs — orientation, open items,
 decisions, lessons — lives in committed files. A session's chat thread is
@@ -574,9 +547,11 @@ place — nothing is ever deleted, and nothing moves.
 
 ## Conventions (every session, every reply)
 
-The loader carries three more in full — `reply-links-files` in the resident
-block above, `doc-references-are-links` and `volatile-rules-carry-dates` in the
-occasion index — so they are not repeated here.
+The loader carries three more in full — `doc-references-are-links` and
+`volatile-rules-carry-dates` in the occasion index above, and
+`reply-links-files` through the `reply` gate
+([tools/precedent_gate.py](tools/precedent_gate.py)) since it was demoted out
+of the resident block on 2026-09-21 — so they are not repeated here.
 
 - **Outward-facing documents use the reader's words** ([readers-vocabulary](practices/readers-vocabulary.md)): this
   repo's README, [SETUP.md](SETUP.md), and
