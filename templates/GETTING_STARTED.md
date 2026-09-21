@@ -321,13 +321,16 @@ Click-paths as of <install date>.
      `<upstream-docs>/`. Add a line whenever a future install step
      introduces a new one (a required secret, a new required check). -->
 
-- **A Markdown check runs on every pull request** (the GitHub Actions
-  workflow `bestpractice-docs.yml`) and catches a couple of specific formatting mistakes before
-  they reach the shared project. It needs no maintenance. If it doesn't
-  appear on a pull request's checks, GitHub Actions may be disabled for
-  this repository — an administrator can turn it on at repository
-  **Settings → Actions**. Details:
-  [GITHUB_ACTIONS.md](<upstream-docs>/documentation/GITHUB_ACTIONS.md).
+- **A leak check runs on every push and pull request** (the GitHub Actions
+  workflow `leak-gate.yml`) and refuses anything that would publish
+  something private. It needs no maintenance. If it doesn't appear on a
+  pull request's checks, GitHub Actions may be disabled for this
+  repository — an administrator can turn it on at repository
+  **Settings → Actions**.
+- **Your writing is checked before it is saved, not after.** A formatting
+  check runs on every commit, so a broken link or a malformed heading is
+  caught while you are still working rather than once it is shared. This
+  one is not a GitHub check and needs nothing switched on.
 - **Every pull request opens with a standard template** — what changed,
   why, files touched, and a short checklist. An unchecked box on that
   checklist is normal; it means that gate didn't apply to this particular

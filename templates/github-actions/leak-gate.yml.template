@@ -83,9 +83,34 @@
 # exactly the branch that matters.
 on:
   push:
+  # `synchronize` REMOVED 2026-09-21, and here it was pure duplication
+  # rather than a trade. This workflow's `push:` is unrestricted -- every
+  # push to every branch -- and a push to a branch with an open pull
+  # request fires BOTH `push` and `pull_request.synchronize`. So every
+  # such push ran this gate twice on the identical tree.
+  #
+  # What `pull_request:` is still here FOR is the fork case: a fork's
+  # pushes do not fire `push` in the repository being contributed to, so
+  # without it a contributed branch would reach this repo unscanned. That
+  # case needs the PR event and is unaffected by dropping synchronize --
+  # `opened` and `ready_for_review` both fire for a fork.
   pull_request:
-    types: [opened, synchronize]
+    types: [opened, reopened, ready_for_review]
   workflow_dispatch:
+
+# A second push on the same ref before this finishes cancels the first, so
+# an overlapping pair bills one job-minute instead of two. Added 2026-09-21:
+# every other template here already had one and this did not, which is the
+# kind of gap nobody finds by reading -- a harness case asserting the
+# installed workflow carries a concurrency block is what surfaced it.
+#
+# NOT cancel-in-progress on the branch that receives merges? It is safe
+# here: this gate reads the tree and writes nothing, so a cancelled run has
+# no half-finished state to leave behind, and the run that replaced it
+# scans a strictly newer tree.
+concurrency:
+  group: leak-gate-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read

@@ -222,13 +222,16 @@ def _substitute(text, subs):
 
 
 _CI_PARAGRAPH_ON = (
-    "- **A Markdown check runs on every pull request** (the GitHub Actions\n"
-    "  workflow `bestpractice-docs.yml`) and catches a couple of specific formatting mistakes before\n"
-    "  they reach the shared project. It needs no maintenance. If it doesn't\n"
-    "  appear on a pull request's checks, GitHub Actions may be disabled for\n"
-    "  this repository — an administrator can turn it on at repository\n"
-    "  **Settings → Actions**. Details:\n"
-    f"  [GITHUB_ACTIONS.md]({UPSTREAM_DOCS}/documentation/GITHUB_ACTIONS.md)."
+    "- **A leak check runs on every push and pull request** (the GitHub Actions\n"
+    "  workflow `leak-gate.yml`) and refuses anything that would publish\n"
+    "  something private. It needs no maintenance. If it doesn't appear on a\n"
+    "  pull request's checks, GitHub Actions may be disabled for this\n"
+    "  repository — an administrator can turn it on at repository\n"
+    "  **Settings → Actions**.\n"
+    "- **Your writing is checked before it is saved, not after.** A formatting\n"
+    "  check runs on every commit, so a broken link or a malformed heading is\n"
+    "  caught while you are still working rather than once it is shared. This\n"
+    "  one is not a GitHub check and needs nothing switched on."
 )
 
 
@@ -237,15 +240,16 @@ def _ci_paragraph_off():
     # write is exactly the kind of GitHub-specific fact this section exists
     # to name, not just log internally.
     return (
-        "- **No GitHub Actions workflow was installed.** Precedent's Markdown\n"
-        "  check ships as a template but is off by default — GitHub Actions\n"
+        "- **No GitHub Actions workflow was installed.** Precedent's CI\n"
+        "  workflows ship as templates but are off by default — GitHub Actions\n"
         "  minutes are metered per private repository and billed in whole-minute\n"
-        "  increments per run, so installing it unconditionally charges every\n"
-        "  adopter for a check they may not want on every push. Turn it on by\n"
+        "  increments per JOB, so installing them unconditionally charges every\n"
+        "  adopter for checks they may not want on every push. Turn them on by\n"
         "  declaring `\"ci_workflows\": \"enabled\"` in the individual or team\n"
         "  source this project resolves, then re-run the installer with `--force`\n"
-        "  — or copy the template in by hand any time. Details, including a\n"
-        "  lower-cost scheduled variant for a project pushed to very frequently:\n"
+        "  — or copy a template in by hand any time. Note that the Markdown\n"
+        "  lint is deliberately NOT among them: it runs before every commit\n"
+        "  instead. Details:\n"
         f"  [GITHUB_ACTIONS.md]({UPSTREAM_DOCS}/documentation/GITHUB_ACTIONS.md)."
     )
 
@@ -426,7 +430,8 @@ def _bootstrap_and_ci(dest, ci_enabled, ci_note, force):
                             f'top-level docs vs the vendored {UNIVERSAL_PATH}/ tree.')
         pr.write_text(text, encoding='utf-8')
         out.append('.github/pull_request_template.md: written')
-    # Record bestpractice-docs.yml's vendored hash into ENGINE_MANIFEST.json
+    # Record each installed CI workflow's vendored hash into
+    # ENGINE_MANIFEST.json
     # (ci_workflow_files/ci_workflows_sha256) -- AFTER the write above, so
     # what gets hashed is whatever actually landed on disk this call,
     # whether just written or already there from an earlier install. Called

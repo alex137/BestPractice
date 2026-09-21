@@ -138,6 +138,42 @@ If it's the latter, this stops helping after the image is built — verify by
 starting two sessions a few days apart in the same environment and
 comparing `git log -1`.
 
+## If You Work Through Something Other Than Claude Code
+
+**The Markdown check is a hook, and hooks need a shell.** As of 2026-09-21
+the Markdown lint no longer runs in GitHub Actions at all — it was
+re-running a check the session had already run. What replaced it is
+`.claude/hooks/doc-lint-gate.sh`, which refuses a `git commit` whose
+staged Markdown fails [doc_lint.py](../tools/doc_lint.py).
+
+**That is a Claude Code mechanism, and only Claude Code runs it.** A
+GitHub-connected ChatGPT conversation gets no interactive shell, and
+[templates/harness/README.md](../templates/harness/README.md)'s adapter
+table shows the other harnesses carrying `n/a` or an unverified lifecycle
+hook. **On any of those, nothing is checking your Markdown before it
+reaches the shared branch — not the hook, and not CI.**
+
+If that is you, do both of these. Not one:
+
+1. **Run it yourself before every commit:**
+   `python3 tools/doc_lint.py <the markdown you touched>`. Your harness
+   will not remind you and nothing will stop you forgetting.
+2. **Put the GitHub check back on**, because step 1 is a habit and a habit
+   is exactly what the hook exists to replace. Copy
+   [templates/github-actions/light-check.yml.template](../templates/github-actions/light-check.yml.template)
+   to `.github/workflows/light-check.yml`, set its `CUSTOMIZE` command to
+   `python3 tools/doc_lint.py` and its `paths:` list to `"**/*.md"`.
+3. **Enable Actions for the repository** at **Settings → Actions** if it is
+   off. A workflow file sitting in a repository with Actions disabled is a
+   check nobody runs, and nothing tells you it is not running.
+
+**Doing only the first is the arrangement that just failed here.** "A
+session is supposed to run the check before committing" was written down,
+and followed, for months — and still nothing refused a commit that skipped
+it. That was only ever safe because CI was behind it. On a harness with
+less enforcement than the one that had that gap, the CI check is not
+optional.
+
 ## Verify It Worked
 
 In a new session, in this project:

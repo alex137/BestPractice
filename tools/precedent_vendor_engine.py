@@ -1120,8 +1120,11 @@ def _hook_drift(dest_root, manifest):
 # recorded" from "hand-edited" and act on it.
 CI_WORKFLOWS_SOURCE_DIR = 'templates/github-actions'
 CI_WORKFLOW_TEMPLATES = {
+    # NO WORKFLOW EXISTS SOLELY TO LINT MARKDOWN (2026-09-21). The consumer
+    # side used to ship doc-lint.yml.template as bestpractice-docs.yml, and
+    # it is retired -- see RETIRED_CI_WORKFLOW_FILES below, which propagates
+    # its deletion to every repo that installed it.
     'consumer': (
-        ('doc-lint.yml.template', '.github/workflows/bestpractice-docs.yml'),
         ('leak-gate.yml.template', '.github/workflows/leak-gate.yml'),
     ),
     'source': (
@@ -1180,6 +1183,28 @@ RETIRED_CI_WORKFLOW_FILES = {
     '.github/workflows/views-drift.yml':
         'folded into precedent-check.yml.template as its own job, 2026-09-19 '
         '(spec/CI_MINUTES_PLAN.md item 9)',
+    # THE MARKDOWN LINT LEAVES CI ENTIRELY, 2026-09-21. Morgan: "I think we
+    # should remove all markdown checks in the yml github actions check (but
+    # we should use the strict markdown in our own that we do)."
+    #
+    # The reasoning, and it is not only cost. Under this system's founding
+    # assumption -- every edit arrives through a cloud session, never a
+    # local checkout and never the GitHub web UI -- doc_lint.py has already
+    # run on every change before it is committed, because it IS the light
+    # check that gates a commit. The CI copy re-ran it against work the
+    # session in front of the person had just cleared. Measured in the
+    # busiest consuming repo: 350 billed minutes over 19 days for that
+    # re-run, on a workflow that was already one job with paths: filters.
+    #
+    # The linter is not retired -- only the workflow whose whole job was to
+    # run it a second time. doc_lint.py still gates every commit, and still
+    # runs inside this repo's own deep-check.yml as a step in a job billed
+    # for other reasons anyway. The rule that came out of it: no workflow
+    # exists solely to lint Markdown.
+    '.github/workflows/bestpractice-docs.yml':
+        'the Markdown lint left CI entirely, 2026-09-21 -- doc_lint.py '
+        'already gates every commit as the light check, so this re-ran it '
+        'on work a session had just cleared (spec/BILLING_FLOOR.md)',
 }
 
 

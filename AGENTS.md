@@ -232,7 +232,7 @@ plan's premise.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block; `python3 tools/build_views.py --check` exits non-zero on drift. Source: practices/ -- edit the practice file, never this block. -->
 
-## Resident block (~1400 of 2000 token budget, 12 of 134 practices (12 universal))
+## Resident block (~1400 of 2000 token budget, 12 of 135 practices (12 universal))
 
 **answer-first-ask-before-long-work.** Three parts. **(1) Answer the easy questions in a message before starting
 anything long.** A conceptual question is answered from what is already
@@ -388,6 +388,8 @@ When a person says "Vocabulary", or asks what the standing commands are:
   vocabulary — "Vocabulary" -- list every command in force, read it, never recall it
 When a person says "Weak yes", or agrees in words that carry no conviction:
   weak-yes — "Weak yes" -- do it, and record the approval as `assented`
+When a person states a fact about their own situation -- cost, risk, time, priorities, how they work -- that the session's own reading of the evidence would soften or contradict:
+  their-constraints-are-given — their own situation is given -- say it once, then work from theirs
 When about to search a repository, or reaching for a GitHub search or file-read tool for something the local clone already holds:
   grep-before-search — grep the clone; a repo-scoped list before a search; fewer windows at once
 When adding a file to a directory that already holds files of the same kind:

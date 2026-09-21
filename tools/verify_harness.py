@@ -15700,18 +15700,27 @@ def check_vendor_engine_refreshes_ci_workflow_files():
     would be reading contamination, not its own result.
 
     `kind: consumer` throughout, so CI_WORKFLOW_TEMPLATES['consumer']
-    applies: one file, .github/workflows/bestpractice-docs.yml, from
-    doc-lint.yml.template."""
+    applies: one file, .github/workflows/leak-gate.yml, from
+    leak-gate.yml.template.
+
+    IT USED TO BE bestpractice-docs.yml, FROM doc-lint.yml.template, and
+    that template was retired on 2026-09-21 when the Markdown lint left CI
+    entirely. Repointed rather than deleted: what this fixture tests is the
+    REFRESH MECHANISM -- does a vendored workflow get rewritten, left
+    alone, or refused when hand-edited -- which is about any consumer CI
+    workflow and never was about Markdown. Deleting it along with its
+    subject would have quietly dropped coverage of the mechanism that
+    propagates every CI workflow change to every installed repo."""
     import shutil, tempfile
 
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-ci-workflow-'))
     cases = []
-    rel = '.github/workflows/bestpractice-docs.yml'
+    rel = '.github/workflows/leak-gate.yml'
     try:
         engine_bytes = (ROOT / 'tools' / 'precedent_vendor_engine.py').read_bytes()
         engine_hash = hashlib.sha256(engine_bytes).hexdigest()
         real_template = (ROOT / 'templates' / 'github-actions' /
-                         'doc-lint.yml.template').read_bytes()
+                         'leak-gate.yml.template').read_bytes()
         real_hash = hashlib.sha256(real_template).hexdigest()
         # A stand-in for "whatever this file looked like when it was last
         # vendored" -- deliberately NOT real_template's bytes, so a refresh
@@ -20498,14 +20507,23 @@ def check_installer_produces_a_clean_install():
         env2 = dict(env, PRECEDENT_USER_CONFIG=str(user_cfg))
         r = subprocess.run([sys.executable, tool, str(proj2), '--project-name', 'Second Notes',
                             '--admin', 'dana'], cwd=str(ROOT), capture_output=True, text=True, env=env2)
-        wf2 = proj2 / '.github' / 'workflows' / 'bestpractice-docs.yml'
+        # leak-gate.yml, not bestpractice-docs.yml: the Markdown workflow was
+        # retired 2026-09-21 and the leak gate is what a consumer now gets.
+        wf2 = proj2 / '.github' / 'workflows' / 'leak-gate.yml'
         gs2 = (proj2 / 'GETTING_STARTED.md').read_text(encoding='utf-8') if (proj2 / 'GETTING_STARTED.md').is_file() else ''
         cases.append(('a declared ci_workflows: enabled installs the workflow WITH its '
                       'concurrency block, and GETTING_STARTED.md carries the "on" paragraph',
                       r.returncode == 0 and wf2.is_file()
                       and 'concurrency:' in wf2.read_text(encoding='utf-8')
-                      and 'A Markdown check runs on every pull request' in gs2,
+                      and 'A leak check runs on every push and pull request' in gs2,
                       (r.stdout + r.stderr)[-500:]))
+        # AND the Markdown lint is NOT a GitHub check any more -- the
+        # direction that would otherwise go untested, since every assertion
+        # above is about a file being present.
+        cases.append(('...and no Markdown workflow is installed at all, on either path',
+                      not (proj2 / '.github' / 'workflows' / 'bestpractice-docs.yml').exists()
+                      and not (proj / '.github' / 'workflows' / 'bestpractice-docs.yml').exists(),
+                      'bestpractice-docs.yml was retired 2026-09-21'))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
