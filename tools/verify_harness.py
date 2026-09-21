@@ -5679,6 +5679,193 @@ def check_behavioral_replay():
         check(name, False, detail.splitlines()[-1] if detail else 'no REPLAY_STATUS line printed')
 
 
+HARNESS_ROTATION_BUCKETS = 10
+
+def _deep_assertion_slugs():
+    """-> slugs whose planted output a later assertion reads back.
+
+    Read out of this file's own text. A case that is skipped must
+    not leave `planted['<slug>']` missing for code that indexes it
+    directly, and the set of such slugs is exactly what a regex
+    over the source can answer without anyone maintaining a list.
+    """
+    try:
+        src = pathlib.Path(__file__).read_text(encoding='utf-8')
+    except OSError:               # practice: fail-gracefully
+        return None               # unknown -> caller runs everything
+    found = set()
+    for m in re.finditer(r"planted\['([A-Za-z0-9-]+)'\]", src):
+        found.add(m.group(1)[:-len('-clean')]
+                  if m.group(1).endswith('-clean') else m.group(1))
+    return found
+
+def _selected_case_slugs(all_slugs, touched=None, count=None):
+    """-> (set of slugs to run, one-line reason). Never raises: a
+    selector that cannot decide runs everything, because the failure
+    of a scheduler must not be silently less coverage.
+
+    `touched` and `count` are normally read from git. They are parameters
+    so this is testable without a fixture repository: a scheduler whose
+    behaviour can only be observed by running the thing it schedules is a
+    scheduler nobody can check, and this one decides how much of the push
+    gate actually executes."""
+    if ('--all' in sys.argv
+            or os.environ.get('PRECEDENT_HARNESS_ALL') == '1'):
+        return set(all_slugs), 'all (--all / PRECEDENT_HARNESS_ALL)'
+    pinned = _deep_assertion_slugs()
+    if pinned is None:
+        return set(all_slugs), 'all (could not read this file to find deep assertions)'
+    if touched is not None and count is not None:
+        touched, count = set(touched), int(count)
+    else:
+        try:
+            base = subprocess.run(
+                ['git', 'merge-base', 'HEAD', 'origin/HEAD'],
+                capture_output=True, text=True, cwd=str(ROOT)).stdout.strip()
+            if not base:
+                base = 'HEAD~1'
+            touched = set(subprocess.run(
+                ['git', 'diff', '--name-only', base, '--'],
+                capture_output=True, text=True,
+                cwd=str(ROOT)).stdout.split())
+            count = int(subprocess.run(
+                ['git', 'rev-list', '--count', 'HEAD'],
+                capture_output=True, text=True,
+                cwd=str(ROOT)).stdout.strip() or 0)
+        except Exception:                                 # noqa: BLE001
+            return set(all_slugs), 'all (the diff could not be read)'
+    machinery = ('tools/precedent_check.py',
+                 'tools/verify_harness.py')
+    if any(f in touched for f in machinery) or any(
+            f.startswith('tools/checks/') for f in touched):
+        return set(all_slugs), 'all (this change touches the check machinery)'
+    directly = {s for s in all_slugs
+                if f'practices/{s}.md' in touched}
+    rest = sorted(set(all_slugs) - directly - set(pinned))
+    bucket = count % HARNESS_ROTATION_BUCKETS
+    rot = {s for i, s in enumerate(rest)
+           if i % HARNESS_ROTATION_BUCKETS == bucket}
+    sel = directly | (set(pinned) & set(all_slugs)) | rot
+    return sel, (f'rotation bucket {bucket}/{HARNESS_ROTATION_BUCKETS}: '
+                 f'{len(directly)} touched, {len(pinned & set(all_slugs))} pinned, '
+                 f'{len(rot)} rotating')
+
+def _registry_slugs():
+    """-> sorted slugs precedent_check registers here. The selector
+    needs the full set BEFORE the first case() runs, and the only
+    authority on it is the registry itself -- the same module the
+    untested-claim assertion at the end of this function loads, and
+    for the same reason it calls register_materialized_checks()
+    first: a source-supplied tools/checks/ script is not in CHECKS
+    until it registers itself."""
+    # `import importlib.util as _ilu`, NOT a bare
+    # `importlib.util.…`: this function already contains a local
+    # `import importlib.util` further down, which makes `importlib`
+    # a local name for the WHOLE enclosing scope, so a reference up
+    # here raises UnboundLocalError and the selector silently falls
+    # back to running everything. Measured, not reasoned about --
+    # the first run of this rotation reported "all (the registry
+    # could not be read)" and took the full 81s.
+    import importlib.util as _ilu
+    try:
+        _spec = _ilu.spec_from_file_location(
+            '_pc_early', ROOT / 'tools' / 'precedent_check.py')
+        _m = _ilu.module_from_spec(_spec)
+        _spec.loader.exec_module(_m)
+        _m.register_materialized_checks()
+        return sorted(_m.CHECKS)
+    except Exception:                                 # noqa: BLE001
+        return []      # -> selector runs everything, by _selected below
+
+
+def check_planted_case_rotation_never_narrows_silently():
+    """The rotation that decides how much of the push gate runs.
+
+    `check_precedent_check_fires` was 107.9s of a 211.5s suite -- 71 cases,
+    each copying the whole tree twice and starting two interpreters. Morgan,
+    2026-09-21 (strength: decided): build the 10% rotation. The risk of any
+    such scheduler is that it quietly runs less than it claims, so the
+    behaviour is asserted here directly rather than inferred from a fast
+    suite (practice: control-asserts-which-failure).
+
+    The four states that matter, and the two that must NEVER narrow:
+    a forced full run, and any change to the check machinery itself.
+    """
+    cases = []
+    slugs = _registry_slugs()
+    if not slugs:
+        return (False, '', 'the check registry could not be read at all, so '
+                           'the selector cannot be exercised')
+
+    saved = os.environ.get('PRECEDENT_HARNESS_ALL')
+    try:
+        os.environ['PRECEDENT_HARNESS_ALL'] = '1'
+        sel, why = _selected_case_slugs(slugs, touched={'README.md'}, count=1)
+        cases.append(('PRECEDENT_HARNESS_ALL=1 runs every case',
+                      sel == set(slugs), f'{len(sel)}/{len(slugs)}: {why}'))
+    finally:
+        if saved is None:
+            os.environ.pop('PRECEDENT_HARNESS_ALL', None)
+        else:
+            os.environ['PRECEDENT_HARNESS_ALL'] = saved
+
+    for touched, label in (({'tools/precedent_check.py'}, 'precedent_check.py'),
+                           ({'tools/verify_harness.py'}, 'verify_harness.py'),
+                           ({'tools/checks/anything.py'}, 'a tools/checks/ script')):
+        sel, why = _selected_case_slugs(slugs, touched=touched, count=1)
+        cases.append((f'a change to {label} runs every case',
+                      sel == set(slugs), f'{len(sel)}/{len(slugs)}: {why}'))
+
+    # A practice file in the diff always runs ITS OWN case -- the whole
+    # point: editing a rule without re-proving its check still fires is the
+    # hole this function exists to close.
+    probe = sorted(s for s in slugs if (ROOT / 'practices' / f'{s}.md').exists())
+    if probe:
+        one = probe[0]
+        # count chosen so `one` is NOT in the rotating slice by luck.
+        for count in range(HARNESS_ROTATION_BUCKETS):
+            sel, _ = _selected_case_slugs(slugs, touched={f'practices/{one}.md'},
+                                          count=count)
+            if one not in sel:
+                cases.append((f'a touched practice always runs its own case '
+                              f'({one}, bucket {count})', False, 'missing'))
+                break
+        else:
+            cases.append(('a touched practice always runs its own case, in '
+                          'every bucket', True, ''))
+
+    # Every slug a later assertion reads back out of `planted[...]` is
+    # pinned, in every bucket -- otherwise a skipped case leaves a KeyError
+    # for unrelated code.
+    pinned = _deep_assertion_slugs() & set(slugs)
+    missing = []
+    for count in range(HARNESS_ROTATION_BUCKETS):
+        sel, _ = _selected_case_slugs(slugs, touched={'README.md'}, count=count)
+        missing += sorted(pinned - sel)
+    cases.append((f'every deep-assertion slug is pinned in all '
+                  f'{HARNESS_ROTATION_BUCKETS} buckets ({len(pinned)} of them)',
+                  not missing, f'missing: {sorted(set(missing))}'))
+
+    # Ten consecutive commits cover the whole set -- "probably" is not the
+    # guarantee, and a rotation that left a check uncovered for longer than
+    # it claims would be worse than no rotation at all.
+    union = set()
+    for count in range(HARNESS_ROTATION_BUCKETS):
+        union |= _selected_case_slugs(slugs, touched={'README.md'}, count=count)[0]
+    uncovered = sorted(set(slugs) - union)
+    cases.append((f'{HARNESS_ROTATION_BUCKETS} consecutive commits cover every '
+                  f'case', not uncovered, f'never covered: {uncovered}'))
+
+    # And it must actually narrow, or it is ceremony.
+    sel, _ = _selected_case_slugs(slugs, touched={'README.md'}, count=0)
+    cases.append(('an ordinary docs change runs well under half the cases',
+                  len(sel) * 2 < len(slugs), f'{len(sel)}/{len(slugs)}'))
+
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    return (not bad, f'{len(cases)} stated cases',
+            '; '.join(f'{n}: {d}' for n, d in bad))
+
+
 def check_precedent_check_fires():
     """The enforced channel's own behaviour, as stated cases against throwaway
     repositories -- one planted violation per enforced practice.
@@ -5776,6 +5963,44 @@ def check_precedent_check_fires():
 
         # --- one planted violation per enforced practice --------------------
         planted = {}
+        declared = set()          # every slug case() was ASKED for
+        ran, skipped = [], []     # and which of those actually executed
+
+        # ROTATION (Morgan, 2026-09-21, strength: decided -- "build the 10%
+        # rotation"). This function was 107.9s of a 211.5s suite: 71 cases,
+        # each copying the whole tree twice and starting two interpreters.
+        # Running all 71 before every push is the cost; running none of them
+        # is not an option, so this is the same three-tier shape Morgan
+        # already directed for precedent_check.py on 2026-09-18
+        # (_scoped_tree_slugs there), applied to the planted cases.
+        #
+        # WHAT ALWAYS RUNS, and each of these is load-bearing:
+        #   - a check whose own practices/<slug>.md this change touched.
+        #     Editing a rule without re-proving its check still fires is
+        #     the exact hole this whole function exists to close.
+        #   - ANY case whose recorded output a later assertion in this file
+        #     reads back out of `planted[...]`. Those are derived from this
+        #     file's own source below rather than kept as a hand-list,
+        #     because a hand-list drifts the first time somebody adds a
+        #     deeper assertion, and the failure would be a KeyError in an
+        #     unrelated case months later.
+        #   - EVERYTHING, when the change touches the check machinery
+        #     itself (tools/precedent_check.py, this file, or a
+        #     tools/checks/ script). A change there can alter any check's
+        #     behaviour, so no rotation slice is a safe sample of it.
+        #
+        # The rest rotate deterministically by commit count, so ten
+        # consecutive commits cover the whole set exactly once each -- not
+        # "probably", the same guarantee _scoped_tree_slugs gives.
+        #
+        # --all, or PRECEDENT_HARNESS_ALL=1, forces the full set. CI sets
+        # it: a gate that runs a tenth of itself is right for a push a
+        # person is standing at, and wrong for the run nobody is watching.
+        _all_case_slugs = _registry_slugs()
+        if _all_case_slugs:
+            _selected, _selection_reason = _selected_case_slugs(_all_case_slugs)
+        else:
+            _selected, _selection_reason = None, 'all (the registry could not be read)'
 
         # case()'s two sub-runs -- the planted fixture and the clean fixture
         # -- are provably independent: different directories, no shared
@@ -5810,6 +6035,17 @@ def check_precedent_check_fires():
                 q.put(('error', e))
 
         def case(slug, plant, extra=(), setup=None, advisory=False):
+            # DECLARED is recorded before the rotation decision, and is what
+            # the untested-claim assertion at the end of this function reads.
+            # A case that this invocation did not RUN is still a case this
+            # file HAS -- conflating the two would turn the rotation into a
+            # report that the registry is missing coverage it actually has.
+            declared.add(slug)
+            if _selected is not None and slug not in _selected:
+                skipped.append(slug)
+                return
+            ran.append(slug)
+
             def _planted_pipeline():
                 repo = fresh(slug)
                 if setup:
@@ -8274,7 +8510,12 @@ def check_precedent_check_fires():
         # script would look unregistered here (and its check would look
         # untested), which is the opposite of the truth.
         pc.register_materialized_checks()
-        untested = sorted(set(pc.CHECKS) - set(planted))
+        # `declared`, not `planted`: with the rotation on, `planted` holds
+        # only the cases this invocation ran, and every skipped one would
+        # read as an untested claim. What this assertion is actually about
+        # is whether the FILE has a case for every registered check, which
+        # is a property of the source, not of one run's rotation slice.
+        untested = sorted(set(pc.CHECKS) - declared)
         cases.append(('every registered check has a planted case here',
                       not untested, f'untested: {untested}' if untested else ''))
         claimed = sorted(
@@ -8296,8 +8537,17 @@ def check_precedent_check_fires():
                 if any(slug in n for n, _ in bad):
                     detail += f"\n    --- {slug} planted run (rc={rc}):\n" + \
                         '\n'.join('    ' + l for l in out.splitlines()[:12])
-        check(f"enforced channel fires ({len(cases)} stated cases: one planted "
-              f"violation per enforced practice, plus the unplanted baseline)",
+        # THE SELECTION IS PART OF THE RESULT LINE, never a silent
+        # narrowing. A rotated run and a full run must not read the same:
+        # "a skip is not a pass" is this repo's own rule about its check
+        # suite, and a scheduler that hid what it declined to run would
+        # break it in the one place it is hardest to notice.
+        _sel = (f"{len(ran)} of {len(declared)} planted cases ran -- "
+                f"{_selection_reason}"
+                + (f"; {len(skipped)} NOT exercised this run, covered within "
+                   f"{HARNESS_ROTATION_BUCKETS} commits (--all forces every "
+                   f"one)" if skipped else ""))
+        check(f"enforced channel fires ({len(cases)} stated cases; {_sel})",
               not bad, detail)
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
@@ -25378,6 +25628,7 @@ def main():
     check_retired_practices_leave_the_views()
     check_resident_subset(files)
     check_behavioral_replay()
+    check_planted_case_rotation_never_narrows_silently()
     check_precedent_check_fires()
     check_routing_scope(files)
     check_routing_audit_coverage()
