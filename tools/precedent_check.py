@@ -3725,6 +3725,125 @@ def _workflow_file_outside_vendoring(ctx):
     return findings
 
 
+@check('shipped-template-carries-its-script', 'tree',
+       "every script a vendored CI workflow template actually RUNS is in "
+       "the engine file list for each kind that template ships to -- so a "
+       "repo installing the workflow receives the thing it executes",
+       "a script the workflow reaches by a path this parser does not "
+       "recognise (a variable, a multi-line shell pipeline, a composite "
+       "action). It reads `tools/NAME` literals out of `run:` steps and "
+       "nothing cleverer, so a finding here is real and a clean run is not "
+       "proof of completeness. It also says nothing about whether the "
+       "script WORKS once delivered -- only that it is delivered.",
+       practice_backed=False)
+def _shipped_template_carries_its_script(ctx):
+    """A vendored CI workflow template must not reference a tools/ script
+    that the kinds it ships to do not receive.
+
+    THE INCIDENT (2026-09-21). CI_WORKFLOW_TEMPLATES listed
+    leak-gate.yml.template for BOTH 'consumer' and 'source' from 2026-09-20.
+    That workflow's only substantive step is
+    `python3 tools/leak_gate.py --structural-only`. Neither leak_gate.py nor
+    its leak-blocklist.default.txt was in ENGINE_FILES (25 names) or
+    CONSUMER_ENGINE_FILES (34), and no step in the workflow fetched them.
+
+    The workflow shipped without the thing it runs. Any repo installing it
+    got a guaranteed red check and a billed runner-minute per trigger -- on
+    the public repositories that gate exists to protect, where the scan
+    failing open is exactly the case it was written for.
+
+    Nothing caught it. It was found by a session TOLD to install the
+    workflow, which read both engine lists first, found neither name, and
+    refused on a broken premise rather than proceeding. That is a person
+    (or an agent) being careful, which is not a mechanism. This is the
+    mechanism.
+
+    WHY THIS RUNS IN THE ENGINE'S OWN REPO AND NOWHERE ELSE. The subject is
+    templates/github-actions/*.template against KINDS -- both of which exist
+    only where the engine is authored. A consuming repo has the installed
+    workflow, not the template, and its own copy of this check has nothing
+    to look at, so it declines rather than passing vacuously.
+    """
+    import re as _re
+    tmpl_dir = ctx.root / 'templates' / 'github-actions'
+    if not tmpl_dir.is_dir():
+        raise NotApplicable(
+            'no templates/github-actions/ -- this repo does not author the '
+            'CI workflow templates, so there is nothing here to compare '
+            'against the engine file lists')
+    try:
+        import precedent_vendor_engine as pve
+    except ImportError:
+        raise NotApplicable('precedent_vendor_engine.py did not import, so '
+                            'the engine file lists cannot be read')
+    ship = getattr(pve, 'CI_WORKFLOW_TEMPLATES', None)
+    kinds = getattr(pve, 'KINDS', None)
+    if not ship or not kinds:
+        raise NotApplicable('this engine carries no CI_WORKFLOW_TEMPLATES/'
+                            'KINDS to compare -- it predates the registries '
+                            'this check reads')
+
+    # Which kinds each template ships to, from the registry itself rather
+    # than from a second list that could drift away from it.
+    ships_to = {}
+    for kind, pairs in ship.items():
+        for tmpl_name, _installed_as in pairs:
+            ships_to.setdefault(tmpl_name, set()).add(kind)
+
+    findings = []
+    for tmpl_name, kind_set in sorted(ships_to.items()):
+        tmpl = tmpl_dir / tmpl_name
+        if not tmpl.is_file():
+            findings.append(Finding(
+                f'templates/github-actions/{tmpl_name}',
+                'named in CI_WORKFLOW_TEMPLATES but not present in '
+                'templates/github-actions/ -- the registry ships a file '
+                'that does not exist here'))
+            continue
+        body = tmpl.read_text(encoding='utf-8', errors='replace')
+        # COMMAND POSITION, NOT MERE MENTION -- and this precision was not
+        # designed in, it was forced. The first version of this check
+        # matched any `tools/NAME.py` in a non-comment line and fired on its
+        # own first run against precedent-check.yml.template, which names
+        # `'python3 tools/precedent_sync_views.py --repo . --check'` INSIDE
+        # an echo, as advice to a human reading a failure message. Nothing
+        # executes it; that template is correct.
+        #
+        # A detector that cries wolf on its first real run is one nobody
+        # runs twice (gotcha-2026-09-21-github-actions-rejects-yaml-anchors-
+        # python-accepts, whose own recipe was corrected for exactly this).
+        # So: the interpreter must sit in COMMAND position -- line start, or
+        # after a pipe/semicolon/&&/subshell -- and must not be preceded by
+        # a quote, which is what puts the advisory mention inside a string.
+        lines = [l for l in body.splitlines() if not l.lstrip().startswith('#')]
+        # `run: python3 tools/x.py` is the common single-line form and was
+        # MISSED by the first command-position attempt, which only accepted
+        # line-start and shell separators -- so the check came back clean
+        # against a fixture reproducing the actual leak_gate.py incident.
+        # Caught by testing the dirty direction; it had already passed the
+        # clean one.
+        invoked = _re.compile(
+            r'''(?:^|[|;&(]|\$\(|\brun:)\s*(?<!['"])python3?\s+tools/'''
+            r'''([A-Za-z0-9_.-]+\.py)\b''')
+        wanted = sorted({m for l in lines for m in invoked.findall(l)})
+        for script in wanted:
+            missing = sorted(k for k in kind_set
+                             if script not in set(kinds.get(k, ())))
+            if missing:
+                findings.append(Finding(
+                    f'templates/github-actions/{tmpl_name}',
+                    f'runs `tools/{script}`, and ships to '
+                    f'{", ".join(sorted(kind_set))} -- but {script} is not '
+                    f'in the engine file list for '
+                    f'{", ".join(missing)}. A repo of that kind installing '
+                    f'this workflow receives it WITHOUT the script it '
+                    f'executes: a guaranteed red check and a billed '
+                    f'runner-minute per trigger. Add {script} to the '
+                    f'matching list in precedent_vendor_engine.py, or stop '
+                    f'shipping this template to that kind.'))
+    return findings
+
+
 @check('declared-base-branch', 'tree',
        "every tool that resolves the repo's branch reads precedent.json's "
        "declared `base_branch` before falling back to inferring one from "
