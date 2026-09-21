@@ -5798,6 +5798,85 @@ def _registry_slugs():
         return []      # -> selector runs everything, by _selected below
 
 
+def check_a_consumer_may_declare_a_ci_workflow_its_own():
+    """A deliberately diverged CI workflow becomes a declaration, not a fight.
+
+    2026-09-21, from a real Update Vendors pass across four practice sets:
+    precedent-individual's precedent-check.yml diverges on purpose (an
+    identity fold, and a note about a flag that repo does not want), so
+    `refresh` refused -- correctly, since it cannot tell that edit from an
+    accident. Both advertised escapes DESTROY the divergence: `--force`
+    overwrites it now, and `record-ci` re-baselines the hash so the NEXT
+    refresh overwrites it silently, which is worse. The session swapped the
+    template in, refreshed, and restored the file by hand: a manoeuvre that
+    works once and leaves nothing behind for whoever meets the same wall.
+
+    Four states, and the last two are what keep it honest -- an exemption
+    that anyone can take without saying why is an exemption nobody reads
+    (practice: control-asserts-which-failure).
+    """
+    import precedent_vendor_engine as pve
+    import tempfile
+
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-localci-'))
+    try:
+        repo = tmp / 'repo'
+        (repo / '.github' / 'workflows').mkdir(parents=True)
+        (repo / 'tools').mkdir()
+        rel = '.github/workflows/precedent-check.yml'
+        (repo / rel).write_text('name: diverged on purpose\n', encoding='utf-8')
+        manifest = {'ci_workflow_files': [rel],
+                    'ci_workflows_sha256': {rel: '0' * 64}}
+        (repo / 'tools' / 'ENGINE_MANIFEST.json').write_text(
+            json.dumps(manifest), encoding='utf-8')
+
+        def cfg(obj):
+            (repo / 'precedent.json').write_text(json.dumps(obj), encoding='utf-8')
+
+        def drift():
+            return pve._ci_workflow_drift(repo, manifest)
+
+        cfg({'sources': []})
+        cases.append(('with no declaration, a diverged workflow is still drift '
+                      '(the refusal that exists today is not weakened)',
+                      bool(drift()), str(drift())))
+
+        cfg({'sources': [], 'local_ci_workflows': {rel: 'identity fold'}})
+        cases.append(('a declared workflow is not drift', not drift(), str(drift())))
+        cases.append(('a declared workflow is not "untracked" either',
+                      not pve._untracked_ci_workflow_files(repo, manifest),
+                      str(pve._untracked_ci_workflow_files(repo, manifest))))
+        cases.append(('the reason is read back, for the report',
+                      pve.local_ci_workflows(repo) == {rel: 'identity fold'},
+                      str(pve.local_ci_workflows(repo))))
+
+        # A REASON IS REQUIRED. An entry with none is ignored outright --
+        # otherwise this is a silent opt-out with extra steps.
+        cfg({'sources': [], 'local_ci_workflows': {rel: '   '}})
+        cases.append(('an entry with an empty reason is ignored, and the '
+                      'refusal stands', bool(drift())
+                      and not pve.local_ci_workflows(repo), str(drift())))
+
+        # A CONFIG THAT CANNOT BE READ MUST NOT WAIVE ANYTHING. Failing
+        # open here would turn a typo into a silent overwrite.
+        (repo / 'precedent.json').write_text('{ not json', encoding='utf-8')
+        cases.append(('an unreadable precedent.json waives nothing',
+                      bool(drift()) and pve.local_ci_workflows(repo) == {},
+                      str(drift())))
+
+        # And the wrong SHAPE is not a declaration either.
+        cfg({'sources': [], 'local_ci_workflows': [rel]})
+        cases.append(('a bare list is not a declaration -- the shape carries '
+                      'the reason', bool(drift()), str(drift())))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    return (not bad, f'{len(cases)} stated cases',
+            '; '.join(f'{n}: {d}' for n, d in bad))
+
+
 def check_reply_check_names_what_it_cannot_evaluate():
     """A reply requirement nobody can evaluate, and a source nobody can
     reach, must both say so.
@@ -25751,6 +25830,7 @@ def main():
     check_retired_practices_leave_the_views()
     check_resident_subset(files)
     check_behavioral_replay()
+    check_a_consumer_may_declare_a_ci_workflow_its_own()
     check_reply_check_names_what_it_cannot_evaluate()
     check_planted_case_rotation_never_narrows_silently()
     check_precedent_check_fires()
