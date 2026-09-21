@@ -163,8 +163,17 @@ def audit_manifest(manifest_path, update, fails, warns, pending):
     changed = False
     for e in manifest.get('entries', []):
         name = f"{label}:{e.get('practice', '?')}"
-        local = ROOT / e.get('local_path', '')
-        upstream = tree / e.get('upstream_path', '')
+        # `or ''`, NOT a .get default: .get returns None for a key that is
+        # PRESENT AND NULL, and `tree / None` raises TypeError rather than
+        # failing the check -- so a manifest entry with no upstream
+        # counterpart crashed the audit instead of being audited. Reported
+        # 2026-09-21 by a consuming repo that added the first such entry
+        # (a local-only action with nothing upstream to compare against)
+        # and had to write "" rather than null to get past it. The manifest
+        # is somebody else's file; it does not owe us a particular spelling
+        # of absent.
+        local = ROOT / (e.get('local_path') or '')
+        upstream = tree / (e.get('upstream_path') or '')
         if not local.exists():
             fails.append(f"INTEGRITY: [{name}] local_path missing: {e.get('local_path')}")
             continue

@@ -1030,7 +1030,19 @@ def _write_hook_files(dest_root, hooks_src_dir):
               f".claude/settings.json ({', '.join(skipped)}) -- not vendored. "
               f"That is expected for a hook only a different repo kind wires "
               f"(a practice set vs. a consumer), or one this repo declined on "
-              f"purpose.", file=sys.stderr)
+              f"purpose.\n"
+              f"      IF IT IS NEITHER -- if upstream has added a hook this "
+              f"repo wants -- NOTHING WILL DELIVER IT ON ITS OWN. Vendoring "
+              f"is gated on wiring and a refresh never writes your "
+              f"settings.json, so a NEW hook cannot reach a repo that is "
+              f"already installed: it is not vendored until it is wired, and "
+              f"wiring it means naming a file that is not there yet. Break "
+              f"the loop by hand -- copy the entry from "
+              f"templates/harness/claude-code/settings.json in the upstream "
+              f"checkout into yours, then re-run this refresh and the file "
+              f"arrives. Reported 2026-09-21 by a repo that hit exactly "
+              f"this; todo/todo-2026-09-21-a-new-hook-cannot-reach-an-"
+              f"installed-consumer.md has the analysis.", file=sys.stderr)
     for n in sorted(adapter_owned & wired):
         source_name = claimed[f'{HOOK_DEST_DIR}/{n}']
         print(f"NOTE: precedent_vendor_engine: {n} is not vendored by this "
