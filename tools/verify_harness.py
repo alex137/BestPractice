@@ -14593,7 +14593,7 @@ def check_views_drift_gate_reaches_a_source_set():
          alone, and require every `*.py` named in their generated headers to
          exist in that set's own tools/.
       2. `build_views.py --check` -- what the headers now name, and what
-         precedent-check.yml.template's own views-drift job runs -- actually
+         precedent-check.yml.template's own views-drift steps run -- actually
          gates there: exit 0 clean, non-zero on one planted line.
 
     Plus the shipping half: the template exists, gates without writing, and
@@ -14668,14 +14668,29 @@ def check_views_drift_gate_reaches_a_source_set():
                       'command the headers and the shipped workflow both name '
                       'actually gates', rc != 0 and 'MAP.md' in out, out))
 
-        # The shipping half. Since 2026-09-19 the views-drift gate is a JOB
-        # inside precedent-check.yml.template, not its own file -- see that
-        # template's own header and spec/CI_MINUTES_PLAN.md item 9.
+        # The shipping half. Since 2026-09-19 the views-drift gate lives
+        # inside precedent-check.yml.template rather than its own file, and
+        # since 2026-09-20 it is STEPS in that file's single job rather than
+        # a job of its own -- see that template's header and
+        # spec/CI_MINUTES_PLAN.md items 9 and 13.
+        #
+        # ASSERT THE GATE, NOT ITS PACKAGING (2026-09-20). This case used to
+        # test `'views-drift:' in text`, which is a YAML job key -- so
+        # collapsing three billed jobs into one turned it red although the
+        # gate it names still shipped, unchanged, in the same file. A check
+        # that fails when the thing it guards is intact is a check that
+        # teaches people to edit checks. What actually has to hold is that
+        # an adopter's workflow RUNS the drift check; whether that is a job
+        # or a step is a billing decision, and the cases below already pin
+        # the parts that matter (the command, the checkout ref, the refusals).
         tmpl = ROOT / 'templates' / 'github-actions' / 'precedent-check.yml.template'
         text = tmpl.read_text(encoding='utf-8') if tmpl.is_file() else ''
         cases.append(('templates/github-actions/precedent-check.yml.template '
-                      'ships the views-drift gate to adopters, as a job',
-                      bool(text) and 'views-drift:' in text, ''))
+                      'ships the views-drift gate to adopters (as a job or '
+                      'as steps -- the gate is what is required, not its '
+                      'packaging)',
+                      bool(text) and 'Check the generated views' in text
+                      and 'build_views.py' in text, ''))
         cases.append(('it runs build_views.py --check, and only reads the repo',
                       '--check' in text and 'build_views.py' in text
                       and 'contents: read' in text,
@@ -14720,7 +14735,7 @@ def check_views_drift_gate_reaches_a_source_set():
         missing = pbs.verify('individual', newset)
         cases.append(('verify() names an opted-in set that has no '
                       'precedent-check workflow (which carries the '
-                      'views-drift gate as one of its jobs)',
+                      'views-drift gate among its steps)',
                       any('precedent-check.yml' in m for m in missing),
                       '; '.join(missing)))
 
