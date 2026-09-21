@@ -6372,13 +6372,27 @@ def check_precedent_check_fires():
 
         # vendored-import-refs-resolve -- a vendored file (precedent_paths.py,
         # in both ENGINE_FILES and CONSUMER_ENGINE_FILES) module-level
-        # imports parse_check.py, which is vendored in neither -- reproducing
-        # the 2026-09-19 incident this check exists for
-        # (precedent_check.py did exactly this to itself and broke
-        # check_installer_produces_a_clean_install).
+        # imports a tool vendored in NEITHER -- reproducing the 2026-09-19
+        # incident this check exists for (precedent_check.py did exactly
+        # this to itself and broke check_installer_produces_a_clean_install).
+        #
+        # THE PLANTED IMPORT WAS parse_check UNTIL 2026-09-21, and vendoring
+        # very_deep_check.py that day brought parse_check.py into both lists
+        # with it -- so the planted "violation" resolved cleanly and this
+        # case silently stopped testing anything. The harness caught it in
+        # the same run: "a planted violation fails the check". That is the
+        # planted-case mechanism doing precisely its job, and it is the
+        # reason a check without one is refused.
+        #
+        # precedent_upstream_check.py is the replacement because it is
+        # unvendored BY DESIGN rather than by omission: it compares this
+        # repo's own main against its carry watermark, a question no other
+        # repository has. A future list change is unlikely to absorb it the
+        # way parse_check.py was absorbed -- but if one ever does, this case
+        # will fail exactly like this one did, which is the point.
         case('vendored-import-refs-resolve',
              lambda repo: rewrite(repo, 'tools/precedent_paths.py',
-                                  lambda t: 'import parse_check\n' + t))
+                                  lambda t: 'import precedent_upstream_check\n' + t))
 
         # generated-artifact-provenance -- a hand-edited generated view
         case('generated-artifact-provenance',
