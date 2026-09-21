@@ -87,6 +87,37 @@ this repository's own generated views without anyone updating a list.
 Editing any of those rendered copies by hand instead is
 [generated-edit-goes-upstream](generated-edit-goes-upstream.md)'s failure.
 
+**The printed count is SMALLER than the number of `command:` entries, and
+that is correct.** It came up twice on 2026-09-21 as a suspected bug, from
+two different sessions, so the arithmetic is written down here rather than
+re-derived a third time. Measured on that date:
+
+| | |
+|---|---:|
+| `command:` entries across all practice files | 23 |
+| less entries in practices whose `status:` is not `active` | −3 |
+| command names with an active practice behind them | **20** |
+| less names collapsed as a SYNONYM onto another line | −2 |
+| **lines the tool prints** | **18** |
+
+The two synonyms are `Approved` (printed under `Go update`) and `Archive?`
+(under `Archive`). The three inactive ones are `archive-command`,
+`brief-it` and `session-text`, each `status: deduplicated` — folded into a
+surviving practice, so their word still works and their entry is not a
+second rule.
+
+So a name appearing twice across the catalogue is the NORMAL shape of a
+deduplication, not a collision: one claim is active, the other is not.
+**Nothing currently stops two ACTIVE practices from claiming the same
+word**, which would be a real ambiguity — a session would see two lines
+with the same command and no way to tell which rule binds. There is no such
+pair today; it is simply unguarded.
+
+**Which is the whole reason this practice says to read the list rather than
+recall it.** Both sessions that reported a discrepancy had counted
+something reasonable — output lines, or frontmatter entries — and neither
+number is the answer. The tool is the answer.
+
 ## Why
 **The commands only work if the person knows them, and they were being asked
 to keep the list in their head.** Precedent ships a growing set of standing
