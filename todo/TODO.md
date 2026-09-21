@@ -133,6 +133,7 @@
 | [`todo-2026-09-21-leak-gate-self-heals-by-cloning-into-home`](todo-2026-09-21-leak-gate-self-heals-by-cloning-into-home.md) | cloning the individual practice set into `$HOME` | 0d | ask |  |
 | [`todo-2026-09-21-measure-the-billing-floor-fix-on-one-repo`](todo-2026-09-21-measure-the-billing-floor-fix-on-one-repo.md) | A measured before/after on `precedent-individual`, as the controlled test of the billing-floor theory. | 0d | ask | the busiest consuming repo's vendor update finishing first — Morgan, 2026-09-21,… |
 | [`todo-2026-09-21-nothing-checks-a-consumer-against-upstream`](todo-2026-09-21-nothing-checks-a-consumer-against-upstream.md) | Every check in this system runs inside one repository. | 0d | ask |  |
+| [`todo-2026-09-21-refresh-deletes-a-workflow-another-file-depends-on`](todo-2026-09-21-refresh-deletes-a-workflow-another-file-depends-on.md) | The engine refresh deleted a workflow that another paused workflow named as the place its checks had been folded into, a | 0d | ask |  |
 | [`todo-2026-09-21-resident-cap-was-measured-on-the-wrong-shape`](todo-2026-09-21-resident-cap-was-measured-on-the-wrong-shape.md) | `resident_block_tokens: 2000` blocks a real adopter's vendor update, and the cap is the thing that is wrong. | 0d | ask |  |
 | [`todo-2026-09-21-structural-only-route-3-not-exercised`](todo-2026-09-21-structural-only-route-3-not-exercised.md) | `check_structural_only_actually_drops_the_private_half` covers two of the three routes it names, and the third is guarde | 0d | ask |  |
 
