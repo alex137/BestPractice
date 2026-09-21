@@ -488,6 +488,19 @@ ENGINE_FILES = [
     'very_deep_check.py',
     'parse_check.py',
     'precedent_bootstrap_source.py',
+    # THE ONE CHECK THAT LOOKS OUTWARD (2026-09-21). Every other check in
+    # this system runs inside one repository and compares it against
+    # itself. This one reads THIS manifest's source_commit against the live
+    # upstream branch and says whether the vendored engine has fallen
+    # behind -- the question nothing could answer before, which is why a
+    # fix merged upstream reached an installed repo only when somebody
+    # remembered to run "Update Vendors" there. Measured 2026-09-20: 18 of
+    # 22 repositories had never taken one.
+    #
+    # It prints and never refreshes. Wired into the session-start hook and
+    # precedent_gate.py's push/merge moments precisely because a reminder
+    # is what already failed.
+    'precedent_engine_freshness.py',
     'precedent_vendor_engine.py',
 ]
 
@@ -1253,7 +1266,7 @@ def _untracked_ci_workflow_files(dest_root, manifest):
             if rel not in tracked and rel not in RETIRED_CI_WORKFLOW_FILES]
 
 
-def _remove_retired_ci_workflow_files(dest_root, manifest):
+def _remove_retired_ci_workflow_files(dest_root, manifest, kind=None):
     """Drop every RETIRED_CI_WORKFLOW_FILES entry from a manifest that still
     carries one, and delete a retired file still on disk -- but ONLY when
     its current on-disk sha256 still matches the hash the manifest already
@@ -1298,7 +1311,58 @@ def _remove_retired_ci_workflow_files(dest_root, manifest):
     if not manifest_path.is_file():
         return []
     recorded = dict(manifest.get('ci_workflows_sha256') or {})
-    dropped = sorted(rel for rel in recorded if rel in RETIRED_CI_WORKFLOW_FILES)
+
+    # TWO WAYS A TRACKED CI WORKFLOW CAN BE OVER (the second added
+    # 2026-09-21, practice: cite-the-incident).
+    #
+    # 1. A RETIRED_CI_WORKFLOW_FILES tombstone -- an explicit, reasoned
+    #    entry, which is the only way a RENAME can be expressed.
+    # 2. THIS KIND NO LONGER SHIPS IT. Until today this function read the
+    #    tombstone dict alone, and _remove_dropped_engine_files -- the
+    #    ordinary tools/ path, six hundred lines up -- has always done the
+    #    opposite: it diffs the PREVIOUS manifest against what the kind
+    #    includes now, so dropping a name propagates its deletion whether
+    #    or not anybody remembered a tombstone.
+    #
+    #    That asymmetry was the concrete hole. Dropping a template from
+    #    CI_WORKFLOW_TEMPLATES without also writing a tombstone left the
+    #    installed workflow in every repo, forever, tracked by a manifest
+    #    entry nothing would ever clear. Found 2026-09-21 while answering
+    #    "are deletions passed through to the vendored-in repos?" -- the
+    #    answer was yes for engine files and no for CI workflows, and
+    #    nobody had noticed the two paths disagreed.
+    #
+    # THE GUARD THE ENGINE PATH DOES NOT NEED. _remove_dropped_engine_files
+    # is called with a `kind` its caller has already validated. Here the
+    # kind comes out of the MANIFEST, which is a file on disk in somebody
+    # else's repository -- and `CI_WORKFLOW_TEMPLATES.get(<unknown>, ())`
+    # is an empty tuple, which would read as "this kind ships nothing, so
+    # delete everything tracked". A manifest with a typo'd or future kind
+    # must not trigger a sweep, so the diff is skipped entirely unless the
+    # kind is a key we recognise. The tombstone half still applies, since
+    # it names paths explicitly and cannot over-reach.
+    # THE KIND COMES FROM THE CALLER, not from the manifest, and that
+    # distinction is load-bearing. During a source->consumer CONVERSION the
+    # manifest on disk still says the OLD kind, so reading it here would
+    # diff against the wrong shipping list and delete the new kind's own
+    # workflows. Both call sites already compute
+    # `manifest.get('kind', DEFAULT_KIND)`; they pass it in.
+    if kind is None:
+        kind = manifest.get('kind', DEFAULT_KIND)
+    superseded = set()
+    if kind in CI_WORKFLOW_TEMPLATES:
+        ships_now = {installed_as
+                     for _tmpl, installed_as in CI_WORKFLOW_TEMPLATES[kind]}
+        superseded = {rel for rel in recorded if rel not in ships_now}
+    elif recorded:
+        print(f"NOTE: precedent_vendor_engine: manifest kind {kind!r} is not "
+              f"one of {sorted(CI_WORKFLOW_TEMPLATES)}, so tracked CI "
+              f"workflow files were NOT checked against what this kind "
+              f"ships. Only explicitly retired entries were considered.",
+              file=sys.stderr)
+
+    dropped = sorted({rel for rel in recorded
+                      if rel in RETIRED_CI_WORKFLOW_FILES} | superseded)
     if not dropped:
         return []
     deleted, kept = [], []
@@ -1312,8 +1376,10 @@ def _remove_retired_ci_workflow_files(dest_root, manifest):
             deleted.append(rel)
         else:
             kept.append(rel)
+            why = RETIRED_CI_WORKFLOW_FILES.get(
+                rel, f'this kind ({kind}) no longer ships it')
             print(f"WARN: precedent_vendor_engine: {rel} was retired "
-                  f"({RETIRED_CI_WORKFLOW_FILES[rel]}) and has been hand-"
+                  f"({why}) and has been hand-"
                   f"edited since the manifest last recorded its hash -- left "
                   f"in place, not deleted. Move the edit upstream, then "
                   f"delete it by hand once its replacement is confirmed "
@@ -2031,7 +2097,7 @@ def refresh(clone, force=False, ref=None):
     # workflow entry is cleaned up unconditionally, --force or not, so its
     # own retirement can never be the reason refresh refuses. See
     # RETIRED_CI_WORKFLOW_FILES' own comment for the incident this closes.
-    _remove_retired_ci_workflow_files(ROOT, manifest)
+    _remove_retired_ci_workflow_files(ROOT, manifest, kind)
 
     if not force:
         drift = (_local_drift(dest_tools, manifest) + _hook_drift(ROOT, manifest)
@@ -2348,7 +2414,7 @@ def _cli_record_ci(rest):
     dest_tools = ROOT / 'tools'
     manifest = _load_manifest(dest_tools)
     kind = manifest.get('kind', DEFAULT_KIND)
-    _remove_retired_ci_workflow_files(ROOT, manifest)
+    _remove_retired_ci_workflow_files(ROOT, manifest, kind)
     before = dict(_load_manifest(dest_tools).get('ci_workflows_sha256') or {})
     written = record_ci_workflow_files(ROOT, kind)
     if not written:

@@ -747,6 +747,38 @@ def _within(path, root):
     return path == root or root in path.parents
 
 
+def placed_practice_file(repo_root, slug, source_file, planned=()):
+    """-> the path a practice's Rule links are placed relative to.
+
+    THE ONE PLACE THAT ANSWERS "where does this practice live, for the
+    purpose of repointing its links". Two callers render AGENTS.md's loader
+    block -- this module for `--repo DIR --check`, and
+    precedent_sync_views.py for the install step -- and they used to answer
+    it differently: sync_views passed the MATERIALIZED path
+    (`<repo>/practices/<slug>.md`), this module passed the SOURCE clone's
+    (`<repo>/precedent/universal/practices/<slug>.md`). Both exist on disk
+    in a consuming repo, so neither was reported unplaceable; they simply
+    rendered a sibling citation two different ways, and
+    `generated-artifact-provenance` then reported an AGENTS.md the
+    documented install step had just written as hand-edited, with no state
+    of the repo able to satisfy it. Found 2026-09-21, after eight merges
+    red; the fix is one function, not two that agree.
+
+    The materialized path wins wherever the run has it: it is inside the
+    repo the block lands in, so the link works for a reader with no source
+    clone at all. `planned` covers the run that is ABOUT to write it --
+    materialize() empties practices/ before refilling it, so asking the
+    disk mid-run answers a question about the previous run
+    (_place_rule_links carries the same argument for the same reason).
+    Where neither holds -- an engine-dev practice withheld from the tree, a
+    source that materializes nothing -- the source path is returned
+    unchanged and _place_rule_links makes its own call about it."""
+    placed = pathlib.Path(repo_root) / 'practices' / f'{slug}.md'
+    if placed.exists() or f'practices/{slug}.md' in planned:
+        return placed
+    return pathlib.Path(source_file)
+
+
 def _place_rule_links(text, practice_file, block_dir, repo_root=None,
                       planned=()):
     """-> (rewritten Rule text, [unplaceable link targets]).
@@ -1411,8 +1443,9 @@ def loader_practices(root, own_practices):
                for s in declared):
         resolved = {slug: v for slug, v in resolved.items()
                     if not _is_engine_dev_scoped(v['fm'])}
-    practices = [(v['fm'], v['sections'], v['file'])
-                 for v in resolved.values()]
+    practices = [(v['fm'], v['sections'],
+                  placed_practice_file(root, slug, v['file']))
+                 for slug, v in resolved.items()]
     levels = {slug: v['level'] for slug, v in resolved.items()}
     return practices, levels
 
@@ -1777,6 +1810,7 @@ TOOLS_DESCRIPTIONS = {
     'build_gotcha_index.py': "gotchas/INDEX.md, generated from gotchas/*.md's frontmatter and Symptom sections -- not loaded by AGENTS.md",
     'verify_harness.py': "The verification harness — run before trusting any change here",
     'very_deep_check.py': "The very deep check — on-demand whole-repo coherence review, distinct from full-practice-audit",
+    'precedent_engine_freshness.py': "Says whether this repo's VENDORED engine has fallen behind upstream — the one check that looks outward; prints, never refreshes",
 }
 
 

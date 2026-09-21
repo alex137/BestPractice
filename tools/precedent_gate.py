@@ -436,6 +436,32 @@ def main():
                   f"({e}). Treat that as unknown, not as room to spare; "
                   f"`python3 tools/session_load_trend.py` reports it "
                   f"directly.\n")
+    # THE VENDORED ENGINE'S OWN FRESHNESS, at the two moments work leaves
+    # this repo (2026-09-21). Every other check here compares a repo
+    # against itself; this one compares this repo's manifest against live
+    # upstream and says whether the engine it is enforcing with has fallen
+    # behind. Pushing or merging on a months-old engine is the case that
+    # kept happening silently -- 18 of 22 repositories had never taken an
+    # update, measured 2026-09-20.
+    #
+    # --quiet: it prints ONLY when this repo is actually behind. A gate
+    # that says "current" at every push is a gate people stop reading, and
+    # the notice has to stay worth noticing. Never fatal, and the tool
+    # itself exits 0 on no network, no manifest and a malformed one, so
+    # this cannot block a push over a hiccup (practice: fail-gracefully).
+    if gate in ('merge', 'push'):
+        try:
+            sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+            import precedent_engine_freshness as pef
+            pef.report(root, quiet=True)
+        except ImportError:
+            pass          # partial vendor, same as the block above
+        except Exception as e:                               # noqa: BLE001
+            print(f"NOTE: the vendored engine's freshness could not be "
+                  f"checked ({e}). Treat that as unknown, not as current; "
+                  f"`python3 tools/precedent_engine_freshness.py` reports "
+                  f"it directly.\n")
+
     for n in source_notes:
         print(f"NOTE: {n}\n")
     if any(registered[s][0] in PRIVATE_LEVELS for s in slugs):

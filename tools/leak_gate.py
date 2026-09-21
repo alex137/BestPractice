@@ -1397,6 +1397,40 @@ def main():
                           or _require_vocabulary_configured()
                           or _priv_resolved))
     blocklist, source, configured = load_blocklist()
+    # AND --structural-only MUST ACTUALLY DROP THEM (2026-09-21, practice:
+    # cite-the-incident). Until today the flag only cleared `require_vocab`
+    # -- whether the vocabulary layer was REQUIRED -- and never touched
+    # whether it was APPLIED. So a caller asking for "the structural half
+    # alone", in the words of this very block, still got every private
+    # pattern load_blocklist() happened to find.
+    #
+    # Measured in this repo, same tree, same commit: `leak_gate.py` and
+    # `leak_gate.py --structural-only` printed the IDENTICAL line, both
+    # "15 blocklist pattern(s) ... default (6) + <private set> (9)". The
+    # flag changed nothing it claimed to change.
+    #
+    # Why it matters beyond tidiness, and this is how it was found: a
+    # session refused to install leak-gate.yml off a local pass, because
+    # the gate's verdict was not reproducible across environments. A CI
+    # runner resolves no private set and so scans 6 patterns; a developer's
+    # machine resolves one and scans 15 -- under the same flag, the one the
+    # workflow passes. Local red predicted nothing about CI, and local
+    # green predicted nothing either. A gate whose answer depends on where
+    # it ran is not a gate anyone can act on.
+    if structural_only:
+        # THE DEFAULT HALF STAYS. Corrected within the hour: the first
+        # version of this dropped BOTH halves, which over-shot. The default
+        # list is COMMITTED and publishable -- its own header says so, and
+        # profanity is the first thing in it -- so it is exactly as safe on
+        # a CI runner as in this repo, and the harness asserts that a word
+        # from it still fails the gate under this flag. What CI cannot have,
+        # and what made the verdict differ by machine, is the PRIVATE half.
+        # So: drop that one, keep the default.
+        _d = load_default_blocklist()
+        blocklist = _d
+        source = (f'{DEFAULT_BLOCKLIST.name} ({len(_d)} pattern(s)); '
+                  f'private half skipped (--structural-only)')
+        configured = False
     units = units_to_scan(mode, rev_range)
     # The repo-reference allowlist is read from the SAME private file as the
     # vocabulary patterns, so a clone with no private blocklist configured
