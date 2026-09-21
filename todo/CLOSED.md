@@ -4,6 +4,7 @@
 
 | Item | What | Status | Closed |
 |---|---|---|---|
+| [`todo-2026-09-21-instruction-files-name-repos-nobody-checks`](todo-2026-09-21-instruction-files-name-repos-nobody-checks.md) | twice | done | 2026-09-21 |
 | [`todo-2026-09-21-scratch-install-resolved-an-undeclared-individual-source`](todo-2026-09-21-scratch-install-resolved-an-undeclared-individual-source.md) | A project whose `precedent.json` declares only `universal` and `repo-local` resolved an INDIVIDUAL source anyway. | done | 2026-09-21 |
 | [`todo-2026-09-21-structural-leak-rules-assume-bestpractices-own-tree`](todo-2026-09-21-structural-leak-rules-assume-bestpractices-own-tree.md) | this | done | 2026-09-21 |
 | [`todo-2026-09-21-two-tools-generate-agents-md-and-disagree`](todo-2026-09-21-two-tools-generate-agents-md-and-disagree.md) | [tools/precedent_sync_views.py](../tools/precedent_sync_views.py) and [tools/build_views.py](../tools/build_views.py) bo | done | 2026-09-21 |

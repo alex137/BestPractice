@@ -3943,6 +3943,140 @@ def boundary_audit(repo_root, sources=(), skip_api=False, out=None):
     return findings, notes
 
 
+# The files a session reads before it does anything. A wrong repository
+# name here is worse than anywhere else in the tree, because it is the one
+# document nobody chooses to open -- it is simply in force.
+INSTRUCTION_FILES = ('AGENTS.md', 'CLAUDE.md', 'GEMINI.md',
+                     'WHERE_THINGS_ARE.md')
+
+# `github.com/owner/name`, and a bare `owner/name` where the owner is one
+# this session already knows from a real remote. The second half is what
+# makes this usable: an unanchored `\w+/\w+` matches `practices/park-it.md`
+# and `tools/doc_lint.py` on every line of every instructions file. Anchor
+# on owners that actually exist here and the noise goes to zero.
+_GH_URL_REF_RE = re.compile(r'github\.com/([A-Za-z0-9][\w.-]*)/([\w.-]+?)(?=[/\s)\]"\'`>,.]|$)')
+
+
+def _known_owners(rows):
+    """-> {owner} seen in the remotes of the repos in force."""
+    owners = set()
+    for _label, url, _path in rows:
+        m = _GH_REMOTE_RE.search(url or '')
+        if m:
+            owners.add(m.group(1))
+    return owners
+
+
+def _repo_refs_in_instruction_files(rows):
+    """-> {(owner, name): [where, ...]} for every repository an always-loaded
+    instructions file NAMES, across every repo in force.
+
+    WHY THIS IS NOT A CLOSE READ (Morgan, 2026-09-21, strength: decided).
+    An Update Vendors pass found a consuming repo's AGENTS.md naming
+    `VoiceDefinitionMorgan` twice -- in the session-start step and again in
+    a tool's description -- where the real repository is `VoiceDefMorgan`.
+    That file's own step 1 warns about a source name going stale silently.
+
+    Two checks came close and neither asks this. `repo-reference-allowlist`
+    asks whether a name MAY be mentioned -- a leak control, offline by
+    design because it runs in the push gate. `repos_in_force_audit` below
+    asks whether a repository EXISTS, but only about the ones declared as
+    sources. A name in prose is not a source, so a repository reference was
+    checked for permission and never for existence.
+
+    Anchored two ways, and the second is what keeps it quiet: a full
+    github.com URL, or a bare `owner/name` whose owner is one this session
+    has actually seen on a remote. Without that anchor the pattern matches
+    every `practices/foo.md` and `tools/bar.py` in the file.
+    """
+    owners = _known_owners(rows)
+    bare = (re.compile(r'(?<![\w./-])(' + '|'.join(re.escape(o) for o in sorted(owners))
+                       + r')/([A-Za-z0-9][\w.-]*)') if owners else None)
+    found = {}
+    for label, _url, path in rows:
+        if not path:
+            continue
+        for name in INSTRUCTION_FILES:
+            f = pathlib.Path(path) / name
+            try:
+                text = f.read_text(encoding='utf-8', errors='ignore')
+            except OSError:
+                continue
+            hits = set(_GH_URL_REF_RE.findall(text))
+            if bare:
+                hits |= set(bare.findall(text))
+            for owner, repo in hits:
+                repo = repo.rstrip('.,);:')
+                if not repo or repo.endswith('.md') or repo.endswith('.py'):
+                    continue
+                found.setdefault((owner, repo), []).append(f'{label}:{name}')
+    return found
+
+
+def instruction_file_repo_refs_audit(repo_root, sources=(), missing=(),
+                                     base_url=None, out=None, already=()):
+    """-> (findings, notes). One API call per DISTINCT repository named in an
+    always-loaded instructions file and not already probed as a source.
+
+    `already` is the set of (owner, name) repos_in_force_audit has just
+    asked about, so the two sections never pay twice for the same name --
+    this tool reports its own API bill, and a section that silently doubled
+    a cost the run already paid would make that report a lie.
+    """
+    findings, notes = [], []
+    out = out if out is not None else sys.stdout
+    rows = _repos_in_force(repo_root, sources, missing, base_url)
+    refs = _repo_refs_in_instruction_files(rows)
+    already = {(o.lower(), n.lower()) for o, n in already}
+    todo = {k: v for k, v in refs.items()
+            if (k[0].lower(), k[1].lower()) not in already}
+    if not refs:
+        print('  instruction-file repo references: none found', file=out)
+        return findings, notes
+    token, var = _api_token()
+    checked = 0
+    for (owner, name), where in sorted(todo.items()):
+        seen = ', '.join(sorted(set(where)))
+        data, err = _api_json(f'repos/{owner}/{name}')
+        if err:
+            notes.append(f'{owner}/{name} (named in {seen}): not checked ({err})')
+            continue
+        if not isinstance(data, dict) or 'full_name' not in data:
+            msg = str((data or {}).get('message', 'no repository in response'))
+            if 'Not Found' in msg and token:
+                findings.append(
+                    f'{owner}/{name} is named in {seen} and DOES NOT EXIST '
+                    f'-- asked with a credential ({var}). An instructions '
+                    f'file is the one document every session reads before '
+                    f'doing anything, so a name that resolves to nothing '
+                    f'sends every one of them somewhere that is not there. '
+                    f'Find the real name and fix every occurrence, not the '
+                    f'first.')
+            elif 'Not Found' in msg:
+                notes.append(
+                    f'{owner}/{name} (named in {seen}): Not Found asked '
+                    f'ANONYMOUSLY, which is also what a private repository '
+                    f'answers -- says nothing either way. Set '
+                    f'PRECEDENT_GIT_TOKEN and re-run.')
+            else:
+                notes.append(f'{owner}/{name} (named in {seen}): not checked ({msg})')
+            continue
+        checked += 1
+        canonical = str(data.get('full_name') or '')
+        if canonical and canonical.lower() != f'{owner}/{name}'.lower():
+            findings.append(
+                f'{owner}/{name} is named in {seen} and the API answers '
+                f'{canonical} -- it has been RENAMED. The old name keeps '
+                f'working through a redirect that lasts only until somebody '
+                f'creates a repository under it, which is why this is worth '
+                f'fixing before it breaks rather than after.')
+    print(f'  instruction-file repo references: {len(refs)} named, '
+          f'{len(refs) - len(todo)} already asked as sources, '
+          f'{checked} of {len(todo)} answered'
+          + (f' -- {len(findings)} finding(s)' if findings else ''), file=out)
+    return findings, notes
+
+
 def repos_in_force_audit(repo_root, sources=(), missing=(), base_url=None,
                          out=None):
     """-> (findings, notes). One API call per repo in force."""
@@ -5002,6 +5136,23 @@ def _main(box):
         for f in _lf:
             print(f'  FINDING: {f}')
         for n in _ln:
+            print(f'  note: {n}')
+        # AND THE REPOSITORIES THE INSTRUCTIONS FILES NAME, which the audit
+        # above does not reach: it asks about repos declared as SOURCES, and
+        # a name sitting in prose is not a source. Same call, same handling
+        # of Not Found and of a rename; `already` keeps the two sections from
+        # paying twice for one name, since this tool reports its own bill.
+        _already = set()
+        for _lbl, _url, _pth in _repos_in_force(repo_root, data['sources'],
+                                                data['missing']):
+            _m = _GH_REMOTE_RE.search(_url or '')
+            if _m:
+                _already.add((_m.group(1), _m.group(2)))
+        _rf, _rn = instruction_file_repo_refs_audit(
+            repo_root, data['sources'], data['missing'], already=_already)
+        for f in _rf:
+            print(f'  FINDING: {f}')
+        for n in _rn:
             print(f'  note: {n}')
         print()
         # WHETHER THIS SESSION CAN LAND WORK IN EACH ONE, which the audit

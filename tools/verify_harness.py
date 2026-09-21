@@ -5798,6 +5798,86 @@ def _registry_slugs():
         return []      # -> selector runs everything, by _selected below
 
 
+def check_instruction_files_name_repos_that_exist():
+    """A repository named in an always-loaded instructions file is asked
+    about, and the pattern that finds those names does not find noise.
+
+    2026-09-21: an Update Vendors pass found a consuming repo's AGENTS.md
+    naming `VoiceDefinitionMorgan` twice -- the session-start step and a
+    tool's description -- where the real repository is `VoiceDefMorgan`,
+    in the file whose own step 1 warns about a source name going stale
+    silently. `repo-reference-allowlist` asks whether a name may be
+    MENTIONED; `repos_in_force_audit` asks whether a SOURCE exists. A name
+    in prose is neither, so it was checked for permission and never for
+    existence.
+
+    THE NOISE CONTROL IS THE LOAD-BEARING CASE. An unanchored owner/name
+    pattern matches `practices/park-it.md` and `tools/doc_lint.py` on
+    nearly every line of an instructions file, and a probe that reports
+    fifty phantom repositories is one nobody runs twice. Anchoring on
+    owners seen in real remotes is what makes it usable, so both halves are
+    asserted (practice: control-asserts-which-failure).
+    """
+    import very_deep_check as vdc
+    import tempfile
+
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-refs-'))
+    try:
+        repo = tmp / 'repo'
+        repo.mkdir()
+        (repo / 'AGENTS.md').write_text(
+            '# Instructions\n\n'
+            'Clone realowner/RealRepo at session start.\n'
+            'See practices/park-it.md and tools/doc_lint.py for the rest.\n'
+            'Upstream is https://github.com/otherowner/Upstream for now.\n'
+            'Look in spec/PLAN.md, todo/TODO.md and documentation/X.md too.\n',
+            encoding='utf-8')
+        rows = [('fixture', 'https://github.com/realowner/Anchor', str(repo))]
+
+        cases.append(('the owner is learned from a real remote',
+                      vdc._known_owners(rows) == {'realowner'},
+                      str(vdc._known_owners(rows))))
+
+        refs = vdc._repo_refs_in_instruction_files(rows)
+        keys = set(refs)
+        cases.append(('a bare owner/name with a KNOWN owner is found',
+                      ('realowner', 'RealRepo') in keys, str(sorted(keys))))
+        cases.append(('a full github.com URL is found even for an unknown owner',
+                      ('otherowner', 'Upstream') in keys, str(sorted(keys))))
+        noise = {k for k in keys
+                 if k[0] in ('practices', 'tools', 'spec', 'todo',
+                             'documentation')}
+        cases.append(('a repo-relative path is NOT read as a repository '
+                      '(the case that decides whether this is usable)',
+                      not noise, f'noise: {sorted(noise)}'))
+        cases.append(('it records WHERE each name was seen, so a fix can '
+                      'reach every occurrence',
+                      refs.get(('realowner', 'RealRepo')) == ['fixture:AGENTS.md'],
+                      str(refs.get(('realowner', 'RealRepo')))))
+
+        # No known owners at all -- the bare pattern must not be built from
+        # an empty alternation, which would match everything or explode.
+        norows = [('fixture', 'https://example.invalid/x/y.git', str(repo))]
+        bare_only = vdc._repo_refs_in_instruction_files(norows)
+        cases.append(('with no known owner, only full URLs are found and '
+                      'nothing crashes',
+                      set(bare_only) == {('otherowner', 'Upstream')},
+                      str(sorted(bare_only))))
+
+        # A file that is not there is skipped, not fatal.
+        (repo / 'AGENTS.md').unlink()
+        cases.append(('an absent instructions file is skipped, not an error',
+                      vdc._repo_refs_in_instruction_files(rows) == {},
+                      str(vdc._repo_refs_in_instruction_files(rows))))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    return (not bad, f'{len(cases)} stated cases',
+            '; '.join(f'{n}: {d}' for n, d in bad))
+
+
 def check_a_consumer_may_declare_a_ci_workflow_its_own():
     """A deliberately diverged CI workflow becomes a declaration, not a fight.
 
@@ -25830,6 +25910,7 @@ def main():
     check_retired_practices_leave_the_views()
     check_resident_subset(files)
     check_behavioral_replay()
+    check_instruction_files_name_repos_that_exist()
     check_a_consumer_may_declare_a_ci_workflow_its_own()
     check_reply_check_names_what_it_cannot_evaluate()
     check_planted_case_rotation_never_narrows_silently()

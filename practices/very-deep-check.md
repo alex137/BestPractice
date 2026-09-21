@@ -867,14 +867,16 @@ first so this pass spends its attention on what they cannot see.
   failure mode and then exhibits it twice is what an unread instruction
   file looks like from the inside.
 
-  **Do the checkable half mechanically, not by reading.** Every
-  `owner/repo` string in those files can be asked about: this tool already
-  calls `repos/{owner}/{name}` for each source in force, and the same call
-  answers a name in prose. A close read is the expensive way to catch
-  something one request catches every time — and the way it goes stale
-  again. Automating it is filed as
-  [todo/todo-2026-09-21-instruction-files-name-repos-nobody-checks.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/todo/todo-2026-09-21-instruction-files-name-repos-nobody-checks.md);
-  until that lands, run the probe by hand here and quote what it said.
+  **The checkable half is not read — it is asked.** Every `owner/repo`
+  string in those files is probed against GitHub by this tool's own
+  `instruction-file repo references` section, which runs beside the
+  repos-in-force audit and shares its API call: a name already asked about
+  as a source is never asked twice. A name that does not resolve is a
+  finding; a name that answers under a DIFFERENT full name has been renamed,
+  which is the more dangerous one, because the old name keeps working
+  through a redirect that lasts only until somebody takes it. Read that
+  section's output; do not re-read the file looking for what it already
+  answered.
 
   **The other three questions are the read, and they are meant to produce
   deletions.** A rule nobody has needed for a month, a paragraph that

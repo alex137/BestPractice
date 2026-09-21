@@ -3,16 +3,16 @@ slug:              todo-2026-09-21-instruction-files-name-repos-nobody-checks
 kind:              manual
 domain:            tooling
 severity:          medium
-status:            open
+status:            done
 disposition:       ask
 remind_on:         null
 blocked_on:        null
 batch:             null
-decision:          null
-decision_strength: null
-waiting_on:        Morgan
+decision:          "Build it inside the very deep check, beside the per-source probe -- Morgan, 2026-09-21"
+decision_strength: decided
+waiting_on:        null
 noted:             2026-09-21
-closed:            null
+closed:            2026-09-21
 ---
 ## What
 
@@ -49,7 +49,29 @@ somebody takes the old name.
 Until it lands, this is a hand-run step in `very-deep-check`'s pass 3
 (the close-read item added the same day), which names this file.
 
-## The question for Morgan
+## Answered and built, 2026-09-21
+
+Morgan chose the first shape: inside the very deep check, beside the
+per-source probe. Built as `instruction_file_repo_refs_audit()` in
+[tools/very_deep_check.py](../tools/very_deep_check.py), reported in its own
+`instruction-file repo references` line, and it shares the existing probe's
+calls -- a name already asked about as a source is never asked twice, so the
+bill this tool reports stays honest.
+
+The pattern is anchored two ways, and the second is what makes it usable: a
+full `github.com` URL, or a bare `owner/name` whose owner appears on a real
+remote in this session. Unanchored, `owner/name` matches `practices/park-it.md`
+and `tools/doc_lint.py` on nearly every line, and a probe reporting fifty
+phantom repositories is one nobody runs twice. Seven stated cases in
+[tools/verify_harness.py](../tools/verify_harness.py), of which the noise
+control is the load-bearing one.
+
+First real run here found two references and one worth knowing about:
+`alex137/GitAround`, named in `WHERE_THINGS_ARE.md`, which this session
+cannot reach -- correctly reported as NOT CHECKED with the reason, never as
+a claim that it is missing.
+
+## The question, as it stood
 
 **The API budget.** `very_deep_check.py` reads and reports its own GitHub
 bill, deliberately, and this adds one request per distinct repository named
