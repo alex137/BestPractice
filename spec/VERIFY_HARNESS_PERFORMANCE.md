@@ -378,11 +378,39 @@ when it cannot decide, the failure surfaced as a full 81s run reporting
 quiet**: worth knowing that any future "why is it still slow" starts by
 reading the reason string in the result line.
 
-Eight stated cases in `check_planted_case_rotation_never_narrows_silently`,
-which asserts the two states that must never narrow, that a touched practice
+**Does it inherit the 2026-09-20 zero-coverage failure?** Morgan asked
+directly, and the answer is measured rather than argued. That day
+`precedent_check.py`'s rotation landed on a bucket where every slug it
+picked was inapplicable to the repo, reported `0 passed`, and CI's
+"refuse a run that checked nothing" backstop correctly refused it — on two
+real pull requests in two different sets (`_run_with_coverage_retry`'s
+docstring has the account).
+
+The shape here is different in two ways that matter. **A planted case has
+no SKIP path**: it plants a violation and requires a non-zero exit, so an
+inapplicable check fails loudly rather than passing vacuously. And nine
+slugs are pinned in every bucket, so the selection never approaches zero —
+measured per bucket, with a documentation-only diff:
+
+```
+selected per bucket: [16, 16, 15, 15, 15, 15, 15, 15, 15, 15]
+minimum 15 of 71 -> 33 stated cases (15 x 2, plus the unplanted baseline
+and the two registry assertions, which always run)
+```
+
+**That floor is a property of today's pinned set, not a guarantee**, and it
+would weaken the day nobody reads `planted[...]` back any more. So it is
+handled twice rather than left to arithmetic that happens to hold: the
+selector returns the FULL set if a slice ever comes back empty, and the
+check asserts both the per-bucket floor and that fail-safe. Ten stated
+cases now, not eight.
+
+Ten stated cases in `check_planted_case_rotation_never_narrows_silently`,
+which assert the two states that must never narrow, that a touched practice
 runs its own case in every bucket, that every pinned slug is pinned in every
-bucket, that ten consecutive commits cover the whole set, and that an
-ordinary change really does run well under half.
+bucket, that ten consecutive commits cover the whole set, that an ordinary
+change really does run well under half, that no bucket selects zero, and
+that an empty slice runs everything.
 
 ## Open follow-ups
 
