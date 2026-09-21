@@ -299,6 +299,19 @@ def _print_hard_requirements(root):
                 print(f"- [{src}] a reply matching /{pair['if_matches']}/ "
                       f"must ALSO match /{pair['must_also_match']}/"
                       + (f" -- {pair['why']}" if pair.get('why') else ''))
+        # A REQUIREMENT THIS ENGINE CANNOT EVALUATE, named here rather than
+        # left silent. A source's reply_check.json is read live; the engine
+        # is vendored; they go stale independently, so a source can declare
+        # a blocking rule this copy has never heard of. getattr, because
+        # this file and precedent_reply_check.py are vendored as one unit
+        # but a partial or older vendor is exactly the state this reports.
+        _unk_fn = getattr(prc, '_unknown_predicates', None)
+        for _k in (_unk_fn(r) if _unk_fn else ()):
+            print(f"- NOT ENFORCED HERE: [{src}] declares {_k}, which this "
+                  f"engine cannot evaluate. Its requirement is NOT in force "
+                  f"in this repo. Refresh the vendored engine: python3 "
+                  f"tools/precedent_vendor_engine.py refresh "
+                  f"<bestpractice-clone>")
     for n in notes:
         print(f"- NOTE: {n}")
 

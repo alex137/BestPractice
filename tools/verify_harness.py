@@ -5798,6 +5798,93 @@ def _registry_slugs():
         return []      # -> selector runs everything, by _selected below
 
 
+def check_reply_check_names_what_it_cannot_evaluate():
+    """A reply requirement nobody can evaluate, and a source nobody can
+    reach, must both say so.
+
+    A source's reply_check.json is read LIVE from that source's checkout;
+    the engine that evaluates it is VENDORED into the consuming repo. Two
+    files, two routes, stale independently -- so a source can declare a
+    BLOCKING requirement the consumer's older engine has never heard of.
+    Measured 2026-09-21 against the requirement added the same day: current
+    engine 1 violation, an engine without the branch 0 violations and total
+    silence.
+
+    The mirror case is the same failure from the other side: a source whose
+    checkout is not on disk contributes nothing, and until the same day said
+    nothing either, while this function's own docstring claimed it became a
+    note. A set whose sibling BestPractice clone is missing gets none of
+    universal's blocking reply rules and no hint of it.
+
+    Reported, never enforced, in both directions: the REPLY is not what is
+    wrong -- the vendored copy is old, or a clone is absent -- and refusing
+    somebody's turn over that punishes the wrong thing at the wrong moment.
+    """
+    import precedent_reply_check as prc
+    cases = []
+    text = '## The Boildown\n\nnothing to see.\n'
+
+    v = prc.violations(text, [{'practice': 'p', '_source': 'universal/precedent',
+                               'require_some_future_predicate': [{'a': 1}]}])
+    cases.append(('an unknown predicate produces a record',
+                  len(v) == 1, str(v)))
+    cases.append(('it is ADVISORY -- an old engine must not refuse a reply',
+                  bool(v) and v[0].get('advisory') is True, str(v)))
+    cases.append(('it names the remedy',
+                  bool(v) and 'precedent_vendor_engine.py refresh' in v[0]['message'],
+                  str(v)))
+    cases.append(('it names the source',
+                  bool(v) and 'universal/precedent' in v[0]['message'], str(v)))
+
+    # Negative controls: every key a real requirement carries is known, and
+    # a `_`-prefixed key is a comment, not a predicate.
+    known = prc.violations(text, [{'practice': 'p', '_source': 'u',
+                                   'require_heading_matching': 'boildown',
+                                   'why': 'because', 'advisory': True,
+                                   'checks_practice_at': 'practices/p.md'}])
+    cases.append(('a fully-known requirement raises no unknown-predicate record',
+                  not [x for x in known if x['kind'] == 'unknown_predicate'],
+                  str(known)))
+    commented = prc.violations(text, [{'practice': 'p', '_source': 'u',
+                                       'require_heading_matching': 'boildown',
+                                       '_comment': 'a note to a human'}])
+    cases.append(('an _-prefixed key is a comment, not an unknown predicate',
+                  not [x for x in commented if x['kind'] == 'unknown_predicate'],
+                  str(commented)))
+
+    # THE LIVE REGISTRY must be complete: every predicate this engine has a
+    # branch for is in KNOWN_REQUIREMENT_KEYS, or its own requirement would
+    # report itself as unevaluable. Read from this module's source rather
+    # than listed here, so adding a predicate cannot forget this.
+    src = (ROOT / 'tools' / 'precedent_reply_check.py').read_text(encoding='utf-8')
+    branches = set(re.findall(r"r\.get\('(require_[a-z_]+)'\)", src))
+    missing = sorted(branches - set(prc.KNOWN_REQUIREMENT_KEYS))
+    cases.append(('every predicate the engine evaluates is in '
+                  'KNOWN_REQUIREMENT_KEYS', not missing, f'missing: {missing}'))
+
+    # And the reachability half, against a real scratch config.
+    import tempfile
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-replysrc-'))
+    try:
+        fx = tmp / 'repo'
+        (fx / 'practices').mkdir(parents=True)
+        (fx / 'precedent.json').write_text(json.dumps({'sources': [
+            {'level': 'universal', 'name': 'precedent',
+             'path': '../not-there'}]}),
+            encoding='utf-8')
+        _reqs, notes = prc.declared_requirements(str(fx))
+        cases.append(('a source that is not on disk becomes a NOTE, not silence',
+                      any('not on disk' in n for n in notes), str(notes)))
+        cases.append(('the note says the requirement is unknown, not absent',
+                      any('unknown, not' in n for n in notes), str(notes)))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    return (not bad, f'{len(cases)} stated cases',
+            '; '.join(f'{n}: {d}' for n, d in bad))
+
+
 def check_planted_case_rotation_never_narrows_silently():
     """The rotation that decides how much of the push gate runs.
 
@@ -25664,6 +25751,7 @@ def main():
     check_retired_practices_leave_the_views()
     check_resident_subset(files)
     check_behavioral_replay()
+    check_reply_check_names_what_it_cannot_evaluate()
     check_planted_case_rotation_never_narrows_silently()
     check_precedent_check_fires()
     check_routing_scope(files)

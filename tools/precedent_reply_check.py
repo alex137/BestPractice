@@ -142,7 +142,27 @@ def declared_requirements(repo):
     except Exception as e:                                   # noqa: BLE001
         return reqs, [f'no source set could be read ({e})']
     for s in sources:
-        cfg = pathlib.Path(s['path']) / CONFIG_NAME
+        root = pathlib.Path(s['path'])
+        cfg = root / CONFIG_NAME
+        # A SOURCE THAT IS NOT THERE IS A NOTE; a source that is there and
+        # declares nothing is silence. Until 2026-09-21 both took the same
+        # `continue` and this function's own docstring claimed otherwise.
+        #
+        # The distinction is the whole point. Most sources genuinely have no
+        # reply_check.json, and saying so every turn would be noise. But a
+        # source whose CHECKOUT is missing declares its requirements
+        # somewhere this session cannot read, and "no requirements" and
+        # "requirements I could not reach" must never look the same --
+        # the same rule this repo applies to its own check suite, where a
+        # skip is not a pass. A set whose sibling BestPractice clone is
+        # absent gets none of universal's blocking reply rules, and before
+        # this it got no hint of that either.
+        if not root.is_dir():
+            notes.append(f"{s['level']}/{s['name']} is not on disk at "
+                         f"{s['path']!r}, so any reply requirement it "
+                         f"declares is NOT in force here -- unknown, not "
+                         f"absent")
+            continue
         if not cfg.is_file():
             continue
         try:
@@ -359,10 +379,61 @@ def is_trivial_checkin(text):
     return bool(_TRIVIAL_CHECKIN_RE.match(text.strip()))
 
 
+# Every key a requirement entry may carry: the predicates this engine can
+# evaluate, plus the metadata that describes one. Anything else is a
+# requirement THIS engine does not understand -- see _unknown_predicates().
+KNOWN_REQUIREMENT_KEYS = frozenset({
+    # predicates
+    'require_heading_matching',
+    'require_one_of',
+    'require_no_contradiction',
+    'require_no_bare_pattern',
+    'require_paired_with',
+    # conditions and metadata
+    'require_when_context_grew_tokens',
+    'advisory',
+    'practice',
+    'why',
+    'checks_practice_at',
+})
+
+
+def _unknown_predicates(req):
+    """-> sorted keys of `req` this engine has no branch for.
+
+    WHY A REQUIREMENT NOBODY CAN EVALUATE MUST SAY SO. A practice source's
+    reply_check.json is read LIVE from that source's own checkout, while the
+    engine that evaluates it is VENDORED into the consuming repo -- two
+    files that travel by completely different routes and go stale
+    independently. So a source can declare a blocking requirement that the
+    consumer's older engine has never heard of.
+
+    Until 2026-09-21 that produced nothing at all: no violation, no warning,
+    no trace. Measured against the requirement added that same day --
+    current engine: 1 violation; an engine without the branch: 0 violations
+    and silence. A set could sit for weeks believing a blocking rule was in
+    force with nothing enforcing it, which is exactly the "reads as coverage
+    and covers nothing" failure, in the one file whose whole job is refusing
+    turns.
+
+    Reported, never enforced. The reply is not what is wrong here -- the
+    ENGINE is old -- and refusing somebody's turn over their vendored copy's
+    age would punish the wrong thing at the wrong moment. The remedy is one
+    command, and the message names it.
+
+    Keys starting with `_` are skipped: declared_requirements() adds its own
+    (`_source`), and a source is free to use the same convention for a
+    comment, exactly as precedent.json does throughout.
+    """
+    return sorted(k for k in req
+                  if not k.startswith('_') and k not in KNOWN_REQUIREMENT_KEYS)
+
+
 def violations(text, reqs, timeline=None):
     """-> list of records, one per unmet requirement:
 
-        {'kind': 'heading' | 'sentence' | 'contradiction' | 'bare_pattern',
+        {'kind': 'heading' | 'sentence' | 'contradiction' | 'bare_pattern'
+                 | 'paired' | 'unknown_predicate',
          'message': <human-readable>, 'advisory': bool}
 
     `advisory` mirrors the requirement's own `"advisory": true` declaration
@@ -394,6 +465,21 @@ def violations(text, reqs, timeline=None):
     headings = [re.sub(r'^#{1,6}\s+', '', l).strip()
                 for l in text.splitlines() if re.match(r'^#{1,6}\s+\S', l)]
     for r in reqs:
+        _unknown = _unknown_predicates(r)
+        if _unknown:
+            out.append({'kind': 'unknown_predicate', 'advisory': True,
+                        'message': (
+                            f"[{r.get('_source', '?')}] declares "
+                            + ', '.join(sorted(_unknown))
+                            + ", which THIS engine cannot evaluate -- so that "
+                              "requirement is not being enforced here, and "
+                              "until now said nothing. The source is read "
+                              "live; the engine is vendored, so the two go "
+                              "stale independently. Refresh the vendored "
+                              "engine: python3 tools/precedent_vendor_engine.py "
+                              "refresh <bestpractice-clone>"
+                            + (f" (practice: {r['practice']})"
+                               if r.get('practice') else ''))})
         every = r.get('require_when_context_grew_tokens')
         if every:
             phrases = r.get('require_one_of') or []
@@ -566,6 +652,11 @@ def main():
                 bits.append("ONLY once the context has grown "
                             f"{int(r['require_when_context_grew_tokens']):,} "
                             "tokens since that was last said")
+            _unk = _unknown_predicates(r)
+            if _unk:
+                bits.append('!! ' + ', '.join(_unk)
+                            + ' -- NOT EVALUATED by this engine (too old); '
+                              'refresh the vendored engine')
             if r.get('advisory'):
                 bits.append("ADVISORY -- named when unmet, never blocks")
             print(f"  {r.get('_source')}: " + ', '.join(bits))
