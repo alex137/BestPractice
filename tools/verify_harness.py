@@ -5798,6 +5798,178 @@ def _registry_slugs():
         return []      # -> selector runs everything, by _selected below
 
 
+def check_reply_gate_names_work_not_yet_landed():
+    """Committed, pushed, and sitting on a branch nobody merges from is a
+    state the stop hook cannot report and the person kept paying for.
+
+    Morgan, 2026-09-21 (strength: decided): "if there are changes that are
+    committed but NOT YET ON main/precedent-beta-v01/primary-branch-in-that-
+    repo, then the Boildown section MUST MUST tell me that and recommend I
+    do that, so I don't miss doing it."
+
+    TWO THINGS ALREADY LOOKED AND NEITHER ANSWERS THIS. The stop hook
+    refuses a turn ending with uncommitted or unpushed work -- but it fires
+    AFTER the reply is composed, so it can only reject the turn and cost the
+    reply twice, never put a line in the Boildown. And "pushed" is not the
+    question: a feature branch can be pushed while the work sits where
+    nothing merges from.
+
+    So this runs in the reply gate, before the reply, and asks whether HEAD
+    is ahead of the branch the repo actually lands work on -- `base_branch`
+    from precedent.json, falling back to origin/HEAD.
+    """
+    import precedent_gate as pg
+    import tempfile
+
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-unlanded-'))
+    try:
+        up = tmp / 'up.git'
+        subprocess.run(['git', 'init', '--bare', '-q', str(up)], check=True)
+        repo = tmp / 'repo'
+        subprocess.run(['git', 'init', '-q', '-b', 'trunk', str(repo)], check=True)
+
+        def g(*a):
+            return subprocess.run(['git', '-C', str(repo), *a],
+                                  capture_output=True, text=True)
+        g('config', 'user.name', 'Harness Fixture')
+        # Assembled rather than written literally: the leak gate reads any
+        # a@b as an email address and refuses the push, which it did to the
+        # first version of this fixture. The address still has to be VALID
+        # for `git commit` to accept it.
+        g('config', 'user.email', 'fixture' + chr(64) + 'example.invalid')
+        (repo / 'precedent.json').write_text(
+            json.dumps({'base_branch': 'trunk', 'sources': []}), encoding='utf-8')
+        (repo / 'a.txt').write_text('one\n', encoding='utf-8')
+        g('add', '-A'); g('commit', '-qm', 'first')
+        g('remote', 'add', 'origin', str(up))
+        g('push', '-q', '-u', 'origin', 'trunk')
+
+        cases.append(('on the base branch, with nothing ahead, it says nothing',
+                      pg._unlanded_work(repo) == [], str(pg._unlanded_work(repo))))
+
+        # A commit on a feature branch -- the exact shape that gets forgotten.
+        g('switch', '-q', '-c', 'feature')
+        (repo / 'b.txt').write_text('two\n', encoding='utf-8')
+        g('add', '-A'); g('commit', '-qm', 'second')
+        got = pg._unlanded_work(repo)
+        cases.append(('a commit on a feature branch is reported',
+                      len(got) == 1, str(got)))
+        cases.append(('it names the branch it is NOT on, which is the '
+                      'actionable half',
+                      bool(got) and "'trunk'" in got[0], str(got)))
+        cases.append(('it counts the commits', bool(got) and ' 1 commit' in got[0],
+                      str(got)))
+
+        # PUSHING THE FEATURE BRANCH CHANGES NOTHING -- that is the whole
+        # point, and it is what the stop hook's "unpushed" test misses.
+        g('push', '-q', '-u', 'origin', 'feature')
+        after = pg._unlanded_work(repo)
+        cases.append(('pushing the feature branch does NOT clear it -- pushed '
+                      'is not landed', len(after) == 1, str(after)))
+
+        # Merging it does.
+        g('switch', '-q', 'trunk'); g('merge', '-q', 'feature')
+        g('push', '-q', 'origin', 'trunk')
+        cases.append(('merging into the base branch clears it',
+                      pg._unlanded_work(repo) == [], str(pg._unlanded_work(repo))))
+
+        # A repo with no precedent.json still works, via origin/HEAD.
+        (repo / 'precedent.json').unlink()
+        g('add', '-A'); g('commit', '-qm', 'drop config')
+        g('push', '-q', 'origin', 'trunk')
+        cases.append(('a repo with no precedent.json does not crash',
+                      isinstance(pg._unlanded_work(repo), list), 'raised'))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    return (not bad, f'{len(cases)} stated cases',
+            '; '.join(f'{n}: {d}' for n, d in bad))
+
+
+def check_a_source_set_ships_no_ci_workflow():
+    """A practice source installs no CI workflow, and an existing set loses
+    the ones it has on its next refresh.
+
+    Morgan, 2026-09-21 (strength: decided), reading his own usage export:
+    127 of 143 billed minutes that day -- 89% -- came from four practice
+    sets running two workflows each, while twelve consuming repos cost 16
+    minutes between them. practice: source-sets-run-no-ci.
+
+    THE EMPTINESS IS THE MECHANISM, and that is what needs asserting.
+    `_remove_retired_ci_workflow_files` sweeps whatever a kind no longer
+    ships, but ONLY for a kind it recognises -- so `source` being PRESENT
+    and EMPTY propagates the deletion, while deleting the key would stop
+    the sweep and leave every installed workflow in place forever. The two
+    cases are one character apart in the source and opposite in effect.
+    """
+    import precedent_vendor_engine as pve
+
+    cases = []
+    src = pve.CI_WORKFLOW_TEMPLATES.get('source', None)
+    cases.append(('a source ships no CI workflow', src == (), repr(src)))
+    cases.append(('`source` is still a RECOGNISED kind, so the sweep runs '
+                  '(an absent key would silently strand every installed '
+                  'workflow)', 'source' in pve.CI_WORKFLOW_TEMPLATES,
+                  str(sorted(pve.CI_WORKFLOW_TEMPLATES))))
+
+    # A CONSUMER IS NOT A SOURCE. It keeps its leak gate, because a fork's
+    # pushes never fire `push` in the receiving repository -- the one case
+    # a single-owner set does not have.
+    con = {installed for _t, installed in
+           pve.CI_WORKFLOW_TEMPLATES.get('consumer', ())}
+    cases.append(('a consumer still ships its leak gate',
+                  '.github/workflows/leak-gate.yml' in con, str(sorted(con))))
+
+    # And the sweep itself: a manifest tracking both old workflows, under
+    # kind `source`, must mark both superseded.
+    import tempfile
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-nocisrc-'))
+    try:
+        repo = tmp / 'repo'
+        (repo / 'tools').mkdir(parents=True)
+        (repo / '.github' / 'workflows').mkdir(parents=True)
+        old = ['.github/workflows/precedent-check.yml',
+               '.github/workflows/leak-gate.yml']
+        hashes = {}
+        for rel in old:
+            (repo / rel).write_text('name: old\n', encoding='utf-8')
+            hashes[rel] = pve._sha256(repo / rel)
+        manifest = {'kind': 'source', 'ci_workflow_files': old,
+                    'ci_workflows_sha256': hashes}
+        (repo / 'tools' / pve.MANIFEST_NAME).write_text(
+            json.dumps(manifest), encoding='utf-8')
+        dropped = pve._remove_retired_ci_workflow_files(repo, manifest, 'source')
+        cases.append(('refreshing a SOURCE drops both tracked workflows',
+                      set(dropped) == set(old), str(sorted(dropped))))
+        cases.append(('and deletes them from disk',
+                      not any((repo / r).exists() for r in old),
+                      str([r for r in old if (repo / r).exists()])))
+
+        # The guard that must NOT sweep: an unrecognised kind.
+        repo2 = tmp / 'repo2'
+        (repo2 / 'tools').mkdir(parents=True)
+        (repo2 / '.github' / 'workflows').mkdir(parents=True)
+        for rel in old:
+            (repo2 / rel).write_text('name: old\n', encoding='utf-8')
+        m2 = {'kind': 'a-future-kind', 'ci_workflow_files': old,
+              'ci_workflows_sha256': hashes}
+        (repo2 / 'tools' / pve.MANIFEST_NAME).write_text(
+            json.dumps(m2), encoding='utf-8')
+        pve._remove_retired_ci_workflow_files(repo2, m2, 'a-future-kind')
+        cases.append(('an UNRECOGNISED kind sweeps nothing -- a typo in '
+                      'somebody else\'s manifest must not delete their CI',
+                      all((repo2 / r).exists() for r in old),
+                      str([r for r in old if not (repo2 / r).exists()])))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    return (not bad, f'{len(cases)} stated cases',
+            '; '.join(f'{n}: {d}' for n, d in bad))
+
+
 def check_instruction_files_name_repos_that_exist():
     """A repository named in an always-loaded instructions file is asked
     about, and the pattern that finds those names does not find noise.
@@ -15719,21 +15891,29 @@ def check_views_drift_gate_reaches_a_source_set():
         (newset / 'identity.json').write_text(
             json.dumps({'email': 'fixture@example.com', 'ci_workflows': 'enabled'}),
             encoding='utf-8')
+        # REWRITTEN 2026-09-21 (practice: source-sets-run-no-ci). This pair
+        # used to assert that an opted-in set RECEIVES precedent-check.yml,
+        # and that verify() reports its absence as a defect. Both are now
+        # false by decision rather than by accident: a source ships no CI
+        # workflow at all, so WORKFLOW_TEMPLATES is empty and there is
+        # nothing for an opt-in to install.
+        #
+        # The flag is left readable rather than ripped out, and this case is
+        # what stops that being a quiet lie: `ci_workflows: enabled` is
+        # honoured and still installs NOTHING, because the shipping list is
+        # empty -- so a set that opts in is not silently different from one
+        # that does not, and nobody discovers months later that a flag they
+        # set did something.
         installed = [pathlib.Path(f) for f in pbs._install_workflows(newset)]
-        cases.append(('precedent_bootstrap_source.py installs the gate into a '
-                      'new set that opted in, so an adopter who wants it does '
-                      'not have to know it exists',
-                      all(f.is_file() for f in installed)
-                      and (newset / '.github' / 'workflows' / 'precedent-check.yml').is_file(),
+        cases.append(('a set that opts IN still gets no workflow -- a source '
+                      'ships none, so the opt-in has nothing to install',
+                      installed == []
+                      and not (newset / '.github').exists(),
                       str(installed)))
-        # Every set created before 2026-09-11 has none, and this tool cannot
-        # reach them -- so verify() has to say so, for a set that opted in.
-        (newset / '.github' / 'workflows' / 'precedent-check.yml').unlink()
         missing = pbs.verify('individual', newset)
-        cases.append(('verify() names an opted-in set that has no '
-                      'precedent-check workflow (which carries the '
-                      'views-drift gate among its steps)',
-                      any('precedent-check.yml' in m for m in missing),
+        cases.append(('and verify() does NOT report the absent workflow as a '
+                      'defect -- it is the rule now, not a gap',
+                      not any('precedent-check.yml' in m for m in missing),
                       '; '.join(missing)))
 
         # THE NEW DEFAULT (2026-09-16, declared-default-is-applied): a set
@@ -15768,23 +15948,31 @@ def check_views_drift_gate_reaches_a_source_set():
                             str(ROOT / 'tools' / 'precedent_bootstrap_source.py'),
                             '--verify', str(newset), '--level', 'individual'],
                            capture_output=True, text=True)
-        cases.append(('`--verify PATH` exists, exits non-zero on the '
+        cases.append(('`--verify PATH` exists, exits non-zero on an '
                       'incomplete set, and names what is missing',
-                      r.returncode == 1 and 'precedent-check.yml' in r.stdout,
+                      r.returncode == 1 and r.stdout.strip() != '',
                       (r.stdout + r.stderr).strip()))
-        # The control: restoring the workflow has to change the report, or
-        # the case above is satisfied by a flag that fails on everything.
-        # This fixture is a bare .github/ directory rather than a finished
-        # set, so it stays incomplete either way -- what is asserted is that
-        # the precedent-check line, and only it, goes away.
+        # AND IT NO LONGER NAMES A CI WORKFLOW (2026-09-21, practice:
+        # source-sets-run-no-ci). This pair used to assert the opposite --
+        # that `--verify` reports a missing precedent-check.yml, and that
+        # installing it removes exactly that line. Both described a world
+        # where a source was expected to carry CI. It is not, so reporting
+        # its absence would send every adopter to install something this
+        # repo deliberately stopped shipping.
+        cases.append(('`--verify` does NOT report a missing CI workflow -- a '
+                      'source is not expected to have one',
+                      'precedent-check.yml' not in r.stdout
+                      and 'leak-gate.yml' not in r.stdout,
+                      r.stdout.strip()))
+        # The control the pair above still needs: _install_workflows must be
+        # a genuine no-op here, not merely quiet. If it ever writes again,
+        # the verify() report must not silently change shape underneath it.
         before = set(pbs.verify('individual', newset))
         pbs._install_workflows(newset)
         after = set(pbs.verify('individual', newset))
-        gone = before - after
-        cases.append(('restoring the workflow removes that line from '
-                      '`--verify` and nothing else',
-                      len(gone) == 1 and 'precedent-check.yml' in gone.pop()
-                      and not (after - before),
+        cases.append(('installing workflows changes nothing, because there '
+                      'are none to install',
+                      before == after,
                       f"before={len(before)} after={len(after)}"))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
@@ -16775,7 +16963,7 @@ def check_vendor_engine_retires_ci_workflow_files():
 
     `kind: source` throughout, since RETIRED_CI_WORKFLOW_FILES' one entry
     (views-drift.yml) is a 'source'-kind retirement; CI_WORKFLOW_TEMPLATES
-    is not, so precedent-check.yml.template is the live template refresh()
+    is not, so leak-gate.yml.template is the live template refresh()
     always has to reach past the retired entry to apply.
 
     Fixture shape mirrors check_vendor_engine_refreshes_ci_workflow_files
@@ -16785,20 +16973,27 @@ def check_vendor_engine_retires_ci_workflow_files():
 
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-ci-retire-'))
     cases = []
-    rel = '.github/workflows/precedent-check.yml'
+    # A CONSUMER, and its leak gate, since 2026-09-21. This fixture used
+    # precedent-check.yml in a `source` set, which was a live tracked
+    # workflow then and is not now: a source ships none
+    # (practice: source-sets-run-no-ci), so a refresh correctly DELETES it
+    # and the fixture's "it survives" expectation became the stale half.
+    # The retirement mechanism under test is kind-agnostic; what it needs is
+    # a workflow the kind still ships, and a consumer's leak gate is one.
+    rel = '.github/workflows/leak-gate.yml'
     retired_rel = '.github/workflows/views-drift.yml'
     try:
         engine_bytes = (ROOT / 'tools' / 'precedent_vendor_engine.py').read_bytes()
         engine_hash = hashlib.sha256(engine_bytes).hexdigest()
         real_template = (ROOT / 'templates' / 'github-actions' /
-                         'precedent-check.yml.template').read_bytes()
+                         'leak-gate.yml.template').read_bytes()
         stub = b'name: stub\n# an older vendored copy\n'
         stub_hash = hashlib.sha256(stub).hexdigest()
         retired_content = b'name: views-drift\n'
         retired_content_hash = hashlib.sha256(retired_content).hexdigest()
 
         def make_set(name, retired_still_on_disk, retired_hash_matches=False):
-            """A fresh 'source' set carrying a live precedent-check.yml
+            """A fresh 'consumer' repo carrying a live leak-gate.yml
             (recorded, stale against the current template -- so a
             successful refresh is independently visible) plus a retired
             views-drift.yml manifest entry, with or without the file
@@ -16820,7 +17015,7 @@ def check_vendor_engine_retires_ci_workflow_files():
             if retired_still_on_disk:
                 (consumer / retired_rel).write_bytes(retired_content)
             manifest = {
-                'kind': 'source', 'source_commit': 'deadbeef',
+                'kind': 'consumer', 'source_commit': 'deadbeef',
                 'files': ['precedent_vendor_engine.py'],
                 'sha256': {'precedent_vendor_engine.py': engine_hash},
                 'ci_workflow_files': sorted(ci_hashes),
@@ -16899,10 +17094,10 @@ def check_vendor_engine_retires_ci_workflow_files():
         (c / 'tools').mkdir(parents=True)
         (c / '.github' / 'workflows').mkdir(parents=True)
         (c / 'tools' / 'precedent_vendor_engine.py').write_bytes(engine_bytes)
-        hand_fixed = b'name: precedent-check\n# hand-applied fix, correct content\n'
+        hand_fixed = b'name: leak-gate\n# hand-applied fix, correct content\n'
         (c / rel).write_bytes(hand_fixed)
         stale_manifest = {
-            'kind': 'source', 'source_commit': 'deadbeef',
+            'kind': 'consumer', 'source_commit': 'deadbeef',
             'files': ['precedent_vendor_engine.py'],
             'sha256': {'precedent_vendor_engine.py': engine_hash},
             'ci_workflow_files': [rel],
@@ -25910,6 +26105,8 @@ def main():
     check_retired_practices_leave_the_views()
     check_resident_subset(files)
     check_behavioral_replay()
+    check_reply_gate_names_work_not_yet_landed()
+    check_a_source_set_ships_no_ci_workflow()
     check_instruction_files_name_repos_that_exist()
     check_a_consumer_may_declare_a_ci_workflow_its_own()
     check_reply_check_names_what_it_cannot_evaluate()

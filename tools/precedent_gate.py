@@ -215,6 +215,81 @@ def resolved_gate_practices(root, gate):
     return entries, notes
 
 
+def _unlanded_work(root):
+    """-> [str] one line per repo in this session whose committed work is not
+    on the branch that repo actually merges into. Never raises.
+
+    WHY THE REPLY GATE AND NOT THE STOP HOOK (Morgan, 2026-09-21, strength:
+    decided): "if there are changes that are committed but NOT YET ON
+    main/precedent-beta-v01/primary-branch-in-that-repo, then the Boildown
+    section MUST MUST tell me that and recommend I do that, so I don't miss
+    doing it."
+
+    The stop hook already refuses a turn that ends with uncommitted or
+    unpushed work, and that is a different question with a different timing.
+    It fires AFTER the reply is written, so it cannot put a line in the
+    Boildown -- it can only reject the turn and cost the reply twice. And it
+    asks whether a branch is PUSHED, which a feature branch can be while the
+    work still sits nowhere anybody merges from.
+
+    This fires BEFORE the reply, at the one moment a session can still write
+    the sentence, and asks the question a person actually cares about: is
+    this on the branch the repo lands work on, or is it parked on a branch
+    somebody has to remember to merge?
+    """
+    import subprocess as _sp
+
+    def _git(cwd, *args):
+        try:
+            r = _sp.run(['git', '-C', str(cwd), *args], capture_output=True,
+                        text=True, timeout=20)
+        except Exception:                                     # noqa: BLE001
+            return ''
+        return r.stdout.strip() if r.returncode == 0 else ''
+
+    out = []
+    roots = [pathlib.Path(root)]
+    # Sibling Precedent repos this session may also have committed in. A
+    # session that made a commit in a source set and left it on a branch has
+    # the same problem, and nothing else in this preamble looks there.
+    for parent in {pathlib.Path(root).parent, pathlib.Path.home()}:
+        try:
+            entries = sorted(parent.iterdir())
+        except OSError:
+            continue
+        for d in entries:
+            if d.name.startswith('precedent-') and (d / '.git').exists():
+                if d.resolve() not in {r.resolve() for r in roots}:
+                    roots.append(d)
+
+    for repo in roots:
+        head = _git(repo, 'rev-parse', '--abbrev-ref', 'HEAD')
+        if not head or head == 'HEAD':
+            continue
+        # The branch this repo actually lands work on. precedent.json's
+        # base_branch is the declaration; origin/HEAD is the fallback.
+        base = ''
+        try:
+            import json as _j
+            base = (_j.loads((repo / 'precedent.json').read_text(
+                encoding='utf-8')).get('base_branch') or '').strip()
+        except Exception:                                     # noqa: BLE001
+            base = ''
+        if not base:
+            ref = _git(repo, 'symbolic-ref', '--quiet', 'refs/remotes/origin/HEAD')
+            base = ref.rsplit('/', 1)[-1] if ref else 'main'
+        if head == base:
+            continue
+        ahead = _git(repo, 'rev-list', '--count', f'origin/{base}..HEAD')
+        if not ahead or ahead == '0':
+            continue
+        name = repo.name if repo.resolve() != pathlib.Path(root).resolve() \
+            else 'this checkout'
+        out.append(f"{name}: {ahead} commit(s) on '{head}' that are NOT on "
+                   f"'{base}' -- the branch this repo lands work on")
+    return out
+
+
 def _print_hard_requirements(root):
     """The reply requirements a source DECLARES, printed verbatim at the
     start of the turn.
@@ -536,6 +611,17 @@ def main():
         print(f"{block}\n")
     if gate == 'reply':
         _print_hard_requirements(root)
+        # COMMITTED, BUT NOT WHERE WORK LANDS. Printed with the hard
+        # requirements because for this person it is one: a reply that does
+        # not say so is how a branch gets forgotten.
+        try:
+            _unlanded = _unlanded_work(root)
+        except Exception:                                     # noqa: BLE001
+            _unlanded = []
+        for _line in _unlanded:
+            print(f"- NOT YET LANDED: {_line}. The Boildown MUST say so and "
+                  f"recommend merging it -- do not close a turn leaving this "
+                  f"unsaid (practice: the-boildown).")
     if '--brief' in flags:
         print(f"\nFull text: `python3 tools/precedent_gate.py {gate}`.")
     return 0
