@@ -19,19 +19,21 @@ strength:    decided
 ---
 ## Rule
 Three parts. **(1) Answer the easy questions in a message before starting
-anything long.** A conceptual question is answered from what is already
-known, in the same turn, before any long run is launched; the run never
-gates the answer. **(2) A task that will run longer than a few minutes —
-a cold solve, a search family, a re-solve cascade, a whole-tree gate —
-is proposed, not started:** say what it is, how long it will take (from
-the tool's own cost line), what it blocks and what it does not, and get
-the go-ahead. The exceptions are the checks a commit needs on the files
-the turn touched, and a run the person has already asked for by name.
-**(3) When idle on a wait, say what the wait is for, what it will change,
-and how to stop it** — never a bare "still running". A background task
-nobody asked for is stopped, not waited on.
+anything long** — in the same turn; the long run never gates the answer.
+**(2) A task that will run longer than a few minutes is proposed, not
+started:** what it is, how long from the tool's own cost line, what it
+blocks and what it does not, then the go-ahead. The exceptions are the
+checks a commit needs on the files the turn touched, and a run already
+asked for by name. **(3) When idle on a wait, say what the wait is for,
+what it will change, and how to stop it** — never a bare "still running".
+A background task nobody asked for is stopped, not waited on.
 
 ## Detail
+**What part 1 means by an easy question:** one answered from what is already
+known, without waiting on a run. **What part 2 means by a long task:** a
+cold solve, a search family, a re-solve cascade, a whole-tree gate. Both
+were in the Rule until 2026-09-21 (see `## Story`).
+
 "A few minutes" is the boundary at which a person would rather have been
 asked: below it the run is cheaper than the exchange; above it the run
 is a decision about their time and their machine. The proposal is one
@@ -53,6 +55,15 @@ merge invalidated a cache, before answering a one-line question about
 the merge itself. The person's direction, adopted as the rule: do not
 start long tasks without checking first, and answer the easy questions
 before anything else.
+
+
+**Rule compressed 2026-09-21**, in the reduction pass recorded in
+[todo-2026-09-21-resident-cap-was-measured-on-the-wrong-shape.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/todo/todo-2026-09-21-resident-cap-was-measured-on-the-wrong-shape.md).
+208 tokens -> 124. All three parts stayed; what moved into `## Detail` is
+the pair of definitions the Rule was carrying inline -- what counts as an
+easy question, and the four examples of a long task. The exceptions stayed
+in the Rule, because a session reads them at the moment it is deciding
+whether to ask.
 
 ## Install
 Adopt the rule in the working-conventions file and name the cost-line

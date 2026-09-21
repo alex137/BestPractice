@@ -232,39 +232,30 @@ plan's premise.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block; `python3 tools/build_views.py --check` exits non-zero on drift. Source: practices/ -- edit the practice file, never this block. -->
 
-## Resident block (~1055 of 2000 token budget, 10 of 135 practices (10 universal))
+## Resident block (~895 of 2000 token budget, 10 of 135 practices (10 universal))
 
 **answer-first-ask-before-long-work.** Three parts. **(1) Answer the easy questions in a message before starting
-anything long.** A conceptual question is answered from what is already
-known, in the same turn, before any long run is launched; the run never
-gates the answer. **(2) A task that will run longer than a few minutes —
-a cold solve, a search family, a re-solve cascade, a whole-tree gate —
-is proposed, not started:** say what it is, how long it will take (from
-the tool's own cost line), what it blocks and what it does not, and get
-the go-ahead. The exceptions are the checks a commit needs on the files
-the turn touched, and a run the person has already asked for by name.
-**(3) When idle on a wait, say what the wait is for, what it will change,
-and how to stop it** — never a bare "still running". A background task
-nobody asked for is stopped, not waited on.
+anything long** — in the same turn; the long run never gates the answer.
+**(2) A task that will run longer than a few minutes is proposed, not
+started:** what it is, how long from the tool's own cost line, what it
+blocks and what it does not, then the go-ahead. The exceptions are the
+checks a commit needs on the files the turn touched, and a run already
+asked for by name. **(3) When idle on a wait, say what the wait is for,
+what it will change, and how to stop it** — never a bare "still running".
+A background task nobody asked for is stopped, not waited on.
 
 **bold-key-phrases.** People don't read; they skim, and bolding makes skimming easy. Bold the key phrases in a document by default, without being asked, scaling with length -- a long paragraph or document is where a skimmer most needs a spine to follow, a short note usually needs little or none.
 
 **brainstorm-holds-commits.** When a conversation is a **Brainstorm** -- the person says the word, or the
 thread is plainly exploratory ("I'm wondering", "what are my options", "do
-you have ideas", "maybe this is a terrible idea") -- **write nothing to the
-repository and commit nothing until they say to.** Research freely, read
-whatever you need, argue the case, propose the design. Do not create, edit,
-commit, push, open a pull request, or merge.
+you have ideas") -- **write nothing to the repository and commit nothing
+until they say to.** Research, read, argue the case, propose the design; do
+not create, edit, commit, push, open a pull request, or merge. **The edit is
+the thing to hold, not just the commit.**
 
-**The edit is the thing to hold, not just the commit.** A session that
-writes files and then asks whether to commit has already made the decision,
-because a working tree it left dirty is one a Stop hook or a later turn will
-push to finish. Say what you would write and where; wait to be told.
-
-A brainstorm ends only when the person authorizes the work -- `Go merge`,
-"do it", "write it up", or anything else unambiguous. **Their answering a
-question inside the brainstorm is not authorization**, and neither is their
-enthusiasm for the idea.
+It ends only when the person authorizes the work. Their answering a question
+inside it is not authorization, and neither is their enthusiasm for the
+idea. **When in doubt, it is a brainstorm.**
 
 **environment-gotchas.** Every expensive environment discovery (a package that must be installed, a
 tool that silently doesn't work, a path that does work) is written down
@@ -274,12 +265,10 @@ file — one trap, one file, forever — under `gotchas/gotcha-<date>-<slug>.md`
 [spec/OPEN_ITEM_AND_GOTCHA_PLAN.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/OPEN_ITEM_AND_GOTCHA_PLAN.md)
 Part 2).
 
-**None of that catalogue loads into the instructions file, at any size.**
-The instructions file carries a short pointer instead — hit an unexplained
-failure, grep `gotchas/` before concluding it's new — never the stories,
-and never even a one-line-per-trap index. A generated overview (symptom
-plus link, one line per live entry) exists for the deliberate read; nothing
-loads it automatically.
+**None of that catalogue loads into the instructions file, at any size** —
+not the stories, and not even a one-line-per-trap index. The file carries a
+pointer instead: hit an unexplained failure, grep `gotchas/` before
+concluding it's new.
 
 **no-invented-specifics.** Being concrete makes writing better, and **it never licenses invention.** Do
 not manufacture a statistic, a date, a name, a version number or a citation
