@@ -106,7 +106,7 @@
       "globs": [
         "**"
       ],
-      "why": "A moment, not a place \u2014 routed by the `merge` gate instead.",
+      "why": "A moment, not a place — routed by the `merge` gate instead.",
       "decided": "phase 4 routing pass",
       "gates": [
         "merge"
@@ -174,7 +174,7 @@
         ".github/workflows/**",
         "templates/github-actions/**"
       ],
-      "why": "The narrowest possible locus: a workflow file is the only place this can be got wrong. Deliberately NOT the whole of .github/** -- an issue template or a CODEOWNERS edit commits nothing, and firing there would teach a session to skip the rule on the files that matter. templates/github-actions/ is included because a workflow template published from here becomes somebody else\u2019s workflow, and the rule has to reach it before it is copied rather than after.",
+      "why": "The narrowest possible locus: a workflow file is the only place this can be got wrong. Deliberately NOT the whole of .github/** -- an issue template or a CODEOWNERS edit commits nothing, and firing there would teach a session to skip the rule on the files that matter. templates/github-actions/ is included because a workflow template published from here becomes somebody else’s workflow, and the rule has to reach it before it is copied rather than after.",
       "decided": "2026-09-10, on the incident that created the practice"
     },
     "cite-the-incident": {
@@ -228,7 +228,7 @@
       "globs": [
         "**"
       ],
-      "why": "A moment \u2014 routed by the `review` gate instead.",
+      "why": "A moment — routed by the `review` gate instead.",
       "decided": "phase 4 routing pass",
       "gates": [
         "review"
@@ -309,7 +309,7 @@
       "globs": [
         "**"
       ],
-      "why": "A moment \u2014 routed by the `reply` gate instead.",
+      "why": "A moment — routed by the `reply` gate instead.",
       "decided": "follow-up session, 2026-09-03",
       "gates": [
         "reply"
@@ -349,13 +349,13 @@
       "globs": [
         "**"
       ],
-      "why": "A moment, not a file class \u2014 it fires while deciding WHERE a fix goes, which is before any particular file is chosen, and applies to every kind of fix (code, document, config, container state). Routed by the `review` and `reply` gates instead.",
+      "why": "A moment, not a file class — it fires while deciding WHERE a fix goes, which is before any particular file is chosen, and applies to every kind of fix (code, document, config, container state). Routed by the `review` and `reply` gates instead.",
       "decided": "2026-09-08, when the practice landed",
       "gates": [
         "review",
         "reply"
       ],
-      "gates_why": "`review` catches it while the fix is being chosen; `reply` catches the half that is about what gets REPORTED \u2014 a temporary fix must be called temporary in the reply, which is a reply-time obligation, not a file-time one."
+      "gates_why": "`review` catches it while the fix is being chosen; `reply` catches the half that is about what gets REPORTED — a temporary fix must be called temporary in the reply, which is a reply-time obligation, not a file-time one."
     },
     "engine-plus-host-shims": {
       "globs": [
@@ -371,6 +371,17 @@
       ],
       "why": "DELIBERATELY UNROUTED, and the reason is the practice's own scope. It governs code that depends on anything outside its own control -- any language, any file, plus setup and configuration that is not code at all. No glob narrower than ** would be honest: restricting it to tools/**/*.py would silence it for shell hooks, templates and workflow files, which are exactly where the container's defaults bite. Its own Install already records that the general form floods a mechanical check (67 hits against this repo's tools/, mostly legitimate), so the occasion index, review and the PUSH GATE carry it rather than the path channel. The gate was added 2026-09-08: the one moment this rule has to fire on a schedule rather than on a hunch is when a check has just told you it could not run and you are about to publish anyway.",
       "decided": "promoted to universal 2026-09-07"
+    },
+    "fence-block-for-paste": {
+      "globs": [
+        "**"
+      ],
+      "gates": [
+        "reply"
+      ],
+      "gates_why": "Its occasion is the reply itself -- the moment text meant to be pasted is handed over.",
+      "why": "Left at `**` on purpose, same as reply-links-files: a reply is not a file, so no glob names the moment text meant to be pasted is handed over.",
+      "decided": "2026-09-21, when it was demoted from the resident block to the `reply` gate"
     },
     "filename-separator": {
       "globs": [
@@ -577,7 +588,7 @@
       "globs": [
         "**"
       ],
-      "why": "A moment \u2014 routed by the `merge` gate instead.",
+      "why": "A moment — routed by the `merge` gate instead.",
       "decided": "phase 4 routing pass",
       "gates": [
         "merge"
@@ -588,7 +599,7 @@
       "globs": [
         "**"
       ],
-      "why": "A moment, not a place \u2014 routed by the `reply` gate instead.",
+      "why": "A moment, not a place — routed by the `reply` gate instead.",
       "decided": "Morgan F, 2026-09-14",
       "gates": [
         "reply"
@@ -606,7 +617,7 @@
       "globs": [
         "**"
       ],
-      "why": "A moment \u2014 routed by the `review` gate instead. Its proportionality guard is also why it has no check.",
+      "why": "A moment — routed by the `review` gate instead. Its proportionality guard is also why it has no check.",
       "decided": "phase 4 routing pass",
       "gates": [
         "review"
@@ -635,7 +646,7 @@
       "globs": [
         "**"
       ],
-      "why": "A moment, not a place \u2014 routed by the `reply` gate instead.",
+      "why": "A moment, not a place — routed by the `reply` gate instead.",
       "decided": "Morgan, 2026-09-14",
       "gates": [
         "reply"
@@ -657,7 +668,7 @@
       "globs": [
         "**"
       ],
-      "why": "A moment \u2014 routed by the `push` gate, and enforced by a turn-end check.",
+      "why": "A moment — routed by the `push` gate, and enforced by a turn-end check.",
       "decided": "phase 4 routing pass",
       "gates": [
         "push"
@@ -817,7 +828,7 @@
       "globs": [
         "**"
       ],
-      "why": "Genuinely unroutable \u2014 see spec/LOADER.md. A registry is recognised by what it is for, and this repo's are .json, .py and .md alike.",
+      "why": "Genuinely unroutable — see spec/LOADER.md. A registry is recognised by what it is for, and this repo's are .json, .py and .md alike.",
       "decided": "phase 4 routing pass"
     },
     "relayed-authorization": {
@@ -839,13 +850,15 @@
       "decided": "2026-09-06, when the practice was added"
     },
     "reply-links-files": {
-      "globs": null,
+      "globs": [
+        "**"
+      ],
       "gates": [
         "reply"
       ],
       "gates_why": "Its occasion is the reply itself.",
-      "why": "Resident; its applies_to is not this file's business.",
-      "decided": "phase 4 routing pass"
+      "why": "Left at `**` on purpose: the artifact is a chat reply, which the tree does not hold, so no path identifies the occasion. The `reply` gate is the channel. Was `null` here while the practice was resident; it became a real answer when the 2026-09-21 reduction pass demoted it.",
+      "decided": "phase 4 routing pass; re-stated 2026-09-21 when it was demoted out of the resident block"
     },
     "repo-is-memory": {
       "globs": null,
@@ -907,7 +920,7 @@
       "globs": [
         "**"
       ],
-      "why": "A moment \u2014 routed by the `merge` gate instead.",
+      "why": "A moment — routed by the `merge` gate instead.",
       "decided": "phase 4 routing pass",
       "gates": [
         "merge"
@@ -1045,7 +1058,7 @@
       "globs": [
         "**"
       ],
-      "why": "A moment, not a place \u2014 routed by the `reply` gate instead, exactly as next-steps-after-commit was before it was absorbed here.",
+      "why": "A moment, not a place — routed by the `reply` gate instead, exactly as next-steps-after-commit was before it was absorbed here.",
       "decided": "Morgan, 2026-09-15",
       "gates": [
         "reply"
@@ -1084,7 +1097,7 @@
         "TODO.md",
         "todo/todo-*.md"
       ],
-      "why": "The distinguishing condition is writing or triaging an entry in the TODO file itself \u2014 the only place the practice's rule is ever violated. Widened 2026-09-18 to the per-item todo/ format's own files, once a repo has migrated to it.",
+      "why": "The distinguishing condition is writing or triaging an entry in the TODO file itself — the only place the practice's rule is ever violated. Widened 2026-09-18 to the per-item todo/ format's own files, once a repo has migrated to it.",
       "decided": "post-phase-4, converting Alex's practice 53",
       "gates": [
         "merge"
@@ -1137,7 +1150,7 @@
       "globs": [
         "**"
       ],
-      "why": "A moment, not a file class \u2014 it fires when an update is being taken, and the files it touches are a vendored tree whose paths differ in every consuming repo. Routed by the `merge` gate.",
+      "why": "A moment, not a file class — it fires when an update is being taken, and the files it touches are a vendored tree whose paths differ in every consuming repo. Routed by the `merge` gate.",
       "decided": "2026-09-08, when the practice landed",
       "gates": [
         "merge"
@@ -1221,7 +1234,7 @@
     ],
     "merge": "merging a branch",
     "review": "reviewing work, or a review finding a defect",
-    "push": "before pushing \u2014 the pre-push hook",
-    "reply": "ending a turn and writing the reply \u2014 the stop hook"
+    "push": "before pushing — the pre-push hook",
+    "reply": "ending a turn and writing the reply — the stop hook"
   }
 }

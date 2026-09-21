@@ -20,26 +20,29 @@ approved_by: "Morgan, 2026-09-08 -- after a session committed and pushed twice, 
 ## Rule
 When a conversation is a **Brainstorm** -- the person says the word, or the
 thread is plainly exploratory ("I'm wondering", "what are my options", "do
-you have ideas", "maybe this is a terrible idea") -- **write nothing to the
-repository and commit nothing until they say to.** Research freely, read
-whatever you need, argue the case, propose the design. Do not create, edit,
-commit, push, open a pull request, or merge.
+you have ideas") -- **write nothing to the repository and commit nothing
+until they say to.** Research, read, argue the case, propose the design; do
+not create, edit, commit, push, open a pull request, or merge. **The edit is
+the thing to hold, not just the commit.**
 
-**The edit is the thing to hold, not just the commit.** A session that
-writes files and then asks whether to commit has already made the decision,
-because a working tree it left dirty is one a Stop hook or a later turn will
-push to finish. Say what you would write and where; wait to be told.
-
-A brainstorm ends only when the person authorizes the work -- `Go merge`,
-"do it", "write it up", or anything else unambiguous. **Their answering a
-question inside the brainstorm is not authorization**, and neither is their
-enthusiasm for the idea.
+It ends only when the person authorizes the work. Their answering a question
+inside it is not authorization, and neither is their enthusiasm for the
+idea. **When in doubt, it is a brainstorm.**
 
 ## Detail
-**When in doubt, it is a brainstorm.** The cost is asymmetric and not
-close: holding costs one question at the end of a reply, and guessing wrong
-puts commits in someone's history that they did not want, on a branch they
-now have to read before they can trust it.
+**What holding the edit means, and what ends a brainstorm** -- moved out of
+the Rule on 2026-09-21 (see `## Story`), unchanged:
+
+A session that writes files and then asks whether to commit has already made
+the decision, because a working tree it left dirty is one a Stop hook or a
+later turn will push to finish. Say what you would write and where; wait to
+be told. A brainstorm ends only when the person authorizes the work --
+`Go merge`, "do it", "write it up", or anything else unambiguous.
+
+**The cost of getting it wrong is asymmetric and not close**, which is why
+the Rule's default is what it is: holding costs one question at the end of a
+reply, and guessing wrong puts commits in someone's history that they did
+not want, on a branch they now have to read before they can trust it.
 
 **A directive inside an exploratory thread is still a directive.** "Make
 this a practice" is an instruction to build, even if the three messages
@@ -100,6 +103,15 @@ The reasoning was not wrong about capture; it was wrong about who decides
 when. `repo-is-memory` says a decision must not live only in a thread. It
 does not say a session may decide, on the person's behalf, that something
 has become a decision.
+
+**Rule compressed 2026-09-21**, in the reduction pass recorded in
+[todo-2026-09-21-resident-cap-was-measured-on-the-wrong-shape.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/todo/todo-2026-09-21-resident-cap-was-measured-on-the-wrong-shape.md).
+221 tokens -> 117, at that point the largest entry in the resident block.
+Nothing was dropped: the dirty-tree reasoning and the list of phrases that
+end a brainstorm moved into `## Detail` above, and *"when in doubt, it is a
+brainstorm"* moved the other way, up into the Rule, because it is the
+operative default rather than a gloss on one. Morgan asked for this pass by
+name after taking the three that came before it.
 
 ## Install
 **No mechanical check, and the reason is the same one

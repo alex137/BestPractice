@@ -143,3 +143,124 @@ the clock, and the clock came back round in ten days. The question this
 item asks is whether the CAP is the right shape, and a reduction pass does
 not answer it — it buys time, which is worth buying, and is not the same
 thing.
+
+**Answering this section's own "what NOT to do", because route A did
+exactly the thing it names.** The warning is against demoting a practice to
+get under the line, on the grounds that 2026-09-11 did that and the clock
+came back round in ten days. Route A demoted two — and the difference is
+that 2026-09-11 dropped `buenos-aires-dates` and `small-calls` out of the
+resident block with no other channel carrying them, while both practices
+demoted here declare `gates: ["reply"]`, which fires unconditionally on
+every turn. The rule stays in force; what changed is which mechanism
+delivers it. Route D is this section's own recommendation, taken.
+
+That does not make the warning wrong about the shape of the problem. This
+pass bought time, which this section says is worth buying and is not the
+same thing as an answer.
+
+## Reduction Pass Run 2026-09-21 — The Report
+
+**This does not close this item.** It bought headroom; the structural
+question above — a universal sub-cap plus an adopter allowance, instead of
+one number measured against a single-source tree — is untouched and still
+`waiting_on` Morgan. At the growth rate this item records, headroom is the
+thing that runs out.
+
+Morgan picked all three routes from a costed menu, 2026-09-21: *"Do A and B
+and C - I like all"*. strength: decided.
+
+| Surface | Before | After | Cap |
+|---|---:|---:|---:|
+| universal (this repo) | 1379 | **1055** | — |
+| individual | 447 | **392** | 550 |
+| shared/working-style | 351 | **144** | 425 |
+| **combined resident block** | **2198** | **1591** | **2000** |
+
+Measured with [tools/build_views.py](../tools/build_views.py)'s own `_approx_tokens` (`words × 1.3`) over
+the rendered blocks, before and after. Headroom went from −198 to +409.
+
+### What Moved
+
+**A — two universal practices demoted to `tier: on-demand`, −324.**
+[fence-block-for-paste](../practices/fence-block-for-paste.md) (219) and
+[reply-links-files](../practices/reply-links-files.md) (124). Nothing was
+rewritten and no rule changed: both already declared `gates: ["reply"]`, so
+the `UserPromptSubmit` hook prints their clause before every reply is
+written and the full Rule is one `precedent_gate.py reply` away. This is
+reduction-pass step 1 — text a session already reaches at a guaranteed
+moment. **The cost, stated plainly:** `reply-gate.sh` is the Claude Code
+adapter's hook, so on Codex and Gemini CLI these two now arrive through the
+standing instruction rather than automatically. Each file's `## Story`
+records this.
+
+**B — [default-register](https://github.com/themorgan/precedent-shared-working-style)'s
+Rule compressed, −207.** 293 → 87. Its fallback body moved into `## Detail`
+word for word; the precedence sentence stayed in the Rule. The body only
+fires where no reader has declared a register, and Morgan's
+`audience-register` resolves in every repository he works in — so those
+tokens were paid on every turn for text switched off before it was read.
+Approved by Morgan, sole approver in that set's `approvers.json`.
+
+**C — `reply-fits-one-screen` deduplicated into `reply-is-short`, −55.**
+Two resident rules about reply length became one. Every clause survives in
+the surviving Rule; the retired file keeps its Why, its Story and the
+verbatim quote that killed `half-the-words`, and carries
+`status: deduplicated`, `in_force_at: reply-is-short`.
+
+### What This Pass Did NOT Do, and Why
+
+- **Did not touch `no-invented-specifics`, `verify-postcondition`,
+  `repo-is-memory` or `write-like-a-human`**, though all four are in the
+  reply gate too and demoting them would have been another ~323. They bind
+  *during* the work, not at the moment a reply is written, so a reply-time
+  reminder arrives after the damage. The gate is the wrong channel for them.
+- **Did not raise any ceiling.** Route C returned 55 against the ~115 this
+  session estimated when it costed the menu; the merged rule kept every
+  clause, which is where the difference went.
+
+### Route D, Added the Same Day
+
+Morgan asked for the "optional" item at the end of the costed menu, so the
+three largest remaining universal residents were compressed too. **This one
+is rewriting, not moving** — the menu's step 1 was exhausted by route A, so
+every token here came out of a Rule somebody has to re-read. Each practice's
+own `## Story` records what moved and what stayed.
+
+| Practice | Before | After |
+|---|---:|---:|
+| `brainstorm-holds-commits` | 221 | **137** |
+| `answer-first-ask-before-long-work` | 208 | **161** |
+| `environment-gotchas` | 153 | **123** |
+
+**−160, not the ~250 this session estimated.** The estimates were drafted
+against word counts that left out the rendered `**slug.** ` prefix and were
+optimistic about how much of each Rule was argument rather than rule. Said
+plainly because the same optimism showed up in route C, and a menu whose
+numbers run high twice is a menu to distrust next time.
+
+Nothing was dropped. What moved to `## Detail`: the dirty-working-tree
+reasoning and the list of phrases that end a brainstorm; the two definitions
+`answer-first-ask-before-long-work` carried inline (what makes a question
+easy, the four examples of a long task); and the sentence about the
+generated gotcha overview. One thing moved the other way — *"when in doubt,
+it is a brainstorm"* came UP from Detail into the Rule, because it is the
+operative default, not a gloss on one.
+
+**What stayed, deliberately:** `environment-gotchas`' "none of it loads into
+the instructions file, at any size" clause, which is the rule that stops an
+instructions file regrowing the catalogue; and
+`answer-first-ask-before-long-work`'s two exceptions, which a session reads
+at exactly the moment it is deciding whether to ask.
+
+### Where the Block Stands After All Four Routes
+
+| Surface | Start of day | After A–C | After D | Cap |
+|---|---:|---:|---:|---:|
+| universal | 1379 | 1055 | **895** | — |
+| individual | 447 | 392 | **392** | 550 |
+| shared/working-style | 351 | 144 | **144** | 425 |
+| **combined** | **2198** | **1591** | **1431** | **2000** |
+
+Headroom: −198 → **+569**. At the growth rate recorded at the top of this
+item, that is weeks rather than days — and it is still headroom, not a
+structural guarantee. **The open question above is unchanged.**

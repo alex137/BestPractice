@@ -1,11 +1,12 @@
 ---
 slug:        fence-block-for-paste
 title:       Text meant to be copied elsewhere goes in its own fence block
-tier:        resident
+tier:        on-demand
 severity:    default
 applies_to:  ["**"]
 occasion:    "a reply hands over text meant to be pasted somewhere else -- a prompt, a commit message, a PR description, a config snippet, a comment for another tool"
 gates:       ["reply"]
+index_clause: "paste-ready text goes in a real fence block -- one block per thing"
 checked_by:  null
 defines:     ["fence block"]
 status:      active
@@ -97,6 +98,31 @@ exchange that `my-options` and `prompt-please` name the fence block
 explicitly rather than call it "the block," to keep it distinct from the
 other things those files call a block. strength: decided.
 
+**Demoted from `tier: resident` to `tier: on-demand` on 2026-09-21**, in a
+reduction pass against the cross-source resident block. The combined block
+across this account's four sources measured 2,198 tokens against the
+2,000-token cap -- the wall
+[todo-2026-09-21-resident-cap-was-measured-on-the-wrong-shape.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/todo/todo-2026-09-21-resident-cap-was-measured-on-the-wrong-shape.md)
+records -- and this practice was one of the two largest entries whose full
+text a session already reaches at a guaranteed moment. Morgan chose it from
+a costed menu, 2026-09-21: *"Do A and B and C - I like all"*. strength:
+decided.
+
+**This is not the trigger-phrase gating the `## Why` above rejects, and the
+difference is the whole reason the demotion is safe.** `gates: ["reply"]`
+fires on every turn, unconditionally, with no phrase to remember: the
+`UserPromptSubmit` hook runs `precedent_gate.py reply --brief` and prints
+this practice's one-line clause before the reply is written, and the full
+Rule is one `precedent_gate.py reply` away. A trigger phrase fires when
+somebody says it; this fires always.
+
+**The caveat, stated because it is real:** `reply-gate.sh` is the Claude
+Code adapter's hook
+([templates/harness/README.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/templates/harness/README.md)). Codex and
+Gemini CLI have no prompt-submit hook to wire it into, so in those harnesses
+this rule now arrives through the standing instruction and the occasion
+index rather than automatically. That was weighed and accepted.
+
 ## Install
 Nothing to configure. Same as [my-options](my-options.md) and
 [Prompt Please](prompt-please.md), the artifact this governs is a chat
@@ -104,3 +130,7 @@ reply, not a file the tree holds, so there is nothing for a tree-scoped
 check to read. The reply gate carries it instead: registered on `reply`,
 so it is in scope at the moment a reply is being written, not only after
 it is sent. No mechanical check.
+
+**On-demand since 2026-09-21**, reached by the `reply` gate rather than by
+residency -- see `## Story` for the reduction pass that moved it and for
+what changes on a harness with no prompt-submit hook.
