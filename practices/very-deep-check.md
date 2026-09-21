@@ -926,8 +926,11 @@ confidently.
     work**: `workflow-yaml-github-can-parse`
     ([tools/precedent_check.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/precedent_check.py))
     refuses a YAML anchor or alias in any workflow file or shipped workflow
-    template, through PyYAML's own event stream rather than by matching `&`
-    and `*` in text. *(Found 2026-09-21: an anchor shared one `paths:` list
+    template, through PyYAML's own event stream where PyYAML is installed
+    and a structural line match where it is not — **CI has no PyYAML, so
+    the first version of that check skipped in the one environment that
+    gates every pull request**, which is not a check
+    ([durable-fix](durable-fix.md)). *(Found 2026-09-21: an anchor shared one `paths:` list
     between a `push:` and a `pull_request:` trigger. PyYAML resolved it —
     including through the exact command this repository's own templates
     recommend — and GitHub rejects the file outright. Every local
