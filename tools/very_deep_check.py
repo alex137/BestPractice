@@ -167,6 +167,12 @@ Run:
       session to hold the harness's own session list against.
   python3 tools/very_deep_check.py --skip-session-sweep
       -- skip that sweep entirely.
+  python3 tools/very_deep_check.py --with-harness
+      -- run `verify_harness.py --all` from inside this run and record the
+      result as its own ledger section. Off by default: it is minutes, and
+      its stress checks have OOM-killed a session's shell before. Left off,
+      the PLANTED CASE COVERAGE section says the rotation is still owed and
+      names the command.
   python3 tools/very_deep_check.py --skip-liveness
   python3 tools/very_deep_check.py --landable-only  # only repos this
                                   # session can push to; findings in the seam
@@ -889,6 +895,65 @@ def _orphan_scan(repo_dir):
                            f'practices/{slug}.md in this source for it to '
                            f'check (renamed or retired practice?)')
     return out
+
+
+def planted_case_coverage(repo_root, run=False, timeout=2400):
+    """-> (status, lines) for the push gate's planted-case ROTATION, settled
+    or still owed. (practice: very-deep-check, order of operations step 2)
+
+    WHY THIS IS A SECTION AND NOT A SENTENCE. verify_harness.py runs a 10%
+    slice of its planted cases per commit and says so in its own result
+    line -- "covered within 10 commits (--all forces every one)". That is a
+    promise with no settlement date: nothing in the project ever forces the
+    full set, so a case that stopped firing months ago is covered by an
+    argument rather than by a run. The very deep check is the one moment
+    already expensive on purpose, which makes it the place to collect.
+
+    Default is to REPORT rather than run. A full harness run is minutes and
+    its stress checks have OOM-killed a session's shell before
+    (gotcha-2026-09-18-verify-harnesss-stress-checks-can-oom-kill-the-bash-tools),
+    so a tool that silently started one inside another long run would be
+    making that call for the session. --with-harness asks for it.
+
+    status is 'ran', 'owed', or 'n/a'."""
+    repo_root = pathlib.Path(repo_root)
+    harness = repo_root / 'tools' / 'verify_harness.py'
+    if not harness.is_file():
+        return 'n/a', ['no tools/verify_harness.py here -- this repo runs no '
+                       'planted cases, so there is no rotation to settle']
+    cmd = 'python3 tools/verify_harness.py --all'
+    if not run:
+        return 'owed', [
+            f'NOT RUN this invocation -- step 2 of the order of operations '
+            f'owes `{cmd}`',
+            'The bare command every other gate runs covers a 10% slice; this '
+            'check is the one place the whole set is meant to run.',
+            'Pass --with-harness to run it from here and record the result '
+            'in the ledger.']
+    started = time.time()
+    try:
+        proc = subprocess.run([sys.executable, str(harness), '--all'],
+                              cwd=str(repo_root), capture_output=True,
+                              text=True, timeout=timeout)
+    except subprocess.TimeoutExpired:
+        return 'owed', [f'FAIL: `{cmd}` did not finish within {timeout}s -- '
+                        f'the rotation is NOT settled by this run']
+    except OSError as exc:                                    # noqa: BLE001
+        return 'owed', [f'FAIL: could not run `{cmd}` -- {exc}']
+    took = time.time() - started
+    body = (proc.stdout or '') + (proc.stderr or '')
+    # The harness states its own selection in the result line; quoting it
+    # back is the evidence that --all actually took effect, rather than
+    # this section asserting it did.
+    sel = [l.strip() for l in body.splitlines()
+           if 'planted case' in l and 'ran' in l]
+    lines = [f'ran `{cmd}` in {took:.0f}s -- exit {proc.returncode}']
+    lines += [f'  {s}' for s in sel[:2]]
+    if proc.returncode != 0:
+        tail = [l for l in body.splitlines() if l.strip()][-8:]
+        lines.append('FAIL -- the full set does not pass. Tail:')
+        lines += [f'    {l}' for l in tail]
+    return 'ran', lines
 
 
 def _workflow_liveness_scan(repo_dir):
@@ -5002,6 +5067,7 @@ def _main(box):
     allow_missing = '--allow-missing-sources' in args
     skip_branch_scan = '--skip-branch-scan' in args
     print_checklist = '--checklist' in args
+    with_harness = '--with-harness' in args
     skip_visibility = '--skip-visibility' in args
     skip_liveness = '--skip-liveness' in args
     # Narrow the read to repos this session can actually land work in. NOT the
@@ -5084,6 +5150,21 @@ def _main(box):
                  f"report anything else while one of them is malformed.")
 
     if led:
+        led.start('PLANTED CASE COVERAGE')
+    _pc_status, _pc_lines = planted_case_coverage(_root, run=with_harness)
+    if not as_json:
+        print("PLANTED CASE COVERAGE -- the push gate's rotation, settled "
+              "or still owed\n")
+        for _l in _pc_lines:
+            print(f"  {_l}")
+        print()
+    if led:
+        # An owed rotation is a finding: the promise "covered within 10
+        # commits" is the thing this section exists to stop taking on
+        # trust. 'n/a' is unmeasurable, never clean.
+        led.end(findings=None if _pc_status == 'n/a'
+                else (0 if _pc_status == 'ran' and not any(
+                    l.startswith('FAIL') for l in _pc_lines) else 1))
         led.start('VENDORING EXCLUSIONS')
     _vendor_findings = _vendored_exclusion_findings(_root)
     if not as_json:

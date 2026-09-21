@@ -382,6 +382,22 @@ cannot tell a drift this run introduced from one that was there before. So:
    [AGENTS.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/AGENTS.md) names ([two-check-levels](two-check-levels.md))
    — and fix what it reports, before this check reads a line. `0 failed` and
    `0 violated` is the starting line, not the finish.
+
+   **`verify_harness.py --all` here, not the bare command every other gate
+   runs.** The push gate runs a 10% rotation of the planted cases per
+   commit and promises the rest "within 10 commits" — a promise with no
+   settlement date, because nothing anywhere ever forces the full set. This
+   is the run that collects on it: the one moment in the project that is
+   already expensive on purpose, and the one place a rotation that has
+   quietly stopped covering something would surface. `--all` is the whole
+   of the change, and
+   [tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/very_deep_check.py)'s
+   `PLANTED CASE COVERAGE` section says on every run whether this invocation
+   did it or still owes it; `--with-harness` runs it from inside the tool
+   and records the result in the ledger like any other section. Added
+   2026-09-21 (Morgan, strength: decided) from
+   [spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md)
+   item 11.
 3. **Run [tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/very_deep_check.py)** for the
    enumeration, the machine-readable parse, the source-shape check, the
    branch scan, and the GitHub API budget. A missing declared source stops
