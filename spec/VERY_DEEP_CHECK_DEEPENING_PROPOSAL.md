@@ -1,7 +1,7 @@
 ---
 title:         "Deepening the very deep check: fourteen proposed additions"
 kind:          proposal
-status:        drafted
+status:        executed
 opened:        2026-09-21
 closed:        null
 superseded_by: null
@@ -12,12 +12,31 @@ summary:       "Reads the very deep check's current formula against the incident
 
 # Deepening the very deep check: fourteen proposed additions
 
-**Nothing here is built, and nothing here is adopted.** Morgan asked, on
-2026-09-21, for a close read of the check's own formula against the week's
-real failures, and for specific proposals rather than a plan. Each item below
-says what to add, which pass it belongs in, whether it is mechanical or a
-read, what it would have caught, and what it costs. **Pick from it; it is not
-a sequence.**
+**Five of the fourteen are built and merged.** Morgan asked, on 2026-09-21,
+for a close read of the check's own formula against the week's real failures,
+and for specific proposals rather than a plan; he then authorized the five
+this document recommended first, in that order (strength: decided). Each item
+below says what to add, which pass it belongs in, whether it is mechanical or
+a read, what it would have caught, and what it costs. **The other nine are
+unbuilt and unadopted; pick from them, they are not a sequence.**
+
+## What shipped, 2026-09-21
+
+| Item | What landed | Where |
+|---|---|---|
+| **11** — settle the rotation | Step 2 says `verify_harness.py --all`; `PLANTED CASE COVERAGE` says every run whether this invocation settled it or owes it; `--with-harness` runs it and ledgers the result | [practices/very-deep-check.md](../practices/very-deep-check.md), [tools/very_deep_check.py](../tools/very_deep_check.py) |
+| **5** — workflow reality | `WORKFLOW REALITY` asks GitHub per file: registered, active, last run, does that run postdate the newest commit — with both limits printed. Plus `workflow-yaml-github-can-parse`, an enforced check refusing a YAML anchor in any workflow or shipped template, with a planted case carrying `&&`, `2>&1` and `*.md` so it proves it tells them apart | [tools/precedent_check.py](../tools/precedent_check.py), [tools/verify_harness.py](../tools/verify_harness.py), pass 2 item 19 |
+| **1 + 2** — the deletion direction | `precedent_vendor_engine` names every tracked file that still refers to something it just deleted, on both removal paths; `DELETIONS PENDING` asks the same question before the refresh rather than during it; a harness case covers both directions | [tools/precedent_vendor_engine.py](../tools/precedent_vendor_engine.py), pass 1 |
+| **12** — incident to detector | `INCIDENT COVERAGE` lists every gotcha filed and item closed since the ledger's last run, with what cites each slug. **First run: four of six gotchas filed that week were cited by nothing** | pass 2 item 20 |
+| **9** — the holistic-read registry | `ACCRETION` ranks tracked files by commits since anybody recorded reading them whole; `--record-read` writes [record/holistic-reads.json](../record/holistic-reads.json) and refuses a path that does not exist. The registry starts empty — back-dating a row would invent the evidence it exists to hold | pass 3 |
+
+**One correction the building itself produced**, which is the argument for
+running a new section rather than reasoning about it: `WORKFLOW REALITY`'s
+first live run reported a source set as *"Actions is off"* while quoting a
+body that said **"GitHub access to this repository is not enabled for this
+session"**. Two unlike refusals reached one branch. Only a body naming Actions
+as disabled is a finding now; everything else is `UNVERIFIED`, which is this
+session failing to look rather than a fact about the repo.
 
 ## What the check already covers, so nothing below repeats it
 
