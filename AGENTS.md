@@ -232,7 +232,7 @@ plan's premise.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block; `python3 tools/build_views.py --check` exits non-zero on drift. Source: practices/ -- edit the practice file, never this block. -->
 
-## Resident block (~895 of 2000 token budget, 10 of 137 practices (10 universal))
+## Resident block (~895 of 2000 token budget, 10 of 138 practices (10 universal))
 
 **answer-first-ask-before-long-work.** Three parts. **(1) Answer the easy questions in a message before starting
 anything long** — in the same turn; the long run never gates the answer.
@@ -310,6 +310,8 @@ cheapest evidence a reader has that somebody did.
 ## Occasion index
 
 ```
+When a branch has done its job -- a pull request merged, a tidy-up, or a person saying to delete some branches:
+  never-delete-a-remote-branch — never attempt a remote branch delete; hand over the one-click link
 When a computation books a transfer between two parties:
   name-both-sides-of-ledger — name both sides; check what is charged against what is received
 When a document replaces or is replaced by an earlier one:

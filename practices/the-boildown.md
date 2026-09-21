@@ -14,7 +14,15 @@ in_force_at: null
 supersedes:  ["next-steps-after-commit", "merged-session-offers-a-practice", "handoff-is-pasteable", "closing-items-are-this-thread", "asks-stand-alone", "archive-a-finished-session"]
 overrides:   null
 added:       "2026-09-15"
-approved_by: "extended 2026-09-21, Morgan (strength: decided), with the
+approved_by: "extended 2026-09-21, Morgan (strength: decided), with item 5
+  rewritten -- every branch named there is a one-click delete link, and an
+  undeleted branch is never a blocker and never holds the archive line:
+  \"it needs to always always always give me a link to the github search
+  results page with the branch right there so I can just click and delete
+  (it never does that) *AND* it should not consider deleting the branches a
+  'blocker' - it's something good to do and recommended, but not blocking.\"
+  Authorized: \"Go update.\";
+  extended 2026-09-21, Morgan (strength: decided), with the
   committed-but-not-landed item -- \"the Boildown MUST MUST tell me that
   and recommend I do that, so I don't miss doing it\"; the reply gate
   prints it before the reply, since the stop hook fires too late to put
@@ -57,7 +65,9 @@ A reply may only add these once the three conditions below all hold -- the same 
 
 When all three hold, add, still in order, after the three above:
 
-5. **Branches safe to delete**, scoped to this thread's own work only. Where the session itself merged a pull request, name that PR's branch and give the PR's own link -- GitHub puts a one-click delete button on a merged PR's page. Where a branch is safe on other grounds (its PR merged or was superseded, discovered rather than performed by this session), name the branch and either its PR's link or, if it has none, the repository's branches page with the branch's name so it is a click away. Omit the item entirely when there is nothing to flag -- never write that there was nothing.
+5. **Branches safe to delete**, scoped to this thread's own work only -- a branch the session itself merged, or one safe on other grounds (its pull request merged or was superseded, discovered rather than performed by this session). **Every branch named here is a one-click delete link, never a bare name**: the filtered branches-page form [branch-delete-links](branch-delete-links.md) specifies, in full and not restated here, with the merged pull request's own page given alongside it where there is one -- never instead of it. Omit the item entirely when there is nothing to flag -- never write that there was nothing.
+
+   **This item is a recommendation and never a blocker, and the distinction is the point of putting it down here rather than in item 1.** An undeleted branch never appears in "Your next steps", never appears in "What's blocking", and is **never** a reason to say "Don't archive this session" -- a reply may say a branch is safe to delete and, in the same breath, that the session can be archived. Morgan, 2026-09-21 (strength: decided): *"it should not consider deleting the branches a 'blocker' - it's something good to do and recommended, but not blocking."* And the session never offers to do the deletion itself, because it cannot -- [never-delete-a-remote-branch](never-delete-a-remote-branch.md).
 6. **Other sessions on the same issue**, if any are known to be live on it: "Other relevant sessions to keep an eye on:" with a link to each. Only sessions on *this* thread's own subject -- never a passing mention of unrelated work happening elsewhere. Omit when there are none.
 7. **Sessions this one spawned**, if any, each with its link. Omit entirely when this session spawned nothing -- most sessions do not, and saying so every time is exactly the noise this rule exists to avoid.
 8. **A practice idea, at most one**, and only when all four hold: something was actually merged this session; the rule came from this session's own work, not a general good idea or something noticed elsewhere; and it has not already been raised in this closing list under a different bullet. State it in one sentence, gently, as a suggestion rather than a decision already made. Most closes have nothing here, and that is the ordinary case, not a gap.
