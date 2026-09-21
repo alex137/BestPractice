@@ -488,6 +488,19 @@ ENGINE_FILES = [
     'very_deep_check.py',
     'parse_check.py',
     'precedent_bootstrap_source.py',
+    # THE ONE CHECK THAT LOOKS OUTWARD (2026-09-21). Every other check in
+    # this system runs inside one repository and compares it against
+    # itself. This one reads THIS manifest's source_commit against the live
+    # upstream branch and says whether the vendored engine has fallen
+    # behind -- the question nothing could answer before, which is why a
+    # fix merged upstream reached an installed repo only when somebody
+    # remembered to run "Update Vendors" there. Measured 2026-09-20: 18 of
+    # 22 repositories had never taken one.
+    #
+    # It prints and never refreshes. Wired into the session-start hook and
+    # precedent_gate.py's push/merge moments precisely because a reminder
+    # is what already failed.
+    'precedent_engine_freshness.py',
     'precedent_vendor_engine.py',
 ]
 

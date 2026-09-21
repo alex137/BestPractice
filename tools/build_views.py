@@ -1777,6 +1777,7 @@ TOOLS_DESCRIPTIONS = {
     'build_gotcha_index.py': "gotchas/INDEX.md, generated from gotchas/*.md's frontmatter and Symptom sections -- not loaded by AGENTS.md",
     'verify_harness.py': "The verification harness — run before trusting any change here",
     'very_deep_check.py': "The very deep check — on-demand whole-repo coherence review, distinct from full-practice-audit",
+    'precedent_engine_freshness.py': "Says whether this repo's VENDORED engine has fallen behind upstream — the one check that looks outward; prints, never refreshes",
 }
 
 
