@@ -13,19 +13,24 @@
 # template does not just copy BestPractice's own scope. It reads this repo's
 # own declared visibility and narrows accordingly.
 #
-# WHY A JOB-LEVEL `if:`, NOT A NARROWED `on: push: branches:` LIST, THE WAY
+# WHY A RUNTIME CHECK, NOT A NARROWED `on: push: branches:` LIST, THE WAY
 # doc-lint.yml.template AND precedent-check.yml.template DO IT. Those two
 # templates can hardcode their branch list because GitHub Actions evaluates
 # `on:` before any job runs, from the YAML alone -- it cannot read this
 # repo's config at that point, so "scope the trigger by what precedent.json
-# says" is not an option the platform offers. Reading `visibility` has to
+# says" is not an option the platform offers. Reading visibility has to
 # happen inside a job, which means the workflow is triggered on every push
-# regardless, and the FIRST job decides whether the real scan runs. Per
-# spec/CI_MINUTES_PLAN.md item 9's own lesson: that decision is its own job,
-# never a step inside one that already started, because GitHub bills a job
-# for at least one runner-minute the moment it starts regardless of how fast
-# an early step exits -- a job whose own `if:` evaluates false is reported
-# SKIPPED and never allocates a runner at all.
+# regardless and decides once it is running.
+#
+# THAT DECISION IS A STEP, NOT A JOB (corrected 2026-09-21; the jobs: block
+# below has the arithmetic). It was its own job for one day, on the
+# reasoning that a job whose `if:` is false is never billed -- true, and
+# beside the point, because the job that DECIDES is billed like any other.
+# A deciding job plus a conditional scan costs `2 - S`; one job that decides
+# in a step costs `1`. The step-level skip does still bill this job's own
+# minute, which item 8 measured and which no in-workflow check can avoid --
+# that is what `on: push: branches:` is for, and why the note below tells an
+# adopter who wants zero to narrow the trigger themselves.
 #
 # THE TRADE, STATED PLAINLY, NOT LEFT IMPLICIT. On a repo declaring
 # `"visibility": "private"`, a push to any branch other than the declared
@@ -86,20 +91,45 @@ permissions:
   contents: read
 
 jobs:
-  # ONE job, so "does this ref need scanning" is billed once and the real
-  # scan job is skipped for free (never started) when it decides not to run
-  # -- same shape as doc-lint.yml.template's debounce job and
-  # precedent-check.yml.template's debounce job.
-  scope:
-    name: Decide whether this push needs scanning
+  # ONE JOB, NOT TWO (2026-09-21, practice: cite-the-incident). This file
+  # shipped on 2026-09-20 with a separate `scope` job that decided whether
+  # the real `leak-gate` job ran, gated by `needs:` + `if:`, on the
+  # reasoning that a job whose `if:` is false is never billed. That is true
+  # of the SKIPPED job and misses that the DECIDING job is billed like any
+  # other. With S the fraction of triggers it skips:
+  #
+  #   scope job + conditional scan:  S x 1 + (1-S) x 2  =  2 - S
+  #   one job that decides in a step:                         1
+  #
+  # Worse for every S below 1 -- the identical arithmetic that retired the
+  # debounce job from the other two templates the day before, reproduced
+  # here in the one file deliberately left alone because it is a security
+  # gate. Being a security gate is a reason not to WEAKEN it; it was never
+  # a reason to overpay for it.
+  #
+  # And the two visibility cases fail in opposite directions without either
+  # paying: on a PUBLIC repo the decision always comes back "scan", so the
+  # job could not change the answer; on a PRIVATE repo it can, and that is
+  # precisely where minutes are metered.
+  #
+  # So: one job, and the decision is a STEP inside it. An early step that
+  # exits cleanly still bills this job's own minute -- the same limit
+  # spec/CI_MINUTES_PLAN.md item 8 measured -- but one minute is what the
+  # old shape's CHEAPEST case cost, and half its scanning case.
+  #
+  # TO PAY NOTHING on a branch you do not want scanned, narrow `on: push:`
+  # with a `branches:` list, which GitHub evaluates before allocating any
+  # runner. That is the only free lever, and it is left to the adopter
+  # ON PURPOSE: a hardcoded list is a list somebody has to keep correct, and
+  # a stale one under-scans silently. The runtime check below is the safe
+  # default; the trigger filter is the cheap one. spec/BILLING_FLOOR.md has
+  # the full reasoning.
+  leak-gate:
+    name: Leak gate (structural)
     runs-on: ${{ vars.PRECEDENT_RUNNER || 'ubuntu-latest' }}
-    outputs:
-      run: ${{ steps.gate.outputs.run }}
     steps:
-      # No fetch-depth override -- this job only reads a config file out of
-      # the working tree, never git history, so the default shallow
-      # checkout is enough. The leak-gate job below takes its own checkout
-      # when it actually runs.
+      # No fetch-depth override -- nothing here walks git history. The scan
+      # reads the tracked tree at this ref.
       - uses: actions/checkout@v4
 
       # GITHUB DECIDES VISIBILITY, NOT THE MANIFEST (2026-09-21, practice:
@@ -218,15 +248,8 @@ jobs:
             echo "run=false" >> "$GITHUB_OUTPUT"
           fi
 
-  leak-gate:
-    name: Leak gate (structural)
-    needs: scope
-    if: needs.scope.outputs.run == 'true'
-    runs-on: ${{ vars.PRECEDENT_RUNNER || 'ubuntu-latest' }}
-    steps:
-      - uses: actions/checkout@v4
-
       - name: Set up Python
+        if: steps.gate.outputs.run == 'true'
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -235,4 +258,5 @@ jobs:
       # blocklist and never will, so the vocabulary layer cannot run here --
       # same reasoning as BestPractice's own leak-gate.yml.
       - name: Run the leak gate over the tracked tree (structural half only)
+        if: steps.gate.outputs.run == 'true'
         run: python3 tools/leak_gate.py --structural-only
