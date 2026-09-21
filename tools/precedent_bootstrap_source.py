@@ -156,7 +156,14 @@ HARNESS_HOOKS = ROOT / 'templates' / 'harness' / 'claude-code' / 'hooks'
 # need its own copy of each per level and the copies would drift; and
 # because _copy_skeleton() writes text files with default permissions,
 # while a hook that is not executable is a hook that silently never runs.
-SESSION_HOOKS = ('freshness-guard.sh', 'commit-identity.sh')
+SESSION_HOOKS = ('freshness-guard.sh', 'commit-identity.sh',
+                 # Wiring alone does not deliver a file: vendoring is gated
+                 # ON the wiring, so a set must also RECEIVE this hook at
+                 # creation or its first refresh is what finally copies it.
+                 # Named here for the same reason the other two are -- the
+                 # copy happens from the harness adapter, where the one
+                 # maintained version lives.
+                 'doc-lint-gate.sh')
 # The third hook a set gets, kept out of SESSION_HOOKS because it is the one
 # that is NOT a verbatim copy: it is instantiated from a .template with two
 # placeholders substituted, which is write_session_hook()'s job below.
@@ -557,6 +564,29 @@ def _install_session_hooks(dest, base_branch='main'):
                     'hooks': [
                         {'type': 'command',
                          'command': '$CLAUDE_PROJECT_DIR/.claude/hooks/freshness-guard.sh pre-write ' + base_branch},
+                    ],
+                }, {
+                    # THE MARKDOWN COMMIT GATE, wired from the start so a new
+                    # set never has the gap the four existing ones had.
+                    #
+                    # The lint left GitHub Actions on 2026-09-21 because this
+                    # hook replaced it. Vendoring is gated on wiring, so a set
+                    # that does not wire it never receives the file -- and a
+                    # set created before this line had to be hand-edited to
+                    # break that loop, which is a person doing by hand what
+                    # nothing automates
+                    # (todo-2026-09-21-a-new-hook-cannot-reach-an-installed-
+                    # consumer.md). A set created from here on is wired on
+                    # day one and the refresh delivers the file unasked.
+                    #
+                    # Its own matcher rather than sharing the block above:
+                    # this one only ever needs Bash (it inspects `git commit`),
+                    # and widening the freshness guard's matcher or narrowing
+                    # this one would make each wrong for the other.
+                    'matcher': 'Bash',
+                    'hooks': [
+                        {'type': 'command',
+                         'command': '$CLAUDE_PROJECT_DIR/.claude/hooks/doc-lint-gate.sh'},
                     ],
                 }],
             },

@@ -52,3 +52,39 @@ need its own change to add a fourth. Deliberately deferred rather than
 done by guess: extending an enforced check on unverified assumptions about
 a hooks syntax this pass could not confirm is a worse mistake than leaving
 the gap named.
+
+## The Markdown Check Does Not Run Here
+
+**Read this before assuming your documents are checked.** On 2026-09-21
+Precedent's Markdown lint left GitHub Actions entirely and was replaced by
+`.claude/hooks/doc-lint-gate.sh`, which refuses a `git commit` whose staged
+Markdown fails [doc_lint.py](../../../tools/doc_lint.py). That is a Claude Code mechanism: it needs a
+`PreToolUse` hook, and Grok Build's own lifecycle hooks (`.grok/hooks.json`) may well be able
+to carry it — but the event names and JSON shape are deliberately not written
+down in this adapter, for the reason its Bootstrap section gives, so nothing
+here claims a wiring that has not been run. **If you verify the hooks reference
+and wire a pre-tool event to this script, say so in [../LEDGER.md](../LEDGER.md)**: it would be the
+first hook row in that ledger with a real transfer to a third adapter.
+
+**So on this adapter, nothing checks your Markdown before it reaches a
+shared branch** — not the hook, and not CI, because the workflow the hook
+replaced is retired and deleted. This is the first adapter gap with that
+property. Every earlier one cost you a guard you never had; this one costs
+you a guard that was there last week.
+
+Do both of these. Not one:
+
+1. **Run it yourself before every commit:**
+   `python3 tools/doc_lint.py <the markdown you touched>`. Nothing will
+   remind you.
+2. **Put a GitHub check back**, because step 1 is a habit and a habit is
+   what the hook exists to replace. Copy
+   [../../github-actions/light-check.yml.template](../../github-actions/light-check.yml.template)
+   to `.github/workflows/light-check.yml`, set its `CUSTOMIZE` command to
+   `python3 tools/doc_lint.py` and its `paths:` to `"**/*.md"`, then enable
+   Actions for the repository at **Settings → Actions**.
+
+**Doing only the first is the arrangement that just failed upstream.** "A
+session is supposed to run the check before committing" was written down
+and followed for months, and still nothing refused a commit that skipped
+it — which was only ever safe because CI was behind it.
