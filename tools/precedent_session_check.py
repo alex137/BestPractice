@@ -380,7 +380,65 @@ def checks(offline=False):
                     '; '.join(bad) + '. Each of these is SKIPPED, silently by '
                     'design -- the variable reads as coverage and covers '
                     'nothing. ' + suggestion))
+
+    # 9. One source, one clone.
+    #
+    # Two clones of the SAME practice source on one disk is the quietest
+    # failure in this file. Everything keeps working: the resolver picks
+    # one, the freshness guard checks whichever the also-list names, a
+    # session edits whichever it happened to cd into, and nothing anywhere
+    # says the other exists. Then they diverge, and a practice somebody
+    # wrote this morning is simply not in force, with no error to read.
+    #
+    # Measured 2026-09-21 on this project's own container: three shared
+    # sets were cloned twice, once under $HOME and once beside this repo,
+    # and one of the three (`precedent-shared-writing`) had ALREADY
+    # diverged between its two copies. The also-list suggestion above was
+    # dutifully naming both, which is honest and is also the tell -- a
+    # suggestion listing seven entries for four sources is reporting a
+    # duplicate nobody had noticed.
+    #
+    # Reports and never repairs: which copy is canonical is a judgment
+    # about which one holds work (practice: fail-gracefully). Deleting the
+    # wrong one loses commits.
+    name = 'each practice source is cloned exactly once on this disk'
+    by_name = {}
+    for shown, _base in _attachable_sources():
+        by_name.setdefault(pathlib.Path(shown).name, []).append(shown)
+    dupes = {n: paths for n, paths in by_name.items() if len(paths) > 1}
+    if not dupes:
+        out.append((name, True, ''))
+    else:
+        detail = []
+        for n, paths in sorted(dupes.items()):
+            heads = []
+            for shown in paths:
+                real = _expand_source_path(shown)
+                code, head = _git_head(real)
+                heads.append(f'{shown} @ {head or "unreadable"}')
+            agree = len({h.split(" @ ")[1] for h in heads}) == 1
+            detail.append(f'{n}: ' + ', '.join(heads)
+                          + ('' if agree else
+                             ' -- THESE HAVE DIVERGED; work is in one copy '
+                             'and not the other'))
+        out.append((name, False, '; '.join(detail) + '. Nothing reports '
+                    'which copy the loader read, so a practice written in '
+                    'one may simply not be in force. Work out which holds '
+                    'the work, push it, then remove the other by hand -- '
+                    'this tool never deletes a clone'))
     return out
+
+
+def _git_head(path):
+    """-> (code, short sha) for a clone, or (1, '') when it cannot be read.
+    Never raises: a directory that vanished between the scan and here is a
+    row that says 'unreadable', not a traceback in a session-start check."""
+    try:
+        proc = subprocess.run(['git', '-C', str(path), 'rev-parse', '--short',
+                               'HEAD'], capture_output=True, text=True)
+    except OSError:
+        return 1, ''
+    return proc.returncode, proc.stdout.strip()
 
 
 
