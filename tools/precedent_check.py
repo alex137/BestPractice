@@ -3826,12 +3826,39 @@ def _vocabulary_reaches_the_consumer(ctx):
     }
     NEVER_VENDORED = set(UPSTREAM_ONLY)
 
-    findings = []
+    # A REPO WITH NO COMMAND PRACTICE MUST DECLINE, NOT PASS. Found the day
+    # this check shipped, by a sibling session that scanned a practice
+    # SET's own practices/ for `command:` entries and got zero -- not a
+    # clean result, a vacuous one. A set's practices/ holds only ITS OWN
+    # practices; the universal catalogue it resolves reaches a session
+    # through the untracked .precedent/SESSION_PRACTICES.md, never as
+    # tracked files here. So this check found nothing to inspect and
+    # reported `1 passed`, which is indistinguishable from a repo it had
+    # actually cleared.
+    #
+    # That is the failure this whole check exists to prevent, committed by
+    # the check itself four hours after it was written. A green that
+    # inspected nothing is worse than a red.
+    command_practices = []
     for path in sorted(practices_dir.glob('*.md')):
         text = path.read_text(encoding='utf-8', errors='replace')
         cmd = _re.search(r'^command:\s*(.+)$', text, _re.M)
-        if not cmd or cmd.group(1).strip() in ('null', '~', ''):
-            continue
+        if cmd and cmd.group(1).strip() not in ('null', '~', ''):
+            command_practices.append((path, text))
+    if not command_practices:
+        raise NotApplicable(
+            f'none of the {len(list(practices_dir.glob("*.md")))} practice '
+            f'file(s) in practices/ declares a `command:`, so there is no '
+            f'standing vocabulary HERE whose reachability this could check. '
+            f'Expected in a practice SET, whose practices/ holds only its '
+            f'own: the universal catalogue it resolves reaches a session '
+            f'through the untracked .precedent/SESSION_PRACTICES.md, not as '
+            f'tracked files. Declining rather than passing, because a pass '
+            f'that inspected nothing reads exactly like one that cleared '
+            f'the repo')
+
+    findings = []
+    for path, text in command_practices:
         slug = path.stem
         scope = _re.search(r'^scope:\s*(\S+)', text, _re.M)
         if scope and scope.group(1).strip() not in ('null', '~'):
