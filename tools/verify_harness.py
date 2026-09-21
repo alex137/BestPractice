@@ -5746,6 +5746,26 @@ def _selected_case_slugs(all_slugs, touched=None, count=None):
     rot = {s for i, s in enumerate(rest)
            if i % HARNESS_ROTATION_BUCKETS == bucket}
     sel = directly | (set(pinned) & set(all_slugs)) | rot
+    if not sel:
+        # A BUCKET THAT SELECTED NOTHING RUNS EVERYTHING, and this is the
+        # 2026-09-20 lesson ported rather than re-learned. That day
+        # precedent_check.py's own rotation landed on a bucket where every
+        # slug it picked was inapplicable to the repo, reported `0 passed`,
+        # and CI's "refuse a run that checked nothing" backstop correctly
+        # refused it -- on two real pull requests, in two different sets,
+        # on commits with real passing coverage elsewhere in the catalogue
+        # (_run_with_coverage_retry's own docstring has the full account).
+        #
+        # The shape here is different and safer: nine slugs are pinned in
+        # every bucket, so the measured floor is 15 of 71 rather than
+        # anything near zero, and a planted case has no SKIP path -- it
+        # either asserts or fails loudly. But the floor is a PROPERTY of
+        # today's pinned set, not a guarantee, and it would quietly weaken
+        # the day nobody reads `planted[...]` back any more. So the empty
+        # case is handled here instead of being left to arithmetic that
+        # happens to hold.
+        return set(all_slugs), ('all (the rotation slice came back empty -- '
+                                'running everything rather than nothing)')
     return sel, (f'rotation bucket {bucket}/{HARNESS_ROTATION_BUCKETS}: '
                  f'{len(directly)} touched, {len(pinned & set(all_slugs))} pinned, '
                  f'{len(rot)} rotating')
@@ -5860,6 +5880,22 @@ def check_planted_case_rotation_never_narrows_silently():
     sel, _ = _selected_case_slugs(slugs, touched={'README.md'}, count=0)
     cases.append(('an ordinary docs change runs well under half the cases',
                   len(sel) * 2 < len(slugs), f'{len(sel)}/{len(slugs)}'))
+
+    # NO BUCKET MAY SELECT NOTHING -- the 2026-09-20 failure, asked of this
+    # rotation before it could happen rather than after. That day
+    # precedent_check.py's rotation landed on a bucket covering nothing and
+    # CI refused the run. Here the floor is structural (pinned slugs, and a
+    # planted case cannot SKIP), but a floor nobody asserts is a floor that
+    # erodes silently, so both the selector's fail-safe and the measured
+    # minimum are checked.
+    per_bucket = [len(_selected_case_slugs(slugs, touched={'README.md'},
+                                           count=c)[0])
+                  for c in range(HARNESS_ROTATION_BUCKETS)]
+    cases.append((f'no bucket selects zero cases (per-bucket: {per_bucket})',
+                  all(n > 0 for n in per_bucket), ''))
+    empty, why = _selected_case_slugs([], touched={'README.md'}, count=0)
+    cases.append(('an empty slice runs everything rather than nothing',
+                  'empty' in why or empty == set(), why))
 
     bad = [(n, d) for n, ok, d in cases if not ok]
     return (not bad, f'{len(cases)} stated cases',
