@@ -112,4 +112,6 @@ Full catalogue, one file per trap. AGENTS.md carries only a pointer to this file
 
 - **In a multi-repo session rooted under `/home/user` (rather than a single set), `themorgan/precedent-individual`'s own `precedent.json` names its shared sources as `../precedent-shared-*`, but the sibling clones actually on disk are named `precedent-team-*`, and `PRECEDENT_FRESHNESS_ALSO` names the old paths too.** [story](gotcha-2026-09-20-shared-home-layout-still-names-the-pre-rename-team-sets.md)
 
+- **A session is asked whether GitHub Actions is actually **enabled** on a repository — during an install audit, or when a workflow that should be running is not. The obvious answer is `GET /repos/{owner}/{repo}/actions/permissions`, and **there is no way to call it from inside a session.**** [story](gotcha-2026-09-21-actions-permissions-are-unreadable-from-a-session.md)
+
 - **A workflow file uses a YAML **anchor and alias** (`&name` to define, `*name` to reuse) to avoid repeating a list — most naturally a long `paths:` filter that both `push:` and `pull_request:` need. `python3 -c "import yaml; yaml.safe_load(open('w.yml'))"` parses it cleanly, every local check passes, the file looks right. **GitHub's own workflow parser rejects it**, and the workflow does not run at all.** [story](gotcha-2026-09-21-github-actions-rejects-yaml-anchors-python-accepts.md)

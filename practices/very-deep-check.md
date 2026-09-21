@@ -16,7 +16,12 @@ in_force_at: null
 supersedes:  []
 overrides:   null
 added:       null
-approved_by: "extended 2026-09-21, Morgan F (strength: decided), with
+approved_by: "bounded 2026-09-21, Morgan (strength: decided, relayed) --
+  the branch sweep's delete-link mechanism moved to branch-delete-links
+  and is cited here rather than restated, and this pass's branch scope
+  was fixed at the checkout and its own source checkouts, never the
+  fleet, which is chief-of-staff's;
+  extended 2026-09-21, Morgan F (strength: decided), with
   pass 1's adapter-parity item -- \"everything in .claude should have its\n  parallel for the others. This should also be a new item in very deep\n  check: check everything unique to Claude and make sure there's a parallel\n  for the three others\"; the first run of it found that\n  templates/harness/README.md had named tools/bootstrap.sh as\n  session-start.sh's parallel while the script ran three of the hook's\n  seven steps;
   extended 2026-09-14, Morgan F -- after a session was refused by
   GitHub with a rate-limit error, he asked for the cause investigated, the
@@ -1265,11 +1270,23 @@ Last because none of it strands an adopter, and none of it is cheap.
   practice; the repo is private, so this names the practice rather than
   linking a page most readers cannot open): skip the repo's default branch
   and its protected integration branch, and report each remaining one with
-  a direct link to its most recent PR's page, which is the one-click
-  **Delete branch** control GitHub already shows there. A personal practice
+  a one-click delete link. **The link form, the encoding, the substring
+  check and the separated unmerged list are
+  [branch-delete-links](branch-delete-links.md)'s, in full and not restated
+  here** — this pass is one of its two callers. A personal practice
   may decline to do this retroactive sweep on its own ("a separate, one-off
   task, done only when asked for directly") — a very deep check is exactly
   that direct ask, so this is the one place the sweep is a standing step.
+
+  **This sweep stays inside the repos this check already reads — the
+  checkout and the sources that are their own git checkouts — and is never
+  widened to every Precedent repo the person owns.** That fleet sweep is
+  [chief-of-staff](chief-of-staff.md)'s, placed there by Morgan on
+  2026-09-21 with the reasoning worth keeping: branch hygiene is per-repo
+  bookkeeping, not a finding in the seam between two repos, which is the
+  class this check exists for. Widening it here would duplicate that
+  practice and make an already expensive check more expensive for no new
+  judgment.
 
   **Every branch, whoever wrote it**, and the author named on every row.
   The sweep used to be scoped to the invoking person's own GitHub login,
