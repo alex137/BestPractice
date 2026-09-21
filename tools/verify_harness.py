@@ -6422,6 +6422,17 @@ def check_a_stale_source_clone_is_made_current_not_reported_clean():
         clone = tmp / 'clone'
         subprocess.run(['git', 'clone', '--quiet', str(origin), str(clone)],
                        capture_output=True, text=True)
+        # fixture-owns-its-state, same as new_repo above: a CLONE inherits no
+        # identity, so without these two lines every `git commit` below falls
+        # back to the machine's global config. On a developer box that config
+        # exists and the commits land; in CI it does not, the commits fail
+        # silently, and the "diverged clone" this fixture believes it built is
+        # just a clone sitting at origin -- which make_current then correctly
+        # fast-forwards, failing the two refusal cases for the one reason they
+        # were never testing. Reported 2026-09-21 by the sharded CI job, after
+        # a crash in the check filter stopped masking it.
+        git(clone, 'config', 'user.email', 'fixture' + chr(64) + 'example.invalid')
+        git(clone, 'config', 'user.name', 'Fixture')
 
         # origin moves on; the clone does not.
         (origin / 'practices' / 'p.md').write_text('two\n', encoding='utf-8')
@@ -6497,6 +6508,11 @@ def check_a_stale_source_clone_is_made_current_not_reported_clean():
         git(origin, 'add', '-A')
         git(origin, 'commit', '--quiet', '-m', 'fourth')
         head_before = git(clone, 'rev-parse', 'HEAD').stdout.strip()
+        # The fixture asserts its own setup: if the local commit did not
+        # land, everything below tests a clone that never diverged.
+        _ahead = git(clone, 'rev-list', '--count', 'origin/main..HEAD').stdout.strip()
+        cases.append(('the fixture really built a diverged clone',
+                      _ahead == '1', f'{_ahead} local commit(s), expected 1'))
         ok, note = rs.make_current(clone, 'main')
         head_after = git(clone, 'rev-parse', 'HEAD').stdout.strip()
         cases.append(('a diverged clone refuses rather than rebasing anybody',
