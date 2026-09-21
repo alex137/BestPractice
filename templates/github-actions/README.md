@@ -140,10 +140,33 @@ three templates use.** GitHub Actions evaluates `on:` before any job runs,
 from the YAML alone — it cannot read this repo's `precedent.json` at that
 point, so "scope the trigger by declared visibility" is not something the
 platform lets a template do. Instead the workflow triggers on every push
-and pull request, and its first job (`scope`) reads this repo's declared
-`visibility` and `base_branch`, then decides whether the real scan job
-(`leak-gate`) runs at all — a job-level `if:`, never a step-level one, so a
-skip is never billed (spec/CI_MINUTES_PLAN.md item 9's own lesson).
+and pull request, and decides once it is running — visibility taken from
+`github.event.repository.private`, which GitHub supplies and no file in the
+tree can contradict, with any declaration that disagrees warned about and
+overruled. One job: a deciding job costs the same billed minute as the
+decision saves, which is why it is a step (spec/BILLING_FLOOR.md).
+
+**If the gate flags a directory your repo legitimately has, declare it.**
+The structural path rules were written for this repo — public, universal
+practices and nothing else — and a practice SET or a dependent repo can
+rightly carry a `candidates/` outbox or similar. Rather than weakening the
+rule for a whole class of repo, say once in your own `precedent.json` (or
+`precedent-source.json`) why yours is deliberate:
+
+```json
+"leak_structural_exempt": [
+  {"path": "candidates",
+   "reason": "this set's own drafting outbox; reviewed before anything is published"}
+]
+```
+
+**The reason is mandatory** — an entry without one is ignored, so the
+exemption cannot be taken silently. It covers directory (path) rules only
+and never file content; it matches at the repo root on a segment boundary,
+so `candidates` covers that directory and not a nested `docs/candidates/`;
+and it exempts only what it names. Same discipline as
+`ci_workflow_outside_vendoring_exempt` above, for the same reason: an
+exemption nobody can see is a hole.
 
 **The trade this makes, on a repo declaring `"visibility": "private"`:** a
 push to any branch other than `base_branch` skips the server-side scan —
