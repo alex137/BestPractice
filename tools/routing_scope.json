@@ -94,8 +94,12 @@
         "record/stale_branches.md",
         "spec/VERY_DEEP_CHECK.md"
       ],
-      "why": "The distinguishing condition is that branch-sweep OUTPUT is being written -- the engine function that builds a delete link, the committed report it writes, or the document embedding the checkout's safe-to-delete list. All three are paths, so the glob identifies the practice rather than merely accompanying it. Deliberately NOT `**` and deliberately NOT practices/**: its two callers, chief-of-staff and very-deep-check, each reach it by their own channel and cite it by name, so an occasion-index line would be a third copy of a channel that already works, paid by every session before it does any work.",
-      "decided": "2026-09-21, when the practice landed at universal"
+      "why": "The distinguishing condition is that branch-sweep OUTPUT is being written -- the engine function that builds a delete link, the committed report it writes, or the document embedding the checkout's safe-to-delete list. All three are paths, so the glob identifies the practice rather than merely accompanying it. Deliberately NOT `**` and deliberately NOT practices/**. The globs alone were the whole routing until 2026-09-21, and that was the bug: they reach an audit and never reach an ordinary reply that names one branch, which is where nearly every branch mention actually happens. The `reply` gate was added for that case; the globs stay for the audit case.",
+      "decided": "2026-09-21, when the practice landed at universal; gate added the same day, Morgan",
+      "gates": [
+        "reply"
+      ],
+      "gates_why": "A reply naming a branch as deletable has no file to match on. Morgan, 2026-09-21: the link has to arrive \"always always always\", and the miss was structural -- the path channel cannot see a sentence. The reply gate is the moment the naming happens, and it is the same moment the-boildown's item 5 is written."
     },
     "brief-it": {
       "globs": [
@@ -650,6 +654,13 @@
       ],
       "why": "Domain-specific to work this repo does not do; no locus here.",
       "decided": "phase 4 routing pass"
+    },
+    "never-delete-a-remote-branch": {
+      "globs": [
+        "**"
+      ],
+      "why": "No locus, and deliberately so. The occasion is a moment in a conversation -- a branch has just done its job -- and the failure being prevented is a tool call, not an edit: a session about to run `git push origin --delete` is touching no file the path channel could match on. It carries its occasion-index line instead, which is the one channel loaded before a session acts.",
+      "decided": "Morgan, 2026-09-21, when the practice was added"
     },
     "next-steps-after-commit": {
       "globs": [

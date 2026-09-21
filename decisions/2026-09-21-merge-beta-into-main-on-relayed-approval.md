@@ -5,8 +5,9 @@ question: |
   major changes onto `main` for Alex's "explicit, named go-ahead", and
   AGENTS.md sharpens that to "requires Alex naming `main` explicitly, in
   that specific request." On 2026-09-21 Morgan asked a session to merge
-  `precedent-beta-v01` into `main` (202 commits, 146 files, ~16k
-  insertions) and stated he had Alex's explicit approval. Does a relayed
+  `precedent-beta-v01` into `main` (211 commits across 162 files, as the
+  merged pull request records it) and stated he had Alex's explicit
+  approval. Does a relayed
   approval satisfy a gate held by someone who is not in the conversation?
 decision: |
   Yes, on Morgan's reaffirmation, and the merge was performed. Two honest
@@ -55,7 +56,12 @@ its own and the merge result equals the branch tree exactly. The trap does
 not fire because `main` already received Precedent on 2026-09-14; the
 `97ed078` revert remains in history but is long superseded.
 
-Deep check on the merged content, at `c873ab0a`: `verify_harness` 243
+The figure moved while this was being written -- the branch took four
+further commits from another session between the first measurement and the
+merge -- so the count above is the merged pull request's own, not a local
+diff taken at some earlier moment.
+
+Deep check on the merged content, at `c5a3b923`: `verify_harness` 243
 passed / 0 failed, `doc_lint` clean, `leak_gate` clean over 1343 units,
 `precedent_check --full-sweep` 58 passed / 0 violated / 0 errored,
 `doc_sync` clean.

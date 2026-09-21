@@ -34,6 +34,31 @@ sibling attached mid-session runs none of its own hooks
 such hook at all. In any of those, the manual fetch above is still the fix, and
 a tool reporting a suspiciously clean result is still the symptom.
 
+**Update, 2026-09-21 — deepening is NOT durable within a session.** A
+session unshallowed this clone with `git fetch --unshallow origin`,
+confirmed `is-shallow-repository false`, and did ~40 minutes of work.
+`.git/shallow` was then rewritten mid-session and the clone was shallow
+again, silently: the next `git diff main...branch` failed with
+`fatal: no merge base`, and a `git log A..B` count that had read 207 read
+98. Nothing announced the change.
+
+What rewrote it was not established. Several things in this tree fetch with
+an explicit bound and are the obvious candidates —
+[.claude/hooks/freshness-guard.sh](../.claude/hooks/freshness-guard.sh)
+fetches `--depth=200`, and
+[tools/precedent_upstream_check.py](../tools/precedent_upstream_check.py),
+[tools/precedent_engine_freshness.py](../tools/precedent_engine_freshness.py)
+and [tools/precedent_beta_watermark_check.py](../tools/precedent_beta_watermark_check.py)
+each fetch `--depth=50` — but which one fired was not measured, and the
+freshness guard's own comment claims it passes `--depth` only to a clone
+that is already shallow. Treat the culprit as unknown.
+
+**The practical consequence:** deepening once at the top of a session is not
+enough. **Re-check `git rev-parse --is-shallow-repository` immediately
+before any merge-base, `A...B` diff, or ancestry claim you intend to act
+on**, however recently you deepened — and treat `fatal: no merge base` or a
+commit count that dropped as this, not as a rewritten branch.
+
 ## Fix
 
 (migration could not isolate a distinct Fix paragraph -- read ## Story.)

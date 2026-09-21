@@ -5,9 +5,9 @@ tier:        on-demand
 severity:    default
 scope:       any-adopter
 applies_to:  ["tools/very_deep_check.py", "record/stale_branches.md", "spec/VERY_DEEP_CHECK.md"]
-occasion:    "reporting merged-but-undeleted branches to a person, in one repo or across a fleet"
-gates:       []
-index_clause: "a merged branch is a filtered branches-page link; unmerged goes in its own list"
+occasion:    "telling a person a branch can be deleted -- one branch after a merge, or a whole repo's worth, or a fleet's"
+gates:       ["reply"]
+index_clause: "every branch named deletable is a filtered-page link, never a blocker"
 index_required: false
 checked_by:  null
 defines:     ["delete link", "filtered branches page"]
@@ -17,11 +17,19 @@ in_force_at: null
 supersedes:  []
 overrides:   null
 added:       "2026-09-21"
-approved_by: "Morgan, 2026-09-21 -- he asked for the filtered-link form over the
+approved_by: "extended 2026-09-21, Morgan (strength: decided) -- the link is
+  required of EVERY branch a session names as deletable, not only of an audit's
+  list, and branch deletion is never blocking: \"it needs to always always
+  always give me a link to the github search results page with the branch right
+  there so I can just click and delete (it never does that) *AND* it should not
+  consider deleting the branches a 'blocker' - it's something good to do and
+  recommended, but not blocking.\" Authorized: \"Go update.\"
+  Morgan, 2026-09-21 -- he asked for the filtered-link form over the
   plain list a first pass had given him, and chose the two surfaces it lands on
   (strength: decided, relayed; the decision to hold the mechanism in one
   practice file rather than write it into both surfaces is the session's, per
   fix-the-original)."
+strength:    decided
 ---
 ## Rule
 **A merged-but-undeleted branch is reported as a link that opens GitHub's
@@ -43,6 +51,29 @@ placeholder owner is still a link a reader can click into nothing.)
 since the default leaves `/` alone. Filled in against this repository, a
 branch called `claude/tidy-up-abc` becomes
 [that one row, with its trash icon](https://github.com/alex137/BestPractice/branches/all?query=claude%2Ftidy-up-abc).
+
+**Every branch a session names as deletable carries this link — every time,
+without exception and without being asked.** One branch mentioned in passing at
+the end of an ordinary merge is the common case and the one that keeps getting
+missed; a sixty-row audit is the rare one. There is no threshold. If a reply
+says a branch can go, the link is in the same sentence. A merged pull request's
+own page also carries a Delete branch button and may be given **alongside** the
+filtered link, never instead of it — the pull request page is where the code
+review lives, and a person who wanted to delete a branch has to find the button
+on it.
+
+**And deleting a branch is never blocking.** It is a recommendation — good
+housekeeping, worth doing, worth making one click — and it is **never** a
+reason to say a session cannot be archived, never an entry in whatever the
+reply calls its blockers, and never phrased as something owed. A branch sitting
+undeleted costs nothing and breaks nothing; treating it as an outstanding item
+turns a courtesy into homework, which is how the whole list stops being read.
+Say it as an offer and let it go.
+
+**The session never attempts the deletion itself** — not by any route, and not
+after being asked to. [never-delete-a-remote-branch](never-delete-a-remote-branch.md)
+says why, and lists the routes that get tried in order when that rule is not in
+front of somebody.
 
 Three things the report must not get wrong, each of which fails silently:
 
@@ -164,6 +195,20 @@ costs one pass over a list already in memory, and because its failure is
 silent: a filter that returns three rows still returns a page, and the reader
 finds out by clicking.
 
+**Later the same day, the link turned out not to be reaching him.** The rule
+above had been written for the audit case, and it was routed the way an audit
+is routed — off the file paths of the two tools that produce one. So an
+ordinary reply that merged a pull request and mentioned the branch at the end
+matched nothing, and gave him a branch name. Morgan: *"You always tell me to
+delete branches. That's fine. But it needs to always always always give me a
+link to the github search results page with the branch right there so I can
+just click and delete (it never does that)."* In the same message he named the
+other half of it — that the deletion had been arriving as an obligation:
+*"it should not consider deleting the branches a 'blocker' - it's something
+good to do and recommended, but not blocking."* The occasion widened from
+*reporting an audit* to *naming any branch as deletable*, and the routing moved
+to the reply gate, which is the moment the naming actually happens.
+
 **The mechanism was already written once, in code, and nowhere in prose.**
 [tools/very_deep_check.py](../tools/very_deep_check.py)'s `_branch_url` had
 carried the filtered-page form and the `safe=''` encoding since 2026-09-08,
@@ -190,7 +235,14 @@ The engine side is [tools/very_deep_check.py](../tools/very_deep_check.py):
 `_write_branch_report` writes the committed page. A fleet sweep has no clone to
 read and works the API steps above instead.
 
-**Related:** [fix-the-original](fix-the-original.md) — why the mechanism is one
+A third surface joined them on 2026-09-21: **[the-boildown](the-boildown.md)'s
+item 5**, the ordinary closing report, which is where all but a handful of
+branch mentions actually happen. It is reached through this practice's `reply`
+gate rather than a path glob, because a reply has no file to match on.
+
+**Related:** [never-delete-a-remote-branch](never-delete-a-remote-branch.md) —
+why the link is the only thing a session can offer;
+[fix-the-original](fix-the-original.md) — why the mechanism is one
 file and not two;
 [repo-is-memory](repo-is-memory.md) — why the per-repo sweep writes a committed
 page rather than only printing.
