@@ -98,12 +98,21 @@ def _individual_path(user_config=None):
     return pathlib.Path(path).expanduser() if path else None
 
 
-def git(repo, *args, check=False):
+def git(repo, *args, check=False, env=None):
     """Run git in `repo` and return (returncode, stdout). See
     precedent_upstream_check.py's own `git()` for why the pair matters:
-    `git rev-parse` echoes back an unresolved ref instead of failing loudly."""
+    `git rev-parse` echoes back an unresolved ref instead of failing loudly.
+
+    `env` ADDS to this process's environment rather than replacing it --
+    a bare dict handed to subprocess would drop PATH, HOME and the proxy
+    settings, and the caller only ever wants to set a couple of GIT_*
+    variables on top of what is already there."""
+    _env = None
+    if env:
+        _env = dict(os.environ)
+        _env.update(env)
     proc = subprocess.run(['git', '-C', str(repo), *args],
-                           capture_output=True, text=True)
+                           capture_output=True, text=True, env=_env)
     if check and proc.returncode != 0:
         raise RuntimeError(f"git {' '.join(args)} failed: {proc.stderr.strip()}")
     return proc.returncode, proc.stdout.strip()
@@ -121,7 +130,59 @@ def _write_watermark(path, data):
                      encoding='utf-8')
 
 
-def _commit_and_push(individual_path, path, message, no_push, branch):
+def _identity_args(identity):
+    """-> ['-c', 'user.name=...', '-c', 'user.email=...'] for the DECLARED
+    identity, and an env carrying a date in that person's own timezone.
+
+    WHY THIS EXISTS (2026-09-21). `_commit_and_push` used to run a bare
+    `git commit -m`, trusting whatever `git config` held in the clone it was
+    writing to. That clone is in a DIFFERENT REPOSITORY from the one this
+    script runs in: the script runs in BestPractice and commits into the
+    individual source. `commit-identity.sh` does reach sibling repos, and
+    earlier in the same hook -- but when it cannot, it says so in a WARN and
+    keeps going, and this ran anyway against an unconfigured clone.
+
+    The trail is what forced the fix. Nineteen watermark commits on the
+    individual source's `main` came out in THREE states, not two: authored
+    correctly with the right offset; authored as the container with `+0000`;
+    and -- twice -- authored as the container with the RIGHT offset. That
+    third state is the proof the two halves are independent. The offset
+    comes from the `env` block in settings.json, which follows a session
+    into every repo it touches; the author comes from `git config` in one
+    specific clone, which is the thing that has to be reached. Trusting an
+    earlier step to have configured somebody else's repository is not a
+    guarantee, so this stops trusting it and states the author on the
+    command that writes the commit (practice: durable-fix).
+
+    Degrades rather than fails: no identity, or an unreadable timezone, and
+    the caller commits exactly as it did before. A watermark that cannot be
+    written is a notice that repeats forever, which is worse than one
+    carrying the wrong name.
+    """
+    if not identity:
+        return [], None
+    args = []
+    if identity.get('name'):
+        args += ['-c', f'user.name={identity["name"]}']
+    if identity.get('email'):
+        args += ['-c', f'user.email={identity["email"]}']
+    env = None
+    zone = identity.get('timezone')
+    if zone:
+        try:
+            import datetime
+            import zoneinfo
+            when = datetime.datetime.now(
+                zoneinfo.ZoneInfo(zone)).strftime('%Y-%m-%dT%H:%M:%S%z')
+        except Exception:                                     # noqa: BLE001
+            pass          # a bad zone name is not worth losing the commit
+        else:
+            env = {'GIT_AUTHOR_DATE': when, 'GIT_COMMITTER_DATE': when}
+    return args, env
+
+
+def _commit_and_push(individual_path, path, message, no_push, branch,
+                     identity=None):
     """Commit the watermark in the individual source, and push unless asked
     not to. Never raises: a failed push still leaves the watermark advanced
     LOCALLY, which is enough to stop this same session from repeating the
@@ -130,10 +191,16 @@ def _commit_and_push(individual_path, path, message, no_push, branch):
 
     `branch` is only for the failure message below -- naming the branch this
     watermark is FOR, not the repository this push actually targets (that's
-    always the individual source, never `branch`'s own repo)."""
+    always the individual source, never `branch`'s own repo).
+
+    `identity` is the DECLARED identity, stated on the commit rather than
+    read out of the target clone's config -- see `_identity_args` for the
+    measurement that made that necessary."""
     rel = path.relative_to(individual_path)
     git(individual_path, 'add', str(rel))
-    code, _ = git(individual_path, 'commit', '-m', message)
+    _id_args, _id_env = _identity_args(identity)
+    code, _ = git(individual_path, *_id_args, 'commit', '-m', message,
+                  env=_id_env)
     if code != 0:
         return 'nothing to commit'
     if no_push:
@@ -225,7 +292,7 @@ def check(root=None, no_fetch=False, no_push=False, user_config=None,
         _write_watermark(watermark_path, registry)
         outcome = _commit_and_push(indiv, watermark_path,
                                     f'Baseline {branch} watermark at {head[:9]}',
-                                    no_push, branch)
+                                    no_push, branch, identity=me)
         return 'ok', [f'no prior watermark for {branch}; baselined at '
                        f'{head[:9]} ({outcome})'], None
 
@@ -253,7 +320,7 @@ def check(root=None, no_fetch=False, no_push=False, user_config=None,
     _write_watermark(watermark_path, registry)
     outcome = _commit_and_push(indiv, watermark_path,
                                 f'Advance {branch} watermark to {head[:9]}',
-                                no_push, branch)
+                                no_push, branch, identity=me)
 
     if not others:
         return 'ok', [f'{branch} moved to {head[:9]}, all your own commits '

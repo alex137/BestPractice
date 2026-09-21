@@ -12272,6 +12272,81 @@ def check_session_check_reports_a_dead_also_list_entry():
           f'({len(cases)} stated cases)', not failed, '; '.join(failed))
 
 
+def check_session_check_reports_a_source_cloned_twice():
+    """Two clones of one practice source is the quietest failure there is.
+
+    Everything keeps working -- the resolver picks one, the freshness guard
+    checks whichever the also-list names, a session edits whichever
+    directory it landed in -- and nothing says the other exists. Then they
+    diverge and a practice written this morning is simply not in force,
+    with no error anywhere to read.
+
+    Found 2026-09-21 on this project's own container: three shared sets
+    cloned twice, once under $HOME and once beside this checkout, and one
+    of the three already divergent between its copies. The tell was in the
+    also-list suggestion, which was honestly naming seven entries for four
+    sources.
+
+    The source list is pinned rather than read off the machine, for the
+    reason the row above this one records: a fixture that lets the
+    container decide passes on a developer box and fails in CI
+    (practice: fixture-owns-its-state)."""
+    import precedent_session_check as psc
+
+    cases = []
+    name_wanted = 'cloned exactly once'
+    saved_sources = psc._attachable_sources
+    saved_head = psc._git_head
+
+    def row():
+        for name, ok, detail in psc.checks():
+            if name_wanted in name:
+                return ok, detail
+        return 'MISSING', ''
+
+    try:
+        # One clone each -> the row is green.
+        psc._attachable_sources = lambda: [('~/precedent-individual', 'main'),
+                                           ('/elsewhere/precedent-team', 'main')]
+        psc._git_head = lambda path: (0, 'aaaaaaa')
+        ok, detail = row()
+        cases.append(('one clone per source passes', ok is True, str(detail)))
+
+        # Two clones, same head -> still a finding: agreeing today says
+        # nothing about tomorrow, and only one of them is being read.
+        psc._attachable_sources = lambda: [('~/precedent-team', 'main'),
+                                           ('/home/user/precedent-team', 'main')]
+        ok, detail = row()
+        cases.append(('two clones at the same commit is still reported',
+                      ok is False, str(detail)))
+        cases.append(('it names both paths',
+                      '~/precedent-team' in str(detail)
+                      and '/home/user/precedent-team' in str(detail),
+                      str(detail)))
+        cases.append(('an agreeing pair is NOT called diverged',
+                      'DIVERGED' not in str(detail), str(detail)))
+
+        # Two clones, different heads -> the divergence is said out loud.
+        heads = {'/home/user/precedent-team': 'bbbbbbb'}
+        psc._git_head = lambda path: (0, heads.get(str(path), 'aaaaaaa'))
+        ok, detail = row()
+        cases.append(('a diverged pair says DIVERGED',
+                      ok is False and 'DIVERGED' in str(detail), str(detail)))
+
+        # A clone that cannot be read is a row, never a traceback.
+        psc._git_head = lambda path: (1, '')
+        ok, detail = row()
+        cases.append(('an unreadable clone still produces a row',
+                      ok is False and 'unreadable' in str(detail), str(detail)))
+    finally:
+        psc._attachable_sources = saved_sources
+        psc._git_head = saved_head
+
+    bad = [(n, d) for n, good, d in cases if not good]
+    return (not bad, f'{len(cases)} stated cases',
+            '; '.join(f'{n}: {d}' for n, d in bad))
+
+
 def check_freshness_guard_checks_attached_repositories():
     """PRECEDENT_FRESHNESS_ALSO, carried up from a downstream set 2026-09-11.
 
