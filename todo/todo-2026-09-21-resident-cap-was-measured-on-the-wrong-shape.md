@@ -100,3 +100,46 @@ Nor is it an argument that nothing here should be compressed.
 of the whole budget for two rules, and both can be said shorter. That is a
 [reduction-pass](../practices/reduction-pass.md), worth doing on its own
 merits, and it does not answer the structural question.
+
+## For Whoever Runs the Reduction Pass
+
+**Measured 2026-09-21 on this tree, and reproduced three times
+independently** (here, a consuming repo, and a session auditing the four
+sets) — all three agree on universal = 1379, which is what makes the
+number safe to plan against.
+
+| Practice | Level | Tokens | Share |
+|---|---|---:|---:|
+| `default-register` | shared | 292 | 13.5% |
+| `brainstorm-holds-commits` | universal | 219 | 10.1% |
+| `fence-block-for-paste` | universal | 218 | 10.1% |
+| `audience-register` | individual | 210 | 9.7% |
+| `answer-first-ask-before-long-work` | universal | 206 | 9.5% |
+| `environment-gotchas` | universal | 152 | 7.0% |
+| `reply-fits-one-screen` | individual | 144 | 6.6% |
+| `reply-links-files` | universal | 123 | 5.7% |
+| `write-like-a-human` | universal | 113 | 5.2% |
+| `no-invented-specifics` | universal | 101 | 4.7% |
+| `reply-is-short` | individual | 88 | 4.1% |
+| `bold-key-phrases` | universal | 63 | 2.9% |
+| `verify-postcondition` | universal | 62 | 2.9% |
+| `nonblocking-questions` | shared | 55 | 2.5% |
+| `orientation-map` | universal | 44 | 2.0% |
+| `repo-is-memory` | universal | 42 | 1.9% |
+| `quick-index` | universal | 36 | 1.7% |
+
+**Total 2168.** The cap is 2000.
+
+**Where the room is, if room is what is wanted.** The two largest are
+universal and together they are 511 tokens — about
+24% of the whole budget for two rules.
+Neither says anything a shorter rule could not. Compressing that pair is
+the cheapest ~200 tokens available and it helps every adopter rather than
+one repo.
+
+**What NOT to do**, and it is the reason this item exists: demote a
+practice to get under the line. That was the 2026-09-11 answer, it reset
+the clock, and the clock came back round in ten days. The question this
+item asks is whether the CAP is the right shape, and a reduction pass does
+not answer it — it buys time, which is worth buying, and is not the same
+thing.
