@@ -30,12 +30,19 @@ then on screen and deleting it is one click, with no searching. Never a bare
 branch name, and never a link to the branch's tree view, which shows the code
 and offers no way to delete it.
 
-    https://github.com/OWNER/REPO/branches/all?query=<branch, percent-encoded>
+    github.com/<owner>/<repo>/branches/all?query=<branch, percent-encoded>
 
+(Written without its `https://` prefix on purpose: a practice file ships
+verbatim into every adopting repository, and a complete URL naming a
+placeholder owner is still a link a reader can click into nothing.)
+
+`/branches/all` is the **All branches** tab and `?query=` is its filter box.
 **The branch name must be percent-encoded.** Branch names routinely contain
 `/`, which has to become `%2F` or the filter breaks. In Python that is
 `urllib.parse.quote(branch, safe='')` — `safe=''` is the load-bearing part,
-since the default leaves `/` alone.
+since the default leaves `/` alone. Filled in against this repository, a
+branch called `claude/tidy-up-abc` becomes
+[that one row, with its trash icon](https://github.com/alex137/BestPractice/branches/all?query=claude%2Ftidy-up-abc).
 
 Three things the report must not get wrong, each of which fails silently:
 
