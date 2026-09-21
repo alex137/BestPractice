@@ -25,7 +25,9 @@ What has to travel, and by which route:
 
 | Thing | Where it lands in a consumer |
 |---|---|
-| [practices/branch-delete-links.md](../practices/branch-delete-links.md) (new) | `process/upstream/practices/` |
+| [practices/never-delete-a-remote-branch.md](../practices/never-delete-a-remote-branch.md) (new) | `process/upstream/practices/` |
+| [practices/branch-delete-links.md](../practices/branch-delete-links.md) (new; extended same day -- link required every time, never a blocker) | `process/upstream/practices/` |
+| [practices/the-boildown.md](../practices/the-boildown.md) (item 5 rewritten) | `process/upstream/practices/` |
 | [practices/chief-of-staff.md](../practices/chief-of-staff.md) (fleet sweep added) | `process/upstream/practices/` |
 | [practices/very-deep-check.md](../practices/very-deep-check.md) (scope bounded, mechanism cited) | `process/upstream/practices/` |
 | [tools/very_deep_check.py](../tools/very_deep_check.py) (substring check, success note) | `tools/`, tracked in that repo's `tools/ENGINE_MANIFEST.json` |
