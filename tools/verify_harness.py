@@ -5781,7 +5781,7 @@ def _deep_assertion_slugs():
                   if m.group(1).endswith('-clean') else m.group(1))
     return found
 
-def _selected_case_slugs(all_slugs, touched=None, count=None):
+def _selected_case_slugs(all_slugs, touched=None, count=None, forced=None):
     """-> (set of slugs to run, one-line reason). Never raises: a
     selector that cannot decide runs everything, because the failure
     of a scheduler must not be silently less coverage.
@@ -5790,9 +5790,22 @@ def _selected_case_slugs(all_slugs, touched=None, count=None):
     so this is testable without a fixture repository: a scheduler whose
     behaviour can only be observed by running the thing it schedules is a
     scheduler nobody can check, and this one decides how much of the push
-    gate actually executes."""
-    if ('--all' in sys.argv
-            or os.environ.get('PRECEDENT_HARNESS_ALL') == '1'):
+    gate actually executes.
+
+    `forced` is the same argument one level up, and it was added the day it
+    bit. It normally reads the process's own `--all` / PRECEDENT_HARNESS_ALL,
+    which is right for a real run and WRONG for the self-test below: that
+    test asserts the selector NARROWS on an ordinary docs change, so on a
+    run invoked with --all it was measuring the flag instead of the rule and
+    failing 72/72. Found 2026-09-21, by the very deep check's own new step 2
+    -- which prescribes --all, ran it, and turned the suite red on its first
+    outing. A scheduler that cannot be exercised in the state it is not
+    currently in is the same untestable scheduler this signature already
+    exists to avoid."""
+    if forced is None:
+        forced = ('--all' in sys.argv
+                  or os.environ.get('PRECEDENT_HARNESS_ALL') == '1')
+    if forced:
         return set(all_slugs), 'all (--all / PRECEDENT_HARNESS_ALL)'
     pinned = _deep_assertion_slugs()
     if pinned is None:
@@ -6608,7 +6621,8 @@ def check_planted_case_rotation_never_narrows_silently():
     for touched, label in (({'tools/precedent_check.py'}, 'precedent_check.py'),
                            ({'tools/verify_harness.py'}, 'verify_harness.py'),
                            ({'tools/checks/anything.py'}, 'a tools/checks/ script')):
-        sel, why = _selected_case_slugs(slugs, touched=touched, count=1)
+        sel, why = _selected_case_slugs(slugs, touched=touched, count=1,
+                                        forced=False)
         cases.append((f'a change to {label} runs every case',
                       sel == set(slugs), f'{len(sel)}/{len(slugs)}: {why}'))
 
@@ -6621,7 +6635,7 @@ def check_planted_case_rotation_never_narrows_silently():
         # count chosen so `one` is NOT in the rotating slice by luck.
         for count in range(HARNESS_ROTATION_BUCKETS):
             sel, _ = _selected_case_slugs(slugs, touched={f'practices/{one}.md'},
-                                          count=count)
+                                          count=count, forced=False)
             if one not in sel:
                 cases.append((f'a touched practice always runs its own case '
                               f'({one}, bucket {count})', False, 'missing'))
@@ -6636,7 +6650,8 @@ def check_planted_case_rotation_never_narrows_silently():
     pinned = _deep_assertion_slugs() & set(slugs)
     missing = []
     for count in range(HARNESS_ROTATION_BUCKETS):
-        sel, _ = _selected_case_slugs(slugs, touched={'README.md'}, count=count)
+        sel, _ = _selected_case_slugs(slugs, touched={'README.md'}, count=count,
+                                        forced=False)
         missing += sorted(pinned - sel)
     cases.append((f'every deep-assertion slug is pinned in all '
                   f'{HARNESS_ROTATION_BUCKETS} buckets ({len(pinned)} of them)',
@@ -6647,13 +6662,15 @@ def check_planted_case_rotation_never_narrows_silently():
     # it claims would be worse than no rotation at all.
     union = set()
     for count in range(HARNESS_ROTATION_BUCKETS):
-        union |= _selected_case_slugs(slugs, touched={'README.md'}, count=count)[0]
+        union |= _selected_case_slugs(slugs, touched={'README.md'}, count=count,
+                                        forced=False)[0]
     uncovered = sorted(set(slugs) - union)
     cases.append((f'{HARNESS_ROTATION_BUCKETS} consecutive commits cover every '
                   f'case', not uncovered, f'never covered: {uncovered}'))
 
     # And it must actually narrow, or it is ceremony.
-    sel, _ = _selected_case_slugs(slugs, touched={'README.md'}, count=0)
+    sel, _ = _selected_case_slugs(slugs, touched={'README.md'}, count=0,
+                                 forced=False)
     cases.append(('an ordinary docs change runs well under half the cases',
                   len(sel) * 2 < len(slugs), f'{len(sel)}/{len(slugs)}'))
 
@@ -6665,11 +6682,12 @@ def check_planted_case_rotation_never_narrows_silently():
     # erodes silently, so both the selector's fail-safe and the measured
     # minimum are checked.
     per_bucket = [len(_selected_case_slugs(slugs, touched={'README.md'},
-                                           count=c)[0])
+                                           count=c, forced=False)[0])
                   for c in range(HARNESS_ROTATION_BUCKETS)]
     cases.append((f'no bucket selects zero cases (per-bucket: {per_bucket})',
                   all(n > 0 for n in per_bucket), ''))
-    empty, why = _selected_case_slugs([], touched={'README.md'}, count=0)
+    empty, why = _selected_case_slugs([], touched={'README.md'}, count=0,
+                                     forced=False)
     cases.append(('an empty slice runs everything rather than nothing',
                   'empty' in why or empty == set(), why))
 
