@@ -1372,13 +1372,26 @@ def _workflow_reality(repo_dir, max_workflows=25):
                                f'{err or "unexpected response"} -- NOT the '
                                f'same as having none')]
     if 'workflows' not in data:
-        # The 403 body for a repo with Actions off says so in as many words,
-        # which is the one place this fact is readable from a session.
+        # TWO UNLIKE REFUSALS ARRIVE HERE AND MUST NOT BE REPORTED AS ONE.
+        # The 403 body for a repo with Actions switched off says so in as
+        # many words, and that is the one place this session can read that
+        # fact. Everything else -- a repo this session was never granted,
+        # a private repo asked without a credential -- is the check failing
+        # to look, which is not a finding about the repo
+        # (practice: diagnosis-is-measured; the misreading has its own
+        # gotcha: a session read "access to this repository is not enabled"
+        # as a token problem and went hunting for a credential that was
+        # fine).
         msg = str(data.get('message') or data)[:160]
-        return [('FINDING', f'{slug}: GitHub would not list workflows -- '
-                            f'"{msg}". A repo with workflow files committed '
-                            f'and Actions off looks, from the tree, exactly '
-                            f'like a repo with working CI')]
+        low = msg.lower()
+        if 'actions' in low and ('disabled' in low or 'not allowed' in low):
+            return [('FINDING', f'{slug}: Actions is off -- "{msg}". A repo '
+                                f'with workflow files committed and Actions '
+                                f'off looks, from the tree, exactly like a '
+                                f'repo with working CI')]
+        return [('UNVERIFIED', f'{slug}: could not list workflows -- '
+                               f'"{msg}". That is this session failing to '
+                               f'look, not a fact about the repo')]
     registered = {w.get('path'): w for w in (data.get('workflows') or [])
                   if isinstance(w, dict)}
     default_branch = _default_remote_branch(repo_dir)
