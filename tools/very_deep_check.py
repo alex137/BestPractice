@@ -1017,6 +1017,102 @@ def _workflow_liveness_scan(repo_dir):
            if rel not in exempt]
 
 
+def _incident_frontmatter(path):
+    """-> {key: value} for the simple `key: value` frontmatter block these
+    catalogues use. Deliberately not a YAML load: parse_check.py already
+    reports a file PyYAML rejects, and this one must keep working on the
+    file that is currently malformed rather than vanishing with it."""
+    out = {}
+    try:
+        text = path.read_text(encoding='utf-8')
+    except OSError:
+        return out
+    if not text.startswith('---'):
+        return out
+    body = text.split('---', 2)
+    if len(body) < 3:
+        return out
+    for line in body[1].splitlines():
+        if ':' not in line or line.startswith((' ', '\t')):
+            continue
+        k, _, v = line.partition(':')
+        out[k.strip()] = v.strip().strip('"').strip("'")
+    return out
+
+
+def _last_run_date(repo_dir):
+    """-> 'YYYY-MM-DD' of the newest recorded very deep check run here, or
+    None. The ledger is the only record of when this check last looked, so
+    it is also the only honest start date for "what has happened since"."""
+    try:
+        data = json.loads(ledger_path_for(repo_dir).read_text(encoding='utf-8'))
+        runs = data.get('runs') or []
+        return str(runs[-1].get('date')) if runs else None
+    except (OSError, ValueError, AttributeError, IndexError):
+        return None
+
+
+def _incident_coverage(repo_dir, since=None):
+    """-> (since, rows, note). Every incident FILED here since the last
+    recorded run, with whatever in the tree cites it.
+    (practice: very-deep-check, pass 2)
+
+    THE QUESTION. This check has grown one bullet at a time, each added
+    after somebody noticed a gap -- which makes growth a function of who
+    happened to be looking. The standing version of that is cheap: take
+    every gotcha filed and every open item closed since the last run, and
+    ask of each one thing -- **what now prevents a recurrence, and is
+    there a planted case proving it fires?**
+
+    Three answers are honest, and the third is the one worth writing down:
+    a named check with a planted case; a named check with no planted case;
+    and nothing, deliberately, because the class is not mechanically
+    detectable. A gap that has been examined and declined is not the same
+    state as a gap nobody has looked at, and only the catalogue can tell
+    them apart.
+
+    IT ENUMERATES AND CITES; IT DOES NOT JUDGE. A slug appearing in a
+    tool's source is evidence that something cites the incident, never
+    proof that the incident cannot recur -- a docstring naming it reads
+    identically to a check testing for it. The reading is the session's;
+    what this removes is the part nobody does, which is assembling the
+    list."""
+    repo_dir = pathlib.Path(repo_dir)
+    since = since or _last_run_date(repo_dir)
+    if not since:
+        return None, [], ('no recorded run in the ledger here, so there is '
+                          'no "since" to read from')
+    corpus = {}
+    for sub in ('tools', 'practices'):
+        d = repo_dir / sub
+        if not d.is_dir():
+            continue
+        for f in sorted(d.rglob('*')):
+            if f.is_file() and f.suffix in ('.py', '.md', '.json'):
+                try:
+                    corpus[str(f.relative_to(repo_dir))] = f.read_text(
+                        encoding='utf-8')
+                except (OSError, UnicodeDecodeError):
+                    continue
+    rows = []
+    for kind, sub, datefield in (('gotcha filed', 'gotchas', 'noted'),
+                                 ('open item closed', 'todo', 'closed')):
+        d = repo_dir / sub
+        if not d.is_dir():
+            continue
+        for f in sorted(d.glob('*.md')):
+            fm = _incident_frontmatter(f)
+            when = fm.get(datefield) or ''
+            slug = fm.get('slug') or f.stem
+            if not when or when in ('null', 'None') or when < since:
+                continue
+            cites = sorted(path for path, text in corpus.items()
+                           if slug in text)
+            rows.append((kind, slug, when, cites))
+    rows.sort(key=lambda r: (r[2], r[1]))
+    return since, rows, ''
+
+
 def _pending_deletions(repo_dir):
     """-> (rows, note) for files the NEXT refresh would delete here, each
     with whatever still names them. rows is [(rel, [(path, line, text)])].
@@ -5988,6 +6084,34 @@ def _main(box):
     print()
     if led:
         led.end(findings=_del_n if _del_measured else None)
+        led.start('INCIDENT COVERAGE', kind='read')
+
+    print("INCIDENT COVERAGE -- what was filed since the last run, and what "
+          "cites it\n")
+    _ic_since, _ic_rows, _ic_note = _incident_coverage(repo_root)
+    if _ic_note:
+        print(f"  not measured -- {_ic_note}")
+    else:
+        print(f"  Since the last recorded run ({_ic_since}): "
+              f"{len(_ic_rows)} incident(s).\n")
+        for _kind, _slug, _when, _cites in _ic_rows:
+            print(f"      {_when}  {_kind}: {_slug}")
+            if _cites:
+                print(f"                  cited by {len(_cites)}: "
+                      f"{', '.join(_cites[:4])}")
+            else:
+                print("                  cited by NOTHING in tools/ or "
+                      "practices/")
+        if _ic_rows:
+            print("\n  Ask of each: what prevents a recurrence, and is "
+                  "there a planted case proving\n  it fires? A citation is "
+                  "evidence something names the incident, never proof the\n"
+                  "  class is closed -- a docstring reads the same as a "
+                  "check. 'Nothing, and\n  deliberately so' is an answer "
+                  "worth writing down; unexamined is not.")
+    print()
+    if led:
+        led.end(items=len(_ic_rows) if not _ic_note else None)
         led.start('SESSION LOAD')
 
     print("SESSION LOAD -- what every session pays before it does anything\n")

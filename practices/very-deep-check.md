@@ -927,6 +927,34 @@ confidently.
     [spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md)
     item 5.
 
+20. **Every incident filed since the last run, asked what now catches it.**
+    This pass's closing item, and the one that makes the check grow itself
+    instead of growing whenever somebody happens to notice a gap. Take
+    every gotcha filed and every open item closed since the last recorded
+    run —
+    [tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/very_deep_check.py)'s
+    `INCIDENT COVERAGE` section reads the date off the ledger and assembles
+    the list, with whatever in `tools/` or `practices/` cites each slug —
+    and ask of each **one** question: what prevents a recurrence, and is
+    there a planted case proving it fires?
+
+    **Three answers are honest, and the third is the one worth writing
+    down**: a named check with a planted case; a named check with no
+    planted case (file one); and **nothing, deliberately, because the class
+    is not mechanically detectable**. A gap somebody examined and declined
+    is a different state from a gap nobody has looked at, and only a
+    written answer tells them apart.
+
+    **A citation is not coverage.** The section enumerates and cites; it
+    never judges, because a docstring naming an incident reads exactly like
+    a check testing for one. What it removes is the part nobody does, which
+    is assembling the list. *(Its first run, 2026-09-21, found four of the
+    six gotchas filed that week cited by nothing in `tools/` or
+    `practices/` at all.)* Added 2026-09-21 (Morgan, strength: decided)
+    from
+    [spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md)
+    item 12.
+
 ### Pass 3 — Does the writing still hold together?
 The coherence read, across every repo in scope. Run the mechanical audits
 first so this pass spends its attention on what they cannot see.
