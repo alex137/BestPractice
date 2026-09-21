@@ -5,8 +5,8 @@ question: |
   major changes onto `main` for Alex's "explicit, named go-ahead", and
   AGENTS.md sharpens that to "requires Alex naming `main` explicitly, in
   that specific request." On 2026-09-21 Morgan asked a session to merge
-  `precedent-beta-v01` into `main` (202 commits, 146 files, ~16k
-  insertions) and stated he had Alex's explicit approval. Does a relayed
+  `precedent-beta-v01` into `main` (207 commits across 159 files at the
+  point it merged) and stated he had Alex's explicit approval. Does a relayed
   approval satisfy a gate held by someone who is not in the conversation?
 decision: |
   Yes, on Morgan's reaffirmation, and the merge was performed. Two honest
