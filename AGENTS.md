@@ -46,12 +46,12 @@ names why in its own file.
 
 - **"Go update"** and **"Approved"** ([go-merge](practices/go-merge.md)) —
   classify first: a direct push, straight to the branch, no PR, is now the
-  **default**; only a **huge** change (touches enforcement/gating code,
+  **default**; only a **high-risk** change (touches enforcement/gating code,
   changes a governance or authorization practice, is hard to reverse once
   live, or you're not confident it's none of those) runs the full chain —
   syncs, says the branch out loud, commits, pushes, opens the pull request,
   and merges — **without asking again.** Say which path you took, and why,
-  in the reply. Unsure which it is? Huge. A step this session cannot
+  in the reply. Unsure which it is? High-risk. A step this session cannot
   perform hands off rather than coming back as a question: the
   authorization travels with the work. One rule, two triggers, and
   `Go update` is the one to lead with — it names what actually happens
@@ -338,7 +338,7 @@ When a judgment call is needed to keep work moving:
 When a message says "Archive", with or without a question mark, or otherwise asks whether the session can be archived:
   archive-status-check — "Archive"/"Archive?" -- check pending; archive if clear, else say what isn't
 When a message says "Go update" or "Approved", or plainly authorizes a merge:
-  go-merge — "Go update"/"Approved": default push; huge -> sync, branch, PR, merge
+  go-merge — "Go update"/"Approved": default push; high-risk -> sync, branch, PR, merge
 When a message says "Push directly", naming a branch ("push directly to main") or not, or gives a specific instruction to skip the PR for this one change:
   push-directly — "Push directly [to BRANCH]" -- no PR; unnamed defaults to the branch in play
 When a message says "Update Vendors", or an upstream update is being taken into a repo that vendors a practice layer:

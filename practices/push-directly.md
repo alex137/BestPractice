@@ -40,8 +40,8 @@ inside a longer one, naming a branch or not -- treat it as
 [go-merge](go-merge.md)'s own direct-instruction override, said in a few
 words: **sync your local branch, commit the pending work, and push straight
 to the target branch, right now, no pull request** -- whatever `Go
-update`'s push-by-default/huge classification would otherwise call for on
-this change.
+update`'s push-by-default/high-risk classification would otherwise call for
+on this change.
 
 **The phrase names its own target when the message says so.** "Push
 directly to main", "push directly to precedent-beta-v01" -- whatever
@@ -61,13 +61,13 @@ already on.
 
 **This is not a new kind of permission.** `Go update`'s Rule already lets a
 direct, specific instruction about one change override its own
-classification, huge included. `Push directly` is that instruction,
+classification, high-risk included. `Push directly` is that instruction,
 standing and reusable, so it does not need to be re-argued in a full
 sentence every time it is meant.
 
 **It authorizes this one change, not a standing exemption.** Said about a
 different piece of work later, it authorizes that push, to whatever branch
-that invocation names or defaults to; it does not turn off the huge
+that invocation names or defaults to; it does not turn off the high-risk
 classification generally, and `Go update` still asks the question on the
 next change that does not carry this phrase.
 
@@ -87,7 +87,7 @@ question** -- run [prompt-please](prompt-please.md) on the spot, same as
 [go-merge](go-merge.md).
 
 ## Why
-`Go update`'s Rule already allows overriding its own huge/default
+`Go update`'s Rule already allows overriding its own high-risk/default
 classification with a direct, specific instruction -- but writing that
 instruction out in full, "skip the PR even though this touches a
 governance practice," costs a sentence every time it is meant. `Push
@@ -110,14 +110,14 @@ merge` as a trigger of [go-merge](go-merge.md). He asked what plain-English
 developers say for landing a small change live without a merge, was told
 the general answer ("push directly," as opposed to opening a PR and
 merging), and once he understood the real cost tradeoff go-merge's
-push-by-default/huge split had just been built around, asked for two
+push-by-default/high-risk split had just been built around, asked for two
 things in the same breath: fold `Go merge` entirely into `Go update`, and
 give him a plain, separate phrase for "skip the judgment, just push it"
 that he would actually remember to say, rather than "I will forget that
 phrase." He used it to authorize landing this file and `Go merge`'s
 retirement together -- its first invocation, on a change
-[go-merge](go-merge.md)'s own Rule would otherwise classify as huge, since
-it edits a governance practice directly.
+[go-merge](go-merge.md)'s own Rule would otherwise classify as high-risk,
+since it edits a governance practice directly.
 
 **Amended the same day.** Reading the freshly-coined phrase back, Morgan
 asked for it to say its target the way a person actually would --
