@@ -70,6 +70,35 @@ becomes official until it's reviewed and approved the same way any other
 change is (see the five steps above) — you're never signing up for
 something without seeing it first.
 
+## Taking Your Rules With You
+
+The rules you add here belong to this project. **Rules that are really
+about *you*, or about *your team*, can live somewhere better — in their own
+small collection that follows you into every project you work on.**
+
+Two kinds are worth making:
+
+- **Your own.** Anything you find yourself asking for again and again — how
+  you like things written, what you always want checked, how you prefer to
+  be talked to. Write it once instead of re-explaining it in every project.
+- **Your team's.** Anything your team keeps re-agreeing in review. A team
+  collection settles it in one place, and everyone's assistant follows it.
+
+**You already have what you need to make one.** The tool that sets one up
+comes with this project, so there is nothing to install and nothing to ask
+anyone for. Say to your assistant:
+
+> I'd like to start my own collection of rules that follows me between
+> projects. Can you set one up?
+
+It will make the repository, add your first rules, and connect it to this
+project so your sessions start using it.
+
+**Do not wait until you have a lot to say.** Three rules you are tired of
+repeating is a perfectly good collection. The shared library this project
+draws on started the same way and grew one rule at a time, each written down
+the first time somebody got it wrong twice.
+
 ## Setting Up Your AI Tool
 
 Before any of it works, an administrator must have given your GitHub

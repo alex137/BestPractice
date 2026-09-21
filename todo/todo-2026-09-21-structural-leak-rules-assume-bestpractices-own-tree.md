@@ -61,7 +61,7 @@ and this is why it was not guessed at:**
 - **Self-declared `visibility` must not gate a LEAK check.** That is
   precisely the bug corrected in `leak-gate.yml.template` on 2026-09-20,
   where two public repos declared themselves private. The workflow now takes
-  visibility from GitHub — but `leak_gate.py` also runs in a local pre-push
+  visibility from GitHub — but [leak_gate.py](../tools/leak_gate.py) also runs in a local pre-push
   hook, where no GitHub context exists.
 
 Plausible answers, none chosen: scope the directory rules to the repo that
