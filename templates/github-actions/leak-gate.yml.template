@@ -54,13 +54,20 @@
 # `github.event.repository.private`, which GitHub supplies and no file in
 # the tree can contradict. A `visibility` declared in
 # `precedent.json`/`precedent-source.json` is still read and still reported,
-# but it cannot NARROW the scan: where the two disagree the job warns and
-# uses GitHub's answer. This is not belt-and-braces -- a practice set's
-# `precedent-source.json` always declares `"visibility": "private"`
-# (precedent_bootstrap_source.py's `_write_source_manifest` writes it
-# unconditionally, on the assumption that a practice set's own text is never
-# public), and on 2026-09-21 two real practice sets that are PUBLIC on
-# GitHub carried exactly that declaration.
+# but it cannot NARROW the scan: where they disagree the job warns, once per
+# disagreeing file, and uses GitHub's answer. This is not belt-and-braces --
+# a practice set's `precedent-source.json` always declares
+# `"visibility": "private"` (precedent_bootstrap_source.py's
+# `_write_source_manifest` writes it unconditionally, on the assumption that
+# a practice set's own text is never public), and on 2026-09-21 two real
+# practice sets that are PUBLIC on GitHub carried exactly that declaration.
+#
+# BOTH FILES ARE READ, because a repo can carry both. An earlier version of
+# this job read `precedent.json` OR, failing that, `precedent-source.json`,
+# on the premise that a practice set has no `precedent.json`. Measured
+# across four real practice sets on 2026-09-21: three carry both, each with
+# its own `visibility`, and the two that needed correcting needed it in
+# BOTH files. A warning that names one file leaves the other wrong.
 #
 # WHERE base_branch COMES FROM: the manifest, and only the manifest. A
 # consumer repo declares it in `precedent.json`; a practice set has no field
@@ -130,28 +137,39 @@ jobs:
           python3 - <<'PY' >> "$GITHUB_OUTPUT"
           import json, os, pathlib
 
-          declared = None
+          # BOTH MANIFESTS, NOT WHICHEVER COMES FIRST (2026-09-21). This
+          # read used to be `if precedent.json: ... elif
+          # precedent-source.json: ...`, on the stated premise that "a
+          # practice-set SOURCE repo has no precedent.json". That premise is
+          # false, measured across four real practice sets the same day:
+          # three carry BOTH files, each declaring its own `visibility`, and
+          # they can disagree with each other. The `elif` meant the source
+          # manifest's declaration was silently unread in exactly the repos
+          # it describes, and a warning naming one file left the other
+          # wrong. Read both; report every file that disagrees.
+          declared = {}
           base_branch = None
 
-          consumer = pathlib.Path('precedent.json')
-          source = pathlib.Path('precedent-source.json')
-          if consumer.exists():
+          for name, default in (('precedent.json', None),
+                                ('precedent-source.json', 'private')):
+              path = pathlib.Path(name)
+              if not path.exists():
+                  continue
               try:
-                  d = json.loads(consumer.read_text())
+                  d = json.loads(path.read_text())
               except (OSError, ValueError):
                   d = {}
-              declared = d.get('visibility')
-              base_branch = d.get('base_branch')
-          elif source.exists():
-              try:
-                  d = json.loads(source.read_text())
-              except (OSError, ValueError):
-                  d = {}
-              declared = d.get('visibility', 'private')
+              v = d.get('visibility', default)
+              if v is not None:
+                  declared[name] = v if v in ('public', 'private') else 'public'
+              # base_branch is a consumer-manifest field; a source set has
+              # none and falls through to the default below.
+              if base_branch is None:
+                  b = d.get('base_branch')
+                  if isinstance(b, str) and b:
+                      base_branch = b
 
-          if declared not in ('public', 'private'):
-              declared = 'public'
-          if not base_branch or not isinstance(base_branch, str):
+          if not base_branch:
               base_branch = 'main'
 
           # GitHub's own answer, and it outranks the file. Anything that is
@@ -161,18 +179,19 @@ jobs:
           gh_private = os.environ.get('GH_PRIVATE', '').strip().lower()
           actual = 'private' if gh_private == 'true' else 'public'
 
-          if actual != declared:
-              print(
-                  f'::warning::this repo declares "visibility": "{declared}" '
-                  f'but GitHub reports it is {actual}. Using GitHub. '
-                  f'Correct the declaration in '
-                  f'{"precedent.json" if consumer.exists() else "precedent-source.json"} '
-                  f'-- other tooling reads that field and will not get this '
-                  f'warning.'
-              )
+          for name, value in sorted(declared.items()):
+              if value != actual:
+                  print(
+                      f'::warning file={name}::{name} declares '
+                      f'"visibility": "{value}" but GitHub reports this repo '
+                      f'is {actual}. Using GitHub. Correct it here -- other '
+                      f'tooling reads this field and gets no warning.'
+                  )
 
           print(f'visibility={actual}')
-          print(f'declared_visibility={declared}')
+          print('declared_visibility='
+                + (','.join(f'{k}={v}' for k, v in sorted(declared.items()))
+                   or 'none'))
           print(f'base_branch={base_branch}')
           PY
 
