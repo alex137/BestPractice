@@ -497,6 +497,34 @@ def violations(text, reqs, timeline=None):
                     f"\"{m.group(0)}\" without a markdown link to it"
                     + (f" -- {pat_why}" if pat_why else '') + "."
                     + (f" (practice: {r['practice']})" if r.get('practice') else ''))})
+
+        # require_paired_with: when the reply contains X, it must also
+        # contain Y. The mirror of require_no_contradiction -- that one
+        # forbids a pairing, this one compels it.
+        #
+        # WHY IT EXISTS (Morgan, 2026-09-21, strength: decided, and the
+        # capitals are his): "EVERY TIME YOU GIVE ME SOMETHING TO PASTE,
+        # ALWAYS TELL ME IT GOES TO A SESSION ROOTED IN WHAT REPO AND WHAT
+        # ATTACHED, OR WHAT EXISTING SESSION. YESTERDAY AND TODAY I ASKED
+        # YOU 20 TIMES 'The text you gave me, what session is it for?'"
+        #
+        # fence-block-for-paste already made the FENCE mandatory, which is
+        # why every one of those twenty blocks was correctly fenced and
+        # none of them said where it went. A block of text with no
+        # destination is not a handoff; it is homework, and the person has
+        # to come back and ask before they can do anything with it.
+        for pair in (r.get('require_paired_with') or []):
+            trigger, needed = pair.get('if_matches'), pair.get('must_also_match')
+            if not (trigger and needed):
+                continue
+            if re.search(trigger, text, re.I | re.M) and not re.search(
+                    needed, text, re.I | re.M):
+                out.append({'kind': 'paired', 'advisory': advisory, 'message': (
+                    f"[{r.get('_source', '?')}] this reply matches "
+                    f"/{trigger}/ but nothing in it matches /{needed}/"
+                    + (f" -- {pair.get('why')}" if pair.get('why') else '')
+                    + "."
+                    + (f" (practice: {r['practice']})" if r.get('practice') else ''))})
     return out
 
 
@@ -530,6 +558,10 @@ def main():
             if r.get('require_no_bare_pattern'):
                 for entry in r['require_no_bare_pattern']:
                     bits.append(f"no bare (unlinked) match of /{entry.get('pattern')}/")
+            if r.get('require_paired_with'):
+                for pair in r['require_paired_with']:
+                    bits.append(f"/{pair.get('if_matches')}/ requires "
+                                f"/{pair.get('must_also_match')}/")
             if r.get('require_when_context_grew_tokens'):
                 bits.append("ONLY once the context has grown "
                             f"{int(r['require_when_context_grew_tokens']):,} "

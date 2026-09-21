@@ -9541,6 +9541,123 @@ def check_contradiction_requirement_blocks():
           '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad_cases))
 
 
+def check_reply_check_requires_a_destination_for_a_fence_block():
+    """`require_paired_with` catches a reply that hands over a fenced block
+    and never says where it goes.
+
+    The incident: across 2026-09-20 and 21, Morgan asked roughly twenty
+    times what session a block he had just been handed was for. Every one
+    of those blocks was correctly fenced, because fence-block-for-paste
+    already made the fence mandatory and said nothing about the address --
+    the practice enforced the container and left out the destination.
+    (practice: fence-block-for-paste, cite-the-incident)
+
+    practice: control-asserts-which-failure -- the positive case asserts
+    the guard's own message, and the two negatives prove BOTH escape routes
+    work: naming a destination, and declaring the block to be output.
+    """
+    import tempfile
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-paired-'))
+    cases = []
+    try:
+        fx = tmp / 'repo'
+        (fx / 'practices').mkdir(parents=True)
+        (fx / 'precedent.json').write_text(json.dumps({'sources': [
+            {'level': 'universal', 'name': 'precedent', 'path': '.'}]}),
+            encoding='utf-8')
+        # The gate REFUSES to print anything for a gate with no practices
+        # registered to it ("an empty gate is a step that loads nothing and
+        # looks like it worked"), so the fixture needs one -- otherwise the
+        # print case below would pass or fail for a reason unrelated to
+        # what it is testing (practice: fixture-owns-its-state).
+        (fx / 'practices' / 'fixture-paired.md').write_text(
+            '---\n'
+            'slug:        fixture-paired\n'
+            'title:       A fixture practice wired to the reply gate\n'
+            'tier:        on-demand\n'
+            'severity:    default\n'
+            'applies_to:  []\n'
+            'occasion:    "a fixture needs one practice on the reply gate"\n'
+            'gates:       ["reply"]\n'
+            'index_clause: "a fixture rule"\n'
+            'checked_by:  null\n'
+            'status:      active\n'
+            'in_force_at: null\n'
+            'supersedes:  []\n'
+            'overrides:   null\n'
+            'added:       null\n'
+            'approved_by: null\n'
+            '---\n\n## Rule\nA fixture rule, present so the reply gate has '
+            'something registered to it.\n', encoding='utf-8')
+        (fx / 'reply_check.json').write_text(json.dumps([{
+            'practice': 'fixture-paired',
+            'require_paired_with': [
+                {'if_matches': r'^\s*```',
+                 'must_also_match': r'(?:\*\*)?Paste into:|\bnot for pasting\b',
+                 'why': 'say where it goes'},
+            ],
+        }]), encoding='utf-8')
+
+        def write(name, text):
+            q = tmp / name
+            q.write_text(text, encoding='utf-8')
+            return q
+
+        def replycheck(path):
+            return subprocess.run(
+                [sys.executable, str(ROOT / 'tools' / 'precedent_reply_check.py'),
+                 '--repo', str(fx), '--text', str(path)],
+                capture_output=True, text=True, cwd=str(tmp),
+                env={**os.environ,
+                     'PRECEDENT_USER_CONFIG': str(tmp / 'no-such-config.json')})
+
+        bad = write('bad.md', '## The Boildown\n\nHere it is.\n\n'
+                              '```\nsome text\n```\n')
+        r1 = replycheck(bad)
+        cases.append(('a fence block with no destination is refused, naming '
+                      'the requirement',
+                      r1.returncode == 2 and 'nothing in it matches' in r1.stderr,
+                      f'exit {r1.returncode}: {r1.stderr[:200]}'))
+
+        good = write('good.md', '## The Boildown\n\n**Paste into:** the session '
+                                'rooted in FooRepo.\n\n```\nsome text\n```\n')
+        r2 = replycheck(good)
+        cases.append(('negative control: a block WITH a named destination '
+                      'passes',
+                      r2.returncode == 0, f'exit {r2.returncode}: {r2.stderr[:160]}'))
+
+        out = write('out.md', '## The Boildown\n\nMeasured, not for pasting:'
+                              '\n\n```\noutput\n```\n')
+        r3 = replycheck(out)
+        cases.append(('negative control: a block declared output is not asked '
+                      'for a destination',
+                      r3.returncode == 0, f'exit {r3.returncode}: {r3.stderr[:160]}'))
+
+        none = write('none.md', '## The Boildown\n\nNo fenced block anywhere.\n')
+        r4 = replycheck(none)
+        cases.append(('negative control: a reply with no fence block is '
+                      'unaffected',
+                      r4.returncode == 0, f'exit {r4.returncode}: {r4.stderr[:160]}'))
+
+        # The pre-reply print must NAME it. A blocking requirement that is
+        # enforced and never announced costs the person the reply twice --
+        # the exact failure precedent_gate.py's own docstring records.
+        r5 = subprocess.run(
+            [sys.executable, str(ROOT / 'tools' / 'precedent_gate.py'),
+             '--repo', str(fx), 'reply'],
+            capture_output=True, text=True, cwd=str(tmp),
+            env={**os.environ,
+                 'PRECEDENT_USER_CONFIG': str(tmp / 'no-such-config.json')})
+        cases.append(('the reply gate PRINTS this requirement before the reply',
+                      'must ALSO match' in r5.stdout, r5.stdout[-200:]))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad_cases = [(n, d) for n, ok, d in cases if not ok]
+    return (not bad_cases, f'{len(cases)} stated cases',
+            '; '.join(f'{n}: {d}' for n, d in bad_cases))
+
+
 def check_compaction_offer_fires_on_context_growth():
     """The size-aware half of the reply check: a long session is REFUSED a
     reply that never says whether this is a cheap point to compact.

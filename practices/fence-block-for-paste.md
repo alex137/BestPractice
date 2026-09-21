@@ -6,7 +6,7 @@ severity:    default
 applies_to:  ["**"]
 occasion:    "a reply hands over text meant to be pasted somewhere else -- a prompt, a commit message, a PR description, a config snippet, a comment for another tool"
 gates:       ["reply"]
-index_clause: "paste-ready text goes in a real fence block -- one block per thing"
+index_clause: "every fence block says where it goes -- Paste into: X, or not for pasting"
 checked_by:  null
 defines:     ["fence block"]
 status:      active
@@ -14,7 +14,13 @@ in_force_at: null
 supersedes:  []
 overrides:   null
 added:       "2026-09-20"
-approved_by: "Morgan, 2026-09-20 -- via rule-scope-ask, on a handoff session's
+approved_by: "extended 2026-09-21, Morgan (strength: decided), in
+  capitals, after asking roughly twenty times across two days what
+  session a block he had just been handed was for: \"EVERY TIME YOU GIVE
+  ME SOMETHING TO PASTE, ALWAYS TELL ME IT GOES TO A SESSION ROOTED IN
+  WHAT REPO AND WHAT ATTACHED, OR WHAT EXISTING SESSION ... THIS SHOULD BE
+  A STRONG RULE\" -- made a blocking reply-gate requirement the same turn;
+  Morgan, 2026-09-20 -- via rule-scope-ask, on a handoff session's
   recommendation to generalize my-options.md and prompt-please.md's
   fenced-block requirement beyond those two trigger phrases. Asked whether
   the rule belonged as a new resident practice, as more bullets on the two
@@ -40,6 +46,24 @@ commit message and a separate PR description, two prompts for two different
 sessions — each is its own fence block, never one block holding both, and
 never prose gesturing at several pieces and leaving the reader to split them
 apart.
+
+**EVERY FENCE BLOCK SAYS WHERE IT GOES, in the reply, next to the block.**
+A block of text with no destination is not a handoff — it is homework, and
+the person has to come back and ask before they can do anything with it.
+Write `**Paste into:**` and then one of:
+
+- **an existing session**, named and linked — say which one and why it is
+  the right one, since a live session already holding the context beats a
+  fresh window that must re-read its repository from nothing;
+- **a new session**, with **the repository it is rooted in** and **what
+  else is attached**. Both, always. "Open a new session and paste this" is
+  the failure this clause exists to stop: rooted where, holding what?
+- **this session**, when that is the honest answer.
+
+**A fence block holding output rather than paste-text says `not for
+pasting` once**, and that is the whole obligation — a measurement, a diff,
+a log excerpt is evidence, not a handoff, and it must not have a
+destination invented for it.
 
 **This binds every reply, independent of any trigger phrase.**
 [My options](my-options.md) and [Prompt Please](prompt-please.md) each
