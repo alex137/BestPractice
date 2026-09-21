@@ -83,3 +83,35 @@ Morgan's framing, 2026-09-21: an iron law that every change is tested for
 whether it carries through to the vendored-in versions. Items 1 and 2 are
 the mechanical half of that; the law without them is a reminder, and
 reminders are what failed here.
+
+## Progress (2026-09-21, PR #513)
+
+**Items 1 and 2 are built and merged.** Item 3 is the whole remaining item.
+
+**1 — CI-workflow deletions propagate.**
+[precedent_vendor_engine.py](../tools/precedent_vendor_engine.py)'s
+`_remove_retired_ci_workflow_files()` now diffs the manifest's recorded
+`ci_workflow_files` against what the kind actually ships and removes the
+difference, the same way the engine path has always diffed
+`ENGINE_MANIFEST.json`. The tombstone list stays for what a diff cannot
+express. `kind` comes from the caller, not from the manifest: during a
+source-to-consumer conversion the manifest still names the old kind, and
+reading it there removes the wrong set. The harness caught exactly that.
+
+**2 — the carry-through report exists**, as
+[precedent_engine_freshness.py](../tools/precedent_engine_freshness.py).
+It reads the manifest's `source_commit`, `ls-remote`s the pinned branch
+tip, and says how far behind the repo is; `--files` names every engine
+file added, removed or changed since, marking anything upstream ships that
+this repo does not as `(NOT YET VENDORED HERE)`. It never refreshes
+anything and exits 0 in every failure mode, including no network — a
+freshness notice that can fail a build is a notice people turn off. Wired
+into the session-start hook and into
+[precedent_gate.py](../tools/precedent_gate.py)'s push and merge moments,
+both `--quiet`.
+
+**3 — the staleness roll-up is NOT built**, and the open question in it is
+unchanged: answering "which of my repos are behind, and by how much"
+needs cross-repo read access this repository deliberately does not have.
+Nobody has decided whether it belongs here at all. That decision is what
+this item now waits on.
