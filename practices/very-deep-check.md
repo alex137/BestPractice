@@ -16,7 +16,16 @@ in_force_at: null
 supersedes:  []
 overrides:   null
 added:       null
-approved_by: "extended 2026-09-21, Morgan (strength: decided), with pass 3's
+approved_by: "extended 2026-09-21, Morgan (strength: decided), with the
+  five additions spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md recommended
+  first and he authorized in that order -- the planted-case rotation
+  settled at step 2 (item 11), WORKFLOW REALITY and the YAML-anchor check
+  (item 5), the deletion rehearsal and DELETIONS PENDING (items 1 and 2),
+  INCIDENT COVERAGE (item 12) and the ACCRETION ranking with its
+  holistic-read registry (item 9); the first forced harness run the new
+  step 2 asked for turned the suite red on its own rotation self-test,
+  which is the kind of thing the item exists to surface;
+  extended 2026-09-21, Morgan (strength: decided), with pass 3's
   close read of every always-loaded instructions file, after an Update
   Vendors pass found a consuming repo's AGENTS.md naming a repository that
   does not exist, twice, in the same file whose own step 1 warns about a
@@ -382,6 +391,22 @@ cannot tell a drift this run introduced from one that was there before. So:
    [AGENTS.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/AGENTS.md) names ([two-check-levels](two-check-levels.md))
    — and fix what it reports, before this check reads a line. `0 failed` and
    `0 violated` is the starting line, not the finish.
+
+   **`verify_harness.py --all` here, not the bare command every other gate
+   runs.** The push gate runs a 10% rotation of the planted cases per
+   commit and promises the rest "within 10 commits" — a promise with no
+   settlement date, because nothing anywhere ever forces the full set. This
+   is the run that collects on it: the one moment in the project that is
+   already expensive on purpose, and the one place a rotation that has
+   quietly stopped covering something would surface. `--all` is the whole
+   of the change, and
+   [tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/very_deep_check.py)'s
+   `PLANTED CASE COVERAGE` section says on every run whether this invocation
+   did it or still owes it; `--with-harness` runs it from inside the tool
+   and records the result in the ledger like any other section. Added
+   2026-09-21 (Morgan, strength: decided) from
+   [spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md)
+   item 11.
 3. **Run [tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/very_deep_check.py)** for the
    enumeration, the machine-readable parse, the source-shape check, the
    branch scan, and the GitHub API budget. A missing declared source stops
@@ -489,6 +514,38 @@ method"). Build the fixtures.
   that has never had to move, so nothing here ever exercised drift — and
   drift is where a consumer spends its whole life. This is the cheap half
   and it needs nobody's permission.
+- **A DELETION, which is the direction nothing rehearsed until
+  2026-09-21.** Every fixture above tests a repo RECEIVING something. A
+  deletion is decided in one tree and executed in many, and for a long time
+  the two vendoring paths did not even agree it happened: engine files
+  diffed the manifest and propagated, CI workflow files waited for somebody
+  to remember a tombstone, so **a template dropped without one stayed
+  installed everywhere, forever, tracked by nothing.** The rehearsal is two
+  assertions, not one — the file is gone, **and nothing left in that repo
+  still names it.**
+
+  The second is the half that bit. *(Found 2026-09-21: a refresh deleted
+  `precedent-check.yml` from four practice sets. A second workflow in each
+  had been paused hours earlier, its own header saying its checks now ran
+  as steps in the file that was about to be deleted. The premise was true
+  when written and false the same afternoon; two commit-scope checks ran
+  nowhere and nothing reported it.)*
+  [tools/precedent_vendor_engine.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/precedent_vendor_engine.py)
+  now names every tracked file that still refers to something it just
+  deleted — **it reports and never refuses**, since a document naming a
+  retired file is usually right to.
+- **What the NEXT refresh would take away, before it does.** The warning
+  above arrives at the moment of deletion, which is the right time to be
+  told and the wrong time to plan.
+  [tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/very_deep_check.py)'s
+  `DELETIONS PENDING` section asks it early: per repo in force, what this
+  checkout's **current** engine lists would remove from that repo on its
+  next refresh, and which tracked files still name each one. Read against
+  the upstream's lists deliberately, never the consumer's own vendored
+  copy, which may be months old. A row with referrers is a finding; a row
+  without is a heads-up. Added 2026-09-21 (Morgan, strength: decided) from
+  [spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md)
+  items 1 and 2.
 - **A REAL consumer repository, brought up to date.** Ask the person to
   attach one, early — see the order of operations, which puts the asking
   before pass 1 for the obvious reason that the answer may not come back.
@@ -845,6 +902,71 @@ confidently.
     eleven-repo sweep the same finding was about to authorize would have
     repeated this on every remaining name match, unverified.)*
 
+19. **Read what GITHUB says about each workflow file, not what the tree
+    says.** Item 18 reads the workflow FILES; this asks the platform, and
+    the gap between the two is a class nothing else here can see. A file
+    GitHub's parser refuses is **not a red run — it is no run**, so the
+    branch reads as having no continuous integration (CI) rather than
+    broken CI. Actions switched off looks, from the tracked tree, exactly
+    like working CI. A trigger that stopped matching looks like nothing at
+    all.
+    [tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/very_deep_check.py)'s
+    `WORKFLOW REALITY` section asks four questions per file — registered
+    with Actions at all, state active, when it last ran, and whether that
+    run postdates the file's newest commit — and reports `UNVERIFIED`
+    rather than a pass wherever it could not ask. **Two limits are printed,
+    never assumed away**: GitHub lists workflows from the DEFAULT branch, so
+    a file absent from the listing is a finding only when it is also on that
+    branch; and a workflow that has never run cannot be told apart from
+    Actions being off by that endpoint alone, which is why the disabled case
+    is read off the listing call's own refusal instead
+    ([the permissions endpoint is unreachable from a session](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/gotchas/gotcha-2026-09-21-actions-permissions-are-unreadable-from-a-session.md)).
+
+    **The offline half is now an enforced check and is not this pass's
+    work**: `workflow-yaml-github-can-parse`
+    ([tools/precedent_check.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/precedent_check.py))
+    refuses a YAML anchor or alias in any workflow file or shipped workflow
+    template, through PyYAML's own event stream where PyYAML is installed
+    and a structural line match where it is not — **CI has no PyYAML, so
+    the first version of that check skipped in the one environment that
+    gates every pull request**, which is not a check
+    ([durable-fix](durable-fix.md)). *(Found 2026-09-21: an anchor shared one `paths:` list
+    between a `push:` and a `pull_request:` trigger. PyYAML resolved it —
+    including through the exact command this repository's own templates
+    recommend — and GitHub rejects the file outright. Every local
+    verification this project teaches would have passed it.)* Added
+    2026-09-21 (Morgan, strength: decided) from
+    [spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md)
+    item 5.
+
+20. **Every incident filed since the last run, asked what now catches it.**
+    This pass's closing item, and the one that makes the check grow itself
+    instead of growing whenever somebody happens to notice a gap. Take
+    every gotcha filed and every open item closed since the last recorded
+    run —
+    [tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/very_deep_check.py)'s
+    `INCIDENT COVERAGE` section reads the date off the ledger and assembles
+    the list, with whatever in `tools/` or `practices/` cites each slug —
+    and ask of each **one** question: what prevents a recurrence, and is
+    there a planted case proving it fires?
+
+    **Three answers are honest, and the third is the one worth writing
+    down**: a named check with a planted case; a named check with no
+    planted case (file one); and **nothing, deliberately, because the class
+    is not mechanically detectable**. A gap somebody examined and declined
+    is a different state from a gap nobody has looked at, and only a
+    written answer tells them apart.
+
+    **A citation is not coverage.** The section enumerates and cites; it
+    never judges, because a docstring naming an incident reads exactly like
+    a check testing for one. What it removes is the part nobody does, which
+    is assembling the list. *(Its first run, 2026-09-21, found four of the
+    six gotchas filed that week cited by nothing in `tools/` or
+    `practices/` at all.)* Added 2026-09-21 (Morgan, strength: decided)
+    from
+    [spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md)
+    item 12.
+
 ### Pass 3 — Does the writing still hold together?
 The coherence read, across every repo in scope. Run the mechanical audits
 first so this pass spends its attention on what they cannot see.
@@ -885,6 +1007,41 @@ first so this pass spends its attention on what they cannot see.
   and [reduction-pass](reduction-pass.md) is how it moves. A pass that
   finds nothing to cut in a file this size has not read it.
 
+- **One file nobody has read whole, read whole.** The bullet above is this
+  one applied to a single file, and it was added the day somebody noticed
+  that file had gone stale twice in itself. **Nothing generalized it**, and
+  the measurement says the instructions file was not even the worst
+  offender: [tools/verify_harness.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/verify_harness.py)
+  is 26,000 lines, was touched 379 times in 30 days, gates every push in
+  the project, and had no record of anyone ever reading it end to end.
+
+  **Every other question in this check asks whether a file is wrong. This
+  one asks whether anybody has looked at it as a thing lately**, which no
+  amount of correctness per commit can answer — a file grows one
+  defensible line at a time and nobody is ever wrong on the day they add
+  theirs.
+  [tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/very_deep_check.py)'s
+  `ACCRETION` section ranks every tracked file by **commits since anybody
+  last recorded reading it whole**, and
+  [record/holistic-reads.json](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/record/holistic-reads.json)
+  is where that is recorded — a registry rather than a sentence in a
+  document ([registry-source-of-truth](registry-source-of-truth.md)), for
+  the reason the run ledger is one: *when did anybody last read this whole
+  file* is exactly the claim memory gets wrong.
+
+  **One file per run, not the top ten.** The count never reaches zero and
+  the registry is what makes that visible; a slice of one, recorded with
+  `--record-read`, beats a sweep of ten nobody finishes. The read itself is
+  the instructions-file read asked of code as well as prose — *does this
+  still describe something that exists; is it still needed; is it saying it
+  the long way; is it duplicating something that now lives elsewhere* — and
+  **a pass that finds nothing to cut in a file that size has not read it.**
+  **Churn is not a defect**: the top row may be the healthy one, and the
+  ranking buys only that a file nobody has opened whole cannot stay
+  invisible because every commit to it was fine. Added 2026-09-21 (Morgan,
+  strength: decided) from
+  [spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md)
+  item 9.
 - **Contradictions** — two rules, or two documents, that can't both be
   followed; a rule whose own carve-outs have eaten it.
 - **Documents against the mechanisms they describe.** A document that

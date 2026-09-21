@@ -5795,7 +5795,7 @@ def _deep_assertion_slugs():
                   if m.group(1).endswith('-clean') else m.group(1))
     return found
 
-def _selected_case_slugs(all_slugs, touched=None, count=None):
+def _selected_case_slugs(all_slugs, touched=None, count=None, forced=None):
     """-> (set of slugs to run, one-line reason). Never raises: a
     selector that cannot decide runs everything, because the failure
     of a scheduler must not be silently less coverage.
@@ -5804,9 +5804,22 @@ def _selected_case_slugs(all_slugs, touched=None, count=None):
     so this is testable without a fixture repository: a scheduler whose
     behaviour can only be observed by running the thing it schedules is a
     scheduler nobody can check, and this one decides how much of the push
-    gate actually executes."""
-    if ('--all' in sys.argv
-            or os.environ.get('PRECEDENT_HARNESS_ALL') == '1'):
+    gate actually executes.
+
+    `forced` is the same argument one level up, and it was added the day it
+    bit. It normally reads the process's own `--all` / PRECEDENT_HARNESS_ALL,
+    which is right for a real run and WRONG for the self-test below: that
+    test asserts the selector NARROWS on an ordinary docs change, so on a
+    run invoked with --all it was measuring the flag instead of the rule and
+    failing 72/72. Found 2026-09-21, by the very deep check's own new step 2
+    -- which prescribes --all, ran it, and turned the suite red on its first
+    outing. A scheduler that cannot be exercised in the state it is not
+    currently in is the same untestable scheduler this signature already
+    exists to avoid."""
+    if forced is None:
+        forced = ('--all' in sys.argv
+                  or os.environ.get('PRECEDENT_HARNESS_ALL') == '1')
+    if forced:
         return set(all_slugs), 'all (--all / PRECEDENT_HARNESS_ALL)'
     pinned = _deep_assertion_slugs()
     if pinned is None:
@@ -6638,7 +6651,8 @@ def check_planted_case_rotation_never_narrows_silently():
     for touched, label in (({'tools/precedent_check.py'}, 'precedent_check.py'),
                            ({'tools/verify_harness.py'}, 'verify_harness.py'),
                            ({'tools/checks/anything.py'}, 'a tools/checks/ script')):
-        sel, why = _selected_case_slugs(slugs, touched=touched, count=1)
+        sel, why = _selected_case_slugs(slugs, touched=touched, count=1,
+                                        forced=False)
         cases.append((f'a change to {label} runs every case',
                       sel == set(slugs), f'{len(sel)}/{len(slugs)}: {why}'))
 
@@ -6651,7 +6665,7 @@ def check_planted_case_rotation_never_narrows_silently():
         # count chosen so `one` is NOT in the rotating slice by luck.
         for count in range(HARNESS_ROTATION_BUCKETS):
             sel, _ = _selected_case_slugs(slugs, touched={f'practices/{one}.md'},
-                                          count=count)
+                                          count=count, forced=False)
             if one not in sel:
                 cases.append((f'a touched practice always runs its own case '
                               f'({one}, bucket {count})', False, 'missing'))
@@ -6666,7 +6680,8 @@ def check_planted_case_rotation_never_narrows_silently():
     pinned = _deep_assertion_slugs() & set(slugs)
     missing = []
     for count in range(HARNESS_ROTATION_BUCKETS):
-        sel, _ = _selected_case_slugs(slugs, touched={'README.md'}, count=count)
+        sel, _ = _selected_case_slugs(slugs, touched={'README.md'}, count=count,
+                                        forced=False)
         missing += sorted(pinned - sel)
     cases.append((f'every deep-assertion slug is pinned in all '
                   f'{HARNESS_ROTATION_BUCKETS} buckets ({len(pinned)} of them)',
@@ -6677,13 +6692,15 @@ def check_planted_case_rotation_never_narrows_silently():
     # it claims would be worse than no rotation at all.
     union = set()
     for count in range(HARNESS_ROTATION_BUCKETS):
-        union |= _selected_case_slugs(slugs, touched={'README.md'}, count=count)[0]
+        union |= _selected_case_slugs(slugs, touched={'README.md'}, count=count,
+                                        forced=False)[0]
     uncovered = sorted(set(slugs) - union)
     cases.append((f'{HARNESS_ROTATION_BUCKETS} consecutive commits cover every '
                   f'case', not uncovered, f'never covered: {uncovered}'))
 
     # And it must actually narrow, or it is ceremony.
-    sel, _ = _selected_case_slugs(slugs, touched={'README.md'}, count=0)
+    sel, _ = _selected_case_slugs(slugs, touched={'README.md'}, count=0,
+                                 forced=False)
     cases.append(('an ordinary docs change runs well under half the cases',
                   len(sel) * 2 < len(slugs), f'{len(sel)}/{len(slugs)}'))
 
@@ -6695,11 +6712,12 @@ def check_planted_case_rotation_never_narrows_silently():
     # erodes silently, so both the selector's fail-safe and the measured
     # minimum are checked.
     per_bucket = [len(_selected_case_slugs(slugs, touched={'README.md'},
-                                           count=c)[0])
+                                           count=c, forced=False)[0])
                   for c in range(HARNESS_ROTATION_BUCKETS)]
     cases.append((f'no bucket selects zero cases (per-bucket: {per_bucket})',
                   all(n > 0 for n in per_bucket), ''))
-    empty, why = _selected_case_slugs([], touched={'README.md'}, count=0)
+    empty, why = _selected_case_slugs([], touched={'README.md'}, count=0,
+                                     forced=False)
     cases.append(('an empty slice runs everything rather than nothing',
                   'empty' in why or empty == set(), why))
 
@@ -8043,6 +8061,40 @@ def check_precedent_check_fires():
                       'GIT_AUTHOR_NAME' in planted['no-hardcoded-git-identity'][1]
                       and 'GIT_AUTHOR_EMAIL'
                       in planted['no-hardcoded-git-identity'][1]))
+
+        # workflow-yaml-github-can-parse -- a workflow file using a YAML
+        # anchor and alias, which PyYAML resolves happily and GitHub's own
+        # workflow parser refuses. The plant carries `&&`, `2>&1` and a
+        # `*.md` glob in its run step ON PURPOSE: a detector that matched
+        # `&` and `*` in the text would fire on all three, and the first
+        # version of any such detector does. The case proves the check
+        # separates a YAML anchor from shell punctuation, not merely that
+        # it noticed an ampersand.
+        def _plant_workflow_anchor(repo):
+            wf = repo / '.github' / 'workflows'
+            wf.mkdir(parents=True, exist_ok=True)
+            (wf / 'anchor-probe.yml').write_text(
+                'name: probe\n'
+                'on:\n'
+                '  push:\n'
+                "    paths: &probe_paths\n"
+                "      - '**/*.md'\n"
+                '  pull_request:\n'
+                '    paths: *probe_paths\n'
+                'jobs:\n'
+                '  a:\n'
+                '    runs-on: ubuntu-latest\n'
+                '    steps:\n'
+                '      - run: echo "a && b" 2>&1; ls *.md || true\n',
+                encoding='utf-8')
+        case('workflow-yaml-github-can-parse', _plant_workflow_anchor)
+        cases.append(('workflow-yaml-github-can-parse: the planted violation '
+                      'names the file and the anchor, and does not fire on '
+                      'the shell punctuation beside it',
+                      'anchor-probe.yml'
+                      in planted['workflow-yaml-github-can-parse'][1]
+                      and 'anchor'
+                      in planted['workflow-yaml-github-can-parse'][1]))
 
         # ...and the same failure in the OTHER hook layout. A practice set
         # created by precedent_bootstrap_source.py wires its hooks out of a
@@ -17315,6 +17367,84 @@ def check_vendor_engine_refreshes_ci_workflow_files():
     bad = [(c[0], c[2]) for c in cases if not c[1]]
     check(f'"Update Vendors" now refreshes an already-installed CI workflow file '
           f'body, not just tools/ and .claude/hooks/*.sh ({len(cases)} stated cases)',
+          not bad,
+          '; '.join(f"{n} -- {d[:800]}" for n, d in bad))
+
+
+def check_vendor_engine_names_a_dependent_of_a_deleted_file():
+    """THE INCIDENT (2026-09-21,
+    todo-2026-09-21-refresh-deletes-a-workflow-another-file-depends-on.md).
+    A refresh deleted .github/workflows/precedent-check.yml from four
+    practice sets. In each of them a second workflow had been PAUSED hours
+    earlier, its header saying its checks "now run as steps in
+    .github/workflows/precedent-check.yml's single job". The destination
+    was gone; two commit-scope checks ran nowhere; nothing said anything.
+
+    The deletion mechanics were already tested -- by the two checks above,
+    thoroughly. What nothing tested, because nothing did it, is the other
+    half: a deletion travels to every installed repo, and the question
+    "does anything here still depend on this" never travelled with it.
+    precedent_decommission.py asks it, within one repo, when a person runs
+    it deliberately.
+
+    Both directions, because the warning half of a reporter is worth
+    nothing without the quiet half: a reporter that fires on a clean case
+    trains people to ignore it, which is the state this was meant to
+    correct.
+
+    Unit-level on purpose: the subject is what _remove_dropped_engine_files
+    PRINTS, and driving a whole refresh to observe one stderr line would
+    make the case slower and its failure harder to read, without testing
+    anything the two end-to-end checks above do not already cover."""
+    import contextlib, io, shutil, tempfile
+    import precedent_vendor_engine as pve
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-deldeps-'))
+    cases = []
+    try:
+        def _fixture(name, referrer_text):
+            repo = tmp / name
+            (repo / 'tools').mkdir(parents=True)
+            dropped = 'zzz_retired_helper.py'
+            body = '# a vendored engine file upstream no longer ships\n'
+            (repo / 'tools' / dropped).write_text(body, encoding='utf-8')
+            if referrer_text:
+                (repo / 'README.md').write_text(referrer_text, encoding='utf-8')
+            manifest = {'files': [dropped],
+                        'sha256': {dropped: hashlib.sha256(
+                            body.encode('utf-8')).hexdigest()}}
+            err = io.StringIO()
+            with contextlib.redirect_stdout(io.StringIO()), \
+                    contextlib.redirect_stderr(err):
+                removed = pve._remove_dropped_engine_files(
+                    repo / 'tools', manifest, 'consumer')
+            return repo, removed, err.getvalue()
+
+        repo_a, removed_a, err_a = _fixture(
+            'with-dependent',
+            'Nightly we run tools/zzz_retired_helper.py against the tree.\n')
+        cases.append(('the dropped engine file is deleted',
+                      removed_a == ['zzz_retired_helper.py'],
+                      repr(removed_a)))
+        cases.append(('the file that still names it is reported, with its '
+                      'path and line',
+                      'README.md:1' in err_a
+                      and 'zzz_retired_helper.py' in err_a,
+                      err_a[:800]))
+        cases.append(('the report does not refuse the refresh -- it warns',
+                      err_a.strip().startswith('WARN'), err_a[:200]))
+
+        _repo_b, removed_b, err_b = _fixture('no-dependent', None)
+        cases.append(('a deletion nothing depends on stays quiet',
+                      removed_b == ['zzz_retired_helper.py']
+                      and 'still names it' not in err_b,
+                      err_b[:800]))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'a refresh that deletes a vendored file names whatever still '
+          f'depends on it ({len(cases)} stated cases)',
           not bad,
           '; '.join(f"{n} -- {d[:800]}" for n, d in bad))
 

@@ -3160,6 +3160,108 @@ def _no_hardcoded_git_identity(ctx):
         'if this repo really is somebody\'s individual practice source.')]
 
 
+@check('workflow-yaml-github-can-parse', 'tree',
+       'no GitHub Actions workflow file, and no workflow template this repo '
+       'ships, uses a YAML anchor or alias -- GitHub\'s own workflow '
+       'parser rejects them outright, and a workflow it refuses to parse '
+       'does not fail, it never runs',
+       'everything else GitHub\'s parser is stricter about than PyYAML is. '
+       'This tests the one divergence that has actually cost a workflow '
+       'here; it is not a reimplementation of GitHub\'s schema, and a file '
+       'that clears it can still be rejected for another reason. Also '
+       'blind to a workflow PyYAML itself cannot parse -- that is '
+       'parse_check.py\'s finding, not this one\'s.',
+       practice_backed=False)
+def _workflow_yaml_github_can_parse(ctx):
+    """A YAML anchor (`&name`) and alias (`*name`) are core YAML 1.1 and
+    PyYAML resolves them without complaint. GitHub Actions does not support
+    them in workflow files.
+
+    THE INCIDENT (2026-09-21, gotcha-2026-09-21-github-actions-rejects-yaml-
+    anchors-python-accepts). A workflow merging two repos' checks into one
+    job needed the same `paths:` list on its `push:` and `pull_request:`
+    triggers and used an anchor, which is what any YAML author would write.
+    `python3 -c "import yaml; yaml.safe_load(...)"` -- the exact command
+    this repository's own templates and pull-request bodies recommend --
+    accepted it.
+
+    WHAT MAKES IT WORTH A CHECK RATHER THAN A NOTE. The failure is not a red
+    run. GitHub refuses the file, so the workflow does not appear at all,
+    and the branch reads as having no CI rather than broken CI. Every local
+    verification this project teaches passes it, which means the belief "it
+    parses locally, so it will run" is true for indentation, true for tabs,
+    true for a missing colon, and false for exactly this.
+
+    Detected through PyYAML's own event stream rather than by matching `&`
+    and `*` in the text: a workflow is full of `&&`, `2>&1` and `*.md`, and
+    a detector that cried wolf on those is one nobody would run twice."""
+    import re as _re
+    try:
+        import yaml
+    except ImportError:
+        yaml = None
+    targets = []
+    wf = ctx.root / '.github' / 'workflows'
+    if wf.is_dir():
+        targets += sorted(x for x in wf.iterdir()
+                          if x.suffix in ('.yml', '.yaml'))
+    tmpl = ctx.root / 'templates' / 'github-actions'
+    if tmpl.is_dir():
+        # The templates ship INTO other repos' .github/workflows/, so an
+        # anchor here is the same defect with a blast radius.
+        targets += sorted(x for x in tmpl.iterdir() if x.is_file())
+    if not targets:
+        raise NotApplicable('no .github/workflows/ and no '
+                            'templates/github-actions/ here -- this repo '
+                            'neither runs nor ships a workflow file')
+    # THE FALLBACK IS NOT A CONVENIENCE, IT IS THE POINT. The first version
+    # of this check raised NotApplicable without PyYAML, and CI -- which
+    # does not install it -- skipped the check and failed its own planted
+    # case on the very first run. A check that silently declines in the one
+    # environment that gates every pull request is not a check
+    # (practice: durable-fix). So: the event stream where PyYAML exists, and
+    # where it does not, a STRUCTURAL match that only accepts an anchor or
+    # alias in a position YAML would read as one -- a bare `key: &name` or
+    # `- *name` line. `echo "a && b" 2>&1; ls *.md` matches none of them,
+    # which is the property the planted case exists to prove.
+    structural = _re.compile(
+        r'^\s*(?:-\s+)?(?:[A-Za-z0-9_.<-]+:\s*|-\s*)[&*][A-Za-z0-9_-]+'
+        r'\s*(?:#.*)?$')
+    findings = []
+    for path in targets:
+        try:
+            text = path.read_text(encoding='utf-8')
+        except OSError:
+            continue
+        how = 'PyYAML event stream'
+        if yaml is not None:
+            try:
+                marks = [(getattr(ev, 'anchor', None), ev.start_mark.line + 1)
+                         for ev in yaml.parse(text)]
+            except yaml.YAMLError:
+                # Unparseable is parse_check.py's finding. A template
+                # carrying substitution placeholders may land here too.
+                continue
+            hits = sorted({line for name, line in marks if name})
+        else:
+            how = 'structural match (no PyYAML here)'
+            hits = sorted(i for i, line in enumerate(text.splitlines(), 1)
+                          if structural.match(line))
+        if hits:
+            findings.append(Finding(
+                str(path.relative_to(ctx.root)),
+                f'uses a YAML anchor or alias at line'
+                f'{"s" if len(hits) > 1 else ""} '
+                f'{", ".join(str(h) for h in hits)} ({how}). PyYAML '
+                f'resolves these; '
+                f'GitHub Actions rejects the file outright, and a workflow '
+                f'GitHub refuses to parse does not show up as a failing run '
+                f'-- it does not run at all, so the branch looks like it has '
+                f'no CI rather than broken CI. Write the repeated block out '
+                f'literally on both sides.'))
+    return findings
+
+
 @check('engine-plus-host-shims', 'tree',
        'no file outside the vendored tree duplicates a run of lines from '
        'inside it — that is a fork, not a shim',

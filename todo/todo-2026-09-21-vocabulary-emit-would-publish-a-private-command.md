@@ -67,3 +67,28 @@ state.
 source has resolved, and
 [documentation/DAILY_HABITS.md](../documentation/DAILY_HABITS.md) holds no row
 sourced from a non-public practice set.
+
+## A second session reached the same finding independently, 2026-09-21
+
+A session landing the very-deep-check deepening work ran the deep check
+before pushing, hit the same red gate, and filed it separately before the
+two branches met. That item is folded in here rather than kept beside this
+one. It adds two things:
+
+**The measurement.** Same tree, same commit: the emitter produces **21 rows
+with the individual source resolved and 20 without**. The committed document
+has the 20, so the gate is red in every session that resolves a private
+source carrying a command and green in CI — the document cannot satisfy
+both, which is the sharper version of "CI is green on it" above.
+
+**A third fix, beside the two already named.** Drop the pair from
+[tools/doc_sync.py](../tools/doc_sync.py)'s `PAIRS` entirely and let the
+page carry a pointer to `python3 tools/precedent_vocabulary.py` for the live
+answer. That is the same reasoning that already keeps the branch report out
+of `PAIRS` — its output depends on the session it runs in rather than on the
+tracked tree, which is precisely this block's problem. Cost: the page stops
+carrying a table at all.
+
+Two sessions finding this the same day, from opposite directions, is the
+argument for it being decided rather than left.
+

@@ -167,6 +167,12 @@ Run:
       session to hold the harness's own session list against.
   python3 tools/very_deep_check.py --skip-session-sweep
       -- skip that sweep entirely.
+  python3 tools/very_deep_check.py --with-harness
+      -- run `verify_harness.py --all` from inside this run and record the
+      result as its own ledger section. Off by default: it is minutes, and
+      its stress checks have OOM-killed a session's shell before. Left off,
+      the PLANTED CASE COVERAGE section says the rotation is still owed and
+      names the command.
   python3 tools/very_deep_check.py --skip-liveness
   python3 tools/very_deep_check.py --landable-only  # only repos this
                                   # session can push to; findings in the seam
@@ -189,6 +195,12 @@ Run:
       -- record a hand-worked pass's outcome against the most recent run in
       the ledger, and exit. `findings`, `tokens` and `note` are each
       optional; an absent one is recorded as absent, never estimated.
+  python3 tools/very_deep_check.py --record-read 'tools/verify_harness.py,by=...,note=...'
+      -- record that somebody read that file END TO END today, in
+      record/holistic-reads.json, and exit. The ACCRETION section ranks by
+      commits since a file's last recorded read, so this is what moves a
+      file off the top of it. Commit the registry: it is the only thing
+      that knows.
   python3 tools/very_deep_check.py --ledger PATH
       -- read and write the run ledger somewhere else (a fixture, or a
       second repository's own ledger).
@@ -891,6 +903,65 @@ def _orphan_scan(repo_dir):
     return out
 
 
+def planted_case_coverage(repo_root, run=False, timeout=2400):
+    """-> (status, lines) for the push gate's planted-case ROTATION, settled
+    or still owed. (practice: very-deep-check, order of operations step 2)
+
+    WHY THIS IS A SECTION AND NOT A SENTENCE. verify_harness.py runs a 10%
+    slice of its planted cases per commit and says so in its own result
+    line -- "covered within 10 commits (--all forces every one)". That is a
+    promise with no settlement date: nothing in the project ever forces the
+    full set, so a case that stopped firing months ago is covered by an
+    argument rather than by a run. The very deep check is the one moment
+    already expensive on purpose, which makes it the place to collect.
+
+    Default is to REPORT rather than run. A full harness run is minutes and
+    its stress checks have OOM-killed a session's shell before
+    (gotcha-2026-09-18-verify-harnesss-stress-checks-can-oom-kill-the-bash-tools),
+    so a tool that silently started one inside another long run would be
+    making that call for the session. --with-harness asks for it.
+
+    status is 'ran', 'owed', or 'n/a'."""
+    repo_root = pathlib.Path(repo_root)
+    harness = repo_root / 'tools' / 'verify_harness.py'
+    if not harness.is_file():
+        return 'n/a', ['no tools/verify_harness.py here -- this repo runs no '
+                       'planted cases, so there is no rotation to settle']
+    cmd = 'python3 tools/verify_harness.py --all'
+    if not run:
+        return 'owed', [
+            f'NOT RUN this invocation -- step 2 of the order of operations '
+            f'owes `{cmd}`',
+            'The bare command every other gate runs covers a 10% slice; this '
+            'check is the one place the whole set is meant to run.',
+            'Pass --with-harness to run it from here and record the result '
+            'in the ledger.']
+    started = time.time()
+    try:
+        proc = subprocess.run([sys.executable, str(harness), '--all'],
+                              cwd=str(repo_root), capture_output=True,
+                              text=True, timeout=timeout)
+    except subprocess.TimeoutExpired:
+        return 'owed', [f'FAIL: `{cmd}` did not finish within {timeout}s -- '
+                        f'the rotation is NOT settled by this run']
+    except OSError as exc:                                    # noqa: BLE001
+        return 'owed', [f'FAIL: could not run `{cmd}` -- {exc}']
+    took = time.time() - started
+    body = (proc.stdout or '') + (proc.stderr or '')
+    # The harness states its own selection in the result line; quoting it
+    # back is the evidence that --all actually took effect, rather than
+    # this section asserting it did.
+    sel = [l.strip() for l in body.splitlines()
+           if 'planted case' in l and 'ran' in l]
+    lines = [f'ran `{cmd}` in {took:.0f}s -- exit {proc.returncode}']
+    lines += [f'  {s}' for s in sel[:2]]
+    if proc.returncode != 0:
+        tail = [l for l in body.splitlines() if l.strip()][-8:]
+        lines.append('FAIL -- the full set does not pass. Tail:')
+        lines += [f'    {l}' for l in tail]
+    return 'ran', lines
+
+
 def _workflow_liveness_scan(repo_dir):
     """-> [str] CANDIDATES for a human to read, in one repo -- never a claim
     that any of them is actually dead.
@@ -950,6 +1021,447 @@ def _workflow_liveness_scan(repo_dir):
            f'read its content before concluding anything'
            for rel in pve._untracked_ci_workflow_files(repo_dir, manifest)
            if rel not in exempt]
+
+
+HOLISTIC_READS_RELPATH = pathlib.Path('record') / 'holistic-reads.json'
+
+# How far back the accretion ranking counts commits for a file nobody has
+# ever recorded reading. A window, not "all history", for a reason that is
+# mechanical rather than aesthetic: a fresh session starts in a --depth 1
+# clone, where "all history" is one commit and every file would tie at 1.
+# Declared here as an input rather than buried in a call
+# (practice: constants-are-risk-inputs); a repo overrides it with
+# `holistic_read_window_days` in its own precedent.json.
+ACCRETION_WINDOW_DAYS = 30
+
+
+def holistic_reads_path_for(repo_root=None):
+    return pathlib.Path(repo_root or ROOT) / HOLISTIC_READS_RELPATH
+
+
+def _load_holistic_reads(repo_root):
+    """-> {path: {'date','by','note'}} keeping the NEWEST read per path."""
+    try:
+        data = json.loads(
+            holistic_reads_path_for(repo_root).read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return {}
+    newest = {}
+    for row in (data.get('reads') or []):
+        path, date = str(row.get('path') or ''), str(row.get('date') or '')
+        if not path or not date:
+            continue
+        if path not in newest or date > newest[path]['date']:
+            newest[path] = {'date': date, 'by': row.get('by') or '',
+                            'note': row.get('note') or ''}
+    return newest
+
+
+def _record_read(value, repo=None):
+    """Append one holistic read to the registry. `value` is
+    'PATH' or 'PATH,by=...,note=...'.
+
+    A REGISTRY, not a sentence in a document
+    (practice: registry-source-of-truth), for the reason the run ledger is
+    one: "when did anybody last read this whole file" is exactly the claim
+    memory gets wrong, and a prose note about it drifts from the tree the
+    moment either moves."""
+    repo_root = pathlib.Path(repo or ROOT).resolve()
+    parts = [x.strip() for x in value.split(',')]
+    path = parts[0]
+    if not path:
+        sys.exit("very deep check FAIL: --record-read needs a path, e.g. "
+                 "--record-read 'tools/verify_harness.py,note=...'.")
+    fields = {}
+    for part in parts[1:]:
+        k, _, v = part.partition('=')
+        if k.strip() in ('by', 'note') and v:
+            fields[k.strip()] = v.strip()
+    if not (repo_root / path).exists():
+        # Refused rather than recorded: a read recorded against a path that
+        # is not there is a claim about nothing, and it would sit in the
+        # registry suppressing the real file's row forever.
+        sys.exit(f"very deep check FAIL: {path} does not exist in "
+                 f"{repo_root} -- a read is recorded against a file, and a "
+                 f"typo here would silently retire the real file's row.")
+    out = holistic_reads_path_for(repo_root)
+    try:
+        data = json.loads(out.read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        data = {'_generated_by': 'tools/very_deep_check.py --record-read',
+                'reads': []}
+    data.setdefault('reads', []).append({
+        'path': path,
+        'date': precedent_time.date_from_unix(time.time()),
+        'by': fields.get('by', ''),
+        'note': fields.get('note', '')})
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(data, indent=2, ensure_ascii=False) + '\n',
+                   encoding='utf-8')
+    print(f"recorded a holistic read of {path} in "
+          f"{out.relative_to(repo_root)}. Commit it -- the registry is the "
+          f"only thing that knows, and a chat thread is not.")
+    return 0
+
+
+def _accretion(repo_dir, window_days=None, top=10):
+    """-> (rows, window, note). Tracked files ranked by how much has been
+    added to them since anybody last read the whole thing.
+    (practice: very-deep-check, pass 3)
+
+    THE SHAPE OF THE PROBLEM. Every other question here asks whether a file
+    is WRONG. This one asks whether anybody has looked at it as a thing
+    lately, which no amount of correctness per commit can answer: a file
+    grows one defensible line at a time and nobody is ever wrong on the day
+    they add theirs. The close read of the always-loaded instructions file
+    was added the day somebody noticed it had gone stale twice in one
+    file -- and nothing generalized that fix, while the measurement said the
+    instructions file was not even the worst offender.
+
+    rows are (path, commits, lines, last_read_date or None), ranked by
+    commits since the last recorded read, or across the window for a file
+    with no recorded read at all.
+
+    IT RANKS AND DOES NOT JUDGE. Churn is not a defect and a heavily edited
+    file may be exactly the healthy one; what the ranking buys is that the
+    file nobody has opened whole cannot stay invisible just because every
+    individual commit to it was fine."""
+    repo_dir = pathlib.Path(repo_dir)
+    window = window_days or _declared_holistic_window(repo_dir) \
+        or ACCRETION_WINDOW_DAYS
+    reads = _load_holistic_reads(repo_dir)
+    rc, out, _err = _run_git(repo_dir, 'log', f'--since={window} days ago',
+                             '--no-merges', '--name-only', '--pretty=format:')
+    if rc != 0:
+        return [], window, 'git log could not be read here'
+    counts = collections.Counter(x for x in out.split('\n') if x.strip())
+    if not counts:
+        return [], window, (f'no commits in the last {window} days, or a '
+                            f'shallow clone with no history to count')
+    rows = []
+    for path, n in counts.items():
+        f = repo_dir / path
+        if not f.is_file():
+            continue                      # deleted since: not a candidate
+        read = reads.get(path)
+        if read:
+            rc2, out2, _e = _run_git(
+                repo_dir, 'log', f'--since={read["date"]}', '--no-merges',
+                '--oneline', '--', path)
+            n = len([x for x in out2.split('\n') if x.strip()]) \
+                if rc2 == 0 else n
+        try:
+            lines = sum(1 for _ in f.open('r', encoding='utf-8',
+                                          errors='replace'))
+        except OSError:
+            lines = 0
+        rows.append((path, n, lines, read['date'] if read else None))
+    rows.sort(key=lambda r: (-r[1], -r[2]))
+    return rows[:top], window, ''
+
+
+def _declared_holistic_window(repo_dir):
+    """-> a repo's own `holistic_read_window_days`, or None. Same shape and
+    same reasoning as _declared_stale_days."""
+    try:
+        v = json.loads((pathlib.Path(repo_dir) / 'precedent.json')
+                       .read_text(encoding='utf-8')
+                       ).get('holistic_read_window_days')
+        return v if isinstance(v, int) and not isinstance(v, bool) and v > 0 \
+            else None
+    except Exception:                                         # noqa: BLE001
+        return None
+
+
+def _incident_frontmatter(path):
+    """-> {key: value} for the simple `key: value` frontmatter block these
+    catalogues use. Deliberately not a YAML load: parse_check.py already
+    reports a file PyYAML rejects, and this one must keep working on the
+    file that is currently malformed rather than vanishing with it."""
+    out = {}
+    try:
+        text = path.read_text(encoding='utf-8')
+    except OSError:
+        return out
+    if not text.startswith('---'):
+        return out
+    body = text.split('---', 2)
+    if len(body) < 3:
+        return out
+    for line in body[1].splitlines():
+        if ':' not in line or line.startswith((' ', '\t')):
+            continue
+        k, _, v = line.partition(':')
+        out[k.strip()] = v.strip().strip('"').strip("'")
+    return out
+
+
+def _last_run_date(repo_dir):
+    """-> 'YYYY-MM-DD' of the newest recorded very deep check run here, or
+    None. The ledger is the only record of when this check last looked, so
+    it is also the only honest start date for "what has happened since"."""
+    try:
+        data = json.loads(ledger_path_for(repo_dir).read_text(encoding='utf-8'))
+        runs = data.get('runs') or []
+        return str(runs[-1].get('date')) if runs else None
+    except (OSError, ValueError, AttributeError, IndexError):
+        return None
+
+
+def _incident_coverage(repo_dir, since=None):
+    """-> (since, rows, note). Every incident FILED here since the last
+    recorded run, with whatever in the tree cites it.
+    (practice: very-deep-check, pass 2)
+
+    THE QUESTION. This check has grown one bullet at a time, each added
+    after somebody noticed a gap -- which makes growth a function of who
+    happened to be looking. The standing version of that is cheap: take
+    every gotcha filed and every open item closed since the last run, and
+    ask of each one thing -- **what now prevents a recurrence, and is
+    there a planted case proving it fires?**
+
+    Three answers are honest, and the third is the one worth writing down:
+    a named check with a planted case; a named check with no planted case;
+    and nothing, deliberately, because the class is not mechanically
+    detectable. A gap that has been examined and declined is not the same
+    state as a gap nobody has looked at, and only the catalogue can tell
+    them apart.
+
+    IT ENUMERATES AND CITES; IT DOES NOT JUDGE. A slug appearing in a
+    tool's source is evidence that something cites the incident, never
+    proof that the incident cannot recur -- a docstring naming it reads
+    identically to a check testing for it. The reading is the session's;
+    what this removes is the part nobody does, which is assembling the
+    list."""
+    repo_dir = pathlib.Path(repo_dir)
+    since = since or _last_run_date(repo_dir)
+    if not since:
+        return None, [], ('no recorded run in the ledger here, so there is '
+                          'no "since" to read from')
+    corpus = {}
+    for sub in ('tools', 'practices'):
+        d = repo_dir / sub
+        if not d.is_dir():
+            continue
+        for f in sorted(d.rglob('*')):
+            if f.is_file() and f.suffix in ('.py', '.md', '.json'):
+                try:
+                    corpus[str(f.relative_to(repo_dir))] = f.read_text(
+                        encoding='utf-8')
+                except (OSError, UnicodeDecodeError):
+                    continue
+    rows = []
+    for kind, sub, datefield in (('gotcha filed', 'gotchas', 'noted'),
+                                 ('open item closed', 'todo', 'closed')):
+        d = repo_dir / sub
+        if not d.is_dir():
+            continue
+        for f in sorted(d.glob('*.md')):
+            fm = _incident_frontmatter(f)
+            when = fm.get(datefield) or ''
+            slug = fm.get('slug') or f.stem
+            if not when or when in ('null', 'None') or when < since:
+                continue
+            cites = sorted(path for path, text in corpus.items()
+                           if slug in text)
+            rows.append((kind, slug, when, cites))
+    rows.sort(key=lambda r: (r[2], r[1]))
+    return since, rows, ''
+
+
+def _pending_deletions(repo_dir):
+    """-> (rows, note) for files the NEXT refresh would delete here, each
+    with whatever still names them. rows is [(rel, [(path, line, text)])].
+
+    THE DIRECTION NOTHING ELSE REHEARSES. Pass 1 builds fixtures that
+    install and fixtures that move forward; both test a repo receiving
+    something. A deletion decided in one tree and executed in many is the
+    other direction, and until 2026-09-21 the two vendoring paths did not
+    even agree on whether it happened at all -- engine files diffed the
+    manifest and propagated, CI workflow files waited for somebody to
+    remember a tombstone.
+
+    This asks BEFORE the refresh what that refresh would take away, and who
+    is still leaning on it. precedent_vendor_engine warns after the fact
+    now, which is the same question asked too late to plan around.
+
+    Read against THIS checkout's engine lists deliberately -- the upstream's
+    current ones, which is what the next refresh will actually apply -- and
+    never against the consumer's own vendored copy, which may be months
+    old."""
+    repo_dir = pathlib.Path(repo_dir)
+    mpath = repo_dir / 'tools' / 'ENGINE_MANIFEST.json'
+    if not mpath.is_file():
+        return None, 'nothing vendored here -- no manifest to diff'
+    try:
+        manifest = json.loads(mpath.read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return None, 'tools/ENGINE_MANIFEST.json is unreadable'
+    try:
+        import precedent_vendor_engine as pve
+    except ImportError:
+        return None, 'precedent_vendor_engine did not import'
+    kind = manifest.get('kind', getattr(pve, 'DEFAULT_KIND', None))
+    rels = []
+    if kind in getattr(pve, 'KINDS', {}):
+        ships = set(pve.KINDS.get(kind, ())) | {'routing_scope.json'}
+        rels += [f'tools/{n}' for n in
+                 sorted(set(manifest.get('files') or []) - ships)]
+    recorded = set(manifest.get('ci_workflow_files') or ())
+    if kind in getattr(pve, 'CI_WORKFLOW_TEMPLATES', {}):
+        ships_ci = {ia for _t, ia in pve.CI_WORKFLOW_TEMPLATES[kind]}
+        rels += sorted(recorded - ships_ci)
+    rels += sorted(r for r in recorded
+                   if r in getattr(pve, 'RETIRED_CI_WORKFLOW_FILES', {}))
+    # Only what is actually still on disk: a name the manifest tracks and
+    # the tree no longer has is already gone, and reporting it as pending
+    # would be reporting bookkeeping.
+    rels = sorted({r for r in rels if (repo_dir / r).is_file()})
+    if not rels:
+        return [], (f'kind {kind!r}: nothing this kind stopped shipping is '
+                    f'still on disk here')
+    deps = pve.dependents_of(repo_dir, rels)
+    return [(r, deps.get(r, [])) for r in rels], f'kind {kind!r}'
+
+
+def _workflow_reality(repo_dir, max_workflows=25):
+    """-> [(verdict, message)] for one repo, asking GITHUB what it knows
+    about each workflow file in the tree. (practice: very-deep-check, pass 2)
+
+    THE CLASS THIS EXISTS FOR. Everything else in this tool reads the
+    repository against itself, and a workflow has a second existence nothing
+    local can see. A file GitHub's parser REFUSES does not go red -- it does
+    not appear at all, so the branch reads as having no CI rather than broken
+    CI (gotcha-2026-09-21-github-actions-rejects-yaml-anchors-python-accepts).
+    Actions switched off looks, from the tracked tree, exactly like working
+    CI. A trigger that stopped matching looks like nothing whatsoever.
+
+    Four questions, in cost order: is the file registered with Actions at
+    all; is it active; when did it last run; does that run postdate the
+    file's newest commit.
+
+    THE HONEST LIMITS, reported rather than assumed away:
+
+    - GitHub lists workflows from the DEFAULT BRANCH. A file that exists only
+      on this branch is correctly absent from the listing, so absence is a
+      FINDING only when the file is also on the default branch, and a NOTE
+      otherwise. Getting this backwards would make every feature branch look
+      broken.
+    - A workflow that has never run cannot be told apart from Actions being
+      disabled by this endpoint alone, which is why the disabled case is read
+      off the listing call's own error rather than inferred from silence
+      (gotcha-2026-09-21-actions-permissions-are-unreadable-from-a-session:
+      GET /repos/{owner}/{repo}/actions/permissions is unreachable from a
+      session, so this is the route that remains).
+    - Everything here needs a credential. Unauthenticated, a private repo
+      answers Not Found, which is not the same answer as "no workflows", so
+      the failure is reported as UNVERIFIED and never as clean."""
+    repo_dir = pathlib.Path(repo_dir)
+    wf_dir = repo_dir / '.github' / 'workflows'
+    local = sorted(x for x in wf_dir.iterdir()
+                   if x.suffix in ('.yml', '.yaml')) if wf_dir.is_dir() else []
+    if not local:
+        return []
+    slug = _github_slug(repo_dir)
+    if not slug:
+        return [('UNVERIFIED', 'origin is not GitHub, so nothing here can be '
+                               'asked about these workflow files')]
+    data, err = _api_json(f'repos/{slug}/actions/workflows')
+    if err or not isinstance(data, dict):
+        return [('UNVERIFIED', f'could not list workflows for {slug}: '
+                               f'{err or "unexpected response"} -- NOT the '
+                               f'same as having none')]
+    if 'workflows' not in data:
+        # TWO UNLIKE REFUSALS ARRIVE HERE AND MUST NOT BE REPORTED AS ONE.
+        # The 403 body for a repo with Actions switched off says so in as
+        # many words, and that is the one place this session can read that
+        # fact. Everything else -- a repo this session was never granted,
+        # a private repo asked without a credential -- is the check failing
+        # to look, which is not a finding about the repo
+        # (practice: diagnosis-is-measured; the misreading has its own
+        # gotcha: a session read "access to this repository is not enabled"
+        # as a token problem and went hunting for a credential that was
+        # fine).
+        msg = str(data.get('message') or data)[:160]
+        low = msg.lower()
+        if 'actions' in low and ('disabled' in low or 'not allowed' in low):
+            return [('FINDING', f'{slug}: Actions is off -- "{msg}". A repo '
+                                f'with workflow files committed and Actions '
+                                f'off looks, from the tree, exactly like a '
+                                f'repo with working CI')]
+        return [('UNVERIFIED', f'{slug}: could not list workflows -- '
+                               f'"{msg}". That is this session failing to '
+                               f'look, not a fact about the repo')]
+    registered = {w.get('path'): w for w in (data.get('workflows') or [])
+                  if isinstance(w, dict)}
+    default_branch = _default_remote_branch(repo_dir)
+    out = []
+    for path in local[:max_workflows]:
+        rel = f'.github/workflows/{path.name}'
+        meta = registered.get(rel)
+        if meta is None:
+            on_default = False
+            if default_branch:
+                rc, _o, _e = _run_git(repo_dir, 'cat-file', '-e',
+                                      f'origin/{default_branch}:{rel}')
+                on_default = rc == 0
+            if on_default:
+                out.append(('FINDING', f'{rel}: on origin/{default_branch} '
+                                       f'and NOT registered with Actions. '
+                                       f'GitHub parses workflow files when '
+                                       f'it receives them and silently keeps '
+                                       f'none it rejects, so this file is '
+                                       f'running nowhere and reporting '
+                                       f'nothing'))
+            else:
+                out.append(('NOTE', f'{rel}: not registered, and not on '
+                                    f'origin/{default_branch or "(unknown)"} '
+                                    f'either -- Actions lists the default '
+                                    f'branch, so this is expected, not a '
+                                    f'finding'))
+            continue
+        state = str(meta.get('state') or 'unknown')
+        if state != 'active':
+            out.append(('FINDING', f'{rel}: registered but state is '
+                                   f'{state!r} -- it is committed, it looks '
+                                   f'live in the tree, and it does not run'))
+        runs, rerr = _api_json(
+            f'repos/{slug}/actions/workflows/{meta.get("id")}/runs?per_page=1')
+        newest = None
+        if not rerr and isinstance(runs, dict):
+            rows = runs.get('workflow_runs') or []
+            if rows:
+                newest = str(rows[0].get('created_at') or '')[:10]
+        if rerr:
+            out.append(('UNVERIFIED', f'{rel}: could not read its runs -- '
+                                      f'{rerr}'))
+            continue
+        edited = _last_commit(repo_dir, rel)
+        edited_day = _stamp(edited[0])[:10] if edited else None
+        if newest is None:
+            out.append(('NOTE', f'{rel}: registered and active, and has '
+                                f'never run. Either nothing has matched its '
+                                f'triggers yet or it is newer than the last '
+                                f'event -- read it, do not assume'))
+        elif edited_day and newest < edited_day:
+            out.append(('FINDING', f'{rel}: last run {newest}, last edited '
+                                   f'{edited_day}. Every event since the '
+                                   f'edit either did not match its triggers '
+                                   f'or did not reach it'))
+    if len(local) > max_workflows:
+        out.append(('UNVERIFIED', f'{len(local) - max_workflows} more '
+                                  f'workflow file(s) not asked about this '
+                                  f'run -- the per-repo cap is '
+                                  f'{max_workflows}, to bound the API bill'))
+    if not out:
+        # A clean repo must not return the same empty list as a repo with no
+        # workflows at all: this section's whole subject is a thing that is
+        # silent when broken, so "asked and clean" has to be distinguishable
+        # from "never asked" in the row itself, not in the caller's memory.
+        out.append(('OK', f'{len(local)} workflow file(s): each registered '
+                          f'with Actions, active, and run since it was last '
+                          f'edited'))
+    return out
 
 
 def _last_commit(repo_dir, path):
@@ -4964,6 +5476,14 @@ def _main(box):
                      "e.g. --record-pass '2=done,findings=3'.")
         record_pass = args[i + 1]
         args = args[:i] + args[i + 2:]
+    record_read = None
+    if '--record-read' in args:
+        i = args.index('--record-read')
+        if i + 1 >= len(args):
+            sys.exit("very deep check FAIL: --record-read needs a path, "
+                     "e.g. --record-read 'tools/verify_harness.py,note=...'.")
+        record_read = args[i + 1]
+        args = args[:i] + args[i + 2:]
     ledger_path = None          # default: the checked repo's own ledger
     if '--ledger' in args:
         i = args.index('--ledger')
@@ -4978,6 +5498,8 @@ def _main(box):
             sys.exit("very deep check FAIL: --branch-report needs a path.")
         branch_report_path = pathlib.Path(args[i + 1])
         args = args[:i] + args[i + 2:]
+    if record_read is not None:
+        return _record_read(record_read, repo)
     if record_pass is not None:
         return _record_pass(record_pass, ledger_path, repo)
     if '--emit' in args:
@@ -5002,6 +5524,7 @@ def _main(box):
     allow_missing = '--allow-missing-sources' in args
     skip_branch_scan = '--skip-branch-scan' in args
     print_checklist = '--checklist' in args
+    with_harness = '--with-harness' in args
     skip_visibility = '--skip-visibility' in args
     skip_liveness = '--skip-liveness' in args
     # Narrow the read to repos this session can actually land work in. NOT the
@@ -5084,6 +5607,21 @@ def _main(box):
                  f"report anything else while one of them is malformed.")
 
     if led:
+        led.start('PLANTED CASE COVERAGE')
+    _pc_status, _pc_lines = planted_case_coverage(_root, run=with_harness)
+    if not as_json:
+        print("PLANTED CASE COVERAGE -- the push gate's rotation, settled "
+              "or still owed\n")
+        for _l in _pc_lines:
+            print(f"  {_l}")
+        print()
+    if led:
+        # An owed rotation is a finding: the promise "covered within 10
+        # commits" is the thing this section exists to stop taking on
+        # trust. 'n/a' is unmeasurable, never clean.
+        led.end(findings=None if _pc_status == 'n/a'
+                else (0 if _pc_status == 'ran' and not any(
+                    l.startswith('FAIL') for l in _pc_lines) else 1))
         led.start('VENDORING EXCLUSIONS')
     _vendor_findings = _vendored_exclusion_findings(_root)
     if not as_json:
@@ -5656,6 +6194,123 @@ def _main(box):
     print()
     if led:
         led.end(findings=_wf_n if _wf_seen else None)
+        led.start('WORKFLOW REALITY')
+
+    print("WORKFLOW REALITY -- what GitHub says about each workflow file, "
+          "not what the tree says\n")
+    _wr_n = 0
+    _wr_measured = False
+    if skip_liveness:
+        print("  not asked (--skip-liveness) -- UNVERIFIED, which is not the "
+              "same answer as clean.")
+    else:
+        for _name, _p in _orph_targets:
+            if not pathlib.Path(_p).is_dir():
+                continue
+            _rows = _workflow_reality(_p)
+            if not _rows:
+                continue
+            _measured_here = any(v != 'UNVERIFIED' for v, _ in _rows)
+            _wr_measured = _wr_measured or _measured_here
+            print(f"  {_name}:")
+            for _verdict, _msg in _rows:
+                print(f"      {_verdict:<11} {_msg}")
+                if _verdict == 'FINDING':
+                    _wr_n += 1
+        if not _wr_measured and _wr_n == 0:
+            print("  nothing measured -- no workflow file in any repo in "
+                  "force, or GitHub\n  could not be asked. Never read as "
+                  "clean.")
+        elif _wr_n == 0:
+            print("\n  No finding: every workflow file in force is "
+                  "registered, active, and has\n  run since it was last "
+                  "edited.")
+    print()
+    if led:
+        led.end(findings=_wr_n if (_wr_measured and not skip_liveness)
+                else None)
+        led.start('DELETIONS PENDING')
+
+    print("DELETIONS PENDING -- what the next refresh would take away, and "
+          "who still names it\n")
+    _del_n = 0
+    _del_measured = False
+    for _name, _p in _orph_targets:
+        if not pathlib.Path(_p).is_dir():
+            continue
+        _rows, _note = _pending_deletions(_p)
+        if _rows is None:
+            print(f"  {_name}: N/A -- {_note}")
+            continue
+        _del_measured = True
+        if not _rows:
+            print(f"  {_name}: none -- {_note}")
+            continue
+        print(f"  {_name} ({_note}):")
+        for _rel, _refs in _rows:
+            if _refs:
+                _del_n += 1
+                print(f"      FINDING     {_rel} -- the next refresh deletes "
+                      f"it, and {len(_refs)} tracked file(s) still name it:")
+                for _path, _line, _text in _refs[:4]:
+                    print(f"                    {_path}:{_line}  {_text}")
+            else:
+                print(f"      pending     {_rel} -- the next refresh deletes "
+                      f"it; nothing else names it")
+    if not _del_measured:
+        print("  nothing measured -- no repo in force vendors an engine "
+              "manifest to diff.")
+    print()
+    if led:
+        led.end(findings=_del_n if _del_measured else None)
+        led.start('INCIDENT COVERAGE', kind='read')
+
+    print("INCIDENT COVERAGE -- what was filed since the last run, and what "
+          "cites it\n")
+    _ic_since, _ic_rows, _ic_note = _incident_coverage(repo_root)
+    if _ic_note:
+        print(f"  not measured -- {_ic_note}")
+    else:
+        print(f"  Since the last recorded run ({_ic_since}): "
+              f"{len(_ic_rows)} incident(s).\n")
+        for _kind, _slug, _when, _cites in _ic_rows:
+            print(f"      {_when}  {_kind}: {_slug}")
+            if _cites:
+                print(f"                  cited by {len(_cites)}: "
+                      f"{', '.join(_cites[:4])}")
+            else:
+                print("                  cited by NOTHING in tools/ or "
+                      "practices/")
+        if _ic_rows:
+            print("\n  Ask of each: what prevents a recurrence, and is "
+                  "there a planted case proving\n  it fires? A citation is "
+                  "evidence something names the incident, never proof the\n"
+                  "  class is closed -- a docstring reads the same as a "
+                  "check. 'Nothing, and\n  deliberately so' is an answer "
+                  "worth writing down; unexamined is not.")
+    print()
+    if led:
+        led.end(items=len(_ic_rows) if not _ic_note else None)
+        led.start('ACCRETION -- files nobody has read whole', kind='read')
+
+    _ac_rows, _ac_window, _ac_note = _accretion(repo_root)
+    print(f"ACCRETION -- what has been added since anybody read the whole "
+          f"file ({_ac_window}-day window)\n")
+    if _ac_note:
+        print(f"  not measured -- {_ac_note}")
+    else:
+        print("  commits  lines  last read   file")
+        for _path, _n, _lines, _read in _ac_rows:
+            print(f"  {_n:>7}  {_lines:>5}  "
+                  f"{_read or 'never':<11} {_path}")
+        print("\n  Read ONE of these end to end this run, then "
+              "`--record-read '<path>,note=...'`.\n  Churn is not a defect "
+              "and the top row may be the healthy one; what the ranking\n"
+              "  buys is that a file nobody has opened whole cannot stay "
+              "invisible just\n  because every commit to it was fine.")
+    print()
+    if led:
+        led.end(items=len(_ac_rows) if not _ac_note else None)
         led.start('SESSION LOAD')
 
     print("SESSION LOAD -- what every session pays before it does anything\n")

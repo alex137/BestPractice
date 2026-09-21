@@ -2,7 +2,7 @@
 
 **Looking for something in this repository? Check here before searching it.**
 Every row is *looking for X → go to Y*, and the table below is the complete
-one: 109 rows.
+one: 110 rows.
 
 [AGENTS.md](AGENTS.md) carries a short version of this table — the dozen rows
 sessions reach for constantly — and links here for the rest. **That split is
@@ -60,6 +60,7 @@ not it is read.
 | The full practice audit: manual, whole-catalogue sweep across every source, on request only | [practices/full-practice-audit.md](practices/full-practice-audit.md), engine at [tools/full_practice_audit.py](tools/full_practice_audit.py) |
 | The very deep check: four ordered passes over every repo in force, on request only — distinct from the full practice audit above | [practices/very-deep-check.md](practices/very-deep-check.md), engine at [tools/very_deep_check.py](tools/very_deep_check.py), run record at [spec/VERY_DEEP_CHECK.md](spec/VERY_DEEP_CHECK.md) |
 | Proposed additions to the very deep check — fourteen, written 2026-09-21 against that week's incidents, none adopted | [spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md](spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md) |
+| When anybody last read a whole file end to end, and what the read changed — what the very deep check's `ACCRETION` ranking counts from | [record/holistic-reads.json](record/holistic-reads.json) — written by `python3 tools/very_deep_check.py --record-read '<path>,note=…'`, never by hand |
 | What each part of the very deep check returned and cost, run after run, and which parts are owed a keep/cheapen/retire answer | [record/very-deep-check-ledger.json](record/very-deep-check-ledger.json) — **never hand-edit it**; the answers go in [spec/VERY_DEEP_CHECK.md](spec/VERY_DEEP_CHECK.md) |
 | Why `verify_harness.py` (the deep check) takes as long as it does, which checks actually cost the time, a parallelization that was tried and reverted for measuring no real gain, and the change-scoping fix that did measurably help | [spec/VERIFY_HARNESS_PERFORMANCE.md](spec/VERIFY_HARNESS_PERFORMANCE.md) |
 | Cutting GitHub Actions minutes across every vendored repo — where the minutes actually go, the self-hosted-runner pilot (item 6), and what's shipped vs. still open | [spec/CI_MINUTES_PLAN.md](spec/CI_MINUTES_PLAN.md), open item tracked at [todo/todo-2026-09-16-revisit-ci-minutes-items-6-7.md](todo/todo-2026-09-16-revisit-ci-minutes-items-6-7.md) |

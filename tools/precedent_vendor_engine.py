@@ -803,6 +803,89 @@ def _wired_hook_names(dest_root):
     return names
 
 
+def dependents_of(dest_root, rels, cap=8):
+    """-> {rel: [(referring path, line number, the line)]} for files that
+    are about to stop existing, or just have.
+
+    THE INCIDENT (2026-09-21,
+    todo-2026-09-21-refresh-deletes-a-workflow-another-file-depends-on.md).
+    A refresh deleted `.github/workflows/precedent-check.yml` from four
+    practice sets. A second workflow in each of them had been PAUSED hours
+    earlier, its own header saying in as many words that its checks "now run
+    as steps in .github/workflows/precedent-check.yml's single job". The
+    fold's destination was gone; the pause's premise was true when it was
+    written and false the same afternoon; two commit-scope checks ran
+    nowhere, and nothing said a word.
+
+    precedent_decommission.py already refuses to retire a file other files
+    still name -- WITHIN one repository, when a person runs it deliberately.
+    Deletion travels through refresh() to every installed repo; the
+    dependency question never travelled with it. This is that question,
+    asked at the moment of deletion.
+
+    IT REPORTS AND NEVER REFUSES. A document that mentions a retired file by
+    name is usually correct to (a story about a decommissioning names what
+    was decommissioned), so refusing a refresh over a mention would block
+    routine updates on prose. What the refresh owes is that nobody finds out
+    by reading a silent tree weeks later."""
+    hits = {}
+    if not rels:
+        return hits
+    dest_root = pathlib.Path(dest_root)
+    try:
+        listed = subprocess.run(['git', 'ls-files'], cwd=str(dest_root),
+                                capture_output=True, text=True, timeout=60)
+        files = [dest_root / x for x in listed.stdout.split()] \
+            if listed.returncode == 0 else []
+    except (OSError, subprocess.SubprocessError):
+        files = []
+    if not files:
+        files = [x for x in dest_root.rglob('*')
+                 if x.is_file() and '.git/' not in str(x)]
+    # The manifest RECORDS what is vendored, so it names every one of these
+    # by design; reporting it would be reporting the bookkeeping.
+    skip = {MANIFEST_NAME}
+    needles = {}
+    for rel in rels:
+        base = pathlib.PurePosixPath(rel).name
+        needles[rel] = {rel, base} if base != rel else {rel}
+    for f in files:
+        if f.name in skip:
+            continue
+        try:
+            rel_here = str(f.relative_to(dest_root))
+        except ValueError:
+            continue
+        if rel_here in rels:
+            continue                      # the file being deleted itself
+        try:
+            text = f.read_text(encoding='utf-8')
+        except (OSError, UnicodeDecodeError):
+            continue                      # binary, or unreadable: not prose
+        for rel, terms in needles.items():
+            if len(hits.get(rel, ())) >= cap:
+                continue
+            for i, line in enumerate(text.splitlines(), 1):
+                if any(term in line for term in terms):
+                    hits.setdefault(rel, []).append((rel_here, i,
+                                                     line.strip()[:120]))
+                    break
+    return hits
+
+
+def _warn_about_dependents(dest_root, rels, what):
+    """Print one WARN per file that still names something just deleted."""
+    found = dependents_of(dest_root, rels)
+    for rel in sorted(found):
+        for path, line, text in found[rel]:
+            print(f"WARN: precedent_vendor_engine: {rel} was {what}, and "
+                  f"{path}:{line} still names it -- {text!r}. Nothing here "
+                  f"refuses over a mention; read it and decide, because a "
+                  f"file whose own premise has just stopped being true "
+                  f"reads exactly like one that is fine.", file=sys.stderr)
+    return found
+
+
 def _sha256(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
@@ -874,6 +957,10 @@ def _remove_dropped_engine_files(dest_tools, previous_manifest, kind):
               f"vendored engine file(s) this kind no longer includes "
               f"({', '.join(removed)}). They were recorded in the previous "
               f"manifest and unmodified here.")
+        # dest_tools is <repo>/tools; the dependents live anywhere in it.
+        _warn_about_dependents(dest_tools.parent,
+                               [f'tools/{n}' for n in removed],
+                               'removed from this kind\'s engine set')
     for name in kept:
         print(f"WARN: precedent_vendor_engine refresh: {name} was dropped from "
               f"the {kind} engine set, but this copy has been hand-edited "
@@ -1556,6 +1643,8 @@ def _remove_retired_ci_workflow_files(dest_root, manifest, kind=None):
         print(f"precedent_vendor_engine refresh: deleted {len(deleted)} "
               f"retired CI workflow file(s), unmodified since the manifest "
               f"last recorded them ({', '.join(deleted)}).")
+        _warn_about_dependents(dest_root, deleted,
+                               'retired from this kind\'s CI workflow set')
     live = json.loads(manifest_path.read_text(encoding='utf-8'))
     live['ci_workflow_files'] = sorted(recorded)
     live['ci_workflows_sha256'] = recorded
