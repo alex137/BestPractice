@@ -120,10 +120,18 @@ jobs:
       - name: Install Markdown parser
         run: python -m pip install cmarkgfm markdown
 
+      # PRECEDENT_HARNESS_ALL=1 -- every planted case, no rotation.
+      # Since 2026-09-21 an ordinary local run exercises a rotating slice
+      # (~16 of 71) plus everything the change touched, which is the right
+      # trade for a push a person is standing at. It is the wrong trade
+      # here: this run is the one nobody is watching, it is the last gate
+      # before a shared branch, and it is already paying for a checkout,
+      # full history and a Python setup. Rotation buys nothing it needs.
       - name: Run the verification harness (heavy check only)
         run: python3 tools/verify_harness.py
         env:
           PRECEDENT_CHECK_ONLY: check_precedent_check_fires
+          PRECEDENT_HARNESS_ALL: "1"
 
   verify-harness-rest:
     name: verify_harness (everything else)
