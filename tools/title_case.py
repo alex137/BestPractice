@@ -305,8 +305,19 @@ SMALL = {
 
 # Exact phrases that carry their own capitalization as part of their meaning,
 # and so are exempt from the SMALL rule. "The Why" is a noun phrase — the
-# reasoning behind a decision — not an article plus a word.
-KEEP_PHRASES = ("The Why",)
+# reasoning behind a decision — not an article plus a word. "See also" is the
+# opposite shape and needs the same mechanism: `also` is not in SMALL, so the
+# title-caser would render the conventional cross-reference heading as "See
+# Also", which no style guide asks for.
+#
+# UPSTREAMED 2026-09-21 because a downstream repo was re-applying it BY HAND
+# on every engine refresh. This file is vendored engine, so a local edit to
+# it is overwritten by the next `Update Vendors` and then restored by whoever
+# notices -- one dependent repo had 16 live headings depending on the
+# exemption and a comment in its own copy saying a refresh eats it. Morgan's
+# call, 2026-09-20; the fix belongs here, where a refresh carries it instead
+# of destroying it (practice: fix-the-original).
+KEEP_PHRASES = ("The Why", "See also")
 
 HEADING = re.compile(r"^(#{1,6})(\s+)(.*?)(\s*)$")
 FENCE = re.compile(r"^\s*(```|~~~)")

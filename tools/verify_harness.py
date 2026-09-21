@@ -18288,6 +18288,18 @@ def check_title_case_leaves_code_and_first_word_alone():
          "`git rev-parse --verify`", 'a command with flags is untouched'),
         ("A Heading About `AGENTS.md` and `tools/doc_lint.py`",
          "`tools/doc_lint.py`", 'two spans in one heading'),
+        # KEEP_PHRASES, both shapes. `The Why` is a noun phrase the SMALL
+        # rule would lowercase; `See also` is the mirror image -- `also` is
+        # not in SMALL, so headline style reaches for "See Also", which no
+        # style guide asks for. The second was carried BY HAND in a dependent
+        # repo for a day, re-applied after every engine refresh ate it, with
+        # 16 live headings depending on it. It is asserted here because the
+        # whole point of upstreaming it was that nobody should have to
+        # notice again.
+        ("see also", "See also", 'a lowercase cross-reference heading'),
+        ("See Also", "See also", 'and one already miscapitalized'),
+        ("Notes and see also", "See also", 'mid-heading, not only at the start'),
+        ("the why", "The Why", 'the other keep-phrase still keeps its caps'),
     ]
     bad = []
     for text, must, why in cases:

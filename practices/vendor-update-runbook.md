@@ -178,6 +178,16 @@ every step's answer is wrong if the one before it was skipped.
    pin this is the manual mirror, never a tool that resolves the remote's
    *default* branch — that mirrors the wrong lineage over a pinned tree,
    which is a wholesale revert wearing an update's clothes.
+
+   **`checkin.py record`'s carry check reads the COMMITTED tree on the
+   remote, not your working tree**, so restoring a file locally after a
+   `record` and re-running changes nothing it sees: it lists
+   `origin/<branch>` with `git ls-tree` and reads each file back with
+   `git show origin/<branch>:<path>`. The "restore it and re-record" move is
+   not a way around `--accept-loss`; it only works once the restore is
+   itself committed and pushed. Reported from a dependent repo that hit it
+   twice in one hop, 2026-09-21, and verified here against the tool's own
+   git calls rather than taken on the report.
 5. **Regenerate the generated views in the same change.** A refreshed
    generator whose output has not been re-run leaves the repo's committed
    views describing the old engine, and its own `--check` then fails on
