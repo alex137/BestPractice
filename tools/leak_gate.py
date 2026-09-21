@@ -1418,7 +1418,19 @@ def main():
     # green predicted nothing either. A gate whose answer depends on where
     # it ran is not a gate anyone can act on.
     if structural_only:
-        blocklist, source, configured = [], 'none (--structural-only)', False
+        # THE DEFAULT HALF STAYS. Corrected within the hour: the first
+        # version of this dropped BOTH halves, which over-shot. The default
+        # list is COMMITTED and publishable -- its own header says so, and
+        # profanity is the first thing in it -- so it is exactly as safe on
+        # a CI runner as in this repo, and the harness asserts that a word
+        # from it still fails the gate under this flag. What CI cannot have,
+        # and what made the verdict differ by machine, is the PRIVATE half.
+        # So: drop that one, keep the default.
+        _d = load_default_blocklist()
+        blocklist = _d
+        source = (f'{DEFAULT_BLOCKLIST.name} ({len(_d)} pattern(s)); '
+                  f'private half skipped (--structural-only)')
+        configured = False
     units = units_to_scan(mode, rev_range)
     # The repo-reference allowlist is read from the SAME private file as the
     # vocabulary patterns, so a clone with no private blocklist configured

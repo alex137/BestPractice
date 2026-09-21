@@ -41,10 +41,13 @@ distinct problems live in that:
   surprising on a shared runner.
 
 Fixing `--structural-only` (2026-09-21) removes this for the CI path
-specifically: that flag now drops the vocabulary layer outright rather than
-merely not requiring it, so the workflow's answer no longer depends on
-whether a clone happened. **The local path is unchanged and still
-environment-dependent.**
+specifically: that flag now drops the **private** half of the vocabulary
+layer rather than merely not requiring it, so the workflow's answer no
+longer depends on whether a clone happened. The **default** half — committed,
+publishable, profanity first among it — still applies, which is what makes a
+CI runner and a developer's machine now agree at 6 patterns rather than
+disagreeing at 6 versus 15. **The local path without that flag is unchanged
+and still environment-dependent.**
 
 ## What Would Close It
 
