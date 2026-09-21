@@ -161,7 +161,7 @@ every trigger. Past that the only levers are fewer triggers, a **public**
 repository (unmetered on standard runners), or a **self-hosted runner**,
 where GitHub meters nothing at all.
 
-## The same arithmetic, still shipping: `leak-gate.yml.template`'s `scope` job
+## The same arithmetic, found in the one file left alone: `leak-gate.yml.template`
 
 Named here because it is a live instance of this finding that has not been
 fixed, not a historical one.
@@ -193,13 +193,41 @@ repositories: the only copies on disk sit under `process/upstream/`, inside
 vendored mirrors GitHub never executes, and the four practice sets have no
 copy at all. That is the only reason this is a note rather than an incident.
 
-**Consequence for installing it:** on a public repo it is free and the scan
-is worth having, so install it. On a private repo, installing it as shipped
-buys the branch-scoping behaviour at a cost that the scoping itself creates.
-Restructure the job first — the decision belongs where it costs nothing, and
-`on:` cannot read repo config, which is the constraint that produced this
-shape in the first place. That tension is real and unresolved; it is not a
-reason to keep paying for a decision.
+**Fixed the same day.** The `scope` job is gone; the decision is a step
+inside the one `leak-gate` job. A step-level skip still bills that job's own
+minute — the limit item 8 measured, which no in-workflow check can avoid —
+but one minute is what the old shape's *cheapest* case cost and half its
+scanning case. Verified against all eight real event/visibility/branch
+combinations: only a private repo's push to a non-base branch skips, and a
+`pull_request` or `workflow_dispatch` is never skipped whatever the
+visibility.
+
+**Paying nothing at all still needs `on: push: branches:`**, which GitHub
+evaluates before allocating a runner. That is left to the adopter on
+purpose: a hardcoded branch list is a list somebody has to keep correct, and
+a stale one under-scans silently. The runtime check is the safe default; the
+trigger filter is the cheap one, and choosing between them is a judgment
+about that repo, not something a template should decide.
+
+**A second bug surfaced at the same moment, and it is the worse one.**
+`CI_WORKFLOW_TEMPLATES` listed `leak-gate.yml.template` for both kinds — but
+[leak_gate.py](../tools/leak_gate.py), the script the workflow's only substantive step runs, was in
+neither `ENGINE_FILES` nor `CONSUMER_ENGINE_FILES`, and no step fetched it.
+**The workflow shipped without the thing it runs.** Any repo installing it
+got a guaranteed red check and a billed minute per trigger, on precisely the
+public repositories it existed to protect. Caught by a session told to
+install it, which read both lists, found neither name, and refused — and
+refused equally to hand-copy the script, a copy outside `ENGINE_MANIFEST.json`
+being what the vendoring mechanism exists to prevent. Both refusals were
+right. [leak_gate.py](../tools/leak_gate.py) and `leak-blocklist.default.txt` are now vendored to
+both kinds.
+
+**Three separate defects in one template in two days** — a self-declared
+visibility field that was wrong on two live repos, a manifest read that
+ignored one of two files, and a workflow shipped without its script — and
+every one was found by a session verifying a claim rather than acting on it.
+None was found by the session that wrote the template, including the two
+written the same day the template was.
 
 ## Why this was not found sooner
 

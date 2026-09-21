@@ -436,6 +436,29 @@ ENGINE_FILES = [
     # real run, the same failure shape precedent_check.py's own promotion
     # (see below) was caught by.
     'title_case.py',
+    # THE SCRIPT leak-gate.yml.template RUNS (added 2026-09-21, practice:
+    # cite-the-incident). CI_WORKFLOW_TEMPLATES has listed
+    # leak-gate.yml.template for BOTH kinds since 2026-09-20 (item 12), and
+    # that workflow's only substantive step is
+    # `python3 tools/leak_gate.py --structural-only`. Neither of these two
+    # names was in either engine list, and no step in the workflow fetches
+    # them -- so the workflow shipped WITHOUT the thing it runs. Any repo
+    # installing it got a guaranteed red check and a billed minute per
+    # trigger, on the public repos it was meant to protect.
+    #
+    # Caught 2026-09-21 by a session told to install it: it read
+    # ENGINE_FILES and CONSUMER_ENGINE_FILES, found neither name, refused to
+    # install on a broken premise, and refused equally to hand-copy the
+    # script -- a copy outside ENGINE_MANIFEST.json being exactly what this
+    # mechanism exists to prevent. Both refusals were right.
+    #
+    # The blocklist travels with the script: leak_gate.py resolves
+    # DEFAULT_BLOCKLIST relative to its own __file__, so a vendored copy
+    # without it cannot run. The INDIVIDUAL half (leak-blocklist.txt in a
+    # person's own source) is resolved at runtime and is deliberately not
+    # vendored.
+    'leak_gate.py',
+    'leak-blocklist.default.txt',
     'precedent_vendor_engine.py',
 ]
 
