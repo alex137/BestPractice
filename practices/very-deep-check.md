@@ -995,6 +995,41 @@ first so this pass spends its attention on what they cannot see.
   and [reduction-pass](reduction-pass.md) is how it moves. A pass that
   finds nothing to cut in a file this size has not read it.
 
+- **One file nobody has read whole, read whole.** The bullet above is this
+  one applied to a single file, and it was added the day somebody noticed
+  that file had gone stale twice in itself. **Nothing generalized it**, and
+  the measurement says the instructions file was not even the worst
+  offender: [tools/verify_harness.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/verify_harness.py)
+  is 26,000 lines, was touched 379 times in 30 days, gates every push in
+  the project, and had no record of anyone ever reading it end to end.
+
+  **Every other question in this check asks whether a file is wrong. This
+  one asks whether anybody has looked at it as a thing lately**, which no
+  amount of correctness per commit can answer — a file grows one
+  defensible line at a time and nobody is ever wrong on the day they add
+  theirs.
+  [tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/very_deep_check.py)'s
+  `ACCRETION` section ranks every tracked file by **commits since anybody
+  last recorded reading it whole**, and
+  [record/holistic-reads.json](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/record/holistic-reads.json)
+  is where that is recorded — a registry rather than a sentence in a
+  document ([registry-source-of-truth](registry-source-of-truth.md)), for
+  the reason the run ledger is one: *when did anybody last read this whole
+  file* is exactly the claim memory gets wrong.
+
+  **One file per run, not the top ten.** The count never reaches zero and
+  the registry is what makes that visible; a slice of one, recorded with
+  `--record-read`, beats a sweep of ten nobody finishes. The read itself is
+  the instructions-file read asked of code as well as prose — *does this
+  still describe something that exists; is it still needed; is it saying it
+  the long way; is it duplicating something that now lives elsewhere* — and
+  **a pass that finds nothing to cut in a file that size has not read it.**
+  **Churn is not a defect**: the top row may be the healthy one, and the
+  ranking buys only that a file nobody has opened whole cannot stay
+  invisible because every commit to it was fine. Added 2026-09-21 (Morgan,
+  strength: decided) from
+  [spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md)
+  item 9.
 - **Contradictions** — two rules, or two documents, that can't both be
   followed; a rule whose own carve-outs have eaten it.
 - **Documents against the mechanisms they describe.** A document that

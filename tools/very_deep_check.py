@@ -195,6 +195,12 @@ Run:
       -- record a hand-worked pass's outcome against the most recent run in
       the ledger, and exit. `findings`, `tokens` and `note` are each
       optional; an absent one is recorded as absent, never estimated.
+  python3 tools/very_deep_check.py --record-read 'tools/verify_harness.py,by=...,note=...'
+      -- record that somebody read that file END TO END today, in
+      record/holistic-reads.json, and exit. The ACCRETION section ranks by
+      commits since a file's last recorded read, so this is what moves a
+      file off the top of it. Commit the registry: it is the only thing
+      that knows.
   python3 tools/very_deep_check.py --ledger PATH
       -- read and write the run ledger somewhere else (a fixture, or a
       second repository's own ledger).
@@ -1015,6 +1021,156 @@ def _workflow_liveness_scan(repo_dir):
            f'read its content before concluding anything'
            for rel in pve._untracked_ci_workflow_files(repo_dir, manifest)
            if rel not in exempt]
+
+
+HOLISTIC_READS_RELPATH = pathlib.Path('record') / 'holistic-reads.json'
+
+# How far back the accretion ranking counts commits for a file nobody has
+# ever recorded reading. A window, not "all history", for a reason that is
+# mechanical rather than aesthetic: a fresh session starts in a --depth 1
+# clone, where "all history" is one commit and every file would tie at 1.
+# Declared here as an input rather than buried in a call
+# (practice: constants-are-risk-inputs); a repo overrides it with
+# `holistic_read_window_days` in its own precedent.json.
+ACCRETION_WINDOW_DAYS = 30
+
+
+def holistic_reads_path_for(repo_root=None):
+    return pathlib.Path(repo_root or ROOT) / HOLISTIC_READS_RELPATH
+
+
+def _load_holistic_reads(repo_root):
+    """-> {path: {'date','by','note'}} keeping the NEWEST read per path."""
+    try:
+        data = json.loads(
+            holistic_reads_path_for(repo_root).read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return {}
+    newest = {}
+    for row in (data.get('reads') or []):
+        path, date = str(row.get('path') or ''), str(row.get('date') or '')
+        if not path or not date:
+            continue
+        if path not in newest or date > newest[path]['date']:
+            newest[path] = {'date': date, 'by': row.get('by') or '',
+                            'note': row.get('note') or ''}
+    return newest
+
+
+def _record_read(value, repo=None):
+    """Append one holistic read to the registry. `value` is
+    'PATH' or 'PATH,by=...,note=...'.
+
+    A REGISTRY, not a sentence in a document
+    (practice: registry-source-of-truth), for the reason the run ledger is
+    one: "when did anybody last read this whole file" is exactly the claim
+    memory gets wrong, and a prose note about it drifts from the tree the
+    moment either moves."""
+    repo_root = pathlib.Path(repo or ROOT).resolve()
+    parts = [x.strip() for x in value.split(',')]
+    path = parts[0]
+    if not path:
+        sys.exit("very deep check FAIL: --record-read needs a path, e.g. "
+                 "--record-read 'tools/verify_harness.py,note=...'.")
+    fields = {}
+    for part in parts[1:]:
+        k, _, v = part.partition('=')
+        if k.strip() in ('by', 'note') and v:
+            fields[k.strip()] = v.strip()
+    if not (repo_root / path).exists():
+        # Refused rather than recorded: a read recorded against a path that
+        # is not there is a claim about nothing, and it would sit in the
+        # registry suppressing the real file's row forever.
+        sys.exit(f"very deep check FAIL: {path} does not exist in "
+                 f"{repo_root} -- a read is recorded against a file, and a "
+                 f"typo here would silently retire the real file's row.")
+    out = holistic_reads_path_for(repo_root)
+    try:
+        data = json.loads(out.read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        data = {'_generated_by': 'tools/very_deep_check.py --record-read',
+                'reads': []}
+    data.setdefault('reads', []).append({
+        'path': path,
+        'date': precedent_time.date_from_unix(time.time()),
+        'by': fields.get('by', ''),
+        'note': fields.get('note', '')})
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(data, indent=2, ensure_ascii=False) + '\n',
+                   encoding='utf-8')
+    print(f"recorded a holistic read of {path} in "
+          f"{out.relative_to(repo_root)}. Commit it -- the registry is the "
+          f"only thing that knows, and a chat thread is not.")
+    return 0
+
+
+def _accretion(repo_dir, window_days=None, top=10):
+    """-> (rows, window, note). Tracked files ranked by how much has been
+    added to them since anybody last read the whole thing.
+    (practice: very-deep-check, pass 3)
+
+    THE SHAPE OF THE PROBLEM. Every other question here asks whether a file
+    is WRONG. This one asks whether anybody has looked at it as a thing
+    lately, which no amount of correctness per commit can answer: a file
+    grows one defensible line at a time and nobody is ever wrong on the day
+    they add theirs. The close read of the always-loaded instructions file
+    was added the day somebody noticed it had gone stale twice in one
+    file -- and nothing generalized that fix, while the measurement said the
+    instructions file was not even the worst offender.
+
+    rows are (path, commits, lines, last_read_date or None), ranked by
+    commits since the last recorded read, or across the window for a file
+    with no recorded read at all.
+
+    IT RANKS AND DOES NOT JUDGE. Churn is not a defect and a heavily edited
+    file may be exactly the healthy one; what the ranking buys is that the
+    file nobody has opened whole cannot stay invisible just because every
+    individual commit to it was fine."""
+    repo_dir = pathlib.Path(repo_dir)
+    window = window_days or _declared_holistic_window(repo_dir) \
+        or ACCRETION_WINDOW_DAYS
+    reads = _load_holistic_reads(repo_dir)
+    rc, out, _err = _run_git(repo_dir, 'log', f'--since={window} days ago',
+                             '--no-merges', '--name-only', '--pretty=format:')
+    if rc != 0:
+        return [], window, 'git log could not be read here'
+    counts = collections.Counter(x for x in out.split('\n') if x.strip())
+    if not counts:
+        return [], window, (f'no commits in the last {window} days, or a '
+                            f'shallow clone with no history to count')
+    rows = []
+    for path, n in counts.items():
+        f = repo_dir / path
+        if not f.is_file():
+            continue                      # deleted since: not a candidate
+        read = reads.get(path)
+        if read:
+            rc2, out2, _e = _run_git(
+                repo_dir, 'log', f'--since={read["date"]}', '--no-merges',
+                '--oneline', '--', path)
+            n = len([x for x in out2.split('\n') if x.strip()]) \
+                if rc2 == 0 else n
+        try:
+            lines = sum(1 for _ in f.open('r', encoding='utf-8',
+                                          errors='replace'))
+        except OSError:
+            lines = 0
+        rows.append((path, n, lines, read['date'] if read else None))
+    rows.sort(key=lambda r: (-r[1], -r[2]))
+    return rows[:top], window, ''
+
+
+def _declared_holistic_window(repo_dir):
+    """-> a repo's own `holistic_read_window_days`, or None. Same shape and
+    same reasoning as _declared_stale_days."""
+    try:
+        v = json.loads((pathlib.Path(repo_dir) / 'precedent.json')
+                       .read_text(encoding='utf-8')
+                       ).get('holistic_read_window_days')
+        return v if isinstance(v, int) and not isinstance(v, bool) and v > 0 \
+            else None
+    except Exception:                                         # noqa: BLE001
+        return None
 
 
 def _incident_frontmatter(path):
@@ -5307,6 +5463,14 @@ def _main(box):
                      "e.g. --record-pass '2=done,findings=3'.")
         record_pass = args[i + 1]
         args = args[:i] + args[i + 2:]
+    record_read = None
+    if '--record-read' in args:
+        i = args.index('--record-read')
+        if i + 1 >= len(args):
+            sys.exit("very deep check FAIL: --record-read needs a path, "
+                     "e.g. --record-read 'tools/verify_harness.py,note=...'.")
+        record_read = args[i + 1]
+        args = args[:i] + args[i + 2:]
     ledger_path = None          # default: the checked repo's own ledger
     if '--ledger' in args:
         i = args.index('--ledger')
@@ -5321,6 +5485,8 @@ def _main(box):
             sys.exit("very deep check FAIL: --branch-report needs a path.")
         branch_report_path = pathlib.Path(args[i + 1])
         args = args[:i] + args[i + 2:]
+    if record_read is not None:
+        return _record_read(record_read, repo)
     if record_pass is not None:
         return _record_pass(record_pass, ledger_path, repo)
     if '--emit' in args:
@@ -6112,6 +6278,26 @@ def _main(box):
     print()
     if led:
         led.end(items=len(_ic_rows) if not _ic_note else None)
+        led.start('ACCRETION -- files nobody has read whole', kind='read')
+
+    _ac_rows, _ac_window, _ac_note = _accretion(repo_root)
+    print(f"ACCRETION -- what has been added since anybody read the whole "
+          f"file ({_ac_window}-day window)\n")
+    if _ac_note:
+        print(f"  not measured -- {_ac_note}")
+    else:
+        print("  commits  lines  last read   file")
+        for _path, _n, _lines, _read in _ac_rows:
+            print(f"  {_n:>7}  {_lines:>5}  "
+                  f"{_read or 'never':<11} {_path}")
+        print("\n  Read ONE of these end to end this run, then "
+              "`--record-read '<path>,note=...'`.\n  Churn is not a defect "
+              "and the top row may be the healthy one; what the ranking\n"
+              "  buys is that a file nobody has opened whole cannot stay "
+              "invisible just\n  because every commit to it was fine.")
+    print()
+    if led:
+        led.end(items=len(_ac_rows) if not _ac_note else None)
         led.start('SESSION LOAD')
 
     print("SESSION LOAD -- what every session pays before it does anything\n")
