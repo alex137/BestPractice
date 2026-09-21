@@ -122,7 +122,7 @@ not it is read.
 | Upstream open items / roadmap | [TODO.md](TODO.md) |
 | The full story behind any environment trap, one file each | [gotchas/](gotchas/) (generated overview: [gotchas/INDEX.md](gotchas/INDEX.md)) |
 | Gotchas that no longer fire, with the verdict that retired each one | [gotchas/](gotchas/) (`status: retired` in the file, in place -- nothing moves) |
-| GitAround — the reading view this work spun out | [alex137/GitAround](https://github.com/alex137/GitAround), a separate product since 2026-08-14; a branch here still staging it under proposals/ is superseded, and its documents live there now |
+| GitAround — the reading view this work spun out | [alex137/GitAround](https://github.com/alex137/GitAround) — **a PRIVATE repository**, so that link 404s for anyone without access, and this row is the only thing that says so. A separate product since 2026-08-14 (its last push, checked 2026-09-21); a branch here still staging it under proposals/ is superseded, and its documents live there now |
 | Slide-deck engine + deck conventions | [deck/](deck/) — engine [build_deck.py](deck/build_deck.py), practice in [deck/README.md](deck/README.md) |
 | Portable audits | [tools/](tools/) — [doc_lint.py](tools/doc_lint.py), [practice_audit.py](tools/practice_audit.py), [checkin.py](tools/checkin.py) |
 | What a session on codex, gemini-cli or grok-build does **not** get that Claude Code does — one row per mechanism, with the parallel or the reason there is none | [templates/harness/PARALLELS.md](templates/harness/PARALLELS.md), checked by [tools/precedent_check.py](tools/precedent_check.py) `--only claude-only-surface-has-a-parallel`, re-judged on every [very deep check](practices/very-deep-check.md) |
