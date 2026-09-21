@@ -1298,7 +1298,51 @@ def _remove_retired_ci_workflow_files(dest_root, manifest):
     if not manifest_path.is_file():
         return []
     recorded = dict(manifest.get('ci_workflows_sha256') or {})
-    dropped = sorted(rel for rel in recorded if rel in RETIRED_CI_WORKFLOW_FILES)
+
+    # TWO WAYS A TRACKED CI WORKFLOW CAN BE OVER (the second added
+    # 2026-09-21, practice: cite-the-incident).
+    #
+    # 1. A RETIRED_CI_WORKFLOW_FILES tombstone -- an explicit, reasoned
+    #    entry, which is the only way a RENAME can be expressed.
+    # 2. THIS KIND NO LONGER SHIPS IT. Until today this function read the
+    #    tombstone dict alone, and _remove_dropped_engine_files -- the
+    #    ordinary tools/ path, six hundred lines up -- has always done the
+    #    opposite: it diffs the PREVIOUS manifest against what the kind
+    #    includes now, so dropping a name propagates its deletion whether
+    #    or not anybody remembered a tombstone.
+    #
+    #    That asymmetry was the concrete hole. Dropping a template from
+    #    CI_WORKFLOW_TEMPLATES without also writing a tombstone left the
+    #    installed workflow in every repo, forever, tracked by a manifest
+    #    entry nothing would ever clear. Found 2026-09-21 while answering
+    #    "are deletions passed through to the vendored-in repos?" -- the
+    #    answer was yes for engine files and no for CI workflows, and
+    #    nobody had noticed the two paths disagreed.
+    #
+    # THE GUARD THE ENGINE PATH DOES NOT NEED. _remove_dropped_engine_files
+    # is called with a `kind` its caller has already validated. Here the
+    # kind comes out of the MANIFEST, which is a file on disk in somebody
+    # else's repository -- and `CI_WORKFLOW_TEMPLATES.get(<unknown>, ())`
+    # is an empty tuple, which would read as "this kind ships nothing, so
+    # delete everything tracked". A manifest with a typo'd or future kind
+    # must not trigger a sweep, so the diff is skipped entirely unless the
+    # kind is a key we recognise. The tombstone half still applies, since
+    # it names paths explicitly and cannot over-reach.
+    kind = manifest.get('kind')
+    superseded = set()
+    if kind in CI_WORKFLOW_TEMPLATES:
+        ships_now = {installed_as
+                     for _tmpl, installed_as in CI_WORKFLOW_TEMPLATES[kind]}
+        superseded = {rel for rel in recorded if rel not in ships_now}
+    elif recorded:
+        print(f"NOTE: precedent_vendor_engine: manifest kind {kind!r} is not "
+              f"one of {sorted(CI_WORKFLOW_TEMPLATES)}, so tracked CI "
+              f"workflow files were NOT checked against what this kind "
+              f"ships. Only explicitly retired entries were considered.",
+              file=sys.stderr)
+
+    dropped = sorted({rel for rel in recorded
+                      if rel in RETIRED_CI_WORKFLOW_FILES} | superseded)
     if not dropped:
         return []
     deleted, kept = [], []
@@ -1312,8 +1356,10 @@ def _remove_retired_ci_workflow_files(dest_root, manifest):
             deleted.append(rel)
         else:
             kept.append(rel)
+            why = RETIRED_CI_WORKFLOW_FILES.get(
+                rel, f'this kind ({kind}) no longer ships it')
             print(f"WARN: precedent_vendor_engine: {rel} was retired "
-                  f"({RETIRED_CI_WORKFLOW_FILES[rel]}) and has been hand-"
+                  f"({why}) and has been hand-"
                   f"edited since the manifest last recorded its hash -- left "
                   f"in place, not deleted. Move the edit upstream, then "
                   f"delete it by hand once its replacement is confirmed "
