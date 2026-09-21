@@ -421,6 +421,40 @@ def _blob(spec):
 # put here would be published by the commit itself, long before any scan.
 SCAN_EXEMPT = {'tools/leak-blocklist.default.txt'}
 
+# A REPO'S OWN ROOT MANIFEST IS NOT A LEAK OF ITS OWNER (2026-09-21,
+# practice: cite-the-incident). These three files exist, at a repo root, to
+# say who owns the repo and how it is configured. identity.json's whole
+# content is a name, an email and a timezone. Flagging them for containing
+# an email address is the rule firing on a file doing its job.
+#
+# Measured: a session installing leak-gate.yml into two real practice sets
+# smoke-tested it first and got exit 1 on arrival -- 7 and 13 hits, of which
+# 3 in each were `precedent.json: an email address`. Nothing was wrong with
+# either repo. The FORBIDDEN_CONTENT layer is written on this file's own
+# stated premise, "Precedent holds universal practices and nothing else",
+# which is true of BestPractice's public tree and false of a practice set
+# that legitimately records its owner.
+#
+# ROOT ONLY, and that is the whole safety argument. A manifest NESTED inside
+# another repository is a vendored copy of somebody's private set, which is
+# a real leak and is still caught -- by this exemption not applying, and
+# separately by the SOURCE_MANIFEST check above, which fires on exactly that
+# shape. The exemption is for `precedent.json`, never `vendor/x/precedent.json`.
+#
+# NOT EXEMPTED HERE, deliberately: the `candidates/`, `individual/`,
+# `personal/` and `private/` DIRECTORY rules, which the same smoke test also
+# tripped. Those need a judgment about which repo kinds may legitimately
+# carry such a directory, and the obvious discriminators do not work --
+# BestPractice itself carries BOTH precedent.json and precedent-source.json,
+# so file presence cannot tell a public universal tree from a private set,
+# and keying a LEAK gate off self-declared `visibility` is the precise bug
+# corrected in leak-gate.yml.template the day before. Left for a decision
+# rather than guessed at. See todo-2026-09-21-structural-leak-rules-assume-
+# bestpractices-own-tree.
+OWNER_MANIFESTS_AT_ROOT = frozenset({
+    'precedent.json', 'precedent-source.json', 'identity.json',
+})
+
 
 def is_texty(rel):
     p = pathlib.Path(rel)
@@ -1113,7 +1147,10 @@ def scan(units, blocklist, repo_policy=(None, None), auto_names=(),
                              rel))
         if text is None:
             continue
+        owner_manifest = rel in OWNER_MANIFESTS_AT_ROOT
         for pat, why in FORBIDDEN_CONTENT:
+            if owner_manifest and why == 'an email address':
+                continue          # see OWNER_MANIFESTS_AT_ROOT above
             for m in pat.finditer(text):
                 line_no = text.count('\n', 0, m.start()) + 1
                 hits.append((display, line_no, why, m.group(0).strip()[:70]))
