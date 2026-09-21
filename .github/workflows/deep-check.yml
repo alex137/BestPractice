@@ -1,8 +1,17 @@
 name: Deep check
 
 # The three tools AGENTS.md's own "deep check" gate suite names besides
-# doc_lint.py (Documentation checks) and leak_gate.py (Leak gate), both
-# already their own workflows. Until now, none of these three ran in CI at
+# doc_lint.py and leak_gate.py.
+#
+# 2026-09-21: doc_lint.py NO LONGER RUNS IN CI ANYWHERE. Its workflow
+# (docs.yml here, bestpractice-docs.yml in a consuming repo) is retired,
+# and the Markdown lint runs before every commit instead, as the light
+# check. It was re-checking work a session had just cleared. The linter is
+# not retired -- only the workflow whose whole job was to run it a second
+# time. leak_gate.py keeps its own workflow, because a push IS the
+# publication it guards and only the server-side copy sees that.
+#
+# Until this file existed, none of these three ran in CI at
 # all -- they were session discipline only (AGENTS.md: "deep check is the
 # full gate suite run before push or merge"), and TODO.md's own item 1
 # already named the gap ("required CI checks bind every path to the
@@ -10,7 +19,7 @@ name: Deep check
 # runbook"). A 2026-09-03 deep-check audit found two critical,
 # reproduced bugs and three other real gaps sitting in exactly this
 # territory -- verify_harness.py, precedent_check.py -- none of which a
-# passing doc_lint/leak_gate run would ever have caught, on a branch
+# passing doc_lint or leak_gate run would ever have caught, on a branch
 # whose own merges are all green. This closes that: the same three tools
 # a session is already supposed to run before every push or merge, now
 # bound to every push, on every branch.
@@ -30,7 +39,7 @@ name: Deep check
 # two branches that actually receive merges.
 
 on:
-  # `pull_request:` (opened, synchronize) is BACK, 2026-09-19 -- read the
+  # `pull_request:` (opened, reopened, ready_for_review) is BACK, 2026-09-19 -- read the
   # 2026-09-07 removal note directly below for why it was dropped, and why
   # this doesn't reintroduce what it measured. The duplicate pairs found
   # then happened because push ran on EVERY branch, so a push to a branch
@@ -40,8 +49,15 @@ on:
   # events and main/precedent-beta-v01 only ever get push events. Nothing
   # here fires twice for the same commit, and a branch with no open PR now
   # costs nothing at all rather than a full run on every push.
+  # `synchronize` removed 2026-09-21 -- it fired on every push to a PR
+  # branch, billing a run per intermediate commit to check a tree that was
+  # superseded minutes later. The PR is still checked when it opens, when
+  # a draft becomes ready, and when it lands on a named branch. See
+  # templates/github-actions/doc-lint.yml.template's header for the
+  # measurement, and spec/BILLING_FLOOR.md for why the trigger, not the
+  # per-job floor, was the driver in the repo where this was found.
   pull_request:
-    types: [opened, synchronize]
+    types: [opened, reopened, ready_for_review]
 
   # push only sat here, deliberately, from 2026-09-07 to 2026-09-19.
   # `pull_request:` sat here from this file's first commit (2236a94, copied

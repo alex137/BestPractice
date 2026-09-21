@@ -528,6 +528,60 @@ clone). The remaining lever is folding its checks into
 incremental, because a job already being billed absorbs another twelve
 seconds for free.
 
+## The rate is the problem, not any single line
+
+**The allowance is 3,000 minutes a month. Usage on 2026-09-20 alone was
+535.** At that rate the month's allowance is a little over five days of
+work, and the stated plan is to increase usage roughly twentyfold.
+
+So the unit that matters is **minutes per day at current intensity**, not
+any month's total and not any workflow's share of one. A line item worth a
+few minutes a day today is worth a few hundred at the intended volume, and
+every structural fix in this document is a multiplier against that, not a
+subtraction from a fixed total.
+
+**Anyone reading this to decide whether a fix is worth making should
+compare it against the daily rate**, which is how the constraint actually
+binds.
+
+### And it licenses an answer this document did not offer: turn it off
+
+For a Markdown formatter, on a repo where every session runs the same
+linter before it commits, **switching the check off is a defensible
+decision and was taken** (2026-09-21, the busiest consuming repo, Morgan:
+*"If it went from 350 to 0 by turning it off, why don't we leave it
+off?"* — `decided`).
+
+**The objection raised against this was wrong, and the correction is worth
+more than the decision.** The argument for keeping it was that edits made
+from a phone or a web UI reach no local hook, so only CI would catch them.
+Morgan, 2026-09-21: *"THE ENTIRE PRECEDENT PHILOSOPHY CENTERS AROUND
+PEOPLE WORKING ONLY FROM 'CLOUD' VERSIONS OF LLMS, SO NEVER LOCAL AND
+NEVER DIRECT VIA GITHUB."*
+
+That is the system's founding assumption, not a detail about one person's
+habits. **If every edit arrives through a session, the light check runs on
+every edit**, and the CI copy is a backstop against nothing but a session
+that skipped its own commit gate — which a Stop hook already refuses.
+
+**The general form, which reaches further than one workflow.** Much of
+what CI is for in an ordinary project is catching what happens between a
+developer's machine and the shared branch. Under a cloud-only model that
+gap is not where the work happens, and a check whose only job is to guard
+it is redundant by construction. That does not make CI worthless here, and
+the exceptions are specific rather than a hedge:
+
+- **the merged state**, which no session sees — a session checks its own
+  branch, not the combination of its branch with whatever landed meanwhile;
+- **a session that resolved fewer sources than it should have**, whose
+  local run was correspondingly narrower and passed for the wrong reason;
+- **anything about the repository as published** rather than as worked on —
+  the leak gate being the live example, and the one place where "a push is
+  a publication" makes the server-side copy the only one that counts.
+
+Those are worth paying for. A formatter re-running a check the session in
+front of you already ran is not.
+
 ## What is still not done
 
 - **The carry itself.** All four practice sets still run the three-job

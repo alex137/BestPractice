@@ -16,6 +16,39 @@ side**, so different agents can work the same repo under the same contract.
 | [gemini-cli/](gemini-cli/) | `GEMINI.md` → pointer to `AGENTS.md` | instructions-file directive | n/a | n/a |
 | [grok-build/](grok-build/) | `AGENTS.md` read natively | `.grok/hooks.json` lifecycle hook (exact syntax unverified as of 2026-09-17 — see the adapter's own README before relying on it) | n/a | n/a |
 
+**IF YOUR HARNESS HAS NO HOOKS, YOU NEED THE GITHUB CHECK — READ THIS
+BEFORE SKIPPING IT.** The Markdown lint left GitHub Actions on 2026-09-21
+and was replaced by `.claude/hooks/doc-lint-gate.sh`, which refuses a
+`git commit` whose staged Markdown fails `doc_lint.py --strict`. **That is
+a Claude Code mechanism.** Read the Bootstrap and Teardown columns above:
+every other adapter in this table says `n/a` or carries an unverified
+lifecycle hook, which means **nothing checks your Markdown at all** unless
+you put a check back in CI yourself.
+
+So, on any harness other than Claude Code:
+
+1. **Run the light check by hand before every commit** —
+   `python3 tools/doc_lint.py --strict <the markdown you touched>` — and
+   treat that as non-optional rather than a nicety. Your harness will not
+   remind you.
+2. **Also turn the GitHub check on**, because step 1 is a habit and habits
+   are what the hook exists to replace. Copy
+   [github-actions/light-check.yml.template](../github-actions/light-check.yml.template)
+   to `.github/workflows/light-check.yml` and set its `CUSTOMIZE` command
+   to `python3 tools/doc_lint.py --strict`, with its `paths:` list set to
+   `"**/*.md"`. One job, checked when a pull request opens and when it
+   lands.
+3. **Enable Actions for the repository** if it is off — repository
+   **Settings → Actions**. A workflow file in a repository with Actions
+   disabled is a check nobody is running and nobody can see is not running
+   ([documentation/GITHUB_ACTIONS.md](../../documentation/GITHUB_ACTIONS.md)).
+
+**Doing 1 without 2 is the arrangement that just failed here.** "A session
+is supposed to run it" was written down and followed for months, and still
+nothing refused a commit that skipped it — which was only safe while CI was
+behind it. Do not recreate that gap on a harness with even less enforcement
+than the one that had it.
+
 **A practice SOURCE set installs the claude-code adapter too, and until
 2026-09-20 none did.** The table above reads as wiring a *consuming* repo
 puts in — and a set publishes practices rather than installing them, so

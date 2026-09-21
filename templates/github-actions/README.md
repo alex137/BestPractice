@@ -1,13 +1,11 @@
 # GitHub Actions templates
 
-Five templates, for two different kinds of repository. All are read-only:
+Three templates, for two different kinds of repository. All are read-only:
 they report, and none holds a token that could write
 ([ci-commits-carry-identity](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/ci-commits-carry-identity.md)).
 
 | Template | Install as | In which repo |
 |---|---|---|
-| [`doc-lint.yml.template`](doc-lint.yml.template) | `.github/workflows/bestpractice-docs.yml` | any dependent repository — but only when `ci_workflows: enabled` is declared; see below |
-| [`doc-lint-scheduled.yml.template`](doc-lint-scheduled.yml.template) | `.github/workflows/bestpractice-docs.yml` (in place of the row above, never alongside it) | a dependent repository pushed to its default branch very frequently, where per-push billing adds up |
 | [`precedent-check.yml.template`](precedent-check.yml.template) | `.github/workflows/precedent-check.yml` | a practice SET only (its own header says why); a consuming repo skips it. Covers the generated-views drift check too (see below) — there is no separate `views-drift.yml.template` any more. |
 | [`leak-gate.yml.template`](leak-gate.yml.template) | `.github/workflows/leak-gate.yml` | any dependent repository or practice SET, gated by `ci_workflows` the same as the row above — see below, its trigger shape is deliberately different from the other three |
 | [`light-check.yml.template`](light-check.yml.template) | `.github/workflows/light-check.yml` | any dependent repository that declares a light check — **never installed automatically**, and never installed without reading the existing file first; see below |
@@ -36,53 +34,6 @@ operates and secures their own runner, and
 [GITHUB_ACTIONS.md](../../documentation/GITHUB_ACTIONS.md)'s "Controlling
 Actions Minutes" section has the trade-offs (including why a self-hosted
 runner is not safe on a repo that takes untrusted forked pull requests).
-
-## The Markdown lint template
-
-Copy [`doc-lint.yml.template`](doc-lint.yml.template) to
-`.github/workflows/bestpractice-docs.yml` in the dependent repository —
-`tools/precedent_install.py` does this automatically once `ci_workflows:
-enabled` is declared in the individual or team source it resolves; absent
-resolves to disabled, the engine's own default, since GitHub Actions
-minutes are metered per private repository. See
-[GITHUB_ACTIONS.md](../../documentation/GITHUB_ACTIONS.md), "Controlling Actions
-Minutes".
-
-The installed workflow **discovers** the vendored linter rather than naming
-one path: `process/upstream/tools/doc_lint.py` in an
-[INSTALL.md §1](../../INSTALL.md#1-install-into-a-dependent-repo) install,
-`tools/doc_lint.py` in a
-[§0](../../INSTALL.md#0-installing-directly-onto-the-precedent-loader-new-2026-09-03--read-the-caveat-before-using)
-one, which has no `process/upstream/` at all. Both are watched in its
-triggers, so it installs verbatim under either model — before 2026-09-10 it
-was hard-coded to §1's path and a §0 install's very first check went red.
-It requires a full-history checkout so the linter can find Markdown changed
-relative to the default branch. Its `concurrency` block cancels an
-in-flight run when a second push on the same branch arrives before it
-finishes, so an overlapping pair of pushes bills once rather than twice.
-
-See [GitHub Actions checks](../../documentation/GITHUB_ACTIONS.md) for installation,
-permissions, verification, required-check, update, and manifest guidance.
-
-## The scheduled Markdown lint template
-
-Copy [`doc-lint-scheduled.yml.template`](doc-lint-scheduled.yml.template) to
-`.github/workflows/bestpractice-docs.yml` **in place of**
-`doc-lint.yml.template` — never alongside it, which would bill both. Where
-the default template bills roughly once per push, this one bills on a
-fixed cadence: however many saves land in one window, they cost one run.
-
-**Never installed automatically**, by either the installer or the
-`ci_workflows` field: a `schedule:` is a clock in somebody else's
-repository that they never picked
-([GITHUB_ACTIONS.md](../../documentation/GITHUB_ACTIONS.md)'s Limits section). Copying it
-in is a deliberate, per-repository choice, and its header cron line is a
-starting point to edit, not a shipped default to keep. It gates the
-**whole tracked Markdown corpus** on each run rather than "what changed
-since the default branch" — its own header explains why the latter is a
-silent no-op on a repo pushed straight to its default branch, and what
-gating the full corpus trades away on a repo with an existing backlog of
-violations.
 
 ## The generated-views drift check
 
@@ -165,6 +116,35 @@ nothing, where everything else here only makes a run cheaper. The shipped
 list is a documentation-shaped starting point and is explicitly not an
 answer — a repo whose light check reads Python source wants the Python glob
 there, and probably not the Markdown one.
+
+## The Markdown lint is NOT here any more
+
+**Retired 2026-09-21.** `doc-lint.yml.template` (installed as
+`bestpractice-docs.yml`) and `doc-lint-scheduled.yml.template` are gone,
+and `.github/workflows/bestpractice-docs.yml` is tombstoned in
+`precedent_vendor_engine.RETIRED_CI_WORKFLOW_FILES`, so the next
+`Update Vendors` deletes it from every repository that installed it.
+
+**The linter is not retired — only the workflow whose whole job was to run
+it a second time.** Under this system's founding assumption, every edit
+arrives through a cloud session, never a local checkout and never the
+GitHub web UI. `doc_lint.py` has therefore already run on every change
+before it is committed, and the CI copy was re-checking work the session
+in front of the person had just cleared. Measured in one consuming
+repository: **350 billed minutes over 19 days** for that re-run, on a
+workflow that was already one job with `paths:` filters from the day it
+was installed
+([spec/BILLING_FLOOR.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/BILLING_FLOOR.md)).
+
+**What replaced it is stricter, not weaker.** "The light check gates a
+commit" was written in `AGENTS.md` and followed by sessions, but nothing
+refused a commit that skipped it. `.claude/hooks/doc-lint-gate.sh` now
+does: a `git commit` whose staged Markdown fails [doc_lint.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/doc_lint.py) is denied,
+with the linter's own output handed back. It costs no Actions minutes and
+it catches the problem **before** the commit rather than after the push.
+
+**The rule that came out of it: no workflow exists solely to lint
+Markdown.**
 
 ## The leak gate template
 

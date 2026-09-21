@@ -43,12 +43,34 @@
 name: Light check
 
 on:
-  # pull_request (opened, synchronize) PLUS push scoped to the branch(es)
-  # that actually receive merges. CUSTOMIZE THE BRANCH LIST if this repo's
-  # routine merge target is not just `main`. A branch with no open pull
-  # request costs nothing; a branch with one gets checked.
+  # pull_request (opened, reopened, ready_for_review) PLUS push scoped to
+  # the branch(es) that actually receive merges.
+  #
+  # `synchronize` IS DELIBERATELY ABSENT (2026-09-21, and this is the
+  # single largest cost lever in the file). It fires on EVERY push to a
+  # pull-request branch, so a session that commits seven times while
+  # working a PR bills seven runs to check the same tree seven times --
+  # six of them against work superseded minutes later. Measured in a real
+  # consuming repo: 38 runs on one day, 28 the next, 27 the next, on a
+  # workflow that was already one job with `paths:` filters from the day
+  # it was installed. The floor was never the problem there; the trigger
+  # was.
+  #
+  # WHAT THAT TRADES, said plainly: a pull request that goes red when it
+  # opens does not re-check itself as you fix it. You get a check when it
+  # opens, when a draft becomes ready, and when it lands on a named
+  # branch. Under a model where every edit arrives through a session that
+  # already runs the same checks before it commits, the intermediate runs
+  # were re-confirming what the session in front of you had just
+  # confirmed. `workflow_dispatch` is there to re-run one on demand.
+  #
+  # PUT `synchronize` BACK for a check whose value depends on catching a
+  # bad state the moment it is pushed rather than before it merges.
+  #
+  # CUSTOMIZE THE BRANCH LIST if this repo's routine merge target is not
+  # just `main`.
   pull_request:
-    types: [opened, synchronize]
+    types: [opened, reopened, ready_for_review]
     paths:
       # CUSTOMIZE: what your light check actually inspects. The defaults
       # below are a starting point for a documentation-shaped repo, NOT a

@@ -150,6 +150,14 @@
       ],
       "gates_why": "Whether a check was genuinely attempted is a judgment a review makes, the same as mistakes-become-rules' proportionality guard."
     },
+    "checks-carry-a-declared-decline": {
+      "globs": [
+        "tools/precedent_check.py",
+        "tools/checks/**/*.py"
+      ],
+      "why": "The distinguishing condition is that a CHECK is being written or changed, and in this engine a check is one of two things: a @check function in precedent_check.py, or a source's own check_*.py under tools/checks/. Both are paths, so the glob identifies the practice rather than merely accompanying it. Deliberately NOT practices/** -- editing a practice file is necessary for writing a rule and says nothing about whether a check is involved, which is the test this file's note sets.",
+      "decided": "2026-09-14, on landing the practice"
+    },
     "chief-of-staff": {
       "globs": [
         "**"
@@ -285,6 +293,17 @@
       ],
       "why": "A reader-facing deliverable is a document. Its check already runs over changed markdown; the glob makes the Rule reachable at the same scope.",
       "decided": "phase 4 routing pass"
+    },
+    "diagnosis-is-measured": {
+      "globs": [
+        "**"
+      ],
+      "why": "Not a property of any file. It fires when a session READS a diagnostic -- a hook's stderr, a tool's error text, a guard's cause list -- which can happen in any turn touching any path, or none. Routed by the `reply` gate, since the obligation binds what the session may then assert.",
+      "decided": "2026-09-14, when the practice landed at universal",
+      "gates": [
+        "reply"
+      ],
+      "gates_why": "The cost lands in the reply: a relayed guess presented as a finding, and a recommendation built on it. That is what the gate has to catch."
     },
     "disclose-landing": {
       "globs": [
@@ -431,6 +450,15 @@
       "why": "The three views tools/build_views.py writes here, named one by one rather than globbed. No pattern can express 'is generated' -- that is a property of how a file is produced, not of its path -- and the wider alternative measured badly: twelve practices already path-trigger on each of these files, so routing this one at '**/*.md' would add a thirteenth to every markdown file in the repo in order to reach three. AGENTS.md is in the list because its loader block is generated even though the file around it is not.",
       "decided": "2026-09-11, with the practice"
     },
+    "github-api-budget": {
+      "globs": [
+        "tools/github_budget.py",
+        "tools/github_api_budgets.json",
+        "**/*github*.py"
+      ],
+      "why": "Its own applies_to, and a real locus: the module that makes the calls, the registry that declares what they should cost, and any new file whose name says it talks to GitHub. Deliberately NOT `**` -- a rule about API spend has nothing to say to a session editing a practice file. What the glob cannot reach is a tool that calls the API under an unrelated name, which is exactly why the mechanical check enumerates every tracked .py rather than trusting this list.",
+      "decided": "2026-09-14, when the practice was written"
+    },
     "github-setup-disclosed": {
       "globs": [
         ".github/**",
@@ -449,6 +477,13 @@
         "merge"
       ],
       "gates_why": "Its whole subject is what happens at a merge."
+    },
+    "grep-before-search": {
+      "globs": [
+        "**"
+      ],
+      "why": "No locus, and deliberately `**`. What the rule governs is a session's choice of TOOL in the moment it goes looking for something -- a local grep against a GitHub search call -- which happens before any file is opened and leaves no artifact in the tree at all. There is no path whose editing means the choice was made badly, so a narrower glob would only make the rule invisible at the moment it fires.",
+      "decided": "2026-09-14, when the practice was written"
     },
     "handoff-is-pasteable": {
       "globs": [
@@ -771,6 +806,13 @@
       "why": "Set at phase 1 from the Install text, which named a path unambiguously.",
       "decided": "phase 1"
     },
+    "reduction-pass": {
+      "globs": [
+        "**"
+      ],
+      "why": "`**` because this is a standing COMMAND, not a rule about a kind of file. \"Reduction pass\" can be said in any turn, about any repository's always-loaded surfaces, and the session has to already know what it means -- the same reasoning as go-merge, park-it and three-things, which are all at `**` for being phrases rather than file-shaped rules. The occasion index is the channel that matters here; a path trigger could not fire on a sentence. The second half of the occasion (\"an always-loaded surface is near its ceiling\") is served by tools/precedent_gate.py's merge and push gates, which print the headroom notice, rather than by any glob.",
+      "decided": "2026-09-14, when the practice was added"
+    },
     "registry-source-of-truth": {
       "globs": [
         "**"
@@ -932,28 +974,6 @@
       ],
       "gates_why": "The obligation lands where a session is created, which is a tool call made while composing a reply."
     },
-    "small-calls": {
-      "globs": [
-        "**"
-      ],
-      "why": "No locus. What licenses this is a judgment call coming up mid-work, a property of the moment rather than of a file or directory -- the same reason session-text and go-merge have none. Reached through the occasion index.",
-      "decided": "2026-09-19, when the practice landed at universal"
-    },
-    "slow-steps-report-and-cache": {
-      "globs": [
-        "**"
-      ],
-      "why": "A property of how long something runs, not of where it lives -- a gate script, an audit and a heavy solve are all in scope and share no path. Reached through the occasion index.",
-      "decided": "2026-09-08, when the practice landed"
-    },
-    "source-naming": {
-      "globs": [
-        "precedent.json",
-        "precedent-source.json"
-      ],
-      "why": "Declaring a source IS editing precedent.json, and a source's own identity IS its precedent-source.json, so the two paths identify the practice's distinguishing condition rather than merely a necessary one. The Rule's other half -- say the convention before anyone picks a name -- is a conversational moment with no file at all, and no gate reaches it either; the occasion index carries that half, which is why the occasion names importing and creating a repository, not only declaring one.",
-      "decided": "2026-09-06, the session that landed the practice"
-    },
     "session-text": {
       "globs": [
         "**"
@@ -975,6 +995,28 @@
         "reply"
       ],
       "gates_why": "The naming decision is made while composing a reply, at creation or the moment the differentiator becomes known -- the same moment session-tags' obligation lands in."
+    },
+    "slow-steps-report-and-cache": {
+      "globs": [
+        "**"
+      ],
+      "why": "A property of how long something runs, not of where it lives -- a gate script, an audit and a heavy solve are all in scope and share no path. Reached through the occasion index.",
+      "decided": "2026-09-08, when the practice landed"
+    },
+    "small-calls": {
+      "globs": [
+        "**"
+      ],
+      "why": "No locus. What licenses this is a judgment call coming up mid-work, a property of the moment rather than of a file or directory -- the same reason session-text and go-merge have none. Reached through the occasion index.",
+      "decided": "2026-09-19, when the practice landed at universal"
+    },
+    "source-naming": {
+      "globs": [
+        "precedent.json",
+        "precedent-source.json"
+      ],
+      "why": "Declaring a source IS editing precedent.json, and a source's own identity IS its precedent-source.json, so the two paths identify the practice's distinguishing condition rather than merely a necessary one. The Rule's other half -- say the convention before anyone picks a name -- is a conversational moment with no file at all, and no gate reaches it either; the occasion index carries that half, which is why the occasion names importing and creating a repository, not only declaring one.",
+      "decided": "2026-09-06, the session that landed the practice"
     },
     "speculation-is-marked": {
       "globs": [
@@ -1003,12 +1045,19 @@
       "globs": [
         "**"
       ],
-      "why": "A moment, not a place — routed by the `reply` gate instead, exactly as next-steps-after-commit was before it was absorbed here.",
+      "why": "A moment, not a place \u2014 routed by the `reply` gate instead, exactly as next-steps-after-commit was before it was absorbed here.",
       "decided": "Morgan, 2026-09-15",
       "gates": [
         "reply"
       ],
       "gates_why": "Its occasion is the end of every reply; tools/precedent_reply_check.py measures the heading and the two fixed sentence-pairs from the transcript at the stop hook. It carries NO occasion: for the same reason its predecessor did not -- the requirement is REFUSED at the stop hook whether or not a session recognised the occasion, so an index line would buy nothing a mechanical refusal doesn't already guarantee."
+    },
+    "their-constraints-are-given": {
+      "globs": [
+        "**"
+      ],
+      "why": "The occasion is something a PERSON says about their own situation, which is not a file path and not a repository -- the same shape as push-back beside it, and reached the same way, through the occasion index. Left at `**` deliberately: there is no tree state that predicts when somebody will state a constraint a session is tempted to soften.",
+      "decided": "2026-09-21, when the practice landed at universal after the same argument recurred across sessions"
     },
     "three-things": {
       "globs": [
@@ -1042,19 +1091,19 @@
       ],
       "gates_why": "The periodic sweep that enforces the stated-reason requirement on the backlog naturally happens at merge time, the same as capture-gate."
     },
-    "todo-reminder": {
-      "globs": [
-        "todo/todo-*.md"
-      ],
-      "why": "The command writes into an open-item file under todo/ and nowhere else, post the 2026-09-16 todo/gotcha migration. Its real trigger is a phrase in a message, which the reply gate carries; the glob covers a session already editing the item file.",
-      "decided": "2026-09-13"
-    },
     "todo-migrate-available-but-unused": {
       "globs": [
         "TODO.md"
       ],
       "why": "The distinguishing condition is a repo's own TODO.md -- whether it is still the old single-file format is the whole question this practice asks, and the mechanical check (checked_by) is the real enforcement; the glob covers a session already editing the file by hand, which is when a person is most likely to notice its shape.",
       "decided": "2026-09-19"
+    },
+    "todo-reminder": {
+      "globs": [
+        "todo/todo-*.md"
+      ],
+      "why": "The command writes into an open-item file under todo/ and nowhere else, post the 2026-09-16 todo/gotcha migration. Its real trigger is a phrase in a message, which the reply gate carries; the glob covers a session already editing the item file.",
+      "decided": "2026-09-13"
     },
     "two-check-levels": {
       "globs": [
@@ -1144,6 +1193,13 @@
       "why": "No locus. A standing command phrase fires on something the person said, not on a file being edited; it is reached through the occasion index and the reply gate.",
       "decided": "2026-09-09"
     },
+    "workflow-file-outside-vendoring": {
+      "globs": [
+        ".github/workflows/**"
+      ],
+      "why": "Its own applies_to. The occasion is a workflow file being added or changed, which is exactly what the glob names -- the mechanical check (precedent_check.py's tree-scope registration) reads the same manifest comparison this practice describes, so the path channel and the check agree by construction rather than by two hand-kept lists.",
+      "decided": "2026-09-20, when the practice landed"
+    },
     "write-it-up": {
       "globs": [
         "**"
@@ -1157,55 +1213,6 @@
       ],
       "why": "Its own applies_to. The occasion is writing anything a person will read, so the path channel fires on markdown and nothing else -- and it is tier: resident anyway, so the glob is a second reminder rather than the only channel. The half no glob can reach is the chat reply, which is why it also carries the `reply` gate.",
       "decided": "landed universal 2026-09-07"
-    },
-    "workflow-file-outside-vendoring": {
-      "globs": [
-        ".github/workflows/**"
-      ],
-      "why": "Its own applies_to. The occasion is a workflow file being added or changed, which is exactly what the glob names -- the mechanical check (precedent_check.py's tree-scope registration) reads the same manifest comparison this practice describes, so the path channel and the check agree by construction rather than by two hand-kept lists.",
-      "decided": "2026-09-20, when the practice landed"
-    },
-    "diagnosis-is-measured": {
-      "globs": [
-        "**"
-      ],
-      "why": "Not a property of any file. It fires when a session READS a diagnostic -- a hook's stderr, a tool's error text, a guard's cause list -- which can happen in any turn touching any path, or none. Routed by the `reply` gate, since the obligation binds what the session may then assert.",
-      "decided": "2026-09-14, when the practice landed at universal",
-      "gates": [
-        "reply"
-      ],
-      "gates_why": "The cost lands in the reply: a relayed guess presented as a finding, and a recommendation built on it. That is what the gate has to catch."
-    },
-    "reduction-pass": {
-      "globs": [
-        "**"
-      ],
-      "why": "`**` because this is a standing COMMAND, not a rule about a kind of file. \"Reduction pass\" can be said in any turn, about any repository's always-loaded surfaces, and the session has to already know what it means -- the same reasoning as go-merge, park-it and three-things, which are all at `**` for being phrases rather than file-shaped rules. The occasion index is the channel that matters here; a path trigger could not fire on a sentence. The second half of the occasion (\"an always-loaded surface is near its ceiling\") is served by tools/precedent_gate.py's merge and push gates, which print the headroom notice, rather than by any glob.",
-      "decided": "2026-09-14, when the practice was added"
-    },
-    "github-api-budget": {
-      "globs": [
-        "tools/github_budget.py",
-        "tools/github_api_budgets.json",
-        "**/*github*.py"
-      ],
-      "why": "Its own applies_to, and a real locus: the module that makes the calls, the registry that declares what they should cost, and any new file whose name says it talks to GitHub. Deliberately NOT `**` -- a rule about API spend has nothing to say to a session editing a practice file. What the glob cannot reach is a tool that calls the API under an unrelated name, which is exactly why the mechanical check enumerates every tracked .py rather than trusting this list.",
-      "decided": "2026-09-14, when the practice was written"
-    },
-    "grep-before-search": {
-      "globs": [
-        "**"
-      ],
-      "why": "No locus, and deliberately `**`. What the rule governs is a session's choice of TOOL in the moment it goes looking for something -- a local grep against a GitHub search call -- which happens before any file is opened and leaves no artifact in the tree at all. There is no path whose editing means the choice was made badly, so a narrower glob would only make the rule invisible at the moment it fires.",
-      "decided": "2026-09-14, when the practice was written"
-    },
-    "checks-carry-a-declared-decline": {
-      "globs": [
-        "tools/precedent_check.py",
-        "tools/checks/**/*.py"
-      ],
-      "why": "The distinguishing condition is that a CHECK is being written or changed, and in this engine a check is one of two things: a @check function in precedent_check.py, or a source's own check_*.py under tools/checks/. Both are paths, so the glob identifies the practice rather than merely accompanying it. Deliberately NOT practices/** -- editing a practice file is necessary for writing a rule and says nothing about whether a check is involved, which is the test this file's note sets.",
-      "decided": "2026-09-14, on landing the practice"
     }
   },
   "gates": {

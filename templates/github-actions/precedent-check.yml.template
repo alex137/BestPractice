@@ -99,9 +99,18 @@
 name: Precedent checks
 
 on:
-  # pull_request (opened, synchronize) PLUS push scoped to the branch(es)
-  # that actually receive merges -- `main` below is the default a fresh
-  # install gets. CUSTOMIZE THE BRANCH LIST if this repo's own routine merge
+  # pull_request (opened, reopened, ready_for_review) PLUS push scoped to
+  # the branch(es) that actually receive merges -- `main` below is the
+  # default a fresh install gets.
+  #
+  # `synchronize` IS DELIBERATELY ABSENT (2026-09-21). It fires on EVERY
+  # push to a pull-request branch, which bills a run per intermediate
+  # commit to check a tree that is superseded minutes later. Measured in a
+  # real consuming repo: 38 runs in one day on a workflow that was already
+  # one job with `paths:` filters. What it trades is re-checking a PR as
+  # you fix it; you still get a check when it opens, when a draft becomes
+  # ready, and when it lands. Put it back for a check whose value depends
+  # on catching a bad state the moment it is pushed. CUSTOMIZE THE BRANCH LIST if this repo's own routine merge
   # target is not just `main`: Precedent's own equivalent workflows in this
   # repo list `[main, precedent-beta-v01]`, because routine work here lands
   # on precedent-beta-v01, not main (see GITHUB_ACTIONS.md). Whatever
@@ -120,8 +129,8 @@ on:
   # restores it at close to zero added cost: a branch with NO open PR
   # triggers nothing here at all -- GitHub does not even evaluate this
   # workflow, cheaper than any in-workflow guard could be. A branch WITH an
-  # open PR gets checked on each synchronize, with `concurrency:` below
-  # collapsing a burst of pushes into one surviving run.
+  # open PR gets checked when it opens and when a draft becomes ready,
+  # with `concurrency:` below collapsing a burst into one surviving run.
   #
   # WHY THIS DOESN'T DOUBLE-BILL, which is the reason earlier versions of
   # this template ran push alone: a push run and a pull_request run test
@@ -133,10 +142,10 @@ on:
   # below -- none of which is ever a PR's own head branch -- a PR's branch
   # only ever gets pull_request events, and a named branch only ever gets
   # push events (a PR's merge commit landing on main is a push to main, not
-  # a synchronize on the now-closed PR branch). Nothing here fires twice for
+  # an event on the now-closed PR branch). Nothing here fires twice for
   # the same commit.
   pull_request:
-    types: [opened, synchronize]
+    types: [opened, reopened, ready_for_review]
   push:
     branches: [main]
   workflow_dispatch:

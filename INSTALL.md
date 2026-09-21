@@ -336,7 +336,7 @@ list.)
    `STYLEGUIDE.md`, `.gitignore`, and the README entry-block edit — plus
    `local/practices/project-voice.md` (a repo-local practice, not a root
    file, but still an install artifact — nothing else may land under
-   `local/`), `tools/bootstrap.sh`, `.github/workflows/bestpractice-docs.yml` (only
+   `local/`), `tools/bootstrap.sh`, `.github/workflows/leak-gate.yml` (only
    when the individual or team source resolved declares `"ci_workflows":
    "enabled"` — disabled is the default; see GITHUB_ACTIONS.md), and
    `.github/pull_request_template.md`. Everything else that ships
@@ -797,8 +797,6 @@ not this section.
 
    | Artifact | What a §0 install needs |
    |---|---|
-   | [templates/github-actions/doc-lint.yml.template](templates/github-actions/doc-lint.yml.template) | **Nothing — already handled.** It discovers `doc_lint.py` at either `process/upstream/tools/` or `tools/` and watches both. Install it verbatim — but only when you actually want it installed: `precedent_install.py` writes it by default only when the individual or team source resolved declares `"ci_workflows": "enabled"` (GITHUB_ACTIONS.md), and a §0 install manually copying this template is opting in explicitly regardless of that field. |
-   | [templates/github-actions/views-drift.yml.template](templates/github-actions/views-drift.yml.template) | **Not this repo's — skip it.** It gates the generated views of a repo that AUTHORS its `practices/` (an individual or team practice set). A consuming repo materializes `practices/` from sources a CI runner cannot reach, so there is nothing on the runner to check the views against, and the workflow exits non-zero saying so rather than passing blind. See [GITHUB_ACTIONS.md](documentation/GITHUB_ACTIONS.md)'s Limits. |
    | [templates/GETTING_STARTED.md](templates/GETTING_STARTED.md) | Replace the `<upstream-docs>` placeholder with `https://github.com/alex137/BestPractice/blob/main` — the upstream URL, because §0 leaves no local copy of `MOBILE.md`, `METHOD.md` or `GITHUB_ACTIONS.md` to point at. (§1 replaces it with `process/upstream`.) |
    | [templates/pull_request_template.md.template](templates/pull_request_template.md.template) | Mentions `process/upstream/` in prose, as a review-grouping hint. Harmless, but names a directory your repo does not have, so a reader follows a dead path. Reword or drop the line. (`templates/local-practices/project-voice.md.template` has no such mention — it is a repo-local practice under `local/`, not a `process/upstream/`-adjacent document.) |
    | [templates/TODO.md.template](templates/TODO.md.template), [templates/MAP.md.template](templates/MAP.md.template), [templates/STYLEGUIDE.md.template](templates/STYLEGUIDE.md.template) | Each names `process/` or `process/upstream/` once (a recurring check-in item, a map row, an export note). Same treatment: reword or drop the line — and `STYLEGUIDE.md` still ships as an empty skeleton, out of scope for the install; only its one path note changes. |
