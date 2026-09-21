@@ -1266,7 +1266,7 @@ def _untracked_ci_workflow_files(dest_root, manifest):
             if rel not in tracked and rel not in RETIRED_CI_WORKFLOW_FILES]
 
 
-def _remove_retired_ci_workflow_files(dest_root, manifest):
+def _remove_retired_ci_workflow_files(dest_root, manifest, kind=None):
     """Drop every RETIRED_CI_WORKFLOW_FILES entry from a manifest that still
     carries one, and delete a retired file still on disk -- but ONLY when
     its current on-disk sha256 still matches the hash the manifest already
@@ -1341,7 +1341,14 @@ def _remove_retired_ci_workflow_files(dest_root, manifest):
     # must not trigger a sweep, so the diff is skipped entirely unless the
     # kind is a key we recognise. The tombstone half still applies, since
     # it names paths explicitly and cannot over-reach.
-    kind = manifest.get('kind')
+    # THE KIND COMES FROM THE CALLER, not from the manifest, and that
+    # distinction is load-bearing. During a source->consumer CONVERSION the
+    # manifest on disk still says the OLD kind, so reading it here would
+    # diff against the wrong shipping list and delete the new kind's own
+    # workflows. Both call sites already compute
+    # `manifest.get('kind', DEFAULT_KIND)`; they pass it in.
+    if kind is None:
+        kind = manifest.get('kind', DEFAULT_KIND)
     superseded = set()
     if kind in CI_WORKFLOW_TEMPLATES:
         ships_now = {installed_as
@@ -2090,7 +2097,7 @@ def refresh(clone, force=False, ref=None):
     # workflow entry is cleaned up unconditionally, --force or not, so its
     # own retirement can never be the reason refresh refuses. See
     # RETIRED_CI_WORKFLOW_FILES' own comment for the incident this closes.
-    _remove_retired_ci_workflow_files(ROOT, manifest)
+    _remove_retired_ci_workflow_files(ROOT, manifest, kind)
 
     if not force:
         drift = (_local_drift(dest_tools, manifest) + _hook_drift(ROOT, manifest)
@@ -2407,7 +2414,7 @@ def _cli_record_ci(rest):
     dest_tools = ROOT / 'tools'
     manifest = _load_manifest(dest_tools)
     kind = manifest.get('kind', DEFAULT_KIND)
-    _remove_retired_ci_workflow_files(ROOT, manifest)
+    _remove_retired_ci_workflow_files(ROOT, manifest, kind)
     before = dict(_load_manifest(dest_tools).get('ci_workflows_sha256') or {})
     written = record_ci_workflow_files(ROOT, kind)
     if not written:
