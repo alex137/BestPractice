@@ -77,6 +77,7 @@
 | [`todo-2026-09-16-file-retires-when-on-live-gotchas`](todo-2026-09-16-file-retires-when-on-live-gotchas.md) | Populate `retires_when` on the live gotchas. | 4d | wait |  |
 | [`todo-2026-09-18-no-stale-counts-undercounts-a-multi-source-catalogue`](todo-2026-09-18-no-stale-counts-undercounts-a-multi-source-catalogue.md) | `check_no_stale_counts.py` (vendored from `precedent-team-writing`, practice `no-stale-counts`) reports a false positive | 2d | wait | write access to precedent-team-writing -- refused from a session rooted here (cr… |
 | [`todo-2026-09-19-pass-3-coherence-read-findings`](todo-2026-09-19-pass-3-coherence-read-findings.md) | Pass 3 of a very deep check (2026-09-19) read all 130 `practices/*.md` files for coherence — contradictions, staleness,  | 1d | ask | the repo owner's call on which findings below are worth acting on -- most are ar… |
+| [`todo-2026-09-20-bare-pattern-precision-and-severity`](todo-2026-09-20-bare-pattern-precision-and-severity.md) | `require_no_bare_pattern` (tools/precedent_reply_check.py) landed 2026-09-20 declared `advisory` for rule-links and bran | 0d | wait |  |
 | [`todo-2026-09-20-cross-session-repeated-point-tracking`](todo-2026-09-20-cross-session-repeated-point-tracking.md) | Design a way to notice when Morgan has made the same point to a session multiple times, across sessions, and stop re-arg | 0d | wait |  |
 | [`todo-2026-09-20-the-load-budget-registry-asserts-loads-nothing-verifies`](todo-2026-09-20-the-load-budget-registry-asserts-loads-nothing-verifies.md) | [tools/session_load_budgets.json](../tools/session_load_budgets.json) declares what every session loads, and nothing che | 0d | wait |  |
 
@@ -174,6 +175,7 @@
 | [`todo-2026-09-14-sync-views-blames-a-dropped-source-for-a-retirement`](todo-2026-09-14-sync-views-blames-a-dropped-source-for-a-retirement.md) | A retired practice is reported as one whose SOURCE was dropped, and a renamed source would read identically. | 6d |
 | [`todo-2026-09-15-go-merge-direct-edit-narrowing-check`](todo-2026-09-15-go-merge-direct-edit-narrowing-check.md) | A mechanical check could narrow the trivial/substantial judgment `Go merge` now makes, and it is not built. | 5d |
 | [`todo-2026-09-16-file-retires-when-on-live-gotchas`](todo-2026-09-16-file-retires-when-on-live-gotchas.md) | Populate `retires_when` on the live gotchas. | 4d |
+| [`todo-2026-09-20-bare-pattern-precision-and-severity`](todo-2026-09-20-bare-pattern-precision-and-severity.md) | `require_no_bare_pattern` (tools/precedent_reply_check.py) landed 2026-09-20 declared `advisory` for rule-links and bran | 0d |
 | [`todo-2026-09-20-cross-session-repeated-point-tracking`](todo-2026-09-20-cross-session-repeated-point-tracking.md) | Design a way to notice when Morgan has made the same point to a session multiple times, across sessions, and stop re-arg | 0d |
 | [`todo-2026-09-20-the-load-budget-registry-asserts-loads-nothing-verifies`](todo-2026-09-20-the-load-budget-registry-asserts-loads-nothing-verifies.md) | [tools/session_load_budgets.json](../tools/session_load_budgets.json) declares what every session loads, and nothing che | 0d |
 
