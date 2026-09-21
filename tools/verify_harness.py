@@ -288,6 +288,16 @@ def _amended_and_logged(slug):
     return slug in CHANGES_DOC.read_text(encoding='utf-8')
 
 
+# A filtered-out check's stand-in returns this instead of None. The
+# verdict-returning family is wired up as `check('<name>', *check_foo())`,
+# so a stand-in returning None makes every one of those 10 call sites die
+# on `*None` the moment PRECEDENT_CHECK_ONLY/SKIP is set -- which is how
+# CI runs verify_harness, and only how CI runs it, so a full local run
+# passes 244/0 and the sharded job crashes before its first verdict.
+# Reported 2026-09-21 against the two sharded deep-check jobs.
+_CHECK_FILTERED_OUT = object()
+
+
 def check(name, ok, detail='', failure=''):
     """Record one verdict.
 
@@ -301,6 +311,9 @@ def check(name, ok, detail='', failure=''):
 
     A failing check prints its failure text when it has one, because that is
     the string that says what to go and look at."""
+    if ok is _CHECK_FILTERED_OUT:
+        not_applicable(name, 'filtered out by PRECEDENT_CHECK_ONLY/SKIP')
+        return
     shown = failure if (not ok and failure) else detail
     (PASSED if ok else FAILED).append((name, shown))
     print(f"{'PASS' if ok else 'FAIL'}: {name}" + (f" -- {shown}" if shown and not ok else ""))
@@ -497,6 +510,7 @@ def _install_check_filter():
             def _skipped(*a, _name=name, **kw):
                 print(f"  SKIP (filtered out by PRECEDENT_CHECK_ONLY/SKIP): {_name}",
                       file=sys.stderr)
+                return (_CHECK_FILTERED_OUT, '', '')
             globals()[name] = _skipped
 
 
@@ -26382,6 +26396,63 @@ def _print_checkout_banner():
     print(f"verify_harness: checking {ROOT} @ {b.stdout.strip()} ({h.stdout.strip()})\n")
 
 
+def check_filtered_check_does_not_break_the_unpack_family():
+    """A check filtered out by PRECEDENT_CHECK_ONLY/SKIP must unpack
+    through `check('<name>', *check_foo())` without raising, and must land
+    as N/A -- never as a pass.
+
+    Both halves have been wrong in production. Before 2026-09-21 the
+    stand-in returned a truthy value and a skipped check REPORTED SUCCESS;
+    the fix for that returned None instead, which made `*None` a TypeError
+    at all 10 unpack sites the moment either variable was set. CI is the
+    only caller that sets them, so a full local run passed 244/0 while
+    both sharded deep-check jobs died before their first verdict. This
+    check is the control that refuses either regression.
+
+    practice: control-asserts-which-failure -- the negative case below is
+    the old None-returning stand-in, which must still raise.
+    """
+    import subprocess
+    cases, bad = [], []
+    probe = (
+        "import os, sys\n"
+        "sys.path.insert(0, %r)\n"
+        "os.environ['PRECEDENT_CHECK_ONLY'] = 'check_nothing_matches_this'\n"
+        "import verify_harness as vh\n"
+        "vh._install_check_filter()\n"
+        "stand_in = vh.check_advisory_requirement_never_blocks\n"
+        "got = stand_in()\n"
+        "assert got is not None, 'stand-in returned None -- *None will raise'\n"
+        "assert got[0] is vh._CHECK_FILTERED_OUT, 'first element is not the sentinel'\n"
+        "vh.PASSED.clear(); vh.FAILED.clear(); vh.NA.clear()\n"
+        "vh.check('fixture', *stand_in())\n"
+        "assert not vh.PASSED, 'a filtered check reported SUCCESS'\n"
+        "assert not vh.FAILED, 'a filtered check reported a FAILURE'\n"
+        "assert len(vh.NA) == 1, 'a filtered check was not recorded as N/A'\n"
+        "print('ok')\n"
+    ) % str(ROOT / 'tools')
+    r = subprocess.run([sys.executable, '-c', probe],
+                       capture_output=True, text=True, cwd=str(ROOT))
+    if r.returncode != 0 or 'ok' not in r.stdout:
+        bad.append('the filtered-check stand-in no longer unpacks as N/A: '
+                   + (r.stderr.strip().splitlines() or ['(no stderr)'])[-1])
+    cases.append('filtered check unpacks and lands as N/A')
+
+    # Negative control: the shape the bug had must still be an error.
+    ctl = subprocess.run(
+        [sys.executable, '-c',
+         "def f(*a, **k):\n    return None\n"
+         "def check(name, ok, detail='', failure=''):\n    pass\n"
+         "try:\n    check('x', *f())\n"
+         "except TypeError:\n    print('raised')\n"],
+        capture_output=True, text=True)
+    if 'raised' not in ctl.stdout:
+        bad.append('negative control did not raise -- this check proves nothing')
+    cases.append('negative control (None stand-in) still raises')
+
+    return (not bad, f'{len(cases)} stated cases', '; '.join(bad))
+
+
 def main():
     _install_check_filter()
     _install_check_timing()
@@ -26478,6 +26549,8 @@ def main():
     check_behavioral_replay()
     check('the reply gate names work committed but not landed',
           *check_reply_gate_names_work_not_yet_landed())
+    check('a filtered-out check unpacks as N/A, never as a pass',
+          *check_filtered_check_does_not_break_the_unpack_family())
     check('a practice source ships no CI workflow, and an existing set loses one',
           *check_a_source_set_ships_no_ci_workflow())
     check('the instruction files name only repositories that exist',
