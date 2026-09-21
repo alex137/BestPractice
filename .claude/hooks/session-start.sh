@@ -14,6 +14,19 @@
 # it for the first real registered document (spec/PREFORK_AUDIT.md) found
 # ModuleNotFoundError: nobody had run this tool successfully in a fresh
 # session before either.
+#
+# ITS PARALLEL ON EVERY OTHER HARNESS IS tools/bootstrap.sh. Codex,
+# gemini-cli and grok-build have no SessionStart hook; templates/harness/
+# README.md tells each of them to wire that script instead, so a step added
+# HERE and not THERE reaches one harness out of four. That is not
+# hypothetical: until 2026-09-21 this hook ran seven things and the script
+# ran three, and the difference included .precedent/SESSION_PRACTICES.md --
+# every team and individual practice in force, which AGENTS.md's Standing
+# instruction tells every session to read and which no non-Claude session
+# had ever been given. Adding a step here? Add it there, or write the
+# reason it cannot travel into templates/harness/PARALLELS.md, which is
+# checked (claude-only-surface-has-a-parallel) and re-judged on every very
+# deep check.
 set -euo pipefail
 
 # Package install is the only remote-gated step. Everything below it used to

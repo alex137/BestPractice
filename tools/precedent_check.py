@@ -2693,6 +2693,146 @@ def _dogfooded_hooks_match_template(ctx):
     return found
 
 
+_PARALLEL_COLUMNS = ('codex', 'gemini-cli', 'grok-build')
+
+
+def _claude_surface(root):
+    """-> {mechanism name} every Claude-only mechanism this repo runs.
+
+    Two sources, unioned on purpose. The hooks DIRECTORY catches a script
+    that exists but nothing wires yet; the settings WIRING catches a hook
+    wired out of somewhere else entirely. Either alone leaves a real hole:
+    doc-lint-gate.sh spent a day in .claude/hooks/ reaching no consumer
+    because only one of those two questions was ever asked of it.
+    """
+    names = set()
+    hook_dir = root / '.claude' / 'hooks'
+    if hook_dir.is_dir():
+        names |= {p.name for p in hook_dir.glob('*.sh')}
+    for sp in sorted((root / '.claude').glob('settings*.json')
+                     if (root / '.claude').is_dir() else ()):
+        try:
+            doc = _json.loads(sp.read_text(encoding='utf-8'))
+        except Exception:                                     # noqa: BLE001
+            continue          # declared-hooks-exist owns the parse finding
+        for _event, blocks in (doc.get('hooks') or {}).items():
+            for block in blocks or ():
+                for h in block.get('hooks') or ():
+                    cmd = (h.get('command') or '').strip()
+                    if cmd and cmd.split()[0].rsplit('/', 1)[-1].endswith('.sh'):
+                        names.add(cmd.split()[0].rsplit('/', 1)[-1])
+    return names
+
+
+def _parallels_rows(text):
+    """-> [(first_cell, [other_cells])] for every data row of the one table
+    in PARALLELS.md. Header and separator rows are dropped by shape, not by
+    position: a row whose cells are all dashes is a separator, and the row
+    naming the columns is the one whose first cell is `Mechanism`."""
+    rows = []
+    for line in text.splitlines():
+        line = line.strip()
+        if not line.startswith('|') or not line.endswith('|'):
+            continue
+        cells = [c.strip() for c in line[1:-1].split('|')]
+        if len(cells) < 2:
+            continue
+        if all(set(c) <= set('-: ') for c in cells):
+            continue
+        if cells[0].lower().startswith('mechanism'):
+            continue
+        rows.append((cells[0], cells[1:]))
+    return rows
+
+
+@check('claude-only-surface-has-a-parallel', 'tree',
+       'every hook in .claude/hooks/, and every hook .claude/settings*.json '
+       'wires, is named in a row of templates/harness/PARALLELS.md, and '
+       'every row of that table carries a non-empty verdict for each of '
+       + ', '.join(_PARALLEL_COLUMNS),
+       'whether a recorded verdict is still TRUE -- a `none because the '
+       'harness has no such hook` written before that harness shipped one '
+       'reads exactly like a current answer. Re-reading each cell against '
+       'what the harness can do today is very-deep-check pass 1, and is '
+       'the reason this check is deliberately shallow',
+       practice_backed=False)
+def _claude_only_surface_has_a_parallel(ctx):
+    """Claude Code is the harness this repo is developed in, so a mechanism
+    is built as a .claude/ hook and the other three adapters find out later
+    or never. templates/harness/LEDGER.md does not close that: it is keyed
+    by CHANGE, so a mechanism nobody has touched since it was written
+    carries no statement about whether a parallel exists, and a hook that
+    lives only in .claude/ has no ledger row at all.
+
+    Asked for by Morgan, 2026-09-21 (strength: decided) -- "everything in
+    .claude should have its parallel for the others" -- after three
+    adapters were found at once with no Markdown gate and no replacement
+    for the CI check it had retired. The first run of this check found the
+    bigger one underneath that: templates/harness/README.md named
+    tools/bootstrap.sh as the parallel of .claude/hooks/session-start.sh,
+    and the script ran three of the hook's seven steps, so no non-Claude
+    session had ever been shown .precedent/SESSION_PRACTICES.md."""
+    claude_dir = ctx.root / '.claude'
+    family = ctx.root / 'templates' / 'harness'
+    if not claude_dir.is_dir() or not family.is_dir():
+        raise NotApplicable(
+            'this repo has no .claude/ or no templates/harness/ -- it does '
+            'not author the harness-adapter family, so there is no '
+            'Claude-only surface here for the other adapters to parallel. '
+            'A repo with its own such surface still needs the answer; '
+            'finding that surface is not something this check can do')
+    surface = _claude_surface(ctx.root)
+    if not surface:
+        raise NotApplicable('.claude/ here wires and ships no hooks at all')
+    path = family / 'PARALLELS.md'
+    rel = 'templates/harness/PARALLELS.md'
+    if not path.exists():
+        return [Finding(rel,
+                        'does not exist -- nothing records whether '
+                        + ', '.join(_PARALLEL_COLUMNS) + ' have a parallel '
+                        'for each of: ' + ', '.join(sorted(surface)))]
+    text = path.read_text(encoding='utf-8', errors='ignore')
+    rows = _parallels_rows(text)
+    findings = []
+    for name in sorted(surface):
+        if not any(name in first for first, _rest in rows):
+            findings.append(Finding(
+                rel,
+                f'has no row for {name}, which this repo runs as a '
+                f'Claude-only mechanism. Add one, with a verdict for each '
+                f'of {", ".join(_PARALLEL_COLUMNS)} -- a real parallel, or '
+                f'`none` and what the person on that harness gets instead'))
+    for first, rest in rows:
+        if len(rest) < 1 + len(_PARALLEL_COLUMNS):
+            findings.append(Finding(
+                rel,
+                f'the row for {first!r} has {len(rest) + 1} cells where the '
+                f'table needs {2 + len(_PARALLEL_COLUMNS)} (mechanism, what '
+                f'it does, then one per adapter) -- a missing cell renders '
+                f'as a silent blank, which reads like "no gap here"'))
+            continue
+        blank = [col for col, cell in zip(_PARALLEL_COLUMNS, rest[1:])
+                 if not cell or set(cell) <= set('-— ')]
+        if blank:
+            findings.append(Finding(
+                rel,
+                f'the row for {first!r} leaves {", ".join(blank)} empty. An '
+                f'empty cell is not an answer: write the parallel, or '
+                f'`none` and the reason'))
+        # A row naming a hook this repo no longer has is bookkeeping left
+        # behind by a deletion -- and it is worse than a missing row,
+        # because it reads as coverage.
+        import re as _re
+        for tok in _re.findall(r'`([\w.-]+\.sh)`', first):
+            if tok not in surface:
+                findings.append(Finding(
+                    rel,
+                    f'names {tok}, which is neither in .claude/hooks/ nor '
+                    f'wired by any .claude/settings*.json -- a row left '
+                    f'behind by a deleted hook reads as coverage. Drop it'))
+    return findings
+
+
 def _settings_hook_dirs():
     """-> [Path] every directory a .claude/settings*.json actually wires a
     hook out of, resolved against this repo.
@@ -5289,8 +5429,15 @@ def _routing_audit(ctx):
             for slug in state if slug not in active]
 
 
+# grok-build joined 2026-09-21 (Morgan, strength: decided -- "everything in
+# .claude should have its parallel for the others"). Its own README had
+# deferred exactly this addition, on the grounds that its hooks syntax is
+# unverified; that reason held for WIRING a hook and never for RECORDING a
+# verdict, which is all this list controls.
 _LEDGER_MEMBER_DIRS = ('templates/harness/claude-code',
-                       'templates/harness/codex', 'templates/harness/gemini-cli')
+                       'templates/harness/codex',
+                       'templates/harness/gemini-cli',
+                       'templates/harness/grok-build')
 
 
 def _ledger_change_cells(ledger_text):

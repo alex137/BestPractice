@@ -25,7 +25,7 @@ table, nothing is checking Markdown before it reaches a shared branch.
 **IF YOUR HARNESS HAS NO HOOKS, YOU NEED THE GITHUB CHECK — READ THIS
 BEFORE SKIPPING IT.** The Markdown lint left GitHub Actions on 2026-09-21
 and was replaced by `.claude/hooks/doc-lint-gate.sh`, which refuses a
-`git commit` whose staged Markdown fails `doc_lint.py --strict`. **That is
+`git commit` whose staged Markdown fails `doc_lint.py`. **That is
 a Claude Code mechanism.** Read the Bootstrap and Teardown columns above:
 every other adapter in this table says `n/a` or carries an unverified
 lifecycle hook, which means **nothing checks your Markdown at all** unless
@@ -34,14 +34,14 @@ you put a check back in CI yourself.
 So, on any harness other than Claude Code:
 
 1. **Run the light check by hand before every commit** —
-   `python3 tools/doc_lint.py --strict <the markdown you touched>` — and
+   `python3 tools/doc_lint.py <the markdown you touched>` — and
    treat that as non-optional rather than a nicety. Your harness will not
    remind you.
 2. **Also turn the GitHub check on**, because step 1 is a habit and habits
    are what the hook exists to replace. Copy
    [github-actions/light-check.yml.template](../github-actions/light-check.yml.template)
    to `.github/workflows/light-check.yml` and set its `CUSTOMIZE` command
-   to `python3 tools/doc_lint.py --strict`, with its `paths:` list set to
+   to `python3 tools/doc_lint.py`, with its `paths:` list set to
    `"**/*.md"`. One job, checked when a pull request opens and when it
    lands.
 3. **Enable Actions for the repository** if it is off — repository
@@ -67,6 +67,28 @@ what it does not need is an `@import` of the catalogue that hook renders —
 [`../../spec/PACK_SESSION_DOES_NOT_LOAD_UNIVERSAL.md`](../../spec/PACK_SESSION_DOES_NOT_LOAD_UNIVERSAL.md)
 says why, and it is the same file a session should read before changing what
 any hook here prints to stdout.
+
+**WHAT CLAUDE CODE DOES THAT THE OTHER THREE DO NOT, mechanism by
+mechanism: [PARALLELS.md](PARALLELS.md).** The table above answers "how is
+each adapter wired"; that one answers "what does the person on this harness
+not get", which is a different question and the one that goes stale
+unwatched. It is checked by `claude-only-surface-has-a-parallel` — every
+hook in `.claude/hooks/` must have a row with a verdict in all three
+columns — and re-judged, rather than merely counted, on every
+[very deep check](../../practices/very-deep-check.md).
+
+**The Bootstrap column above is a real parallel only since 2026-09-21.** It
+has named [`../../tools/bootstrap.sh`](../../tools/bootstrap.sh) as the
+harness-neutral equivalent of Claude Code's `SessionStart` hook since this
+directory existed, and for all that time the script ran three of the hook's
+seven steps. What the other three adapters were therefore never given: the
+declared team sources cloned, those sources refreshed, and
+`.precedent/SESSION_PRACTICES.md` written — the file this repo's own
+Standing instruction tells **every** session to read, carrying every team
+and individual practice in force. A codex session read that instruction,
+found no file, and worked with none of them. Nothing in this README was
+false; the hook and the script had simply never been read side by side,
+which is now a standing item in the very deep check's pass 1.
 
 **Enforcement caveat.** Adapters with a hook mechanism give *hard* guarantees
 (bootstrap always runs); adapters without one rely on the agent following the

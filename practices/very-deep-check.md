@@ -16,7 +16,9 @@ in_force_at: null
 supersedes:  []
 overrides:   null
 added:       null
-approved_by: "extended 2026-09-14, Morgan F -- after a session was refused by
+approved_by: "extended 2026-09-21, Morgan F (strength: decided), with
+  pass 1's adapter-parity item -- \"everything in .claude should have its\n  parallel for the others. This should also be a new item in very deep\n  check: check everything unique to Claude and make sure there's a parallel\n  for the three others\"; the first run of it found that\n  templates/harness/README.md had named tools/bootstrap.sh as\n  session-start.sh's parallel while the script ran three of the hook's\n  seven steps;
+  extended 2026-09-14, Morgan F -- after a session was refused by
   GitHub with a rate-limit error, he asked for the cause investigated, the
   fixes made, and this check to report the account's API limits so normal
   usage can be seen not to overspend them (strength: decided; the section's
@@ -553,6 +555,34 @@ method"). Build the fixtures.
   [spec/CONTRIBUTOR_ACCESS.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/CONTRIBUTOR_ACCESS.md)
   describes. A step that works only because this session's operator already
   has access is a finding.
+- **Everything unique to Claude Code, against the other three adapters.**
+  This repository is developed in Claude Code, so a new mechanism is built
+  as a `.claude/` hook and codex, gemini-cli and grok-build find out later
+  or never. Read
+  [templates/harness/PARALLELS.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/templates/harness/PARALLELS.md)
+  row by row and ask of each cell the one thing its own check cannot:
+  **is this verdict still true today?** `precedent_check.py`'s
+  `claude-only-surface-has-a-parallel` guarantees only that every hook in
+  `.claude/hooks/`, and every hook `.claude/settings*.json` wires, has a
+  row with something written in all three columns — a `none because that
+  harness has no pre-tool hook`, written while it genuinely had none, reads
+  exactly like a current answer for as long as nobody looks. So look: check
+  each harness's own current documentation for the invocation point the
+  cell says is missing, and where one has appeared, the finding is that the
+  mechanism should now transfer.
+
+  **Then go the other way, which is the half a table cannot prompt you to
+  do:** take each `.claude/` mechanism and open the artifact the row names
+  as its parallel, rather than trusting the name. That is how the 2026-09-21
+  run found the largest gap of the set — `templates/harness/README.md` had
+  told three adapters for months to wire `tools/bootstrap.sh` as their
+  equivalent of `session-start.sh`, and the script ran three of the hook's
+  seven steps, so no non-Claude session had ever been handed
+  `.precedent/SESSION_PRACTICES.md`, the file AGENTS.md's own Standing
+  instruction tells every session to read. Nothing was lying; the two files
+  had simply never been read side by side. Added 2026-09-21 at Morgan's
+  request (strength: decided) — "check everything unique to Claude and make
+  sure there's a parallel for the three others."
 - **Not the practice simulation.** This pass installs real fixtures and runs
   the ordinary checks on them. It does not run
   [tools/precedent_simulate.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/precedent_simulate.py) or its
