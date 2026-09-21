@@ -65,7 +65,27 @@ on:
   # confirmed. `workflow_dispatch` is there to re-run one on demand.
   #
   # PUT `synchronize` BACK for a check whose value depends on catching a
-  # bad state the moment it is pushed rather than before it merges.
+  # bad state the moment it is pushed rather than before it merges. THAT IS
+  # NOT HYPOTHETICAL, and the worked case is worth reading before you copy
+  # this file (measured by a consuming repo, 2026-09-21):
+  #
+  #   - A SECRET SCAN WANTS EVERY PUSH. A key pushed mid-branch stays in the
+  #     history after a later commit removes it, so checking only the first
+  #     and last states of a pull request checks the wrong thing. Conflict
+  #     markers and JSON/YAML/Python syntax survive fine at merge time; that
+  #     one does not.
+  #   - A PULL REQUEST CAN HAVE NO `opened` RUN AT ALL. In that repo, 2 of
+  #     the last 30 merged pull requests were checked ONLY by a synchronize
+  #     -- verified against one of them commit by commit, not inferred from
+  #     the aggregate. Dropping synchronize takes those to zero coverage.
+  #
+  #   Their saving from dropping it would have been about 3 billed minutes
+  #   per 30 pull requests. They kept it, and were right to.
+  #
+  # So: measure YOUR ratio before deciding. `synchronize` is expensive on a
+  # repo where a branch takes many pushes and near-free on one where it
+  # takes none, and the same flag is the right call in one and the wrong
+  # call in the other.
   #
   # CUSTOMIZE THE BRANCH LIST if this repo's routine merge target is not
   # just `main`.

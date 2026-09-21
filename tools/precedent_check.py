@@ -2457,8 +2457,106 @@ def _declared_hooks_exist(ctx):
 # NOT here -- each carries real repo-specific content (session-start.sh's
 # own package list, stop-git-check.sh's own tool-path story) and is
 # correctly expected to differ from its generic template counterpart.
+@check('wired-hooks-can-reach-a-consumer', 'tree',
+       "every hook this repo's own .claude/settings.json wires is present "
+       "in the directory the vendoring engine mirrors "
+       "(precedent_vendor_engine.HOOK_SOURCE_DIR), so a repo that installs "
+       "the engine actually receives it",
+       "whether the hook WORKS once delivered, and whether a consumer's "
+       "own settings.json wires it -- only that the file can reach one at "
+       "all. It also says nothing about hooks a consumer wires itself.",
+       practice_backed=False)
+def _wired_hooks_can_reach_a_consumer(ctx):
+    """A hook wired here but absent from HOOK_SOURCE_DIR reaches nobody.
+
+    THE INCIDENT (2026-09-21, and it is the worst shape this failure
+    takes). The Markdown lint was removed from GitHub Actions that day on
+    the argument that .claude/hooks/doc-lint-gate.sh replaced it -- a
+    commit gate that refuses unlinted Markdown, strictly better than the
+    CI check because it fires before the commit rather than after the
+    push.
+
+    The hook was written into this repo's own .claude/hooks/ and wired in
+    this repo's own settings.json, and it was put in NEITHER the directory
+    the engine mirrors NOR the shipped settings template. So a consuming
+    repo taking the update lost the workflow and gained nothing. The
+    replacement could not reach a single one of them.
+
+    Found by a consuming repo's session that went looking for the hook
+    after the vendor update, rather than by anything here. Every check in
+    this suite passed the day it shipped, because every one of them looks
+    at whether a file is correct and none asked whether it can travel.
+
+    WHY IT RUNS WHERE THE ENGINE IS AUTHORED. It compares this repo's
+    settings.json against HOOK_SOURCE_DIR, both of which exist only here.
+    A consuming repo has the delivered result, not the source directory,
+    so its own copy declines rather than passing vacuously.
+    """
+    import json as _json
+    settings = ctx.root / '.claude' / 'settings.json'
+    if not settings.is_file():
+        raise NotApplicable(
+            'no .claude/settings.json here, so nothing wires a hook whose '
+            'shippability this could check')
+    try:
+        import precedent_vendor_engine as pve
+    except ImportError:
+        raise NotApplicable('precedent_vendor_engine.py did not import, so '
+                            'HOOK_SOURCE_DIR cannot be read')
+    hook_dir_rel = getattr(pve, 'HOOK_SOURCE_DIR', None)
+    if not hook_dir_rel:
+        raise NotApplicable('this engine declares no HOOK_SOURCE_DIR -- it '
+                            'predates the registry this check reads')
+    hook_dir = ctx.root / hook_dir_rel
+    if not hook_dir.is_dir():
+        raise NotApplicable(
+            f'{hook_dir_rel}/ does not exist here, so this repo does not '
+            f'author the harness adapter and has no hooks to ship')
+
+    try:
+        doc = _json.loads(settings.read_text(encoding='utf-8'))
+    except Exception as e:
+        return [Finding('.claude/settings.json',
+                        f'does not parse as JSON ({e}), so which hooks it '
+                        f'wires cannot be read')]
+
+    # Every command string under every event, reduced to a basename. A
+    # command carries arguments ("freshness-guard.sh pre-write main"), so
+    # the script name is the first whitespace-delimited token's basename.
+    wired = set()
+    for _event, blocks in (doc.get('hooks') or {}).items():
+        for block in blocks or ():
+            for h in block.get('hooks') or ():
+                cmd = (h.get('command') or '').strip()
+                if not cmd:
+                    continue
+                first = cmd.split()[0]
+                name = first.rsplit('/', 1)[-1]
+                if name.endswith('.sh'):
+                    wired.add(name)
+
+    shipped = {p.name for p in hook_dir.glob('*.sh')}
+    # A .sh.template instantiates to a .sh of the same stem -- shipped as a
+    # template on purpose, so it counts as reachable.
+    shipped |= {p.name[:-len('.template')]
+                for p in hook_dir.glob('*.sh.template')}
+
+    findings = []
+    for name in sorted(wired - shipped):
+        findings.append(Finding(
+            '.claude/settings.json',
+            f'wires {name}, which is not in {hook_dir_rel}/ -- the '
+            f'directory the vendoring engine mirrors. This repo runs it; '
+            f'no repo that installs the engine can receive it. Copy it '
+            f'there (and add it to DOGFOODED_HOOKS_MATCH_TEMPLATE so the '
+            f'two copies cannot drift), or, if it is deliberately local '
+            f'to this repo, say so in its own header'))
+    return findings
+
+
 DOGFOODED_HOOKS_MATCH_TEMPLATE = (
     'commit-identity.sh',
+    'doc-lint-gate.sh',
     'freshness-guard.sh',
     'precedent-paths.sh',
 )
