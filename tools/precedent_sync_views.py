@@ -481,14 +481,17 @@ def sync(repo, user_config=None, check=False, allow_missing=False,
     # case above already names. Skip here, not a re-resolve: unlike a
     # private practice, an engine-dev one never wins a slug a publishable
     # source also needs, so there is no runner-up to lose.
-    _placed_dir = pathlib.Path(repo) / 'practices'
+    #
+    # WHICH path that is, is not decided here: bv.placed_practice_file() is
+    # the one place that answers it, and build_views.py's own --repo render
+    # asks the same function. The two used to each build the path
+    # themselves and disagree -- see that function's docstring for what
+    # eight merges of red CI cost.
     _engine_dev_scoped = {slug for slug, p in res['practices'].items()
                           if pm._is_engine_dev_scoped(p)}
-    triples = [(p['fm'], p['sections'], _placed_dir / f'{slug}.md')
-               for slug, p in res['practices'].items()
-               if slug not in _engine_dev_scoped]
-    levels = {slug: p['level'] for slug, p in res['practices'].items()
+    _live = {slug: p for slug, p in res['practices'].items()
              if slug not in _engine_dev_scoped}
+    levels = {slug: p['level'] for slug, p in _live.items()}
     # omits_private must match what this run actually left out, or the
     # standing instruction disagrees with build_views.py's own render of the
     # same repo -- and `generated-artifact-provenance` then reports the file
@@ -500,6 +503,10 @@ def sync(repo, user_config=None, check=False, allow_missing=False,
     # writes nothing at all.
     planned = {f"practices/{w['slug']}.md" for w in written}
     planned.update(c['path'] for c in checks_written)
+    triples = [(p['fm'], p['sections'],
+                bv.placed_practice_file(repo, slug, p['file'],
+                                        planned=planned))
+               for slug, p in _live.items()]
     block, _tokens, _n = bv.build_loader_block(
         triples, source_levels=levels, defers_sources=bool(omitted),
         # The block lands in <repo>/AGENTS.md, so a resident Rule's relative
