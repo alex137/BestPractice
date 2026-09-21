@@ -861,6 +861,40 @@ confidently.
     eleven-repo sweep the same finding was about to authorize would have
     repeated this on every remaining name match, unverified.)*
 
+19. **Read what GITHUB says about each workflow file, not what the tree
+    says.** Item 18 reads the workflow FILES; this asks the platform, and
+    the gap between the two is a class nothing else here can see. A file
+    GitHub's parser refuses is **not a red run — it is no run**, so the
+    branch reads as having no continuous integration (CI) rather than
+    broken CI. Actions switched off looks, from the tracked tree, exactly
+    like working CI. A trigger that stopped matching looks like nothing at
+    all.
+    [tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/very_deep_check.py)'s
+    `WORKFLOW REALITY` section asks four questions per file — registered
+    with Actions at all, state active, when it last ran, and whether that
+    run postdates the file's newest commit — and reports `UNVERIFIED`
+    rather than a pass wherever it could not ask. **Two limits are printed,
+    never assumed away**: GitHub lists workflows from the DEFAULT branch, so
+    a file absent from the listing is a finding only when it is also on that
+    branch; and a workflow that has never run cannot be told apart from
+    Actions being off by that endpoint alone, which is why the disabled case
+    is read off the listing call's own refusal instead
+    ([the permissions endpoint is unreachable from a session](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/gotchas/gotcha-2026-09-21-actions-permissions-are-unreadable-from-a-session.md)).
+
+    **The offline half is now an enforced check and is not this pass's
+    work**: `workflow-yaml-github-can-parse`
+    ([tools/precedent_check.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/precedent_check.py))
+    refuses a YAML anchor or alias in any workflow file or shipped workflow
+    template, through PyYAML's own event stream rather than by matching `&`
+    and `*` in text. *(Found 2026-09-21: an anchor shared one `paths:` list
+    between a `push:` and a `pull_request:` trigger. PyYAML resolved it —
+    including through the exact command this repository's own templates
+    recommend — and GitHub rejects the file outright. Every local
+    verification this project teaches would have passed it.)* Added
+    2026-09-21 (Morgan, strength: decided) from
+    [spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md)
+    item 5.
+
 ### Pass 3 — Does the writing still hold together?
 The coherence read, across every repo in scope. Run the mechanical audits
 first so this pass spends its attention on what they cannot see.

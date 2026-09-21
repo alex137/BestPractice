@@ -1017,6 +1017,133 @@ def _workflow_liveness_scan(repo_dir):
            if rel not in exempt]
 
 
+def _workflow_reality(repo_dir, max_workflows=25):
+    """-> [(verdict, message)] for one repo, asking GITHUB what it knows
+    about each workflow file in the tree. (practice: very-deep-check, pass 2)
+
+    THE CLASS THIS EXISTS FOR. Everything else in this tool reads the
+    repository against itself, and a workflow has a second existence nothing
+    local can see. A file GitHub's parser REFUSES does not go red -- it does
+    not appear at all, so the branch reads as having no CI rather than broken
+    CI (gotcha-2026-09-21-github-actions-rejects-yaml-anchors-python-accepts).
+    Actions switched off looks, from the tracked tree, exactly like working
+    CI. A trigger that stopped matching looks like nothing whatsoever.
+
+    Four questions, in cost order: is the file registered with Actions at
+    all; is it active; when did it last run; does that run postdate the
+    file's newest commit.
+
+    THE HONEST LIMITS, reported rather than assumed away:
+
+    - GitHub lists workflows from the DEFAULT BRANCH. A file that exists only
+      on this branch is correctly absent from the listing, so absence is a
+      FINDING only when the file is also on the default branch, and a NOTE
+      otherwise. Getting this backwards would make every feature branch look
+      broken.
+    - A workflow that has never run cannot be told apart from Actions being
+      disabled by this endpoint alone, which is why the disabled case is read
+      off the listing call's own error rather than inferred from silence
+      (gotcha-2026-09-21-actions-permissions-are-unreadable-from-a-session:
+      GET /repos/{owner}/{repo}/actions/permissions is unreachable from a
+      session, so this is the route that remains).
+    - Everything here needs a credential. Unauthenticated, a private repo
+      answers Not Found, which is not the same answer as "no workflows", so
+      the failure is reported as UNVERIFIED and never as clean."""
+    repo_dir = pathlib.Path(repo_dir)
+    wf_dir = repo_dir / '.github' / 'workflows'
+    local = sorted(x for x in wf_dir.iterdir()
+                   if x.suffix in ('.yml', '.yaml')) if wf_dir.is_dir() else []
+    if not local:
+        return []
+    slug = _github_slug(repo_dir)
+    if not slug:
+        return [('UNVERIFIED', 'origin is not GitHub, so nothing here can be '
+                               'asked about these workflow files')]
+    data, err = _api_json(f'repos/{slug}/actions/workflows')
+    if err or not isinstance(data, dict):
+        return [('UNVERIFIED', f'could not list workflows for {slug}: '
+                               f'{err or "unexpected response"} -- NOT the '
+                               f'same as having none')]
+    if 'workflows' not in data:
+        # The 403 body for a repo with Actions off says so in as many words,
+        # which is the one place this fact is readable from a session.
+        msg = str(data.get('message') or data)[:160]
+        return [('FINDING', f'{slug}: GitHub would not list workflows -- '
+                            f'"{msg}". A repo with workflow files committed '
+                            f'and Actions off looks, from the tree, exactly '
+                            f'like a repo with working CI')]
+    registered = {w.get('path'): w for w in (data.get('workflows') or [])
+                  if isinstance(w, dict)}
+    default_branch = _default_remote_branch(repo_dir)
+    out = []
+    for path in local[:max_workflows]:
+        rel = f'.github/workflows/{path.name}'
+        meta = registered.get(rel)
+        if meta is None:
+            on_default = False
+            if default_branch:
+                rc, _o, _e = _run_git(repo_dir, 'cat-file', '-e',
+                                      f'origin/{default_branch}:{rel}')
+                on_default = rc == 0
+            if on_default:
+                out.append(('FINDING', f'{rel}: on origin/{default_branch} '
+                                       f'and NOT registered with Actions. '
+                                       f'GitHub parses workflow files when '
+                                       f'it receives them and silently keeps '
+                                       f'none it rejects, so this file is '
+                                       f'running nowhere and reporting '
+                                       f'nothing'))
+            else:
+                out.append(('NOTE', f'{rel}: not registered, and not on '
+                                    f'origin/{default_branch or "(unknown)"} '
+                                    f'either -- Actions lists the default '
+                                    f'branch, so this is expected, not a '
+                                    f'finding'))
+            continue
+        state = str(meta.get('state') or 'unknown')
+        if state != 'active':
+            out.append(('FINDING', f'{rel}: registered but state is '
+                                   f'{state!r} -- it is committed, it looks '
+                                   f'live in the tree, and it does not run'))
+        runs, rerr = _api_json(
+            f'repos/{slug}/actions/workflows/{meta.get("id")}/runs?per_page=1')
+        newest = None
+        if not rerr and isinstance(runs, dict):
+            rows = runs.get('workflow_runs') or []
+            if rows:
+                newest = str(rows[0].get('created_at') or '')[:10]
+        if rerr:
+            out.append(('UNVERIFIED', f'{rel}: could not read its runs -- '
+                                      f'{rerr}'))
+            continue
+        edited = _last_commit(repo_dir, rel)
+        edited_day = _stamp(edited[0])[:10] if edited else None
+        if newest is None:
+            out.append(('NOTE', f'{rel}: registered and active, and has '
+                                f'never run. Either nothing has matched its '
+                                f'triggers yet or it is newer than the last '
+                                f'event -- read it, do not assume'))
+        elif edited_day and newest < edited_day:
+            out.append(('FINDING', f'{rel}: last run {newest}, last edited '
+                                   f'{edited_day}. Every event since the '
+                                   f'edit either did not match its triggers '
+                                   f'or did not reach it'))
+    if len(local) > max_workflows:
+        out.append(('UNVERIFIED', f'{len(local) - max_workflows} more '
+                                  f'workflow file(s) not asked about this '
+                                  f'run -- the per-repo cap is '
+                                  f'{max_workflows}, to bound the API bill'))
+    if not out:
+        # A clean repo must not return the same empty list as a repo with no
+        # workflows at all: this section's whole subject is a thing that is
+        # silent when broken, so "asked and clean" has to be distinguishable
+        # from "never asked" in the row itself, not in the caller's memory.
+        out.append(('OK', f'{len(local)} workflow file(s): each registered '
+                          f'with Actions, active, and run since it was last '
+                          f'edited'))
+    return out
+
+
 def _last_commit(repo_dir, path):
     """-> (unix timestamp, short hash, subject) for the newest commit
     touching `path`, or None when git can name none.
@@ -5737,6 +5864,41 @@ def _main(box):
     print()
     if led:
         led.end(findings=_wf_n if _wf_seen else None)
+        led.start('WORKFLOW REALITY')
+
+    print("WORKFLOW REALITY -- what GitHub says about each workflow file, "
+          "not what the tree says\n")
+    _wr_n = 0
+    _wr_measured = False
+    if skip_liveness:
+        print("  not asked (--skip-liveness) -- UNVERIFIED, which is not the "
+              "same answer as clean.")
+    else:
+        for _name, _p in _orph_targets:
+            if not pathlib.Path(_p).is_dir():
+                continue
+            _rows = _workflow_reality(_p)
+            if not _rows:
+                continue
+            _measured_here = any(v != 'UNVERIFIED' for v, _ in _rows)
+            _wr_measured = _wr_measured or _measured_here
+            print(f"  {_name}:")
+            for _verdict, _msg in _rows:
+                print(f"      {_verdict:<11} {_msg}")
+                if _verdict == 'FINDING':
+                    _wr_n += 1
+        if not _wr_measured and _wr_n == 0:
+            print("  nothing measured -- no workflow file in any repo in "
+                  "force, or GitHub\n  could not be asked. Never read as "
+                  "clean.")
+        elif _wr_n == 0:
+            print("\n  No finding: every workflow file in force is "
+                  "registered, active, and has\n  run since it was last "
+                  "edited.")
+    print()
+    if led:
+        led.end(findings=_wr_n if (_wr_measured and not skip_liveness)
+                else None)
         led.start('SESSION LOAD')
 
     print("SESSION LOAD -- what every session pays before it does anything\n")

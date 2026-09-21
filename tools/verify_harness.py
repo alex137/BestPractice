@@ -8014,6 +8014,40 @@ def check_precedent_check_fires():
                       and 'GIT_AUTHOR_EMAIL'
                       in planted['no-hardcoded-git-identity'][1]))
 
+        # workflow-yaml-github-can-parse -- a workflow file using a YAML
+        # anchor and alias, which PyYAML resolves happily and GitHub's own
+        # workflow parser refuses. The plant carries `&&`, `2>&1` and a
+        # `*.md` glob in its run step ON PURPOSE: a detector that matched
+        # `&` and `*` in the text would fire on all three, and the first
+        # version of any such detector does. The case proves the check
+        # separates a YAML anchor from shell punctuation, not merely that
+        # it noticed an ampersand.
+        def _plant_workflow_anchor(repo):
+            wf = repo / '.github' / 'workflows'
+            wf.mkdir(parents=True, exist_ok=True)
+            (wf / 'anchor-probe.yml').write_text(
+                'name: probe\n'
+                'on:\n'
+                '  push:\n'
+                "    paths: &probe_paths\n"
+                "      - '**/*.md'\n"
+                '  pull_request:\n'
+                '    paths: *probe_paths\n'
+                'jobs:\n'
+                '  a:\n'
+                '    runs-on: ubuntu-latest\n'
+                '    steps:\n'
+                '      - run: echo "a && b" 2>&1; ls *.md || true\n',
+                encoding='utf-8')
+        case('workflow-yaml-github-can-parse', _plant_workflow_anchor)
+        cases.append(('workflow-yaml-github-can-parse: the planted violation '
+                      'names the file and the anchor, and does not fire on '
+                      'the shell punctuation beside it',
+                      'anchor-probe.yml'
+                      in planted['workflow-yaml-github-can-parse'][1]
+                      and 'anchor'
+                      in planted['workflow-yaml-github-can-parse'][1]))
+
         # ...and the same failure in the OTHER hook layout. A practice set
         # created by precedent_bootstrap_source.py wires its hooks out of a
         # tracked `bootstrap/` and has no .claude/hooks/ at all, so sweeping
