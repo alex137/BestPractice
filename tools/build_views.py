@@ -1660,7 +1660,30 @@ def _render_withdrawn(withdrawn):
             # than no link (practice: doc-references-are-links).
             where = (f"`{target}` — in another source; "
                      f"`python3 tools/precedent_show.py {target}`")
-        reason = _withdrawn_reason(sections).replace('|', '\\|') or \
+        # REPOINT THE STORY'S OWN LINKS FIRST. This lands in MAP.md at the
+        # REPO ROOT, and a Story is written inside practices/ -- so a
+        # sibling citation like `[x](x.md)`, correct where it was authored,
+        # resolves to a root-level `x.md` that does not exist. The loader
+        # block has had _place_rule_links for exactly this since 2026-09-11;
+        # this column never did, and copied the prose verbatim.
+        #
+        # Reported 2026-09-21 by a session auditing four practice sets: one
+        # set's MAP.md carried a broken link to reply-fits-one-screen.md
+        # that regenerating did not clear, because the SOURCE is correct and
+        # only the copy is wrong. It does not reproduce in this repo -- none
+        # of these practices happens to carry a sibling link in its Story's
+        # first sentence -- which is why a clean tree here proved nothing.
+        _reason_raw = _withdrawn_reason(sections)
+        if _reason_raw:
+            _reason_raw, _unplaced = _place_rule_links(
+                _reason_raw, _f, ROOT, ROOT)
+            if _unplaced:
+                print(f"build_views NOTE: {slug}'s Story cites "
+                      f"{', '.join(sorted(set(_unplaced)))}, which cannot be "
+                      f"placed relative to the repository root -- left as "
+                      f"written in MAP.md, where it will not resolve.",
+                      file=sys.stderr)
+        reason = _reason_raw.replace('|', '\\|') or \
             '*(no ## Story -- catalogue-carries-stories should have caught this)*'
         lines.append(f"| [{slug}](practices/{slug}.md) | {status} | {where} | {reason} |")
     return lines

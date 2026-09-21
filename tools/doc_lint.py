@@ -1132,6 +1132,18 @@ def main():
     args = [a for a in sys.argv[1:] if not a.startswith('-')]
     flags = {a for a in sys.argv[1:] if a.startswith('-')}
     fix = '--fix' in flags
+    # --scope-changed: keep the touched-lines scope EVEN WHEN paths are
+    # named. Without it, naming a path switches the gate to the whole file,
+    # and that asymmetry is a live defect rather than a subtlety --
+    # .claude/hooks/doc-lint-gate.sh always names the staged files, so the
+    # commit gate refused commits over findings on lines the change never
+    # touched. Reported 2026-09-21 by a repo where a pre-existing broken
+    # link already on main would have blocked every commit.
+    #
+    # It is the same failure the withdrawn --strict had, reached from the
+    # other direction, and the same rule applies: a gate whose first act is
+    # to refuse work nobody just broke is a gate somebody switches off.
+    scope_changed = '--scope-changed' in flags
     if '--all' in flags:
         files, gate = drop_frozen(tracked_md()), False
     elif args:
@@ -1317,7 +1329,34 @@ def main():
     # Line scope (see touched_lines): in the default gate a finding fails
     # only on a line this change added or rewrote. An explicit path argument
     # gates the whole file, and --all reports everything.
-    scope = touched_lines(merge_base()) if (gate and not args) else None
+    if gate and (scope_changed or not args):
+        _base = merge_base()
+        # A BASE THAT DOES NOT RESOLVE MEANS NO SCOPE, AND AN EMPTY SCOPE
+        # GATES NOTHING WHILE REPORTING OK. merge_base() falls back to the
+        # literal `origin/<default>` string when `git merge-base` fails, and
+        # diffing against a ref that does not exist yields nothing -- so a
+        # fresh container before its first fetch, or a checkout whose origin
+        # is missing, prints "0 file(s) checked" and exits 0. That reads
+        # exactly like a clean tree.
+        #
+        # Found 2026-09-21 while testing --scope-changed, by a fixture whose
+        # own origin was misconfigured: the case that was supposed to FAIL
+        # passed, and the fixture was wrong rather than the flag -- but the
+        # silence it revealed is real, and it matters more now that
+        # .claude/hooks/doc-lint-gate.sh is the only thing checking Markdown
+        # before a shared branch. Still fails open, deliberately, because
+        # refusing every commit on an unfetched checkout is worse -- but it
+        # no longer does so quietly.
+        if not _git(['rev-parse', '--verify', '--quiet', _base], cwd=ROOT):
+            print(f"doc_lint NOTE: {_base} does not resolve in this "
+                  f"checkout, so 'what this change touched' cannot be "
+                  f"computed and NOTHING IS BEING GATED. This is not a "
+                  f"clean bill. Fetch the base branch and re-run, or pass "
+                  f"the file paths without --scope-changed to check them "
+                  f"whole.", file=sys.stderr)
+        scope = touched_lines(_base)
+    else:
+        scope = None
     loc_re = re.compile(r'^\s*(.+?):(\d+): ')
 
     def pre_image_has(kind, finding, removed):
@@ -1378,8 +1417,9 @@ def main():
         if len(pre_existing) > 10:
             print(f"  … and {len(pre_existing) - 10} more")
     if gate and (fatal or findability or frontmatter_lines):
-        print(f"\ndoc_lint FAIL: {len(fatal)} gating finding(s) on lines this change "
-              f"touched" + (f", {len(findability)} unfindable analysis(es)" if findability else "")
+        _where = ("on lines this change touched" if scope is not None
+                  else "in the file(s) named")
+        print(f"\ndoc_lint FAIL: {len(fatal)} gating finding(s) {_where}" + (f", {len(findability)} unfindable analysis(es)" if findability else "")
               + (f", {len(frontmatter_lines)} file(s) with invalid frontmatter" if frontmatter_lines else "")
               + ":")
         print('\n'.join(fatal[:40]))

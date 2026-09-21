@@ -78,7 +78,27 @@ done
 # somebody switches off. So this runs doc_lint as it is: the gating classes
 # only, already filtered to the lines this change touched. Morgan, on being
 # shown the measurement: "Ok so let's not use --strict."
-out="$(cd "$project_dir" && python3 "$script" "${present[@]}" 2>&1)" && exit 0
+# --scope-changed: gate on what THIS CHANGE touched, not on the whole
+# file. Without it, naming a path switches doc_lint to whole-file scope --
+# so this gate refused commits over findings on lines the change never
+# touched, which is the withdrawn --strict failure reached from the other
+# direction. Reported 2026-09-21 by a repo whose MAP.md carried a broken
+# link already on its main branch: every commit there would have been
+# refused, by a gate that had only just replaced the CI check.
+if out="$(cd "$project_dir" && python3 "$script" --scope-changed "${present[@]}" 2>&1)"; then
+  # A PASS CAN STILL CARRY A WARNING, and swallowing it is how a gate goes
+  # quietly blind. The `2>&1` above captures doc_lint's stderr into $out,
+  # and the first version simply discarded it on success -- so doc_lint's
+  # own "the base does not resolve, NOTHING IS BEING GATED" notice was
+  # written and thrown away, leaving a silent fail-open behind an exit 0.
+  # Caught by testing the unresolvable-base case and seeing no warning at
+  # all, which is the whole reason that notice was added ten minutes
+  # earlier.
+  case "$out" in
+    *"doc_lint NOTE:"*) printf '%s\n' "$out" >&2 ;;
+  esac
+  exit 0
+fi
 
 # A CRASH IS NOT A FINDING, and telling them apart is the difference
 # between a gate and an outage. Caught while testing this hook's own clean
