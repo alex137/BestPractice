@@ -48,12 +48,17 @@ Usage:
                                       # ~/.config/precedent/config.json is
                                       # read ahead of it anyway.
 
-  precedent_bootstrap_source.py --level team --name NAME --dest PATH \\
+  precedent_bootstrap_source.py --level shared --name NAME --dest PATH \\
       --approver "Full Name:github-handle"[,"Second Name:handle2"...]
-      [--write-repo-config PATH]     # merge the team source into
+      [--write-repo-config PATH]     # merge the shared source into
                                       # PATH/precedent.json (default: cwd)
+                                      # `--level team` is the pre-2026-09-18
+                                      # spelling and still reads, but every
+                                      # message this tool prints says
+                                      # "shared" -- so the two disagreed in
+                                      # the one place a new adopter looks.
 
-  precedent_bootstrap_source.py --verify PATH [--level individual|team]
+  precedent_bootstrap_source.py --verify PATH [--level individual|shared]
                                       # report whether an EXISTING set still
                                       # has the shape this tool gives a new
                                       # one; writes nothing. The level is read

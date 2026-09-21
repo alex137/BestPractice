@@ -196,7 +196,20 @@ every override is reported rather than applied silently.
 **Two of those four levels are yours to create, and you are encouraged to.**
 If you keep writing the same rule into project after project, that rule
 wants to be an **individual** set. If your team keeps re-agreeing the same
-convention in review, that wants to be a **team** set. Either one is a small
+convention in review, that wants to be a **shared** set (`--level team` is
+the old spelling and still reads).
+
+**Which of the two, decided by one question: do you want this rule in
+EVERY project you touch?** Your individual set resolves through your own
+machine, not through any project's `precedent.json`, so everything in it
+follows you everywhere — that is what it is for, and it is why a rule you
+want in some projects and not others does not belong there. That rule
+wants a shared set, declared per project. A shared set with exactly one
+reader is an ordinary and correct thing to have: "shared" names the
+mechanism, not an obligation to hand it to anybody.
+[SHARED_PRACTICE_SETS.md](SHARED_PRACTICE_SETS.md) is the whole subject —
+naming, cost, private sets in public projects, and why publishing yours is
+worth doing. Either one is a small
 git repository you own, and anything in it applies everywhere you declare
 it — write the rule once, get it in every project.
 

@@ -76,6 +76,14 @@ The rules you add here belong to this project. **Rules that are really
 about *you*, or about *your team*, can live somewhere better — in their own
 small collection that follows you into every project you work on.**
 
+**One question sorts them.** *Do I want this rule in everything I work
+on?* If yes, it belongs in your own personal collection, which follows you
+into every project automatically. If it should apply to some projects and
+not others, it belongs in a **shared** collection instead — one you switch
+on per project, one line each. A shared collection with only you in it is
+completely normal; "shared" is about being able to point several projects
+at it, not about handing it to other people.
+
 Two kinds are worth making:
 
 - **Your own.** Anything you find yourself asking for again and again — how

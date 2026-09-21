@@ -3,16 +3,16 @@ slug:              todo-2026-09-21-scratch-install-resolved-an-undeclared-indivi
 kind:              manual
 domain:            engine
 severity:          medium
-status:            open
+status:            closed
 disposition:       ask
 remind_on:         null
 blocked_on:        null
 batch:             null
-decision:          "stays filed; answer it when it is worth the read, not now"
-decision_strength: assented
+decision:          "A -- an individual set is additive BY DESIGN and goes into every project; the generated block now discloses it"
+decision_strength: decided
 waiting_on:        null
 noted:             2026-09-21
-closed:            null
+closed:            2026-09-21
 ---
 ## What
 
@@ -81,3 +81,44 @@ Nothing here is time-sensitive: the contamination is visible whenever
 somebody regenerates in a project and compares practice counts, and the
 one bug it actually masked is fixed. What it costs while it sits is
 readability of a diff, not correctness of a tree.
+
+## Answered (2026-09-21) — Option A, Decided
+
+Morgan, choosing from the two options laid out: *"A -- precedent-individual
+goes into ALL your projects."* Quoted, so `decided`, not `assented`
+([decision-strength](../practices/decision-strength.md)) — this supersedes
+the `assented` recorded an hour earlier, when the item was only being left
+filed.
+
+**So the resolution was never reaching past anything.** An individual set
+resolves through the machine's user-level config on purpose: a person's own
+practices follow them into every project they touch, which is the whole
+reason to have one. The project's `sources` list constrains the sources the
+PROJECT declares; it was never meant to be the complete list of what binds a
+session.
+
+**The defect was the silence, and that is fixed.** The generated loader
+block now names how many practices came from an individual source and says
+plainly that the tree is machine-dependent — in the projects where that is
+true, and nowhere else. A repo with no individual practice in force (this
+one, every public set, every CI checkout) renders byte-identical to before.
+Both renderers emit it, because both call the same
+`build_loader_block()`.
+
+**The precise numbers, since two of them are right about different things.**
+Measured in the scratch install:
+
+- **18** practices resolve from the individual source.
+- The catalogue total rises by **17**, from 125 to 142, because one of the
+  18 (`session-title-names-the-difference`) SHADOWS a universal slug rather
+  than adding to it.
+
+Earlier notes in this thread said 17 without that distinction.
+
+**The other half of the answer is documentation**, because "it goes
+everywhere" is only half useful without "so where does a rule for SOME
+repos go":
+[documentation/SHARED_PRACTICE_SETS.md](../documentation/SHARED_PRACTICE_SETS.md),
+new, with the sorting question stated in one line — *do you want this rule
+in every project you touch?* — and cross-linked from both the technical and
+the non-technical guide.
