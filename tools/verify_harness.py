@@ -7988,6 +7988,58 @@ def check_precedent_check_fires():
         case('workflow-file-outside-vendoring', _plant_workflow_outside_vendoring,
              setup=_setup_workflow_outside_vendoring, advisory=True)
 
+        # shipped-template-carries-its-script (2026-09-21). The check reads
+        # THIS repo's templates/github-actions/ against the REAL
+        # CI_WORKFLOW_TEMPLATES/KINDS imported from tools/ -- so the fixture
+        # supplies only the template, and the registries it is judged
+        # against are the live ones. Setup writes a template running a
+        # script that IS vendored (clean); the plant rewrites it to run one
+        # that is not, reproducing the leak_gate.py incident exactly.
+        def _setup_shipped_template_script(repo):
+            d = repo / 'templates' / 'github-actions'
+            d.mkdir(parents=True, exist_ok=True)
+            (d / 'leak-gate.yml.template').write_text(
+                'name: Leak gate\n'
+                'on:\n'
+                '  push:\n'
+                'jobs:\n'
+                '  leak-gate:\n'
+                '    runs-on: ubuntu-latest\n'
+                '    steps:\n'
+                '      - uses: actions/checkout@v4\n'
+                '      - name: Run it\n'
+                '        run: python3 tools/leak_gate.py --structural-only\n',
+                encoding='utf-8')
+            git(repo, 'add', '-A')
+            git(repo, 'commit', '-qm',
+                'planted CI template running a vendored script')
+
+        def _plant_shipped_template_script(repo):
+            d = repo / 'templates' / 'github-actions'
+            (d / 'leak-gate.yml.template').write_text(
+                'name: Leak gate\n'
+                'on:\n'
+                '  push:\n'
+                'jobs:\n'
+                '  leak-gate:\n'
+                '    runs-on: ubuntu-latest\n'
+                '    steps:\n'
+                '      - uses: actions/checkout@v4\n'
+                '      # tools/mentioned_only.py here is a COMMENT and must\n'
+                '      # not be flagged -- the false-positive direction.\n'
+                '      - name: Advise\n'
+                "        run: echo \"run 'python3 tools/advised_only.py' yourself\"\n"
+                '      - name: Run it\n'
+                '        run: python3 tools/never_vendored_anywhere.py\n',
+                encoding='utf-8')
+            git(repo, 'add', '-A')
+            git(repo, 'commit', '-qm',
+                'planted CI template running an unvendored script')
+
+        case('shipped-template-carries-its-script',
+             _plant_shipped_template_script,
+             setup=_setup_shipped_template_script)
+
         # --- and the registry must not contain an untested claim ------------
         import importlib.util
         spec = importlib.util.spec_from_file_location(
