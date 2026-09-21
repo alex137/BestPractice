@@ -353,7 +353,25 @@ def checks(offline=False):
     raw = os.environ.get('PRECEDENT_FRESHNESS_ALSO')
     name = 'PRECEDENT_FRESHNESS_ALSO names repositories that are there'
     want = _attachable_sources()
-    suggestion = ('Set it to: PRECEDENT_FRESHNESS_ALSO='
+    # COMPUTED FOR THIS DISK, and that sentence is load-bearing.
+    #
+    # 2026-09-21: a known-good value was passed from one container to
+    # another and was wrong in the second one. Both had a duplicated
+    # source; they duplicated DIFFERENT ones. In the first, `~` held the
+    # only copy of the individual set and the stale copies of the shared
+    # sets; in the second, `~` held the STALE individual set and the shared
+    # sets were single. So a line that correctly names `~/precedent-
+    # individual` on one machine names the copy holding no work on the
+    # other -- silently, because an also-list entry that resolves to a real
+    # git repository is never questioned again.
+    #
+    # The value below is read off the directories actually present here,
+    # which is the only way it can be right; the warning is what stops it
+    # being copied somewhere it is not.
+    suggestion = ('Set it to (computed from the clones on THIS disk -- never '
+                  'paste a value from another container, even a known-good '
+                  'one, because which copy of a source is the live one '
+                  'differs per machine): PRECEDENT_FRESHNESS_ALSO='
                   + ';'.join(f'{path}={base}' for path, base in want)) if want else ''
     if raw is None:
         out.append((name, None,
