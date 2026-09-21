@@ -48,9 +48,20 @@ import sys
 # style in it is never to be "fixed".
 INTERNAL_DIRS = (
     ".claude", ".github", ".precedent", "candidates", "decisions", "deck",
-    "evals", "examples", "local", "practices", "process", "record", "spec",
-    "templates", "tools",
+    "evals", "examples", "gotchas", "local", "practices", "process",
+    "record", "spec", "templates", "todo", "tools",
 )
+# `todo` and `gotchas` joined 2026-09-21, and it is the THIRD instance of the
+# cause the note below already names. Both directories were created by the
+# 2026-09-16 open-item migration, after this list was written, and both hold
+# exactly the content this rule's own text calls out of scope: TODO.md is in
+# INTERNAL_FILES below, and the migration is what split its items into
+# todo/. Excluding the file and scanning the directory it became was never a
+# decision anybody made. Caught when an ordinary todo item was refused for
+# writing "## Why nothing caught it" instead of "## Why Nothing Caught It" --
+# headline case, demanded of a working note nobody outside this project will
+# ever read. Existing items passed only because a todo heading is
+# conventionally one word ("## What", "## Why"), which is what kept it hidden.
 # `record` joined `spec` on 2026-09-08, and it was missing for the same reason
 # VOICE.md (see below) was once missing from INTERNAL_FILES: this list was
 # written from the directories the repository HAPPENED TO HAVE at the time,
