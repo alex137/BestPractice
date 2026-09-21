@@ -16,7 +16,8 @@ supersedes:  []
 overrides:   null
 added:       "2026-09-08"
 approved_by: "Morgan; amended 2026-09-14, Morgan -- the phrase now carries
-  the merge as well as the update"
+  the merge as well as the update; amended 2026-09-21, Morgan (decided) --
+  step 1 makes the clone current rather than telling somebody to"
 ---
 ## Rule
 **"Update Vendors" is the phrase that asks for this**, and it authorizes the
@@ -44,6 +45,39 @@ every step's answer is wrong if the one before it was skipped.
    pinned to** — not the source's default branch. A stale source makes
    every later step confidently wrong: the diff is against the wrong
    lineage, and "already up to date" is the answer you get.
+
+   **The two vendored layers do not both need this, and knowing which is
+   which is the whole point of the step.** The ENGINE is read by blob out of
+   a freshly fetched commit (see the pin note below), so the clone's checkout
+   is irrelevant to it. The CATALOGUE is read from the clone's WORKING TREE —
+   [tools/precedent_materialize.py](../tools/precedent_materialize.py) has no
+   fetch call in it at all — so for that half, whatever is checked out *is*
+   the input. Step 1 is not hygiene; it is the correctness argument for
+   step 2.
+
+   **It is done, then checked — an instruction alone was proven not to
+   work.** `precedent_refresh_sources.py --apply` now brings each clone to
+   its declared `base_branch` as its first action, verifies the working tree
+   actually arrived there, and **refuses to report success when it could
+   not**: a skipped source is named, and the run exits non-zero. Before
+   2026-09-21 it printed `applied.` and exited 0 however many sources it had
+   declined, and four of them drifted 17 to 34 commits behind while every
+   session start reported success
+   ([todo-2026-09-21-refresh-output-blocks-the-next-pull](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/todo/todo-2026-09-21-refresh-output-blocks-the-next-pull.md)).
+
+   **Two things it deliberately does not do.** It never touches a modified
+   file the clone's own `ENGINE_MANIFEST.json` does not list — the engine may
+   discard its own output, never a person's edit — and it never repairs a
+   clone carrying unpushed commits of its own. Both are reported and left
+   alone: rebasing somebody's work to get a vendoring tool unstuck is the
+   trade that made this loop in the first place.
+
+   Morgan, 2026-09-21 (strength: decided): *"would this force it to clone the
+   most updated version first thing? I think that's what we need."* A check
+   that merely refused on a stale clone was the first proposal, and the
+   measurement retired it — it would have fired on all four sources every
+   session for weeks and changed nothing, because nothing in the sequence was
+   ever going to make them current.
 
    **You do not have to name that branch, and you must not check it out.**
    The pin is compiled into the vendored tool as `SOURCE_BRANCH` in

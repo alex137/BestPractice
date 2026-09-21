@@ -277,6 +277,123 @@ def survey(extra_paths=()):
     return tip, tip_ref, found
 
 
+def engine_owned_paths(repo):
+    """-> set of repo-relative paths this clone's own manifest says the
+    ENGINE writes, plus the manifest itself.
+
+    The three lists are keyed differently and that is not a detail: `files`
+    are bare names under `tools/`, `hook_files` bare names under
+    `.claude/hooks/`, and `ci_workflow_files` are already repo-relative.
+    Getting one of those prefixes wrong would make a person's real edit look
+    like engine output, which is the one mistake this function must never
+    make, so each is joined explicitly rather than by a shared rule.
+
+    The manifest is not listed in `files` -- it is what does the listing --
+    but the refresh rewrites it on every run, so it belongs here."""
+    man = read_manifest(repo)
+    if not man or '_error' in man:
+        return set()
+    owned = {f'{MANIFEST}'}
+    for name in man.get('files') or []:
+        owned.add(f'tools/{name}')
+    for name in man.get('hook_files') or []:
+        owned.add(f'.claude/hooks/{name}')
+    for name in man.get('ci_workflow_files') or []:
+        owned.add(str(name))
+    return owned
+
+
+def classify_dirt(repo):
+    """-> (engine_dirt, other_dirt), each a sorted list of repo-relative paths.
+
+    THE LOOP THIS EXISTS TO BREAK, measured 2026-09-21 across four sources
+    that were 17 to 34 commits behind their own origin. The refresh writes
+    engine files into a source clone and deliberately never commits them --
+    `this tool never publishes`. The clone is then dirty, so the next
+    session's `git pull --ff-only` refuses to run and the dirty-guard below
+    skips. Nothing exited non-zero and the closing line read `applied.`
+    either way, so four sources drifted for weeks while every run reported
+    success. Every dirty path in all four was engine output nobody had
+    hand-edited.
+
+    The guard is right and stays. Its own comment says what it is for -- a
+    person's uncommitted edit mid-review -- and it simply could not tell that
+    from the tool's own output, so the tool's output disarmed the tool.
+
+    A rename or a deletion is NOT engine dirt even when the path is owned:
+    the engine rewrites files in place, so anything else in the status
+    porcelain is a person moving things around and is left well alone."""
+    ok, out = _git('status', '--porcelain', cwd=repo)
+    if not ok:
+        return [], []
+    owned = engine_owned_paths(repo)
+    engine, other = [], []
+    # NOT a fixed-width slice of the porcelain line. `_git` strips its whole
+    # output, so the FIRST line loses the leading space of a ` M path` status
+    # and every later line keeps it -- slicing `line[3:]` then ate a
+    # character off exactly one path per repo, silently, and that path
+    # stopped matching the owned set. Caught by running this against the
+    # four real clones before wiring it to anything.
+    for line in out.splitlines():
+        m = re.match(r'^\s*([A-Z?!]{1,2}|[A-Z?!] )\s+(.*)$', line)
+        if not m:
+            continue
+        code, path = m.group(1).strip(), m.group(2).strip()
+        if ' -> ' in path:                       # a rename; never ours
+            other.append(path)
+            continue
+        if path.startswith('"') and path.endswith('"'):
+            path = path[1:-1]
+        (engine if code == 'M' and path in owned else other).append(path)
+    return sorted(engine), sorted(other)
+
+
+def make_current(repo, branch):
+    """Bring one source clone's working tree to origin/<branch>.
+
+    -> (ok, note). Discards engine dirt first, because `pull --ff-only`
+    refuses to run over it and the refresh about to follow rewrites every
+    one of those files anyway. A person's own dirt is never touched: the
+    caller has already refused in that case.
+
+    DIVERGENCE IS NOT REPAIRED HERE, on purpose. A clone carrying its own
+    unpushed commits needs a person -- rebasing or resetting someone's work
+    to get a vendoring tool unstuck is exactly the trade this whole loop was
+    made of. It is reported and left alone."""
+    ok, _ = _git('fetch', '--quiet', 'origin', branch, cwd=repo)
+    if not ok:
+        return False, f'could not fetch origin/{branch}'
+    ok, counts = _git('rev-list', '--left-right', '--count',
+                      f'origin/{branch}...HEAD', cwd=repo)
+    if ok and counts:
+        parts = counts.split()
+        if len(parts) == 2 and parts[1] != '0':
+            return False, (f'{parts[1]} local commit(s) not on origin/{branch} '
+                           f'({parts[0]} behind) -- a person has to resolve this; '
+                           f'nothing was changed')
+        if len(parts) == 2 and parts[0] == '0':
+            return True, 'already current'
+    engine, _other = classify_dirt(repo)
+    if engine:
+        ok, out = _git('checkout', '--', *engine, cwd=repo)
+        if not ok:
+            return False, f'could not discard engine output: {out}'
+    ok, out = _git('merge', '--ff-only', f'origin/{branch}', cwd=repo)
+    if not ok:
+        return False, out.splitlines()[-1] if out else 'ff-only merge refused'
+    # practice: verify-postcondition -- the state wanted is "this working
+    # tree is at origin/<branch>", never "the command said ok".
+    ok_h, head = _git('rev-parse', 'HEAD', cwd=repo)
+    ok_o, want = _git('rev-parse', f'origin/{branch}', cwd=repo)
+    if not (ok_h and ok_o and head and head == want):
+        return False, (f'merge reported success but HEAD is {head[:12] or "?"} '
+                       f'and origin/{branch} is {want[:12] or "?"}')
+    note = f'now at origin/{branch} {head[:12]}'
+    if engine:
+        note += f' (discarded {len(engine)} file(s) of engine output)'
+    return True, note
+
+
 def _declared_base_branch(root):
     """The branch a source set's work is measured against, as DECLARED in
     its own precedent.json `base_branch` -- not inferred from origin/HEAD.
@@ -749,6 +866,7 @@ def main(argv):
         return 1 if '--check' in argv else 0
 
     failed = False
+    skipped = []
     # Hooks first, and over every affected set rather than only the stale
     # ones: the two problems are independent (see the docstring), and a hook
     # repair on a stale set is then swept into that set's refresh commit
@@ -786,18 +904,55 @@ def main(argv):
         # into, and their diff would land tangled with a regenerated one
         # they never asked for -- indistinguishable after the fact from
         # having clobbered it outright.
-        ok_status, dirty = _git('status', '--porcelain', cwd=e['repo'])
-        if ok_status and dirty:
+        _engine_dirt, other_dirt = classify_dirt(e['repo'])
+        if other_dirt:
             print(f"  SKIP refresh: uncommitted changes present in this "
-                  f"source, not auto-applying over them -- commit or stash "
-                  f"there, then re-run")
+                  f"source that the engine does not own "
+                  f"({', '.join(other_dirt[:4])}"
+                  f"{'...' if len(other_dirt) > 4 else ''}) -- commit or "
+                  f"stash there, then re-run")
+            skipped.append(_label(e['repo']))
             continue
+
+        # MAKE IT CURRENT FIRST. The catalogue half of a vendor update is
+        # read out of this working tree -- precedent_materialize.py has no
+        # fetch in it at all -- so a clone that is behind silently puts an
+        # older catalogue in force. Morgan, 2026-09-21 (strength: decided):
+        # "would this force it to clone the most updated version first
+        # thing? I think that's what we need."
+        want = _declared_base_branch(e['repo']) or _default_branch(e['repo'])
+        if want:
+            ok_cur, note = make_current(e['repo'], want)
+            print(f"  {'ok ' if ok_cur else 'FAIL'} current: {note}")
+            if not ok_cur:
+                skipped.append(_label(e['repo']))
+                continue
+        else:
+            print(f"  SKIP refresh: cannot tell which branch this source "
+                  f"belongs on, so it cannot be brought current -- declare "
+                  f"base_branch in its precedent.json")
+            skipped.append(_label(e['repo']))
+            continue
+
         for name, ok, out in apply_to(e, commit='--commit' in argv):
             print(f"  {'ok ' if ok else 'FAIL'} {name}: {out.splitlines()[-1] if out else ''}")
             failed = failed or not ok
-    print("\nprecedent_refresh_sources: applied. Review each repo's diff, then "
-          "push and open a pull request there -- this tool never publishes.")
-    return 1 if failed else 0
+
+    # A SKIP IS NOT A SUCCESS. This line used to read `applied.` however many
+    # sources had been declined, and the exit code ignored them entirely --
+    # which is how four sources drifted 17 to 34 commits behind while every
+    # session start reported success (todo-2026-09-21-refresh-output-blocks-
+    # the-next-pull). practice: control-asserts-which-failure.
+    if skipped:
+        print(f"\nprecedent_refresh_sources: NOT APPLIED to "
+              f"{len(skipped)} of {len(stale)} stale source(s): "
+              f"{', '.join(skipped)}. Those clones stay behind, and the "
+              f"catalogue in force is read from their working trees.")
+    else:
+        print("\nprecedent_refresh_sources: applied. Review each repo's diff, "
+              "then push and open a pull request there -- this tool never "
+              "publishes.")
+    return 1 if (failed or skipped) else 0
 
 
 if __name__ == '__main__':

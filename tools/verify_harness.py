@@ -288,9 +288,22 @@ def _amended_and_logged(slug):
     return slug in CHANGES_DOC.read_text(encoding='utf-8')
 
 
-def check(name, ok, detail=''):
-    (PASSED if ok else FAILED).append((name, detail))
-    print(f"{'PASS' if ok else 'FAIL'}: {name}" + (f" -- {detail}" if detail and not ok else ""))
+def check(name, ok, detail='', failure=''):
+    """Record one verdict.
+
+    The fourth argument exists for the verdict-returning family, which ends
+    in `return (not bad, detail, failure)` and is wired up as
+    `check('<name>', *check_foo())`. Those carry TWO strings: a detail worth
+    printing when the check passes ("11 stated cases"), and the failure text
+    naming what broke. Collapsing them at the call site would have meant
+    every one of those sites choosing, and choosing differently; taking both
+    here keeps the family's own return shape intact.
+
+    A failing check prints its failure text when it has one, because that is
+    the string that says what to go and look at."""
+    shown = failure if (not ok and failure) else detail
+    (PASSED if ok else FAILED).append((name, shown))
+    print(f"{'PASS' if ok else 'FAIL'}: {name}" + (f" -- {shown}" if shown and not ok else ""))
 
 
 def not_applicable(name, reason):
@@ -6213,6 +6226,221 @@ def check_reply_check_names_what_it_cannot_evaluate():
 
     bad = [(n, d) for n, ok, d in cases if not ok]
     return (not bad, f'{len(cases)} stated cases',
+            '; '.join(f'{n}: {d}' for n, d in bad))
+
+
+def check_every_verdict_returning_check_is_recorded():
+    """A verdict nobody reads is not a check.
+
+    Most `check_*` functions here report by calling `check(name, ok, detail)`
+    themselves and return nothing. A newer family instead ends in
+    `return (not bad, detail, failure)` and is recorded by its CALL SITE --
+    `check('...', *check_foo())`. Call one of those bare and it still runs,
+    so an exception still fails the suite, but a returned False is dropped on
+    the floor and the run prints `0 failed`.
+
+    Found 2026-09-21 by noticing that adding two checks left the total at
+    233. NINE were in that state: eight called bare, and one never called at
+    all. Eight of the nine had been written that same week, which is the
+    whole argument for asserting the wiring instead of the behaviour -- the
+    mistake is invisible in every way a person reads a passing run, and it
+    is the kind you make once per new check.
+
+    So this reads the source rather than the results: every function whose
+    body ends in a verdict tuple must appear in `main()` as an argument to
+    `check(`, not as a bare statement, and must appear at all."""
+    src = (ROOT / 'tools' / 'verify_harness.py').read_text(encoding='utf-8')
+    lines = src.splitlines()
+
+    returning, cur = [], None
+    for line in lines:
+        m = re.match(r'^def (check_[a-z_0-9]+)\(', line)
+        if m:
+            cur = m.group(1)
+        if cur and re.match(r'^    return \(not bad,', line):
+            if cur not in returning:
+                returning.append(cur)
+
+    bad = []
+    for fn in returning:
+        bare = re.search(rf'^\s+{re.escape(fn)}\(\)\s*$', src, re.M)
+        wired = re.search(rf'\*{re.escape(fn)}\(\)', src)
+        if bare:
+            bad.append((fn, 'called bare -- its verdict is discarded; '
+                            f"call it as check('<name>', *{fn}())"))
+        elif not wired:
+            bad.append((fn, 'defined but never called from main()'))
+
+    return (not bad,
+            f'{len(returning)} verdict-returning check(s), all recorded',
+            '; '.join(f'{n}: {d}' for n, d in bad))
+
+
+def check_a_stale_source_clone_is_made_current_not_reported_clean():
+    """The loop that put four sources 17 to 34 commits behind.
+
+    The refresh writes engine files into a source clone and never commits
+    them -- deliberately, `this tool never publishes`. The clone is then
+    dirty, so the next session's ff-only pull refuses and the refresh's own
+    dirty-guard skips. Nothing exited non-zero and the closing line read
+    `applied.` either way, so it ran that way for weeks while every session
+    start reported success. Every dirty path in all four clones was engine
+    output nobody had hand-edited: the tool's own output disarmed the tool.
+
+    Morgan, 2026-09-21 (strength: decided): make it current, do not merely
+    check. So the four behaviours that carry that are asserted here against
+    real git repositories rather than inferred from a passing run -- above
+    all the TWO REFUSALS, which are what keep "discard the engine's output"
+    from becoming "discard somebody's work" (practice:
+    control-asserts-which-failure)."""
+    import importlib.util as _ilu
+    import tempfile
+    spec = _ilu.spec_from_file_location(
+        '_rs_probe', ROOT / 'tools' / 'precedent_refresh_sources.py')
+    try:
+        rs = _ilu.module_from_spec(spec)
+        spec.loader.exec_module(rs)
+    except Exception as exc:                     # noqa: BLE001
+        return (False, '', f'precedent_refresh_sources.py would not import: {exc}')
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='vh-stale-source-'))
+
+    def git(repo, *args):
+        return subprocess.run(['git', '-C', str(repo), *args],
+                              capture_output=True, text=True)
+
+    def new_repo(name):
+        # fixture-owns-its-state: its own identity and its own branch name,
+        # so a machine's global git config cannot change the answer.
+        r = tmp / name
+        r.mkdir(parents=True)
+        git(r, 'init', '--quiet', '--initial-branch', 'main')
+        git(r, 'config', 'user.email', 'fixture' + chr(64) + 'example.invalid')
+        git(r, 'config', 'user.name', 'Fixture')
+        return r
+
+    cases = []
+    try:
+        origin = new_repo('origin')
+        (origin / 'tools').mkdir()
+        manifest = {'format_version': 1, 'kind': 'source',
+                    'source_branch': 'main', 'files': ['engine_a.py'],
+                    'hook_files': [], 'ci_workflow_files': []}
+        (origin / 'tools' / 'ENGINE_MANIFEST.json').write_text(
+            json.dumps(manifest), encoding='utf-8')
+        (origin / 'tools' / 'engine_a.py').write_text('v1\n', encoding='utf-8')
+        (origin / 'practices').mkdir()
+        (origin / 'practices' / 'p.md').write_text('one\n', encoding='utf-8')
+        (origin / 'precedent.json').write_text('{"base_branch": "main"}',
+                                               encoding='utf-8')
+        git(origin, 'add', '-A')
+        git(origin, 'commit', '--quiet', '-m', 'first')
+
+        clone = tmp / 'clone'
+        subprocess.run(['git', 'clone', '--quiet', str(origin), str(clone)],
+                       capture_output=True, text=True)
+
+        # origin moves on; the clone does not.
+        (origin / 'practices' / 'p.md').write_text('two\n', encoding='utf-8')
+        git(origin, 'add', '-A')
+        git(origin, 'commit', '--quiet', '-m', 'second')
+
+        # 1. The engine's own output is recognised as the engine's.
+        (clone / 'tools' / 'engine_a.py').write_text('v2\n', encoding='utf-8')
+        engine, other = rs.classify_dirt(clone)
+        cases.append(('a modified manifest-listed file is engine dirt',
+                      engine == ['tools/engine_a.py'] and not other,
+                      f'engine={engine} other={other}'))
+
+        # 2. A person's file is NEVER the engine's, even beside engine dirt.
+        #    IT MUST BE TRACKED AND MODIFIED. An untracked file reads as `??`
+        #    and lands in `other` whatever the owned-set says, so a fixture
+        #    built that way exercises nothing -- proven by planting "every
+        #    modified file is engine output" and watching this case pass.
+        #    The status code is the wrong half of the test; the owned-set
+        #    membership is the half that matters.
+        (clone / 'practices' / 'mine.md').write_text('hand\n', encoding='utf-8')
+        git(clone, 'add', '-A')
+        git(clone, 'commit', '--quiet', '-m', 'a file of my own')
+        (clone / 'practices' / 'mine.md').write_text('hand, edited\n',
+                                                     encoding='utf-8')
+        engine, other = rs.classify_dirt(clone)
+        cases.append(("a TRACKED, MODIFIED file the manifest does not list "
+                      "is a person's",
+                      'practices/mine.md' in other
+                      and 'practices/mine.md' not in engine,
+                      f'engine={engine} other={other}'))
+        git(clone, 'checkout', '--', 'practices/mine.md')
+        git(clone, 'reset', '--quiet', '--hard', 'HEAD~1')
+
+        # 3. make_current brings it current, and the file it discarded was
+        #    only ever the engine's.
+        ok, note = rs.make_current(clone, 'main')
+        counts = git(clone, 'rev-list', '--left-right', '--count',
+                     'origin/main...HEAD').stdout.split()
+        cases.append(('a behind clone with engine dirt is made current',
+                      ok and counts == ['0', '0'], f'{note} counts={counts}'))
+        cases.append(('and its working tree carries the new content',
+                      (clone / 'practices' / 'p.md').read_text().strip() == 'two',
+                      (clone / 'practices' / 'p.md').read_text().strip()))
+
+        # 4. A PERSON'S dirt refuses, and changes nothing. The whole safety
+        #    of part 2 rests on this one.
+        (origin / 'practices' / 'p.md').write_text('three\n', encoding='utf-8')
+        git(origin, 'add', '-A')
+        git(origin, 'commit', '--quiet', '-m', 'third')
+        git(clone, 'fetch', '--quiet', 'origin', 'main')
+        (clone / 'practices' / 'mine.md').write_text('hand\n', encoding='utf-8')
+        git(clone, 'add', '-A')
+        git(clone, 'commit', '--quiet', '-m', 'a file of my own')
+        (clone / 'practices' / 'mine.md').write_text('mid-review\n',
+                                                     encoding='utf-8')
+        engine, other = rs.classify_dirt(clone)
+        cases.append(("a person's dirt is reported so the caller can refuse",
+                      other == ['practices/mine.md']
+                      and 'practices/mine.md' not in engine, f'other={other}'))
+        cases.append(("and that edit is still on disk, unread by the engine",
+                      (clone / 'practices' / 'mine.md').read_text().strip()
+                      == 'mid-review', 'changed'))
+        git(clone, 'checkout', '--', 'practices/mine.md')
+        git(clone, 'reset', '--quiet', '--hard', 'HEAD~1')
+        git(clone, 'merge', '--ff-only', 'origin/main')
+
+        # 5. A DIVERGED clone refuses, and changes nothing.
+        (clone / 'practices' / 'local.md').write_text('local\n', encoding='utf-8')
+        git(clone, 'add', '-A')
+        git(clone, 'commit', '--quiet', '-m', 'local only')
+        (origin / 'practices' / 'p.md').write_text('four\n', encoding='utf-8')
+        git(origin, 'add', '-A')
+        git(origin, 'commit', '--quiet', '-m', 'fourth')
+        head_before = git(clone, 'rev-parse', 'HEAD').stdout.strip()
+        ok, note = rs.make_current(clone, 'main')
+        head_after = git(clone, 'rev-parse', 'HEAD').stdout.strip()
+        cases.append(('a diverged clone refuses rather than rebasing anybody',
+                      not ok and 'local commit' in note, note))
+        cases.append(('and its HEAD is exactly where it was',
+                      head_before == head_after,
+                      f'{head_before[:12]} -> {head_after[:12]}'))
+        cases.append(('and the unpushed commit is still there',
+                      (clone / 'practices' / 'local.md').is_file(), 'gone'))
+
+        # 6. The postcondition is real: make_current returns False when the
+        #    tree did not arrive, rather than trusting the command.
+        src = (ROOT / 'tools' / 'precedent_refresh_sources.py').read_text(
+            encoding='utf-8')
+        cases.append(('make_current verifies HEAD against origin afterwards',
+                      'verify-postcondition' in src
+                      and 'merge reported success but HEAD is' in src, ''))
+
+        # 7. A skip is not a success -- the line and the exit code both.
+        cases.append(('a skipped source is named and exits non-zero',
+                      'NOT APPLIED to' in src
+                      and 'return 1 if (failed or skipped) else 0' in src, ''))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    return (not bad, f'{len(cases)} stated cases, two refusals among them',
             '; '.join(f'{n}: {d}' for n, d in bad))
 
 
@@ -26166,13 +26394,26 @@ def main():
     check_retired_practices_leave_the_views()
     check_resident_subset(files)
     check_behavioral_replay()
-    check_reply_gate_names_work_not_yet_landed()
-    check_a_source_set_ships_no_ci_workflow()
-    check_instruction_files_name_repos_that_exist()
-    check_a_consumer_may_declare_a_ci_workflow_its_own()
-    check_reply_check_names_what_it_cannot_evaluate()
-    check_suggested_links_keep_a_dotfiles_leading_dot()
-    check_planted_case_rotation_never_narrows_silently()
+    check('the reply gate names work committed but not landed',
+          *check_reply_gate_names_work_not_yet_landed())
+    check('a practice source ships no CI workflow, and an existing set loses one',
+          *check_a_source_set_ships_no_ci_workflow())
+    check('the instruction files name only repositories that exist',
+          *check_instruction_files_name_repos_that_exist())
+    check('a consumer may declare a CI workflow its own and keep it',
+          *check_a_consumer_may_declare_a_ci_workflow_its_own())
+    check('the reply check names every predicate it cannot evaluate',
+          *check_reply_check_names_what_it_cannot_evaluate())
+    check('the session check reports a source cloned twice on one disk',
+          *check_session_check_reports_a_source_cloned_twice())
+    check('every verdict-returning check is actually recorded',
+          *check_every_verdict_returning_check_is_recorded())
+    check('a stale source clone is made current, and a skip is never a success',
+          *check_a_stale_source_clone_is_made_current_not_reported_clean())
+    check("a suggested link keeps a dotfile path's leading dot",
+          *check_suggested_links_keep_a_dotfiles_leading_dot())
+    check('the planted-case rotation never narrows silently',
+          *check_planted_case_rotation_never_narrows_silently())
     check_precedent_check_fires()
     check_routing_scope(files)
     check_routing_audit_coverage()
