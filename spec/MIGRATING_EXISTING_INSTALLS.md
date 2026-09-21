@@ -556,10 +556,15 @@ one.
    | `practice-links-travel.yml` | Superseded once `precedent-check.yml` is installed and green — its check now runs as one case inside that whole-suite job (`practice-links-travel` in `tools/precedent_check.py`'s registry). Confirm the suite run covers it, then delete the standalone file. |
    | `light-check.yml`, `commit-identity.yml` (the ordinary dependent-repo copy, not the practice-set workflow this step already covers), `status-claims-check.yml`, `unified-prompt-check.yml`, `platform-docs-check.yml` | **No trace in this repo's own history** — none of them were ever a Precedent template, in this branch or any other this repo can see. Confirm in the repo carrying the file what each one actually checks before touching it; a check with no equivalent anywhere in the current engine is a gap to raise with the person, not a file to delete on a guess. |
 
-   Applying `ci_workflows` and `ci_debounce_minutes`
+   Applying `ci_workflows`
    ([GITHUB_ACTIONS.md](../documentation/GITHUB_ACTIONS.md)) to whatever CI templates this
    migration keeps is part of the same pass, per
-   [spec/INSTALL_QUESTIONS.md](INSTALL_QUESTIONS.md)'s two rows for both.
+   [spec/INSTALL_QUESTIONS.md](INSTALL_QUESTIONS.md)'s row for it.
+   `ci_debounce_minutes` is **retired** (2026-09-20) and is not applied to
+   anything: a migration that finds the field in a repo deletes it. It
+   bought nothing at any setting, because the job that read it cost the
+   same billed minute it was deciding whether to spend
+   ([spec/BILLING_FLOOR.md](BILLING_FLOOR.md)).
 
 7. **Rewrite the consuming repo's own instructions file** (`AGENTS.md` or
    equivalent) from

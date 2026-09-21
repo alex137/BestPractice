@@ -250,10 +250,15 @@ every step's answer is wrong if the one before it was skipped.
     Per file, never a blanket delete: the table names what each one is, and
     which are a confirm-before-delete rather than an automatic one. While
     here, check
-    `ci_workflows` and `ci_debounce_minutes`
+    `ci_workflows`
     ([GITHUB_ACTIONS.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/documentation/GITHUB_ACTIONS.md))
-    are set the way the person actually wants, not just inherited from
-    whatever an earlier install or migration left.
+    is set the way the person actually wants, not just inherited from
+    whatever an earlier install or migration left. **`ci_debounce_minutes`
+    is retired** (2026-09-20) -- nothing reads it, and a repo still
+    carrying it should have the field DELETED here rather than retuned,
+    because a live-looking knob that controls nothing is worse than no
+    knob. Why it went, and the arithmetic that retired it, is in
+    [spec/BILLING_FLOOR.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/BILLING_FLOOR.md).
 11. **Verify by content on the remote**, never by ref equality
    ([verify-postcondition](verify-postcondition.md)).
 12. **Publish it, without asking again.** Run [go-merge](go-merge.md)'s

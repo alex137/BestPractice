@@ -1437,6 +1437,16 @@ def main():
     # gets no owner policy either -- and says so through the existing
     # PARTIAL reporting, rather than silently enforcing nothing.
     _bl_path, _bl_how = resolve_blocklist_path()
+    # ...AND UNDER --structural-only IT IS NOT READ AT ALL. Dropping the
+    # vocabulary patterns was only the first of THREE ways the private half
+    # reached a run that asked for the structural half alone (found by a
+    # sibling session measuring the flag against a real set, 2026-09-21, and
+    # this is the one its report named): the repo-reference policy and its
+    # owner rules come out of the same private file, so a machine that
+    # resolves one enforced `undeclared repo reference` and a CI runner did
+    # not. Same flag, different verdict, which is the whole defect.
+    if structural_only:
+        _bl_path = None
     if _bl_path is not None and _bl_path.is_file():
         _errs = repo_policy_errors(_bl_path)
         if _errs:
@@ -1467,9 +1477,14 @@ def main():
     # reaching a public tree. It is derived from the clones on this disk
     # rather than from anything anybody wrote down, which is the point:
     # nobody has to predict the name of a repository they created today.
+    # THE SECOND WAY, and the subtlest: these are derived from the CLONES ON
+    # THIS DISK, so they are environment state by construction -- the exact
+    # thing --structural-only exists to remove. `_bl_path` being None above
+    # already empties this, since `_policy[0]` is then empty; it is spelled
+    # out here so the next reader does not restore one without the other.
     _auto = (auto_private_name_patterns(local_clone_refs(ROOT), _policy[0],
                                         _policy[1])
-             if (_policy[0] and _bl_path is not None
+             if (not structural_only and _policy[0] and _bl_path is not None
                  and auto_cover_enabled(_bl_path)) else [])
     hits = scan(units, blocklist, _policy, _auto)
 
@@ -1485,7 +1500,14 @@ def main():
     # _stale_blocklist_clone_note() -- reports the refreshed reality
     # rather than the stale one. A refused pull (dirty tree, real
     # divergence) changes nothing: hits stays exactly what it was.
-    if hits and _try_refresh_private_blocklist_clone():
+    # THE THIRD WAY, and the worst of them: this reloads the FULL blocklist,
+    # which silently undid the --structural-only swap above the moment a run
+    # had any hit at all. So the flag worked on a clean tree and stopped
+    # working on exactly the runs whose verdict mattered -- a detector
+    # verified only against a clean tree is indistinguishable from a broken
+    # one. There is nothing for it to self-heal under this flag anyway: no
+    # private clone is being consulted.
+    if hits and not structural_only and _try_refresh_private_blocklist_clone():
         blocklist, source, configured = load_blocklist()
         if _bl_path is not None and _bl_path.is_file():
             _policy = parse_repo_policy(_bl_path)

@@ -55,3 +55,45 @@ An "Update Vendors" in each of the four practice sets, the
 `ci_debounce_minutes` field deleted from each `identity.json`, and a check
 that each repo's `.github/workflows/precedent-check.yml` ends up with
 exactly one job. Separately, the 12-repo `light-check.yml` sweep.
+
+## Measured 2026-09-21 — And It Is NOT a Vendoring Bug
+
+All four sets still run the three-job workflow. The first hypothesis was a
+silent write failure in the vendor engine: each set's
+`ENGINE_MANIFEST.json` records a `ci_workflows_sha256` that MATCHES its
+live file, which reads exactly like a refresh that recorded without
+writing.
+
+`git merge-base --is-ancestor fc6e764a2 de72bc568` returns false. The
+one-job template landed in `fc6e764a2`; the four sets are pinned at
+`de72bc568`; **the pin is earlier.** `_refresh_ci_workflow_files()` works
+and has simply never been asked to run in these repos since the fix.
+
+| Repo | jobs | engine pinned at |
+|---|---|---|
+| `precedent-individual` | 3 | `de72bc56` |
+| `precedent-shared-writing` | 3 | `de72bc56` |
+| `precedent-shared-repo-maintenance` | 3 | `de72bc56` |
+| `precedent-shared-working-style` | 3 | `de72bc56` |
+
+Only `precedent-individual` carries `ci_debounce_minutes` in its own
+`identity.json`; the other three do not.
+
+**Blocked here, established not assumed.** `git push --dry-run` to
+`themorgan/precedent-individual` returns *"access denied by the git proxy:
+not in this session's authorized repository set"*, and `add_repo` refuses:
+*"cross-tier adds are not supported in v1"* — this session's sources are
+owned by `alex137`. Read access works; write does not.
+
+**What changed here instead**, so the next repo that is behind finds out
+without anyone remembering the mapping:
+[precedent_engine_freshness.py](../tools/precedent_engine_freshness.py)
+`--files` now names the INSTALLED workflow file a changed template
+produces, not just the template. Verified against `precedent-shared-writing`
+— a real stale repo, not a fixture.
+
+Two runbooks that still told a session to apply the retired
+`ci_debounce_minutes` now say to delete it:
+[vendor-update-runbook](../practices/vendor-update-runbook.md) step 10 and
+[MIGRATING_EXISTING_INSTALLS.md](../spec/MIGRATING_EXISTING_INSTALLS.md)
+step 6.

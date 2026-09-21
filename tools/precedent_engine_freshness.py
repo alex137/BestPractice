@@ -104,6 +104,43 @@ def changed_files(root, repo_url, recorded, tip, tracked):
     return sorted(added), sorted(removed), sorted(changed)
 
 
+def workflow_impact(root, names):
+    """-> [(template, installed_as, present)] for each changed CI template
+    that this repo actually installs a workflow from.
+
+    THE LINE THAT CLOSES THE LOOP. Without it the report says
+    "templates/github-actions/precedent-check.yml.template changed
+    upstream" and stops, and the reader has to know by heart which file in
+    their own .github/workflows/ that template produces. That gap is not
+    theoretical: the one-job CI templates landed upstream on 2026-09-20 and
+    four repos kept billing the three-job shape, because "a template
+    changed" and "the workflow I am being billed for is stale" read as
+    different facts (spec/BILLING_FLOOR.md).
+
+    Best-effort by design, like everything else here. The mapping lives in
+    precedent_vendor_engine.CI_WORKFLOW_TEMPLATES; a repo whose vendored
+    engine predates that module, or whose manifest records no kind, gets
+    no impact lines and the rest of the report is unaffected."""
+    try:
+        import precedent_vendor_engine as _ve
+        mapping = _ve.CI_WORKFLOW_TEMPLATES
+    except Exception:
+        return []
+    root = pathlib.Path(root)
+    bare = {n.split(' ')[0] for n in names}
+    rows = []
+    for _kind, pairs in sorted(mapping.items()):
+        for tmpl, installed_as in pairs:
+            if f'templates/github-actions/{tmpl}' not in bare:
+                continue
+            if not (root / installed_as).is_file():
+                continue          # this repo does not install that one
+            row = (tmpl, installed_as)
+            if row not in [(a, b) for a, b, _ in rows]:
+                rows.append((tmpl, installed_as, True))
+    return rows
+
+
 def report(root='.', with_files=False, quiet=False, out=sys.stdout):
     manifest, why = read_manifest(root)
     if manifest is None:
@@ -156,6 +193,12 @@ def report(root='.', with_files=False, quiet=False, out=sys.stdout):
             if not (added or removed or changed):
                 print('  no tracked engine file or CI template changed '
                       'between those commits', file=out)
+            impact = workflow_impact(root, added + removed + changed)
+            for tmpl, installed_as, _present in impact:
+                print(f'  -> YOU ARE RUNNING THE OLD ONE: {installed_as} in '
+                      f'this repo was installed from {tmpl}, which is among '
+                      f'the changes above. Every run of it until the next '
+                      f'"Update Vendors" is the superseded shape.', file=out)
     return 0
 
 

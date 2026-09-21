@@ -8,8 +8,8 @@ disposition:       ask
 remind_on:         null
 blocked_on:        null
 batch:             null
-decision:          null
-decision_strength: null
+decision:          "stays filed; answer it when it is worth the read, not now"
+decision_strength: assented
 waiting_on:        null
 noted:             2026-09-21
 closed:            null
@@ -69,3 +69,15 @@ An answer to the above, written down, plus whichever follows from it:
 - If a scoping bug: the project's declared `sources` constrain resolution,
   and an undeclared source is a NOTICE on stderr rather than 17 silent
   practices.
+
+## Disposition (2026-09-21)
+
+**Stays filed rather than worked now.** Morgan: *"approved on the first"* —
+agreeing to the session's own proposal that this sit in the repo until it
+is worth the read, which is `assented`, not `decided`
+([decision-strength](../practices/decision-strength.md)).
+
+Nothing here is time-sensitive: the contamination is visible whenever
+somebody regenerates in a project and compares practice counts, and the
+one bug it actually masked is fixed. What it costs while it sits is
+readability of a diff, not correctness of a tree.

@@ -23687,6 +23687,161 @@ def check_leak_gate_refuses_a_fresh_container():
           '; '.join(f'{n}: {d}' for n, o, d in cases if not o)[:900])
 
 
+def check_structural_only_actually_drops_the_private_half():
+    """`--structural-only` must make the gate's verdict INDEPENDENT of
+    whether a private blocklist is reachable -- that is the whole point of
+    the flag, and it is what lets a CI runner and a developer's machine
+    agree on the same tree.
+
+    THE INCIDENT, 2026-09-21, and it took three corrections in one day.
+    The flag originally only cleared whether the vocabulary layer was
+    REQUIRED, never whether it was APPLIED. The first fix dropped BOTH
+    blocklist halves, which over-shot: the default list is committed and
+    publishable, so CI can and should keep running it. The second fix
+    dropped the private half correctly -- and a sibling session measuring
+    the flag against a real practice set STILL saw private patterns fire.
+    There were three routes, not one:
+
+      1. the vocabulary patterns themselves (the one that was fixed),
+      2. the repo-reference policy and its owner rules, read from the SAME
+         private file, plus the auto-derived bare-name patterns, which come
+         from the sibling CLONES ON THIS DISK, and
+      3. the self-heal, which reloaded the FULL blocklist as soon as a run
+         had any hit at all -- so the flag worked on a clean tree and
+         stopped working on exactly the runs whose verdict mattered.
+
+    ROUTE 3 IS WHY THIS PLANTS A TREE THAT FAILS UNDER THE FLAG, not only
+    one that passes -- though see the note at its own case: the reload is
+    guarded, and this fixture cannot yet make it fire. A detector verified against a clean tree alone is
+    indistinguishable from a broken one: under the flag a clean tree never
+    reaches the self-heal, so route 3 stays invisible. The discriminating
+    fixture trips a DEFAULT-list pattern -- reaching the self-heal -- while
+    also containing a name only the PRIVATE list knows. If the reload comes
+    back, that name is in the output. It must not be."""
+    import tempfile
+
+    _home = pathlib.Path(tempfile.mkdtemp())
+
+    def run(cwd, *extra, blocklist=None):
+        env = {k: v for k, v in os.environ.items()
+               if k != 'PRECEDENT_LEAK_BLOCKLIST'}
+        env['PRECEDENT_ALLOW_ANY_AUTHOR'] = '1'
+        env['HOME'] = str(_home)          # practice: fixture-owns-its-state
+        if blocklist:
+            env['PRECEDENT_LEAK_BLOCKLIST'] = blocklist
+        r = subprocess.run(
+            [sys.executable, str(cwd / 'tools' / 'leak_gate.py'), *extra],
+            capture_output=True, text=True, cwd=str(cwd), env=env)
+        return r.returncode, r.stdout + r.stderr
+
+    cases = []
+    tmp = tempfile.mkdtemp()
+    try:
+        repo = pathlib.Path(tmp) / 'r'
+        (repo / 'tools').mkdir(parents=True)
+        _seed_consumer_engine(repo / 'tools',
+                              extra=('leak_gate.py',
+                                     'leak-blocklist.default.txt',
+                                     'routing_scope.json',
+                                     'glossary_terms.json'))
+        (repo / 'precedent.json').write_text(json.dumps(
+            {'format_version': 1, 'visibility': 'public',
+             'sources': [{'level': 'universal', 'name': 'precedent',
+                          'path': '.'}]}), encoding='utf-8')
+
+        # A word the COMMITTED default list already matches, read out of the
+        # shipped file rather than hardcoded -- so editing that list cannot
+        # silently leave this check trying to trip a pattern that is gone.
+        _default = (repo / 'tools' / 'leak-blocklist.default.txt').read_text(
+            encoding='utf-8')
+        _seed = None
+        for _line in _default.splitlines():
+            _m = re.match(r'^\\b([a-z]{3,})', _line.strip())
+            if _m:
+                _seed = _m.group(1)
+                break
+        cases.append(('the fixture found a literal word in the shipped '
+                      'DEFAULT list to trip -- without one, route 3 is '
+                      'never reached and this check would pass while '
+                      'proving nothing',
+                      _seed is not None, f'default list: {_default[-300:]!r}'))
+        _seed = _seed or 'zzzznotfound'
+
+        # The private list: a vocabulary pattern AND an owner declared
+        # private-by-default, so the repo-reference rule has something to
+        # enforce. Both come out of this one file, which is route 2.
+        priv = pathlib.Path(tmp) / 'private-blocklist.txt'
+        priv.write_text(
+            '# private fixture list\n'
+            '# visibility-audit: private-owner fixtureowner -- fixture\n'
+            r'\bZarquonProject\b' + '\n', encoding='utf-8')
+
+        (repo / 'README.md').write_text(
+            '# fixture\n\n'
+            'ZarquonProject is a private name only the private list knows.\n'
+            'fixtureowner/UndeclaredThing is an undeclared repo reference.\n'
+            f'The word {_seed} is on the committed default list.\n',
+            encoding='utf-8')
+        subprocess.run(['git', 'init', '-q', str(repo)], capture_output=True)
+        subprocess.run(['git', '-C', str(repo), 'add', '-A'],
+                       capture_output=True)
+
+        # DIRTY DIRECTION FIRST. Without the flag, with the private list
+        # reachable, both private routes must fire -- otherwise the clean
+        # direction below proves nothing at all about the flag.
+        rc_full, out_full = run(repo, blocklist=str(priv))
+        cases.append(('WITHOUT the flag the private vocabulary pattern '
+                      'fires -- the control that makes route 1+3 mean '
+                      'something',
+                      rc_full == 1 and 'ZarquonProject' in out_full,
+                      out_full[-500:]))
+        cases.append(('WITHOUT the flag the private repo-reference policy '
+                      'fires too -- the control for route 2',
+                      'UndeclaredThing' in out_full, out_full[-500:]))
+
+        rc_so, out_so = run(repo, '--structural-only', blocklist=str(priv))
+        cases.append(('WITH the flag the run still FAILS -- it tripped the '
+                      'committed default list, which must keep biting in CI',
+                      rc_so == 1, out_so[-500:]))
+        cases.append(('...and names the default-list word, so the failure '
+                      'is the one intended', _seed in out_so, out_so[-500:]))
+        # ROUTE 3 IS GUARDED BUT NOT EXERCISED HERE, said plainly rather
+        # than counted as covered: _try_refresh_private_blocklist_clone()
+        # returns False in this fixture (there is no clone to fast-forward),
+        # so the reload never runs even with the guard removed. What this
+        # case proves is route 1 on a run that HAS hits. Exercising the
+        # reload needs a real git clone as the private source; filed rather
+        # than claimed (practice: speculation-is-marked).
+        cases.append(('ROUTE 1: the private vocabulary name is NOT named, '
+                      'on a run that HAD a hit -- the state in which the '
+                      'flag used to quietly stop working',
+                      'ZarquonProject' not in out_so, out_so[-800:]))
+        cases.append(('ROUTE 2: no undeclared-repo finding, since the owner '
+                      'policy lives in the private file this run did not '
+                      'read', 'UndeclaredThing' not in out_so,
+                      out_so[-800:]))
+        cases.append(('the output says the private half was skipped rather '
+                      'than reporting a clean bill over it',
+                      'private half skipped' in out_so, out_so[-500:]))
+
+        # THE REPRODUCIBILITY CLAIM ITSELF: the same flag with no private
+        # list reachable at all -- what a CI runner sees -- must reach the
+        # same verdict on the same tree.
+        rc_ci, out_ci = run(repo, '--structural-only')
+        cases.append(('same flag with NO private list reachable gives the '
+                      'SAME exit code -- the verdict does not depend on the '
+                      'machine, which is the only reason the flag exists',
+                      rc_ci == rc_so, f'{rc_ci} vs {rc_so}: {out_ci[-400:]}'))
+    finally:
+        _rmtree_retrying(tmp)
+        _rmtree_retrying(str(_home))
+
+    ok = all(c[1] for c in cases)
+    check(f'--structural-only drops every route the private half reaches, '
+          f'including on a run that HAS hits ({len(cases)} stated cases)',
+          ok, '; '.join(f'{n}: {d}' for n, o, d in cases if not o)[:900])
+
+
 def check_title_case_knows_the_files_it_ships():
     """Every root file this project INSTANTIATES into an adopter must be
     classified correctly by title_case, including the ones upstream never
@@ -24758,6 +24913,7 @@ def main():
     check_shallow_clone_never_fabricates_unlanded_work()
     check_a_renamed_engine_file_never_survives_a_reseed()
     check_leak_gate_refuses_a_fresh_container()
+    check_structural_only_actually_drops_the_private_half()
     check_title_case_knows_the_files_it_ships()
     check_carry_check_never_invents_lost_content()
     check_doc_currency_finds_a_stale_document()
