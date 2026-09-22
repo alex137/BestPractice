@@ -198,6 +198,20 @@ mechanical half in any repo the engine is vendored into: it fails on a loaded
 surface with no entry, and on one over its ceiling. An adopting repo with no
 registry gets a named skip, not a pass.
 
+**Keeping the registry is the opt-in, and carrying the practice file is not a
+second condition.** That check binds wherever
+[tools/session_load_budgets.json](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/session_load_budgets.json)
+exists, whether or not the repo vendors
+this practice's own text — a repo that wrote a ceiling down has asked for it
+to be enforced. Before 2026-09-22 it also required the practice file, and a
+repo that declared ceilings without it got a skip reading *"this check
+belongs to a source this repo does not resolve"* — true of the practice, and
+wrong about the registry sitting right there. Its AGENTS.md ran 476 tokens
+over its own declared ceiling with every check green.
+
 The sum across every repo in force — and the reduction pass itself — is
 [very-deep-check](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/very-deep-check.md)'s SESSION LOAD section, which prints
-this checkout and each attached source, section by section.
+this checkout and each attached source, section by section, **and reports any
+file over the ceiling its own repo declared.** Those are two different
+findings on purpose: a section flagged for review is a reading-cost question,
+and a file over its ceiling is this rule being broken.
