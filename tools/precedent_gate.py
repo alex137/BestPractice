@@ -61,7 +61,7 @@ Run:
       # the Rules for that moment, from DIR's practices/ instead of this
       # repo's own
 """
-import json, pathlib, sys
+import json, pathlib, subprocess, sys
 
 # _ENGINE_DIR (where this file itself lives) is only for the sibling-module
 # import and for routing_scope.json below -- both ship as one fixed unit
@@ -374,6 +374,28 @@ def _print_hard_requirements(root):
                 print(f"- [{src}] a reply matching /{pair['if_matches']}/ "
                       f"must ALSO match /{pair['must_also_match']}/"
                       + (f" -- {pair['why']}" if pair.get('why') else ''))
+        # THE ONE PREDICATE WHOSE ANSWER IS ALREADY KNOWABLE HERE, so this
+        # prints the ANSWER and not just the rule (2026-09-22). Every other
+        # line in this block states a requirement the reply has yet to meet;
+        # this one is a fact about the disk, true or false before a word of
+        # the reply is written. Printing "do not say the archive line if the
+        # container is unsafe" and leaving the session to wonder which it is
+        # would reproduce, one rung up, exactly the failure this whole
+        # function exists to end -- the person paying for the reply twice.
+        # Silent when the container is clean, which is the ordinary case.
+        for _ph in (r.get('require_container_safe_if_says') or []):
+            _verdict = _container_report()
+            if _verdict is None:
+                print(f"- [{src}] a reply saying \"{_ph}\" requires a "
+                      f"container with nothing uncommitted and nothing off a "
+                      f"remote -- and the scanner that checks it "
+                      f"(tools/precedent_container_safe.py) is not vendored "
+                      f"beside this script, so it is NOT being enforced here.")
+            elif _verdict:
+                print(f"- [{src}] DO NOT SAY \"{_ph}\" IN THIS REPLY -- "
+                      f"the stop hook will refuse it. This container holds "
+                      f"work that exists nowhere else:\n{_verdict}")
+
         # A REQUIREMENT THIS ENGINE CANNOT EVALUATE, named here rather than
         # left silent. A source's reply_check.json is read live; the engine
         # is vendored; they go stale independently, so a source can declare
@@ -389,6 +411,28 @@ def _print_hard_requirements(root):
                   f"<bestpractice-clone>")
     for n in notes:
         print(f"- NOTE: {n}")
+
+
+def _container_report():
+    """-> the scanner's report when this container is NOT safe to lose, '' when
+    it is, or None when there is no scanner to run.
+
+    Deliberately three-valued. '' and None both print nothing, but they mean
+    opposite things -- "checked, clean" and "not checked at all" -- and the
+    caller says so for the second, because a requirement nobody is evaluating
+    is not a requirement that is being met.
+    """
+    tool = pathlib.Path(__file__).resolve().parent / 'precedent_container_safe.py'
+    if not tool.is_file():
+        return None
+    try:
+        p = subprocess.run([sys.executable, str(tool)],
+                           capture_output=True, text=True, timeout=120)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if p.returncode == 0:
+        return ''
+    return '\n'.join('    ' + ln for ln in (p.stdout or '').strip().splitlines())
 
 
 def main():

@@ -41,6 +41,14 @@
     "checks_practice_at": "practices/the-boildown.md"
   },
   {
+    "practice": "the-boildown",
+    "require_container_safe_if_says": [
+      "You can archive this session"
+    ],
+    "why": "2026-09-22: a reply reported its own eight commits pushed, said \"You can archive this session\", and left six unpushed commits sitting in a source clone in the same container -- which archiving releases. Morgan, same day (strength: decided): \"if changes are done locally but not pushed to main or precedent-beta-v01 then never never recommend 'You can archive this session' (unless the work is intended to be lost!) - this is very important\". The mechanism is tools/precedent_container_safe.py, which scans every git checkout in the container -- this repo, its siblings, the home directory's clones, and whatever the source config declares -- for uncommitted changes, untracked files, and commits no remote can reach. Blocking rather than advisory, unlike the archive sentence itself above: the verdict stays a judgment call, but 'would anything be lost' is a fact about a filesystem, and releasing the container is the one closing claim that cannot be taken back next turn. An engine with no copy of the scanner reports nothing and blocks nothing, the same way an unknown predicate does.",
+    "checks_practice_at": "practices/the-boildown.md"
+  },
+  {
     "practice": "rule-links",
     "require_no_bare_pattern": [
       {

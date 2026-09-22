@@ -118,6 +118,7 @@ import json
 import os
 import pathlib
 import re
+import subprocess
 import sys
 
 _ENGINE_DIR = pathlib.Path(__file__).resolve().parent
@@ -389,6 +390,7 @@ KNOWN_REQUIREMENT_KEYS = frozenset({
     'require_no_contradiction',
     'require_no_bare_pattern',
     'require_paired_with',
+    'require_container_safe_if_says',
     # conditions and metadata
     'require_when_context_grew_tokens',
     'advisory',
@@ -611,7 +613,72 @@ def violations(text, reqs, timeline=None):
                     + (f" -- {pair.get('why')}" if pair.get('why') else '')
                     + "."
                     + (f" (practice: {r['practice']})" if r.get('practice') else ''))})
+
+        # require_container_safe_if_says: the only predicate here that looks
+        # at the DISK rather than at the reply. When the reply says one of
+        # these phrases, tools/precedent_container_safe.py must agree that
+        # nothing in this container would be lost if it went away.
+        #
+        # WHY A TEXT CHECKER GREW A STATE CHECK (Morgan, 2026-09-22,
+        # strength: decided): "if changes are done locally but not pushed to
+        # main or precedent-beta-v01 then never never recommend 'You can
+        # archive this session' (unless the work is intended to be lost!)".
+        # Every other archive-line mechanism here reads the reply against
+        # itself -- require_no_contradiction catches a reply that says both
+        # halves at once and, by its own docstring, deliberately does not
+        # judge whether the verdict is CORRECT. That was the right line to
+        # draw while the verdict needed a judgment no script could make.
+        # This one does not: "would anything be lost" is a fact about a
+        # filesystem, and a script reads it better than a session
+        # remembering which of six checkouts it has pushed. On 2026-09-22 a
+        # session said the archive line with six unpushed commits sitting in
+        # a source clone it had never looked at, and nothing caught it.
+        #
+        # Blocking, not advisory, and that is the whole point: archiving
+        # releases the container, so this is the one closing claim whose
+        # cost cannot be undone by saying it again next turn.
+        for phrase in (r.get('require_container_safe_if_says') or []):
+            # Quoted spans stripped, same as require_no_contradiction above
+            # and for the same reason: a reply QUOTING the sentence -- this
+            # practice's own text, a message being discussed -- is not
+            # asserting it.
+            if _norm(phrase) not in _norm(quoted_stripped):
+                continue
+            verdict = _container_verdict()
+            if verdict is None:
+                continue
+            ok, report = verdict
+            if not ok:
+                out.append({'kind': 'container', 'advisory': False, 'message': (
+                    f"[{r.get('_source', '?')}] this reply says "
+                    f"\"{phrase}\" and this container is NOT safe to lose:"
+                    f"\n{report}\n"
+                    f"Push or merge it -- or say in the reply that it is "
+                    f"meant to be lost -- before saying that sentence."
+                    + (f" (practice: {r['practice']})" if r.get('practice') else ''))})
     return out
+
+
+def _container_verdict():
+    """-> (safe, report) from tools/precedent_container_safe.py, or None
+    when this engine has no copy of it to run.
+
+    None, rather than a violation, on a missing or unrunnable scanner. An
+    engine vendored before the scanner existed is an OLD ENGINE, not a
+    broken reply -- exactly the case _unknown_predicates() already reasons
+    about above, and refusing somebody's turn over their vendored copy's age
+    would punish the wrong thing at the wrong moment. `--brief` is not
+    offered: the person needs to know WHICH checkout, or the refusal tells
+    them nothing they can act on."""
+    tool = pathlib.Path(__file__).resolve().parent / 'precedent_container_safe.py'
+    if not tool.is_file():
+        return None
+    try:
+        p = subprocess.run([sys.executable, str(tool)],
+                           capture_output=True, text=True, timeout=120)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return p.returncode == 0, (p.stdout or p.stderr or '').strip()
 
 
 def main():
@@ -648,6 +715,11 @@ def main():
                 for pair in r['require_paired_with']:
                     bits.append(f"/{pair.get('if_matches')}/ requires "
                                 f"/{pair.get('must_also_match')}/")
+            if r.get('require_container_safe_if_says'):
+                for ph in r['require_container_safe_if_says']:
+                    bits.append(f'"{ph}" requires a container with nothing '
+                                f'uncommitted and nothing off a remote '
+                                f'(tools/precedent_container_safe.py)')
             if r.get('require_when_context_grew_tokens'):
                 bits.append("ONLY once the context has grown "
                             f"{int(r['require_when_context_grew_tokens']):,} "
@@ -728,6 +800,19 @@ def main():
               '(fetch/push status, what is really outstanding) rather than '
               'trusting either half of the contradiction, then output ONLY a '
               'short correction of whichever line was wrong.', file=sys.stderr)
+    elif any(b['kind'] == 'container' for b in bad):
+        # NOT the sentence-only message below. This refusal is not "you left
+        # a line out" -- it is "the line you wrote is false, and acting on it
+        # destroys the work named below". The repair is a push or a merge
+        # first, in the checkouts named, and only then a corrected line.
+        print('The reply gate blocked this turn: it told the person they can '
+              'archive, and this container holds work that exists nowhere '
+              'else -- named below, with the checkout it is in. The person '
+              'has ALREADY SEEN the reply above -- do NOT repeat it. PUSH OR '
+              'MERGE that work first, in each checkout named; then output '
+              'ONLY a short correction of the archive line. If it is '
+              'genuinely meant to be lost, say so in the reply, in those '
+              'words.', file=sys.stderr)
     elif any(b['kind'] == 'bare_pattern' for b in bad):
         print('The reply gate blocked this turn: it names something with a '
               'destination -- a PR, a session, a branch, a rule -- without '

@@ -22,7 +22,12 @@ approved_by: "Morgan, 2026-09-18 -- dictated in full, including the reading
   no question mark, you should first check to see what's outstanding and if
   there is anything, tell me to make sure I want to archive it.\" strength:
   decided. `archive-command` is deduplicated into this file as of the
-  same change."
+  same change. Amended 2026-09-22, Morgan, restating condition 1 as the
+  whole container rather than this session's own work, after a reply cleared
+  its own eight commits and left six unpushed in a source clone: \"only say
+  you can archive this when nothing in the container that we want to keep
+  will be lost and I have pushed or merged everything we need to\". strength:
+  decided."
 strength:    decided
 ---
 ## Rule
@@ -39,7 +44,10 @@ both spellings resolve to this one rule.
 conditions, run on demand instead of waited for at the natural end of a
 reply:**
 
-1. The work is safe somewhere that is not this session's container.
+1. Nothing in the container that anybody wants to keep would be lost --
+   **every checkout it holds, not just the one this session worked in**.
+   Run [tools/precedent_container_safe.py](../tools/precedent_container_safe.py)
+   and read its answer rather than recalling what was pushed.
 2. Nothing is left to do directly in this session.
 3. No Routine is bound to this session (`list_triggers`).
 
@@ -48,6 +56,14 @@ recommendation, no other live session on the same subject, nothing the
 assistant is itself waiting on) -- **archive it**: resolve the session,
 check `list_triggers`, call `archive_session`, and say plainly that it's
 done and that `unarchive_session` reverses it.
+
+**The scanner's answer is not a caveat to report alongside an archive
+verdict -- it decides the verdict.** Unpushed work anywhere in the container
+fails condition 1 outright, whoever's work it is and whichever clone it sits
+in; push or merge it first, or say plainly that it is meant to be lost. A
+reply that says the archive sentence with the container unsafe is refused by
+the reply gate ([the-boildown](the-boildown.md)'s
+`require_container_safe_if_says`), which is the 2026-09-22 amendment below.
 
 **Anything is outstanding -- do not archive.** Say plainly what it is: a
 merge still open, something the assistant is waiting on, a recommendation

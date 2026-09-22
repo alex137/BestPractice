@@ -10802,6 +10802,180 @@ def check_reply_check_requires_a_destination_for_a_fence_block():
             '; '.join(f'{n}: {d}' for n, d in bad_cases))
 
 
+def check_archive_line_is_refused_when_the_container_holds_only_copy_work():
+    """`require_container_safe_if_says` refuses a reply that tells the person
+    they can archive while this container holds work that exists nowhere else.
+
+    The incident (2026-09-22): a very deep check pushed its own eight commits,
+    verified them on origin, and closed with the archive line. Six commits sat
+    unpushed in ~/precedent-individual in the same container -- which archiving
+    releases -- in a clone the session had never been working in. Morgan:
+    *"if changes are done locally but not pushed to main or
+    precedent-beta-v01 then never never recommend 'You can archive this
+    session' (unless the work is intended to be lost!)"*.
+    (practice: cite-the-incident)
+
+    Two halves, both planted. The SCANNER is run against a container this test
+    builds -- a repo with an untracked file, a repo whose commits are all on a
+    remote -- so its verdict is not a reading of whatever the real disk happens
+    to hold. The WIRING is run against a stub scanner placed beside a copy of
+    precedent_reply_check.py, which is the only way to assert "a failing scan
+    refuses the turn" and "a passing scan does not" without a real container in
+    each state. The no-scanner case is planted too: an engine vendored before
+    the scanner existed must block nothing.
+
+    practice: control-asserts-which-failure -- every positive here has the
+    negative that proves it is the scan doing the work.
+    """
+    import tempfile
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-container-'))
+    cases = []
+    scanner = ROOT / 'tools' / 'precedent_container_safe.py'
+
+    def git(repo, *args):
+        return subprocess.run(['git', *args], cwd=str(repo),
+                              capture_output=True, text=True)
+
+    try:
+        # --- half one: the scanner, against a planted container ------------
+        dirty = tmp / 'dirty'
+        dirty.mkdir()
+        git(dirty, 'init', '-q', '-b', 'main')
+        (dirty / 'keep.txt').write_text('work that is only here\n', encoding='utf-8')
+        r = subprocess.run([sys.executable, str(scanner), '--only', str(dirty)],
+                           capture_output=True, text=True)
+        cases.append(('an untracked file in a checkout makes the container '
+                      'unsafe, and the report names the checkout',
+                      r.returncode == 1 and 'keep.txt' in r.stdout
+                      and str(dirty) in r.stdout,
+                      f'exit {r.returncode}: {r.stdout[:200]}'))
+
+        # Committed but on no remote -- the case the 09-22 incident actually
+        # was, and the one a `git status` in the right directory still misses.
+        git(dirty, 'add', 'keep.txt')
+        git(dirty, 'config', 'user.email', 'harness@example.com')
+        git(dirty, 'config', 'user.name', 'Harness')
+        git(dirty, 'commit', '-qm', 'planted')
+        r2 = subprocess.run([sys.executable, str(scanner), '--only', str(dirty)],
+                            capture_output=True, text=True)
+        cases.append(('committing it is not enough -- a commit no remote can '
+                      'reach still fails',
+                      r2.returncode == 1 and 'commit(s) on no remote' in r2.stdout,
+                      f'exit {r2.returncode}: {r2.stdout[:200]}'))
+
+        # …and pushing it IS. The negative control that proves the check is
+        # about reachability from a remote and not about the file existing.
+        bare = tmp / 'origin.git'
+        subprocess.run(['git', 'init', '-q', '--bare', str(bare)],
+                       capture_output=True, text=True)
+        git(dirty, 'remote', 'add', 'origin', str(bare))
+        git(dirty, 'push', '-q', 'origin', 'main')
+        r3 = subprocess.run([sys.executable, str(scanner), '--only', str(dirty)],
+                            capture_output=True, text=True)
+        cases.append(('negative control: once it is pushed, the same checkout '
+                      'is safe',
+                      r3.returncode == 0 and 'container safe' in r3.stdout,
+                      f'exit {r3.returncode}: {r3.stdout[:200]}'))
+
+        # --- half two: the wiring, against a stub scanner -------------------
+        def engine(stub_rc):
+            """A tools/ dir holding the real reply check and a stub scanner
+            with a known exit code, or no scanner at all when stub_rc is None."""
+            d = tmp / f'engine{stub_rc}'
+            (d / 'tools').mkdir(parents=True)
+            shutil.copy(ROOT / 'tools' / 'precedent_reply_check.py', d / 'tools')
+            if stub_rc is not None:
+                (d / 'tools' / 'precedent_container_safe.py').write_text(
+                    'import sys\n'
+                    'print("PLANTED: ~/somewhere holds 6 commit(s) on no remote")\n'
+                    f'sys.exit({stub_rc})\n', encoding='utf-8')
+            return d / 'tools' / 'precedent_reply_check.py'
+
+        fx = tmp / 'repo'
+        (fx / 'practices').mkdir(parents=True)
+        (fx / 'precedent.json').write_text(json.dumps({'sources': [
+            {'level': 'universal', 'name': 'precedent', 'path': '.'}]}),
+            encoding='utf-8')
+        (fx / 'practices' / 'fixture-container.md').write_text(
+            '---\n'
+            'slug:        fixture-container\n'
+            'title:       A fixture practice wired to the reply gate\n'
+            'tier:        on-demand\n'
+            'severity:    default\n'
+            'applies_to:  []\n'
+            'occasion:    "a fixture needs one practice on the reply gate"\n'
+            'gates:       ["reply"]\n'
+            'index_clause: "a fixture rule"\n'
+            'checked_by:  null\n'
+            'status:      active\n'
+            'in_force_at: null\n'
+            'supersedes:  []\n'
+            'overrides:   null\n'
+            'added:       null\n'
+            'approved_by: null\n'
+            '---\n\n## Rule\nA fixture rule, present so the reply gate has '
+            'something registered to it.\n', encoding='utf-8')
+        (fx / 'reply_check.json').write_text(json.dumps([{
+            'practice': 'fixture-container',
+            'require_container_safe_if_says': ['You can archive this session'],
+        }]), encoding='utf-8')
+
+        says = tmp / 'says.md'
+        says.write_text('## The Boildown\n\nAll done.\n\n'
+                        'You can archive this session.\n', encoding='utf-8')
+        holds = tmp / 'holds.md'
+        holds.write_text("## The Boildown\n\nPush it first.\n\n"
+                         "Don't archive this session.\n", encoding='utf-8')
+
+        def replycheck(engine_path, reply):
+            return subprocess.run(
+                [sys.executable, str(engine_path), '--repo', str(fx),
+                 '--text', str(reply)],
+                capture_output=True, text=True, cwd=str(tmp),
+                env={**os.environ,
+                     'PRECEDENT_USER_CONFIG': str(tmp / 'no-such-config.json')})
+
+        unsafe_engine = engine(1)
+        r4 = replycheck(unsafe_engine, says)
+        cases.append(('the archive line is REFUSED when the scan fails, and '
+                      'the refusal carries the scan\'s own report',
+                      r4.returncode == 2 and 'PLANTED:' in r4.stderr,
+                      f'exit {r4.returncode}: {r4.stderr[:250]}'))
+
+        r5 = replycheck(unsafe_engine, holds)
+        cases.append(('negative control: the same unsafe container does not '
+                      'refuse a reply that says the OTHER line',
+                      r5.returncode == 0, f'exit {r5.returncode}: {r5.stderr[:160]}'))
+
+        r6 = replycheck(engine(0), says)
+        cases.append(('negative control: a clean scan lets the archive line '
+                      'through',
+                      r6.returncode == 0, f'exit {r6.returncode}: {r6.stderr[:160]}'))
+
+        r7 = replycheck(engine(None), says)
+        cases.append(('an engine with no scanner beside it blocks NOTHING -- '
+                      'an old vendor is not a broken reply',
+                      r7.returncode == 0, f'exit {r7.returncode}: {r7.stderr[:160]}'))
+
+        # The pre-reply print must carry the VERDICT, not just the rule:
+        # a refusal the session was never warned about costs the reply twice.
+        r8 = subprocess.run(
+            [sys.executable, str(ROOT / 'tools' / 'precedent_gate.py'),
+             '--repo', str(fx), 'reply'],
+            capture_output=True, text=True, cwd=str(tmp),
+            env={**os.environ,
+                 'PRECEDENT_USER_CONFIG': str(tmp / 'no-such-config.json')})
+        cases.append(('the reply gate names this requirement before the reply',
+                      'You can archive this session' in r8.stdout,
+                      r8.stdout[-250:]))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad_cases = [(n, d) for n, ok, d in cases if not ok]
+    return (not bad_cases, f'{len(cases)} stated cases',
+            '; '.join(f'{n}: {d}' for n, d in bad_cases))
+
+
 def check_compaction_offer_fires_on_context_growth():
     """The size-aware half of the reply check: a long session is REFUSED a
     reply that never says whether this is a cheap point to compact.

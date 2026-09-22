@@ -409,6 +409,16 @@ ENGINE_FILES = [
     # named 'precedent_reply_check')" on every single turn. Reproduced in a
     # stripped vendor tree before this line was added.
     'precedent_reply_check.py',
+    # The one predicate in that file that looks at the DISK rather than at
+    # the reply (2026-09-22): does this container hold work that exists
+    # nowhere else? It travels for the same reason the reply check itself
+    # does -- `require_container_safe_if_says` is declared in a source's
+    # reply_check.json, read live, and evaluated by the VENDORED engine, so
+    # a consumer without this file would silently evaluate the archive rule
+    # to "nothing to report" in exactly the containers most likely to be
+    # holding somebody's unpushed clone. It is useful on its own, too: a
+    # person or a session can run it at any time and get a straight answer.
+    'precedent_container_safe.py',
     # The stop hook's other half: close detection (2026-09-14). Same argument
     # as the line above it, and caught the same way -- Morgan asked whether
     # updating the vendored engine would carry this to a repo that has it,
