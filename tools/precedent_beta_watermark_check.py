@@ -24,6 +24,31 @@ own practice source (a private, single-owner repository), not in
 push that was never his to begin with, and where anyone else reading this
 public repository would see a personal read-receipt for no reason.
 
+WHAT MOVES THE WATERMARK: AN ALERT, NOT A PUSH. Until 2026-09-22 this
+file wrote and committed the watermark the moment `origin/<branch>` moved
+at all -- above the `if not others` return, so the path that reports
+NOTHING advanced and committed exactly like the path that reports someone
+else's commits. Measured on `precedent-beta-v01` the same day: of the last
+300 commits, 293 are Morgan's own, 5 a session's and 2 Alex's. So very
+nearly every watermark commit ever written recorded the delivery of a
+notice that was never delivered, and the registry's own `_comment` --
+"gates a notification with nothing left to do once it has been given" --
+described a contract the code did not keep. Counted in this container's
+own clone of the individual source the same day: 32 watermark commits
+across four days, 13 of them on 2026-09-21 alone, and 8 of the 32 still
+sitting unpushed. The open item is
+todo-2026-09-21-watermark-commits-pile-up-where-they-cannot-be-pushed
+under todo/.
+
+The write and the commit now sit BELOW that return. Nothing at all is
+written on the quiet path -- not a commit, and not an uncommitted edit
+either, which would leave that clone permanently dirty and stop
+`.claude/hooks/freshness-guard.sh` fast-forwarding it: a stuck checkout
+in place of a diverged one. Letting the watermark go stale there is
+harmless and is the point: `others` is computed over `seen..head`, so a
+watermark that stayed put simply widens the window the next run reads, and
+a commit nobody was told about is still found and still reported.
+
 Raised by Morgan, 2026-09-18: Alex also pushes to this branch, and Morgan
 wants to know when -- but not in every reply of a session, only once per
 actual change. Two integration points, both calling `check()` /
@@ -215,7 +240,11 @@ def _commit_and_push(individual_path, path, message, no_push, branch,
         # (individual_path's own remote, not branch's).
         return (f'this note about it failed to sync to the individual source '
                 f'({out.splitlines()[-1] if out else "see stderr"}) -- not a '
-                f'failure to push {branch} itself; retries next session')
+                f'failure to push {branch} itself. The commit stays in this '
+                f'container: the local watermark now equals the head, so the '
+                f'next session here short-circuits before reaching this push '
+                f'and nothing retries it. It reaches the individual source '
+                f'only when a session that can push there sends it')
     return 'committed and pushed'
 
 
@@ -279,10 +308,12 @@ def check(root=None, no_fetch=False, no_push=False, user_config=None,
                 'PERSON has seen -- so it stays out of alex137/BestPractice,',
                 'which is public and shared.',
                 '',
-                'Auto-advances the moment it reports something new: unlike',
-                'tools/upstream_watermark.json in BestPractice, which a person',
-                'moves deliberately because it gates an action, this gates a',
-                'notification with nothing left to do once it has been given.',
+                'Advances the moment it reports SOMEBODY ELSE\'S commits,',
+                'and only then -- a run that finds none writes nothing here.',
+                'Unlike tools/upstream_watermark.json in BestPractice, which',
+                'a person moves deliberately because it gates an action, this',
+                'gates a notification with nothing left to do once it has',
+                'been given.',
             ],
             'repo': 'alex137/BestPractice',
             'branch': branch,
@@ -313,6 +344,16 @@ def check(root=None, no_fetch=False, no_push=False, user_config=None,
                 if email != me['email']:
                     others.append((sha[:9], name, subject))
 
+    if not others:
+        # NOTHING IS WRITTEN AND NOTHING IS COMMITTED ON THIS PATH. See
+        # "WHAT MOVES THE WATERMARK" in this file's header: the watermark
+        # records what Morgan has been TOLD, and he has just been told
+        # nothing, so there is nothing to record -- and no commit to write
+        # into a different person's repository for a notice never given.
+        return 'ok', [f'{branch} moved to {head[:9]}, all your own commits -- '
+                       f'nothing to tell you, so the watermark stays at '
+                       f'{seen[:9] if seen else "(none recorded)"}'], None
+
     registry['last_seen'] = {
         'sha': head, 'recorded': precedent_time.today(),
         'note': 'auto-advanced by precedent_beta_watermark_check.py',
@@ -321,10 +362,6 @@ def check(root=None, no_fetch=False, no_push=False, user_config=None,
     outcome = _commit_and_push(indiv, watermark_path,
                                 f'Advance {branch} watermark to {head[:9]}',
                                 no_push, branch, identity=me)
-
-    if not others:
-        return 'ok', [f'{branch} moved to {head[:9]}, all your own commits '
-                       f'({outcome})'], None
 
     lines = [f'{len(others)} commit(s) on {branch} since {seen[:9] if seen else "(none recorded)"}, '
               f'not authored by you, up to {head[:9]} ({outcome}):']

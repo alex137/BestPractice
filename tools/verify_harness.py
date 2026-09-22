@@ -6353,7 +6353,12 @@ def check_every_verdict_returning_check_is_recorded():
         m = re.match(r'^def (check_[a-z_0-9]+)\(', line)
         if m:
             cur = m.group(1)
-        if cur and re.match(r'^    return \(not bad,', line):
+        # `not bad,` was the original pattern and it missed
+        # `not bad_cases,` -- which is how
+        # check_reply_check_requires_a_destination_for_a_fence_block, the
+        # guard on a LIVE blocking requirement, sat unreferenced from the
+        # day it was written until 2026-09-22.
+        if cur and re.match(r'^    return \(not bad\w*,', line):
             if cur not in returning:
                 returning.append(cur)
 
@@ -6367,8 +6372,25 @@ def check_every_verdict_returning_check_is_recorded():
         elif not wired:
             bad.append((fn, 'defined but never called from main()'))
 
+    # THE WIDER HOLE, 2026-09-22. Everything above is about the verdict
+    # FAMILY. A check that reports the ordinary way -- calling `check()`
+    # itself and returning nothing -- and is never called from main() is
+    # just as invisible: it costs nothing, prints nothing, and the total
+    # does not move. Two landed that way the same week
+    # (check_archive_line_is_refused_when_the_container_holds_only_copy_work
+    # guarded a live blocking requirement and had never once run), and four
+    # older ones were already sitting there. So the cheaper, wider
+    # assertion: every `check_*` defined in this file is named somewhere
+    # else in it.
+    defined = re.findall(r'^def (check_[a-z_0-9]+)\(', src, re.M)
+    for fn in defined:
+        if len(re.findall(rf'\b{re.escape(fn)}\b', src)) <= 1:
+            bad.append((fn, 'defined but never called from main() -- it has '
+                             'never run'))
+
     return (not bad,
-            f'{len(returning)} verdict-returning check(s), all recorded',
+            f'{len(returning)} verdict-returning and {len(defined)} total '
+            f'check(s), all recorded',
             '; '.join(f'{n}: {d}' for n, d in bad))
 
 
@@ -10802,6 +10824,182 @@ def check_reply_check_requires_a_destination_for_a_fence_block():
             '; '.join(f'{n}: {d}' for n, d in bad_cases))
 
 
+def check_beta_watermark_commits_only_when_it_actually_reports_something():
+    """The watermark advances -- and writes a commit into somebody else's
+    repository -- ONLY on a run that tells Morgan about a commit that is
+    not his. A run with nothing to tell him writes nothing at all.
+
+    THE DEFECT, 2026-09-22. `_write_watermark` and `_commit_and_push` sat
+    ABOVE the `if not others` return in `check()`, so the path that reports
+    nothing committed exactly like the path that reports somebody else's
+    push. Measured on `precedent-beta-v01` the same day: 293 of the last
+    300 commits are Morgan's own, 5 a session's, 2 Alex's -- so nearly
+    every watermark commit ever written recorded a notice that was never
+    given, against a registry whose own `_comment` says it "gates a
+    notification with nothing left to do once it has been given". Counted
+    in one container's own clone of the individual source: 32 watermark
+    commits across four days, 13 on 2026-09-21 alone, 8 still unpushed --
+    none of them pushable from a session rooted in this repository.
+
+    NOT COMMITTING IS NOT ENOUGH, which is why the third case here is the
+    important one. Writing the file and skipping only the commit leaves
+    that clone's tree dirty forever, and `.claude/hooks/freshness-guard.sh`
+    refuses to fast-forward a dirty tree (`_dirty` there, `status
+    --porcelain --untracked-files=no`) -- trading a diverged checkout for a
+    stuck one. So the quiet path must leave the working tree CLEAN.
+
+    The fourth case is the correctness one the volume fix must not cost:
+    a watermark left behind by a quiet run still finds the commit it never
+    reported, because `others` is computed over `seen..head` and a
+    watermark that stayed put simply widens that window.
+    """
+    import shutil, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_beta_watermark_check as pbw
+
+    MINE = 'watermark-owner@example.com'
+    THEIRS = 'someone-else@example.com'
+
+    def git(cwd, *args, author=None):
+        env = dict(os.environ)
+        if author:
+            env['GIT_AUTHOR_EMAIL'] = env['GIT_COMMITTER_EMAIL'] = author
+            env['GIT_AUTHOR_NAME'] = env['GIT_COMMITTER_NAME'] = author.split('@')[0]
+        r = subprocess.run(['git', '-C', str(cwd), *args],
+                           capture_output=True, text=True, env=env)
+        if r.returncode != 0:
+            raise RuntimeError(f"git {' '.join(args)}: {r.stderr.strip()}")
+        return r.stdout.strip()
+
+    # PRECEDENT_COMMIT_* is step 1 of declared_identity()'s resolution and
+    # would win over the fixture's own identity.json -- this container sets
+    # it. Cleared for the duration and restored in `finally`.
+    saved = {k: os.environ.get(k) for k in
+             ('PRECEDENT_COMMIT_EMAIL', 'PRECEDENT_COMMIT_NAME',
+              'PRECEDENT_COMMIT_TIMEZONE', 'PRECEDENT_USER_CONFIG')}
+    for k in saved:
+        os.environ.pop(k, None)
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='beta-watermark-'))
+    try:
+        branch = 'precedent-beta-v01'
+
+        origin_bp = tmp / 'origin-bp'
+        git(tmp, 'init', '-q', '--bare', '-b', branch, str(origin_bp))
+        seed = tmp / 'seed'
+        git(tmp, 'clone', '-q', str(origin_bp), str(seed))
+        git(seed, 'config', 'user.email', 'harness@example.com')
+        git(seed, 'config', 'user.name', 'harness')
+
+        def land(text, author):
+            (seed / 'f.txt').write_text(text, encoding='utf-8')
+            git(seed, 'add', '-A')
+            git(seed, 'commit', '-qm', text, author=author)
+            git(seed, 'push', '-q', 'origin', branch)
+
+        land('c0', MINE)
+
+        work = tmp / 'work'
+        git(tmp, 'clone', '-q', str(origin_bp), str(work))
+
+        indiv_origin = tmp / 'indiv-origin'
+        git(tmp, 'init', '-q', '--bare', '-b', 'main', str(indiv_origin))
+        indiv = tmp / 'indiv'
+        git(tmp, 'clone', '-q', str(indiv_origin), str(indiv))
+        git(indiv, 'config', 'user.email', 'harness@example.com')
+        git(indiv, 'config', 'user.name', 'harness')
+        (indiv / 'identity.json').write_text(json.dumps(
+            {'name': 'Watermark Owner', 'email': MINE,
+             'timezone': 'UTC'}) + '\n', encoding='utf-8')
+        git(indiv, 'add', '-A')
+        git(indiv, 'commit', '-qm', 'identity')
+        git(indiv, 'push', '-q', 'origin', 'main')
+
+        cfg = tmp / 'config.json'
+        cfg.write_text(json.dumps({'individual': {'path': str(indiv)}}) + '\n',
+                        encoding='utf-8')
+
+        def run():
+            return pbw.check(root=work, no_fetch=False, no_push=False,
+                              user_config=str(cfg), individual_path=indiv)
+
+        def commits():
+            return int(git(indiv, 'rev-list', '--count', 'HEAD'))
+
+        def recorded():
+            return (json.loads((indiv / pbw.WATERMARK_FILENAME).read_text(
+                encoding='utf-8')).get('last_seen') or {}).get('sha')
+
+        # 1. First run baselines and commits once -- that is the one write
+        # a fresh clone legitimately makes, and it is unchanged.
+        status_base, _lines, alert_base = run()
+        after_baseline = commits()
+        baselined_at = recorded()
+
+        # 2. The branch moves, all of it authored by the declared identity.
+        land('c1', MINE)
+        status_quiet, lines_quiet, alert_quiet = run()
+        after_quiet = commits()
+        quiet_porcelain = git(indiv, 'status', '--porcelain')
+        recorded_after_quiet = recorded()
+
+        # 3. Somebody else pushes. Now there is something to tell him.
+        land('c2', THEIRS)
+        status_alert, _lines_a, alert_alert = run()
+        after_alert = commits()
+        subject_alert = git(indiv, 'log', '-1', '--format=%s')
+
+        # 4. The push-failure message, against an unreachable remote: it
+        # must not promise a retry that nothing performs.
+        broken = tmp / 'broken'
+        git(tmp, 'clone', '-q', str(indiv_origin), str(broken))
+        git(broken, 'config', 'user.email', 'harness@example.com')
+        git(broken, 'config', 'user.name', 'harness')
+        git(broken, 'remote', 'set-url', 'origin', str(tmp / 'no-such-remote'))
+        note = broken / pbw.WATERMARK_FILENAME
+        note.write_text('{}\n', encoding='utf-8')
+        failed_outcome = pbw._commit_and_push(broken, note, 'Advance', False,
+                                               branch, identity=None)
+
+        cases = [
+            ('a fresh clone still baselines and commits once',
+             status_base == 'ok' and alert_base is None and after_baseline == 2
+             and baselined_at is not None),
+            ('a branch move with nothing to report writes NO commit into '
+             'the individual source', after_quiet == after_baseline),
+            ('...and leaves that clone\'s working tree CLEAN, so the '
+             'freshness guard can still fast-forward it',
+             quiet_porcelain == ''),
+            ('...and says so, rather than reporting an outcome it did not '
+             'have', 'nothing to tell you' in ' '.join(lines_quiet)),
+            ('...and leaves the recorded watermark where it was',
+             recorded_after_quiet == baselined_at),
+            ('the quiet run reports ok with no alert',
+             status_quiet == 'ok' and alert_quiet is None),
+            ('somebody else\'s push IS reported, even though the quiet run '
+             'left the watermark behind', status_alert == 'alert'
+             and alert_alert is not None and 'someone-else' in alert_alert),
+            ('...and that is the run that writes the commit',
+             after_alert == after_quiet + 1
+             and subject_alert.startswith(f'Advance {branch} watermark')),
+            ('a failed push no longer claims a retry that nothing performs',
+             'retries next session' not in failed_outcome),
+            ('...and says what actually reaches the individual source',
+             'a session that can push there' in failed_outcome),
+        ]
+        ok = all(passed for _, passed in cases)
+        for name, passed in cases:
+            if not passed:
+                print(f"  beta watermark did NOT behave as stated: {name}")
+        check(f'the beta-branch watermark commits only on a run that '
+              f'actually reports something ({len(cases)} stated cases)', ok)
+    finally:
+        for k, v in saved.items():
+            if v is not None:
+                os.environ[k] = v
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 def check_archive_line_is_refused_when_the_container_holds_only_copy_work():
     """`require_container_safe_if_says` refuses a reply that tells the person
     they can archive while this container holds work that exists nowhere else.
@@ -10879,13 +11077,24 @@ def check_archive_line_is_refused_when_the_container_holds_only_copy_work():
 
         # --- half two: the wiring, against a stub scanner -------------------
         def engine(stub_rc):
-            """A tools/ dir holding the real reply check and a stub scanner
-            with a known exit code, or no scanner at all when stub_rc is None."""
+            """A whole tools/ dir with the scanner swapped for a stub of a
+            known exit code, or removed entirely when stub_rc is None.
+
+            THE WHOLE DIRECTORY, not just precedent_reply_check.py. Copying
+            that one file leaves it without precedent_resolve.py beside it,
+            so it resolves NO sources, reads NO reply_check.json and exits 0
+            on every input -- which every negative control here is also
+            expecting. Three of the four wiring cases passed on that, and
+            the positive one failed, which is how the whole check was found
+            to have never run at all (2026-09-22).
+            """
             d = tmp / f'engine{stub_rc}'
-            (d / 'tools').mkdir(parents=True)
-            shutil.copy(ROOT / 'tools' / 'precedent_reply_check.py', d / 'tools')
-            if stub_rc is not None:
-                (d / 'tools' / 'precedent_container_safe.py').write_text(
+            shutil.copytree(ROOT / 'tools', d / 'tools')
+            planted = d / 'tools' / 'precedent_container_safe.py'
+            if stub_rc is None:
+                planted.unlink(missing_ok=True)
+            else:
+                planted.write_text(
                     'import sys\n'
                     'print("PLANTED: ~/somewhere holds 6 commit(s) on no remote")\n'
                     f'sys.exit({stub_rc})\n', encoding='utf-8')
@@ -26982,6 +27191,12 @@ def main():
           *check_session_check_reports_a_source_cloned_twice())
     check('every verdict-returning check is actually recorded',
           *check_every_verdict_returning_check_is_recorded())
+    check('the reply check requires a destination for a fence block',
+          *check_reply_check_requires_a_destination_for_a_fence_block())
+    check_endgame_merge_finds_the_silent_drop()
+    check_philosophy_citations_run_both_ways()
+    check_vendor_engine_names_a_dependent_of_a_deleted_file()
+    check_vendor_engine_removes_a_hook_upstream_dropped()
     check('a stale source clone is made current, and a skip is never a success',
           *check_a_stale_source_clone_is_made_current_not_reported_clean())
     check("a suggested link keeps a dotfile path's leading dot",
@@ -26998,6 +27213,10 @@ def main():
     check_advisory_requirement_never_blocks()
     check_contradiction_requirement_blocks()
     check_compaction_offer_fires_on_context_growth()
+    check('the archive line is refused when the container holds '
+          'only-copy work',
+          *check_archive_line_is_refused_when_the_container_holds_only_copy_work())
+    check_beta_watermark_commits_only_when_it_actually_reports_something()
     check_trivial_checkin_exempts_the_boildown_gate()
     check_close_detection_fires_only_when_all_conditions_hold()
     check_loader_block_advertises_only_live_channels()

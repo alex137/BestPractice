@@ -60,7 +60,7 @@ sit underneath it.
    (or in a local note), leave no commit, and say so in the session-start
    line. Cross-session dedup already depends on the push landing, so a
    commit that cannot be pushed is buying nothing it does not already fail
-   to buy. **This item's recommendation.**
+   to buy. **This item's original recommendation; see What Remains below.**
 2. **Keep the commit and teach the session check to recognise it** — a
    clone whose only unpushed commits are watermark advances to a repo this
    session cannot reach is not the failure that row exists to catch. Cost:
@@ -69,6 +69,67 @@ sit underneath it.
 3. **Leave it, and have a session rooted in the individual source push the
    pile periodically.** Cost: the row is red between those sessions, which
    is most of the time, which is the present state.
+
+## What Changed, 2026-09-22 — Most Of The Volume Was Never Options 1-3
+
+**None of the three options above was the cheap fix, because the commit was
+firing on the wrong condition entirely.** `_write_watermark` and
+`_commit_and_push` sat *above* `check()`'s `if not others` return, so the
+path that reports **nothing** advanced and committed exactly like the path
+that reports somebody else's push. `others` — commits by someone other than
+the declared identity — is the only thing this watermark exists to report,
+and it was not consulted before the write.
+
+Measured on `precedent-beta-v01` the same day: of the last 300 commits,
+**293 are Morgan's own**, 5 a session's and 2 Alex's. So very nearly every
+watermark commit ever written recorded the delivery of a notice that was
+never delivered. In this container's own clone of the individual source: 32
+watermark commits across four days, 13 on 2026-09-21 alone, 8 still
+unpushed.
+
+Both moved below the return
+([tools/precedent_beta_watermark_check.py](../tools/precedent_beta_watermark_check.py),
+"WHAT MOVES THE WATERMARK"). Nothing at all is written on the quiet path —
+**not an uncommitted edit either**, which would leave that clone
+permanently dirty and stop
+[.claude/hooks/freshness-guard.sh](../.claude/hooks/freshness-guard.sh)
+fast-forwarding it (`_dirty` there, `status --porcelain
+--untracked-files=no`): a stuck checkout traded for a diverged one. A
+watermark left behind by a quiet run costs nothing, because `others` is
+computed over `seen..head` and a watermark that stayed put simply widens
+the window the next run reads. Ten stated cases in
+[tools/verify_harness.py](../tools/verify_harness.py) hold all of that,
+including that one.
+
+**The diagnosis above is confirmed, not superseded.** A 2026-09-22 relay
+claimed the push failure was a property of `PRECEDENT_GIT_TOKEN` in the
+environment rather than of repository scope, on the grounds that the
+individual clone carries its own credential helper and bypasses the proxy.
+Re-measured in this container: the helper *is* present and the token *is*
+in the environment, and `git -C ~/precedent-individual push --dry-run
+origin HEAD` still returns
+
+```
+remote: access denied by the git proxy: themorgan/precedent-individual is
+not in this session's authorized repository set
+fatal: ... The requested URL returned error: 403
+```
+
+The proxy sits in front of the helper. **Repository scope, as originally
+written.**
+
+## What Remains
+
+**The alert path still commits where it cannot push, and that is now the
+whole of it.** Roughly 2% of commits on this branch are somebody else's, so
+a container will accumulate a watermark commit occasionally rather than
+several a day — the session-check row goes green nearly always instead of
+never, which is the whole reason this item existed. Option 1 above, narrowed
+to that path (probe push access; with none, report and do not commit), is
+the residual fix. Its cost is real and unchanged: cross-container dedup
+depends on the push landing, so a container that cannot push would re-alert
+for commits an earlier one already reported. **Not done here, because the
+2026-09-22 work was authorized for the trigger and the failure message.**
 
 ## Not To Be Confused With
 
