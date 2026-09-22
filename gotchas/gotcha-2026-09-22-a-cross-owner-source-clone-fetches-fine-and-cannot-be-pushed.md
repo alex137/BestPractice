@@ -57,6 +57,14 @@ container owns.
 [tools/precedent_beta_watermark_check.py](../tools/precedent_beta_watermark_check.py)
 does exactly that, and its `_can_push` docstring carries the reasoning.
 
+**That file's own watermark moved out of the cross-owner clone entirely on
+2026-09-22** — it is
+[tools/beta_branch_watermark.json](../tools/beta_branch_watermark.json) here
+now — so it is no longer the worked example of writing into one. The probe
+stayed: a checkout that is offline, behind or diverged still cannot push, and
+the wall this entry describes is unchanged for anything else that reaches
+across owners.
+
 **Its sibling trap is the API side of the same proxy**, filed the same day:
 [the API proxy ignores the token you set](gotcha-2026-09-22-the-api-proxy-ignores-the-token-you-set.md).
 There, `PRECEDENT_GIT_TOKEN` does not govern `api.github.com` calls at all —

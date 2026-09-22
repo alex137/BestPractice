@@ -1,0 +1,24 @@
+{
+  "_comment": [
+    "The last commit on origin/precedent-beta-v01 each person has already been",
+    "told about, keyed by a slug of the name their identity declares (never",
+    "their email -- the leak gate refuses one in a tracked file, and this",
+    "branch is public). Read and written by",
+    "tools/precedent_beta_watermark_check.py, called from this repo's",
+    "SessionStart hook and reply gate.",
+    "",
+    "Advances the moment it reports SOMEBODY ELSE'S commits, and only then --",
+    "a run that finds none writes nothing here. Unlike tools/upstream_watermark.json",
+    "beside it, which a person moves deliberately because it gates an action,",
+    "this gates a notification with nothing left to do once it has been given."
+  ],
+  "repo": "alex137/BestPractice",
+  "branch": "precedent-beta-v01",
+  "seen_by": {
+    "morgan-f": {
+      "sha": "94feb8b6584a8de3126e77f0461359e7386e06f8",
+      "recorded": "2026-09-22",
+      "note": "migrated from the individual source, where this file lived until 2026-09-22, carrying its value across rather than reseeding at the head. Checked before migrating, per the rule that seeding past somebody else's commit swallows the one alert this tool exists to give: all 34 commits between this sha and the head at migration time are authored by the declared identity, so nothing was suppressed."
+    }
+  }
+}

@@ -5,6 +5,7 @@
 | Item | What | Status | Closed |
 |---|---|---|---|
 | [`todo-2026-09-21-a-dropped-hook-never-leaves-a-consumer`](todo-2026-09-21-a-dropped-hook-never-leaves-a-consumer.md) | A hook dropped upstream stays installed in every consumer, forever. | done | 2026-09-22 |
+| [`todo-2026-09-21-deep-check-definition-omits-the-ci-shards`](todo-2026-09-21-deep-check-definition-omits-the-ci-shards.md) | What this repository calls a "deep check" runs [tools/verify_harness.py](../tools/verify_harness.py) the one way that ca | done | 2026-09-22 |
 | [`todo-2026-09-21-three-shared-sets-are-cloned-twice-on-this-container`](todo-2026-09-21-three-shared-sets-are-cloned-twice-on-this-container.md) | All three shared sets exist twice on this container | done | 2026-09-22 |
 | [`todo-2026-09-21-watermark-commits-pile-up-where-they-cannot-be-pushed`](todo-2026-09-21-watermark-commits-pile-up-where-they-cannot-be-pushed.md) | Every session working in this repository leaves an unpushable commit in the individual source, and the session check goe | done | 2026-09-22 |
 | [`todo-2026-09-22-container-scanner-counts-engine-output-as-only-copy-work`](todo-2026-09-22-container-scanner-counts-engine-output-as-only-copy-work.md) | The archive gate shipped on 2026-09-22 calls this container unsafe over three clones that hold nothing anyone could lose | done | 2026-09-22 |
