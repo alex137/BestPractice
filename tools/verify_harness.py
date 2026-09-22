@@ -24294,13 +24294,62 @@ def check_endgame_merge_finds_the_silent_drop():
 
         subprocess.run(['git', 'clone', '-q', f'file://{up}', str(work)],
                        capture_output=True, text=True)
-        r = vdc.endgame_merge(work, target='beta', base='main') or {}
+
+        # THE GIT IDENTITY IS PLANTED, BOTH WAYS, and that is the point of
+        # this block. This check used to read whatever identity the machine
+        # happened to have: a session container has a global one, a CI
+        # runner does not, and `git merge` REFUSES without it -- so the
+        # rehearsal did nothing, the index still held only the base branch,
+        # and every file on beta came back named as silently dropped. Green
+        # here, red in continuous integration for five runs, with the code
+        # identical in both (2026-09-22). Neither arm below reads the real
+        # machine. practice: checks-plant-their-state.
+        def _endgame(identity, **kw):
+            saved = {k: os.environ.get(k)
+                     for k in ('GIT_CONFIG_GLOBAL', 'GIT_CONFIG_SYSTEM')}
+            if not identity:
+                os.environ['GIT_CONFIG_GLOBAL'] = os.devnull
+                os.environ['GIT_CONFIG_SYSTEM'] = os.devnull
+            try:
+                return vdc.endgame_merge(work, target='beta', base='main',
+                                         **kw) or {}
+            finally:
+                for k, v in saved.items():
+                    if v is None:
+                        os.environ.pop(k, None)
+                    else:
+                        os.environ[k] = v
+
+        r = _endgame(identity=True)
         dropped, conflicts = set(r.get('dropped') or []), set(r.get('conflicts') or [])
+        bare = _endgame(identity=False)
+        bare_dropped = set(bare.get('dropped') or [])
+        bare_conflicts = set(bare.get('conflicts') or [])
 
         # Same fixture, revert undone: the merge must come back clean.
         _git(up, 'revert', '--no-edit', 'HEAD')   # revert the revert
         _git(work, 'fetch', '-q', 'origin')
-        clean = vdc.endgame_merge(work, target='beta', base='main') or {}
+        clean = _endgame(identity=True)
+
+        # AND A MERGE THAT GENUINELY CANNOT RUN MUST SAY SO. Planted with a
+        # global config the rehearsal cannot satisfy -- signature
+        # verification on, against unsigned fixture commits -- which makes
+        # `git merge` exit 128 having done nothing, exactly as the missing
+        # identity did. Without this case the error path is never executed
+        # and the old behaviour (report it as every file dropped) could come
+        # back with every check still green.
+        blocked_cfg = tmp / 'blocked.gitconfig'
+        blocked_cfg.write_text('[merge]\n\tverifySignatures = true\n',
+                               encoding='utf-8')
+        saved_cfg = os.environ.get('GIT_CONFIG_GLOBAL')
+        os.environ['GIT_CONFIG_GLOBAL'] = str(blocked_cfg)
+        try:
+            blocked = vdc.endgame_merge(work, target='beta', base='main') or {}
+        finally:
+            if saved_cfg is None:
+                os.environ.pop('GIT_CONFIG_GLOBAL', None)
+            else:
+                os.environ['GIT_CONFIG_GLOBAL'] = saved_cfg
 
         worktrees = _git(work, 'worktree', 'list').stdout.strip().splitlines()
 
@@ -24317,6 +24366,17 @@ def check_endgame_merge_finds_the_silent_drop():
              clean.get('status') == 'clean' and not clean.get('dropped')),
             ('the throwaway worktree is removed, whatever the outcome',
              len(worktrees) == 1),
+            ('PLANTED, no global git identity: the same answer, not a merge '
+             'that silently did nothing',
+             bare_dropped == dropped and bare_conflicts == conflicts
+             and bare.get('status') == r.get('status')),
+            ('PLANTED, a merge git refuses outright: reported as error, '
+             'never as findings',
+             blocked.get('status') == 'error'),
+            ('...and the note carries git\'s own words rather than a '
+             'fabricated drop list',
+             'signature' in (blocked.get('note') or '').lower()
+             and not blocked.get('dropped')),
         ]
         failed = [name for name, ok in results if not ok]
         check(f'the endgame-merge rehearsal names the silently-dropped path '
