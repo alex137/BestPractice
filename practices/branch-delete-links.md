@@ -7,7 +7,8 @@ scope:       any-adopter
 applies_to:  ["tools/very_deep_check.py", "record/stale_branches.md", "spec/VERY_DEEP_CHECK.md"]
 occasion:    "telling a person a branch can be deleted -- one branch after a merge, or a whole repo's worth, or a fleet's"
 gates:       ["reply"]
-index_clause: "every branch named deletable is a filtered-page link, never a blocker"
+index_clause: "every branch named deletable is a filtered-page link naming what
+  it merged into, never a blocker"
 index_required: false
 checked_by:  null
 defines:     ["delete link", "filtered branches page"]
@@ -17,7 +18,10 @@ in_force_at: null
 supersedes:  []
 overrides:   null
 added:       "2026-09-21"
-approved_by: "extended 2026-09-21, Morgan (strength: decided) -- the link is
+approved_by: "extended 2026-09-22, Morgan (strength: decided) -- a deletion
+  offer names the branch the work merged INTO, by name: \"Don't we always say
+  which branch they are merged into - I thought that is a practice?!?!?!? It
+  should be\". Earlier, extended 2026-09-21, Morgan (strength: decided) -- the link is
   required of EVERY branch a session names as deletable, not only of an audit's
   list, and branch deletion is never blocking: \"it needs to always always
   always give me a link to the github search results page with the branch right
@@ -74,6 +78,21 @@ Say it as an offer and let it go.
 after being asked to. [never-delete-a-remote-branch](never-delete-a-remote-branch.md)
 says why, and lists the routes that get tried in order when that rule is not in
 front of somebody.
+
+**Say which branch it merged INTO, by name, in the same breath.** A branch is
+deletable *because* its work landed somewhere, and the offer is unreadable
+without that: "both branches are merged and can go" asks the reader to take on
+trust that the work reached the branch they care about, which is the one thing
+they would actually want to check. Name it — `precedent-beta-v01`, `main` — and
+never a role-word standing in for it ("the base branch", "the default branch").
+In a repository whose configured default and whose working branch are two
+different branches, the role-word and the name point at different places, and
+a reader who resolves it the obvious way gets the wrong answer with nothing to
+correct them.
+
+Where several branches are listed at once and they all landed on the same
+branch, saying so once above the list is enough; where they did not, each row
+carries its own.
 
 Three things the report must not get wrong, each of which fails silently:
 
@@ -217,6 +236,25 @@ session including direct links to them so I can delete them"*. Nothing pointed
 at it from the practice catalogue, so the fleet-wide audit rediscovered the
 same URL from scratch thirteen days later. That rediscovery is what this file
 is for.
+
+**2026-09-22, the merge target.** A session closed a reply with *"Both branches
+are merged and can go, one click each"* and two correctly filtered links. Both
+links were right; the sentence still failed, because it never said what the
+branches had merged INTO. Morgan: *"are these merged into precedent-beta-v01?
+(Don't we always say which branch they are merged into - I thought that is a
+practice?!?!?!? It should be)"*.
+
+It was not, and the near-misses are the reason it reads like it should have
+been. This rule already required the link, and required the branch to be named
+as a candidate. A separate rule in Morgan's own set already required any branch
+mentioned to be named literally rather than by role-word. [go-merge](go-merge.md)
+already required the merge target to be said out loud before a merge — which
+that reply did, at the top, naming `precedent-beta-v01` and `main` for the two
+merges it had just performed. Every neighbouring rule held, and the deletion
+offer at the bottom still arrived with the one fact a reader would check
+against missing from it. A branch is deletable BECAUSE its work landed; an
+offer that omits where is asking for trust on precisely the question the
+offer rests on.
 
 ## Install
 Two surfaces carry this, and both cite it rather than restating it:

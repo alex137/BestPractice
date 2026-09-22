@@ -323,6 +323,47 @@ def engine_owned_paths(repo):
     except Exception:                                         # noqa: BLE001
         views = ('MAP.md', 'GLOSSARY.md')
     owned.update(views)
+    # AND THE ENGINE'S OWN CURRENT FILE LISTS, added 2026-09-22 -- because
+    # everything above is read from the DESTINATION's manifest, which is a
+    # snapshot of the last refresh and therefore lags the engine by exactly
+    # one refresh for any newly added file. That lag is not an edge case: it
+    # is the guaranteed state of every clone between "a file is added to
+    # ENGINE_FILES upstream" and "this clone refreshes again", and the
+    # refresh is the very thing the misclassification skips. So the lag
+    # sustains itself.
+    #
+    # WHAT IT COST, measured the same day. `precedent_container_safe.py` was
+    # added to ENGINE_FILES on 2026-09-21 and written into
+    # `precedent-individual`. Its manifest did not name it, so classify_dirt
+    # called it a person's untracked work, the container scanner called the
+    # container unsafe, and the archive gate went red on every single reply
+    # -- about a file byte-identical to one already tracked and pushed in
+    # BestPractice, which could not have been lost by anything.
+    #
+    # The clause above already states the principle: "the manifest is a
+    # DECLARATION of what the engine writes, not a listing of what is
+    # tracked". This finishes it. The engine's own lists are the same
+    # declaration one level up and they do not lag, so a name in them is the
+    # engine's whether this clone's manifest has caught up or not. It is the
+    # identical test precedent_vendor_engine._untracked_engine_files already
+    # applies from the other side -- it calls such a file "a hand-copy
+    # dropped in beside the vendored engine" and says `refresh` is its fix.
+    # Both halves existed; they did not share the set.
+    #
+    # SCOPED, and the scoping is what keeps this safe: read_manifest above
+    # has already returned for a repo that vendors no engine, so a repo with
+    # its own tools/ and no manifest can never have a file of its own
+    # reclassified as engine output by this. Within a repo that DOES vendor,
+    # a file carrying an engine file's name either is one or is the hand-drop
+    # that check exists to catch -- and both want `refresh`, not a person's
+    # attention as lost work.
+    try:
+        sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+        import precedent_vendor_engine as _ve
+        for name in set(_ve.ENGINE_FILES) | set(_ve.CONSUMER_ENGINE_FILES):
+            owned.add(f'tools/{name}')
+    except Exception:                                         # noqa: BLE001
+        pass          # fail-gracefully: the manifest half still classifies
     return owned
 
 
