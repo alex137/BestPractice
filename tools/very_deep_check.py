@@ -2144,6 +2144,28 @@ _SETTLED_MARKERS = ('fixed ', 'no longer true', 'applies itself now',
                     'resolved for this machine', 'now automated')
 
 
+def _declared_ceilings(root):
+    """-> {surface path: ceiling} from THIS repo's own budget registry, or {}.
+
+    Each measured repo's own `tools/session_load_budgets.json`, never this
+    checkout's: a source set declares its own ceilings for its own always-loaded
+    files, and comparing one repo's surfaces against another's numbers would be
+    worse than not checking at all. `bv._budget` deliberately reads BestPractice's
+    copy for the engine-wide thresholds (`section_review_tokens`), which is a
+    different question and stays where it is.
+    """
+    f = pathlib.Path(root) / 'tools' / 'session_load_budgets.json'
+    try:
+        reg = json.loads(f.read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return {}
+    out = {}
+    for rel, entry in (reg.get('surfaces') or {}).items():
+        if isinstance(entry, dict) and isinstance(entry.get('ceiling'), int):
+            out[rel] = entry['ceiling']
+    return out
+
+
 def _split_projection(section):
     """-> a costed line for the SPLIT move, or '' when the section has no
     bulleted entries to split.
@@ -2220,12 +2242,30 @@ def _session_load(repo_dir):
     file when private sources resolved -- so the number a person sees is the
     number a session actually pays.
 
+    AND SEPARATELY, whether each FILE is inside the ceiling its own repo
+    declared for it -- read from that repo's tools/session_load_budgets.json,
+    alongside the section findings and never instead of them. The two answer
+    different questions, which is why both are here: a fat section is a
+    reading-cost problem somebody may reasonably decide to live with, and a
+    file over its ceiling is a budget somebody already decided being broken.
+    Nothing in a consuming repo was asking the second one. Measured
+    2026-09-22, in precedent-individual: AGENTS.md at 2,276 tokens against a
+    declared 1,800 -- 476 tokens, 26% over -- with every check green,
+    because the overage was spread across five sections and the largest of
+    them was 990. This pass would have reported ZERO findings on it. The one mechanism that does
+    compare a file to its ceiling, precedent_check.py's session-load-budget,
+    skips in any repo that does not carry the practice FILE -- and that repo
+    declared ceilings without carrying it. It surfaced because somebody ran
+    tools/session_load_trend.py by hand, which is not a mechanism.
+
     THE TRAP TO AVOID, stated here because the obvious use of this output is
     the wrong one: **do not optimise for the total.** Gotchas exist because
     sessions kept burning hours on the same environment traps, and a trimming
     pass that chases the number deletes the entries that are working. The
     question for each section is "would a session hit this today", never "how
-    big is it".
+    big is it". The ceiling finding does not soften that: what it asks for is
+    reduction-pass's menu -- delete what is duplicated, retire what cannot
+    happen, split what is still live and still long -- and never a raise.
     """
     root = pathlib.Path(repo_dir)
     rows, findings = [], []
@@ -2249,6 +2289,7 @@ def _session_load(repo_dir):
         return [], ['no instructions file found -- nothing to measure']
 
     total = 0
+    file_totals = {}
     for fname, text in loaded:
         heads = [(m.start(), m.group(0).strip('# ').strip())
                  for m in re.finditer(r'^## .+$', text, re.M)]
@@ -2263,6 +2304,7 @@ def _session_load(repo_dir):
         for name, body in spans:
             n = bv._approx_tokens(body)
             total += n
+            file_totals[fname] = file_totals.get(fname, 0) + n
             rows.append((fname, name, n))
             if n >= _SECTION_FLAG_TOKENS:
                 findings.append(
@@ -2280,6 +2322,42 @@ def _session_load(repo_dir):
                     f'is shortened on its way out,\n                and whatever '
                     f'checked the text has to follow it.'
                     + _split_projection(body))
+
+    # THE FILE AGAINST ITS OWN DECLARED CEILING -- see the docstring for the
+    # measurement that went silent. Every declared surface, not only the ones
+    # the loop above walked: CLAUDE.md is skipped up there when it is a bare
+    # @AGENTS.md include, so that its tokens are not counted twice into the
+    # total, and it still carries a ceiling of its own that something has to
+    # test.
+    over = []
+    for rel, ceiling in sorted(_declared_ceilings(root).items()):
+        n = file_totals.get(rel)
+        if n is None:
+            f = root / rel
+            if not f.is_file():
+                continue
+            n = bv._approx_tokens(f.read_text(encoding='utf-8',
+                                              errors='replace'))
+        if n <= ceiling:
+            continue
+        over.append(
+            f'OVER CEILING {rel}\n'
+            f'      {n:,} tokens, every session, against the {ceiling:,} this '
+            f'repo declares for it\n      in tools/session_load_budgets.json '
+            f'-- over by {n - ceiling:,} ({100.0 * (n - ceiling) / ceiling:.1f}%).\n'
+            f'      This is a budget somebody already decided, so it is not a '
+            f'judgment call\n      the way a large section is. Work '
+            f'reduction-pass\'s menu in order, cheapest\n      and provably '
+            f'lossless first: DELETE what is duplicated somewhere the\n'
+            f'      session already reads, RETIRE what can no longer happen '
+            f'(to a linked\n      record, IN FULL, with the verdict that '
+            f'retired it), SPLIT what is still\n      live and still long. '
+            f'Then report what moved and what it cost.\n'
+            f'      NEVER raise the ceiling to clear this -- '
+            f'session-load-budget\'s own line.\n'
+            f'      The overage may be spread thin, with no single section '
+            f'large enough to\n      appear above; that is the case this '
+            f'finding exists for.')
 
     # A live entry that says its own trap is settled is the strongest
     # mechanical signal available here, and it is the entry's own words.
@@ -2335,7 +2413,9 @@ def _session_load(repo_dir):
                     f'paid for twice, every\n      session. Deliberate '
                     f'repetition is a real answer; check which it is.\n'
                     f'      "{quote[:72]}..."')
-    return rows, findings
+    # Ceilings lead: a section flagged for review is a question, and a surface
+    # over a number somebody chose is work.
+    return rows, over + findings
 
 
 # --- gotcha currency (practice: very-deep-check) ------------------------
@@ -7111,15 +7191,22 @@ def _main(box):
         print(f"  {_tot:7,d}  subtotal\n")
     if _grand:
         print(f"  {_grand:7,d}  TOTAL across every repo in force, every session, "
-              f"before any\n           work starts (rough: words x 1.3). Declared "
-              f"ceilings live in\n           tools/session_load_budgets.json; "
-              f"precedent_check.py --only\n           session-load-budget tests "
-              f"this checkout's against them.\n")
+              f"before any\n           work starts (rough: words x 1.3). Each "
+              f"repo's own declared ceilings\n           live in its "
+              f"tools/session_load_budgets.json, and every surface above is\n"
+              f"           tested against them below -- for each repo measured, "
+              f"not this\n           checkout alone, which is the half "
+              f"precedent_check.py --only\n           session-load-budget "
+              f"cannot reach from here.\n")
     for _m in _sl:
         print(f"  {_m}")
     if not _sl:
-        print("  no section is large enough to be worth splitting, and no "
-              "entry claims its\n  own trap is settled.")
+        print("  every surface is inside the ceiling its own repo declares "
+              "for it, no section\n  is large enough to be worth splitting, "
+              "and no entry claims its own trap is\n  settled. A repo that "
+              "declares no ceiling is not tested against one -- "
+              "session-\n  load-budget asks for the registry, and nothing "
+              "here can invent the number.")
     _gc_rows, _gc_msgs = _gotchas_currency(repo_root)
     if _gc_rows:
         print("\n  GOTCHA CURRENCY -- the tree read against each entry, not "
