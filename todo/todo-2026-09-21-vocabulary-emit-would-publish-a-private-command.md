@@ -13,8 +13,7 @@ decision:          "Neither of the two fixes below. The offending row is not a
   source, in precedent-individual. What stays open here is only the guard, so
   the next private command cannot recreate this."
 decision_strength: decided
-waiting_on:        "nothing -- the source fix landed 2026-09-21 and was
-  verified here; only the guard in part 2 of the closing condition is left"
+waiting_on:        null
 noted:             2026-09-21
 closed:            null
 ---
@@ -83,10 +82,13 @@ violation until the source fix landed, which was the honest state.
 
 ## Part 1 Is Done, Measured 2026-09-21
 
-The source fix landed on `main` in the individual set: the practice's
-`command:` field is `null`, `defines` was deliberately kept (a separate list —
-it feeds the glossary, not the vocabulary), and nothing else about the practice
-moved.
+The source fix landed on `main` in the individual set, as commit `09190a7`,
+*"Drop so-what-test's `command:` field -- it is a practice, not vocabulary"*
+(read off that clone's `origin/main` here; the repository itself is not
+reachable from a session rooted in BestPractice, so the commit subject is the
+whole of what can be cited): the practice's `command:` field is `null`,
+`defines` was deliberately kept (a separate list — it feeds the glossary, not
+the vocabulary), and nothing else about the practice moved.
 
 **Verified here rather than taken on report.** With the individual source
 pointed at its `origin/main`, in this checkout:
