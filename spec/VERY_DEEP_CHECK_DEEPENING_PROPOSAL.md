@@ -12,13 +12,13 @@ summary:       "Reads the very deep check's current formula against the incident
 
 # Deepening the very deep check: fourteen proposed additions
 
-**Nine of the fourteen are built and merged.** Morgan asked, on 2026-09-21,
+**Twelve of the fourteen are built and merged.** Morgan asked, on 2026-09-21,
 for a close read of the check's own formula against the week's real failures,
 and for specific proposals rather than a plan; he then authorized the five
 this document recommended first, in that order (strength: decided). Each item
 below says what to add, which pass it belongs in, whether it is mechanical or
-a read, what it would have caught, and what it costs. **The other five are
-unbuilt and unadopted; pick from them, they are not a sequence.**
+a read, what it would have caught, and what it costs. **Item 6 is held for a measured reason below; item 13's
+fix-sweep half remains a read.**
 
 ## What shipped, 2026-09-21
 
@@ -44,6 +44,21 @@ for the next step in the plan to be built:
 |---|---|---|
 | **7** — the Actions bill | `ACTIONS FLOOR`: per workflow in every repo in force, runs × jobs over the window — the run count from one API call with a `created` filter, the job count read off the workflow file. A floor, never an invoice, and the lever it exposes is job count per workflow | **5,441 floor-minutes over 14 days in this checkout alone** — 1,356 deep-check runs × 3 jobs, plus 1,373 leak-gate runs × 1. The practice sources run no CI at all, which is `source-sets-run-no-ci` working |
 | **10** — config keys | `CONFIG KEYS`: every key declared in every `precedent.json` and `identity.json` in force, against every script the repo carries. Where a key has no local reader the row names which other repo mentions it | Two sources declare `grandfathered_commit_shas` with its readers living in a different repo in force — decidable rather than alarming, which is the whole point of naming where |
+
+**Items 4, 13 and 14 landed next**, on the same authorization:
+
+| Item | What landed | First run |
+|---|---|---|
+| **4** — does a deletion propagate, per shipped class | A three-column table in the practice, dated and re-verified each run: addition, change and deletion, one row per class this repo ships | **Its first asking found one**: a hook dropped upstream has **no removal path at all** — `precedent_vendor_engine` has exactly two, for engine files and CI workflows. The identical asymmetry the CI path carried until the day before. Filed as [todo-2026-09-21-a-dropped-hook-never-leaves-a-consumer](../todo/todo-2026-09-21-a-dropped-hook-never-leaves-a-consumer.md) |
+| **13** — sweep the class | `CHECK COVERAGE`: each repo's **own** vendored `precedent_check.py --full-sweep`, reported as passed/violated/skipped with the skips **grouped by cause**, the slug normalised out so one structural reason cannot wear forty names. This is also the mechanical half pass 2's question 15 had specified and never had | **All four sources skip 44 checks for one cause** — each keyed to a `practices/<slug>.md` a source set does not carry. Question 15 measured this in one set in September; it is every set |
+| **14** — premise-dated claims | `MOVED CLAIMS`: the sentence shapes that assert work moved somewhere — *now runs in*, *folded into*, *superseded by* — with the named destination checked for existence | **Zero rows in three repos and five in the one where the incident happened**, all naming the `precedent-check.yml` a refresh deleted out from under them |
+
+**Three narrowings in item 14 were forced by measurement, not designed in**,
+and they are the difference between a usable detector and one nobody runs
+twice: `see X` is a pointer rather than a move claim (39 rows of pure noise);
+markdown link text is stripped, since `doc_lint` already checks the real
+target; and a vendored file's prose belongs to upstream, so manifest-recorded
+files are skipped.
 
 **Item 6 (required status checks) was weighed here and held back**, which is
 worth recording because it is the ledger's own argument applied before the

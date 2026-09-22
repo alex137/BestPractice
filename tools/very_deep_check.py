@@ -1593,6 +1593,164 @@ def _config_key_reads(repo_dir, others=()):
     return rows, ''
 
 
+_MOVED_CLAIM = re.compile(
+    # `see X` is DELIBERATELY NOT HERE. It was, for one measurement: it
+    # produced 11 rows in this repo and 28 in a source, and every one was a
+    # pointer rather than a claim -- a fixture's invented path, a template
+    # describing the repo it will be installed into, a vendored tool citing
+    # a document that lives upstream. "See X" says where to look; it does
+    # not assert that work moved there, which is the class this exists for,
+    # and its bare-name half is already doc_lint's unlinked-reference
+    # warning.
+    r'(?P<claim>now runs? (?:as \w+ )?in|now lives? in|has moved to|'
+    r'moved into|folded into|superseded by|replaced by)\s+'
+    r'[`\[(]*'
+    r'(?P<target>(?:[A-Za-z0-9_.-]+/)*[A-Za-z0-9_.-]+'
+    r'\.(?:md|py|sh|yml|yaml|json|template))',
+    re.IGNORECASE)
+
+
+def _moved_claims(repo_dir, cap=40):
+    """-> [(file, line number, claim, target)] for sentences that say the
+    work moved SOMEWHERE, where the somewhere is not there.
+    (practice: very-deep-check, pass 3)
+
+    THE INCIDENT (2026-09-21). `commit-identity.yml` was paused, its header
+    saying its checks "now run as steps in
+    .github/workflows/precedent-check.yml's single job". Four hours later a
+    refresh deleted that file from all four sets. The sentence was true when
+    it was written and false the same afternoon, and nothing looked, because
+    a claim about a DIFFERENT file is only ever caught by somebody who
+    happens to open that file.
+
+    A grep would have found it at any point in the following month. Nothing
+    ran one, because nothing was looking for the sentence shape.
+
+    WHAT IT DOES NOT COVER, said plainly: a destination that exists but no
+    longer does the thing (doc_lint catches neither, and pass 3's
+    documents-against-mechanisms bullet is the read that does). This asks
+    the cheap half -- is the named file even there -- which is the half
+    that produced the incident."""
+    repo_dir = pathlib.Path(repo_dir)
+    files = list(_tracked_text_files(repo_dir))
+    # EVERY BASENAME IN THE TREE, not just the tracked text ones: a claim
+    # naming `precedent_resolve.py` when the file is `tools/precedent_
+    # resolve.py` is under-qualified, which doc_lint already warns about as
+    # an unlinked reference. It is not this check's class, and reporting it
+    # here buries the one row that is. Measured on the first run: of 40
+    # rows, all but a handful were this and the markdown-link case below.
+    rc, out_ls, _e = _run_git(repo_dir, 'ls-files')
+    basenames = {pathlib.PurePosixPath(x).name
+                 for x in (out_ls.splitlines() if rc == 0 else [])}
+    # THIS REPO WROTE IT vs THIS REPO RECEIVED IT, which is pass 2's own
+    # first question applied here. A vendored engine file's comments are
+    # UPSTREAM's prose, citing upstream's paths, and a repo that received
+    # the copy can neither fix nor be blamed for them -- reporting those
+    # rows makes a check that produces permanently unactionable findings,
+    # which is the one shape people learn to ignore.
+    vendored = set()
+    try:
+        _m = json.loads((repo_dir / 'tools' / 'ENGINE_MANIFEST.json')
+                        .read_text(encoding='utf-8'))
+        vendored = {f'tools/{n}' for n in (_m.get('files') or [])}
+    except (OSError, ValueError):
+        pass
+    out = []
+    for rel, text in files:
+        if rel in vendored:
+            continue
+        for i, line in enumerate(text.splitlines(), 1):
+            # A markdown link carries its own target and doc_lint checks
+            # that target; matching the link TEXT would report the label.
+            bare = re.sub(r'\[[^\]]*\]\([^)]*\)', ' ', line)
+            for m in _MOVED_CLAIM.finditer(bare):
+                target = m.group('target')
+                here = (repo_dir / target)
+                beside = (repo_dir / rel).parent / target
+                if here.exists() or beside.exists():
+                    continue
+                if pathlib.PurePosixPath(target).name in basenames:
+                    continue              # exists, just named without its path
+                out.append((rel, i, m.group('claim').strip(), target))
+                if len(out) >= cap:
+                    return out
+    return out
+
+
+def _check_coverage(repo_dir, timeout=300):
+    """-> (summary dict, note) -- what every registered check ACTUALLY did
+    in this repo, not what its practice claims.
+    (practice: very-deep-check, pass 2 questions 14 and 15)
+
+    QUESTION 15 ASKS WHETHER A CHECK EVER RUNS HERE, and says to enumerate
+    rather than sample, for every registered check in every repo in force.
+    It had no mechanism, so it was a read nobody could finish: one repo's
+    output at a time, by hand, with the comparison held in a session's
+    head. This is the enumeration.
+
+    THE SHAPE THE ANSWER TAKES IS THE FINDING. A team source measured
+    2026-09-12 ran 12 checks and skipped 42, and **every one of the 42 had
+    the same cause** -- each check is keyed to a `practices/<slug>.md` the
+    set does not carry, because a source set's practices/ holds its own
+    level only. One cause, 42 silent skips, and among them the rule
+    governing what a published practice file may link. So the grouping by
+    CAUSE is the point, not the count: forty skips for one structural
+    reason is a different problem from forty for forty reasons.
+
+    IT RUNS THE REPO'S OWN COPY, deliberately -- a consuming repo runs the
+    engine it vendored, not this checkout's, and asking this checkout's
+    copy what happens there would answer about the wrong code.
+
+    A skip is not a pass, and neither is a repo that could not be asked."""
+    repo_dir = pathlib.Path(repo_dir)
+    own = repo_dir / 'tools' / 'precedent_check.py'
+    if not own.is_file():
+        return None, 'no tools/precedent_check.py here -- nothing registered'
+    try:
+        proc = subprocess.run([sys.executable, str(own), '--full-sweep'],
+                              cwd=str(repo_dir), capture_output=True,
+                              text=True, timeout=timeout)
+    except (OSError, subprocess.SubprocessError) as exc:
+        return None, f'could not run it here ({type(exc).__name__})'
+    body = (proc.stdout or '') + (proc.stderr or '')
+    skipped, violated = {}, []
+    for line in body.splitlines():
+        if line.startswith('SKIPPED'):
+            rest = line[len('SKIPPED'):].strip()
+            slug = rest.split(None, 1)[0] if rest else '?'
+            why = ''
+            for sep in ('—', '--'):
+                if sep in rest:
+                    why = rest.split(sep, 1)[1].strip()
+                    break
+            skipped[slug] = why
+        elif line.startswith('VIOLATION'):
+            rest = line[len('VIOLATION'):].strip()
+            violated.append(rest.split(None, 1)[0] if rest else '?')
+    counts = {}
+    m = re.search(r'precedent_check: (\d+) passed, (\d+) violated, '
+                  r'(\d+) advisory, (\d+) errored, (\d+) skipped', body)
+    if m:
+        counts = dict(zip(('passed', 'violated', 'advisory', 'errored',
+                           'skipped'), (int(x) for x in m.groups())))
+    # Group by CAUSE, coarsely: the first clause of the reason, which is
+    # what distinguishes "one structural reason" from "forty reasons".
+    causes = {}
+    for _slug, why in skipped.items():
+        key = (why.split(',')[0].split(' -- ')[0].strip() or 'no reason given')
+        # NORMALISE THE SLUG OUT, or the grouping defeats itself: 42 skips
+        # reading "no practices/<a>.md", "no practices/<b>.md" ... are ONE
+        # structural cause wearing 42 names, and reporting them apart is
+        # exactly the shape that hid the real finding in the first place.
+        key = re.sub(r'practices/[A-Za-z0-9._-]+\.md',
+                     'practices/<slug>.md', key)
+        key = re.sub(r'\btools/checks/[A-Za-z0-9._-]+', 'tools/checks/<file>',
+                     key)
+        causes[key] = causes.get(key, 0) + 1
+    return {'counts': counts, 'violated': violated, 'skipped': len(skipped),
+            'causes': causes}, ''
+
+
 def _job_count(path):
     """-> how many jobs a workflow file defines, or None.
 
@@ -6607,6 +6765,48 @@ def _main(box):
     if led:
         led.end(items=_ck_rows or None, findings=_ck_unread if _ck_rows
                 else None)
+        led.start('CHECK COVERAGE')
+
+    print("CHECK COVERAGE -- what every registered check actually did, per "
+          "repo in force\n")
+    _cc_findings = 0
+    _cc_measured = False
+    for _name, _p in _orph_targets:
+        if not pathlib.Path(_p).is_dir():
+            continue
+        _sum, _note = _check_coverage(_p)
+        if _sum is None:
+            print(f"  {_name}: not measured -- {_note}")
+            continue
+        _cc_measured = True
+        _c = _sum['counts']
+        print(f"  {_name}: {_c.get('passed', '?')} passed, "
+              f"{_c.get('violated', '?')} violated, "
+              f"{_c.get('skipped', '?')} SKIPPED")
+        if _sum['violated']:
+            _cc_findings += len(_sum['violated'])
+            print(f"      violated: {', '.join(_sum['violated'])}")
+        _top = sorted(_sum['causes'].items(), key=lambda x: -x[1])[:3]
+        for _cause, _n in _top:
+            # One cause behind most of a repo's skips is the finding; a
+            # long tail of one-offs is housekeeping.
+            _flag = 'ONE CAUSE' if _n >= 5 else 'cause    '
+            print(f"      {_flag} {_n:>3} skip(s): {_cause[:96]}")
+            if _n >= 5:
+                _cc_findings += 1
+    if not _cc_measured:
+        print("  nothing measured -- no repo in force carries a check "
+              "registry to run.")
+    else:
+        print("\n  A skip is not a pass. What matters is the CAUSE: many "
+              "skips behind one\n  structural reason is a coverage hole "
+              "wearing many names -- a source set whose\n  practices/ "
+              "holds its own level only skips every other level's check, "
+              "silently\n  and permanently. A long tail of one-offs is "
+              "housekeeping.")
+    print()
+    if led:
+        led.end(findings=_cc_findings if _cc_measured else None)
         led.start('CI WORKFLOW FILES OUTSIDE VENDORING')
 
     # Scope is honest, not aspirational: this checkout plus every FATAL_
@@ -6995,6 +7195,37 @@ def _main(box):
     print()
     if led:
         led.end(items=len(_ship))
+        led.start('MOVED CLAIMS')
+
+    print("MOVED CLAIMS -- \"the work now lives in X\", where X is not "
+          "there\n")
+    _mc_n = 0
+    _mc_seen = False
+    for _name, _p in _orph_targets:
+        if not pathlib.Path(_p).is_dir():
+            continue
+        _mc_seen = True
+        _rows = _moved_claims(_p)
+        if not _rows:
+            continue
+        _mc_n += len(_rows)
+        print(f"  {_name}:")
+        for _file, _line, _claim, _target in _rows:
+            print(f"      {_file}:{_line}  \"{_claim} {_target}\" -- no such "
+                  f"file here")
+    if not _mc_seen:
+        print("  (no repository to scan)")
+    elif _mc_n == 0:
+        print("  none -- every file named as somewhere work moved to "
+              "exists.")
+    else:
+        print("\n  Each row is a premise that was true when it was written. "
+              "The file saying it\n  cannot know its destination went away, "
+              "and nobody reads a paused file to\n  check -- which is "
+              "exactly how two commit-scope checks came to run nowhere.")
+    print()
+    if led:
+        led.end(findings=_mc_n if _mc_seen else None)
         led.start('DOCUMENTATION CURRENCY')
 
     print("DOCUMENTATION CURRENCY -- what changed, against what still says "
