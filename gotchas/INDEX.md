@@ -124,6 +124,8 @@ Full catalogue, one file per trap. AGENTS.md carries only a pointer to this file
 
 - **A practice-source clone owned by somebody other than the session's own repo owner **fetches perfectly and cannot be pushed**. The clone carries a working credential helper, the token is in the environment, `git fetch` updates real refs — and `git push` returns 403 from the git proxy.** [story](gotcha-2026-09-22-a-cross-owner-source-clone-fetches-fine-and-cannot-be-pushed.md)
 
+- **A test fixture builds an upstream with `git init`, clones it, commits in the clone and pushes — and the push is refused every single time, on every machine, with nothing reporting it. The fixture then asserts against a state it never reached.** [story](gotcha-2026-09-22-a-fixture-push-to-a-non-bare-upstream-is-refused-silently.md)
+
 - **A pull request's check runs read `in_progress` for jobs the workflow-jobs view already reports as completed** [story](gotcha-2026-09-22-a-pr-s-check-runs-read-in-progress-long-after-the-jobs-fin.md)
 
 - **A GitHub application programming interface (API) call from a hosted session is refused — `Resource not accessible by integration`, or the harness's own `GitHub access to this repository is not enabled for this session` — and the obvious diagnosis is that `PRECEDENT_GIT_TOKEN` needs more permission. A session then designs a token: which scopes, who creates it, where it goes.** [story](gotcha-2026-09-22-the-api-proxy-ignores-the-token-you-set.md)
