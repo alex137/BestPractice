@@ -37,9 +37,12 @@ were found.
 
 Every generated block carries, verbatim:
 
-    <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit
-         this block; `python3 tools/build_views.py --check` exits non-zero
-         on drift. -->
+> Regenerate with: `python3 tools/build_views.py` … do not hand-edit this
+> block; `python3 tools/build_views.py --check` exits non-zero on drift.
+
+(quoted as prose rather than reproduced as a comment: the literal header
+trips `generated-edit-goes-upstream`, which reads any file carrying it as a
+generated file needing a `Source:` clause.)
 
 [tools/build_views.py](../tools/build_views.py) line 988 emits that as a
 fixed f-string with no variation by repository kind, although the same file

@@ -4900,6 +4900,14 @@
           "findings": 12,
           "tokens": 263000,
           "note": "real verdicts on all 11 unlanded branches, every count checked against the diff (1 MERGE here, 2 CLOSE reversing 2026-09-19 MERGE recommendations, 1 ASK ALEX already open as issue 394; 7 source-repo branches settled by content since GitHub is unreachable for those owners). very-deep-check and full-practice-audit carry scope:null so both ship to every adopter. 46 of 128 open items have no closing condition. Catalogue: full first-order pass over 140 universal files; the sequential Rule-by-Rule judgment is still not done"
+        },
+        {
+          "pass": "pass 2",
+          "status": "partial",
+          "recorded": "2026-09-21T21:47:34-03:00",
+          "findings": 9,
+          "tokens": 188000,
+          "note": "read-only verb sweep across all 69 tools found very_deep_check.py accepts any unrecognised flag and writes a tracked ledger file on --check/--explain/--list; the --help planted case cannot see a DELETION; merge-target-is-beta-branch goes RED on the sanctioned regular fold-in and tells the reader to retire the practice. Fixed: AGENTS.md named Next Steps where the gate enforces Boildown, and three wrong doc_coverage entries. 8 of 20 questions not attempted, 8 covered only mechanically; question 11 sampled at 3 of ~55"
         }
       ],
       "completed": true

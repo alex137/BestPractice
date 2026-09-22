@@ -137,19 +137,25 @@
     "documentation/CLOUD_SETUP.md": {
       "describes": [
         "documentation/PER_MACHINE_SETUP.md",
-        ".claude/hooks/commit-identity.sh",
-        "identity.json"
+        ".claude/hooks/commit-identity.sh"
       ],
       "why": "It is the fast-path environment-variable setup for a hosted session, drawn from PER_MACHINE_SETUP.md. It goes stale when the variables it names, or the reference page it is drawn from, change."
     },
     "documentation/PER_MACHINE_SETUP.md": {
       "describes": [
         "tools/precedent_bootstrap_source.py",
-        "identity.json",
         ".claude/hooks/commit-identity.sh",
         ".claude/settings.json"
       ],
       "why": "It is the complete per-person, per-machine settings reference -- environment variables, identity.json, and the leak gate's vocabulary layer -- and goes stale when any of those mechanisms change."
+    },
+    "documentation/SHARED_PRACTICE_SETS.md": {
+      "describes": [
+        "spec/SOURCES.md",
+        "tools/precedent_resolve.py",
+        "tools/precedent_bootstrap_source.py"
+      ],
+      "why": "It is the reader-facing explanation of the rule levels and of how to make and declare a shared set. It goes stale when the precedence ladder, the resolver's source rules, or the bootstrap tool changes."
     },
     "documentation/MOBILE.md": {
       "describes": [
@@ -160,7 +166,6 @@
     },
     "documentation/GIT.md": {
       "describes": [
-        ".github/workflows/docs.yml",
         ".github/workflows/leak-gate.yml",
         "tools/doc_lint.py",
         ".claude/hooks"
