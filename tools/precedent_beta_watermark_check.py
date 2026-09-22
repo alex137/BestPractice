@@ -15,7 +15,7 @@ firing after it has already been delivered is exactly the failure
 and the fix here is the mirror image of that file's: advance on report,
 not on request.
 
-WHERE THE WATERMARK LIVES: `tools/beta-branch-watermark.json`, HERE, since
+WHERE THE WATERMARK LIVES: `tools/beta_branch_watermark.json`, HERE, since
 2026-09-22. It lived at the root of the individual source until then, on
 the argument that a record of what one person has already seen is not part
 of this branch's history and would read as a personal read-receipt in a
