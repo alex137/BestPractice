@@ -6822,6 +6822,106 @@ def check_suggested_links_keep_a_dotfiles_leading_dot():
             '; '.join(f'{n}: {d}' for n, d in bad))
 
 
+# Every engine-property check that has NOT yet declared its paths. The list
+# exists so those checks are VISIBLE rather than silently rotation-only, and
+# it may only ever shrink: adding a name back means a check went dark again.
+# Declaring paths for one is evidence work -- read what the check actually
+# inspects -- so they are done as they are verified, not guessed in bulk
+# (2026-09-22, when three of eighteen were declared).
+ENGINE_CHECKS_WITHOUT_DECLARED_PATHS = {
+    'access-probe-is-wired',
+    'claude-only-surface-has-a-parallel',
+    'declared-base-branch',
+    'expires-is-honoured',
+    'index-required-is-declared',
+    'no-hardcoded-git-identity',
+    'shipped-hook-carries-its-script',
+    'shipped-template-carries-its-script',
+    'todo-gotcha-stale-reference',
+    'tracked-practice-files',
+    'vendored-engine-file-refs-resolve',
+    'vendored-import-refs-resolve',
+    'vocabulary-reaches-the-consumer',
+    'wired-hooks-can-reach-a-consumer',
+    'workflow-yaml-github-can-parse',
+}
+
+
+def check_engine_checks_can_be_reached_by_what_you_touched():
+    """A check with no practice file could only ever be reached by its
+    rotation turn.
+
+    THE INCIDENT (2026-09-22). `dogfooded-hooks-match-template` exists to
+    catch a fix landing in `.claude/hooks/` and not in the template every
+    other repo installs. Exactly that happened, in the same session that
+    hardened the hook -- and the check stayed silent, because it was not in
+    that commit's rotation slice and nothing about touching the file could
+    summon it. `_scoped_tree_slugs` tier 2 reads its globs from
+    `practices/<slug>.md`, and an engine-property check has none by design,
+    so all eighteen of them fell straight through to the rotation. It
+    surfaced only because a session ran it by name on a hunch.
+
+    Asserted here rather than left to the selector's own shape: a scheduler
+    that quietly reaches less than it claims is the failure mode, and it
+    looks identical to everything being fine.
+    """
+    import importlib
+    cases = []
+    try:
+        pc = importlib.import_module('precedent_check')
+    except Exception as e:
+        return (False, '', f'precedent_check would not import: {e}')
+
+    saved = pc._touched_files
+    try:
+        tree = sorted(sl for sl in pc.CHECKS if pc.CHECKS[sl]['scope'] == 'tree')
+
+        def selected_for(*paths):
+            pc._touched_files = lambda: list(paths)
+            return set(pc._scoped_tree_slugs(tree))
+
+        # Both sides of the pair reach it -- a fix can land in either copy.
+        for side in ('.claude/hooks/freshness-guard.sh',
+                     'templates/harness/claude-code/hooks/freshness-guard.sh'):
+            cases.append((f'touching {side} selects '
+                          f'dogfooded-hooks-match-template',
+                          'dogfooded-hooks-match-template' in selected_for(side)))
+
+        # ...and it is selection, not "everything always runs": an unrelated
+        # file must not force it. (The rotation may still pick it up, which
+        # is why this asserts against a file list chosen to sit in no
+        # declared glob, not against the check being absent generally.)
+        pc._touched_files = lambda: ['README.md']
+        forced = pc._scoped_tree_slugs(tree, buckets=set())
+        cases.append(('an unrelated file does not force-select it',
+                      'dogfooded-hooks-match-template' not in forced))
+
+        # The declared set and the known-undeclared set must together cover
+        # every engine-property tree check, or a new one has gone dark
+        # without anyone choosing that.
+        engine = {sl for sl in tree
+                  if not pc.CHECKS[sl].get('practice_backed', True)}
+        declared = {sl for sl in engine if pc.CHECKS[sl].get('selects_on')}
+        unaccounted = engine - declared - ENGINE_CHECKS_WITHOUT_DECLARED_PATHS
+        cases.append((f'every engine-property check is either declared or '
+                      f'listed as knowingly undeclared '
+                      f'(unaccounted: {sorted(unaccounted) or "none"})',
+                      not unaccounted))
+
+        # The list may only shrink. A name in it that HAS declared paths is
+        # a stale entry, not a failure -- but it must be removed, or the
+        # list stops meaning anything.
+        stale = ENGINE_CHECKS_WITHOUT_DECLARED_PATHS & declared
+        cases.append((f'the knowingly-undeclared list carries no stale '
+                      f'entries (stale: {sorted(stale) or "none"})',
+                      not stale))
+    finally:
+        pc._touched_files = saved
+
+    failed = [n for n, ok in cases if not ok]
+    return (not failed, f'{len(cases)} stated cases', '; '.join(failed))
+
+
 def check_planted_case_rotation_never_narrows_silently():
     """The rotation that decides how much of the push gate runs.
 
@@ -27655,6 +27755,8 @@ def main():
           *check_suggested_links_keep_a_dotfiles_leading_dot())
     check('the planted-case rotation never narrows silently',
           *check_planted_case_rotation_never_narrows_silently())
+    check('an engine-property check is reachable by what you touched',
+          *check_engine_checks_can_be_reached_by_what_you_touched())
     check_precedent_check_fires()
     check_routing_scope(files)
     check_routing_audit_coverage()
