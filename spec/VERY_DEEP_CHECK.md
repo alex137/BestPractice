@@ -131,12 +131,18 @@ The three worth naming here:
   moved up from a shared set. Only half of each move happened. Shared beats
   universal, so **the copy that resolves is the old one** and the universal
   copy the occasion index advertises never wins anywhere.
-- **`very-deep-check` and `full-practice-audit` carry `scope: null`**,
+- ~~**`very-deep-check` and `full-practice-audit` carry `scope: null`**,
   which is not one of the two legal values, so both fall through to
-  `any-adopter` and ship into every consuming repo. `very-deep-check.md` is
-  25,208 words. `spec/PRACTICE_FORMAT.md` names all four as `engine-dev`
-  and also says nothing validates the field — a `checkable-gets-checked`
-  gap that has now bitten.
+  `any-adopter` and ship into every consuming repo.~~ **Wrong, and
+  corrected 2026-09-22.** Both were untagged deliberately on 2026-09-21:
+  each declares a standing `command:`, and `engine-dev` withholds the
+  practice from a consuming repo, so the word does nothing there. The
+  stale thing was [PRACTICE_FORMAT.md](PRACTICE_FORMAT.md)'s list, which named four when
+  the tree carried three and not the same three. The
+  `checkable-gets-checked` gap was real, and
+  `check_scope_field_is_legal_and_matches_this_spec` now closes it — it
+  compares that list against the tree. Full account in that section of
+  [PRACTICE_FORMAT.md](PRACTICE_FORMAT.md).
 - **A consumer's own `AGENTS.md` carries a regenerate command that destroys
   that consumer's `MAP.md` and `GLOSSARY.md`**, replacing them with
   Precedent's own. `orientation-map` is resident, so the map every session
