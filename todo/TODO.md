@@ -80,6 +80,8 @@
 | [`todo-2026-09-20-bare-pattern-precision-and-severity`](todo-2026-09-20-bare-pattern-precision-and-severity.md) | `require_no_bare_pattern` (tools/precedent_reply_check.py) landed 2026-09-20 declared `advisory` for rule-links and bran | 2d | wait |  |
 | [`todo-2026-09-20-cross-session-repeated-point-tracking`](todo-2026-09-20-cross-session-repeated-point-tracking.md) | Design a way to notice when Morgan has made the same point to a session multiple times, across sessions, and stop re-arg | 2d | wait |  |
 | [`todo-2026-09-20-the-load-budget-registry-asserts-loads-nothing-verifies`](todo-2026-09-20-the-load-budget-registry-asserts-loads-nothing-verifies.md) | [tools/session_load_budgets.json](../tools/session_load_budgets.json) declares what every session loads, and nothing che | 2d | wait |  |
+| [`todo-2026-09-22-ported-identity-checks-have-no-planted-harness-cases`](todo-2026-09-22-ported-identity-checks-have-no-planted-harness-cases.md) | `tools/checks/check_commit_author.py` and `check_buenos_aires_dates.py`, ported to this repo from precedent-individual ( | 0d | ask |  |
+| [`todo-2026-09-22-precedent-individual-dedup-points-at-itself`](todo-2026-09-22-precedent-individual-dedup-points-at-itself.md) | precedent-individual's `practices/deliverables-carry-no-process.md` carries `status: deduplicated` with `in_force_at: de | 0d | ask |  |
 | [`todo-2026-09-22-session-practices-slug-can-render-twice`](todo-2026-09-22-session-practices-slug-can-render-twice.md) | [tools/precedent_session_practices.py](../tools/precedent_session_practices.py)'s `collect()` can render the same slug t | 0d | raise |  |
 
 ## Verify Before External Use
@@ -199,6 +201,8 @@
 | [`todo-2026-09-20-bare-pattern-precision-and-severity`](todo-2026-09-20-bare-pattern-precision-and-severity.md) | `require_no_bare_pattern` (tools/precedent_reply_check.py) landed 2026-09-20 declared `advisory` for rule-links and bran | 2d |
 | [`todo-2026-09-20-cross-session-repeated-point-tracking`](todo-2026-09-20-cross-session-repeated-point-tracking.md) | Design a way to notice when Morgan has made the same point to a session multiple times, across sessions, and stop re-arg | 2d |
 | [`todo-2026-09-20-the-load-budget-registry-asserts-loads-nothing-verifies`](todo-2026-09-20-the-load-budget-registry-asserts-loads-nothing-verifies.md) | [tools/session_load_budgets.json](../tools/session_load_budgets.json) declares what every session loads, and nothing che | 2d |
+| [`todo-2026-09-22-ported-identity-checks-have-no-planted-harness-cases`](todo-2026-09-22-ported-identity-checks-have-no-planted-harness-cases.md) | `tools/checks/check_commit_author.py` and `check_buenos_aires_dates.py`, ported to this repo from precedent-individual ( | 0d |
+| [`todo-2026-09-22-precedent-individual-dedup-points-at-itself`](todo-2026-09-22-precedent-individual-dedup-points-at-itself.md) | precedent-individual's `practices/deliverables-carry-no-process.md` carries `status: deduplicated` with `in_force_at: de | 0d |
 | [`todo-2026-09-22-session-practices-slug-can-render-twice`](todo-2026-09-22-session-practices-slug-can-render-twice.md) | [tools/precedent_session_practices.py](../tools/precedent_session_practices.py)'s `collect()` can render the same slug t | 0d |
 
 ## Open Decisions
