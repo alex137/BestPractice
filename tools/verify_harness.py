@@ -11557,7 +11557,9 @@ def check_archive_line_is_refused_when_the_container_holds_only_copy_work():
         # passed twice and then failed on the same commit, with the push in
         # between; measured both ways before this was rewritten. A check
         # that reads live disk state is not asserting the code's contract,
-        # it is reporting the weather (practice: scripts-assert-properties).
+        # it is reporting the weather (practice: checks-plant-their-state,
+        # whose Story is this incident and whose Install explains why it
+        # carries no check of its own).
         def gate(engine_path):
             return subprocess.run(
                 [sys.executable, str(engine_path.parent / 'precedent_gate.py'),
