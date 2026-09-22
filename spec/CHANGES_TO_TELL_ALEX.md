@@ -1,17 +1,37 @@
 ---
 title:         Changes to tell Alex
 kind:          record
-status:        live
+status:        closed
 opened:        2026-09-01
-closed:        null
+closed:        2026-09-22
 superseded_by: null
 supersedes:    []
 audience:      session
-summary:       "The running list of inherited BestPractice practices whose meaning or mechanism changed under Precedent, for Alex to read before the branch merges back to main."
+summary:       "CLOSED 2026-09-22. The running list, kept 2026-09-01 to 2026-09-22, of inherited BestPractice practices whose meaning or mechanism changed under Precedent, written for Alex to read before the branch merged back to main. Alex has read it; nothing further is added here."
 ---
 <!--record-doc--> This file quotes practice Rules verbatim to say what changed in them, so it names the apparatus doc_lint.py check 6 keeps out of deliverables. It is a record document, not a deliverable.
 
 # Changes to tell Alex
+
+> **CLOSED — kept from 2026-09-01 to 2026-09-22, and no longer updated.**
+>
+> This file did one job for one reader: list the inherited practices whose
+> meaning or mechanism changed under Precedent, so Alex could read it before
+> the branch merged back to `main`. **He has read it, and the merges are now
+> routine** — `main` took the branch on 2026-09-14 and again on 2026-09-21 —
+> so the job is finished.
+>
+> **Nothing is added here again.** The text below stays exactly as it stood
+> on 2026-09-22, including the figures, which are a measurement of that date
+> rather than a number that should keep moving. It is kept because the
+> argument it records is worth having; it is not kept current.
+>
+> **Its standing replacement is `BULLETIN.md`** — a generated, capped,
+> rolling view of the changes that alter what somebody should do, fed by a
+> `tell_others:` key on practices, decisions and gotchas. The reasoning, the
+> anti-noise rules and why this file was not simply extended are in
+> [decisions/2026-09-22-bulletin-and-the-tell-others-field.md](../decisions/2026-09-22-bulletin-and-the-tell-others-field.md).
+> That file does not exist yet at the time of writing; it is being built.
 
 This branch (`precedent-beta-v01`) merges back to `alex137/BestPractice`'s
 own `main` (`PRACTICE_ENGINE_PLAN.md`, "Precedent is a branch of BestPractice,
@@ -50,13 +70,15 @@ describes is kept working in every case.
 
 Before the list: **how much of this catalogue enforces itself.**
 
-<!--gen:merge-back-->
+**Frozen 2026-09-22.** These were generated from the catalogue until this
+record closed; they are now a measurement of that date and are deliberately
+no longer regenerated.
+
 | | |
 |---|---|
 | Practices in force | 143 |
 | **Enforced by a check** | **49 of 143 practices carry a `checked_by`** |
 | Advisory only | 94 of 143 practices |
-<!--/gen:merge-back-->
 
 **Advisory means a session is told the rule and may still not follow it**, and
 this branch measured that rather than assuming it. The plan's own control
