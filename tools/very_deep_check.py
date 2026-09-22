@@ -4914,6 +4914,138 @@ def _markdown_sweep(repo_dir, timeout=900):
     return summary, count, None
 
 
+# --- cross-repo absolute link check (practice: very-deep-check, pass 3) --
+#
+# doc_lint's broken-link check (check 4) is a single repo's own concern by
+# design: it resolves a RELATIVE link against the linking file's own
+# directory, and it explicitly skips absolute URLs. So a link written the
+# way doc-references-are-links asks for cross-repo citations -- a full
+# `https://github.com/<owner>/<repo>/blob/<ref>/<path>` URL, chosen
+# precisely because a relative path cannot cross a repo boundary and still
+# open for a raw-markdown reader -- is invisible to it. That includes a
+# repo linking to ITSELF this way, not only to a sibling: the absolute
+# form is exempt everywhere it appears, self-citation included.
+#
+# Found real, 2026-09-22: four links in precedent-individual citing files
+# at the root of BestPractice (PRACTICE_ENGINE_PLAN.md,
+# CHANGES_TO_TELL_ALEX.md) that actually live under spec/, plus a fifth
+# citing WHAT_IS_THIS_AND_BENEFITS.md, a path with no trace anywhere in
+# BestPractice's history. None of doc_lint --strict --all's findings, in
+# either repo, was this bug -- the class was structurally unreachable to
+# it, which is what a session reading only that summary would miss.
+#
+# WHAT THIS CHECKS. Every markdown link in every repo in force whose URL
+# is `https://github.com/<owner>/<repo>/(blob|tree)/<ref>/<path>`, where
+# `<owner>/<repo>` names a repo ALSO in force this run (compared by origin
+# URL, not by the string) -- this session already has that repo cloned, so
+# the check is a local git read, never a network fetch. `<ref>` is
+# ambiguous on its own (a branch name may itself contain `/`), so the
+# resolver tries the longest prefix of what follows `/blob/` that is a
+# real local ref (a branch, `origin/<branch>`, a tag, or a bare commit)
+# and treats the remainder as the path; a URL where no prefix resolves is
+# reported broken on the ref itself, not skipped -- that is exactly what a
+# reader clicking it gets, a 404, whether the file moved or the branch
+# was deleted.
+#
+# WHAT IT DOES NOT CHECK. A link into a repo that is not ALSO in force
+# this run -- an unrelated public repository, or a Precedent repo this
+# session never opened -- reads exactly like check_broken_links' own skip
+# of absolute URLs: out of reach without a live network call, which this
+# deliberately never makes. And it is a Pass 3 READ, same as
+# _markdown_sweep: it reports, it never refuses a commit or a push.
+_GITHUB_URL_RE = re.compile(
+    r'\[([^\]\n]*)\]\((https://github\.com/([\w.-]+)/([\w.-]+)/'
+    r'(blob|tree)/([^)\s#]+)(#[^\s)]*)?)\)'
+)
+_CROSS_LINK_CODE_SPAN_RE = re.compile(r'`[^`]*`')
+# Same reasoning as doc_lint's own LINK_CHECK_EXEMPT_DIRS: a deck slide's
+# and an eval fixture's links are not references to audit against today's
+# tree.
+_CROSS_LINK_EXEMPT_DIRS = ('deck/', 'evals/')
+
+
+def _local_ref_and_path(repo_dir, ref_and_path):
+    """-> (ref, path), or (None, reason) if no local ref in `repo_dir` is
+    a prefix of `ref_and_path`. Longest prefix first, so
+    `claude/foo-bar/practices/x.md` resolves to the branch
+    `claude/foo-bar`, not the near-always-wrong single segment `claude`.
+    `path` comes back empty for a bare `tree/<ref>` link (a link to a
+    branch itself, no file inside it) -- that is a real, common link
+    shape and not a truncated one."""
+    parts = ref_and_path.split('/')
+    for i in range(len(parts), 0, -1):
+        ref = '/'.join(parts[:i])
+        path = '/'.join(parts[i:])
+        for candidate in (ref, f'origin/{ref}', f'refs/tags/{ref}'):
+            rc, _out, _err = _run_git(repo_dir, 'rev-parse', '--verify',
+                                       '--quiet', candidate + '^{commit}')
+            if rc == 0:
+                return candidate, path
+    return None, ("no local ref is a prefix of this URL (branch deleted, "
+                   "never fetched here, or a bare commit this clone lacks)")
+
+
+def _path_exists_at_ref(repo_dir, ref, path):
+    rc, _out, _err = _run_git(repo_dir, 'cat-file', '-e', f'{ref}:{path}')
+    return rc == 0
+
+
+def _cross_repo_link_check(targets):
+    """-> (finding_lines, count, notes). Every repo in `targets`, read
+    against every repo in `targets` (self included) -- see the module
+    comment above for what this catches that doc_lint cannot."""
+    slug_to_target = {}
+    for name, repo_dir in targets:
+        url = _origin_url(repo_dir)
+        m = re.search(r'github\.com[:/]([\w.-]+)/([\w.-]+?)(?:\.git)?/?$', url)
+        if m:
+            slug_to_target[f'{m.group(1)}/{m.group(2)}'] = (name, pathlib.Path(repo_dir))
+
+    findings = []
+    scanned = 0
+    for name, repo_dir in targets:
+        root = pathlib.Path(repo_dir)
+        rc, tracked, _err = _run_git(repo_dir, 'ls-files', '*.md')
+        if rc != 0:
+            findings.append(f'{name}: CANNOT TELL -- `git ls-files` failed, not scanned')
+            continue
+        for rel in tracked.splitlines():
+            if not rel.strip() or rel.startswith(_CROSS_LINK_EXEMPT_DIRS):
+                continue
+            try:
+                text = (root / rel).read_text(encoding='utf-8', errors='ignore')
+            except OSError:
+                continue
+            in_fence = False
+            for lineno, line in enumerate(text.splitlines(), 1):
+                if line.lstrip().startswith(('```', '~~~')):
+                    in_fence = not in_fence
+                    continue
+                if in_fence:
+                    continue
+                stripped = _CROSS_LINK_CODE_SPAN_RE.sub('', line)
+                for m in _GITHUB_URL_RE.finditer(stripped):
+                    _label, url, owner, repo_name, _kind, ref_and_path, _frag = m.groups()
+                    slug = f'{owner}/{repo_name}'
+                    if slug not in slug_to_target:
+                        continue  # not a repo this session has open
+                    scanned += 1
+                    target_name, target_dir = slug_to_target[slug]
+                    ref, path_or_reason = _local_ref_and_path(target_dir, ref_and_path)
+                    if ref is None:
+                        findings.append(f'{name}/{rel}:{lineno}  {url}  -- {path_or_reason}')
+                        continue
+                    if not path_or_reason:
+                        continue  # a bare tree/<ref> link -- the ref existing is the whole claim
+                    if not _path_exists_at_ref(target_dir, ref, path_or_reason):
+                        findings.append(
+                            f'{name}/{rel}:{lineno}  {url}  -- {path_or_reason!r} '
+                            f'does not exist at {target_name} @ {ref}')
+    notes = [f'{scanned} absolute github.com link(s) checked, into '
+             f'{len(slug_to_target)} repo(s) also in force this run.']
+    return findings, len(findings), notes
+
+
 def _tracked_text_files(repo_dir):
     # _run_git returns (rc, stdout, stderr) -- the tuple, not the text. A
     # bare `out or ''` here read as a string and crashed on .splitlines().
@@ -7692,6 +7824,24 @@ def _main(box):
     print()
     if led:
         led.end(findings=_md_count)
+        led.start('CROSS-REPO LINKS')
+
+    print("CROSS-REPO LINKS -- do absolute github.com links into a repo "
+          "in force actually resolve\n")
+    _xl_findings, _xl_count, _xl_notes = _cross_repo_link_check(_orph_targets)
+    for _n in _xl_notes:
+        print(f"  note: {_n}")
+    if _xl_notes and _xl_findings:
+        print()
+    if not _xl_findings:
+        print("  clean -- every absolute github.com link into a repo this "
+              "session has open\n  resolves, self-citation included.")
+    else:
+        for _f in _xl_findings:
+            print(f"  {_f}")
+    print()
+    if led:
+        led.end(findings=_xl_count)
 
     # UNLANDED WORK, printed BEFORE the checklist rather than with the rest
     # of the branch scan at the end (practice: very-deep-check, step 4 of its
