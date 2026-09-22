@@ -171,6 +171,18 @@
       "why": "The distinguishing condition is that a CHECK is being written or changed, and in this engine a check is one of two things: a @check function in precedent_check.py, or a source's own check_*.py under tools/checks/. Both are paths, so the glob identifies the practice rather than merely accompanying it. Deliberately NOT practices/** -- editing a practice file is necessary for writing a rule and says nothing about whether a check is involved, which is the test this file's note sets.",
       "decided": "2026-09-14, on landing the practice"
     },
+    "checks-plant-their-state": {
+      "globs": [
+        "tools/verify_harness.py",
+        "tools/precedent_check.py",
+        "tools/checks/**",
+        "**/test_*.py",
+        "**/*_test.py",
+        "**/tests/**"
+      ],
+      "why": "The distinguishing condition is that a CHECK is being written or changed, and these paths are where checks live -- this repo's own harness and registry, plus the ordinary test layouts an adopter uses. Not left at '**': the occasion is a file being edited, not a moment somebody reaches, so the path channel is the one that actually delivers it.",
+      "decided": "2026-09-22"
+    },
     "chief-of-staff": {
       "globs": [
         "**"
