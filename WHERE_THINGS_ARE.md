@@ -1,8 +1,20 @@
 # Where things are — the full index
 
+<!-- No row count in the sentence below, on purpose, since 2026-09-22.
+     A hand-typed one lived here and was measured against the table at each
+     of the last eleven commits that touched this file: WRONG AT SIX OF
+     THEM, and at one point by nineteen (89 stated, 108 actual). It was
+     usually not anyone's arithmetic -- a row arrives on a branch that has
+     no reason to know a sentence elsewhere describes the total, and the
+     merge is where the two meet. Nothing gates it, and nobody opens this
+     file to learn how many rows it has.
+     A figure that IS worth keeping goes in a doc_sync generated block
+     (tools/doc_sync.py): that regenerates it and also refuses a hand-typed
+     copy of any figure a script owns. -->
+
 **Looking for something in this repository? Check here before searching it.**
 Every row is *looking for X → go to Y*, and the table below is the complete
-one: 113 rows.
+one.
 
 [AGENTS.md](AGENTS.md) carries a short version of this table — the dozen rows
 sessions reach for constantly — and links here for the rest. **That split is
