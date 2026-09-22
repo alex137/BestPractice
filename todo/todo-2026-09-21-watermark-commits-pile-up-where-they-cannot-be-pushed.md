@@ -3,16 +3,16 @@ slug:              todo-2026-09-21-watermark-commits-pile-up-where-they-cannot-b
 kind:              manual
 domain:            engine
 severity:          medium
-status:            open
+status:            done
 disposition:       ask
 remind_on:         null
 blocked_on:        null
 batch:             null
-decision:          null
-decision_strength: null
+decision:          "trigger moved to the alert; alert-path commit gated on a real push probe"
+decision_strength: assented
 waiting_on:        null
 noted:             2026-09-21
-closed:            null
+closed:            2026-09-22
 ---
 ## What
 
@@ -118,18 +118,42 @@ fatal: ... The requested URL returned error: 403
 The proxy sits in front of the helper. **Repository scope, as originally
 written.**
 
-## What Remains
+## The Alert Path, Closed The Same Day
 
-**The alert path still commits where it cannot push, and that is now the
-whole of it.** Roughly 2% of commits on this branch are somebody else's, so
-a container will accumulate a watermark commit occasionally rather than
-several a day — the session-check row goes green nearly always instead of
-never, which is the whole reason this item existed. Option 1 above, narrowed
-to that path (probe push access; with none, report and do not commit), is
-the residual fix. Its cost is real and unchanged: cross-container dedup
-depends on the push landing, so a container that cannot push would re-alert
-for commits an earlier one already reported. **Not done here, because the
-2026-09-22 work was authorized for the trigger and the failure message.**
+**Option 1, narrowed to the path that was left.** Morgan: *"Go update on the
+watermark alert path too"* — a go-ahead to the recommendation above rather
+than a case he argued, so `assented`.
+
+The alert path now **probes before it writes**. `push --dry-run` is a real
+authenticate-and-negotiate round trip that writes nothing, and it answers
+the only question that matters: *would this land*. A clone that is
+unauthenticated, diverged or behind all answer no, and all three mean the
+same thing here. Where the answer is no, **nothing is written into the
+individual source at all** — no file, no commit — so there is no commit to
+reset later, which would have meant rewriting somebody else's repository.
+
+**The cost named above is paid, and it is smaller than it looked.** What the
+shared watermark buys once it cannot be pushed is exactly one thing: telling
+the NEXT container. So the head just reported goes into a per-container note
+in this repo's gitignored `.precedent/` instead. It stops the alert
+repeating here — the thing a session actually notices — and claims nothing
+about any other container. `check()` folds that note into the shared
+watermark when it reads, so a container that has already reported up to X
+does not report X again because the file it could not push still names
+something older.
+
+**The note is written only where git can be shown to ignore it.** An
+untracked file in a source clone is precisely the dirt that skips that
+clone's refresh and, since the container scanner landed, reads as work
+existing nowhere else — so a repo that ignores nothing gets no note and a
+session-start line saying plainly that the alert will repeat. Twelve stated
+cases in [tools/verify_harness.py](../tools/verify_harness.py) hold all of
+it, including the negative control that a reachable remote still commits and
+pushes the shared watermark exactly as before.
+
+**Not fixed by any of this:** the 8 commits already sitting in that clone.
+They are watermark advances a future run will re-derive, so they can be
+pushed or discarded; nothing here depends on which.
 
 ## Not To Be Confused With
 

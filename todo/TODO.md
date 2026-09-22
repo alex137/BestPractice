@@ -147,8 +147,6 @@
 | [`todo-2026-09-21-template-freshness-reports-five-phantom-gaps`](todo-2026-09-21-template-freshness-reports-five-phantom-gaps.md) | Every one of `TEMPLATE FRESHNESS`'s five findings is a file the bootstrap generator writes | 1d | ask |  |
 | [`todo-2026-09-21-three-shared-sets-are-cloned-twice-on-this-container`](todo-2026-09-21-three-shared-sets-are-cloned-twice-on-this-container.md) | All three shared sets exist twice on this container | 1d | ask |  |
 | [`todo-2026-09-21-vocabulary-emit-would-publish-a-private-command`](todo-2026-09-21-vocabulary-emit-would-publish-a-private-command.md) | `python3 tools/doc_sync.py --write` would publish a private practice's command into a public, tracked file | 1d | ask |  |
-| [`todo-2026-09-21-watermark-commits-pile-up-where-they-cannot-be-pushed`](todo-2026-09-21-watermark-commits-pile-up-where-they-cannot-be-pushed.md) | Every session working in this repository leaves an unpushable commit in the individual source, and the session check goe | 1d | ask |  |
-| [`todo-2026-09-22-container-scanner-counts-engine-output-as-only-copy-work`](todo-2026-09-22-container-scanner-counts-engine-output-as-only-copy-work.md) | The archive gate shipped on 2026-09-22 calls this container unsafe over three clones that hold nothing anyone could lose | 0d | ask |  |
 
 ## Decisions (the Person's Call)
 
