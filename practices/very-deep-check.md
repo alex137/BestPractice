@@ -17,6 +17,13 @@ supersedes:  []
 overrides:   null
 added:       null
 approved_by: "extended 2026-09-21, Morgan (strength: decided), with the
+  deletion-propagation table (proposal item 4), the CHECK COVERAGE
+  enumeration (item 13, closing pass 2 question 15's own unbuilt half)
+  and MOVED CLAIMS (item 14) -- \"now build the next ones\"; item 4's
+  table found on its first asking that a hook dropped upstream has no
+  removal path at all, and item 14's first run found the paused-workflow
+  incident still live in one source;
+  extended 2026-09-21, Morgan (strength: decided), with the
   ACTIONS FLOOR bill (proposal item 7) and the CONFIG KEYS sweep (item
   10) -- \"Build the next part of very deep check according to the
   plan\"; the required-status-check item was weighed first and held,
@@ -816,6 +823,41 @@ confidently.
     [spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md)
     item 10.
 
+8b. **For every class of artifact this repo SHIPS, does an addition reach
+    an installed repo? A change? A deletion?** Three columns, one row per
+    class, re-answered on every run. The question exists because the two
+    vendoring paths disagreed for months and **nobody had asked it of both
+    at once**: engine files diffed the manifest and propagated a deletion,
+    CI workflow files waited for somebody to remember a tombstone, so a
+    template dropped without one stayed installed in every repository
+    forever, tracked by nothing. That was found on 2026-09-21 by asking,
+    and fixed the same day.
+
+    **The answers as of 2026-09-21** — a rule about a mechanism carries its
+    date ([volatile-rules-carry-dates](volatile-rules-carry-dates.md)), and
+    each cell is a claim to re-verify in the code rather than to inherit:
+
+    | Shipped class | Addition arrives | Change arrives | Deletion arrives |
+    |---|---|---|---|
+    | Engine files (`tools/`) | yes | yes | **yes** — manifest diff |
+    | CI workflow files | yes | yes | **yes**, since 2026-09-21 — manifest diff, with tombstones kept for what a diff cannot express (a rename) |
+    | Hooks (`.claude/hooks/`) | **no** — a hook reaches only a repo whose `settings.json` already wires the name, which a new hook cannot be | yes | **NO — there is no removal path at all** |
+    | `settings.json` itself | no — a refresh never writes it | no | no |
+    | The practice catalogue | yes — materialized per session | yes | yes |
+    | Skeleton / bootstrap templates | only into a newly created set | only into a new set | only into a new set — existing sets drift, which `BOOTSTRAP DRIFT` reports |
+    | Vocabulary | yes — derived at render time | yes | yes |
+
+    **The `NO` in that table is this item's first finding.**
+    [tools/precedent_vendor_engine.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/precedent_vendor_engine.py)
+    has exactly two removal paths, for engine files and CI workflows. A hook
+    dropped upstream stays installed in every consumer, tracked by the
+    manifest's own `hook_files` with nothing to clear it — the identical
+    asymmetry the CI path carried until somebody asked. Filed as
+    [todo-2026-09-21-a-dropped-hook-never-leaves-a-consumer](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/todo/todo-2026-09-21-a-dropped-hook-never-leaves-a-consumer.md).
+    Added 2026-09-21 (Morgan, strength: decided) from
+    [spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md)
+    item 4.
+
 9. **Does anything use alphabetical order to pick a winner?** Often the
    previous question's duplicate, one layer on: where two candidates could
    satisfy a lookup — two directories, two copies of a file, two sources for
@@ -931,6 +973,29 @@ confidently.
     published the violation. The same skip hid
     [generated-artifact-provenance](generated-artifact-provenance.md), whose
     own file names a check for it.)*
+15a. **And the enumeration itself, per repo, mechanically.** Question 15
+    says to enumerate rather than sample, for every registered check in
+    every repo in force — a read nobody could finish by hand, one repo's
+    output at a time with the comparison held in a session's head.
+    [tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/very_deep_check.py)'s
+    `CHECK COVERAGE` section runs **each repo's own vendored copy** of
+    `precedent_check.py --full-sweep` — the engine that actually runs
+    there, not this checkout's — and reports passed, violated and skipped,
+    **grouped by the CAUSE of the skips**.
+
+    **The grouping is the whole finding.** Forty skips behind one
+    structural reason is a coverage hole wearing forty names; forty behind
+    forty reasons is housekeeping. The slug is normalised out of each
+    reason for exactly that purpose — reporting `no practices/<a>.md`,
+    `no practices/<b>.md` … separately is the shape that hid this in the
+    first place. *(First run, 2026-09-21: a shared source at 17 passed and
+    53 skipped, **44 of the 53 for one cause** — each check keyed to a
+    `practices/<slug>.md` a source set does not carry, because its
+    `practices/` holds its own level only.)* Added 2026-09-21 (Morgan,
+    strength: decided) from
+    [spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md)
+    item 13.
+
 16. **Is a boundary a setting or a document?** A rule that says *a
     contributor cannot change X* is enforced by a setting somewhere -- a
     branch-protection rule, a `CODEOWNERS` file GitHub actually reads, a
@@ -1241,6 +1306,36 @@ first so this pass spends its attention on what they cannot see.
   no linter can see: a link that resolves but points at the wrong thing, a
   click-path into a user interface that has changed, a cross-repo reference
   into a repo the reader cannot open, a slug or filename that moved.
+- **Premise-dated claims — "the work now lives in X", where X is not
+  there.** The bullet above tests a claim against the mechanism it
+  describes; this one tests a claim about a **different file**, which is
+  only ever caught by somebody who happens to open that file.
+  [tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/very_deep_check.py)'s
+  `MOVED CLAIMS` section greps every repo in force for the sentence shape —
+  *now runs in*, *now lives in*, *folded into*, *moved into*, *superseded
+  by*, *replaced by* — and reports every named destination that does not
+  exist.
+
+  *(The incident, 2026-09-21: `commit-identity.yml` was paused with a
+  header saying its checks "now run as steps in
+  `.github/workflows/precedent-check.yml`'s single job". Four hours later a
+  refresh deleted that file. The sentence was true when written and false
+  the same afternoon, two commit-scope checks ran nowhere, and a grep at
+  any point in the following month would have found it.)*
+
+  **Three narrowings, each forced by a measurement rather than designed
+  in.** `see X` is not a move verb and is deliberately excluded — it
+  produced 39 rows across two repos, every one a pointer rather than a
+  claim. A markdown link carries its own target, which `doc_lint` already
+  checks, so link text is stripped before matching. And a **vendored** file's
+  prose is upstream's, citing upstream's paths, so files the manifest
+  records as vendored are skipped — pass 2's *this repo wrote it versus this
+  repo received it* applied here. With all three, the first run returned
+  **zero rows in three repos and five in the one where the incident
+  actually happened**, all naming the deleted file. Added 2026-09-21
+  (Morgan, strength: decided) from
+  [spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md)
+  item 14.
 - **Stale references** — a slug, practice number, filename, heading, or
   click-path pointing at something moved or gone; a positional number cited
   as if it were a name; numbering that skips, repeats, or runs out of order;
