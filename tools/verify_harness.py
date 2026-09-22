@@ -288,6 +288,52 @@ def _amended_and_logged(slug):
     return slug in CHANGES_DOC.read_text(encoding='utf-8')
 
 
+class FixtureSetupError(Exception):
+    """A git command a fixture ran during SETUP failed.
+
+    Raised by fixture_git() below and caught at the check boundary, where it
+    is reported as an ordinary FAILED check naming the command. It is never
+    allowed to escape: an exception out of a check kills the whole run before
+    any verdict prints, which is the failure mode the filter crash of
+    2026-09-21 already demonstrated once.
+
+    WHY THIS EXISTS. Fixtures build a situation and then assert on it. When a
+    setup command fails silently the situation is never built, the assertions
+    run against something else, and the check reports the TOOL as broken --
+    a false accusation, and a far more expensive thing to read than a plain
+    failure. On 2026-09-21 a `git commit` in a fixture clone failed in CI for
+    want of a git identity; nothing looked at the exit code; the resulting
+    message said a source-clone tool was rebasing people's unpushed work. It
+    was not. See practice: fixture-owns-its-state.
+    """
+
+
+# check() records this without counting it, for a verdict the wrapper below
+# has already reported. Without it a caught FixtureSetupError lands twice --
+# once from the wrapper, once from `check('<name>', *check_foo())` unpacking
+# the triple the wrapper returned in the check's place.
+_CHECK_ALREADY_REPORTED = object()
+
+
+def fixture_git(d, *a, allow_failure=False):
+    """Run a git command in a FIXTURE and refuse to fail quietly.
+
+    The default is strict: a non-zero exit raises FixtureSetupError naming the
+    command and git's own stderr. Pass allow_failure=True for the handful of
+    places that are deliberately asserting a git command DOES fail.
+
+    Returns the CompletedProcess, so every existing `_git(d, ...).stdout`
+    call site keeps working unchanged.
+    """
+    r = subprocess.run(['git', '-C', str(d), *a], capture_output=True, text=True)
+    if r.returncode != 0 and not allow_failure:
+        detail = (r.stderr or r.stdout or '').strip().splitlines()
+        raise FixtureSetupError(
+            f"git {' '.join(a)} (in {d}) exited {r.returncode}"
+            + (f': {detail[-1]}' if detail else ''))
+    return r
+
+
 # A filtered-out check's stand-in returns this instead of None. The
 # verdict-returning family is wired up as `check('<name>', *check_foo())`,
 # so a stand-in returning None makes every one of those 10 call sites die
@@ -311,6 +357,8 @@ def check(name, ok, detail='', failure=''):
 
     A failing check prints its failure text when it has one, because that is
     the string that says what to go and look at."""
+    if ok is _CHECK_ALREADY_REPORTED:
+        return
     if ok is _CHECK_FILTERED_OUT:
         not_applicable(name, 'filtered out by PRECEDENT_CHECK_ONLY/SKIP')
         return
@@ -512,6 +560,32 @@ def _install_check_filter():
                       file=sys.stderr)
                 return (_CHECK_FILTERED_OUT, '', '')
             globals()[name] = _skipped
+
+
+def _install_fixture_error_guard():
+    """Turn a FixtureSetupError into a FAILED check instead of a dead run.
+
+    Installed unconditionally -- unlike the timing wrapper, which
+    PRECEDENT_NO_CHECK_TIMING can switch off for profiling. A crash that only
+    appears when profiling is off is exactly the kind of environment-shaped
+    difference this whole guard exists to stop.
+    """
+    names = sorted(n for n, v in list(globals().items())
+                   if n.startswith('check_') and callable(v))
+
+    def _wrap(name, fn):
+        def wrapper(*args, **kwargs):
+            try:
+                return fn(*args, **kwargs)
+            except FixtureSetupError as exc:
+                check(name, False, '', f'fixture setup failed -- {exc}')
+                # Reported already; the triple keeps the `check('<name>',
+                # *check_foo())` call sites from recording it a second time.
+                return (_CHECK_ALREADY_REPORTED, '', '')
+        return wrapper
+
+    for name in names:
+        globals()[name] = _wrap(name, globals()[name])
 
 
 def _install_check_timing():
@@ -24482,9 +24556,7 @@ def check_freshness_gate_fires():
     import tempfile
     import very_deep_check as vdc
 
-    def _git(d, *a):
-        return subprocess.run(['git', '-C', str(d), *a],
-                              capture_output=True, text=True)
+    _git = fixture_git
 
     with tempfile.TemporaryDirectory() as tmp:
         tmp = pathlib.Path(tmp)
@@ -24588,15 +24660,17 @@ def check_unmerged_branch_verdicts():
     import tempfile
     import very_deep_check as vdc
 
-    def _git(d, *a):
-        return subprocess.run(['git', '-C', str(d), *a],
-                              capture_output=True, text=True)
+    _git = fixture_git
 
     with tempfile.TemporaryDirectory() as tmp:
         tmp = pathlib.Path(tmp)
         up, work = tmp / 'up', tmp / 'work'
         up.mkdir()
         _git(up, 'init', '-q', '-b', 'main')
+        # `up` is a working clone, not a bare one, so git refuses a push to
+        # the branch it has checked out. Two fixtures pushed to it anyway and
+        # never noticed, because nothing looked at the exit code.
+        _git(up, 'config', 'receive.denyCurrentBranch', 'ignore')
         _git(up, 'config', 'user.email', 'harness@example.com')
         _git(up, 'config', 'user.name', 'Harness')
         (up / 'base.txt').write_text('base\n')
@@ -24731,15 +24805,17 @@ def check_endgame_merge_finds_the_silent_drop():
     import tempfile
     import very_deep_check as vdc
 
-    def _git(d, *a):
-        return subprocess.run(['git', '-C', str(d), *a],
-                              capture_output=True, text=True)
+    _git = fixture_git
 
     with tempfile.TemporaryDirectory() as tmp:
         tmp = pathlib.Path(tmp)
         up, work = tmp / 'up', tmp / 'work'
         up.mkdir()
         _git(up, 'init', '-q', '-b', 'main')
+        # `up` is a working clone, not a bare one, so git refuses a push to
+        # the branch it has checked out. Two fixtures pushed to it anyway and
+        # never noticed, because nothing looked at the exit code.
+        _git(up, 'config', 'receive.denyCurrentBranch', 'ignore')
         _git(up, 'config', 'user.email', 'harness@example.com')
         _git(up, 'config', 'user.name', 'Harness')
         (up / 'base.txt').write_text('base\n')
@@ -24920,15 +24996,17 @@ def check_base_branch_drift_ignores_carried_work():
     import tempfile
     import very_deep_check as vdc
 
-    def _git(d, *a):
-        return subprocess.run(['git', '-C', str(d), *a],
-                              capture_output=True, text=True)
+    _git = fixture_git
 
     with tempfile.TemporaryDirectory() as tmp:
         tmp = pathlib.Path(tmp)
         up, work = tmp / 'up', tmp / 'work'
         up.mkdir()
         _git(up, 'init', '-q', '-b', 'main')
+        # `up` is a working clone, not a bare one, so git refuses a push to
+        # the branch it has checked out. Two fixtures pushed to it anyway and
+        # never noticed, because nothing looked at the exit code.
+        _git(up, 'config', 'receive.denyCurrentBranch', 'ignore')
         _git(up, 'config', 'user.email', 'harness@example.com')
         _git(up, 'config', 'user.name', 'Harness')
         (up / 'base.txt').write_text('base\n')
@@ -25012,14 +25090,16 @@ def check_branch_scan_sees_every_branch():
     import tempfile
     import very_deep_check as vdc
 
-    def _git(d, *a):
-        return subprocess.run(['git', '-C', str(d), *a],
-                              capture_output=True, text=True)
+    _git = fixture_git
 
     with tempfile.TemporaryDirectory() as tmp:
         tmp = pathlib.Path(tmp)
         up = tmp / 'up'; up.mkdir()
         _git(up, 'init', '-q', '-b', 'main')
+        # `up` is a working clone, not a bare one, so git refuses a push to
+        # the branch it has checked out. Two fixtures pushed to it anyway and
+        # never noticed, because nothing looked at the exit code.
+        _git(up, 'config', 'receive.denyCurrentBranch', 'ignore')
         _git(up, 'config', 'user.email', 'harness@example.com')
         _git(up, 'config', 'user.name', 'Harness')
         (up / 'f.txt').write_text('base\n')
@@ -25634,15 +25714,17 @@ def check_branch_sweep_sees_work_landed_on_the_base_branch():
     import tempfile
     import very_deep_check as vdc
 
-    def _git(d, *a):
-        return subprocess.run(['git', '-C', str(d), *a],
-                              capture_output=True, text=True)
+    _git = fixture_git
 
     with tempfile.TemporaryDirectory() as tmp:
         tmp = pathlib.Path(tmp)
         up, work = tmp / 'up', tmp / 'work'
         up.mkdir()
         _git(up, 'init', '-q', '-b', 'main')
+        # `up` is a working clone, not a bare one, so git refuses a push to
+        # the branch it has checked out. Two fixtures pushed to it anyway and
+        # never noticed, because nothing looked at the exit code.
+        _git(up, 'config', 'receive.denyCurrentBranch', 'ignore')
         _git(up, 'config', 'user.email', 'harness@example.com')
         _git(up, 'config', 'user.name', 'Harness')
         (up / 'base.txt').write_text('base\n')
@@ -25726,15 +25808,17 @@ def check_session_sweep_reports_the_repo_half():
     import tempfile, datetime
     import very_deep_check as vdc
 
-    def _git(d, *a):
-        return subprocess.run(['git', '-C', str(d), *a],
-                              capture_output=True, text=True)
+    _git = fixture_git
 
     with tempfile.TemporaryDirectory() as tmp:
         tmp = pathlib.Path(tmp)
         up, work = tmp / 'up', tmp / 'work'
         up.mkdir()
         _git(up, 'init', '-q', '-b', 'main')
+        # `up` is a working clone, not a bare one, so git refuses a push to
+        # the branch it has checked out. Two fixtures pushed to it anyway and
+        # never noticed, because nothing looked at the exit code.
+        _git(up, 'config', 'receive.denyCurrentBranch', 'ignore')
         _git(up, 'config', 'user.email', 'harness@example.com')
         _git(up, 'config', 'user.name', 'Harness')
         (up / 'base.txt').write_text('base\n')
@@ -25814,15 +25898,17 @@ def check_merged_branches_carry_a_date_and_a_staleness_verdict():
     import very_deep_check as vdc
     import tempfile, datetime
 
-    def _git(d, *a):
-        return subprocess.run(['git', '-C', str(d), *a],
-                              capture_output=True, text=True)
+    _git = fixture_git
 
     with tempfile.TemporaryDirectory() as tmp:
         tmp = pathlib.Path(tmp)
         up, work = tmp / 'up', tmp / 'work'
         up.mkdir()
         _git(up, 'init', '-q', '-b', 'main')
+        # `up` is a working clone, not a bare one, so git refuses a push to
+        # the branch it has checked out. Two fixtures pushed to it anyway and
+        # never noticed, because nothing looked at the exit code.
+        _git(up, 'config', 'receive.denyCurrentBranch', 'ignore')
         _git(up, 'config', 'user.email', 'harness@example.com')
         _git(up, 'config', 'user.name', 'Harness')
         (up / 'base.txt').write_text('base\n')
@@ -25917,15 +26003,17 @@ def check_branch_report_writes_delete_links_to_a_committable_file():
     import very_deep_check as vdc
     import tempfile, datetime
 
-    def _git(d, *a):
-        return subprocess.run(['git', '-C', str(d), *a],
-                              capture_output=True, text=True)
+    _git = fixture_git
 
     with tempfile.TemporaryDirectory() as tmp:
         tmp = pathlib.Path(tmp)
         up, work = tmp / 'up', tmp / 'work'
         up.mkdir()
         _git(up, 'init', '-q', '-b', 'main')
+        # `up` is a working clone, not a bare one, so git refuses a push to
+        # the branch it has checked out. Two fixtures pushed to it anyway and
+        # never noticed, because nothing looked at the exit code.
+        _git(up, 'config', 'receive.denyCurrentBranch', 'ignore')
         _git(up, 'config', 'user.email', 'harness@example.com')
         _git(up, 'config', 'user.name', 'Harness')
         (up / 'base.txt').write_text('base\n')
@@ -26267,15 +26355,17 @@ def check_unlanded_work_is_reported_before_the_passes():
     import tempfile, shutil
     import json as _json
 
-    def _git(d, *a):
-        return subprocess.run(['git', '-C', str(d), *a],
-                              capture_output=True, text=True)
+    _git = fixture_git
 
     with tempfile.TemporaryDirectory() as tmp:
         tmp = pathlib.Path(tmp)
         up, work = tmp / 'up', tmp / 'work'
         up.mkdir()
         _git(up, 'init', '-q', '-b', 'main')
+        # `up` is a working clone, not a bare one, so git refuses a push to
+        # the branch it has checked out. Two fixtures pushed to it anyway and
+        # never noticed, because nothing looked at the exit code.
+        _git(up, 'config', 'receive.denyCurrentBranch', 'ignore')
         _git(up, 'config', 'user.email', 'harness@example.com')
         _git(up, 'config', 'user.name', 'Harness')
         (up / 'f.txt').write_text('base\n')
@@ -26394,15 +26484,17 @@ def check_very_deep_check_records_its_components():
     import tempfile, shutil
     import json as _json
 
-    def _git(d, *a):
-        return subprocess.run(['git', '-C', str(d), *a],
-                              capture_output=True, text=True)
+    _git = fixture_git
 
     with tempfile.TemporaryDirectory() as tmp:
         tmp = pathlib.Path(tmp)
         up, work = tmp / 'up', tmp / 'work'
         up.mkdir()
         _git(up, 'init', '-q', '-b', 'main')
+        # `up` is a working clone, not a bare one, so git refuses a push to
+        # the branch it has checked out. Two fixtures pushed to it anyway and
+        # never noticed, because nothing looked at the exit code.
+        _git(up, 'config', 'receive.denyCurrentBranch', 'ignore')
         _git(up, 'config', 'user.email', 'harness@example.com')
         _git(up, 'config', 'user.name', 'Harness')
         (up / 'f.txt').write_text('base\n')
@@ -26619,12 +26711,14 @@ def check_shallow_clone_never_fabricates_unlanded_work():
     import shutil, tempfile
     import json as _json
 
-    def _git(d, *a):
-        return subprocess.run(['git', '-C', str(d), *a],
-                              capture_output=True, text=True)
+    _git = fixture_git
 
     def _seed(up):
         _git(up, 'init', '-q', '-b', 'main')
+        # `up` is a working clone, not a bare one, so git refuses a push to
+        # the branch it has checked out. Two fixtures pushed to it anyway and
+        # never noticed, because nothing looked at the exit code.
+        _git(up, 'config', 'receive.denyCurrentBranch', 'ignore')
         _git(up, 'config', 'user.email', 'harness@example.com')
         _git(up, 'config', 'user.name', 'Harness')
         (up / 'f.txt').write_text('base\n')
@@ -28349,6 +28443,7 @@ def check_filtered_check_does_not_break_the_unpack_family():
 
 def main():
     _install_check_filter()
+    _install_fixture_error_guard()
     _install_check_timing()
     _print_checkout_banner()
     _report_missing_doc_packages('PREFLIGHT')
