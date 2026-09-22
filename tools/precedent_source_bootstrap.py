@@ -460,25 +460,32 @@ def _clone_elsewhere_on_disk(name, clone_path, repo_path):
     # the whole failing shape, so the root that names the other parent cannot
     # be the one that is missing.
     #
-    # CWD FIRST, THE PROVIDER'S VARIABLE SECOND. This file is an engine file
-    # and ships into repos on four harnesses, so the neutral signal leads and
-    # the named one is a fallback for the case where a hook runs from
-    # somewhere else entirely (practice: vendor-neutral-by-default). Every
-    # adapter's session-start runs from the project root, so cwd carries this
-    # on all of them; unset and un-run-from, the two roots above still cover a
-    # container whose repos share one parent.
-    try:
-        roots.append(pathlib.Path.cwd().parent)
-    except Exception:
-        pass
-    proj = os.environ.get('CLAUDE_PROJECT_DIR', '').strip()
-    if proj:
-        roots.append(pathlib.Path(proj).parent)
+    # THE ENGINE'S OWN VARIABLE FIRST, THE PROVIDER'S SECOND. This file ships
+    # into repos on four harnesses, so the neutral name is the one that is
+    # documented and the provider's is read as a convenience where it happens
+    # to be set (practice: vendor-neutral-by-default). Where a harness sets
+    # neither, this helper finds nothing and the old behaviour resumes -- a
+    # second clone, degraded rather than broken, and still reported.
+    #
+    # CWD IS DELIBERATELY NOT A ROOT, and briefly was. It is redundant exactly
+    # when it would help -- the adapters run `--teams-from .` from the project
+    # root, where cwd's parent IS repo_path's parent already -- and wrong
+    # exactly when it differs, which is when something resolves a repo other
+    # than the one it is standing in. Measured 2026-09-22: with cwd as a root,
+    # verify_harness's credential fixture stopped reporting a source as NOT in
+    # force, because the helper found the fixture's own REMOTE copy under cwd's
+    # parent and linked the declared path to it. A root that can reach a
+    # directory nobody meant as a source is worse than no root.
+    for var in ('PRECEDENT_PROJECT_DIR', 'CLAUDE_PROJECT_DIR'):
+        proj = os.environ.get(var, '').strip()
+        if proj:
+            roots.append(pathlib.Path(proj).parent)
+            break
     for cand in [r / name for r in roots]:
         try:
             if cand.resolve() == clone_path:
                 continue
-            if (cand / 'practices').is_dir():
+            if (cand / 'practices').is_dir() and (cand / '.git').exists():
                 return cand
         except Exception:
             continue

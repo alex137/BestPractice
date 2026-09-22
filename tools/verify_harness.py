@@ -14506,13 +14506,61 @@ def check_freshness_guard_user_prompt_never_resets_mid_session():
 
             rc, err = run(clone, 'user-prompt')
             after = git(clone, 'rev-parse', 'HEAD').stdout.strip()
-            cases.append((f'{tag}: user-prompt on a diverged clean branch '
-                          f'reports rather than resets (rc={rc})',
-                          rc == 0 and 'NOT reconciling automatically' in err
+
+            def reachable(cwd, sha):
+                return git(cwd, 'merge-base', '--is-ancestor', sha,
+                           'HEAD').returncode == 0
+
+            # WHAT THIS TEST ASSERTS CHANGED ON 2026-09-22, AND WHY IT IS NOW
+            # STRICTER RATHER THAN LOOSER. It used to require HEAD to be
+            # exactly where it was, as a proxy for the property the
+            # 2026-09-20 incident actually cost: a local commit was
+            # DISCARDED. Reporting-and-doing-nothing satisfies that proxy --
+            # and so does every other way of leaving the drift in place, which
+            # is what shipped, and what had the person reconciling by hand two
+            # days later. A merge fails the proxy while satisfying the
+            # property completely: both parents stay on the branch, so the
+            # local commit is still reachable afterwards. So the proxy is
+            # replaced by the property itself, plus the two things the proxy
+            # never checked at all -- that the drift is genuinely repaired,
+            # and that a merge which CANNOT complete leaves the checkout
+            # untouched rather than half-applied.
+            cases.append((f'{tag}: user-prompt repairs a diverged clean '
+                          f'branch instead of leaving it drifted (rc={rc})',
+                          rc == 0 and 'MERGED origin/' in err
                           and 'mid-session' in err))
-            cases.append((f'{tag}: user-prompt leaves local HEAD exactly '
-                          f'where it was (the commit the bug used to discard)',
-                          after == local_sha))
+            cases.append((f'{tag}: user-prompt KEEPS the local commit the '
+                          f'2026-09-20 bug discarded -- still reachable from '
+                          f'HEAD, never reset away',
+                          reachable(clone, local_sha)))
+            cases.append((f'{tag}: user-prompt never resets -- HEAD is not '
+                          f'origin\'s tip with the local work dropped',
+                          after != origin_sha))
+            cases.append((f'{tag}: user-prompt actually brings origin in, so '
+                          f'the drift is gone rather than re-reported next '
+                          f'prompt',
+                          reachable(clone, origin_sha)))
+            rescue_up = git(clone, 'for-each-ref',
+                            f'refs/freshness-guard/pre-merge/main-{local_sha[:12]}').stdout.strip()
+            cases.append((f'{tag}: user-prompt rescues the pre-merge tip to '
+                          f'its own ref as well',
+                          local_sha[:12] in rescue_up))
+
+            # THE CONFLICT CONTROL. A merge that cannot complete must leave
+            # nothing half-applied: the next tool call in that session would
+            # otherwise meet a conflicted index it never asked for.
+            conflict = make_diverged('cf')
+            (conflict / 'f').write_text('a\nCONFLICTING\n')
+            git(conflict, 'commit', '-qam', 'conflicting local edit')
+            before_cf = git(conflict, 'rev-parse', 'HEAD').stdout.strip()
+            rc3, err3 = run(conflict, 'user-prompt')
+            after_cf = git(conflict, 'rev-parse', 'HEAD').stdout.strip()
+            unmerged = git(conflict, 'diff', '--name-only',
+                           '--diff-filter=U').stdout.strip()
+            cases.append((f'{tag}: a CONFLICTING mid-session merge is aborted '
+                          f'and reported, leaving HEAD where it was (rc={rc3})',
+                          rc3 == 0 and after_cf == before_cf
+                          and 'CONFLICTS' in err3 and not unmerged))
 
             # THE CONTROL: the identical fixture through session-start still
             # auto-reconciles -- the fix narrows the caller, not the feature.
@@ -14536,9 +14584,9 @@ def check_freshness_guard_user_prompt_never_resets_mid_session():
                           local_sha2[:12] in rescue))
 
     failed = [n for n, ok in cases if not ok]
-    check(f'freshness guard: user-prompt never auto-resets a mid-session '
-          f'divergence, session-start still safely does '
-          f'({len(cases)} stated cases, both copies)',
+    check(f'freshness guard: user-prompt repairs a mid-session divergence '
+          f'without ever discarding local work, session-start still resets '
+          f'safely ({len(cases)} stated cases, both copies)',
           not failed, '; '.join(failed))
 
 
