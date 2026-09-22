@@ -5668,6 +5668,123 @@ def check_status_contract():
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+def check_scope_field_is_legal_and_matches_this_spec():
+    """`scope:` is a real filter, and the spec's list of what carries it is
+    the list, not a description of one.
+
+    THE INCIDENT (2026-09-22). spec/PRACTICE_FORMAT.md's `scope` section
+    named four practices as tagged `engine-dev`. The tree carried three,
+    and not the same three: `cross-source-rollout` had been tagged on
+    2026-09-15 by a classification sweep that never touched this paragraph,
+    and `very-deep-check` and `full-practice-audit` were deliberately
+    UNTAGGED on 2026-09-21 because each declares a standing `command:` and
+    `engine-dev` withholds the practice from a consuming repo -- the
+    incident `vocabulary-reaches-the-consumer` is registered for. A deep
+    check read the tree against the stale paragraph, and filed a considered
+    decision as silent drift: the proposal that came out of it was to
+    revert both files, which `vocabulary-reaches-the-consumer` refuses.
+    Measured before writing this, by making the change and running it.
+
+    So the expensive failure was not a bad VALUE. It was a documented list
+    and a tree disagreeing with nothing to notice, and the cost was a
+    session's work spent proposing a revert of a one-day-old decision.
+
+    WHAT THIS CANNOT DO, said plainly. It cannot catch a practice somebody
+    MEANT to scope and did not. `scope: null` is dropped by the one null
+    policy in split_practices.parse_frontmatter_fields, for every field in
+    both formats, so `scope: null` and no `scope:` line are the same input
+    to every consumer in the engine and nothing downstream can recover the
+    difference. Authoring the list in the spec and comparing it here is the
+    answer to that, and it is why part 3 below is the part that matters.
+    """
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import build_views as _bv
+
+    cases = []
+
+    # --- 1. every declared scope is one of the two legal values -----------
+    dirs = [(ROOT / 'practices', False)]
+    local = ROOT / 'local' / 'practices'
+    if local.is_dir():
+        dirs.append((local, True))
+    scanned, tagged = 0, set()
+    for d, repo_local in dirs:
+        for f in sorted(d.glob('*.md')):
+            try:
+                fm, _sections = sp._read_practice_file(f)
+            except sp.PracticeFileError:
+                continue
+            scanned += 1
+            v = _bv.scope_violation(fm, repo_local=repo_local)
+            cases.append((f'{f.relative_to(ROOT)}: scope is legal',
+                          v is None, v or ''))
+            if not repo_local and _bv._is_engine_dev_scoped(fm):
+                tagged.add(fm.get('slug', f.stem).strip())
+
+    # --- 2. the spec's own list, read out of the paragraph that claims it --
+    # Anchored on the authored lead-in. A reworded paragraph fails HERE,
+    # loudly, rather than quietly finding no links and declaring the tree
+    # empty-and-agreeing -- which is the shape of vacuous pass this whole
+    # check exists to stop (practice: scripts-assert-properties).
+    spec = (ROOT / 'spec' / 'PRACTICE_FORMAT.md').read_text(encoding='utf-8')
+    anchor = '**Tagged\n`engine-dev` today:**'
+    named = None
+    if anchor in spec:
+        para = spec.split(anchor, 1)[1].split('\n\n', 1)[0]
+        named = set(re.findall(r'\]\(\.\./practices/([a-z0-9-]+)\.md\)', para))
+    cases.append(('spec/PRACTICE_FORMAT.md still carries the authored '
+                  '`Tagged engine-dev today:` list this check reads',
+                  bool(named), 'anchor or links not found -- reword the '
+                  'paragraph and this check goes blind, so it fails instead'))
+
+    if named:
+        cases.append(('the tree\'s engine-dev practices are exactly the ones '
+                      'that paragraph names', named == tagged,
+                      f'spec names {sorted(named)}, tree carries '
+                      f'{sorted(tagged)}'))
+
+    # --- 3. and it refuses each way of getting it wrong --------------------
+    # Without these, parts 1 and 2 pass vacuously on a clean tree and would
+    # go on passing if the validator were gutted (practice:
+    # checkable-gets-checked -- wire it in with a firing test).
+    planted = [
+        ({'slug': 'x', 'scope': 'adopter'}, False,
+         'a value that is neither legal'),
+        ({'slug': 'x', 'scope': 'engine_dev'}, False,
+         'the underscore spelling of the legal one'),
+        ({'slug': 'x', 'scope': 'any-adopter'}, False, 'the explicit default'),
+        ({'slug': 'x', 'scope': 'engine-dev'}, False, 'the other legal value'),
+        ({'slug': 'x'}, False, 'an absent field'),
+    ]
+    for fm, repo_local, what in planted:
+        got = _bv.scope_violation(fm, repo_local=repo_local)
+        want_violation = fm.get('scope') not in (None, 'any-adopter',
+                                                 'engine-dev')
+        cases.append((f'planted: {what} is '
+                      f'{"refused" if want_violation else "accepted"}',
+                      bool(got) == want_violation, repr(got)))
+
+    cases.append(('planted: a repo-local practice declaring engine-dev is '
+                  'flagged as redundant',
+                  bool(_bv.scope_violation({'slug': 'x',
+                                            'scope': 'engine-dev'},
+                                           repo_local=True)), ''))
+    cases.append(('planted: a repo-local practice declaring any-adopter is '
+                  'not flagged -- only engine-dev is the redundant one',
+                  _bv.scope_violation({'slug': 'x', 'scope': 'any-adopter'},
+                                      repo_local=True) is None, ''))
+
+    # And the list comparison itself, on a doctored spec paragraph: it must
+    # report a name the tree does not carry, not shrug.
+    doctored = {'routing-audit', 'a-practice-that-is-not-there'}
+    cases.append(('planted: a spec list naming a practice the tree does not '
+                  'carry is a mismatch', doctored != tagged, ''))
+
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    return (not bad, f'{len(cases)} stated cases',
+            '; '.join(f'{n}: {d}' for n, d in bad))
+
+
 def check_retired_practices_leave_the_views():
     """A practice that is not in force must not be in the loader block.
 
@@ -27171,6 +27288,9 @@ def main():
     check_not_binding_cannot_be_abused()
     check_codeowners_check_is_a_check()
     check_status_contract()
+    check('the scope field is legal, and the spec list of what carries it '
+          'matches the tree',
+          *check_scope_field_is_legal_and_matches_this_spec())
     check_legacy_status_migration()
     check_retired_practices_leave_the_views()
     check_resident_subset(files)

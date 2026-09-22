@@ -3,7 +3,6 @@ slug:        their-constraints-are-given
 title:       "A person's account of their own constraints is given, not a claim to check"
 tier:        on-demand
 severity:    default
-scope:       null
 applies_to:  ["**"]
 occasion:    "a person states a fact about their own situation -- cost, risk, time, priorities, how they work -- that the session's own reading of the evidence would soften or contradict"
 gates:       []

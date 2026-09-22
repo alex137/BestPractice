@@ -519,10 +519,45 @@ def _json_str(raw):
 # precedent_sync_views.py actually produces for the same repo (practice:
 # session-load-budget). See the `scope` field: spec/PRACTICE_FORMAT.md.
 ENGINE_DEV_SCOPE = 'engine-dev'
+ANY_ADOPTER_SCOPE = 'any-adopter'
+
+# The two legal values, in one place, so the harness check added 2026-09-22
+# does not carry a second literal copy of them that can drift from the one
+# the predicate below actually compares against.
+SCOPE_VALUES = (ANY_ADOPTER_SCOPE, ENGINE_DEV_SCOPE)
 
 
 def _is_engine_dev_scoped(fm):
     return _json_str(fm.get('scope', '')) == ENGINE_DEV_SCOPE
+
+
+def scope_violation(fm, repo_local=False):
+    """Why this practice's `scope:` is not one of its legal values, or None.
+
+    ABSENT IS LEGAL and means `any-adopter` (spec/PRACTICE_FORMAT.md). Note
+    that `scope: null` never reaches here as a value at all: the one null
+    policy in split_practices.parse_frontmatter_fields drops a `null` field
+    on the floor, for every field in both formats, so `scope: null` and no
+    `scope:` line are the same input to every consumer in the engine. That
+    is why this cannot be the check that catches a practice somebody MEANT
+    to scope and did not -- nothing downstream can tell the two apart. The
+    spec's own named list is what catches that, in verify_harness.py.
+
+    `repo_local` flags the redundancy the spec asks for: `local/practices/`
+    never travels to another repo by a different mechanism entirely, so a
+    repo-local practice declaring `engine-dev` is stating a filter that
+    cannot do anything, and reads as a scope decision somebody made."""
+    raw = _json_str(fm.get('scope', ''))
+    if not raw:
+        return None
+    if raw not in SCOPE_VALUES:
+        return (f'scope: {raw!r} is not one of {SCOPE_VALUES} '
+                f'(absent means {ANY_ADOPTER_SCOPE})')
+    if repo_local and raw == ENGINE_DEV_SCOPE:
+        return ('a repo-local practice declares scope: engine-dev, which can '
+                'change nothing -- local/practices/ never travels to another '
+                'repo by a different mechanism entirely')
+    return None
 
 
 # A handful of practices carry a non-canonical rule-opening label kept as
