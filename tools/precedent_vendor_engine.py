@@ -768,6 +768,10 @@ def _hook_file_names(hooks_dir):
 
 
 _HOOK_CMD_RE = re.compile(r'hooks/([\w.-]+\.sh)')
+# Any hook script a command names, wherever it lives. Used ONLY to describe
+# what a repo already wires, never to decide what to vendor -- see
+# _wired_hook_names_anywhere.
+_HOOK_CMD_ANY_RE = re.compile(r'([\w.-]+\.sh)')
 
 
 def _wired_hook_names(dest_root):
@@ -796,6 +800,48 @@ def _wired_hook_names(dest_root):
     yet: INSTALL.md's own order writes it (precedent_install.py) before this
     tool ever runs, so an absence here means "nothing to reconcile yet", not
     "broken" (practice: fail-gracefully)."""
+    return _settings_hook_names(dest_root, _HOOK_CMD_RE)
+
+
+def _wired_hook_names_anywhere(dest_root):
+    """Hook script basenames this repo wires from ANY path, not only from
+    `.claude/hooks/`.
+
+    REPORTING ONLY, and the separation from `_wired_hook_names` above is the
+    whole point. That function decides what gets VENDORED, and it is right to
+    look only under `.claude/hooks/` -- a repo that calls a script in place
+    from somewhere else in its own tree does not want a second copy planted
+    beside it. Widening the vendoring test would plant exactly that.
+
+    What the narrow test cannot do is describe the repo truthfully, and the
+    NOTE was using it for both jobs. Measured 2026-09-22 in
+    `precedent-individual`, which authors these scripts and wires four of them
+    straight out of its own tracked `bootstrap/` -- its settings.json says so
+    in as many words: *"bootstrap/ IS a tracked directory of this repo, so
+    every entry calls its script in place -- one file, no second copy to drift
+    from it."* The refresh told it that `commit-identity.sh`,
+    `freshness-guard.sh` and `precedent-universal-catalogue.sh` were "not
+    wired in this repo's own .claude/settings.json". All three are wired, on
+    consecutive lines of that file.
+
+    That is worse than noise, because the NOTE beside it says to break the
+    loop by hand -- copy the entry from upstream's settings.json, re-run, and
+    the file arrives. Following that advice here would plant the second copy
+    the repo deliberately does not keep, and the drift would look like a
+    hand-edit months later. So the NOTE now names these separately and tells
+    the reader there is nothing to do about them.
+    """
+    return _settings_hook_names(dest_root, _HOOK_CMD_ANY_RE)
+
+
+def _settings_hook_names(dest_root, pattern):
+    """The shared walk behind the two functions above, so a change to how
+    settings.json is read cannot reach one and miss the other.
+
+    Returns an empty set, never an error, when settings.json does not exist
+    yet: INSTALL.md's own order writes it (precedent_install.py) before this
+    tool ever runs, so an absence here means "nothing to reconcile yet", not
+    "broken" (practice: fail-gracefully)."""
     settings_path = dest_root / '.claude' / 'settings.json'
     if not settings_path.is_file():
         return set()
@@ -807,7 +853,7 @@ def _wired_hook_names(dest_root):
     for group in (settings.get('hooks') or {}).values():
         for entry in group:
             for h in entry.get('hooks', []):
-                m = _HOOK_CMD_RE.search(h.get('command', '') or '')
+                m = pattern.search(h.get('command', '') or '')
                 if m:
                     names.add(m.group(1))
     return names
@@ -1121,6 +1167,22 @@ def _write_hook_files(dest_root, hooks_src_dir):
                      if f'{HOOK_DEST_DIR}/{n}' in claimed}
     names = sorted((available & wired) - adapter_owned)
     skipped = sorted(available - wired - adapter_owned)
+    # A hook this repo wires from somewhere OTHER than .claude/hooks/ is
+    # wired. Saying it is not, and then telling the reader to hand-wire it,
+    # is how a repo that deliberately calls one script in place ends up with
+    # two copies of it. See _wired_hook_names_anywhere.
+    elsewhere = sorted(set(skipped) & _wired_hook_names_anywhere(dest_root))
+    skipped = [n for n in skipped if n not in set(elsewhere)]
+    if elsewhere:
+        print(f"NOTE: precedent_vendor_engine: {len(elsewhere)} hook "
+              f"script(s) BestPractice also ships ({', '.join(elsewhere)}) "
+              f"are wired by this repo from a path of its own rather than "
+              f"from {HOOK_DEST_DIR}/ -- so this engine does not vendor them "
+              f"and there is NOTHING TO DO about them. A repo that calls a "
+              f"script in place keeps one copy of it on purpose; planting "
+              f"this engine's bundled copy beside it is the "
+              f"double-maintenance that reads as a hand-edit later.",
+              file=sys.stderr)
     if skipped:
         print(f"NOTE: precedent_vendor_engine: {len(skipped)} hook script(s) "
               f"BestPractice ships are not wired in this repo's own "

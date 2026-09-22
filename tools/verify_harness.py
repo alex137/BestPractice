@@ -18614,6 +18614,78 @@ def check_vendor_engine_refreshes_ci_workflow_files():
           '; '.join(f"{n} -- {d[:800]}" for n, d in bad))
 
 
+def check_a_hook_wired_from_elsewhere_is_reported_as_wired():
+    """A hook a repo calls in place, from a path of its own, is WIRED --
+    reported as wired, and still not vendored
+    (practice: control-asserts-which-failure).
+
+    THE TWO QUESTIONS THIS PINS APART, because one function was answering
+    both and could only be right about one. "What do we vendor?" must look
+    only under `.claude/hooks/`: a repo that calls a script in place keeps one
+    copy of it on purpose, and planting the engine's bundled copy beside it is
+    double maintenance that reads as a hand-edit months later. "What does this
+    repo already wire?" must not, or the report is simply false.
+
+    THE COST, measured 2026-09-22 in `precedent-individual`. That repo authors
+    these scripts and wires four of them straight out of its own tracked
+    `bootstrap/`; its settings.json says so outright -- *"bootstrap/ IS a
+    tracked directory of this repo, so every entry calls its script in place
+    -- one file, no second copy to drift from it."* The refresh told it that
+    `commit-identity.sh`, `freshness-guard.sh` and
+    `precedent-universal-catalogue.sh` were "not wired in this repo's own
+    .claude/settings.json". All three are wired, on consecutive lines of it.
+
+    Worse than noise, because the NOTE beside it says to break the loop by
+    hand -- copy the entry from upstream, re-run, and the file arrives.
+    Following that here plants the second copy the repo deliberately does not
+    keep. The discriminating case below is therefore the NEGATIVE one: wired
+    from elsewhere must stay OUT of the vendoring set.
+
+    The fixture owns its own tree (fixture-owns-its-state)."""
+    import tempfile
+    import precedent_vendor_engine as pve
+
+    d = pathlib.Path(tempfile.mkdtemp(prefix='precedent-wiring-'))
+    try:
+        (d / '.claude').mkdir(parents=True)
+        (d / '.claude' / 'settings.json').write_text(json.dumps({'hooks': {
+            'SessionStart': [
+                {'hooks': [{'type': 'command',
+                            'command': '$CLAUDE_PROJECT_DIR/bootstrap/'
+                                       'in-place.sh'}]},
+                {'hooks': [{'type': 'command',
+                            'command': '$CLAUDE_PROJECT_DIR/.claude/hooks/'
+                                       'vendored.sh'}]},
+            ]}}), encoding='utf-8')
+        vendoring = pve._wired_hook_names(d)
+        reporting = pve._wired_hook_names_anywhere(d)
+
+        cases = [
+            ('a hook wired from .claude/hooks/ is in the vendoring set',
+             'vendored.sh' in vendoring, repr(sorted(vendoring))),
+            ('THE DISCRIMINATING CASE: a hook wired in place from another '
+             'path stays OUT of the vendoring set, so no second copy is '
+             'planted beside it',
+             'in-place.sh' not in vendoring, repr(sorted(vendoring))),
+            ('...and is still reported as wired, so the NOTE cannot call it '
+             'unwired and send somebody to hand-wire it',
+             'in-place.sh' in reporting, repr(sorted(reporting))),
+            ('a hook wired from nowhere is in neither set',
+             'absent.sh' not in vendoring and 'absent.sh' not in reporting,
+             f'{sorted(vendoring)} / {sorted(reporting)}'),
+            ('an absent settings.json is empty in both, never an error',
+             pve._wired_hook_names(d / 'nope') == set()
+             and pve._wired_hook_names_anywhere(d / 'nope') == set(), ''),
+        ]
+        bad = [(n, det) for n, ok, det in cases if not ok]
+        check(f'a hook wired in place from another path is reported as wired '
+              f'and still not vendored ({len(cases)} stated cases, the '
+              f'not-vendored one being the discriminating one)',
+              not bad, '; '.join(f'{n} -- {det[:300]}' for n, det in bad))
+    finally:
+        shutil.rmtree(d, ignore_errors=True)
+
+
 def check_vendor_engine_removes_a_hook_upstream_dropped():
     """THE GAP (found 2026-09-21 by the very deep check's deletion-
     propagation table, filed as
@@ -28395,6 +28467,7 @@ def main():
           *check_moved_claims_says_when_it_could_not_read_the_tree())
     check_philosophy_citations_run_both_ways()
     check_vendor_engine_names_a_dependent_of_a_deleted_file()
+    check_a_hook_wired_from_elsewhere_is_reported_as_wired()
     check_vendor_engine_removes_a_hook_upstream_dropped()
     check('a stale source clone is made current, and a skip is never a success',
           *check_a_stale_source_clone_is_made_current_not_reported_clean())
