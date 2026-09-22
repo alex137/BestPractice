@@ -1426,6 +1426,24 @@ first so this pass spends its attention on what they cannot see.
   enough to be worth splitting and any entry whose own text says its trap is
   settled. **Read those flags, do not obey them:** an entry's claim that it
   was fixed is not evidence, and the verification is against the tree.
+  **It also reports any FILE over the ceiling its own repo declared** — read
+  from that repo's own registry, for every repo measured and not this
+  checkout alone. That finding is not one of the flags above and is not read
+  the same way: a large section is a question somebody may reasonably answer
+  "it earns it", and a surface over its ceiling is a number somebody already
+  decided being broken. What it asks for is
+  [reduction-pass](reduction-pass.md)'s menu, and **never a raise**.
+  *(Added 2026-09-22, and the gap it closes is the reason to trust neither
+  signal for the other's job. `precedent-individual` had AGENTS.md at 2,276
+  tokens against a declared 1,800 — 476 tokens, 26% over — and every check
+  green. Its largest section was 990 against a 2,500 threshold, so this pass
+  was not
+  merely quiet, it was correct: there was nothing section-sized to report.
+  The overage was spread across five sections, and the one mechanism that
+  does compare a file to its ceiling skips in any repo without the practice
+  FILE — which that one is. It surfaced because somebody ran
+  [tools/session_load_trend.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/session_load_trend.py) by hand,
+  which is not a mechanism.)*
   Its "GOTCHA CURRENCY" sub-pass reads the other direction — **the tree
   against each entry, rather than the entry against itself** — because the
   settled-marker flag can only find an entry honest enough to say it is
