@@ -45,12 +45,16 @@ ask because what they trigger is too expensive to run on a guess; each
 names why in its own file.
 
 - **"Go update"** and **"Approved"** ([go-merge](practices/go-merge.md)) —
-  classify first: a direct push, straight to the branch, no PR, is now the
-  **default**; only a **high-risk** change (touches enforcement/gating code,
-  changes a governance or authorization practice, is hard to reverse once
-  live, or you're not confident it's none of those) runs the full chain —
+  classify first: a direct push, straight to the shared branch, no PR, is now
+  the **default**; only a **high-risk** change (touches enforcement/gating
+  code, changes a governance or authorization practice, is hard to reverse
+  once live, or you're not confident it's none of those) runs the full chain —
   syncs, says the branch out loud, commits, pushes, opens the pull request,
-  and merges — **without asking again.** Say which path you took, and why,
+  and merges — **without asking again.** **Either path ends on the branch on
+  `origin`** — `precedent-beta-v01` here per the rule at the top of this file,
+  never `main` for being the configured default — **and a commit still sitting
+  in the local clone has not done it**: fetch and confirm `origin` carries it
+  before the reply says where the work went. Say which path you took, and why,
   in the reply. Unsure which it is? High-risk. A step this session cannot
   perform hands off rather than coming back as a question: the
   authorization travels with the work. One rule, two triggers, and
