@@ -86,19 +86,27 @@ asserts speech in the first and silence in the second — the negative control
 it had never carried. Measured afterwards with the real container in both
 states: passing either way.
 
-**A second instance surfaced the same day, and this one is still standing.**
-`check_endgame_merge_finds_the_silent_drop` is red on `precedent-beta-v01`
-in continuous integration and green in every local run of the same tree —
-the suspected difference being the runner's git against the container's,
-which changes how a merge classifies a touched path. It is filed at
-[todo/todo-2026-09-22-the-endgame-merge-rehearsal-is-red-in-ci-green-locally.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/todo/todo-2026-09-22-the-endgame-merge-rehearsal-is-red-in-ci-green-locally.md)
-rather than fixed here.
+**A second instance surfaced the same day**, and it makes the point twice
+over. `check_endgame_merge_finds_the_silent_drop` was red on
+`precedent-beta-v01` in continuous integration and green in every local run
+of the same tree. The reading first filed was that the runner's `git`
+differed from the container's. **That was wrong, and the correction is the
+better lesson**: the failure reproduces on the same `git`, locally, by
+removing one thing — the global git identity, which a CI runner does not
+have and a session container does. The rehearsal runs
+`git merge --no-commit --no-ff`, which refuses without a committer identity,
+and its own comment asserted the opposite. Filed and diagnosed at
+[todo/todo-2026-09-22-the-endgame-merge-rehearsal-is-red-in-ci-green-locally.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/todo/todo-2026-09-22-the-endgame-merge-rehearsal-is-red-in-ci-green-locally.md).
 
 **Two of these in one day, in one repository, is the argument for a rule
-rather than a note on one check.** The second also shows the shape the
-first did not: the ambient state need not be something the check touches.
-Nobody thought of the version of `git` on the machine as an input, and that
-is exactly why it was never planted.
+rather than a note on one check.** And the second shows a shape the first
+did not. The ambient state need not be anything the check touches — nobody
+thought of *whether this machine has a git identity* as an input to a merge
+rehearsal, which is exactly why it was never planted. **It also shows how
+an unplanted check misleads twice**: first by failing for a reason that is
+not its subject, and then by inviting a diagnosis aimed at whatever
+environment difference is most visible. A day was pointed at `git`
+versions because the check had never said what it actually depended on.
 
 ## Install
 **`checked_by: null`, and the reason is specific rather than "too hard"**
