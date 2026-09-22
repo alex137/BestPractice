@@ -105,19 +105,21 @@ names why in its own file.
   — but where that reading is a genuine judgment call rather than a clean
   one, `weak-yes`'s own worked example says how to disclose it instead of
   writing it silently.
-- **"Session Text"** ([session-text](practices/session-text.md)) — before
+- **"Prompt Please"** ([prompt-please](practices/prompt-please.md)) — before
   starting what he just asked for, check whether it belongs in a different
-  session, repositories first; then **wake a live session** that already holds
-  the context, or, where none fits, tell him to open a new window, name the
-  repositories to seed it with, and hand him the opening text in a
-  copy-pasteable block. **Never `create_session`** for this — sessions it
-  creates have been coming back rejected as unsafe, so the mechanism is
-  retired outright, not just renamed. Waking still beats a new window: a
-  fresh one re-reads its repository from nothing. The check runs whether or
-  not he says the phrase, and an honest "this session is the right one"
-  answers it. **The text you hand him carries the merge authorization**,
-  bounded to the seeded work, that repository's routine branch and its own
-  checks passing.
+  session, repositories first; then hand back **one paste-ready block** he
+  opens a new window with, naming the repository to root it in and the ones
+  to attach, plus one ordinary unfenced sentence outside the block saying
+  where to paste it. **Never call a session-creating or session-messaging
+  tool for this, and never wake a live session either** — both have come
+  back rejected often enough that the mechanism is retired outright, and a
+  paste block needs nothing from any one provider's tool surface. The check
+  runs whether or not he says the phrase, and an honest "this session is the
+  right one" answers it. **The block carries a merge authorization only when
+  he gave one for this handoff** — absent that it says `DO NOT MERGE — STOP
+  AT THE PULL REQUEST` in those words; given one, it is bounded to the
+  handed-off work, that repository's routine branch and its own checks
+  passing.
 - **"My options"** ([my-options](practices/my-options.md)) — every real choice
   on the table in plainer words, a short block each, the cost said as flatly
   as the benefit, then **a named recommendation with its reason** — never a
@@ -158,7 +160,7 @@ asked again while he found one — recorded in
 section from phrase-matching to intent: read the message for what it is
 asking, and where reading it is a genuine judgment call rather than a clean
 one, say the read out loud and confirm before the shared-branch steps run,
-rather than either guessing silently or holding silently. `Go merge` and
+rather than either guessing silently or holding silently. `Go update` and
 `Weak yes` above spell out what that looks like for each. An authorization
 to merge, in whatever words it arrives, means `precedent-beta-v01` per the
 paragraph above, and is not done until a fetch confirms the pushed content
