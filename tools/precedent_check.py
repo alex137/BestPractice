@@ -730,7 +730,11 @@ def _rule_was_rewritten(old_sections, new_sections):
        'a practice file whose Rule is new or changed must carry a non-empty '
        '## Story',
        'a Story that is present but says nothing. It tests that the incident '
-       'was recorded, not that it was the right incident.')
+       'was recorded, not that it was the right incident.',
+       # The subject IS the practice file. A source set is the one place a new
+       # practice is actually written, and the only place this can fire at all.
+       # Audit: spec/PUBLISHER_GATE_AUDIT.md.
+       binds_publishers=True)
 def _cite_the_incident(ctx):
     out = []
     for f in ctx.changed_matching(r'^practices/.*\.md$'):
@@ -1198,7 +1202,10 @@ def _practice_links_travel(ctx):
        'suffix in its name',
        'a versioned name that was already committed, and a version token that '
        'is not at the END of the name. It gates what a change ADDS, one file '
-       'at a time.')
+       'at a time.',
+       # A practice file added under a versioned name is published under it.
+       # Audit: spec/PUBLISHER_GATE_AUDIT.md.
+       binds_publishers=True)
 def _no_version_suffix(ctx):
     out = []
     for f in ctx.added_files():
@@ -1246,7 +1253,10 @@ _SKILL_LABEL_RE = re.compile(r'(?:^|[/_\-])(non[_\-]?technical|technical)[/_\-]?
        'by a person-noun (a nontechnical-contributor-guide names a person '
        'and is correct). It reads names only -- it cannot see a per-person '
        'rule written into a shared file, which is the failure the name leads '
-       'to.')
+       'to.',
+       # A practice filename is a published path.
+       # Audit: spec/PUBLISHER_GATE_AUDIT.md.
+       binds_publishers=True)
 def _technical_describes_people(ctx):
     out = []
     # practices/ names files after their SLUG, and a rule about this label
@@ -1304,7 +1314,12 @@ ENGINE_FIXED_FILENAMES = frozenset({'precedent-source.json'})
        'required filename, a slug, or the file this one generates. Those are '
        'exempted by precedent.json\'s filename_separator_exempt, which '
        'requires a stated reason; this check cannot tell an inherited name '
-       'from a chosen one on its own, and does not guess.')
+       'from a chosen one on its own, and does not guess.',
+       # practices/ is a directory of one kind of file, and its names are
+       # published. First run under this flag, 2026-09-22, found a real
+       # mixed-separator group in a source set -- recorded in the audit.
+       # Audit: spec/PUBLISHER_GATE_AUDIT.md.
+       binds_publishers=True)
 def _filename_separator(ctx):
     import collections
     exempt = {}
@@ -1694,7 +1709,12 @@ def _generated_edit_goes_upstream(ctx):
        'the GitHub repository names themselves, which may be anything. It '
        'sees declared names in tracked configuration and the manifests of '
        'sources it can reach, which is the layer a check can reach; the rest '
-       'of the practice is disclosure, carried by the occasion index.')
+       'of the practice is disclosure, carried by the occasion index.',
+       # Its entire subject is BEING a declared source set. The gate was
+       # backwards for this one from the day it was written: the only repos it
+       # can meaningfully check are exactly the repos it was skipping.
+       # Audit: spec/PUBLISHER_GATE_AUDIT.md.
+       binds_publishers=True)
 def _source_naming(ctx):
     out = []
     sys.path.insert(0, str(ROOT / 'tools'))
@@ -4672,7 +4692,11 @@ def _md_in_scope(ctx):
        'a changed document must not render an accidental strikethrough span '
        '— use the approximately sign, never a tilde',
        'the other half of this practice. Whether a file reference is a link '
-       'is a WARNING in doc_lint, not a gate, and this check inherits that.')
+       'is a WARNING in doc_lint, not a gate, and this check inherits that.',
+       # A tilde span renders as strikethrough wherever the practice lands, not
+       # only in the set that wrote it.
+       # Audit: spec/PUBLISHER_GATE_AUDIT.md.
+       binds_publishers=True)
 def _doc_references_are_links(ctx):
     dl = _doc_lint()
     if not dl.HAVE_GFM:
@@ -4695,7 +4719,11 @@ def _doc_references_are_links(ctx):
        'than one level deeper than the one before it',
        'whether a heading sits at the RIGHT level for its meaning; only '
        'whether the outline it makes is well-formed. A section demoted by '
-       'accident to a level that happens not to skip reads as fine here.')
+       'accident to a level that happens not to skip reads as fine here.',
+       # A practice file has a fixed heading structure; a skipped level there is
+       # a malformed document in every repo that receives it.
+       # Audit: spec/PUBLISHER_GATE_AUDIT.md.
+       binds_publishers=True)
 def _heading_outline(ctx):
     dl = _doc_lint()
     files = _md_in_scope(ctx)
@@ -4821,7 +4849,12 @@ def _token_preexisted_in_base(base, token, known):
        'version and still unglossed here is pre-existing debt, not this '
        "change's doing -- same reasoning as doc_lint's own opt-in numbers "
        'gate, applied here without needing an opt-in marker because the '
-       "diff itself is the scope.")
+       "diff itself is the scope.",
+       # A practice file is read in every repo that resolves this set, so an
+       # acronym left unexpanded here arrives unexpanded there, next to a
+       # GLOSSARY.md the consumer cannot see.
+       # Audit: spec/PUBLISHER_GATE_AUDIT.md.
+       binds_publishers=True)
 def _acronyms_glossary(ctx):
     dl = _doc_lint()
     known = dl.load_known_acronyms()
@@ -4862,7 +4895,10 @@ def _acronyms_glossary(ctx):
        'a reader-facing document in scope carries no process residue — no '
        'verify-later flag, claims-to-source apparatus or decision provenance',
        'apparatus written in words its pattern list does not know. It catches '
-       'the recurring forms, not the idea.')
+       'the recurring forms, not the idea.',
+       # Process residue written into a practice file ships with the practice.
+       # Audit: spec/PUBLISHER_GATE_AUDIT.md.
+       binds_publishers=True)
 def _deliverables_look_like_output(ctx):
     dl = _doc_lint()
     files = _md_in_scope(ctx)
@@ -4897,7 +4933,10 @@ ONE_PARA_CLAIM_RE = re.compile(
        'a claim made in running prose rather than a heading or bold '
        'lead-in — the practice covers both, this check only the labelled '
        'form, because prose mentions of "one-line" are not a label on a '
-       'section and free text has no reliable block boundary to measure.')
+       'section and free text has no reliable block boundary to measure.',
+       # A practice file's own headings and bold lead-ins.
+       # Audit: spec/PUBLISHER_GATE_AUDIT.md.
+       binds_publishers=True)
 def _label_describes_content(ctx):
     out = []
     for f in _md_in_scope(ctx):
@@ -5128,7 +5167,11 @@ REVISION_ANNOTATION_RE = re.compile(
        'exemptions (dated decision records, volatile-fact freshness '
        'stamps, legally load-bearing markers, as-shipped artifacts), which '
        'this check does not try to distinguish -- it only catches the '
-       'literal annotation forms named in the Rule.')
+       'literal annotation forms named in the Rule.',
+       # An "(added <date>)" tag annotated into a practice file travels with it,
+       # into repos whose history does not contain that date.
+       # Audit: spec/PUBLISHER_GATE_AUDIT.md.
+       binds_publishers=True)
 def _docs_are_current_state(ctx):
     out = []
     for f in _md_in_scope(ctx):
@@ -5232,7 +5275,11 @@ def _phrase_preexisted_in_base(base, line):
        'deliberate, correct appendix) plus anything doc_lint calls a record '
        'doc -- a <!--record-doc--> marker, a record-shaped filename, or a '
        'records directory. A document that wrongly claims to be a record '
-       'buys itself silence here, and nothing checks that claim.')
+       'buys itself silence here, and nothing checks that claim.',
+       # Inline lineage in a practice file travels to consumers; the index that
+       # should have carried it instead does not.
+       # Audit: spec/PUBLISHER_GATE_AUDIT.md.
+       binds_publishers=True)
 def _index_remembers_past(ctx):
     out = []
     for f in _md_in_scope(ctx):
@@ -6738,7 +6785,11 @@ def _names_an_approver(block):
        'ABSENCE: an unmarked approval is a defined state (unknown), so '
        'silence is never reported here -- which means this check cannot '
        'tell a catalogue that considered the question from one that has '
-       'never heard of it.')
+       'never heard of it.',
+       # Reads `strength:` out of practice files, which a source set has and
+       # every consumer of it receives.
+       # Audit: spec/PUBLISHER_GATE_AUDIT.md.
+       binds_publishers=True)
 def _decision_strength(ctx):
     files = []
     for glob in STRENGTH_FILE_GLOBS:
