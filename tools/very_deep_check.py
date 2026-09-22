@@ -3601,9 +3601,11 @@ def _convergent_drift(collect, sources=None):
     says a person should not have to keep paying. `sources` -- the same list
     `_bootstrap_drift()` was already given -- lets this read each converged
     SET's own `very-deep-check-decisions.json` (a file that lives in the set,
-    not here, for the reason `beta-branch-watermark.json` lives in
-    precedent-individual rather than in BestPractice: the decision belongs to
-    the repo the finding is about). When every set that shares a convergence
+    not here, because the decision belongs to the repo the finding is about).
+    That principle used to be illustrated by where the beta-branch watermark
+    lived; it is a poor example now, since that file moved into this repo's
+    own tools/beta_branch_watermark.json on 2026-09-22 -- the principle
+    held, the example did not. When every set that shares a convergence
     has recorded the SAME verdict there and no `revisit` date has passed, the
     line prints as DECIDED instead of FINDING. Disagreement, a partial
     decision, or an expired `revisit` all still print the ordinary FINDING,
