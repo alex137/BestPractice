@@ -7,7 +7,7 @@ scope:       any-adopter
 applies_to:  ["tools/verify_harness.py", "tools/precedent_check.py", "tools/checks/**", "**/test_*.py", "**/*_test.py", "**/tests/**"]
 occasion:    "writing or changing a check, test or gate whose result could depend on the machine it runs on"
 gates:       []
-index_clause: "plant every state a check asserts -- a verdict that moves without the code is not a check"
+index_clause: "plant every state a check asserts -- a verdict that moves on its own is not one"
 checked_by:  null
 defines:     []
 command:     null
