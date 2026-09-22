@@ -11533,7 +11533,8 @@ def check_archive_line_is_refused_when_the_container_holds_only_copy_work():
                       'refuse a reply that says the OTHER line',
                       r5.returncode == 0, f'exit {r5.returncode}: {r5.stderr[:160]}'))
 
-        r6 = replycheck(engine(0), says)
+        safe_engine = engine(0)
+        r6 = replycheck(safe_engine, says)
         cases.append(('negative control: a clean scan lets the archive line '
                       'through',
                       r6.returncode == 0, f'exit {r6.returncode}: {r6.stderr[:160]}'))
@@ -11545,15 +11546,38 @@ def check_archive_line_is_refused_when_the_container_holds_only_copy_work():
 
         # The pre-reply print must carry the VERDICT, not just the rule:
         # a refusal the session was never warned about costs the reply twice.
-        r8 = subprocess.run(
-            [sys.executable, str(ROOT / 'tools' / 'precedent_gate.py'),
-             '--repo', str(fx), 'reply'],
-            capture_output=True, text=True, cwd=str(tmp),
-            env={**os.environ,
-                 'PRECEDENT_USER_CONFIG': str(tmp / 'no-such-config.json')})
-        cases.append(('the reply gate names this requirement before the reply',
+        #
+        # RUN AGAINST THE STUBBED ENGINES, not ROOT's. This called
+        # ROOT/tools/precedent_gate.py, whose _container_report() scans the
+        # REAL disk -- and the gate is deliberately silent when that scan
+        # comes back clean, which its own comment says is the ordinary case.
+        # So the assertion below held only while the machine running the
+        # suite happened to be carrying unpushed work, and went red the
+        # moment a session pushed its own. Found 2026-09-22 by a suite that
+        # passed twice and then failed on the same commit, with the push in
+        # between; measured both ways before this was rewritten. A check
+        # that reads live disk state is not asserting the code's contract,
+        # it is reporting the weather (practice: scripts-assert-properties).
+        def gate(engine_path):
+            return subprocess.run(
+                [sys.executable, str(engine_path.parent / 'precedent_gate.py'),
+                 '--repo', str(fx), 'reply'],
+                capture_output=True, text=True, cwd=str(tmp),
+                env={**os.environ,
+                     'PRECEDENT_USER_CONFIG': str(tmp / 'no-such-config.json')})
+
+        r8 = gate(unsafe_engine)
+        cases.append(('the reply gate names this requirement before the '
+                      'reply, when the container is the unsafe one',
                       'You can archive this session' in r8.stdout,
                       r8.stdout[-250:]))
+
+        r9 = gate(safe_engine)
+        cases.append(('negative control: the gate is SILENT on a clean '
+                      'container -- naming a requirement already met is the '
+                      'noise its own comment declines to print',
+                      'You can archive this session' not in r9.stdout,
+                      r9.stdout[-250:]))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
