@@ -908,6 +908,17 @@
       "why": "Resident; its applies_to is not this file's business.",
       "decided": "phase 4 routing pass"
     },
+    "response-please": {
+      "globs": [
+        "**"
+      ],
+      "why": "A moment, and specifically a phrase in a MESSAGE the person is about to paste -- no file path reaches it, same reasoning as prompt-please's own entry above. Reached through the occasion index and the reply gate.",
+      "decided": "2026-09-22, when the practice landed",
+      "gates": [
+        "reply"
+      ],
+      "gates_why": "The reply is the whole artifact: the key points, the recommendation, and the write-up either appear there or they do not."
+    },
     "routing-audit": {
       "globs": [
         "**"

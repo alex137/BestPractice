@@ -238,7 +238,7 @@ plan's premise.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block; `python3 tools/build_views.py --check` exits non-zero on drift. Source: practices/ -- edit the practice file, never this block. -->
 
-## Resident block (~895 of 2000 token budget, 10 of 141 practices (10 universal))
+## Resident block (~895 of 2000 token budget, 10 of 142 practices (10 universal))
 
 **answer-first-ask-before-long-work.** Three parts. **(1) Answer the easy questions in a message before starting
 anything long** — in the same turn; the long run never gates the answer.
@@ -428,6 +428,8 @@ When starting work another session may already have done, or opening a pull requ
   base-branch-is-the-record — read the base branch before starting and before the PR -- a summary lags
 When starting work the repository may already cover:
   search-by-purpose — search by purpose and by mechanism before concluding nothing exists
+When the person is about to paste, or has just pasted, a message from another session and wants it read, evaluated, and turned into a decision:
+  response-please — "Response Please" -- key points, your call, then a Prompt Please write-up
 When tracking state that multiple documents need to agree on:
   registry-source-of-truth — state lives in one machine-readable registry; documents derive
 When when writing or changing anything that automatically fixes a state it found wrong:
