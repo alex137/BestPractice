@@ -214,6 +214,21 @@ def rule_of(slug):
                     f'{slug}\'s own text, so the Rule cannot be printed here. '
                     f'It binds what this repo publishes all the same. Read it '
                     f'at: {where})')
+        # Same shape, other gate: a check this repo opted into by keeping the
+        # registry that carries the rule (check()'s `binds_when`). The text is
+        # upstream by design here too -- the repo declared a number, it did not
+        # vendor the practice -- so name where to read it rather than reporting
+        # a gap the repo does not have.
+        opted = [rel for rel in (reg.get('binds_when') or ())
+                 if (ROOT / rel).exists()]
+        if opted:
+            where = _upstream_practice_url(slug) or (
+                f'practices/{slug}.md in the repository this engine was '
+                f'vendored from')
+            return (f'(this repo opted into {slug} by keeping '
+                    f'{opted[0]}, and does not vendor the practice\'s own '
+                    f'text, so the Rule cannot be printed here. The finding '
+                    f'above carries the remedy. Read the Rule at: {where})')
         return f'(no practice file for {slug})'
     try:
         _fm, sections = sp._read_practice_file(path)
@@ -261,7 +276,7 @@ CHECKS = {}
 
 
 def check(slug, scope, what, blind_to, advisory=False, practice_backed=True,
-          binds_publishers=False, selects_on=()):
+          binds_publishers=False, binds_when=(), selects_on=()):
     """Register a check. `blind_to` is what it does NOT catch, printed by
     --explain -- a check's limits belong beside it, not in a document that
     drifts from it.
@@ -292,6 +307,32 @@ def check(slug, scope, what, blind_to, advisory=False, practice_backed=True,
     practice tree, and only where the check is known to FUNCTION in a
     source set -- the flag removes the gate, it does not make a check
     that needs resolved sources suddenly work without them.
+
+    `binds_when` is a tuple of repo-relative paths whose PRESENCE is the
+    repo's own opt-in, and lifts the same gate. Some rules are carried by
+    a registry file a repo maintains rather than by the practice text: a
+    repo that wrote a number down has asked for it to be enforced, and
+    making it ALSO vendor the practice file is a second, undocumented
+    condition nobody meets on purpose.
+
+    The cost, measured 2026-09-22: `precedent-individual` declares its
+    surfaces and their ceilings in `tools/session_load_budgets.json` and
+    does not carry `practices/session-load-budget.md`. So `AGENTS.md`
+    sat at 2,276 tokens against the 1,800 that registry declares -- 476
+    tokens, 26% over -- with every check green, and the skip line read
+    "this check belongs to a source this repo does not resolve", which is
+    true of the practice and wrong about the registry: the registry was
+    right there.
+    It surfaced because somebody ran `tools/session_load_trend.py` by
+    hand.
+
+    The same reasoning as `binds_publishers` and the same bar: set it
+    only where the named file really is the subject, and only where the
+    check FUNCTIONS without the practice text -- a check whose findings
+    quote a Rule the repo cannot read has not been helped by running.
+    `rule_of` still prints "(no practice file for ...)" there, so a check
+    binding this way owes its whole remedy in its own finding text, the
+    way this one's does.
 
     `selects_on` is a tuple of path globs naming the files this check's
     verdict actually depends on. A commit touching any of them SELECTS this
@@ -331,6 +372,7 @@ def check(slug, scope, what, blind_to, advisory=False, practice_backed=True,
                             blind_to=blind_to, advisory=advisory,
                             practice_backed=practice_backed,
                             binds_publishers=binds_publishers,
+                            binds_when=tuple(binds_when),
                             selects_on=tuple(selects_on))
         return fn
     return deco
@@ -7009,7 +7051,10 @@ def _session_load_budgets():
        'VERBATIM and nothing else: the same point made again in fresh words '
        'costs a session exactly as much and is invisible to it. It also sees '
        'only THIS repo -- the sum across every attached source is '
-       "very_deep_check.py's SESSION LOAD section.")
+       "very_deep_check.py's SESSION LOAD section.",
+       binds_when=('tools/session_load_budgets.json',),
+       selects_on=('AGENTS.md', 'CLAUDE.md',
+                   'tools/session_load_budgets.json'))
 def _session_load_budget(ctx):
     reg = _session_load_budgets()
     if reg is None:
@@ -7470,9 +7515,13 @@ def run(slugs, ctx, scopes, exempt=None):
         # is upstream by design rather than absent by accident. Without
         # this, the repositories that PUBLISH the catalogue are the least
         # checked repositories in the system.
+        # The other exception: a check the repo opted into by keeping the
+        # registry file that carries the rule (see check()'s `binds_when`).
         if (c['practice_backed'] and _practice_file(slug) is None
                 and not (c.get('binds_publishers')
-                         and _publishes_practices())):
+                         and _publishes_practices())
+                and not any((ROOT / rel).exists()
+                            for rel in c.get('binds_when') or ())):
             results.append((slug, 'SKIPPED', [],
                             f'no practices/{slug}.md in this repo, so the '
                             f'practice is not in force here -- this check '

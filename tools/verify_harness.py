@@ -20974,6 +20974,193 @@ def check_settled_marker_scan_is_scoped_and_follows_the_split():
           not bad, '; '.join(f"{n} -- {d[:400]}" for n, d in bad))
 
 
+def check_session_load_reports_a_file_over_its_own_declared_ceiling():
+    """The SESSION LOAD pass compares each FILE to the ceiling its own repo
+    declared, and not only each SECTION to the review threshold
+    (practice: control-asserts-which-failure).
+
+    THE INCIDENT (2026-09-22). Three mechanisms each looked like they covered
+    this and none did. The pass measured `## ` sections against
+    `section_review_tokens` and never opened
+    `tools/session_load_budgets.json`; `precedent_check.py`'s
+    session-load-budget check did exactly the right comparison and SKIPPED in
+    any repo without `practices/session-load-budget.md`; and
+    `session_load_trend.py` reported it correctly and only when asked. So
+    precedent-individual's AGENTS.md sat at 2,276 tokens against a declared
+    1,800 -- 29% over -- with every check green.
+
+    THE DISCRIMINATING CASE is the first one below, and it is what makes this
+    a control rather than a demonstration: the overage SPREAD THIN. The real
+    file's largest section was 990 tokens against a 2,500 threshold, so the
+    section signal was not merely quiet, it was correct -- there was nothing
+    section-sized to report. A fixture whose overage sits in one fat section
+    would pass on the old code too, and prove nothing.
+
+    The fixture owns its own tree (fixture-owns-its-state)."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import very_deep_check as vdc
+    import build_views as bv
+
+    PARA = ('Some ordinary instructions prose that a session reads before it '
+            'does any work at all, and which nobody would call remarkable. ')
+
+    def repo(sections, para_repeats, ceiling, registry=True):
+        d = pathlib.Path(tempfile.mkdtemp())
+        body = PARA * para_repeats
+        (d / 'AGENTS.md').write_text(
+            '# fixture\n\n' + ''.join(f'## Section {i}\n\n{body}\n\n'
+                                     for i in range(1, sections + 1)),
+            encoding='utf-8')
+        if registry:
+            (d / 'tools').mkdir()
+            (d / 'tools' / 'session_load_budgets.json').write_text(
+                json.dumps({'surfaces': {'AGENTS.md': {'ceiling': ceiling}}}),
+                encoding='utf-8')
+        return d
+
+    def run(d):
+        try:
+            rows, msgs = vdc._session_load(d)
+            return (sum(n for _, _, n in rows),
+                    max([n for _, _, n in rows] or [0]),
+                    [m for m in msgs if m.startswith('OVER CEILING')])
+        finally:
+            shutil.rmtree(d, ignore_errors=True)
+
+    cases = []
+
+    total, largest, hits = run(repo(5, 40, 1800))
+    cases.append((
+        'THE DISCRIMINATING CASE: a file over its ceiling with the overage '
+        'spread across sections, none of them section-sized, is reported',
+        hits and largest < vdc._SECTION_FLAG_TOKENS and total > 1800,
+        f'total={total} largest={largest} flag={vdc._SECTION_FLAG_TOKENS} '
+        f'hits={hits!r}'))
+    cases.append(('and the finding names the measurement, the ceiling and the '
+                  'registry it came from',
+                  hits and 'AGENTS.md' in hits[0]
+                  and f'{total:,}' in hits[0] and '1,800' in hits[0]
+                  and 'session_load_budgets.json' in hits[0], repr(hits)))
+    cases.append(('and it says the remedy is the reduction pass, never a '
+                  'raise -- session-load-budget\'s own line',
+                  hits and 'NEVER raise the ceiling' in hits[0]
+                  and 'reduction-pass' in hits[0], repr(hits)))
+
+    total, _largest, hits = run(repo(5, 40, 20000))
+    cases.append(('a file INSIDE its declared ceiling raises nothing, however '
+                  'many sections it has', hits == [],
+                  f'total={total} hits={hits!r}'))
+
+    total, _largest, hits = run(repo(5, 40, 1800, registry=False))
+    cases.append(('a repo that declares NO ceiling is not tested against an '
+                  'invented one', hits == [], f'total={total} hits={hits!r}'))
+
+    # The ceiling signal must not have swallowed the section signal it was
+    # added beside: both questions, both answers, in the same run.
+    d = repo(1, 900, 20000)
+    total, largest, hits = None, None, None
+    try:
+        rows, msgs = vdc._session_load(d)
+        largest = max(n for _, _, n in rows)
+        section_hits = [m for m in msgs if m.startswith('REVIEW')]
+    finally:
+        shutil.rmtree(d, ignore_errors=True)
+    cases.append(('the section signal it was added ALONGSIDE still fires on a '
+                  'fat section inside its ceiling',
+                  largest >= vdc._SECTION_FLAG_TOKENS and section_hits != [],
+                  f'largest={largest} hits={section_hits!r}'))
+
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'a file over the ceiling its own repo declared is reported by the '
+          f'SESSION LOAD pass ({len(cases)} stated cases, the spread-thin '
+          f'overage being the discriminating one)',
+          not bad, '; '.join(f"{n} -- {d[:400]}" for n, d in bad))
+
+
+def check_a_registry_file_can_be_a_checks_own_opt_in():
+    """`binds_when` lifts the practice-file gate for a repo that kept the
+    registry carrying the rule (practice: control-asserts-which-failure).
+
+    THE COST IT PAID FOR (2026-09-22). A repo that declares ceilings in
+    `tools/session_load_budgets.json` and does not vendor
+    `practices/session-load-budget.md` got a SKIP whose reason read "this
+    check belongs to a source this repo does not resolve" -- true of the
+    practice, wrong about the registry, which was sitting in the repo. So the
+    numbers were declared and nothing local tested them.
+
+    BOTH DIRECTIONS, because a gate that lifts for everything is not a gate:
+    the check runs where the named file exists and still skips where it does
+    not. Asserted through `run()` rather than by reading the CHECKS entry --
+    the registration is not the behaviour, and it was the gate in `run()`
+    that was wrong."""
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_check as pc
+
+    cases = []
+    reg = pc.CHECKS['session-load-budget']
+    cases.append(('session-load-budget names the registry as its opt-in',
+                  reg.get('binds_when') == ('tools/session_load_budgets.json',),
+                  repr(reg.get('binds_when'))))
+    cases.append(('and a commit touching AGENTS.md or the registry SELECTS it, '
+                  'so a repo without the practice file can still reach it '
+                  'without waiting for the rotation',
+                  'AGENTS.md' in (reg.get('selects_on') or ())
+                  and 'tools/session_load_budgets.json' in
+                  (reg.get('selects_on') or ()),
+                  repr(reg.get('selects_on'))))
+
+    # The gate itself, driven through run() with the practice file made
+    # invisible -- which is the state of every repo this is for.
+    class Ctx:
+        def read_base(self, rel):
+            return None
+
+    def gate(slug, practice_file):
+        orig = pc._practice_file
+        pc._practice_file = lambda s: practice_file
+        try:
+            res = pc.run([slug], Ctx(), (pc.CHECKS[slug]['scope'],))
+        finally:
+            pc._practice_file = orig
+        return res[0][1], res[0][3]
+
+    status, why = gate('session-load-budget', None)
+    cases.append(('THE CASE THAT WAS SKIPPING: no practice file, registry '
+                  'present -- the check RUNS', status != 'SKIPPED',
+                  f'{status}: {why}'))
+
+    # A practice-backed check with no binds_when, same missing practice file.
+    control = next(s for s, c in pc.CHECKS.items()
+                   if c['practice_backed'] and not c.get('binds_when')
+                   and not c.get('binds_publishers')
+                   and c['scope'] == pc.CHECKS['session-load-budget']['scope'])
+    status, why = gate(control, None)
+    cases.append((f'THE DISCRIMINATING CASE: a check with no binds_when '
+                  f'({control}) still skips on a missing practice file -- the '
+                  f'gate was lifted for one rule, not removed',
+                  status == 'SKIPPED', f'{status}: {why}'))
+
+    # And the Rule line says where to read it rather than reporting a gap.
+    rule = None
+    orig = pc._practice_file
+    pc._practice_file = lambda s: None
+    try:
+        rule = pc.rule_of('session-load-budget')
+    finally:
+        pc._practice_file = orig
+    cases.append(('the Rule line names where to read the practice instead of '
+                  'printing "(no practice file for ...)"',
+                  'no practice file for' not in rule
+                  and 'session_load_budgets.json' in rule, rule))
+
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'a repo opts a check in by keeping the registry that carries its '
+          f'rule ({len(cases)} stated cases, a check without binds_when being '
+          f'the discriminating one)',
+          not bad, '; '.join(f"{n} -- {d[:400]}" for n, d in bad))
+
+
 def check_environment_gotchas_follows_a_split_index():
     """A split gotchas section is still held to the story rule
     (practice: control-asserts-which-failure).
@@ -27936,6 +28123,8 @@ def main():
     check_split_projection_is_costed_and_ordered()
     check_duplicated_resident_text_detector()
     check_settled_marker_scan_is_scoped_and_follows_the_split()
+    check_session_load_reports_a_file_over_its_own_declared_ceiling()
+    check_a_registry_file_can_be_a_checks_own_opt_in()
     check_environment_gotchas_follows_a_split_index()
     check_gotcha_currency_signals_fire()
     check_relayed_authorization_reader()
