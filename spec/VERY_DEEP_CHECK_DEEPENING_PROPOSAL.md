@@ -12,12 +12,12 @@ summary:       "Reads the very deep check's current formula against the incident
 
 # Deepening the very deep check: fourteen proposed additions
 
-**Five of the fourteen are built and merged.** Morgan asked, on 2026-09-21,
+**Seven of the fourteen are built and merged.** Morgan asked, on 2026-09-21,
 for a close read of the check's own formula against the week's real failures,
 and for specific proposals rather than a plan; he then authorized the five
 this document recommended first, in that order (strength: decided). Each item
 below says what to add, which pass it belongs in, whether it is mechanical or
-a read, what it would have caught, and what it costs. **The other nine are
+a read, what it would have caught, and what it costs. **The other seven are
 unbuilt and unadopted; pick from them, they are not a sequence.**
 
 ## What shipped, 2026-09-21
@@ -29,6 +29,14 @@ unbuilt and unadopted; pick from them, they are not a sequence.**
 | **1 + 2** — the deletion direction | `precedent_vendor_engine` names every tracked file that still refers to something it just deleted, on both removal paths; `DELETIONS PENDING` asks the same question before the refresh rather than during it; a harness case covers both directions | [tools/precedent_vendor_engine.py](../tools/precedent_vendor_engine.py), pass 1 |
 | **12** — incident to detector | `INCIDENT COVERAGE` lists every gotcha filed and item closed since the ledger's last run, with what cites each slug. **First run: four of six gotchas filed that week were cited by nothing** | pass 2 item 20 |
 | **9** — the holistic-read registry | `ACCRETION` ranks tracked files by commits since anybody recorded reading them whole; `--record-read` writes [record/holistic-reads.json](../record/holistic-reads.json) and refuses a path that does not exist. The registry starts empty — back-dating a row would invent the evidence it exists to hold | pass 3 |
+
+**Items 3 and 8 landed next**, on the same authorization, after Morgan asked
+for the next step in the plan to be built:
+
+| Item | What landed | First run |
+|---|---|---|
+| **3** — the carry-through roll-up | `CARRY-THROUGH`: per repo in force, what it vendored, where upstream is now, and how many engine files were added, changed or **removed** since — removals by name, because a removal arriving on the next refresh is the one that breaks something. Reports; refreshes nothing | One source behind by five changed engine files, three current. **The first time this check has ever been able to see a stale vendored tree** |
+| **8** — identity off the commits | `IDENTITY REALITY`: the author of every commit in the window against the declared identity, the author-date offset against the declared timezone at that instant, and any tracked `settings.json` hardcoding `GIT_AUTHOR_*`. Somebody else's authorship is a note; a commit authored by nobody in particular is a finding | **Four of the five repos in force carry commits with the wrong author-date offset** — 17 at `+00:00` and 8 at `-04:00` against 275 at the declared `-03:00`, in this checkout alone. The one repo that declares its own identity came back clean, and its hardcoded `settings.json` was correctly read as the documented case rather than the bug |
 
 **One correction the building itself produced**, which is the argument for
 running a new section rather than reasoning about it: `WORKFLOW REALITY`'s

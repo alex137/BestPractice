@@ -1324,6 +1324,236 @@ def _pending_deletions(repo_dir):
     return [(r, deps.get(r, [])) for r in rels], f'kind {kind!r}'
 
 
+def _identity_reality(repo_dir, days=30, cap=300):
+    """-> (rows, notes) for one repo: who the commits that LANDED say wrote
+    them, read against the identity this repo declares.
+    (practice: very-deep-check, pass 2, extending question 13)
+
+    QUESTION 13 ASKS WHAT A SESSION INHERITS -- every git config, env var
+    and sibling clone a person set up by hand. Nothing asked what actually
+    landed, which is the only place the answer shows. Three incidents in
+    six days made that gap expensive: commit identity unset in four clones,
+    so commits landed under the wrong author; a consumer's tracked
+    settings.json hardcoding one person's GIT_AUTHOR_* for every
+    collaborator who loads it; and a whole design document written for a
+    repo-scoped identity override no real requirement asked for.
+
+    Three mechanical reads here:
+
+    1. THE AUTHOR AND COMMITTER of every commit in the window, against the
+       declared identity. A commit by somebody else is a NOTE and never a
+       finding -- other people and machines commit, and a check that called
+       that wrong would be unusable. What IS a finding is a commit authored
+       by nobody in particular: the default identity a container invents
+       when nothing configured one.
+    2. THE AUTHOR-DATE OFFSET, against the declared timezone at that
+       instant. This is the field commit-identity.sh either ENFORCES or
+       merely guesses at depending on whether an identity is declared, so
+       drift here is the guess having been wrong, silently, in the past
+       tense.
+    3. A TRACKED settings.json naming GIT_AUTHOR_NAME or GIT_AUTHOR_EMAIL.
+       `no-hardcoded-git-identity` already checks this -- in a repo that
+       runs precedent_check.py. The repository where it was actually found
+       was a consumer, reported by hand, by a session that happened to
+       look, so asking it of every repo in force is the half that was
+       missing.
+
+    Never a finding on somebody else's authorship, and never a claim about
+    a repo whose identity cannot be read: both come back as notes."""
+    repo_dir = pathlib.Path(repo_dir)
+    rows, notes = [], []
+    try:
+        import precedent_identity as pi
+        declared = pi.declared_identity(str(repo_dir)) or {}
+    except Exception as exc:                                  # noqa: BLE001
+        declared = {}
+        notes.append(f'could not read a declared identity here '
+                     f'({type(exc).__name__}), so authorship is reported '
+                     f'without one to compare against')
+    email = (declared.get('email') or '').strip().lower()
+    tzname = (declared.get('timezone') or '').strip()
+
+    rc, out, _err = _run_git(repo_dir, 'log', f'--since={days} days ago',
+                             f'--max-count={cap}', '--no-merges',
+                             '--pretty=format:%H%x09%an%x09%ae%x09%aI')
+    if rc != 0:
+        notes.append('git log could not be read here')
+        return rows, notes
+    commits = [l.split('\t') for l in out.split('\n') if l.count('\t') == 3]
+    if not commits:
+        notes.append(f'no commits in the last {days} days to read')
+        return rows, notes
+
+    # 1 -- who wrote them
+    others, anonymous = {}, []
+    for sha, name, mail, _when in commits:
+        low = (mail or '').strip().lower()
+        if email and low == email:
+            continue
+        # The shapes a container invents when nothing configured an
+        # identity. Matched on the ADDRESS, never the name: a person may
+        # legitimately be called root somewhere, and nobody's real address
+        # ends in .(none).
+        if (not low or low.endswith('.(none)') or low.endswith('@localhost')
+                or '@' not in low):
+            anonymous.append((sha[:9], name, mail))
+        else:
+            others[low] = others.get(low, 0) + 1
+    if anonymous:
+        rows.append(('FINDING', f'{len(anonymous)} commit(s) authored with no '
+                                f'configured identity -- the address a '
+                                f'container invents when nothing set one: '
+                                + ', '.join(f'{s} <{m}>'
+                                            for s, _n, m in anonymous[:3])))
+    if others:
+        notes.append('other authors in the window (not a finding): '
+                     + ', '.join(f'{k} x{v}' for k, v in
+                                 sorted(others.items(), key=lambda x: -x[1])[:5]))
+
+    # 2 -- the author-date offset against the declared timezone
+    if not (email and tzname):
+        notes.append('no declared email and timezone here, so the '
+                     'author-date offset was not checked -- unverified, not '
+                     'clean')
+    else:
+        try:
+            from zoneinfo import ZoneInfo
+            zone = ZoneInfo(tzname)
+        except Exception as exc:                              # noqa: BLE001
+            zone = None
+            notes.append(f'timezone {tzname!r} could not be loaded '
+                         f'({type(exc).__name__}: no tzdata here?), so the '
+                         f'offset was not checked')
+        if zone is not None:
+            wrong = []
+            for sha, _name, mail, when in commits:
+                if (mail or '').strip().lower() != email:
+                    continue
+                try:
+                    stamp = datetime.datetime.fromisoformat(when)
+                except ValueError:
+                    continue
+                if stamp.utcoffset() is None:
+                    continue
+                expected = stamp.astimezone(zone).utcoffset()
+                if expected != stamp.utcoffset():
+                    # str(timedelta) renders -03:00 as "-1 day, 21:00:00",
+                    # which is the correct value and an unreadable one. One
+                    # formatter for this quantity, here
+                    # (practice: one-formatter-per-quantity).
+                    total = int(expected.total_seconds())
+                    sign = '-' if total < 0 else '+'
+                    total = abs(total)
+                    wrong.append((sha[:9], when,
+                                  f'{sign}{total // 3600:02d}:'
+                                  f'{(total % 3600) // 60:02d}'))
+            if wrong:
+                rows.append(('FINDING', f'{len(wrong)} commit(s) carry an '
+                                        f'author-date offset that is not '
+                                        f'{tzname} at that moment (first: '
+                                        f'{wrong[0][0]} at {wrong[0][1]}, '
+                                        f'expected {wrong[0][2]})'))
+            else:
+                rows.append(('OK', f'every commit of the declared person in '
+                                   f'the window carries the {tzname} offset '
+                                   f'for its own moment'))
+
+    # 3 -- a tracked settings.json that hardcodes somebody
+    for rel in ('.claude/settings.json', '.claude/settings.local.json'):
+        f = repo_dir / rel
+        if not f.is_file():
+            continue
+        if rel.endswith('local.json'):
+            continue                      # untracked and per-machine by design
+        try:
+            env = (json.loads(f.read_text(encoding='utf-8')).get('env')
+                   or {})
+        except (OSError, ValueError):
+            continue
+        named = [k for k in ('GIT_AUTHOR_NAME', 'GIT_AUTHOR_EMAIL')
+                 if env.get(k)]
+        if named and not (repo_dir / 'identity.json').is_file():
+            rows.append(('FINDING', f'{rel} hardcodes {" and ".join(named)} '
+                                    f'in its tracked env block -- every '
+                                    f'session and every collaborator who '
+                                    f'loads this file commits as that one '
+                                    f'person, because GIT_AUTHOR_* outranks '
+                                    f'`git config user.*`'))
+        elif named:
+            notes.append(f'{rel} names {" and ".join(named)}, and a root '
+                         f'identity.json says this repo IS that person\'s '
+                         f'own source -- the documented, correct case')
+    return rows, notes
+
+
+def _carry_through(repo_dir):
+    """-> (status, lines) for one repo: how far its VENDORED engine is
+    behind the upstream it was vendored from.
+    (practice: very-deep-check, order of operations step 1)
+
+    CURRENT IS NOT THE SAME AS CARRIED, and this is the half nothing else
+    here asks. The freshness gate above proves a clone matches ITS OWN
+    origin -- a repo can be perfectly current with itself and be running an
+    engine from three weeks ago, because a fix merged upstream reaches an
+    installed repo only when somebody goes there and runs "Update Vendors".
+    Measured 2026-09-20: 18 of 22 repositories had never taken one.
+
+    That is also the structural reason a very deep check had never once
+    found a stale vendored tree. Not a gap in its passes -- a gap in what
+    any pass could see, since every pass reads one repository against
+    itself (todo-2026-09-21-nothing-checks-a-consumer-against-upstream.md).
+
+    A REMOVAL IS NAMED, NOT COUNTED. Among the three kinds of drift, a file
+    upstream DELETED is the one whose arrival breaks something here, so the
+    line prints those names while the other two get counts.
+
+    SCOPE IS THE REPOS THIS RUN ALREADY OPENS -- this checkout and every
+    attached source. The fleet version of this question, every Precedent
+    repo the person owns, is chief-of-staff's, and widening it here would
+    duplicate that practice while making an expensive check more expensive
+    for no new judgment."""
+    try:
+        import precedent_engine_freshness as pef
+    except ImportError:
+        return 'unverified', ['precedent_engine_freshness did not import']
+    manifest, why = pef.read_manifest(repo_dir)
+    if manifest is None:
+        return 'n/a', [why]
+    url = manifest.get('source_repo')
+    branch = manifest.get('source_branch')
+    recorded = manifest.get('source_commit')
+    if not (url and branch and recorded):
+        return 'unverified', ['the manifest records no source_repo/'
+                              'source_branch/source_commit, so what it was '
+                              'vendored from cannot be asked']
+    tip = pef.upstream_tip(url, branch)
+    if tip is None:
+        return 'unverified', [f'could not reach {url} ({branch}) -- whether '
+                              f'this engine is current is unknown, which is '
+                              f'not the same answer as current']
+    if tip == recorded:
+        return 'current', [f'vendored engine matches {branch} at '
+                           f'{recorded[:12]}']
+    lines = [f'vendored {recorded[:12]}; upstream {branch} is at {tip[:12]}']
+    result = pef.changed_files(repo_dir, url, recorded, tip,
+                              manifest.get('files') or [])
+    if result is None:
+        lines.append('could not fetch upstream objects, so WHICH files moved '
+                     'is unknown -- the commit difference still stands')
+        return 'behind', lines
+    added, removed, changed = result
+    new_here = [n for n in added if 'NOT YET VENDORED HERE' in n]
+    lines.append(f'{len(added)} added upstream ({len(new_here)} of them not '
+                 f'vendored here), {len(changed)} changed, '
+                 f'{len(removed)} removed')
+    if removed:
+        lines.append('REMOVED upstream, and still on disk here until a '
+                     'refresh: ' + ', '.join(removed[:6])
+                     + (f' (+{len(removed) - 6} more)' if len(removed) > 6
+                        else ''))
+    return 'behind', lines
+
+
 def _workflow_reality(repo_dir, max_workflows=25):
     """-> [(verdict, message)] for one repo, asking GITHUB what it knows
     about each workflow file in the tree. (practice: very-deep-check, pass 2)
@@ -6263,6 +6493,72 @@ def _main(box):
     print()
     if led:
         led.end(findings=_del_n if _del_measured else None)
+        led.start('CARRY-THROUGH')
+
+    print("CARRY-THROUGH -- how far each repo's vendored engine is behind "
+          "the upstream it came from\n")
+    _ct_n = 0
+    _ct_measured = False
+    if skip_liveness:
+        print("  not asked (--skip-liveness) -- UNVERIFIED, which is not the "
+              "same answer as current.")
+    else:
+        for _name, _p in _orph_targets:
+            if not pathlib.Path(_p).is_dir():
+                continue
+            _status, _lines = _carry_through(_p)
+            if _status in ('current', 'behind'):
+                _ct_measured = True
+            if _status == 'behind':
+                _ct_n += 1
+            print(f"  {_status.upper():<11} {_name}")
+            for _l in _lines:
+                print(f"                  {_l}")
+        if not _ct_measured:
+            print("\n  nothing measured -- no repo in force vendors an "
+                  "engine, or upstream could not\n  be reached. Never read "
+                  "as current.")
+        elif _ct_n == 0:
+            print("\n  Every repo in force is carrying the current engine.")
+        else:
+            print(f"\n  {_ct_n} repo(s) behind. Nothing here refreshes "
+                  f"anything: taking an update is\n  \"Update Vendors\", run "
+                  f"in that repo, and it is ordinary work authorized the\n"
+                  f"  ordinary way.")
+    print()
+    if led:
+        led.end(findings=_ct_n if _ct_measured else None)
+        led.start('IDENTITY REALITY')
+
+    _id_days = session_days or _declared_session_window_days(repo_root) or 30
+    print(f"IDENTITY REALITY -- who the commits that LANDED say wrote them "
+          f"({_id_days}-day window)\n")
+    _id_n = 0
+    _id_measured = False
+    for _name, _p in _orph_targets:
+        if not pathlib.Path(_p).is_dir():
+            continue
+        _rows, _notes = _identity_reality(_p, days=_id_days)
+        if not _rows and not _notes:
+            continue
+        _id_measured = _id_measured or bool(_rows)
+        print(f"  {_name}:")
+        for _verdict, _msg in _rows:
+            print(f"      {_verdict:<11} {_msg}")
+            if _verdict == 'FINDING':
+                _id_n += 1
+        for _note in _notes:
+            print(f"      note        {_note}")
+    if not _id_measured and _id_n == 0:
+        print("  nothing measured -- no repo in force could be read for "
+              "authorship. Never read as clean.")
+    elif _id_n == 0:
+        print("\n  No finding: every commit in the window carries a "
+              "configured identity, the\n  declared person's own offsets, "
+              "and no tracked settings.json hardcodes anyone.")
+    print()
+    if led:
+        led.end(findings=_id_n if _id_measured else None)
         led.start('INCIDENT COVERAGE', kind='read')
 
     print("INCIDENT COVERAGE -- what was filed since the last run, and what "

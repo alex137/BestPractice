@@ -4,13 +4,13 @@ kind:              manual
 domain:            engine
 severity:          high
 status:            open
-disposition:       ask
+disposition:       wait
 remind_on:         null
 blocked_on:        null
 batch:             null
 decision:          null
 decision_strength: null
-waiting_on:        "Morgan -- which of the two fixes below he wants; both change what an adopter reads"
+waiting_on:        "Morgan -- deferred 2026-09-21: 'hold off for now, we'll deal with that later'. Disposition moved ask -> wait on that, so no session chases him for the choice; the three fixes below are ready when he comes back to it"
 noted:             2026-09-21
 closed:            null
 ---
@@ -91,4 +91,11 @@ carrying a table at all.
 
 Two sessions finding this the same day, from opposite directions, is the
 argument for it being decided rather than left.
+
+**Deferred by Morgan, 2026-09-21** — *"hold off for now, we'll deal with
+that later."* Disposition moved from `ask` to `wait` on the strength of that
+sentence, so nothing chases him. **Not parked**: he said later, which is a
+different thing, and the three fixes above are waiting rather than dropped.
+Nothing is published in the meantime — the drift is left unwritten, which is
+the safe side of it.
 

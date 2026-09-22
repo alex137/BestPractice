@@ -17,6 +17,13 @@ supersedes:  []
 overrides:   null
 added:       null
 approved_by: "extended 2026-09-21, Morgan (strength: decided), with the
+  carry-through roll-up (CARRY-THROUGH, proposal item 3) and the
+  identity read off the commits that landed (IDENTITY REALITY, item 8) --
+  \"Is there a next step to build in your very deep check plan? Build
+  it!\"; the first run of the second found four of the five repos in
+  force carrying commits with an author-date offset that is not the
+  declared timezone;
+  extended 2026-09-21, Morgan (strength: decided), with the
   five additions spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md recommended
   first and he authorized in that order -- the planted-case rotation
   settled at step 2 (item 11), WORKFLOW REALITY and the YAML-anchor check
@@ -255,6 +262,29 @@ a session can spend its whole run editing a source nothing it writes can
 ever land in. Ask with a credential or not at all: unauthenticated, a
 private repository and a deleted one both answer *Not Found*, so the run
 must say it learned nothing rather than report a repo as gone.
+
+**Current is not the same as CARRIED either, and that is the half nothing
+else here could see.** The freshness gate proves a clone matches **its own
+origin**. A repo can be perfectly current with itself and be running an
+engine from three weeks ago, because a fix merged upstream reaches an
+installed repo only when somebody goes there and runs `Update Vendors` —
+and until 2026-09-21 nothing anywhere said which repos had not. **Measured
+2026-09-20: 18 of 22 repositories had never taken one.** That is also the
+structural reason this check had never once found a stale vendored tree:
+not a gap in its passes, a gap in what any pass could see, since every pass
+reads one repository against itself
+([todo-2026-09-21-nothing-checks-a-consumer-against-upstream](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/todo/todo-2026-09-21-nothing-checks-a-consumer-against-upstream.md)).
+The `CARRY-THROUGH` section asks it per repo in force: what it vendored,
+where upstream is now, and how many engine files were added, changed or
+**removed** since — removals by name, because a removal arriving on the next
+refresh is the one that breaks something. **It reports and refreshes
+nothing**: taking an update is `Update Vendors`, run in that repo, and it is
+ordinary work authorized the ordinary way. **Scope is the repos this run
+already opens**; the fleet version of the same question is
+[chief-of-staff](chief-of-staff.md)'s. Added 2026-09-21 (Morgan, strength:
+decided) from
+[spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md)
+item 3.
 
 **Every declared team and individual source must actually be present before
 the check runs.** The ordinary loader tolerates a missing personal source and
@@ -762,6 +792,31 @@ confidently.
     in a hook or a checked-in file. *(Found: commit identity unset in four
     clones, so commits landed under the wrong author and tripped the repo's
     own check.)*
+13a. **Read the commits that LANDED, not only the configuration.**
+    Question 13 asks what a session *inherits*; nothing asked what actually
+    landed, which is the only place the answer shows.
+    [tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/very_deep_check.py)'s
+    `IDENTITY REALITY` section reads three things per repo in force: the
+    **author of every commit in the window** against the declared identity;
+    the **author-date offset** against the declared timezone at that
+    instant — the field `commit-identity.sh` either enforces or merely
+    guesses at, so drift there is a past-tense wrong guess nobody saw; and
+    any **tracked `settings.json` hardcoding `GIT_AUTHOR_*`**, which
+    `no-hardcoded-git-identity` already catches in a repo that runs
+    `precedent_check.py` and which was actually found in a consumer, by
+    hand, by a session that happened to look.
+
+    **A commit by somebody else is a note, never a finding** — other people
+    and machines commit here, and a check that called that wrong would be
+    unusable. What is a finding is a commit authored by *nobody in
+    particular*: the address a container invents when nothing configured
+    one. *(First run, 2026-09-21: 17 commits in the window carrying a
+    `+00:00` author date and 8 carrying `-04:00`, against 275 at the
+    declared `-03:00` — the enforcement not having reached the sessions
+    that made them.)* Added 2026-09-21 (Morgan, strength: decided) from
+    [spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md)
+    item 8, after three identity incidents in six days.
+
 14. **Does a verification enumerate, or does it sample?** For any check
     whose failure mode is something *absent* — a file, a term, a link, a
     row, a practice — ask how it concluded nothing was missing. If it can
