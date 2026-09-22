@@ -4313,13 +4313,46 @@ def endgame_merge(repo_dir, target=None, base=None, keep=False):
             out['status'] = 'error'
             out['note'] = f'could not create a throwaway worktree: {err}'
             return out
-        # Conflicts are the expected outcome, so the return code says
-        # nothing here -- what the merge DID is read out of the index.
-        # No identity is set for this: `--no-commit` never writes a
-        # commit, so git never asks for one -- and an address literal here
-        # is a leak-gate finding in a public tree (caught by that gate the
-        # first time this ran).
-        _run_git(work, 'merge', '--no-commit', '--no-ff', f'origin/{target}')
+        # AN IDENTITY, SET ON THE INVOCATION. The comment that stood here
+        # said `--no-commit` never writes a commit, so git never asks for
+        # one. It does ask, and it REFUSES -- `Committer identity unknown`,
+        # `fatal: unable to auto-detect email address`, exit 128. A CI
+        # runner has no global identity and a session container does, which
+        # is the whole reason this rehearsal was green locally and red in
+        # continuous integration for five runs (2026-09-22). Set with `-c`
+        # so nothing outlives the command, and at a `.invalid` address --
+        # the old comment was right that a real address literal in this
+        # public tree is a leak-gate finding.
+        mrc, _, merr = _run_git(work, '-c', 'user.name=Precedent rehearsal',
+                                '-c', 'user.email=rehearsal@invalid',
+                                'merge', '--no-commit', '--no-ff',
+                                f'origin/{target}')
+
+        # A MERGE THAT COULD NOT RUN IS NOT A MERGE THAT DROPPED EVERYTHING.
+        # Until 2026-09-22 those were the same answer: the return code was
+        # discarded on the grounds that conflicts make it meaningless, so a
+        # refusal left the index holding only the base branch's files and
+        # `expected - present` named EVERY file on the integration branch.
+        # The most alarming output this tool can produce was what it
+        # produced when it had done nothing at all.
+        #
+        # The return code alone cannot decide it -- a conflicted merge is
+        # the expected outcome and exits 1. MERGE_HEAD is the evidence that
+        # a merge actually started: present after a clean `--no-commit`
+        # merge AND after a conflicted one, absent when git refused. Absent
+        # with a non-zero return is a refusal; absent with a zero return is
+        # "Already up to date", which is a real clean result.
+        # (practice: checks-plant-their-state)
+        hrc, _, _ = _run_git(work, 'rev-parse', '--verify', '--quiet',
+                             'MERGE_HEAD')
+        if mrc != 0 and hrc != 0:
+            out['status'] = 'error'
+            out['note'] = (
+                'the rehearsal merge could not run, so nothing here is a '
+                'finding about your branches -- treat this as UNKNOWN, not '
+                f'as clean and not as a drop. git said: {merr or "(nothing)"}')
+            return out
+
         rc, conflicted, _ = _run_git(work, 'diff', '--name-only',
                                      '--diff-filter=U')
         conflicts = {ln for ln in conflicted.splitlines() if ln} if rc == 0 else set()
