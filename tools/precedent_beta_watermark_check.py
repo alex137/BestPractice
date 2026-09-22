@@ -15,14 +15,25 @@ firing after it has already been delivered is exactly the failure
 and the fix here is the mirror image of that file's: advance on report,
 not on request.
 
-WHERE THE WATERMARK LIVES, AND WHY NOT HERE. `<individual source>/
-beta-branch-watermark.json`, never a file in this repository. It is not
-part of `precedent-beta-v01`'s own history -- it is a record of what ONE
-PERSON has already seen -- so it belongs beside `identity.json` in Morgan's
-own practice source (a private, single-owner repository), not in
-`alex137/BestPractice`'s tracked tree, where it would read as churn on every
-push that was never his to begin with, and where anyone else reading this
-public repository would see a personal read-receipt for no reason.
+WHERE THE WATERMARK LIVES: `tools/beta-branch-watermark.json`, HERE, since
+2026-09-22. It lived at the root of the individual source until then, on
+the argument that a record of what one person has already seen is not part
+of this branch's history and would read as a personal read-receipt in a
+public tree. Morgan overruled that, in those terms: the file holds a public
+repository name, a public branch, a public commit SHA and a date; his own
+my-identity-is-not-private practice covers his name appearing; and the
+placement was tidiness, not privacy. It is keyed by identity inside, so a
+second person on this branch is a second key rather than a second file --
+"the last commit already reported" is true of a PERSON, not of a repo, and
+one shared row would have each of them eating the other's notification.
+
+WHAT THE MOVE COST, since it is not free. The write now lands in the very
+checkout the session is about to work in, which the old placement made
+impossible by construction. Two guards carry that: `_is_quiet` refuses to
+write history into a checkout that is ahead of origin or has anything
+staged, so a session-start hook can never publish work in progress or
+author somebody's half-made commit; and `_commit_and_push` commits the one
+path explicitly rather than whatever the index holds.
 
 WHAT MOVES THE WATERMARK: AN ALERT, NOT A PUSH. Until 2026-09-22 this
 file wrote and committed the watermark the moment `origin/<branch>` moved
@@ -49,20 +60,26 @@ harmless and is the point: `others` is computed over `seen..head`, so a
 watermark that stayed put simply widens the window the next run reads, and
 a commit nobody was told about is still found and still reported.
 
-AND WHERE IT MOVES: NOT INTO A CLONE NOBODY CAN PUSH. Moving the trigger
+AND WHERE IT MOVES: NEVER WHERE IT CANNOT BE PUSHED. Moving the trigger
 left the rarer half of the problem behind -- an alert still wrote a commit
-into the individual source, and from a session rooted in this repository
-that push cannot land (the git proxy refuses themorgan/precedent-individual
-on repository scope; re-measured 2026-09-22, it is not the token). So the
-alert path now PROBES first, with `push --dry-run`, and writes into that
-clone only when a push would actually land. Where it would not, nothing is
-written there at all: the head just reported is recorded in this
-repository's gitignored `.precedent/`, per container, which is all the
-shared watermark was buying anyway once it could not be pushed -- it stops
-the alert repeating HERE, and makes no claim about any other container.
-That note is written only where git can be shown to ignore it, because an
-untracked file in a source clone is the dirt that skips that clone's
-refresh and reads as work existing nowhere else.
+into the individual source, and from a session rooted here that push could
+not land: the git proxy serves fetches of that clone and refuses pushes on
+repository scope, measured repeatedly on 2026-09-22 with the credential
+helper present and the token in the environment. Eight unpushable commits
+piled up there before the probe went in.
+
+Relocating the file removes that particular wall and NOT the rule. The
+alert path still probes with `push --dry-run` -- a real
+authenticate-and-negotiate round trip that writes nothing -- because a
+checkout that is offline, behind or diverged still cannot push, and a
+commit written where it cannot be pushed is the whole failure. Where the
+probe says no, or the checkout is not idle, nothing is written to the
+shared file: the head just reported goes into this repository's gitignored
+`.precedent/`, per container. That is all the shared watermark buys once it
+cannot be written -- it stops the alert repeating HERE and claims nothing
+about any other container -- and the note is written only where git can be
+SHOWN to ignore it, because an untracked file in a source clone is the dirt
+that skips that clone's refresh and reads as work existing nowhere else.
 
 Raised by Morgan, 2026-09-18: Alex also pushes to this branch, and Morgan
 wants to know when -- but not in every reply of a session, only once per
@@ -80,6 +97,7 @@ Run:
   python3 tools/precedent_beta_watermark_check.py             # session start: always one line
   python3 tools/precedent_beta_watermark_check.py --no-fetch  # compare local refs only
   python3 tools/precedent_beta_watermark_check.py --no-push   # write + commit locally, skip the network push
+                                                             # (this repo's own tools/, since 2026-09-22)
 
 Exit status is always 0 (practice: fail-gracefully) -- a session start or a
 reply that a network hiccup or a missing individual source could block is
@@ -89,6 +107,7 @@ import argparse
 import json
 import os
 import pathlib
+import re
 import subprocess
 import sys
 
@@ -104,10 +123,45 @@ REPO = pathlib.Path(__file__).resolve().parent.parent
 UPSTREAM_WATERMARK = REPO / 'tools' / 'upstream_watermark.json'
 DEFAULT_BRANCH = 'precedent-beta-v01'
 
-# practice: filename-separator -- the individual source's root already uses
-# a hyphen (leak-blocklist.txt), so this file matches it rather than
-# introducing a second separator into that directory.
-WATERMARK_FILENAME = 'beta-branch-watermark.json'
+# practice: filename-separator -- every .json in tools/ uses underscores
+# (upstream_watermark.json, session_load_budgets.json, glossary_terms.json),
+# so this one does too. It arrived here as beta-branch-watermark.json,
+# carrying the hyphen from the individual source's root where it used to
+# live, and the planted filename-separator case refused it within the hour.
+WATERMARK_FILENAME = 'beta_branch_watermark.json'
+
+
+def _identity_key(identity):
+    """The key one person's row is stored under -- a slug of their DECLARED
+    NAME, never their email.
+
+    The email is the identity this tool actually compares commits against,
+    and it is the obvious key. It cannot be used: `tools/leak_gate.py`
+    refuses any email address anywhere in the tracked tree, and that rule is
+    right -- this branch is public, a push is a publication, and a
+    bookkeeping file is not the place to carve out an exception. Measured
+    rather than reasoned: keying by email failed the gate on the first run
+    after the file moved here, 2026-09-22.
+
+    A name slug is stable enough for what this holds. If somebody's declared
+    name changes, their row is re-baselined once, in silence, which costs
+    nothing -- a baseline reports nothing by construction."""
+    slug = re.sub(r'[^a-z0-9]+', '-',
+                  (identity.get('name') or identity.get('email') or '').lower())
+    return slug.strip('-') or 'unknown'
+
+
+def _watermark_path(repo):
+    """The shared watermark, in THIS repository's tools/.
+
+    It used to live at the root of the individual source, on the argument
+    that a record of what one person has seen does not belong in a public
+    shared tree. Morgan overruled that 2026-09-22: it holds a public repo
+    name, a public branch, a public SHA and a date, his own
+    my-identity-is-not-private practice covers his name, and the placement
+    was tidiness rather than privacy. Keyed by identity inside, so a second
+    person is a second key rather than a second file."""
+    return pathlib.Path(repo) / 'tools' / WATERMARK_FILENAME
 
 
 def _working_branch():
@@ -116,26 +170,6 @@ def _working_branch():
     except (OSError, ValueError):
         return DEFAULT_BRANCH
     return data.get('working_branch') or DEFAULT_BRANCH
-
-
-def _individual_path(user_config=None):
-    """Where the individual source is cloned, or None.
-
-    Duplicated from precedent_identity.py's own internal resolution rather
-    than imported -- consistent with that file's own header: a person's
-    identity needs the individual source's PATH, and precedent_resolve.py
-    (the one place that answers this for a consuming repo) is deliberately
-    not importable from a module like this one that has to run inside a
-    practice SET too, which has no precedent_resolve.py to import.
-    """
-    cfg_path = pathlib.Path(user_config) if user_config else pathlib.Path(
-        os.environ.get(pi.USER_CONFIG_ENV, str(pi.DEFAULT_USER_CONFIG))).expanduser()
-    try:
-        cfg = json.loads(cfg_path.read_text(encoding='utf-8'))
-    except (ValueError, OSError, AttributeError):
-        return None
-    path = (cfg.get('individual') or {}).get('path')
-    return pathlib.Path(path).expanduser() if path else None
 
 
 def git(repo, *args, check=False, env=None):
@@ -174,29 +208,46 @@ LOCAL_NOTE_DIRNAME = '.precedent'
 LOCAL_NOTE_FILENAME = 'beta-branch-watermark-local.json'
 
 
-def _can_push(individual_path):
-    """-> True when a push to that clone's origin would actually land.
+def _can_push(repo):
+    """-> True when a push of this checkout's current branch would land.
 
-    WHY PROBE RATHER THAN TRY AND UNDO. The alert path writes a commit into
-    a DIFFERENT repository -- the individual source -- and from a session
-    rooted in alex137/BestPractice that push cannot land: the git proxy
-    refuses themorgan/precedent-individual because GitHub access here is
-    scoped to this repository, and attachment refuses across owners. Every
-    failed push left the commit behind, unpushed and unpushable, and the
-    session check's "each practice source clone is current with its own
-    origin" row went red for a reason no session here could clear (8 such
-    commits as of 2026-09-22, re-measured that day: proxy 403, not the
-    token). Undoing the commit afterwards would mean resetting somebody
-    else's repository, which is exactly the trade this whole area is made
-    of, so the commit is never made in the first place.
+    WHY PROBE AT ALL, now that the write is same-repo. Until 2026-09-22 the
+    watermark was committed into a DIFFERENT repository -- the individual
+    source -- and from a session rooted here that push could not land: the
+    git proxy serves fetches and refuses pushes on repository scope. Eight
+    unpushable commits piled up in that clone before the probe went in.
+    Moving the file here removes that particular wall, and the probe stays
+    because the general case has not changed: a checkout that is offline,
+    behind, or diverged still cannot push, and a commit written where it
+    cannot be pushed is the failure this whole area is made of.
 
-    `push --dry-run` is a real round trip -- it authenticates and negotiates
-    without writing -- so it answers the question that matters: WOULD this
-    land. A clone that is diverged, or behind, or unauthenticated all answer
-    no, and all three mean the same thing here."""
-    code, _ = git(individual_path, 'push', '--dry-run', '--quiet',
-                  'origin', 'HEAD')
+    `push --dry-run` is a real authenticate-and-negotiate round trip that
+    writes nothing, so it answers the question that matters: WOULD this
+    land."""
+    code, _ = git(repo, 'push', '--dry-run', '--quiet', 'origin', 'HEAD')
     return code == 0
+
+
+def _is_quiet(repo, branch):
+    """-> True when this checkout is level with origin and nothing is staged.
+
+    THE HAZARD THE MOVE INTRODUCED, and the reason this exists. While the
+    watermark lived in another repository, a session-start commit there
+    could not touch the session's own work. Now the hook writes into the
+    very checkout the session is about to work in -- so a push would carry
+    whatever else is sitting ahead of origin, and a commit would sweep up
+    anything already staged. A session-start hook must never publish a
+    session's work in progress, and must never author a commit a person was
+    still composing.
+
+    So the hook writes history only into a checkout that is demonstrably
+    idle. Anything else, and the per-container note takes it instead: the
+    alert is still delivered, and nobody's work moves."""
+    code, ahead = git(repo, 'rev-list', '--count', f'origin/{branch}..HEAD')
+    if code != 0 or ahead.strip() != '0':
+        return False
+    code, staged = git(repo, 'diff', '--cached', '--name-only')
+    return code == 0 and not staged.strip()
 
 
 def _local_note_path(repo):
@@ -329,50 +380,44 @@ def _identity_args(identity):
     return args, env
 
 
-def _commit_and_push(individual_path, path, message, no_push, branch,
-                     identity=None):
-    """Commit the watermark in the individual source, and push unless asked
-    not to. Never raises: a failed push still leaves the watermark advanced
-    LOCALLY, which is enough to stop this same session from repeating the
-    alert -- cross-session dedup needs the push to actually land, and a
-    failure here says so rather than pretending it landed.
+def _commit_and_push(repo, path, message, no_push, branch, identity=None):
+    """Commit the watermark in THIS repository, and push unless asked not to.
 
-    `branch` is only for the failure message below -- naming the branch this
-    watermark is FOR, not the repository this push actually targets (that's
-    always the individual source, never `branch`'s own repo).
+    Never raises: a failed push still leaves the watermark advanced locally,
+    which is enough to stop this same session repeating the alert.
+
+    `commit -- <path>` COMMITS THAT PATH ALONE, whatever the index holds.
+    A bare `git commit -m` after `git add` takes everything staged, and
+    since 2026-09-22 this runs inside the checkout a person is working in --
+    so the narrow form is the difference between a bookkeeping commit and
+    quietly authoring somebody's half-staged edit. `_is_quiet` already
+    refuses a staged index; this is the belt to that brace.
 
     `identity` is the DECLARED identity, stated on the commit rather than
-    read out of the target clone's config -- see `_identity_args` for the
-    measurement that made that necessary."""
-    rel = path.relative_to(individual_path)
-    git(individual_path, 'add', str(rel))
+    read out of the clone's config -- see `_identity_args` for the
+    measurement that made that necessary. Its original reason was that this
+    wrote into a repository it did not configure, which no longer holds;
+    the explicit author stays because it is correct and costs nothing."""
+    rel = path.relative_to(pathlib.Path(repo))
+    git(repo, 'add', str(rel))
     _id_args, _id_env = _identity_args(identity)
-    code, _ = git(individual_path, *_id_args, 'commit', '-m', message,
+    code, _ = git(repo, *_id_args, 'commit', '-m', message, '--', str(rel),
                   env=_id_env)
     if code != 0:
         return 'nothing to commit'
     if no_push:
         return 'committed locally only (--no-push)'
-    code, out = git(individual_path, 'push', 'origin', 'HEAD')
+    code, out = git(repo, 'push', 'origin', f'HEAD:{branch}')
     if code != 0:
-        # Names the individual source and calls this "the note" -- the
-        # caller embeds this string right after reporting on `branch`'s own
-        # commits, in the same sentence, and a bare "the push failed" there
-        # reads as if THOSE commits failed to push. They didn't; this is a
-        # separate push, of a bookkeeping file, to a different repository
-        # (individual_path's own remote, not branch's).
-        return (f'this note about it failed to sync to the individual source '
-                f'({out.splitlines()[-1] if out else "see stderr"}) -- not a '
-                f'failure to push {branch} itself. The commit stays in this '
-                f'container: the local watermark now equals the head, so the '
-                f'next session here short-circuits before reaching this push '
-                f'and nothing retries it. It reaches the individual source '
-                f'only when a session that can push there sends it')
+        return (f'committed here, and the push to origin/{branch} failed '
+                f'({out.splitlines()[-1] if out else "see stderr"}). Nothing '
+                f'retries it: the local watermark now equals the head, so the '
+                f'next session here short-circuits before reaching this push. '
+                f'It travels with whatever this session pushes next')
     return 'committed and pushed'
 
 
-def check(root=None, no_fetch=False, no_push=False, user_config=None,
-          individual_path=None):
+def check(root=None, no_fetch=False, no_push=False, user_config=None):
     """-> (status, lines, alert).
 
     status is 'ok' (nothing new, or it was all your own commits), 'alert'
@@ -380,23 +425,14 @@ def check(root=None, no_fetch=False, no_push=False, user_config=None,
     tell). `lines` is prose for the always-on session-start CLI; `alert` is
     the short paragraph `remind()` surfaces, or None.
 
-    `individual_path`, given explicitly, skips config-file resolution
-    entirely. Needed for a session whose PRIMARY repo IS the individual
-    source: nothing wrote it a `~/.config/precedent/config.json` pointing
-    at itself (that file is for a repo that resolves someone ELSE's
-    individual set), so `_individual_path()` would find nothing to
-    resolve even though the right directory is sitting right there.
+    Took an `individual_path` until 2026-09-22, for a session whose PRIMARY
+    repo was the individual source. The watermark lives in this repository
+    now, so there is no second repository to point at and no case where it
+    is somewhere this script cannot find.
     """
     repo = pathlib.Path(root).resolve() if root else REPO
     branch = _working_branch()
-
-    indiv = pathlib.Path(individual_path).expanduser() if individual_path \
-        else _individual_path(user_config)
-    if indiv is None or not (indiv / '.git').is_dir():
-        return 'unknown', ['no individual source resolves, so there is nowhere '
-                            'to keep this watermark'], None
-
-    watermark_path = indiv / WATERMARK_FILENAME
+    watermark_path = _watermark_path(repo)
 
     if not no_fetch:
         code, _ = git(repo, 'fetch', '--depth=50', 'origin', branch)
@@ -415,46 +451,60 @@ def check(root=None, no_fetch=False, no_push=False, user_config=None,
         return 'unknown', ["no identity is declared, so 'someone other than "
                             "you' cannot be told apart from you"], None
 
-    registry = _load_watermark(watermark_path)
-    if registry is None:
-        # First run: nothing to compare against. Baseline quietly at the
-        # current head rather than reporting every commit already on the
-        # branch as if it had just landed.
-        registry = {
-            '_comment': [
-                f'The last commit on origin/{branch} Morgan has already been',
-                'told about. Read and written by',
-                'tools/precedent_beta_watermark_check.py (BestPractice),',
-                'called from that repo\'s SessionStart hook and reply gate.',
-                'Lives here rather than in the branch\'s own tree because it',
-                'is not that branch\'s history -- it is a record of what ONE',
-                'PERSON has seen -- so it stays out of alex137/BestPractice,',
-                'which is public and shared.',
-                '',
-                'Advances the moment it reports SOMEBODY ELSE\'S commits,',
-                'and only then -- a run that finds none writes nothing here.',
-                'Unlike tools/upstream_watermark.json in BestPractice, which',
-                'a person moves deliberately because it gates an action, this',
-                'gates a notification with nothing left to do once it has',
-                'been given.',
-            ],
-            'repo': 'alex137/BestPractice',
-            'branch': branch,
-        }
-        registry['last_seen'] = {'sha': head, 'recorded': precedent_time.today(),
-                                  'note': 'baseline -- no prior watermark'}
+    # KEYED BY IDENTITY, not one record for the file. Two people work on
+    # this branch, and "the last commit already reported" is true of a
+    # PERSON, not of the repository -- a single shared record would have
+    # one of them silently consuming the other's notification.
+    registry = _load_watermark(watermark_path) or {}
+    seen_by = registry.setdefault('seen_by', {})
+    mine = seen_by.get(_identity_key(me)) or {}
+
+    def _record(note):
+        """Write this person's row and try to land it. -> an outcome phrase."""
+        seen_by[_identity_key(me)] = {'sha': head, 'recorded': precedent_time.today(),
+                                 'note': note}
+        registry.setdefault('_comment', [
+            f'The last commit on origin/{branch} each person has already been',
+            'told about, keyed by a slug of the name their identity declares',
+            '(never their email -- the leak gate refuses one in a tracked',
+            'file, and this branch is public). Read and',
+            'written by tools/precedent_beta_watermark_check.py, called from',
+            "this repo's SessionStart hook and reply gate.",
+            '',
+            'Advances the moment it reports SOMEBODY ELSE\'S commits, and',
+            'only then -- a run that finds none writes nothing here. Unlike',
+            'tools/upstream_watermark.json beside it, which a person moves',
+            'deliberately because it gates an action, this gates a',
+            'notification with nothing left to do once it has been given.',
+        ])
+        registry.setdefault('repo', 'alex137/BestPractice')
+        registry['branch'] = branch
+        if not (no_push or (_is_quiet(repo, branch) and _can_push(repo))):
+            # Not an idle checkout, or a push that would not land. Writing
+            # history here would either publish a session's work in progress
+            # or leave a commit nothing can send; the per-container note
+            # carries the dedup instead and nobody's work moves.
+            return ('nothing written to the shared watermark -- this checkout '
+                    'is mid-work or cannot push; '
+                    + _write_local_note(repo, head, branch))
         _write_watermark(watermark_path, registry)
-        outcome = _commit_and_push(indiv, watermark_path,
-                                    f'Baseline {branch} watermark at {head[:9]}',
-                                    no_push, branch, identity=me)
+        return _commit_and_push(repo, watermark_path,
+                                 f'Advance {branch} watermark to {head[:9]}',
+                                 no_push, branch, identity=me)
+
+    if not mine:
+        # First run for this person: nothing to compare against. Baseline
+        # quietly at the current head rather than reporting every commit
+        # already on the branch as if it had just landed.
+        outcome = _record('baseline -- no prior watermark for this identity')
         return 'ok', [f'no prior watermark for {branch}; baselined at '
                        f'{head[:9]} ({outcome})'], None
 
-    seen = (registry.get('last_seen') or {}).get('sha')
-    # A container that could not push the shared watermark keeps its own
+    seen = mine.get('sha')
+    # A container that could not write the shared watermark keeps its own
     # note of what it has already said. Fold it in before deciding what is
     # new, or this container re-reports commits it reported yesterday
-    # purely because the file it could not push still names an older head.
+    # purely because the shared file still names an older head.
     seen = _later_of(repo, seen, _read_local_note(repo))
     if seen == head:
         return 'ok', [f'{branch} unchanged since last check ({head[:9]})'], None
@@ -475,32 +525,13 @@ def check(root=None, no_fetch=False, no_push=False, user_config=None,
     if not others:
         # NOTHING IS WRITTEN AND NOTHING IS COMMITTED ON THIS PATH. See
         # "WHAT MOVES THE WATERMARK" in this file's header: the watermark
-        # records what Morgan has been TOLD, and he has just been told
-        # nothing, so there is nothing to record -- and no commit to write
-        # into a different person's repository for a notice never given.
+        # records what its person has been TOLD, and they have just been
+        # told nothing, so there is nothing to record and no commit to write.
         return 'ok', [f'{branch} moved to {head[:9]}, all your own commits -- '
                        f'nothing to tell you, so the watermark stays at '
                        f'{seen[:9] if seen else "(none recorded)"}'], None
 
-    # THE COMMIT IS NEVER WRITTEN WHERE IT CANNOT BE PUSHED. See _can_push:
-    # the shared watermark is worth writing only when it will reach the
-    # individual source's own remote, because that is the only thing it buys
-    # over the per-container note below -- telling the NEXT container. A
-    # commit that stays here buys nothing and costs a permanently red
-    # session-check row.
-    if no_push or _can_push(indiv):
-        registry['last_seen'] = {
-            'sha': head, 'recorded': precedent_time.today(),
-            'note': 'auto-advanced by precedent_beta_watermark_check.py',
-        }
-        _write_watermark(watermark_path, registry)
-        outcome = _commit_and_push(indiv, watermark_path,
-                                    f'Advance {branch} watermark to {head[:9]}',
-                                    no_push, branch, identity=me)
-    else:
-        outcome = ('the individual source cannot be pushed from here, so '
-                    'nothing was written into it; '
-                    + _write_local_note(repo, head, branch))
+    outcome = _record('auto-advanced by precedent_beta_watermark_check.py')
 
     lines = [f'{len(others)} commit(s) on {branch} since {seen[:9] if seen else "(none recorded)"}, '
               f'not authored by you, up to {head[:9]} ({outcome}):']
@@ -532,13 +563,8 @@ def main():
                          help='compare against local refs only; do not fetch')
     parser.add_argument('--no-push', action='store_true',
                          help='write and commit the watermark locally, skip the push')
-    parser.add_argument('--individual-path', default=None,
-                         help='the individual source directory, when this session '
-                              'IS that source and has no config.json pointing at '
-                              'someone else\'s')
     args = parser.parse_args()
-    status, lines, _alert = check(no_fetch=args.no_fetch, no_push=args.no_push,
-                                   individual_path=args.individual_path)
+    status, lines, _alert = check(no_fetch=args.no_fetch, no_push=args.no_push)
     prefix = {'ok': 'beta-branch watermark',
               'alert': 'BETA-BRANCH WATERMARK',
               'unknown': 'beta-branch watermark UNKNOWN'}[status]

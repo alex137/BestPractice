@@ -20,7 +20,7 @@ closed:            2026-09-22
 the individual source, and the session check goes red about it forever.**
 
 [tools/precedent_beta_watermark_check.py](../tools/precedent_beta_watermark_check.py)
-runs at session start, advances `beta-branch-watermark.json` in the
+runs at session start, advances `beta_branch_watermark.json` in the
 individual source, commits it there, and pushes. From a session rooted in
 **this** repository that push cannot land: the git proxy refuses
 `themorgan/precedent-individual` outright, because GitHub access here is
@@ -154,6 +154,38 @@ pushes the shared watermark exactly as before.
 **Not fixed by any of this:** the 8 commits already sitting in that clone.
 They are watermark advances a future run will re-derive, so they can be
 pushed or discarded; nothing here depends on which.
+
+## Superseded The Same Day: The File Moved
+
+**The watermark is no longer in the individual source at all.** Morgan,
+2026-09-22, on the placement argument this whole item rests on: *"that is a
+tidiness argument, not a privacy one"* — the file holds a public repository
+name, a public branch, a public commit SHA and a date, and his own
+`my-identity-is-not-private` practice covers his name appearing. Recorded
+`assented`: a ruling on the premise, given when the session put the case to
+him rather than argued for independently.
+
+It is [tools/beta_branch_watermark.json](../tools/beta_branch_watermark.json)
+now, beside `upstream_watermark.json`, **keyed by identity** — two people work
+this branch, and one shared row would have each of them consuming the other's
+notification. The value was carried across rather than reseeded at the head,
+after running the tool's own authorship test over the gap: all 34 commits
+between the migrated SHA and the head at migration time are the declared
+identity's own, so no alert was suppressed by the move.
+
+**What the move removed:** the cross-owner push wall, for this tool. What it
+did not remove is the rule — `_can_push` stays, because a checkout that is
+offline, behind or diverged still cannot push.
+
+**What the move introduced, and what guards it.** The write now lands in the
+very checkout the session is about to work in, which the old placement made
+impossible by construction. `_is_quiet` refuses to write history into a
+checkout that is ahead of origin or has anything staged, so a session-start
+hook can never publish work in progress or author a half-made commit; and the
+commit names its one path explicitly rather than trusting the index. Both are
+held by stated cases in
+[tools/verify_harness.py](../tools/verify_harness.py), 25 across the two
+checks.
 
 ## Not To Be Confused With
 
