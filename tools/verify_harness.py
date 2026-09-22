@@ -11251,6 +11251,126 @@ def _beta_watermark_fixture(tmp, git, branch='precedent-beta-v01'):
     return origin, seed, land
 
 
+def check_vocabulary_prefers_the_file_you_are_standing_on():
+    """A practice defined both in this repo and in a resolved source is read
+    from THIS repo's file, and the collision is named either way.
+
+    THE HOUR IT COST, 2026-09-21. A session in a practice source removed a
+    `command:` field, ran precedent_vocabulary.py to confirm the row was
+    gone, and got the old row back. `cat` showed the edit. `git diff` showed
+    the edit. The commit landed. Only the tool disagreed, and the natural
+    reading of that is that you edited the wrong field or the frontmatter
+    parse is fussy -- neither of which leaves a trace when you test it.
+
+    `collect()` built one dict keyed by slug: local `practices/*.md` first,
+    then everything the resolver returned, assigned with a bare
+    `found[slug] = ...`. In a CONSUMING repo that precedence is right and
+    the slugs never collide. In a repo that IS one of those sources, both
+    halves are the same practice from two different checkouts and the local
+    edit lost in silence.
+
+    Planted rather than reproduced against the real disk, deliberately: the
+    condition is a resolved source whose path is not the repo you are
+    standing in, and whether any given container is in that state changes
+    with its config. A check that only fires on a machine that happens to be
+    misconfigured is a check that reports the weather.
+
+    Four cases, and the two negative controls are the load-bearing ones: a
+    slug that exists ONLY in the resolved source still comes from there
+    (this is not "ignore the resolver"), and --resolved-view still reaches
+    the old behaviour for a caller that wants it.
+    """
+    import shutil, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_vocabulary as pv
+
+    def practice(slug, phrase, title):
+        return (f'---\nslug:        {slug}\n'
+                f'title:       {title}\n'
+                'tier:        on-demand\nseverity:    default\n'
+                'applies_to:  []\n'
+                f'occasion:    "a fixture practice for {slug}"\n'
+                'gates:       []\n'
+                f'command:     {{"{phrase}": "a fixture command"}}\n'
+                f'index_clause: "{phrase} -- a fixture"\n'
+                'checked_by:  null\nstatus:      active\nin_force_at: null\n'
+                'supersedes:  []\noverrides:   null\nadded:       null\n'
+                'approved_by: null\n---\n\n## Rule\nA fixture rule.\n')
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='vocab-shadow-'))
+    try:
+        # `other` stands in for the checkout the resolver reaches: same
+        # slug, older text. `here` is the repo the tool runs in.
+        other = tmp / 'other'
+        (other / 'practices').mkdir(parents=True)
+        (other / 'practices' / 'fixture-shadowed.md').write_text(
+            practice('fixture-shadowed', 'Stale Phrase', 'A shadowed fixture'),
+            encoding='utf-8')
+        (other / 'practices' / 'fixture-resolved-only.md').write_text(
+            practice('fixture-resolved-only', 'Resolved Only Phrase',
+                      'Only in the resolved source'), encoding='utf-8')
+        (other / 'precedent.json').write_text('{"sources": []}', encoding='utf-8')
+
+        here = tmp / 'here'
+        (here / 'practices').mkdir(parents=True)
+        # The edit in front of you: same slug, different phrase.
+        (here / 'practices' / 'fixture-shadowed.md').write_text(
+            practice('fixture-shadowed', 'Live Phrase', 'A shadowed fixture'),
+            encoding='utf-8')
+        (here / 'precedent.json').write_text(json.dumps({'sources': [
+            {'level': 'universal', 'name': 'precedent', 'path': '../other'}]}),
+            encoding='utf-8')
+
+        env_cfg = str(tmp / 'no-such-user-config.json')
+        saved = os.environ.get('PRECEDENT_USER_CONFIG')
+        os.environ['PRECEDENT_USER_CONFIG'] = env_cfg
+        try:
+            entries, notes = pv.collect(here)
+            entries_rv, notes_rv = pv.collect(here, resolved_view=True)
+        finally:
+            if saved is None:
+                os.environ.pop('PRECEDENT_USER_CONFIG', None)
+            else:
+                os.environ['PRECEDENT_USER_CONFIG'] = saved
+
+        phrases = {e[0] for e in entries}
+        phrases_rv = {e[0] for e in entries_rv}
+        levels = {e[0]: (e[3], e[4]) for e in entries}
+
+        cases = [
+            ('the file you are standing on wins over a resolved copy of the '
+             'same slug',
+             'Live Phrase' in phrases and 'Stale Phrase' not in phrases,
+             f'{sorted(phrases)}'),
+            ('and the collision is NAMED, with both paths and the winner -- '
+             'the silence was the whole defect',
+             any('fixture-shadowed' in n and str(here) in n
+                 and str(other) in n for n in notes), f'{notes}'),
+            ('the local file keeps the RESOLVED label, since a local read '
+             'cannot know which level it is standing in',
+             levels.get('Live Phrase') == ('universal', 'precedent'),
+             f'{levels.get("Live Phrase")}'),
+            ('negative control: a slug only the resolver has still comes '
+             'from there -- this is not "ignore the resolver"',
+             'Resolved Only Phrase' in phrases, f'{sorted(phrases)}'),
+            ('negative control: --resolved-view still reaches the old '
+             'precedence for a caller that wants it',
+             'Stale Phrase' in phrases_rv and 'Live Phrase' not in phrases_rv,
+             f'{sorted(phrases_rv)}'),
+            ('...and names the collision there too, pointing the other way',
+             any('fixture-shadowed' in n for n in notes_rv), f'{notes_rv}'),
+        ]
+        ok = all(passed for _, passed, _ in cases)
+        for name, passed, detail in cases:
+            if not passed:
+                print(f"  vocabulary precedence did NOT behave as stated: "
+                      f"{name} [{detail}]")
+        check(f'precedent_vocabulary reads the file you are standing on, and '
+              f'names the collision ({len(cases)} stated cases)', ok)
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 def check_beta_watermark_commits_only_when_it_actually_reports_something():
     """The watermark advances -- and writes a commit -- ONLY on a run that
     tells its person about a commit that is not theirs. A run with nothing
@@ -27927,6 +28047,7 @@ def main():
     check('the archive line is refused when the container holds '
           'only-copy work',
           *check_archive_line_is_refused_when_the_container_holds_only_copy_work())
+    check_vocabulary_prefers_the_file_you_are_standing_on()
     check_beta_watermark_commits_only_when_it_actually_reports_something()
     check_beta_watermark_never_writes_into_a_busy_or_unpushable_checkout()
     check_trivial_checkin_exempts_the_boildown_gate()
