@@ -4541,16 +4541,43 @@ def endgame_merge(repo_dir, target=None, base=None, keep=False):
                 f'as clean and not as a drop. git said: {merr or "(nothing)"}')
             return out
 
-        rc, conflicted, _ = _run_git(work, 'diff', '--name-only',
-                                     '--diff-filter=U')
-        conflicts = {ln for ln in conflicted.splitlines() if ln} if rc == 0 else set()
-        rc, staged, _ = _run_git(work, 'ls-files', '--stage')
+        # THE SAME DEFECT, ONE LAYER DOWN. The merge is now known to have
+        # run -- but these two reads are how the result is learned, and
+        # until 2026-09-22 each coerced its own failure to an empty set.
+        # An `ls-files` that fails leaves `present` holding only the
+        # conflicts, so `expected - present` names almost every file on the
+        # integration branch: the identical fabricated drop list the merge
+        # refusal used to produce, arrived at by a different route and just
+        # as confident. Neither read is allowed to fail quietly. UNKNOWN is
+        # a worse-sounding answer than `clean` and a far better one than an
+        # invented finding (practice: control-asserts-which-failure -- a
+        # guard that cannot establish its own inputs says so).
+        rc, conflicted, diff_err = _run_git(work, 'diff', '--name-only',
+                                            '--diff-filter=U')
+        if rc != 0:
+            out['status'] = 'error'
+            out['note'] = (
+                f'the merge ran, but its result could not be read: '
+                f'`git diff --name-only --diff-filter=U` exited {rc}. Treat '
+                f'this as UNKNOWN -- nothing here is a statement about what '
+                f'{target} would lose. git said: '
+                f'{diff_err or "(nothing)"}')
+            return out
+        conflicts = {ln for ln in conflicted.splitlines() if ln}
+        rc, staged, staged_err = _run_git(work, 'ls-files', '--stage')
+        if rc != 0:
+            out['status'] = 'error'
+            out['note'] = (
+                f'the merge ran, but its result could not be read: '
+                f'`git ls-files --stage` exited {rc}. Treat this as UNKNOWN '
+                f'-- nothing here is a statement about what {target} would '
+                f'lose. git said: {staged_err or "(nothing)"}')
+            return out
         present = set(conflicts)
-        if rc == 0:
-            for line in staged.splitlines():
-                meta, _, path = line.partition('\t')
-                if path and meta.split()[-1] == '0':
-                    present.add(path)
+        for line in staged.splitlines():
+            meta, _, path = line.partition('\t')
+            if path and meta.split()[-1] == '0':
+                present.add(path)
         out['conflicts'] = sorted(conflicts)
         out['dropped'] = sorted(expected - present)
         out['status'] = 'findings' if out['dropped'] else 'clean'
