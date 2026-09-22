@@ -44,6 +44,7 @@ Built from every practice's `defines:` frontmatter field -- the terms that pract
 | positive control | [control-asserts-which-failure](practices/control-asserts-which-failure.md) |
 | practice pack | [layered-practice-packs](practices/layered-practice-packs.md) |
 | practice-set source | [source-naming](practices/source-naming.md) |
+| Primary branch | [primary-branch](practices/primary-branch.md) |
 | Prompt Please | [prompt-please](practices/prompt-please.md) |
 | pronouns | [declared-pronouns](practices/declared-pronouns.md) |
 | Push directly | [push-directly](practices/push-directly.md) |

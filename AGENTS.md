@@ -238,7 +238,7 @@ plan's premise.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block; `python3 tools/build_views.py --check` exits non-zero on drift. Source: practices/ -- edit the practice file, never this block. -->
 
-## Resident block (~895 of 2000 token budget, 10 of 140 practices (10 universal))
+## Resident block (~895 of 2000 token budget, 10 of 141 practices (10 universal))
 
 **answer-first-ask-before-long-work.** Three parts. **(1) Answer the easy questions in a message before starting
 anything long** — in the same turn; the long run never gates the answer.
@@ -346,6 +346,8 @@ When a person says "Drop it" about an open item or a question:
   park-it — "Drop it" -- mark the item `parked` now; never raise it unprompted again
 When a person says "My options", asks to have a decision's options laid out, or asks -- about a current issue -- for the options to hand off to another session:
   my-options — "My options" -- every option, plainer, your pick -- or a paste-ready handoff
+When a person says "Primary branch", or asks which branch is trunk, the routine working branch, or where regular pushes and pull requests land:
+  primary-branch — "Primary branch" -- trunk; the one branch regular work pushes to and pull requests target
 When a person says "Reduction pass", or an always-loaded surface is near its ceiling:
   reduction-pass — "Reduction pass" -- work the menu in order, move never delete, report what moved
 When a person says "Simple words", or plainly asks to be talked to that way:
