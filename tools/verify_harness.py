@@ -6449,6 +6449,10 @@ def check_a_stale_source_clone_is_made_current_not_reported_clean():
         (origin / 'tools' / 'engine_a.py').write_text('v1\n', encoding='utf-8')
         (origin / 'practices').mkdir()
         (origin / 'practices' / 'p.md').write_text('one\n', encoding='utf-8')
+        # A generated view, TRACKED the way a real source clone tracks it --
+        # case 8 below rewrites it to prove build_views' output is discarded
+        # and restored rather than deleted.
+        (origin / 'MAP.md').write_text('generated, v1\n', encoding='utf-8')
         (origin / 'precedent.json').write_text('{"base_branch": "main"}',
                                                encoding='utf-8')
         git(origin, 'add', '-A')
@@ -6482,12 +6486,13 @@ def check_a_stale_source_clone_is_made_current_not_reported_clean():
                       f'engine={engine} other={other}'))
 
         # 2. A person's file is NEVER the engine's, even beside engine dirt.
-        #    IT MUST BE TRACKED AND MODIFIED. An untracked file reads as `??`
-        #    and lands in `other` whatever the owned-set says, so a fixture
-        #    built that way exercises nothing -- proven by planting "every
-        #    modified file is engine output" and watching this case pass.
-        #    The status code is the wrong half of the test; the owned-set
-        #    membership is the half that matters.
+        #    IT MUST BE TRACKED AND MODIFIED -- not because `??` is safe
+        #    (since 2026-09-22 an untracked OWNED path is engine dirt, case
+        #    8 below), but because a tracked, modified, unowned file is the
+        #    one shape where only the owned-set decides. Built any other way
+        #    the case passes on the status code and exercises nothing --
+        #    proven by planting "every modified file is engine output" and
+        #    watching it pass anyway.
         (clone / 'practices' / 'mine.md').write_text('hand\n', encoding='utf-8')
         git(clone, 'add', '-A')
         git(clone, 'commit', '--quiet', '-m', 'a file of my own')
@@ -6570,6 +6575,67 @@ def check_a_stale_source_clone_is_made_current_not_reported_clean():
         cases.append(('a skipped source is named and exits non-zero',
                       'NOT APPLIED to' in src
                       and 'return 1 if (failed or skipped) else 0' in src, ''))
+
+        # 8. THE 2026-09-22 WIDENING. A newly vendored engine file arrives
+        #    UNTRACKED, not modified, so `M`-only classification read it as
+        #    somebody's uncommitted work: three source clones skipped their
+        #    refresh, and the container scanner called the container unsafe
+        #    on every reply. Planted on a clean clone so the two new shapes
+        #    are the only dirt in it.
+        fresh = tmp / 'fresh'
+        subprocess.run(['git', 'clone', '--quiet', str(origin), str(fresh)],
+                       capture_output=True, text=True)
+        git(fresh, 'config', 'user.email', 'fixture' + chr(64) + 'example.invalid')
+        git(fresh, 'config', 'user.name', 'Fixture')
+        manifest_new = dict(manifest, files=['engine_a.py', 'engine_new.py'])
+        (fresh / 'tools' / 'ENGINE_MANIFEST.json').write_text(
+            json.dumps(manifest_new), encoding='utf-8')
+        (fresh / 'tools' / 'engine_new.py').write_text('just vendored\n',
+                                                        encoding='utf-8')
+        (fresh / 'MAP.md').write_text('regenerated\n', encoding='utf-8')
+        (fresh / 'notes.md').write_text('mine, and new\n', encoding='utf-8')
+        engine, other = rs.classify_dirt(fresh)
+        cases.append(('an UNTRACKED file the manifest names is engine dirt, '
+                      'not a person\'s uncommitted work',
+                      'tools/engine_new.py' in engine
+                      and 'tools/engine_new.py' not in other,
+                      f'engine={engine} other={other}'))
+        cases.append(('a regenerated MAP.md is engine dirt although no '
+                      'manifest list names it',
+                      'MAP.md' in engine and 'MAP.md' not in other,
+                      f'engine={engine} other={other}'))
+        cases.append(("negative control: an untracked file the manifest does "
+                      "NOT name is still a person's",
+                      'notes.md' in other and 'notes.md' not in engine,
+                      f'engine={engine} other={other}'))
+        cases.append(('negative control: AGENTS.md is not claimed -- only its '
+                      'loader block is generated',
+                      'AGENTS.md' not in rs.engine_owned_paths(fresh), ''))
+
+        # 9. …and discarding it works. `git checkout --` fails outright on a
+        #    path git has never tracked, so widening the classification
+        #    without widening the discard would have turned a working
+        #    refresh into a refusal.
+        (origin / 'practices' / 'p.md').write_text('five\n', encoding='utf-8')
+        git(origin, 'add', '-A')
+        git(origin, 'commit', '--quiet', '-m', 'fifth')
+        (fresh / 'notes.md').unlink()          # leave only engine dirt behind
+        ok9, note9 = rs.make_current(fresh, 'main')
+        counts9 = git(fresh, 'rev-list', '--left-right', '--count',
+                      'origin/main...HEAD').stdout.split()
+        cases.append(('a clone dirty with an UNTRACKED engine file is still '
+                      'made current', ok9 and counts9 == ['0', '0'],
+                      f'{note9} counts={counts9}'))
+        cases.append(('and the untracked engine file was removed, for the '
+                      'refresh that follows to write again',
+                      not (fresh / 'tools' / 'engine_new.py').exists(),
+                      'still there'))
+        cases.append(('and the TRACKED generated view was restored, not '
+                      'removed -- the two kinds of engine dirt take '
+                      'different routes',
+                      (fresh / 'MAP.md').is_file()
+                      and 'regenerated' not in (fresh / 'MAP.md').read_text(),
+                      'MAP.md is gone or still holds the stale render'))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 

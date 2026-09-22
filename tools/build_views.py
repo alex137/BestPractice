@@ -67,6 +67,19 @@ AGENTS_MD = ROOT / 'AGENTS.md'
 MAP_MD = ROOT / 'MAP.md'
 GLOSSARY_MD = ROOT / 'GLOSSARY.md'
 
+# The views this script writes IN FULL, from practices/ alone. Nothing
+# hand-authored survives in either, so a dirty copy of one in a source clone
+# is the engine's own output and may be discarded --
+# precedent_refresh_sources.engine_owned_paths reads this rather than
+# repeating the names, and is the reason the tuple is declared at all.
+#
+# AGENTS.md IS DELIBERATELY NOT HERE. Only its loader block is generated;
+# the rest is somebody's prose, and a modified AGENTS.md is far more likely
+# to be a person mid-edit than a stale render. Discarding that would be
+# exactly the mistake engine_owned_paths' own docstring says it must never
+# make, so AGENTS.md stays a person's file for that purpose.
+FULLY_GENERATED_VIEWS = ('MAP.md', 'GLOSSARY.md')
+
 sys.path.insert(0, str(_ENGINE_DIR))
 import split_practices as sp
 

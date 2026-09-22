@@ -5,6 +5,7 @@
 | Item | What | Status | Closed |
 |---|---|---|---|
 | [`todo-2026-09-21-a-dropped-hook-never-leaves-a-consumer`](todo-2026-09-21-a-dropped-hook-never-leaves-a-consumer.md) | A hook dropped upstream stays installed in every consumer, forever. | done | 2026-09-22 |
+| [`todo-2026-09-22-container-scanner-counts-engine-output-as-only-copy-work`](todo-2026-09-22-container-scanner-counts-engine-output-as-only-copy-work.md) | The archive gate shipped on 2026-09-22 calls this container unsafe over three clones that hold nothing anyone could lose | done | 2026-09-22 |
 | [`todo-2026-09-21-instruction-files-name-repos-nobody-checks`](todo-2026-09-21-instruction-files-name-repos-nobody-checks.md) | twice | done | 2026-09-21 |
 | [`todo-2026-09-21-scratch-install-resolved-an-undeclared-individual-source`](todo-2026-09-21-scratch-install-resolved-an-undeclared-individual-source.md) | A project whose `precedent.json` declares only `universal` and `repo-local` resolved an INDIVIDUAL source anyway. | done | 2026-09-21 |
 | [`todo-2026-09-21-structural-leak-rules-assume-bestpractices-own-tree`](todo-2026-09-21-structural-leak-rules-assume-bestpractices-own-tree.md) | this | done | 2026-09-21 |

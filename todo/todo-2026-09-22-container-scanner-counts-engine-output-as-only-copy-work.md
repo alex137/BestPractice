@@ -3,16 +3,16 @@ slug:              todo-2026-09-22-container-scanner-counts-engine-output-as-onl
 kind:              manual
 domain:            engine
 severity:          medium
-status:            open
+status:            done
 disposition:       ask
 remind_on:         null
 blocked_on:        null
 batch:             null
-decision:          null
-decision_strength: null
+decision:          "option 1 -- widen classify_dirt on both counts"
+decision_strength: assented
 waiting_on:        null
 noted:             2026-09-22
-closed:            null
+closed:            2026-09-22
 ---
 ## What
 
@@ -74,6 +74,42 @@ landing.
    person's edit for the same paths.
 3. **Leave it.** Cost: the gate is red on every reply in any container that
    holds a source clone, which is most of them.
+
+## What Was Done, 2026-09-22
+
+**Option 1, both halves.** Morgan: *"Go update on the container scanner false
+positive"* — a go-ahead to this item's own recommendation rather than a
+choice he argued for, so `assented`.
+
+[`classify_dirt()`](../tools/precedent_refresh_sources.py) now counts `??`
+as engine dirt for a manifest-declared path. The manifest is a
+**declaration** of what the engine writes, not a listing of what git has
+seen, so a path it names is the engine's whether the clone has tracked it
+before or not — and that manifest's own `_note` already tells people never
+to hand-write a file it lists.
+
+`engine_owned_paths()` now also claims the fully generated views. The names
+come from [`build_views.py`](../tools/build_views.py)'s new
+`FULLY_GENERATED_VIEWS` rather than being repeated, read lazily so a
+vendored engine that arrived without that module still classifies
+everything the manifest names. **[`AGENTS.md`](../AGENTS.md) is deliberately not
+among them**: only its loader block is generated and the rest is somebody's
+prose, so a modified copy of it stays a person's file.
+
+**Widening the classification meant widening the discard.** `git checkout
+--` fails outright on a path git has never tracked, so `make_current()`
+would have turned a working refresh into a refusal. A new
+`discard_engine_dirt()` restores the tracked ones and **removes** the
+untracked ones — the refresh that immediately follows rewrites every path
+in that set, so the file is back, from upstream, in the same run.
+
+Measured after the change, on the three real clones: `other: []` on all
+three, and the scanner drops from 4 unsafe checkouts to the 2 that hold
+genuine work. Twelve more stated cases in
+[tools/verify_harness.py](../tools/verify_harness.py) — nineteen in that
+check now — including the negative controls that an untracked file the
+manifest does **not** name is still a person's, and that the two kinds of
+engine dirt take different routes.
 
 ## Not To Be Confused With
 
