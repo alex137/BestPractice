@@ -49,6 +49,21 @@ harmless and is the point: `others` is computed over `seen..head`, so a
 watermark that stayed put simply widens the window the next run reads, and
 a commit nobody was told about is still found and still reported.
 
+AND WHERE IT MOVES: NOT INTO A CLONE NOBODY CAN PUSH. Moving the trigger
+left the rarer half of the problem behind -- an alert still wrote a commit
+into the individual source, and from a session rooted in this repository
+that push cannot land (the git proxy refuses themorgan/precedent-individual
+on repository scope; re-measured 2026-09-22, it is not the token). So the
+alert path now PROBES first, with `push --dry-run`, and writes into that
+clone only when a push would actually land. Where it would not, nothing is
+written there at all: the head just reported is recorded in this
+repository's gitignored `.precedent/`, per container, which is all the
+shared watermark was buying anyway once it could not be pushed -- it stops
+the alert repeating HERE, and makes no claim about any other container.
+That note is written only where git can be shown to ignore it, because an
+untracked file in a source clone is the dirt that skips that clone's
+refresh and reads as work existing nowhere else.
+
 Raised by Morgan, 2026-09-18: Alex also pushes to this branch, and Morgan
 wants to know when -- but not in every reply of a session, only once per
 actual change. Two integration points, both calling `check()` /
@@ -153,6 +168,114 @@ def _load_watermark(path):
 def _write_watermark(path, data):
     path.write_text(json.dumps(data, indent=2, ensure_ascii=False) + '\n',
                      encoding='utf-8')
+
+
+LOCAL_NOTE_DIRNAME = '.precedent'
+LOCAL_NOTE_FILENAME = 'beta-branch-watermark-local.json'
+
+
+def _can_push(individual_path):
+    """-> True when a push to that clone's origin would actually land.
+
+    WHY PROBE RATHER THAN TRY AND UNDO. The alert path writes a commit into
+    a DIFFERENT repository -- the individual source -- and from a session
+    rooted in alex137/BestPractice that push cannot land: the git proxy
+    refuses themorgan/precedent-individual because GitHub access here is
+    scoped to this repository, and attachment refuses across owners. Every
+    failed push left the commit behind, unpushed and unpushable, and the
+    session check's "each practice source clone is current with its own
+    origin" row went red for a reason no session here could clear (8 such
+    commits as of 2026-09-22, re-measured that day: proxy 403, not the
+    token). Undoing the commit afterwards would mean resetting somebody
+    else's repository, which is exactly the trade this whole area is made
+    of, so the commit is never made in the first place.
+
+    `push --dry-run` is a real round trip -- it authenticates and negotiates
+    without writing -- so it answers the question that matters: WOULD this
+    land. A clone that is diverged, or behind, or unauthenticated all answer
+    no, and all three mean the same thing here."""
+    code, _ = git(individual_path, 'push', '--dry-run', '--quiet',
+                  'origin', 'HEAD')
+    return code == 0
+
+
+def _local_note_path(repo):
+    """Where a container that cannot push records what it has already said.
+
+    Inside THIS repository's `.precedent/`, which is gitignored here, and
+    never inside the individual source. A file in that clone -- tracked,
+    untracked or otherwise -- is the thing being avoided: an untracked one
+    is dirt that skips the clone's refresh and, since the container scanner
+    landed, reads as work that exists nowhere else.
+    """
+    return pathlib.Path(repo) / LOCAL_NOTE_DIRNAME / LOCAL_NOTE_FILENAME
+
+
+def _note_is_ignored(repo, path):
+    """True only when git in `repo` really ignores `path`.
+
+    Checked, never assumed. This repository's .gitignore carries
+    `.precedent/`, but `check()` also runs with `root` set to a practice set
+    -- and writing a non-ignored file there would create exactly the
+    untracked dirt this note exists to avoid. No proof, no note."""
+    code, _ = git(repo, 'check-ignore', '--quiet', str(path))
+    return code == 0
+
+
+def _read_local_note(repo):
+    try:
+        data = json.loads(_local_note_path(repo).read_text(encoding='utf-8'))
+    except (FileNotFoundError, ValueError, OSError):
+        return None
+    sha = (data or {}).get('reported_head')
+    return sha if isinstance(sha, str) and sha else None
+
+
+def _write_local_note(repo, head, branch):
+    """-> a phrase for the session-start line, saying what was recorded."""
+    path = _local_note_path(repo)
+    if not _note_is_ignored(repo, path):
+        return ('and nothing recorded it -- this repo does not ignore '
+                f'{LOCAL_NOTE_DIRNAME}/, so the same alert repeats next session')
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps({
+            '_comment': [
+                'What THIS CONTAINER has already told Morgan about',
+                f'origin/{branch}, when it could not push the shared',
+                'watermark to the individual source. Gitignored and',
+                'per-container on purpose: it stops the same alert',
+                'repeating here without leaving an unpushable commit in',
+                'somebody else\'s repository. Written by',
+                'tools/precedent_beta_watermark_check.py.',
+            ],
+            'branch': branch,
+            'reported_head': head,
+            'recorded': precedent_time.today(),
+        }, indent=2, ensure_ascii=False) + '\n', encoding='utf-8')
+    except OSError as exc:
+        return f'and the local note could not be written ({exc})'
+    return ('recorded in this container only, so it will not repeat here; '
+            'another container has not been told')
+
+
+def _later_of(repo, a, b):
+    """The more recent of two commits on the same branch, or `a` when that
+    cannot be established. Used to fold the local note into the shared
+    watermark: a container that has already reported up to X must not report
+    X again just because the file it could not push still says something
+    older."""
+    if not b:
+        return a
+    if not a:
+        return b
+    if a == b:
+        return a
+    code, _ = git(repo, 'merge-base', '--is-ancestor', a, b)
+    if code == 0:
+        return b
+    code, _ = git(repo, 'merge-base', '--is-ancestor', b, a)
+    return a if code == 0 else a
 
 
 def _identity_args(identity):
@@ -328,6 +451,11 @@ def check(root=None, no_fetch=False, no_push=False, user_config=None,
                        f'{head[:9]} ({outcome})'], None
 
     seen = (registry.get('last_seen') or {}).get('sha')
+    # A container that could not push the shared watermark keeps its own
+    # note of what it has already said. Fold it in before deciding what is
+    # new, or this container re-reports commits it reported yesterday
+    # purely because the file it could not push still names an older head.
+    seen = _later_of(repo, seen, _read_local_note(repo))
     if seen == head:
         return 'ok', [f'{branch} unchanged since last check ({head[:9]})'], None
 
@@ -354,14 +482,25 @@ def check(root=None, no_fetch=False, no_push=False, user_config=None,
                        f'nothing to tell you, so the watermark stays at '
                        f'{seen[:9] if seen else "(none recorded)"}'], None
 
-    registry['last_seen'] = {
-        'sha': head, 'recorded': precedent_time.today(),
-        'note': 'auto-advanced by precedent_beta_watermark_check.py',
-    }
-    _write_watermark(watermark_path, registry)
-    outcome = _commit_and_push(indiv, watermark_path,
-                                f'Advance {branch} watermark to {head[:9]}',
-                                no_push, branch, identity=me)
+    # THE COMMIT IS NEVER WRITTEN WHERE IT CANNOT BE PUSHED. See _can_push:
+    # the shared watermark is worth writing only when it will reach the
+    # individual source's own remote, because that is the only thing it buys
+    # over the per-container note below -- telling the NEXT container. A
+    # commit that stays here buys nothing and costs a permanently red
+    # session-check row.
+    if no_push or _can_push(indiv):
+        registry['last_seen'] = {
+            'sha': head, 'recorded': precedent_time.today(),
+            'note': 'auto-advanced by precedent_beta_watermark_check.py',
+        }
+        _write_watermark(watermark_path, registry)
+        outcome = _commit_and_push(indiv, watermark_path,
+                                    f'Advance {branch} watermark to {head[:9]}',
+                                    no_push, branch, identity=me)
+    else:
+        outcome = ('the individual source cannot be pushed from here, so '
+                    'nothing was written into it; '
+                    + _write_local_note(repo, head, branch))
 
     lines = [f'{len(others)} commit(s) on {branch} since {seen[:9] if seen else "(none recorded)"}, '
               f'not authored by you, up to {head[:9]} ({outcome}):']

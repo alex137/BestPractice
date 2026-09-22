@@ -11066,6 +11066,200 @@ def check_beta_watermark_commits_only_when_it_actually_reports_something():
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+def check_beta_watermark_never_commits_where_it_cannot_push():
+    """The alert path writes into the individual source only when a push to
+    it would actually land; otherwise it writes nothing there at all.
+
+    WHAT MOVING THE TRIGGER LEFT BEHIND. Committing only on a real alert
+    (check above) removed the volume -- roughly 2% of commits on this branch
+    are somebody else's -- but not the shape. An alert still wrote a commit
+    into a DIFFERENT repository, and from a session rooted in
+    alex137/BestPractice that push cannot land: the git proxy refuses
+    themorgan/precedent-individual on repository scope (re-measured
+    2026-09-22 with the credential helper present and the token in the
+    environment -- it is not the token). Eight such commits were sitting in
+    that clone, and the session check's "each practice source clone is
+    current with its own origin" row was red on every session because of
+    them.
+
+    So the path probes with `push --dry-run` -- a real authenticate-and-
+    negotiate round trip that writes nothing -- and where the answer is no,
+    the head just reported goes into a per-container note in THIS repo's
+    gitignored .precedent/ instead. That is all the shared watermark was
+    buying once it could not be pushed: it stops the alert repeating here,
+    and claims nothing about any other container.
+
+    The note is written only where git can be SHOWN to ignore it. An
+    untracked file in a source clone is precisely the dirt that skips that
+    clone's refresh and reads as work existing nowhere else, so the last
+    case here is the repo that ignores nothing: no note, and an outcome line
+    that says the alert will repeat rather than pretending otherwise.
+    """
+    import shutil, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_beta_watermark_check as pbw
+
+    MINE = 'watermark-owner@example.com'
+    THEIRS = 'someone-else@example.com'
+
+    def git(cwd, *args, author=None):
+        env = dict(os.environ)
+        if author:
+            env['GIT_AUTHOR_EMAIL'] = env['GIT_COMMITTER_EMAIL'] = author
+            env['GIT_AUTHOR_NAME'] = env['GIT_COMMITTER_NAME'] = author.split('@')[0]
+        r = subprocess.run(['git', '-C', str(cwd), *args],
+                           capture_output=True, text=True, env=env)
+        if r.returncode != 0:
+            raise RuntimeError(f"git {' '.join(args)}: {r.stderr.strip()}")
+        return r.stdout.strip()
+
+    saved = {k: os.environ.get(k) for k in
+             ('PRECEDENT_COMMIT_EMAIL', 'PRECEDENT_COMMIT_NAME',
+              'PRECEDENT_COMMIT_TIMEZONE', 'PRECEDENT_USER_CONFIG')}
+    for k in saved:
+        os.environ.pop(k, None)
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='beta-watermark-push-'))
+    try:
+        branch = 'precedent-beta-v01'
+
+        origin_bp = tmp / 'origin-bp'
+        git(tmp, 'init', '-q', '--bare', '-b', branch, str(origin_bp))
+        seed = tmp / 'seed'
+        git(tmp, 'clone', '-q', str(origin_bp), str(seed))
+        git(seed, 'config', 'user.email', 'harness@example.com')
+        git(seed, 'config', 'user.name', 'harness')
+        # The clone below inherits this, the way BestPractice's own
+        # .gitignore carries `.precedent/`.
+        (seed / '.gitignore').write_text('.precedent/\n', encoding='utf-8')
+
+        def land(text, author):
+            (seed / 'f.txt').write_text(text, encoding='utf-8')
+            git(seed, 'add', '-A')
+            git(seed, 'commit', '-qm', text, author=author)
+            git(seed, 'push', '-q', 'origin', branch)
+
+        land('c0', MINE)
+
+        work = tmp / 'work'
+        git(tmp, 'clone', '-q', str(origin_bp), str(work))
+
+        indiv_origin = tmp / 'indiv-origin'
+        git(tmp, 'init', '-q', '--bare', '-b', 'main', str(indiv_origin))
+        indiv = tmp / 'indiv'
+        git(tmp, 'clone', '-q', str(indiv_origin), str(indiv))
+        git(indiv, 'config', 'user.email', 'harness@example.com')
+        git(indiv, 'config', 'user.name', 'harness')
+        (indiv / 'identity.json').write_text(json.dumps(
+            {'name': 'Watermark Owner', 'email': MINE,
+             'timezone': 'UTC'}) + '\n', encoding='utf-8')
+        git(indiv, 'add', '-A')
+        git(indiv, 'commit', '-qm', 'identity')
+        git(indiv, 'push', '-q', 'origin', 'main')
+
+        cfg = tmp / 'config.json'
+        cfg.write_text(json.dumps({'individual': {'path': str(indiv)}}) + '\n',
+                        encoding='utf-8')
+
+        def run(root=None):
+            return pbw.check(root=root or work, no_fetch=False, no_push=False,
+                              user_config=str(cfg), individual_path=indiv)
+
+        def commits():
+            return int(git(indiv, 'rev-list', '--count', 'HEAD'))
+
+        run()                                   # baseline, on a live remote
+        baseline_commits = commits()
+
+        # --- the remote goes out of reach, and somebody else pushes -------
+        reachable = str(indiv_origin)
+        git(indiv, 'remote', 'set-url', 'origin', str(tmp / 'no-such-remote'))
+        cases = [('the probe says no when the remote cannot be reached',
+                  pbw._can_push(indiv) is False, 'probe said yes')]
+
+        land('c1', THEIRS)
+        status1, lines1, alert1 = run()
+        note_path = pbw._local_note_path(work)
+        cases += [
+            ('the alert is still delivered', status1 == 'alert'
+             and alert1 is not None and 'someone-else' in alert1,
+             f'{status1} {alert1}'),
+            ('and NOTHING was written into the individual source',
+             commits() == baseline_commits
+             and git(indiv, 'status', '--porcelain') == '',
+             f'{commits()} commits, porcelain '
+             f'{git(indiv, "status", "--porcelain")!r}'),
+            ('the head reported is recorded per-container instead',
+             note_path.is_file()
+             and json.loads(note_path.read_text(encoding='utf-8')
+                            )['reported_head'] == git(work, 'rev-parse',
+                                                       f'origin/{branch}'),
+             'no note'),
+            ('the note is invisible to git, so it is not dirt in its turn',
+             git(work, 'status', '--porcelain') == '',
+             git(work, 'status', '--porcelain')),
+            ('and the session-start line says the commit was not written',
+             'cannot be pushed from here' in ' '.join(lines1),
+             ' '.join(lines1)),
+        ]
+
+        # The note is the whole point: the same alert must not repeat here.
+        status2, _l2, alert2 = run()
+        cases.append(('the same alert does not repeat in this container',
+                      status2 == 'ok' and alert2 is None, f'{status2} {alert2}'))
+
+        # --- the remote comes back: the shared watermark is written again --
+        git(indiv, 'remote', 'set-url', 'origin', reachable)
+        land('c2', THEIRS)
+        status3, _l3, alert3 = run()
+        cases += [
+            ('with the remote reachable, the alert fires again',
+             status3 == 'alert' and alert3 is not None, f'{status3}'),
+            ('and NOW the shared watermark is committed and pushed',
+             commits() == baseline_commits + 1
+             and int(git(indiv, 'rev-list', '--count', 'HEAD', '--not',
+                          '--remotes')) == 0,
+             f'{commits()} commits, '
+             f'{git(indiv, "rev-list", "--count", "HEAD", "--not", "--remotes")}'
+             f' unpushed'),
+        ]
+
+        # --- a repo that ignores nothing gets no note, and is told so ------
+        bare_work = tmp / 'bare-work'
+        git(tmp, 'clone', '-q', str(origin_bp), str(bare_work))
+        (bare_work / '.gitignore').unlink()
+        git(bare_work, 'config', 'user.email', 'harness@example.com')
+        git(bare_work, 'config', 'user.name', 'harness')
+        git(bare_work, 'commit', '-qam', 'drop the ignore file')
+        git(indiv, 'remote', 'set-url', 'origin', str(tmp / 'no-such-remote'))
+        land('c3', THEIRS)
+        _s4, lines4, _a4 = run(root=bare_work)
+        cases += [
+            ('a repo that does not ignore the note gets none written',
+             not (bare_work / '.precedent' / pbw.LOCAL_NOTE_FILENAME).exists(),
+             'a note was written where git would see it'),
+            ('...and the line says the alert will repeat, rather than '
+             'implying it has been handled',
+             'repeats next session' in ' '.join(lines4), ' '.join(lines4)),
+            ('...and that repo is still clean',
+             git(bare_work, 'status', '--porcelain') == '',
+             git(bare_work, 'status', '--porcelain')),
+        ]
+
+        ok = all(passed for _, passed, _ in cases)
+        for name, passed, detail in cases:
+            if not passed:
+                print(f"  beta watermark push-probe did NOT behave as stated: "
+                      f"{name} [{detail}]")
+        check(f'the beta-branch watermark never commits where it cannot push '
+              f'({len(cases)} stated cases)', ok)
+    finally:
+        for k, v in saved.items():
+            if v is not None:
+                os.environ[k] = v
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 def check_archive_line_is_refused_when_the_container_holds_only_copy_work():
     """`require_container_safe_if_says` refuses a reply that tells the person
     they can archive while this container holds work that exists nowhere else.
@@ -27283,6 +27477,7 @@ def main():
           'only-copy work',
           *check_archive_line_is_refused_when_the_container_holds_only_copy_work())
     check_beta_watermark_commits_only_when_it_actually_reports_something()
+    check_beta_watermark_never_commits_where_it_cannot_push()
     check_trivial_checkin_exempts_the_boildown_gate()
     check_close_detection_fires_only_when_all_conditions_hold()
     check_loader_block_advertises_only_live_channels()
