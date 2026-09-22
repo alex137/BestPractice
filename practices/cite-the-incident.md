@@ -6,6 +6,7 @@ severity:    default
 applies_to:  ["practices/**", "PRACTICES.md"]
 occasion:    "writing a new convention or rule"
 gates:       ["review"]
+index_required: false
 index_clause: "record the failure a rule prevents, inline with the rule"
 checked_by:  "tools/precedent_check.py"
 defines:     []

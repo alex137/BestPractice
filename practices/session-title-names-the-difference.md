@@ -16,6 +16,7 @@ supersedes:  []
 overrides:   null
 added:       "2026-09-17"
 approved_by: "Morgan, 2026-09-17 -- \"This is great, I love it, let's implement this please\"; strength: decided"
+index_required: true
 ---
 ## Rule
 **A session's title is `<repo>: <differentiator>`** — a short tag for the
@@ -57,3 +58,21 @@ Nothing mechanical checks this: a title lives on the session service, not in
 any tree, so no gate in any repo can see whether one was set well. What
 reaches a session is the occasion index entry above, generated, and the
 `reply` gate reminder.
+
+**`index_required: true`, added 2026-09-22.** Without it,
+[build_views.py](../tools/build_views.py)'s `index_is_redundant()` saw
+`gates: ["reply"]` and dropped this rule's own occasion-index line, on the
+theory that the reply gate already routes it. It does not: the reply gate
+fires at the END of a turn, after `create_session` has already run with
+whatever title got chosen. For a rule about what title to pick AT CREATION,
+that is too late to do its job -- the occasion index is the only channel
+that fires before the choice is made.
+[precedent_check.py](../tools/precedent_check.py)'s
+`index-required-is-declared` was meant to catch a missing flag like this one,
+but its regex only recognizes occasions
+phrased as something a *person says* ("Morgan asks", "the message says") --
+"naming or renaming a session, at creation" doesn't match that shape, so
+the check passed clean. Caught downstream: precedent-individual's own
+override of this rule, `session-title-abbreviates-repo`, had the identical
+gap and is what surfaced it -- Morgan noticed session titles weren't
+getting abbreviated and asked why.

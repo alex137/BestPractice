@@ -7,6 +7,7 @@ applies_to:  ["**"]
 occasion:    "discovering something a session in another window will need, or the person adopts a recommendation you gave in chat"
 index_clause: "commit it, an adopted plan included; never leave it for the person to carry"
 gates:       ["reply"]
+index_required: false
 checked_by:  null
 defines:     []
 status:      active

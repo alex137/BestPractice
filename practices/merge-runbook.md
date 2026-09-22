@@ -6,6 +6,7 @@ severity:    default
 applies_to:  ["**"]
 occasion:    "merging a branch that touches shared files"
 gates:       ["merge"]
+index_required: false
 index_clause: "write conflict resolution per file class, once, then follow it"
 checked_by:  null
 defines:     ["merge runbook"]

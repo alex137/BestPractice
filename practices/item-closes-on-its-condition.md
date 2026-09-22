@@ -6,6 +6,7 @@ severity:    default
 applies_to:  ["TODO.md", "**/TODO.md"]
 occasion:    "work touches something an open item is about, or a branch is merged"
 gates:       ["merge"]
+index_required: true
 index_clause: "record what you established into the item; close only on its stated condition"
 checked_by:  null
 defines:     []

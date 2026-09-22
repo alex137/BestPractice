@@ -3649,16 +3649,14 @@ SPOKEN_TRIGGER_RE = re.compile(r"""(?ix)
 
 
 @check('index-required-is-declared', 'tree',
-       'a practice whose occasion reads as a SPOKEN trigger -- something a '
-       'person says or asks for -- either carries index_required, or has been '
-       'reviewed and says so with index_required: false',
-       'whether the judgment recorded is CORRECT. It reads occasion text, so '
-       'it cannot tell a phrase the session must recognize in an incoming '
-       'message from one that merely mentions asking; both halves are '
-       'declared by a person in the practice file and this only insists that '
-       'somebody decided. It is also blind to the reverse error -- a spoken '
-       'trigger whose occasion is worded so it does not read as one -- which '
-       'no text test can reach.',
+       'a practice with BOTH an occasion and a gates: entry either carries '
+       'index_required, or has been reviewed and says so with '
+       'index_required: false',
+       'whether the judgment recorded is CORRECT: whether the occasion\'s '
+       'own moment genuinely cannot arrive before any of its declared gates '
+       'fire. That is a timing question about the practice, answerable only '
+       'by a person reading it, and this check insists only that somebody '
+       'did.',
        practice_backed=False)
 def _index_required_is_declared(ctx):
     """WHY: a real applies_to glob or a gates: entry routes a practice without
@@ -3666,18 +3664,29 @@ def _index_required_is_declared(ctx):
     index is loaded in full by every session before it does any work, and a
     line that duplicates a working channel is paid for every turn.
 
-    Neither channel can fire on something a PERSON SAYS. A glob needs a file;
-    a gate needs a moment, and merge/review/push/reply all arrive at the end
-    of the work a phrase was meant to redirect. `Go merge` is the worked case
-    and its own history is the citation: while its definition sat in a private
-    set a session could not read, one went and asked what the phrase meant --
-    the exact interruption the phrase exists to prevent.
+    THE BUG THIS REPLACES, 2026-09-22 (cite-the-incident). This check used to
+    gate on SPOKEN_TRIGGER_RE -- occasion text shaped like "a person says" or
+    "the message asks" -- on the theory that only a SPOKEN trigger can arrive
+    before a gate fires. That is true of `Go merge` and false in general: a
+    gates: ["reply"] practice whose occasion is a MOMENT ("creating a
+    session, at creation") is exactly as mistimed as a spoken one, because
+    the reply gate still only fires at the end of the turn, after the moment
+    the occasion describes has already passed. `session-title-abbreviates-repo`
+    (precedent-individual) and this repo's own `session-title-names-the-
+    difference` both had this exact shape -- gates: ["reply"], no
+    index_required -- and both were silently dropped from the occasion index
+    for two days before anyone noticed session titles had stopped getting
+    named correctly. Neither occasion is phrased as a spoken trigger, so the
+    old regex never flagged either one.
 
-    So the index is the ONLY channel for a spoken trigger, and this check
-    refuses to let that be decided by a regex at build time. It finds the
-    shapes a spoken trigger takes and insists a person settle each one in the
-    practice file: `index_required: true` keeps the line, `false` records that
-    the glob or gate really does route it."""
+    No regex generalizes past today's known phrasings -- the check's own
+    prior version already said so about its blind spot, correctly, and then
+    still shipped narrow. So the gate is now the actual risk condition
+    itself: ANY practice with an `occasion:` and a non-empty `gates:` is
+    exactly the shape build_views.index_is_redundant() can silently drop,
+    whatever the occasion's words look like. `index_required: true` keeps
+    the line; `false` is a person's recorded judgment that the gate really
+    does arrive no later than the occasion does."""
     try:
         sys.path.insert(0, str(ROOT / 'tools'))
         import build_views as bv
@@ -3689,7 +3698,8 @@ def _index_required_is_declared(ctx):
     out = []
     for fm, _sections, f in bv.load_practices(practices_dir):
         occasion = bv._json_str(fm.get('occasion', ''))
-        if not occasion or not SPOKEN_TRIGGER_RE.search(occasion):
+        gates = bv._json_list(fm.get('gates', '')) or []
+        if not occasion or not gates:
             continue
         if fm.get('command') not in (None, '', 'null'):
             continue                      # a command is a spoken trigger by construction
@@ -3698,17 +3708,23 @@ def _index_required_is_declared(ctx):
             continue
         rel = f.relative_to(ROOT) if hasattr(f, 'relative_to') else f
         routed = bv.index_is_redundant(fm)
+        spoken = bool(SPOKEN_TRIGGER_RE.search(occasion))
         out.append(Finding(
             str(rel),
-            f'its occasion reads as a spoken trigger ("{occasion[:60]}...") and '
-            f'it declares no {bv.INDEX_REQUIRED_FIELD}. '
-            + ('It is currently DROPPED from the occasion index because a glob '
-               'or gate routes it -- if the trigger is really something a '
-               'person says, that drop un-routes the rule silently. '
+            f'has an occasion ("{occasion[:60]}...") and gates: {gates!r}, '
+            f'and declares no {bv.INDEX_REQUIRED_FIELD}. '
+            + ('Its occasion reads as a spoken trigger, which cannot fire on '
+               'any of the closed gate vocabulary by construction. '
+               if spoken else
+               'Ask whether the occasion\'s moment could ever arrive before '
+               'the gate(s) listed actually fire. ')
+            + ('It is currently DROPPED from the occasion index because the '
+               'gate routes it -- if the gate genuinely arrives too late, '
+               'that drop silently un-routes the rule. '
                if routed else
                'It is currently kept in the index. ')
             + f'Set {bv.INDEX_REQUIRED_FIELD}: true to keep its index line, or '
-              f'false to record that the glob or gate really does route it'))
+              f'false to record that the gate really does arrive in time'))
     return out
 
 

@@ -6,6 +6,7 @@ severity:    default
 applies_to:  ["tools/**/*.py", "**/tests/**", "**/*_test.py", "**/test_*.py"]
 occasion:    "writing a test, fixture or control that proves a guard fires"
 gates:       ["review"]
+index_required: false
 index_clause: "a non-zero exit is not evidence; assert the message that guard prints"
 checked_by:  null
 defines:     ["positive control", "negative control"]
