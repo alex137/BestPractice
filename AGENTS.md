@@ -529,7 +529,7 @@ place — nothing is ever deleted, and nothing moves.
   `python3 tools/doc_lint.py` on the markdown you touched — the fast,
   constant pass above, run before every commit without thinking about it.
   **deep check** is the full gate suite run before push or merge:
-  `python3 tools/verify_harness.py`, `python3 tools/doc_lint.py`,
+  `python3 tools/verify_harness.py --as-ci`, `python3 tools/doc_lint.py`,
   `python3 tools/leak_gate.py`, `python3 tools/precedent_check.py`, and
   `python3 tools/doc_sync.py`. **What matters is `0 failed` and
   `0 violated`, never a passed/skipped count** — those grow as checks are
@@ -537,6 +537,14 @@ place — nothing is ever deleted, and nothing moves.
   [spec/ATTENTION_CEILING.md](spec/ATTENTION_CEILING.md)'s closing section,
   which says the same thing and records the audit that found a hardcoded
   one already wrong. Light check gates a commit; deep check gates a push.
+  **`--as-ci` is not decoration**: CI shards the harness across two jobs
+  using variables a plain local run never sets, so the bare command
+  certifies a shape nobody ships — it hid a crash on 2026-09-21 that turned
+  both CI jobs red on a locally green tree. The two shards partition the
+  suite, so the pair costs about what one run costs (measured 4m01s against
+  ~4m20s, 2026-09-22). It reproduces CI's command SHAPE, never CI's
+  environment: a local session resolves private sources CI cannot, so green
+  here means the sharding is not what breaks, not that CI will be green.
 
 ## Conventions (every session, every reply)
 

@@ -5912,6 +5912,106 @@ def _deep_assertion_slugs():
                   if m.group(1).endswith('-clean') else m.group(1))
     return found
 
+# THE TWO SHAPES CI RUNS, and the one a local session never does.
+# .github/workflows/deep-check.yml splits this suite across two jobs on
+# these variables, because check_precedent_check_fires is about half the
+# runtime (spec/VERIFY_HARNESS_PERFORMANCE.md). A plain local run sets
+# neither, so the whole filter path -- every behaviour that depends on a
+# check being replaced by a stand-in -- is code no local run executes.
+#
+# That gap hid a crash on 2026-09-21: the full local suite reported
+# 244 passed, 0 failed while BOTH sharded CI jobs died before their first
+# verdict (gotcha-2026-09-21-a-green-local-verify-harness-run-does-not-mean-
+# green-ci). `--as-ci` is how a session runs what CI will run, in one
+# command, and check_as_ci_shards_match_the_workflow below keeps this table
+# from drifting away from the workflow it mirrors.
+CI_SHARDS = (
+    ('heavy -- check_precedent_check_fires only, every planted case',
+     {'PRECEDENT_CHECK_ONLY': 'check_precedent_check_fires',
+      'PRECEDENT_HARNESS_ALL': '1'}),
+    ('rest -- everything except that one',
+     {'PRECEDENT_CHECK_SKIP': 'check_precedent_check_fires'}),
+)
+
+
+def run_as_ci():
+    """-> exit status. Run this suite the two ways CI runs it, in sequence.
+
+    NOT the same work twice: the shards PARTITION the suite, so the pair
+    costs about what one full run costs, plus a second interpreter start.
+    Measured 2026-09-22 in this tree: 4m01s for --as-ci against ~4m20s for
+    one plain run. What it buys is the filter path, which is the half a
+    local run has never executed.
+
+    IT REPRODUCES CI'S COMMAND SHAPE, NOT CI'S ENVIRONMENT, and the
+    difference is worth stating because over-promising here would repeat
+    the exact failure this exists to fix. A local session resolves private
+    practice sources that CI has no credential for, so a check keyed to one
+    of them can fail here and pass there -- and the reverse, a check that
+    needs something only CI has, would fail here for the same reason.
+    Green under --as-ci means the shard SHAPE is not what breaks; it does
+    not mean CI will be green."""
+    failed = []
+    for label, env_extra in CI_SHARDS:
+        env = dict(os.environ)
+        # Each shard gets a clean slate of BOTH variables, so a session that
+        # already has one exported does not silently skew a shard.
+        env.pop('PRECEDENT_CHECK_ONLY', None)
+        env.pop('PRECEDENT_CHECK_SKIP', None)
+        env.pop('PRECEDENT_HARNESS_ALL', None)
+        env.update(env_extra)
+        print(f'\n=== shard: {label} ===', flush=True)
+        proc = subprocess.run([sys.executable, str(pathlib.Path(__file__))],
+                              env=env, capture_output=True, text=True)
+        tail = [l for l in (proc.stdout or '').splitlines()
+                if 'passed,' in l or l.startswith('  - ')]
+        for line in tail[-12:]:
+            print(line)
+        if proc.returncode != 0:
+            failed.append(label)
+            print(f'  SHARD FAILED (exit {proc.returncode})')
+    if failed:
+        print(f'\n--as-ci: {len(failed)} of {len(CI_SHARDS)} shard(s) '
+              f'failed: {"; ".join(failed)}')
+        return 1
+    print(f'\n--as-ci: all {len(CI_SHARDS)} shard(s) green -- this is what '
+          f'CI will run.')
+    return 0
+
+
+def check_as_ci_shards_match_the_workflow():
+    """CI_SHARDS above must be what .github/workflows/deep-check.yml sets.
+
+    A local command that claims to run "what CI runs" and has drifted from
+    the workflow is worse than not having one: it returns green with
+    authority. So the table is asserted against the workflow's own env
+    blocks rather than trusted."""
+    wf = ROOT / '.github' / 'workflows' / 'deep-check.yml'
+    if not wf.is_file():
+        not_applicable('the --as-ci shard table matches the workflow',
+                       'no .github/workflows/deep-check.yml here')
+        return
+    body = wf.read_text(encoding='utf-8')
+    cases = []
+    for label, env_extra in CI_SHARDS:
+        for var, value in env_extra.items():
+            # The workflow writes `VAR: value` or `VAR: "value"`.
+            present = (f'{var}: {value}' in body
+                       or f'{var}: "{value}"' in body)
+            cases.append((f'{var}={value} ({label.split(" --")[0]})',
+                          present, ''))
+    # And the other direction: a shard variable the workflow sets that this
+    # table does not know about would mean CI runs a shape --as-ci cannot.
+    declared = {v for _l, e in CI_SHARDS for v in e}
+    for var in ('PRECEDENT_CHECK_ONLY', 'PRECEDENT_CHECK_SKIP'):
+        cases.append((f'{var} appears in the workflow and in CI_SHARDS',
+                      (var in body) == (var in declared), ''))
+    bad = [c[0] for c in cases if not c[1]]
+    check(f'the --as-ci shard table matches the workflow '
+          f'({len(cases)} stated cases)',
+          not bad, '; '.join(bad))
+
+
 def _selected_case_slugs(all_slugs, touched=None, count=None, forced=None):
     """-> (set of slugs to run, one-line reason). Never raises: a
     selector that cannot decide runs everything, because the failure
@@ -27651,6 +27751,7 @@ def main():
     check_vendor_engine_removes_a_hook_upstream_dropped()
     check('a stale source clone is made current, and a skip is never a success',
           *check_a_stale_source_clone_is_made_current_not_reported_clean())
+    check_as_ci_shards_match_the_workflow()
     check("a suggested link keeps a dotfile path's leading dot",
           *check_suggested_links_keep_a_dotfiles_leading_dot())
     check('the planted-case rotation never narrows silently',
@@ -27798,4 +27899,8 @@ if __name__ == '__main__':
     if any(a in ('--help', '-h') for a in sys.argv[1:]):
         print((__doc__ or '').strip())
         sys.exit(0)
+    # BEFORE main(), because this does not run the suite -- it runs the
+    # suite twice, the two ways CI does, each in its own process.
+    if '--as-ci' in sys.argv[1:]:
+        sys.exit(run_as_ci())
     sys.exit(main())

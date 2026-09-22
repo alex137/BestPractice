@@ -3,16 +3,16 @@ slug:              todo-2026-09-21-deep-check-definition-omits-the-ci-shards
 kind:              manual
 domain:            engine
 severity:          medium
-status:            open
+status:            done
 disposition:       ask
 remind_on:         null
 blocked_on:        null
 batch:             null
-decision:          null
-decision_strength: null
+decision:          "Option 1, delivered as one command rather than an instruction -- Morgan, 2026-09-22: \"Build both, CI shard fix first\""
+decision_strength: decided
 waiting_on:        null
 noted:             2026-09-21
-closed:            null
+closed:            2026-09-22
 ---
 ## What
 
@@ -80,3 +80,45 @@ proving it fires? That run then ran both shards itself; both were green
 (`243 passed, 0 failed` and `3 passed, 0 failed`), which is evidence the
 tree is currently fine and no evidence at all that the next session will
 think to look.
+
+## Closed 2026-09-22 — option 1, delivered as a command
+
+The definition is widened, and the thing it names is
+`python3 tools/verify_harness.py --as-ci`: one command that runs both CI
+shapes in sequence, each in its own process with both filter variables
+cleared first so an exported one cannot skew a shard.
+
+**Option 1 as written said "two more runs before every push", and that
+overstated the cost.** The shards PARTITION the suite. Measured in this
+tree, 2026-09-22: **4m01s for `--as-ci` against roughly 4m20s for one plain
+run.** It is one run's work, split the way CI splits it.
+
+**Delivered as a command, not a sentence**, which is the part the option
+list did not say. An instruction to run two extra commands is skipped
+exactly when time is short — the drift `two-check-levels`' own **Why**
+already names — so the repo's tool grew the mode and the definition names
+one thing.
+
+**Its limit is stated wherever it is named**, because over-promising here
+would repeat the failure it fixes: `--as-ci` reproduces CI's command
+**shape**, never CI's **environment**. A local session resolves private
+practice sources CI has no credential for, so a check keyed to one can fail
+here and pass there. Green under `--as-ci` means the sharding is not what
+breaks. It does not mean CI is green. Its first real run demonstrated
+exactly that — the `rest` shard green at 253 passed, the `heavy` shard
+carrying the known local-only vocabulary failure.
+
+**The table cannot drift from the workflow**:
+`check_as_ci_shards_match_the_workflow` asserts every variable and value in
+`CI_SHARDS` against `.github/workflows/deep-check.yml`, in both directions,
+and was proven to fail when the table is altered. A local command claiming
+to run "what CI runs" that has quietly drifted is worse than no command at
+all — it returns green with authority.
+
+**The general rule went upstream, not just the fix**:
+[two-check-levels](../practices/two-check-levels.md) now carries it as a
+Detail — a deep check must run each gate in the shape CI runs it, deliver
+that as one command, and say what the mode does not prove — so every repo
+that vendors this practice gets the rule rather than this repo keeping the
+lesson to itself.
+

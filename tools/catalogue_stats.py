@@ -136,10 +136,16 @@ ANCHORS = [
     # into an index plus a record, and what the index line has to carry,
     # then 21->22 on 2026-09-14 when capture-gate gained one carrying the
     # capture-at-discovery sharpening delivered from dependent repo #1
-    # (the turn, not the thread, is the unit of capture).
+    # (the turn, not the thread, is the unit of capture), then 22->23 on
+    # 2026-09-22 when two-check-levels gained one: a deep check must run each
+    # gate in the SHAPE continuous integration runs it, delivered as one
+    # command rather than an instruction, and saying what that command does
+    # not prove. Moved by the very deep check's own CI-shard fix, and caught
+    # by this anchor on that change's first deep check -- which is the
+    # mechanism working on its own author.
     # See phase3_snapshot_stats's docstring.
     ('spec/PRACTICE_FORMAT.md, "The Rule/Detail Split" — practices with a Detail',
-     22, 22, lambda: (phase3_snapshot_stats()['with_detail'], phase3_snapshot_stats()['with_detail'])),
+     23, 23, lambda: (phase3_snapshot_stats()['with_detail'], phase3_snapshot_stats()['with_detail'])),
     ('spec/PRACTICE_FORMAT.md, "The Rule/Detail Split" — Rules over 150 words',
      7, 7, lambda: (phase3_snapshot_stats()['long_rules'], phase3_snapshot_stats()['long_rules'])),
     # PRACTICE_ENGINE_PLAN.md's own phase-3 table restates the SAME figure as
