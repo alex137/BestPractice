@@ -4202,6 +4202,7 @@ def _vocabulary_reaches_the_consumer(ctx):
     declines rather than passing vacuously.
     """
     import re as _re
+    import build_views as _bv
     practices_dir = ctx.root / 'practices'
     if not practices_dir.is_dir():
         raise NotApplicable(
@@ -4298,8 +4299,17 @@ def _vocabulary_reaches_the_consumer(ctx):
     findings = []
     for path, text in command_practices:
         slug = path.stem
+        # ONLY `engine-dev` withholds. This read `not in ('null', '~')`
+        # until 2026-09-22, so it fired on any non-empty value -- including
+        # `any-adopter`, the legal default, which withholds nothing --
+        # with a message stating the opposite of what that value does. It
+        # surfaced the moment two practices wrote the default out in full
+        # rather than leaving it blank, which spec/PRACTICE_FORMAT.md's
+        # `scope` section now asks for where the default is a decision.
+        # A gate that refuses correct work teaches the next session to
+        # ignore it (practice: checkable-gets-checked).
         scope = _re.search(r'^scope:\s*(\S+)', text, _re.M)
-        if scope and scope.group(1).strip() not in ('null', '~'):
+        if scope and scope.group(1).strip().strip('"') == _bv.ENGINE_DEV_SCOPE:
             findings.append(Finding(
                 f'practices/{slug}.md',
                 f'declares a standing command but carries '

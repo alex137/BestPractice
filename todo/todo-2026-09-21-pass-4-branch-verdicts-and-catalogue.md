@@ -142,6 +142,45 @@ carry `scope: null`; for those it is only a wrong spelling of "absent".
 already says is owed. Not done here — `very-deep-check.md` is owned by
 another live session right now.
 
+#### Resolved 2026-09-22 — and the finding above has it backwards
+
+**The tree was right and the spec was stale.** `very-deep-check` and
+`full-practice-audit` each declare a standing `command:` ("Very deep
+check", "Practice check"), and `engine-dev` withholds a practice from a
+consuming repo's materialized `practices/` — so a person says the words in
+their own project, the session has no such practice, and nothing happens
+for a reason nobody in that room can see. Morgan untagged both on
+2026-09-21 for exactly that reason (`8b5aba96`) and registered
+[vocabulary-reaches-the-consumer](../tools/precedent_check.py) to stop it
+recurring. **Setting them back to `engine-dev` produces a violation naming
+both files** — measured, not reasoned about, before anything was written.
+
+The disagreement ran the other way too: `cross-source-rollout` was tagged
+`engine-dev` on 2026-09-15 by a classification sweep that never touched
+the paragraph naming the tagged practices. So the spec's list of four was
+wrong in both directions, and the only thing that read the two against
+each other was a person.
+
+**What landed instead:** the `scope` section of
+[spec/PRACTICE_FORMAT.md](../spec/PRACTICE_FORMAT.md) now names the three
+practices actually tagged, records why the two command-carrying ones are
+not, and states that `scope: null` is not a third value — the one null
+policy in [tools/split_practices.py](../tools/split_practices.py) drops a
+`null` field before any consumer sees it, so `scope: null` and no `scope:`
+line are the same input everywhere downstream and **no check can recover
+the difference**. `check_scope_field_is_legal_and_matches_this_spec` in
+[tools/verify_harness.py](../tools/verify_harness.py) is the owed
+validation: legal values, the repo-local `engine-dev` redundancy, and the
+spec's own list compared against the tree. The value check alone would not
+have caught this and does not claim to; the list comparison is the part
+that would.
+
+**No adopter token tax was restored, because nothing was ever withheld.**
+[very-deep-check.md](../practices/very-deep-check.md) travels to consumers
+on purpose, so its size there is
+a live question — but it is the cost of the command working, not drift, and
+it belongs to whoever reopens the command-vs-size trade, not to this item.
+
 ### Four more, smaller
 
   - **Ten active practices are in force with no recorded approval** —
