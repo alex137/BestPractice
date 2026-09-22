@@ -1313,6 +1313,17 @@ def _pending_deletions(repo_dir):
         rels += sorted(recorded - ships_ci)
     rels += sorted(r for r in recorded
                    if r in getattr(pve, 'RETIRED_CI_WORKFLOW_FILES', {}))
+    # HOOKS, the third path, added 2026-09-21 the same day the engine grew
+    # a remover for them. Same empty-directory guard the remover itself
+    # carries: an upstream hooks/ that globs to nothing means this checkout
+    # cannot see upstream, not that upstream ships no hooks, and reading it
+    # the other way would report every installed hook as about to vanish.
+    ships_hooks = set(pve._hook_file_names(ROOT / pve.HOOK_SOURCE_DIR)) \
+        if hasattr(pve, '_hook_file_names') else set()
+    if ships_hooks:
+        rels += sorted(f'{pve.HOOK_DEST_DIR}/{n}'
+                       for n in (manifest.get('hook_files') or [])
+                       if n not in ships_hooks)
     # Only what is actually still on disk: a name the manifest tracks and
     # the tree no longer has is already gone, and reporting it as pending
     # would be reporting bookkeeping.
