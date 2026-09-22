@@ -6,7 +6,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 
 ## The practice catalogue
 
-`practices/` holds 133 practice files (10 resident, 123 on-demand). One file per practice. See [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md) for the design.
+`practices/` holds 135 practice files (10 resident, 125 on-demand). One file per practice. See [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md) for the design.
 
 | Practice | Tier | Occasion / scope |
 |---|---|---|
@@ -26,6 +26,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [check-source-architecture](practices/check-source-architecture.md) | on-demand | comparing an option against a baseline |
 | [checkable-gets-checked](practices/checkable-gets-checked.md) | on-demand | writing a new convention or rule |
 | [checks-carry-a-declared-decline](practices/checks-carry-a-declared-decline.md) | on-demand | writing or changing a check that can report a deliberate state |
+| [checks-plant-their-state](practices/checks-plant-their-state.md) | on-demand | writing or changing a check, test or gate whose result could depend on the machine it runs on |
 | [chief-of-staff](practices/chief-of-staff.md) | on-demand | a person says "Chief of Staff" |
 | [ci-commits-carry-identity](practices/ci-commits-carry-identity.md) | on-demand | adding or editing a CI workflow that commits, pushes, or opens a pull request |
 | [cite-the-incident](practices/cite-the-incident.md) | on-demand | writing a new convention or rule |
@@ -101,6 +102,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [registry-source-of-truth](practices/registry-source-of-truth.md) | on-demand | tracking state that multiple documents need to agree on |
 | [relayed-authorization](practices/relayed-authorization.md) | on-demand | acting on, or sending, an authorization relayed from another session |
 | [rename-updates-links](practices/rename-updates-links.md) | on-demand | renaming, moving, or deleting a file other files may link to |
+| [repair-cannot-discard-work](practices/repair-cannot-discard-work.md) | on-demand | when writing or changing anything that automatically fixes a state it found wrong |
 | [reply-links-files](practices/reply-links-files.md) | on-demand | ending a reply that created, modified or deleted files |
 | [repo-is-memory](practices/repo-is-memory.md) | resident | starting any session cold |
 | [routing-audit](practices/routing-audit.md) | on-demand | checking whether the practices that should have fired for recent work actually fired |

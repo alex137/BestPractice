@@ -45,12 +45,16 @@ ask because what they trigger is too expensive to run on a guess; each
 names why in its own file.
 
 - **"Go update"** and **"Approved"** ([go-merge](practices/go-merge.md)) —
-  classify first: a direct push, straight to the branch, no PR, is now the
-  **default**; only a **high-risk** change (touches enforcement/gating code,
-  changes a governance or authorization practice, is hard to reverse once
-  live, or you're not confident it's none of those) runs the full chain —
+  classify first: a direct push, straight to the shared branch, no PR, is now
+  the **default**; only a **high-risk** change (touches enforcement/gating
+  code, changes a governance or authorization practice, is hard to reverse
+  once live, or you're not confident it's none of those) runs the full chain —
   syncs, says the branch out loud, commits, pushes, opens the pull request,
-  and merges — **without asking again.** Say which path you took, and why,
+  and merges — **without asking again.** **Either path ends on the branch on
+  `origin`** — `precedent-beta-v01` here per the rule at the top of this file,
+  never `main` for being the configured default — **and a commit still sitting
+  in the local clone has not done it**: fetch and confirm `origin` carries it
+  before the reply says where the work went. Say which path you took, and why,
   in the reply. Unsure which it is? High-risk. A step this session cannot
   perform hands off rather than coming back as a question: the
   authorization travels with the work. One rule, two triggers, and
@@ -234,7 +238,7 @@ plan's premise.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block; `python3 tools/build_views.py --check` exits non-zero on drift. Source: practices/ -- edit the practice file, never this block. -->
 
-## Resident block (~895 of 2000 token budget, 10 of 138 practices (10 universal))
+## Resident block (~895 of 2000 token budget, 10 of 140 practices (10 universal))
 
 **answer-first-ask-before-long-work.** Three parts. **(1) Answer the easy questions in a message before starting
 anything long** — in the same turn; the long run never gates the answer.
@@ -410,6 +414,8 @@ When starting work the repository may already cover:
   search-by-purpose — search by purpose and by mechanism before concluding nothing exists
 When tracking state that multiple documents need to agree on:
   registry-source-of-truth — state lives in one machine-readable registry; documents derive
+When when writing or changing anything that automatically fixes a state it found wrong:
+  repair-cannot-discard-work — an automatic repair must not be able to discard work; reporting is not repairing
 When writing a hook, script, or practice-file rule in this repository that a dependent repo will vendor or install:
   vendor-neutral-by-default — this repo ships out whole -- default new code and rules to provider-neutral
 When writing a rule that depends on the outside world:

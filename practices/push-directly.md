@@ -73,7 +73,11 @@ next change that does not carry this phrase.
 
 Same verification as [go-merge](go-merge.md): the light check still runs
 before the commit and the deep check still runs before the push -- this
-phrase skips the PR wrapper and the classification, never the checks.
+phrase skips the PR wrapper and the classification, never the checks. **And
+the same landing**: the target is that branch on `origin`, confirmed by a
+fetch before the reply reports it
+([verify-postcondition](verify-postcondition.md)), never a commit left in
+the local clone.
 
 **Say the target branch before pushing, every time** -- same reason
 [go-merge](go-merge.md) gives: the failure this catches is silent, not

@@ -171,6 +171,18 @@
       "why": "The distinguishing condition is that a CHECK is being written or changed, and in this engine a check is one of two things: a @check function in precedent_check.py, or a source's own check_*.py under tools/checks/. Both are paths, so the glob identifies the practice rather than merely accompanying it. Deliberately NOT practices/** -- editing a practice file is necessary for writing a rule and says nothing about whether a check is involved, which is the test this file's note sets.",
       "decided": "2026-09-14, on landing the practice"
     },
+    "checks-plant-their-state": {
+      "globs": [
+        "tools/verify_harness.py",
+        "tools/precedent_check.py",
+        "tools/checks/**",
+        "**/test_*.py",
+        "**/*_test.py",
+        "**/tests/**"
+      ],
+      "why": "The distinguishing condition is that a CHECK is being written or changed, and these paths are where checks live -- this repo's own harness and registry, plus the ordinary test layouts an adopter uses. Not left at '**': the occasion is a file being edited, not a moment somebody reaches, so the path channel is the one that actually delivers it.",
+      "decided": "2026-09-22"
+    },
     "chief-of-staff": {
       "globs": [
         "**"
@@ -1254,6 +1266,13 @@
       ],
       "why": "Its own applies_to. The occasion is writing anything a person will read, so the path channel fires on markdown and nothing else -- and it is tier: resident anyway, so the glob is a second reminder rather than the only channel. The half no glob can reach is the chat reply, which is why it also carries the `reply` gate.",
       "decided": "landed universal 2026-09-07"
+    },
+    "repair-cannot-discard-work": {
+      "globs": [
+        "**"
+      ],
+      "why": "No locus. The subject is any mechanism that repairs a state it found wrong -- a hook, a script, a CI step, an agent's own recovery path -- and those share no directory. Routing it by path would attach it to the one example that prompted it (.claude/hooks/) and hide it from the next one.",
+      "decided": "2026-09-22"
     }
   },
   "gates": {
