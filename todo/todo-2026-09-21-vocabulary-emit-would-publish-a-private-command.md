@@ -8,9 +8,14 @@ disposition:       ask
 remind_on:         null
 blocked_on:        null
 batch:             null
-decision:          null
-decision_strength: null
-waiting_on:        "Morgan -- which of the two fixes below he wants; both change what an adopter reads"
+decision:          "Neither of the two fixes below. The offending row is not a
+  vocabulary command in the first place and loses its `command:` field at the
+  source, in precedent-individual. What stays open here is only the guard, so
+  the next private command cannot recreate this."
+decision_strength: decided
+waiting_on:        "the source fix in themorgan/precedent-individual -- this
+  session's GitHub access is scoped to alex137/BestPractice and refuses across
+  owners, so it cannot reach that repo"
 noted:             2026-09-21
 closed:            null
 ---
@@ -43,10 +48,28 @@ is likely to run `--write` to clear a red gate.
 against text, and a command name and its gloss are not on any blocklist — the
 problem is not the words, it is the level the words came from.
 
-## Why It Is Filed Rather Than Done
+## What Morgan Decided, 2026-09-21
 
-Two fixes exist and they give an adopter different documents, so the choice is
-not the session's:
+**Neither option below.** His reading, in his own words: *"that's not a vocab
+word, it is just a practice, so it shouldn't have it in the vocab lists even
+privately."* The `so-what-test` practice fires automatically on every reply --
+it is not a phrase he says to trigger something -- so the `command:` field on
+it is simply wrong, and the emitter was reporting it correctly. Removing that
+field at the source drops the row, the block matches again, and no filter is
+needed. **strength: decided.**
+
+**That fixes the instance and not the class.** The next private practice that
+declares a `command:` recreates this exactly, and the person who meets it will
+be a session staring at a red gate whose documented remedy is `--write`. What
+remains open here is only the guard: either the emit path refuses to render a
+non-public source into a tracked public document, or it says loudly which
+source each row came from so the mistake is visible before somebody writes it.
+
+## Why the Two Options Below Were Not Taken
+
+They were the session's framing, and both accepted the premise that a private
+command legitimately belongs in that list. They are kept here because the
+guard still has to choose between refusing and disclosing:
 
 1. **Filter the `--emit` path to publicly-shippable sources**, the way
    [tools/build_views.py](../tools/build_views.py) already filters the loader
@@ -56,17 +79,21 @@ not the session's:
 2. **Say on the page that the table is the universal set**, and have the
    emitter fail loudly rather than silently include a private row.
 
-The session that found this was landing unrelated branch-deletion practices
-and had no mandate to pick. **The drift is left unwritten deliberately** — the
-deep check reports one violation until this is decided, which is the honest
-state.
+**The drift is left unwritten deliberately** — the deep check reports one
+violation until the source fix lands, which is the honest state.
 
 ## Closing Condition
 
-`python3 tools/doc_sync.py` returns clean on a session where the individual
-source has resolved, and
-[documentation/DAILY_HABITS.md](../documentation/DAILY_HABITS.md) holds no row
-sourced from a non-public practice set.
+Both halves:
+
+1. `python3 tools/precedent_vocabulary.py` no longer lists a row sourced from a
+   non-public set, and `python3 tools/doc_sync.py` returns clean on a session
+   where the individual source has resolved.
+2. Something prevents the recurrence — the emit path refuses a non-public
+   source, or names the source per row — so the next `command:` in a private
+   practice cannot be written into
+   [documentation/DAILY_HABITS.md](../documentation/DAILY_HABITS.md) by a
+   session clearing a red gate.
 
 ## A second session reached the same finding independently, 2026-09-21
 
