@@ -376,18 +376,28 @@ When building a variant of an existing thing:
   variant-re-derives — re-derive what a variant inherits; limits bind, choices do not
 When checking whether the practices that should have fired for recent work actually fired:
   routing-audit — run the mechanical coverage check now; roll the deep-read slice forward
+When committing a change to content this repo ships to other repos -- a practice file, a hook script, a template, or one of the named engine files in tools/precedent_vendor_engine.py's ENGINE_FILES/CONSUMER_ENGINE_FILES lists -- before it is pushed or merged:
+  vendor-rollout-disclosed — shipped content changing -- say if it needs to reach consumers, and if it will
+When committing anything that touches the vendored/public tree:
+  scrub-gate — the public tree is public-safe at all times, not just at check-in
 When comparing an option against a baseline:
   check-source-architecture — check both options exist in the source before costing them
 When creating a session:
   session-spend-follows-the-task — pick the model for the job -- reading runs small, judgment doesn't
+When creating a session, or retagging one:
+  session-tags — tag a session at creation -- subject, repo, role, wants; never retrofitted
 When deciding whether to build or buy a component:
   build-buy-decompose — decompose first; one verdict per part, on ownership grounds
 When decommissioning a mechanism — a workflow, a tool, a vendored tree, a config — that leaves files behind with no remaining job:
   decommission-deletes-files — delete what the decommissioned mechanism owned; audit first, never on a hunch
 When drafting or reviewing prose meant to persuade or be judged:
   push-back — argue a real counter-case before building on a stated stance
+When finishing a substantial work-product, before the merge-time capture gate:
+  second-pass-capture — a separate capture pass after the work, not inside it
 When handing the person work to do, starting work that may touch a repository this session cannot reach, or the person wants to act on a recommendation already given by opening a fresh session:
   prompt-please — "Prompt Please" -- recommendation or unreachable work, one paste-ready prompt
+When merging a branch:
+  capture-gate — capture the follow-on work in the thread that created the need
 When migrating a repo off an old practice system onto Precedent:
   migration-scrubs-vocabulary — scrub the old system's vocabulary the same session, not on request
 When naming a new file:
@@ -414,12 +424,16 @@ When seeding a prompt into another session -- spawning one, or scheduling a mess
   seeded-prompt-names-its-origin — a seeded or scheduled prompt opens by naming the session that sent it
 When starting an outward-facing deliverable:
   frame-from-audience-question — build it around the audience's question, not your material
+When starting work another session may already have done, or opening a pull request:
+  base-branch-is-the-record — read the base branch before starting and before the PR -- a summary lags
 When starting work the repository may already cover:
   search-by-purpose — search by purpose and by mechanism before concluding nothing exists
 When tracking state that multiple documents need to agree on:
   registry-source-of-truth — state lives in one machine-readable registry; documents derive
 When when writing or changing anything that automatically fixes a state it found wrong:
   repair-cannot-discard-work — an automatic repair must not be able to discard work; reporting is not repairing
+When work touches something an open item is about, or a branch is merged:
+  item-closes-on-its-condition — record what you established into the item; close only on its stated condition
 When writing a hook, script, or practice-file rule in this repository that a dependent repo will vendor or install:
   vendor-neutral-by-default — this repo ships out whole -- default new code and rules to provider-neutral
 When writing a rule that depends on the outside world:
@@ -430,6 +444,8 @@ When writing an outward-facing summary of claims:
   outward-summary-discipline — claims-to-source table, honest sums, a recorded adversarial pass
 When writing or running a gate, audit or solve that takes more than about a minute:
   slow-steps-report-and-cache — a long step prints elapsed and remaining; a heavy solve caches to disk
+When writing or triaging an open item:
+  todo-is-a-handoff — queue only for a stated blocked-on/out-of-scope reason — otherwise just do it
 
 (More on-demand practices are not listed here: one whose applies_to names real paths, or which declares a gate, is reached by those channels instead -- `precedent_paths.py FILE` and `precedent_gate.py MOMENT`. A trigger a PERSON SAYS cannot be reached that way and is always listed above. `precedent_show.py --index-omitted` names the omitted ones.)
 ```

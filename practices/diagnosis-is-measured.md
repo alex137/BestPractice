@@ -6,6 +6,7 @@ severity:    default
 applies_to:  ["**"]
 occasion:    "a tool, hook or error message names the possible causes of a failure"
 gates:       ["reply"]
+index_required: false
 index_clause: "a tool's named causes are hypotheses; measure one before you relay it"
 checked_by:  null
 defines:     []

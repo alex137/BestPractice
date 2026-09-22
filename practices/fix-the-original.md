@@ -7,6 +7,7 @@ applies_to:  ["**"]
 occasion:    "fixing a file that came from somewhere else -- a template, a vendored tree, another repo's copy"
 index_clause: "fix the origin first, then every copy -- name them all in the reply"
 gates:       ["review", "reply"]
+index_required: false
 checked_by:  null
 defines:     ["the origin artifact"]
 status:      active

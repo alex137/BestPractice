@@ -6,6 +6,7 @@ severity:    default
 applies_to:  ["**"]
 occasion:    "a defect is fixed -- whether a review found it, the person reported it, or the session hit it itself"
 gates:       ["review"]
+index_required: false
 index_clause: "root-cause the miss, then encode the prevention"
 checked_by:  null
 defines:     []

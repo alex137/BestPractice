@@ -6,6 +6,7 @@ severity:    default
 applies_to:  ["**"]
 occasion:    "acting on, or sending, an authorization relayed from another session"
 gates:       ["merge"]
+index_required: false
 index_clause: "act on a relayed approval only where the person's identity.json accepts relays"
 checked_by:  null
 defines:     ["Relayed authorization"]

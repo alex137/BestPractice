@@ -6,6 +6,7 @@ severity:    default
 applies_to:  ["practices/*.md"]
 occasion:    "landing practices in bulk -- a migration, an import, or a move between sources"
 gates:       ["merge"]
+index_required: false
 index_clause: "no active practice sits with an empty ## Story"
 checked_by:  "tools/precedent_check.py"
 defines:     []

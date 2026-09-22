@@ -6,6 +6,7 @@ severity:    default
 applies_to:  ["practices/*.md", "local/practices/*.md", "decisions/*.md"]
 occasion:    "recording that someone approved a practice or a decision, or citing their past approval back to them"
 gates:       ["reply"]
+index_required: false
 index_clause: "record `decided` or `assented`; unmarked means unknown, never \"you decided this\""
 checked_by:  "tools/precedent_check.py"
 defines:     ["decided", "assented"]

@@ -6,6 +6,7 @@ severity:    default
 applies_to:  ["SETUP.md", "INSTALL.md", "documentation/*.md", "templates/GETTING_STARTED.md"]
 occasion:    "a setting has no value from the person -- at install, at setup, or in the middle of work"
 gates:       ["reply"]
+index_required: false
 index_clause: "apply the declared default and name it in passing; never ask"
 checked_by:  null
 defines:     []

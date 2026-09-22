@@ -6,6 +6,7 @@ severity:    default
 applies_to:  ["**"]
 occasion:    "starting any session cold"
 gates:       ["reply"]
+index_required: false
 checked_by:  null
 defines:     []
 status:      active

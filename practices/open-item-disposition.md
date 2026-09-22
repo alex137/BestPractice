@@ -6,6 +6,7 @@ severity:    default
 applies_to:  ["**/TODO.md", "templates/TODO.md.template", "**/todo/todo-*.md"]
 occasion:    "writing or triaging an open item, or deciding whether to raise one in a reply"
 gates:       ["reply"]
+index_required: false
 index_clause: "an item is raised in chat only if it says `ask`; absent means stay quiet"
 checked_by:  "tools/precedent_check.py"
 defines:     []

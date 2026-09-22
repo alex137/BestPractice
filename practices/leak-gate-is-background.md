@@ -6,6 +6,7 @@ severity:    default
 applies_to:  ["**"]
 occasion:    "a leak gate, blocklist, or scrub result is in front of you, or you are about to mention one to the person"
 gates:       ["push"]
+index_required: false
 index_clause: "never relay a blocklist note or ask for a term; the deep review is its place"
 checked_by:  null
 defines:     []
