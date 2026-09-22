@@ -1,5 +1,5 @@
 {
-  "_comment": "Settings for sessions on the BestPractice repo itself, instantiated from templates/harness/claude-code/settings.json. This repo IS the source of that template, so a drift between the two is this repo failing to run what it ships -- which is exactly what it was doing until 2026-09-06: no PreToolUse hook at all (the path-triggered loading channel, unrun in the repo that defines it) and an allowlist that still named process/upstream/tools/ paths this repo does not have. Adapted from the template only where this repo genuinely differs: its own tools live at tools/ (so the process/upstream/ entries are dropped, not kept as dead weight) and it has a deck builder nobody else does. 2026-09-06: freshness-guard.sh and commit-identity.sh added from the same template. The base branch passed to the guard is precedent-beta-v01, NOT this repo's configured default -- which is exactly the repo the template's own comment warns about, and the reason the base is an explicit argument rather than something detected. No env TZ is set here: this repo has more than one person committing to it, and the guard's identity hook resolves each of them (and their declared timezone, where they have one) at session start instead.",
+  "_comment": "Settings for sessions on the BestPractice repo itself, instantiated from templates/harness/claude-code/settings.json. This repo IS the source of that template, so a drift between the two is this repo failing to run what it ships -- which is exactly what it was doing until 2026-09-06: no PreToolUse hook at all (the path-triggered loading channel, unrun in the repo that defines it) and an allowlist that still named process/upstream/tools/ paths this repo does not have. Adapted from the template only where this repo genuinely differs: its own tools live at tools/ (so the process/upstream/ entries are dropped, not kept as dead weight) and it has a deck builder nobody else does. 2026-09-06: freshness-guard.sh and commit-identity.sh added from the same template. The base branch passed to the guard is precedent-beta-v01, NOT this repo's configured default -- which is exactly the repo the template's own comment warns about, and the reason the base is an explicit argument rather than something detected. No env TZ is set here: this repo has more than one person committing to it, and the guard's identity hook resolves each of them (and their declared timezone, where they have one) at session start instead. 2026-09-22: commit-identity.sh wired a SECOND time, at PreToolUse (matcher Edit|Write|NotebookEdit|Bash) -- a session rooted one directory above this repo (this repo's own required multi-source sibling layout is what causes that -- gotcha-2026-09-13-the-session-s-primary-repo-does-not-run-its-sessionstart-hoo) runs NONE of its SessionStart hooks, silently, so the container's bot identity and commit.gpgsign=true stay in place until something notices and runs the fix by hand. The script is idempotent and near-silent once already correct, so re-running it before every Edit/Write/Bash makes the fix self-healing instead of a documented recovery command somebody has to remember. Same day: .claude/hooks/commit-identity-push-gate.sh added, wired at PreToolUse on Bash -- ported from precedent-individual (the same file, plus tools/checks/check_commit_author.py and check_buenos_aires_dates.py, both scripts generic and materializable into any repo since 2026-09-10). BestPractice had the SessionStart identity hook but no push-side backstop at all; precedent-individual had both. This closes that gap: a push carrying a bot-authored or wrong-timezone commit is refused here too, whoever is running the session, not only Morgan's own individual set.",
   "permissions": {
     "allow": [
       "Bash(grep *)",
@@ -99,11 +99,29 @@
         ]
       },
       {
+        "matcher": "Edit|Write|NotebookEdit|Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/commit-identity.sh"
+          }
+        ]
+      },
+      {
         "matcher": "Bash",
         "hooks": [
           {
             "type": "command",
             "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/doc-lint-gate.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/commit-identity-push-gate.sh"
           }
         ]
       }
