@@ -392,6 +392,8 @@ When migrating a repo off an old practice system onto Precedent:
   migration-scrubs-vocabulary — scrub the old system's vocabulary the same session, not on request
 When naming a new file:
   no-version-suffix — name a file for what it is; the repository is the version
+When naming or renaming a session, at creation or once its differentiator is known:
+  session-title-names-the-difference — title each session by its differentiator, never its task category alone
 When naming or scoping something around a person's skill level:
   technical-describes-people — a skill level describes a person; never a project, repo, file or directory
 When naming what "run the checks" means in a repo:
