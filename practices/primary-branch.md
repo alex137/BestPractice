@@ -6,7 +6,7 @@ severity:    default
 applies_to:  ["**"]
 occasion:    "a person says \"Primary branch\", or asks which branch is trunk, the routine working branch, or where regular pushes and pull requests land"
 gates:       []
-index_clause: "\"Primary branch\" -- trunk; the one branch regular work pushes to and pull requests target"
+index_clause: "\"Primary branch\" -- trunk; the branch regular work pushes to and PRs target"
 checked_by:  null
 defines:     ["Primary branch"]
 command:     {"Primary branch": "Trunk -- the one shared branch regular work pushes to and pull requests target. Here that's precedent-beta-v01, never main."}

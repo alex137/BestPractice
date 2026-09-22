@@ -806,6 +806,13 @@
       "why": "The path IS the distinguishing condition: the rule is about what a file in the published catalogue may link, and every such file is in practices/. local/practices/*.md is deliberately out -- a repo-local source is read in place here and materialized nowhere, so its links travel nowhere.",
       "decided": "2026-09-11, when the practice landed at universal"
     },
+    "primary-branch": {
+      "globs": [
+        "**"
+      ],
+      "why": "A moment, and specifically a phrase in a MESSAGE -- no file path reaches it, same reasoning as go-merge and push-directly's own entries. Reached through the occasion index; it declares no gate because it defines a word rather than governing a workflow moment.",
+      "decided": "2026-09-22, when the practice landed"
+    },
     "prompt-please": {
       "globs": [
         "**"

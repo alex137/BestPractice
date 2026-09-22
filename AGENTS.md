@@ -347,7 +347,7 @@ When a person says "Drop it" about an open item or a question:
 When a person says "My options", asks to have a decision's options laid out, or asks -- about a current issue -- for the options to hand off to another session:
   my-options — "My options" -- every option, plainer, your pick -- or a paste-ready handoff
 When a person says "Primary branch", or asks which branch is trunk, the routine working branch, or where regular pushes and pull requests land:
-  primary-branch — "Primary branch" -- trunk; the one branch regular work pushes to and pull requests target
+  primary-branch — "Primary branch" -- trunk; the branch regular work pushes to and PRs target
 When a person says "Reduction pass", or an always-loaded surface is near its ceiling:
   reduction-pass — "Reduction pass" -- work the menu in order, move never delete, report what moved
 When a person says "Simple words", or plainly asks to be talked to that way:
