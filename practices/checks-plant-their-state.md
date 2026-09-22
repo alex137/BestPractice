@@ -86,6 +86,20 @@ asserts speech in the first and silence in the second — the negative control
 it had never carried. Measured afterwards with the real container in both
 states: passing either way.
 
+**A second instance surfaced the same day, and this one is still standing.**
+`check_endgame_merge_finds_the_silent_drop` is red on `precedent-beta-v01`
+in continuous integration and green in every local run of the same tree —
+the suspected difference being the runner's git against the container's,
+which changes how a merge classifies a touched path. It is filed at
+[todo/todo-2026-09-22-the-endgame-merge-rehearsal-is-red-in-ci-green-locally.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/todo/todo-2026-09-22-the-endgame-merge-rehearsal-is-red-in-ci-green-locally.md)
+rather than fixed here.
+
+**Two of these in one day, in one repository, is the argument for a rule
+rather than a note on one check.** The second also shows the shape the
+first did not: the ambient state need not be something the check touches.
+Nobody thought of the version of `git` on the machine as an input, and that
+is exactly why it was never planted.
+
 ## Install
 **`checked_by: null`, and the reason is specific rather than "too hard"**
 ([checkable-gets-checked](checkable-gets-checked.md)). Two routes were built
