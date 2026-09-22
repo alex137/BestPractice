@@ -2314,9 +2314,10 @@ generalize**. Investigating found the noise was never the comparison logic
 — that was already right — it was the absence of anywhere to put a verdict
 once a person had one. Asked whether the fix should live as a private detail
 inside `_convergent_drift()`, the answer was broader: a convention any repo
-can hold its own record in, matching why `beta-branch-watermark.json` lives
-in `precedent-individual` rather than in this repository — the decision
-belongs to the repo the finding is about, not to the tool reading it. The
+can hold its own record in — the decision belongs to the repo the finding is
+about, not to the tool reading it. The argument ran by analogy to the
+beta-branch watermark, then kept in the individual source; that file moved
+into this repository on 2026-09-22, so the principle outlived the example. The
 session that wrote the proposal created `very-deep-check-decisions.json` at
 that repo's own root, empty and schema-documented, ready for the read side
 built here to consume without rework.
