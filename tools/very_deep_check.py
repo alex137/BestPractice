@@ -1809,7 +1809,8 @@ _MOVED_CLAIM = re.compile(
 
 def _moved_claims(repo_dir, cap=40):
     """-> [(file, line number, claim, target)] for sentences that say the
-    work moved SOMEWHERE, where the somewhere is not there.
+    work moved SOMEWHERE, where the somewhere is not there -- or None when
+    this could not be established at all, which is NOT the same as [].
     (practice: very-deep-check, pass 3)
 
     THE INCIDENT (2026-09-21). `commit-identity.yml` was paused, its header
@@ -1836,9 +1837,23 @@ def _moved_claims(repo_dir, cap=40):
     # an unlinked reference. It is not this check's class, and reporting it
     # here buries the one row that is. Measured on the first run: of 40
     # rows, all but a handful were this and the markdown-link case below.
+    # A FAILED READ IS NOT AN EMPTY TREE, and this set is a SUPPRESSION:
+    # a target found among these basenames is a file named without its
+    # path, which the loop below skips. Coerce the failure to an empty set
+    # and the suppression silently disappears, so every under-qualified
+    # name becomes a row claiming no such file exists -- findings
+    # manufactured out of a read that did not happen. That is the same
+    # defect the endgame rehearsal carried into six red CI runs, in a
+    # different function: `git ls-files` failing there made every file on
+    # the integration branch look silently dropped. Found by sweeping for
+    # the pattern afterwards rather than by anything going wrong here
+    # (practice: control-asserts-which-failure -- a guard that cannot
+    # establish its own inputs says so, never returns a result).
     rc, out_ls, _e = _run_git(repo_dir, 'ls-files')
+    if rc != 0:
+        return None
     basenames = {pathlib.PurePosixPath(x).name
-                 for x in (out_ls.splitlines() if rc == 0 else [])}
+                 for x in out_ls.splitlines()}
     # THIS REPO WROTE IT vs THIS REPO RECEIVED IT, which is pass 2's own
     # first question applied here. A vendored engine file's comments are
     # UPSTREAM's prose, citing upstream's paths, and a repo that received
@@ -7597,11 +7612,21 @@ def _main(box):
           "there\n")
     _mc_n = 0
     _mc_seen = False
+    _mc_unknown = []
     for _name, _p in _orph_targets:
         if not pathlib.Path(_p).is_dir():
             continue
         _mc_seen = True
         _rows = _moved_claims(_p)
+        if _rows is None:
+            # Could not list the repo's tracked files, so the
+            # named-without-its-path suppression could not be built. Any
+            # rows produced from here would be artefacts of the failed
+            # read, not claims about this repository.
+            _mc_unknown.append(_name)
+            print(f"  {_name}: CANNOT TELL -- `git ls-files` failed, so "
+                  f"this repository was not scanned. Not a clean result.")
+            continue
         if not _rows:
             continue
         _mc_n += len(_rows)
@@ -7611,6 +7636,9 @@ def _main(box):
                   f"file here")
     if not _mc_seen:
         print("  (no repository to scan)")
+    elif _mc_n == 0 and _mc_unknown:
+        print("  no rows -- but " + ", ".join(_mc_unknown) + " could not be "
+              "scanned, so this is NOT 'none'.")
     elif _mc_n == 0:
         print("  none -- every file named as somewhere work moved to "
               "exists.")
@@ -7621,7 +7649,11 @@ def _main(box):
               "exactly how two commit-scope checks came to run nowhere.")
     print()
     if led:
-        led.end(findings=_mc_n if _mc_seen else None)
+        # Unknown is not zero: a count that silently omits an unscanned
+        # repository reads as a clean pass on it.
+        led.end(findings=(_mc_n if _mc_seen and not _mc_unknown
+                          else (None if _mc_unknown or not _mc_seen
+                                else _mc_n)))
         led.start('DOCUMENTATION CURRENCY')
 
     print("DOCUMENTATION CURRENCY -- what changed, against what still says "

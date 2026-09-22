@@ -24548,6 +24548,58 @@ def check_unmerged_branch_verdicts():
               not failed, '; '.join(failed) if failed else '')
 
 
+
+def check_moved_claims_says_when_it_could_not_read_the_tree():
+    """`_moved_claims` returns UNKNOWN, not "clean", when its own read fails
+    (practices: checks-plant-their-state, control-asserts-which-failure).
+
+    THE SHAPE, which is the endgame rehearsal's defect in a second function.
+    `_moved_claims` builds a set of every tracked basename and uses it to
+    SUPPRESS rows: a target found among them is a real file named without
+    its path, not a broken claim. The set came from `git ls-files` with the
+    failure coerced to an empty set -- so a failed read did not merely lose
+    information, it switched the suppression off, and every
+    under-qualified name became a row asserting no such file exists.
+    Findings manufactured out of a read that did not happen, which is
+    exactly how a `git ls-files` failure in `endgame_merge` made every file
+    on the integration branch look silently dropped.
+
+    Both halves. The loud one: the read fails, the answer is None and the
+    caller prints CANNOT TELL rather than counting a clean repository. The
+    quiet one: against a real tree it still returns a list, because a guard
+    that has learned to answer UNKNOWN to everything is not a guard."""
+    import very_deep_check as vdc
+
+    root = pathlib.Path(__file__).resolve().parent.parent
+
+    real = vdc._moved_claims(root)
+
+    original = vdc._run_git
+
+    def fail_ls_files(repo, *args, _o=original, **kw):
+        if args and args[0] == 'ls-files':
+            return (128, '', 'fatal: simulated -- ls-files unreadable')
+        return _o(repo, *args, **kw)
+
+    vdc._run_git = fail_ls_files
+    try:
+        unreadable = vdc._moved_claims(root)
+    finally:
+        vdc._run_git = original
+
+    results = [
+        ('PLANTED, `git ls-files` fails: the answer is UNKNOWN (None)',
+         unreadable is None),
+        ('...and specifically NOT an empty list, which reads as clean',
+         unreadable != []),
+        ('the quiet half: a readable tree still answers with a list',
+         isinstance(real, list)),
+    ]
+    failed = [name for name, ok in results if not ok]
+    return (not failed,
+            (f"{'; '.join(failed)} -- unreadable={unreadable!r}, "
+             f"real={type(real).__name__}") if failed else '')
+
 def check_endgame_merge_finds_the_silent_drop():
     """The endgame-merge rehearsal (practice: very-deep-check, pass 4).
 
@@ -28304,6 +28356,8 @@ def main():
     check('the reply check requires a destination for a fence block',
           *check_reply_check_requires_a_destination_for_a_fence_block())
     check_endgame_merge_finds_the_silent_drop()
+    check('a moved-claim scan that cannot read the tree says so, rather than reporting it clean',
+          *check_moved_claims_says_when_it_could_not_read_the_tree())
     check_philosophy_citations_run_both_ways()
     check_vendor_engine_names_a_dependent_of_a_deleted_file()
     check_vendor_engine_removes_a_hook_upstream_dropped()
