@@ -6829,6 +6829,41 @@ def check_a_stale_source_clone_is_made_current_not_reported_clean():
                       'loader block is generated',
                       'AGENTS.md' not in rs.engine_owned_paths(fresh), ''))
 
+        # 8b. THE LAG THE WIDENING ABOVE DID NOT CLOSE (2026-09-22, same
+        #     day). Everything above reads the DESTINATION's manifest, which
+        #     is a snapshot of its last refresh. A file added to ENGINE_FILES
+        #     upstream is written into the clone before any manifest names
+        #     it, so it was still classified as a person's work -- and the
+        #     refresh that would record it is the very thing the
+        #     misclassification skips, so the lag sustained itself.
+        #     `precedent_container_safe.py` joined ENGINE_FILES on 2026-09-21
+        #     and made the archive gate red on every reply in a real set the
+        #     next day, about a file byte-identical to one already tracked
+        #     and pushed upstream. Read off the engine's own lists, which do
+        #     not lag.
+        import precedent_vendor_engine as _ve
+        lagging = sorted(set(_ve.ENGINE_FILES) - set(manifest_new['files']))[0]
+        (fresh / 'tools' / lagging).write_text('newly vendored\n',
+                                               encoding='utf-8')
+        (fresh / 'tools' / 'my_own_script.py').write_text('mine\n',
+                                                          encoding='utf-8')
+        engine, other = rs.classify_dirt(fresh)
+        cases.append((f'an engine file THIS manifest does not name yet '
+                      f'({lagging}) is still engine dirt -- the engine\'s own '
+                      f'lists do not lag the way a vendored snapshot does',
+                      f'tools/{lagging}' in engine
+                      and f'tools/{lagging}' not in other,
+                      f'engine={engine} other={other}'))
+        cases.append(("THE DISCRIMINATING CASE: a repo's OWN script under "
+                      "tools/, named in neither engine list, is still a "
+                      "person's work -- the widening adds engine names, it "
+                      "does not claim tools/",
+                      'tools/my_own_script.py' in other
+                      and 'tools/my_own_script.py' not in engine,
+                      f'engine={engine} other={other}'))
+        (fresh / 'tools' / lagging).unlink()
+        (fresh / 'tools' / 'my_own_script.py').unlink()
+
         # 9. …and discarding it works. `git checkout --` fails outright on a
         #    path git has never tracked, so widening the classification
         #    without widening the discard would have turned a working
