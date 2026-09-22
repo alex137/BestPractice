@@ -73,15 +73,45 @@ def _commands_in(fm):
     return json.loads(raw)
 
 
-def collect(root=ROOT):
+def collect(root=ROOT, resolved_view=False):
     """-> (entries, notes). entries are
     (phrase, gloss, slug, level, source, synonyms), sorted by phrase,
     case-insensitively. `phrase` is the first key declared in the
     practice's `command:` object; `synonyms` is every other key it
     declares, in that same order -- one row per command, never one per
-    trigger phrase."""
+    trigger phrase.
+
+    THE PRECEDENCE, AND WHY IT IS NOT A PLAIN OVERWRITE (2026-09-22). This
+    builds one dict keyed by slug: the local `practices/*.md` first, then
+    everything precedent_resolve.py returns. That second pass used to
+    assign `found[slug] = ...` with no guard at all. For an ordinary
+    CONSUMING repo that is exactly right -- the local half is that repo's
+    own rules and the resolved half is everyone else's, and the slugs do
+    not collide. In a repo that IS one of those sources, both halves are
+    the same practice read from two different checkouts, and the edit in
+    front of you lost in silence.
+
+    It cost an hour to find, because every other check agrees with you: a
+    session removed a `command:` field, ran this tool to confirm, and got
+    the old row back, with `cat` and `git diff` both showing the edit. The
+    story is in gotchas/, under the 2026-09-21 entry about editing a
+    practice in its own source repo.
+
+    So: where a resolved practice for a slug comes from a DIFFERENT FILE
+    than the local one, the local file wins and the swap is NAMED. A
+    session standing in a source repo is asking about the file it is
+    standing on, essentially always. `resolved_view=True` restores the old
+    precedence for a caller that genuinely wants the resolved answer --
+    which is a flag, not a silent default.
+
+    What the local half does NOT get to decide is its own level. The local
+    loop cannot know whether it is reading a universal, shared or
+    individual set, so it guesses `universal`; the resolver knows. Local
+    content, resolved label.
+    """
     notes = []
     found = {}                      # slug -> (level, source, fm)
+    local_files = {}                # slug -> the local path it came from
 
     local = root / 'practices'
     if local.is_dir():
@@ -91,6 +121,7 @@ def collect(root=ROOT):
             except sp.PracticeFileError:
                 continue
             found[fm['slug']] = ('universal', '', fm)
+            local_files[fm['slug']] = f.resolve()
 
     try:
         import precedent_resolve as pr
@@ -101,9 +132,30 @@ def collect(root=ROOT):
                 f"{m['level']}/{m['name']} did NOT resolve this session "
                 f"({m.get('reason', 'no reason given')}), so any command it "
                 f"defines is NOT listed below. That is unknown, not absent.")
+        shadowed = []
         for slug, practice in res['practices'].items():
+            resolved_file = pathlib.Path(practice['file']).resolve()
+            local_file = local_files.get(slug)
+            if local_file is not None and local_file != resolved_file:
+                # Same practice, two checkouts. Keep the local CONTENT and
+                # the resolved LABEL, and say so -- see this function's
+                # docstring for the hour this silence cost.
+                shadowed.append((slug, local_file, resolved_file))
+                if not resolved_view:
+                    found[slug] = (practice['level'],
+                                   practice.get('source', ''),
+                                   found[slug][2])
+                    continue
             found[slug] = (practice['level'], practice.get('source', ''),
                            practice['fm'])
+        for slug, local_file, resolved_file in shadowed:
+            winner = resolved_file if resolved_view else local_file
+            notes.append(
+                f'{slug} is defined twice -- {local_file} (this repo) and '
+                f'{resolved_file} (resolved). Read from {winner}. '
+                + ('Pass no --resolved-view to read the local file instead.'
+                   if resolved_view else
+                   'Pass --resolved-view to read the resolved one instead.'))
     except ImportError:
         notes.append('precedent_resolve.py is not beside this script, so only '
                      "this repo's own practices/ was read.")
@@ -148,6 +200,10 @@ def main(argv=None):
     ap.add_argument('--plain', action='store_true',
                     help='phrase and gloss only -- no slug, level or source')
     ap.add_argument('--repo', default=str(ROOT), help='repository to read')
+    ap.add_argument('--resolved-view', action='store_true',
+                    help='when a slug is defined both here and in a resolved '
+                         'source, read the resolved copy rather than this '
+                         "repo's own file (the default since 2026-09-22)")
     args = ap.parse_args(argv)
     root = pathlib.Path(args.repo).resolve()
 
@@ -157,7 +213,7 @@ def main(argv=None):
         print(emit_vocabulary(root))
         return 0
 
-    entries, notes = collect(root)
+    entries, notes = collect(root, resolved_view=args.resolved_view)
     if not entries:
         # An empty vocabulary is a broken read, not a repo without commands:
         # every Precedent repo ships `Go merge` (practice: fail-gracefully).

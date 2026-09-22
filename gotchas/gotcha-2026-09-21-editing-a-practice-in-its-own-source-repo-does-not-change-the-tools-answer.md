@@ -69,8 +69,17 @@ checkout of the revision you care about:
 where `/tmp/cfg.json` is a copy of the user config with that source's `path`
 repointed. Remove the worktree afterwards with `git worktree remove`.
 
-**This is a workaround, not a repair.** The durable fix is for `collect()` to
-notice that a resolved source's path is not the repo it is running in and say
-so — one line of output would have turned this into a thirty-second problem.
-Filed as
+**The durable fix landed 2026-09-22, for the measured tool.**
+[precedent_vocabulary.py](../tools/precedent_vocabulary.py) now keeps the
+local file's content when a resolved source supplies the same slug from a
+different path, and prints one line naming the slug, both paths and the
+winner. `--resolved-view` restores the old precedence deliberately. The item
+is closed:
 [todo/todo-2026-09-21-resolver-overwrites-a-source-repos-own-practice-silently.md](../todo/todo-2026-09-21-resolver-overwrites-a-source-repos-own-practice-silently.md).
+
+**The workaround above still earns its place**, for two reasons. Every other
+engine tool reads the resolved view *exclusively* — it never builds a local
+half, so there is no silent override to fix there, and a source-repo edit
+still will not show up in [`precedent_gate.py`](../tools/precedent_gate.py) or [`full_practice_audit.py`](../tools/full_practice_audit.py)
+until it reaches the checkout the resolver reads. And a consuming repo does
+not get the fix until it takes an `Update Vendors` pass.

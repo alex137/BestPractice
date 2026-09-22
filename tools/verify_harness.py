@@ -11251,6 +11251,126 @@ def _beta_watermark_fixture(tmp, git, branch='precedent-beta-v01'):
     return origin, seed, land
 
 
+def check_vocabulary_prefers_the_file_you_are_standing_on():
+    """A practice defined both in this repo and in a resolved source is read
+    from THIS repo's file, and the collision is named either way.
+
+    THE HOUR IT COST, 2026-09-21. A session in a practice source removed a
+    `command:` field, ran precedent_vocabulary.py to confirm the row was
+    gone, and got the old row back. `cat` showed the edit. `git diff` showed
+    the edit. The commit landed. Only the tool disagreed, and the natural
+    reading of that is that you edited the wrong field or the frontmatter
+    parse is fussy -- neither of which leaves a trace when you test it.
+
+    `collect()` built one dict keyed by slug: local `practices/*.md` first,
+    then everything the resolver returned, assigned with a bare
+    `found[slug] = ...`. In a CONSUMING repo that precedence is right and
+    the slugs never collide. In a repo that IS one of those sources, both
+    halves are the same practice from two different checkouts and the local
+    edit lost in silence.
+
+    Planted rather than reproduced against the real disk, deliberately: the
+    condition is a resolved source whose path is not the repo you are
+    standing in, and whether any given container is in that state changes
+    with its config. A check that only fires on a machine that happens to be
+    misconfigured is a check that reports the weather.
+
+    Four cases, and the two negative controls are the load-bearing ones: a
+    slug that exists ONLY in the resolved source still comes from there
+    (this is not "ignore the resolver"), and --resolved-view still reaches
+    the old behaviour for a caller that wants it.
+    """
+    import shutil, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_vocabulary as pv
+
+    def practice(slug, phrase, title):
+        return (f'---\nslug:        {slug}\n'
+                f'title:       {title}\n'
+                'tier:        on-demand\nseverity:    default\n'
+                'applies_to:  []\n'
+                f'occasion:    "a fixture practice for {slug}"\n'
+                'gates:       []\n'
+                f'command:     {{"{phrase}": "a fixture command"}}\n'
+                f'index_clause: "{phrase} -- a fixture"\n'
+                'checked_by:  null\nstatus:      active\nin_force_at: null\n'
+                'supersedes:  []\noverrides:   null\nadded:       null\n'
+                'approved_by: null\n---\n\n## Rule\nA fixture rule.\n')
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='vocab-shadow-'))
+    try:
+        # `other` stands in for the checkout the resolver reaches: same
+        # slug, older text. `here` is the repo the tool runs in.
+        other = tmp / 'other'
+        (other / 'practices').mkdir(parents=True)
+        (other / 'practices' / 'fixture-shadowed.md').write_text(
+            practice('fixture-shadowed', 'Stale Phrase', 'A shadowed fixture'),
+            encoding='utf-8')
+        (other / 'practices' / 'fixture-resolved-only.md').write_text(
+            practice('fixture-resolved-only', 'Resolved Only Phrase',
+                      'Only in the resolved source'), encoding='utf-8')
+        (other / 'precedent.json').write_text('{"sources": []}', encoding='utf-8')
+
+        here = tmp / 'here'
+        (here / 'practices').mkdir(parents=True)
+        # The edit in front of you: same slug, different phrase.
+        (here / 'practices' / 'fixture-shadowed.md').write_text(
+            practice('fixture-shadowed', 'Live Phrase', 'A shadowed fixture'),
+            encoding='utf-8')
+        (here / 'precedent.json').write_text(json.dumps({'sources': [
+            {'level': 'universal', 'name': 'precedent', 'path': '../other'}]}),
+            encoding='utf-8')
+
+        env_cfg = str(tmp / 'no-such-user-config.json')
+        saved = os.environ.get('PRECEDENT_USER_CONFIG')
+        os.environ['PRECEDENT_USER_CONFIG'] = env_cfg
+        try:
+            entries, notes = pv.collect(here)
+            entries_rv, notes_rv = pv.collect(here, resolved_view=True)
+        finally:
+            if saved is None:
+                os.environ.pop('PRECEDENT_USER_CONFIG', None)
+            else:
+                os.environ['PRECEDENT_USER_CONFIG'] = saved
+
+        phrases = {e[0] for e in entries}
+        phrases_rv = {e[0] for e in entries_rv}
+        levels = {e[0]: (e[3], e[4]) for e in entries}
+
+        cases = [
+            ('the file you are standing on wins over a resolved copy of the '
+             'same slug',
+             'Live Phrase' in phrases and 'Stale Phrase' not in phrases,
+             f'{sorted(phrases)}'),
+            ('and the collision is NAMED, with both paths and the winner -- '
+             'the silence was the whole defect',
+             any('fixture-shadowed' in n and str(here) in n
+                 and str(other) in n for n in notes), f'{notes}'),
+            ('the local file keeps the RESOLVED label, since a local read '
+             'cannot know which level it is standing in',
+             levels.get('Live Phrase') == ('universal', 'precedent'),
+             f'{levels.get("Live Phrase")}'),
+            ('negative control: a slug only the resolver has still comes '
+             'from there -- this is not "ignore the resolver"',
+             'Resolved Only Phrase' in phrases, f'{sorted(phrases)}'),
+            ('negative control: --resolved-view still reaches the old '
+             'precedence for a caller that wants it',
+             'Stale Phrase' in phrases_rv and 'Live Phrase' not in phrases_rv,
+             f'{sorted(phrases_rv)}'),
+            ('...and names the collision there too, pointing the other way',
+             any('fixture-shadowed' in n for n in notes_rv), f'{notes_rv}'),
+        ]
+        ok = all(passed for _, passed, _ in cases)
+        for name, passed, detail in cases:
+            if not passed:
+                print(f"  vocabulary precedence did NOT behave as stated: "
+                      f"{name} [{detail}]")
+        check(f'precedent_vocabulary reads the file you are standing on, and '
+              f'names the collision ({len(cases)} stated cases)', ok)
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 def check_beta_watermark_commits_only_when_it_actually_reports_something():
     """The watermark advances -- and writes a commit -- ONLY on a run that
     tells its person about a commit that is not theirs. A run with nothing
@@ -21028,6 +21148,193 @@ def check_settled_marker_scan_is_scoped_and_follows_the_split():
           not bad, '; '.join(f"{n} -- {d[:400]}" for n, d in bad))
 
 
+def check_session_load_reports_a_file_over_its_own_declared_ceiling():
+    """The SESSION LOAD pass compares each FILE to the ceiling its own repo
+    declared, and not only each SECTION to the review threshold
+    (practice: control-asserts-which-failure).
+
+    THE INCIDENT (2026-09-22). Three mechanisms each looked like they covered
+    this and none did. The pass measured `## ` sections against
+    `section_review_tokens` and never opened
+    `tools/session_load_budgets.json`; `precedent_check.py`'s
+    session-load-budget check did exactly the right comparison and SKIPPED in
+    any repo without `practices/session-load-budget.md`; and
+    `session_load_trend.py` reported it correctly and only when asked. So
+    precedent-individual's AGENTS.md sat at 2,276 tokens against a declared
+    1,800 -- 29% over -- with every check green.
+
+    THE DISCRIMINATING CASE is the first one below, and it is what makes this
+    a control rather than a demonstration: the overage SPREAD THIN. The real
+    file's largest section was 990 tokens against a 2,500 threshold, so the
+    section signal was not merely quiet, it was correct -- there was nothing
+    section-sized to report. A fixture whose overage sits in one fat section
+    would pass on the old code too, and prove nothing.
+
+    The fixture owns its own tree (fixture-owns-its-state)."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import very_deep_check as vdc
+    import build_views as bv
+
+    PARA = ('Some ordinary instructions prose that a session reads before it '
+            'does any work at all, and which nobody would call remarkable. ')
+
+    def repo(sections, para_repeats, ceiling, registry=True):
+        d = pathlib.Path(tempfile.mkdtemp())
+        body = PARA * para_repeats
+        (d / 'AGENTS.md').write_text(
+            '# fixture\n\n' + ''.join(f'## Section {i}\n\n{body}\n\n'
+                                     for i in range(1, sections + 1)),
+            encoding='utf-8')
+        if registry:
+            (d / 'tools').mkdir()
+            (d / 'tools' / 'session_load_budgets.json').write_text(
+                json.dumps({'surfaces': {'AGENTS.md': {'ceiling': ceiling}}}),
+                encoding='utf-8')
+        return d
+
+    def run(d):
+        try:
+            rows, msgs = vdc._session_load(d)
+            return (sum(n for _, _, n in rows),
+                    max([n for _, _, n in rows] or [0]),
+                    [m for m in msgs if m.startswith('OVER CEILING')])
+        finally:
+            shutil.rmtree(d, ignore_errors=True)
+
+    cases = []
+
+    total, largest, hits = run(repo(5, 40, 1800))
+    cases.append((
+        'THE DISCRIMINATING CASE: a file over its ceiling with the overage '
+        'spread across sections, none of them section-sized, is reported',
+        hits and largest < vdc._SECTION_FLAG_TOKENS and total > 1800,
+        f'total={total} largest={largest} flag={vdc._SECTION_FLAG_TOKENS} '
+        f'hits={hits!r}'))
+    cases.append(('and the finding names the measurement, the ceiling and the '
+                  'registry it came from',
+                  hits and 'AGENTS.md' in hits[0]
+                  and f'{total:,}' in hits[0] and '1,800' in hits[0]
+                  and 'session_load_budgets.json' in hits[0], repr(hits)))
+    cases.append(('and it says the remedy is the reduction pass, never a '
+                  'raise -- session-load-budget\'s own line',
+                  hits and 'NEVER raise the ceiling' in hits[0]
+                  and 'reduction-pass' in hits[0], repr(hits)))
+
+    total, _largest, hits = run(repo(5, 40, 20000))
+    cases.append(('a file INSIDE its declared ceiling raises nothing, however '
+                  'many sections it has', hits == [],
+                  f'total={total} hits={hits!r}'))
+
+    total, _largest, hits = run(repo(5, 40, 1800, registry=False))
+    cases.append(('a repo that declares NO ceiling is not tested against an '
+                  'invented one', hits == [], f'total={total} hits={hits!r}'))
+
+    # The ceiling signal must not have swallowed the section signal it was
+    # added beside: both questions, both answers, in the same run.
+    d = repo(1, 900, 20000)
+    total, largest, hits = None, None, None
+    try:
+        rows, msgs = vdc._session_load(d)
+        largest = max(n for _, _, n in rows)
+        section_hits = [m for m in msgs if m.startswith('REVIEW')]
+    finally:
+        shutil.rmtree(d, ignore_errors=True)
+    cases.append(('the section signal it was added ALONGSIDE still fires on a '
+                  'fat section inside its ceiling',
+                  largest >= vdc._SECTION_FLAG_TOKENS and section_hits != [],
+                  f'largest={largest} hits={section_hits!r}'))
+
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'a file over the ceiling its own repo declared is reported by the '
+          f'SESSION LOAD pass ({len(cases)} stated cases, the spread-thin '
+          f'overage being the discriminating one)',
+          not bad, '; '.join(f"{n} -- {d[:400]}" for n, d in bad))
+
+
+def check_a_registry_file_can_be_a_checks_own_opt_in():
+    """`binds_when` lifts the practice-file gate for a repo that kept the
+    registry carrying the rule (practice: control-asserts-which-failure).
+
+    THE COST IT PAID FOR (2026-09-22). A repo that declares ceilings in
+    `tools/session_load_budgets.json` and does not vendor
+    `practices/session-load-budget.md` got a SKIP whose reason read "this
+    check belongs to a source this repo does not resolve" -- true of the
+    practice, wrong about the registry, which was sitting in the repo. So the
+    numbers were declared and nothing local tested them.
+
+    BOTH DIRECTIONS, because a gate that lifts for everything is not a gate:
+    the check runs where the named file exists and still skips where it does
+    not. Asserted through `run()` rather than by reading the CHECKS entry --
+    the registration is not the behaviour, and it was the gate in `run()`
+    that was wrong."""
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_check as pc
+
+    cases = []
+    reg = pc.CHECKS['session-load-budget']
+    cases.append(('session-load-budget names the registry as its opt-in',
+                  reg.get('binds_when') == ('tools/session_load_budgets.json',),
+                  repr(reg.get('binds_when'))))
+    cases.append(('and a commit touching AGENTS.md or the registry SELECTS it, '
+                  'so a repo without the practice file can still reach it '
+                  'without waiting for the rotation',
+                  'AGENTS.md' in (reg.get('selects_on') or ())
+                  and 'tools/session_load_budgets.json' in
+                  (reg.get('selects_on') or ()),
+                  repr(reg.get('selects_on'))))
+
+    # The gate itself, driven through run() with the practice file made
+    # invisible -- which is the state of every repo this is for.
+    class Ctx:
+        def read_base(self, rel):
+            return None
+
+    def gate(slug, practice_file):
+        orig = pc._practice_file
+        pc._practice_file = lambda s: practice_file
+        try:
+            res = pc.run([slug], Ctx(), (pc.CHECKS[slug]['scope'],))
+        finally:
+            pc._practice_file = orig
+        return res[0][1], res[0][3]
+
+    status, why = gate('session-load-budget', None)
+    cases.append(('THE CASE THAT WAS SKIPPING: no practice file, registry '
+                  'present -- the check RUNS', status != 'SKIPPED',
+                  f'{status}: {why}'))
+
+    # A practice-backed check with no binds_when, same missing practice file.
+    control = next(s for s, c in pc.CHECKS.items()
+                   if c['practice_backed'] and not c.get('binds_when')
+                   and not c.get('binds_publishers')
+                   and c['scope'] == pc.CHECKS['session-load-budget']['scope'])
+    status, why = gate(control, None)
+    cases.append((f'THE DISCRIMINATING CASE: a check with no binds_when '
+                  f'({control}) still skips on a missing practice file -- the '
+                  f'gate was lifted for one rule, not removed',
+                  status == 'SKIPPED', f'{status}: {why}'))
+
+    # And the Rule line says where to read it rather than reporting a gap.
+    rule = None
+    orig = pc._practice_file
+    pc._practice_file = lambda s: None
+    try:
+        rule = pc.rule_of('session-load-budget')
+    finally:
+        pc._practice_file = orig
+    cases.append(('the Rule line names where to read the practice instead of '
+                  'printing "(no practice file for ...)"',
+                  'no practice file for' not in rule
+                  and 'session_load_budgets.json' in rule, rule))
+
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'a repo opts a check in by keeping the registry that carries its '
+          f'rule ({len(cases)} stated cases, a check without binds_when being '
+          f'the discriminating one)',
+          not bad, '; '.join(f"{n} -- {d[:400]}" for n, d in bad))
+
+
 def check_environment_gotchas_follows_a_split_index():
     """A split gotchas section is still held to the story rule
     (practice: control-asserts-which-failure).
@@ -24304,13 +24611,62 @@ def check_endgame_merge_finds_the_silent_drop():
 
         subprocess.run(['git', 'clone', '-q', f'file://{up}', str(work)],
                        capture_output=True, text=True)
-        r = vdc.endgame_merge(work, target='beta', base='main') or {}
+
+        # THE GIT IDENTITY IS PLANTED, BOTH WAYS, and that is the point of
+        # this block. This check used to read whatever identity the machine
+        # happened to have: a session container has a global one, a CI
+        # runner does not, and `git merge` REFUSES without it -- so the
+        # rehearsal did nothing, the index still held only the base branch,
+        # and every file on beta came back named as silently dropped. Green
+        # here, red in continuous integration for five runs, with the code
+        # identical in both (2026-09-22). Neither arm below reads the real
+        # machine. practice: checks-plant-their-state.
+        def _endgame(identity, **kw):
+            saved = {k: os.environ.get(k)
+                     for k in ('GIT_CONFIG_GLOBAL', 'GIT_CONFIG_SYSTEM')}
+            if not identity:
+                os.environ['GIT_CONFIG_GLOBAL'] = os.devnull
+                os.environ['GIT_CONFIG_SYSTEM'] = os.devnull
+            try:
+                return vdc.endgame_merge(work, target='beta', base='main',
+                                         **kw) or {}
+            finally:
+                for k, v in saved.items():
+                    if v is None:
+                        os.environ.pop(k, None)
+                    else:
+                        os.environ[k] = v
+
+        r = _endgame(identity=True)
         dropped, conflicts = set(r.get('dropped') or []), set(r.get('conflicts') or [])
+        bare = _endgame(identity=False)
+        bare_dropped = set(bare.get('dropped') or [])
+        bare_conflicts = set(bare.get('conflicts') or [])
 
         # Same fixture, revert undone: the merge must come back clean.
         _git(up, 'revert', '--no-edit', 'HEAD')   # revert the revert
         _git(work, 'fetch', '-q', 'origin')
-        clean = vdc.endgame_merge(work, target='beta', base='main') or {}
+        clean = _endgame(identity=True)
+
+        # AND A MERGE THAT GENUINELY CANNOT RUN MUST SAY SO. Planted with a
+        # global config the rehearsal cannot satisfy -- signature
+        # verification on, against unsigned fixture commits -- which makes
+        # `git merge` exit 128 having done nothing, exactly as the missing
+        # identity did. Without this case the error path is never executed
+        # and the old behaviour (report it as every file dropped) could come
+        # back with every check still green.
+        blocked_cfg = tmp / 'blocked.gitconfig'
+        blocked_cfg.write_text('[merge]\n\tverifySignatures = true\n',
+                               encoding='utf-8')
+        saved_cfg = os.environ.get('GIT_CONFIG_GLOBAL')
+        os.environ['GIT_CONFIG_GLOBAL'] = str(blocked_cfg)
+        try:
+            blocked = vdc.endgame_merge(work, target='beta', base='main') or {}
+        finally:
+            if saved_cfg is None:
+                os.environ.pop('GIT_CONFIG_GLOBAL', None)
+            else:
+                os.environ['GIT_CONFIG_GLOBAL'] = saved_cfg
 
         worktrees = _git(work, 'worktree', 'list').stdout.strip().splitlines()
 
@@ -24327,6 +24683,17 @@ def check_endgame_merge_finds_the_silent_drop():
              clean.get('status') == 'clean' and not clean.get('dropped')),
             ('the throwaway worktree is removed, whatever the outcome',
              len(worktrees) == 1),
+            ('PLANTED, no global git identity: the same answer, not a merge '
+             'that silently did nothing',
+             bare_dropped == dropped and bare_conflicts == conflicts
+             and bare.get('status') == r.get('status')),
+            ('PLANTED, a merge git refuses outright: reported as error, '
+             'never as findings',
+             blocked.get('status') == 'error'),
+            ('...and the note carries git\'s own words rather than a '
+             'fabricated drop list',
+             'signature' in (blocked.get('note') or '').lower()
+             and not blocked.get('dropped')),
         ]
         failed = [name for name, ok in results if not ok]
         check(f'the endgame-merge rehearsal names the silently-dropped path '
@@ -27927,6 +28294,7 @@ def main():
     check('the archive line is refused when the container holds '
           'only-copy work',
           *check_archive_line_is_refused_when_the_container_holds_only_copy_work())
+    check_vocabulary_prefers_the_file_you_are_standing_on()
     check_beta_watermark_commits_only_when_it_actually_reports_something()
     check_beta_watermark_never_writes_into_a_busy_or_unpushable_checkout()
     check_trivial_checkin_exempts_the_boildown_gate()
@@ -27990,6 +28358,8 @@ def main():
     check_split_projection_is_costed_and_ordered()
     check_duplicated_resident_text_detector()
     check_settled_marker_scan_is_scoped_and_follows_the_split()
+    check_session_load_reports_a_file_over_its_own_declared_ceiling()
+    check_a_registry_file_can_be_a_checks_own_opt_in()
     check_environment_gotchas_follows_a_split_index()
     check_gotcha_currency_signals_fire()
     check_relayed_authorization_reader()
