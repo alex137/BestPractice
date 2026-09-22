@@ -261,7 +261,7 @@ CHECKS = {}
 
 
 def check(slug, scope, what, blind_to, advisory=False, practice_backed=True,
-          binds_publishers=False):
+          binds_publishers=False, selects_on=()):
     """Register a check. `blind_to` is what it does NOT catch, printed by
     --explain -- a check's limits belong beside it, not in a document that
     drifts from it.
@@ -293,6 +293,31 @@ def check(slug, scope, what, blind_to, advisory=False, practice_backed=True,
     source set -- the flag removes the gate, it does not make a check
     that needs resolved sources suddenly work without them.
 
+    `selects_on` is a tuple of path globs naming the files this check's
+    verdict actually depends on. A commit touching any of them SELECTS this
+    check for that run, the same way a practice's own `applies_to` globs
+    already select a practice-backed one (`_scoped_tree_slugs`, tier 2).
+
+    WHY IT EXISTS, and it is the hole `practice_backed=False` opened
+    without anyone noticing. Tier 2 reads its globs off
+    `practices/<slug>.md` -- and a check enforcing a property of the ENGINE
+    has no practice file by design. So every one of those checks fell
+    straight through to tier 3, the rotation, and could be reached ONLY by
+    its turn coming up: no file you touched could ever summon it. Measured
+    2026-09-22, on 18 of them at once.
+
+    The cost, same day: a fix to `.claude/hooks/freshness-guard.sh` landed
+    in that copy and not in the template every other repo installs.
+    `dogfooded-hooks-match-template` exists for precisely that, was not in
+    that commit's rotation slice, and stayed silent. It surfaced only
+    because a session ran it by name on a hunch -- which is not a mechanism
+    (practice: durable-fix). One commit later and the drifted template
+    would have shipped.
+
+    An over-broad glob costs a little runtime; a missing one leaves the
+    rotation exactly as it was. So this only ever ADDS selection, and
+    getting it wrong is never how a check stops running.
+
     `advisory=True` is distinct from a practice's own frontmatter
     `severity:` field (precedent_resolve.py's `severity: blocking`, about
     which SOURCE wins when two levels disagree) -- this is about whether
@@ -305,7 +330,8 @@ def check(slug, scope, what, blind_to, advisory=False, practice_backed=True,
         CHECKS[slug] = dict(slug=slug, scope=scope, fn=fn, what=what,
                             blind_to=blind_to, advisory=advisory,
                             practice_backed=practice_backed,
-                            binds_publishers=binds_publishers)
+                            binds_publishers=binds_publishers,
+                            selects_on=tuple(selects_on))
         return fn
     return deco
 
@@ -2428,7 +2454,10 @@ def _access_probe_is_wired(ctx):
        'templates/harness/*/settings.json: those declare paths for the repo '
        'they are installed INTO, so resolving them against this tree would '
        'report a template as broken for being a template.',
-       practice_backed=False)
+       practice_backed=False,
+       # Its whole subject is this repo's hook wiring and the hook
+       # files themselves; nothing outside .claude/ changes its verdict.
+       selects_on=('.claude/**',))
 def _declared_hooks_exist(ctx):
     """A hook whose path does not exist is not an error anybody sees.
 
@@ -2672,7 +2701,11 @@ DOGFOODED_HOOKS_MATCH_TEMPLATE = (
        'stop-git-check.sh, reply-gate.sh -- each carries real repo-'
        'specific content and is correctly not in the list); whether '
        'either copy is actually correct, only that the two agree',
-       practice_backed=False)
+       practice_backed=False,
+       # Both sides of every pair it compares. Touch either copy of a
+       # dogfooded hook and this runs, instead of waiting for its rotation
+       # turn -- which is how the 2026-09-22 template drift got through.
+       selects_on=('.claude/hooks/**', 'templates/harness/claude-code/hooks/**'))
 def _dogfooded_hooks_match_template(ctx):
     """A fix landed in only one copy on 2026-09-15 (freshness-guard.sh's
     auto-reconcile feature, added to .claude/hooks/ alone) and nothing
@@ -2896,7 +2929,10 @@ def _settings_hook_dirs():
        'runs. A hook the repo DECLINED on purpose is satisfied by its '
        "declared reason in precedent.json's declined_adapters, never by "
        'wiring it.',
-       practice_backed=False)
+       practice_backed=False,
+       # Its whole subject is this repo's hook wiring and the hook
+       # files themselves; nothing outside .claude/ changes its verdict.
+       selects_on=('.claude/**',))
 def _hooks_on_disk_are_reachable(ctx):
     """A hook nothing names is off, and from inside a session that looks
     exactly like a hook that is working.
@@ -7306,20 +7342,31 @@ def _scoped_tree_slugs(tree_slugs, buckets=None):
     active = []
     globs_by_slug = {}
     for slug in tree_slugs:
+        # A check's OWN declared paths, which exist whether or not it has a
+        # practice file -- the only tier-2 route open to an engine-property
+        # check (see check()'s `selects_on` docstring for the 2026-09-22
+        # incident this closes). Collected before the practice file is even
+        # looked for, so the `p is None` path below keeps them.
+        declared = [g for g in (CHECKS.get(slug, {}).get('selects_on') or ())
+                    if g != '**']
         p = _practice_file(slug)
         if p is None:
             active.append(slug)
+            if declared:
+                globs_by_slug[slug] = declared
             continue
         try:
             fm, _sections = sp._read_practice_file(p)
         except sp.PracticeFileError:
             active.append(slug)
+            if declared:
+                globs_by_slug[slug] = declared
             continue
         if not _bv.is_in_force(fm):
             continue
         active.append(slug)
-        globs_by_slug[slug] = [g for g in pp._globs(fm.get('applies_to', '[]'))
-                               if g != '**']
+        globs_by_slug[slug] = declared + [
+            g for g in pp._globs(fm.get('applies_to', '[]')) if g != '**']
 
     directly = {s for s in active if f'practices/{s}.md' in touched_set}
     indirectly = {s for s in active if s not in directly

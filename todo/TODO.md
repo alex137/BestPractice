@@ -145,8 +145,8 @@
 | [`todo-2026-09-21-resolver-overwrites-a-source-repos-own-practice-silently`](todo-2026-09-21-resolver-overwrites-a-source-repos-own-practice-silently.md) | In a repo that is itself a practice source, the engine tools read that repo's own `practices/` and then silently throw t | 1d | ask |  |
 | [`todo-2026-09-21-structural-only-route-3-not-exercised`](todo-2026-09-21-structural-only-route-3-not-exercised.md) | `check_structural_only_actually_drops_the_private_half` covers two of the three routes it names, and the third is guarde | 1d | ask |  |
 | [`todo-2026-09-21-template-freshness-reports-five-phantom-gaps`](todo-2026-09-21-template-freshness-reports-five-phantom-gaps.md) | Every one of `TEMPLATE FRESHNESS`'s five findings is a file the bootstrap generator writes | 1d | ask |  |
-| [`todo-2026-09-21-three-shared-sets-are-cloned-twice-on-this-container`](todo-2026-09-21-three-shared-sets-are-cloned-twice-on-this-container.md) | All three shared sets exist twice on this container | 1d | ask |  |
 | [`todo-2026-09-21-vocabulary-emit-would-publish-a-private-command`](todo-2026-09-21-vocabulary-emit-would-publish-a-private-command.md) | `python3 tools/doc_sync.py --write` would publish a private practice's command into a public, tracked file | 1d | ask |  |
+| [`todo-2026-09-22-the-endgame-merge-rehearsal-is-red-in-ci-green-locally`](todo-2026-09-22-the-endgame-merge-rehearsal-is-red-in-ci-green-locally.md) | `verify_harness (everything else)` has been failing on `precedent-beta-v01` itself, on one check, and every pull request | 0d | ask |  |
 
 ## Decisions (the Person's Call)
 
