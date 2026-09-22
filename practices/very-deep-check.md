@@ -17,6 +17,14 @@ supersedes:  []
 overrides:   null
 added:       null
 approved_by: "extended 2026-09-21, Morgan (strength: decided), with the
+  ACTIONS FLOOR bill (proposal item 7) and the CONFIG KEYS sweep (item
+  10) -- \"Build the next part of very deep check according to the
+  plan\"; the required-status-check item was weighed first and held,
+  because this session measured the protection endpoint answering
+  \"Resource not accessible by integration\" and a section that can only
+  ever print UNVERIFIED here is the cost the component ledger exists to
+  catch;
+  extended 2026-09-21, Morgan (strength: decided), with the
   carry-through roll-up (CARRY-THROUGH, proposal item 3) and the
   identity read off the commits that landed (IDENTITY REALITY, item 8) --
   \"Is there a next step to build in your very deep check plan? Build
@@ -234,6 +242,25 @@ nothing anywhere reports. **It reports and never refuses.** The pool is shared
 by every session running, so a run that stopped because somebody else had
 spent it would be punishing the wrong session; the remedy is fewer
 simultaneous windows and cheaper tools, and neither is this tool's to apply.
+
+**It also reads the other bill, the one that has actually been hurting.**
+The `ACTIONS FLOOR` section counts, per workflow in every repo in force,
+**runs × jobs over the window** — the run count from one application
+programming interface (API) call with a `created` filter, the job count by
+reading the workflow file. GitHub bills a whole minute per **job**, so that
+product is the floor, and the floor was the entire cost in the case
+[spec/CI_MINUTES_PLAN.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/CI_MINUTES_PLAN.md)
+item 15 measured: a 13-second job billed as a minute, 14 times a day, about
+420 minutes a month with nothing misconfigured. **That number was found once,
+by a session doing a one-off audit, and a number found once goes stale** —
+this is the standing version. **A floor, never an invoice**: real minutes are
+at least this, and whether they are billed at all depends on the repository
+being private. The lever it makes visible is the one both item 13 and item 15
+landed on independently — **job count per workflow**, because two workflows on
+one pull request is two whole minutes for however little work. Added
+2026-09-21 (Morgan, strength: decided) from
+[spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md)
+item 7.
 
 **Before anything is read, every repo in force must be provably current
 against its origin, and must still be a repository work can land in** — this checkout and every attached source.
@@ -758,6 +785,37 @@ confidently.
    [tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/very_deep_check.py), with nothing
    keeping the two in step — the tool printed the copy, so a session would
    have worked the stale list without ever seeing the current one.)*
+8a. **Is every key a repo DECLARES actually read by something?** The
+    mirror of question 8 one level over: that one asks whether two things
+    do one job, this asks whether a declared thing does any job at all.
+    **A key nobody reads is not a typo, it is a belief** — somebody wrote
+    it expecting an effect, and the file goes on looking exactly as
+    intentional as a live one, forever.
+    [tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/very_deep_check.py)'s
+    `CONFIG KEYS` section lists every key in every `precedent.json` and
+    `identity.json` in force against every script the repo carries.
+
+    *(The incident:
+    [spec/CI_MINUTES_PLAN.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/CI_MINUTES_PLAN.md)
+    item 15 told a session to set `ci_workflows: disabled` in a consuming
+    repo's `precedent.json` and then delete a workflow. `ci_preference()`
+    resolves that key from a SOURCE's `identity.json` and never from a
+    consumer's `precedent.json`, so the key would have been read by
+    nothing and the deletion would have carried a commit message claiming
+    a toggle permitted it. A session read the engine and refused.)*
+
+    **Two things keep it honest.** The corpus is every script a repo
+    carries — tools, hooks, bootstrap, shipped templates — because a key is
+    consumed by whatever runs, in whatever language: scoped to `tools/*.py`
+    alone, its first run reported `stale_checkout_hours` as unread, and it
+    is read by `freshness-guard.sh`. And **read by nothing HERE is not read
+    by nothing**: where a key has no local reader the row names which other
+    repo in force mentions it, since a private check may legitimately run
+    against every repo. Mentioned nowhere at all is the row worth an
+    answer. Added 2026-09-21 (Morgan, strength: decided) from
+    [spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md)
+    item 10.
+
 9. **Does anything use alphabetical order to pick a winner?** Often the
    previous question's duplicate, one layer on: where two candidates could
    satisfy a lookup — two directories, two copies of a file, two sources for
