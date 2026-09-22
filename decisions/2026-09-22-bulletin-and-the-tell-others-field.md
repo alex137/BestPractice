@@ -36,6 +36,18 @@ decision: |
      past 7 cannot become a changelog.
   4. A `tell_others:` value longer than ~140 characters is rejected
      mechanically, so it cannot become prose.
+  5. **Newest first.** The file renders in reverse chronological order, most
+     recent entry at the top, so the reader meets what changed last without
+     scrolling. The cap in rule 3 therefore drops the OLDEST entries, which
+     is the behaviour that makes a capped file readable rather than
+     arbitrary (Morgan, 2026-09-22).
+
+  [spec/CHANGES_TO_TELL_ALEX.md](../spec/CHANGES_TO_TELL_ALEX.md) is
+  closed rather than deleted: its status
+  becomes `closed` with its dates stated on its face, its generated figures
+  are frozen as a measurement of the day it closed, and it is deregistered
+  from `doc_sync` so nothing keeps editing a document that says it is no
+  longer updated (Morgan, 2026-09-22).
 
   Every existing practice, decision and gotcha is backfilled with
   `tell_others: none` so the presence check can be unconditional — as its

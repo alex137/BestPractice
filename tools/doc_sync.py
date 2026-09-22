@@ -58,11 +58,16 @@ ROOT = find_root(__file__)
 PAIRS = [
     ("spec/LOADER.md", "catalogue", "tools/catalogue_stats.py"),
     ("spec/ENFORCEMENT.md", "enforcement", "tools/catalogue_stats.py"),
-    ("spec/CHANGES_TO_TELL_ALEX.md", "merge-back", "tools/catalogue_stats.py"),
     ("documentation/DAILY_HABITS.md", "vocabulary",
      "tools/precedent_vocabulary.py"),
 ]
 
+# spec/CHANGES_TO_TELL_ALEX.md's merge-back block left this list on
+# 2026-09-22, when that record closed. A closed record is a measurement
+# of its date; regenerating its figures afterwards would keep editing a
+# document that says on its face it is no longer updated. The numbers
+# are frozen inline there, labelled with the date they were taken.
+#
 # spec/VERY_DEEP_CHECK.md's merged-stale-checkout block is deliberately NOT
 # here. Every PAIRS script above computes from this repo's own tracked
 # files -- deterministic, reproducible from a bare copy of the tree.
