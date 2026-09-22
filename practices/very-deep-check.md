@@ -3,7 +3,7 @@ slug:        very-deep-check
 title:       The very deep check — a whole-repo coherence review, on request only
 tier:        on-demand
 severity:    advisory
-scope:       null
+scope:       any-adopter
 applies_to:  ["**"]
 occasion:    "a person explicitly asks for a \"very deep check\" across the whole repo, or after work that invites drift"
 gates:       []

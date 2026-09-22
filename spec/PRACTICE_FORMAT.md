@@ -797,29 +797,65 @@ vs. team vs. individual vs. repo-local). A repo-local practice needs no
 by a different mechanism entirely.
 
 **Drafted 2026-09-15**, out of a conversation about why a content-only
-adopter's loaded file is dominated by triggers it can never use. Four
-practices are tagged so far —
-[very-deep-check](../practices/very-deep-check.md),
-[full-practice-audit](../practices/full-practice-audit.md),
-[routing-audit](../practices/routing-audit.md) and
-[parallel-artifact-ledger](../practices/parallel-artifact-ledger.md) — as
-the clearest, least arguable cases: each one audits a mechanism (the
-loader, the routing table, the harness adapter tree) that exists only in
-this repository. **Reclassifying the rest of the catalogue by this same
-question is real follow-on work, not attempted here** — swept in a first
-pass on resemblance alone is exactly the failure mode
+adopter's loaded file is dominated by triggers it can never use. **Tagged
+`engine-dev` today:** [cross-source-rollout](../practices/cross-source-rollout.md),
+[parallel-artifact-ledger](../practices/parallel-artifact-ledger.md) and
+[routing-audit](../practices/routing-audit.md) — each fires only on a
+mechanism that exists in this repository, whose engine other sources depend
+on. `cross-source-rollout` joined them on 2026-09-15, in the classification
+sweep over all 104 universal on-demand practices that found it the one
+further clear match. That list is read out of this paragraph by the check
+below and compared against the tree, so it cannot go stale silently; it is
+the list, not a description of one.
+
+**The rest of the catalogue has been asked the same question once**, in
+that 2026-09-15 sweep, and the answer was that everything else describes a
+workflow an adopter genuinely uses — writing their own rules, running their
+own leak gate, landing their own practices — even where it uses Precedent's
+own vocabulary to do it. **That is a reviewed answer, not a standing
+licence to sweep**: tagging on resemblance alone is exactly the failure mode
 [decision-strength](../practices/decision-strength.md) and
 [mistakes-become-rules](../practices/mistakes-become-rules.md) warn about
-for a judgment call like this one; an unreviewed practice keeps its default
-(`any-adopter`) rather than being guessed into `engine-dev`.
+for a judgment call like this one, so an unreviewed practice keeps its
+default (`any-adopter`) rather than being guessed into `engine-dev`.
+[very-deep-check](../practices/very-deep-check.md)'s Pass 4 re-asks it of
+every universal on-demand practice, so drift gets caught by the standing
+mechanism rather than by another manual sweep.
 
-**Not yet mechanically checked.** Nothing in
-[tools/verify_harness.py](../tools/verify_harness.py) validates that
-`scope:` holds one of its two legal values, or flags a repo-local practice
-that redundantly declares `engine-dev`. Per
-[checkable-gets-checked](../practices/checkable-gets-checked.md) this is
-owed a check before the field is more than advisory — named here as an
-open gap rather than left to be discovered.
+**Two practices were tagged on 2026-09-15 and deliberately untagged on
+2026-09-21** — [very-deep-check](../practices/very-deep-check.md) and
+[full-practice-audit](../practices/full-practice-audit.md). Each declares a
+standing `command:` ("Very deep check", "Practice check"), and `engine-dev`
+withholds the practice from a consuming repo's materialized `practices/`:
+somebody said the words in their own project, the session had no such
+practice, and nothing happened for a reason nobody in that room could see
+(commit `8b5aba96`). **A practice that declares a `command:` cannot be
+`engine-dev` scoped**, and `vocabulary-reaches-the-consumer` in
+[tools/precedent_check.py](../tools/precedent_check.py) refuses one that
+tries. They carry `scope: any-adopter` in so many words rather than nothing,
+because here the default is a decision somebody made, and a blank field
+reads as a decision nobody made.
+
+**`scope: null` is not a third value — it is the absent field.** The one
+null policy in [tools/split_practices.py](../tools/split_practices.py)'s
+`parse_frontmatter_fields` drops a `null` field before any consumer sees
+it, for every field in both formats, so `scope: null` and no `scope:` line
+are indistinguishable everywhere downstream. **No check can recover the
+difference**, which is why the tagged list above is authored here and
+compared against the tree rather than inferred from the files alone.
+
+**Mechanically checked since 2026-09-22**, by
+`check_scope_field_is_legal_and_matches_this_spec` in
+[tools/verify_harness.py](../tools/verify_harness.py): every practice's
+`scope:` holds one of the two legal values or is absent, no repo-local
+practice redundantly declares `engine-dev`, and the tree's `engine-dev`
+practices are exactly the ones this section names. It is owed to
+[checkable-gets-checked](../practices/checkable-gets-checked.md), and the
+gap it closes had already bitten: a 2026-09-21 audit read the two untagged
+files above against this section's then-stale list of four, filed the
+deliberate untagging as silent drift, and proposed reverting it — which
+`vocabulary-reaches-the-consumer` would have refused. **The list going
+stale was the defect**, not the tree.
 
 ## `source_practice_number`
 

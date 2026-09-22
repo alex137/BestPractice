@@ -3,7 +3,6 @@ slug:        source-sets-run-no-ci
 title:       A practice source runs no continuous integration
 tier:        on-demand
 severity:    default
-scope:       null
 applies_to:  ["tools/precedent_vendor_engine.py", "templates/github-actions/**"]
 occasion:    "installing, refreshing or adding a continuous-integration workflow in a practice SOURCE -- an individual or shared set"
 gates:       []
