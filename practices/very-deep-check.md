@@ -16,7 +16,13 @@ in_force_at: null
 supersedes:  []
 overrides:   null
 added:       null
-approved_by: "extended 2026-09-21, Morgan (strength: decided), with the
+approved_by: "extended 2026-09-22, Morgan (strength: decided), with
+  FIX SWEEP (proposal item 13's other half) -- \"Build item 13's
+  fix-sweep half, go update\"; its first run carried the YAML-anchor
+  detector built three days earlier into all three shared sources, two
+  of which decline for having no workflow file and the third of which
+  runs clean;
+  extended 2026-09-21, Morgan (strength: decided), with the
   deletion-propagation table (proposal item 4), the CHECK COVERAGE
   enumeration (item 13, closing pass 2 question 15's own unbuilt half)
   and MOVED CLAIMS (item 14) -- \"now build the next ones\"; item 4's
@@ -1153,6 +1159,45 @@ confidently.
     from
     [spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md)
     item 12.
+
+21. **Every detector built since the last run, carried to every repo in
+    force.** [fix-the-original](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/fix-the-original.md)
+    says fix the origin and then every copy. **Nothing checked that the
+    second half happened**, and the failure is quiet by construction: a
+    consumer running the engine it vendored before the fix reports nothing,
+    correctly, and its silence reads exactly like a clean result.
+    [tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/very_deep_check.py)'s
+    `FIX SWEEP` section takes every check registered here since the ledger's
+    last run and runs **this checkout's** copy of it against **every** repo
+    in force.
+
+    **It is the mirror of item 15a beside it, and the two are easy to
+    confuse.** `CHECK COVERAGE` runs each repo's **own** vendored engine,
+    because what a consumer actually enforces is the code it has. This runs
+    **this** engine against that repo's tree, because the whole point is a
+    detector the consumer has not vendored yet.
+
+    **A VIOLATION here is the case the item exists for**, and it is fixed in
+    the run that found it. The incident: the hardcoded-identity check was
+    written the day the trap was reported, in this repository, and the
+    repository that actually had the problem was a consumer nobody
+    re-scanned. **A check built in response to an incident and never run
+    where the incident happened is the most expensive kind of clean
+    result.**
+
+    **Three limits, all printed beside the rows.** It sweeps registered
+    checks only — a detector that shipped as a standalone tool, a planted
+    harness case or a hook is not reached. Each repo is read as a
+    one-commit copy, so a change-scope check has no change to look at and
+    declines, correctly, since another repo's tree cannot answer a question
+    about this one's diff. And a depth-limited clone may hold no commit
+    before the ledger's date, in which case the comparison runs from the
+    oldest commit it has and **under-reports** — the narrower window is
+    named in the output rather than silently applied. Added 2026-09-22
+    (Morgan, strength: decided — *"Build item 13's fix-sweep half, go
+    update"*) from
+    [spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md)
+    item 13.
 
 ### Pass 3 — Does the writing still hold together?
 The coherence read, across every repo in scope. Run the mechanical audits

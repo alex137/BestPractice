@@ -154,9 +154,32 @@ PRIVATE_LEVELS = getattr(bv, 'PRIVATE_LEVELS', ('shared', 'team', 'individual'))
 
 
 def resolved_gate_practices(root, gate):
-    """-> (entries, notes). Every IN-FORCE practice registered to `gate` in
-    any source this repo resolves -- team, individual and repo-local as well
-    as universal -- as (slug, level, source_name, path) tuples.
+    """-> (entries, notes, unresolved_level). Every IN-FORCE practice
+    registered to `gate` in any source this repo resolves -- team,
+    individual and repo-local as well as universal -- as (slug, level,
+    source_name, path) tuples.
+
+    `unresolved_level` is what the CALLER should assume for a practice that
+    sits in this repo's own `practices/` and is registered to `gate`, but
+    that `entries` above does not otherwise account for -- either because
+    resolution failed outright or because the source that owns it did not
+    resolve this session. It is `'universal'` when this repo's own
+    precedent.json declares no external universal source, which is what
+    makes that assumption safe: a repo that names nothing at `level:
+    universal` is not consuming one, so by elimination its own tree IS the
+    universal catalogue (BestPractice's own shape). It is `None` -- "level
+    unknown, ask the caller not to assert one" -- the moment this repo DOES
+    declare an external universal source, because then its own
+    `practices/` is an individual, team or shared source's tree instead,
+    and this function has no way to say which one from a file that never
+    resolved. Reproduced 2026-09-22 in precedent-individual (see this
+    module's `main()`): `so-what-test` and `handoff-only-when-blocked` are
+    that set's own INDIVIDUAL practices, but with the individual source
+    unresolved (no `~/.config/precedent/config.json`), the caller's old
+    hardcoded `'universal'` fallback printed `(universal)` for both --
+    wrong in a way nothing downstream could catch, on the one channel whose
+    whole promise is that a session does not have to judge this for
+    itself.
 
     WHY THIS EXISTS, and what it cost to leave out. Until 2026-09-13 this
     file read exactly one directory: `<root>/practices/`. In a consuming
@@ -188,13 +211,22 @@ def resolved_gate_practices(root, gate):
         import precedent_resolve as pr
     except ImportError:
         return [], ['precedent_resolve.py is not vendored beside this script, '
-                    'so only this repo\'s own practices/ is below.']
+                    'so only this repo\'s own practices/ is below.'], 'universal'
     try:
         sources = pr.load_config(root)
+    except Exception as e:                                   # noqa: BLE001
+        return [], [f'the declared sources could not be read ({e}), so '
+                    f'only this repo\'s own practices/ is below.'], 'universal'
+    # See this function's own docstring: the ONE signal available here for
+    # what this repo's own unresolved practices/ files actually are.
+    unresolved_level = (
+        None if any(s.get('level') == 'universal' for s in sources)
+        else 'universal')
+    try:
         res = pr.resolve(sources)
     except Exception as e:                                   # noqa: BLE001
         return [], [f'the declared sources could not be resolved ({e}), so '
-                    f'only this repo\'s own practices/ is below.']
+                    f'only this repo\'s own practices/ is below.'], unresolved_level
 
     for m in res.get('missing', []):
         notes.append(
@@ -212,7 +244,7 @@ def resolved_gate_practices(root, gate):
         if gate in gates:
             entries.append((slug, practice['level'], practice.get('source', ''),
                             pathlib.Path(practice['file'])))
-    return entries, notes
+    return entries, notes, unresolved_level
 
 
 def _unlanded_work(root):
@@ -484,9 +516,17 @@ def main():
     # resolved_gate_practices). Resolution WINS on a slug both carry, since
     # it has applied precedence across the sources and the directory has
     # not.
-    registered = {s: ('universal', '', practices_dir / f'{s}.md')
+    #
+    # The seed's OWN level is never assumed to be 'universal' -- that was
+    # only ever true when this repo's own tree really is the universal
+    # catalogue, and resolved_gate_practices() names the one case that
+    # tells them apart (see its docstring). Reproduced 2026-09-22: with
+    # `unresolved_level` hardcoded, an unresolved individual or team source
+    # printed its own practices as `(universal)`, which is wrong in a way
+    # nothing downstream could catch.
+    entries, source_notes, unresolved_level = resolved_gate_practices(root, gate)
+    registered = {s: (unresolved_level, '', practices_dir / f'{s}.md')
                   for s in by_gate.get(gate, [])}
-    entries, source_notes = resolved_gate_practices(root, gate)
     for slug, level, name, path in entries:
         registered[slug] = (level, name, path)
     slugs = sorted(registered)
@@ -614,7 +654,13 @@ def main():
 
     for n in source_notes:
         print(f"NOTE: {n}\n")
-    if any(registered[s][0] in PRIVATE_LEVELS for s in slugs):
+    # A slug whose level is None (unresolved -- see resolved_gate_practices)
+    # is treated as possibly private here too: it is this repo's OWN file,
+    # and the one thing not known about it is which level it is, never that
+    # it is safely public. Silence on that guess would be the wrong side to
+    # be wrong on for a rule that says "never quote this into a commit".
+    if any(registered[s][0] in PRIVATE_LEVELS or registered[s][0] is None
+           for s in slugs):
         # Same standing rule as .precedent/SESSION_PRACTICES.md's header,
         # said at the other place this text now surfaces: a private source's
         # practice text has never been published, and this repo is public.
@@ -627,7 +673,13 @@ def main():
     for slug in slugs:
         level, name, path = registered[slug]
         fm, sections = sp._read_practice_file(path)
-        where = level if level in ('universal', 'repo-local') else f'{level}/{name}'
+        # None means resolution did not account for this practice at all
+        # (see resolved_gate_practices) -- said outright rather than
+        # guessed as 'universal', which is the defect this branch replaces.
+        if level is None:
+            where = 'level unknown — this source did not resolve'
+        else:
+            where = level if level in ('universal', 'repo-local') else f'{level}/{name}'
         if '--brief' in flags:
             # One line per practice, for the per-turn channel: the full Rules
             # of a busy gate are thousands of tokens, and a reminder a session

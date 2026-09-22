@@ -77,6 +77,26 @@ in a source set; functioning turned out to be half the test, and six of those
 inspect the repo's own machinery rather than anything it publishes. The gap
 between the estimate and the audit is the audit's whole value.
 
+**Item 13's remaining half landed 2026-09-22.** `FIX SWEEP` takes every
+check registered here since the ledger's last run and runs **this
+checkout's** copy of it against every repo in force — the mirror of item
+15a's `CHECK COVERAGE`, which runs each repo's own vendored engine. The two
+answer opposite questions and the difference is the whole point: what a
+consumer enforces is the code it has, and a detector it has not vendored yet
+reports nothing there, correctly, which is indistinguishable from clean.
+
+**Its first run carried the YAML-anchor detector, built three days earlier,
+into all three shared sources**: two decline for holding no workflow file,
+the third runs clean. 0.8 seconds for the sweep. It also surfaced a limit
+worth having found this way rather than later — **this clone holds no commit
+older than the ledger's own last-run date**, because sessions clone with a
+depth limit. The comparison falls back to the oldest commit present and says
+so in the output, since a narrower window under-reports and a silent
+under-report is the failure this whole item is about.
+
+With that, **thirteen of the fourteen proposals are built.** Item 6 is the
+one left, and it is held rather than outstanding:
+
 **Item 6 (required status checks) was weighed here and held back**, which is
 worth recording because it is the ledger's own argument applied before the
 fact rather than after: this session measured
