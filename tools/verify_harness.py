@@ -24670,6 +24670,31 @@ def check_endgame_merge_finds_the_silent_drop():
 
         worktrees = _git(work, 'worktree', 'list').stdout.strip().splitlines()
 
+        # AND A RESULT THAT CANNOT BE READ MUST SAY SO TOO. The merge runs
+        # here; what fails is the pair of reads that learn what it did, and
+        # each of them used to coerce its own failure to an empty set. An
+        # `ls-files` that fails leaves `present` holding only the conflicts,
+        # so `expected - present` names almost every file on the integration
+        # branch -- the identical fabricated drop list the refusal path used
+        # to produce, reached by a different route. Planted by failing each
+        # read in turn, because the two are separate `if rc == 0` branches
+        # and one being guarded says nothing about the other.
+        # practice: checks-plant-their-state.
+        unreadable = {}
+        for failing in ('diff', 'ls-files'):
+            original_run = vdc._run_git
+
+            def fail_one_read(repo, *args, _f=failing, _o=original_run, **kw):
+                if args and args[0] == _f:
+                    return (128, '', f'fatal: simulated -- {_f} unreadable')
+                return _o(repo, *args, **kw)
+
+            vdc._run_git = fail_one_read
+            try:
+                unreadable[failing] = _endgame(identity=True)
+            finally:
+                vdc._run_git = original_run
+
         results = [
             ('the file untouched since the merge base is named as dropped',
              'drop.txt' in dropped),
@@ -24694,6 +24719,16 @@ def check_endgame_merge_finds_the_silent_drop():
              'fabricated drop list',
              'signature' in (blocked.get('note') or '').lower()
              and not blocked.get('dropped')),
+            ('PLANTED, the merge ran but `git diff` could not be read: '
+             'error and no drop list, never a finding',
+             unreadable['diff'].get('status') == 'error'
+             and not unreadable['diff'].get('dropped')
+             and 'UNKNOWN' in (unreadable['diff'].get('note') or '')),
+            ('PLANTED, the merge ran but `git ls-files` could not be read: '
+             'the same, since the two reads are guarded separately',
+             unreadable['ls-files'].get('status') == 'error'
+             and not unreadable['ls-files'].get('dropped')
+             and 'UNKNOWN' in (unreadable['ls-files'].get('note') or '')),
         ]
         failed = [name for name, ok in results if not ok]
         check(f'the endgame-merge rehearsal names the silently-dropped path '
