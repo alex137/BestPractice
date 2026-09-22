@@ -13,9 +13,8 @@ decision:          "Neither of the two fixes below. The offending row is not a
   source, in precedent-individual. What stays open here is only the guard, so
   the next private command cannot recreate this."
 decision_strength: decided
-waiting_on:        "the source fix in themorgan/precedent-individual -- this
-  session's GitHub access is scoped to alex137/BestPractice and refuses across
-  owners, so it cannot reach that repo"
+waiting_on:        "nothing -- the source fix landed 2026-09-21 and was
+  verified here; only the guard in part 2 of the closing condition is left"
 noted:             2026-09-21
 closed:            null
 ---
@@ -79,8 +78,29 @@ guard still has to choose between refusing and disclosing:
 2. **Say on the page that the table is the universal set**, and have the
    emitter fail loudly rather than silently include a private row.
 
-**The drift is left unwritten deliberately** — the deep check reports one
-violation until the source fix lands, which is the honest state.
+**The drift is left unwritten deliberately** — the deep check reported one
+violation until the source fix landed, which was the honest state.
+
+## Part 1 Is Done, Measured 2026-09-21
+
+The source fix landed on `main` in the individual set: the practice's
+`command:` field is `null`, `defines` was deliberately kept (a separate list —
+it feeds the glossary, not the vocabulary), and nothing else about the practice
+moved.
+
+**Verified here rather than taken on report.** With the individual source
+pointed at its `origin/main`, in this checkout:
+`python3 tools/precedent_vocabulary.py` emits no row from a non-public set, all
+four `doc_sync` blocks read `OK` — `documentation/DAILY_HABITS.md [vocabulary]`
+included — and [precedent_check.py](../tools/precedent_check.py) returns **0 violated**. Nothing in this
+repository needed changing; the block was already correct and was waiting for
+the emitter to agree.
+
+**A trap surfaced on the way**, worth knowing before anyone works part 2:
+editing a practice inside its own source repo does not change what the engine
+tools report, because the resolved copy silently overwrites the local one.
+[The gotcha](../gotchas/gotcha-2026-09-21-editing-a-practice-in-its-own-source-repo-does-not-change-the-tools-answer.md)
+has the mechanism and the non-destructive way to verify.
 
 ## Closing Condition
 
