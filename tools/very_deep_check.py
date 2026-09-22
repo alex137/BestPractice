@@ -214,7 +214,7 @@ Exit: 1 if any repo in force is not provably current (unless --allow-stale),
 or if a declared team/individual source is missing (unless
 --allow-missing-sources); 0 otherwise.
 """
-import collections, datetime, io, json, os, pathlib, re, subprocess, sys, time, urllib.parse
+import collections, datetime, io, json, os, pathlib, re, shutil, subprocess, sys, tempfile, time, urllib.parse
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'tools'))
@@ -1268,6 +1268,192 @@ def _incident_coverage(repo_dir, since=None):
     rows.sort(key=lambda r: (r[2], r[1]))
     return since, rows, ''
 
+
+
+_CHECK_REG = re.compile(r"^@check\(\s*'([a-z0-9-]+)'", re.M)
+
+
+def _detectors_added(repo_dir, since):
+    """-> (slugs, note, caveat). Checks registered in tools/precedent_check.py
+    that were NOT registered as of `since`. `note` means the question could not
+    be asked at all; `caveat` means it was asked over a narrower window than
+    the ledger called for, and the sweep still runs.
+
+    Reads the SET of registered slugs at two revisions and subtracts, rather
+    than scanning the diff for added lines. A registration moved, reindented
+    or rewrapped shows up in a diff as an addition and is not a new detector;
+    the set difference cannot make that mistake."""
+    repo_dir = pathlib.Path(repo_dir)
+    rel = 'tools/precedent_check.py'
+    if not (repo_dir / rel).is_file():
+        return [], f'no {rel} here -- nothing registers a detector', ''
+    if not since:
+        return [], ('no recorded run in the ledger here, so there is no '
+                    '"since" to read from'), ''
+    old_rev = subprocess.run(
+        ['git', 'rev-list', '-1', f'--before={since} 00:00:00', 'HEAD'],
+        cwd=str(repo_dir), capture_output=True, text=True).stdout.strip()
+    shallow = ''
+    if not old_rev:
+        # A DEPTH-LIMITED CLONE IS THE NORMAL CASE HERE, not a broken one:
+        # sessions clone with --depth, so the history often starts AFTER the
+        # ledger's last run. Falling back to the oldest commit the clone
+        # actually has keeps the sweep running on a narrower window, which
+        # UNDER-reports -- a detector registered before that commit reads as
+        # old and is not carried. That is the safe direction for a silent
+        # error and the wrong one to leave unsaid, so it is named in the
+        # return and printed by the caller.
+        old_rev = subprocess.run(
+            ['git', 'rev-list', '--max-parents=0', '-1', 'HEAD'],
+            cwd=str(repo_dir), capture_output=True, text=True).stdout.strip()
+        if not old_rev:
+            return [], (f'no commit here before {since}, and no root '
+                        f'commit either -- nothing to compare against'), ''
+        when = subprocess.run(
+            ['git', 'log', '-1', '--format=%ad', '--date=short', old_rev],
+            cwd=str(repo_dir), capture_output=True, text=True).stdout.strip()
+        shallow = (f' (this clone holds no commit before {since} -- the '
+                   f'comparison runs from its oldest, {old_rev[:9]} of '
+                   f'{when}, so a detector older than that is not carried)')
+    old = subprocess.run(['git', 'show', f'{old_rev}:{rel}'],
+                         cwd=str(repo_dir), capture_output=True, text=True)
+    if old.returncode != 0:
+        return [], f'{rel} did not exist at {old_rev[:9]} -- nothing to diff', ''
+    try:
+        now_text = (repo_dir / rel).read_text(encoding='utf-8')
+    except (OSError, UnicodeDecodeError) as exc:
+        return [], f'could not read {rel} ({type(exc).__name__})', ''
+    before = set(_CHECK_REG.findall(old.stdout))
+    after = set(_CHECK_REG.findall(now_text))
+    return sorted(after - before), '', shallow
+
+
+def _scratch_tree(src, dest, engine_src):
+    """Copy `src`'s tracked tree to `dest`, give it a one-commit history, and
+    drop THIS checkout's precedent_check.py in as its engine.
+
+    WHY A COPY AND NOT THE REPO ITSELF. precedent_check.py resolves ROOT from
+    its own location's git toplevel, so this checkout's copy cannot be pointed
+    at another tree from the outside -- it has to physically sit inside one.
+    Writing it into a real clone would leave an untracked file in somebody's
+    working tree if this run died halfway, which is exactly the residue the
+    container scanner exists to shout about.
+
+    THE SYNTHESISED HISTORY IS A LIMIT, NOT A TRICK, and the caller prints it:
+    the copy has one commit and a clean tree, so every change-scope check sees
+    no change and declines. What this sweep asks is a TREE question -- does
+    the new detector fire against what that repo holds right now -- and a
+    tree-scope check answers it correctly here. A change-scope one cannot be
+    answered from another repo's tree at all, and says so rather than passing."""
+    files = subprocess.run(['git', 'ls-files', '-z'], cwd=str(src),
+                           capture_output=True, text=True)
+    if files.returncode != 0:
+        return 'could not list its tracked files'
+    for rel in files.stdout.split('\0'):
+        if not rel:
+            continue
+        s, d = pathlib.Path(src) / rel, pathlib.Path(dest) / rel
+        if not s.is_file():
+            continue
+        d.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            shutil.copy2(s, d)
+        except OSError:
+            continue
+    shutil.copy2(engine_src, pathlib.Path(dest) / 'tools' / 'precedent_check.py')
+    for args in (['init', '-q'], ['add', '-A'],
+                 ['-c', 'user.email=sweep@localhost', '-c', 'user.name=sweep',
+                  'commit', '-qm', 'fix sweep scratch']):
+        r = subprocess.run(['git', *args], cwd=str(dest),
+                           capture_output=True, text=True)
+        if r.returncode != 0 and args[0] != '-c':
+            return f'could not git {args[0]} the copy'
+    return ''
+
+
+def _fix_sweep(repo_root, targets, since=None, timeout=300):
+    """-> (since, slugs, rows, note, caveat). Every detector added since the
+    last recorded run, run against every repo in force.
+    (practice: very-deep-check, pass 2 item 13 -- fix-the-original\'s half)
+
+    THE GAP THIS CLOSES. fix-the-original requires fixing the origin and then
+    every copy. Nothing checked that the sweep happened. The hardcoded-identity
+    check was written the day the trap was reported, HERE, and the repo that
+    actually had the problem was a consumer nobody re-scanned -- a check built
+    in response to an incident and never run where the incident happened is the
+    most expensive kind of clean result.
+
+    CHECK COVERAGE beside this asks the opposite question and they are easy to
+    confuse: it runs each repo\'s OWN vendored engine, because what a consumer
+    actually enforces is the code it has. This runs THIS checkout\'s engine
+    against that repo\'s tree, because the whole point is a detector the
+    consumer has not vendored yet. A consumer running an engine from before the
+    fix reports nothing, correctly, and that silence is what this is for.
+
+    IT SWEEPS REGISTERED CHECKS AND NOTHING ELSE. A fix that shipped its
+    detector as a standalone tool, a planted harness case or a hook is not
+    reached here, and the caller says so -- naming the limit beats a row that
+    reads like coverage it does not have."""
+    since = since or _last_run_date(repo_root)
+    slugs, note, caveat = _detectors_added(repo_root, since)
+    if note:
+        return since, [], [], note, ''
+    if not slugs:
+        return since, [], [], '', caveat
+    engine = pathlib.Path(repo_root) / 'tools' / 'precedent_check.py'
+    rows = []
+    for label, path in targets:
+        if not path or not pathlib.Path(path).is_dir():
+            rows.append((label, None, 'not on this disk -- cannot be swept'))
+            continue
+        if pathlib.Path(path).resolve() == pathlib.Path(repo_root).resolve():
+            rows.append((label, None, 'the origin of the fix -- swept by its '
+                                      'own gate, not here'))
+            continue
+        tmp = pathlib.Path(tempfile.mkdtemp(prefix='fix-sweep-'))
+        try:
+            bad = _scratch_tree(path, tmp, engine)
+            if bad:
+                rows.append((label, None, bad))
+                continue
+            verdicts = []
+            for slug in slugs:
+                try:
+                    proc = subprocess.run(
+                        [sys.executable, str(tmp / 'tools' /
+                                             'precedent_check.py'),
+                         '--only', slug, '--full-sweep'],
+                        cwd=str(tmp), capture_output=True, text=True,
+                        timeout=timeout)
+                except (OSError, subprocess.SubprocessError) as exc:
+                    verdicts.append((slug, 'ERRORED', type(exc).__name__))
+                    continue
+                body = (proc.stdout or '') + (proc.stderr or '')
+                why = ''
+                for line in body.splitlines():
+                    if line.startswith(('SKIPPED', 'VIOLATION')):
+                        for sep in ('\u2014', '--'):
+                            if sep in line:
+                                why = line.split(sep, 1)[1].strip()
+                                break
+                        break
+                m = re.search(r'precedent_check: (\d+) passed, (\d+) violated,'
+                              r' (\d+) advisory, (\d+) errored, (\d+) skipped',
+                              body)
+                if not m:
+                    verdicts.append((slug, 'UNREADABLE', 'no summary line'))
+                elif int(m.group(2)):
+                    verdicts.append((slug, 'VIOLATION', why))
+                elif int(m.group(1)):
+                    verdicts.append((slug, 'clean', ''))
+                elif int(m.group(5)):
+                    verdicts.append((slug, 'SKIPPED', why))
+                else:
+                    verdicts.append((slug, 'did not run', ''))
+            rows.append((label, verdicts, ''))
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    return since, slugs, rows, '', caveat
 
 def _pending_deletions(repo_dir):
     """-> (rows, note) for files the NEXT refresh would delete here, each
@@ -7025,6 +7211,56 @@ def _main(box):
     print()
     if led:
         led.end(items=len(_ic_rows) if not _ic_note else None)
+        led.start('FIX SWEEP -- new detectors, run everywhere')
+
+    print("FIX SWEEP -- every detector added since the last run, against "
+          "every repo in force\n")
+    # The targets are the sources with a clone on this disk. A repo with no
+    # local clone is named and skipped rather than dropped: "could not be
+    # swept" and "swept clean" are different answers and must not read alike.
+    _fs_targets = [(_s.get('name'), _s.get('path')) for _s in data['sources']
+                   if _s.get('level') in FATAL_MISSING_LEVELS]
+    (_fs_since, _fs_slugs, _fs_rows,
+     _fs_note, _fs_caveat) = _fix_sweep(repo_root, _fs_targets)
+    _fs_findings = 0
+    if _fs_note:
+        print(f"  not measured -- {_fs_note}")
+    elif not _fs_slugs:
+        print(f"  No check was registered here since the last recorded run "
+              f"({_fs_since}), so there is\n  no new detector to carry "
+              f"anywhere.")
+        if _fs_caveat:
+            print(f"  NARROWER WINDOW THAN ASKED FOR{_fs_caveat}")
+    else:
+        print(f"  Registered here since {_fs_since}: "
+              f"{', '.join(_fs_slugs)}\n")
+        if _fs_caveat:
+            print(f"  NARROWER WINDOW THAN ASKED FOR{_fs_caveat}\n")
+        for _label, _verdicts, _why in _fs_rows:
+            if _verdicts is None:
+                print(f"      {_label}: {_why}")
+                continue
+            for _slug, _verdict, _detail in _verdicts:
+                if _verdict in ('VIOLATION', 'ERRORED', 'UNREADABLE'):
+                    _fs_findings += 1
+                _tail = f" -- {_detail}" if _detail else ''
+                print(f"      {_label}: {_slug} -> {_verdict}{_tail}")
+        print("\n  A VIOLATION here is the case this exists for: the fix "
+              "landed where the bug was\n  found, the detector came with "
+              "it, and the repo that still has the bug has not\n  vendored "
+              "the detector yet, so its own checks report nothing. Fix it "
+              "there, in\n  this run -- a sweep that only lists is the "
+              "clean result that costs the most.\n\n  Two limits, both "
+              "real. This sweeps REGISTERED CHECKS only: a fix whose "
+              "detector\n  shipped as a standalone tool, a planted harness "
+              "case or a hook is not reached\n  here. And each repo is "
+              "read as a one-commit copy, so a change-scope check has\n"
+              "  no change to look at and declines -- correctly, since "
+              "another repo's tree\n  cannot answer a question about this "
+              "one's diff.")
+    print()
+    if led:
+        led.end(findings=_fs_findings if not _fs_note else None)
         led.start('ACCRETION -- files nobody has read whole', kind='read')
 
     _ac_rows, _ac_window, _ac_note = _accretion(repo_root)
