@@ -431,7 +431,7 @@ Before starting work of a kind named in the occasion index above, run `python3 t
 <!-- END GENERATED -->
 
 The rest of this file (below) is BestPractice's own pre-fork orientation —
-still accurate for `INSTALL.md` and the rest of the
+still accurate for [`INSTALL.md`](INSTALL.md) and the rest of the
 inherited tree, which the plan has not restructured yet. It will be rewritten
 in place as later phases land (the plan's own generated-views work, phase 2)
 rather than kept as a second, drifting copy.
@@ -459,16 +459,16 @@ before searching the repo, and add new rows there rather than here.
 | Which practices are enforced, and running one check | [tools/precedent_check.py](tools/precedent_check.py) — `--list`, `--explain`, `--only SLUG` |
 | Which practice libraries are in force in this repo | [precedent.json](precedent.json) |
 | What each practice is and why — **the live catalogue** | [practices/](practices/), indexed by [MAP.md](MAP.md); one rule at a time with `python3 tools/precedent_show.py SLUG` |
-| Repo map, generated (phase 2) | [MAP.md](MAP.md) — regenerate with `tools/build_views.py`, never hand-edit |
+| Repo map, generated (phase 2) | [MAP.md](MAP.md) — regenerate with [`tools/build_views.py`](tools/build_views.py), never hand-edit |
 | Install / update / check-in playbook (dependent repos) | [INSTALL.md](INSTALL.md) — the assistant-facing runbook; the person-facing routes are [SETUP.md](SETUP.md) (guided, non-technical) and [documentation/FOR_DEVELOPERS.md](documentation/FOR_DEVELOPERS.md) (short form plus what actually bites) |
-| Upstream open items / roadmap | [TODO.md](TODO.md) |
+| Upstream open items / roadmap | [todo/TODO.md](todo/TODO.md) (open) and [todo/CLOSED.md](todo/CLOSED.md); one file per item under [todo/](todo/). [`TODO.md`](TODO.md) at the root is a redirect stub and a pull request touching it is refused by CI. |
 | The full story behind any environment trap, and the generated overview of all of them | [gotchas/](gotchas/), [gotchas/INDEX.md](gotchas/INDEX.md) |
 | Anything else — the full index | [WHERE_THINGS_ARE.md](WHERE_THINGS_ARE.md) |
 
 
 ## Build-environment gotchas — search before you rediscover one
 
-52 environment/tooling traps are catalogued, one file per trap, under
+Environment and tooling traps are catalogued, one file per trap, under
 [gotchas/](gotchas/) — each with its own Symptom, Story and Fix (practice:
 [environment-gotchas](practices/environment-gotchas.md)). Nothing here loads
 that catalogue for you: **hit a confusing, hard-to-explain failure? Before
@@ -517,7 +517,7 @@ place — nothing is ever deleted, and nothing moves.
 - **Direct edits are fine** for content about this repo itself (README,
   practice wording, engine code); abstracted lessons still only enter via
   a scrubbed check-in from where they were learned.
-- **A pull request touching `TODO.md` after the 2026-09-16 todo/gotcha
+- **A pull request touching [`TODO.md`](TODO.md) after the 2026-09-16 todo/gotcha
   migration is refused by CI** (`precedent_check.py --only
   todo-gotcha-stale-reference`). File the item under `todo/` instead
   ([spec/OPEN_ITEM_AND_GOTCHA_PLAN.md](spec/OPEN_ITEM_AND_GOTCHA_PLAN.md)).
