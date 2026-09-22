@@ -7110,7 +7110,9 @@ def _session_load_budgets():
 @check('session-load-budget', 'tree',
        'every file a session loads before it works is declared in '
        'tools/session_load_budgets.json and is under its declared ceiling, '
-       'and a change does not add text the practice catalogue already holds',
+       'a repo that declares ceilings also declares headroom_floor_pct so '
+       "the early-warning notice is not silently off, and a change does "
+       'not add text the practice catalogue already holds',
        'what any of that text is worth. It measures a surface and compares it '
        "to a number somebody wrote down; whether an entry still earns its "
        'place is the reduction pass the practice asks for, and no script can '
@@ -7128,6 +7130,24 @@ def _session_load_budget(ctx):
         raise NotApplicable('this repo has no tools/session_load_budgets.json, '
                             'so no ceiling has been declared to check against')
     surfaces = reg.get('surfaces') or {}
+    _MISSING = object()
+    floor_pct = reg.get('headroom_floor_pct', _MISSING)
+    # practice: session-load-budget -- a repo that declares ceilings but never
+    # sets this leaves tools/session_load_trend.py's headroom_notice() a
+    # silent no-op, so a session hits the ceiling cold instead of getting the
+    # early notice the merge/push gates are built to give (checks-carry-a-
+    # declared-decline: `false` is a decision and stays quiet; a forgotten
+    # key is the finding).
+    if surfaces and floor_pct is _MISSING:
+        out = [Finding('tools/session_load_budgets.json',
+                        'declares surfaces and ceilings but no '
+                        'headroom_floor_pct, so the early-warning notice at '
+                        'merge/push (tools/session_load_trend.py) is '
+                        'silently off -- a session hits the ceiling with no '
+                        'warning. Set it (BestPractice declares 5), or set '
+                        'it to false to decline on purpose')]
+    else:
+        out = []
     corpus = None
     try:
         import build_views as _bv
@@ -7135,7 +7155,6 @@ def _session_load_budget(ctx):
     except Exception:
         def approx(text):
             return int(len(text.split()) * 1.3)
-    out = []
     for rel in SESSION_LOAD_SURFACES:
         f = ROOT / rel
         if not f.is_file():
