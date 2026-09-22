@@ -49,6 +49,23 @@ and wrong escape hatch. Faced with a repair that might destroy something,
 the cheapest change is always to stop repairing. It passes every test the
 first half sets, and it is how a working mechanism becomes a nagging one.
 
+## Install
+When you are about to ship something that fixes a state automatically, ask
+two questions before it goes anywhere:
+
+- **Can this repair lose something the person had?** List what it overwrites,
+  resets, deletes or replaces. If the answer is anything but "nothing", find
+  the variant that keeps both sides -- and if there is none, make the failure
+  path leave the state untouched rather than partly changed.
+- **If it cannot repair, what does it do?** "Prints a warning" is an answer
+  that needs a reason. Say who acts on that warning and when. If the honest
+  answer is "the person, eventually, by hand", the mechanism is a detector,
+  and saying so is better than counting it as the fix.
+
+And when a repair HAS destroyed something and you are deciding what to do
+about it: the change to reach for is the safer repair, not switching the
+repair off.
+
 ## Story
 [`.claude/hooks/freshness-guard.sh`](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/.claude/hooks/freshness-guard.sh)
 repairs a checkout that has drifted from its remote. On 2026-09-20 the
