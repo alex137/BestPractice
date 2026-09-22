@@ -1486,6 +1486,196 @@ def _identity_reality(repo_dir, days=30, cap=300):
     return rows, notes
 
 
+def _config_key_reads(repo_dir, others=()):
+    """-> (rows, note). Every key a repo DECLARES in its own config, and
+    which tool source mentions it.
+    (practice: very-deep-check, pass 2, beside the duplicate question)
+
+    THE INCIDENT (spec/CI_MINUTES_PLAN.md item 15, corrected 2026-09-21).
+    The plan told a session to set `ci_workflows: disabled` in a consuming
+    repo's precedent.json and then delete a workflow. `ci_preference()`
+    resolves that key from an individual or team SOURCE's identity.json and
+    never from a consumer's precedent.json, so the key would have been read
+    by nothing, and the deletion would have carried a commit message
+    claiming a toggle permitted it. A session read the engine and refused.
+    The next one might not.
+
+    A key nobody reads is not a typo, it is a BELIEF -- somebody wrote it
+    expecting it to do something, and the file goes on looking exactly as
+    intentional as a live one, forever. That is the same shape as an
+    orphan, which this check already sweeps for files.
+
+    IT CITES AND DOES NOT JUDGE, for the reason INCIDENT COVERAGE does:
+    a key name appearing in a tool's source proves something mentions it,
+    never that this file is where it is read from -- which is precisely the
+    distinction the incident above turned on. The reading is the session's;
+    what this removes is assembling the list.
+
+    Keys beginning with `_` are skipped: this tree uses them for comments,
+    by convention, and they are not read by design."""
+    repo_dir = pathlib.Path(repo_dir)
+    # THE CORPUS IS NOT JUST tools/*.py, AND THAT WAS THIS CHECK'S OWN FIRST
+    # FALSE POSITIVE. Run against tools/ alone, it reported
+    # `stale_checkout_hours` as read by nothing -- and it is read, by
+    # `freshness-guard.sh`, a HOOK. A config key is consumed by whatever
+    # runs, in whatever language, so the corpus is every script a repo
+    # carries: its tools, its hooks, its bootstrap, and the harness
+    # templates it ships. Caught before this shipped, by checking the one
+    # finding the first run produced rather than relaying it -- a detector
+    # that cries wolf on its first real run is one nobody runs twice.
+    roots = [repo_dir / 'tools', repo_dir / '.claude',
+             repo_dir / 'bootstrap', repo_dir / 'templates']
+    if not (repo_dir / 'tools').is_dir():
+        roots.append(ROOT / 'tools')
+    corpus = {}
+    for root in roots:
+        if not root.is_dir():
+            continue
+        for f in sorted(root.rglob('*')):
+            if f.is_file() and f.suffix in ('.py', '.sh'):
+                try:
+                    corpus[str(f.relative_to(repo_dir))
+                           if repo_dir in f.parents or f.is_relative_to(repo_dir)
+                           else f.name] = f.read_text(encoding='utf-8')
+                except (OSError, UnicodeDecodeError, ValueError):
+                    continue
+    if not corpus:
+        return [], 'no tool or hook sources to read the keys against'
+    rows = []
+    for name in ('precedent.json', 'identity.json'):
+        f = repo_dir / name
+        if not f.is_file():
+            continue
+        try:
+            doc = json.loads(f.read_text(encoding='utf-8'))
+        except (OSError, ValueError):
+            rows.append((name, '(unreadable)', [], []))
+            continue
+        if not isinstance(doc, dict):
+            continue
+        for key in sorted(doc):
+            if key.startswith('_'):
+                continue
+            where = sorted(n for n, text in corpus.items()
+                           if f"'{key}'" in text or f'"{key}"' in text)
+            elsewhere = []
+            if not where:
+                # A KEY READ BY NOTHING HERE IS NOT THE SAME AS A KEY READ
+                # BY NOTHING, and the difference is a whole class. One
+                # source declares `grandfathered_commit_shas` and its
+                # readers live in a DIFFERENT repo in force -- which may be
+                # exactly right, since a private check can run against
+                # every repo. Saying which repo mentions it is what makes
+                # that row decidable instead of alarming.
+                for label, other in others:
+                    other = pathlib.Path(other)
+                    if other == repo_dir or not other.is_dir():
+                        continue
+                    hit = False
+                    for root in ('tools', '.claude', 'bootstrap'):
+                        d = other / root
+                        if not d.is_dir():
+                            continue
+                        for g in d.rglob('*'):
+                            if (g.is_file() and g.suffix in ('.py', '.sh')):
+                                try:
+                                    text = g.read_text(encoding='utf-8')
+                                except (OSError, UnicodeDecodeError):
+                                    continue
+                                if f"'{key}'" in text or f'"{key}"' in text:
+                                    hit = True
+                                    break
+                        if hit:
+                            break
+                    if hit:
+                        elsewhere.append(label)
+            rows.append((name, key, where, elsewhere))
+    return rows, ''
+
+
+def _job_count(path):
+    """-> how many jobs a workflow file defines, or None.
+
+    PyYAML where it exists, a structural count where it does not -- the same
+    split, for the same reason, as workflow-yaml-github-can-parse: CI
+    installs no PyYAML, and a section that silently declines in the one
+    environment that gates every pull request is not a section."""
+    try:
+        text = pathlib.Path(path).read_text(encoding='utf-8')
+    except OSError:
+        return None
+    try:
+        import yaml
+        doc = yaml.safe_load(text)
+        jobs = doc.get('jobs') if isinstance(doc, dict) else None
+        if isinstance(jobs, dict):
+            return len(jobs)
+    except Exception:                                         # noqa: BLE001
+        pass
+    n, inside = 0, False
+    for line in text.splitlines():
+        if re.match(r'^jobs:\s*$', line):
+            inside = True
+            continue
+        if inside and re.match(r'^[A-Za-z]', line):
+            break
+        if inside and re.match(r'^  [A-Za-z0-9_-]+:\s*$', line):
+            n += 1
+    return n or None
+
+
+def _actions_bill(repo_dir, days=30):
+    """-> (rows, total_minutes, note) -- what this repo's workflows cost at
+    GitHub's per-job floor over a window.
+    (practice: very-deep-check, the closing budget section)
+
+    THE RUN ALREADY READS ITS OWN GITHUB API BILL and read nothing about the
+    bill that has actually been hurting. spec/CI_MINUTES_PLAN.md item 15
+    measured a 13-second job billed as a minute, 14 times a day, in one
+    repository: about 420 minutes a month with nothing misconfigured, the
+    floor being the entire cost. That number was found by a session doing a
+    one-off audit, and a number found once is a number that goes stale.
+
+    WHAT IT COMPUTES, AND WHAT IT DOES NOT. GitHub bills a whole minute per
+    JOB, so the floor is runs x jobs -- both of which are cheap to get: the
+    run count from one API call per workflow with a `created` filter, the
+    job count by reading the workflow file. **It is a floor, not an
+    invoice**: real minutes are at least this and usually more, and whether
+    they are billed at all depends on the repository being private. The
+    useful number was never the invoice anyway -- item 13 and item 15 both
+    landed on JOB COUNT as the only lever that moved, which is exactly what
+    this makes visible per workflow."""
+    repo_dir = pathlib.Path(repo_dir)
+    wf_dir = repo_dir / '.github' / 'workflows'
+    if not wf_dir.is_dir():
+        return [], 0, 'no .github/workflows/ here'
+    slug = _github_slug(repo_dir)
+    if not slug:
+        return [], 0, 'origin is not GitHub, so run counts cannot be asked'
+    data, err = _api_json(f'repos/{slug}/actions/workflows')
+    if err or not isinstance(data, dict) or 'workflows' not in data:
+        return [], 0, (f'could not list workflows for {slug} -- '
+                       f'{err or str(data)[:80]}')
+    since = precedent_time.date_from_unix(time.time() - days * 86400)
+    rows, total = [], 0
+    for w in (data.get('workflows') or []):
+        rel = w.get('path') or ''
+        local = repo_dir / rel
+        jobs = _job_count(local) if local.is_file() else None
+        runs, rerr = _api_json(
+            f'repos/{slug}/actions/workflows/{w.get("id")}/runs'
+            f'?per_page=1&created=%3E%3D{since}')
+        count = (runs or {}).get('total_count') if not rerr else None
+        if count is None or jobs is None:
+            rows.append((rel, count, jobs, None,
+                         'run count or job count unknown'))
+            continue
+        floor = count * jobs
+        total += floor
+        rows.append((rel, count, jobs, floor, ''))
+    return rows, total, ''
+
+
 def _carry_through(repo_dir):
     """-> (status, lines) for one repo: how far its VENDORED engine is
     behind the upstream it was vendored from.
@@ -6380,6 +6570,43 @@ def _main(box):
     print()
     if led:
         led.end(findings=_orph_n if _orph_seen else None)
+        led.start('CONFIG KEYS', kind='read')
+
+    print("CONFIG KEYS -- every key a repo declares, and what reads it\n")
+    _ck_unread = 0
+    _ck_rows = 0
+    for _name, _p in _orph_targets:
+        if not pathlib.Path(_p).is_dir():
+            continue
+        _rows, _note = _config_key_reads(_p, _orph_targets)
+        if _note:
+            print(f"  {_name}: not measured -- {_note}")
+            continue
+        _unread = [r for r in _rows if not r[2]]
+        _ck_rows += len(_rows)
+        _ck_unread += len(_unread)
+        if not _unread:
+            print(f"  {_name}: {len(_rows)} declared key(s), every one "
+                  f"mentioned by a script here")
+            continue
+        print(f"  {_name}: {len(_rows)} declared key(s), {len(_unread)} "
+              f"read by nothing here:")
+        for _file, _key, _where, _elsewhere in _unread:
+            _tail = (f" -- mentioned in {', '.join(_elsewhere)}"
+                     if _elsewhere else
+                     " -- mentioned in no repo in force")
+            print(f"      {_file}: {_key}{_tail}")
+    if _ck_rows:
+        print("\n  A key nothing reads is a BELIEF, not a typo: somebody "
+              "wrote it expecting it\n  to do something, and the file goes "
+              "on looking as intentional as a live one.\n  Mentioned "
+              "elsewhere is not a finding on its own -- a private check may "
+              "run\n  against every repo in force -- but mentioned nowhere "
+              "is worth an answer.")
+    print()
+    if led:
+        led.end(items=_ck_rows or None, findings=_ck_unread if _ck_rows
+                else None)
         led.start('CI WORKFLOW FILES OUTSIDE VENDORING')
 
     # Scope is honest, not aspirational: this checkout plus every FATAL_
@@ -7242,6 +7469,54 @@ def _main(box):
                     extra_seconds=_endgame_secs)
     elif led:
         led.skipped('ENDGAME MERGE', '--skip-endgame-merge')
+
+    # THE OTHER BILL, the one that has actually been hurting. Placed beside
+    # the API budget below because they are the same question about two
+    # different meters, and read in the same breath.
+    if led:
+        led.start('ACTIONS FLOOR')
+    _ab_days = session_days or _declared_session_window_days(repo_root) or 14
+    print(f"ACTIONS FLOOR -- runs x jobs at GitHub's per-job minute floor "
+          f"({_ab_days}-day window)\n")
+    _ab_total, _ab_measured = 0, False
+    if skip_liveness:
+        print("  not asked (--skip-liveness).")
+    else:
+        for _name, _p in _orph_targets:
+            if not pathlib.Path(_p).is_dir():
+                continue
+            _rows, _sub, _note = _actions_bill(_p, days=_ab_days)
+            if _note:
+                print(f"  {_name}: not measured -- {_note}")
+                continue
+            _ab_measured = True
+            _ab_total += _sub
+            print(f"  {_name}:")
+            for _rel, _runs, _jobs, _floor, _why in _rows:
+                if _floor is None:
+                    print(f"      {_rel}: {_why}")
+                else:
+                    print(f"      {_rel}: {_runs} run(s) x {_jobs} job(s) "
+                          f"= {_floor} floor-minute(s)")
+            print(f"      subtotal: {_sub} floor-minute(s)")
+        if _ab_measured:
+            print(f"\n  {_ab_total} floor-minute(s) across every repo in "
+                  f"force, over {_ab_days} days.\n  A FLOOR, not an "
+                  f"invoice: real minutes are at least this, and whether "
+                  f"they are\n  billed at all depends on the repository "
+                  f"being private. The lever is job count\n  per workflow "
+                  f"-- two workflows on one pull request is two whole "
+                  f"minutes for\n  however little work (spec/CI_MINUTES_PLAN.md "
+                  f"items 13 and 15).")
+        else:
+            print("  nothing measured -- no repo in force runs a workflow, "
+                  "or GitHub could not\n  be asked.")
+    print()
+    if led:
+        # An estimate is material to read, never a finding to fix: the
+        # number is only a problem against a budget nobody has declared
+        # here yet.
+        led.end(items=_ab_total if _ab_measured else None)
 
     # WHAT THIS RUN COST, AND WHAT THE ACCOUNT HAS LEFT (practice:
     # github-api-budget). Last, deliberately: the spend figure is only

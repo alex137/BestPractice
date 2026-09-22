@@ -12,12 +12,12 @@ summary:       "Reads the very deep check's current formula against the incident
 
 # Deepening the very deep check: fourteen proposed additions
 
-**Seven of the fourteen are built and merged.** Morgan asked, on 2026-09-21,
+**Nine of the fourteen are built and merged.** Morgan asked, on 2026-09-21,
 for a close read of the check's own formula against the week's real failures,
 and for specific proposals rather than a plan; he then authorized the five
 this document recommended first, in that order (strength: decided). Each item
 below says what to add, which pass it belongs in, whether it is mechanical or
-a read, what it would have caught, and what it costs. **The other seven are
+a read, what it would have caught, and what it costs. **The other five are
 unbuilt and unadopted; pick from them, they are not a sequence.**
 
 ## What shipped, 2026-09-21
@@ -37,6 +37,22 @@ for the next step in the plan to be built:
 |---|---|---|
 | **3** — the carry-through roll-up | `CARRY-THROUGH`: per repo in force, what it vendored, where upstream is now, and how many engine files were added, changed or **removed** since — removals by name, because a removal arriving on the next refresh is the one that breaks something. Reports; refreshes nothing | One source behind by five changed engine files, three current. **The first time this check has ever been able to see a stale vendored tree** |
 | **8** — identity off the commits | `IDENTITY REALITY`: the author of every commit in the window against the declared identity, the author-date offset against the declared timezone at that instant, and any tracked `settings.json` hardcoding `GIT_AUTHOR_*`. Somebody else's authorship is a note; a commit authored by nobody in particular is a finding | **Four of the five repos in force carry commits with the wrong author-date offset** — 17 at `+00:00` and 8 at `-04:00` against 275 at the declared `-03:00`, in this checkout alone. The one repo that declares its own identity came back clean, and its hardcoded `settings.json` was correctly read as the documented case rather than the bug |
+
+**Items 7 and 10 landed next**, on the same authorization:
+
+| Item | What landed | First run |
+|---|---|---|
+| **7** — the Actions bill | `ACTIONS FLOOR`: per workflow in every repo in force, runs × jobs over the window — the run count from one API call with a `created` filter, the job count read off the workflow file. A floor, never an invoice, and the lever it exposes is job count per workflow | **5,441 floor-minutes over 14 days in this checkout alone** — 1,356 deep-check runs × 3 jobs, plus 1,373 leak-gate runs × 1. The practice sources run no CI at all, which is `source-sets-run-no-ci` working |
+| **10** — config keys | `CONFIG KEYS`: every key declared in every `precedent.json` and `identity.json` in force, against every script the repo carries. Where a key has no local reader the row names which other repo mentions it | Two sources declare `grandfathered_commit_shas` with its readers living in a different repo in force — decidable rather than alarming, which is the whole point of naming where |
+
+**Item 6 (required status checks) was weighed here and held back**, which is
+worth recording because it is the ledger's own argument applied before the
+fact rather than after: this session measured
+`/branches/{branch}/protection` answering **"Resource not accessible by
+integration"**, so the section would print `UNVERIFIED` on every run from a
+session shaped like this one. A section that cannot answer is a cost, not a
+safety net. It becomes worth building the day a run has a token that can read
+protection settings.
 
 **One correction the building itself produced**, which is the argument for
 running a new section rather than reasoning about it: `WORKFLOW REALITY`'s
