@@ -57,6 +57,13 @@ container owns.
 [tools/precedent_beta_watermark_check.py](../tools/precedent_beta_watermark_check.py)
 does exactly that, and its `_can_push` docstring carries the reasoning.
 
+**Its sibling trap is the API side of the same proxy**, filed the same day:
+[the API proxy ignores the token you set](gotcha-2026-09-22-the-api-proxy-ignores-the-token-you-set.md).
+There, `PRECEDENT_GIT_TOKEN` does not govern `api.github.com` calls at all —
+the proxy supplies its own credential. Here it does govern the git path, and
+is still not the thing that refuses. Same lesson from both ends: **the proxy
+answers, not your header.**
+
 **Reads are fine, so the clone still refreshes.** Nothing here argues for
 treating that source as unreachable: the freshness guard fast-forwards it
 normally, and the catalogue in force is read from a current tree. Only the

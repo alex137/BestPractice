@@ -66,8 +66,21 @@ fact rather than after: this session measured
 `/branches/{branch}/protection` answering **"Resource not accessible by
 integration"**, so the section would print `UNVERIFIED` on every run from a
 session shaped like this one. A section that cannot answer is a cost, not a
-safety net. It becomes worth building the day a run has a token that can read
-protection settings.
+safety net.
+
+**Corrected 2026-09-22, after the "so build it with a better token" reading
+was measured and found wrong.** A hosted session's outbound proxy mediates
+`api.github.com` and supplies its own credential: the same call returns the
+same authenticated login with the real token, with a deliberately invalid
+token, and with **no** `Authorization` header at all
+([the probe, and why two refusals that read alike are not alike](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/gotchas/gotcha-2026-09-22-the-api-proxy-ignores-the-token-you-set.md)).
+So no personal access token anyone creates changes what this section could
+see — the limit is the session's own GitHub App installation and repository
+scope. **And it would find nothing here regardless**: both `main` and
+`precedent-beta-v01` report `protected: false` with zero required contexts,
+so there is no protection on this repository to read. Item 6 is worth
+building the day a repository in scope actually protects a branch, and not
+before.
 
 **One correction the building itself produced**, which is the argument for
 running a new section rather than reasoning about it: `WORKFLOW REALITY`'s
