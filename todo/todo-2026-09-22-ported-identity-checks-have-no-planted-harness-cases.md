@@ -51,3 +51,17 @@ each of `check_commit_author` and `check_buenos_aires_dates`.
 
 2026-09-22: filed the same session that ported the two scripts and their
 push-gate, on the finding named above.
+
+2026-09-22, same session, on Morgan asking whether this needs testing
+"every time" or belongs in `very-deep-check` instead: **it is already
+checked every time, not something to defer.** `verify_harness.py
+--as-ci`'s heavy shard runs `check_precedent_check_fires`'s "every
+registered check has a planted case" assertion on every invocation, which
+is what surfaced this in the first place -- not a `very-deep-check`-only
+pass. `very-deep-check`'s own Pass 2 item 20 covers a related but
+different question (does a newly-filed INCIDENT have something that now
+catches a recurrence); this is a newly-added CHECK with no fixture at
+all, which the harness's own standing suite already asks about on every
+run and will keep failing on until the fixtures actually exist. The open
+item is real, unfinished work (write the fixtures), not a question of
+which gate should be asking.
