@@ -470,17 +470,38 @@ _session_start_one() {
         echo "WARN: freshness-guard: '$branch' is $behind commit(s) behind origin/$branch, and the working tree has uncommitted changes -- NOT updating it automatically.$(_age_phrase "$branch") Commit or stash, then: git merge --ff-only origin/$branch" >&2
       elif [ "$ahead" != "0" ]; then
         if [ "$MODE" != "session-start" ]; then
-          # mode_user_prompt delegates to mode_session_start (see its own
-          # comment above), which means this branch runs mid-session too --
-          # and mid-session, unlike true SessionStart, local HEAD really can
-          # hold this session's own unpushed work. The auto-reconcile below
-          # is only safe for the case its own comment describes (before the
-          # session's first turn), so anything reached via a mode other than
-          # `session-start` gets the report-only treatment mode_pre_write
-          # already uses for the identical-looking case.
-          # practice: durable-fix -- see
-          # gotchas/gotcha-2026-09-20-freshness-guard-s-user-prompt-mode-hard-resets-a-mid-sess.md
-          echo "WARN: freshness-guard: '$branch' has diverged from origin/$branch ($ahead local commit(s), $behind remote) -- NOT reconciling automatically (this check is running mid-session, not at SessionStart, so local HEAD may hold this session's own unpushed work).$(_age_phrase "$branch") Reconcile deliberately: commit or stash anything of yours, then merge or rebase onto origin/$branch yourself." >&2
+          # MID-SESSION, local HEAD really can hold this session's own
+          # unpushed work, so the SessionStart branch's `reset --hard` below
+          # is not available here: it destroyed a real local commit on
+          # 2026-09-20 (gotchas/gotcha-2026-09-20-freshness-guard-s-user-prompt-mode-hard-resets-a-mid-sess.md),
+          # and that is why this case was cut back to a warning that same day.
+          #
+          # A WARNING WAS THE WRONG REMEDY FOR THE RIGHT DANGER, and the cost
+          # of the trade showed up within two days: the drift stayed put, every
+          # prompt afterwards re-reported it, and the person was left to
+          # reconcile by hand -- the exact "my changes went to a stale clone,
+          # again" experience the guard exists to end (reported 2026-09-22).
+          #
+          # A MERGE HAS NEITHER PROBLEM. It brings origin's history in without
+          # moving either side's commits off the branch, so there is nothing
+          # for it to discard even when local HEAD is this session's own work
+          # -- unlike the reset, and unlike a rebase, which would rewrite
+          # published history. The tree is known clean here (the _dirty branch
+          # above has already returned), so the merge either completes or
+          # conflicts; a conflict is aborted so the next tool call never meets
+          # a half-applied merge, and is then reported for a person to settle.
+          # The pre-merge tip is kept under its own ref regardless, the same
+          # belt-and-braces the reset path uses. practice: durable-fix.
+          local rescue_ref old_sha
+          old_sha="$(_git rev-parse HEAD 2>/dev/null)"
+          rescue_ref="refs/freshness-guard/pre-merge/${branch}-${old_sha:0:12}"
+          [ -n "$old_sha" ] && _git update-ref "$rescue_ref" "$old_sha" >/dev/null 2>&1
+          if _git merge --no-edit "origin/$branch" >/dev/null 2>&1; then
+            echo "NOTE: freshness-guard: '$branch' had diverged from origin/$branch ($ahead local commit(s), $behind remote) -- MERGED origin/$branch into it, so both sides are now present and nothing was discarded (mid-session, so your $ahead local commit(s) were kept rather than reset away). The pre-merge tip is also at $rescue_ref ($old_sha).$(_age_phrase "$branch")" >&2
+          else
+            _git merge --abort >/dev/null 2>&1 || true
+            echo "WARN: freshness-guard: '$branch' has diverged from origin/$branch ($ahead local commit(s), $behind remote) and merging origin/$branch into it CONFLICTS -- the merge was aborted, so the checkout is exactly as it was and nothing is half-applied.$(_age_phrase "$branch") Settle it deliberately: git merge origin/$branch, then resolve." >&2
+          fi
         else
           # This is SessionStart, before this session's first turn -- nothing
           # reachable from local HEAD can be this session's own work yet, so a

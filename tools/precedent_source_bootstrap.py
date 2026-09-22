@@ -458,9 +458,19 @@ def _clone_elsewhere_on_disk(name, clone_path, repo_path):
     # both of the roots above ARE `$HOME`, so the copy under the consumer's
     # parent -- the one that actually exists -- was never a candidate. That is
     # the whole failing shape, so the root that names the other parent cannot
-    # be the one that is missing. The harness sets this for every hook it
-    # runs, which is where this path executes; unset, the two roots above
-    # still cover a container whose repos share one parent.
+    # be the one that is missing.
+    #
+    # CWD FIRST, THE PROVIDER'S VARIABLE SECOND. This file is an engine file
+    # and ships into repos on four harnesses, so the neutral signal leads and
+    # the named one is a fallback for the case where a hook runs from
+    # somewhere else entirely (practice: vendor-neutral-by-default). Every
+    # adapter's session-start runs from the project root, so cwd carries this
+    # on all of them; unset and un-run-from, the two roots above still cover a
+    # container whose repos share one parent.
+    try:
+        roots.append(pathlib.Path.cwd().parent)
+    except Exception:
+        pass
     proj = os.environ.get('CLAUDE_PROJECT_DIR', '').strip()
     if proj:
         roots.append(pathlib.Path(proj).parent)
