@@ -436,7 +436,22 @@ def checks(offline=False):
     by_name = {}
     for shown, _base in _attachable_sources():
         by_name.setdefault(pathlib.Path(shown).name, []).append(shown)
-    dupes = {n: paths for n, paths in by_name.items() if len(paths) > 1}
+    # COUNT WORKING TREES, NOT PATH NAMES. Two paths for one source are only a
+    # duplicate when they are two separate clones; when one is a symlink to
+    # the other there is a single tree, a single place to commit into, and
+    # nothing that can silently diverge -- which is the entire failure this
+    # row exists to catch. precedent_source_bootstrap._clone_elsewhere_on_disk
+    # resolves the sibling-path collision that way on purpose (2026-09-22), so
+    # a row that still called the result a duplicate would be red forever on
+    # exactly the containers that had just fixed it -- and a row that is never
+    # green is a row sessions stop reading.
+    def _tree(shown):
+        try:
+            return str(_expand_source_path(shown).resolve())
+        except Exception:
+            return shown
+    dupes = {n: paths for n, paths in by_name.items()
+             if len({_tree(p) for p in paths}) > 1}
     if not dupes:
         out.append((name, True, ''))
     else:
@@ -454,7 +469,17 @@ def checks(offline=False):
                              'and not the other'))
         out.append((name, False, '; '.join(detail) + '. Nothing reports '
                     'which copy the loader read, so a practice written in '
-                    'one may simply not be in force. THE FIX IS THE CONFIG, '
+                    'one may simply not be in force. FOR A SHARED SET, THE '
+                    'CAUSE IS USUALLY THE SIBLING PATH: every repo declares '
+                    'its sources at ../<name>, so a consumer and an '
+                    'individual set with different parents each resolve the '
+                    'same set into their own parent and clone it twice. '
+                    'Re-running the source bootstrap links the second path '
+                    'to the first tree instead of cloning it again '
+                    '(precedent_source_bootstrap._clone_elsewhere_on_disk); '
+                    'deleting a stray by hand does not hold, because '
+                    'whatever resolved that path re-creates it next session. '
+                    'FOR THE INDIVIDUAL SET, THE FIX IS THE CONFIG, '
                     'NOT THE DIRECTORY: point '
                     '~/.config/precedent/config.json\'s individual.path (and '
                     'any sibling source path) at the copy that holds the '

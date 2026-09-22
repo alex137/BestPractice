@@ -411,6 +411,70 @@ TOKEN_ENV_NAME = 'PRECEDENT_GIT_TOKEN'  # named, not imported: this file
                                         # existed (see _credential_args)
 
 
+def _clone_elsewhere_on_disk(name, clone_path, repo_path):
+    """An already-cloned copy of source `name` sitting at a DIFFERENT standard
+    location on this disk, or None.
+
+    WHY THIS EXISTS. A source is declared as a sibling relative path
+    (`../precedent-shared-writing`), so where it lands depends on which repo
+    is doing the resolving. On a container where the consumer and the
+    individual set have different parents -- the ordinary shape, since
+    `~/.config/precedent/config.json` puts the individual set wherever it was
+    cloned -- the same three shared sets get resolved into two different
+    parents and cloned TWICE. Measured 2026-09-22 by moving one copy aside and
+    re-running the bootstrap from each root in turn: from the consumer the
+    stray stayed gone, from `$HOME/precedent-individual` it came straight
+    back, because that set declares the same sets at `../<name>` too.
+
+    WHY A SECOND COPY IS WORSE THAN IT LOOKS. Both copies are real clones, so
+    both refresh cleanly and neither reports a problem. Nothing says which one
+    the loader actually read. They are identical until the day somebody
+    commits a practice into one of them, and from that day a rule that was
+    genuinely written is simply not in force, with no error anywhere -- the
+    silent failure filed as
+    todo/todo-2026-09-21-three-shared-sets-are-cloned-twice-on-this-container.md.
+
+    WHY A SYMLINK RATHER THAN A SECOND CLONE. The declared relative path has
+    to keep resolving -- every consumer reads its sources through it -- so the
+    path must exist. A symlink makes it exist while leaving exactly one
+    working tree on disk: one place to commit into, one place to pull, one
+    answer to "which copy did the loader read". Deleting the strays instead
+    does not hold, because whatever resolved that path re-creates it at the
+    next session start.
+
+    FIRST ONE ON DISK WINS, and that is deliberate rather than unfortunate:
+    the question this answers is "is there already a tree for this source",
+    and any answer that leaves one tree is a right answer. It never picks a
+    path over an EXISTING `clone_path` -- the caller only reaches here when
+    that one is absent."""
+    roots = []
+    try:
+        roots.append(pathlib.Path.home())
+    except Exception:
+        pass
+    roots.append(pathlib.Path(repo_path).parent)
+    # THE SESSION'S OWN PROJECT DIR IS THE THIRD ROOT, and leaving it out made
+    # the first version of this inert: run from `$HOME/precedent-individual`,
+    # both of the roots above ARE `$HOME`, so the copy under the consumer's
+    # parent -- the one that actually exists -- was never a candidate. That is
+    # the whole failing shape, so the root that names the other parent cannot
+    # be the one that is missing. The harness sets this for every hook it
+    # runs, which is where this path executes; unset, the two roots above
+    # still cover a container whose repos share one parent.
+    proj = os.environ.get('CLAUDE_PROJECT_DIR', '').strip()
+    if proj:
+        roots.append(pathlib.Path(proj).parent)
+    for cand in [r / name for r in roots]:
+        try:
+            if cand.resolve() == clone_path:
+                continue
+            if (cand / 'practices').is_dir():
+                return cand
+        except Exception:
+            continue
+    return None
+
+
 def sources_from_repo(repo_path, base_url=None, retries=DEFAULT_RETRIES,
                       retry_delay=DEFAULT_RETRY_DELAY, branch=None):
     """Clone every TEAM and UNIVERSAL source a repo's precedent.json declares,
@@ -512,6 +576,26 @@ def sources_from_repo(repo_path, base_url=None, retries=DEFAULT_RETRIES,
             results.append((name, True, 'already on disk, fast-forwarded'
                             if moved else 'already on disk and current'))
             continue
+        existing = _clone_elsewhere_on_disk(name, clone_path, repo_path)
+        if existing is not None:
+            # Point the declared path at the tree that is already here rather
+            # than cloning a twin beside it -- see _clone_elsewhere_on_disk.
+            # A failure to link is NOT fatal: fall through and clone, because
+            # a duplicated source still puts the practices in force, while an
+            # absent one does not (practice: fail-gracefully).
+            try:
+                clone_path.parent.mkdir(parents=True, exist_ok=True)
+                clone_path.symlink_to(existing, target_is_directory=True)
+                results.append((name, True, f'linked to the copy already on '
+                                            f'disk at {existing} rather than '
+                                            f'cloned a second time'))
+                continue
+            except Exception as e:
+                print(f'precedent_source_bootstrap: {name} already exists at '
+                      f'{existing}, but linking {clone_path} to it failed '
+                      f'({type(e).__name__}: {e}) -- cloning a second copy. '
+                      f'Two copies of one source diverge silently; see '
+                      f'_clone_elsewhere_on_disk.', file=sys.stderr)
         clone_url = _clone_url(repo_path, level, name, base, repo)
         if not clone_url:
             results.append((name, False,

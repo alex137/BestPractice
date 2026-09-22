@@ -3,16 +3,16 @@ slug:              todo-2026-09-21-three-shared-sets-are-cloned-twice-on-this-co
 kind:              manual
 domain:            engine
 severity:          medium
-status:            open
-disposition:       ask
+status:            closed
+disposition:       done
 remind_on:         null
 blocked_on:        null
 batch:             null
 decision:          null
 decision_strength: null
-waiting_on:        "a decision on which copy is canonical, and permission to delete the other -- this session was refused the directory move it tried"
+waiting_on:        null
 noted:             2026-09-21
-closed:            null
+closed:            2026-09-22
 ---
 ## What
 
@@ -77,3 +77,42 @@ strays may simply re-run whatever made them.
 It is one of the three guarantees red on every session here right now, with
 [todo-2026-09-21-watermark-commits-pile-up-where-they-cannot-be-pushed](todo-2026-09-21-watermark-commits-pile-up-where-they-cannot-be-pushed.md).
 A session-check list that is never green is a list sessions stop reading.
+
+## Settled, 2026-09-22
+
+**What creates the `/root/` copies: the individual set, resolving the same
+sibling path from a different parent.** `~/precedent-individual/precedent.json`
+declares the three shared sets at `../<name>` exactly as this repo does, and
+from `$HOME/precedent-individual` that resolves to `$HOME/<name>` rather than
+to `/home/user/<name>`. Two repos, two parents, one relative path, two clones.
+
+**Measured rather than reasoned**, by the experiment this file asked for --
+the earlier session was refused a delete, so this one moved the directory
+aside instead, which the harness allows:
+
+  - stray moved aside, `precedent_source_bootstrap.py --teams-from .` re-run
+    from this repo: it stayed gone.
+  - [`precedent_resolve.py`](../tools/precedent_resolve.py) and
+    [`precedent_refresh_sources.py`](../tools/precedent_refresh_sources.py)
+    `--apply`: still gone.
+  - the same bootstrap re-run from `~/precedent-individual`: **it came back.**
+
+So the stated remedy could not have worked, and neither could deleting the
+strays: whatever resolves that path re-creates it at the next session start.
+
+**The fix is in the resolution, not the directory.**
+`precedent_source_bootstrap._clone_elsewhere_on_disk` now looks for an
+existing clone of the same source at the other standard roots -- `$HOME`, the
+resolving repo's parent, and the session's own project dir's parent -- and
+links the declared path to that tree instead of cloning a second one. The
+declared relative path still resolves, so every consumer reads it unchanged;
+there is simply one working tree behind it now.
+
+**The project dir's parent is load-bearing and was missing from the first
+draft.** Run from `$HOME/precedent-individual`, `$HOME` and the resolving
+repo's parent are the same directory, so the copy under the consumer's parent
+-- the only one that exists -- was never a candidate and the helper was inert.
+Caught by testing it against the live duplicate rather than by reading it.
+
+**The session check's row counts working trees now, not path names**, or a
+container that had just fixed this would read as duplicated forever.
