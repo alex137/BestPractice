@@ -10318,8 +10318,18 @@ def check_publisher_bound_checks_run_in_a_source_set():
     #    with its own incident in a comment beside it; dropping one silently
     #    puts the publishing repos back to unchecked.
     text = src.read_text(encoding='utf-8')
+    #    Thirteen more joined them 2026-09-22, from the audit that read all
+    #    44 skipped checks one at a time (spec/PUBLISHER_GATE_AUDIT.md). They
+    #    are pinned by NAME rather than by counting flags in the file, so a
+    #    flag moved off one check and onto another still fails here.
     for slug in ('practice-links-travel', 'catalogue-carries-stories',
-                 'generated-artifact-provenance'):
+                 'generated-artifact-provenance',
+                 'cite-the-incident', 'source-naming', 'decision-strength',
+                 'acronyms-glossary', 'doc-references-are-links',
+                 'heading-outline', 'label-describes-content',
+                 'docs-are-current-state', 'index-remembers-past',
+                 'deliverables-look-like-output', 'no-version-suffix',
+                 'filename-separator', 'technical-describes-people'):
         i = text.find(f"@check('{slug}'")
         nxt = text.find('@check(', i + 1) if i >= 0 else -1
         body = text[i:nxt] if i >= 0 and nxt > i else (text[i:] if i >= 0 else '')
