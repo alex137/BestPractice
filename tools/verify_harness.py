@@ -17371,6 +17371,105 @@ def check_vendor_engine_refreshes_ci_workflow_files():
           '; '.join(f"{n} -- {d[:800]}" for n, d in bad))
 
 
+def check_vendor_engine_removes_a_hook_upstream_dropped():
+    """THE GAP (found 2026-09-21 by the very deep check's deletion-
+    propagation table, filed as
+    todo-2026-09-21-a-dropped-hook-never-leaves-a-consumer.md). This engine
+    had two removal paths -- tools/ and .github/workflows/ -- and none for
+    .claude/hooks/. A hook dropped upstream stayed installed in every
+    consumer, and _write_hook_files then replaced `hook_files` with only
+    what it had just written, so the manifest entry vanished as well: the
+    file went on running, in every session, recorded by nothing.
+
+    Four cases, and the last two are the ones that make this safe rather
+    than merely working:
+
+    A. a hook upstream no longer ships is deleted, and the manifest stops
+       recording it.
+    B. a hook that IS still shipped is untouched -- the sweep must key on
+       what upstream ships, never on what this repo happens to wire.
+    C. a hand-edited copy is KEPT and reported, the same standard the
+       engine path uses: reaching here means somebody asked to overwrite,
+       which is not the same as asking to throw an edit away.
+    D. an EMPTY upstream hooks directory sweeps NOTHING. `available` comes
+       from a directory glob, and an empty one is indistinguishable from
+       "this checkout cannot see upstream" -- sweeping on that reading
+       would delete every hook in the consumer, which is the failure this
+       whole family exists to prevent."""
+    import shutil, tempfile
+    import precedent_vendor_engine as pve
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-hookdrop-'))
+    cases = []
+    try:
+        def _fixture(name, *, edited=False, empty_upstream=False):
+            repo = tmp / name
+            (repo / 'tools').mkdir(parents=True)
+            hooks = repo / pve.HOOK_DEST_DIR
+            hooks.mkdir(parents=True)
+            src = tmp / f'{name}-upstream'
+            src.mkdir()
+            body_gone = '#!/bin/sh\necho dropped\n'
+            body_live = '#!/bin/sh\necho live\n'
+            (hooks / 'zzz-dropped.sh').write_text(
+                body_gone if not edited else body_gone + '# hand edit\n',
+                encoding='utf-8')
+            (hooks / 'zzz-live.sh').write_text(body_live, encoding='utf-8')
+            if not empty_upstream:
+                (src / 'zzz-live.sh').write_text(body_live, encoding='utf-8')
+            (repo / 'tools' / pve.MANIFEST_NAME).write_text(json.dumps({
+                'hook_files': ['zzz-dropped.sh', 'zzz-live.sh'],
+                'hooks_sha256': {
+                    'zzz-dropped.sh': hashlib.sha256(
+                        body_gone.encode('utf-8')).hexdigest(),
+                    'zzz-live.sh': hashlib.sha256(
+                        body_live.encode('utf-8')).hexdigest()},
+            }, indent=2), encoding='utf-8')
+            available = set(pve._hook_file_names(src))
+            removed = pve._remove_dropped_hook_files(
+                repo, repo / 'tools' / pve.MANIFEST_NAME, available, src)
+            manifest = json.loads(
+                (repo / 'tools' / pve.MANIFEST_NAME).read_text(
+                    encoding='utf-8'))
+            return repo, hooks, removed, manifest
+
+        _r, hooks_a, removed_a, manifest_a = _fixture('plain')
+        cases.append(('A: the hook upstream dropped is deleted',
+                      removed_a == ['zzz-dropped.sh']
+                      and not (hooks_a / 'zzz-dropped.sh').exists(),
+                      repr(removed_a)))
+        cases.append(('A: the manifest stops recording it',
+                      'zzz-dropped.sh' not in manifest_a.get('hook_files', [])
+                      and 'zzz-dropped.sh' not in
+                      manifest_a.get('hooks_sha256', {}),
+                      json.dumps(manifest_a)[:300]))
+        cases.append(('B: a hook upstream still ships is untouched',
+                      (hooks_a / 'zzz-live.sh').exists()
+                      and 'zzz-live.sh' in manifest_a.get('hook_files', []),
+                      json.dumps(manifest_a)[:300]))
+
+        _r2, hooks_c, removed_c, manifest_c = _fixture('edited', edited=True)
+        cases.append(('C: a hand-edited copy is kept, not deleted',
+                      removed_c == []
+                      and (hooks_c / 'zzz-dropped.sh').exists(),
+                      repr(removed_c)))
+
+        _r3, hooks_d, removed_d, _m = _fixture('blind', empty_upstream=True)
+        cases.append(('D: an empty upstream hooks/ sweeps nothing',
+                      removed_d == []
+                      and (hooks_d / 'zzz-dropped.sh').exists()
+                      and (hooks_d / 'zzz-live.sh').exists(),
+                      repr(removed_d)))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'a refresh removes a hook upstream dropped, and only that '
+          f'({len(cases)} stated cases)',
+          not bad,
+          '; '.join(f"{n} -- {d[:400]}" for n, d in bad))
+
+
 def check_vendor_engine_names_a_dependent_of_a_deleted_file():
     """THE INCIDENT (2026-09-21,
     todo-2026-09-21-refresh-deletes-a-workflow-another-file-depends-on.md).
