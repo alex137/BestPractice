@@ -4,13 +4,13 @@ kind:              manual
 domain:            engine
 severity:          medium
 status:            open
-disposition:       ask
+disposition:       wait
 remind_on:         null
 blocked_on:        null
 batch:             null
 decision:          null
 decision_strength: null
-waiting_on:        null
+waiting_on:        "further runs of IDENTITY REALITY -- both classes stopped on their own (measured 2026-09-22), so what is owed is confirmation over time, not a fix and nobody to chase"
 noted:             2026-09-21
 closed:            null
 ---
@@ -66,3 +66,31 @@ author here — that is the larger half and the cheaper one to diagnose,
 since the author name says the hook did not run rather than that it ran
 badly. Then re-measure against the same section and record the count in
 the same place.
+
+## Measured again 2026-09-22: both classes have stopped
+
+Re-read against the same repository the next day, and the picture is
+narrower than the first measurement could show:
+
+- **Wrong author: stopped.** The newest commit authored
+  `Claude <noreply@anthropic.com>` is `9c9acdcb`, 2026-09-20 16:21. Every
+  one of the 93 commits since 2026-09-21 00:00 is authored as the declared
+  person.
+- **Wrong offset: stopped mid-morning.** 4 of those 93 carry `+00:00`, the
+  last at `53ef7dd6`, 2026-09-21 11:25. Everything after it carries the
+  declared `-03:00`.
+
+So both are **historical and bounded**, not ongoing — which is a different
+item from the one first filed, and the reason this now waits rather than
+asks. Nothing needs deciding; what is owed is confirmation across further
+runs, and `IDENTITY REALITY` produces exactly that on every very deep check
+without anyone remembering to look. **The 317 past commits stay as they
+are**: rewriting history to correct an author date is worse than the wrong
+date.
+
+**What this does not establish** is *why* it stopped. The commit-identity
+work of 2026-09-17 through 2026-09-21 is the obvious candidate and is not
+proven to be the cause here — no session reproduced the old shape
+deliberately, and saying it was fixed by a named commit would be inventing
+a link the measurement does not carry.
+

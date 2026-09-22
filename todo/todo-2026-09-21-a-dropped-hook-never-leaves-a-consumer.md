@@ -3,16 +3,16 @@ slug:              todo-2026-09-21-a-dropped-hook-never-leaves-a-consumer
 kind:              manual
 domain:            vendoring
 severity:          medium
-status:            open
+status:            done
 disposition:       ask
 remind_on:         null
 blocked_on:        null
 batch:             null
-decision:          null
-decision_strength: null
+decision:          "Build the third removal path -- Morgan, 2026-09-22: \"can you fix that bug?\""
+decision_strength: decided
 waiting_on:        null
 noted:             2026-09-21
-closed:            null
+closed:            2026-09-22
 ---
 ## What
 
@@ -61,3 +61,32 @@ directions, as the dependent-reporting case got.
 
 **Not done here** because it changes what a refresh does to somebody else's
 repository, which is a bigger step than the check that found it.
+
+## Closed 2026-09-22 — the third removal path exists
+
+`_remove_dropped_hook_files` in
+[tools/precedent_vendor_engine.py](../tools/precedent_vendor_engine.py)
+mirrors the engine path: a hook the previous manifest recorded that
+**upstream no longer ships** is deleted when its on-disk hash still matches
+what the manifest recorded, kept and reported when it has been hand-edited
+since, and the manifest loses the name either way so the next refresh does
+not re-report it. Removals go through `_warn_about_dependents`, so anything
+still naming the hook is named at the moment it goes.
+
+**Two guards, both of which the case list proves.** The sweep keys on what
+upstream **ships**, never on what this repo **wires** — un-wiring is the
+repo's own act, and `hooks-on-disk-are-reachable` already reports the orphan
+it leaves. And an **empty** upstream `hooks/` sweeps nothing: a directory
+that globs to zero is indistinguishable from a checkout that cannot see
+upstream, and reading it the other way would delete every hook in the
+consumer.
+
+**The very deep check now sees it coming too.** `DELETIONS PENDING` counts
+hooks alongside engine files and CI workflows, so a hook about to be removed
+on the next refresh — and whatever still names it — is reported before the
+refresh runs, not after.
+
+Harness: `check_vendor_engine_removes_a_hook_upstream_dropped`, five stated
+cases covering deletion, the manifest record, the still-shipped hook left
+alone, the hand-edited copy kept, and the empty-upstream refusal.
+

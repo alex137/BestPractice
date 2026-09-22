@@ -604,7 +604,11 @@ method"). Build the fixtures.
   [tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/very_deep_check.py)'s
   `DELETIONS PENDING` section asks it early: per repo in force, what this
   checkout's **current** engine lists would remove from that repo on its
-  next refresh, and which tracked files still name each one. Read against
+  next refresh, and which tracked files still name each one. **All three
+  shipped paths, since 2026-09-22** — engine files, CI workflows and hooks —
+  each with the same empty-source guard the removers themselves carry, since
+  a source directory that globs to nothing means this checkout cannot see
+  upstream rather than that upstream ships nothing. Read against
   the upstream's lists deliberately, never the consumer's own vendored
   copy, which may be months old. A row with referrers is a finding; a row
   without is a heads-up. Added 2026-09-21 (Morgan, strength: decided) from
@@ -841,19 +845,24 @@ confidently.
     |---|---|---|---|
     | Engine files (`tools/`) | yes | yes | **yes** — manifest diff |
     | CI workflow files | yes | yes | **yes**, since 2026-09-21 — manifest diff, with tombstones kept for what a diff cannot express (a rename) |
-    | Hooks (`.claude/hooks/`) | **no** — a hook reaches only a repo whose `settings.json` already wires the name, which a new hook cannot be | yes | **NO — there is no removal path at all** |
+    | Hooks (`.claude/hooks/`) | **no** — a hook reaches only a repo whose `settings.json` already wires the name, which a new hook cannot be | yes | **yes**, since 2026-09-22 — the third removal path, keyed on what upstream ships rather than on what this repo wires |
     | `settings.json` itself | no — a refresh never writes it | no | no |
     | The practice catalogue | yes — materialized per session | yes | yes |
     | Skeleton / bootstrap templates | only into a newly created set | only into a new set | only into a new set — existing sets drift, which `BOOTSTRAP DRIFT` reports |
     | Vocabulary | yes — derived at render time | yes | yes |
 
-    **The `NO` in that table is this item's first finding.**
-    [tools/precedent_vendor_engine.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/precedent_vendor_engine.py)
-    has exactly two removal paths, for engine files and CI workflows. A hook
-    dropped upstream stays installed in every consumer, tracked by the
-    manifest's own `hook_files` with nothing to clear it — the identical
-    asymmetry the CI path carried until somebody asked. Filed as
-    [todo-2026-09-21-a-dropped-hook-never-leaves-a-consumer](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/todo/todo-2026-09-21-a-dropped-hook-never-leaves-a-consumer.md).
+    **That last cell read `NO` when this item was first asked**, on
+    2026-09-21, and it was the item's first finding: there were exactly two
+    removal paths, for engine files and CI workflows, and none for hooks. A
+    hook dropped upstream stayed installed in every consumer — and worse
+    than the CI case, since `_write_hook_files` then replaced `hook_files`
+    with only what it had just written, so **the manifest entry vanished
+    too** and the file went on running, in every session, recorded by
+    nothing. **Fixed 2026-09-22** by `_remove_dropped_hook_files`
+    ([todo-2026-09-21-a-dropped-hook-never-leaves-a-consumer](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/todo/todo-2026-09-21-a-dropped-hook-never-leaves-a-consumer.md)),
+    which is why the row now reads yes and carries the date it changed.
+    **The question outliving the answer is the point of the table**: a cell
+    is re-read, not inherited.
     Added 2026-09-21 (Morgan, strength: decided) from
     [spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md)
     item 4.

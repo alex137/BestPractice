@@ -1147,9 +1147,14 @@ def _write_hook_files(dest_root, hooks_src_dir):
               f"{HOOK_DEST_DIR}/{n} in this repo (see precedent_materialize.py's "
               f"MANIFEST.json). That copy is maintained independently; this "
               f"engine's own bundled {n} is not applied here.", file=sys.stderr)
-    if not names:
-        return []
     dest_hooks = dest_root / HOOK_DEST_DIR
+    manifest_path = dest_root / 'tools' / MANIFEST_NAME
+    _remove_dropped_hook_files(dest_root, manifest_path, available,
+                               hooks_src_dir)
+    if not names:
+        # Nothing wired here to write -- but a drop sweep may still have had
+        # something to do, so this return comes AFTER it, not before.
+        return []
     dest_hooks.mkdir(parents=True, exist_ok=True)
     written = []
     hashes = {}
@@ -1161,13 +1166,97 @@ def _write_hook_files(dest_root, hooks_src_dir):
         written.append(out)
         hashes[name] = _sha256(out)
 
-    manifest_path = dest_root / 'tools' / MANIFEST_NAME
     manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
     manifest['hook_files'] = names
     manifest['hooks_sha256'] = hashes
     manifest_path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + '\n',
                              encoding='utf-8')
     return written
+
+
+def _remove_dropped_hook_files(dest_root, manifest_path, available,
+                               hooks_src_dir):
+    """Delete a vendored hook that upstream no longer ships. -> [names]
+
+    THE GAP THIS CLOSES (found 2026-09-21 by the very deep check's own
+    deletion-propagation table, `very-deep-check` pass 2 item 8b; filed as
+    todo-2026-09-21-a-dropped-hook-never-leaves-a-consumer.md). Until now
+    this engine had exactly two removal paths -- _remove_dropped_engine_
+    files for tools/ and _remove_retired_ci_workflow_files for
+    .github/workflows/ -- and none for .claude/hooks/. A hook dropped
+    upstream stayed installed in every consumer, and _write_hook_files then
+    REPLACED `hook_files` with only what it had just written, so the
+    manifest entry vanished too: the file went on running, every session,
+    recorded by nothing and visible to no check keyed on the manifest.
+
+    That is the CI-workflow asymmetry one directory over, and a hook is the
+    worse of the two -- a stale workflow burns a runner minute, a stale hook
+    executes in every session of every repo that still carries it.
+
+    WHAT COUNTS AS DROPPED, precisely: a name the PREVIOUS manifest recorded
+    that upstream no longer SHIPS. Not "no longer wired here" -- un-wiring
+    is the repo's own act and hooks-on-disk-are-reachable already reports
+    the orphan it leaves -- and not "claimed by an adapter", which is
+    another mechanism maintaining the same path on purpose.
+
+    THE GUARD THIS NEEDS AND THE ENGINE PATH DOES NOT. `available` comes
+    from a directory glob, and _hook_file_names returns [] for a directory
+    that is not there. An empty upstream hooks/ is indistinguishable from
+    "this checkout cannot see upstream", and sweeping on that reading would
+    delete every hook in the consumer. So an empty `available` sweeps
+    NOTHING, the same refusal _remove_retired_ci_workflow_files makes for an
+    unrecognised kind.
+
+    A hand-edited copy is kept and reported rather than deleted, the same
+    standard as the engine path: reaching here means somebody asked to
+    overwrite, which is not the same as asking to throw an edit away."""
+    if not available or not hooks_src_dir.is_dir():
+        return []
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return []
+    previous = list(manifest.get('hook_files') or [])
+    prev_hashes = manifest.get('hooks_sha256') or {}
+    dropped = sorted(n for n in previous if n not in available)
+    if not dropped:
+        return []
+    dest_hooks = dest_root / HOOK_DEST_DIR
+    removed, kept = [], []
+    for name in dropped:
+        f = dest_hooks / name
+        if not f.is_file():
+            continue                      # already gone: nothing to report
+        recorded = prev_hashes.get(name)
+        if recorded and _sha256(f) != recorded:
+            kept.append(name)
+            continue
+        f.unlink()
+        removed.append(name)
+    if removed:
+        print(f"precedent_vendor_engine refresh: removed {len(removed)} "
+              f"vendored hook(s) upstream no longer ships "
+              f"({', '.join(removed)}). They were recorded in the previous "
+              f"manifest and unmodified here.")
+        _warn_about_dependents(dest_root,
+                               [f'{HOOK_DEST_DIR}/{n}' for n in removed],
+                               'dropped from the hooks this engine ships')
+    for name in kept:
+        print(f"WARN: precedent_vendor_engine refresh: {name} is no longer "
+              f"shipped upstream, but this copy has been hand-edited since "
+              f"the manifest recorded its hash -- left in place, not "
+              f"deleted. Move the edit upstream, then delete it by hand.",
+              file=sys.stderr)
+    if removed or kept:
+        # The record has to lose the names too, or the next refresh reads
+        # them as dropped all over again and says so all over again.
+        manifest['hook_files'] = [n for n in previous if n not in removed]
+        manifest['hooks_sha256'] = {k: v for k, v in prev_hashes.items()
+                                    if k not in removed}
+        manifest_path.write_text(
+            json.dumps(manifest, indent=2, ensure_ascii=False) + '\n',
+            encoding='utf-8')
+    return removed
 
 
 def _hook_drift(dest_root, manifest):
