@@ -60,6 +60,23 @@ markdown link text is stripped, since `doc_lint` already checks the real
 target; and a vendored file's prose belongs to upstream, so manifest-recorded
 files are skipped.
 
+**Item 13's first finding was acted on 2026-09-22**, which is the part a
+check that only reports never reaches. `CHECK COVERAGE` found all four
+sources skipping 44 checks for one cause. Reading all 44 one at a time, with
+`binds_publishers` forced on in each reachable set, put **13 of them** under
+enforcement in a source set for the first time — and stopped a fourteenth,
+`code-cites-practice`, which would have turned a correct practice citation
+into a blocking false positive in three repos at once because it validates
+slugs against the local twenty-file directory rather than the resolved
+catalogue. Recorded in
+[spec/PUBLISHER_GATE_AUDIT.md](PUBLISHER_GATE_AUDIT.md), with the 26 that
+cannot function there listed so nobody re-measures them.
+
+**The estimate that preceded it said twenty.** Twenty-four of the 44 function
+in a source set; functioning turned out to be half the test, and six of those
+inspect the repo's own machinery rather than anything it publishes. The gap
+between the estimate and the audit is the audit's whole value.
+
 **Item 6 (required status checks) was weighed here and held back**, which is
 worth recording because it is the ledger's own argument applied before the
 fact rather than after: this session measured
