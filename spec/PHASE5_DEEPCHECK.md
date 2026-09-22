@@ -115,7 +115,7 @@ real practices, not a fixture catalogue), landed with a real approver name,
 and are now genuinely live in their target repos' working trees on this
 branch:
 
-- **Individual** — [`match-parsed-id-not-prefix`](https://github.com/themorgan/precedent-individual/blob/claude/bestpractice-deep-test-tkb03u/practices/match-parsed-id-not-prefix.md),
+- **Individual** — [`match-parsed-id-not-prefix`](https://github.com/themorgan/precedent-individual/blob/main/practices/match-parsed-id-not-prefix.md),
   landed in `precedent-individual` with the owner's own approval, per that
   level's design. The bug-2 story above, written up as a portable practice
   for any codebase, not just this one.
