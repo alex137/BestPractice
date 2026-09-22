@@ -29,6 +29,32 @@ light check before you commit that" vs. "this needs a deep check before we
 merge") instead of re-describing what "check" means every time.
 
 ## Detail
+**The deep check must run each gate in the SHAPE continuous integration (CI)
+runs it.** Naming the commands is not enough if CI runs one of them
+differently — sharded across jobs, behind a flag, with an environment
+variable set. A definition that names the bare command certifies a shape
+nobody ships, and the session gets a green answer with authority behind it.
+
+*(2026-09-21, in the repository that wrote this practice: the deep check's
+definition named five commands, and CI split one of them across two jobs
+using variables no local run sets. The filter path those variables select
+was therefore code **no local run ever executed** — and it held a crash. The
+full local suite reported `244 passed, 0 failed` while both sharded CI jobs
+died before their first verdict. The session had run the whole deep check,
+seen it green, and opened a pull request on that basis.)*
+
+**Deliver it as one command, not as an instruction to remember.** Where CI
+splits a gate, the repo's own tool grows a mode that runs every shape in
+sequence — the shards partition the work, so the pair costs about what one
+run costs rather than double. A sentence telling sessions to run two extra
+commands is a sentence that gets skipped exactly when time is short, which
+is the drift this practice's own **Why** already names.
+
+**Say what that mode does not prove.** Running CI's command shape locally is
+not running CI: the environments differ, and a check keyed to something only
+one of them has will disagree. Green on the local shape means the shape is
+not what breaks. It does not mean CI is green, and a mode that implies
+otherwise repeats the failure it was built to fix.
 
 ## Why
 Without named levels, "run the checks" is ambiguous between two
