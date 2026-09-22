@@ -3,7 +3,7 @@ slug:              todo-2026-09-21-three-shared-sets-are-cloned-twice-on-this-co
 kind:              manual
 domain:            engine
 severity:          medium
-status:            closed
+status:            done
 disposition:       done
 remind_on:         null
 blocked_on:        null
