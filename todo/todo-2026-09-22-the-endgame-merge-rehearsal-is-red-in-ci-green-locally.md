@@ -52,9 +52,59 @@ something about the fixture repo's construction under that git is the
 first place to look, not the practice the check enforces
 ([very-deep-check](../practices/very-deep-check.md), pass 4).
 
+## Diagnosed 2026-09-22 — it is not the git version, and the rehearsal is the thing that is wrong
+
+**Reproduced locally on git 2.43.0, byte-for-byte the same failure text, by
+removing one thing: the global git identity.**
+
+    GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null \
+      python3 -c "...check_endgame_merge_finds_the_silent_drop()"
+    -> dropped=['drop.txt', 'keep.txt', 'later.txt'], conflicts=[]
+
+So the runner's git is a red herring. **A CI runner has no global git
+identity; this container does** (the session-start backstop writes one), and
+that is the whole difference.
+
+**What actually happens.** `endgame_merge` in
+[tools/very_deep_check.py](../tools/very_deep_check.py) runs
+`git merge --no-commit --no-ff` in a throwaway worktree. Its own comment
+says *"`--no-commit` never writes a commit, so git never asks for one"*.
+**That claim is false.** Git checks the committer identity before it merges
+and refuses outright:
+
+    Committer identity unknown
+    fatal: unable to auto-detect email address (got 'root@vm.(none)')
+    exit=128
+
+**And the tool cannot tell that apart from a real finding**, because the
+merge's return code is deliberately ignored — the next comment says *"the
+return code says nothing here -- what the merge DID is read out of the
+index."* With no merge having run, the index still holds only the base
+branch's files, so `expected - present` names **every file on the
+integration branch** and `conflicts` is empty. A refusal to run is reported
+as the most alarming possible finding.
+
+**This is a live defect in a vendored tool, not a test artifact.**
+[tools/very_deep_check.py](../tools/very_deep_check.py) ships to
+consuming repos. Any session running a very
+deep check where no global git identity is set gets `status: findings`
+naming every file on the integration branch as silently dropped. The check
+is right; the rehearsal is wrong.
+
 ## Next step
 
-Reproduce it against the runner's git version rather than the container's,
-then fix the check or the rehearsal — whichever turns out to be wrong. The
-check asserts a real distinction (a file touched since the merge base is a
-conflict, not a silent drop), so it is worth keeping.
+Two parts, and the second is the one that lasts.
+
+1. **Give the throwaway merge an identity**, on the invocation rather than
+   in config — `git -c user.name=... -c user.email=...`. Note the existing
+   comment's warning: an address literal in this public tree is a leak-gate
+   finding, so use a non-address form or the `GIT_COMMITTER_*` environment.
+2. **Stop swallowing the merge's return code.** A merge that could not run
+   is not a merge that dropped everything, and today those are the same
+   answer. Distinguish them and report the first as `error` with git's own
+   message, so the next environment difference produces a complaint rather
+   than a confident wrong finding.
+
+Both belong to [checks-plant-their-state](../practices/checks-plant-their-state.md),
+whose Story cites this as its second instance — with the git-version reading
+that this section corrects.
