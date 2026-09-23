@@ -93,6 +93,29 @@ one pull request is two whole minutes for however little work. Added
 [spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md)
 item 7.
 
+**It also builds him a catalogue to review, not only a verdict on the
+writing.** The `PRACTICE CATALOGUE` section lists every in-force practice's
+slug and a one-sentence description of what it does — its own
+`index_clause`, the same sentence the occasion index and
+[MAP.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/MAP.md)
+already render, so this list cannot describe a practice differently than a
+session reading the catalogue elsewhere would — grouped one section per
+source in force: this checkout, the individual source, and every shared
+source. **It is written into
+[spec/VERY_DEEP_CHECK.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/VERY_DEEP_CHECK.md)
+directly, in full, on every run that reaches this section**, the same
+embed-block mechanism the merged-stale-checkout list already uses, so the
+list is a page to open rather than something a session has to remember to
+paste. It is local and offline — no fetch, no judgment, nothing dated —
+so the same catalogue produces the same list byte for byte between two runs,
+and only a change to a `practices/*.md` file changes what it prints.
+Regenerate it alone with
+`python3 tools/very_deep_check.py --emit practice-catalogue`. Added
+2026-09-23 (Morgan, strength: decided) — asked for directly: a list of
+every practice by slug with one sentence each, across this repo, the
+individual source and the shared sources, generated the same way every time
+a very deep check runs, so he can review a source's practices against it.
+
 **Before anything is read, every repo in force must be provably current
 against its origin, and must still be a repository work can land in** — this checkout and every attached source.
 [tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/very_deep_check.py) fetches and compares
@@ -297,8 +320,8 @@ cannot tell a drift this run introduced from one that was there before. So:
    item 11.
 3. **Run [tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/very_deep_check.py)** for the
    enumeration, the machine-readable parse, the source-shape check, the
-   branch scan, and the GitHub API budget. A missing declared source stops
-   the run here.
+   branch scan, the practice catalogue, and the GitHub API budget. A
+   missing declared source stops the run here.
 4. **Read the unmerged-branch inventory, before any pass begins.** Not the
    verdicts — those are pass 4's expensive half and stay there. Just the
    list, and enough of each branch's diff to know *what already exists
@@ -2396,6 +2419,7 @@ it landed and still unreviewed.
 - **Extended 2026-09-21, Morgan (strength: decided)**, with the deletion-propagation table (proposal item 4), the CHECK COVERAGE enumeration (item 13, closing pass 2 question 15's own unbuilt half) and MOVED CLAIMS (item 14) -- "now build the next ones"; item 4's table found on its first asking that a hook dropped upstream has no removal path at all, and item 14's first run found the paused-workflow incident still live in one source
 - **Extended 2026-09-22, Morgan (strength: decided)**, with FIX SWEEP (proposal item 13's other half) -- "Build item 13's fix-sweep half, go update"; its first run carried the YAML-anchor detector built three days earlier into all three shared sources, two of which decline for having no workflow file and the third of which runs clean
 - **Extended 2026-09-23, Morgan (strength: decided)**, with pass 3's SOURCE-placement question, after asking for a cross-repo practice-placement review across the five Precedent repos and finding that nothing here or anywhere else ever asks which catalogue a practice belongs in, only whether its tier within one catalogue is right -- the session's own review is the bullet's worked example, five practices moved out of precedent-individual, two demoted from universal, and one live duplicate (vendor-neutral-by-default) found still open
+- **Extended again 2026-09-23, Morgan (strength: decided)**, with the PRACTICE CATALOGUE section -- asked directly for a list of every practice by slug with one sentence each, across this repo, the individual source and the shared sources, generated the same way every time a very deep check runs so it can be reviewed against; built to reuse each practice's own `index_clause` rather than compose a second description, and to write into [spec/VERY_DEEP_CHECK.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/VERY_DEEP_CHECK.md) directly rather than leave a session to remember to paste it, the same lesson the embedded stale-branch list already carries
 ## Install
 [tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/very_deep_check.py) enumerates the scope
 (this checkout's own top-level documents plus every active source's
@@ -2413,7 +2437,7 @@ already-built sibling this one deliberately does not replace, and
 [spec/UNBUILT_PLAN_ITEMS.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/UNBUILT_PLAN_ITEMS.md) for the decision
 record this practice's own build closes out.
 
-Seven parts of the check *are* mechanical, as far as a mechanical check can
+Eight parts of the check *are* mechanical, as far as a mechanical check can
 reach (`checkable-gets-checked`): every repo in force is fetched and
 compared against its origin before the tool reads a line, and anything but
 provably-current exits non-zero (`--allow-stale` for a deliberately offline
@@ -2455,7 +2479,11 @@ about. It merges nothing and writes nothing, by design, and
 `check_base_branch_drift_ignores_carried_work`, which plants one carried and
 one stranded commit and asserts *which subject comes back by name*: a count
 would pass on an implementation that listed both, and a list that is mostly
-work already here is one a reader waves through whole.
+work already here is one a reader waves through whole. Eighth, the practice
+catalogue: every in-force practice's slug and its own `index_clause`, read
+straight off `practices/*.md` frontmatter with no judgment applied, so two
+runs against an unchanged catalogue print byte-identical rows —
+`--emit practice-catalogue` for the block alone.
 
 What stays a session step, deliberately: the branch sweep's other half —
 turning a mechanically-merged branch into a *reported* one requires knowing
