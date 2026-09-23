@@ -124,6 +124,15 @@
             "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/commit-identity-push-gate.sh"
           }
         ]
+      },
+      {
+        "matcher": "mcp__.*__(create_session|create_trigger|update_trigger|fire_trigger|send_later)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/seeded-prompt-gate.sh"
+          }
+        ]
       }
     ],
     "Stop": [

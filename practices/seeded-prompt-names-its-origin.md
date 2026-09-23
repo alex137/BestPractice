@@ -26,7 +26,10 @@ approved_by: "Morgan, 2026-09-12 -- asked for the behaviour in his own words aft
   message: Morgan asked \"is there anything we need to fix in bestpractice
   precedent to prevent these sorts of errors?\" and said \"Go update\" before
   seeing this wording, so the amendment is his pre-authorization of this
-  session's proposal (strength: assented)."
+  session's proposal (strength: assented).
+  Amended 2026-09-23 again, adding the sending-side gate: proposed by this
+  session as a hook refusing an unlabelled prompt; Morgan: \"On your 3
+  suggestions, I love them, let's do them.\" (strength: decided)."
 strength:    decided
 source_practice_number: null
 ---
@@ -101,11 +104,16 @@ A bounded merge authorization is not this case; that is
 [relayed-authorization](relayed-authorization.md)'s, and it has its own
 envelope.
 
-**No mechanical check.** Attempted and not found: nothing in a repository
-records the prompts a session seeds, so there is no artifact for a check to
-read (practice: checkable-gets-checked -- the attempt is the requirement, and
-this is the honest outcome). The nearest thing to enforcement is that a person
-reading their own routine list can see which entries carry the header.
+**Checked at the moment of sending, on Claude Code, since 2026-09-23.**
+Nothing in a repository records the prompts a session seeds, so no
+repository check can read them. But the harness sees the call before it
+runs: [`seeded-prompt-gate.sh`](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/templates/harness/claude-code/hooks/seeded-prompt-gate.sh)
+refuses `create_session`, `create_trigger`, `update_trigger`, `fire_trigger`
+and `send_later` when the text they carry does not name a session id on its
+first line, and hands back the line to use. It checks presence and position,
+never truth. Other harnesses have no pre-tool hook, so there the header is
+still the sending session's to remember
+([templates/harness/PARALLELS.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/templates/harness/PARALLELS.md)).
 
 ## Why
 **A person cannot act on a message whose sender they cannot identify.** Where
@@ -124,14 +132,12 @@ Nothing to configure. The occasion index entry above is generated, so an
 adopter installs nothing and every session reads it whether or not any
 private source resolved.
 
-**No mechanical check, and the attempt is recorded rather than skipped.**
-Nothing in a repository holds the prompts a session seeds into another
-session -- `create_session`'s `prompt` and a routine's `prompt` are arguments
-to a harness call, not files -- so there is no artifact for a check to read,
-and a session that omitted the header leaves behind exactly what a session
-that wrote it leaves behind. The nearest thing to enforcement is the person's
-own routine list, where a missing header is visible to the one reader who
-needs it.
+**On Claude Code, wire the gate.** `seeded-prompt-gate.sh` ships in
+[templates/harness/claude-code/hooks/](https://github.com/alex137/BestPractice/tree/precedent-beta-v01/templates/harness/claude-code/hooks/)
+and is wired in that adapter's `settings.json` as a `PreToolUse` hook. A
+repository installed before 2026-09-23 has to add that one `PreToolUse`
+entry to its own `.claude/settings.json` to get it; a vendor refresh
+delivers the file only once the wiring names it.
 
 ## Story
 **2026-09-12.** A session in this repository was told, by a human, to open a
@@ -241,3 +247,9 @@ not to keep the migration half. The existing rule told the receiving session
 the header "says who to ask" and stopped there, so the session had nothing
 to go on but its own judgment, which went both ways in one conversation. The
 Detail paragraph on the receiving side is the fix.
+
+**The gate followed a day later, 2026-09-23.** The sending session in that
+incident had this rule in front of it and still put its session link last.
+A rule that only memory enforces had failed the one time it mattered, so the
+Detail's "no mechanical check" became `seeded-prompt-gate.sh`, which refuses
+the call before the text leaves.

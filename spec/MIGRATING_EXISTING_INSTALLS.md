@@ -448,11 +448,12 @@ widening what sessions may run
    instructing every session to follow a file that is not there. So, in
    order, and the first item is not optional:
 
-   1. **Declare the sources first**, in the same change or ahead of it. A
-      pack's rules move into *team and individual* sources far more often
-      than into the universal catalogue — measured on the one real case,
-      sixteen of twenty-two — so a repo that deletes the tree before
-      declaring those sources has nowhere left to get them. It does not
+   1. **Declare the sources first**, in the same change. A pack's rules
+      move into *team and individual* sources far more often than into the
+      universal catalogue — measured on the one real case, sixteen of
+      twenty-two — so a repo that deletes the tree before declaring its
+      team sources in `precedent.json` and wiring the individual one (step
+      4; never a `precedent.json` entry) has nowhere left to get them. It does not
       fail loudly; it just stops carrying the rules.
    2. **Repoint every `§N` citation** at the practice that replaced it.
       Keep a **pack-retirement map** — one table, pack section to practice
@@ -460,7 +461,10 @@ widening what sessions may run
       pack's successor rules*, not here: which rules a given pack became is
       a fact about one person's or one team's sources, and this document
       cannot know it. Write the map once and every later repo's migration
-      reads it instead of re-deriving the answer.
+      reads it instead of re-deriving the answer. **A map's own procedure
+      must not say to declare the individual set in `precedent.json`** —
+      the first real map did, and the engine refuses that entry by design
+      (step 3).
    3. **Then** salvage, repoint what reaches in, delete the sync workflow,
       and retire the tree through the audit below.
 
