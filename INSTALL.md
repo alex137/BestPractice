@@ -15,18 +15,38 @@ to, but nothing here needs them.
 | not a developer, and it is already installed | [documentation/FOR_EVERYONE_ELSE.md](documentation/FOR_EVERYONE_ELSE.md), then [documentation/DAILY_HABITS.md](documentation/DAILY_HABITS.md) |
 | setting up your own machine rather than a repository | [PER_MACHINE_SETUP.md](documentation/PER_MACHINE_SETUP.md) |
 
-**The model in one paragraph.** The dependent repo **vendors** this repo at
-`process/upstream/` as plain tracked files. **Install is adaptive** — you
+**There is one install path: [§0](#0-installing-directly-onto-the-precedent-loader-new-2026-09-03--read-the-caveat-before-using),
+`python3 tools/precedent_install.py`.** It vendors the practice catalogue
+*and* the loader that puts it in front of every session — the resident
+block, the occasion index, the gates, the enforced checks. **§1 below is no
+longer an install path, for anyone, whatever a person asks for** (retired
+2026-09-23). It copies the catalogue in and switches none of it on, and it
+looks complete while doing so: on 2026-09-22 a fresh install went down §1
+because this paragraph still called it "the right default", took an upstream
+update the next day, and its sessions then described the practices as *"a
+vendored copy of the upstream catalogue, not something this repo adopted"*.
+The one thing §1 had that a fresh §0 install does not is the
+manifest-driven check-in loop (§3 and §4, both optional), and no repo is
+better off keeping that loop with no practice in force. A migrated repo
+keeps it anyway: the migration leaves `process/upstream/` and its manifest
+in place and declares that tree as the universal source.
+
+**§1 stays in this file for two reasons only**: §0's own steps borrow its
+numbered steps for the parts the two share, and a repo that was installed
+the classic way needs to know what it has. **Such a repo migrates** —
+[spec/MIGRATING_EXISTING_INSTALLS.md](spec/MIGRATING_EXISTING_INSTALLS.md),
+whole, in one change — and cannot quietly stay classic:
+[tools/practice_audit.py](tools/practice_audit.py)'s check 5 fails on a
+vendored catalogue nothing loads, `checkin.py update` says the same thing
+in a banner, and `tools/bootstrap.sh` says it at every session start.
+
+**The vendoring model, which both paths share.** The dependent repo
+**vendors** this repo as plain tracked files. **Install is adaptive** — you
 instantiate templates with the repo's subject matter, placing real files at
 their real locations. **Export is abstractive** — when installed practice
-improves, you fold the generic form back into `process/upstream/`. The
+improves, you fold the generic form back into the vendored tree. The
 **manifest** records the mapping in both directions; the **audit** makes
-drift and proprietary leakage loud instead of silent. **That is the classic
-model, §1** — the right default for essentially every install today, and
-where the sections below start. A repo with no prior BestPractice install
-that wants the three-source loader directly, never going through
-`process/upstream/`, uses §0 instead; it sits after §1 because it is the
-rarer path.
+drift and proprietary leakage loud instead of silent.
 
 ## Essentials Only — What an Install, Upgrade or Migration Leaves for Later
 
@@ -71,15 +91,18 @@ list.)
 
 ## 1. Install Into a Dependent Repo
 
-> **Two install paths, and this is the older one.** A project that has
-> never had BestPractice before can install straight onto Precedent's
-> three-source model instead — that is
-> [§0](#0-installing-directly-onto-the-precedent-loader-new-2026-09-03--read-the-caveat-before-using),
-> which sits *below* this section rather than above it because it was
-> added later and renumbering would have broken every link to §1-§7.
-> Most projects still use §1; read §0's own caveat before choosing it.
-> A repo that already vendored BestPractice the old way wants neither,
-> but [spec/MIGRATING_EXISTING_INSTALLS.md](spec/MIGRATING_EXISTING_INSTALLS.md).
+> **Not an install path — retired 2026-09-23. Do not install this way,
+> even when asked to.** A new project installs with
+> [§0](#0-installing-directly-onto-the-precedent-loader-new-2026-09-03--read-the-caveat-before-using)
+> (`python3 tools/precedent_install.py`); a project already installed this
+> way migrates, per
+> [spec/MIGRATING_EXISTING_INSTALLS.md](spec/MIGRATING_EXISTING_INSTALLS.md).
+> The steps below vendor the catalogue and turn none of it on, which is why
+> they were retired — the opening of this file has the incident. They stay
+> because §0 cites several of them for the parts the two paths share (the
+> templates, the harness adapter, the team-and-individual question) and
+> because a classic install needs to know what it has. **Read them as
+> reference, never as a sequence to run.**
 
 1. **Vendor:** copy this repo's working tree (not its `.git`) into
    `process/upstream/` and commit it as ordinary tracked files. Record the

@@ -13,9 +13,10 @@ session reads, and the enforced checks — with one command,
 work and then lists what is left for you to adapt. **Since 2026-09-14 this is
 the default** (Morgan, on the very deep check's recommendation; `strength:
 assented`): until then this page installed §1, the classic vendored model,
-which turns on none of the loader the rest of this repository describes. §1
-is still there for a project that specifically wants the classic check-in
-loop; say so and follow §1 instead.
+which turns on none of the loader the rest of this repository describes.
+**§1 is no longer an install path at all** (retired 2026-09-23): a project
+that took it ran with every practice copied in and none in force. There is
+nothing to choose here — this page installs §0, always.
 
 ## The Conversation
 

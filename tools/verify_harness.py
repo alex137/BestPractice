@@ -2406,6 +2406,86 @@ def check_visibility_audit_reads_the_blocklist_as_patterns():
               f'stem entry is still recognised ({len(cases)} stated cases)', ok)
 
 
+def check_practice_audit_loader():
+    """practice_audit.py's check 5, stated as cases (practice:
+    checkable-gets-checked). A consumer installed the classic way on
+    2026-09-22 -- process/upstream/ vendored, no loader over it -- took an
+    update the next day with this audit passing, and its sessions then
+    described every practice as "a vendored copy, not something this repo
+    adopted". The audit now fails on a vendored catalogue nothing loads,
+    and passes once the repo declares a universal source AND carries the
+    generated loader block; --loader-notice says the same thing at session
+    start and never fails."""
+    import shutil, tempfile
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-auditloader-'))
+    try:
+        def make(name, catalogue=True, universal=False, block=False):
+            repo = tmp / name
+            tools_dir = repo / 'process' / 'upstream' / 'tools'
+            tools_dir.mkdir(parents=True)
+            shutil.copy(ROOT / 'tools' / 'practice_audit.py', tools_dir / 'practice_audit.py')
+            if catalogue:
+                (repo / 'process' / 'upstream' / 'practices').mkdir()
+                (repo / 'process' / 'upstream' / 'practices' / 'x.md').write_text(
+                    'a practice\n', encoding='utf-8')
+            (repo / 'process' / 'manifest.json').write_text(json.dumps({
+                'upstream': {'vendored_at': 'process/upstream', 'scrub_blocklist': None},
+                'entries': []}), encoding='utf-8')
+            sources = {'local': {'level': 'repo-local', 'name': 'local', 'path': 'local'}}
+            if universal:
+                sources['precedent'] = {'level': 'universal', 'name': 'precedent',
+                                        'path': 'process/upstream'}
+            (repo / 'precedent.json').write_text(json.dumps(
+                {'format_version': 1, 'sources': sources}), encoding='utf-8')
+            (repo / 'AGENTS.md').write_text(
+                '# notes\n' + ('<!-- BEGIN GENERATED: precedent-loader -->\n'
+                               '<!-- END GENERATED -->\n' if block else ''),
+                encoding='utf-8')
+            subprocess.run(['git', 'init', '-q', str(repo)], check=True)
+            return repo
+
+        def run(repo, *extra):
+            r = subprocess.run(
+                [sys.executable, str(repo / 'process' / 'upstream' / 'tools' / 'practice_audit.py'),
+                 *extra], capture_output=True, text=True, cwd=str(repo))
+            return r.returncode, r.stdout + r.stderr
+
+        classic = make('classic')
+        half = make('half', universal=True)
+        loaded = make('loaded', universal=True, block=True)
+        pack = make('pack', catalogue=False)
+        rc_c, out_c = run(classic)
+        rc_h, out_h = run(half)
+        rc_l, out_l = run(loaded)
+        rc_p, out_p = run(pack)
+        rc_n, out_n = run(classic, '--loader-notice')
+        rc_nl, out_nl = run(loaded, '--loader-notice')
+        cases = [
+            ('a classic install (catalogue vendored, no universal source, no '
+             'block) FAILS', rc_c == 1 and 'LOADER:' in out_c),
+            ('and the failure names the migration',
+             'MIGRATING_EXISTING_INSTALLS.md' in out_c),
+            ('a universal source without the generated block still FAILS',
+             rc_h == 1 and 'loader block' in out_h),
+            ('a universal source plus the block passes check 5',
+             rc_l == 0 and 'LOADER:' not in out_l),
+            ('a pack-only layer (no catalogue vendored) is not held to it',
+             rc_p == 0 and 'LOADER:' not in out_p),
+            ('--loader-notice speaks on a classic install and exits 0',
+             rc_n == 0 and 'NOT RUNNING' in out_n),
+            ('--loader-notice is silent where the loader runs',
+             rc_nl == 0 and out_nl.strip() == ''),
+        ]
+        for name, passed in cases:
+            if not passed:
+                print(f"  practice_audit check 5 did NOT behave as stated: {name}")
+        check(f"practice_audit fails a vendored catalogue nothing loads "
+              f"({len(cases)} stated cases)", all(ok for _, ok in cases))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 def check_practice_audit_fires():
     """practice_audit.py's --update-baseline, stated as cases against a
     throwaway manifest (practice: mistakes-become-rules).
@@ -29016,6 +29096,7 @@ def main():
     check_leak_gate()
     check_leak_gate_fires()
     check_practice_audit_fires()
+    check_practice_audit_loader()
     check_freshness_gate_fires()
     check_doc_lint_exempts_links_in_a_mirrored_tree()
     check_repo_may_declare_its_own_fallback_zone()

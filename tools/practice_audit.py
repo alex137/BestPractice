@@ -42,9 +42,25 @@ checks against each manifest's own vendored tree — any FAIL exits non-zero:
      entry with that local_path). Runs once per audit, with exceptions
      collected across all manifests.
 
+  5. LOADER (the catalogue is actually in force). A repo that vendors the
+     practice catalogue (process/upstream/practices/) must also run the
+     loader over it: precedent.json declares a `level: "universal"` source,
+     and the root instructions file carries the generated loader block.
+     Either missing FAILS. Without both, every vendored practice is text on
+     disk that no session ever reads -- no resident block, no occasion
+     index, no gates -- while the install looks complete and this audit,
+     until 2026-09-23, passed. That is the classic INSTALL.md section 1
+     install, retired that day as an install path: a real consumer ran it
+     for a day, took an update, and its sessions reported the rules as "a
+     vendored copy of the upstream catalogue, not something this repo
+     adopted". The remedy is the migration, never an exemption: there is
+     deliberately no flag or manifest key that silences this check.
+
 Run:  python3 process/upstream/tools/practice_audit.py                    # gate (all manifests)
       python3 process/upstream/tools/practice_audit.py --update-baseline  # re-record hashes
       python3 process/upstream/tools/practice_audit.py --manifest process/manifest.json  # one manifest
+      python3 process/upstream/tools/practice_audit.py --loader-notice    # check 5 only, never fails
+                                                    # (what tools/bootstrap.sh prints at session start)
 """
 import hashlib, json, pathlib, re, subprocess, sys
 
@@ -223,6 +239,52 @@ def audit_manifest(manifest_path, update, fails, warns, pending):
         print(f"practice_audit [{label}]: baselines updated.")
     return len(manifest.get('entries', []))
 
+LOADER_MARKER = '<!-- BEGIN GENERATED: precedent-loader -->'
+MIGRATION_DOC = ('https://github.com/alex137/BestPractice/blob/precedent-beta-v01/'
+                 'spec/MIGRATING_EXISTING_INSTALLS.md')
+
+
+def loader_gaps(root):
+    """What stops the vendored catalogue from being in force, as a list of
+    plain sentences -- empty when it is in force, or when this repo vendors
+    no catalogue at all (a pack-only layer has nothing for a loader to
+    load). Shared with checkin.py, so the update that vendors the catalogue
+    says the same thing this audit fails on."""
+    if not (root / 'process' / 'upstream' / 'practices').is_dir():
+        return []
+    gaps = []
+    try:
+        cfg = json.loads((root / 'precedent.json').read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        cfg = None
+    sources = cfg.get('sources', {}) if isinstance(cfg, dict) else {}
+    if isinstance(sources, dict):
+        sources = list(sources.values())
+    if not any(isinstance(s, dict) and s.get('level') == 'universal'
+               for s in sources or []):
+        gaps.append('precedent.json declares no `level: "universal"` source, so '
+                    'nothing resolves process/upstream/practices/')
+    if not any(LOADER_MARKER in (root / n).read_text(encoding='utf-8', errors='replace')
+               for n in ('AGENTS.md', 'CLAUDE.md') if (root / n).is_file()):
+        gaps.append('neither AGENTS.md nor CLAUDE.md carries the generated '
+                    'loader block, so no session is ever shown a practice')
+    return gaps
+
+
+def loader(fails):
+    gaps = loader_gaps(ROOT)
+    if not gaps:
+        print("loader OK: the vendored catalogue is resolved and loaded "
+              "(or no catalogue is vendored).")
+        return
+    fails.append(
+        "LOADER: this repo vendors Precedent's practice catalogue but does not "
+        "run it -- " + "; and ".join(gaps) + ". NONE of the vendored practices "
+        "are in force in sessions here. This is the classic install "
+        "(INSTALL.md section 1), retired 2026-09-23. Migrate the repo onto the "
+        "loader, whole, in one change: " + MIGRATION_DOC)
+
+
 def audit(update=False, only=None):
     fails, warns, pending = [], [], []
     if only:
@@ -255,6 +317,7 @@ def audit(update=False, only=None):
         claimed |= {e.get('local_path')
                     for e in json.loads(m.read_text(encoding='utf-8')).get('entries', [])}
     layout(fails, claimed)  # check 4 — root hygiene, once per audit
+    loader(fails)           # check 5 — the catalogue is actually in force
 
     for p in pending:
         print(f"pending: {p}")
@@ -275,6 +338,20 @@ if __name__ == '__main__':
     # whole audit instead of answering. The module docstring is the usage.
     if any(a in ('--help', '-h') for a in args):
         print((__doc__ or '').strip())
+        sys.exit(0)
+    if '--loader-notice' in args:
+        # Session start's copy of check 5: printed to stdout, where the
+        # SessionStart hook puts it in front of the session, and exit 0
+        # whatever it finds -- a bootstrap that blocks startup is worse
+        # than what it reports.
+        gaps = loader_gaps(ROOT)
+        if gaps:
+            print("PRECEDENT IS NOT RUNNING IN THIS REPO. It vendors the practice "
+                  "catalogue under process/upstream/, but " + "; and ".join(gaps) +
+                  ". None of those practices is in force in this session -- do not "
+                  "tell anyone they are. Say so to the person first thing, and "
+                  "offer the migration (the classic install was retired "
+                  "2026-09-23): " + MIGRATION_DOC)
         sys.exit(0)
     only = None
     if '--manifest' in args:

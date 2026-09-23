@@ -17,7 +17,9 @@ overrides:   null
 added:       "2026-09-08"
 approved_by: "Morgan; amended 2026-09-14, Morgan -- the phrase now carries
   the merge as well as the update; amended 2026-09-21, Morgan (decided) --
-  step 1 makes the clone current rather than telling somebody to"
+  step 1 makes the clone current rather than telling somebody to; amended
+  2026-09-23, Morgan (assented) -- a classic install is migrated, not
+  updated"
 ---
 ## Rule
 **"Update Vendors" is the phrase that asks for this**, and it authorizes the
@@ -40,6 +42,16 @@ is the sequence working, not a refusal needing permission to stand.
 
 A vendored tree is updated by a fixed sequence, in this order, because
 every step's answer is wrong if the one before it was skipped.
+
+**First, is this repo running the loader at all?** A classic install —
+`process/upstream/` vendored, no universal source in `precedent.json`, no
+generated block in `AGENTS.md` — is not updated, it is migrated, in the
+same change:
+[spec/MIGRATING_EXISTING_INSTALLS.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/MIGRATING_EXISTING_INSTALLS.md).
+`practice_audit.py`, `checkin.py update` and the session-start bootstrap all
+say so when it is. An update that leaves the repo classic has refreshed text
+that no session reads, which is how a consumer took one on 2026-09-23 and
+still had nothing in force.
 
 1. **Make the SOURCE clone current first, against the branch this repo is
    pinned to** — not the source's default branch. A stale source makes
