@@ -1212,8 +1212,71 @@ def bootstrap(level, name, dest, approvers=None, force=False):
     # above -- this only computes and records their hashes.
     written += precedent_vendor_engine.record_ci_workflow_files(dest, 'source')
     written += _write_instructions_and_views(dest, level, name)
+    written.append(_write_session_load_budget(dest))
 
     return {'dest': dest, 'written': written}
+
+
+def _write_session_load_budget(dest):
+    """Seed tools/session_load_budgets.json so a new set starts with the
+    early-warning notice ON, instead of silently absent until someone
+    remembers to opt in by hand (practice: session-load-budget).
+
+    Found real, 2026-09-22: two of the four already-live individual/shared
+    sets had never created this file at all; the other two had it but were
+    missing headroom_floor_pct. Both shapes are silent until the ceiling is
+    hit cold -- which is exactly what happened. verify() (above) audits an
+    EXISTING set for the one surface that only exists once the universal
+    hook is wired (.precedent/SESSION_PRACTICES.md); this is the proactive
+    half, for the one surface that exists at bootstrap time itself.
+
+    Ceiling is measured file size plus ~20% headroom, rounded to a clean
+    number -- the same convention every hand-written entry in this repo's
+    own registry already uses (session-load-budget's own Rule: "set at
+    what the surface measured... rounded up for headroom"). Not a claim
+    that 20% is correct forever -- a ceiling is a watermark, reviewed and
+    reduced when it is crossed for real, never just raised.
+
+    Covers whichever of AGENTS.md/CLAUDE.md exist on disk -- bootstrap
+    writes both (_write_instructions_and_views), and precedent_check.py's
+    own SESSION_LOAD_SURFACES checks both, not just whichever the local
+    harness happens to read. A repo missing one after this seeds only
+    what is actually there, same as the hand-written registries do.
+    """
+    import build_views as bv
+    import precedent_time
+    dest = pathlib.Path(dest)
+    today = precedent_time.today(dest)
+    surfaces = {}
+    for rel in ('AGENTS.md', 'CLAUDE.md'):
+        f = dest / rel
+        if not f.is_file():
+            continue
+        measured = bv._approx_tokens(f.read_text(encoding='utf-8'))
+        ceiling = ((int(measured * 1.2) + 49) // 50) * 50 if measured else 50
+        surfaces[rel] = {
+            'ceiling': ceiling,
+            '_note': f'{measured} tokens measured at bootstrap ({today}). '
+                     f'Ceiling is current + ~20%.',
+        }
+    path = dest / 'tools' / 'session_load_budgets.json'
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps({
+        '_comment': [
+            'Seeded at bootstrap (practice: session-load-budget) so the '
+            'early-warning notice starts ON. headroom_floor_pct matches '
+            "BestPractice's own value; each surface's ceiling is measured "
+            'plus ~20% headroom, the convention every hand-written entry '
+            'in that repo already uses. Add .precedent/SESSION_PRACTICES'
+            '.md once the universal-catalogue hook is wired -- verify() '
+            'flags that gap directly once it is. A ceiling is a '
+            'watermark, not an endorsement: review and reduce, never '
+            'just raise, when it is crossed for real.',
+        ],
+        'headroom_floor_pct': 5,
+        'surfaces': surfaces,
+    }, indent=2) + '\n', encoding='utf-8')
+    return path
 
 
 def _write_source_manifest(dest, level, name):
