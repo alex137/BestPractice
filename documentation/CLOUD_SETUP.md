@@ -110,14 +110,14 @@ existed. Recreating the environment cleared it that one time; whether the
 same environment drifts again on a schedule is still open
 ([TODO.md's `check-default-cc-environment-staleness` item](../todo/todo-2026-09-15-check-default-cc-environment-staleness.md)).
 
-Add a fetch-and-reset to the environment's **Setup command** field — same
-screen as the environment variables above — to force the checkout current
-on start, regardless of the container's cached state:
+Add a fetch-and-fast-forward to the environment's **Setup command** field — same
+screen as the environment variables above — to bring the checkout current
+on start whenever that is a fast-forward:
 
 ```sh
 if git rev-parse --git-dir >/dev/null 2>&1; then
   b="$(git branch --show-current)"
-  [ -n "$b" ] && git fetch origin "$b" && git reset --hard "origin/$b"
+  [ -n "$b" ] && git fetch origin "$b" && git merge --ff-only "origin/$b"
 fi
 ```
 
@@ -126,11 +126,24 @@ checkout it's run against, so the same line works whatever repository and
 branch the environment happens to open — not just this one.
 
 **The guard is load-bearing, not defensive padding.** A bare
-`b="$(git branch --show-current)"; git fetch origin "$b" && git reset --hard "origin/$b"`
+`b="$(git branch --show-current)"; git fetch origin "$b" && git reset --hard "origin/$b"` (the form in use then)
 errored the first time it was tried, 2026-09-15: the Setup command runs
 before the checkout is ready, so `git branch --show-current` had nothing to
 read yet. The `if`/`[ -n "$b" ]` guards make it a no-op on that run instead
 of failing, and it confirmed working the same day once added.
+
+**A fast-forward, never a reset (changed 2026-09-23).** This line used to
+end in `git reset --hard "origin/$b"`, which forces the checkout onto
+origin by throwing away whatever local commits it holds. That is the one
+move the fresh-before-write practice rules out by name, and a setup script
+is no exception: it cannot tell a stale cached commit from somebody's real
+work. A checkout that is only behind is brought current here. One that has
+genuinely diverged is left alone, and the freshness guard merges it at
+session start, keeping both sides. **The cost, stated plainly:** if a cached
+container really does carry stale commits origin never had, that merge
+brings them back in, and they show up as unpushed work until someone
+settles them by hand. Recreating the environment is still the clean fix for
+that case.
 
 **Still unconfirmed as of 2026-09-15: whether the Setup command re-runs on
 every session start, or only once when the environment's image is built.**
