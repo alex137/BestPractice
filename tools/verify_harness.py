@@ -10937,8 +10937,8 @@ def check_gate_channel():
     # called precedent_gate.py at all. Checked in both the template a
     # dependent repo installs and this repo's own instantiated copy, so
     # neither can drift back to cited-only without this case catching it.
-    for stop_hook in (ROOT / 'templates' / 'harness' / 'claude-code' / 'hooks' / 'stop-git-check.sh',
-                      ROOT / '.claude' / 'hooks' / 'stop-git-check.sh'):
+    for stop_hook in (ROOT / 'templates' / 'harness' / 'claude-code' / 'hooks' / 'stop-reply-check.sh',
+                      ROOT / '.claude' / 'hooks' / 'stop-reply-check.sh'):
         cases.append((f'the reply gate is wired into {stop_hook.relative_to(ROOT)}',
                       stop_hook.exists() and 'precedent_gate' in stop_hook.read_text(errors='ignore')))
 
@@ -10965,8 +10965,8 @@ def check_gate_channel():
                       f'hook a settings.json declares and disk does not have is '
                       f'the failure the harness reports as nothing at all',
                       hook.is_file() and os.access(hook, os.X_OK)))
-    for stop_hook in (ROOT / 'templates' / 'harness' / 'claude-code' / 'hooks' / 'stop-git-check.sh',
-                      ROOT / '.claude' / 'hooks' / 'stop-git-check.sh'):
+    for stop_hook in (ROOT / 'templates' / 'harness' / 'claude-code' / 'hooks' / 'stop-reply-check.sh',
+                      ROOT / '.claude' / 'hooks' / 'stop-reply-check.sh'):
         cases.append((f'the BLOCKING reply check is called from '
                       f'{stop_hook.relative_to(ROOT)}',
                       'precedent_reply_check' in stop_hook.read_text(errors='ignore')))
@@ -10979,8 +10979,8 @@ def check_gate_channel():
     # caught it: 'precedent_gate' and 'precedent_reply_check' are both
     # substrings of the un-briefed call too. Found from a person describing
     # the result plainly -- a wall of text at the end of every session.
-    for stop_hook in (ROOT / 'templates' / 'harness' / 'claude-code' / 'hooks' / 'stop-git-check.sh',
-                      ROOT / '.claude' / 'hooks' / 'stop-git-check.sh'):
+    for stop_hook in (ROOT / 'templates' / 'harness' / 'claude-code' / 'hooks' / 'stop-reply-check.sh',
+                      ROOT / '.claude' / 'hooks' / 'stop-reply-check.sh'):
         cases.append((f'{stop_hook.relative_to(ROOT)} calls the reply gate '
                       f'--brief, not the full Rules, on every Stop',
                       'precedent_gate.py" reply --brief' in stop_hook.read_text(errors='ignore')))
@@ -24112,7 +24112,8 @@ def check_installer_produces_a_clean_install():
                       bool(stext) and 'process/upstream' not in stext
                       and all((proj / '.claude' / 'hooks' / n).is_file() for n in
                               ('session-start.sh', 'freshness-guard.sh', 'commit-identity.sh',
-                               'reply-gate.sh', 'precedent-paths.sh', 'stop-git-check.sh')),
+                               'reply-gate.sh', 'precedent-paths.sh', 'stop-git-check.sh',
+                               'stop-reply-check.sh')),
                       stext[:200]))
 
         git(proj, 'add', '-A')

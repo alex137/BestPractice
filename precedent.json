@@ -367,6 +367,10 @@
     {
       "from": "templates/harness/claude-code/hooks/stop-git-check.sh",
       "to": ".claude/hooks/stop-git-check.sh"
+    },
+    {
+      "from": "templates/harness/claude-code/hooks/stop-reply-check.sh",
+      "to": ".claude/hooks/stop-reply-check.sh"
     }
   ]
 }
