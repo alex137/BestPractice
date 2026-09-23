@@ -73,6 +73,7 @@ being checked by it.
 | `cite-the-incident` | change | a practice file whose Rule is new or changed must carry a non-empty ## Story |
 | `code-cites-practice` | tree | a `practice: SLUG` citation in tools/**/*.py names a real, active practice -- never a typo, a deleted file, one since retired, or a position number instead of a slug |
 | `computed-numbers-in-scripts` | tree | every generated block in a document matches what its script emits, is registered, and its document names the scripts that feed it |
+| `dated-list-runs-forward` | tree | every list marked `<!--dated-list-->` runs oldest first, and no entry after the first dated one is missing a date of its own |
 | `decision-strength` | tree | every `strength:` in a practice file or a decision record holds one of the two defined words, and the file it sits in also records who approved the thing; and every `**Strength:` line in prose records the date it was set and who set it |
 | `decommission-deletes-files` | tree | every path this repo declared decommissioned is still absent, and every decommissioning carries the reason it happened |
 | `deliverables-look-like-output` | change | a reader-facing document in scope carries no process residue — no verify-later flag, claims-to-source apparatus or decision provenance |
@@ -117,7 +118,7 @@ being checked by it.
 | `verify-postcondition` | turn-end | the state you wanted after the operations this turn: nothing committed but unpushed on any local branch, and no tracked file left modified |
 | `workflow-file-outside-vendoring` | tree | every .github/workflows/*.yml or *.yaml file that changed is either the one file this repo's kind vendors through precedent_vendor_engine.py, or already a known RETIRED_CI_WORKFLOW_FILES entry -- anything else is named, once, as worth a second look |
 
-49 of 143 practices are enforced. Run `python3 tools/precedent_check.py --explain` for what each check does **not** catch.
+50 of 144 practices are enforced. Run `python3 tools/precedent_check.py --explain` for what each check does **not** catch.
 <!--/gen:enforcement-->
 
 Numbers by: catalogue_stats.py

@@ -2358,6 +2358,7 @@ wrong way round, it is the only pair the sort could have got wrong.**
 2026-09-12 does-it-ever-run addition to pass 2, marked PENDING REVIEW when
 it landed and still unreviewed.
 
+<!--dated-list-->
 - **Originally: pending review** — the practice landed with no named approver.
 - **Revised 2026-09-05, Morgan F**, to require every declared team/individual source actually be in the session before the check runs, and to add a stale-branch sweep across every repo the check touches
 - **Revised again 2026-09-05 (written as "same day"), Morgan F**, to add a cross-source-staleness check
