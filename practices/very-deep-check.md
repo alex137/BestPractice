@@ -16,7 +16,7 @@ in_force_at: null
 supersedes:  []
 overrides:   null
 added:       null
-approved_by: "Morgan F -- he revised, restructured, extended and bounded this practice repeatedly between 2026-09-05 and 2026-09-22. The practice itself first landed pending review, and one 2026-09-12 extension is still PENDING REVIEW, approved by nobody. Every change, its date, its strength and the words that authorized it: ## Story, 'Approval history'."
+approved_by: "Morgan F -- he revised, restructured, extended and bounded this practice repeatedly between 2026-09-05 and 2026-09-23. The practice itself first landed pending review, and one 2026-09-12 extension is still PENDING REVIEW, approved by nobody. Every change, its date, its strength and the words that authorized it: ## Story, 'Approval history'."
 ---
 ## Rule
 When a person explicitly asks for a "very deep check", or after work that
@@ -370,12 +370,20 @@ method"). Build the fixtures.
   below, and **a practice moved between levels**
   ([spec/MOVING_PRACTICES.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/MOVING_PRACTICES.md)):
   two bootstrapped sets and a consumer in scratch, every direction the
-  page offers (individual → team, team → individual, team → universal),
-  with `tools/precedent_move.py` and, separately, by hand against the
-  page's two steps — then the copy-and-delete the page forbids, to see
-  which check names it. Added 2026-09-14, the day Morgan asked whether
-  the run had tested it and it had not: the rehearsal returned thirteen
-  findings and the move tool. Each rehearsal ends by running the result's
+  page offers (individual → team, team → individual, team → universal,
+  and universal → team/individual, both halves — the initial duplicate
+  landing and the deliberate `--dedupe-only --accept-reach-loss`
+  withdrawal), with `tools/precedent_move.py` and, separately, by hand
+  against the page's two steps — then the copy-and-delete the page
+  forbids, to see which check names it. Added 2026-09-14, the day Morgan
+  asked whether the run had tested it and it had not: the rehearsal
+  returned thirteen findings and the move tool. The universal → team/
+  individual direction was added 2026-09-23, the same day a hand-done
+  version of exactly that move (before the tool supported it) shipped a
+  deduplication this repo's own consumer-fixture check later found
+  resolving nowhere — rehearse it for the same reason the others are
+  rehearsed: the tool having a `--help` line for something is not the
+  same as the something working. Each rehearsal ends by running the result's
   own checks and reporting the real output. **Then ask one more question of each: is what
   landed what the pitch promised?** Read the result against
   [documentation/ADOPTING.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/documentation/ADOPTING.md) and the README, not
@@ -1319,6 +1327,46 @@ first so this pass spends its attention on what they cannot see.
   enumerates and does not judge, and no `checked_by` will: the cap already
   tests the only property a script can see, and whether an occasion is
   *every session, always* is a reading of how work here actually goes.
+- **Whether each practice's SOURCE is still right.** A different axis from
+  the bullet above — not resident-versus-on-demand within one catalogue, but
+  *which* catalogue a practice's slug lives in at all, across every source in
+  scope: universal, each team set, and the individual set. Read every
+  practice's occasion and title against the charter each source states for
+  itself (a team set's own subject line — "how a session works alongside the
+  person," "the craft of writing for a human reader," the maintaining team's
+  own repo mechanics — and universal's implicit one, *everyone, always*), and
+  ask: does this rule's actual subject match the source it is filed under, or
+  did it land there because that is where the person happened to be
+  when they approved it? **Three shapes to look for, each found on a first
+  pass**: a rule that is personal wording wrapped around a general mechanism
+  (an individual practice written in the first person for something any team
+  would want — `"another window of mine"` for a collision any multi-session
+  user hits); two sources independently authoring the same rule because
+  neither one resolves the other (a team set that declares no sources of its
+  own re-deriving something universal already says, invisible to
+  `no-duplication` because the two copies never sit in the same file to
+  compare); and a rule that is topically a subject-team's own material,
+  landed in universal or in a different team set anyway, discoverable only
+  by reading its prose against the destination's stated charter rather than
+  its slug. **No script does this yet** — a source's charter is a sentence
+  of prose, not a property `applies_to` or `scope` can encode, so this stays
+  a judgment read, the same honest limit TIER PLACEMENT states for itself.
+  *(2026-09-23: a session asked to do exactly this read, once, by hand,
+  across precedent-individual and the three team sets against universal,
+  found instances of all three shapes on the first pass — five practices
+  filed in precedent-individual that were general mechanisms in personal
+  wording, two universal practices squarely inside working-style's own
+  stated subject, and `vendor-neutral-by-default` independently authored in
+  both universal's `local/practices/` and repo-maintenance, because
+  repo-maintenance resolves no sources of its own and never saw the
+  universal copy to compare against. The same session's reading also found
+  `small-calls` and `push-back` sitting active in both a team set and
+  universal for three days after a 2026-09-19 move landed only its first
+  half — a duplication this bullet would have caught on the next run rather
+  than waiting for someone to notice by hand.)* Added 2026-09-23 (Morgan,
+  strength: decided), after asking for a placement review across the five
+  Precedent repos and finding this axis was never checked anywhere: the
+  session's own report is the worked example above.
 - **Orphans — files nothing owns any more.** The mirror of every other
   check here, which all ask whether something that should be present *is*.
   An orphan is present and in nobody's list, so no mechanism keyed on a
@@ -2300,6 +2348,7 @@ date, and it is left unsorted only because nobody has asked for it.
 2026-09-12 does-it-ever-run addition to pass 2, marked PENDING REVIEW when
 it landed and still unreviewed.
 
+- **Extended 2026-09-23, Morgan (strength: decided)**, with pass 3's SOURCE-placement question, after asking for a cross-repo practice-placement review across the five Precedent repos and finding that nothing here or anywhere else ever asks which catalogue a practice belongs in, only whether its tier within one catalogue is right -- the session's own review is the bullet's worked example, five practices moved out of precedent-individual, two demoted from universal, and one live duplicate (vendor-neutral-by-default) found still open
 - **Extended 2026-09-22, Morgan (strength: decided)**, with FIX SWEEP (proposal item 13's other half) -- "Build item 13's fix-sweep half, go update"; its first run carried the YAML-anchor detector built three days earlier into all three shared sources, two of which decline for having no workflow file and the third of which runs clean
 - **Extended 2026-09-21, Morgan (strength: decided)**, with the deletion-propagation table (proposal item 4), the CHECK COVERAGE enumeration (item 13, closing pass 2 question 15's own unbuilt half) and MOVED CLAIMS (item 14) -- "now build the next ones"; item 4's table found on its first asking that a hook dropped upstream has no removal path at all, and item 14's first run found the paused-workflow incident still live in one source
 - **Extended 2026-09-21, Morgan (strength: decided)**, with the ACTIONS FLOOR bill (proposal item 7) and the CONFIG KEYS sweep (item 10) -- "Build the next part of very deep check according to the plan"; the required-status-check item was weighed first and held, because this session measured the protection endpoint answering "Resource not accessible by integration" and a section that can only ever print UNVERIFIED here is the cost the component ledger exists to catch

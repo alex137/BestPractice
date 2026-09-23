@@ -18410,6 +18410,24 @@ def check_vendor_engine_consumer_case():
 
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-consumer-engine-'))
     cases = []
+    # Same class of bug as the leak-gate blocklist-discovery fixture's own
+    # 2026-09-08 gotcha (see its docstring above): precedent_resolve.py's
+    # config-file self-heal reads $HOME/.config/precedent/config.json and
+    # silently adds a fourth, undeclared individual source when that file
+    # names one -- which it does on any container where a private source
+    # has already been resolved once. This fixture's own precedent.json
+    # declares exactly three sources; every subprocess below inherits the
+    # ambient HOME unless isolated, so it picked up a real precedent-individual
+    # clone as a bonus source nobody declared, and precedent_sync_views.py's
+    # own IN FORCE NOWHERE check then correctly flagged that source's real
+    # deduplicated practices as unresolvable -- against a source this fixture
+    # never claimed to model. Found 2026-09-23: reproduced with `4 failed`
+    # under the container's real HOME, `2 failed` (the two pre-existing,
+    # unrelated failures) under an isolated one.
+    saved_home = os.environ.get('HOME')
+    isolated_home = tmp / 'isolated-home'
+    isolated_home.mkdir()
+    os.environ['HOME'] = str(isolated_home)
     try:
         consumer = tmp / 'consumer'
         team_dir = tmp / 'precedent-team-consumer-fixture'
@@ -18759,6 +18777,10 @@ def check_vendor_engine_consumer_case():
                       r.returncode == 0, r.stdout + r.stderr))
 
     finally:
+        if saved_home is None:
+            os.environ.pop('HOME', None)
+        else:
+            os.environ['HOME'] = saved_home
         shutil.rmtree(tmp, ignore_errors=True)
 
     bad = [(c[0], c[2]) for c in cases if not c[1]]
@@ -24381,10 +24403,44 @@ def check_move_tool_lands_then_deduplicates():
         cases.append(('an approver not listed in the team set is refused by name',
                       r.returncode == 1 and 'not in' in r.stderr and 'approver' in r.stderr,
                       r.stderr[:300]))
-        r = run([tool, '--slug', 'zz-moves', '--from', 'universal', '--from-path', str(ROOT),
+        # -- universal -> team duplicates, never deduplicates, on landing;
+        # only a deliberate --dedupe-only --accept-reach-loss withdraws the
+        # universal copy. A fixture universal clone, not this checkout's own
+        # practices/, the same reason 'team -> universal' below uses one. --
+        uclone = tmp / 'precedent-universal-fixture'
+        (uclone / 'practices').mkdir(parents=True)
+        (uclone / 'practices' / 'zz-universal.md').write_text(practice('zz-universal'), encoding='utf-8')
+        r = run([tool, '--slug', 'zz-universal', '--from', 'universal', '--from-path', str(uclone),
+                 '--to', 'universal', '--to-path', str(uclone), '--approved-by', 'Fixture Approver'])
+        cases.append(('universal -> universal is refused as nothing to move',
+                      r.returncode == 1 and 'nothing to move' in r.stderr, r.stderr[:300]))
+        r = run([tool, '--slug', 'zz-universal', '--from', 'universal', '--from-path', str(uclone),
                  '--to', 'team', '--to-path', str(team), '--approved-by', 'Fixture Approver'])
-        cases.append(('moving OUT of universal is refused as the undesigned direction',
-                      r.returncode == 1 and 'OUT of universal' in r.stderr, r.stderr[:300]))
+        utext = (uclone / 'practices' / 'zz-universal.md').read_text(encoding='utf-8')
+        ttext2 = (team / 'practices' / 'zz-universal.md').read_text(encoding='utf-8') \
+            if (team / 'practices' / 'zz-universal.md').is_file() else ''
+        cases.append(('universal -> team lands at the destination and completes',
+                      r.returncode == 0 and 'status:      active' in ttext2, r.stdout + r.stderr))
+        cases.append(('the universal copy stays ACTIVE, not deduplicated -- both are in force',
+                      'status:      active' in utext and 'in_force_at: null' in utext
+                      and 'Also landed' in utext, utext[-500:]))
+        cases.append(('the disclosure says both copies are in force and names the deliberate '
+                      'withdrawal command',
+                      'ALSO lives' in r.stdout and 'NOT deduplicated' in r.stdout
+                      and '--dedupe-only --accept-reach-loss' in r.stdout, r.stdout[-500:]))
+        r = run([tool, '--slug', 'zz-universal', '--from', 'universal', '--from-path', str(uclone),
+                 '--to', 'team', '--to-path', str(team), '--dedupe-only'])
+        cases.append(('--dedupe-only on a universal source is refused without --accept-reach-loss',
+                      r.returncode == 1 and '--accept-reach-loss' in r.stderr, r.stderr[:400]))
+        cases.append(('and the refusal left the universal copy untouched',
+                      (uclone / 'practices' / 'zz-universal.md').read_text(encoding='utf-8') == utext, ''))
+        r = run([tool, '--slug', 'zz-universal', '--from', 'universal', '--from-path', str(uclone),
+                 '--to', 'team', '--to-path', str(team), '--dedupe-only', '--accept-reach-loss'])
+        utext = (uclone / 'practices' / 'zz-universal.md').read_text(encoding='utf-8')
+        cases.append(('--dedupe-only --accept-reach-loss withdraws the universal copy',
+                      r.returncode == 0 and 'status:      deduplicated' in utext
+                      and 'in_force_at: zz-universal' in utext
+                      and 'WITHDRAWN from universal' in r.stdout, r.stdout + r.stderr))
 
         # -- team -> universal drafts, leaves the source active, and dedupes on request --
         clone = tmp / 'precedent-clone'
