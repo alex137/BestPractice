@@ -10,12 +10,12 @@ index_clause: "their own situation is given -- say it once, then work from their
 checked_by:  null
 defines:     []
 command:     null
-status:      active
+status:      deduplicated
 supersedes:  []
 overrides:   null
 added:       "2026-09-21"
 approved_by: "requested by Morgan F, 2026-09-21, after the same argument recurred across sessions"
-in_force_at: null
+in_force_at: their-constraints-are-given
 strength: decided
 ---
 ## Rule
@@ -150,3 +150,7 @@ routes it — `python3 tools/precedent_show.py their-constraints-are-given`.
 the next session reads it rather than re-deriving it: a line in the
 project's instructions file, or an open item recording the decision and
 its strength ([decision-strength](decision-strength.md)).
+
+Also landed in the shared set `precedent-shared-working-style` on 2026-09-23, approved there by Morgan F. Kept ACTIVE here, not deduplicated: universal is the one level every Precedent consumer resolves, and a plain universal-only consumer never resolves a pointer into `precedent-shared-working-style` -- deduplicating this copy would leave the rule in force nowhere for them (the failure `verify_harness.py --as-ci`'s consumer-fixture check exists to catch, and did, 2026-09-23). Both copies are genuinely in force; review both when editing either. Withdraw this copy later, deliberately, with `--dedupe-only --accept-reach-loss` once the audience that matters has taken `precedent-shared-working-style`.
+
+Withdrawn from universal on 2026-09-23, deliberately, with --accept-reach-loss: deduplicated here; the rule is in force only from the shared set `precedent-shared-working-style` now. A consumer resolving only universal no longer gets it.
