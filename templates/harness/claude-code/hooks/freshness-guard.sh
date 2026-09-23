@@ -23,13 +23,15 @@
 #
 #   freshness-guard.sh session-start [BASE]
 #       A SessionStart hook. Fetches, fast-forwards the current branch when
-#       that is provably lossless, and reconciles it to origin when it has
-#       diverged and the tree is clean -- safe here specifically because
-#       SessionStart runs before this session's first turn, so nothing
-#       reachable from local HEAD can be this session's own work yet. The
-#       old tip is kept under refs/freshness-guard/pre-reset/, never just
-#       discarded. Warns about anything it cannot fix that way (a dirty
-#       tree, or the rescue-ref-then-reset sequence itself failing).
+#       that is provably lossless, and MERGES origin in when the branch has
+#       diverged and the tree is clean, so both sides stay on the branch
+#       (pre-merge tip also kept under refs/freshness-guard/pre-merge/). It
+#       never resets: until 2026-09-23 this mode reconciled a divergence
+#       with `git reset --hard origin/<branch>`, which picks origin's side
+#       and drops the local commits off the branch -- exactly what the
+#       fresh-before-write practice rules out by name. Warns about anything
+#       it cannot fix that way (a dirty tree, or a merge that conflicts,
+#       which is aborted).
 #       ALWAYS exits 0: a hook that can wedge a session over a freshness
 #       question is a worse failure than the staleness it is guarding
 #       against (fail-gracefully, same contract as
@@ -54,17 +56,14 @@
 #       stale. ALWAYS exits 0: a UserPromptSubmit hook that exits non-zero
 #       blocks the message, and losing what someone just typed over a
 #       freshness question is far worse than the staleness.
-#       ONE CHECK DOES NOT CARRY OVER FROM SESSION-START: the diverged-but-
-#       clean auto-reconcile (rescue-ref then `git reset --hard`) is safe
-#       only when nothing reachable from local HEAD can be this session's
-#       own work yet, which is true at SessionStart and false here -- a
-#       mid-session tab can hold a real unpushed commit. `_session_start_one`
-#       tells the two apart by checking $MODE, so this mode reports a
-#       divergence instead of resolving it (same as pre-write's identical-
-#       looking branch). Cost of getting this wrong, 2026-09-20: a real
-#       local commit discarded mid-session, recovered only because the
-#       rescue ref and the reflog both happened to still have it -- see
-#       gotchas/gotcha-2026-09-20-freshness-guard-s-user-prompt-mode-hard-resets-a-mid-sess.md.
+#       A diverged-but-clean branch is merged here exactly as at
+#       SessionStart. Until 2026-09-20 this mode inherited SessionStart's
+#       `reset --hard` and discarded a real local commit mid-session
+#       (recovered only because the rescue ref and the reflog both happened
+#       to still have it -- see
+#       gotchas/gotcha-2026-09-20-freshness-guard-s-user-prompt-mode-hard-resets-a-mid-sess.md);
+#       since 2026-09-23 no mode resets at all, so there is nothing left
+#       for this mode to avoid inheriting.
 #
 #   freshness-guard.sh pre-write [BASE]
 #       A PreToolUse hook. Runs its checks ONCE per session -- the first
@@ -469,58 +468,40 @@ _session_start_one() {
       if _dirty; then
         echo "WARN: freshness-guard: '$branch' is $behind commit(s) behind origin/$branch, and the working tree has uncommitted changes -- NOT updating it automatically.$(_age_phrase "$branch") Commit or stash, then: git merge --ff-only origin/$branch" >&2
       elif [ "$ahead" != "0" ]; then
-        if [ "$MODE" != "session-start" ]; then
-          # MID-SESSION, local HEAD really can hold this session's own
-          # unpushed work, so the SessionStart branch's `reset --hard` below
-          # is not available here: it destroyed a real local commit on
-          # 2026-09-20 (gotchas/gotcha-2026-09-20-freshness-guard-s-user-prompt-mode-hard-resets-a-mid-sess.md),
-          # and that is why this case was cut back to a warning that same day.
-          #
-          # A WARNING WAS THE WRONG REMEDY FOR THE RIGHT DANGER, and the cost
-          # of the trade showed up within two days: the drift stayed put, every
-          # prompt afterwards re-reported it, and the person was left to
-          # reconcile by hand -- the exact "my changes went to a stale clone,
-          # again" experience the guard exists to end (reported 2026-09-22).
-          #
-          # A MERGE HAS NEITHER PROBLEM. It brings origin's history in without
-          # moving either side's commits off the branch, so there is nothing
-          # for it to discard even when local HEAD is this session's own work
-          # -- unlike the reset, and unlike a rebase, which would rewrite
-          # published history. The tree is known clean here (the _dirty branch
-          # above has already returned), so the merge either completes or
-          # conflicts; a conflict is aborted so the next tool call never meets
-          # a half-applied merge, and is then reported for a person to settle.
-          # The pre-merge tip is kept under its own ref regardless, the same
-          # belt-and-braces the reset path uses. practice: durable-fix.
-          local rescue_ref old_sha
-          old_sha="$(_git rev-parse HEAD 2>/dev/null)"
-          rescue_ref="refs/freshness-guard/pre-merge/${branch}-${old_sha:0:12}"
-          [ -n "$old_sha" ] && _git update-ref "$rescue_ref" "$old_sha" >/dev/null 2>&1
-          if _git merge --no-edit "origin/$branch" >/dev/null 2>&1; then
-            echo "NOTE: freshness-guard: '$branch' had diverged from origin/$branch ($ahead local commit(s), $behind remote) -- MERGED origin/$branch into it, so both sides are now present and nothing was discarded (mid-session, so your $ahead local commit(s) were kept rather than reset away). The pre-merge tip is also at $rescue_ref ($old_sha).$(_age_phrase "$branch")" >&2
-          else
-            _git merge --abort >/dev/null 2>&1 || true
-            echo "WARN: freshness-guard: '$branch' has diverged from origin/$branch ($ahead local commit(s), $behind remote) and merging origin/$branch into it CONFLICTS -- the merge was aborted, so the checkout is exactly as it was and nothing is half-applied.$(_age_phrase "$branch") Settle it deliberately: git merge origin/$branch, then resolve." >&2
-          fi
+        # A DIVERGED, CLEAN branch is merged, in every mode, and never reset.
+        #
+        # SessionStart used to `reset --hard origin/<branch>` here, on the
+        # argument that nothing local could be this session's own work yet.
+        # That was true and beside the point: the local commits could be
+        # ANOTHER session's, or the person's own, and a reset picks origin's
+        # side and drops them off the branch -- the one move the
+        # fresh-before-write practice (Morgan, strength: decided) rules out
+        # by name. Removed 2026-09-23. The same reset reached mid-session
+        # through user-prompt's delegation and discarded a real commit on
+        # 2026-09-20 (gotchas/gotcha-2026-09-20-freshness-guard-s-user-prompt-mode-hard-resets-a-mid-sess.md).
+        #
+        # A MERGE HAS NEITHER PROBLEM. It brings origin's history in without
+        # moving either side's commits off the branch, so there is nothing
+        # for it to discard -- unlike the reset, and unlike a rebase, which
+        # would rewrite published history. Warning instead was tried
+        # mid-session on 2026-09-20 and cost more than it saved: the drift
+        # stayed put, every prompt re-reported it, and the person reconciled
+        # by hand -- the "my changes went to a stale clone, again" report of
+        # 2026-09-22. The tree is known clean here (the _dirty branch above
+        # has already returned), so the merge either completes or conflicts;
+        # a conflict is aborted so the next tool call never meets a
+        # half-applied merge, and is reported for a person to settle. The
+        # pre-merge tip is kept under its own ref regardless. practice:
+        # durable-fix.
+        local rescue_ref old_sha
+        old_sha="$(_git rev-parse HEAD 2>/dev/null)"
+        rescue_ref="refs/freshness-guard/pre-merge/${branch}-${old_sha:0:12}"
+        [ -n "$old_sha" ] && _git update-ref "$rescue_ref" "$old_sha" >/dev/null 2>&1
+        if _git merge --no-edit "origin/$branch" >/dev/null 2>&1; then
+          echo "NOTE: freshness-guard: '$branch' had diverged from origin/$branch ($ahead local commit(s), $behind remote) -- MERGED origin/$branch into it, so both sides are now present and nothing was discarded (your $ahead local commit(s) were kept, never reset away). The pre-merge tip is also at $rescue_ref ($old_sha).$(_age_phrase "$branch")" >&2
         else
-          # This is SessionStart, before this session's first turn -- nothing
-          # reachable from local HEAD can be this session's own work yet, so a
-          # diverged-but-CLEAN checkout here is safe to reconcile automatically,
-          # unlike the identical-looking check in mode_pre_write (which runs
-          # mid-session, where a local commit really could be this session's),
-          # and unlike this same branch reached via mode_user_prompt, above.
-          # "Do not discard either side" still holds: the old tip is kept under
-          # a dedicated ref, never just left to reflog expiry, before origin's
-          # history replaces it.
-          local rescue_ref old_sha
-          old_sha="$(_git rev-parse HEAD 2>/dev/null)"
-          rescue_ref="refs/freshness-guard/pre-reset/${branch}-${old_sha:0:12}"
-          if [ -n "$old_sha" ] && _git update-ref "$rescue_ref" "$old_sha" >/dev/null 2>&1 && \
-             _git reset --hard "origin/$branch" >/dev/null 2>&1; then
-            echo "NOTE: freshness-guard: '$branch' had diverged from origin/$branch ($ahead local commit(s), $behind remote) -- reconciled it to origin/$branch (SessionStart, before this session's first turn, so nothing local could be this session's own work). The old tip is kept at $rescue_ref ($old_sha); nothing was discarded.$(_age_phrase "$branch")" >&2
-          else
-            echo "WARN: freshness-guard: '$branch' has diverged from origin/$branch ($ahead local commit(s), $behind remote) -- could not reconcile it automatically (rescue ref or reset failed), so leaving it as-is.$(_age_phrase "$branch") Reconcile deliberately; do not discard either side." >&2
-          fi
+          _git merge --abort >/dev/null 2>&1 || true
+          echo "WARN: freshness-guard: '$branch' has diverged from origin/$branch ($ahead local commit(s), $behind remote) and merging origin/$branch into it CONFLICTS -- the merge was aborted, so the checkout is exactly as it was and nothing is half-applied.$(_age_phrase "$branch") Settle it deliberately: git merge origin/$branch, then resolve." >&2
         fi
       elif [ "$fetched" -eq 0 ]; then
         echo "WARN: freshness-guard: '$branch' looks $behind commit(s) behind, but the fetch failed -- not acting on an unverified comparison.$(_age_phrase "$branch")" >&2

@@ -106,8 +106,6 @@ Full catalogue, one file per trap. AGENTS.md carries only a pointer to this file
 
 - **A SessionStart hook renders a file correctly, every session, and the session behaves as though the file does not exist — because writing a file is not loading it, and Claude Code auto-loads instruction files only.** [story](gotcha-2026-09-20-a-sessionstart-hook-writing-a-file-is-not-the-session-loadi.md)
 
-- **A local commit made mid-session, on a clean working tree, disappears between one turn and the next -- `git log` shows the branch back at `origin`'s tip, with no error, no warning shown to the model, and no dirty-tree complaint to explain it.** [story](gotcha-2026-09-20-freshness-guard-s-user-prompt-mode-hard-resets-a-mid-sess.md)
-
 - **`python3 tools/leak_gate.py` reports a wall of undeclared-repo hits against a tree that is actually fine, all naming things the session never touched. The gate's own printed remedy -- `git -C <root> pull --ff-only` -- can itself fail with no further guidance.** [story](gotcha-2026-09-20-leak-gates-private-blocklist-clone-fails-open-stale.md)
 
 - **In a multi-repo session rooted under `/home/user` (rather than a single set), `themorgan/precedent-individual`'s own `precedent.json` names its shared sources as `../precedent-shared-*`, but the sibling clones actually on disk are named `precedent-team-*`, and `PRECEDENT_FRESHNESS_ALSO` names the old paths too.** [story](gotcha-2026-09-20-shared-home-layout-still-names-the-pre-rename-team-sets.md)

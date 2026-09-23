@@ -1,9 +1,9 @@
 ---
 slug:            gotcha-2026-09-20-freshness-guard-s-user-prompt-mode-hard-resets-a-mid-sess
-status:          live
+status:          retired
 noted:           2026-09-20
 severity:        null
-retired:         null
+retired:         "2026-09-23"
 retires_when:    null
 ---
 ## Symptom
@@ -86,3 +86,8 @@ named `refs/freshness-guard/pre-reset/<branch>-<sha>` ref) finds it. If
 origin has moved on other files in the meantime, `git cherry-pick <sha>`
 onto the new tip is safer than resetting back to the old one, since a hard
 reset back would discard whatever else landed on `origin` since.
+
+**Retired 2026-09-23.** The guard no longer resets in any mode: a diverged,
+clean branch is merged at SessionStart as well as mid-session, so the local
+commit stays on the branch either way. The reset was also the one verb the
+fresh-before-write practice rules out by name.
