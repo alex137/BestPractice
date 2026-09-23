@@ -2268,14 +2268,33 @@ practice's own originating incident goes to its `## Story`). Moved
 2026-09-23, with nothing shortened on the way out — the frontmatter field
 now names the approver and points here.
 
-**The order below is the field's own, unchanged**, and it is deliberately
-not sorted: the 2026-09-22, 2026-09-21 and 2026-09-14 additions were
-prepended at the top as they were made, and everything from `pending review`
-onward runs forward from 2026-09-05. Several entries say *same day* or *in
-the same turn*, meaning the entry directly above them, and some of those
-entries carry a later date inside their own text than the day they refer
-to — so sorting by date would silently redate them. The order stays as the
-field carried it for that reason.
+**Every entry carries an explicit date, and new ones must too — never
+*same day*.** Six entries originally dated themselves by pointing at the
+entry above them, which is a *positional* reference: it survives only as long
+as nothing is reordered, and it is unreadable on its own. Worse, two adjacent
+entries both saying *same day* meant two different days, because the first
+one's text ended with a clause carrying a later date than the change the
+entry itself recorded. Those six were resolved to real dates on 2026-09-23,
+each one marked *(written as "same day")* so the original wording stays
+visible and nobody reads the date as something the approver typed.
+
+**Five of the six resolve cleanly** — the entry above them names exactly one
+date and nothing else. **One is a read, not a derivation:** *"Extended
+2026-09-07 … so the branch sweep reports an unmerged branch with a
+merge-or-close verdict"*. The entry above it is itself a *same day* entry
+recording a 2026-09-06 change, but its text then runs on into a clause about
+a step *"made mechanical 2026-09-07"* — so *same day* attaches to the nearest
+antecedent, 09-07, not to the 09-06 change the entry opened with. The
+following entry, dated 2026-09-07 outright, refines that same branch sweep,
+which fits. It is the one date here that was inferred rather than read off
+the text, and it is flagged in place as well as here.
+
+**The order below is still the field's own, unchanged**: the 2026-09-22,
+2026-09-21 and 2026-09-14 additions were prepended at the top as they were
+made, and everything from `pending review` onward runs forward from
+2026-09-05. That is now a historical artefact rather than a constraint —
+sorting the list chronologically is safe once every entry carries its own
+date, and it is left unsorted only because nobody has asked for it.
 
 **One entry was never approved by anyone**, and says so in place: the
 2026-09-12 does-it-ever-run addition to pass 2, marked PENDING REVIEW when
@@ -2292,13 +2311,13 @@ it landed and still unreviewed.
 - **Extended 2026-09-14, Morgan F** -- after a session was refused by GitHub with a rate-limit error, he asked for the cause investigated, the fixes made, and this check to report the account's API limits so normal usage can be seen not to overspend them (strength: decided; the section's shape is the session's, the requirement is his)
 - **Originally: pending review** — the practice landed with no named approver.
 - **Revised 2026-09-05, Morgan F**, to require every declared team/individual source actually be in the session before the check runs, and to add a stale-branch sweep across every repo the check touches
-- **Revised again same day, Morgan F**, to add a cross-source-staleness check
+- **Revised again 2026-09-05 (written as "same day"), Morgan F**, to add a cross-source-staleness check
 - **Restructured 2026-09-06, Morgan F**, into four ordered passes — adopter installs first, then whether the mechanisms tell the truth, then the coherence read, then catalogue and housekeeping — with the run made resumable across sessions
-- **Extended same day, Morgan F**, with a duplicate-implementation question in pass 2 and an explicit mechanical-before-human order of operations; that order's first step made mechanical 2026-09-07, Morgan F — every repo in force must be provably current before the check reads anything
-- **Extended same day, Morgan F**, so the branch sweep reports an unmerged branch with a merge-or-close verdict, not only a merged one awaiting deletion
+- **Extended 2026-09-06 (written as "same day"), Morgan F**, with a duplicate-implementation question in pass 2 and an explicit mechanical-before-human order of operations; that order's first step made mechanical 2026-09-07, Morgan F — every repo in force must be provably current before the check reads anything
+- **Extended 2026-09-07 (written as "same day" — see the note above), Morgan F**, so the branch sweep reports an unmerged branch with a merge-or-close verdict, not only a merged one awaiting deletion
 - **Extended 2026-09-07, Morgan F**, so each unmerged branch is written up with what it changes, a link, its date and a reasoned recommendation, rather than handed back as a name
-- **Split same day, Morgan F**, so the unmerged-branch INVENTORY is read before any pass and only the verdicts stay in pass 4
-- **Extended same day, Morgan F**, so pass 1 tests an UPDATE and not only an install, against a real consumer repository and not only a fixture
+- **Split 2026-09-07 (written as "same day"), Morgan F**, so the unmerged-branch INVENTORY is read before any pass and only the verdicts stay in pass 4
+- **Extended 2026-09-07 (written as "same day"), Morgan F**, so pass 1 tests an UPDATE and not only an install, against a real consumer repository and not only a fixture
 - **Extended 2026-09-07, Morgan F**, with pass 2's enumerate-rather-than-sample question and pass 4's whole-tree rehearsal of the endgame merge, after a sampled rehearsal of the phase-7 merge-back returned the wrong verdict
 - **Extended 2026-09-09, Morgan F (strength: assented)**, with pass 3's tier-placement question, after a session asked what this check covers and found that nothing here or anywhere else reviews whether a practice's `tier` is still right
 - **Extended 2026-09-11, Morgan F (strength: decided)**, so every repo in force is asked whether it still EXISTS and still accepts a push, not only whether the clone is current -- "make sure it doesn't automatically try to open a repo that doesn't exist / was deleted / archived"
@@ -2313,7 +2332,7 @@ it landed and still unreviewed.
 - **Extended 2026-09-17, Morgan (strength: decided)**, with a pass-3 bullet asking whether every file, documentation included, lives in the directory its kind already uses -- "in very_deep_check, can you update it to make sure that files including documentation are in their right folder/location?" -- after two person-facing setup guides were found sitting at repo root while documentation/ held every other reader-facing page
 - **Extended again 2026-09-17, Morgan (strength: decided)**, with a pass-2 item reading the harness-adapter ledger's verdicts for whether they are actually correct, not merely present -- "update the very deep check definition to do a focused and detailed check to make sure that the system works in each of the LLMs (codex gemini grok) cross-platform? I want this to detect errors where, a change was made to how we do something with Claude, but it wasn't rolled out to the others" -- after the same conversation found that `parallel-artifact-ledger`'s enforced check only proves a row exists per change, by its own docstring's admission, and a live example where two recent rows promised a codex or gemini-cli user a hand-run workaround that neither adapter's own README mentions anywhere
 - **Extended again 2026-09-17, Morgan (strength: decided)**, with a pass-4 item that inventories every cron, scheduled workflow and session trigger across every repo and account in force, gives each a verdict, disables or deletes what nobody needs, and writes the whole list to a committed report -- "To very deep check, we should also add: a check of any crons or other automated actions - and delete or disable not needed ones, and to make a list of all of them that goes into the very deep check report"
-- **Extended in the same turn, Morgan (strength: decided)**, with a companion item closing the cheaper half of [todo-2026-09-07-undeclared-deprecated-files](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/todo/todo-2026-09-07-undeclared-deprecated-files.md) -- reading every mechanism in force against whether it is still the thing that runs, deleting what plainly is not, writing into the same report, and asking the session's user wherever a verdict is unclear -- "And also the same for any deprecated files - look for them, delete them, note it in the big document made with the findings. And if there is any doubt or questions, ask the session user"
+- **Extended 2026-09-17 (written as "in the same turn"), Morgan (strength: decided)**, with a companion item closing the cheaper half of [todo-2026-09-07-undeclared-deprecated-files](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/todo/todo-2026-09-07-undeclared-deprecated-files.md) -- reading every mechanism in force against whether it is still the thing that runs, deleting what plainly is not, writing into the same report, and asking the session's user wherever a verdict is unclear -- "And also the same for any deprecated files - look for them, delete them, note it in the big document made with the findings. And if there is any doubt or questions, ask the session user"
 - **Extended 2026-09-18, Morgan (strength: decided)**, so pass 2's item 17 names `grok-build/` as a fourth harness-adapter directory and drops the stale present-tense count that still read three -- "Fix the stale count in item #17 now, and add in the grok, please", after a session answering a question about this check found `templates/harness/grok-build/` already on disk, researched and dated 2026-09-17, un-named by either the item's own prose or `templates/harness/LEDGER.md`'s family line
 - **Extended 2026-09-19, Morgan (strength: decided)**, so a session that runs less than the full four passes says so BEFORE running, never only in the honest write-up after -- "the whole point of 'very deep check' is to do a very deep check. If I wanted a light check, I wouldn't ask for a very deep check!", after a session ran only the mechanical half of passes 2 and 4 and reported the rest PARTIAL without flagging the narrowed scope up front
 - **Extended again 2026-09-19, Morgan (strength: decided)**, so the checkout's merged-and-stale branch list is embedded, in full and never truncated, in [spec/VERY_DEEP_CHECK.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/VERY_DEEP_CHECK.md) itself, written directly by the checkout's own branch scan rather than left for a session to remember to open and paste from [record/stale_branches.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/record/stale_branches.md) -- "This list should be generated and included in the VERY DEEP CHECK MD document when it's generated... And if there are more than 10, include them!", after a session named ten safe deletions without ever printing them and had to be asked for the list a second time
