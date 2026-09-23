@@ -691,13 +691,42 @@ def verify(level, path):
     # Both run the same steps, so reporting a working set as broken would be
     # the check lying about the thing it exists to measure.
     wired_cmds = ' '.join(_wired_commands(path))
-    if (UNIVERSAL_CATALOGUE_HOOK not in wired_cmds
-            and 'precedent_session_practices.py' not in wired_cmds):
+    _uc_wired = (UNIVERSAL_CATALOGUE_HOOK in wired_cmds
+                 or 'precedent_session_practices.py' in wired_cmds)
+    if not _uc_wired:
         missing.append(
             ".claude/settings.json wires no session-start step running "
             "tools/precedent_session_practices.py, so nothing writes the "
             "universal practices this set declares into "
             ".precedent/SESSION_PRACTICES.md")
+    else:
+        # practice: session-load-budget -- once that step is wired it
+        # genuinely renders and injects .precedent/SESSION_PRACTICES.md
+        # into every session here
+        # (spec/PACK_SESSION_DOES_NOT_LOAD_UNIVERSAL.md) -- so a set that
+        # separately opted into session-load-budget by keeping its own
+        # tools/session_load_budgets.json now has a real always-loaded
+        # surface with no ceiling unless that entry was added in the same
+        # install step. Checked only where the set opted in at all: one
+        # with no registry has declared no ceilings, and
+        # precedent_check.py's own session-load-budget check already
+        # reports NotApplicable there, so there is nothing new to say.
+        #
+        # Found 2026-09-22 in precedent-shared-working-style: the PR that
+        # turned this hook on added the CLAUDE.md surface to the registry
+        # and not this one, so the file it makes real sat unmeasured and
+        # uncapped across two merges until a --full-sweep was run by hand.
+        _budgets = _load_json(path / 'tools' / 'session_load_budgets.json')
+        if _budgets is not None and '.precedent/SESSION_PRACTICES.md' not in (
+                _budgets.get('surfaces') or {}):
+            missing.append(
+                "tools/session_load_budgets.json declares surfaces but has "
+                "no '.precedent/SESSION_PRACTICES.md' entry, even though "
+                "the universal-catalogue hook is wired and renders that "
+                "file into every session here -- measure it "
+                "(tools/build_views.py's _approx_tokens against the file on "
+                "disk) and add a ceiling with headroom, the way "
+                "precedent-individual's own entry does")
 
     # The individual-source hook is checked on its own, and on a stricter
     # test than the two above: PRESENT IS NOT ENOUGH, it has to be WIRED.

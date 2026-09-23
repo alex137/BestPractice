@@ -14543,6 +14543,90 @@ def check_verify_reports_a_source_wired_for_fewer_moments():
           f'adapter ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
 
+def check_verify_flags_missing_session_practices_ceiling():
+    """A set that wires the universal-catalogue hook genuinely renders and
+    injects .precedent/SESSION_PRACTICES.md into every session
+    (spec/PACK_SESSION_DOES_NOT_LOAD_UNIVERSAL.md). A set that separately
+    opted into session-load-budget by keeping its own
+    tools/session_load_budgets.json has therefore asked for every such
+    surface to carry a ceiling -- and until 2026-09-22, verify() never
+    checked that the two agreed. precedent-shared-working-style hit exactly
+    this: a PR turned the hook on and added the CLAUDE.md surface to the
+    registry, not this one, and the file the hook makes real sat unmeasured
+    and uncapped across two merges (practice: session-load-budget).
+
+    Four cases (practice: control-asserts-which-failure -- a check that
+    cannot fail on the planted gap, and cannot pass on its absence, is not
+    established): the registry with the gap is flagged BY NAME; the same
+    registry with the entry present is not (the positive control that
+    proves the finding is about the missing entry and not the file's mere
+    presence); a set with no registry at all is not flagged (it never
+    opted in, and precedent_check.py's own session-load-budget check
+    already reports NotApplicable there -- this is not a second, competing
+    way to demand one); and a set with the registry but the hook NOT wired
+    is not flagged (nothing here claims the surface loads, so there is
+    nothing to have missed)."""
+    import tempfile
+    import precedent_bootstrap_source as pbs
+
+    def _settings(wired):
+        cmds = (['python3 tools/precedent_session_practices.py --repo .']
+                if wired else ['python3 tools/precedent_check.py'])
+        return json.dumps({'hooks': {'SessionStart': [
+            {'hooks': [{'type': 'command', 'command': c} for c in cmds]}]}})
+
+    def _make(root, wired, budgets):
+        (root / '.claude').mkdir(parents=True, exist_ok=True)
+        (root / '.claude' / 'settings.json').write_text(
+            _settings(wired), encoding='utf-8')
+        (root / 'tools').mkdir(parents=True, exist_ok=True)
+        if budgets is not None:
+            (root / 'tools' / 'session_load_budgets.json').write_text(
+                json.dumps(budgets), encoding='utf-8')
+        return [m for m in pbs.verify('team', root)
+                if '.precedent/SESSION_PRACTICES.md' in m
+                and 'session_load_budgets.json' in m]
+
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+
+        # 1. THE GAP ITSELF: hook wired, registry declares surfaces, the one
+        # that matters is missing.
+        gapped = {'surfaces': {'CLAUDE.md': {'ceiling': 200}}}
+        found = _make(tmp / 'gapped', True, gapped)
+        cases.append((f'wired hook + a registry missing the entry is '
+                      f'flagged (got {found})', len(found) == 1))
+
+        # 2. THE POSITIVE CONTROL: same wiring, the entry present -- proves
+        # case 1 fires on the missing entry and not on the file's presence.
+        capped = {'surfaces': {'CLAUDE.md': {'ceiling': 200},
+                               '.precedent/SESSION_PRACTICES.md':
+                               {'ceiling': 6700}}}
+        found = _make(tmp / 'capped', True, capped)
+        cases.append((f'wired hook + a registry that already declares the '
+                      f'entry is clean (got {found})', not found))
+
+        # 3. NO OPT-IN: no registry at all is not a second gate on top of
+        # precedent_check.py's own NotApplicable for a set that never opted
+        # into session-load-budget.
+        found = _make(tmp / 'no-registry', True, None)
+        cases.append((f'wired hook + no registry at all is not flagged '
+                      f'(got {found})', not found))
+
+        # 4. HOOK NOT WIRED: a registry with the gap is not flagged where
+        # nothing here claims the surface actually loads.
+        found = _make(tmp / 'unwired', False, gapped)
+        cases.append((f'a registry with the gap but the hook not wired is '
+                      f'not flagged (got {found})', not found))
+
+    failed = [n for n, ok in cases if not ok]
+    check(f'verify() flags a set whose registry is missing the '
+          f'.precedent/SESSION_PRACTICES.md ceiling once the '
+          f'universal-catalogue hook is wired ({len(cases)} stated cases)',
+          not failed, '; '.join(failed))
+
+
 def _declared_fallback_tz():
     """This repository's declared last-resort timezone, read from the engine
     rather than typed into a test.
@@ -28609,6 +28693,7 @@ def main():
     check_source_clone_is_pinned_to_a_branch()
     check_generator_wires_every_template_guard_mode()
     check_verify_reports_a_source_wired_for_fewer_moments()
+    check_verify_flags_missing_session_practices_ceiling()
     check_commit_identity_copies_are_identical()
     check_identity_reaches_a_repo_that_did_not_exist_yet()
     check_repo_reference_allowlist()
