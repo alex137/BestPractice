@@ -16,189 +16,7 @@ in_force_at: null
 supersedes:  []
 overrides:   null
 added:       null
-approved_by: "extended 2026-09-22, Morgan (strength: decided), with
-  FIX SWEEP (proposal item 13's other half) -- \"Build item 13's
-  fix-sweep half, go update\"; its first run carried the YAML-anchor
-  detector built three days earlier into all three shared sources, two
-  of which decline for having no workflow file and the third of which
-  runs clean;
-  extended 2026-09-21, Morgan (strength: decided), with the
-  deletion-propagation table (proposal item 4), the CHECK COVERAGE
-  enumeration (item 13, closing pass 2 question 15's own unbuilt half)
-  and MOVED CLAIMS (item 14) -- \"now build the next ones\"; item 4's
-  table found on its first asking that a hook dropped upstream has no
-  removal path at all, and item 14's first run found the paused-workflow
-  incident still live in one source;
-  extended 2026-09-21, Morgan (strength: decided), with the
-  ACTIONS FLOOR bill (proposal item 7) and the CONFIG KEYS sweep (item
-  10) -- \"Build the next part of very deep check according to the
-  plan\"; the required-status-check item was weighed first and held,
-  because this session measured the protection endpoint answering
-  \"Resource not accessible by integration\" and a section that can only
-  ever print UNVERIFIED here is the cost the component ledger exists to
-  catch;
-  extended 2026-09-21, Morgan (strength: decided), with the
-  carry-through roll-up (CARRY-THROUGH, proposal item 3) and the
-  identity read off the commits that landed (IDENTITY REALITY, item 8) --
-  \"Is there a next step to build in your very deep check plan? Build
-  it!\"; the first run of the second found four of the five repos in
-  force carrying commits with an author-date offset that is not the
-  declared timezone;
-  extended 2026-09-21, Morgan (strength: decided), with the
-  five additions spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md recommended
-  first and he authorized in that order -- the planted-case rotation
-  settled at step 2 (item 11), WORKFLOW REALITY and the YAML-anchor check
-  (item 5), the deletion rehearsal and DELETIONS PENDING (items 1 and 2),
-  INCIDENT COVERAGE (item 12) and the ACCRETION ranking with its
-  holistic-read registry (item 9); the first forced harness run the new
-  step 2 asked for turned the suite red on its own rotation self-test,
-  which is the kind of thing the item exists to surface;
-  extended 2026-09-21, Morgan (strength: decided), with pass 3's
-  close read of every always-loaded instructions file, after an Update
-  Vendors pass found a consuming repo's AGENTS.md naming a repository that
-  does not exist, twice, in the same file whose own step 1 warns about a
-  source name going stale silently;
-  bounded 2026-09-21, Morgan (strength: decided, relayed) --
-  the branch sweep's delete-link mechanism moved to branch-delete-links
-  and is cited here rather than restated, and this pass's branch scope
-  was fixed at the checkout and its own source checkouts, never the
-  fleet, which is chief-of-staff's;
-  extended 2026-09-21, Morgan F (strength: decided), with
-  pass 1's adapter-parity item -- \"everything in .claude should have its\n  parallel for the others. This should also be a new item in very deep\n  check: check everything unique to Claude and make sure there's a parallel\n  for the three others\"; the first run of it found that\n  templates/harness/README.md had named tools/bootstrap.sh as\n  session-start.sh's parallel while the script ran three of the hook's\n  seven steps;
-  extended 2026-09-14, Morgan F -- after a session was refused by
-  GitHub with a rate-limit error, he asked for the cause investigated, the
-  fixes made, and this check to report the account's API limits so normal
-  usage can be seen not to overspend them (strength: decided; the section's
-  shape is the session's, the requirement is his);
-  pending review; revised 2026-09-05, Morgan F, to require every
-  declared team/individual source actually be in the session before the check
-  runs, and to add a stale-branch sweep across every repo the check touches;
-  revised again same day, Morgan F, to add a cross-source-staleness check;
-  restructured 2026-09-06, Morgan F, into four ordered passes — adopter
-  installs first, then whether the mechanisms tell the truth, then the
-  coherence read, then catalogue and housekeeping — with the run made
-  resumable across sessions; extended same day, Morgan F, with a
-  duplicate-implementation question in pass 2 and an explicit
-  mechanical-before-human order of operations; that order's first step made
-  mechanical 2026-09-07, Morgan F — every repo in force must be provably
-  current before the check reads anything; extended same day, Morgan F, so
-  the branch sweep reports an unmerged branch with a merge-or-close verdict,
-  not only a merged one awaiting deletion; extended 2026-09-07, Morgan F,
-  so each unmerged branch is written up with what it changes, a link, its
-  date and a reasoned recommendation, rather than handed back as a name;
-  split same day, Morgan F, so the unmerged-branch INVENTORY is read
-  before any pass and only the verdicts stay in pass 4;
-  extended same day, Morgan F, so pass 1 tests an UPDATE and not only an
-  install, against a real consumer repository and not only a fixture;
-  extended 2026-09-07, Morgan F, with pass 2's enumerate-rather-than-sample
-  question and pass 4's whole-tree rehearsal of the endgame merge, after a
-  sampled rehearsal of the phase-7 merge-back returned the wrong verdict;
-  extended 2026-09-09, Morgan F (strength: assented), with pass 3's
-  tier-placement question, after a session asked what this check covers and
-  found that nothing here or anywhere else reviews whether a practice's
-  `tier` is still right; extended 2026-09-11, Morgan F (strength: decided),
-  so every repo in force is asked whether it still EXISTS and still accepts
-  a push, not only whether the clone is current -- \"make sure it doesn't
-  automatically try to open a repo that doesn't exist / was deleted /
-  archived\"; extended again 2026-09-11, Morgan F
-  (strength: decided), so pass 3's session-load read covers every repo in
-  force rather than this checkout alone, with the ceilings themselves moved
-  out to session-load-budget; extended again 2026-09-11, Morgan F
-  (strength: decided), so every run records what each of its parts
-  returned and what each cost into a ledger that outlives the run, and
-  reads them against the runs before it -- \"the check now has many
-  different components and when you run it, I want you to track the
-  results of each part and compare at the end to ... find any aspects of
-  the very deep check that weren't useful\"; extended 2026-09-12, Morgan F
-  (strength: decided), with the live-session sweep -- \"do a sweep of live
-  sessions against the repo to see if there's anything recent being
-  missed\" -- and with the branch sweep widened to every author and to work
-  that landed on the base branch rather than the integration branch --
-  \"find stale branches, even if worked on by someone else or in a
-  different branch\"; extended again 2026-09-12, Morgan F (strength:
-  decided), so a run against a repo whose work is pinned to an integration
-  branch also reads the BASE branch for changes the branch has never taken,
-  and puts them to the person rather than applying them -- \"it should
-  check main to see if there were any changes that we should update our
-  version with so they don't get too out of sync; but those changes, don't
-  implement automatically, but ask the session user if they want to
-  implement them\"; extended 2026-09-12, PENDING REVIEW -- not yet
-  approved by anyone -- with pass 2's does-it-ever-run question, after a
-  source set was measured running 12 of its 54 registered checks and
-  skipping the other 42 for one cause, with the rule governing what its
-  own published practice files may link among them; extended again
-  2026-09-12, Morgan F (strength: decided), so the repository-visibility
-  pass also carries the leak RECOMMENDATIONS the push gate used to print
-  beside every run -- \"you look to see if anything is being leaked that you
-  think shouldn't be and you make the recommendation to me ... but only when
-  I ask for it as part of a very thorough review I'm in the mindset of
-  doing\"; extended 2026-09-14, Morgan F (strength: decided), so pass 1
-  rehearses a practice moved between levels and pass 3 reads every document
-  that describes a mechanism against what that mechanism does now -- \"does
-  very deep check do a read of the documentation to make sure it's
-  consistent with how it works now? If not add that too\";
-  extended 2026-09-15, Morgan (strength: decided), so the branch sweep's
-  list is written to a committable file with a clickable link on every row
-  instead of only being printed, after two Sunday runs produced it and he
-  never saw it -- \"it should put those links in the document it creates
-  so I can just go there and click - it shouldn't live in the chat\";
-  extended 2026-09-17, Morgan (strength: decided), with a pass-3 bullet
-  asking whether every file, documentation included, lives in the directory
-  its kind already uses -- \"in very_deep_check, can you update it to make
-  sure that files including documentation are in their right
-  folder/location?\" -- after two person-facing setup guides were found
-  sitting at repo root while documentation/ held every other reader-facing
-  page;
-  extended again 2026-09-17, Morgan (strength: decided), with a pass-2 item
-  reading the harness-adapter ledger's verdicts for whether they are
-  actually correct, not merely present -- \"update the very deep check
-  definition to do a focused and detailed check to make sure that the
-  system works in each of the LLMs (codex gemini grok) cross-platform? I
-  want this to detect errors where, a change was made to how we do
-  something with Claude, but it wasn't rolled out to the others\" -- after
-  the same conversation found that `parallel-artifact-ledger`'s enforced
-  check only proves a row exists per change, by its own docstring's
-  admission, and a live example where two recent rows promised a codex or
-  gemini-cli user a hand-run workaround that neither adapter's own README
-  mentions anywhere; extended again 2026-09-17, Morgan (strength: decided),
-  with a pass-4 item that inventories every cron, scheduled workflow and
-  session trigger across every repo and account in force, gives each a
-  verdict, disables or deletes what nobody needs, and writes the whole list
-  to a committed report -- \"To very deep check, we should also add: a check
-  of any crons or other automated actions - and delete or disable not needed
-  ones, and to make a list of all of them that goes into the very deep check
-  report\"; extended in the same turn, Morgan (strength: decided), with a
-  companion item closing the cheaper half of
-  [todo-2026-09-07-undeclared-deprecated-files](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/todo/todo-2026-09-07-undeclared-deprecated-files.md)
-  -- reading every mechanism in force against whether it is still the thing
-  that runs, deleting what plainly is not, writing into the same report, and
-  asking the session's user wherever a verdict is unclear -- \"And also the
-  same for any deprecated files - look for them, delete them, note it in the
-  big document made with the findings. And if there is any doubt or
-  questions, ask the session user\"; extended 2026-09-18, Morgan
-  (strength: decided), so pass 2's item 17 names `grok-build/` as a fourth
-  harness-adapter directory and drops the stale present-tense count that
-  still read three -- \"Fix the stale count in item #17 now, and add in
-  the grok, please\", after a session answering a question about this
-  check found `templates/harness/grok-build/` already on disk, researched
-  and dated 2026-09-17, un-named by either the item's own prose or
-  `templates/harness/LEDGER.md`'s family line;
-  extended 2026-09-19, Morgan (strength: decided), so a session that runs
-  less than the full four passes says so BEFORE running, never only in the
-  honest write-up after -- \"the whole point of 'very deep check' is to do
-  a very deep check. If I wanted a light check, I wouldn't ask for a very
-  deep check!\", after a session ran only the mechanical half of passes 2
-  and 4 and reported the rest PARTIAL without flagging the narrowed scope
-  up front;
-  extended again 2026-09-19, Morgan (strength: decided), so the checkout's
-  merged-and-stale branch list is embedded, in full and never truncated,
-  in spec/VERY_DEEP_CHECK.md itself, written directly by the checkout's own
-  branch scan rather than left for a session to remember to open and paste
-  from record/stale_branches.md -- \"This list should be generated and included
-  in the VERY DEEP CHECK MD document when it's generated... And if there
-  are more than 10, include them!\", after a session named ten safe
-  deletions without ever printing them and had to be asked for the list a
-  second time"
+approved_by: "Morgan F -- he revised, restructured, extended and bounded this practice repeatedly between 2026-09-05 and 2026-09-22. The practice itself first landed pending review, and one 2026-09-12 extension is still PENDING REVIEW, approved by nobody. Every change, its date, its strength and the words that authorized it: ## Story, 'Approval history'."
 ---
 ## Rule
 When a person explicitly asks for a "very deep check", or after work that
@@ -2434,6 +2252,71 @@ broken-relative-link check here (96 of them, from paths resolved against
 the repo root instead of the linking file's own directory). A document
 describing somebody else's tree is right to carry bare names, and a sweep
 that treats the count as the target will break it.
+
+
+### Approval history
+
+**Every extension, revision and bounding this practice has had, from
+2026-09-05 to 2026-09-22.** It used to live in the `approved_by:`
+frontmatter field, where it had grown to 2,024 words across 183 lines.
+[spec/PRACTICE_FORMAT.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/PRACTICE_FORMAT.md)
+describes that field as recording *who* approved a practice and *when*; a
+changelog of what each approval changed is history, and history is this
+section's job
+([deliverables-look-like-output](deliverables-look-like-output.md): a
+practice's own originating incident goes to its `## Story`). Moved
+2026-09-23, with nothing shortened on the way out — the frontmatter field
+now names the approver and points here.
+
+**The order below is the field's own, unchanged**, and it is deliberately
+not sorted: the 2026-09-22, 2026-09-21 and 2026-09-14 additions were
+prepended at the top as they were made, and everything from `pending review`
+onward runs forward from 2026-09-05. Several entries say *same day* or *in
+the same turn*, meaning the entry directly above them, and some of those
+entries carry a later date inside their own text than the day they refer
+to — so sorting by date would silently redate them. The order stays as the
+field carried it for that reason.
+
+**One entry was never approved by anyone**, and says so in place: the
+2026-09-12 does-it-ever-run addition to pass 2, marked PENDING REVIEW when
+it landed and still unreviewed.
+
+- **Extended 2026-09-22, Morgan (strength: decided)**, with FIX SWEEP (proposal item 13's other half) -- "Build item 13's fix-sweep half, go update"; its first run carried the YAML-anchor detector built three days earlier into all three shared sources, two of which decline for having no workflow file and the third of which runs clean
+- **Extended 2026-09-21, Morgan (strength: decided)**, with the deletion-propagation table (proposal item 4), the CHECK COVERAGE enumeration (item 13, closing pass 2 question 15's own unbuilt half) and MOVED CLAIMS (item 14) -- "now build the next ones"; item 4's table found on its first asking that a hook dropped upstream has no removal path at all, and item 14's first run found the paused-workflow incident still live in one source
+- **Extended 2026-09-21, Morgan (strength: decided)**, with the ACTIONS FLOOR bill (proposal item 7) and the CONFIG KEYS sweep (item 10) -- "Build the next part of very deep check according to the plan"; the required-status-check item was weighed first and held, because this session measured the protection endpoint answering "Resource not accessible by integration" and a section that can only ever print UNVERIFIED here is the cost the component ledger exists to catch
+- **Extended 2026-09-21, Morgan (strength: decided)**, with the carry-through roll-up (CARRY-THROUGH, proposal item 3) and the identity read off the commits that landed (IDENTITY REALITY, item 8) -- "Is there a next step to build in your very deep check plan? Build it!"; the first run of the second found four of the five repos in force carrying commits with an author-date offset that is not the declared timezone
+- **Extended 2026-09-21, Morgan (strength: decided)**, with the five additions [spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md) recommended first and he authorized in that order -- the planted-case rotation settled at step 2 (item 11), WORKFLOW REALITY and the YAML-anchor check (item 5), the deletion rehearsal and DELETIONS PENDING (items 1 and 2), INCIDENT COVERAGE (item 12) and the ACCRETION ranking with its holistic-read registry (item 9); the first forced harness run the new step 2 asked for turned the suite red on its own rotation self-test, which is the kind of thing the item exists to surface
+- **Extended 2026-09-21, Morgan (strength: decided)**, with pass 3's close read of every always-loaded instructions file, after an Update Vendors pass found a consuming repo's AGENTS.md naming a repository that does not exist, twice, in the same file whose own step 1 warns about a source name going stale silently
+- **Bounded 2026-09-21, Morgan (strength: decided, relayed)** -- the branch sweep's delete-link mechanism moved to branch-delete-links and is cited here rather than restated, and this pass's branch scope was fixed at the checkout and its own source checkouts, never the fleet, which is chief-of-staff's
+- **Extended 2026-09-21, Morgan F (strength: decided)**, with pass 1's adapter-parity item -- "everything in .claude should have its parallel for the others. This should also be a new item in very deep check: check everything unique to Claude and make sure there's a parallel for the three others"; the first run of it found that [templates/harness/README.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/templates/harness/README.md) had named [tools/bootstrap.sh](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/bootstrap.sh) as session-start.sh's parallel while the script ran three of the hook's seven steps
+- **Extended 2026-09-14, Morgan F** -- after a session was refused by GitHub with a rate-limit error, he asked for the cause investigated, the fixes made, and this check to report the account's API limits so normal usage can be seen not to overspend them (strength: decided; the section's shape is the session's, the requirement is his)
+- **Originally: pending review** — the practice landed with no named approver.
+- **Revised 2026-09-05, Morgan F**, to require every declared team/individual source actually be in the session before the check runs, and to add a stale-branch sweep across every repo the check touches
+- **Revised again same day, Morgan F**, to add a cross-source-staleness check
+- **Restructured 2026-09-06, Morgan F**, into four ordered passes — adopter installs first, then whether the mechanisms tell the truth, then the coherence read, then catalogue and housekeeping — with the run made resumable across sessions
+- **Extended same day, Morgan F**, with a duplicate-implementation question in pass 2 and an explicit mechanical-before-human order of operations; that order's first step made mechanical 2026-09-07, Morgan F — every repo in force must be provably current before the check reads anything
+- **Extended same day, Morgan F**, so the branch sweep reports an unmerged branch with a merge-or-close verdict, not only a merged one awaiting deletion
+- **Extended 2026-09-07, Morgan F**, so each unmerged branch is written up with what it changes, a link, its date and a reasoned recommendation, rather than handed back as a name
+- **Split same day, Morgan F**, so the unmerged-branch INVENTORY is read before any pass and only the verdicts stay in pass 4
+- **Extended same day, Morgan F**, so pass 1 tests an UPDATE and not only an install, against a real consumer repository and not only a fixture
+- **Extended 2026-09-07, Morgan F**, with pass 2's enumerate-rather-than-sample question and pass 4's whole-tree rehearsal of the endgame merge, after a sampled rehearsal of the phase-7 merge-back returned the wrong verdict
+- **Extended 2026-09-09, Morgan F (strength: assented)**, with pass 3's tier-placement question, after a session asked what this check covers and found that nothing here or anywhere else reviews whether a practice's `tier` is still right
+- **Extended 2026-09-11, Morgan F (strength: decided)**, so every repo in force is asked whether it still EXISTS and still accepts a push, not only whether the clone is current -- "make sure it doesn't automatically try to open a repo that doesn't exist / was deleted / archived"
+- **Extended again 2026-09-11, Morgan F (strength: decided)**, so pass 3's session-load read covers every repo in force rather than this checkout alone, with the ceilings themselves moved out to session-load-budget
+- **Extended again 2026-09-11, Morgan F (strength: decided)**, so every run records what each of its parts returned and what each cost into a ledger that outlives the run, and reads them against the runs before it -- "the check now has many different components and when you run it, I want you to track the results of each part and compare at the end to ... find any aspects of the very deep check that weren't useful"
+- **Extended 2026-09-12, Morgan F (strength: decided)**, with the live-session sweep -- "do a sweep of live sessions against the repo to see if there's anything recent being missed" -- and with the branch sweep widened to every author and to work that landed on the base branch rather than the integration branch -- "find stale branches, even if worked on by someone else or in a different branch"
+- **Extended again 2026-09-12, Morgan F (strength: decided)**, so a run against a repo whose work is pinned to an integration branch also reads the BASE branch for changes the branch has never taken, and puts them to the person rather than applying them -- "it should check main to see if there were any changes that we should update our version with so they don't get too out of sync; but those changes, don't implement automatically, but ask the session user if they want to implement them"
+- **Extended 2026-09-12, PENDING REVIEW -- not yet approved by anyone -- with pass 2's does-it-ever-run question**, after a source set was measured running 12 of its 54 registered checks and skipping the other 42 for one cause, with the rule governing what its own published practice files may link among them
+- **Extended again 2026-09-12, Morgan F (strength: decided)**, so the repository-visibility pass also carries the leak RECOMMENDATIONS the push gate used to print beside every run -- "you look to see if anything is being leaked that you think shouldn't be and you make the recommendation to me ... but only when I ask for it as part of a very thorough review I'm in the mindset of doing"
+- **Extended 2026-09-14, Morgan F (strength: decided)**, so pass 1 rehearses a practice moved between levels and pass 3 reads every document that describes a mechanism against what that mechanism does now -- "does very deep check do a read of the documentation to make sure it's consistent with how it works now? If not add that too"
+- **Extended 2026-09-15, Morgan (strength: decided)**, so the branch sweep's list is written to a committable file with a clickable link on every row instead of only being printed, after two Sunday runs produced it and he never saw it -- "it should put those links in the document it creates so I can just go there and click - it shouldn't live in the chat"
+- **Extended 2026-09-17, Morgan (strength: decided)**, with a pass-3 bullet asking whether every file, documentation included, lives in the directory its kind already uses -- "in very_deep_check, can you update it to make sure that files including documentation are in their right folder/location?" -- after two person-facing setup guides were found sitting at repo root while documentation/ held every other reader-facing page
+- **Extended again 2026-09-17, Morgan (strength: decided)**, with a pass-2 item reading the harness-adapter ledger's verdicts for whether they are actually correct, not merely present -- "update the very deep check definition to do a focused and detailed check to make sure that the system works in each of the LLMs (codex gemini grok) cross-platform? I want this to detect errors where, a change was made to how we do something with Claude, but it wasn't rolled out to the others" -- after the same conversation found that `parallel-artifact-ledger`'s enforced check only proves a row exists per change, by its own docstring's admission, and a live example where two recent rows promised a codex or gemini-cli user a hand-run workaround that neither adapter's own README mentions anywhere
+- **Extended again 2026-09-17, Morgan (strength: decided)**, with a pass-4 item that inventories every cron, scheduled workflow and session trigger across every repo and account in force, gives each a verdict, disables or deletes what nobody needs, and writes the whole list to a committed report -- "To very deep check, we should also add: a check of any crons or other automated actions - and delete or disable not needed ones, and to make a list of all of them that goes into the very deep check report"
+- **Extended in the same turn, Morgan (strength: decided)**, with a companion item closing the cheaper half of [todo-2026-09-07-undeclared-deprecated-files](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/todo/todo-2026-09-07-undeclared-deprecated-files.md) -- reading every mechanism in force against whether it is still the thing that runs, deleting what plainly is not, writing into the same report, and asking the session's user wherever a verdict is unclear -- "And also the same for any deprecated files - look for them, delete them, note it in the big document made with the findings. And if there is any doubt or questions, ask the session user"
+- **Extended 2026-09-18, Morgan (strength: decided)**, so pass 2's item 17 names `grok-build/` as a fourth harness-adapter directory and drops the stale present-tense count that still read three -- "Fix the stale count in item #17 now, and add in the grok, please", after a session answering a question about this check found `templates/harness/grok-build/` already on disk, researched and dated 2026-09-17, un-named by either the item's own prose or `templates/harness/LEDGER.md`'s family line
+- **Extended 2026-09-19, Morgan (strength: decided)**, so a session that runs less than the full four passes says so BEFORE running, never only in the honest write-up after -- "the whole point of 'very deep check' is to do a very deep check. If I wanted a light check, I wouldn't ask for a very deep check!", after a session ran only the mechanical half of passes 2 and 4 and reported the rest PARTIAL without flagging the narrowed scope up front
+- **Extended again 2026-09-19, Morgan (strength: decided)**, so the checkout's merged-and-stale branch list is embedded, in full and never truncated, in [spec/VERY_DEEP_CHECK.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/VERY_DEEP_CHECK.md) itself, written directly by the checkout's own branch scan rather than left for a session to remember to open and paste from [record/stale_branches.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/record/stale_branches.md) -- "This list should be generated and included in the VERY DEEP CHECK MD document when it's generated... And if there are more than 10, include them!", after a session named ten safe deletions without ever printing them and had to be asked for the list a second time
 
 ## Install
 [tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/very_deep_check.py) enumerates the scope
