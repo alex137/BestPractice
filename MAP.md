@@ -6,12 +6,13 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 
 ## The practice catalogue
 
-`practices/` holds 134 practice files (9 resident, 125 on-demand). One file per practice. See [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md) for the design.
+`practices/` holds 136 practice files (10 resident, 126 on-demand). One file per practice. See [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md) for the design.
 
 | Practice | Tier | Occasion / scope |
 |---|---|---|
 | [acronyms-glossary](practices/acronyms-glossary.md) | on-demand | writing or editing a document |
 | [affordance-is-shared](practices/affordance-is-shared.md) | on-demand | building a mechanism that makes something discoverable or reachable |
+| [answer-first-ask-before-long-work](practices/answer-first-ask-before-long-work.md) | resident | a turn that could start a computation, search or build lasting longer than a few minutes |
 | [archive-status-check](practices/archive-status-check.md) | on-demand | a message says "Archive", with or without a question mark, or otherwise asks whether the session can be archived |
 | [attach-the-original](practices/attach-the-original.md) | on-demand | asked to include an image, logo, or other binary asset the person is supplying, rather than approximate one from a description |
 | [base-branch-is-the-record](practices/base-branch-is-the-record.md) | on-demand | starting work another session may already have done, or opening a pull request |
@@ -126,6 +127,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [tabular-shared-renderer](practices/tabular-shared-renderer.md) | on-demand | publishing a document with a multi-column sortable table |
 | [technical-describes-people](practices/technical-describes-people.md) | on-demand | naming or scoping something around a person's skill level |
 | [the-boildown](practices/the-boildown.md) | on-demand | ** |
+| [their-constraints-are-given](practices/their-constraints-are-given.md) | on-demand | a person states a fact about their own situation -- cost, risk, time, priorities, how they work -- that the session's own reading of the evidence would soften or contradict |
 | [three-things](practices/three-things.md) | on-demand | a person says "Three Things", or plainly asks for exactly this shape of answer |
 | [timestamps-carry-offset](practices/timestamps-carry-offset.md) | on-demand | writing code that stamps a date or a time into a file, a record or a document |
 | [todo-is-a-handoff](practices/todo-is-a-handoff.md) | on-demand | writing or triaging an open item |
@@ -147,11 +149,10 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 
 ## Withdrawn practices
 
-9 practice file(s) here are **not in force** and are left out of every table above. **The files are kept on purpose** -- a withdrawn rule and the argument against it are worth re-reading, and `retired` is not a synonym for deleted (that is `decommission-deletes-files`, and it is about mechanisms, not rules). Read one in full with `python3 tools/precedent_show.py SLUG`.
+7 practice file(s) here are **not in force** and are left out of every table above. **The files are kept on purpose** -- a withdrawn rule and the argument against it are worth re-reading, and `retired` is not a synonym for deleted (that is `decommission-deletes-files`, and it is about mechanisms, not rules). Read one in full with `python3 tools/precedent_show.py SLUG`.
 
 | Practice | Status | Now in force at | Why it was withdrawn |
 |---|---|---|---|
-| [answer-first-ask-before-long-work](practices/answer-first-ask-before-long-work.md) | deduplicated | [answer-first-ask-before-long-work](practices/answer-first-ask-before-long-work.md) | A session launched an hours-long re-solve while four conceptual questions sat unanswered, then sat on a ninety-minute cold solve after a merge invalidated a cache, before answering a one-line question about the merge itself. |
 | [archive-command](practices/archive-command.md) | deduplicated | [archive-status-check](practices/archive-status-check.md) | **Deduplicated 2026-09-19, folded into `archive-status-check`.** Morgan: *"Note that 'Archive' and 'Archive?' are the same thing. |
 | [brief-it](practices/brief-it.md) | deduplicated | [my-options](practices/my-options.md) | Coined by Morgan, 2026-09-19. |
 | [handoff-is-pasteable](practices/handoff-is-pasteable.md) | deduplicated | [the-boildown](practices/the-boildown.md) | Asked for by Morgan on 2026-09-10, in his own words: instructions should give *"the name of the repo* and the exact text to copy paste in*, and then those instructions should always finish with, reminding me to return to the original session with a message to copy-paste there confirming its success or sharing other issues."* |
@@ -159,7 +160,6 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [merged-session-offers-a-practice](practices/merged-session-offers-a-practice.md) | deduplicated | [the-boildown](practices/the-boildown.md) | Morgan, 2026-09-14, on the practice engine he had been feeding by hand for weeks: *"I love the methodology of turning what we decide into Practices to be followed or enforced, but it seems like I'm always the one making the suggestions. |
 | [next-steps-after-commit](practices/next-steps-after-commit.md) | deduplicated | [the-boildown](practices/the-boildown.md) | Raised by Morgan as a standing personal preference, rather than in response to a specific missed handoff, and it lived in his individual set from 2026-09-04 to 2026-09-14. |
 | [session-text](practices/session-text.md) | deduplicated | [prompt-please](practices/prompt-please.md) | **Coined by Morgan, 2026-09-11**, in his own words: *"When you give me what I need to do, first look to see if it should be in a different session, and that includes most importantly checking for cross repo issues first. |
-| [their-constraints-are-given](practices/their-constraints-are-given.md) | deduplicated | [their-constraints-are-given](practices/their-constraints-are-given.md) | **2026-09-21, and this practice exists because Morgan asked for it after having the same argument more than once across different sessions.** |
 
 ## The engine
 
