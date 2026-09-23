@@ -16,9 +16,9 @@
   "branch": "precedent-beta-v01",
   "seen_by": {
     "morgan-f": {
-      "sha": "94feb8b6584a8de3126e77f0461359e7386e06f8",
-      "recorded": "2026-09-22",
-      "note": "migrated from the individual source, where this file lived until 2026-09-22, carrying its value across rather than reseeding at the head. Checked before migrating, per the rule that seeding past somebody else's commit swallows the one alert this tool exists to give: all 34 commits between this sha and the head at migration time are authored by the declared identity, so nothing was suppressed."
+      "sha": "b42dd1fc0d6ad15ddb2206cdd867629b2e4030ab",
+      "recorded": "2026-09-23",
+      "note": "auto-advanced by precedent_beta_watermark_check.py"
     }
   }
 }
