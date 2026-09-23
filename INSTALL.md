@@ -991,6 +991,19 @@ one sentence, not a walkthrough. `local/practices/project-voice.md` and
 `local/practices/project-visual-identity.md` in particular are never filled
 in by an update.
 
+**A classic install is not updated, it is migrated, in the same change.**
+Check first: if this repo vendors `process/upstream/` and its
+`precedent.json` declares no `level: "universal"` source (or there is no
+`precedent.json` at all), this update would refresh text no session ever
+reads. Follow
+[spec/MIGRATING_EXISTING_INSTALLS.md](spec/MIGRATING_EXISTING_INSTALLS.md)
+instead; its step 1 *is* this update, and the rest turns the loader on. It
+asks the person which practice sets the repo should load, so expect that
+question. `practice_audit.py` fails until the migration is done. The
+`checkin.py update` banner does not appear on the first update after
+2026-09-23, because the copy of `checkin.py` doing the update is still the
+old one; the failing audit is what says so.
+
 **An update taking the 2026-09-17 project-voice change, or the 2026-09-22
 project-visual-identity change, lands on a repo that still has a root
 `VOICE.md` or `STYLEGUIDE.md`** from an earlier install. That is a
