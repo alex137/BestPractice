@@ -168,19 +168,38 @@ def _check_checked_by(fm, to_level, to_path):
 def _rewrite_frontmatter(text, updates):
     """Rewrite named top-level frontmatter fields in place, byte-for-byte
     elsewhere. A field absent from the frontmatter is appended before the
-    closing fence. `updates` values are the raw text to put after the colon."""
+    closing fence. `updates` values are the raw text to put after the colon.
+
+    A field being replaced may itself have spanned multiple physical lines
+    in the original -- a quoted scalar folded onto a continuation line,
+    indented deeper than the key (`approved_by:` carries the longest ones
+    in this catalogue). Those continuation lines belong to the OLD value
+    and are dropped along with it: replacing only the first line and
+    leaving the rest in place corrupts the file, since the new value on
+    line one is already a complete, closed string and what follows reads
+    as a second, indented top-level scalar -- invalid YAML. Found 2026-09-23:
+    exactly this, landing dont-race-another-window's already multi-line
+    approved_by."""
     end = text.find('\n---\n', 4)
     fm_text, body = text[4:end], text[end:]
     lines = fm_text.split('\n')
     seen = set()
     out = []
+    skip_continuation = False
     for line in lines:
         m = re.match(r'^([A-Za-z_]+):(\s*)(.*)$', line)
-        if m and m.group(1) in updates:
-            key = m.group(1)
-            pad = m.group(2) or ' '
-            out.append(f'{key}:{pad}{updates[key]}')
-            seen.add(key)
+        if m:
+            skip_continuation = False
+            if m.group(1) in updates:
+                key = m.group(1)
+                pad = m.group(2) or ' '
+                out.append(f'{key}:{pad}{updates[key]}')
+                seen.add(key)
+                skip_continuation = True
+            else:
+                out.append(line)
+        elif skip_continuation:
+            continue
         else:
             out.append(line)
     for key, value in updates.items():
