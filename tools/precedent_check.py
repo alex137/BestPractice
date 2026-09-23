@@ -2584,13 +2584,14 @@ def _declared_hooks_exist(ctx):
     return found
 
 
-# This repo dogfoods its own Claude Code template: these three hooks under
+# This repo dogfoods its own Claude Code template: these hooks under
 # .claude/hooks/ carry no BestPractice-specific content, so the installed
 # copy is meant to BE templates/harness/claude-code/hooks/<name>, verbatim.
-# session-start.sh, stop-git-check.sh and reply-gate.sh are deliberately
-# NOT here -- each carries real repo-specific content (session-start.sh's
-# own package list, stop-git-check.sh's own tool-path story) and is
-# correctly expected to differ from its generic template counterpart.
+# session-start.sh, stop-git-check.sh, stop-reply-check.sh and reply-gate.sh
+# are deliberately NOT here -- each carries real repo-specific content
+# (session-start.sh's own package list, stop-git-check.sh's and
+# stop-reply-check.sh's own tool-path story) and is correctly expected to
+# differ from its generic template counterpart.
 @check('shipped-hook-carries-its-script', 'tree',
        "every tools/ script a shipped hook actually RUNS is in the engine "
        "file list for each kind that hook reaches -- so a repo receiving "
@@ -2781,9 +2782,10 @@ DOGFOODED_HOOKS_MATCH_TEMPLATE = (
        'each hook in DOGFOODED_HOOKS_MATCH_TEMPLATE is byte-identical '
        'between .claude/hooks/ and templates/harness/claude-code/hooks/',
        'a hook this repo deliberately customizes (session-start.sh, '
-       'stop-git-check.sh, reply-gate.sh -- each carries real repo-'
-       'specific content and is correctly not in the list); whether '
-       'either copy is actually correct, only that the two agree',
+       'stop-git-check.sh, stop-reply-check.sh, reply-gate.sh -- each '
+       'carries real repo-specific content and is correctly not in the '
+       'list); whether either copy is actually correct, only that the '
+       'two agree',
        practice_backed=False,
        # Both sides of every pair it compares. Touch either copy of a
        # dogfooded hook and this runs, instead of waiting for its rotation

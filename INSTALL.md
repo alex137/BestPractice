@@ -222,7 +222,10 @@ list.)
      one-line import of `AGENTS.md`), `harness/claude-code/settings.json` →
      `.claude/settings.json`, `harness/claude-code/hooks/session-start.sh` →
      `.claude/hooks/session-start.sh`, `harness/claude-code/hooks/stop-git-check.sh`
-     → `.claude/hooks/stop-git-check.sh`, and — since 2026-09-06 —
+     → `.claude/hooks/stop-git-check.sh`, and — since 2026-09-23 —
+     `harness/claude-code/hooks/stop-reply-check.sh` → `.claude/hooks/`
+     (split off `stop-git-check.sh`; see the decision table below), and —
+     since 2026-09-06 —
      `harness/claude-code/hooks/freshness-guard.sh` and
      `harness/claude-code/hooks/commit-identity.sh` → `.claude/hooks/`, which
      keep a session off a stale checkout and keep a commit's author a person
@@ -245,7 +248,8 @@ list.)
      | `session-start.sh` | **Always.** It is the install. |
      | `commit-identity.sh` | **Always, and it asks nobody anything.** See below. |
      | `freshness-guard.sh` | **Always**, unless this repo's own bootstrap already fetches and fast-forwards — then it is duplicated work, not a conflict. |
-     | `stop-git-check.sh` | **Wired by default** — the adapter's settings.json carries it, and an install leaves it. It blocks ending a turn on uncommitted or unpushed work: good discipline for a repo you own, intrusive in one shared with someone who did not choose it, so the one thing to say to the administrator is that the `Stop` entry can be removed if the team objects. Not a question at install. |
+     | `stop-git-check.sh` | **Wired by default** — the adapter's settings.json carries it, and an install leaves it. It blocks ending a turn on uncommitted or unpushed work: good discipline for a repo you own, intrusive in one shared with someone who did not choose it, so the one thing to say to the administrator is that this `Stop` entry can be removed on its own, without touching `stop-reply-check.sh`, if the team objects. Not a question at install. |
+     | `stop-reply-check.sh` | **Wired by default**, same as `stop-git-check.sh` — a separate `Stop` entry as of 2026-09-23 (split out of that file; see its header). Prints the reply gate's reminders, blocks a reply that broke a source's declared requirement, and runs close detection; it never blocks on the git tree, so it carries none of the other hook's "intrusive in a shared repo" objection. **An existing install taking the update by hand does not receive this file automatically** — vendoring is gated on wiring, and a refresh never writes a consumer's `settings.json` ([todo/todo-2026-09-21-a-new-hook-cannot-reach-an-installed-consumer.md](todo/todo-2026-09-21-a-new-hook-cannot-reach-an-installed-consumer.md)); a repo installed before this split keeps running the old, unsplit `stop-git-check.sh` behavior until someone adds the `Stop` entry above by hand and re-runs the refresh. |
      | `precedent-paths.sh` | **Only with the Precedent loader.** It surfaces path-triggered practice Rules; without a resolved catalogue it has nothing to read. |
      | `reply-gate.sh` | **Only with the Precedent loader**, same reason. One line per reply-gate practice, on every prompt; it never blocks (a `UserPromptSubmit` hook that exits non-zero eats the person's message). |
 
