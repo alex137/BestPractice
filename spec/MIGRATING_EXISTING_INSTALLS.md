@@ -96,6 +96,24 @@ the sets a repo *could* declare are not derivable from the sets it *does*.
 carries the same question as a numbered step, for every update after this
 one.
 
+**Asked means asked.** An environment variable, a freshness list, or a
+standing bundle the person uses elsewhere can inform the question. It does
+not answer it.
+
+**A migration lands whole, or not at all.** Steps 3 through 8 go in one
+change. A `precedent.json` committed alone is not progress: nothing reads it
+until step 7 vendors the engine and step 8 materializes, and in the
+meantime it has two effects, both bad. A repo that still carries its old
+pack manifest starts failing `migration-scrubs-vocabulary`, which is
+built to catch exactly that half-migrated state (step 5). And any
+instructions-file line telling sessions to fetch the declared sources sends
+every later session after sources that nothing uses. **If a step is blocked,
+stop before committing the declaration** and say what blocked it. None of
+these steps needs a permission rule the person adds by hand. A harness that
+refuses one is answered by the person asking for the work directly, never by
+widening what sessions may run
+([the classifier gotcha](../gotchas/gotcha-2026-09-14-the-permission-classifier-refuses-commits-and-checks-in-the-.md)).
+
 1. **Re-vendor `process/upstream/`.** If tracking a real, released
    BestPractice branch (the normal case once a Precedent-carrying branch
    has merged to `main`), this is an ordinary
@@ -450,6 +468,15 @@ one.
    rather than be repointed: the loader carries the practice, so a prose
    restatement of it is a second copy
    ([registry-source-of-truth](../practices/registry-source-of-truth.md)).
+
+   **Until then, leave the pack's manifest pointing where it points.** When
+   a pack's source repository is renamed or restructured into a Precedent
+   set, its freshness check starts failing every session. The fix is this
+   step, not a new URL in the manifest. The restructured repository no longer
+   holds the files the manifest tracks, so repointing it turns an honest
+   "could not verify" into a "source has moved" notice that invites pulling
+   a practice set into the pack's tree. The notice stops when the tree is
+   retired.
 
    **Mentions survive only in files you list.** A provenance note, a
    decision record, a backlog entry naming the old pack is history worth
