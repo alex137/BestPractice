@@ -1100,7 +1100,35 @@ def record(clone, note, accept_loss=False):
     return 0
 
 
+def _loader_notice():
+    """Say, after every status/update/record, when the catalogue this tool
+    just vendored is in force nowhere. practice_audit.py FAILS on the same
+    condition (its check 5); this is the same sentence arriving at the
+    moment a person is already thinking about Precedent, instead of one
+    command later. Retired-classic-install incident, 2026-09-23: an update
+    ran clean here and the repo's sessions still loaded none of it."""
+    try:
+        from practice_audit import loader_gaps, MIGRATION_DOC
+    except Exception:  # an older vendored audit; the audit itself still runs
+        return
+    gaps = loader_gaps(ROOT)
+    if gaps:
+        bar = '!' * 72
+        print(f"\n{bar}\nPRECEDENT IS NOT RUNNING IN THIS REPO. It vendors the practice "
+              f"catalogue, but {'; and '.join(gaps)}.\nNone of those practices is in "
+              f"force in any session here. This is the retired classic install: "
+              f"migrate it onto the loader, whole, before calling this update "
+              f"done --\n{MIGRATION_DOC}\n{bar}", file=sys.stderr)
+
+
 def main():
+    rc = _main()
+    if {'status', 'update', 'record'} & set(sys.argv[1:]):
+        _loader_notice()
+    return rc
+
+
+def _main():
     args = sys.argv[1:]
     if args and args[0] == 'fresh':
         return fresh()

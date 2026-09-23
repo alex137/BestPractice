@@ -216,6 +216,19 @@ if [ -f process/upstream/tools/checkin.py ]; then
     echo "WARN: upstream freshness check failed - not verified" >&2
 fi
 
+# IS THE VENDORED CATALOGUE IN FORCE AT ALL? (2026-09-23.) A classic
+# install -- process/upstream/ copied in, no loader over it -- vendors every
+# practice and runs none of them, and until this line nothing said so: a
+# consumer installed that way, took an update, and its sessions described
+# the rules as "a vendored copy, not something this repo adopted". Printed
+# to stdout on purpose, so the SessionStart hook puts it in front of the
+# session rather than only the terminal. Guarded on the flag, because an
+# older vendored audit without it would run the whole audit here instead.
+if [ -f process/upstream/tools/practice_audit.py ] && \
+   grep -q -- '--loader-notice' process/upstream/tools/practice_audit.py; then
+  python3 process/upstream/tools/practice_audit.py --loader-notice || true
+fi
+
 # EVERY SOURCE THIS REPO DECLARES, checked outward (2026-09-23). The line
 # above reads one manifest; this reads precedent.json and covers each
 # declared source every way it is reached here -- the vendored engine

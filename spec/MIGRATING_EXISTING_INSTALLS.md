@@ -47,12 +47,19 @@ per that repo's own conventions.
 
 ## When this applies
 
-**Any repo whose `process/manifest.json` records an `upstream.repo` pointing
-at BestPractice and that wants the three-source loader** — the resident
-block, the occasion index, `precedent_check.py`'s enforced channel — which
-[INSTALL.md §1](../INSTALL.md#1-install-into-a-dependent-repo) does not
-install. That is the common case, and until 2026-09-14 this section read as
-if it were the rare one.
+**Every repo whose `process/manifest.json` records an `upstream.repo`
+pointing at BestPractice and that does not yet run the loader** — the
+resident block, the occasion index, `precedent_check.py`'s enforced channel —
+which [INSTALL.md §1](../INSTALL.md#1-install-into-a-dependent-repo) never
+installed. **Not "wants": every such repo migrates** (2026-09-23). A classic
+install is a repo with every practice on disk and none in force, and the
+first one made after §1 was said to be retired still went down it — so §1
+was retired as an install path outright, and
+[tools/practice_audit.py](../tools/practice_audit.py)'s check 5 now fails
+any repo still in that state. **An upstream update to a classic install is
+where this usually starts**: step 1 below *is* that update, and the audit
+that gates it will not pass until step 8 does, so the update and the
+migration land as one change.
 
 Steps 2, 5 and 6 apply only where there is **also** a second vendored tree
 for domain/team/personal rules that did not come from BestPractice itself (a
