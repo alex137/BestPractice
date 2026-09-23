@@ -9,8 +9,8 @@ gates:       []
 index_clause: "easy answers first; a long run is proposed with its cost -- never just started"
 checked_by:  null
 defines:     ["long task"]
-status:      active
-in_force_at: null
+status:      deduplicated
+in_force_at: answer-first-ask-before-long-work
 supersedes:  []
 overrides:   null
 added:       "2026-09-17"
@@ -64,6 +64,19 @@ the pair of definitions the Rule was carrying inline -- what counts as an
 easy question, and the four examples of a long task. The exceptions stayed
 in the Rule, because a session reads them at the moment it is deciding
 whether to ask.
+
+**Deduplicated 2026-09-23**: moved to `precedent-shared-working-style` in a
+cross-repo practice-placement review, as squarely that set's own subject --
+how a session works alongside the person it is working with. Landed there
+as `tier: resident` too, so a repo declaring that set keeps the same
+every-turn behavior. **Disclosed cost of the move, accepted by Morgan
+F 2026-09-23**: this practice reached every Precedent consumer while it
+lived in universal, including the downstream repo that originally
+contributed it (`approved_by:` above); moved here, it only reaches a repo
+that explicitly declares `precedent-shared-working-style`. The rule is
+fully in force, from
+[`answer-first-ask-before-long-work`](https://github.com/themorgan/precedent-shared-working-style/blob/main/practices/answer-first-ask-before-long-work.md)
+there; only the universal copy went.
 
 ## Install
 Adopt the rule in the working-conventions file and name the cost-line

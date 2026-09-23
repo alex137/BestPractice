@@ -16,7 +16,15 @@ in_force_at: null
 supersedes:  []
 overrides:   null
 added:       null
-approved_by: "extended 2026-09-22, Morgan (strength: decided), with
+approved_by: "extended 2026-09-23, Morgan (strength: decided), with
+  pass 3's SOURCE-placement question, after asking for a cross-repo
+  practice-placement review across the five Precedent repos and finding
+  that nothing here or anywhere else ever asks which catalogue a practice
+  belongs in, only whether its tier within one catalogue is right -- the
+  session's own review is the bullet's worked example, five practices
+  moved out of precedent-individual, two demoted from universal, and one
+  live duplicate (vendor-neutral-by-default) found still open;
+  extended 2026-09-22, Morgan (strength: decided), with
   FIX SWEEP (proposal item 13's other half) -- \"Build item 13's
   fix-sweep half, go update\"; its first run carried the YAML-anchor
   detector built three days earlier into all three shared sources, two
@@ -1501,6 +1509,46 @@ first so this pass spends its attention on what they cannot see.
   enumerates and does not judge, and no `checked_by` will: the cap already
   tests the only property a script can see, and whether an occasion is
   *every session, always* is a reading of how work here actually goes.
+- **Whether each practice's SOURCE is still right.** A different axis from
+  the bullet above — not resident-versus-on-demand within one catalogue, but
+  *which* catalogue a practice's slug lives in at all, across every source in
+  scope: universal, each team set, and the individual set. Read every
+  practice's occasion and title against the charter each source states for
+  itself (a team set's own subject line — "how a session works alongside the
+  person," "the craft of writing for a human reader," the maintaining team's
+  own repo mechanics — and universal's implicit one, *everyone, always*), and
+  ask: does this rule's actual subject match the source it is filed under, or
+  did it land there because that is where the person happened to be
+  when they approved it? **Three shapes to look for, each found on a first
+  pass**: a rule that is personal wording wrapped around a general mechanism
+  (an individual practice written in the first person for something any team
+  would want — `"another window of mine"` for a collision any multi-session
+  user hits); two sources independently authoring the same rule because
+  neither one resolves the other (a team set that declares no sources of its
+  own re-deriving something universal already says, invisible to
+  `no-duplication` because the two copies never sit in the same file to
+  compare); and a rule that is topically a subject-team's own material,
+  landed in universal or in a different team set anyway, discoverable only
+  by reading its prose against the destination's stated charter rather than
+  its slug. **No script does this yet** — a source's charter is a sentence
+  of prose, not a property `applies_to` or `scope` can encode, so this stays
+  a judgment read, the same honest limit TIER PLACEMENT states for itself.
+  *(2026-09-23: a session asked to do exactly this read, once, by hand,
+  across precedent-individual and the three team sets against universal,
+  found instances of all three shapes on the first pass — five practices
+  filed in precedent-individual that were general mechanisms in personal
+  wording, two universal practices squarely inside working-style's own
+  stated subject, and `vendor-neutral-by-default` independently authored in
+  both universal's `local/practices/` and repo-maintenance, because
+  repo-maintenance resolves no sources of its own and never saw the
+  universal copy to compare against. The same session's reading also found
+  `small-calls` and `push-back` sitting active in both a team set and
+  universal for three days after a 2026-09-19 move landed only its first
+  half — a duplication this bullet would have caught on the next run rather
+  than waiting for someone to notice by hand.)* Added 2026-09-23 (Morgan,
+  strength: decided), after asking for a placement review across the five
+  Precedent repos and finding this axis was never checked anywhere: the
+  session's own report is the worked example above.
 - **Orphans — files nothing owns any more.** The mirror of every other
   check here, which all ask whether something that should be present *is*.
   An orphan is present and in nobody's list, so no mechanism keyed on a

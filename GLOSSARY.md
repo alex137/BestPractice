@@ -36,7 +36,6 @@ Built from every practice's `defines:` frontmatter field -- the terms that pract
 | Go update | [go-merge](practices/go-merge.md) |
 | headline capitalization | [headline-capitalization](practices/headline-capitalization.md) |
 | light check | [two-check-levels](practices/two-check-levels.md) |
-| long task | [answer-first-ask-before-long-work](practices/answer-first-ask-before-long-work.md) |
 | merge runbook | [merge-runbook](practices/merge-runbook.md) |
 | My options | [my-options](practices/my-options.md) |
 | negative control | [control-asserts-which-failure](practices/control-asserts-which-failure.md) |
