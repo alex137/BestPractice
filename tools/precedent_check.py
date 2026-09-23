@@ -512,7 +512,27 @@ def register_materialized_checks():
                  f'of this repo\'s own practice sources',
             blind_to=f"anything {rel} does not look at; its own limits are "
                      f"documented in its docstring, not here",
-            advisory=False, practice_backed=True)
+            advisory=False, practice_backed=True,
+            # practice: session-load-budget's own binds_when reasoning,
+            # applied here: a repo that keeps a materialized check SCRIPT
+            # tracked has opted into enforcing it, whether or not it also
+            # carries the practice's own (often private) prose. Without
+            # this, run()'s "practice not in force" gate skipped every
+            # fallback-slug script unconditionally -- found 2026-09-22 in
+            # BestPractice, which permanently tracks check_commit_author.py
+            # and check_buenos_aires_dates.py (commit 9d16b6ae) with no
+            # practices/*.md for either (that text is precedent-individual's,
+            # private): `precedent_check.py --only check_commit_author`
+            # reported SKIPPED "this check belongs to a source this repo
+            # does not resolve" even under --full-sweep, on every commit,
+            # regardless of its actual history -- the enforced channel this
+            # whole function exists to open was dead on arrival for exactly
+            # the two checks it was written to carry. The push gate
+            # (commit-identity-push-gate.sh) was unaffected -- it runs the
+            # script directly -- but its own comment assumed
+            # precedent_check.py "runs both, but on a rotation slice",
+            # which was false; this makes it true.
+            binds_when=(rel,))
 
 
 def _practice_file(slug):

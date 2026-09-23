@@ -7264,9 +7264,9 @@ def check_precedent_check_fires():
     """
     import shutil, tempfile, multiprocessing
 
-    def git(cwd, *args, check_rc=True):
+    def git(cwd, *args, check_rc=True, env=None):
         r = subprocess.run(['git', '-C', str(cwd), *args],
-                           capture_output=True, text=True)
+                           capture_output=True, text=True, env=env)
         if check_rc and r.returncode != 0:
             raise RuntimeError(f"git {' '.join(args)}: {r.stderr.strip()}")
         return r.stdout.strip()
@@ -7305,9 +7305,22 @@ def check_precedent_check_fires():
             # against the real tree with its real sources.
             return repo
 
-        def run(repo, slug, *extra):
+        def run(repo, slug, *extra, env_extra=None):
             env = dict(os.environ)
             env.pop('PRECEDENT_LEAK_BLOCKLIST', None)
+            # practice: fixture-owns-its-state -- a case that judges commits
+            # against a DECLARED IDENTITY (check_commit_author,
+            # check_buenos_aires_dates) must not inherit whichever person's
+            # PRECEDENT_COMMIT_* this session's own environment happens to
+            # carry: that would make the case pass or fail depending on WHO
+            # is running the harness, never on the code. Cleared here, for
+            # every case, so only a case that explicitly asks for an
+            # identity (env_extra) gets one.
+            for _k in ('PRECEDENT_COMMIT_NAME', 'PRECEDENT_COMMIT_EMAIL',
+                      'PRECEDENT_COMMIT_TZ'):
+                env.pop(_k, None)
+            if env_extra:
+                env.update(env_extra)
             # The fixture must not resolve whoever's individual set happens
             # to be configured on this machine. It is found by ABSOLUTE path
             # from a user-level config, so unlike the team source (a relative
@@ -7408,7 +7421,8 @@ def check_precedent_check_fires():
             except BaseException as e:
                 q.put(('error', e))
 
-        def case(slug, plant, extra=(), setup=None, advisory=False):
+        def case(slug, plant, extra=(), setup=None, advisory=False,
+                 env_extra=None):
             # DECLARED is recorded before the rotation decision, and is what
             # the untested-claim assertion at the end of this function reads.
             # A case that this invocation did not RUN is still a case this
@@ -7426,13 +7440,13 @@ def check_precedent_check_fires():
                     setup(repo)
                 if plant:
                     plant(repo)
-                return run(repo, slug, *extra)
+                return run(repo, slug, *extra, env_extra=env_extra)
 
             def _clean_pipeline():
                 clean = fresh(slug + '-clean')
                 if setup:
                     setup(clean)
-                return run(clean, slug, *extra)
+                return run(clean, slug, *extra, env_extra=env_extra)
 
             q1, q2 = multiprocessing.Queue(), multiprocessing.Queue()
             p1 = multiprocessing.Process(target=_case_worker, args=(_planted_pipeline, q1))
@@ -9902,8 +9916,75 @@ def check_precedent_check_fires():
              _plant_surface_parallel,
              setup=_setup_surface_parallel)
 
+        # check_commit_author.py / check_buenos_aires_dates.py -- the two
+        # source-supplied identity checks BestPractice permanently carries
+        # since 2026-09-22 (commit 9d16b6ae, "Port commit-identity push
+        # gate to BestPractice"). Neither has a practices/*.md file here
+        # (their practice text is precedent-individual's, private), so
+        # register_materialized_checks() falls back to their filenames as
+        # slugs -- which is exactly why they read as UNTESTED rather than
+        # by a clean hyphenated slug: nobody wrote a case for the fallback
+        # name. Found 2026-09-22 running --as-ci for an unrelated change.
+        #
+        # Both checks stand down (exit 2, SKIPPED) unless a declared
+        # identity resolves, so env_extra supplies one via the first rung
+        # precedent_identity.declared_identity() reads -- PRECEDENT_COMMIT_*
+        # -- rather than writing a repo-root identity.json, which would
+        # itself change what env_findings() inside check_commit_author.py
+        # asserts (identity.json present means "this repo IS an individual
+        # source", a different case entirely).
+        #
+        # The chosen identity is name=harness/email=harness@example.com --
+        # the SAME author `pristine`'s own "baseline" commit already uses
+        # (set at the top of this function), so the unplanted clean
+        # fixture needs no re-authoring for check_commit_author to pass.
+        _ID_NAME, _ID_EMAIL, _ID_TZ = (
+            'harness', 'harness@example.com', 'America/Argentina/Buenos_Aires')
+        _ID_ENV = {'PRECEDENT_COMMIT_NAME': _ID_NAME,
+                  'PRECEDENT_COMMIT_EMAIL': _ID_EMAIL,
+                  'PRECEDENT_COMMIT_TZ': _ID_TZ}
 
+        def _plant_commit_author(repo):
+            (repo / 'zzz-wrong-author.txt').write_text('x\n', encoding='utf-8')
+            git(repo, 'add', '-A')
+            # Non-anthropic.com, non-empty, and this process's own ambient
+            # TZ decides the offset -- none of which the GLOBAL commit
+            # backstop (installed session-wide at
+            # ~/.config/precedent/git-hooks/pre-commit, practice:
+            # commit-author's own mechanism) objects to, so no override is
+            # needed to make the commit itself land.
+            git(repo, '-c', 'user.name=Someone Else',
+                '-c', 'user.email=someone@example.com',
+                'commit', '-qm', 'wrong author')
 
+        # buenos-aires-dates needs the CLEAN fixture's pre-existing
+        # "baseline" commit itself to carry the -0300 offset, or a harness
+        # run under a different ambient TZ (a CI runner defaults to UTC)
+        # would show that commit as a violation with no plant at all --
+        # practice: fixture-owns-its-state. Re-dated under an explicit TZ
+        # rather than assumed from whatever machine happens to run this.
+        def _setup_buenos_aires_dates(repo):
+            git(repo, '-c', f'user.name={_ID_NAME}', '-c',
+                f'user.email={_ID_EMAIL}', 'commit', '--amend',
+                '--reset-author', '--no-edit',
+                env={**os.environ, 'TZ': _ID_TZ,
+                     'PRECEDENT_ALLOW_ANY_AUTHOR': '1'})
+
+        def _plant_buenos_aires_dates(repo):
+            (repo / 'zzz-wrong-offset.txt').write_text('x\n', encoding='utf-8')
+            git(repo, 'add', '-A')
+            # Deliberately the one commit in this whole function that NEEDS
+            # the global backstop's override: the point of this commit is
+            # to have the WRONG offset, which is precisely what that hook
+            # refuses by default.
+            git(repo, '-c', f'user.name={_ID_NAME}', '-c',
+                f'user.email={_ID_EMAIL}', 'commit', '-qm', 'wrong offset',
+                env={**os.environ, 'TZ': 'UTC',
+                     'PRECEDENT_ALLOW_ANY_AUTHOR': '1'})
+
+        case('check_commit_author', _plant_commit_author, env_extra=_ID_ENV)
+        case('check_buenos_aires_dates', _plant_buenos_aires_dates,
+             setup=_setup_buenos_aires_dates, env_extra=_ID_ENV)
 
         # --- and the registry must not contain an untested claim ------------
         import importlib.util
@@ -18118,6 +18199,25 @@ def check_vendor_engine_consumer_case():
         team_dir = tmp / 'precedent-team-consumer-fixture'
         consumer.mkdir()
 
+        # practice: fixture-owns-its-state -- this fixture declares exactly
+        # three sources in its own precedent.json (universal, one fixture
+        # team set, one fixture repo-local set) and every assertion below
+        # assumes only those three resolve. Without this, a session whose
+        # REAL individual practice source is configured (an ordinary state
+        # for an interactive Precedent session, not a broken one) leaks that
+        # real, private source into precedent_resolve.py's ambient
+        # user-level config lookup -- found 2026-09-22: the fixture then
+        # failed with a REAL private practice's dedup finding
+        # ("deliverables-carry-no-process (precedent-individual)") and a
+        # REAL filename collision between BestPractice's own
+        # tools/checks/check_buenos_aires_dates.py (tracked since commit
+        # 9d16b6ae) and the real precedent-individual clone's same-named
+        # script -- neither of which this fixture's own three declared
+        # sources could ever produce. check_precedent_check_fires()'s run()
+        # already isolates this the same way, for the same reason.
+        env_iso = dict(os.environ)
+        env_iso['PRECEDENT_USER_CONFIG'] = str(tmp / '.no-user-config.json')
+
         _write_fixture_practice(team_dir / 'practices' / 'consumer-fixture-team.md',
                                  'consumer-fixture-team', ['team-only/**'],
                                  'A team-level fixture rule, present in no other repo.')
@@ -18395,7 +18495,8 @@ def check_vendor_engine_consumer_case():
         # a real consumer's AGENTS.md documents it (--repo .), resolves all
         # three sources and materializes + regenerates the loader block --
         r = subprocess.run([sys.executable, 'tools/precedent_sync_views.py', '--repo', '.'],
-                           capture_output=True, text=True, cwd=str(consumer))
+                           capture_output=True, text=True, cwd=str(consumer),
+                           env=env_iso)
         cases.append(('precedent_sync_views.py --repo . resolves and materializes '
                       'cleanly', r.returncode == 0, r.stdout + r.stderr))
 
@@ -18413,19 +18514,22 @@ def check_vendor_engine_consumer_case():
         # IN PLACE (no --repo) against the materialized tree, same as the
         # source-set case's own rigor --
         r = subprocess.run([sys.executable, 'tools/precedent_gate.py', '--list'],
-                           capture_output=True, text=True, cwd=str(consumer))
+                           capture_output=True, text=True, cwd=str(consumer),
+                           env=env_iso)
         cases.append(('the vendored precedent_gate.py lists the real (trimmed) gate '
                       'vocabulary against the materialized tree',
                       r.returncode == 0 and 'merge' in r.stdout, r.stdout + r.stderr))
 
         r = subprocess.run([sys.executable, 'tools/precedent_paths.py', 'team-only/x.md'],
-                           capture_output=True, text=True, cwd=str(consumer))
+                           capture_output=True, text=True, cwd=str(consumer),
+                           env=env_iso)
         cases.append(('the vendored precedent_paths.py matches the team fixture by its '
                       'real applies_to glob', r.returncode == 0
                       and 'consumer-fixture-team' in r.stdout, r.stdout + r.stderr))
 
         r = subprocess.run([sys.executable, 'tools/precedent_show.py', 'consumer-fixture-local'],
-                           capture_output=True, text=True, cwd=str(consumer))
+                           capture_output=True, text=True, cwd=str(consumer),
+                           env=env_iso)
         cases.append(("the vendored precedent_show.py returns the repo-local fixture's "
                       "real Rule text", r.returncode == 0
                       and 'repo-local fixture rule' in r.stdout, r.stdout + r.stderr))
@@ -18433,7 +18537,8 @@ def check_vendor_engine_consumer_case():
         # -- a second sync, unchanged, is a clean --check (idempotency, and
         # the exact invocation a consumer's own session-start documents) --
         r = subprocess.run([sys.executable, 'tools/precedent_sync_views.py', '--repo', '.', '--check'],
-                           capture_output=True, text=True, cwd=str(consumer))
+                           capture_output=True, text=True, cwd=str(consumer),
+                           env=env_iso)
         cases.append(('a second, unchanged sync passes --check cleanly (idempotent)',
                       r.returncode == 0, r.stdout + r.stderr))
 
