@@ -10,12 +10,12 @@ index_clause: "their own situation is given -- say it once, then work from their
 checked_by:  null
 defines:     []
 command:     null
-status:      active
+status:      deduplicated
 supersedes:  []
 overrides:   null
 added:       "2026-09-21"
 approved_by: "requested by Morgan F, 2026-09-21, after the same argument recurred across sessions"
-in_force_at: null
+in_force_at: their-constraints-are-given
 strength: decided
 ---
 ## Rule
@@ -129,6 +129,14 @@ He also raised, and explicitly declined to propose, a mechanism for
 tracking how often a person repeats themselves. That idea is deliberately
 not built here: the answer to a repeated argument is to write the premise
 down once, not to instrument the person.
+
+**Deduplicated 2026-09-23**: moved to `precedent-shared-working-style` in a
+cross-repo practice-placement review, as squarely that set's own subject --
+how a session works alongside the person it is working with -- rather than
+something every Precedent consumer needs. Approved by Morgan F, 2026-09-23.
+The rule is fully in force, from
+[`their-constraints-are-given`](https://github.com/themorgan/precedent-shared-working-style/blob/main/practices/their-constraints-are-given.md)
+there; only the universal copy went.
 
 ## Install
 
