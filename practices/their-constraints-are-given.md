@@ -10,12 +10,12 @@ index_clause: "their own situation is given -- say it once, then work from their
 checked_by:  null
 defines:     []
 command:     null
-status:      deduplicated
+status:      active
 supersedes:  []
 overrides:   null
 added:       "2026-09-21"
 approved_by: "requested by Morgan F, 2026-09-21, after the same argument recurred across sessions"
-in_force_at: their-constraints-are-given
+in_force_at: null
 strength: decided
 ---
 ## Rule
@@ -130,13 +130,16 @@ tracking how often a person repeats themselves. That idea is deliberately
 not built here: the answer to a repeated argument is to write the premise
 down once, not to instrument the person.
 
-**Deduplicated 2026-09-23**: moved to `precedent-shared-working-style` in a
-cross-repo practice-placement review, as squarely that set's own subject --
-how a session works alongside the person it is working with -- rather than
-something every Precedent consumer needs. Approved by Morgan F, 2026-09-23.
-The rule is fully in force, from
-[`their-constraints-are-given`](https://github.com/themorgan/precedent-shared-working-style/blob/main/practices/their-constraints-are-given.md)
-there; only the universal copy went.
+**Moved to `precedent-shared-working-style` and back, same day, 2026-09-23.**
+A cross-repo practice-placement review moved this out of universal, on the
+reasoning that it is squarely that set's own subject. `verify_harness.py
+--as-ci`'s consumer-fixture check caught the real cost before it shipped:
+a plain Precedent consumer resolving only the universal catalogue (which is
+most of them) would have found this rule's `in_force_at:` pointing at a
+private team set it cannot see -- not a smaller audience, actually gone. The
+tool that runs every other kind of move refuses exactly this direction
+(`--from universal`) for exactly this reason, which this incident confirms
+rather than merely asserts. Reverted the same day, Morgan F: stays universal.
 
 ## Install
 
