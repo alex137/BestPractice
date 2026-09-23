@@ -55,8 +55,9 @@ is spelled out in full at the link:
    `TODO.md`, `GLOSSARY.md`, `GETTING_STARTED.md`, the PR template, the
    `.gitignore` baseline, and the harness adapter(s) from
    [templates/harness/](../templates/harness/) for whichever AI Assistant
-   will work the repo. `local/practices/project-voice.md` (a repo-local
-   practice, not a plain document) and `STYLEGUIDE.md` are the exception:
+   will work the repo. `local/practices/project-voice.md` and
+   `local/practices/project-visual-identity.md` (repo-local practices, not
+   plain documents) are the exception:
    both ship near-empty and **stay that way** — see "Optional, and
    deliberately left for later" below.
 3. **Ask the two questions only a person can answer** — which private
@@ -91,9 +92,10 @@ an upgrade or a migration:
   reached through the same occasion index as every other rule in force
   here. General writing quality is not in it; the practice catalogue
   covers that for every project at once.
-- **`STYLEGUIDE.md`** — the visual identity, transcribed as plain text from
-  whatever brand guideline exists. Never attach, vendor or link the source
-  document into the repo.
+- **`local/practices/project-visual-identity.md`** — the visual identity,
+  transcribed as plain text from whatever brand guideline exists. A
+  repo-local practice, not a plain document. Never attach, vendor or link
+  the source document into the repo.
 
 Both stay local to the project and are never exported upstream. **Fill
 either in whenever you want by asking your AI Assistant** — *"help me fill in

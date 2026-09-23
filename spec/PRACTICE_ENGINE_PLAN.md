@@ -1977,14 +1977,16 @@ matching the rest of this document's own current-state discipline
 
 Open items from the 2026-08-29 review that this rewrite does not resolve:
 
-- **Header capitalization** in `STYLEGUIDE.md` and
+- **Header capitalization** in
   [.github/pull_request_template.md](../.github/pull_request_template.md) still
   differs from the repo's stated convention. Needs a decision either way.
-  (`VOICE.md` itself is retired as of 2026-09-17 — its replacement,
-  `templates/local-practices/project-voice.md.template`, uses the fixed
-  `## Rule`/`## Detail`/`## Why`/`## Story`/`## Install` practice-file
+  (`VOICE.md` itself is retired as of 2026-09-17, and `STYLEGUIDE.md`
+  followed it on 2026-09-22 — their replacements,
+  `templates/local-practices/project-voice.md.template` and
+  `templates/local-practices/project-visual-identity.md.template`, use the
+  fixed `## Rule`/`## Detail`/`## Why`/`## Story`/`## Install` practice-file
   headings, which are a vocabulary, not free-form headlines, so this item
-  does not carry over to it.)
+  does not carry over to either.)
 - **An allowlist fix is pending export upstream** — the harness template
   allowlists [practice_audit.py](../tools/practice_audit.py) with and without arguments but
   [doc_lint.py](../tools/doc_lint.py) only with, so the merge runbook's own bare invocation prompts on every run

@@ -24,10 +24,11 @@ carry a section declaring that **an install does the essentials and stops**,
 and that section names **both halves**: what is deferred, and what is never
 deferred as "polish".
 
-And **every mention of `local/practices/project-voice.md` or `STYLEGUIDE.md`
-in either document sits beside a deferral marker** — optional, out of scope,
-ships as a skeleton, or a plain "do not". A mention with no marker is an
-install being told to fill them in.
+And **every mention of `local/practices/project-voice.md` or
+`local/practices/project-visual-identity.md` in either document sits beside
+a deferral marker** — optional, out of scope, ships as a skeleton, or a
+plain "do not". A mention with no marker is an install being told to fill
+them in.
 
 **This practice has no `occasion` on purpose.** It is reached by its
 `applies_to` when somebody edits either document, and by its check on every
@@ -44,7 +45,8 @@ The check asserts three things per file, and none of them grades prose:
 2. Somewhere in the file, a phrase naming the **counterpart**: what is never
    deferred. Without it the rule is an excuse rather than a scope.
 3. Every paragraph naming `local/practices/project-voice.md` or
-   `STYLEGUIDE.md` also carries one of the deferral markers.
+   `local/practices/project-visual-identity.md` also carries one of the
+   deferral markers.
 
 Assertion 3 is written as a **positive** requirement for a reason. The
 obvious form — grep for "walk them through" — fires on SETUP.md's own
@@ -91,5 +93,14 @@ rather than sitting at the root until someone opened it — see
 `templates/local-practices/project-voice.md.template`'s own header. The
 essentials-only deferral this practice guards did not change; only the
 file's name did, so the check and its fixtures were updated to scan for
-the new one. `STYLEGUIDE.md` is unchanged — its content is data (colors,
-fonts, logo paths), not a rule, so it stays a plain root document.
+the new one.
+
+**Amended 2026-09-22**, when `STYLEGUIDE.md` followed the same path: its
+content stayed data (colors, fonts, logo paths), never a rule, but a
+repo-local practice is the better home for project data too — reached
+through the same occasion-index channel rather than a bare root file
+nobody happens to open. It is now
+`local/practices/project-visual-identity.md`, instantiated from
+`templates/local-practices/project-visual-identity.md.template`. The check
+and its fixtures were updated the same way the 2026-09-17 amendment updated
+them for `VOICE.md`.

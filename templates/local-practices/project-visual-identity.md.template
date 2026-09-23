@@ -1,0 +1,159 @@
+---
+slug:        project-visual-identity
+title:       This project's own visual identity
+tier:        on-demand
+severity:    default
+applies_to:  ["**"]
+occasion:    "generating anything visual for this project -- decks, documents, diagrams, images"
+gates:       []
+index_clause: "this project's own visual identity -- colors, logo, typography, imagery, and what to check before generating anything visual"
+checked_by:  null
+defines:     []
+status:      active
+in_force_at: null
+supersedes:  []
+overrides:   null
+added:       "<install date>"
+approved_by: "<undecided>"
+---
+<!-- Template: instantiate per Precedent INSTALL.md as this file (already at
+     its destination path, local/practices/project-visual-identity.md) -- a
+     repo-local PRACTICE (precedent.json's "local" source), not a plain
+     document.
+
+     THIS REPLACES templates/STYLEGUIDE.md.template, retired 2026-09-22.
+     STYLEGUIDE.md shipped as a bare root document that reached a session
+     only by luck of someone opening it. A repo-local practice reaches
+     every session the same way every other rule in force here does:
+     `applies_to: ["**"]` with no `gates` keeps it un-omittable from the
+     occasion index (spec/PRACTICE_FORMAT.md's `index_required` section),
+     and the "local" source's practices are never filtered out of a repo's
+     own generated block regardless of that repo's declared visibility.
+
+     Unlike project-voice.md's split, nothing here duplicates a universal
+     rule -- a hex code or a logo path was never a candidate for the
+     catalogue, only for deletion or a home. This file is the home: it is
+     still project DATA, not a portable rule, and stays that way. What
+     changes is the shape it is stored in, not what it is for -- so a
+     session finds it through the same occasion index and
+     `precedent_paths.py` channel as every other in-force rule, instead of
+     a file that sits at the root until someone happens to open it.
+
+     Copied nearly empty at install, and left that way -- an install does
+     the essentials and stops. Every section below may legitimately stay
+     `<undecided>`; an unfilled project-visual-identity.md is a normal,
+     permanent state for a project that has not thought about its visual
+     identity yet, and is much better than an invented one. When somebody
+     later says "help me fill in STYLEGUIDE" or "help me fill in my visual
+     identity", ask whether the project has a visual identity (colors,
+     logo, fonts) and whether a formal brand guideline exists (a PDF, a
+     slide deck, a style manual from a design team); offer to read it and
+     transcribe the relevant rules into the sections below.
+
+     Never import the source document itself. A brand-guideline PDF or
+     PPTX is typically a large binary, often has its own copyright/
+     distribution terms, and can't be diffed or reviewed the way this
+     repo's other files are (see the upstream deck/README.md's reasoning
+     against binary sources). Read it, extract the rules that matter for
+     what this repo produces, and write them here in plain text. If no
+     such document exists yet, leave sections marked `<undecided>` rather
+     than inventing values (practice: no-invented-specifics).
+
+     This file, once instantiated, is LOCAL ONLY -- repo-local practices
+     are never folded back through the export gate (INSTALL.md's copy-back
+     rule) or a check-in. It lives under `local/practices/`, in the repo's
+     own tree, so the check-in tooling structurally never touches it. A
+     brand's visual identity is not a generic practice; nothing here is
+     meant to travel to another project.
+
+     MIGRATING AN EXISTING INSTALL that still has a root STYLEGUIDE.md:
+     read it once, carry the decisions actually made -- not what merely
+     shipped -- into the sections below, declare the "local" source in
+     `precedent.json` if this repo has not already, and delete
+     STYLEGUIDE.md in the same commit.
+     spec/MIGRATING_EXISTING_INSTALLS.md's project-visual-identity step has
+     the worked procedure. -->
+
+## Rule
+Anything this project generates that has a visual form -- a deck, a chart,
+a diagram, a document with a letterhead -- follows this project's own
+stated visual identity below. Read this before generating a deck (the
+upstream [deck/](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/deck/)
+engine), a chart, or any other visual artifact; when a rule here conflicts
+with a tool's default, this file wins.
+
+A section left `<undecided>` is not a gap to fill in with something
+plausible. It means nobody has decided, and no visual identity is assumed.
+
+## Detail
+
+**Identity.**
+- **Name(s) as they should appear:** <full name, short name, any name to
+  avoid>
+- **Logo:** <where the source file lives, if there is one; clear-space and
+  minimum-size rules; light/dark variants>
+- **Tagline, if any:** <exact wording, or "none — don't invent one">
+
+**Color.**
+
+| Role | Value | Notes |
+|---|---|---|
+| Primary | `<hex>` | |
+| Secondary | `<hex>` | |
+| Background | `<hex>` | light/dark, if both apply |
+| Text | `<hex>` | |
+| Accent / warning / error | `<hex>` | |
+
+<undecided — no palette recorded yet>
+
+**Typography.**
+- **Headings:** <typeface, weight>
+- **Body:** <typeface, weight>
+- **Fallback stack (web/HTML output):** <font-family list>
+
+**Imagery and iconography.** <Photography style, illustration style, icon
+set, or "avoid stock photos entirely" — whatever the project's convention
+actually is.>
+
+**Tone in visuals.** Visual tone follows
+[local/practices/project-voice.md](project-voice.md): the same restraint
+applies to slides and charts as to prose — no decorative icons standing in
+for a point that isn't made, no gradient-and-glow treatment to make a plain
+fact look like an insight. Project-specific visual tells to avoid go here:
+<e.g., "never use the corporate stock-photo handshake image">.
+
+**Formats this project produces.** <List the recurring outputs and where
+their conventions live, e.g.:>
+- **Slide decks:** built with the upstream
+  [deck/build_deck.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/deck/build_deck.py);
+  engine-level conventions in [deck/README.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/deck/README.md); this
+  section covers only this project's palette/type choices, not the deck
+  mechanics.
+- **<other format>:** <convention or tool>
+
+**Source.** <If a formal brand guideline exists, name it here for
+provenance — title, owner, date last reviewed (practice
+`volatile-rules-carry-dates`) — without attaching or vendoring the document
+itself: "Acme Corp Brand Guidelines v3, design team, verified
+2026-08-16.">
+
+## Why
+A brand's visual identity is project data, not a generalizable rule — a
+hex code has no universal-catalogue home the way a writing habit does. What
+moving it here changes is discoverability, not content: a bare root
+document is read only by whoever happens to open it, where a repo-local
+practice with `applies_to: ["**"]` reaches every session through the same
+occasion index every other in-force rule does.
+
+## Story
+None recorded yet for this project — an unfilled visual identity is a
+normal, permanent state, not a gap. When a real visual-identity decision
+gets made here, record it in this section: what was decided, who decided
+it, and why.
+
+## Install
+This file is repo-local (`precedent.json`'s `"local"` source, `path:
+"local"`) and is never exported upstream through the export gate or a
+check-in — this project's visual identity is its own data, not a generic
+practice. It ships nearly empty at install and stays that way until
+someone asks an assistant to fill it in.
