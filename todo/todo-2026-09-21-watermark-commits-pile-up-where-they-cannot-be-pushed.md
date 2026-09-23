@@ -193,3 +193,30 @@ The 2026-09-21 identity work on the same function
 (`_identity_args`, the nineteen watermark commits in three author states).
 That fixed **who** the commit says wrote it. This is about whether the
 commit should exist at all when the push behind it cannot land.
+
+## Verified holding, 2026-09-23
+
+The fix was recorded as done on 2026-09-22 and is measured here two days
+later, because a closed item saying a thing was fixed is a claim until
+somebody looks (practice: verify-postcondition).
+
+**Nothing new has accumulated.** The individual source on this container
+carries **34** commits that are on no remote, and **every one of them is
+dated 2026-09-21 or earlier** — the newest is `52ee6e0`, the watermark
+advance for this repository's own `b92161158`. Not one was written after the
+gating change landed. The count grew from the eight this item was opened
+over to 34 before it stopped, which is the size of the leak the fix closed.
+
+**The 34 that exist are residue, not work.** Each records a pointer advance
+and every one but the newest is superseded by a later entry in the same file;
+the clone is also 73 commits behind its own origin, so the newest of them is
+older than what a fresh clone would arrive with. A container reclaimed with
+these in it costs one cry-wolf freshness notice in the next session, and
+nothing else. They are not recoverable from here in any case — the git proxy
+serves fetches of that clone and refuses pushes on it, which is the wall this
+whole item is about.
+
+**What remains true and is nobody's bug:** a session-start report will keep
+naming that checkout as holding work only it has, because that statement is
+accurate. The check is doing its job; the commits it names are simply not
+worth the divergence-resolution they would cost.
