@@ -18410,6 +18410,24 @@ def check_vendor_engine_consumer_case():
 
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-consumer-engine-'))
     cases = []
+    # Same class of bug as the leak-gate blocklist-discovery fixture's own
+    # 2026-09-08 gotcha (see its docstring above): precedent_resolve.py's
+    # config-file self-heal reads $HOME/.config/precedent/config.json and
+    # silently adds a fourth, undeclared individual source when that file
+    # names one -- which it does on any container where a private source
+    # has already been resolved once. This fixture's own precedent.json
+    # declares exactly three sources; every subprocess below inherits the
+    # ambient HOME unless isolated, so it picked up a real precedent-individual
+    # clone as a bonus source nobody declared, and precedent_sync_views.py's
+    # own IN FORCE NOWHERE check then correctly flagged that source's real
+    # deduplicated practices as unresolvable -- against a source this fixture
+    # never claimed to model. Found 2026-09-23: reproduced with `4 failed`
+    # under the container's real HOME, `2 failed` (the two pre-existing,
+    # unrelated failures) under an isolated one.
+    saved_home = os.environ.get('HOME')
+    isolated_home = tmp / 'isolated-home'
+    isolated_home.mkdir()
+    os.environ['HOME'] = str(isolated_home)
     try:
         consumer = tmp / 'consumer'
         team_dir = tmp / 'precedent-team-consumer-fixture'
@@ -18759,6 +18777,10 @@ def check_vendor_engine_consumer_case():
                       r.returncode == 0, r.stdout + r.stderr))
 
     finally:
+        if saved_home is None:
+            os.environ.pop('HOME', None)
+        else:
+            os.environ['HOME'] = saved_home
         shutil.rmtree(tmp, ignore_errors=True)
 
     bad = [(c[0], c[2]) for c in cases if not c[1]]
