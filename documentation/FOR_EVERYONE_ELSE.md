@@ -171,8 +171,10 @@ urgent, and a project works perfectly well with both left blank.
   it can't use, and anything you want done differently from the general
   rules. (Kept at `local/practices/project-voice.md`, if you ever go
   looking for it.)
-- **`STYLEGUIDE.md`** — how it should look. Colors, fonts, logo rules —
-  whatever your brand guideline says, if you have one.
+- **Your project's own visual identity** — how it should look. Colors,
+  fonts, logo rules — whatever your brand guideline says, if you have one.
+  (Kept at `local/practices/project-visual-identity.md`, if you ever go
+  looking for it.)
 
 **To fill either in, just say so to your AI Assistant** — *"help me fill in my
 project's voice"* — and it will ask you questions and write down your

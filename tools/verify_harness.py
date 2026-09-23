@@ -8386,12 +8386,14 @@ def check_precedent_check_fires():
 
         # install-declares-its-scope -- SETUP.md put back the way it read
         # before 2026-09-14: the paragraph naming project-voice.md and
-        # STYLEGUIDE.md together, stripped of every deferral marker, so it
-        # reads as an instruction to fill them in during the install. That
-        # is the exact regression the check exists for, and it is the state
-        # the guided install was actually in. (Read 'VOICE.md' here before
-        # 2026-09-17, when this project's own voice was still a plain root
-        # document rather than local/practices/project-voice.md.)
+        # project-visual-identity.md together, stripped of every deferral
+        # marker, so it reads as an instruction to fill them in during the
+        # install. That is the exact regression the check exists for, and
+        # it is the state the guided install was actually in. (Read
+        # 'VOICE.md' here before 2026-09-17, and 'STYLEGUIDE.md' before
+        # 2026-09-22, when these were still plain root documents rather
+        # than local/practices/project-voice.md and
+        # local/practices/project-visual-identity.md.)
         #
         # The counterpart matters as much as the case: the check's own test
         # (local/tools/checks/tests/) proves that prose saying "do NOT walk
@@ -8403,7 +8405,7 @@ def check_precedent_check_fires():
                 "\n## Fill In the Identity Files\n\n"
                 "Walk the administrator through `project-voice.md` section "
                 "by section, and\nask whether a brand guideline exists to "
-                "fill `STYLEGUIDE.md` from.\n"))
+                "fill `project-visual-identity.md` from.\n"))
         case('install-declares-its-scope', _plant_idis)
 
         # environment-gotchas -- a live gotcha file that is a bare fix.
@@ -27575,18 +27577,20 @@ def check_title_case_knows_the_files_it_ships():
     IT FAILS IN THE DIRECTION NOBODY CHECKS, which is what makes it worth a
     standing control rather than a one-line fix: upstream's own gate stays
     green because upstream does not have the file. So this check does not
-    ask "is STYLEGUIDE.md classified right" -- it derives the list of
+    ask "is this one file classified right" -- it derives the list of
     shipped root files from templates/ and asks it of ALL of them, so a
     template added later is covered without anybody remembering to come
     back.
 
-    VOICE.md itself stopped being a root file on 2026-09-17 (it is now the
-    repo-local practice local/practices/project-voice.md, instantiated from
-    templates/local-practices/project-voice.md.template -- nested one level
-    deeper, so the root-level `templates/*.md.template` glob below correctly
-    no longer yields it). It is kept out of `shipped` and the by-name
+    VOICE.md stopped being a root file on 2026-09-17, and STYLEGUIDE.md
+    followed on 2026-09-22 -- both are now repo-local practices,
+    local/practices/project-voice.md and
+    local/practices/project-visual-identity.md, instantiated from
+    templates/local-practices/*.md.template -- nested one level deeper, so
+    the root-level `templates/*.md.template` glob below correctly no longer
+    yields either of them. Both are kept out of `shipped` and the by-name
     assertions for that reason, not an oversight: this check is about root
-    files, and it no longer is one.
+    files, and neither one still is.
     """
     import importlib.util
 
@@ -27610,28 +27614,26 @@ def check_title_case_knows_the_files_it_ships():
     cases.append(('templates/ yields root files to classify at all',
                   len(shipped) >= 3, str(shipped)))
 
-    # STYLEGUIDE.md, the one of the two the incident was about that is
-    # STILL a root file, asserted BY NAME as well as by the derivation
-    # above: a derivation that silently produced an empty list would
-    # otherwise pass this whole check.
-    for name in ('STYLEGUIDE.md',):
-        cases.append((f'{name} is shipped by a template',
-                      name in shipped, str(shipped)))
-        cases.append((f'{name} is INTERNAL -- its own template header says '
-                      f'LOCAL ONLY, so no adopter should be told to '
-                      f'headline-case it',
-                      tc.is_outward(name) is False, ''))
+    # Neither VOICE.md nor STYLEGUIDE.md is shipped by a template any more,
+    # asserted BY NAME as well as by the derivation above: a derivation that
+    # silently produced an empty list would otherwise pass this whole check
+    # without proving either file is actually gone from `shipped`.
+    for name in ('VOICE.md', 'STYLEGUIDE.md'):
+        cases.append((f'{name} is no longer shipped by a root template',
+                      name not in shipped, str(shipped)))
 
-    # VOICE.md's own replacement is internal for a different reason -- not
-    # INTERNAL_FILES (it carries no root-file entry for it at all any more)
-    # but INTERNAL_DIRS, because local/practices/ is a repo-local practice
+    # Both replacements are internal for the same reason -- not
+    # INTERNAL_FILES (neither carries a root-file entry any more) but
+    # INTERNAL_DIRS, because local/practices/ is a repo-local practice
     # source, and 'local' has been an INTERNAL_DIRS entry since before this
     # file existed.
-    cases.append(('local/practices/project-voice.md is INTERNAL via '
-                  "INTERNAL_DIRS's 'local' entry, with no INTERNAL_FILES "
-                  'entry needed for it',
-                  tc.is_outward('local/practices/project-voice.md') is False,
-                  ''))
+    for rel in ('local/practices/project-voice.md',
+                'local/practices/project-visual-identity.md'):
+        cases.append((f'{rel} is INTERNAL via '
+                      "INTERNAL_DIRS's 'local' entry, with no INTERNAL_FILES "
+                      'entry needed for it',
+                      tc.is_outward(rel) is False,
+                      ''))
 
     # spec/ and record/ are twins by design -- spec/ holds current normative
     # reference, record/ the working record -- and record/ was missing from
@@ -27657,10 +27659,12 @@ def check_title_case_knows_the_files_it_ships():
     # is there, and the default is what every fresh install starts from.
     import tempfile
     with tempfile.TemporaryDirectory() as tmp:
-        cases.append(('STYLEGUIDE.md is internal with NO precedent.json at '
-                      'all -- the state a fresh adopter is in before they '
-                      'configure anything',
-                      tc.is_outward('STYLEGUIDE.md', root=tmp) is False, ''))
+        cases.append(('local/practices/project-visual-identity.md is '
+                      'internal with NO precedent.json at all -- the state '
+                      'a fresh adopter is in before they configure '
+                      'anything',
+                      tc.is_outward('local/practices/project-visual-identity.md',
+                                    root=tmp) is False, ''))
 
     ok = all(c[1] for c in cases)
     check(f'title_case classifies the root files this project ships into '

@@ -47,7 +47,8 @@ put to them then is the worst version of that decision they will ever make.
 It also lengthens the conversation that most needs to feel short, and every
 extra question is a chance to lose them before the essentials land.
 
-`local/practices/project-voice.md` and `STYLEGUIDE.md` are the standing
+`local/practices/project-voice.md` and
+`local/practices/project-visual-identity.md` are the standing
 examples — both ship near-empty, both stay that way through install, upgrade
 and migration alike. **The rule is not about those two files.** It is about every
 refinement is deferred whether or not it appears on a list here.
@@ -154,27 +155,27 @@ list.)
      `TODO.md`; `templates/GLOSSARY.md.template` → `GLOSSARY.md` (or a
      domain-appropriate name).
    - `templates/local-practices/project-voice.md.template` →
-     `local/practices/project-voice.md` — **a repo-local practice, not a
-     root document.** Declare the `"local"` source in `precedent.json` if
-     this repo has not already (`{"level": "repo-local", "name": "local",
-     "path": "local"}` — the name and path are both fixed by
+     `local/practices/project-voice.md`, and
+     `templates/local-practices/project-visual-identity.md.template` →
+     `local/practices/project-visual-identity.md` — **repo-local practices,
+     not root documents.** Declare the `"local"` source in `precedent.json`
+     if this repo has not already (`{"level": "repo-local", "name":
+     "local", "path": "local"}` — the name and path are both fixed by
      [source-naming](practices/source-naming.md), never chosen). This is
-     what makes the file actually reachable: it is what puts this project's
-     voice in front of every session through the same occasion index as
-     every other rule in force here, rather than a document nobody is
-     pointed at.
-     `templates/STYLEGUIDE.md.template` → `STYLEGUIDE.md` at the repo root.
+     what makes the files actually reachable: it is what puts this
+     project's voice and its visual identity in front of every session
+     through the same occasion index as every other rule in force here,
+     rather than a document nobody is pointed at.
      **Copy the skeletons and stop.** Unlike the files above, these are not
      rewritten with the repo's subject matter, and **filling them in is out
      of scope for an install** — see [Essentials only](#essentials-only--what-an-install-upgrade-or-migration-leaves-for-later).
-     Do not walk the administrator through project-voice.md's sections and
-     do not ask whether a brand guideline exists; say once that both exist,
+     Do not walk the administrator through either file's sections and do
+     not ask whether a brand guideline exists; say once that both exist,
      are optional, and can be filled in any time by asking an assistant.
      Record both as `local-only` in the manifest (§5) — **neither is ever
      exported upstream** (§3–§4): a project's voice and brand are its own
      identity, not a generic practice. `local/practices/` is this repo's
-     own tree exactly as `STYLEGUIDE.md` at the root is, so the check-in
-     tooling structurally never touches either.
+     own tree, so the check-in tooling structurally never touches either.
    - `templates/GETTING_STARTED.md` → `GETTING_STARTED.md` at the repo
      root: the member-facing onboarding page, one section per kind of AI
      user. (This template keeps a plain `.md` name on purpose — it
@@ -333,9 +334,10 @@ list.)
    create at the dependent repo's root are the instantiated ones:
    `AGENTS.md` (plus a harness pointer such as `CLAUDE.md`), `MAP.md`,
    `TODO.md`, `GLOSSARY.md`, `GETTING_STARTED.md`,
-   `STYLEGUIDE.md`, `.gitignore`, and the README entry-block edit — plus
-   `local/practices/project-voice.md` (a repo-local practice, not a root
-   file, but still an install artifact — nothing else may land under
+   `.gitignore`, and the README entry-block edit — plus
+   `local/practices/project-voice.md` and
+   `local/practices/project-visual-identity.md` (repo-local practices, not
+   root files, but still install artifacts — nothing else may land under
    `local/`), `tools/bootstrap.sh`, `.github/workflows/leak-gate.yml` (only
    when the individual or team source resolved declares `"ci_workflows":
    "enabled"` — disabled is the default; see GITHUB_ACTIONS.md), and
@@ -365,7 +367,7 @@ list.)
    BestPractice's own copy, since 2026-09-20.
 7. Run `python3 process/upstream/tools/practice_audit.py` — it must pass.
    Then lint the files this install created **by name** —
-   `python3 process/upstream/tools/doc_lint.py AGENTS.md MAP.md TODO.md GLOSSARY.md GETTING_STARTED.md local/practices/project-voice.md STYLEGUIDE.md README.md`
+   `python3 process/upstream/tools/doc_lint.py AGENTS.md MAP.md TODO.md GLOSSARY.md GETTING_STARTED.md local/practices/project-voice.md local/practices/project-visual-identity.md README.md`
    — because the bare light check scopes itself to files changed against
    `origin/<default branch>`, and on a repo that has not been pushed yet
    that is nothing at all: it reported `0 file(s) checked` on a fresh
@@ -782,7 +784,8 @@ not this section.
    empty — step 6 fills them in.
 5. **Instantiate everything else §1 step 2 already covers**: `MAP.md`,
    `TODO.md`, `GLOSSARY.md`, `GETTING_STARTED.md`,
-   `local/practices/project-voice.md`, `STYLEGUIDE.md`, the README
+   `local/practices/project-voice.md`,
+   `local/practices/project-visual-identity.md`, the README
    agent-entry block, the harness adapter(s),
    `tools/bootstrap.sh`, the Actions check, the PR template. **Skip**
    `process/manifest.json` and `process/scrub_blocklist.txt` — those are
@@ -799,7 +802,7 @@ not this section.
    |---|---|
    | [templates/GETTING_STARTED.md](templates/GETTING_STARTED.md) | Replace the `<upstream-docs>` placeholder with `https://github.com/alex137/BestPractice/blob/main` — the upstream URL, because §0 leaves no local copy of `MOBILE.md`, `METHOD.md` or `GITHUB_ACTIONS.md` to point at. (§1 replaces it with `process/upstream`.) |
    | [templates/pull_request_template.md.template](templates/pull_request_template.md.template) | Mentions `process/upstream/` in prose, as a review-grouping hint. Harmless, but names a directory your repo does not have, so a reader follows a dead path. Reword or drop the line. (`templates/local-practices/project-voice.md.template` has no such mention — it is a repo-local practice under `local/`, not a `process/upstream/`-adjacent document.) |
-   | [templates/TODO.md.template](templates/TODO.md.template), [templates/MAP.md.template](templates/MAP.md.template), [templates/STYLEGUIDE.md.template](templates/STYLEGUIDE.md.template) | Each names `process/` or `process/upstream/` once (a recurring check-in item, a map row, an export note). Same treatment: reword or drop the line — and `STYLEGUIDE.md` still ships as an empty skeleton, out of scope for the install; only its one path note changes. |
+   | [templates/TODO.md.template](templates/TODO.md.template), [templates/MAP.md.template](templates/MAP.md.template) | Each names `process/` or `process/upstream/` once (a recurring check-in item, a map row). Same treatment: reword or drop the line. |
    | [templates/harness/claude-code/settings.json](templates/harness/claude-code/settings.json) | Four `process/upstream/tools/…` entries in the permission allowlist. Harmless (they match nothing), but replace them with the `tools/…` forms so the allowlist covers the commands this repo actually runs. |
 
    After instantiating, grep the new root for `process/upstream` — in a §0
@@ -830,7 +833,7 @@ not this section.
    elsewhere.
 8. Commit everything on a branch, same as §1 — and, as in §1 step 7, lint
    the instantiated files **by name** first
-   (`python3 tools/doc_lint.py AGENTS.md MAP.md TODO.md GLOSSARY.md GETTING_STARTED.md local/practices/project-voice.md STYLEGUIDE.md README.md`),
+   (`python3 tools/doc_lint.py AGENTS.md MAP.md TODO.md GLOSSARY.md GETTING_STARTED.md local/practices/project-voice.md local/practices/project-visual-identity.md README.md`),
    because the bare light check scopes itself to what changed against
    `origin/<base branch>` and a repo with no `origin` yet checks nothing.
    **Give the repo an `origin` before the first session works in it**: the
@@ -958,15 +961,18 @@ deliberate procedure below.
 governs an update exactly as it governs an install.** An update brings the
 project to current and stops; a newly shipped template that is optional gets
 one sentence, not a walkthrough. `local/practices/project-voice.md` and
-`STYLEGUIDE.md` in particular are never filled in by an update.
+`local/practices/project-visual-identity.md` in particular are never filled
+in by an update.
 
-**An update taking the 2026-09-17 project-voice change lands on a repo that
-still has a root `VOICE.md`** from an earlier install. That is a migration,
-not an ordinary template refresh — see
+**An update taking the 2026-09-17 project-voice change, or the 2026-09-22
+project-visual-identity change, lands on a repo that still has a root
+`VOICE.md` or `STYLEGUIDE.md`** from an earlier install. That is a
+migration, not an ordinary template refresh — see
 [spec/MIGRATING_EXISTING_INSTALLS.md](spec/MIGRATING_EXISTING_INSTALLS.md)'s
-project-voice step, and do not leave the old `VOICE.md` sitting beside the
-new practice file: a repo with both is a repo where a session has no way to
-know which one is meant to bind.
+project-voice and project-visual-identity steps, and do not leave the old
+`VOICE.md` or `STYLEGUIDE.md` sitting beside the new practice file: a repo
+with both is a repo where a session has no way to know which one is meant
+to bind.
 
 **Which install model is this? Steps 1–5 are §1's, and a §0 install skips
 them.** §1 vendors upstream's *prose* under `process/upstream/` and tracks it
@@ -1217,7 +1223,8 @@ upstream can skip this section entirely:
 > Did this thread improve a *generic* practice — a new convention, a
 > sharpened runbook rule, a better audit, a template fix?
 
-`local/practices/project-voice.md` and `STYLEGUIDE.md` never answer yes to
+`local/practices/project-voice.md` and
+`local/practices/project-visual-identity.md` never answer yes to
 this question, even when a thread rewrites them substantially: the *files*
 are project/company identity, not practice, so their content stays local by
 category, not by judgment call.

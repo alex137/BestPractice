@@ -28,7 +28,8 @@ end is the part that genuinely needs judgment. The guided install
 (SETUP.md) runs this and adapts what it lists.
 
 WHAT IT DOES NOT DO, on purpose. It does not fill in
-local/practices/project-voice.md's sections or STYLEGUIDE.md (an install
+local/practices/project-voice.md's or
+local/practices/project-visual-identity.md's sections (an install
 does the essentials and stops -- INSTALL.md, "Essentials only").
 It does not wire a team or individual source beyond what --team declares;
 the team/individual question is a conversation with the administrator
@@ -77,14 +78,17 @@ ROOT_FILES = {
     'MAP.md': 'MAP.md.template',
     'TODO.md': 'TODO.md.template',
     'GLOSSARY.md': 'GLOSSARY.md.template',
-    'STYLEGUIDE.md': 'STYLEGUIDE.md.template',
     'GETTING_STARTED.md': 'GETTING_STARTED.md',
 }
-# This project's own voice is a repo-local PRACTICE, not a root document --
-# see templates/local-practices/project-voice.md.template's own header for
-# why. `name` is fixed to "local" by practice: source-naming, never chosen.
+# This project's own voice and its own visual identity are repo-local
+# PRACTICEs, not root documents -- see
+# templates/local-practices/project-voice.md.template's and
+# templates/local-practices/project-visual-identity.md.template's own
+# headers for why. `name` is fixed to "local" by practice: source-naming,
+# never chosen.
 LOCAL_PRACTICE_FILES = {
     'local/practices/project-voice.md': 'local-practices/project-voice.md.template',
+    'local/practices/project-visual-identity.md': 'local-practices/project-visual-identity.md.template',
 }
 MIRROR_WORDS = 'process/upstream'    # the section-1 layout this install does not have
 
@@ -167,8 +171,9 @@ def _write_precedent_json(dest, base_branch, visibility, output_paths, teams, fo
     sources = [{'level': 'universal', 'name': 'precedent', 'path': UNIVERSAL_PATH}]
     for name, p in teams:
         sources.append({'level': 'shared', 'name': name, 'path': p})
-    # repo-local: holds local/practices/project-voice.md, instantiated below.
-    # name and path are both fixed to "local" -- practice: source-naming.
+    # repo-local: holds local/practices/project-voice.md and
+    # local/practices/project-visual-identity.md, instantiated below. name
+    # and path are both fixed to "local" -- practice: source-naming.
     sources.append({'level': 'repo-local', 'name': 'local', 'path': 'local'})
     doc = {
         'format_version': 1,
@@ -281,7 +286,6 @@ def _instantiate_root_files(dest, project, owner_repo, admin, base_branch, ci_en
             "| `process/` | Practice layer (vendored Precedent + manifest + blocklist) — see [AGENTS.md](AGENTS.md) \"Practice export\". |":
             f"| `{UNIVERSAL_PATH}/` | The vendored Precedent practice catalogue — never hand-edited; refreshed by `Update Vendors`. The engine that reads it is in `tools/`. |",
         },
-        'STYLEGUIDE.md': {'process/upstream/': 'the upstream Precedent repository '},
         'GETTING_STARTED.md': {} if ci_enabled else {_CI_PARAGRAPH_ON: _ci_paragraph_off()},
     }
     for name, tmpl in ROOT_FILES.items():
@@ -298,9 +302,11 @@ def _instantiate_root_files(dest, project, owner_repo, admin, base_branch, ci_en
 
 
 def _instantiate_local_practices(dest, force):
-    """local/practices/project-voice.md -- a repo-local PRACTICE, not a root
-    document, so it is instantiated separately from _instantiate_root_files
-    and its target directory is created rather than assumed to exist."""
+    """local/practices/project-voice.md and
+    local/practices/project-visual-identity.md -- repo-local PRACTICEs, not
+    root documents, so they are instantiated separately from
+    _instantiate_root_files and their target directory is created rather
+    than assumed to exist."""
     written, skipped = [], []
     today = precedent_time.today(ROOT)  # practice: timestamps-carry-offset
     for rel, tmpl in LOCAL_PRACTICE_FILES.items():

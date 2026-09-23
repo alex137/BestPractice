@@ -25,12 +25,14 @@ actually done it once, on a real repo, for the first time.
 **[Essentials only](../INSTALL.md#essentials-only--what-an-install-upgrade-or-migration-leaves-for-later)
 governs a migration too.** Bring the repo onto the three-source model,
 correctly, and stop. A refinement the migration surfaces —
-`local/practices/project-voice.md` and `STYLEGUIDE.md` being the standing
+`local/practices/project-voice.md` and
+`local/practices/project-visual-identity.md` being the standing
 pair — gets one sentence saying it exists and can be done any time by asking
 an assistant, never a walkthrough inside the migration. (Converting an
-existing root `VOICE.md` into the former is not that kind of refinement —
-it is a mechanical rename the migration does itself, step 3a below, because
-leaving both in place is a worse state than either alone.)
+existing root `VOICE.md` or `STYLEGUIDE.md` into one of these is not that
+kind of refinement — it is a mechanical rename the migration does itself,
+step 3a below, because leaving both old and new in place is a worse state
+than either alone.)
 
 **Worked example: the project's own prior notes repository.** Everything below generalizes
 what that repo's own migration actually did on 2026-09-02, first tested
@@ -198,11 +200,35 @@ one.
    3. Delete `VOICE.md`. **In the same commit** — a repo carrying both is a
       repo where no session can tell which one is meant to bind.
    4. Update anything that still links to `VOICE.md` by name (an
-      instructions-file bullet, a `STYLEGUIDE.md` "Tone in Visuals"
+      instructions-file bullet, a
+      `local/practices/project-visual-identity.md` "Tone in Visuals"
       pointer) to point at `local/practices/project-voice.md` instead
       ([rename-updates-links](../practices/rename-updates-links.md)).
-   `STYLEGUIDE.md` is unchanged by this step — its content is data, not a
-   rule, so it stays a plain root document exactly as it always has.
+
+3b. **Convert a root `STYLEGUIDE.md` into
+   `local/practices/project-visual-identity.md`, if this repo has one —
+   every migrating repo, not only one with a pre-existing pack tree.**
+   Since 2026-09-22 a project's own visual identity is a repo-local
+   practice too, not a plain document
+   (`templates/local-practices/project-visual-identity.md.template`'s own
+   header has the reasoning), so a repo installed before that date still
+   has the old shape. Declare the `level: "repo-local"` source above if
+   step 3 has not already, for this reason alone if for no other. Then:
+   1. Read the existing `STYLEGUIDE.md` once. Carry the decisions actually
+      made — a filled-in color table, a real logo path, a genuine
+      typography choice — not what merely shipped with the template
+      (`<undecided>` placeholders and `<hex>` carry nothing).
+   2. Write those decisions into
+      `templates/local-practices/project-visual-identity.md.template`'s
+      section structure at `local/practices/project-visual-identity.md`,
+      filling in `added` with this migration's date and `approved_by` with
+      whoever is doing the migration.
+   3. Delete `STYLEGUIDE.md`. **In the same commit** — a repo carrying both
+      is a repo where no session can tell which one is meant to bind.
+   4. Update anything that still links to `STYLEGUIDE.md` by name (an
+      instructions-file bullet, a deck-engine pointer) to point at
+      `local/practices/project-visual-identity.md` instead
+      ([rename-updates-links](../practices/rename-updates-links.md)).
 
 4. **Wire the person, not only the repo — an individual source, a
    declared identity, and a commit author that is a human being.** A
