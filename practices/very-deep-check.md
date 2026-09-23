@@ -560,12 +560,20 @@ method"). Build the fixtures.
   below, and **a practice moved between levels**
   ([spec/MOVING_PRACTICES.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/MOVING_PRACTICES.md)):
   two bootstrapped sets and a consumer in scratch, every direction the
-  page offers (individual → team, team → individual, team → universal),
-  with `tools/precedent_move.py` and, separately, by hand against the
-  page's two steps — then the copy-and-delete the page forbids, to see
-  which check names it. Added 2026-09-14, the day Morgan asked whether
-  the run had tested it and it had not: the rehearsal returned thirteen
-  findings and the move tool. Each rehearsal ends by running the result's
+  page offers (individual → team, team → individual, team → universal,
+  and universal → team/individual, both halves — the initial duplicate
+  landing and the deliberate `--dedupe-only --accept-reach-loss`
+  withdrawal), with `tools/precedent_move.py` and, separately, by hand
+  against the page's two steps — then the copy-and-delete the page
+  forbids, to see which check names it. Added 2026-09-14, the day Morgan
+  asked whether the run had tested it and it had not: the rehearsal
+  returned thirteen findings and the move tool. The universal → team/
+  individual direction was added 2026-09-23, the same day a hand-done
+  version of exactly that move (before the tool supported it) shipped a
+  deduplication this repo's own consumer-fixture check later found
+  resolving nowhere — rehearse it for the same reason the others are
+  rehearsed: the tool having a `--help` line for something is not the
+  same as the something working. Each rehearsal ends by running the result's
   own checks and reporting the real output. **Then ask one more question of each: is what
   landed what the pitch promised?** Read the result against
   [documentation/ADOPTING.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/documentation/ADOPTING.md) and the README, not
