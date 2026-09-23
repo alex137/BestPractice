@@ -6835,7 +6835,9 @@ def check_reply_check_names_what_it_cannot_evaluate():
 
 
 def check_declared_loss_unblocks_the_archive_line():
-    """The exception Morgan's rule always carried, and the code never had.
+    """The exception Morgan's rule always carried, and the code never had --
+    plus the marker route added after the phrase list turned out to be the
+    same bug in a different shape.
 
     `require_container_safe_if_says` blocks "You can archive this session"
     whenever any checkout in the container holds work no remote has. Its own
@@ -6852,7 +6854,19 @@ def check_declared_loss_unblocks_the_archive_line():
     2026-09-22 case that built the rule caught: a session that had never
     looked at the clone holding six unpushed commits could not have named
     it. Both halves are asserted here, and so is the failure of each half
-    alone (practice: control-asserts-which-failure)."""
+    alone (practice: control-asserts-which-failure).
+
+    THE MARKER ROUTE, ADDED LATER THE SAME DAY. The phrase list still made a
+    session guess an exact string: a later session said the same substance
+    ("safe to let the container reclaim them") in its own words, twice, and
+    was refused both times for matching none of the four fixed phrases.
+    Morgan: "That rule, as you read it, it makes no sense... if there's some
+    way to force it to fire, that would be great." `unless_reply_declares_
+    loss.marker` is a `**Checkout disposition:** NAME -- discard` line
+    checked PER CHECKOUT, which is also strictly narrower than the phrase
+    route's "name them all somewhere in the reply": a reply naming two
+    checkouts and giving only one a disposition line must still fail, which
+    the cases below assert as its own negative control."""
     import importlib.util as _ilu
     spec = _ilu.spec_from_file_location(
         '_rc_loss', ROOT / 'tools' / 'precedent_reply_check.py')
@@ -6872,6 +6886,9 @@ def check_declared_loss_unblocks_the_archive_line():
 
     cases = [('the rule declares the escape phrases',
               bool((rule.get('unless_reply_declares_loss') or {}).get('phrases')),
+              str(rule.get('unless_reply_declares_loss'))),
+             ('the rule declares the marker template',
+              bool((rule.get('unless_reply_declares_loss') or {}).get('marker')),
               str(rule.get('unless_reply_declares_loss'))),
              ('the key is known to the predicate reader',
               'unless_reply_declares_loss' in rc.KNOWN_REQUIREMENT_KEYS, '')]
@@ -6896,6 +6913,22 @@ def check_declared_loss_unblocks_the_archive_line():
             ('naming both without the phrase does not',
              'there is work in ~/precedent-individual and in BestPractice',
              False),
+            ('the marker route, both dispositioned, releases it',
+             '**Checkout disposition:** precedent-individual -- discard '
+             '(superseded)\n**Checkout disposition:** BestPractice -- '
+             'discard (test fixture)', True),
+            ('the marker with an em-dash and no parenthetical still works',
+             '**Checkout disposition:** precedent-individual — discard\n'
+             '**Checkout disposition:** BestPractice — discard', True),
+            ('the marker route is PER CHECKOUT -- one dispositioned line '
+             'does not cover a second unsafe checkout the reply never '
+             'mentions',
+             '**Checkout disposition:** precedent-individual -- discard '
+             '(superseded)', False),
+            ('a disposition line for the wrong checkout name does not '
+             'match the one that is actually unsafe',
+             '**Checkout disposition:** some-other-repo -- discard\n'
+             '**Checkout disposition:** BestPractice -- discard', False),
         ):
             got = rc._declares_loss(rule, text)
             cases.append((label, got is want, f'got {got}'))

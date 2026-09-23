@@ -687,26 +687,56 @@ def violations(text, reqs, timeline=None):
 def _declares_loss(rule, text):
     """-> True when the reply has deliberately given up the unsafe work.
 
-    Two conditions, and BOTH are needed. The reply says one of the rule's
-    declared phrases, and it names every checkout the scanner called unsafe.
-    The naming half is what keeps this from being a password: a session that
+    Two routes, and each still needs its own naming half -- a session that
     has not looked at a clone cannot name it, and one that has can say so in
-    the same breath as giving it up.
+    the same breath as giving it up. The naming half is what keeps either
+    route from being a password.
+
+    ROUTE 1, THE MARKER (checked first). `unless_reply_declares_loss.marker`
+    is a regex template with a literal `{name}` placeholder; a reply passes
+    this route only when EVERY unsafe checkout has its own matching line, so
+    "precedent-individual" cannot cover for a second unsafe checkout the
+    reply never mentions. This is the one the archive line's own author is
+    meant to reach for: a structured `**Checkout disposition:** NAME --
+    discard (reason)` line, greppable, and never mistaken for prose that
+    merely happens to contain one of route 2's phrases (a quoted objection,
+    a description of someone else's reply) the way free text can be.
+
+    ROUTE 2, THE PHRASE LIST (kept for prose that says the same thing in
+    Morgan's own words rather than the marker). The reply says one of the
+    rule's declared phrases, ANYWHERE, and also names every unsafe checkout
+    anywhere in the same reply -- looser than route 1's per-checkout
+    pairing, which is why route 1 exists at all: a session naming two
+    checkouts and giving up only one could pass route 2 by accident. Route 1
+    is preferred for exactly that reason; route 2 stays for backward
+    compatibility with replies that already read correctly under the old
+    rule.
 
     Matching is on the checkout's directory name (`precedent-individual`),
     not its full path, because that is what a reply to a person actually
     writes. An unreadable or unrunnable scanner returns False -- the same
     fail-closed posture the caller takes everywhere else about this
     sentence, since archiving cannot be undone next turn."""
-    phrases = (rule.get('unless_reply_declares_loss') or {}).get('phrases') or []
-    if not phrases:
-        return False
-    if not any(_norm(ph) in _norm(text) for ph in phrases):
-        return False
     names = _unsafe_checkout_names()
     if not names:
         # The scanner said unsafe but could not say WHICH. Nothing here can
-        # verify the naming half, so the escape is not available.
+        # verify the naming half, so neither route is available.
+        return False
+    escape = rule.get('unless_reply_declares_loss') or {}
+
+    marker = escape.get('marker')
+    if marker:
+        try:
+            if all(re.search(marker.replace('{name}', re.escape(n)), text, re.I)
+                   for n in names):
+                return True
+        except re.error:
+            pass  # a malformed template falls through to route 2, never crashes
+
+    phrases = escape.get('phrases') or []
+    if not phrases:
+        return False
+    if not any(_norm(ph) in _norm(text) for ph in phrases):
         return False
     low = text.lower()
     return all(n.lower() in low for n in names)
