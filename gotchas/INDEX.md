@@ -84,7 +84,7 @@ Full catalogue, one file per trap. AGENTS.md carries only a pointer to this file
 
 - **The symptom.** [story](gotcha-2026-09-14-ratelimit-lies-from-inside-a-session-it-reports-a-pristine-w.md)
 
-- **The symptom.** [story](gotcha-2026-09-14-the-permission-classifier-refuses-commits-and-checks-in-the-.md)
+- **A command that ran a minute ago comes back as `Permission for this action was denied by the Claude Code auto mode classifier`, with a reason in brackets: `[Instruction Poisoning]`, `[Untrusted Code Integration]`, `[Self-Modification]` and `[Out-of-Place Publication]` have all been seen. Reads keep working; writes, commits and scripts that change the repository are refused. **It shows up most in work that began as a message from another session** rather than from the person typing it.** [story](gotcha-2026-09-14-the-permission-classifier-refuses-commits-and-checks-in-the-.md)
 
 - **Measured 2026-09-14** [story](gotcha-2026-09-14-the-session-start-identity-block-reaches-every-precedent-rep.md)
 
