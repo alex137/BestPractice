@@ -15653,11 +15653,12 @@ def check_freshness_guard_user_prompt_never_resets_mid_session():
     cases = []
     for guard in guards:
         tag = guard.relative_to(ROOT).as_posix()
-        # The vendored template has never carried the auto-reconcile feature
-        # at all (it just warns), so this guard's own fix has nothing to
-        # regress there -- checked rather than assumed, so a silent skip
-        # never reads as a pass.
-        has_reconcile = 'reset --hard "origin/$branch"' in guard.read_text()
+        # A guard with no diverged-branch repair at all (it just warns) has
+        # nothing here to regress -- checked rather than assumed, so a silent
+        # skip never reads as a pass. Keyed on the MERGE since 2026-09-23,
+        # when the reset was removed from every mode: keying on the reset
+        # would have skipped every case below the day it went.
+        has_reconcile = 'merge --no-edit "origin/$branch"' in guard.read_text()
         if not has_reconcile:
             cases.append((f'{tag}: has no auto-reconcile to guard against '
                           f'(checked, not assumed -- nothing to fix here)',
@@ -15726,7 +15727,7 @@ def check_freshness_guard_user_prompt_never_resets_mid_session():
             cases.append((f'{tag}: user-prompt repairs a diverged clean '
                           f'branch instead of leaving it drifted (rc={rc})',
                           rc == 0 and 'MERGED origin/' in err
-                          and 'mid-session' in err))
+                          and 'never reset away' in err))
             cases.append((f'{tag}: user-prompt KEEPS the local commit the '
                           f'2026-09-20 bug discarded -- still reachable from '
                           f'HEAD, never reset away',
@@ -15760,8 +15761,11 @@ def check_freshness_guard_user_prompt_never_resets_mid_session():
                           rc3 == 0 and after_cf == before_cf
                           and 'CONFLICTS' in err3 and not unmerged))
 
-            # THE CONTROL: the identical fixture through session-start still
-            # auto-reconciles -- the fix narrows the caller, not the feature.
+            # SESSION-START, 2026-09-23: the identical fixture is merged there
+            # too, never reset. It used to `reset --hard` to origin here --
+            # the verb the fresh-before-write practice rules out by name --
+            # so this asserts the property that practice protects: the local
+            # commit is still on the branch afterwards, and origin is in.
             clone2 = make_diverged('ss')
             local_sha2 = git(clone2, 'rev-parse', 'HEAD').stdout.strip()
             # NOT read yet: the clone's own refs/remotes/origin/main is
@@ -15769,22 +15773,25 @@ def check_freshness_guard_user_prompt_never_resets_mid_session():
             # commit just pushed to the bare repo above is invisible here
             # until the guard's own fetch (inside `run`) catches it up.
             rc2, err2 = run(clone2, 'session-start')
-            after2 = git(clone2, 'rev-parse', 'HEAD').stdout.strip()
             origin_sha2 = git(clone2, 'rev-parse', 'origin/main').stdout.strip()
-            cases.append((f'{tag}: session-start on the identical fixture '
-                          f'still auto-reconciles (rc={rc2})',
-                          rc2 == 0 and 'reconciled it to origin' in err2
-                          and after2 == origin_sha2 and after2 != local_sha2))
-            rescue = git(clone2, 'for-each-ref',
-                        f'refs/freshness-guard/pre-reset/main-{local_sha2[:12]}').stdout.strip()
-            cases.append((f'{tag}: session-start still rescues the old tip '
-                          f'to a dedicated ref before resetting',
-                          local_sha2[:12] in rescue))
+            cases.append((f'{tag}: session-start merges a diverged clean '
+                          f'branch rather than resetting it (rc={rc2})',
+                          rc2 == 0 and 'MERGED origin/' in err2
+                          and 'reconciled it to origin' not in err2))
+            cases.append((f'{tag}: session-start KEEPS the local commit on '
+                          f'the branch and brings origin in',
+                          reachable(clone2, local_sha2)
+                          and reachable(clone2, origin_sha2)))
+            no_reset = git(clone2, 'for-each-ref',
+                           'refs/freshness-guard/pre-reset/').stdout.strip()
+            cases.append((f'{tag}: session-start leaves no pre-reset ref, '
+                          f'because nothing was reset',
+                          not no_reset))
 
     failed = [n for n, ok in cases if not ok]
-    check(f'freshness guard: user-prompt repairs a mid-session divergence '
-          f'without ever discarding local work, session-start still resets '
-          f'safely ({len(cases)} stated cases, both copies)',
+    check(f'freshness guard: a diverged clean branch is merged in every '
+          f'mode and never reset -- no local work discarded '
+          f'({len(cases)} stated cases, both copies)',
           not failed, '; '.join(failed))
 
 
