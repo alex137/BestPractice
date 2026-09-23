@@ -15424,6 +15424,130 @@ def check_session_check_reports_a_dead_also_list_entry():
           f'({len(cases)} stated cases)', not failed, '; '.join(failed))
 
 
+def check_session_check_never_calls_an_unfetched_clone_current():
+    """A source clone that never fetched must not report itself current.
+
+    THE INCIDENT, 2026-09-23. `_clone_behind` compared each clone against
+    its own remote-tracking ref and never fetched, so a clone that had not
+    fetched since it was made measured itself against its own stale copy of
+    origin, counted zero, and the row said CURRENT. This container's
+    precedent-shared-working-style clone sat six commits behind for a whole
+    session that way. Two practices that had been MOVED into that set read
+    as present in no source at all, and the session told its user three
+    times that two rules had been silently switched off. They had not been;
+    the copies had landed upstream hours earlier.
+
+    So the row has three states now, and this pins all three. The one that
+    must never come back is a silent True.
+
+    Everything is stubbed rather than read off the machine: a fixture that
+    lets the container decide passes on a developer box and fails in CI
+    (practice: fixture-owns-its-state)."""
+    import tempfile
+    import precedent_session_check as psc
+
+    cases = []
+    name_wanted = 'clone is current with its own origin'
+    saved_sources = psc._attachable_sources
+    saved_behind = psc._clone_behind
+
+    def row(offline=False):
+        for name, ok, detail in psc.checks(offline=offline):
+            if name_wanted in name:
+                return ok, str(detail)
+        return 'MISSING', ''
+
+    try:
+        psc._attachable_sources = lambda: [('~/precedent-individual', 'main')]
+
+        # A fetch happened and there is nothing to take -> the only True.
+        psc._clone_behind = lambda path, fetch=True: ('current', '')
+        ok, _ = row()
+        cases.append(('a clone confirmed current by a real fetch passes',
+                      ok is True, ''))
+
+        # THE REGRESSION THIS EXISTS FOR: nothing fetched, so "zero commits
+        # behind" means nothing. Undetermined, never green.
+        psc._clone_behind = lambda path, fetch=True: (
+            'unverified', 'not fetched -- offline path')
+        ok, detail = row()
+        cases.append(('a clone that could not be compared is NOT reported '
+                      'current', ok is None, f'ok={ok!r}'))
+        cases.append(('and the row says it is unmeasured rather than clean',
+                      'UNMEASURED' in detail, detail[:90]))
+
+        # Behind stays a hard failure, including off a stale ref.
+        psc._clone_behind = lambda path, fetch=True: (
+            'behind', '6 commit(s) behind origin/main')
+        ok, detail = row()
+        cases.append(('a clone measured behind still fails',
+                      ok is False and '6 commit(s)' in detail, detail[:90]))
+
+        # The offline path must not fetch -- that is the whole reason it
+        # exists -- and must still be capable of reporting a positive
+        # "behind" reading.
+        seen = {}
+
+        def _spy(path, fetch=True):
+            seen['fetch'] = fetch
+            return 'behind', '2 commit(s) behind origin/main'
+
+        psc._clone_behind = _spy
+        ok, _ = row(offline=True)
+        cases.append(('the offline path asks for no fetch',
+                      seen.get('fetch') is False, repr(seen)))
+        cases.append(('and still reports a clone it can see is behind',
+                      ok is False, f'ok={ok!r}'))
+    finally:
+        psc._attachable_sources = saved_sources
+        psc._clone_behind = saved_behind
+
+    # AND THE FUNCTION ITSELF, against real git rather than a stub. The
+    # cases above pin the ROW's three states; this pins the thing that
+    # actually broke -- that `_clone_behind` fetches before it compares. A
+    # stub cannot show that, and a stub is what would have let the original
+    # bug through: every caller was correct, the comparison was simply made
+    # against a ref nothing had refreshed.
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='clone-behind-'))
+    try:
+        upstream, clone = tmp / 'upstream', tmp / 'clone'
+        def g(cwd, *a):
+            subprocess.run(['git', '-C', str(cwd), *a], check=True,
+                           capture_output=True)
+        upstream.mkdir()
+        subprocess.run(['git', 'init', '-q', '-b', 'main', str(upstream)],
+                       check=True, capture_output=True)
+        g(upstream, 'config', 'user.email', 'harness@example.com')
+        g(upstream, 'config', 'user.name', 'harness')
+        (upstream / 'f.txt').write_text('one\n')
+        g(upstream, 'add', '-A')
+        g(upstream, 'commit', '-qm', 'one')
+        subprocess.run(['git', 'clone', '-q', str(upstream), str(clone)],
+                       check=True, capture_output=True)
+        # The clone is current and has fetched: the only shape that is True.
+        v, _ = psc._clone_behind(str(clone), fetch=True)
+        cases.append(('a freshly cloned tree reads as current',
+                      v == 'current', v))
+        # Upstream moves. The clone has NOT fetched, so its own
+        # remote-tracking ref still says zero -- the exact bug.
+        (upstream / 'f.txt').write_text('two\n')
+        g(upstream, 'add', '-A')
+        g(upstream, 'commit', '-qm', 'two')
+        v_off, _ = psc._clone_behind(str(clone), fetch=False)
+        cases.append(('WITHOUT a fetch a stale clone is unverified, never '
+                      'current', v_off == 'unverified', v_off))
+        v_on, phrase = psc._clone_behind(str(clone), fetch=True)
+        cases.append(('WITH a fetch the same clone is measured behind',
+                      v_on == 'behind' and '1 commit' in phrase,
+                      f'{v_on}: {phrase}'))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    return (not bad, f'{len(cases)} stated cases',
+            '; '.join(f'{n}: {d}' for n, d in bad))
+
+
 def check_session_check_reports_a_source_cloned_twice():
     """Two clones of one practice source is the quietest failure there is.
 
@@ -29266,6 +29390,8 @@ def main():
           *check_reply_check_names_what_it_cannot_evaluate())
     check('the session check reports a source cloned twice on one disk',
           *check_session_check_reports_a_source_cloned_twice())
+    check('the session check never calls an unfetched source clone current',
+          *check_session_check_never_calls_an_unfetched_clone_current())
     check('a declared loss releases the archive line, and only then',
           *check_declared_loss_unblocks_the_archive_line())
     check('every verdict-returning check is actually recorded',
