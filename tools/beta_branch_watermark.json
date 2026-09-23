@@ -16,7 +16,7 @@
   "branch": "precedent-beta-v01",
   "seen_by": {
     "morgan-f": {
-      "sha": "ec931f947dfc51e2f73653ff0470a65ca3dfc626",
+      "sha": "ebe368a1d609b38d62fe2214a1e10bbf27b143a9",
       "recorded": "2026-09-23",
       "note": "auto-advanced by precedent_beta_watermark_check.py"
     }

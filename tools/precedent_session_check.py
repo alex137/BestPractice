@@ -502,16 +502,40 @@ def checks(offline=False):
     # its start rather than six steps into a vendor-update runbook, which is
     # the difference between a fix and a post-mortem. Morgan, 2026-09-21
     # (strength: assented).
+    #
+    # THREE STATES, NOT TWO, and the third is why this row was rewritten on
+    # 2026-09-23. `_clone_behind` compared against the clone's own
+    # remote-tracking ref and never fetched, so a clone that had not fetched
+    # since it was made measured itself against its own stale `origin/main`,
+    # counted zero commits, and reported CURRENT. The row could not detect
+    # the condition it names.
+    #
+    # It cost a real wrong answer the same day: this container's
+    # precedent-shared-working-style clone sat six commits behind for a whole
+    # session, two practices that had been moved into that set read as
+    # present in NO source, and a session reported to its user, three times,
+    # that two rules had been silently switched off. They had not. The copies
+    # had landed upstream hours earlier. Absent-from-disk was reported as
+    # absent-full-stop, which is the exact confusion the shared set's
+    # `fresh-check-escalation` names: tell "could not verify" apart from
+    # "confirmed".
+    #
+    # So: BEHIND is still a hard False, including when read off a stale ref
+    # -- a clone that already looks behind against an old ref is behind for
+    # certain, and that reading is worth keeping on the cheap offline path.
+    # "Looks current" is only True when a fetch actually succeeded; otherwise
+    # it is None, undetermined, which `failing_guarantees` deliberately does
+    # not nag about. What it must never be again is True.
     name = 'each practice source clone is current with its own origin'
-    behind = []
+    behind, unverified = [], []
     for shown, _base in _attachable_sources():
         real = _expand_source_path(shown)
-        state = _clone_behind(real)
-        if state:
-            behind.append(f'{shown} is {state}')
-    if not behind:
-        out.append((name, True, ''))
-    else:
+        verdict, phrase = _clone_behind(real, fetch=not offline)
+        if verdict == 'behind':
+            behind.append(f'{shown} is {phrase}')
+        elif verdict == 'unverified':
+            unverified.append(f'{shown} ({phrase})')
+    if behind:
         out.append((name, False, '; '.join(behind) + '. The catalogue in '
                     'force is read from these working trees and nothing '
                     'fetches first, so the practices this session is '
@@ -519,18 +543,38 @@ def checks(offline=False):
                     '`python3 tools/precedent_refresh_sources.py --apply`, '
                     'which now brings each clone current before refreshing '
                     'it and refuses to report success when it cannot.'))
+    elif unverified:
+        out.append((name, None, 'could not compare: ' + '; '.join(unverified)
+                    + '. This is UNMEASURED, not clean -- a clone compared '
+                    'against a remote-tracking ref nothing refreshed reports '
+                    'itself current however far behind it is. Run `python3 '
+                    'tools/precedent_session_check.py` (which fetches) '
+                    'before concluding a practice is absent from a source'))
+    else:
+        out.append((name, True, ''))
     return out
 
 
-def _clone_behind(path):
-    """-> a short phrase describing how this clone differs from its own
-    origin, or '' when it is current (or cannot be told, which is not a
-    finding -- practice: fail-gracefully).
+def _clone_behind(path, fetch=True):
+    """-> (verdict, phrase), verdict one of 'current', 'behind',
+    'unverified'.
 
     Compares against the clone's DECLARED base_branch where it has one,
     never origin/HEAD: origin/HEAD answers "what does GitHub show first",
     and this repository is the standing counterexample -- default `main`,
-    work on `precedent-beta-v01`."""
+    work on `precedent-beta-v01`.
+
+    FETCHES FIRST, which it did not until 2026-09-23. Without that, the
+    comparison is against whatever the remote-tracking ref last saw, so a
+    clone that never fetched is measured against its own stale copy of
+    origin and always counts zero. The caller's comment records what that
+    cost.
+
+    `fetch=False` is the cheap path for a caller on a gate. It does not
+    make the answer safe to trust: a zero count then means "no difference
+    against a ref nobody refreshed", which is 'unverified', never
+    'current'. A NON-zero count is still 'behind' -- being behind an old
+    ref means being at least that far behind the real one."""
     try:
         cfg = json.loads((pathlib.Path(path) / 'precedent.json')
                          .read_text(encoding='utf-8'))
@@ -539,26 +583,39 @@ def _clone_behind(path):
         branch = None
     if not isinstance(branch, str) or not branch.strip():
         branch = 'main'
+    fetched, why = False, 'not fetched -- offline path'
+    if fetch:
+        try:
+            f = subprocess.run(
+                ['git', '-C', str(path), 'fetch', '--quiet', 'origin',
+                 branch], capture_output=True, text=True)
+            fetched = f.returncode == 0
+            if not fetched:
+                why = (f'fetch of origin/{branch} failed: '
+                       + (f.stderr.strip().splitlines() or [''])[-1][:120])
+        except OSError as e:
+            why = f'fetch of origin/{branch} could not run ({e})'
     try:
         proc = subprocess.run(
             ['git', '-C', str(path), 'rev-list', '--left-right', '--count',
              f'origin/{branch}...HEAD'], capture_output=True, text=True)
-    except OSError:
-        return ''
+    except OSError as e:
+        return 'unverified', f'origin/{branch} could not be read ({e})'
     if proc.returncode != 0:
-        return ''
+        return 'unverified', f'origin/{branch} did not resolve'
     parts = proc.stdout.split()
     if len(parts) != 2:
-        return ''
+        return 'unverified', f'origin/{branch} comparison returned nothing'
     back, ahead = parts
-    if back == '0' and ahead == '0':
-        return ''
     bits = []
     if back != '0':
         bits.append(f'{back} commit(s) behind origin/{branch}')
     if ahead != '0':
         bits.append(f'{ahead} unpushed commit(s) ahead')
-    return ' and '.join(bits)
+    if bits:
+        # True even off a stale ref: behind an old origin is behind.
+        return 'behind', ' and '.join(bits)
+    return ('current', '') if fetched else ('unverified', why)
 
 
 def _git_head(path):
