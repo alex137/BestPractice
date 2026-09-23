@@ -29084,6 +29084,7 @@ def main():
     check_leak_gate_discovers_the_individual_blocklist()
     check_leak_gate_names_a_stale_blocklist_clone()
     check_leak_gate_refresh_declines_a_dirty_clone()
+    check_freshness_covers_every_declared_source()
     check_visibility_audit_reads_the_blocklist_as_patterns()
     check_rendered_docs_are_current()
     check_install_names_every_not_vendored_dir()
