@@ -2211,6 +2211,144 @@ def check_leak_gate_refresh_declines_a_dirty_clone():
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+def check_freshness_covers_every_declared_source():
+    """precedent_engine_freshness reports one row per way a DECLARED source
+    is reached -- the engine manifest, a vendored tree's manifest, a live
+    sibling clone -- and says BEHIND for each the moment its upstream
+    moves, silence under --quiet while all are current, and NOT VERIFIED
+    (never current) for one it cannot reach. Planted end to end
+    (practice: checks-plant-their-state): the first version read one
+    manifest, so a consumer's second shared set had no freshness check on
+    either of its halves and nothing said so (2026-09-23).
+    """
+    import io, shutil, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_engine_freshness as pef
+
+    def git(cwd, *args):
+        r = subprocess.run(['git', '-C', str(cwd), *args],
+                           capture_output=True, text=True)
+        if r.returncode != 0:
+            raise RuntimeError(f"git {' '.join(args)}: {r.stderr.strip()}")
+        return r.stdout.strip()
+
+    def mkupstream(path, seed):
+        path.mkdir()
+        git(path, 'init', '-q', '-b', 'main')
+        git(path, 'config', 'user.email', 'harness@example.com')
+        git(path, 'config', 'user.name', 'harness')
+        (path / seed).write_text('v1\n', encoding='utf-8')
+        git(path, 'add', '-A')
+        git(path, 'commit', '-qm', 'first')
+        return git(path, 'rev-parse', 'HEAD')
+
+    def advance(path, seed):
+        (path / seed).write_text('v2\n', encoding='utf-8')
+        git(path, 'add', '-A')
+        git(path, 'commit', '-qm', 'second')
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-freshness-'))
+    saved_env = os.environ.get(pef.USER_CONFIG_ENV)
+    try:
+        # Two upstreams: the engine's origin and one shared set.
+        engine_up = tmp / 'engine-upstream'
+        set_up = tmp / 'set-upstream'
+        engine_tip = mkupstream(engine_up, 'tools_marker.txt')
+        set_tip = mkupstream(set_up, 'practices_marker.txt')
+        # The consumer: engine manifest, universal manifest, the set's code
+        # manifest, the set's live clone beside it, and a repo-local source.
+        consumer = tmp / 'consumer'
+        (consumer / 'tools').mkdir(parents=True)
+        (consumer / 'process').mkdir()
+        (consumer / 'local' / 'practices').mkdir(parents=True)
+        set_clone = tmp / 'set'
+        git(tmp, 'clone', '-q', str(set_up), str(set_clone))
+        (consumer / 'precedent.json').write_text(json.dumps({
+            'format_version': 1,
+            'sources': [
+                {'level': 'universal', 'name': 'precedent',
+                 'path': 'process/upstream'},
+                {'level': 'shared', 'name': 'set', 'path': '../set',
+                 'repo': 'set'},
+                {'level': 'repo-local', 'name': 'local', 'path': 'local'},
+            ]}), encoding='utf-8')
+        (consumer / 'tools' / 'ENGINE_MANIFEST.json').write_text(json.dumps({
+            'format_version': 1, 'kind': 'consumer',
+            'source_repo': str(engine_up), 'source_branch': 'main',
+            'source_commit': engine_tip, 'files': []}), encoding='utf-8')
+        (consumer / 'process' / 'manifest.json').write_text(json.dumps({
+            'upstream': {'repo': str(engine_up), 'branch': 'main',
+                         'commit': engine_tip,
+                         'vendored_at': 'process/upstream'}}), encoding='utf-8')
+        (consumer / 'process' / 'manifest_set.json').write_text(json.dumps({
+            'upstream': {'repo': str(set_up), 'branch': 'main',
+                         'commit': set_tip, 'vendored_at': 'process/set'}}),
+            encoding='utf-8')
+        # No individual set for this planted person.
+        os.environ[pef.USER_CONFIG_ENV] = str(tmp / 'no-such-config.json')
+
+        rows = pef.collect_targets(consumer)
+        kinds = sorted(r['kind'] for r in rows)
+
+        quiet_before = io.StringIO()
+        pef.report(consumer, quiet=True, out=quiet_before)
+        full_before = io.StringIO()
+        pef.report(consumer, quiet=False, out=full_before)
+
+        advance(engine_up, 'tools_marker.txt')
+        advance(set_up, 'practices_marker.txt')
+        quiet_after = io.StringIO()
+        pef.report(consumer, quiet=True, out=quiet_after)
+        after = quiet_after.getvalue()
+
+        # An unreachable source: declared, vendored manifest points nowhere.
+        (consumer / 'process' / 'manifest_set.json').write_text(json.dumps({
+            'upstream': {'repo': str(tmp / 'gone'), 'branch': 'main',
+                         'commit': set_tip, 'vendored_at': 'process/set'}}),
+            encoding='utf-8')
+        full_unreachable = io.StringIO()
+        pef.report(consumer, quiet=False, out=full_unreachable)
+        unreachable = full_unreachable.getvalue()
+
+        cases = [
+            ('four rows: engine, universal vendored, set vendored, set live '
+             '(repo-local skipped)', kinds == ['engine', 'live', 'vendored', 'vendored']),
+            ('--quiet says nothing while every source is current',
+             quiet_before.getvalue() == ''),
+            ('the full run says current for each of the four',
+             full_before.getvalue().count('freshness: current --') == 4),
+            ('the engine row reads BEHIND once its upstream moves',
+             'ENGINE BEHIND UPSTREAM: vendored engine (tools/)' in after),
+            ('the universal vendored tree reads BEHIND',
+             'BEHIND UPSTREAM: precedent (universal) vendored at process/upstream' in after),
+            ('the shared set\'s vendored code reads BEHIND',
+             'BEHIND UPSTREAM: set (shared) vendored at process/set' in after),
+            ('the shared set\'s live clone reads BEHIND and says how to fetch it',
+             'BEHIND UPSTREAM: set (shared) live clone at' in after
+             and f'git -C {set_clone} pull --ff-only' in after),
+            ('the notice names Update Vendors once',
+             after.count('"Update Vendors"') == 1),
+            ('an unreachable upstream is NOT VERIFIED, not current',
+             'NOT VERIFIED -- set (shared) vendored at process/set' in unreachable
+             and 'current -- set (shared) vendored' not in unreachable),
+        ]
+        ok = all(passed for _, passed in cases)
+        for name, passed in cases:
+            if not passed:
+                print(f"  freshness did NOT behave as stated: {name}")
+        if not ok:
+            print('  --- quiet after upstream moved ---')
+            print(after)
+        check(f'precedent_engine_freshness covers every declared source '
+              f'({len(cases)} stated cases)', ok)
+    finally:
+        if saved_env is None:
+            os.environ.pop(pef.USER_CONFIG_ENV, None)
+        else:
+            os.environ[pef.USER_CONFIG_ENV] = saved_env
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 def check_visibility_audit_reads_the_blocklist_as_patterns():
     """The stale-entry half of very_deep_check's visibility audit, repaired.
 

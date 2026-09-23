@@ -115,3 +115,23 @@ unchanged: answering "which of my repos are behind, and by how much"
 needs cross-repo read access this repository deliberately does not have.
 Nobody has decided whether it belongs here at all. That decision is what
 this item now waits on.
+
+2026-09-23: **2 now covers every declared source, not only the engine.**
+Alex asked for the general form ("patent-system won't be our last") after a
+consumer that declared a second shared set turned out to have no freshness
+check on either of its halves -- the set's practices resolve from a sibling
+clone, its code is vendored under `process/<name>/` with its own manifest,
+and both the engine notice and `checkin.py fresh` read one manifest each.
+[precedent_engine_freshness.py](../tools/precedent_engine_freshness.py)
+now reads `precedent.json` and reports one row per way each declared
+source is reached: the engine manifest, a
+vendored tree's `process/manifest*.json`, and a live clone at the declared
+path (its HEAD against origin, with the fetch command, since a stale clone
+loads stale rules). Repo-local is skipped; a source declared but neither
+vendored nor cloned is reported as absent rather than silently current.
+`templates/bootstrap.sh` now runs it `--quiet` at session start for every
+consumer, which the earlier wiring did not (only this repo's own hook
+called it). Planted end to end in the harness
+(`check_freshness_covers_every_declared_source`). Its first real run found
+that consumer's shared-set code one commit behind the set's `main`. Item 3
+is unchanged.
