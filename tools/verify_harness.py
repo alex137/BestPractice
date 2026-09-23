@@ -6754,6 +6754,86 @@ def check_reply_check_names_what_it_cannot_evaluate():
             '; '.join(f'{n}: {d}' for n, d in bad))
 
 
+def check_declared_loss_unblocks_the_archive_line():
+    """The exception Morgan's rule always carried, and the code never had.
+
+    `require_container_safe_if_says` blocks "You can archive this session"
+    whenever any checkout in the container holds work no remote has. Its own
+    stated rule ends "(unless the work is intended to be lost!)", and its
+    refusal text tells the reader to "say in the reply that it is meant to
+    be lost" -- neither of which the code implemented. On 2026-09-23 a
+    session said precisely that, in those words, in three consecutive
+    replies, and was refused all three times; each one therefore closed by
+    telling Morgan NOT to archive a session he could safely archive.
+
+    A gate that forces a false statement has stopped being a safety
+    mechanism, so the escape is real now -- and deliberately not a password.
+    The reply must ALSO name every unsafe checkout, which is what keeps the
+    2026-09-22 case that built the rule caught: a session that had never
+    looked at the clone holding six unpushed commits could not have named
+    it. Both halves are asserted here, and so is the failure of each half
+    alone (practice: control-asserts-which-failure)."""
+    import importlib.util as _ilu
+    spec = _ilu.spec_from_file_location(
+        '_rc_loss', ROOT / 'tools' / 'precedent_reply_check.py')
+    try:
+        rc = _ilu.module_from_spec(spec)
+        spec.loader.exec_module(rc)
+    except Exception as exc:                     # noqa: BLE001
+        return (False, '', f'precedent_reply_check.py would not import: {exc}')
+
+    rule = None
+    for r, _n in [(x, None) for x in (rc.declared_requirements(str(ROOT))[0] or [])]:
+        if r.get('require_container_safe_if_says'):
+            rule = r
+            break
+    if rule is None:
+        return (False, '', 'no rule declares require_container_safe_if_says')
+
+    cases = [('the rule declares the escape phrases',
+              bool((rule.get('unless_reply_declares_loss') or {}).get('phrases')),
+              str(rule.get('unless_reply_declares_loss'))),
+             ('the key is known to the predicate reader',
+              'unless_reply_declares_loss' in rc.KNOWN_REQUIREMENT_KEYS, '')]
+
+    # Stub the scanner so this asserts the PREDICATE, not this container's
+    # current disk -- which changes between runs and would make the case
+    # pass or fail for reasons that have nothing to do with the logic.
+    real = rc._unsafe_checkout_names
+    try:
+        rc._unsafe_checkout_names = lambda: ['precedent-individual', 'BestPractice']
+        for label, text, want in (
+            ('both named plus the phrase releases it',
+             'the commits in ~/precedent-individual and in BestPractice are '
+             'meant to be lost', True),
+            ('a different declared phrase also works',
+             '~/precedent-individual and BestPractice are intended to be '
+             'discarded', True),
+            ('naming only one of two does not',
+             '~/precedent-individual is meant to be lost', False),
+            ('the phrase alone, naming nothing, does not',
+             'it is all meant to be lost', False),
+            ('naming both without the phrase does not',
+             'there is work in ~/precedent-individual and in BestPractice',
+             False),
+        ):
+            got = rc._declares_loss(rule, text)
+            cases.append((label, got is want, f'got {got}'))
+
+        # A scanner that cannot say WHICH checkout leaves no way to verify
+        # the naming half, so the escape must not be available at all.
+        rc._unsafe_checkout_names = lambda: []
+        cases.append(('an unreadable scanner closes the escape',
+                      rc._declares_loss(rule, 'it is meant to be lost') is False,
+                      'the escape opened with no names to check'))
+    finally:
+        rc._unsafe_checkout_names = real
+
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    return (not bad, f'{len(cases)} stated cases, fail-closed among them',
+            '; '.join(f'{n}: {d}' for n, d in bad))
+
+
 def check_every_verdict_returning_check_is_recorded():
     """A verdict nobody reads is not a check.
 
@@ -29017,6 +29097,8 @@ def main():
           *check_reply_check_names_what_it_cannot_evaluate())
     check('the session check reports a source cloned twice on one disk',
           *check_session_check_reports_a_source_cloned_twice())
+    check('a declared loss releases the archive line, and only then',
+          *check_declared_loss_unblocks_the_archive_line())
     check('every verdict-returning check is actually recorded',
           *check_every_verdict_returning_check_is_recorded())
     check('the reply check requires a destination for a fence block',

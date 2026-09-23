@@ -391,6 +391,7 @@ KNOWN_REQUIREMENT_KEYS = frozenset({
     'require_no_bare_pattern',
     'require_paired_with',
     'require_container_safe_if_says',
+    'unless_reply_declares_loss',
     # conditions and metadata
     'require_when_context_grew_tokens',
     'advisory',
@@ -648,6 +649,30 @@ def violations(text, reqs, timeline=None):
             if verdict is None:
                 continue
             ok, report = verdict
+            if not ok and _declares_loss(r, quoted_stripped):
+                # THE EXCEPTION THE RULE ALWAYS HAD, FINALLY IMPLEMENTED.
+                # Morgan's own words, quoted in this rule's `why` since
+                # 2026-09-22: "never never recommend 'You can archive this
+                # session' (unless the work is intended to be lost!)". The
+                # parenthesis was never coded. The refusal text even told
+                # the reader how to satisfy it -- "or say in the reply that
+                # it is meant to be lost" -- and then ignored them doing so.
+                #
+                # On 2026-09-23 a session said exactly that, in those words,
+                # in three consecutive replies about 34 watermark commits it
+                # had established were superseded pointer advances in a
+                # clone 74 commits behind its own origin and on an owner the
+                # git proxy refuses pushes to. All three turns were refused,
+                # so all three ended by telling the person NOT to archive a
+                # session they could safely archive. A gate that forces a
+                # false statement has stopped being a safety mechanism.
+                #
+                # It is deliberately not a magic phrase: `_declares_loss`
+                # also requires the reply to NAME every checkout being given
+                # up, so a session cannot wave away work it has not looked
+                # at -- which is the exact 2026-09-22 failure this rule was
+                # built for, and it stays caught.
+                continue
             if not ok:
                 out.append({'kind': 'container', 'advisory': False, 'message': (
                     f"[{r.get('_source', '?')}] this reply says "
@@ -657,6 +682,55 @@ def violations(text, reqs, timeline=None):
                     f"meant to be lost -- before saying that sentence."
                     + (f" (practice: {r['practice']})" if r.get('practice') else ''))})
     return out
+
+
+def _declares_loss(rule, text):
+    """-> True when the reply has deliberately given up the unsafe work.
+
+    Two conditions, and BOTH are needed. The reply says one of the rule's
+    declared phrases, and it names every checkout the scanner called unsafe.
+    The naming half is what keeps this from being a password: a session that
+    has not looked at a clone cannot name it, and one that has can say so in
+    the same breath as giving it up.
+
+    Matching is on the checkout's directory name (`precedent-individual`),
+    not its full path, because that is what a reply to a person actually
+    writes. An unreadable or unrunnable scanner returns False -- the same
+    fail-closed posture the caller takes everywhere else about this
+    sentence, since archiving cannot be undone next turn."""
+    phrases = (rule.get('unless_reply_declares_loss') or {}).get('phrases') or []
+    if not phrases:
+        return False
+    if not any(_norm(ph) in _norm(text) for ph in phrases):
+        return False
+    names = _unsafe_checkout_names()
+    if not names:
+        # The scanner said unsafe but could not say WHICH. Nothing here can
+        # verify the naming half, so the escape is not available.
+        return False
+    low = text.lower()
+    return all(n.lower() in low for n in names)
+
+
+def _unsafe_checkout_names():
+    """-> [directory name] for each checkout the scanner calls unsafe, or []
+    when it cannot be run or read. Run only on the unsafe path, which is
+    rare, so the second subprocess costs nothing in the ordinary case."""
+    tool = pathlib.Path(__file__).resolve().parent / 'precedent_container_safe.py'
+    if not tool.is_file():
+        return []
+    try:
+        p = subprocess.run([sys.executable, str(tool), '--json'],
+                           capture_output=True, text=True, timeout=120)
+        payload = json.loads(p.stdout or '{}')
+    except (OSError, subprocess.SubprocessError, ValueError):
+        return []
+    names = []
+    for entry in payload.get('unsafe') or []:
+        repo = str(entry.get('repo') or '').rstrip('/')
+        if repo:
+            names.append(pathlib.PurePath(repo).name)
+    return names
 
 
 def _container_verdict():
