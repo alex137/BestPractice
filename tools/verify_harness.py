@@ -7614,6 +7614,21 @@ def check_planted_case_rotation_never_narrows_silently():
             '; '.join(f'{n}: {d}' for n, d in bad))
 
 
+def _reverse_marked_dated_list(text):
+    """-> `text` with the first `<!--dated-list-->` block reversed.
+
+    Restores the disorder the practice was written for: entries prepended at
+    the top, so the list reads newest first.
+    """
+    head, rest = text.split('<!--dated-list-->', 1)
+    lines = rest.splitlines()
+    rows = [i for i, l in enumerate(lines) if l.startswith('- ')]
+    picked = [lines[i] for i in rows]
+    for i, row in zip(rows, reversed(picked)):
+        lines[i] = row
+    return head + '<!--dated-list-->' + '\n'.join(lines)
+
+
 def check_precedent_check_fires():
     """The enforced channel's own behaviour, as stated cases against throwaway
     repositories -- one planted violation per enforced practice.
@@ -8458,6 +8473,41 @@ def check_precedent_check_fires():
                       '-- the unknown state, which is legal forever -- does '
                       'not fail',
                       _rcm == 0 and 'VIOLATION' not in _outm))
+
+        # dated-list-runs-forward -- a marked list put back into the order
+        # it actually had before 2026-09-23: newest first. That is the plant
+        # rather than a single swapped row because it is how the disorder
+        # really arises -- somebody adds an entry at the top, where the
+        # cursor is, and nothing objects.
+        case('dated-list-runs-forward',
+             lambda repo: rewrite(repo, 'practices/very-deep-check.md',
+                                  _reverse_marked_dated_list))
+
+        # The other half of the grammar, asserted directly rather than
+        # through case(): case() proves only that SOMETHING failed, and an
+        # undated entry must not be interchangeable with an out-of-order one
+        # (control-asserts-which-failure). This is the exact shape the
+        # practice was written for -- a relative date creeping back in.
+        _undated = fresh('dated-list-runs-forward-undated')
+        rewrite(_undated, 'practices/very-deep-check.md',
+                lambda x: x.replace(
+                    '\n## Install',
+                    '\n- **Extended same day, Morgan** \u2014 a relative date '
+                    'creeps back in\n\n## Install', 1))
+        _rcd, _outd = run(_undated, 'dated-list-runs-forward')
+        cases.append(('dated-list-runs-forward: an entry dated "same day" '
+                      'rather than with a date of its own fails, saying so',
+                      _rcd == 1 and 'no date of its own' in _outd))
+        # And the clean direction, which is the one that decides whether this
+        # check is safe to leave switched on: the mark shown as an EXAMPLE,
+        # indented or fenced inside the practice that documents it, must not
+        # register as a real list. The first run of this check flagged
+        # exactly that (practice: checkable-gets-checked).
+        _example = fresh('dated-list-runs-forward-example')
+        _rce, _oute = run(_example, 'dated-list-runs-forward')
+        cases.append(('dated-list-runs-forward: the mark shown as an example '
+                      'in its own practice file is not read as a list',
+                      _rce == 0 and 'VIOLATION' not in _oute))
 
         # speculation-is-marked -- the four markers drifting apart. The plant
         # is `status: accepted` on the repo's own speculative document:
