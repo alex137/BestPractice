@@ -107,13 +107,13 @@ envelope.
 **Checked at the moment of sending, on Claude Code, since 2026-09-23.**
 Nothing in a repository records the prompts a session seeds, so no
 repository check can read them. But the harness sees the call before it
-runs: [`seeded-prompt-gate.sh`](../templates/harness/claude-code/hooks/seeded-prompt-gate.sh)
+runs: [`seeded-prompt-gate.sh`](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/templates/harness/claude-code/hooks/seeded-prompt-gate.sh)
 refuses `create_session`, `create_trigger`, `update_trigger`, `fire_trigger`
 and `send_later` when the text they carry does not name a session id on its
 first line, and hands back the line to use. It checks presence and position,
 never truth. Other harnesses have no pre-tool hook, so there the header is
 still the sending session's to remember
-([templates/harness/PARALLELS.md](../templates/harness/PARALLELS.md)).
+([templates/harness/PARALLELS.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/templates/harness/PARALLELS.md)).
 
 ## Why
 **A person cannot act on a message whose sender they cannot identify.** Where
@@ -133,7 +133,7 @@ adopter installs nothing and every session reads it whether or not any
 private source resolved.
 
 **On Claude Code, wire the gate.** `seeded-prompt-gate.sh` ships in
-[templates/harness/claude-code/hooks/](../templates/harness/claude-code/hooks/)
+[templates/harness/claude-code/hooks/](https://github.com/alex137/BestPractice/tree/precedent-beta-v01/templates/harness/claude-code/hooks/)
 and is wired in that adapter's `settings.json` as a `PreToolUse` hook. A
 repository installed before 2026-09-23 has to add that one `PreToolUse`
 entry to its own `.claude/settings.json` to get it; a vendor refresh
