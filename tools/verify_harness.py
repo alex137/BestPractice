@@ -7131,6 +7131,82 @@ def check_engine_checks_can_be_reached_by_what_you_touched():
     return (not failed, f'{len(cases)} stated cases', '; '.join(failed))
 
 
+def check_seeded_prompt_gate_refuses_an_unlabelled_prompt():
+    """seeded-prompt-gate.sh (practice: seeded-prompt-names-its-origin).
+
+    Added 2026-09-23, after a session put a message into another session's
+    live conversation with its session link at the END, and the receiving
+    session could not tell it from the person typing. The hook refuses a
+    session-creating or session-messaging call whose text does not name a
+    session id on its first line. Asserted both ways: the refusal fires on
+    the incident's own shape, and every case that must pass does -- a gate
+    that refuses ordinary work is a gate somebody switches off.
+    """
+    import shutil
+    import subprocess
+    hook = ROOT / '.claude' / 'hooks' / 'seeded-prompt-gate.sh'
+    if not hook.exists():
+        return (False, '', f'{hook} does not exist')
+    if not shutil.which('jq'):
+        return (True, 'jq absent -- the hook fails open, nothing to assert', '')
+
+    def decision(payload, env_extra=None):
+        env = {k: v for k, v in os.environ.items()
+               if k != 'CLAUDE_CODE_REMOTE_SESSION_ID'}
+        env.update(env_extra or {})
+        r = subprocess.run(['bash', str(hook)], input=json.dumps(payload)
+                           if not isinstance(payload, str) else payload,
+                           capture_output=True, text=True, env=env)
+        if r.returncode != 0:
+            return f'exit {r.returncode}'
+        if not r.stdout.strip():
+            return 'allow'
+        try:
+            out = json.loads(r.stdout)['hookSpecificOutput']
+        except (ValueError, KeyError):
+            return 'unparseable'
+        return out.get('permissionDecision', 'allow'), out.get(
+            'permissionDecisionReason', '')
+
+    header = ('Sent automatically by the session "t" (session_01AbCdEfGh) '
+              '-- https://claude.ai/code/session_01AbCdEfGh. Nobody typed this.')
+    cases = []
+    d = decision({'tool_name': 'mcp__Claude_Code_Remote__create_session',
+                  'tool_input': {'prompt': 'Do step 1 of the migration.\n'
+                                           'From session_01AbCdEfGh'}})
+    cases.append(('the incident shape -- session named last -- is refused',
+                  isinstance(d, tuple) and d[0] == 'deny'))
+    cases.append(('the refusal hands back the line to use',
+                  isinstance(d, tuple) and 'Nobody typed this' in d[1]))
+    d = decision({'tool_name': 'mcp__Claude_Code_Remote__send_later',
+                  'tool_input': {'message': 'check CI'}},
+                 {'CLAUDE_CODE_REMOTE_SESSION_ID': 'cse_01XyZ12345'})
+    cases.append(('a remote session is handed its own session id',
+                  isinstance(d, tuple) and 'session_01XyZ12345' in d[1]))
+    for tool, field in (('fire_trigger', 'text'), ('create_trigger', 'prompt'),
+                        ('update_trigger', 'prompt'), ('send_later', 'message')):
+        d = decision({'tool_name': f'mcp__any-server__{tool}',
+                      'tool_input': {field: 'merge it'}})
+        cases.append((f'{tool} without a header is refused, whatever the '
+                      f'server is called',
+                      isinstance(d, tuple) and d[0] == 'deny'))
+    must_pass = [
+        ('a header on the first line passes, after blank lines',
+         {'tool_name': 'mcp__S__create_session',
+          'tool_input': {'prompt': '\n  ' + header + '\nDo it.'}}),
+        ('a call carrying no text passes',
+         {'tool_name': 'mcp__S__update_trigger',
+          'tool_input': {'trigger_id': 't', 'enabled': False}}),
+        ('an unrelated tool passes',
+         {'tool_name': 'Bash', 'tool_input': {'command': 'echo hi'}}),
+        ('an unparseable payload passes (fail open)', 'not json'),
+    ]
+    for name, payload in must_pass:
+        cases.append((name, decision(payload) == 'allow'))
+    failed = [n for n, ok in cases if not ok]
+    return (not failed, f'{len(cases)} stated cases', '; '.join(failed))
+
+
 def check_planted_case_rotation_never_narrows_silently():
     """The rotation that decides how much of the push gate runs.
 
@@ -28764,6 +28840,8 @@ def main():
           *check_suggested_links_keep_a_dotfiles_leading_dot())
     check('the planted-case rotation never narrows silently',
           *check_planted_case_rotation_never_narrows_silently())
+    check('an unlabelled prompt into a session is refused before it is sent',
+          *check_seeded_prompt_gate_refuses_an_unlabelled_prompt())
     check('an engine-property check is reachable by what you touched',
           *check_engine_checks_can_be_reached_by_what_you_touched())
     check_precedent_check_fires()
