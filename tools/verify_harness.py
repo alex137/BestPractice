@@ -9145,6 +9145,21 @@ def check_precedent_check_fires():
             git(repo, 'add', '-A')
             git(repo, 'commit', '-qm', 'fork')
         case('engine-plus-host-shims', _plant_fork, setup=_setup_vendored)
+        # ...and must NOT fire on a host tools/bootstrap.sh that matches the
+        # upstream's own tools/bootstrap.sh: both are instantiations of
+        # templates/bootstrap.sh, so the match proves the install, not a fork
+        # (2026-09-23, the first precedent_check run in a migrated consumer).
+        _sb = fresh('shims-bootstrap-instantiation')
+        (_sb / 'process' / 'upstream' / 'tools').mkdir(parents=True)
+        shutil.copy(_sb / 'tools' / 'bootstrap.sh',
+                    _sb / 'process' / 'upstream' / 'tools' / 'bootstrap.sh')
+        git(_sb, 'add', '-A')
+        git(_sb, 'commit', '-qm', 'vendor')
+        _sb_rc, _sb_out = run(_sb, 'engine-plus-host-shims')
+        cases.append(('engine-plus-host-shims: a host tools/bootstrap.sh that '
+                      'matches the upstream\'s own instantiation of the '
+                      'bootstrap template is not reported as a fork',
+                      _sb_rc == 0 and 'duplicates' not in _sb_out))
 
         # doc-references-are-links -- a line that renders <del> on GitHub
         case('doc-references-are-links',
@@ -13104,6 +13119,22 @@ def check_materialize_bridges_loader():
         rc, out = run()
         cases.append(('a checks/ filename collision across two sources refuses',
                       rc == 1 and 'collision' in out))
+
+        # --- a same-named copy in a source whose practice does NOT claim it
+        # is left behind, never a collision (2026-09-23: the universal tree
+        # began carrying its own copies of the individual set's commit
+        # checks, and the first sync in a migrating consumer refused) -------
+        write_practice(uni / 'practices' / 'uni-fixture.md', 'uni-fixture',
+                        'A universal fixture Rule.', tier='resident')
+        rc, out = run()
+        cases.append(('a copy only ANOTHER source claims is left behind, not a '
+                      'collision', rc == 0 and 'collision' not in out
+                      and 'check_shared_name.py (precedent)' in out))
+        cases.append(('and the claiming source\'s copy is the one vendored',
+                      (consumer / 'tools' / 'checks' / 'check_shared_name.py').is_file()))
+        write_practice(uni / 'practices' / 'uni-fixture.md', 'uni-fixture',
+                        'A universal fixture Rule.', tier='resident',
+                        checked_by='"tools/checks/check_shared_name.py"')
 
         # --- an over-budget combined resident set refuses -------------------
         (team / 'tools' / 'checks' / 'check_shared_name.py').unlink()

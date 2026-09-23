@@ -3414,6 +3414,19 @@ def _engine_plus_host_shims(ctx):
     # failure this rule is about), and stops firing on a manifest-recorded
     # engine.
     vendored_engine = _vendored_engine_files()
+    # A check script the SYNC wrote is recorded the same way, in the
+    # materialized tree's MANIFEST.json, and `precedent_sync_views.py
+    # --check` reports the moment one differs -- so the argument above
+    # holds for it too. Found 2026-09-23, the first sync in a consumer after
+    # the universal tree began carrying tools/checks/: the individual set's
+    # materialized commit checks were reported as forks of the universal
+    # tree's scrubbed copies of the very same checks.
+    try:
+        _mf = json.loads((ROOT / 'MANIFEST.json').read_text(encoding='utf-8'))
+        vendored_engine = vendored_engine | frozenset(
+            c['path'] for c in _mf.get('checks') or [] if isinstance(c, dict) and c.get('path'))
+    except (OSError, ValueError, TypeError):
+        pass
 
     RUN = 8
 
@@ -3437,10 +3450,19 @@ def _engine_plus_host_shims(ctx):
     # template correctly matches that copy too, and excluding only
     # templates/ just moves the false finding rather than removing it.
     # Neither directory holds engine mechanism a host could shim.
+    #
+    # tools/bootstrap.sh is the same case as a single file: it is the
+    # upstream repo's own instantiation of templates/bootstrap.sh, so a host
+    # whose tools/bootstrap.sh came from that template matches it line for
+    # line by construction. Found 2026-09-23, migrating a classic install
+    # onto the loader: the first precedent_check run there reported the
+    # host's bootstrap as a fork of the upstream's, for having been
+    # installed exactly as INSTALL.md says.
     not_engine = (vendored / 'templates', vendored / '.claude')
+    not_engine_files = {vendored / 'tools' / 'bootstrap.sh'}
     upstream = {}
     for p in sorted(vendored.rglob('*')):
-        if any(d in p.parents for d in not_engine):
+        if any(d in p.parents for d in not_engine) or p in not_engine_files:
             continue
         if p.is_file() and p.suffix in ('.py', '.sh'):
             for r in runs(p):
