@@ -206,7 +206,18 @@ strandable by a provider switch — the capital asset is the context, not
 the platform it's sitting in today. What the hedge looks like in practice:
 [`open-formats-you-own`](REASONS_WHY.md#open-formats-you-own).
 
-## See Also
+<a id="conversation-privacy"></a>
+
+**21. Absolute privacy of individual conversations with your AI
+assistants.** Chat conversations are like Google searches: deeply
+personal. The learnings, documentation and artifacts are shared, but
+never the conversations themselves. What leaves a conversation is what
+it produced, which is why the knowledge that
+[`private-chat-is-lost-knowledge`](REASONS_WHY.md#private-chat-is-lost-knowledge)
+warns about has to be written out of the chat and into the repository,
+rather than the chat being opened up.
+
+## See also
 
 - [Core Pillars](CORE_PILLARS.md) — the one-page pitch: the core ideas
   this approach argues are unique, specifically taken together.

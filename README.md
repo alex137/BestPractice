@@ -2,7 +2,10 @@
 
 *Humans should do what humans do best, and leave the rest to the
 machines. ([Humans at our
-Best](philosophy/HUMANS_AT_OUR_BEST.md))*
+Best](philosophy/HUMANS_AT_OUR_BEST.md))*\
+*All is lost when you close a Claude/ChatGPT/AI Assistant Session.
+That's a problem, but we don't want our AI conversations to be shared.
+Precedent tries to find the balance that works for us.*
 
 The **three biggest frustrations** of working with people and/or AI
 are solved by Precedent:
@@ -63,7 +66,7 @@ Loop](philosophy/THE_WORKING_LOOP.md), [The Talmudic
 Method](philosophy/THE_TALMUDIC_METHOD.md), [Ten Things to Know About How
 Precedent Works](documentation/TEN_THINGS.md).
 
-## Why this matters
+## Why This Matters
 
 - **Plain text and git are the source of truth.** Every rule, every
   document, and the reasoning behind each one lives in your own GitHub
