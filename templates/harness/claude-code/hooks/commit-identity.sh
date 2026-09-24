@@ -288,6 +288,47 @@ if [ -z "$zone" ]; then
 else
   zone_is_guess=0
 fi
+# ---- the person's CI cadence (spec/CI_CADENCE_PLAN.md)
+#
+# How often GitHub Actions runs in this person's PRIVATE repos: at most once
+# every `ci_every_hours` hours, read from the same identity.json as the
+# name and zone above -- this repository's own, then the individual source's.
+# 0 means every push, and 0 is what an absent, unreadable or invalid value
+# resolves to: skipping CI happens only when somebody asked for it by number
+# (Morgan, 2026-09-24: "unless explicitly changed, the github ci/cd should
+# run every time"). A repository can still override it in its own
+# precedent.json; the cadence script written below reads that at commit time.
+_personal_ci_every_hours() {
+  command -v python3 >/dev/null 2>&1 || { echo 0; return 0; }
+  python3 - "$ROOT/identity.json" "${PRECEDENT_USER_CONFIG:-$HOME/.config/precedent/config.json}" <<'CI_HOURS' 2>/dev/null || echo 0
+import json, os, pathlib, sys
+def load(p):
+    try:
+        return json.loads(pathlib.Path(os.path.expandvars(p)).expanduser()
+                          .read_text(encoding='utf-8'))
+    except Exception:
+        return None
+cands = [sys.argv[1]]
+cfg = load(sys.argv[2])
+if isinstance(cfg, dict):
+    path = (cfg.get('individual') or {}).get('path')
+    if isinstance(path, str) and path:
+        cands.append(os.path.join(path, 'identity.json'))
+for c in cands:
+    d = load(c)
+    if isinstance(d, dict) and 'ci_every_hours' in d:
+        v = d['ci_every_hours']
+        ok = isinstance(v, (int, float)) and not isinstance(v, bool) and v >= 0
+        print(repr(v) if ok else 0)
+        raise SystemExit(0)
+print(0)
+CI_HOURS
+}
+ci_every_hours="$(_personal_ci_every_hours)"
+case "$ci_every_hours" in
+  ''|*[!0-9.]*) ci_every_hours=0 ;;
+esac
+
 # From here on `zone` is always a real zone, never empty -- the fallback is
 # a decision this project made, not an absence. `zone_is_guess` now governs
 # ENFORCEMENT alone: whether a mismatch is evidence of a mistake. It no
@@ -436,6 +477,137 @@ _set_global_identity() {
 }
 _set_global_identity
 
+# ---- the CI cadence script, written beside the hooks that call it
+#
+# Why a commit message and not a CI job: GitHub starts no workflow for a
+# pushed head commit whose message says [skip ci], so no runner is allocated
+# and nothing is billed. A job that decides whether to skip is itself billed
+# a minute -- the retired ci_debounce_minutes, spec/BILLING_FLOOR.md.
+#
+# It tags a commit only when ALL of these hold, and leaves it alone on any
+# doubt, so every failure runs CI rather than skipping it:
+#   - the cadence is above 0: the repo's own precedent.json `ci_every_hours`
+#     if it has one, else this person's value, baked in below
+#   - the repo's precedent.json says "visibility": "private"
+#   - HEAD is the repo's declared `base_branch` (feature branches become pull
+#     requests, and a pull request's required check must always report)
+#   - the newest commit on origin/<base_branch> WITHOUT a skip marker is less
+#     than that many hours old. ORIGIN, never local: two commits made before
+#     one push must not see each other, or the pushed head skips CI although
+#     none was run
+#   - PRECEDENT_CI_NOW=1 is not set
+_write_ci_cadence() {  # $1 = hooks directory
+  local f="$1/precedent-ci-cadence"
+  {
+    printf '#!/usr/bin/env python3\n'
+    printf '%s -- written by the commit-identity SessionStart hook; safe to\n' "$marker"
+    printf '# delete, it is rewritten at every session start. spec/CI_CADENCE_PLAN.md.\n'
+    printf 'PERSONAL_CI_EVERY_HOURS = %s\n' "$ci_every_hours"
+    cat <<'CADENCE'
+import json, os, re, subprocess, sys, time
+
+# Every marker GitHub honours, plus the skip-checks trailer (as of 2026-09).
+SKIP = re.compile(r'\[(?:skip ci|ci skip|no ci|skip actions|actions skip)\]'
+                  r'|^skip-checks:\s*true\s*$', re.I | re.M)
+
+
+def git(*args):
+    p = subprocess.run(['git', *args], capture_output=True, text=True)
+    return p.stdout.strip() if p.returncode == 0 else None
+
+
+def hours_of(v):
+    if isinstance(v, bool) or not isinstance(v, (int, float)) or v < 0:
+        return 0
+    return float(v)
+
+
+def decide(msg):
+    """-> (hours, age_seconds, where, base) when this commit should skip CI,
+    else None. None is the answer to every doubt."""
+    if os.environ.get('PRECEDENT_CI_NOW') == '1':
+        return None
+    root = git('rev-parse', '--show-toplevel')
+    if not root:
+        return None
+    try:
+        with open(os.path.join(root, 'precedent.json'), encoding='utf-8') as fh:
+            cfg = json.load(fh)
+    except Exception:
+        cfg = {}
+    if not isinstance(cfg, dict):
+        cfg = {}
+    if 'ci_every_hours' in cfg:
+        hours, where = hours_of(cfg['ci_every_hours']), "this repo's precedent.json"
+    else:
+        hours, where = hours_of(PERSONAL_CI_EVERY_HOURS), 'your identity.json'
+    if not hours:
+        return None
+    if cfg.get('visibility') != 'private':
+        return None
+    base = cfg.get('base_branch')
+    if not isinstance(base, str) or not base:
+        return None
+    if git('symbolic-ref', '--short', '-q', 'HEAD') != base:
+        return None
+    if SKIP.search(msg):
+        return None
+    log = git('log', '--first-parent', '-n', '500', '--format=%ct%x00%B%x1e',
+              f'refs/remotes/origin/{base}')
+    if not log:
+        return None
+    for entry in log.split('\x1e'):
+        entry = entry.lstrip('\n')
+        if not entry:
+            continue
+        ct, _, body = entry.partition('\x00')
+        if SKIP.search(body):
+            continue
+        try:
+            age = time.time() - int(ct)
+        except ValueError:
+            return None
+        return (hours, age, where, base) if age < hours * 3600 else None
+    return None
+
+
+def main():
+    if len(sys.argv) < 2:
+        return
+    path = sys.argv[1]
+    with open(path, encoding='utf-8') as fh:
+        msg = fh.read()
+    got = decide(msg)
+    if not got:
+        return
+    hours, age, where, base = got
+    line = f'[skip ci] -- CI ran within the last {hours:g}h (ci_every_hours)'
+    first, _, rest = msg.partition('\n')
+    if first.strip() and not first.startswith('#'):
+        # After the subject, before the body, so a trailer block at the end
+        # (Co-Authored-By and the like) stays the last paragraph.
+        new = f'{first}\n\n{line}\n' + (rest if rest.strip() else '')
+    else:
+        # An editor template with no subject yet: the person's text goes on
+        # top, so the marker goes below everything.
+        new = msg.rstrip('\n') + f'\n\n{line}\n'
+    with open(path, 'w', encoding='utf-8') as fh:
+        fh.write(new)
+    print(f'ci-cadence: added [skip ci] -- CI last ran on origin/{base} '
+          f'{age / 3600:.1f}h ago, and {where} sets ci_every_hours to '
+          f'{hours:g}. To run CI on this commit: PRECEDENT_CI_NOW=1 git commit ...',
+          file=sys.stderr)
+
+
+try:
+    main()
+except Exception:
+    pass
+sys.exit(0)
+CADENCE
+  } > "$f" 2>/dev/null && chmod +x "$f" 2>/dev/null || true
+}
+
 # ---- the pre-commit backstop
 gp="$(git -C "$ROOT" rev-parse --git-path hooks 2>/dev/null || true)"
 [ -n "$gp" ] || exit 0
@@ -473,6 +645,18 @@ $marker -- installed by the commit-identity SessionStart hook; safe to
 # config, environment and TZ already resolved -- so this checks the value,
 # not the settings that were supposed to produce it.
 set -u
+
+# The CI cadence step (spec/CI_CADENCE_PLAN.md). It runs only as
+# prepare-commit-msg -- the one hook git hands the message to -- and all it
+# can ever do is ADD a [skip ci] line. It never refuses a commit, and any
+# failure inside it leaves the message alone, so CI runs. It sits ABOVE the
+# author override below, which waives the identity checks and nothing else.
+case "\$0" in
+  *prepare-commit-msg)
+    _cad="\$(dirname "\$0")/precedent-ci-cadence"
+    [ -x "\$_cad" ] && "\$_cad" "\$@" || true
+    ;;
+esac
 
 [ "\${PRECEDENT_ALLOW_ANY_AUTHOR:-}" = "1" ] && exit 0
 
@@ -550,6 +734,7 @@ if [ -e "$merge_target" ] && ! grep -q "$marker" "$merge_target" 2>/dev/null; th
   echo "WARN: commit-identity: $merge_target already exists and is not this one -- leaving it alone. MERGE commits are NOT backstopped in this checkout." >&2
 else
   cp "$target" "$merge_target" 2>/dev/null && chmod +x "$merge_target" 2>/dev/null || true
+  _write_ci_cadence "$hooks_dir"
 fi
 
 # ---- make the DECLARED timezone the session's own, not a thing to retype
@@ -672,6 +857,18 @@ if [ -x "\$_own" ] && ! grep -q "$marker" "\$_own" 2>/dev/null; then
   "\$_own" "\$@" || exit \$?
 fi
 
+# The CI cadence step (spec/CI_CADENCE_PLAN.md). It runs only as
+# prepare-commit-msg -- the one hook git hands the message to -- and all it
+# can ever do is ADD a [skip ci] line. It never refuses a commit, and any
+# failure inside it leaves the message alone, so CI runs. It sits ABOVE the
+# author override below, which waives the identity checks and nothing else.
+case "\$0" in
+  *prepare-commit-msg)
+    _cad="\$(dirname "\$0")/precedent-ci-cadence"
+    [ -x "\$_cad" ] && "\$_cad" "\$@" || true
+    ;;
+esac
+
 [ "\${PRECEDENT_ALLOW_ANY_AUTHOR:-}" = "1" ] && exit 0
 
 ident="\$(git var GIT_AUTHOR_IDENT 2>/dev/null || true)"
@@ -706,6 +903,7 @@ exit 0
 GLOBALHOOK
     chmod +x "$dir/$hook" 2>/dev/null || true
   done
+  _write_ci_cadence "$dir"
 
   if [ "$existing" != "$dir" ]; then
     git config --global core.hooksPath "$dir" 2>/dev/null && \

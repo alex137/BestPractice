@@ -60,3 +60,19 @@ The same checks were repeated on the unshallowed clone before merging:
 deep check. The one exception was `merge-target-is-beta-branch`, which
 fails whenever `precedent-beta-v01` is an ancestor of `main` and clears
 once the next commit lands on the branch.
+
+## The third fold-in, later the same day
+
+Morgan: "Alex gives his go ahead", in answer to a session that had said
+the fold-in would carry PR #586 (CI cadence, with a new
+`commit-identity.sh` hook) as well as PR #587 (the session-practices file
+trimmed back under precedent-individual's 5,200-token ceiling). Read as
+the same relayed approval as the two above, covering both. As before,
+this session never saw Alex's own words.
+
+Checked on an unshallowed clone before merging: `main` contributed no
+content of its own, and the branch tip's tree was identical to the commit
+that passed `verify_harness.py --as-ci` and CI. That run had one local
+failure: `commit-identity.sh` copies not byte-identical. It came from a
+precedent-individual clone on disk whose `bootstrap/` copy predates #586,
+failed identically on the branch tip, and CI cannot see it.

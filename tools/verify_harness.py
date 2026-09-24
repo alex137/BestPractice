@@ -5356,12 +5356,14 @@ def check_session_practices_load_without_publishing():
         _rendered = psp.render(_extra, _levels, notes2)
         cases.append(('...and the file still renders rather than failing',
                       'did not resolve' in _rendered))
+        _deferred_only = psp.render(_extra, _levels,
+                                    [('deferred', 'precedent deferred to it')])
         cases.append(('a DEFERRED source is not filed under "did not resolve" '
                       '-- both kinds shared one heading until 2026-09-13, so a '
                       'set was told its working sources had failed',
-                      'Why these are here rather than in the tracked block'
-                      in psp.render(_extra, _levels,
-                                    [('deferred', 'precedent deferred to it')])))
+                      'did not resolve' not in _deferred_only
+                      and ('resolved' in _deferred_only
+                           or 'precedent deferred to it' in _deferred_only)))
 
         # WHAT THE FILE SAYS ABOUT THE REPO IT IS IN HAS TO BE TRUE. The
         # header explains why the file is untracked, and until 2026-09-14
@@ -10996,6 +10998,84 @@ def check_loader_block_advertises_only_live_channels():
           '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad))
 
 
+def check_session_practices_drop_what_agents_md_carries():
+    """The session-practices file leaves out wrapping its repo's AGENTS.md
+    already carries word for word -- and ONLY that.
+
+    2026-09-24, precedent-individual: universal promoted one practice to
+    resident and the set's .precedent/SESSION_PRACTICES.md went to 5,266
+    tokens against a 5,200 ceiling. None of the overflow was the set's own
+    text, and a good part of it was not practice text at all: the standing
+    instruction's first two sentences and the omitted-index note, both
+    already in the tracked AGENTS.md the same session loads. build_loader_block
+    now takes `carried` and drops a sentence it finds there. The cases pin
+    both directions, because a drop that fires on a near-match would silently
+    take an instruction away from a repo whose AGENTS.md says something else.
+    """
+    import shutil, tempfile
+    import build_views as bv
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-carried-'))
+    cases = []
+    try:
+        pdir = tmp / 'practices'
+        pdir.mkdir()
+        for slug, gates, applies in (('spoken', '[]', '[]'),
+                                     ('gated', '["reply"]', '["**"]')):
+            (pdir / f'{slug}.md').write_text(
+                f'---\nslug: {slug}\ntitle: T\ntier: on-demand\nseverity: default\n'
+                f'applies_to: {applies}\noccasion: "a person says {slug}"\n'
+                f'gates: {gates}\nindex_clause: "the {slug} clause"\nchecked_by: null\n'
+                f'defines: []\nstatus: active\nsupersedes: []\noverrides: null\n'
+                f'added: 2026-09-24\napproved_by: "harness fixture"\n---\n'
+                f'## Rule\nR.\n\n## Why\nx\n\n## Story\n\n## Install\nx\n',
+                encoding='utf-8')
+        practices = bv.load_practices(pdir)
+        full, _t, _c = bv.build_loader_block(practices, block_dir=tmp)
+        instr = full.split('## Standing instruction', 1)[-1].split('<!--', 1)[0]
+        note = next((l for l in full.splitlines()
+                     if l.startswith('(More on-demand')), '')
+        cases.append(('the fixture renders both pieces with nothing carried, so '
+                      'the cases below test a drop and not an absence',
+                      '## Standing instruction' in full and bool(note)))
+
+        # Carried word for word, wrapped differently -- dropped.
+        wrapped = '\n'.join(' '.join(instr.split()).replace('. ', '.\n')
+                            .split('\n')) + '\n' + note.replace(' -- ', '\n-- ')
+        b, _t, _c = bv.build_loader_block(practices, block_dir=tmp,
+                                          carried=wrapped)
+        cases.append(('a standing instruction AGENTS.md carries word for word '
+                      '(however it wraps) is not repeated',
+                      '## Standing instruction' not in b))
+        cases.append(('...nor is the omitted-index note',
+                      '(More on-demand' not in b))
+        cases.append(('...while the practices themselves still render',
+                      'the spoken clause' in b))
+
+        # A DIFFERENT gate list: only the list is news.
+        other = ' '.join(instr.split()).replace('precedent_gate.py reply',
+                                                'precedent_gate.py merge')
+        b, _t, _c = bv.build_loader_block(practices, block_dir=tmp,
+                                          carried=other)
+        tail = b.split('## Standing instruction', 1)[-1]
+        cases.append(('where AGENTS.md names different gates, this block keeps '
+                      'its own gate list and drops only the shared why',
+                      'precedent_gate.py reply`.' in tail
+                      and 'no path glob reaches those' not in tail
+                      and 'Before starting work' not in tail))
+
+        # Not carried at all -- nothing dropped.
+        b, _t, _c = bv.build_loader_block(practices, block_dir=tmp,
+                                          carried='# an AGENTS.md that says '
+                                                  'something else entirely\n')
+        cases.append(('a repo whose AGENTS.md lacks them keeps both, whole',
+                      b == full))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [c[0] for c in cases if not c[1]]
+    check(f'the session-practices block drops only what AGENTS.md carries word '
+          f'for word ({len(cases)} stated cases)', not bad, '; '.join(bad))
+
+
 def check_source_sets_can_learn_they_are_stale():
     """A vendored source set must have some way to find out its engine is old.
 
@@ -15039,6 +15119,150 @@ def check_commit_identity_prevents_the_wrong_offset():
     failed = [n for n, ok in cases if not ok]
     check(f'commit-identity prevents the wrong offset, not only refuses it '
           f'({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
+
+def check_commit_identity_ci_cadence():
+    """The CI cadence step tags a commit [skip ci] only when every condition
+    in spec/CI_CADENCE_PLAN.md holds, and leaves it alone on any doubt.
+
+    Each skip case below is paired with the case that must NOT skip, because
+    the failure that matters is silent: a commit tagged when it should not be
+    means CI never ran and nothing says so. The default is the case Morgan
+    named, 2026-09-24: with no number declared, CI runs on every push.
+    """
+    import tempfile, json as _json
+    hook = ROOT / '.claude' / 'hooks' / 'commit-identity.sh'
+    if not hook.exists():
+        not_applicable('commit-identity applies the CI cadence',
+                       '.claude/hooks/commit-identity.sh is not present here')
+        return
+    if not pathlib.Path('/usr/share/zoneinfo/UTC').exists():
+        not_applicable('commit-identity applies the CI cadence',
+                       'no zoneinfo for UTC on this machine')
+        return
+
+    SKIP = '[skip ci]'
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+
+        def _setup(name, personal=None, repo_cfg=None):
+            base = tmp / name
+            home = base / 'home'
+            home.mkdir(parents=True)
+            subprocess.run(['git', 'init', '-q', '--bare', str(base / 'origin.git')],
+                           capture_output=True)
+            work = base / 'work'
+            subprocess.run(['git', 'clone', '-q', str(base / 'origin.git'), str(work)],
+                           capture_output=True)
+            ident = {'name': 'T', 'email': 't@example.com', 'timezone': 'UTC'}
+            if personal is not None:
+                ident['ci_every_hours'] = personal
+            (work / 'identity.json').write_text(_json.dumps(ident), encoding='utf-8')
+            cfg = {'visibility': 'private', 'base_branch': 'main'}
+            cfg.update(repo_cfg or {})
+            cfg = {k: v for k, v in cfg.items() if v is not None}
+            (work / 'precedent.json').write_text(_json.dumps(cfg), encoding='utf-8')
+            env = dict(os.environ)
+            for k in ('PRECEDENT_COMMIT_TZ', 'PRECEDENT_COMMIT_EMAIL',
+                      'PRECEDENT_COMMIT_NAME', 'PRECEDENT_CI_NOW'):
+                env.pop(k, None)
+            env.update(HOME=str(home), TZ='UTC',
+                       PRECEDENT_LOCALTIME=str(base / 'lt'),
+                       PRECEDENT_GLOBAL_HOOKS=str(home / 'git-hooks'),
+                       PRECEDENT_USER_CONFIG='/nonexistent/precedent-config.json',
+                       CLAUDE_PROJECT_DIR=str(work))
+            subprocess.run(['git', '-C', str(work), 'checkout', '-q', '-b', 'main'],
+                           capture_output=True, env=env)
+            subprocess.run(['bash', str(hook)], capture_output=True, text=True,
+                           timeout=120, env=env)
+            return work, env
+
+        def _commit(work, env, msg, *extra, old=False, **more):
+            e = dict(env, **more)
+            if old:
+                e['GIT_COMMITTER_DATE'] = '2000-01-01T00:00:00+0000'
+            subprocess.run(['git', '-C', str(work), 'add', '-A'], capture_output=True, env=e)
+            subprocess.run(['git', '-C', str(work), 'commit', '-q', '--allow-empty',
+                            '-m', msg, *extra], capture_output=True, text=True, env=e)
+            return subprocess.run(['git', '-C', str(work), 'log', '-1', '--format=%B'],
+                                  capture_output=True, text=True, env=e).stdout
+
+        def _push(work, env):
+            subprocess.run(['git', '-C', str(work), 'push', '-q', 'origin', 'main'],
+                           capture_output=True, env=env)
+
+        # The main line: X=48, private, on the primary branch.
+        work, env = _setup('main-line', personal=48)
+        cad = pathlib.Path(env['PRECEDENT_GLOBAL_HOOKS']) / 'precedent-ci-cadence'
+        cases.append(('the session-start hook writes the cadence script beside '
+                      'the global hooks, with the personal value baked in',
+                      cad.exists() and 'PERSONAL_CI_EVERY_HOURS = 48'
+                      in cad.read_text(encoding='utf-8')))
+        _commit(work, env, 'old', old=True)
+        _push(work, env)
+        a = _commit(work, env, 'A')
+        cases.append(('CI that is due runs: the first commit after a quiet '
+                      'stretch is not tagged', SKIP not in a))
+        b = _commit(work, env, 'B')
+        cases.append(('a second commit before the same push is not tagged '
+                      'either -- it measures origin, not local history',
+                      SKIP not in b))
+        _push(work, env)
+        c = _commit(work, env, 'C', '-m', 'Body.', '-m', 'Co-Authored-By: X <x@y>')
+        cases.append(('a commit within X hours of a CI run on origin is tagged',
+                      SKIP in c))
+        cases.append(('and the tag goes after the subject, leaving the trailer '
+                      'block last', c.startswith('C\n\n[skip ci]')
+                      and c.rstrip().endswith('Co-Authored-By: X <x@y>')))
+        d = _commit(work, env, 'D', PRECEDENT_CI_NOW='1')
+        cases.append(('PRECEDENT_CI_NOW=1 forces a run', SKIP not in d))
+        subprocess.run(['git', '-C', str(work), 'checkout', '-q', '-b', 'feature'],
+                       capture_output=True, env=env)
+        e = _commit(work, env, 'E')
+        cases.append(('a feature branch is never tagged, so a pull request '
+                      'always gets its check', SKIP not in e))
+
+        # The default: nothing declared means every push.
+        work, env = _setup('default')
+        _commit(work, env, 'old'); _push(work, env)
+        f = _commit(work, env, 'F')
+        cases.append(('with no ci_every_hours declared, a recent CI run still '
+                      'does not skip the next one (the default is 0)',
+                      SKIP not in f))
+
+        # The repo's own value wins, both ways.
+        work, env = _setup('repo-zero', personal=48, repo_cfg={'ci_every_hours': 0})
+        _commit(work, env, 'old'); _push(work, env)
+        g = _commit(work, env, 'G')
+        cases.append(('a repo declaring ci_every_hours 0 runs CI every push '
+                      'whatever the personal value', SKIP not in g))
+        work, env = _setup('repo-48', personal=0, repo_cfg={'ci_every_hours': 48})
+        _commit(work, env, 'old'); _push(work, env)
+        h = _commit(work, env, 'H')
+        cases.append(('a repo declaring its own cadence is honoured over a '
+                      'personal 0', SKIP in h))
+
+        # Doubt runs CI.
+        work, env = _setup('public', personal=48, repo_cfg={'visibility': None})
+        _commit(work, env, 'old'); _push(work, env)
+        i = _commit(work, env, 'I')
+        cases.append(('a repo that does not declare itself private is never '
+                      'tagged', SKIP not in i))
+        work, env = _setup('bad-value', personal='48')
+        _commit(work, env, 'old'); _push(work, env)
+        j = _commit(work, env, 'J')
+        cases.append(('a value that is not a number counts as 0', SKIP not in j))
+        work, env = _setup('no-origin-ref', personal=48)
+        _commit(work, env, 'old')
+        k = _commit(work, env, 'K')
+        cases.append(('with no origin/<base_branch> to measure, CI runs',
+                      SKIP not in k))
+
+    failed = [n for n, ok in cases if not ok]
+    check(f'commit-identity applies the CI cadence only when every condition '
+          f'holds ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
 
 def check_source_clone_is_pinned_to_a_branch():
@@ -30058,6 +30282,7 @@ def main():
     check_very_deep_check_boundary_audit_reads_the_setting()
     check_default_blocklist_runs_the_vocabulary_layer()
     check_session_practices_load_without_publishing()
+    check_session_practices_drop_what_agents_md_carries()
     check_not_binding_cannot_be_abused()
     check_codeowners_check_is_a_check()
     check_status_contract()
@@ -30144,6 +30369,7 @@ def main():
     check_refresh_survives_an_upstream_rename()
     check_retirement_record_is_not_a_stranded_link()
     check_commit_identity_prevents_the_wrong_offset()
+    check_commit_identity_ci_cadence()
     check_source_clone_is_pinned_to_a_branch()
     check_generator_wires_every_template_guard_mode()
     check_verify_reports_a_source_wired_for_fewer_moments()
