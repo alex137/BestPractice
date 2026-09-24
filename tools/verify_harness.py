@@ -15147,7 +15147,7 @@ def check_commit_identity_ci_cadence():
     with tempfile.TemporaryDirectory() as td:
         tmp = pathlib.Path(td)
 
-        def _setup(name, personal=None, repo_cfg=None):
+        def _setup(name, personal=None, repo_cfg=None, branches=None):
             base = tmp / name
             home = base / 'home'
             home.mkdir(parents=True)
@@ -15159,6 +15159,8 @@ def check_commit_identity_ci_cadence():
             ident = {'name': 'T', 'email': 't@example.com', 'timezone': 'UTC'}
             if personal is not None:
                 ident['ci_every_hours'] = personal
+            if branches is not None:
+                ident['ci_on_branches'] = branches
             (work / 'identity.json').write_text(_json.dumps(ident), encoding='utf-8')
             cfg = {'visibility': 'private', 'base_branch': 'main'}
             cfg.update(repo_cfg or {})
@@ -15221,8 +15223,9 @@ def check_commit_identity_ci_cadence():
         subprocess.run(['git', '-C', str(work), 'checkout', '-q', '-b', 'feature'],
                        capture_output=True, env=env)
         e = _commit(work, env, 'E')
-        cases.append(('a feature branch is never tagged, so a pull request '
-                      'always gets its check', SKIP not in e))
+        cases.append(('ci_every_hours alone never tags a working branch -- '
+                      'that is ci_on_branches, left at its default here',
+                      SKIP not in e))
 
         # The default: nothing declared means every push.
         work, env = _setup('default')
@@ -15259,6 +15262,67 @@ def check_commit_identity_ci_cadence():
         k = _commit(work, env, 'K')
         cases.append(('with no origin/<base_branch> to measure, CI runs',
                       SKIP not in k))
+
+        # The branch switch, ci_on_branches (Morgan, 2026-09-24). False tags
+        # every commit off the primary branch; the primary branch keeps its
+        # own rule, which here is 0 -- every push.
+        def _branch(work, env, name='feature'):
+            subprocess.run(['git', '-C', str(work), 'checkout', '-q', '-b', name],
+                           capture_output=True, env=env)
+
+        work, env = _setup('branches-off', branches=False)
+        cad = pathlib.Path(env['PRECEDENT_GLOBAL_HOOKS']) / 'precedent-ci-cadence'
+        cases.append(('the personal ci_on_branches value is baked into the '
+                      'cadence script', cad.exists() and 'PERSONAL_CI_ON_BRANCHES'
+                      ' = False' in cad.read_text(encoding='utf-8')))
+        _commit(work, env, 'old'); _push(work, env)
+        m = _commit(work, env, 'M')
+        cases.append(('ci_on_branches false leaves the primary branch to its '
+                      'own cadence (0 here, so not tagged)', SKIP not in m))
+        _branch(work, env)
+        n = _commit(work, env, 'N')
+        cases.append(('ci_on_branches false tags a commit on a working branch',
+                      SKIP in n))
+        o = _commit(work, env, 'O', '-m', 'Body.', '-m', 'Co-Authored-By: X <x@y>')
+        cases.append(('every one of them, not just the first, and after the '
+                      'subject', o.startswith('O\n\n[skip ci]')
+                      and o.rstrip().endswith('Co-Authored-By: X <x@y>')))
+        q = _commit(work, env, 'Q', PRECEDENT_CI_NOW='1')
+        cases.append(('PRECEDENT_CI_NOW=1 forces a run on a working branch too',
+                      SKIP not in q))
+        work, env = _setup('branches-no-origin', branches=False)
+        _branch(work, env)
+        r = _commit(work, env, 'R')
+        cases.append(('a working branch is tagged with nothing pushed yet -- '
+                      'the switch does not measure origin', SKIP in r))
+
+        work, env = _setup('branches-default')
+        _branch(work, env)
+        t = _commit(work, env, 'T')
+        cases.append(('with no ci_on_branches declared, a working branch is '
+                      'never tagged (the default is true)', SKIP not in t))
+        work, env = _setup('branches-bad', branches='false')
+        _branch(work, env)
+        u = _commit(work, env, 'U')
+        cases.append(('a ci_on_branches value that is not the boolean false '
+                      'counts as true', SKIP not in u))
+        work, env = _setup('branches-repo-zero', branches=False,
+                           repo_cfg={'ci_every_hours': 0})
+        _branch(work, env)
+        v = _commit(work, env, 'V')
+        cases.append(('a repo declaring ci_every_hours 0 runs CI on its working '
+                      'branches too, whatever the personal switch', SKIP not in v))
+        work, env = _setup('branches-repo-off', repo_cfg={'ci_on_branches': False})
+        _branch(work, env)
+        w = _commit(work, env, 'W')
+        cases.append(('a repo declaring its own ci_on_branches false is honoured '
+                      'over a personal default', SKIP in w))
+        work, env = _setup('branches-public', branches=False,
+                           repo_cfg={'visibility': None})
+        _branch(work, env)
+        x = _commit(work, env, 'X')
+        cases.append(('a repo that does not declare itself private is never '
+                      'tagged on a branch either', SKIP not in x))
 
     failed = [n for n, ok in cases if not ok]
     check(f'commit-identity applies the CI cadence only when every condition '

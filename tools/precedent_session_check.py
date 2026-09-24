@@ -582,49 +582,72 @@ def _ci_cadence_row():
     cfg = _load(ROOT / 'precedent.json') or {}
     if not isinstance(cfg, dict):
         cfg = {}
+    idents = [ROOT / 'identity.json']
+    ucfg = _load(os.environ.get('PRECEDENT_USER_CONFIG')
+                 or '~/.config/precedent/config.json')
+    if isinstance(ucfg, dict):
+        path = (ucfg.get('individual') or {}).get('path')
+        if isinstance(path, str) and path:
+            idents.append(pathlib.Path(os.path.expandvars(path))
+                          .expanduser() / 'identity.json')
+
+    def _personal(key):
+        for c in idents:
+            d = _load(c)
+            if isinstance(d, dict) and key in d:
+                return d[key], f'{c}'
+        return None, 'the default'
+
     if 'ci_every_hours' in cfg:
         hours, where = _hours(cfg['ci_every_hours']), "this repo's precedent.json"
     else:
-        hours, where = 0, 'the default'
-        cands = [ROOT / 'identity.json']
-        ucfg = _load(os.environ.get('PRECEDENT_USER_CONFIG')
-                     or '~/.config/precedent/config.json')
-        if isinstance(ucfg, dict):
-            path = (ucfg.get('individual') or {}).get('path')
-            if isinstance(path, str) and path:
-                cands.append(pathlib.Path(os.path.expandvars(path))
-                             .expanduser() / 'identity.json')
-        for c in cands:
-            d = _load(c)
-            if isinstance(d, dict) and 'ci_every_hours' in d:
-                hours, where = _hours(d['ci_every_hours']), f'{c}'
-                break
-    if not hours:
+        v, where = _personal('ci_every_hours')
+        hours = _hours(v)
+    # Mirrors the cadence script's on_branches(): the repo's own switch, else
+    # a repo-declared ci_every_hours of 0 (every push, branches too), else
+    # the person's; anything but a literal false means CI runs on branches.
+    if 'ci_on_branches' in cfg:
+        branches, bwhere = cfg['ci_on_branches'] is not False, "this repo's precedent.json"
+    elif 'ci_every_hours' in cfg and not hours:
+        branches, bwhere = True, "this repo's precedent.json (ci_every_hours 0)"
+    else:
+        v, bwhere = _personal('ci_on_branches')
+        branches = v is not False
+    if not hours and branches:
         return (name, True, f'every push runs CI (ci_every_hours is 0, from '
-                            f'{where})')
+                            f'{where}; ci_on_branches is true, from {bwhere})')
+    asked = []
+    if hours:
+        asked.append(f'ci_every_hours is {hours:g} (from {where})')
+    if not branches:
+        asked.append(f'ci_on_branches is false (from {bwhere})')
+    asked = ' and '.join(asked)
     if cfg.get('visibility') != 'private':
-        return (name, True, f'every push runs CI: ci_every_hours is {hours:g} '
-                            f'(from {where}), but this repo does not declare '
-                            f'"visibility": "private"')
+        return (name, True, f'every push runs CI: {asked}, but this repo does '
+                            f'not declare "visibility": "private"')
     base = cfg.get('base_branch')
     if not isinstance(base, str) or not base:
-        return (name, True, f'every push runs CI: ci_every_hours is {hours:g} '
-                            f'(from {where}), but this repo declares no '
-                            f'base_branch to apply it on')
+        return (name, True, f'every push runs CI: {asked}, but this repo '
+                            f'declares no base_branch to apply it on')
     rc, hooks, _ = _git('config', '--get', 'core.hooksPath')
     if rc != 0 or not hooks:
         rc, hooks, _ = _git('rev-parse', '--git-path', 'hooks')
         hooks = str((ROOT / hooks).resolve()) if rc == 0 and hooks else ''
     cad = pathlib.Path(hooks).expanduser() / 'precedent-ci-cadence' if hooks else None
     if not (cad and os.access(cad, os.X_OK)):
-        return (name, False, f'ci_every_hours is {hours:g} (from {where}), but '
-                             f'no precedent-ci-cadence script sits beside the '
-                             f'commit hooks here, so every push still runs CI. '
-                             f'commit-identity.sh writes it at session start, '
-                             f'and only for a declared identity')
-    return (name, True, f'private, primary branch {base}: CI runs at most '
-                        f'once every {hours:g}h (from {where}). '
-                        f'PRECEDENT_CI_NOW=1 git commit ... forces a run')
+        return (name, False, f'{asked}, but no precedent-ci-cadence script '
+                             f'sits beside the commit hooks here, so every '
+                             f'push still runs CI. commit-identity.sh writes '
+                             f'it at session start, and only for a declared '
+                             f'identity')
+    on_base = (f'CI runs at most once every {hours:g}h (from {where})'
+               if hours else 'every push runs CI')
+    on_other = ('other branches never run CI (ci_on_branches false, from '
+                f'{bwhere})' if not branches else 'other branches run CI on '
+                'every push')
+    return (name, True, f'private, primary branch {base}: {on_base}; '
+                        f'{on_other}. PRECEDENT_CI_NOW=1 git commit ... '
+                        f'forces a run')
 
 
 def _clone_behind(path, fetch=True):

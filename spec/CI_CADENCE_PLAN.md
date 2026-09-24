@@ -26,6 +26,9 @@ run every time. Go update."* (`strength: decided`, both.) **Built** in
 BestPractice the same day; "Build steps" below says what is live and what
 waits on other repos.
 
+**Working branches have their own switch**, `ci_on_branches`, added later
+the same day -- see "The branch switch" below.
+
 **The default is 0.** Nobody's CI changes until they write a number above 0
 into their own `identity.json` or a repo's `precedent.json`. An absent,
 unreadable or invalid value is 0 too.
@@ -66,7 +69,7 @@ leaves the message alone and CI runs as normal:
 |---|---|---|
 | 1 | **X is above 0.** The repo's own `precedent.json` `ci_every_hours` wins; otherwise the value in precedent-individual's `identity.json`; otherwise 0. | A repo can opt out for itself (see "Repos others read from" below). |
 | 2 | **The repo is declared private**: its `precedent.json` says `"visibility": "private"`. | An undeclared repo counts as public, the same default [precedent.json](../precedent.json) uses. Public repos run CI free on standard runners, and a leak there can't wait. |
-| 3 | **The commit is on the repo's primary branch** (`base_branch` in its `precedent.json`). | Feature branches become pull requests. Never skipping them means a PR always gets its check (see "Required status checks" below). |
+| 3 | **The commit is on the repo's primary branch** (`base_branch` in its `precedent.json`). | Any other branch is decided by `ci_on_branches` instead (see "The branch switch" below). |
 | 4 | **CI isn't due yet**: the newest commit on `origin/<primary>` without `[skip ci]` is less than X hours old. | That commit is the last push that ran CI. |
 | 5 | **No override for this commit**: `PRECEDENT_CI_NOW=1` is not set. | A way to force a run when a change is risky. |
 
@@ -114,6 +117,34 @@ session-start refresh resets the local clone and discards anything
 unpushed, and a session rooted in another repo only reaches
 precedent-individual with write access granted explicitly.
 
+## The branch switch
+
+**The first build left every working branch alone**, so a pull request
+always got its check. Morgan, 2026-09-24, on learning that: *"that defeats
+the purpose of saving minutes since we do tons of commits to clone local
+branches ... I do NOT want the github ci/cd active in the clones and other
+branch files"*, asked as a flag each person can change, with the day's bill
+at 95 of 100 minutes. (`strength: decided`.)
+
+**`ci_on_branches` in `identity.json`, default `true`.** Set to `false`, the
+same hook tags **every** commit on any branch but a private repo's primary
+one. It measures nothing: no window, no `origin` lookup, so the first commit
+on a fresh branch is tagged too. Checks 2 and 5 above still apply, so a
+public or undeclared repo and a `PRECEDENT_CI_NOW=1` commit run CI as normal.
+
+**Which value wins, in order:** the repo's own `precedent.json`
+`ci_on_branches`; then, if that repo sets `ci_every_hours` to 0, `true`,
+because that 0 says every push there must be checked; then the person's
+value; then `true`. Only the literal boolean `false` switches it off.
+
+**What `false` costs:** GitHub skips pull-request workflows as well when the
+head commit says `[skip ci]`, so **a pull request from a tagged branch gets
+no CI run**. Where a repo requires a status check before merging, the pull
+request stays blocked until a commit on it is made with `PRECEDENT_CI_NOW=1`.
+A merge made with GitHub's button is a commit the hook never sees, so the
+primary branch runs CI on it by its own rule -- except a squash merge, whose
+message carries the branch's `[skip ci]` lines along with the rest.
+
 ## What this gives up
 
 - **Your local check becomes the gate, with CI as the backstop.** This
@@ -139,7 +170,8 @@ workflow never reports**, so GitHub waits for a result that never arrives:
 the pull request sits at *"Expected — waiting for status to be reported"*
 and can't be merged, and a direct push to that branch is refused.
 
-Check 3 covers pull requests, since feature branches are never tagged. A
+Check 3 covers pull requests while `ci_on_branches` stays `true`; set to
+`false`, it doesn't, as "The branch switch" says. A
 primary branch with required checks refuses a direct push of a commit that
 hasn't passed them, unless an admin bypasses the rule, so direct pushes and
 required checks rarely meet. **Still, look before switching a repo on**: if any
@@ -162,11 +194,17 @@ has read how that repo is used.
 2. **The setting is visible.** [tools/precedent_session_check.py](../tools/precedent_session_check.py)
    has a row naming the cadence this repo resolves, where the value came
    from and why it does or does not apply, and fails only when a number
-   above 0 is set and no cadence script is installed.
+   above 0 (or `ci_on_branches: false`) is set and no cadence script is
+   installed.
    `ci_debounce_minutes` taught this: a setting that looks live and does
    nothing is worse than no setting.
 3. **The skeleton.** [identity.json.template](../templates/practice-set-individual/identity.json.template)
    carries `"ci_every_hours": 0` with a comment saying what a number does.
+
+**Also live, later the same day: the branch switch.** The same hook and
+script resolve `ci_on_branches`, the session-check row names it, the
+skeleton ships it `true`, and [verify_harness.py](../tools/verify_harness.py) has eleven more cases,
+24 in all.
 
 **Waiting on other repos:**
 
@@ -175,7 +213,9 @@ has read how that repo is used.
    this waits for the next merge of `precedent-beta-v01` into `main`.
 5. **precedent-individual and the three shared sets declare
    `"ci_every_hours": 0`** in their own `precedent.json`, so a personal
-   value above 0 never reaches the repos everyone reads from.
+   value above 0 never reaches the repos everyone reads from. **Done
+   2026-09-24**, all four on `main`; that 0 also keeps their working
+   branches on CI whatever a person's `ci_on_branches` says.
 
 **Before anyone sets a number above 0:**
 

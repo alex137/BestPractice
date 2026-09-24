@@ -78,6 +78,18 @@
     "Your local deep check stays the real gate; CI becomes the backstop.",
     "Full design: BestPractice spec/CI_CADENCE_PLAN.md."
   ],
+  "ci_on_branches": true,
+  "_ci_on_branches_comment": [
+    "DOES GITHUB ACTIONS RUN ON YOUR WORKING BRANCHES? true, the default,",
+    "means yes, exactly as if this key were absent. false means every",
+    "commit on any branch but a private repo's primary one gets [skip ci],",
+    "so pushing a working branch starts no runner at all. The cost: a pull",
+    "request from such a branch gets no CI run either, so a repo that",
+    "REQUIRES a status check before merging stays blocked until you make a",
+    "commit with PRECEDENT_CI_NOW=1. A repo whose precedent.json sets",
+    "ci_every_hours to 0 runs CI on its branches whatever this says; a repo",
+    "can also set its own ci_on_branches there."
+  ],
   "relayed_authorization": "refused",
   "_relayed_authorization_comment": [
     "DOES YOUR APPROVAL TRAVEL? When work you authorized has to be finished",
