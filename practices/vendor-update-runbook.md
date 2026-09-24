@@ -155,6 +155,19 @@ still had nothing in force.
    first time this shipped would have discarded that with no warning. Run
    `refresh` again once the baseline is recorded to pick up template changes
    normally from then on.
+   **Since 2026-09-24 it also refreshes any file the repo declares under
+   `engine_paths` in its own `precedent.json`** — an upstream path mapped to
+   a local one, for a file the repo must keep at a path of its own:
+   `{"templates/harness/claude-code/hooks/commit-identity.sh":
+   "bootstrap/commit-identity.sh"}` is precedent-individual's, which
+   `session-start.sh` and that set's own `adapters` both reach by that path.
+   Tracked in `ENGINE_MANIFEST.json` (`engine_paths`/`engine_paths_sha256`)
+   and drift-checked like `tools/`. **A newly declared file is adopted only
+   if it is already identical to upstream**; otherwise the refresh refuses,
+   names how many lines differ, and `--force` does not waive it — move the
+   difference upstream first. A mapping onto a path an adapter writes, or
+   one this engine already vendors, is refused outright. Nothing else
+   outside `tools/`, `.claude/hooks/` and the CI workflows is touched.
    **Since 2026-09-19, check whether this refresh newly vendors
    `tools/todo_migrate.py` or `tools/build_todo_index.py`** — the one-time
    per-item TODO migration tool and its ongoing index generator

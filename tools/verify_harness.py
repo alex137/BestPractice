@@ -19819,6 +19819,229 @@ def check_vendor_engine_removes_a_hook_upstream_dropped():
           '; '.join(f"{n} -- {d[:400]}" for n, d in bad))
 
 
+def check_vendor_engine_keeps_a_declared_engine_path():
+    """`engine_paths` in a repo's precedent.json maps an upstream file onto a
+    path of the repo's own, so `refresh` keeps it current instead of a person
+    hand-syncing it. The case that produced it (2026-09-24):
+    precedent-individual's bootstrap/commit-identity.sh, identical to
+    templates/harness/claude-code/hooks/commit-identity.sh only because of
+    four hand-sync commits, and unable to move because session-start.sh and
+    the set's own `adapters` both reach it by that path.
+
+    Function-level against a throwaway upstream git repo, plus two real
+    `refresh` subprocesses for the refusals that happen BEFORE the upstream
+    is read (so they need no network and no BestPractice clone):
+
+    A. adopt: an identical local file with no record yet is adopted, not
+       rewritten, and its hash recorded.
+    B. refresh: upstream moves, the file follows, the hash follows, the
+       executable bit is carried over.
+    C. hand-edit: an edited copy is drift; `refresh` refuses on it.
+    D. first run, NOT identical: refused, with a count of differing lines.
+    E. forbidden: onto an adapter's TO, onto an engine-vendored path, or the
+       same local path twice -- refused by `refresh` even with --force.
+       CONTROL: an adapter's FROM is allowed (precedent-individual's case).
+    F. a dropped declaration hands the file back: kept, no longer tracked.
+    G. an upstream file that vanished leaves the local copy AND its record."""
+    import shutil, tempfile, subprocess as sp
+    import precedent_vendor_engine as pve
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-engine-paths-'))
+    env = dict(os.environ)
+    env.update({'GIT_CONFIG_GLOBAL': str(tmp / 'gitconfig'),
+                'PRECEDENT_ALLOW_ANY_AUTHOR': '1',
+                'GIT_AUTHOR_NAME': 'Harness', 'GIT_COMMITTER_NAME': 'Harness',
+                'GIT_AUTHOR_EMAIL': 'harness@example.com',
+                'GIT_COMMITTER_EMAIL': 'harness@example.com'})
+    (tmp / 'gitconfig').write_text('', encoding='utf-8')
+    UP, LOCAL = 'tpl/hooks/ident.sh', 'bootstrap/ident.sh'
+    cases = []
+
+    def git(d, *a):
+        r = sp.run(['git', '-C', str(d), *a], capture_output=True, text=True,
+                   env=env)
+        if r.returncode != 0:
+            raise RuntimeError(f'fixture setup: git {" ".join(a)}: '
+                               f'{(r.stderr or r.stdout).strip()}')
+        return r.stdout.strip()
+
+    def upstream_commit(body, path=UP):
+        f = upstream / path
+        f.parent.mkdir(parents=True, exist_ok=True)
+        f.write_text(body, encoding='utf-8')
+        f.chmod(0o755)
+        git(upstream, 'add', '-A')
+        git(upstream, 'commit', '-q', '-m', 'fixture')
+        return git(upstream, 'rev-parse', 'HEAD')
+
+    def make_repo(name, mapping, local_body=None, adapters=None):
+        repo = tmp / name
+        (repo / 'tools').mkdir(parents=True)
+        (repo / 'precedent.json').write_text(json.dumps(
+            {pve.ENGINE_PATHS_KEY: mapping}), encoding='utf-8')
+        (repo / 'tools' / pve.MANIFEST_NAME).write_text(json.dumps(
+            {'kind': 'source', 'files': [], 'sha256': {}}), encoding='utf-8')
+        if local_body is not None:
+            (repo / LOCAL).parent.mkdir(parents=True, exist_ok=True)
+            (repo / LOCAL).write_text(local_body, encoding='utf-8')
+        if adapters is not None:
+            (repo / 'MANIFEST.json').write_text(json.dumps(
+                {'adapters': adapters}), encoding='utf-8')
+        return repo
+
+    def manifest_of(repo):
+        return json.loads((repo / 'tools' / pve.MANIFEST_NAME).read_text(
+            encoding='utf-8'))
+
+    def one_pass(repo, commit):
+        """What refresh() does with engine_paths, minus the engine files."""
+        m = manifest_of(repo)
+        mapping = pve.declared_engine_paths(repo)
+        src = pve._read_engine_path_sources(upstream, commit, mapping)
+        refused = pve._engine_path_first_run_refusals(repo, mapping, src, m)
+        if refused:
+            return refused
+        pve._write_engine_paths(repo, mapping, src, m)
+        return []
+
+    def run_refresh(repo, *extra):
+        tool = repo / 'tools' / 'precedent_vendor_engine.py'
+        tool.write_bytes((ROOT / 'tools' / 'precedent_vendor_engine.py').read_bytes())
+        m = manifest_of(repo)
+        m['files'] = ['precedent_vendor_engine.py']
+        m['sha256'] = {'precedent_vendor_engine.py': hashlib.sha256(
+            tool.read_bytes()).hexdigest()}
+        (repo / 'tools' / pve.MANIFEST_NAME).write_text(json.dumps(m),
+                                                        encoding='utf-8')
+        r = sp.run([sys.executable, str(tool), 'refresh', str(upstream),
+                    *extra], capture_output=True, text=True, cwd=str(repo),
+                   env=env)
+        return r.returncode, r.stdout + r.stderr
+
+    try:
+        upstream = tmp / 'upstream'
+        upstream.mkdir()
+        git(upstream, 'init', '-q')
+        v1 = '#!/bin/sh\necho v1\n'
+        c1 = upstream_commit(v1)
+
+        # A -- adopt
+        repo_a = make_repo('adopt', {UP: LOCAL}, local_body=v1)
+        before = (repo_a / LOCAL).stat().st_mtime_ns
+        refused_a = one_pass(repo_a, c1)
+        m_a = manifest_of(repo_a)
+        cases.append(('A: an identical local file is adopted and its hash recorded',
+                      refused_a == []
+                      and m_a.get('engine_paths') == {LOCAL: UP}
+                      and m_a.get('engine_paths_sha256', {}).get(LOCAL)
+                      == hashlib.sha256(v1.encode()).hexdigest(),
+                      json.dumps(m_a)[:300]))
+        cases.append(('A: ...without being rewritten',
+                      (repo_a / LOCAL).stat().st_mtime_ns == before, ''))
+
+        # B -- refresh follows upstream
+        (repo_a / LOCAL).chmod(0o644)
+        v2 = '#!/bin/sh\necho v2\n'
+        c2 = upstream_commit(v2)
+        one_pass(repo_a, c2)
+        m_b = manifest_of(repo_a)
+        cases.append(('B: the file follows upstream, and so does its recorded hash',
+                      (repo_a / LOCAL).read_text(encoding='utf-8') == v2
+                      and m_b['engine_paths_sha256'][LOCAL]
+                      == hashlib.sha256(v2.encode()).hexdigest()
+                      and pve._engine_path_drift(repo_a, m_b) == [],
+                      json.dumps(m_b)[:300]))
+        cases.append(('B: the upstream executable bit is carried over',
+                      os.access(repo_a / LOCAL, os.X_OK), ''))
+        cases.append(('B: nothing is left to do once recorded',
+                      pve._engine_paths_incomplete(repo_a, m_b) == [], ''))
+
+        # C -- hand-edit is drift, and refresh refuses on it
+        (repo_a / LOCAL).write_text(v2 + '# local edit\n', encoding='utf-8')
+        drift_c = pve._engine_path_drift(repo_a, manifest_of(repo_a))
+        cases.append(('C: a hand-edited copy is reported as drift',
+                      drift_c and drift_c[0][0] == LOCAL
+                      and 'hand-edited' in drift_c[0][1], repr(drift_c)))
+        rc_c, out_c = run_refresh(repo_a)
+        cases.append(('C: refresh refuses on it, before reading upstream',
+                      rc_c != 0 and 'hand-edited since the last seed/refresh' in out_c
+                      and LOCAL in out_c, out_c[-600:]))
+
+        # D -- first run, not identical
+        repo_d = make_repo('differs', {UP: LOCAL},
+                           local_body='#!/bin/sh\necho mine\necho extra\n')
+        refused_d = one_pass(repo_d, c2)
+        cases.append(('D: a non-identical file on first run is refused, with a line count',
+                      len(refused_d) == 1 and refused_d[0][0] == LOCAL
+                      and refused_d[0][1] > 0
+                      and 'engine_paths_sha256' not in manifest_of(repo_d)
+                      and 'mine' in (repo_d / LOCAL).read_text(encoding='utf-8'),
+                      repr(refused_d)))
+        repo_d2 = make_repo('absent', {UP: LOCAL})
+        cases.append(('D: CONTROL -- an absent local file is simply written',
+                      one_pass(repo_d2, c2) == []
+                      and (repo_d2 / LOCAL).read_text(encoding='utf-8') == v2, ''))
+
+        # E -- forbidden mappings, refused by refresh even with --force
+        adapter_to = '.claude/hooks/ident.sh'
+        repo_e1 = make_repo('onto-adapter', {UP: adapter_to},
+                            adapters=[{'path': adapter_to, 'source': 'some-set'}])
+        rc_e1, out_e1 = run_refresh(repo_e1, '--force')
+        cases.append(("E: a mapping onto an adapter's TO is refused, even with --force",
+                      rc_e1 != 0 and 'Not waived by --force' in out_e1
+                      and 'some-set' in out_e1, out_e1[-600:]))
+        repo_e2 = make_repo('onto-engine', {UP: 'tools/precedent_vendor_engine.py'})
+        rc_e2, out_e2 = run_refresh(repo_e2, '--force')
+        cases.append(('E: a mapping onto an engine-vendored path is refused',
+                      rc_e2 != 0 and 'already vendors this path' in out_e2,
+                      out_e2[-600:]))
+        conflicts_twice = pve._engine_path_conflicts(
+            tmp, {UP: LOCAL, 'tpl/other.sh': LOCAL}, {}, 'source')
+        cases.append(('E: the same local path declared twice is refused',
+                      len(conflicts_twice) == 1 and 'twice' in conflicts_twice[0][1],
+                      repr(conflicts_twice)))
+        repo_e3 = make_repo('adapter-from', {UP: LOCAL}, local_body=v2,
+                            adapters=[{'path': adapter_to, 'source': 'some-set'}])
+        cases.append(("E: CONTROL -- an adapter's FROM path is allowed",
+                      pve._engine_path_conflicts(
+                          repo_e3, pve.declared_engine_paths(repo_e3),
+                          manifest_of(repo_e3), 'source') == [], ''))
+
+        # F -- dropped declaration hands the file back
+        repo_f = make_repo('dropped', {UP: LOCAL}, local_body=v2)
+        one_pass(repo_f, c2)
+        (repo_f / 'precedent.json').write_text('{}', encoding='utf-8')
+        one_pass(repo_f, c2)
+        m_f = manifest_of(repo_f)
+        cases.append(('F: a dropped declaration leaves the file and stops tracking it',
+                      (repo_f / LOCAL).is_file()
+                      and 'engine_paths_sha256' not in m_f
+                      and pve._engine_path_drift(repo_f, m_f) == [],
+                      json.dumps(m_f)[:300]))
+
+        # G -- upstream vanished
+        repo_g = make_repo('vanished', {UP: LOCAL}, local_body=v2)
+        one_pass(repo_g, c2)
+        git(upstream, 'rm', '-q', UP)
+        git(upstream, 'commit', '-q', '-m', 'drop')
+        c3 = git(upstream, 'rev-parse', 'HEAD')
+        one_pass(repo_g, c3)
+        m_g = manifest_of(repo_g)
+        cases.append(('G: an upstream file that vanished keeps the local copy and its record',
+                      (repo_g / LOCAL).read_text(encoding='utf-8') == v2
+                      and LOCAL in m_g.get('engine_paths_sha256', {}),
+                      json.dumps(m_g)[:300]))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'a declared engine_paths file is kept current by refresh, and never '
+          f'adopted over a difference or onto a path something else writes '
+          f'({len(cases)} stated cases)',
+          not bad,
+          '; '.join(f"{n} -- {d[:600]}" for n, d in bad))
+
+
 def check_vendor_engine_names_a_dependent_of_a_deleted_file():
     """THE INCIDENT (2026-09-21,
     todo-2026-09-21-refresh-deletes-a-workflow-another-file-depends-on.md).
@@ -29677,6 +29900,7 @@ def main():
     check_vendor_engine_names_a_dependent_of_a_deleted_file()
     check_a_hook_wired_from_elsewhere_is_reported_as_wired()
     check_vendor_engine_removes_a_hook_upstream_dropped()
+    check_vendor_engine_keeps_a_declared_engine_path()
     check('a stale source clone is made current, and a skip is never a success',
           *check_a_stale_source_clone_is_made_current_not_reported_clean())
     check_as_ci_shards_match_the_workflow()
