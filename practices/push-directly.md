@@ -52,12 +52,10 @@ session might otherwise have guessed.
 branch the work is already headed toward** -- the branch this session's
 own work has actually been developed and committed against, never a
 repository's configured default branch chosen just because it is
-configured that way. In this repo, that default is not a guess: a bare
-"Push directly" here means `precedent-beta-v01`, the branch
-[merge-target-is-beta-branch](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/local/practices/merge-target-is-beta-branch.md)
-already names as where routine work lands, not `main`. Elsewhere, absent
-a rule like that one, it is whichever branch the change in front of you is
-already on.
+configured that way. Where the repository declares that branch --
+`base_branch` in its `precedent.json`, or a rule of its own -- the
+declaration decides it ([primary-branch](primary-branch.md)); absent one,
+it is whichever branch the change in front of you is already on.
 
 **This is not a new kind of permission.** `Go update`'s Rule already lets a
 direct, specific instruction about one change override its own

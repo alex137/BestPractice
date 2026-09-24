@@ -9,7 +9,7 @@ gates:       []
 index_clause: "\"Primary branch\" -- trunk; the branch regular work pushes to and PRs target"
 checked_by:  null
 defines:     ["Primary branch"]
-command:     {"Primary branch": "Trunk -- the one shared branch regular work pushes to and pull requests target. Here that's precedent-beta-v01, never main."}
+command:     {"Primary branch": "Trunk -- the one shared branch regular work pushes to and pull requests target, as this repository declares it (usually main)."}
 status:      active
 in_force_at: null
 supersedes:  []
@@ -30,13 +30,19 @@ resolve a bare instruction to this branch by default. This practice exists
 so the word has a definition a session -- and a person -- can look up,
 rather than one only ever spelled out inline inside those two.
 
-**In this repo, that branch is `precedent-beta-v01`, never `main`** -- the
-distinction
-[merge-target-is-beta-branch](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/local/practices/merge-target-is-beta-branch.md)
-exists to keep a session from blurring. Elsewhere, absent a rule like that
-one, it is whichever branch a repository's own routine work is actually
-developed and committed against -- never a configured default chosen just
-because it is configured that way.
+**The repository declares it**: `base_branch` in its `precedent.json`, or
+a rule of its own that names it. In most repositories that is `main`.
+Absent a declaration, it is whichever branch the repository's own routine
+work is actually developed and committed against -- never a configured
+default chosen just because it is configured that way.
+
+**A branch rule belongs to the repository that made it.** A repository that
+stages its work on a branch other than `main` says so in its own files, and
+that rule never travels to the repositories that take updates from it: in
+each of those, the primary branch is whatever *that* repository declares.
+Morgan, 2026-09-24, about the one catalogue repository that does this:
+*"this rule doesn't get vendored in anywhere, the primary branch of the
+vendored-in repo should be used, often main."*
 
 ## Why
 "Primary branch" and "trunk" name the same thing, but neither had been

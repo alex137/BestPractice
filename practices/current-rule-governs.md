@@ -47,7 +47,10 @@ lives now in `in_force_at:`. A successor lists what it replaced in
 `AGENTS.md`, a note from an earlier sync, a summary in a handoff prompt and
 a practice in someone's own set are all copies of a rule. When a copy and
 the rule in force disagree, the rule in force wins, and the reply says
-which copy was stale so somebody can fix it.
+which copy was stale so somebody can fix it. **A hand-written rule that
+covers something no practice covers is not a copy.** It is that
+repository's own rule, and so is a local exception the person has
+confirmed on purpose.
 
 **Between layers, the newer decision by the same person beats that
 person's older copy.** Source precedence (team, then repo-local, then

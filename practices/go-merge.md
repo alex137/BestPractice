@@ -129,9 +129,10 @@ changes:**
 the repository's own rules say routine work lands on, and the full chain
 merges into that same branch -- in both cases a real branch on `origin`,
 and never a repository's *configured default* branch picked just because
-it is configured that way (in this repo that branch is
-`precedent-beta-v01`, per
-[merge-target-is-beta-branch](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/local/practices/merge-target-is-beta-branch.md), not `main`).
+it is configured that way. That branch is the one the repository
+declares -- `base_branch` in its `precedent.json`, or a rule of its own --
+and in most repositories it is `main`
+([primary-branch](primary-branch.md)).
 **A commit sitting in the working copy has not satisfied the phrase, and
 neither has a push you only know succeeded because the command said so:**
 name the postcondition and test it
