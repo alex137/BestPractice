@@ -41,6 +41,19 @@ reaching `main` with a non-trivial change needs the same explicit, named
 go-ahead, naming `main` by name. A general "PR and merge it" authorization,
 with no branch named, still defaults to `precedent-beta-v01`.
 
+**`precedent-beta-v01` is staging and `main` is live.** A session working
+here uses `precedent-beta-v01` for everything unless the person running it
+says otherwise, and `main` receives only what has been folded in from it.
+**This rule is this repository's alone and is never vendored**: a repository
+that takes updates from here works on its own primary branch, usually
+`main` ([primary-branch](../../practices/primary-branch.md)). Morgan,
+2026-09-24 (`strength: decided`): *"A session should default to using
+precedent-beta-v01 for everything within that session; only the live
+version with changes will be pushed to main at a later date, think of it
+like a staging server; unless the manager of the session says otherwise;
+but note that this rule doesn't get vendored in anywhere, the primary
+branch of the vendored-in repo should be used, often main."*
+
 ## Detail
 This holds even when `main` and `precedent-beta-v01` happen to be at the
 same commit, which is exactly the condition under which the incident this

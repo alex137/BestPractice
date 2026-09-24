@@ -673,22 +673,31 @@ widening what sessions may run
    moving on: the vendoring manifest proves the bytes arrived, not that
    they run here.
 
-   **7b. Then sweep what stays hand-written in that file**, and in
-   `CLAUDE.md`, for three things the generated block now owns and a stale
-   copy would contradict:
-   - a hand-written copy of a standing command or its rule (a paragraph on
-     what "go merge" means, say): delete it, since the occasion index lists
-     every command from the practice that defines it;
-   - a blanket precedence clause ("the personal pack wins on conflict"):
-     delete it, or narrow it to rules that are both current, because the
-     engine already ranks the sources;
-   - a decline written as prose ("declined X as a duplicate"): decide it
-     again against the current upstream file, then record it as a
-     `declined` manifest entry with `practice_audit.py --redecide`, or
-     delete it.
+   **7b. Then review every hand-written rule left in that file**, and in
+   `CLAUDE.md`, against the practices now in force. Nothing here is deleted
+   for being hand-written. Each rule gets two questions: **does it
+   conflict with a rule now in force, and is it still needed?**
+   - **Says the same as a practice in force**: delete it. The generated
+     block already carries that rule, and a second copy is the one that
+     goes stale.
+   - **Conflicts with a practice in force**: ask the person whether it is
+     a deliberate local exception. If it is, keep it, word it as an
+     exception to the named practice, and say why. If not, delete it; the
+     rule in force wins.
+   - **Doesn't conflict and covers something no practice covers**: keep
+     it. That is this repo's own rule, and it is exactly what this file is
+     for.
 
-   `practice_audit.py` warns on lines that look like the last two (check
-   7). Incident, 2026-09-24: a consumer's hand-written clause let an old
+   Two kinds get the same review with one extra step. A blanket precedence
+   clause ("the personal pack wins on conflict") is kept only narrowed to
+   rules that are both current, since the engine already ranks the sources.
+   A decline written as prose ("declined X as a duplicate") is decided
+   again against the current upstream file. If it stands, it is recorded as
+   a `declined` manifest entry with `practice_audit.py --redecide`.
+
+   Say in the pull request which rules were kept, which were deleted, and
+   why. `practice_audit.py` warns on lines that read like the last two
+   kinds (check 7). Incident, 2026-09-24: a consumer's hand-written clause let an old
    personal copy of the merge command outrank the current rule, and a
    session answered the command with a question
    ([current-rule-governs](../practices/current-rule-governs.md)).

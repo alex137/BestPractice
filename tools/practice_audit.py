@@ -75,7 +75,8 @@ checks against each manifest's own vendored tree — any FAIL exits non-zero:
      a manifest. A decline written as prose in AGENTS.md or CLAUDE.md ("we
      declined X as a duplicate", "the personal pack wins on conflict") has
      no hash to compare, so this names each such line outside the generated
-     loader block for a person to either move into the manifest or delete.
+     loader block for a person to review: keep it if it still holds against
+     the rules in force, record a decline in the manifest, or delete it.
      It is a guess from wording, which is why it warns and never fails.
 
 Run:  python3 process/upstream/tools/practice_audit.py                    # gate (all manifests)
@@ -503,9 +504,10 @@ def audit(update=False, only=None):
     loader(fails)           # check 5 — the catalogue is actually in force
     for name, i, text in prose_declines(ROOT):  # check 7 — warn only
         warns.append(f"{name}:{i} reads like a decline or a blanket precedence "
-                     f"clause written as prose, which check 6 cannot see: move "
-                     f"it into the manifest as a 'declined' entry, or delete "
-                     f"it -- {text}")
+                     f"clause written as prose, which check 6 cannot see. Review "
+                     f"it against the rules in force: keep it if it still holds, "
+                     f"record a decline as a 'declined' manifest entry, or "
+                     f"delete it -- {text}")
 
     for p in pending:
         print(f"pending: {p}")
