@@ -40,6 +40,34 @@ other. What the phrase removes is the second question, not the gate. So a
 failing check is reported, with what failed, and nothing is published -- that
 is the sequence working, not a refusal needing permission to stand.
 
+**Every conflicted file is reviewed, never overwritten on sight.** An
+update meets this repo's own changes in many places: a refusal to overwrite
+a hand-edited file, a drift report, a merge conflict, a hand-written rule in
+`AGENTS.md` or `CLAUDE.md` that an updated practice now touches. Each one
+gets the same two questions before anything is resolved: **does the local
+version conflict with what upstream now ships, and is it still needed?**
+
+- **It says what upstream now says**: take upstream. The local copy is a
+  duplicate, and a duplicate is the copy that goes stale.
+- **It conflicts**: ask the person whether the difference is deliberate.
+  If it is, keep it and record it where this repo's tools will see it next
+  time (below). If not, take upstream; the rule in force wins.
+- **It doesn't conflict and is still needed**, because it covers something
+  upstream doesn't: keep it, and carry it into the new version rather than
+  choosing one side wholesale.
+
+**`--force`, `record-ci` and "take theirs" come after this review, never
+instead of it**; each one discards the local side in a single step. A
+difference kept on purpose is recorded so the next update does not ask
+again: a `diverged` or `declined` entry in `process/manifest.json`, a
+declared file under `local_ci_workflows` in `precedent.json`, a repo-local
+practice with `overrides:`, or a hand-written rule worded as an exception
+to the practice it departs from. **The pull request lists every conflicted
+file with its verdict** — kept, taken from upstream, or merged — and why.
+Morgan, 2026-09-24: *"Every 'update vendors' should use that rule for every
+conflicted file"* ([current-rule-governs](current-rule-governs.md) says
+which side wins when the review finds a real conflict).
+
 **Follow the upstream copy of this runbook, not the one vendored here.**
 The copy in this repo is from the last sync, and every correction made to
 the procedure since then is exactly what it lacks. Once step 1 has made the
@@ -231,11 +259,9 @@ still had nothing in force.
    lives only in prose (a sync note, a paragraph in `AGENTS.md`) goes into
    the manifest as a `declined` entry
    ([INSTALL.md §5](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/INSTALL.md#5-the-manifest-schema-processmanifestjson)),
-   so the next sync does not depend on somebody remembering it. Give any
-   other hand-written rule in `AGENTS.md` or `CLAUDE.md` that an updated
-   practice now touches the same review: keep it if it doesn't conflict
-   and is still needed, and otherwise follow the migration's step 7b
-   ([spec/MIGRATING_EXISTING_INSTALLS.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/MIGRATING_EXISTING_INSTALLS.md)).
+   so the next sync does not depend on somebody remembering it. Any other
+   hand-written rule an updated practice now touches gets the
+   conflicted-file review at the top of this runbook.
    `checkin.py update` lists the declines this update has moved past, and
    `practice_audit.py` fails on them at step 6 until each is decided again
    ([current-rule-governs](current-rule-governs.md)). Incident, 2026-09-24:

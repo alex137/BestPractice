@@ -810,7 +810,9 @@ def update(clone, force=False, allow_pinned=False):
                 print(f"  local change: {p}")
             sys.exit("checkin FAIL: vendored tree differs from the recorded upstream commit — "
                      "that is unexported work the mirror would clobber. Export it first "
-                     "(INSTALL.md §3/§4) or pass --force to overwrite.")
+                     "(INSTALL.md §3/§4) or pass --force to overwrite -- but only after "
+                     "reviewing each file above: vendor-update-runbook's conflicted-file "
+                     "review decides whether the local change is kept, merged or dropped.")
     # Mirrored from the SOURCE REF's tree, extracted to a scratch directory --
     # not from the clone's working tree, which this tool no longer moves and
     # which may sit on some entirely different branch.
