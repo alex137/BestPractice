@@ -1201,8 +1201,29 @@ def _practice_links_travel(ctx):
                 else:
                     uroot = _universal_source_root()
                     u_slug = _origin_slug(uroot) if uroot else None
-                    if uroot is None or u_slug is None \
-                            or url_repo.lower() != u_slug.lower():
+                    if uroot is None or u_slug is None:
+                        continue                # cannot tell universal apart
+                    if url_repo.lower() != u_slug.lower():
+                        # A practice file in ANOTHER set, linked by URL -- the
+                        # Rule's "never", which this branch used to wave
+                        # through as somebody else's repository. That is how a
+                        # public shared set still linked a private individual
+                        # set on 2026-09-24, after the dead-link advice was
+                        # fixed: a URL written directly never passes through
+                        # the dead-link case at all. A set's visibility is
+                        # not knowable from here, so every other set is
+                        # treated as possibly private.
+                        # practice: practice-links-travel
+                        if m.group(3).startswith('practices/') \
+                                and m.group(3).split('#')[0].endswith('.md'):
+                            other = m.group(3).split('#')[0][len('practices/'):-3]
+                            out.append(Finding(
+                                where, f'links `{other}` by URL into '
+                                       f'{url_repo}, a practice in another '
+                                       f'set. Write `{other}` in backticks '
+                                       f'with no link: another set may be '
+                                       f'private, and its URL would publish '
+                                       f'that repository into every consumer'))
                         continue                # somebody else's repository
                     check_root = uroot
                     subject = 'its declared universal source'
@@ -1271,8 +1292,7 @@ def _practice_links_travel(ctx):
                     advice = (f'Write `{base[:-3]}` in backticks with no link. '
                               f'Never link it where it lives: another set may '
                               f'be private, and its URL would publish that '
-                              f'repository into every consumer (practice: '
-                              f'private-repo-scrub)')
+                              f'repository into every consumer')
                 out.append(Finding(
                     where, f'`{target}` names a practice that is not in this '
                            f'set, so the link is dead here and in every '

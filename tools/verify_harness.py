@@ -8272,7 +8272,11 @@ def check_precedent_check_fires():
                          'precedent-beta-v01/no-such-planted-path.md), '
                          '[d](../tools/checks/check_not_here.py), '
                          '[e](zzz-withdrawn.md), '
-                         '[g](zzz-in-another-set.md).\n',
+                         '[g](zzz-in-another-set.md), '
+                         '[h](https://github.com/example/other-set/blob/'
+                         'main/practices/zzz-by-url.md), '
+                         '[i](https://github.com/example/other-set/blob/'
+                         'main/README.md).\n',
                          encoding='utf-8')
         # The fixture is a `git init` copy with no remote, and the
         # upstream-URL half of the check asks origin which repository this
@@ -8325,6 +8329,16 @@ def check_precedent_check_fires():
                       'set is told to use the backticked slug, not a URL',
                       bool(_g) and all('`zzz-in-another-set` in backticks' in l
                                        and 'https://' not in l for l in _g)))
+        # ...and the same practice linked by URL straight into that other
+        # set, which never passes through the dead-link case: reported, with
+        # the same advice. A URL to any OTHER file in that repository is not
+        # this rule's business and stays unreported.
+        cases.append(('practice-links-travel: a URL to a practice in another '
+                      'set is reported and told to use the backticked slug',
+                      '`zzz-by-url` in backticks' in _plt))
+        cases.append(('practice-links-travel: a URL to a non-practice file in '
+                      'another repository is not reported',
+                      _plt.count('by URL into example/other-set') == 1))
         for _frag, _what in (
                 ('does not travel with this file', 'the relative link'),
                 ('precedent.json declares', 'the wrong-branch URL'),
