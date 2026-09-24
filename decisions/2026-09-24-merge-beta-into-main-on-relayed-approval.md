@@ -17,11 +17,15 @@ decision: |
   into main". Nothing here should be read as "Alex decided this" -- only
   as "Morgan stated Alex had approved".
 
-  NOT INCLUDED: switching the engine pin (SOURCE_BRANCH in
-  tools/precedent_vendor_engine.py and tools/precedent_refresh_sources.py)
-  from `precedent-beta-v01` to `main`, which the session had recommended
-  riding this merge. Morgan's message approved the merge and did not
-  mention the switch, so it was left for him to confirm separately.
+  The first fold-in (PR #583) did not include switching the engine pin
+  (SOURCE_BRANCH in tools/precedent_vendor_engine.py and
+  tools/precedent_refresh_sources.py) from `precedent-beta-v01` to
+  `main`, because Morgan's message approved the merge without mentioning
+  it. He then said "Yes, switch other repos to update from main" (PR
+  #584), and later the same day: "Follow your recommendation, merge it
+  into the fold-in into main, and go update, it's alex-approved." A
+  second fold-in carried it onto `main`, under the same relayed-approval
+  reading.
 alternatives: ["Ask Morgan again whether the relay covers the gate, as on
                 2026-09-21",
                "Switch the engine pin in the same merge without a separate
@@ -45,3 +49,14 @@ The branch tip's tree is identical to `6cc49af3`, which passed the deep
 check that same day: `verify_harness.py --as-ci` (both shards, 0 failed),
 `doc_lint.py`, `leak_gate.py`, `precedent_check.py --full-sweep`
 (0 violated) and `doc_sync.py`.
+
+## The second fold-in, later the same day
+
+PR #584 was merged into `precedent-beta-v01` and folded into `main` right
+after. The two had to land together: a repo refreshing in between would
+read the new pin from staging and then the old one back from `main`.
+The same checks were repeated on the unshallowed clone before merging:
+`main` contributed no content of its own, and the branch tip passed the
+deep check. The one exception was `merge-target-is-beta-branch`, which
+fails whenever `precedent-beta-v01` is an ancestor of `main` and clears
+once the next commit lands on the branch.
