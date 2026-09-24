@@ -1,4 +1,4 @@
-# Precedent: Defining Your Rules While Working
+# Precedent: Your Team's Rules, Suggested by AI While You Work
 
 *Humans should do what humans do best, and leave the rest to the
 machines. ([Humans at our
