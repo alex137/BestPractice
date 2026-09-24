@@ -63,6 +63,21 @@
   "timezone": "{{PERSON_TIMEZONE}}",
   "pronouns": "{{PERSON_PRONOUNS}}",
   "register": "{{PERSON_REGISTER}}",
+  "ci_every_hours": 0,
+  "_ci_every_hours_comment": [
+    "HOW OFTEN GITHUB ACTIONS RUNS IN YOUR PRIVATE REPOS. 0, the default,",
+    "means every push, exactly as if this key were absent. A number above 0",
+    "means at most once every that many hours: commit-identity.sh's commit",
+    "hook adds [skip ci] to a commit on a private repo's primary branch when",
+    "CI already ran there more recently than that, so GitHub never starts a",
+    "runner and bills nothing. Public repos, feature branches and anything",
+    "the hook is unsure of always run CI. A repo overrides this for itself",
+    "with its own `ci_every_hours` in precedent.json -- a practice set that",
+    "other repos read from should declare 0 there.",
+    "",
+    "Your local deep check stays the real gate; CI becomes the backstop.",
+    "Full design: BestPractice spec/CI_CADENCE_PLAN.md."
+  ],
   "relayed_authorization": "refused",
   "_relayed_authorization_comment": [
     "DOES YOUR APPROVAL TRAVEL? When work you authorized has to be finished",

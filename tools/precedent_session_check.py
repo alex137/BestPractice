@@ -552,7 +552,79 @@ def checks(offline=False):
                     'before concluding a practice is absent from a source'))
     else:
         out.append((name, True, ''))
+
+    # 10. The CI cadence this repository resolves (spec/CI_CADENCE_PLAN.md).
+    #
+    # Said out loud at every check because the retired ci_debounce_minutes
+    # taught what a quiet knob costs: somebody tunes it, sees nothing change,
+    # and concludes the lever does not work. So this names the value in
+    # force, where it came from, and why a commit here would or would not be
+    # tagged -- and fails only when a cadence was asked for and nothing on
+    # this machine can apply it.
+    out.append(_ci_cadence_row())
     return out
+
+
+def _ci_cadence_row():
+    name = 'the CI cadence this repository resolves is the one applied'
+    def _load(path):
+        try:
+            return json.loads(pathlib.Path(path).expanduser()
+                              .read_text(encoding='utf-8'))
+        except Exception:
+            return None
+
+    def _hours(v):
+        if isinstance(v, bool) or not isinstance(v, (int, float)) or v < 0:
+            return 0
+        return v
+
+    cfg = _load(ROOT / 'precedent.json') or {}
+    if not isinstance(cfg, dict):
+        cfg = {}
+    if 'ci_every_hours' in cfg:
+        hours, where = _hours(cfg['ci_every_hours']), "this repo's precedent.json"
+    else:
+        hours, where = 0, 'the default'
+        cands = [ROOT / 'identity.json']
+        ucfg = _load(os.environ.get('PRECEDENT_USER_CONFIG')
+                     or '~/.config/precedent/config.json')
+        if isinstance(ucfg, dict):
+            path = (ucfg.get('individual') or {}).get('path')
+            if isinstance(path, str) and path:
+                cands.append(pathlib.Path(os.path.expandvars(path))
+                             .expanduser() / 'identity.json')
+        for c in cands:
+            d = _load(c)
+            if isinstance(d, dict) and 'ci_every_hours' in d:
+                hours, where = _hours(d['ci_every_hours']), f'{c}'
+                break
+    if not hours:
+        return (name, True, f'every push runs CI (ci_every_hours is 0, from '
+                            f'{where})')
+    if cfg.get('visibility') != 'private':
+        return (name, True, f'every push runs CI: ci_every_hours is {hours:g} '
+                            f'(from {where}), but this repo does not declare '
+                            f'"visibility": "private"')
+    base = cfg.get('base_branch')
+    if not isinstance(base, str) or not base:
+        return (name, True, f'every push runs CI: ci_every_hours is {hours:g} '
+                            f'(from {where}), but this repo declares no '
+                            f'base_branch to apply it on')
+    rc, hooks, _ = _git('config', '--get', 'core.hooksPath')
+    if rc != 0 or not hooks:
+        rc, hooks, _ = _git('rev-parse', '--git-path', 'hooks')
+        hooks = str((ROOT / hooks).resolve()) if rc == 0 and hooks else ''
+    cad = pathlib.Path(hooks).expanduser() / 'precedent-ci-cadence' if hooks else None
+    if not (cad and os.access(cad, os.X_OK)):
+        return (name, False, f'ci_every_hours is {hours:g} (from {where}), but '
+                             f'no precedent-ci-cadence script sits beside the '
+                             f'commit hooks here, so every push still runs CI. '
+                             f'commit-identity.sh writes it at session start, '
+                             f'and only for a declared identity')
+    return (name, True, f'private, primary branch {base}: CI runs at most '
+                        f'once every {hours:g}h (from {where}). '
+                        f'PRECEDENT_CI_NOW=1 git commit ... forces a run')
 
 
 def _clone_behind(path, fetch=True):
