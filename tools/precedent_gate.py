@@ -315,6 +315,32 @@ def _unlanded_work(root):
         ahead = _git(repo, 'rev-list', '--count', f'origin/{base}..HEAD')
         if not ahead or ahead == '0':
             continue
+        # rev-list answers a LINEAGE question -- is HEAD's commit an ancestor
+        # of origin/base -- but the practice this backs asks a CONTENT
+        # question: is this change on the base branch. A squash or rebase
+        # merge answers yes to the second and stays no to the first forever,
+        # because the merged commit on origin/base is a new commit that
+        # HEAD's never becomes an ancestor of. Seen 2026-09-24: a
+        # squash-merged vendor update reported NOT YET LANDED on every turn
+        # after, with origin/main holding the identical tree.
+        #
+        # So compare content, scoped to the files this branch changed since
+        # it forked. Scoped, not whole-tree: once the base moves on with
+        # anyone else's work, a whole-tree diff is never empty again and the
+        # false report comes straight back. `git cherry` is no help here --
+        # it matches per-commit patch-ids, and a squash of several commits
+        # matches none of them. When there is no merge base (a shallow
+        # clone), fall back to the whole tree, which can only over-report.
+        mb = _git(repo, 'merge-base', f'origin/{base}', 'HEAD')
+        touched = _git(repo, 'diff', '--name-only', mb, 'HEAD').splitlines() \
+            if mb else []
+        if mb and not touched:
+            continue            # the branch's commits net out to nothing
+        differs = _git(repo, 'diff', '--name-only', f'origin/{base}', 'HEAD',
+                       '--', *touched) if touched else \
+            _git(repo, 'diff', '--name-only', f'origin/{base}', 'HEAD')
+        if not differs:
+            continue
         name = repo.name if repo.resolve() != pathlib.Path(root).resolve() \
             else 'this checkout'
         out.append(f"{name}: {ahead} commit(s) on '{head}' that are NOT on "

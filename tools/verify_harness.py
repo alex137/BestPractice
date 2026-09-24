@@ -6587,6 +6587,41 @@ def check_reply_gate_names_work_not_yet_landed():
         cases.append(('merging into the base branch clears it',
                       pg._unlanded_work(repo) == [], str(pg._unlanded_work(repo))))
 
+        # A SQUASH merge clears it too. The squashed commit on trunk is new,
+        # so the branch's own commits never become its ancestors and
+        # rev-list counts them ahead forever; this reported NOT YET LANDED
+        # on every turn after a real squash merge, 2026-09-24. Two commits,
+        # so no per-commit patch-id can match the squash.
+        g('switch', '-q', '-c', 'squashed')
+        (repo / 'c.txt').write_text('three\n', encoding='utf-8')
+        g('add', '-A'); g('commit', '-qm', 'third')
+        (repo / 'c.txt').write_text('three, revised\n', encoding='utf-8')
+        g('add', '-A'); g('commit', '-qm', 'fourth')
+        g('switch', '-q', 'trunk'); g('merge', '-q', '--squash', 'squashed')
+        g('commit', '-qm', 'squash of squashed')
+        g('push', '-q', 'origin', 'trunk')
+        g('switch', '-q', 'squashed')
+        got = pg._unlanded_work(repo)
+        cases.append(('a squash-merged branch is not reported', got == [], str(got)))
+
+        # The base moving on with someone else's work must not bring the
+        # false report back -- a whole-tree comparison would.
+        g('switch', '-q', 'trunk')
+        (repo / 'd.txt').write_text('elsewhere\n', encoding='utf-8')
+        g('add', '-A'); g('commit', '-qm', 'unrelated')
+        g('push', '-q', 'origin', 'trunk')
+        g('switch', '-q', 'squashed')
+        got = pg._unlanded_work(repo)
+        cases.append(('it stays cleared after the base moves on', got == [], str(got)))
+
+        # And real work on top of the squashed branch is still reported.
+        (repo / 'c.txt').write_text('three, revised again\n', encoding='utf-8')
+        g('add', '-A'); g('commit', '-qm', 'fifth')
+        got = pg._unlanded_work(repo)
+        cases.append(('a real commit after the squash is still reported',
+                      len(got) == 1 and "'trunk'" in got[0], str(got)))
+        g('switch', '-q', 'trunk')
+
         # A repo with no precedent.json still works, via origin/HEAD.
         (repo / 'precedent.json').unlink()
         g('add', '-A'); g('commit', '-qm', 'drop config')
