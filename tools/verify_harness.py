@@ -15457,6 +15457,134 @@ def check_session_check_reports_a_dead_also_list_entry():
           f'({len(cases)} stated cases)', not failed, '; '.join(failed))
 
 
+def check_merge_gate_sees_a_workflow_that_never_ran():
+    """The merge gate's CI check: a green pull request is not the question.
+
+    THE INCIDENT, 2026-09-23. A pull request showed a green tick. One of two
+    workflows had run on its head commit; the other -- verify_harness,
+    precedent_check, doc_sync -- never fired, although the identical trigger
+    had produced a run for the four previous pull requests on the same
+    branch. GitHub re-attaches a branch's historical runs to whatever pull
+    request is open on it, so four runs earned by EARLIER pull requests read
+    as this one's history. The merge was one call from landing on an
+    unchecked tree.
+
+    Pinned here: every verdict, that UNVERIFIED never reads as clean, and
+    the parser case that the tool's own first run got wrong -- a workflow
+    whose `on:` block only MENTIONS pull_request in a comment is not
+    pull-request-triggered.
+
+    The network is stubbed throughout. A test that actually called GitHub
+    would spend the shared unauthenticated allowance this tool is careful
+    about, and would fail on a runner with no egress
+    (practice: fixture-owns-its-state)."""
+    import tempfile
+    import precedent_ci_verified as pciv
+
+    cases = []
+    saved_git, saved_fetch = pciv._git, pciv._fetch_runs
+
+    def stub_git(root, *a):
+        if a[:1] == ('rev-parse',) and 'HEAD' in a and '--abbrev-ref' in a:
+            return True, 'claude/some-branch'
+        if a[:1] == ('rev-parse',):
+            return True, 'abc123def4567890'
+        if a[:1] == ('config',):
+            return True, 'https://github.com/alex137/BestPractice.git'
+        if a[:1] == ('branch',):
+            return True, '  origin/claude/some-branch'
+        return True, ''
+
+    def run(runs, expected=('Deep check', 'Leak gate')):
+        pciv._fetch_runs = lambda slug, sha: (runs, '')
+        pciv.expected_workflows = lambda root, branch='': set(expected)
+        return pciv.verdict('.')
+
+    saved_expected = pciv.expected_workflows
+    try:
+        pciv._git = stub_git
+        ok = [{'name': 'Deep check', 'status': 'completed',
+               'conclusion': 'success', 'run_number': 2},
+              {'name': 'Leak gate', 'status': 'completed',
+               'conclusion': 'success', 'run_number': 2}]
+        state, _ = run(ok)
+        cases.append(('both workflows green for this commit is VERIFIED',
+                      state == pciv.VERIFIED, state))
+        cases.append(('and the gate says nothing at all',
+                      pciv.remind('.') == '', repr(pciv.remind('.'))))
+
+        # THE INCIDENT: one workflow ran, the other produced no run.
+        state, lines = run([r for r in ok if r['name'] == 'Leak gate'])
+        cases.append(('a workflow with NO run for this commit is NOT_RUN, '
+                      'never verified', state == pciv.NOT_RUN, state))
+        cases.append(('and it names the workflow that is missing',
+                      any('Deep check' in x and 'NO RUN' in x for x in lines),
+                      '; '.join(lines)[:110]))
+        said = pciv.remind('.')
+        cases.append(('the gate says DID NOT RUN, not "failed"',
+                      'DID NOT RUN' in said, said[:80]))
+
+        state, _ = run([dict(ok[0], conclusion='failure'), ok[1]])
+        cases.append(('a failed run is FAILED, told apart from not running',
+                      state == pciv.FAILED, state))
+        state, _ = run([dict(ok[0], status='in_progress', conclusion=None),
+                        ok[1]])
+        cases.append(('an unfinished run is RUNNING, not success',
+                      state == pciv.RUNNING, state))
+
+        # Cannot ask -> never clean. This is the same distinction the source
+        # freshness row was rewritten for the same day.
+        pciv._fetch_runs = lambda slug, sha: (None, 'GitHub answered 403')
+        state, _ = pciv.verdict('.')
+        cases.append(('a request that could not be made is UNVERIFIED, never '
+                      'VERIFIED', state == pciv.UNVERIFIED, state))
+
+        # An unpushed commit is answered without spending a request at all.
+        spent = []
+        pciv._fetch_runs = lambda slug, sha: (spent.append(1), ([], ''))[1]
+        pciv._git = lambda root, *a: (
+            (True, '') if a[:1] == ('branch',) else stub_git(root, *a))
+        state, _ = pciv.verdict('.')
+        cases.append(('an unpushed commit is NOT_RUN and costs no API call',
+                      state == pciv.NOT_RUN and not spent, f'{state} {spent}'))
+    finally:
+        pciv._git, pciv._fetch_runs = saved_git, saved_fetch
+        pciv.expected_workflows = saved_expected
+
+    # THE PARSER CASE the tool got wrong on its first run: `pull_request:`
+    # inside a COMMENT is not a trigger. Real files, since this is a text
+    # reader and a stub would prove nothing about it.
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='ci-verified-'))
+    try:
+        wf = tmp / '.github' / 'workflows'
+        wf.mkdir(parents=True)
+        (wf / 'commented.yml').write_text(
+            'name: Commented\non:\n'
+            '  # the unexamined `pull_request:` line came with it\n'
+            '  push:\n    branches: [main]\n\njobs: {}\n')
+        (wf / 'real.yml').write_text(
+            'name: Real\non:\n  pull_request:\n'
+            '    types: [opened]\n\njobs: {}\n')
+        (wf / 'everybranch.yml').write_text(
+            'name: Everywhere\non:\n  push:\n\njobs: {}\n')
+        got = pciv.expected_workflows(str(tmp), 'some-feature-branch')
+        cases.append(('a pull_request mentioned only in a COMMENT is not a '
+                      'trigger', 'Commented' not in got, str(sorted(got))))
+        cases.append(('a real pull_request trigger is expected',
+                      'Real' in got, str(sorted(got))))
+        cases.append(('push with no branch filter is expected on any branch',
+                      'Everywhere' in got, str(sorted(got))))
+        on_main = pciv.expected_workflows(str(tmp), 'main')
+        cases.append(('push scoped to main IS expected on main',
+                      'Commented' in on_main, str(sorted(on_main))))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(n, d) for n, ok_, d in cases if not ok_]
+    return (not bad, f'{len(cases)} stated cases',
+            '; '.join(f'{n}: {d}' for n, d in bad))
+
+
 def check_session_check_never_calls_an_unfetched_clone_current():
     """A source clone that never fetched must not report itself current.
 
@@ -29425,6 +29553,8 @@ def main():
           *check_session_check_reports_a_source_cloned_twice())
     check('the session check never calls an unfetched source clone current',
           *check_session_check_never_calls_an_unfetched_clone_current())
+    check('the merge gate sees a workflow that never ran on this commit',
+          *check_merge_gate_sees_a_workflow_that_never_ran())
     check('a declared loss releases the archive line, and only then',
           *check_declared_loss_unblocks_the_archive_line())
     check('every verdict-returning check is actually recorded',
