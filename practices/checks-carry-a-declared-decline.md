@@ -6,6 +6,7 @@ severity:    default
 applies_to:  ["tools/precedent_check.py", "tools/checks/**/*.py"]
 occasion:    "writing or changing a check that can report a deliberate state"
 gates:       ["review"]
+index_required: false
 index_clause: "a check reporting a state a repo chose needs a declared decline, with a reason"
 checked_by:  null
 defines:     []

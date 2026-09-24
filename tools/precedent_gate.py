@@ -61,7 +61,7 @@ Run:
       # the Rules for that moment, from DIR's practices/ instead of this
       # repo's own
 """
-import json, pathlib, sys
+import json, pathlib, subprocess, sys
 
 # _ENGINE_DIR (where this file itself lives) is only for the sibling-module
 # import and for routing_scope.json below -- both ship as one fixed unit
@@ -154,9 +154,32 @@ PRIVATE_LEVELS = getattr(bv, 'PRIVATE_LEVELS', ('shared', 'team', 'individual'))
 
 
 def resolved_gate_practices(root, gate):
-    """-> (entries, notes). Every IN-FORCE practice registered to `gate` in
-    any source this repo resolves -- team, individual and repo-local as well
-    as universal -- as (slug, level, source_name, path) tuples.
+    """-> (entries, notes, unresolved_level). Every IN-FORCE practice
+    registered to `gate` in any source this repo resolves -- team,
+    individual and repo-local as well as universal -- as (slug, level,
+    source_name, path) tuples.
+
+    `unresolved_level` is what the CALLER should assume for a practice that
+    sits in this repo's own `practices/` and is registered to `gate`, but
+    that `entries` above does not otherwise account for -- either because
+    resolution failed outright or because the source that owns it did not
+    resolve this session. It is `'universal'` when this repo's own
+    precedent.json declares no external universal source, which is what
+    makes that assumption safe: a repo that names nothing at `level:
+    universal` is not consuming one, so by elimination its own tree IS the
+    universal catalogue (BestPractice's own shape). It is `None` -- "level
+    unknown, ask the caller not to assert one" -- the moment this repo DOES
+    declare an external universal source, because then its own
+    `practices/` is an individual, team or shared source's tree instead,
+    and this function has no way to say which one from a file that never
+    resolved. Reproduced 2026-09-22 in precedent-individual (see this
+    module's `main()`): `so-what-test` and `handoff-only-when-blocked` are
+    that set's own INDIVIDUAL practices, but with the individual source
+    unresolved (no `~/.config/precedent/config.json`), the caller's old
+    hardcoded `'universal'` fallback printed `(universal)` for both --
+    wrong in a way nothing downstream could catch, on the one channel whose
+    whole promise is that a session does not have to judge this for
+    itself.
 
     WHY THIS EXISTS, and what it cost to leave out. Until 2026-09-13 this
     file read exactly one directory: `<root>/practices/`. In a consuming
@@ -188,13 +211,22 @@ def resolved_gate_practices(root, gate):
         import precedent_resolve as pr
     except ImportError:
         return [], ['precedent_resolve.py is not vendored beside this script, '
-                    'so only this repo\'s own practices/ is below.']
+                    'so only this repo\'s own practices/ is below.'], 'universal'
     try:
         sources = pr.load_config(root)
+    except Exception as e:                                   # noqa: BLE001
+        return [], [f'the declared sources could not be read ({e}), so '
+                    f'only this repo\'s own practices/ is below.'], 'universal'
+    # See this function's own docstring: the ONE signal available here for
+    # what this repo's own unresolved practices/ files actually are.
+    unresolved_level = (
+        None if any(s.get('level') == 'universal' for s in sources)
+        else 'universal')
+    try:
         res = pr.resolve(sources)
     except Exception as e:                                   # noqa: BLE001
         return [], [f'the declared sources could not be resolved ({e}), so '
-                    f'only this repo\'s own practices/ is below.']
+                    f'only this repo\'s own practices/ is below.'], unresolved_level
 
     for m in res.get('missing', []):
         notes.append(
@@ -212,7 +244,7 @@ def resolved_gate_practices(root, gate):
         if gate in gates:
             entries.append((slug, practice['level'], practice.get('source', ''),
                             pathlib.Path(practice['file'])))
-    return entries, notes
+    return entries, notes, unresolved_level
 
 
 def _unlanded_work(root):
@@ -282,6 +314,32 @@ def _unlanded_work(root):
             continue
         ahead = _git(repo, 'rev-list', '--count', f'origin/{base}..HEAD')
         if not ahead or ahead == '0':
+            continue
+        # rev-list answers a LINEAGE question -- is HEAD's commit an ancestor
+        # of origin/base -- but the practice this backs asks a CONTENT
+        # question: is this change on the base branch. A squash or rebase
+        # merge answers yes to the second and stays no to the first forever,
+        # because the merged commit on origin/base is a new commit that
+        # HEAD's never becomes an ancestor of. Seen 2026-09-24: a
+        # squash-merged vendor update reported NOT YET LANDED on every turn
+        # after, with origin/main holding the identical tree.
+        #
+        # So compare content, scoped to the files this branch changed since
+        # it forked. Scoped, not whole-tree: once the base moves on with
+        # anyone else's work, a whole-tree diff is never empty again and the
+        # false report comes straight back. `git cherry` is no help here --
+        # it matches per-commit patch-ids, and a squash of several commits
+        # matches none of them. When there is no merge base (a shallow
+        # clone), fall back to the whole tree, which can only over-report.
+        mb = _git(repo, 'merge-base', f'origin/{base}', 'HEAD')
+        touched = _git(repo, 'diff', '--name-only', mb, 'HEAD').splitlines() \
+            if mb else []
+        if mb and not touched:
+            continue            # the branch's commits net out to nothing
+        differs = _git(repo, 'diff', '--name-only', f'origin/{base}', 'HEAD',
+                       '--', *touched) if touched else \
+            _git(repo, 'diff', '--name-only', f'origin/{base}', 'HEAD')
+        if not differs:
             continue
         name = repo.name if repo.resolve() != pathlib.Path(root).resolve() \
             else 'this checkout'
@@ -374,6 +432,28 @@ def _print_hard_requirements(root):
                 print(f"- [{src}] a reply matching /{pair['if_matches']}/ "
                       f"must ALSO match /{pair['must_also_match']}/"
                       + (f" -- {pair['why']}" if pair.get('why') else ''))
+        # THE ONE PREDICATE WHOSE ANSWER IS ALREADY KNOWABLE HERE, so this
+        # prints the ANSWER and not just the rule (2026-09-22). Every other
+        # line in this block states a requirement the reply has yet to meet;
+        # this one is a fact about the disk, true or false before a word of
+        # the reply is written. Printing "do not say the archive line if the
+        # container is unsafe" and leaving the session to wonder which it is
+        # would reproduce, one rung up, exactly the failure this whole
+        # function exists to end -- the person paying for the reply twice.
+        # Silent when the container is clean, which is the ordinary case.
+        for _ph in (r.get('require_container_safe_if_says') or []):
+            _verdict = _container_report()
+            if _verdict is None:
+                print(f"- [{src}] a reply saying \"{_ph}\" requires a "
+                      f"container with nothing uncommitted and nothing off a "
+                      f"remote -- and the scanner that checks it "
+                      f"(tools/precedent_container_safe.py) is not vendored "
+                      f"beside this script, so it is NOT being enforced here.")
+            elif _verdict:
+                print(f"- [{src}] DO NOT SAY \"{_ph}\" IN THIS REPLY -- "
+                      f"the stop hook will refuse it. This container holds "
+                      f"work that exists nowhere else:\n{_verdict}")
+
         # A REQUIREMENT THIS ENGINE CANNOT EVALUATE, named here rather than
         # left silent. A source's reply_check.json is read live; the engine
         # is vendored; they go stale independently, so a source can declare
@@ -389,6 +469,28 @@ def _print_hard_requirements(root):
                   f"<bestpractice-clone>")
     for n in notes:
         print(f"- NOTE: {n}")
+
+
+def _container_report():
+    """-> the scanner's report when this container is NOT safe to lose, '' when
+    it is, or None when there is no scanner to run.
+
+    Deliberately three-valued. '' and None both print nothing, but they mean
+    opposite things -- "checked, clean" and "not checked at all" -- and the
+    caller says so for the second, because a requirement nobody is evaluating
+    is not a requirement that is being met.
+    """
+    tool = pathlib.Path(__file__).resolve().parent / 'precedent_container_safe.py'
+    if not tool.is_file():
+        return None
+    try:
+        p = subprocess.run([sys.executable, str(tool)],
+                           capture_output=True, text=True, timeout=120)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if p.returncode == 0:
+        return ''
+    return '\n'.join('    ' + ln for ln in (p.stdout or '').strip().splitlines())
 
 
 def main():
@@ -440,9 +542,17 @@ def main():
     # resolved_gate_practices). Resolution WINS on a slug both carry, since
     # it has applied precedence across the sources and the directory has
     # not.
-    registered = {s: ('universal', '', practices_dir / f'{s}.md')
+    #
+    # The seed's OWN level is never assumed to be 'universal' -- that was
+    # only ever true when this repo's own tree really is the universal
+    # catalogue, and resolved_gate_practices() names the one case that
+    # tells them apart (see its docstring). Reproduced 2026-09-22: with
+    # `unresolved_level` hardcoded, an unresolved individual or team source
+    # printed its own practices as `(universal)`, which is wrong in a way
+    # nothing downstream could catch.
+    entries, source_notes, unresolved_level = resolved_gate_practices(root, gate)
+    registered = {s: (unresolved_level, '', practices_dir / f'{s}.md')
                   for s in by_gate.get(gate, [])}
-    entries, source_notes = resolved_gate_practices(root, gate)
     for slug, level, name, path in entries:
         registered[slug] = (level, name, path)
     slugs = sorted(registered)
@@ -481,6 +591,38 @@ def main():
             if alert:
                 print(f"{alert}\n")
         except ImportError:
+            pass
+
+    # THE MERGE MOMENT, and only it: did CI actually run on the commit about
+    # to be merged?
+    #
+    # 2026-09-23, this repository. A pull request showed a green tick. One of
+    # its two workflows had run on the head commit; the other -- the one
+    # carrying verify_harness, precedent_check and doc_sync -- never fired,
+    # although the identical trigger had produced a run for the four previous
+    # pull requests on that same branch. The pull request page hid it: GitHub
+    # re-attaches a branch's historical runs to whatever pull request is open
+    # on it, so four green runs earned by EARLIER pull requests read as this
+    # one's own history. The merge was one call away from landing on a tree
+    # nothing had checked.
+    #
+    # ADVISORY, never a refusal, and that limit is deliberate: it asks GitHub
+    # unauthenticated, 60 requests an hour per IP shared across every session
+    # here (practice: github-api-budget). A gate that blocked a merge on
+    # somebody else's rate limit would be routed around in a week. It says
+    # what it found; the session decides. Silent when the commit is verified,
+    # which is the normal case.
+    if gate == 'merge':
+        try:
+            sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+            import precedent_ci_verified as pciv
+            block = pciv.remind(root, prefix='precedent gate')
+            if block:
+                print(f"{block}\n")
+        except Exception:
+            # One network call and a YAML-ish read; a gate that died because
+            # its ADVISORY block failed would be worse than a quiet one
+            # (practice: fail-gracefully).
             pass
 
     # EVERY gate, not one of them: a session whose SessionStart hooks never
@@ -570,7 +712,13 @@ def main():
 
     for n in source_notes:
         print(f"NOTE: {n}\n")
-    if any(registered[s][0] in PRIVATE_LEVELS for s in slugs):
+    # A slug whose level is None (unresolved -- see resolved_gate_practices)
+    # is treated as possibly private here too: it is this repo's OWN file,
+    # and the one thing not known about it is which level it is, never that
+    # it is safely public. Silence on that guess would be the wrong side to
+    # be wrong on for a rule that says "never quote this into a commit".
+    if any(registered[s][0] in PRIVATE_LEVELS or registered[s][0] is None
+           for s in slugs):
         # Same standing rule as .precedent/SESSION_PRACTICES.md's header,
         # said at the other place this text now surfaces: a private source's
         # practice text has never been published, and this repo is public.
@@ -583,7 +731,13 @@ def main():
     for slug in slugs:
         level, name, path = registered[slug]
         fm, sections = sp._read_practice_file(path)
-        where = level if level in ('universal', 'repo-local') else f'{level}/{name}'
+        # None means resolution did not account for this practice at all
+        # (see resolved_gate_practices) -- said outright rather than
+        # guessed as 'universal', which is the defect this branch replaces.
+        if level is None:
+            where = 'level unknown — this source did not resolve'
+        else:
+            where = level if level in ('universal', 'repo-local') else f'{level}/{name}'
         if '--brief' in flags:
             # One line per practice, for the per-turn channel: the full Rules
             # of a busy gate are thousands of tokens, and a reminder a session

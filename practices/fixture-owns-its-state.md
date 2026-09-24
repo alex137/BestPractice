@@ -6,6 +6,7 @@ severity:    default
 applies_to:  ["**/*.py", "**/*.sh", "**/test_*", "**/tests/**"]
 occasion:    "writing a test, fixture or control that reads or edits state it did not create"
 gates:       ["review"]
+index_required: false
 index_clause: "a fixture that inherits real state is testing the environment too"
 checked_by:  null
 defines:     []

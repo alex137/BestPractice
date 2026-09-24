@@ -6,6 +6,7 @@ severity:    default
 applies_to:  ["PRACTICES.md", "practices/**", "templates/**", "tools/**", "process/upstream/**"]
 occasion:    "merging a branch that improved a generic practice"
 gates:       ["merge"]
+index_required: false
 index_clause: "vendor upstream as tracked files; check improvements back in"
 checked_by:  "tools/precedent_check.py"
 defines:     []

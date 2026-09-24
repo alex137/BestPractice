@@ -175,7 +175,10 @@ Five subcommands:
                                   (its sha256 no longer matches
                                   ENGINE_MANIFEST.json) unless --force, then
                                   re-copies + re-trims (the kind's own file
-                                  list) and updates the manifest.
+                                  list) and updates the manifest. Also keeps
+                                  any file this repo's precedent.json maps
+                                  under `engine_paths` (upstream path ->
+                                  local path) current; see ENGINE_PATHS_KEY.
 
   fresh                          Clone-free staleness notice, no argument
                                   needed: one `git ls-remote` of
@@ -409,6 +412,16 @@ ENGINE_FILES = [
     # named 'precedent_reply_check')" on every single turn. Reproduced in a
     # stripped vendor tree before this line was added.
     'precedent_reply_check.py',
+    # The one predicate in that file that looks at the DISK rather than at
+    # the reply (2026-09-22): does this container hold work that exists
+    # nowhere else? It travels for the same reason the reply check itself
+    # does -- `require_container_safe_if_says` is declared in a source's
+    # reply_check.json, read live, and evaluated by the VENDORED engine, so
+    # a consumer without this file would silently evaluate the archive rule
+    # to "nothing to report" in exactly the containers most likely to be
+    # holding somebody's unpushed clone. It is useful on its own, too: a
+    # person or a session can run it at any time and get a straight answer.
+    'precedent_container_safe.py',
     # The stop hook's other half: close detection (2026-09-14). Same argument
     # as the line above it, and caught the same way -- Morgan asked whether
     # updating the vendored engine would carry this to a repo that has it,
@@ -545,6 +558,20 @@ ENGINE_FILES = [
     'full_practice_audit.py',
     'session_load_trend.py',
     'todo_progress.py',
+    # The SessionStart self-heal: "did this repo's own hooks actually run,
+    # and repair it by hand if not" (added 2026-09-08, in BestPractice only
+    # until 2026-09-24). Never vendored, so no source set had it -- and a
+    # source set is exactly where the failure this tool exists for bites,
+    # since a team source resolving as a sibling clone is what roots a
+    # session one directory ABOVE every repo's hooks in the first place
+    # (this file's own docstring). In ENGINE_FILES rather than consumer-only
+    # for the same reason precedent_vocabulary.py is: the guarantee it
+    # checks -- and the additionalContext-emitting hook this file's own
+    # apply_repair() was found, the same day, to be silently skipping
+    # because its hook list was hardcoded rather than read from
+    # settings.json -- belongs to whatever repo the session is rooted in,
+    # source set or consumer alike.
+    'precedent_session_check.py',
     'precedent_vendor_engine.py',
 ]
 
@@ -758,6 +785,10 @@ def _hook_file_names(hooks_dir):
 
 
 _HOOK_CMD_RE = re.compile(r'hooks/([\w.-]+\.sh)')
+# Any hook script a command names, wherever it lives. Used ONLY to describe
+# what a repo already wires, never to decide what to vendor -- see
+# _wired_hook_names_anywhere.
+_HOOK_CMD_ANY_RE = re.compile(r'([\w.-]+\.sh)')
 
 
 def _wired_hook_names(dest_root):
@@ -786,6 +817,48 @@ def _wired_hook_names(dest_root):
     yet: INSTALL.md's own order writes it (precedent_install.py) before this
     tool ever runs, so an absence here means "nothing to reconcile yet", not
     "broken" (practice: fail-gracefully)."""
+    return _settings_hook_names(dest_root, _HOOK_CMD_RE)
+
+
+def _wired_hook_names_anywhere(dest_root):
+    """Hook script basenames this repo wires from ANY path, not only from
+    `.claude/hooks/`.
+
+    REPORTING ONLY, and the separation from `_wired_hook_names` above is the
+    whole point. That function decides what gets VENDORED, and it is right to
+    look only under `.claude/hooks/` -- a repo that calls a script in place
+    from somewhere else in its own tree does not want a second copy planted
+    beside it. Widening the vendoring test would plant exactly that.
+
+    What the narrow test cannot do is describe the repo truthfully, and the
+    NOTE was using it for both jobs. Measured 2026-09-22 in
+    `precedent-individual`, which authors these scripts and wires four of them
+    straight out of its own tracked `bootstrap/` -- its settings.json says so
+    in as many words: *"bootstrap/ IS a tracked directory of this repo, so
+    every entry calls its script in place -- one file, no second copy to drift
+    from it."* The refresh told it that `commit-identity.sh`,
+    `freshness-guard.sh` and `precedent-universal-catalogue.sh` were "not
+    wired in this repo's own .claude/settings.json". All three are wired, on
+    consecutive lines of that file.
+
+    That is worse than noise, because the NOTE beside it says to break the
+    loop by hand -- copy the entry from upstream's settings.json, re-run, and
+    the file arrives. Following that advice here would plant the second copy
+    the repo deliberately does not keep, and the drift would look like a
+    hand-edit months later. So the NOTE now names these separately and tells
+    the reader there is nothing to do about them.
+    """
+    return _settings_hook_names(dest_root, _HOOK_CMD_ANY_RE)
+
+
+def _settings_hook_names(dest_root, pattern):
+    """The shared walk behind the two functions above, so a change to how
+    settings.json is read cannot reach one and miss the other.
+
+    Returns an empty set, never an error, when settings.json does not exist
+    yet: INSTALL.md's own order writes it (precedent_install.py) before this
+    tool ever runs, so an absence here means "nothing to reconcile yet", not
+    "broken" (practice: fail-gracefully)."""
     settings_path = dest_root / '.claude' / 'settings.json'
     if not settings_path.is_file():
         return set()
@@ -797,10 +870,93 @@ def _wired_hook_names(dest_root):
     for group in (settings.get('hooks') or {}).values():
         for entry in group:
             for h in entry.get('hooks', []):
-                m = _HOOK_CMD_RE.search(h.get('command', '') or '')
+                m = pattern.search(h.get('command', '') or '')
                 if m:
                     names.add(m.group(1))
     return names
+
+
+def dependents_of(dest_root, rels, cap=8):
+    """-> {rel: [(referring path, line number, the line)]} for files that
+    are about to stop existing, or just have.
+
+    THE INCIDENT (2026-09-21,
+    todo-2026-09-21-refresh-deletes-a-workflow-another-file-depends-on.md).
+    A refresh deleted `.github/workflows/precedent-check.yml` from four
+    practice sets. A second workflow in each of them had been PAUSED hours
+    earlier, its own header saying in as many words that its checks "now run
+    as steps in .github/workflows/precedent-check.yml's single job". The
+    fold's destination was gone; the pause's premise was true when it was
+    written and false the same afternoon; two commit-scope checks ran
+    nowhere, and nothing said a word.
+
+    precedent_decommission.py already refuses to retire a file other files
+    still name -- WITHIN one repository, when a person runs it deliberately.
+    Deletion travels through refresh() to every installed repo; the
+    dependency question never travelled with it. This is that question,
+    asked at the moment of deletion.
+
+    IT REPORTS AND NEVER REFUSES. A document that mentions a retired file by
+    name is usually correct to (a story about a decommissioning names what
+    was decommissioned), so refusing a refresh over a mention would block
+    routine updates on prose. What the refresh owes is that nobody finds out
+    by reading a silent tree weeks later."""
+    hits = {}
+    if not rels:
+        return hits
+    dest_root = pathlib.Path(dest_root)
+    try:
+        listed = subprocess.run(['git', 'ls-files'], cwd=str(dest_root),
+                                capture_output=True, text=True, timeout=60)
+        files = [dest_root / x for x in listed.stdout.split()] \
+            if listed.returncode == 0 else []
+    except (OSError, subprocess.SubprocessError):
+        files = []
+    if not files:
+        files = [x for x in dest_root.rglob('*')
+                 if x.is_file() and '.git/' not in str(x)]
+    # The manifest RECORDS what is vendored, so it names every one of these
+    # by design; reporting it would be reporting the bookkeeping.
+    skip = {MANIFEST_NAME}
+    needles = {}
+    for rel in rels:
+        base = pathlib.PurePosixPath(rel).name
+        needles[rel] = {rel, base} if base != rel else {rel}
+    for f in files:
+        if f.name in skip:
+            continue
+        try:
+            rel_here = str(f.relative_to(dest_root))
+        except ValueError:
+            continue
+        if rel_here in rels:
+            continue                      # the file being deleted itself
+        try:
+            text = f.read_text(encoding='utf-8')
+        except (OSError, UnicodeDecodeError):
+            continue                      # binary, or unreadable: not prose
+        for rel, terms in needles.items():
+            if len(hits.get(rel, ())) >= cap:
+                continue
+            for i, line in enumerate(text.splitlines(), 1):
+                if any(term in line for term in terms):
+                    hits.setdefault(rel, []).append((rel_here, i,
+                                                     line.strip()[:120]))
+                    break
+    return hits
+
+
+def _warn_about_dependents(dest_root, rels, what):
+    """Print one WARN per file that still names something just deleted."""
+    found = dependents_of(dest_root, rels)
+    for rel in sorted(found):
+        for path, line, text in found[rel]:
+            print(f"WARN: precedent_vendor_engine: {rel} was {what}, and "
+                  f"{path}:{line} still names it -- {text!r}. Nothing here "
+                  f"refuses over a mention; read it and decide, because a "
+                  f"file whose own premise has just stopped being true "
+                  f"reads exactly like one that is fine.", file=sys.stderr)
+    return found
 
 
 def _sha256(path):
@@ -874,6 +1030,10 @@ def _remove_dropped_engine_files(dest_tools, previous_manifest, kind):
               f"vendored engine file(s) this kind no longer includes "
               f"({', '.join(removed)}). They were recorded in the previous "
               f"manifest and unmodified here.")
+        # dest_tools is <repo>/tools; the dependents live anywhere in it.
+        _warn_about_dependents(dest_tools.parent,
+                               [f'tools/{n}' for n in removed],
+                               'removed from this kind\'s engine set')
     for name in kept:
         print(f"WARN: precedent_vendor_engine refresh: {name} was dropped from "
               f"the {kind} engine set, but this copy has been hand-edited "
@@ -1024,6 +1184,22 @@ def _write_hook_files(dest_root, hooks_src_dir):
                      if f'{HOOK_DEST_DIR}/{n}' in claimed}
     names = sorted((available & wired) - adapter_owned)
     skipped = sorted(available - wired - adapter_owned)
+    # A hook this repo wires from somewhere OTHER than .claude/hooks/ is
+    # wired. Saying it is not, and then telling the reader to hand-wire it,
+    # is how a repo that deliberately calls one script in place ends up with
+    # two copies of it. See _wired_hook_names_anywhere.
+    elsewhere = sorted(set(skipped) & _wired_hook_names_anywhere(dest_root))
+    skipped = [n for n in skipped if n not in set(elsewhere)]
+    if elsewhere:
+        print(f"NOTE: precedent_vendor_engine: {len(elsewhere)} hook "
+              f"script(s) BestPractice also ships ({', '.join(elsewhere)}) "
+              f"are wired by this repo from a path of its own rather than "
+              f"from {HOOK_DEST_DIR}/ -- so this engine does not vendor them "
+              f"and there is NOTHING TO DO about them. A repo that calls a "
+              f"script in place keeps one copy of it on purpose; planting "
+              f"this engine's bundled copy beside it is the "
+              f"double-maintenance that reads as a hand-edit later.",
+              file=sys.stderr)
     if skipped:
         print(f"NOTE: precedent_vendor_engine: {len(skipped)} hook script(s) "
               f"BestPractice ships are not wired in this repo's own "
@@ -1050,9 +1226,14 @@ def _write_hook_files(dest_root, hooks_src_dir):
               f"{HOOK_DEST_DIR}/{n} in this repo (see precedent_materialize.py's "
               f"MANIFEST.json). That copy is maintained independently; this "
               f"engine's own bundled {n} is not applied here.", file=sys.stderr)
-    if not names:
-        return []
     dest_hooks = dest_root / HOOK_DEST_DIR
+    manifest_path = dest_root / 'tools' / MANIFEST_NAME
+    _remove_dropped_hook_files(dest_root, manifest_path, available,
+                               hooks_src_dir)
+    if not names:
+        # Nothing wired here to write -- but a drop sweep may still have had
+        # something to do, so this return comes AFTER it, not before.
+        return []
     dest_hooks.mkdir(parents=True, exist_ok=True)
     written = []
     hashes = {}
@@ -1064,13 +1245,97 @@ def _write_hook_files(dest_root, hooks_src_dir):
         written.append(out)
         hashes[name] = _sha256(out)
 
-    manifest_path = dest_root / 'tools' / MANIFEST_NAME
     manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
     manifest['hook_files'] = names
     manifest['hooks_sha256'] = hashes
     manifest_path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + '\n',
                              encoding='utf-8')
     return written
+
+
+def _remove_dropped_hook_files(dest_root, manifest_path, available,
+                               hooks_src_dir):
+    """Delete a vendored hook that upstream no longer ships. -> [names]
+
+    THE GAP THIS CLOSES (found 2026-09-21 by the very deep check's own
+    deletion-propagation table, `very-deep-check` pass 2 item 8b; filed as
+    todo-2026-09-21-a-dropped-hook-never-leaves-a-consumer.md). Until now
+    this engine had exactly two removal paths -- _remove_dropped_engine_
+    files for tools/ and _remove_retired_ci_workflow_files for
+    .github/workflows/ -- and none for .claude/hooks/. A hook dropped
+    upstream stayed installed in every consumer, and _write_hook_files then
+    REPLACED `hook_files` with only what it had just written, so the
+    manifest entry vanished too: the file went on running, every session,
+    recorded by nothing and visible to no check keyed on the manifest.
+
+    That is the CI-workflow asymmetry one directory over, and a hook is the
+    worse of the two -- a stale workflow burns a runner minute, a stale hook
+    executes in every session of every repo that still carries it.
+
+    WHAT COUNTS AS DROPPED, precisely: a name the PREVIOUS manifest recorded
+    that upstream no longer SHIPS. Not "no longer wired here" -- un-wiring
+    is the repo's own act and hooks-on-disk-are-reachable already reports
+    the orphan it leaves -- and not "claimed by an adapter", which is
+    another mechanism maintaining the same path on purpose.
+
+    THE GUARD THIS NEEDS AND THE ENGINE PATH DOES NOT. `available` comes
+    from a directory glob, and _hook_file_names returns [] for a directory
+    that is not there. An empty upstream hooks/ is indistinguishable from
+    "this checkout cannot see upstream", and sweeping on that reading would
+    delete every hook in the consumer. So an empty `available` sweeps
+    NOTHING, the same refusal _remove_retired_ci_workflow_files makes for an
+    unrecognised kind.
+
+    A hand-edited copy is kept and reported rather than deleted, the same
+    standard as the engine path: reaching here means somebody asked to
+    overwrite, which is not the same as asking to throw an edit away."""
+    if not available or not hooks_src_dir.is_dir():
+        return []
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return []
+    previous = list(manifest.get('hook_files') or [])
+    prev_hashes = manifest.get('hooks_sha256') or {}
+    dropped = sorted(n for n in previous if n not in available)
+    if not dropped:
+        return []
+    dest_hooks = dest_root / HOOK_DEST_DIR
+    removed, kept = [], []
+    for name in dropped:
+        f = dest_hooks / name
+        if not f.is_file():
+            continue                      # already gone: nothing to report
+        recorded = prev_hashes.get(name)
+        if recorded and _sha256(f) != recorded:
+            kept.append(name)
+            continue
+        f.unlink()
+        removed.append(name)
+    if removed:
+        print(f"precedent_vendor_engine refresh: removed {len(removed)} "
+              f"vendored hook(s) upstream no longer ships "
+              f"({', '.join(removed)}). They were recorded in the previous "
+              f"manifest and unmodified here.")
+        _warn_about_dependents(dest_root,
+                               [f'{HOOK_DEST_DIR}/{n}' for n in removed],
+                               'dropped from the hooks this engine ships')
+    for name in kept:
+        print(f"WARN: precedent_vendor_engine refresh: {name} is no longer "
+              f"shipped upstream, but this copy has been hand-edited since "
+              f"the manifest recorded its hash -- left in place, not "
+              f"deleted. Move the edit upstream, then delete it by hand.",
+              file=sys.stderr)
+    if removed or kept:
+        # The record has to lose the names too, or the next refresh reads
+        # them as dropped all over again and says so all over again.
+        manifest['hook_files'] = [n for n in previous if n not in removed]
+        manifest['hooks_sha256'] = {k: v for k, v in prev_hashes.items()
+                                    if k not in removed}
+        manifest_path.write_text(
+            json.dumps(manifest, indent=2, ensure_ascii=False) + '\n',
+            encoding='utf-8')
+    return removed
 
 
 def _hook_drift(dest_root, manifest):
@@ -1100,6 +1365,249 @@ def _hook_drift(dest_root, manifest):
         if _sha256(path) != recorded_hash:
             drifted.append((name, 'hand-edited (sha256 differs from manifest)'))
     return drifted
+
+
+# --- Declared engine paths: an upstream file kept at a path of the repo's own
+#
+# WHY THIS EXISTS (2026-09-24). precedent-individual keeps
+# `bootstrap/commit-identity.sh` byte-identical to this repo's
+# templates/harness/claude-code/hooks/commit-identity.sh, and until now only
+# by hand: four sync commits in ten days, each one a session noticing the
+# drift. The hooks block above cannot help -- it vendors into .claude/hooks/
+# only, and a repo that wires a script from its own path is deliberately
+# skipped (_wired_hook_names_anywhere). Moving the file is not an option
+# either: this repo's own .claude/hooks/session-start.sh runs
+# `<individual set>/bootstrap/commit-identity.sh` by that exact path, and the
+# set's precedent.json `adapters` ships it to consumers FROM there, so the
+# path is load-bearing in two places and deleting it fails silently in both.
+#
+# So the repo DECLARES the mapping, in its own precedent.json:
+#
+#     "engine_paths": {
+#       "templates/harness/claude-code/hooks/commit-identity.sh":
+#         "bootstrap/commit-identity.sh"
+#     }
+#
+# upstream path (in this repo's tree) -> local path (in the declaring repo).
+# `refresh` then copies it like any engine file, records its sha256 in
+# ENGINE_MANIFEST.json (`engine_paths`/`engine_paths_sha256`), and a
+# hand-edit is drift, refused without --force, exactly as for tools/.
+#
+# Four rules, each closing a way this could hurt:
+#
+#   * NO SECOND WRITER. A local path an adapter already writes (an adapter's
+#     TO, per _adapter_claimed_paths) or one this engine already vendors is
+#     refused, whatever --force says: two mechanisms owning one file is the
+#     double-maintenance that reads as a hand-edit later. An adapter's FROM
+#     is fine -- that is precedent-individual's case, and consumers are
+#     unaffected because the adapter still copies from the same place.
+#   * FIRST RUN ADOPTS, NEVER OVERWRITES. With no hash recorded yet, a local
+#     file identical to upstream is adopted silently; a different one is
+#     refused with a count of differing lines, EVEN UNDER --force. --force
+#     means "discard the edit I was told about"; on a first run nobody has
+#     been told anything yet. It also has to hold under refresh's own second
+#     pass, which re-runs with --force whenever the tool replaced itself --
+#     which is exactly the run that first acts on a new declaration.
+#   * AN UPSTREAM FILE THAT VANISHED IS KEPT. Warned about, loudly, on every
+#     refresh that reaches the write step; the local copy and its record
+#     stay. Deleting a repo's own-path file on a routine refresh is a larger
+#     decision than this makes.
+#   * A DROPPED DECLARATION HANDS THE FILE BACK. It stops being tracked and
+#     becomes the repo's own, left on disk and said once.
+ENGINE_PATHS_KEY = 'engine_paths'
+
+
+def _clean_rel(rel):
+    """A repo-relative POSIX path, or None if it could escape the repo."""
+    if not isinstance(rel, str) or not rel.strip():
+        return None
+    p = pathlib.PurePosixPath(rel.strip())
+    if p.is_absolute() or '..' in p.parts or not p.parts or p.parts[0] == '.git':
+        return None
+    return str(p)
+
+
+def declared_engine_paths(dest_root):
+    """-> {upstream_rel: local_rel} from this repo's precedent.json.
+
+    Never raises: an unreadable precedent.json is no declaration, the same as
+    local_ci_workflows. An entry that is present but unusable (absolute, `..`,
+    not a string) is dropped AND named on stderr -- silently ignoring a
+    declaration somebody wrote is how it stops being read."""
+    cfg = pathlib.Path(dest_root) / 'precedent.json'
+    try:
+        declared = json.loads(cfg.read_text(encoding='utf-8')).get(
+            ENGINE_PATHS_KEY) or {}
+    except (OSError, ValueError, AttributeError):             # noqa: BLE001
+        return {}
+    if not isinstance(declared, dict):
+        print(f"WARN: precedent_vendor_engine: precedent.json's "
+              f"{ENGINE_PATHS_KEY!r} is not an object -- ignored.",
+              file=sys.stderr)
+        return {}
+    out = {}
+    for up, local in declared.items():
+        up_c, local_c = _clean_rel(up), _clean_rel(local)
+        if up_c is None or local_c is None:
+            print(f"WARN: precedent_vendor_engine: ignoring {ENGINE_PATHS_KEY} "
+                  f"entry {up!r} -> {local!r}: both sides must be relative "
+                  f"paths inside the repository.", file=sys.stderr)
+            continue
+        out[up_c] = local_c
+    return out
+
+
+def _engine_owned_paths(dest_root, manifest, kind):
+    """Every local path this engine itself writes or tracks, repo-relative."""
+    names = set(KINDS.get(kind, [])) | {'routing_scope.json', MANIFEST_NAME}
+    names |= set(manifest.get('files') or [])
+    owned = {f'tools/{n}' for n in names}
+    hooks = set(manifest.get('hook_files') or []) | _wired_hook_names(dest_root)
+    owned |= {f'{HOOK_DEST_DIR}/{n}' for n in hooks}
+    owned |= {rel for _t, rel in CI_WORKFLOW_TEMPLATES.get(kind, ())}
+    return owned
+
+
+def _engine_path_conflicts(dest_root, mapping, manifest, kind):
+    """[(local_rel, why)] for declared mappings that would give one file two
+    writers. Checked before anything is written, and not waived by --force."""
+    claimed = _adapter_claimed_paths(dest_root)
+    owned = _engine_owned_paths(dest_root, manifest, kind)
+    bad, seen = [], {}
+    for up, local in sorted(mapping.items()):
+        if local in claimed:
+            bad.append((local, f"an adapter from {claimed[local]!r} already "
+                               f"writes this path (it is that adapter's "
+                               f"destination)"))
+        elif local in owned:
+            bad.append((local, "this engine already vendors this path"))
+        elif local in seen:
+            bad.append((local, f"declared twice, from {seen[local]!r} and "
+                               f"{up!r}"))
+        seen.setdefault(local, up)
+    return bad
+
+
+def _engine_path_drift(dest_root, manifest):
+    """[(local_rel, why)] for a declared engine path whose file no longer
+    matches the hash the manifest recorded, or has gone missing. Only paths
+    that are both recorded AND still declared: a dropped declaration has
+    handed the file back to the repo, and there is nothing to drift from."""
+    declared = set(declared_engine_paths(dest_root).values())
+    drifted = []
+    for local, recorded in (manifest.get('engine_paths_sha256') or {}).items():
+        if local not in declared:
+            continue
+        path = pathlib.Path(dest_root) / local
+        if not path.is_file():
+            drifted.append((local, 'missing'))
+        elif _sha256(path) != recorded:
+            drifted.append((local, 'hand-edited (sha256 differs from manifest)'))
+    return drifted
+
+
+def _engine_paths_incomplete(dest_root, manifest):
+    """Local paths a refresh has something to do for even when the upstream
+    commit has not moved: declared but not recorded, recorded against a
+    different upstream path, missing on disk, or recorded but no longer
+    declared (the record has to let go of it)."""
+    mapping = declared_engine_paths(dest_root)
+    rec_map = manifest.get(ENGINE_PATHS_KEY) or {}
+    rec_sha = manifest.get('engine_paths_sha256') or {}
+    todo = [local for up, local in mapping.items()
+            if local not in rec_sha or rec_map.get(local) != up
+            or not (pathlib.Path(dest_root) / local).is_file()]
+    todo += [local for local in rec_sha if local not in set(mapping.values())]
+    return sorted(set(todo))
+
+
+def _read_engine_path_sources(clone, commit, mapping):
+    """{upstream_rel: (bytes, executable)} read BY BLOB at `commit`, the same
+    read-only discipline as _source_tools_at. An upstream path absent at that
+    commit is simply not in the result; the caller warns about it."""
+    out = {}
+    for up in mapping:
+        ok, listing = _git_read(clone, 'ls-tree', commit, '--', up)
+        if not ok or not listing.strip():
+            continue
+        mode = listing.split()[0]
+        blob = subprocess.run(['git', '-C', str(clone), 'show', f'{commit}:{up}'],
+                              capture_output=True)
+        if blob.returncode != 0:
+            continue
+        out[up] = (blob.stdout, mode.endswith('755'))
+    return out
+
+
+def _differing_lines(a_bytes, b_bytes):
+    import difflib
+    a = a_bytes.decode('utf-8', 'replace').splitlines()
+    b = b_bytes.decode('utf-8', 'replace').splitlines()
+    return sum(1 for line in difflib.unified_diff(a, b, lineterm='', n=0)
+               if line[:1] in '+-' and not line.startswith(('+++', '---')))
+
+
+def _engine_path_first_run_refusals(dest_root, mapping, sources, manifest):
+    """[(local_rel, n_lines)] for a declared path with no recorded hash whose
+    local file exists and differs from upstream. Refused whatever --force
+    says -- see the block comment above for why."""
+    rec_sha = manifest.get('engine_paths_sha256') or {}
+    refusals = []
+    for up, local in sorted(mapping.items()):
+        if local in rec_sha or up not in sources:
+            continue
+        path = pathlib.Path(dest_root) / local
+        if path.is_file():
+            have = path.read_bytes()
+            if have != sources[up][0]:
+                refusals.append((local, _differing_lines(have, sources[up][0])))
+    return refusals
+
+
+def _write_engine_paths(dest_root, mapping, sources, manifest):
+    """Write each declared engine path from `sources` and record it in the
+    manifest (read-modify-write, AFTER _write_engine_files, whose fresh
+    manifest knows nothing of these keys). `manifest` is the one loaded
+    before this refresh -- it carries the previous record, which is kept for
+    an upstream path that has vanished. -> [written paths]"""
+    dest_root = pathlib.Path(dest_root)
+    prev_map = dict(manifest.get(ENGINE_PATHS_KEY) or {})
+    prev_sha = dict(manifest.get('engine_paths_sha256') or {})
+    new_map, new_sha, written = {}, {}, []
+    for up, local in sorted(mapping.items()):
+        path = dest_root / local
+        if up not in sources:
+            print(f"WARN: precedent_vendor_engine refresh: {ENGINE_PATHS_KEY} "
+                  f"declares {up} -> {local}, but upstream no longer has {up} "
+                  f"at this commit. {local} is left exactly as it is and is "
+                  f"NOT being kept current any more -- fix the declaration "
+                  f"(renamed upstream?) or remove it.", file=sys.stderr)
+            if local in prev_sha:
+                new_map[local], new_sha[local] = prev_map.get(local, up), prev_sha[local]
+            continue
+        data, executable = sources[up]
+        if not path.is_file() or path.read_bytes() != data:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(data)
+            written.append(path)
+        if executable:
+            path.chmod(0o755)
+        new_map[local], new_sha[local] = up, _sha256(path)
+    for local in sorted(set(prev_sha) - set(mapping.values())):
+        print(f"NOTE: precedent_vendor_engine refresh: {local} is no longer "
+              f"declared in {ENGINE_PATHS_KEY} -- left on disk and no longer "
+              f"tracked. It is this repo's own file now.")
+    manifest_path = dest_root / 'tools' / MANIFEST_NAME
+    live = json.loads(manifest_path.read_text(encoding='utf-8'))
+    if new_map:
+        live[ENGINE_PATHS_KEY] = new_map
+        live['engine_paths_sha256'] = new_sha
+    else:
+        live.pop(ENGINE_PATHS_KEY, None)
+        live.pop('engine_paths_sha256', None)
+    manifest_path.write_text(json.dumps(live, indent=2, ensure_ascii=False) + '\n',
+                             encoding='utf-8')
+    return written
 
 
 # --- CI workflow files: templates/github-actions/*.template ----------------
@@ -1556,6 +2064,8 @@ def _remove_retired_ci_workflow_files(dest_root, manifest, kind=None):
         print(f"precedent_vendor_engine refresh: deleted {len(deleted)} "
               f"retired CI workflow file(s), unmodified since the manifest "
               f"last recorded them ({', '.join(deleted)}).")
+        _warn_about_dependents(dest_root, deleted,
+                               'retired from this kind\'s CI workflow set')
     live = json.loads(manifest_path.read_text(encoding='utf-8'))
     live['ci_workflow_files'] = sorted(recorded)
     live['ci_workflows_sha256'] = recorded
@@ -1939,6 +2449,17 @@ def status(clone):
     ci_drift = _ci_workflow_drift(ROOT, manifest)
     for rel, why in ci_drift:
         print(f"  LOCAL DRIFT: {rel} -- {why}")
+    ep_drift = _engine_path_drift(ROOT, manifest)
+    for rel, why in ep_drift:
+        print(f"  LOCAL DRIFT: {rel} -- {why}")
+    ep_declared = declared_engine_paths(ROOT)
+    for rel, why in _engine_path_conflicts(ROOT, ep_declared, manifest, kind):
+        print(f"  CONFLICT: {ENGINE_PATHS_KEY} maps onto {rel} -- {why}. "
+              f"`refresh` will refuse until the entry is fixed.")
+    for rel in _engine_paths_incomplete(ROOT, manifest):
+        print(f"  NOTE: {ENGINE_PATHS_KEY} entry for {rel} is not recorded "
+              f"yet (or changed) -- `refresh` will adopt it if identical to "
+              f"upstream, and refuse if not.")
     # Declared-local workflows are reported here too, for the same reason
     # refresh prints them: an exemption that stops being visible stops
     # being reviewed, and `status` is where somebody looks to find out what
@@ -1949,7 +2470,7 @@ def status(clone):
         print(f"  NOTE: this manifest has no ci_workflows_sha256 recorded yet -- vendored "
               f"before CI workflow files were tracked. `refresh` will record a baseline "
               f"for them (not rewrite them) on the next run.")
-    drift = drift + hook_drift + ci_drift
+    drift = drift + hook_drift + ci_drift + ep_drift
     untracked = _untracked_engine_files(dest_tools, manifest)
     for name in untracked:
         print(f"  UNTRACKED ENGINE FILE: {name} is an engine file this "
@@ -2282,9 +2803,23 @@ def refresh(clone, force=False, ref=None):
     # RETIRED_CI_WORKFLOW_FILES' own comment for the incident this closes.
     _remove_retired_ci_workflow_files(ROOT, manifest, kind)
 
+    # A declared engine path that would give one file two writers is refused
+    # before anything else, --force or not: force discards an edit, it does
+    # not settle which mechanism owns a file. See ENGINE_PATHS_KEY's comment.
+    engine_paths = declared_engine_paths(ROOT)
+    conflicts = _engine_path_conflicts(ROOT, engine_paths, manifest, kind)
+    if conflicts:
+        for local, why in conflicts:
+            print(f"  {local}: {why}")
+        sys.exit(f"precedent_vendor_engine FAIL: precedent.json's "
+                 f"{ENGINE_PATHS_KEY} maps an upstream file onto a path "
+                 f"something else already writes. Map it to a path of its "
+                 f"own, or drop the entry. Not waived by --force.")
+
     if not force:
         drift = (_local_drift(dest_tools, manifest) + _hook_drift(ROOT, manifest)
-                 + _ci_workflow_drift(ROOT, manifest))
+                 + _ci_workflow_drift(ROOT, manifest)
+                 + _engine_path_drift(ROOT, manifest))
         if drift:
             for name, why in drift:
                 print(f"  {name}: {why}")
@@ -2292,7 +2827,9 @@ def refresh(clone, force=False, ref=None):
                      "workflow file was hand-edited since the last seed/refresh -- "
                      "refreshing would silently discard that edit. Move the edit "
                      "upstream into BestPractice instead (this engine has no local "
-                     "variance by design), or pass --force to overwrite anyway.\n"
+                     "variance by design), or pass --force to overwrite anyway -- "
+                     "after reviewing each file above per vendor-update-runbook's "
+                     "conflicted-file review, since --force keeps none of it.\n"
                      "       A CI WORKFLOW THIS REPO MEANS TO KEEP is a third "
                      "option, and the right one when the divergence is "
                      "deliberate: declare it in this repo's precedent.json as\n"
@@ -2306,6 +2843,25 @@ def refresh(clone, force=False, ref=None):
     new_commit, engine_dir = _source_tools_at(clone, kind, ref=ref,
                                               fetch=ref is None)
     try:
+        # Read now, compared now, BEFORE any write: a first-run refusal
+        # after the engine files were already rewritten would leave a
+        # half-refreshed tree behind it.
+        engine_path_sources = _read_engine_path_sources(clone, new_commit,
+                                                        engine_paths)
+        first_run = _engine_path_first_run_refusals(
+            ROOT, engine_paths, engine_path_sources, manifest)
+        if first_run:
+            for local, n in first_run:
+                print(f"  {local}: differs from upstream by {n} line(s), and "
+                      f"no hash is recorded for it yet")
+            sys.exit(f"precedent_vendor_engine FAIL: a file newly declared in "
+                     f"{ENGINE_PATHS_KEY} is not identical to the upstream "
+                     f"file it maps, so adopting it would discard whatever "
+                     f"makes it different. Move that difference upstream (or "
+                     f"make the file identical), then refresh again. Not "
+                     f"waived by --force: on a first run nothing has told "
+                     f"anyone what would be lost.")
+        engine_paths_incomplete = _engine_paths_incomplete(ROOT, manifest)
         # `and not force`: found reproduced while testing this against the consumer
         # kind -- without it, `refresh --force` on a repo with a hand-edited
         # vendored file silently did NOTHING when BestPractice's SOURCE_BRANCH
@@ -2384,7 +2940,8 @@ def refresh(clone, force=False, ref=None):
         ci_incomplete = _ci_workflow_incomplete(ROOT, kind, engine_dir / 'ci-workflows', manifest)
 
         if new_commit == manifest.get('source_commit') and not force \
-                and not set_incomplete and not hooks_incomplete and not ci_incomplete:
+                and not set_incomplete and not hooks_incomplete and not ci_incomplete \
+                and not engine_paths_incomplete:
             print(f"precedent_vendor_engine refresh: already current with {SOURCE_BRANCH} "
                   f"@ {new_commit[:12]} -- nothing to do.")
             # Reported here too, and this is the case that matters MOST: a
@@ -2413,6 +2970,10 @@ def refresh(clone, force=False, ref=None):
             print(f"NOTICE: the recorded commit already matches, but this "
                   f"repo's CI workflow file(s) need attention "
                   f"({', '.join(ci_incomplete)}) -- refreshing anyway.")
+        if engine_paths_incomplete and new_commit == manifest.get('source_commit'):
+            print(f"NOTICE: the recorded commit already matches, but "
+                  f"{ENGINE_PATHS_KEY} has changed or is not yet recorded "
+                  f"({', '.join(engine_paths_incomplete)}) -- refreshing anyway.")
 
         self_before = _sha256(HERE) if HERE.is_file() else None
         written = _write_engine_files(dest_tools, engine_dir, new_commit, kind)
@@ -2426,6 +2987,9 @@ def refresh(clone, force=False, ref=None):
         ci_refreshed, ci_catchup = _refresh_ci_workflow_files(
             ROOT, kind, engine_dir / 'ci-workflows', manifest)
         written += [ROOT / rel for rel in ci_refreshed]
+        if engine_paths or manifest.get('engine_paths_sha256'):
+            written += _write_engine_paths(ROOT, engine_paths,
+                                           engine_path_sources, manifest)
     finally:
         shutil.rmtree(engine_dir, ignore_errors=True)
     print(f"precedent_vendor_engine refresh OK ({kind}): {len(written)} file(s) refreshed "

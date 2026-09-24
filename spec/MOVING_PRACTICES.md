@@ -53,13 +53,18 @@ python3 tools/precedent_move.py --slug <slug> \
 ```
 
 It lands the practice at the destination with its Rule, Detail, Why and
-Story carried verbatim and the destination's approval recorded, then
+Story carried verbatim and the destination's approval recorded -- except
+for a link to a sibling practice that is not at the destination, which it
+re-homes and prints: a universal practice gets its universal URL, anything
+else its slug in backticks, never a URL into another set (which may be
+private) -- then
 deduplicates the source copy (`status: deduplicated`, `in_force_at:` the
 slug, one dated `## Story` line), and regenerates both sets' views. It
 refuses an empty Story (`--story` fills it), a slug the destination already
 carries, an approver not listed in a team set's `approvers.json`, a
-`checked_by` naming a check the destination cannot run, and any move *out
-of* universal. **With `--to universal` it drafts only** — the file goes
+`checked_by` naming a check the destination cannot run, and `--dedupe-only`
+on a practice moving *out of* universal without `--accept-reach-loss` also
+given (below). **With `--to universal` it drafts only** — the file goes
 into the clone's `practices/`, the clone's own [`build_views.py`](../tools/build_views.py) and
 `doc_sync.py --write` run so its deep check is green on the draft, and the
 source stays active. Commit that on a branch and open the pull request.
@@ -70,6 +75,42 @@ a consumer still vendoring the old catalogue sees the rule in neither
 source, and its next [`precedent_sync_views.py`](../tools/precedent_sync_views.py) refuses to write until it is
 refreshed. That refusal is correct and is what you will see if you
 deduplicate early.
+
+**With `--from universal` the tool now runs, added 2026-09-23** — this
+was the one direction it refused outright until this incident showed why
+a blanket refusal helped nobody. **It lands like any other move, but does
+not deduplicate the source**: the universal copy stays `status: active`,
+unchanged, with a `## Story` line saying it also now lives at the
+destination. This is not caution for its own sake — it is the only
+correct behavior, given what a deduplicated pointer means to
+[`precedent_sync_views.py`](../tools/precedent_sync_views.py). A team or
+individual destination is not resolvable by a plain, universal-only
+consumer, which is most of them; that tool treats an `in_force_at` that
+does not resolve as a hard failure (`IN FORCE NOWHERE`), not an advisory,
+so deduplicating the universal copy at this point would break that
+consumer's own sync, not just mislead a reader.
+Both copies are genuinely in force at once, on purpose, until a human
+decides otherwise.
+
+**Withdraw the universal copy later, deliberately, with `--dedupe-only
+--accept-reach-loss`.** The flag is required on that run and refused
+without it: the moment it runs, a consumer that resolves only universal
+loses the rule entirely, and nothing the tool can measure says whether the
+audience that still needs it has moved to the destination set. That is a
+human call, the same shape [`go-merge`](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/go-merge.md)
+already asks for on anything hard to reverse — say the read out loud and
+confirm it, rather than letting a flag default to "yes."
+
+Found the hard way, 2026-09-23: two practices were moved out of universal
+by hand, following this page's own two-step pattern before this tool
+supported the direction. Every fast check passed and both copies were
+pushed; only `verify_harness.py --as-ci`'s consumer-fixture check, run
+hours later, found the deduplicated copy resolving nowhere for a plain
+consumer — the downstream repo that had originally contributed one of the
+two practices, among others. Both were reverted the same day. This
+capability, and the `--accept-reach-loss` flag specifically, exist so the
+next demotion is either safe by construction or explicitly, knowingly
+risky — never silently broken the way a hand-done one was.
 
 Morgan, 2026-09-14, on why this stopped being two hand steps: he had "had
 bumps doing that". A rehearsal the same day, by a session reading only the
@@ -185,7 +226,13 @@ asserted here and verified nowhere a set or a consumer could run:
 demoting a universal practice is not**, because undoing something already
 published to every Precedent user is a far bigger, more visible change than
 adding one team never had before. That caution is specific to universal as
-the destination or source — it does not generalize to every move.
+the destination or source — it does not generalize to every move. Since
+2026-09-23 the tool *runs* a demotion out of universal, but the caution is
+still there, moved rather than removed: the mechanical landing is safe by
+default (duplicate, not deduplicate — above), and the one genuinely
+irreversible-for-most-adopters step, actually withdrawing the universal
+copy, still needs an explicit human `--accept-reach-loss`, not a flag a
+script can default to yes.
 
 **A team ↔ individual move, or a move between two teams, carries none of
 that weight.** It affects exactly the sets on both ends, whose own

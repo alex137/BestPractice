@@ -101,13 +101,17 @@ Using a harness not listed here? The recipe is six questions: (1) what
 filename does it auto-load — add a pointer file to `AGENTS.md`; (2) does it
 have a session-start hook — wire `tools/bootstrap.sh` into it, else rely on
 the instructions-file directive; (3) does it have a stop/teardown hook that
-can block ending a turn — port the git-hygiene check, the `reply`-gate print
-and the blocking reply check
+can block ending a turn — port the git-hygiene check
 ([claude-code/hooks/stop-git-check.sh](claude-code/hooks/stop-git-check.sh))
-if so, and note that the blocking half needs the hook to be handed the
-session's own transcript: `tools/precedent_reply_check.py` reads the path
-Claude Code passes it, and a harness that hands its stop hook nothing has
-the print and not the enforcement; (4) can commands be pre-approved — port the allowlist idea if so;
+and, separately, the `reply`-gate print, the blocking reply check, and close
+detection
+([claude-code/hooks/stop-reply-check.sh](claude-code/hooks/stop-reply-check.sh))
+if so — Claude Code wires the two as separate `Stop` entries so a repo can
+decline either without losing the other — and note that the blocking reply
+check needs the hook to be handed the session's own transcript:
+`tools/precedent_reply_check.py` reads the path Claude Code passes it, and a
+harness that hands its stop hook nothing has the print and not the
+enforcement; (4) can commands be pre-approved — port the allowlist idea if so;
 (5) does it run something when the person submits a prompt — port
 [claude-code/hooks/reply-gate.sh](claude-code/hooks/reply-gate.sh), which is
 the only moment the `reply` gate reaches the reply it is about; (6) can it

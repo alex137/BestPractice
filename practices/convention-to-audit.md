@@ -6,6 +6,7 @@ severity:    default
 applies_to:  ["**"]
 occasion:    "a convention is violated for the first time"
 gates:       ["review"]
+index_required: false
 index_clause: "promote a costly broken convention to a script that exits non-zero"
 checked_by:  null
 defines:     []

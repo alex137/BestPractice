@@ -215,7 +215,7 @@ Content preservation is enforced, not asserted. See
 [`tools/verify_harness.py`](../tools/verify_harness.py):
 
 - **content preserved sentence-for-sentence** — every sentence of every
-  practice, against `PRACTICES.md`, in both directions.
+  practice, against [`PRACTICES.md`](../PRACTICES.md), in both directions.
 - **section content keeps its source order** — text may be re-homed, not
   scrambled.
 - **markdown list structure preserved** — the sentence checks normalize
@@ -267,14 +267,14 @@ closest this catalogue has come to the plan's "nine tenths" claim and still
 short of it.
 
 *(Both figures in this table are scoped to BestPractice's original 52
-practices — `tools/catalogue_stats.py`'s `phase3_snapshot_stats()` — so they
+practices — [`tools/catalogue_stats.py`](../tools/catalogue_stats.py)'s `phase3_snapshot_stats()` — so they
 stay a stable record of what phase 3 delivered rather than drifting every
 time a later practice is added or an inherited one is deliberately rewritten
-(`CHANGES_TO_TELL_ALEX.md`). The "over 150 words" figure moved from 8 to 7
+([`CHANGES_TO_TELL_ALEX.md`](CHANGES_TO_TELL_ALEX.md)). The "over 150 words" figure moved from 8 to 7
 on 2026-09-01, when `layered-practice-packs`' Rule was shortened as part of
 that rewrite. The "carries a Detail" figure moved from 15 to 16, and "Words
 in `## Detail`" from 2,253 to 2,778, on 2026-09-05, when `session-bootstrap`
-gained a real Detail — see `CHANGES_TO_TELL_ALEX.md`. It moved again to 17
+gained a real Detail — see [`CHANGES_TO_TELL_ALEX.md`](CHANGES_TO_TELL_ALEX.md). It moved again to 17
 practices, 3,243 words, on 2026-09-06, when `merge-authorization-keyword`
 gained a real Detail (updated once more the same day, same practice, when
 its Detail grew a postcondition-check requirement), and to 18 practices,
@@ -293,7 +293,7 @@ Detail saying when a gotchas section should split into an index plus a record,
 and what the index line has to carry to stay findable. (The table cell and the
 sentence above it were carried forward from the 2026-09-10 value at the
 2026-09-11 move and are corrected here.) Only the two figures
-`tools/catalogue_stats.py` prints an anchor for — the Rule-share-derived
+[`tools/catalogue_stats.py`](../tools/catalogue_stats.py) prints an anchor for — the Rule-share-derived
 counts, not the raw word totals — are mechanically checked against this
 table; the word-count cells are updated by hand alongside them.)*
 
@@ -392,7 +392,7 @@ There are three, and they answer different questions with different evidence:
 
 **`retired` here is about a RULE, and the file stays.** A practice marked
 `retired` keeps its file, its `## Story` and its reasoning — the loader
-declines to put it in force, and `precedent_show.py` prints it with a
+declines to put it in force, and [`precedent_show.py`](../tools/precedent_show.py) prints it with a
 banner saying so. Nothing deletes it, and being able to re-read a withdrawn
 rule years later is the point.
 
@@ -408,7 +408,7 @@ called "retired" too, and one of them meant the opposite fate for the file:
 The third was called "retired" until 2026-09-07, when Morgan read a
 migration record and asked, reasonably, whether practices had just been
 thrown away. They had not — but nothing in the vocabulary distinguished
-the two, and by then `tools/precedent_retire.py` (proposes a status
+the two, and by then [`tools/precedent_retire.py`](../tools/precedent_retire.py) (proposes a status
 change, never acts) was sitting beside `tools/precedent_retire_path.py`
 (deletes files). The mechanism sense was renamed to **decommission**
 because it was eight days old and narrowly scoped, while `status: retired`
@@ -550,7 +550,7 @@ and a person names the target. It also refuses a named target that is not
 active in any source, and refuses `--set ...=none` on a practice with an
 empty `## Story`.
 
-Because `verify_harness.py` is deliberately **not** vendored, this tool is
+Because [`verify_harness.py`](../tools/verify_harness.py) is deliberately **not** vendored, this tool is
 also the only compliance signal a practice set has for this: it exits
 non-zero while any legacy record remains, and
 [`precedent_vendor_engine.py`](../tools/precedent_vendor_engine.py)'s
@@ -797,29 +797,65 @@ vs. team vs. individual vs. repo-local). A repo-local practice needs no
 by a different mechanism entirely.
 
 **Drafted 2026-09-15**, out of a conversation about why a content-only
-adopter's loaded file is dominated by triggers it can never use. Four
-practices are tagged so far —
-[very-deep-check](../practices/very-deep-check.md),
-[full-practice-audit](../practices/full-practice-audit.md),
-[routing-audit](../practices/routing-audit.md) and
-[parallel-artifact-ledger](../practices/parallel-artifact-ledger.md) — as
-the clearest, least arguable cases: each one audits a mechanism (the
-loader, the routing table, the harness adapter tree) that exists only in
-this repository. **Reclassifying the rest of the catalogue by this same
-question is real follow-on work, not attempted here** — swept in a first
-pass on resemblance alone is exactly the failure mode
+adopter's loaded file is dominated by triggers it can never use. **Tagged
+`engine-dev` today:** [cross-source-rollout](../practices/cross-source-rollout.md),
+[parallel-artifact-ledger](../practices/parallel-artifact-ledger.md) and
+[routing-audit](../practices/routing-audit.md) — each fires only on a
+mechanism that exists in this repository, whose engine other sources depend
+on. `cross-source-rollout` joined them on 2026-09-15, in the classification
+sweep over all 104 universal on-demand practices that found it the one
+further clear match. That list is read out of this paragraph by the check
+below and compared against the tree, so it cannot go stale silently; it is
+the list, not a description of one.
+
+**The rest of the catalogue has been asked the same question once**, in
+that 2026-09-15 sweep, and the answer was that everything else describes a
+workflow an adopter genuinely uses — writing their own rules, running their
+own leak gate, landing their own practices — even where it uses Precedent's
+own vocabulary to do it. **That is a reviewed answer, not a standing
+licence to sweep**: tagging on resemblance alone is exactly the failure mode
 [decision-strength](../practices/decision-strength.md) and
 [mistakes-become-rules](../practices/mistakes-become-rules.md) warn about
-for a judgment call like this one; an unreviewed practice keeps its default
-(`any-adopter`) rather than being guessed into `engine-dev`.
+for a judgment call like this one, so an unreviewed practice keeps its
+default (`any-adopter`) rather than being guessed into `engine-dev`.
+[very-deep-check](../practices/very-deep-check.md)'s Pass 4 re-asks it of
+every universal on-demand practice, so drift gets caught by the standing
+mechanism rather than by another manual sweep.
 
-**Not yet mechanically checked.** Nothing in
-[tools/verify_harness.py](../tools/verify_harness.py) validates that
-`scope:` holds one of its two legal values, or flags a repo-local practice
-that redundantly declares `engine-dev`. Per
-[checkable-gets-checked](../practices/checkable-gets-checked.md) this is
-owed a check before the field is more than advisory — named here as an
-open gap rather than left to be discovered.
+**Two practices were tagged on 2026-09-15 and deliberately untagged on
+2026-09-21** — [very-deep-check](../practices/very-deep-check.md) and
+[full-practice-audit](../practices/full-practice-audit.md). Each declares a
+standing `command:` ("Very deep check", "Practice check"), and `engine-dev`
+withholds the practice from a consuming repo's materialized `practices/`:
+somebody said the words in their own project, the session had no such
+practice, and nothing happened for a reason nobody in that room could see
+(commit `8b5aba96`). **A practice that declares a `command:` cannot be
+`engine-dev` scoped**, and `vocabulary-reaches-the-consumer` in
+[tools/precedent_check.py](../tools/precedent_check.py) refuses one that
+tries. They carry `scope: any-adopter` in so many words rather than nothing,
+because here the default is a decision somebody made, and a blank field
+reads as a decision nobody made.
+
+**`scope: null` is not a third value — it is the absent field.** The one
+null policy in [tools/split_practices.py](../tools/split_practices.py)'s
+`parse_frontmatter_fields` drops a `null` field before any consumer sees
+it, for every field in both formats, so `scope: null` and no `scope:` line
+are indistinguishable everywhere downstream. **No check can recover the
+difference**, which is why the tagged list above is authored here and
+compared against the tree rather than inferred from the files alone.
+
+**Mechanically checked since 2026-09-22**, by
+`check_scope_field_is_legal_and_matches_this_spec` in
+[tools/verify_harness.py](../tools/verify_harness.py): every practice's
+`scope:` holds one of the two legal values or is absent, no repo-local
+practice redundantly declares `engine-dev`, and the tree's `engine-dev`
+practices are exactly the ones this section names. It is owed to
+[checkable-gets-checked](../practices/checkable-gets-checked.md), and the
+gap it closes had already bitten: a 2026-09-21 audit read the two untagged
+files above against this section's then-stale list of four, filed the
+deliberate untagging as silent drift, and proposed reverting it — which
+`vocabulary-reaches-the-consumer` would have refused. **The list going
+stale was the defect**, not the tree.
 
 ## `source_practice_number`
 
@@ -841,8 +877,8 @@ policy since the question is a natural one to ask now that slugs are the
 citation form everywhere (next section). A `BP23`-style prefixed variant
 (folding the provenance into the number itself) was considered and rejected:
 the frontmatter key already carries that provenance once, and a bare integer
-is what every actual consumer of the field (`verify_harness.py`'s
-citation-integrity check, `split_practices.py`'s sort key) wants — a string
+is what every actual consumer of the field ([`verify_harness.py`](../tools/verify_harness.py)'s
+citation-integrity check, [`split_practices.py`](../tools/split_practices.py)'s sort key) wants — a string
 tag would just be a second way to say what the key name already says.
 
 ## Citing Other Practices
@@ -871,8 +907,8 @@ if a `[slug](slug.md)` link points at a slug that does not exist.
 Converting a citation to a link is a real, disclosed content edit relative to
 BestPractice's frozen original — it adds words (the slug name) the fidelity
 checks below did not count at that frequency — so every affected slug is
-registered in `verify_harness.py`'s `AMENDED_POST_CONVERSION` and logged in
-`CHANGES_TO_TELL_ALEX.md`, per that mechanism's own rule that an exemption
+registered in [`verify_harness.py`](../tools/verify_harness.py)'s `AMENDED_POST_CONVERSION` and logged in
+[`CHANGES_TO_TELL_ALEX.md`](CHANGES_TO_TELL_ALEX.md), per that mechanism's own rule that an exemption
 must be both declared and actually findable there.
 
 ## What's Deliberately Left For Later
@@ -909,14 +945,14 @@ must be both declared and actually findable there.
 
 Converting the catalogue mechanically (rather than reading and rewriting
 each practice by hand) surfaced a real defect in BestPractice's own
-`PRACTICES.md` at the commit this fork is based on (`88ecf7f`): practice
+[`PRACTICES.md`](../PRACTICES.md) at the commit this fork is based on (`88ecf7f`): practice
 39's body is followed, in the source file, by a stray duplicate of part of
 practice 34's body (a paragraph beginning "es a source's vocabulary within
 a single session..." — the tail end of a sentence that belongs, whole, to
 practice 34, pasted a second time immediately after practice 39's own
 `Install.` paragraph, with no heading of its own). This reads as a bad
 merge or copy-paste in BestPractice's own history, not authored content.
-`tools/split_practices.py` drops it explicitly and by name
+[`tools/split_practices.py`](../tools/split_practices.py) drops it explicitly and by name
 (`FIXUP_39_MARKER`), and [`tools/verify_harness.py`](../tools/verify_harness.py)'s byte-identical-
 regeneration check treats exactly that removal — plus two whitespace-only
 quirks, a stray blank line between practices 40 and 41 and the file's one
@@ -947,7 +983,7 @@ by this session, which only has read access to `alex137/bestpractice`.
 
 ## Tooling
 
-- `tools/split_practices.py split` — `PRACTICES.md` → `practices/*.md`.
+- `tools/split_practices.py split` — [`PRACTICES.md`](../PRACTICES.md) → `practices/*.md`.
 - `tools/split_practices.py build [--diff]` — the reverse, for the
   byte-identical-regeneration check.
 - [`tools/verify_harness.py`](../tools/verify_harness.py) — runs every check from the plan's verification

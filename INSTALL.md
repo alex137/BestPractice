@@ -15,18 +15,38 @@ to, but nothing here needs them.
 | not a developer, and it is already installed | [documentation/FOR_EVERYONE_ELSE.md](documentation/FOR_EVERYONE_ELSE.md), then [documentation/DAILY_HABITS.md](documentation/DAILY_HABITS.md) |
 | setting up your own machine rather than a repository | [PER_MACHINE_SETUP.md](documentation/PER_MACHINE_SETUP.md) |
 
-**The model in one paragraph.** The dependent repo **vendors** this repo at
-`process/upstream/` as plain tracked files. **Install is adaptive** — you
+**There is one install path: [§0](#0-installing-directly-onto-the-precedent-loader-new-2026-09-03--read-the-caveat-before-using),
+`python3 tools/precedent_install.py`.** It vendors the practice catalogue
+*and* the loader that puts it in front of every session — the resident
+block, the occasion index, the gates, the enforced checks. **§1 below is no
+longer an install path, for anyone, whatever a person asks for** (retired
+2026-09-23). It copies the catalogue in and switches none of it on, and it
+looks complete while doing so: on 2026-09-22 a fresh install went down §1
+because this paragraph still called it "the right default", took an upstream
+update the next day, and its sessions then described the practices as *"a
+vendored copy of the upstream catalogue, not something this repo adopted"*.
+The one thing §1 had that a fresh §0 install does not is the
+manifest-driven check-in loop (§3 and §4, both optional), and no repo is
+better off keeping that loop with no practice in force. A migrated repo
+keeps it anyway: the migration leaves `process/upstream/` and its manifest
+in place and declares that tree as the universal source.
+
+**§1 stays in this file for two reasons only**: §0's own steps borrow its
+numbered steps for the parts the two share, and a repo that was installed
+the classic way needs to know what it has. **Such a repo migrates** —
+[spec/MIGRATING_EXISTING_INSTALLS.md](spec/MIGRATING_EXISTING_INSTALLS.md),
+whole, in one change — and cannot quietly stay classic:
+[tools/practice_audit.py](tools/practice_audit.py)'s check 5 fails on a
+vendored catalogue nothing loads, `checkin.py update` says the same thing
+in a banner, and `tools/bootstrap.sh` says it at every session start.
+
+**The vendoring model, which both paths share.** The dependent repo
+**vendors** this repo as plain tracked files. **Install is adaptive** — you
 instantiate templates with the repo's subject matter, placing real files at
 their real locations. **Export is abstractive** — when installed practice
-improves, you fold the generic form back into `process/upstream/`. The
+improves, you fold the generic form back into the vendored tree. The
 **manifest** records the mapping in both directions; the **audit** makes
-drift and proprietary leakage loud instead of silent. **That is the classic
-model, §1** — the right default for essentially every install today, and
-where the sections below start. A repo with no prior BestPractice install
-that wants the three-source loader directly, never going through
-`process/upstream/`, uses §0 instead; it sits after §1 because it is the
-rarer path.
+drift and proprietary leakage loud instead of silent.
 
 ## Essentials Only — What an Install, Upgrade or Migration Leaves for Later
 
@@ -47,7 +67,8 @@ put to them then is the worst version of that decision they will ever make.
 It also lengthens the conversation that most needs to feel short, and every
 extra question is a chance to lose them before the essentials land.
 
-`local/practices/project-voice.md` and `STYLEGUIDE.md` are the standing
+`local/practices/project-voice.md` and
+`local/practices/project-visual-identity.md` are the standing
 examples — both ship near-empty, both stay that way through install, upgrade
 and migration alike. **The rule is not about those two files.** It is about every
 refinement is deferred whether or not it appears on a list here.
@@ -70,15 +91,18 @@ list.)
 
 ## 1. Install Into a Dependent Repo
 
-> **Two install paths, and this is the older one.** A project that has
-> never had BestPractice before can install straight onto Precedent's
-> three-source model instead — that is
-> [§0](#0-installing-directly-onto-the-precedent-loader-new-2026-09-03--read-the-caveat-before-using),
-> which sits *below* this section rather than above it because it was
-> added later and renumbering would have broken every link to §1-§7.
-> Most projects still use §1; read §0's own caveat before choosing it.
-> A repo that already vendored BestPractice the old way wants neither,
-> but [spec/MIGRATING_EXISTING_INSTALLS.md](spec/MIGRATING_EXISTING_INSTALLS.md).
+> **Not an install path — retired 2026-09-23. Do not install this way,
+> even when asked to.** A new project installs with
+> [§0](#0-installing-directly-onto-the-precedent-loader-new-2026-09-03--read-the-caveat-before-using)
+> (`python3 tools/precedent_install.py`); a project already installed this
+> way migrates, per
+> [spec/MIGRATING_EXISTING_INSTALLS.md](spec/MIGRATING_EXISTING_INSTALLS.md).
+> The steps below vendor the catalogue and turn none of it on, which is why
+> they were retired — the opening of this file has the incident. They stay
+> because §0 cites several of them for the parts the two paths share (the
+> templates, the harness adapter, the team-and-individual question) and
+> because a classic install needs to know what it has. **Read them as
+> reference, never as a sequence to run.**
 
 1. **Vendor:** copy this repo's working tree (not its `.git`) into
    `process/upstream/` and commit it as ordinary tracked files. Record the
@@ -154,27 +178,27 @@ list.)
      `TODO.md`; `templates/GLOSSARY.md.template` → `GLOSSARY.md` (or a
      domain-appropriate name).
    - `templates/local-practices/project-voice.md.template` →
-     `local/practices/project-voice.md` — **a repo-local practice, not a
-     root document.** Declare the `"local"` source in `precedent.json` if
-     this repo has not already (`{"level": "repo-local", "name": "local",
-     "path": "local"}` — the name and path are both fixed by
+     `local/practices/project-voice.md`, and
+     `templates/local-practices/project-visual-identity.md.template` →
+     `local/practices/project-visual-identity.md` — **repo-local practices,
+     not root documents.** Declare the `"local"` source in `precedent.json`
+     if this repo has not already (`{"level": "repo-local", "name":
+     "local", "path": "local"}` — the name and path are both fixed by
      [source-naming](practices/source-naming.md), never chosen). This is
-     what makes the file actually reachable: it is what puts this project's
-     voice in front of every session through the same occasion index as
-     every other rule in force here, rather than a document nobody is
-     pointed at.
-     `templates/STYLEGUIDE.md.template` → `STYLEGUIDE.md` at the repo root.
+     what makes the files actually reachable: it is what puts this
+     project's voice and its visual identity in front of every session
+     through the same occasion index as every other rule in force here,
+     rather than a document nobody is pointed at.
      **Copy the skeletons and stop.** Unlike the files above, these are not
      rewritten with the repo's subject matter, and **filling them in is out
      of scope for an install** — see [Essentials only](#essentials-only--what-an-install-upgrade-or-migration-leaves-for-later).
-     Do not walk the administrator through project-voice.md's sections and
-     do not ask whether a brand guideline exists; say once that both exist,
+     Do not walk the administrator through either file's sections and do
+     not ask whether a brand guideline exists; say once that both exist,
      are optional, and can be filled in any time by asking an assistant.
      Record both as `local-only` in the manifest (§5) — **neither is ever
      exported upstream** (§3–§4): a project's voice and brand are its own
      identity, not a generic practice. `local/practices/` is this repo's
-     own tree exactly as `STYLEGUIDE.md` at the root is, so the check-in
-     tooling structurally never touches either.
+     own tree, so the check-in tooling structurally never touches either.
    - `templates/GETTING_STARTED.md` → `GETTING_STARTED.md` at the repo
      root: the member-facing onboarding page, one section per kind of AI
      user. (This template keeps a plain `.md` name on purpose — it
@@ -221,7 +245,10 @@ list.)
      one-line import of `AGENTS.md`), `harness/claude-code/settings.json` →
      `.claude/settings.json`, `harness/claude-code/hooks/session-start.sh` →
      `.claude/hooks/session-start.sh`, `harness/claude-code/hooks/stop-git-check.sh`
-     → `.claude/hooks/stop-git-check.sh`, and — since 2026-09-06 —
+     → `.claude/hooks/stop-git-check.sh`, and — since 2026-09-23 —
+     `harness/claude-code/hooks/stop-reply-check.sh` → `.claude/hooks/`
+     (split off `stop-git-check.sh`; see the decision table below), and —
+     since 2026-09-06 —
      `harness/claude-code/hooks/freshness-guard.sh` and
      `harness/claude-code/hooks/commit-identity.sh` → `.claude/hooks/`, which
      keep a session off a stale checkout and keep a commit's author a person
@@ -244,7 +271,8 @@ list.)
      | `session-start.sh` | **Always.** It is the install. |
      | `commit-identity.sh` | **Always, and it asks nobody anything.** See below. |
      | `freshness-guard.sh` | **Always**, unless this repo's own bootstrap already fetches and fast-forwards — then it is duplicated work, not a conflict. |
-     | `stop-git-check.sh` | **Wired by default** — the adapter's settings.json carries it, and an install leaves it. It blocks ending a turn on uncommitted or unpushed work: good discipline for a repo you own, intrusive in one shared with someone who did not choose it, so the one thing to say to the administrator is that the `Stop` entry can be removed if the team objects. Not a question at install. |
+     | `stop-git-check.sh` | **Wired by default** — the adapter's settings.json carries it, and an install leaves it. It blocks ending a turn on uncommitted or unpushed work: good discipline for a repo you own, intrusive in one shared with someone who did not choose it, so the one thing to say to the administrator is that this `Stop` entry can be removed on its own, without touching `stop-reply-check.sh`, if the team objects. Not a question at install. |
+     | `stop-reply-check.sh` | **Wired by default**, same as `stop-git-check.sh` — a separate `Stop` entry as of 2026-09-23 (split out of that file; see its header). Prints the reply gate's reminders, blocks a reply that broke a source's declared requirement, and runs close detection; it never blocks on the git tree, so it carries none of the other hook's "intrusive in a shared repo" objection. **An existing install taking the update by hand does not receive this file automatically** — vendoring is gated on wiring, and a refresh never writes a consumer's `settings.json` ([todo/todo-2026-09-21-a-new-hook-cannot-reach-an-installed-consumer.md](todo/todo-2026-09-21-a-new-hook-cannot-reach-an-installed-consumer.md)); a repo installed before this split keeps running the old, unsplit `stop-git-check.sh` behavior until someone adds the `Stop` entry above by hand and re-runs the refresh. |
      | `precedent-paths.sh` | **Only with the Precedent loader.** It surfaces path-triggered practice Rules; without a resolved catalogue it has nothing to read. |
      | `reply-gate.sh` | **Only with the Precedent loader**, same reason. One line per reply-gate practice, on every prompt; it never blocks (a `UserPromptSubmit` hook that exits non-zero eats the person's message). |
 
@@ -333,9 +361,10 @@ list.)
    create at the dependent repo's root are the instantiated ones:
    `AGENTS.md` (plus a harness pointer such as `CLAUDE.md`), `MAP.md`,
    `TODO.md`, `GLOSSARY.md`, `GETTING_STARTED.md`,
-   `STYLEGUIDE.md`, `.gitignore`, and the README entry-block edit — plus
-   `local/practices/project-voice.md` (a repo-local practice, not a root
-   file, but still an install artifact — nothing else may land under
+   `.gitignore`, and the README entry-block edit — plus
+   `local/practices/project-voice.md` and
+   `local/practices/project-visual-identity.md` (repo-local practices, not
+   root files, but still install artifacts — nothing else may land under
    `local/`), `tools/bootstrap.sh`, `.github/workflows/leak-gate.yml` (only
    when the individual or team source resolved declares `"ci_workflows":
    "enabled"` — disabled is the default; see GITHUB_ACTIONS.md), and
@@ -365,7 +394,7 @@ list.)
    BestPractice's own copy, since 2026-09-20.
 7. Run `python3 process/upstream/tools/practice_audit.py` — it must pass.
    Then lint the files this install created **by name** —
-   `python3 process/upstream/tools/doc_lint.py AGENTS.md MAP.md TODO.md GLOSSARY.md GETTING_STARTED.md local/practices/project-voice.md STYLEGUIDE.md README.md`
+   `python3 process/upstream/tools/doc_lint.py AGENTS.md MAP.md TODO.md GLOSSARY.md GETTING_STARTED.md local/practices/project-voice.md local/practices/project-visual-identity.md README.md`
    — because the bare light check scopes itself to files changed against
    `origin/<default branch>`, and on a repo that has not been pushed yet
    that is nothing at all: it reported `0 file(s) checked` on a fresh
@@ -782,7 +811,8 @@ not this section.
    empty — step 6 fills them in.
 5. **Instantiate everything else §1 step 2 already covers**: `MAP.md`,
    `TODO.md`, `GLOSSARY.md`, `GETTING_STARTED.md`,
-   `local/practices/project-voice.md`, `STYLEGUIDE.md`, the README
+   `local/practices/project-voice.md`,
+   `local/practices/project-visual-identity.md`, the README
    agent-entry block, the harness adapter(s),
    `tools/bootstrap.sh`, the Actions check, the PR template. **Skip**
    `process/manifest.json` and `process/scrub_blocklist.txt` — those are
@@ -799,7 +829,7 @@ not this section.
    |---|---|
    | [templates/GETTING_STARTED.md](templates/GETTING_STARTED.md) | Replace the `<upstream-docs>` placeholder with `https://github.com/alex137/BestPractice/blob/main` — the upstream URL, because §0 leaves no local copy of `MOBILE.md`, `METHOD.md` or `GITHUB_ACTIONS.md` to point at. (§1 replaces it with `process/upstream`.) |
    | [templates/pull_request_template.md.template](templates/pull_request_template.md.template) | Mentions `process/upstream/` in prose, as a review-grouping hint. Harmless, but names a directory your repo does not have, so a reader follows a dead path. Reword or drop the line. (`templates/local-practices/project-voice.md.template` has no such mention — it is a repo-local practice under `local/`, not a `process/upstream/`-adjacent document.) |
-   | [templates/TODO.md.template](templates/TODO.md.template), [templates/MAP.md.template](templates/MAP.md.template), [templates/STYLEGUIDE.md.template](templates/STYLEGUIDE.md.template) | Each names `process/` or `process/upstream/` once (a recurring check-in item, a map row, an export note). Same treatment: reword or drop the line — and `STYLEGUIDE.md` still ships as an empty skeleton, out of scope for the install; only its one path note changes. |
+   | [templates/TODO.md.template](templates/TODO.md.template), [templates/MAP.md.template](templates/MAP.md.template) | Each names `process/` or `process/upstream/` once (a recurring check-in item, a map row). Same treatment: reword or drop the line. |
    | [templates/harness/claude-code/settings.json](templates/harness/claude-code/settings.json) | Four `process/upstream/tools/…` entries in the permission allowlist. Harmless (they match nothing), but replace them with the `tools/…` forms so the allowlist covers the commands this repo actually runs. |
 
    After instantiating, grep the new root for `process/upstream` — in a §0
@@ -830,7 +860,7 @@ not this section.
    elsewhere.
 8. Commit everything on a branch, same as §1 — and, as in §1 step 7, lint
    the instantiated files **by name** first
-   (`python3 tools/doc_lint.py AGENTS.md MAP.md TODO.md GLOSSARY.md GETTING_STARTED.md local/practices/project-voice.md STYLEGUIDE.md README.md`),
+   (`python3 tools/doc_lint.py AGENTS.md MAP.md TODO.md GLOSSARY.md GETTING_STARTED.md local/practices/project-voice.md local/practices/project-visual-identity.md README.md`),
    because the bare light check scopes itself to what changed against
    `origin/<base branch>` and a repo with no `origin` yet checks nothing.
    **Give the repo an `origin` before the first session works in it**: the
@@ -958,15 +988,38 @@ deliberate procedure below.
 governs an update exactly as it governs an install.** An update brings the
 project to current and stops; a newly shipped template that is optional gets
 one sentence, not a walkthrough. `local/practices/project-voice.md` and
-`STYLEGUIDE.md` in particular are never filled in by an update.
+`local/practices/project-visual-identity.md` in particular are never filled
+in by an update.
 
-**An update taking the 2026-09-17 project-voice change lands on a repo that
-still has a root `VOICE.md`** from an earlier install. That is a migration,
-not an ordinary template refresh — see
+**Follow the current copy of this procedure.** The copy vendored in the
+repo being updated is from its last sync, and a session following it misses
+every correction made since. Read this section and
+[practices/vendor-update-runbook.md](practices/vendor-update-runbook.md)
+from a current upstream clone, on the branch the repo takes its updates
+from, and follow that.
+
+**A classic install is not updated, it is migrated, in the same change.**
+Check first: if this repo vendors `process/upstream/` and its
+`precedent.json` declares no `level: "universal"` source (or there is no
+`precedent.json` at all), this update would refresh text no session ever
+reads. Follow
+[spec/MIGRATING_EXISTING_INSTALLS.md](spec/MIGRATING_EXISTING_INSTALLS.md)
+instead; its step 1 *is* this update, and the rest turns the loader on. It
+asks the person which practice sets the repo should load, so expect that
+question. `practice_audit.py` fails until the migration is done. The
+`checkin.py update` banner does not appear on the first update after
+2026-09-23, because the copy of `checkin.py` doing the update is still the
+old one; the failing audit is what says so.
+
+**An update taking the 2026-09-17 project-voice change, or the 2026-09-22
+project-visual-identity change, lands on a repo that still has a root
+`VOICE.md` or `STYLEGUIDE.md`** from an earlier install. That is a
+migration, not an ordinary template refresh — see
 [spec/MIGRATING_EXISTING_INSTALLS.md](spec/MIGRATING_EXISTING_INSTALLS.md)'s
-project-voice step, and do not leave the old `VOICE.md` sitting beside the
-new practice file: a repo with both is a repo where a session has no way to
-know which one is meant to bind.
+project-voice and project-visual-identity steps, and do not leave the old
+`VOICE.md` or `STYLEGUIDE.md` sitting beside the new practice file: a repo
+with both is a repo where a session has no way to know which one is meant
+to bind.
 
 **Which install model is this? Steps 1–5 are §1's, and a §0 install skips
 them.** §1 vendors upstream's *prose* under `process/upstream/` and tracks it
@@ -1217,7 +1270,8 @@ upstream can skip this section entirely:
 > Did this thread improve a *generic* practice — a new convention, a
 > sharpened runbook rule, a better audit, a template fix?
 
-`local/practices/project-voice.md` and `STYLEGUIDE.md` never answer yes to
+`local/practices/project-voice.md` and
+`local/practices/project-visual-identity.md` never answer yes to
 this question, even when a thread rewrites them substantially: the *files*
 are project/company identity, not practice, so their content stays local by
 category, not by judgment call.
@@ -1340,6 +1394,14 @@ order records a hash the vendored tree doesn't match.
       "granularity": "file",
       "status": "local-only",
       "notes": "a repo-local practice, not a root document; filled in this project's own voice at install, and the template ships no general writing rules (those are the catalogue's). Never exported (INSTALL.md §3) — a project's voice is its own identity, not a generic practice"
+    },
+    {
+      "practice": "example-declined",
+      "upstream_path": "practices/example-declined.md",
+      "local_path": null,
+      "status": "declined",
+      "declined_upstream_sha256": "<recorded by practice_audit --redecide example-declined>",
+      "notes": "why this repo does not take it, as of the upstream text that hash names"
     }
   ]
 }
@@ -1355,7 +1417,16 @@ order records a hash the vendored tree doesn't match.
   where you can.
 - `status`: `synced` (installed copy matches its baseline) · `diverged`
   (local improvement pending export) · `local-only` (deliberately not
-  exported; say why in `notes`).
+  exported; say why in `notes`) · `declined` (an upstream practice this repo
+  chose not to take; say why in `notes`).
+- **A `declined` entry covers the upstream text it was decided against, and
+  nothing newer** ([current-rule-governs](practices/current-rule-governs.md)).
+  `declined_upstream_sha256` records that text's hash; once the vendored file
+  changes or disappears, the audit fails until the decline is made again
+  against the current file — adopt it, or update `notes` and run
+  `practice_audit.py --redecide <practice>`. `--update-baseline` never does
+  this for you. A decline written only in prose — a sync note, a line in
+  `AGENTS.md` — has no hash for the audit to compare, so record it here.
 
 ## 6. The Audit (`tools/practice_audit.py`)
 
@@ -1375,6 +1446,18 @@ Checks, in order — any FAIL exits non-zero:
    not failed.
 3. **Integrity:** manifest paths exist; `section_marker`s found (warn);
    `local-only` entries have notes.
+4. **Declined** ([current-rule-governs](practices/current-rule-governs.md)):
+   every `declined` entry's upstream file still hashes to
+   `declined_upstream_sha256`. Changed or gone → FAIL, naming where the rule
+   lives now when the file says so. (The script numbers this check 6, after
+   its layout and loader checks.)
+5. **Prose declines** (warn only): a hand-written line in `AGENTS.md` or
+   `CLAUDE.md`, outside the generated loader block, that reads like a
+   decline ("declined as a duplicate") or a blanket precedence clause ("the
+   personal pack wins on conflict"). Check 6 cannot see those, so review
+   each: keep it if it still holds against the rules in force, record a
+   decline as a `declined` manifest entry, or delete it. (The script's
+   check 7.)
 
 ## 7. Practice Packs (Domain Layers)
 

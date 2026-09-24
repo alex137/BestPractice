@@ -105,9 +105,10 @@ each one saves you a paragraph of explaining:
 | **Brainstorm** | Think it through with you and write nothing down — no files, no edits, nothing saved — until you say to. |
 | **Chief of Staff** | Stop and route this: tell you what every open session is blocked on and what is colliding, with a clickable link to each. |
 | **Drop it** | Mark the open question as parked and drop the subject. It won't be raised again unless you raise it. |
-| **Go update** | Save the work, publish it, and tell you where it went — without asking anything further. Synonym: Approved |
+| **Go update** | Save the work, land it on the shared branch on origin, and tell you which branch it went to — without asking anything further. Synonym: Approved |
 | **My options** | Lay out the real choices in plainer words, the good and the bad of each, and tell you which one it recommends and why -- and when it's about a current issue meant for another session, add that session's id and link, which repository has to be the primary seed root, and which others need to be attached, then hand the whole thing back as one paste-ready block. |
 | **Practice check** | Go through every rule in force, one at a time, and report on each — the slow, complete version of the routine checks. |
+| **Primary branch** | Trunk -- the one shared branch regular work pushes to and pull requests target, as this repository declares it (usually main). |
 | **Prompt Please** | Write up the situation, the problem, your recommended action and why, and hand it back as one prompt ready to paste straight into a new session -- naming which repository to root it in and which others to attach. |
 | **Push directly** | Save the work and push it straight to the branch right now -- no pull request, whatever go-merge's classification would otherwise call for. Name the branch ("push directly to main") to target it explicitly; say it bare and it targets whichever branch the work is already headed toward. |
 | **Reduction pass** | Measure everything a session loads before it starts work, make room by moving things rather than deleting them, and show you exactly what moved and what it saved. |
@@ -115,6 +116,7 @@ each one saves you a paragraph of explaining:
 | **Three Things** | Tell you the three most important things you need to know right now, in three short lines. |
 | **Todo reminder** | Write the thing into the open-items file AND mark it as something to remind you about, so later sessions bring it up rather than waiting to be asked. |
 | **Update Vendors** | Pull in the latest version of the shared rules from the project they come from, and publish the result -- the merge is part of the phrase. |
+| **Upstream fix** | Say whether the change recommended, made, or about to be made in this session also fixes whatever caused the problem -- and if not, what would (a template, a generator, something vendored in from another repo) -- then fix that root yourself where it is reachable and sensible, and hand back a paste-ready prompt for any part that needs a session rooted in a different repo. |
 | **Very deep check** | Run a full review of the whole project — slow, occasional, and worth it before showing the work to someone new. |
 | **Vocabulary** | List every standing phrase this project recognizes, and what each one does. |
 | **Weak yes** | Go ahead with it, and record that you were not convinced. Nobody will ask you why. |

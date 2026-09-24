@@ -18,6 +18,10 @@ company keeps
 ([`protocols-generated-not-just-documented`](#protocols-generated-not-just-documented)
 below), in state that outlives the session
 ([`durable-state-default`](AI_GOVERNANCE_TO_COCREATE.md#durable-state-default)).
+None of that means opening the chat itself up: the conversation stays
+private
+([`conversation-privacy`](AI_GOVERNANCE_TO_COCREATE.md#conversation-privacy)),
+and what has to leave it is what it produced.
 
 <a id="owned-rules-outlast-the-chat"></a>
 
@@ -120,7 +124,7 @@ or a plan that's sound yet wrong ([`sense-of-smell`](HUMANS_AT_OUR_BEST.md#sense
 judgment this repo routes to people
 ([`hire-for-drive`](COMPANY_BUILDING_RULES.md#hire-for-drive)).
 
-## See Also
+## See also
 
 - [Core Pillars](CORE_PILLARS.md) — the one-page pitch: the core ideas
   this approach argues are unique, specifically taken together.

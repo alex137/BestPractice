@@ -429,14 +429,34 @@ def _plan_checks(sources, res=None):
     owner_of = {}   # 'rel_label/filename' -> source name that already claimed it
     plan, skipped, orphaned, undeclared = [], [], [], []
     claimed_names = None
+    # Which SOURCE claims each file, not only whether anyone does. A check
+    # is taken from the source whose resolved practice names it in
+    # `checked_by`, and another source's same-named copy is left behind as
+    # unclaimed rather than colliding with it. Found 2026-09-23, migrating a
+    # consumer onto the loader, twice in one sync: the universal tree had
+    # begun carrying its own scrubbed copies of the individual set's two
+    # commit checks (BestPractice's own push gate, 2026-09-22), and the
+    # individual set still carried check_fresh_before_write.py after its
+    # practice moved to a shared set and was marked deduplicated. Either
+    # one refused the whole sync -- which, for a repo migrating onto the
+    # loader, meant no practice in force at all. A file two sources BOTH
+    # claim is still a real collision and still refuses.
+    claimed_by = {}
     if res is not None:
         claimed_names = set()
         for practice in res['practices'].values():
             cb = (practice.get('fm', {}).get('checked_by') or '').strip().strip('"').strip("'")
             if cb.endswith('.py') and '/checks/' in cb:
                 stem = pathlib.PurePath(cb).stem
-                claimed_names.add(f'{stem}.py')
-                claimed_names.add(f'{stem.replace("check_", "test_", 1)}.sh')
+                for name in (f'{stem}.py', f'{stem.replace("check_", "test_", 1)}.sh'):
+                    claimed_names.add(name)
+                    claimed_by.setdefault(name, set()).add(practice.get('source'))
+
+    def unclaimed_here(name, source_name):
+        """True when a resolved practice claims `name`, but from another
+        source -- this source's copy has nothing to enforce here."""
+        owners = claimed_by.get(name)
+        return bool(owners) and None not in owners and source_name not in owners
 
     def claim(src_file, rel_label, source_name):
         key = f'{rel_label}/{src_file.name}'
@@ -456,7 +476,8 @@ def _plan_checks(sources, res=None):
         for f in sorted(src_checks.glob('*.py')):
             if not f.name.startswith('check_'):
                 skipped.append(f'tools/checks/{f.name} ({s["name"]})')
-            elif claimed_names is not None and f.name not in claimed_names:
+            elif claimed_names is not None and (f.name not in claimed_names
+                                                or unclaimed_here(f.name, s['name'])):
                 orphaned.append(f'tools/checks/{f.name} ({s["name"]})')
             else:
                 claim(f, 'checks', s['name'])
@@ -471,7 +492,8 @@ def _plan_checks(sources, res=None):
                         undeclared.append(f'{s["name"]} ({f})')
                 elif not f.name.startswith('test_'):
                     skipped.append(f'tools/checks/tests/{f.name} ({s["name"]})')
-                elif claimed_names is not None and f.name not in claimed_names:
+                elif claimed_names is not None and (f.name not in claimed_names
+                                                    or unclaimed_here(f.name, s['name'])):
                     orphaned.append(f'tools/checks/tests/{f.name} ({s["name"]})')
                 else:
                     claim(f, 'checks/tests', s['name'])

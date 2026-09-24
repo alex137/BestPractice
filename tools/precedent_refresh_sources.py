@@ -289,7 +289,19 @@ def engine_owned_paths(repo):
     make, so each is joined explicitly rather than by a shared rule.
 
     The manifest is not listed in `files` -- it is what does the listing --
-    but the refresh rewrites it on every run, so it belongs here."""
+    but the refresh rewrites it on every run, so it belongs here.
+
+    SO DO THE FULLY GENERATED VIEWS, added 2026-09-22. `build_views.py`
+    rewrites MAP.md and GLOSSARY.md in every source clone on every refresh,
+    from `practices/` alone, and they are in none of the three manifest
+    lists -- `files` are bare names under `tools/`, and a generated view at
+    the repo root is not one. So every refreshed clone carried a modified
+    MAP.md that read as somebody's uncommitted edit, which skipped the
+    refresh and, from 2026-09-22, made the container scanner call the
+    container unsafe on every reply. The names come from build_views.py
+    itself rather than being repeated here; AGENTS.md is deliberately not
+    among them, because only its loader block is generated and the rest is
+    a person's prose (that file's own note says why)."""
     man = read_manifest(repo)
     if not man or '_error' in man:
         return set()
@@ -300,6 +312,58 @@ def engine_owned_paths(repo):
         owned.add(f'.claude/hooks/{name}')
     for name in man.get('ci_workflow_files') or []:
         owned.add(str(name))
+    # Lazily, and never fatally: a vendored engine that arrived without
+    # build_views.py still classifies everything the manifest names
+    # (practice: fail-gracefully). The literal is that module's own tuple,
+    # kept here only as the fallback.
+    try:
+        sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+        import build_views as _bv
+        views = _bv.FULLY_GENERATED_VIEWS
+    except Exception:                                         # noqa: BLE001
+        views = ('MAP.md', 'GLOSSARY.md')
+    owned.update(views)
+    # AND THE ENGINE'S OWN CURRENT FILE LISTS, added 2026-09-22 -- because
+    # everything above is read from the DESTINATION's manifest, which is a
+    # snapshot of the last refresh and therefore lags the engine by exactly
+    # one refresh for any newly added file. That lag is not an edge case: it
+    # is the guaranteed state of every clone between "a file is added to
+    # ENGINE_FILES upstream" and "this clone refreshes again", and the
+    # refresh is the very thing the misclassification skips. So the lag
+    # sustains itself.
+    #
+    # WHAT IT COST, measured the same day. `precedent_container_safe.py` was
+    # added to ENGINE_FILES on 2026-09-21 and written into
+    # `precedent-individual`. Its manifest did not name it, so classify_dirt
+    # called it a person's untracked work, the container scanner called the
+    # container unsafe, and the archive gate went red on every single reply
+    # -- about a file byte-identical to one already tracked and pushed in
+    # BestPractice, which could not have been lost by anything.
+    #
+    # The clause above already states the principle: "the manifest is a
+    # DECLARATION of what the engine writes, not a listing of what is
+    # tracked". This finishes it. The engine's own lists are the same
+    # declaration one level up and they do not lag, so a name in them is the
+    # engine's whether this clone's manifest has caught up or not. It is the
+    # identical test precedent_vendor_engine._untracked_engine_files already
+    # applies from the other side -- it calls such a file "a hand-copy
+    # dropped in beside the vendored engine" and says `refresh` is its fix.
+    # Both halves existed; they did not share the set.
+    #
+    # SCOPED, and the scoping is what keeps this safe: read_manifest above
+    # has already returned for a repo that vendors no engine, so a repo with
+    # its own tools/ and no manifest can never have a file of its own
+    # reclassified as engine output by this. Within a repo that DOES vendor,
+    # a file carrying an engine file's name either is one or is the hand-drop
+    # that check exists to catch -- and both want `refresh`, not a person's
+    # attention as lost work.
+    try:
+        sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+        import precedent_vendor_engine as _ve
+        for name in set(_ve.ENGINE_FILES) | set(_ve.CONSUMER_ENGINE_FILES):
+            owned.add(f'tools/{name}')
+    except Exception:                                         # noqa: BLE001
+        pass          # fail-gracefully: the manifest half still classifies
     return owned
 
 
@@ -322,7 +386,18 @@ def classify_dirt(repo):
 
     A rename or a deletion is NOT engine dirt even when the path is owned:
     the engine rewrites files in place, so anything else in the status
-    porcelain is a person moving things around and is left well alone."""
+    porcelain is a person moving things around and is left well alone.
+
+    AN UNTRACKED OWNED PATH IS, since 2026-09-22. `M` alone was the test,
+    and a NEWLY vendored engine file does not arrive modified -- it arrives
+    as `??`, because the clone has never tracked it. Adding one file to
+    ENGINE_FILES upstream therefore made three source clones read as
+    carrying somebody's uncommitted work, which skipped their refresh and
+    made the archive gate red on every reply. The manifest is a
+    DECLARATION of what the engine writes, not a listing of what is
+    tracked, so a path it names is the engine's whether git has seen it
+    before or not -- and that manifest's own `_note` tells people never to
+    hand-write a file it lists."""
     ok, out = _git('status', '--porcelain', cwd=repo)
     if not ok:
         return [], []
@@ -344,8 +419,39 @@ def classify_dirt(repo):
             continue
         if path.startswith('"') and path.endswith('"'):
             path = path[1:-1]
-        (engine if code == 'M' and path in owned else other).append(path)
+        is_engine = code in ('M', '??') and path in owned
+        (engine if is_engine else other).append(path)
     return sorted(engine), sorted(other)
+
+
+def discard_engine_dirt(repo, paths):
+    """Put the engine's own output back the way the last commit had it.
+    -> (ok, note-on-failure).
+
+    TWO KINDS, and `git checkout --` only handles one. A tracked file that
+    the engine rewrote is restored. An untracked one it has never seen --
+    a newly vendored engine file, the case classify_dirt was widened for --
+    makes `checkout --` fail outright with "did not match any file(s) known
+    to git", which would have turned a working refresh into a refusal. It is
+    REMOVED instead: the refresh that immediately follows make_current
+    rewrites every path in this set, so the file is back, from upstream,
+    within the same run."""
+    if not paths:
+        return True, ''
+    ok, listed = _git('ls-files', '--', *paths, cwd=repo)
+    tracked = set(listed.splitlines()) if ok else set(paths)
+    restore = [p for p in paths if p in tracked]
+    remove = [p for p in paths if p not in tracked]
+    if restore:
+        ok, out = _git('checkout', '--', *restore, cwd=repo)
+        if not ok:
+            return False, f'could not discard engine output: {out}'
+    for rel in remove:
+        try:
+            (pathlib.Path(repo) / rel).unlink()
+        except OSError as exc:
+            return False, f'could not remove engine output {rel}: {exc}'
+    return True, ''
 
 
 def make_current(repo, branch):
@@ -375,9 +481,9 @@ def make_current(repo, branch):
             return True, 'already current'
     engine, _other = classify_dirt(repo)
     if engine:
-        ok, out = _git('checkout', '--', *engine, cwd=repo)
+        ok, note = discard_engine_dirt(repo, engine)
         if not ok:
-            return False, f'could not discard engine output: {out}'
+            return False, note
     ok, out = _git('merge', '--ff-only', f'origin/{branch}', cwd=repo)
     if not ok:
         return False, out.splitlines()[-1] if out else 'ff-only merge refused'

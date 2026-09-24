@@ -6,6 +6,7 @@ severity:    default
 applies_to:  ["process/upstream/**"]
 occasion:    "committing anything that touches the vendored/public tree"
 gates:       ["merge", "push"]
+index_required: true
 index_clause: "the public tree is public-safe at all times, not just at check-in"
 checked_by:  "tools/precedent_check.py"
 defines:     []

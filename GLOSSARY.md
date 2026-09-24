@@ -36,7 +36,6 @@ Built from every practice's `defines:` frontmatter field -- the terms that pract
 | Go update | [go-merge](practices/go-merge.md) |
 | headline capitalization | [headline-capitalization](practices/headline-capitalization.md) |
 | light check | [two-check-levels](practices/two-check-levels.md) |
-| long task | [answer-first-ask-before-long-work](practices/answer-first-ask-before-long-work.md) |
 | merge runbook | [merge-runbook](practices/merge-runbook.md) |
 | My options | [my-options](practices/my-options.md) |
 | negative control | [control-asserts-which-failure](practices/control-asserts-which-failure.md) |
@@ -44,6 +43,7 @@ Built from every practice's `defines:` frontmatter field -- the terms that pract
 | positive control | [control-asserts-which-failure](practices/control-asserts-which-failure.md) |
 | practice pack | [layered-practice-packs](practices/layered-practice-packs.md) |
 | practice-set source | [source-naming](practices/source-naming.md) |
+| Primary branch | [primary-branch](practices/primary-branch.md) |
 | Prompt Please | [prompt-please](practices/prompt-please.md) |
 | pronouns | [declared-pronouns](practices/declared-pronouns.md) |
 | Push directly | [push-directly](practices/push-directly.md) |
@@ -66,6 +66,7 @@ Built from every practice's `defines:` frontmatter field -- the terms that pract
 | Three Things | [three-things](practices/three-things.md) |
 | Todo reminder | [todo-reminder](practices/todo-reminder.md) |
 | Update Vendors | [vendor-update-runbook](practices/vendor-update-runbook.md) |
+| Upstream fix | [upstream-fix](practices/upstream-fix.md) |
 | very deep check | [very-deep-check](practices/very-deep-check.md) |
 | Vocabulary | [vocabulary](practices/vocabulary.md) |
 | wants: | [session-tags](practices/session-tags.md) |

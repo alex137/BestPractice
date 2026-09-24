@@ -810,7 +810,9 @@ def update(clone, force=False, allow_pinned=False):
                 print(f"  local change: {p}")
             sys.exit("checkin FAIL: vendored tree differs from the recorded upstream commit — "
                      "that is unexported work the mirror would clobber. Export it first "
-                     "(INSTALL.md §3/§4) or pass --force to overwrite.")
+                     "(INSTALL.md §3/§4) or pass --force to overwrite -- but only after "
+                     "reviewing each file above: vendor-update-runbook's conflicted-file "
+                     "review decides whether the local change is kept, merged or dropped.")
     # Mirrored from the SOURCE REF's tree, extracted to a scratch directory --
     # not from the clone's working tree, which this tool no longer moves and
     # which may sit on some entirely different branch.
@@ -1100,7 +1102,63 @@ def record(clone, note, accept_loss=False):
     return 0
 
 
+def _loader_notice():
+    """Say, after every status/update/record, when the catalogue this tool
+    just vendored is in force nowhere. practice_audit.py FAILS on the same
+    condition (its check 5); this is the same sentence arriving at the
+    moment a person is already thinking about Precedent, instead of one
+    command later. Retired-classic-install incident, 2026-09-23: an update
+    ran clean here and the repo's sessions still loaded none of it."""
+    try:
+        from practice_audit import loader_gaps, MIGRATION_DOC
+    except Exception:  # an older vendored audit; the audit itself still runs
+        return
+    gaps = loader_gaps(ROOT)
+    if gaps:
+        bar = '!' * 72
+        print(f"\n{bar}\nPRECEDENT IS NOT RUNNING IN THIS REPO. It vendors the practice "
+              f"catalogue, but {'; and '.join(gaps)}.\nNone of those practices is in "
+              f"force in any session here. This is the retired classic install: "
+              f"migrate it onto the loader, whole, before calling this update "
+              f"done --\n{MIGRATION_DOC}\n{bar}", file=sys.stderr)
+
+
+def _declined_notice():
+    """Name every recorded decline this update just moved past (practice:
+    current-rule-governs). practice_audit.py's check 6 FAILS on the same
+    condition; saying it here puts it in front of the person taking the
+    update, which is when step 4 of the vendor-update runbook asks for the
+    decision to be made again. Incident, 2026-09-24: a decline recorded as
+    a "duplicate" rode through two syncs unread while the practice it
+    declined was replaced upstream."""
+    try:
+        from practice_audit import stale_declines
+    except Exception:  # an older vendored audit; the audit itself still runs
+        return
+    stale = []
+    for m in sorted((ROOT / 'process').glob('manifest*.json')):
+        try:
+            stale += stale_declines(m)
+        except (OSError, ValueError):
+            continue
+    if stale:
+        print('\nDECISIONS TO MAKE AGAIN: upstream changed a practice this repo '
+              'declined. Re-decide each in this same change (adopt it, or record '
+              'why it is still declined and run practice_audit.py --redecide):',
+              file=sys.stderr)
+        for name, sentence in stale:
+            print(f'  - [{name}] {sentence}', file=sys.stderr)
+
+
 def main():
+    rc = _main()
+    if {'status', 'update', 'record'} & set(sys.argv[1:]):
+        _loader_notice()
+        _declined_notice()
+    return rc
+
+
+def _main():
     args = sys.argv[1:]
     if args and args[0] == 'fresh':
         return fresh()

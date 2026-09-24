@@ -17,7 +17,9 @@ overrides:   null
 added:       "2026-09-08"
 approved_by: "Morgan; amended 2026-09-14, Morgan -- the phrase now carries
   the merge as well as the update; amended 2026-09-21, Morgan (decided) --
-  step 1 makes the clone current rather than telling somebody to"
+  step 1 makes the clone current rather than telling somebody to; amended
+  2026-09-23, Morgan (assented) -- a classic install is migrated, not
+  updated"
 ---
 ## Rule
 **"Update Vendors" is the phrase that asks for this**, and it authorizes the
@@ -38,8 +40,55 @@ other. What the phrase removes is the second question, not the gate. So a
 failing check is reported, with what failed, and nothing is published -- that
 is the sequence working, not a refusal needing permission to stand.
 
+**Every conflicted file is reviewed, never overwritten on sight.** An
+update meets this repo's own changes in many places: a refusal to overwrite
+a hand-edited file, a drift report, a merge conflict, a hand-written rule in
+`AGENTS.md` or `CLAUDE.md` that an updated practice now touches. Each one
+gets the same two questions before anything is resolved: **does the local
+version conflict with what upstream now ships, and is it still needed?**
+
+- **It says what upstream now says**: take upstream. The local copy is a
+  duplicate, and a duplicate is the copy that goes stale.
+- **It conflicts**: ask the person whether the difference is deliberate.
+  If it is, keep it and record it where this repo's tools will see it next
+  time (below). If not, take upstream; the rule in force wins.
+- **It doesn't conflict and is still needed**, because it covers something
+  upstream doesn't: keep it, and carry it into the new version rather than
+  choosing one side wholesale.
+
+**`--force`, `record-ci` and "take theirs" come after this review, never
+instead of it**; each one discards the local side in a single step. A
+difference kept on purpose is recorded so the next update does not ask
+again: a `diverged` or `declined` entry in `process/manifest.json`, a
+declared file under `local_ci_workflows` in `precedent.json`, a repo-local
+practice with `overrides:`, or a hand-written rule worded as an exception
+to the practice it departs from. **The pull request lists every conflicted
+file with its verdict** — kept, taken from upstream, or merged — and why.
+Morgan, 2026-09-24: *"Every 'update vendors' should use that rule for every
+conflicted file"* ([current-rule-governs](current-rule-governs.md) says
+which side wins when the review finds a real conflict).
+
+**Follow the upstream copy of this runbook, not the one vendored here.**
+The copy in this repo is from the last sync, and every correction made to
+the procedure since then is exactly what it lacks. Once step 1 has made the
+source clone current, read `practices/vendor-update-runbook.md` in that
+clone, on the branch this repo takes its updates from, and follow that
+([current-rule-governs](current-rule-governs.md)). Incident, 2026-09-24: a
+consumer followed its own old copy of these steps and missed a change to
+them that had already been published.
+
 A vendored tree is updated by a fixed sequence, in this order, because
 every step's answer is wrong if the one before it was skipped.
+
+**First, is this repo running the loader at all?** A classic install —
+`process/upstream/` vendored, no universal source in `precedent.json`, no
+generated block in `AGENTS.md` — is not updated, it is migrated, in the
+same change:
+[spec/MIGRATING_EXISTING_INSTALLS.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/MIGRATING_EXISTING_INSTALLS.md).
+`practice_audit.py`, `checkin.py update` and the session-start bootstrap all
+say so when it is. An update that leaves the repo classic has refreshed text
+that no session reads, which is how a consumer took one on 2026-09-23 and
+still had nothing in force.
 
 1. **Make the SOURCE clone current first, against the branch this repo is
    pinned to** — not the source's default branch. A stale source makes
@@ -143,6 +192,19 @@ every step's answer is wrong if the one before it was skipped.
    first time this shipped would have discarded that with no warning. Run
    `refresh` again once the baseline is recorded to pick up template changes
    normally from then on.
+   **Since 2026-09-24 it also refreshes any file the repo declares under
+   `engine_paths` in its own `precedent.json`** — an upstream path mapped to
+   a local one, for a file the repo must keep at a path of its own:
+   `{"templates/harness/claude-code/hooks/commit-identity.sh":
+   "bootstrap/commit-identity.sh"}` is precedent-individual's, which
+   `session-start.sh` and that set's own `adapters` both reach by that path.
+   Tracked in `ENGINE_MANIFEST.json` (`engine_paths`/`engine_paths_sha256`)
+   and drift-checked like `tools/`. **A newly declared file is adopted only
+   if it is already identical to upstream**; otherwise the refresh refuses,
+   names how many lines differ, and `--force` does not waive it — move the
+   difference upstream first. A mapping onto a path an adapter writes, or
+   one this engine already vendors, is refused outright. Nothing else
+   outside `tools/`, `.claude/hooks/` and the CI workflows is touched.
    **Since 2026-09-19, check whether this refresh newly vendors
    `tools/todo_migrate.py` or `tools/build_todo_index.py`** — the one-time
    per-item TODO migration tool and its ongoing index generator
@@ -188,6 +250,25 @@ every step's answer is wrong if the one before it was skipped.
    itself committed and pushed. Reported from a dependent repo that hit it
    twice in one hop, 2026-09-21, and verified here against the tool's own
    git calls rather than taken on the report.
+
+   **Then decide every earlier decline again, in this same change.** Any
+   upstream practice this repo once declined or deferred ("a duplicate of
+   our own rule", "not now") was declined as its text stood *then*. For each
+   one, read the current upstream file and decide again: adopt it, or keep
+   declining it with a reason that fits the current text. A decline that
+   lives only in prose (a sync note, a paragraph in `AGENTS.md`) goes into
+   the manifest as a `declined` entry
+   ([INSTALL.md §5](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/INSTALL.md#5-the-manifest-schema-processmanifestjson)),
+   so the next sync does not depend on somebody remembering it. Any other
+   hand-written rule an updated practice now touches gets the
+   conflicted-file review at the top of this runbook.
+   `checkin.py update` lists the declines this update has moved past, and
+   `practice_audit.py` fails on them at step 6 until each is decided again
+   ([current-rule-governs](current-rule-governs.md)). Incident, 2026-09-24:
+   a dependent repo declined upstream's merge-keyword practice as a
+   duplicate of a personal rule. Upstream replaced it with a broader one,
+   two later syncs carried the old decline forward without reading it, and
+   a session refused a command the rule in force authorized.
 5. **Regenerate the generated views in the same change.** A refreshed
    generator whose output has not been re-run leaves the repo's committed
    views describing the old engine, and its own `--check` then fails on

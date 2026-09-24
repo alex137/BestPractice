@@ -1,85 +1,103 @@
 [
-  {
-    "practice": "the-boildown",
-    "require_heading_matching": "boildown",
-    "why": "Long replies bury the trailing detail -- a question that was asked, a step still on the person -- and a real heading is the only thing that survives skimming. Declared in this person's individual set 2026-09-13, moved to universal 2026-09-14 as next-steps-after-commit, and consolidated 2026-09-15 into the-boildown along with five other closing-section practices, under a renamed heading. The mechanism is tools/precedent_reply_check.py, which checks whatever a source declares and has no requirements of its own. Split from the archive-sentence requirement below 2026-09-17: the heading stays a real, blocking requirement -- it is what makes the rest of this list findable -- independent of whether the archive sentence, now advisory, is present.",
-    "checks_practice_at": "practices/the-boildown.md"
-  },
-  {
-    "practice": "the-boildown",
-    "require_one_of": [
-      "This is a cheap point to compact",
-      "Not a cheap point to compact"
-    ],
-    "require_when_context_grew_tokens": 100000,
-    "advisory": true,
-    "why": "so a long session hears the offer instead of the rule quietly not firing for hours -- absorbed 2026-09-15 from session-spend-follows-the-task, which kept only its unrelated model-choice guidance. Downgraded to advisory 2026-09-17 (Morgan, direct instruction): give the reviewed, honest answer -- one of the two sentences, whichever actually applies -- but it is a recommendation, and an absent one must never refuse the turn."
-  },
-  {
-    "practice": "the-boildown",
-    "require_one_of": [
-      "You can archive this session",
-      "Don't archive this session"
-    ],
-    "advisory": true,
-    "why": "One of the two closing sentences is the only thing that tells 'nothing is outstanding' apart from 'the session forgot'. Same history as the heading requirement above, from which this was split 2026-09-17 and downgraded to advisory (Morgan, direct instruction): give the reviewed, honest answer -- whichever of the two actually applies -- but it is a recommendation, and an absent one must never refuse the turn.",
-    "checks_practice_at": "practices/the-boildown.md"
-  },
-  {
-    "practice": "the-boildown",
-    "require_no_contradiction": [
-      {
-        "if_says": "Don't archive this session",
-        "must_not_say_matching": "\\bno[\\w\\s]{0,20}?blocking\\b(?!\\s+(?:there\\b|on (?:it|that|this)\\b|for (?:it|that|this)\\b))|\\bnothing[\\w\\s]{0,15}?(?:blocking|outstanding|pending|left to do)\\b(?!\\s+(?:there\\b|on (?:it|that|this)\\b|for (?:it|that|this)\\b))"
-      },
-      {
-        "if_says": "You can archive this session",
-        "must_not_say_matching": "\\bstill (?:open|pending|blocking|waiting)\\b(?!\\s+(?:there\\b|on (?:it|that|this)\\b|for (?:it|that|this)\\b))|\\bwaiting on (?:you|your)\\b(?!\\s+(?:there\\b|on (?:it|that|this)\\b|for (?:it|that|this)\\b))|\\bblocked on\\b(?!\\s+(?:there\\b|on (?:it|that|this)\\b|for (?:it|that|this)\\b))|\\bneeds? your (?:approval|input|answer|review)\\b(?!\\s+(?:there\\b|on (?:it|that|this)\\b|for (?:it|that|this)\\b))|\\bnot yet (?:pushed|merged|committed)\\b(?!\\s+(?:there\\b|on (?:it|that|this)\\b|for (?:it|that|this)\\b))"
-      }
-    ],
-    "why": "2026-09-20: a reply said 'no open work is blocking either way' in its own next-steps bullet and then closed with \"Don't archive this session\" -- the two cannot both be true, and nothing caught it before the person did. The advisory require_one_of above only checks that ONE of the two fixed sentences is present; it has no way to notice that the reply also asserts the opposite of the one it picked. Unlike the archive verdict itself -- deliberately left a judgment call, per the-boildown's own Install section, because no script can tell a real reason from a content-free recap -- a reply is never allowed to assert both halves of the same contradiction at once, whatever the real state is, so this one is blocking rather than advisory. Narrow on purpose: it does not try to verify the verdict is CORRECT, only that the reply does not talk itself out of its own answer. Second incident, same day: a reply's own Boildown bullet said \"PR #165 merged... -- nothing left to do there\" (scoped to that one closed PR) and correctly closed with \"Don't archive this session\" because an unrelated question was still open elsewhere -- the flat match had no notion of scope, so a per-item \"nothing left to do\" read identically to a whole-session one. Fixed by excluding an immediately-following scope qualifier (there / on it,that,this / for it,that,this) from both patterns in this entry, same family as the double-quote-citation exemption above it: a phrase scoped away from the whole session is not asserting the opposite of the verdict, any more than a quoted citation is.",
-    "checks_practice_at": "practices/the-boildown.md"
-  },
-  {
-    "practice": "rule-links",
-    "require_no_bare_pattern": [
-      {
-        "pattern": "\\bPR #\\d+\\b",
-        "why": "a pull request number names a page with a destination -- link it, rather than naming the bare number"
-      },
-      {
-        "pattern": "\\bsession_[A-Za-z0-9-]+\\b",
-        "why": "a session id names a specific session with its own page -- link it, rather than naming the bare id"
-      },
-      {
-        "pattern": "\\bgithub\\.com/[\\w.-]+/[\\w.-]+/pull/\\d+\\b",
-        "why": "a bare GitHub pull request URL outside a markdown link is unclickable copy, not a citation"
-      }
-    ],
-    "advisory": true,
-    "why": "rule-links says anything mentioned that has a destination gets a link the first time it is named -- a PR, a session, a rule, a file -- and had no mechanical check at all until this predicate (tools/precedent_reply_check.py's require_no_bare_pattern). Added 2026-09-20 after a reply in a downstream consumer repository mentioned 'PR #21' with no link, and nothing caught it before the person had to notice and ask. Declared advisory rather than blocking: markdown links are stripped from the whole reply once, up front, so a thing correctly linked on its FIRST mention and named bare again later in the same reply still matches -- a known imprecision (rule-links only requires the first mention to carry the link), not a bug, and not yet worth refusing a turn over."
-  },
-  {
-    "practice": "branch-links",
-    "require_no_bare_pattern": [
-      {
-        "pattern": "\\bgithub\\.com/[\\w.-]+/[\\w.-]+/tree/[\\w/-]+(?:\\.[\\w/-]+)*",
-        "why": "a bare GitHub branch tree URL outside a markdown link is unclickable copy, not a citation"
-      }
-    ],
-    "advisory": true,
-    "why": "branch-links says a git branch named anywhere in a reply gets a link to its tree view, and its own Install section says a bare branch NAME has no reliable syntactic signature a mechanical check could key off -- a branch's tree URL does, though, so this predicate (tools/precedent_reply_check.py's require_no_bare_pattern) catches that one detectable case rather than the general one. Added 2026-09-20 alongside the rule-links entry above, same incident. Declared advisory for the same reason: a link stripped once, up front, does not know a later bare mention of a URL already linked earlier in the same reply was already covered."
-  },
-  {
-    "practice": "fence-block-for-paste",
-    "require_paired_with": [
-      {
-        "if_matches": "^\\s*```",
-        "must_also_match": "(?:\\*\\*)?Paste into:|\\bnot for pasting\\b",
-        "why": "a fenced block is either text the person is meant to paste somewhere, in which case the reply must say WHERE -- 'Paste into:' naming an existing session, or a new one with the repo it is rooted in and what is attached -- or it is output and evidence, in which case say 'not for pasting' once and carry on. A block with no destination is not a handoff, it is homework"
-      }
-    ],
-    "why": "Morgan, 2026-09-21 (strength: decided), in capitals, after asking roughly twenty times across two days what session a block he had just been handed was for: 'EVERY TIME YOU GIVE ME SOMETHING TO PASTE, ALWAYS TELL ME IT GOES TO A SESSION ROOTED IN WHAT REPO AND WHAT ATTACHED, OR WHAT EXISTING SESSION.' fence-block-for-paste already made the FENCE mandatory, which is exactly why every one of those blocks was correctly fenced and not one of them said where it went -- the practice enforced the container and said nothing about the address. BLOCKING rather than advisory, deliberately, because he asked for a strong rule and because the failure is cheap to fix in the moment and expensive afterwards: a paste block without a destination costs a whole round trip before anything can happen with it. The escape hatch keeps it honest -- a reply whose only fences are measured output says 'not for pasting' once, which is a sentence, not a ceremony.",
-    "checks_practice_at": "practices/fence-block-for-paste.md"
+ {
+  "practice": "the-boildown",
+  "require_heading_matching": "boildown",
+  "why": "Long replies bury the trailing detail -- a question that was asked, a step still on the person -- and a real heading is the only thing that survives skimming. Declared in this person's individual set 2026-09-13, moved to universal 2026-09-14 as next-steps-after-commit, and consolidated 2026-09-15 into the-boildown along with five other closing-section practices, under a renamed heading. The mechanism is tools/precedent_reply_check.py, which checks whatever a source declares and has no requirements of its own. Split from the archive-sentence requirement below 2026-09-17: the heading stays a real, blocking requirement -- it is what makes the rest of this list findable -- independent of whether the archive sentence, now advisory, is present.",
+  "checks_practice_at": "practices/the-boildown.md"
+ },
+ {
+  "practice": "the-boildown",
+  "require_one_of": [
+   "This is a cheap point to compact",
+   "Not a cheap point to compact"
+  ],
+  "require_when_context_grew_tokens": 100000,
+  "advisory": true,
+  "why": "so a long session hears the offer instead of the rule quietly not firing for hours -- absorbed 2026-09-15 from session-spend-follows-the-task, which kept only its unrelated model-choice guidance. Downgraded to advisory 2026-09-17 (Morgan, direct instruction): give the reviewed, honest answer -- one of the two sentences, whichever actually applies -- but it is a recommendation, and an absent one must never refuse the turn."
+ },
+ {
+  "practice": "the-boildown",
+  "require_one_of": [
+   "You can archive this session",
+   "Don't archive this session"
+  ],
+  "advisory": true,
+  "why": "One of the two closing sentences is the only thing that tells 'nothing is outstanding' apart from 'the session forgot'. Same history as the heading requirement above, from which this was split 2026-09-17 and downgraded to advisory (Morgan, direct instruction): give the reviewed, honest answer -- whichever of the two actually applies -- but it is a recommendation, and an absent one must never refuse the turn.",
+  "checks_practice_at": "practices/the-boildown.md"
+ },
+ {
+  "practice": "the-boildown",
+  "require_no_contradiction": [
+   {
+    "if_says": "Don't archive this session",
+    "must_not_say_matching": "\\bno[\\w\\s]{0,20}?blocking\\b(?!\\s+(?:there\\b|on (?:it|that|this)\\b|for (?:it|that|this)\\b))|\\bnothing[\\w\\s]{0,15}?(?:blocking|outstanding|pending|left to do)\\b(?!\\s+(?:there\\b|on (?:it|that|this)\\b|for (?:it|that|this)\\b))"
+   },
+   {
+    "if_says": "You can archive this session",
+    "must_not_say_matching": "\\bstill (?:open|pending|blocking|waiting)\\b(?!\\s+(?:there\\b|on (?:it|that|this)\\b|for (?:it|that|this)\\b))|\\bwaiting on (?:you|your)\\b(?!\\s+(?:there\\b|on (?:it|that|this)\\b|for (?:it|that|this)\\b))|\\bblocked on\\b(?!\\s+(?:there\\b|on (?:it|that|this)\\b|for (?:it|that|this)\\b))|\\bneeds? your (?:approval|input|answer|review)\\b(?!\\s+(?:there\\b|on (?:it|that|this)\\b|for (?:it|that|this)\\b))|\\bnot yet (?:pushed|merged|committed)\\b(?!\\s+(?:there\\b|on (?:it|that|this)\\b|for (?:it|that|this)\\b))"
+   }
+  ],
+  "why": "2026-09-20: a reply said 'no open work is blocking either way' in its own next-steps bullet and then closed with \"Don't archive this session\" -- the two cannot both be true, and nothing caught it before the person did. The advisory require_one_of above only checks that ONE of the two fixed sentences is present; it has no way to notice that the reply also asserts the opposite of the one it picked. Unlike the archive verdict itself -- deliberately left a judgment call, per the-boildown's own Install section, because no script can tell a real reason from a content-free recap -- a reply is never allowed to assert both halves of the same contradiction at once, whatever the real state is, so this one is blocking rather than advisory. Narrow on purpose: it does not try to verify the verdict is CORRECT, only that the reply does not talk itself out of its own answer. Second incident, same day: a reply's own Boildown bullet said \"PR #165 merged... -- nothing left to do there\" (scoped to that one closed PR) and correctly closed with \"Don't archive this session\" because an unrelated question was still open elsewhere -- the flat match had no notion of scope, so a per-item \"nothing left to do\" read identically to a whole-session one. Fixed by excluding an immediately-following scope qualifier (there / on it,that,this / for it,that,this) from both patterns in this entry, same family as the double-quote-citation exemption above it: a phrase scoped away from the whole session is not asserting the opposite of the verdict, any more than a quoted citation is.",
+  "checks_practice_at": "practices/the-boildown.md"
+ },
+ {
+  "practice": "the-boildown",
+  "require_container_safe_if_says": [
+   "You can archive this session"
+  ],
+  "why": "2026-09-22: a reply reported its own eight commits pushed, said \"You can archive this session\", and left six unpushed commits sitting in a source clone in the same container -- which archiving releases. Morgan, same day (strength: decided): \"if changes are done locally but not pushed to main or precedent-beta-v01 then never never recommend 'You can archive this session' (unless the work is intended to be lost!) - this is very important\". The mechanism is tools/precedent_container_safe.py, which scans every git checkout in the container -- this repo, its siblings, the home directory's clones, and whatever the source config declares -- for uncommitted changes, untracked files, and commits no remote can reach. Blocking rather than advisory, unlike the archive sentence itself above: the verdict stays a judgment call, but 'would anything be lost' is a fact about a filesystem, and releasing the container is the one closing claim that cannot be taken back next turn. An engine with no copy of the scanner reports nothing and blocks nothing, the same way an unknown predicate does.",
+  "checks_practice_at": "practices/the-boildown.md",
+  "unless_reply_declares_loss": {
+   "marker": "\\*\\*checkout disposition:\\*\\*\\s*{name}\\s*[—-]+\\s*discard",
+   "phrases": [
+    "meant to be lost",
+    "intended to be lost",
+    "meant to be discarded",
+    "intended to be discarded"
+   ],
+   "why": "2026-09-23: the rule's own `why` above has always carried Morgan's parenthesis -- \"(unless the work is intended to be lost!)\" -- and the code never implemented it. The refusal even told the reader to \"say in the reply that it is meant to be lost\" and then ignored them doing so. A session said exactly that in three consecutive replies about 34 superseded watermark commits in a clone 74 behind its origin, on an owner the git proxy refuses pushes to; all three were refused, so all three closed by telling Morgan not to archive a session he could safely archive. A gate that forces a false statement is no longer a safety mechanism. The escape is not a password: _declares_loss also requires the reply to NAME every unsafe checkout, so the 2026-09-22 case that built this rule -- a session that had never looked at the clone holding six unpushed commits -- is still caught, because it could not have named it.\n\n2026-09-23, later the same day: the phrase list itself turned out to be the next version of the same bug. A different session had ALREADY said the substance plainly -- 'safe to let the container reclaim them', 'confirmed superseded... busywork' -- across two replies about the same kind of dead watermark commits, and both were refused for matching none of the four fixed strings, so a session that had done the work of establishing loss was safe still could not say so without guessing the exact incantation. Morgan: \"That rule, as you read it, it makes no sense... if there's some way to force it to fire, that would be great.\" A phrase LIST was never going to close this gap; the fix is a structured marker (`**Checkout disposition:** NAME -- discard (reason)`) checked per unsafe checkout by name, same shape as park-it's own `**Disposition:**` line, so the escape is legible and greppable rather than a password to guess. The phrase list stays as a fallback for prose that already reads correctly under the old rule; the marker is what a reply should reach for going forward."
   }
+ },
+ {
+  "practice": "rule-links",
+  "require_no_bare_pattern": [
+   {
+    "pattern": "\\bPR #\\d+\\b",
+    "why": "a pull request number names a page with a destination -- link it, rather than naming the bare number"
+   },
+   {
+    "pattern": "\\bsession_[A-Za-z0-9-]+\\b",
+    "why": "a session id names a specific session with its own page -- link it, rather than naming the bare id"
+   },
+   {
+    "pattern": "\\bgithub\\.com/[\\w.-]+/[\\w.-]+/pull/\\d+\\b",
+    "why": "a bare GitHub pull request URL outside a markdown link is unclickable copy, not a citation"
+   }
+  ],
+  "advisory": true,
+  "why": "rule-links says anything mentioned that has a destination gets a link the first time it is named -- a PR, a session, a rule, a file -- and had no mechanical check at all until this predicate (tools/precedent_reply_check.py's require_no_bare_pattern). Added 2026-09-20 after a reply in a downstream consumer repository mentioned 'PR #21' with no link, and nothing caught it before the person had to notice and ask. Declared advisory rather than blocking: markdown links are stripped from the whole reply once, up front, so a thing correctly linked on its FIRST mention and named bare again later in the same reply still matches -- a known imprecision (rule-links only requires the first mention to carry the link), not a bug, and not yet worth refusing a turn over."
+ },
+ {
+  "practice": "branch-links",
+  "require_no_bare_pattern": [
+   {
+    "pattern": "\\bgithub\\.com/[\\w.-]+/[\\w.-]+/tree/[\\w/-]+(?:\\.[\\w/-]+)*",
+    "why": "a bare GitHub branch tree URL outside a markdown link is unclickable copy, not a citation"
+   }
+  ],
+  "advisory": true,
+  "why": "branch-links says a git branch named anywhere in a reply gets a link to its tree view, and its own Install section says a bare branch NAME has no reliable syntactic signature a mechanical check could key off -- a branch's tree URL does, though, so this predicate (tools/precedent_reply_check.py's require_no_bare_pattern) catches that one detectable case rather than the general one. Added 2026-09-20 alongside the rule-links entry above, same incident. Declared advisory for the same reason: a link stripped once, up front, does not know a later bare mention of a URL already linked earlier in the same reply was already covered."
+ },
+ {
+  "practice": "fence-block-for-paste",
+  "require_paired_with": [
+   {
+    "if_matches": "^\\s*```",
+    "must_also_match": "(?:\\*\\*)?Paste into:|\\bnot for pasting\\b",
+    "why": "a fenced block is either text the person is meant to paste somewhere, in which case the reply must say WHERE -- 'Paste into:' naming an existing session, or a new one with the repo it is rooted in and what is attached -- or it is output and evidence, in which case say 'not for pasting' once and carry on. A block with no destination is not a handoff, it is homework"
+   }
+  ],
+  "why": "Morgan, 2026-09-21 (strength: decided), in capitals, after asking roughly twenty times across two days what session a block he had just been handed was for: 'EVERY TIME YOU GIVE ME SOMETHING TO PASTE, ALWAYS TELL ME IT GOES TO A SESSION ROOTED IN WHAT REPO AND WHAT ATTACHED, OR WHAT EXISTING SESSION.' fence-block-for-paste already made the FENCE mandatory, which is exactly why every one of those blocks was correctly fenced and not one of them said where it went -- the practice enforced the container and said nothing about the address. BLOCKING rather than advisory, deliberately, because he asked for a strong rule and because the failure is cheap to fix in the moment and expensive afterwards: a paste block without a destination costs a whole round trip before anything can happen with it. The escape hatch keeps it honest -- a reply whose only fences are measured output says 'not for pasting' once, which is a sentence, not a ceremony.",
+  "checks_practice_at": "practices/fence-block-for-paste.md"
+ }
 ]

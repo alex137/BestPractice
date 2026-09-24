@@ -84,7 +84,7 @@ Full catalogue, one file per trap. AGENTS.md carries only a pointer to this file
 
 - **The symptom.** [story](gotcha-2026-09-14-ratelimit-lies-from-inside-a-session-it-reports-a-pristine-w.md)
 
-- **The symptom.** [story](gotcha-2026-09-14-the-permission-classifier-refuses-commits-and-checks-in-the-.md)
+- **A command that ran a minute ago comes back as `Permission for this action was denied by the Claude Code auto mode classifier`, with a reason in brackets: `[Instruction Poisoning]`, `[Untrusted Code Integration]`, `[Self-Modification]` and `[Out-of-Place Publication]` have all been seen. Reads keep working; writes, commits and scripts that change the repository are refused. **It shows up most in work that began as a message from another session** rather than from the person typing it.** [story](gotcha-2026-09-14-the-permission-classifier-refuses-commits-and-checks-in-the-.md)
 
 - **Measured 2026-09-14** [story](gotcha-2026-09-14-the-session-start-identity-block-reaches-every-precedent-rep.md)
 
@@ -106,8 +106,6 @@ Full catalogue, one file per trap. AGENTS.md carries only a pointer to this file
 
 - **A SessionStart hook renders a file correctly, every session, and the session behaves as though the file does not exist — because writing a file is not loading it, and Claude Code auto-loads instruction files only.** [story](gotcha-2026-09-20-a-sessionstart-hook-writing-a-file-is-not-the-session-loadi.md)
 
-- **A local commit made mid-session, on a clean working tree, disappears between one turn and the next -- `git log` shows the branch back at `origin`'s tip, with no error, no warning shown to the model, and no dirty-tree complaint to explain it.** [story](gotcha-2026-09-20-freshness-guard-s-user-prompt-mode-hard-resets-a-mid-sess.md)
-
 - **`python3 tools/leak_gate.py` reports a wall of undeclared-repo hits against a tree that is actually fine, all naming things the session never touched. The gate's own printed remedy -- `git -C <root> pull --ff-only` -- can itself fail with no further guidance.** [story](gotcha-2026-09-20-leak-gates-private-blocklist-clone-fails-open-stale.md)
 
 - **In a multi-repo session rooted under `/home/user` (rather than a single set), `themorgan/precedent-individual`'s own `precedent.json` names its shared sources as `../precedent-shared-*`, but the sibling clones actually on disk are named `precedent-team-*`, and `PRECEDENT_FRESHNESS_ALSO` names the old paths too.** [story](gotcha-2026-09-20-shared-home-layout-still-names-the-pre-rename-team-sets.md)
@@ -116,4 +114,16 @@ Full catalogue, one file per trap. AGENTS.md carries only a pointer to this file
 
 - **A session is asked whether GitHub Actions is actually **enabled** on a repository — during an install audit, or when a workflow that should be running is not. The obvious answer is `GET /repos/{owner}/{repo}/actions/permissions`, and **there is no way to call it from inside a session.**** [story](gotcha-2026-09-21-actions-permissions-are-unreadable-from-a-session.md)
 
+- **You edit `practices/<slug>.md` **inside the source repo that owns that practice**, then run one of the engine tools to confirm the change — [tools/precedent_vocabulary.py](../tools/precedent_vocabulary.py) is the measured case. **The tool prints the old value.** Exit code 0, no warning, file on disk demonstrably correct.** [story](gotcha-2026-09-21-editing-a-practice-in-its-own-source-repo-does-not-change-the-tools-answer.md)
+
 - **A workflow file uses a YAML **anchor and alias** (`&name` to define, `*name` to reuse) to avoid repeating a list — most naturally a long `paths:` filter that both `push:` and `pull_request:` need. `python3 -c "import yaml; yaml.safe_load(open('w.yml'))"` parses it cleanly, every local check passes, the file looks right. **GitHub's own workflow parser rejects it**, and the workflow does not run at all.** [story](gotcha-2026-09-21-github-actions-rejects-yaml-anchors-python-accepts.md)
+
+- **[`precedent_reply_check.py`](../tools/precedent_reply_check.py), copied on its own into another directory, exits **0 on every input** — including replies that plainly violate a blocking requirement in the `reply_check.json` it was pointed at.** [story](gotcha-2026-09-22-a-copied-precedent-reply-check-py-silently-checks-nothing.md)
+
+- **A practice-source clone owned by somebody other than the session's own repo owner **fetches perfectly and cannot be pushed**. The clone carries a working credential helper, the token is in the environment, `git fetch` updates real refs — and `git push` returns 403 from the git proxy.** [story](gotcha-2026-09-22-a-cross-owner-source-clone-fetches-fine-and-cannot-be-pushed.md)
+
+- **A test fixture builds an upstream with `git init`, clones it, commits in the clone and pushes — and the push is refused every single time, on every machine, with nothing reporting it. The fixture then asserts against a state it never reached.** [story](gotcha-2026-09-22-a-fixture-push-to-a-non-bare-upstream-is-refused-silently.md)
+
+- **A pull request's check runs read `in_progress` for jobs the workflow-jobs view already reports as completed** [story](gotcha-2026-09-22-a-pr-s-check-runs-read-in-progress-long-after-the-jobs-fin.md)
+
+- **A GitHub application programming interface (API) call from a hosted session is refused — `Resource not accessible by integration`, or the harness's own `GitHub access to this repository is not enabled for this session` — and the obvious diagnosis is that `PRECEDENT_GIT_TOKEN` needs more permission. A session then designs a token: which scopes, who creates it, where it goes.** [story](gotcha-2026-09-22-the-api-proxy-ignores-the-token-you-set.md)

@@ -1,0 +1,12 @@
+{
+  "_generated_by": "tools/very_deep_check.py --record-read (never hand-edit a row's date)",
+  "_what_this_is": "One row per time somebody read a whole file end to end, deliberately, and said what the read changed. The ACCRETION section of the very deep check ranks tracked files by commits since their last recorded read, so a file with no row here is ranked from the whole window. Empty is the honest starting state: no such read has been recorded, and back-dating one would be inventing the evidence the registry exists to hold.",
+  "reads": [
+    {
+      "path": "AGENTS.md",
+      "date": "2026-09-21",
+      "by": "",
+      "note": "read end to end 2026-09-21; found the Session Text bullet contradicting prompt-please on waking a live session and on default merge authorization"
+    }
+  ]
+}

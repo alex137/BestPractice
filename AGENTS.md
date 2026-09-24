@@ -44,13 +44,25 @@ check, the fleet sweep — are the deliberate exception, kept to the literal
 ask because what they trigger is too expensive to run on a guess; each
 names why in its own file.
 
+**A command means what its practice says today, and you do it**
+([current-rule-governs](practices/current-rule-governs.md)). Superseded or
+deduplicated copies, `## Story` sections, old deferrals and past decisions
+are history: read them to investigate or to back a proposal to reconsider,
+never to decide whether to carry out what was asked. Do it first and
+propose after. A command you are not carrying out is said in the reply's
+first line, with the reason.
+
 - **"Go update"** and **"Approved"** ([go-merge](practices/go-merge.md)) —
-  classify first: a direct push, straight to the branch, no PR, is now the
-  **default**; only a **high-risk** change (touches enforcement/gating code,
-  changes a governance or authorization practice, is hard to reverse once
-  live, or you're not confident it's none of those) runs the full chain —
+  classify first: a direct push, straight to the shared branch, no PR, is now
+  the **default**; only a **high-risk** change (touches enforcement/gating
+  code, changes a governance or authorization practice, is hard to reverse
+  once live, or you're not confident it's none of those) runs the full chain —
   syncs, says the branch out loud, commits, pushes, opens the pull request,
-  and merges — **without asking again.** Say which path you took, and why,
+  and merges — **without asking again.** **Either path ends on the branch on
+  `origin`** — `precedent-beta-v01` here per the rule at the top of this file,
+  never `main` for being the configured default — **and a commit still sitting
+  in the local clone has not done it**: fetch and confirm `origin` carries it
+  before the reply says where the work went. Say which path you took, and why,
   in the reply. Unsure which it is? High-risk. A step this session cannot
   perform hands off rather than coming back as a question: the
   authorization travels with the work. One rule, two triggers, and
@@ -105,19 +117,28 @@ names why in its own file.
   — but where that reading is a genuine judgment call rather than a clean
   one, `weak-yes`'s own worked example says how to disclose it instead of
   writing it silently.
-- **"Session Text"** ([session-text](practices/session-text.md)) — before
+- **"Prompt Please"** ([prompt-please](practices/prompt-please.md)) — before
   starting what he just asked for, check whether it belongs in a different
-  session, repositories first; then **wake a live session** that already holds
-  the context, or, where none fits, tell him to open a new window, name the
-  repositories to seed it with, and hand him the opening text in a
-  copy-pasteable block. **Never `create_session`** for this — sessions it
-  creates have been coming back rejected as unsafe, so the mechanism is
-  retired outright, not just renamed. Waking still beats a new window: a
-  fresh one re-reads its repository from nothing. The check runs whether or
-  not he says the phrase, and an honest "this session is the right one"
-  answers it. **The text you hand him carries the merge authorization**,
-  bounded to the seeded work, that repository's routine branch and its own
-  checks passing.
+  session, repositories first; then hand back **one paste-ready block** he
+  opens a new window with, naming the repository to root it in and the ones
+  to attach, plus one ordinary unfenced sentence outside the block saying
+  where to paste it. **Never call a session-creating or session-messaging
+  tool for this, and never wake a live session either** — both have come
+  back rejected often enough that the mechanism is retired outright, and a
+  paste block needs nothing from any one provider's tool surface. The check
+  runs whether or not he says the phrase, and an honest "this session is the
+  right one" answers it. **The block carries a merge authorization only when
+  he gave one for this handoff** — absent that it says `DO NOT MERGE — STOP
+  AT THE PULL REQUEST` in those words; given one, it is bounded to the
+  handed-off work, that repository's routine branch and its own checks
+  passing.
+- **"Upstream fix"** ([upstream-fix](practices/upstream-fix.md)) — about the
+  change this session recommended, made or is about to make: **does it also
+  fix what caused the problem?** If not, name where the cause lives (a
+  template, a generator, something vendored in, a practice) and fix that
+  root where it is reachable and sound. Any part that needs a session rooted
+  in another repo comes back as a `Prompt Please` block. It licenses the
+  root fix, not a push or merge beyond the authorization already in force.
 - **"My options"** ([my-options](practices/my-options.md)) — every real choice
   on the table in plainer words, a short block each, the cost said as flatly
   as the benefit, then **a named recommendation with its reason** — never a
@@ -158,7 +179,7 @@ asked again while he found one — recorded in
 section from phrase-matching to intent: read the message for what it is
 asking, and where reading it is a genuine judgment call rather than a clean
 one, say the read out loud and confirm before the shared-branch steps run,
-rather than either guessing silently or holding silently. `Go merge` and
+rather than either guessing silently or holding silently. `Go update` and
 `Weak yes` above spell out what that looks like for each. An authorization
 to merge, in whatever words it arrives, means `precedent-beta-v01` per the
 paragraph above, and is not done until a fetch confirms the pushed content
@@ -232,17 +253,7 @@ plan's premise.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block; `python3 tools/build_views.py --check` exits non-zero on drift. Source: practices/ -- edit the practice file, never this block. -->
 
-## Resident block (~895 of 2000 token budget, 10 of 138 practices (10 universal))
-
-**answer-first-ask-before-long-work.** Three parts. **(1) Answer the easy questions in a message before starting
-anything long** — in the same turn; the long run never gates the answer.
-**(2) A task that will run longer than a few minutes is proposed, not
-started:** what it is, how long from the tool's own cost line, what it
-blocks and what it does not, then the go-ahead. The exceptions are the
-checks a commit needs on the files the turn touched, and a run already
-asked for by name. **(3) When idle on a wait, say what the wait is for,
-what it will change, and how to stop it** — never a bare "still running".
-A background task nobody asked for is stopped, not waited on.
+## Resident block (~884 of 2000 token budget, 10 of 142 practices (10 universal))
 
 **bold-key-phrases.** People don't read; they skim, and bolding makes skimming easy. Bold the key phrases in a document by default, without being asked, scaling with length -- a long paragraph or document is where a skimmer most needs a spine to follow, a short note usually needs little or none.
 
@@ -256,6 +267,18 @@ the thing to hold, not just the commit.**
 It ends only when the person authorizes the work. Their answering a question
 inside it is not authorization, and neither is their enthusiasm for the
 idea. **When in doubt, it is a brainstorm.**
+
+**current-rule-governs.** **A standing command means what the rule in force says today, and you do
+it.** Resolve the command to its active practice
+(`precedent_show.py SLUG` follows a deduplicated copy to the live one) and
+carry it out. **Superseded, deduplicated and retired entries, `## Story`
+sections, old deferrals and past decisions are history.** Read them to
+investigate a failure, or to back a proposal to reconsider a rule. Never
+read them to decide whether to do what was just asked.
+
+**Do it first, and propose reconsidering after**, in the same reply if you
+want to. **Never decline silently:** if you are not doing what was asked,
+the first line of the reply says so, and why.
 
 **environment-gotchas.** Every expensive environment discovery (a package that must be installed, a
 tool that silently doesn't work, a path that does work) is written down
@@ -340,6 +363,8 @@ When a person says "Drop it" about an open item or a question:
   park-it — "Drop it" -- mark the item `parked` now; never raise it unprompted again
 When a person says "My options", asks to have a decision's options laid out, or asks -- about a current issue -- for the options to hand off to another session:
   my-options — "My options" -- every option, plainer, your pick -- or a paste-ready handoff
+When a person says "Primary branch", or asks which branch is trunk, the routine working branch, or where regular pushes and pull requests land:
+  primary-branch — "Primary branch" -- trunk; the branch regular work pushes to and PRs target
 When a person says "Reduction pass", or an always-loaded surface is near its ceiling:
   reduction-pass — "Reduction pass" -- work the menu in order, move never delete, report what moved
 When a person says "Simple words", or plainly asks to be talked to that way:
@@ -348,12 +373,12 @@ When a person says "Three Things", or plainly asks for exactly this shape of ans
   three-things — "Three Things" -- the three that matter now, one bold phrase and two lines each
 When a person says "Todo reminder", or asks to be reminded of something:
   todo-reminder — "Todo reminder" -- write it, set disposition ask and remind_on, never a trigger
+When a person says "Upstream fix", or asks whether a change fixes the root cause rather than just this instance:
+  upstream-fix — "Upstream fix" -- does it fix the cause? if not, fix the root or hand it off
 When a person says "Vocabulary", or asks what the standing commands are:
   vocabulary — "Vocabulary" -- list every command in force, read it, never recall it
 When a person says "Weak yes", or agrees in words that carry no conviction:
   weak-yes — "Weak yes" -- do it, and record the approval as `assented`
-When a person states a fact about their own situation -- cost, risk, time, priorities, how they work -- that the session's own reading of the evidence would soften or contradict:
-  their-constraints-are-given — their own situation is given -- say it once, then work from theirs
 When about to search a repository, or reaching for a GitHub search or file-read tool for something the local clone already holds:
   grep-before-search — grep the clone; a repo-scoped list before a search; fewer windows at once
 When adding a file to a directory that already holds files of the same kind:
@@ -368,22 +393,34 @@ When building a variant of an existing thing:
   variant-re-derives — re-derive what a variant inherits; limits bind, choices do not
 When checking whether the practices that should have fired for recent work actually fired:
   routing-audit — run the mechanical coverage check now; roll the deep-read slice forward
+When committing a change to content this repo ships to other repos -- a practice file, a hook script, a template, or one of the named engine files in tools/precedent_vendor_engine.py's ENGINE_FILES/CONSUMER_ENGINE_FILES lists -- before it is pushed or merged:
+  vendor-rollout-disclosed — shipped content changing -- say if it needs to reach consumers, and if it will
+When committing anything that touches the vendored/public tree:
+  scrub-gate — the public tree is public-safe at all times, not just at check-in
 When comparing an option against a baseline:
   check-source-architecture — check both options exist in the source before costing them
 When creating a session:
   session-spend-follows-the-task — pick the model for the job -- reading runs small, judgment doesn't
+When creating a session, or retagging one:
+  session-tags — tag a session at creation -- subject, repo, role, wants; never retrofitted
 When deciding whether to build or buy a component:
   build-buy-decompose — decompose first; one verdict per part, on ownership grounds
 When decommissioning a mechanism — a workflow, a tool, a vendored tree, a config — that leaves files behind with no remaining job:
   decommission-deletes-files — delete what the decommissioned mechanism owned; audit first, never on a hunch
 When drafting or reviewing prose meant to persuade or be judged:
   push-back — argue a real counter-case before building on a stated stance
+When finishing a substantial work-product, before the merge-time capture gate:
+  second-pass-capture — a separate capture pass after the work, not inside it
 When handing the person work to do, starting work that may touch a repository this session cannot reach, or the person wants to act on a recommendation already given by opening a fresh session:
   prompt-please — "Prompt Please" -- recommendation or unreachable work, one paste-ready prompt
+When merging a branch:
+  capture-gate — capture the follow-on work in the thread that created the need
 When migrating a repo off an old practice system onto Precedent:
   migration-scrubs-vocabulary — scrub the old system's vocabulary the same session, not on request
 When naming a new file:
   no-version-suffix — name a file for what it is; the repository is the version
+When naming or renaming a session, at creation or once its differentiator is known:
+  session-title-names-the-difference — title each session by its differentiator, never its task category alone
 When naming or scoping something around a person's skill level:
   technical-describes-people — a skill level describes a person; never a project, repo, file or directory
 When naming what "run the checks" means in a repo:
@@ -404,10 +441,16 @@ When seeding a prompt into another session -- spawning one, or scheduling a mess
   seeded-prompt-names-its-origin — a seeded or scheduled prompt opens by naming the session that sent it
 When starting an outward-facing deliverable:
   frame-from-audience-question — build it around the audience's question, not your material
+When starting work another session may already have done, or opening a pull request:
+  base-branch-is-the-record — read the base branch before starting and before the PR -- a summary lags
 When starting work the repository may already cover:
   search-by-purpose — search by purpose and by mechanism before concluding nothing exists
 When tracking state that multiple documents need to agree on:
   registry-source-of-truth — state lives in one machine-readable registry; documents derive
+When when writing or changing anything that automatically fixes a state it found wrong:
+  repair-cannot-discard-work — an automatic repair must not be able to discard work; reporting is not repairing
+When work touches something an open item is about, or a branch is merged:
+  item-closes-on-its-condition — record what you established into the item; close only on its stated condition
 When writing a hook, script, or practice-file rule in this repository that a dependent repo will vendor or install:
   vendor-neutral-by-default — this repo ships out whole -- default new code and rules to provider-neutral
 When writing a rule that depends on the outside world:
@@ -418,6 +461,8 @@ When writing an outward-facing summary of claims:
   outward-summary-discipline — claims-to-source table, honest sums, a recorded adversarial pass
 When writing or running a gate, audit or solve that takes more than about a minute:
   slow-steps-report-and-cache — a long step prints elapsed and remaining; a heavy solve caches to disk
+When writing or triaging an open item:
+  todo-is-a-handoff — queue only for a stated blocked-on/out-of-scope reason — otherwise just do it
 
 (More on-demand practices are not listed here: one whose applies_to names real paths, or which declares a gate, is reached by those channels instead -- `precedent_paths.py FILE` and `precedent_gate.py MOMENT`. A trigger a PERSON SAYS cannot be reached that way and is always listed above. `precedent_show.py --index-omitted` names the omitted ones.)
 ```
@@ -429,7 +474,7 @@ Before starting work of a kind named in the occasion index above, run `python3 t
 <!-- END GENERATED -->
 
 The rest of this file (below) is BestPractice's own pre-fork orientation —
-still accurate for `INSTALL.md` and the rest of the
+still accurate for [`INSTALL.md`](INSTALL.md) and the rest of the
 inherited tree, which the plan has not restructured yet. It will be rewritten
 in place as later phases land (the plan's own generated-views work, phase 2)
 rather than kept as a second, drifting copy.
@@ -453,20 +498,20 @@ before searching the repo, and add new rows there rather than here.
 | Whether an open item may be raised with Morgan at all, and what "Drop it" writes | [practices/open-item-disposition.md](practices/open-item-disposition.md), phrase at [practices/park-it.md](practices/park-it.md) |
 | What a session pays before its first turn, the declared ceiling on each always-loaded file, and how to reduce one without deleting what still bites | [practices/session-load-budget.md](practices/session-load-budget.md), registry at [tools/session_load_budgets.json](tools/session_load_budgets.json) — `python3 tools/precedent_check.py --only session-load-budget` |
 | Practices that fire at a moment rather than in a file | [tools/precedent_gate.py](tools/precedent_gate.py) — `merge`, `review`, `push`, `reply` |
-| Why the closing **Next Steps** section of a reply is not optional, and what refuses a turn without one | [tools/precedent_reply_check.py](tools/precedent_reply_check.py) — `--explain` says what is declared here; the same requirements are printed at the start of every turn by [tools/precedent_gate.py](tools/precedent_gate.py)'s reply gate |
+| Why the closing **Boildown** section of a reply is not optional, and what refuses a turn without one | [tools/precedent_reply_check.py](tools/precedent_reply_check.py) — `--explain` says what is declared here; the same requirements are printed at the start of every turn by [tools/precedent_gate.py](tools/precedent_gate.py)'s reply gate |
 | Which practices are enforced, and running one check | [tools/precedent_check.py](tools/precedent_check.py) — `--list`, `--explain`, `--only SLUG` |
 | Which practice libraries are in force in this repo | [precedent.json](precedent.json) |
 | What each practice is and why — **the live catalogue** | [practices/](practices/), indexed by [MAP.md](MAP.md); one rule at a time with `python3 tools/precedent_show.py SLUG` |
-| Repo map, generated (phase 2) | [MAP.md](MAP.md) — regenerate with `tools/build_views.py`, never hand-edit |
+| Repo map, generated (phase 2) | [MAP.md](MAP.md) — regenerate with [`tools/build_views.py`](tools/build_views.py), never hand-edit |
 | Install / update / check-in playbook (dependent repos) | [INSTALL.md](INSTALL.md) — the assistant-facing runbook; the person-facing routes are [SETUP.md](SETUP.md) (guided, non-technical) and [documentation/FOR_DEVELOPERS.md](documentation/FOR_DEVELOPERS.md) (short form plus what actually bites) |
-| Upstream open items / roadmap | [TODO.md](TODO.md) |
+| Upstream open items / roadmap | [todo/TODO.md](todo/TODO.md) (open) and [todo/CLOSED.md](todo/CLOSED.md); one file per item under [todo/](todo/). [`TODO.md`](TODO.md) at the root is a redirect stub and a pull request touching it is refused by CI. |
 | The full story behind any environment trap, and the generated overview of all of them | [gotchas/](gotchas/), [gotchas/INDEX.md](gotchas/INDEX.md) |
 | Anything else — the full index | [WHERE_THINGS_ARE.md](WHERE_THINGS_ARE.md) |
 
 
 ## Build-environment gotchas — search before you rediscover one
 
-52 environment/tooling traps are catalogued, one file per trap, under
+Environment and tooling traps are catalogued, one file per trap, under
 [gotchas/](gotchas/) — each with its own Symptom, Story and Fix (practice:
 [environment-gotchas](practices/environment-gotchas.md)). Nothing here loads
 that catalogue for you: **hit a confusing, hard-to-explain failure? Before
@@ -515,7 +560,7 @@ place — nothing is ever deleted, and nothing moves.
 - **Direct edits are fine** for content about this repo itself (README,
   practice wording, engine code); abstracted lessons still only enter via
   a scrubbed check-in from where they were learned.
-- **A pull request touching `TODO.md` after the 2026-09-16 todo/gotcha
+- **A pull request touching [`TODO.md`](TODO.md) after the 2026-09-16 todo/gotcha
   migration is refused by CI** (`precedent_check.py --only
   todo-gotcha-stale-reference`). File the item under `todo/` instead
   ([spec/OPEN_ITEM_AND_GOTCHA_PLAN.md](spec/OPEN_ITEM_AND_GOTCHA_PLAN.md)).
@@ -527,7 +572,7 @@ place — nothing is ever deleted, and nothing moves.
   `python3 tools/doc_lint.py` on the markdown you touched — the fast,
   constant pass above, run before every commit without thinking about it.
   **deep check** is the full gate suite run before push or merge:
-  `python3 tools/verify_harness.py`, `python3 tools/doc_lint.py`,
+  `python3 tools/verify_harness.py --as-ci`, `python3 tools/doc_lint.py`,
   `python3 tools/leak_gate.py`, `python3 tools/precedent_check.py`, and
   `python3 tools/doc_sync.py`. **What matters is `0 failed` and
   `0 violated`, never a passed/skipped count** — those grow as checks are
@@ -535,6 +580,14 @@ place — nothing is ever deleted, and nothing moves.
   [spec/ATTENTION_CEILING.md](spec/ATTENTION_CEILING.md)'s closing section,
   which says the same thing and records the audit that found a hardcoded
   one already wrong. Light check gates a commit; deep check gates a push.
+  **`--as-ci` is not decoration**: CI shards the harness across two jobs
+  using variables a plain local run never sets, so the bare command
+  certifies a shape nobody ships — it hid a crash on 2026-09-21 that turned
+  both CI jobs red on a locally green tree. The two shards partition the
+  suite, so the pair costs about what one run costs (measured 4m01s against
+  ~4m20s, 2026-09-22). It reproduces CI's command SHAPE, never CI's
+  environment: a local session resolves private sources CI cannot, so green
+  here means the sharding is not what breaks, not that CI will be green.
 
 ## Conventions (every session, every reply)
 

@@ -42,9 +42,50 @@ checks against each manifest's own vendored tree — any FAIL exits non-zero:
      entry with that local_path). Runs once per audit, with exceptions
      collected across all manifests.
 
+  5. LOADER (the catalogue is actually in force). A repo that vendors the
+     practice catalogue (process/upstream/practices/) must also run the
+     loader over it: precedent.json declares a `level: "universal"` source,
+     and the root instructions file carries the generated loader block.
+     Either missing FAILS. Without both, every vendored practice is text on
+     disk that no session ever reads -- no resident block, no occasion
+     index, no gates -- while the install looks complete and this audit,
+     until 2026-09-23, passed. That is the classic INSTALL.md section 1
+     install, retired that day as an install path: a real consumer ran it
+     for a day, took an update, and its sessions reported the rules as "a
+     vendored copy of the upstream catalogue, not something this repo
+     adopted". The remedy is the migration, never an exemption: there is
+     deliberately no flag or manifest key that silences this check.
+
+  6. DECLINED (a decline covers the text it was made against, practice:
+     current-rule-governs). An entry with status "declined" records an
+     upstream practice this repo chose not to take, with the sha256 of the
+     upstream file as it stood then (declined_upstream_sha256) and the
+     reason in notes. When the vendored upstream file has changed since, or
+     is gone, the decline no longer covers the rule in force and this FAILS
+     until somebody decides again: adopt it, or keep declining and record
+     the new hash with --redecide NAME. --update-baseline never does that for
+     you, because re-baselining a decline unread is the failure this check
+     exists for. Incident, 2026-09-24: a consumer declined upstream's
+     merge-keyword practice as a "duplicate" of a personal rule; upstream
+     then replaced it with a broader one, two later syncs carried the
+     decline forward unread, and a session refused a command the rule in
+     force plainly authorized.
+
+  7. PROSE DECLINES (warn only). Check 6 can only see a decline recorded in
+     a manifest. A decline written as prose in AGENTS.md or CLAUDE.md ("we
+     declined X as a duplicate", "the personal pack wins on conflict") has
+     no hash to compare, so this names each such line outside the generated
+     loader block for a person to review: keep it if it still holds against
+     the rules in force, record a decline in the manifest, or delete it.
+     It is a guess from wording, which is why it warns and never fails.
+
 Run:  python3 process/upstream/tools/practice_audit.py                    # gate (all manifests)
       python3 process/upstream/tools/practice_audit.py --update-baseline  # re-record hashes
       python3 process/upstream/tools/practice_audit.py --manifest process/manifest.json  # one manifest
+      python3 process/upstream/tools/practice_audit.py --loader-notice    # check 5 only, never fails
+                                                    # (what tools/bootstrap.sh prints at session start)
+      python3 process/upstream/tools/practice_audit.py --redecide NAME    # after re-deciding a decline:
+                                                    # record the upstream file's current hash
 """
 import hashlib, json, pathlib, re, subprocess, sys
 
@@ -146,6 +187,119 @@ def layout(fails, claimed):
     else:
         print("layout OK: no upstream-internal docs at the repo root.")
 
+def _frontmatter(path):
+    """-> {key: raw value} for a practice file's frontmatter, or {}. Kept
+    to the flat `key: value` lines this check reads (status, in_force_at,
+    slug, supersedes); a vendored tree may predate any shared reader."""
+    try:
+        text = path.read_text(encoding='utf-8', errors='replace')
+    except OSError:
+        return {}
+    if not text.startswith('---'):
+        return {}
+    fm = {}
+    for line in text.split('\n')[1:]:
+        if line.strip() == '---':
+            break
+        m = re.match(r'^([a-z_]+):\s*(.*)$', line)
+        if m:
+            fm[m.group(1)] = m.group(2).strip().strip('"')
+    return fm
+
+
+def _successors(tree, slug):
+    """Slugs of vendored practices that name `slug` in `supersedes:`."""
+    out = []
+    for f in sorted((tree / 'practices').glob('*.md')):
+        sup = _frontmatter(f).get('supersedes', '')
+        if re.search(r'["\s\[,]' + re.escape(slug) + r'["\s\],]', f' {sup} '):
+            out.append(f.stem)
+    return out
+
+
+def stale_declines(manifest_path):
+    """-> [(entry_name, sentence)] for every "declined" entry whose decision
+    no longer covers the upstream file (practice: current-rule-governs).
+    Shared with checkin.py so the update that moves the upstream file says
+    so at once, instead of one audit later."""
+    manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
+    label = manifest_path.stem.replace('manifest_', '').replace('manifest', 'upstream') or 'upstream'
+    tree = ROOT / manifest.get('upstream', {}).get('vendored_at', 'process/upstream')
+    out = []
+    for e in manifest.get('entries', []):
+        if e.get('status') != 'declined':
+            continue
+        name = f"{label}:{e.get('practice', '?')}"
+        rel = e.get('upstream_path') or ''
+        upstream = tree / rel
+        if not rel:
+            out.append((name, 'declined with no upstream_path, so nothing can tell '
+                              'when the practice it declined has moved on'))
+            continue
+        if not upstream.is_file():
+            out.append((name, f'declined {rel}, which is no longer in the vendored tree '
+                              f'(renamed, merged or removed upstream) -- find what carries '
+                              f'that rule now and decide again'))
+            continue
+        recorded = e.get('declined_upstream_sha256')
+        if not recorded:
+            out.append((name, f'declined {rel} with no declined_upstream_sha256, so '
+                              f'nothing can tell whether the decision still covers it -- '
+                              f'decide again against the current file, then --redecide '
+                              f'{e.get("practice", "?")}'))
+            continue
+        if sha256(upstream) == recorded:
+            continue
+        fm = _frontmatter(upstream)
+        now = []
+        status = fm.get('status', '')
+        if status and status != 'active':
+            where = fm.get('in_force_at', '')
+            now.append(f'it is now status: {status}'
+                       + (f', in force at {where}' if where and where not in ('null', 'none') else ''))
+        slug = fm.get('slug') or pathlib.Path(rel).stem
+        succ = _successors(tree, slug)
+        if succ:
+            now.append('superseded by ' + ', '.join(succ))
+        out.append((name, f'declined {rel}, and that file has changed upstream since'
+                          + (f' ({"; ".join(now)})' if now else '')
+                          + '. The decline covers the old text only: read the current '
+                          f'rule, adopt it or decide again, then --redecide '
+                          f'{e.get("practice", "?")} and update notes with the new reason'))
+    return out
+
+
+def redecide(manifest_paths, practice):
+    """Record the current upstream hash on one declined entry. The person
+    re-deciding is expected to have updated `notes` in the same change;
+    this only stops the check firing on a decision somebody actually made."""
+    hits = 0
+    for mp in manifest_paths:
+        manifest = json.loads(mp.read_text(encoding='utf-8'))
+        tree = ROOT / manifest.get('upstream', {}).get('vendored_at', 'process/upstream')
+        for e in manifest.get('entries', []):
+            if e.get('practice') != practice or e.get('status') != 'declined':
+                continue
+            upstream = tree / (e.get('upstream_path') or '')
+            if not upstream.is_file():
+                print(f"practice_audit --redecide: {practice}'s upstream_path "
+                      f"{e.get('upstream_path')!r} is not in the vendored tree; point "
+                      f"the entry at what carries the rule now first.")
+                return 1
+            e['declined_upstream_sha256'] = sha256(upstream)
+            mp.write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + '\n',
+                          encoding='utf-8')
+            print(f"practice_audit --redecide: recorded the current hash of "
+                  f"{e['upstream_path']} on {practice}. Make sure notes says why it "
+                  f"is still declined against THIS version.")
+            hits += 1
+    if not hits:
+        print(f"practice_audit --redecide: no entry with practice {practice!r} and "
+              f"status 'declined'.")
+        return 1
+    return 0
+
+
 def audit_manifest(manifest_path, update, fails, warns, pending):
     label = manifest_path.stem.replace('manifest_', '').replace('manifest', 'upstream') or 'upstream'
     manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
@@ -163,6 +317,12 @@ def audit_manifest(manifest_path, update, fails, warns, pending):
     changed = False
     for e in manifest.get('entries', []):
         name = f"{label}:{e.get('practice', '?')}"
+        if e.get('status') == 'declined':
+            # Check 6 handles these below. A decline has no local copy to
+            # hash, and its notes are the only record of why.
+            if not e.get('notes'):
+                warns.append(f"[{name}] declined without notes — say why it was declined")
+            continue
         # `or ''`, NOT a .get default: .get returns None for a key that is
         # PRESENT AND NULL, and `tree / None` raises TypeError rather than
         # failing the check -- so a manifest entry with no upstream
@@ -221,7 +381,93 @@ def audit_manifest(manifest_path, update, fails, warns, pending):
     if update and changed:
         manifest_path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + '\n', encoding='utf-8')
         print(f"practice_audit [{label}]: baselines updated.")
+
+    # check 6 -- a decline covers the upstream text it was made against
+    stale = stale_declines(manifest_path)
+    for name, sentence in stale:
+        fails.append(f"DECLINED: [{name}] {sentence}")
+    n_declined = sum(1 for e in manifest.get('entries', []) if e.get('status') == 'declined')
+    if n_declined and not stale:
+        print(f"declined OK [{label}]: {n_declined} decline(s), each still made "
+              f"against the current upstream file.")
     return len(manifest.get('entries', []))
+
+PROSE_DECLINE_PATTERNS = [
+    re.compile(r'\b(?:declin|defer)\w*\b[^.\n]{0,80}\b(?:duplicate|practice|upstream)\b', re.I),
+    re.compile(r'\bduplicate of\b', re.I),
+    re.compile(r'\bwins? (?:on|in) (?:a |any |every )?conflicts?\b', re.I),
+]
+
+
+def prose_declines(root):
+    """-> [(path, line_no, text)] for hand-written lines in the root
+    instructions files that read like a decline or a blanket precedence
+    clause (check 7). The generated loader block is skipped: it is rebuilt
+    from the practices on every sync and is never where a stale decision
+    hides."""
+    hits = []
+    for name in ('AGENTS.md', 'CLAUDE.md'):
+        f = root / name
+        if not f.is_file():
+            continue
+        inside = False
+        for i, line in enumerate(f.read_text(encoding='utf-8', errors='replace').splitlines(), 1):
+            if LOADER_MARKER in line:
+                inside = True
+                continue
+            if inside and '<!-- END GENERATED' in line:
+                inside = False
+                continue
+            if not inside and any(p.search(line) for p in PROSE_DECLINE_PATTERNS):
+                hits.append((name, i, line.strip()[:110]))
+    return hits
+
+
+LOADER_MARKER = '<!-- BEGIN GENERATED: precedent-loader -->'
+MIGRATION_DOC = ('https://github.com/alex137/BestPractice/blob/precedent-beta-v01/'
+                 'spec/MIGRATING_EXISTING_INSTALLS.md')
+
+
+def loader_gaps(root):
+    """What stops the vendored catalogue from being in force, as a list of
+    plain sentences -- empty when it is in force, or when this repo vendors
+    no catalogue at all (a pack-only layer has nothing for a loader to
+    load). Shared with checkin.py, so the update that vendors the catalogue
+    says the same thing this audit fails on."""
+    if not (root / 'process' / 'upstream' / 'practices').is_dir():
+        return []
+    gaps = []
+    try:
+        cfg = json.loads((root / 'precedent.json').read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        cfg = None
+    sources = cfg.get('sources', {}) if isinstance(cfg, dict) else {}
+    if isinstance(sources, dict):
+        sources = list(sources.values())
+    if not any(isinstance(s, dict) and s.get('level') == 'universal'
+               for s in sources or []):
+        gaps.append('precedent.json declares no `level: "universal"` source, so '
+                    'nothing resolves process/upstream/practices/')
+    if not any(LOADER_MARKER in (root / n).read_text(encoding='utf-8', errors='replace')
+               for n in ('AGENTS.md', 'CLAUDE.md') if (root / n).is_file()):
+        gaps.append('neither AGENTS.md nor CLAUDE.md carries the generated '
+                    'loader block, so no session is ever shown a practice')
+    return gaps
+
+
+def loader(fails):
+    gaps = loader_gaps(ROOT)
+    if not gaps:
+        print("loader OK: the vendored catalogue is resolved and loaded "
+              "(or no catalogue is vendored).")
+        return
+    fails.append(
+        "LOADER: this repo vendors Precedent's practice catalogue but does not "
+        "run it -- " + "; and ".join(gaps) + ". NONE of the vendored practices "
+        "are in force in sessions here. This is the classic install "
+        "(INSTALL.md section 1), retired 2026-09-23. Migrate the repo onto the "
+        "loader, whole, in one change: " + MIGRATION_DOC)
+
 
 def audit(update=False, only=None):
     fails, warns, pending = [], [], []
@@ -255,6 +501,13 @@ def audit(update=False, only=None):
         claimed |= {e.get('local_path')
                     for e in json.loads(m.read_text(encoding='utf-8')).get('entries', [])}
     layout(fails, claimed)  # check 4 — root hygiene, once per audit
+    loader(fails)           # check 5 — the catalogue is actually in force
+    for name, i, text in prose_declines(ROOT):  # check 7 — warn only
+        warns.append(f"{name}:{i} reads like a decline or a blanket precedence "
+                     f"clause written as prose, which check 6 cannot see. Review "
+                     f"it against the rules in force: keep it if it still holds, "
+                     f"record a decline as a 'declined' manifest entry, or "
+                     f"delete it -- {text}")
 
     for p in pending:
         print(f"pending: {p}")
@@ -276,7 +529,27 @@ if __name__ == '__main__':
     if any(a in ('--help', '-h') for a in args):
         print((__doc__ or '').strip())
         sys.exit(0)
+    if '--loader-notice' in args:
+        # Session start's copy of check 5: printed to stdout, where the
+        # SessionStart hook puts it in front of the session, and exit 0
+        # whatever it finds -- a bootstrap that blocks startup is worse
+        # than what it reports.
+        gaps = loader_gaps(ROOT)
+        if gaps:
+            print("PRECEDENT IS NOT RUNNING IN THIS REPO. It vendors the practice "
+                  "catalogue under process/upstream/, but " + "; and ".join(gaps) +
+                  ". None of those practices is in force in this session -- do not "
+                  "tell anyone they are. Say so to the person first thing, and "
+                  "offer the migration (the classic install was retired "
+                  "2026-09-23): " + MIGRATION_DOC)
+        sys.exit(0)
     only = None
     if '--manifest' in args:
         only = args[args.index('--manifest') + 1]
+    if '--redecide' in args:
+        i = args.index('--redecide')
+        if i + 1 >= len(args):
+            sys.exit('practice_audit: --redecide needs the entry\'s practice name')
+        paths = [ROOT / only] if only else sorted((ROOT / 'process').glob('manifest*.json'))
+        sys.exit(redecide(paths, args[i + 1]))
     sys.exit(audit(update='--update-baseline' in args, only=only))

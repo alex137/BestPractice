@@ -216,6 +216,35 @@ if [ -f process/upstream/tools/checkin.py ]; then
     echo "WARN: upstream freshness check failed - not verified" >&2
 fi
 
+# IS THE VENDORED CATALOGUE IN FORCE AT ALL? (2026-09-23.) A classic
+# install -- process/upstream/ copied in, no loader over it -- vendors every
+# practice and runs none of them, and until this line nothing said so: a
+# consumer installed that way, took an update, and its sessions described
+# the rules as "a vendored copy, not something this repo adopted". Printed
+# to stdout on purpose, so the SessionStart hook puts it in front of the
+# session rather than only the terminal. Guarded on the flag, because an
+# older vendored audit without it would run the whole audit here instead.
+if [ -f process/upstream/tools/practice_audit.py ] && \
+   grep -q -- '--loader-notice' process/upstream/tools/practice_audit.py; then
+  python3 process/upstream/tools/practice_audit.py --loader-notice || true
+fi
+
+# EVERY SOURCE THIS REPO DECLARES, checked outward (2026-09-23). The line
+# above reads one manifest; this reads precedent.json and covers each
+# declared source every way it is reached here -- the vendored engine
+# (tools/ENGINE_MANIFEST.json), a vendored tree (process/manifest*.json)
+# and a live sibling clone whose practices load as it stands. A source is
+# covered from the moment it is declared, or it is not covered: a second
+# shared set had no freshness check on either half until this ran, and
+# nothing said so. --quiet speaks only when something is behind; a
+# session start that a network hiccup can block is worse than the
+# staleness, so the tool exits 0 in every failure mode and this line
+# never gates. Taking an update stays "Update Vendors".
+if [ -f tools/precedent_engine_freshness.py ]; then
+  python3 tools/precedent_engine_freshness.py --quiet || \
+    echo "WARN: source freshness did not run -- whether anything this repo vendors or resolves live is current is unknown this session" >&2
+fi
+
 # A bootstrap that blocks startup is worse than anything it protects against,
 # and `set -e` at the top would otherwise let a non-zero last command take the
 # session down. Every check here reports; none of them gates.

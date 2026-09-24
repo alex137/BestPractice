@@ -13,9 +13,10 @@ session reads, and the enforced checks — with one command,
 work and then lists what is left for you to adapt. **Since 2026-09-14 this is
 the default** (Morgan, on the very deep check's recommendation; `strength:
 assented`): until then this page installed §1, the classic vendored model,
-which turns on none of the loader the rest of this repository describes. §1
-is still there for a project that specifically wants the classic check-in
-loop; say so and follow §1 instead.
+which turns on none of the loader the rest of this repository describes.
+**§1 is no longer an install path at all** (retired 2026-09-23): a project
+that took it ran with every practice copied in and none in force. There is
+nothing to choose here — this page installs §0, always.
 
 ## The Conversation
 
@@ -88,7 +89,7 @@ loop; say so and follow §1 instead.
    (declaring the repo-local `"local"` source along with the universal
    one), instantiates `AGENTS.md`, `MAP.md`, `TODO.md`, `GLOSSARY.md`,
    `GETTING_STARTED.md`, `local/practices/project-voice.md` and
-   `STYLEGUIDE.md`, the README entry
+   `local/practices/project-visual-identity.md`, the README entry
    block, the Claude Code hooks, `tools/bootstrap.sh`, the Actions check
    and the pull-request template, runs the sync, lints what it wrote, and
    then prints **the placeholders it left** — each is a `<…>` in a file it
@@ -113,7 +114,8 @@ loop; say so and follow §1 instead.
    as INSTALL.md §1 step 9 describes for an existing repo. This is real,
    working tooling, not a promise: it hands them a starter file in the
    right format and the exact config to wire in, in the same sitting.
-   `local/practices/project-voice.md` and `STYLEGUIDE.md` install as the
+   `local/practices/project-voice.md` and
+   `local/practices/project-visual-identity.md` install as the
    templates' near-empty skeletons and **stay that way** — filling them in
    is not part of an install (see "What an install does not do" below).
    Respect the root-hygiene rule (INSTALL.md §0 step 7): nothing from
@@ -129,7 +131,8 @@ loop; say so and follow §1 instead.
    instructions file (the contract future AI sessions work under) in two
    or three plain sentences each. Offer to adjust anything.
 
-   Then **mention `local/practices/project-voice.md` and `STYLEGUIDE.md` in
+   Then **mention `local/practices/project-voice.md` and
+   `local/practices/project-visual-identity.md` in
    one breath and move on**: both shipped empty, both are optional, both
    stay local to their project and are never proposed back to the public
    Precedent repo, and they can fill either in whenever they like by just
@@ -234,7 +237,8 @@ it runs inside your ordinary work. The section references are to
   set up now (§1 step 9; most projects have neither yet, and saying so is a
   complete answer — but offer to set one up on the spot). Then they look at
   what you built and either approve it or ask for changes.
-  `local/practices/project-voice.md` and `STYLEGUIDE.md` are **not** walked
+  `local/practices/project-voice.md` and
+  `local/practices/project-visual-identity.md` are **not** walked
   through and nobody is asked about a brand guideline: both ship empty,
   stay local to the project, and are filled in whenever they later ask
   an AI Assistant to.
@@ -277,7 +281,8 @@ each, not worked through:
 - **`local/practices/project-voice.md`** — the project's own voice, its
   audiences, its domain vocabulary. A repo-local practice, not a plain
   document; ships near-empty and stays that way.
-- **`STYLEGUIDE.md`** — the visual identity. Ships near-empty; do not ask
+- **`local/practices/project-visual-identity.md`** — the visual identity.
+  A repo-local practice, not a plain document; ships near-empty. Do not ask
   whether a brand guideline exists, and never read, attach or vendor one.
 - **Anything else that is a refinement rather than a requirement**, whether
   or not it is on this list. The test: *would the project work correctly

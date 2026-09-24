@@ -86,6 +86,36 @@ means "not yet". The repo that reported this had not declined anything.
 The CI-workflow half of this engine already solved the identical problem
 the right way. This half predates it.
 
+## A Second Defect in the Same NOTE, Fixed 2026-09-22
+
+**The NOTE was calling wired hooks unwired.** `_wired_hook_names` matches
+only commands whose path contains `hooks/`, and it was answering two
+questions at once: *what do we vendor* and *what does this repo already
+wire*. It must stay narrow for the first — a repo that calls a script in
+place keeps one copy on purpose — and it was simply wrong about the second.
+
+Measured in `precedent-individual`, which authors these scripts and wires
+four of them out of its own tracked `bootstrap/`: the refresh reported
+`commit-identity.sh`, `freshness-guard.sh` and
+`precedent-universal-catalogue.sh` as *"not wired in this repo's own
+.claude/settings.json"*. All three are wired, on consecutive lines of that
+file, whose own comment says why: *"bootstrap/ IS a tracked directory of this
+repo, so every entry calls its script in place -- one file, no second copy to
+drift from it."*
+
+That is worse than noise, because the NOTE's remedy is *copy the entry from
+upstream's settings.json and re-run*. Following it there plants the second
+copy the repo deliberately does not keep.
+
+`_wired_hook_names_anywhere` now answers the reporting question, the
+vendoring test is unchanged, and the NOTE names the two groups separately —
+so the hand-wiring advice reaches only the hooks it applies to. In that repo
+the single list of 7 became 3 *"nothing to do"* and 4 genuinely unwired.
+
+**This does not close the item above.** The inference from silence is still
+there for a genuinely new hook; this only stops the report lying about hooks
+that were never silent.
+
 ## Done in the Meantime
 
 The NOTE now says all of this and names the manual remedy, so the next

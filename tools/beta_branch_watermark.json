@@ -1,0 +1,24 @@
+{
+  "_comment": [
+    "The last commit on origin/precedent-beta-v01 each person has already been",
+    "told about, keyed by a slug of the name their identity declares (never",
+    "their email -- the leak gate refuses one in a tracked file, and this",
+    "branch is public). Read and written by",
+    "tools/precedent_beta_watermark_check.py, called from this repo's",
+    "SessionStart hook and reply gate.",
+    "",
+    "Advances the moment it reports SOMEBODY ELSE'S commits, and only then --",
+    "a run that finds none writes nothing here. Unlike tools/upstream_watermark.json",
+    "beside it, which a person moves deliberately because it gates an action,",
+    "this gates a notification with nothing left to do once it has been given."
+  ],
+  "repo": "alex137/BestPractice",
+  "branch": "precedent-beta-v01",
+  "seen_by": {
+    "morgan-f": {
+      "sha": "ebe368a1d609b38d62fe2214a1e10bbf27b143a9",
+      "recorded": "2026-09-23",
+      "note": "auto-advanced by precedent_beta_watermark_check.py"
+    }
+  }
+}

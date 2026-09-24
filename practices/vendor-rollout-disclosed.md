@@ -6,6 +6,7 @@ severity:    default
 applies_to:  ["practices/*.md", "templates/**", ".claude/hooks/*.sh"]
 occasion:    "committing a change to content this repo ships to other repos -- a practice file, a hook script, a template, or one of the named engine files in tools/precedent_vendor_engine.py's ENGINE_FILES/CONSUMER_ENGINE_FILES lists -- before it is pushed or merged"
 gates:       ["merge", "push"]
+index_required: true
 index_clause: "shipped content changing -- say if it needs to reach consumers, and if it will"
 checked_by:  null
 defines:     []

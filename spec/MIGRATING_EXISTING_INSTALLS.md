@@ -25,12 +25,14 @@ actually done it once, on a real repo, for the first time.
 **[Essentials only](../INSTALL.md#essentials-only--what-an-install-upgrade-or-migration-leaves-for-later)
 governs a migration too.** Bring the repo onto the three-source model,
 correctly, and stop. A refinement the migration surfaces —
-`local/practices/project-voice.md` and `STYLEGUIDE.md` being the standing
+`local/practices/project-voice.md` and
+`local/practices/project-visual-identity.md` being the standing
 pair — gets one sentence saying it exists and can be done any time by asking
 an assistant, never a walkthrough inside the migration. (Converting an
-existing root `VOICE.md` into the former is not that kind of refinement —
-it is a mechanical rename the migration does itself, step 3a below, because
-leaving both in place is a worse state than either alone.)
+existing root `VOICE.md` or `STYLEGUIDE.md` into one of these is not that
+kind of refinement — it is a mechanical rename the migration does itself,
+step 3a below, because leaving both old and new in place is a worse state
+than either alone.)
 
 **Worked example: the project's own prior notes repository.** Everything below generalizes
 what that repo's own migration actually did on 2026-09-02, first tested
@@ -45,12 +47,19 @@ per that repo's own conventions.
 
 ## When this applies
 
-**Any repo whose `process/manifest.json` records an `upstream.repo` pointing
-at BestPractice and that wants the three-source loader** — the resident
-block, the occasion index, `precedent_check.py`'s enforced channel — which
-[INSTALL.md §1](../INSTALL.md#1-install-into-a-dependent-repo) does not
-install. That is the common case, and until 2026-09-14 this section read as
-if it were the rare one.
+**Every repo whose `process/manifest.json` records an `upstream.repo`
+pointing at BestPractice and that does not yet run the loader** — the
+resident block, the occasion index, `precedent_check.py`'s enforced channel —
+which [INSTALL.md §1](../INSTALL.md#1-install-into-a-dependent-repo) never
+installed. **Not "wants": every such repo migrates** (2026-09-23). A classic
+install is a repo with every practice on disk and none in force, and the
+first one made after §1 was said to be retired still went down it — so §1
+was retired as an install path outright, and
+[tools/practice_audit.py](../tools/practice_audit.py)'s check 5 now fails
+any repo still in that state. **An upstream update to a classic install is
+where this usually starts**: step 1 below *is* that update, and the audit
+that gates it will not pass until step 8 does, so the update and the
+migration land as one change.
 
 Steps 2, 5 and 6 apply only where there is **also** a second vendored tree
 for domain/team/personal rules that did not come from BestPractice itself (a
@@ -93,6 +102,24 @@ the sets a repo *could* declare are not derivable from the sets it *does*.
 [practices/vendor-update-runbook.md](../practices/vendor-update-runbook.md)
 carries the same question as a numbered step, for every update after this
 one.
+
+**Asked means asked.** An environment variable, a freshness list, or a
+standing bundle the person uses elsewhere can inform the question. It does
+not answer it.
+
+**A migration lands whole, or not at all.** Steps 3 through 8 go in one
+change. A `precedent.json` committed alone is not progress: nothing reads it
+until step 7 vendors the engine and step 8 materializes, and in the
+meantime it has two effects, both bad. A repo that still carries its old
+pack manifest starts failing `migration-scrubs-vocabulary`, which is
+built to catch exactly that half-migrated state (step 5). And any
+instructions-file line telling sessions to fetch the declared sources sends
+every later session after sources that nothing uses. **If a step is blocked,
+stop before committing the declaration** and say what blocked it. None of
+these steps needs a permission rule the person adds by hand. A harness that
+refuses one is answered by the person asking for the work directly, never by
+widening what sessions may run
+([the classifier gotcha](../gotchas/gotcha-2026-09-14-the-permission-classifier-refuses-commits-and-checks-in-the-.md)).
 
 1. **Re-vendor `process/upstream/`.** If tracking a real, released
    BestPractice branch (the normal case once a Precedent-carrying branch
@@ -198,11 +225,35 @@ one.
    3. Delete `VOICE.md`. **In the same commit** — a repo carrying both is a
       repo where no session can tell which one is meant to bind.
    4. Update anything that still links to `VOICE.md` by name (an
-      instructions-file bullet, a `STYLEGUIDE.md` "Tone in Visuals"
+      instructions-file bullet, a
+      `local/practices/project-visual-identity.md` "Tone in Visuals"
       pointer) to point at `local/practices/project-voice.md` instead
       ([rename-updates-links](../practices/rename-updates-links.md)).
-   `STYLEGUIDE.md` is unchanged by this step — its content is data, not a
-   rule, so it stays a plain root document exactly as it always has.
+
+3b. **Convert a root `STYLEGUIDE.md` into
+   `local/practices/project-visual-identity.md`, if this repo has one —
+   every migrating repo, not only one with a pre-existing pack tree.**
+   Since 2026-09-22 a project's own visual identity is a repo-local
+   practice too, not a plain document
+   (`templates/local-practices/project-visual-identity.md.template`'s own
+   header has the reasoning), so a repo installed before that date still
+   has the old shape. Declare the `level: "repo-local"` source above if
+   step 3 has not already, for this reason alone if for no other. Then:
+   1. Read the existing `STYLEGUIDE.md` once. Carry the decisions actually
+      made — a filled-in color table, a real logo path, a genuine
+      typography choice — not what merely shipped with the template
+      (`<undecided>` placeholders and `<hex>` carry nothing).
+   2. Write those decisions into
+      `templates/local-practices/project-visual-identity.md.template`'s
+      section structure at `local/practices/project-visual-identity.md`,
+      filling in `added` with this migration's date and `approved_by` with
+      whoever is doing the migration.
+   3. Delete `STYLEGUIDE.md`. **In the same commit** — a repo carrying both
+      is a repo where no session can tell which one is meant to bind.
+   4. Update anything that still links to `STYLEGUIDE.md` by name (an
+      instructions-file bullet, a deck-engine pointer) to point at
+      `local/practices/project-visual-identity.md` instead
+      ([rename-updates-links](../practices/rename-updates-links.md)).
 
 4. **Wire the person, not only the repo — an individual source, a
    declared identity, and a commit author that is a human being.** A
@@ -404,11 +455,12 @@ one.
    instructing every session to follow a file that is not there. So, in
    order, and the first item is not optional:
 
-   1. **Declare the sources first**, in the same change or ahead of it. A
-      pack's rules move into *team and individual* sources far more often
-      than into the universal catalogue — measured on the one real case,
-      sixteen of twenty-two — so a repo that deletes the tree before
-      declaring those sources has nowhere left to get them. It does not
+   1. **Declare the sources first**, in the same change. A pack's rules
+      move into *team and individual* sources far more often than into the
+      universal catalogue — measured on the one real case, sixteen of
+      twenty-two — so a repo that deletes the tree before declaring its
+      team sources in `precedent.json` and wiring the individual one (step
+      4; never a `precedent.json` entry) has nowhere left to get them. It does not
       fail loudly; it just stops carrying the rules.
    2. **Repoint every `§N` citation** at the practice that replaced it.
       Keep a **pack-retirement map** — one table, pack section to practice
@@ -416,7 +468,10 @@ one.
       pack's successor rules*, not here: which rules a given pack became is
       a fact about one person's or one team's sources, and this document
       cannot know it. Write the map once and every later repo's migration
-      reads it instead of re-deriving the answer.
+      reads it instead of re-deriving the answer. **A map's own procedure
+      must not say to declare the individual set in `precedent.json`** —
+      the first real map did, and the engine refuses that entry by design
+      (step 3).
    3. **Then** salvage, repoint what reaches in, delete the sync workflow,
       and retire the tree through the audit below.
 
@@ -424,6 +479,15 @@ one.
    rather than be repointed: the loader carries the practice, so a prose
    restatement of it is a second copy
    ([registry-source-of-truth](../practices/registry-source-of-truth.md)).
+
+   **Until then, leave the pack's manifest pointing where it points.** When
+   a pack's source repository is renamed or restructured into a Precedent
+   set, its freshness check starts failing every session. The fix is this
+   step, not a new URL in the manifest. The restructured repository no longer
+   holds the files the manifest tracks, so repointing it turns an honest
+   "could not verify" into a "source has moved" notice that invites pulling
+   a practice set into the pack's tree. The notice stops when the tree is
+   retired.
 
    **Mentions survive only in files you list.** A provenance note, a
    decision record, a backlog entry naming the old pack is history worth
@@ -608,6 +672,30 @@ one.
    tools/precedent_check.py --list`, then a plain invocation — before
    moving on: the vendoring manifest proves the bytes arrived, not that
    they run here.
+
+   **7b. Then review every hand-written rule left in that file**, and in
+   `CLAUDE.md`, against the practices now in force. This is the
+   conflicted-file review every update runs
+   ([vendor-update-runbook](../practices/vendor-update-runbook.md)),
+   applied to the whole file, because a migration is the first time the
+   generated block and the hand-written rules sit side by side. Nothing is
+   deleted for being hand-written: a rule that duplicates a practice in
+   force goes, one that conflicts is kept only as a confirmed local
+   exception, and one that covers what no practice covers stays.
+
+   Two kinds get the same review with one extra step. A blanket precedence
+   clause ("the personal pack wins on conflict") is kept only narrowed to
+   rules that are both current, since the engine already ranks the sources.
+   A decline written as prose ("declined X as a duplicate") is decided
+   again against the current upstream file. If it stands, it is recorded as
+   a `declined` manifest entry with `practice_audit.py --redecide`.
+
+   Say in the pull request which rules were kept, which were deleted, and
+   why. `practice_audit.py` warns on lines that read like the last two
+   kinds (check 7). Incident, 2026-09-24: a consumer's hand-written clause let an old
+   personal copy of the merge command outrank the current rule, and a
+   session answered the command with a question
+   ([current-rule-governs](../practices/current-rule-governs.md)).
 
 8. **Validate for real**, not against a fixture. **What a clean migrated
    run needs, beyond the sync**: a plain `python3 tools/precedent_check.py`

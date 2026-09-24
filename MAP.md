@@ -6,13 +6,12 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 
 ## The practice catalogue
 
-`practices/` holds 133 practice files (10 resident, 123 on-demand). One file per practice. See [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md) for the design.
+`practices/` holds 137 practice files (10 resident, 127 on-demand). One file per practice. See [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md) for the design.
 
 | Practice | Tier | Occasion / scope |
 |---|---|---|
 | [acronyms-glossary](practices/acronyms-glossary.md) | on-demand | writing or editing a document |
 | [affordance-is-shared](practices/affordance-is-shared.md) | on-demand | building a mechanism that makes something discoverable or reachable |
-| [answer-first-ask-before-long-work](practices/answer-first-ask-before-long-work.md) | resident | a turn that could start a computation, search or build lasting longer than a few minutes |
 | [archive-status-check](practices/archive-status-check.md) | on-demand | a message says "Archive", with or without a question mark, or otherwise asks whether the session can be archived |
 | [attach-the-original](practices/attach-the-original.md) | on-demand | asked to include an image, logo, or other binary asset the person is supplying, rather than approximate one from a description |
 | [base-branch-is-the-record](practices/base-branch-is-the-record.md) | on-demand | starting work another session may already have done, or opening a pull request |
@@ -26,6 +25,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [check-source-architecture](practices/check-source-architecture.md) | on-demand | comparing an option against a baseline |
 | [checkable-gets-checked](practices/checkable-gets-checked.md) | on-demand | writing a new convention or rule |
 | [checks-carry-a-declared-decline](practices/checks-carry-a-declared-decline.md) | on-demand | writing or changing a check that can report a deliberate state |
+| [checks-plant-their-state](practices/checks-plant-their-state.md) | on-demand | writing or changing a check, test or gate whose result could depend on the machine it runs on |
 | [chief-of-staff](practices/chief-of-staff.md) | on-demand | a person says "Chief of Staff" |
 | [ci-commits-carry-identity](practices/ci-commits-carry-identity.md) | on-demand | adding or editing a CI workflow that commits, pushes, or opens a pull request |
 | [cite-the-incident](practices/cite-the-incident.md) | on-demand | writing a new convention or rule |
@@ -35,6 +35,8 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [control-asserts-which-failure](practices/control-asserts-which-failure.md) | on-demand | writing a test, fixture or control that proves a guard fires |
 | [convention-to-audit](practices/convention-to-audit.md) | on-demand | a convention is violated for the first time |
 | [cross-source-rollout](practices/cross-source-rollout.md) | on-demand | a change here has implications for how an attached team, individual, or repo-local source should work |
+| [current-rule-governs](practices/current-rule-governs.md) | resident | a person gives a standing command, or asks for something a practice already governs |
+| [dated-list-runs-forward](practices/dated-list-runs-forward.md) | on-demand | a document carries a list of dated entries that will be added to over time |
 | [decision-strength](practices/decision-strength.md) | on-demand | recording that someone approved a practice or a decision, or citing their past approval back to them |
 | [declared-default-is-applied](practices/declared-default-is-applied.md) | on-demand | a setting has no value from the person -- at install, at setup, or in the middle of work |
 | [declared-pronouns](practices/declared-pronouns.md) | on-demand | writing about a person in the third person -- a reply, a document, a commit message, a pull-request body |
@@ -91,6 +93,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [pr-template-honest-gates](practices/pr-template-honest-gates.md) | on-demand | writing or filling out a pull-request description |
 | [practice-export-loop](practices/practice-export-loop.md) | on-demand | merging a branch that improved a generic practice |
 | [practice-links-travel](practices/practice-links-travel.md) | on-demand | writing or editing a practice file |
+| [primary-branch](practices/primary-branch.md) | on-demand | a person says "Primary branch", or asks which branch is trunk, the routine working branch, or where regular pushes and pull requests land |
 | [prompt-please](practices/prompt-please.md) | on-demand | handing the person work to do, starting work that may touch a repository this session cannot reach, or the person wants to act on a recommendation already given by opening a fresh session |
 | [push-back](practices/push-back.md) | on-demand | drafting or reviewing prose meant to persuade or be judged |
 | [push-directly](practices/push-directly.md) | on-demand | a message says "Push directly", naming a branch ("push directly to main") or not, or gives a specific instruction to skip the PR for this one change |
@@ -101,6 +104,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [registry-source-of-truth](practices/registry-source-of-truth.md) | on-demand | tracking state that multiple documents need to agree on |
 | [relayed-authorization](practices/relayed-authorization.md) | on-demand | acting on, or sending, an authorization relayed from another session |
 | [rename-updates-links](practices/rename-updates-links.md) | on-demand | renaming, moving, or deleting a file other files may link to |
+| [repair-cannot-discard-work](practices/repair-cannot-discard-work.md) | on-demand | when writing or changing anything that automatically fixes a state it found wrong |
 | [reply-links-files](practices/reply-links-files.md) | on-demand | ending a reply that created, modified or deleted files |
 | [repo-is-memory](practices/repo-is-memory.md) | resident | starting any session cold |
 | [routing-audit](practices/routing-audit.md) | on-demand | checking whether the practices that should have fired for recent work actually fired |
@@ -124,13 +128,13 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [tabular-shared-renderer](practices/tabular-shared-renderer.md) | on-demand | publishing a document with a multi-column sortable table |
 | [technical-describes-people](practices/technical-describes-people.md) | on-demand | naming or scoping something around a person's skill level |
 | [the-boildown](practices/the-boildown.md) | on-demand | ** |
-| [their-constraints-are-given](practices/their-constraints-are-given.md) | on-demand | a person states a fact about their own situation -- cost, risk, time, priorities, how they work -- that the session's own reading of the evidence would soften or contradict |
 | [three-things](practices/three-things.md) | on-demand | a person says "Three Things", or plainly asks for exactly this shape of answer |
 | [timestamps-carry-offset](practices/timestamps-carry-offset.md) | on-demand | writing code that stamps a date or a time into a file, a record or a document |
 | [todo-is-a-handoff](practices/todo-is-a-handoff.md) | on-demand | writing or triaging an open item |
 | [todo-migrate-available-but-unused](practices/todo-migrate-available-but-unused.md) | on-demand | editing TODO.md, or just after a vendor refresh brings tools/todo_migrate.py into a repo for the first time |
 | [todo-reminder](practices/todo-reminder.md) | on-demand | a person says "Todo reminder", or asks to be reminded of something |
 | [two-check-levels](practices/two-check-levels.md) | on-demand | naming what "run the checks" means in a repo |
+| [upstream-fix](practices/upstream-fix.md) | on-demand | a person says "Upstream fix", or asks whether a change fixes the root cause rather than just this instance |
 | [variant-re-derives](practices/variant-re-derives.md) | on-demand | building a variant of an existing thing |
 | [vendor-rollout-disclosed](practices/vendor-rollout-disclosed.md) | on-demand | committing a change to content this repo ships to other repos -- a practice file, a hook script, a template, or one of the named engine files in tools/precedent_vendor_engine.py's ENGINE_FILES/CONSUMER_ENGINE_FILES lists -- before it is pushed or merged |
 | [vendor-update-runbook](practices/vendor-update-runbook.md) | on-demand | a message says "Update Vendors", or an upstream update is being taken into a repo that vendors a practice layer |
@@ -146,10 +150,11 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 
 ## Withdrawn practices
 
-7 practice file(s) here are **not in force** and are left out of every table above. **The files are kept on purpose** -- a withdrawn rule and the argument against it are worth re-reading, and `retired` is not a synonym for deleted (that is `decommission-deletes-files`, and it is about mechanisms, not rules). Read one in full with `python3 tools/precedent_show.py SLUG`.
+9 practice file(s) here are **not in force** and are left out of every table above. **The files are kept on purpose** -- a withdrawn rule and the argument against it are worth re-reading, and `retired` is not a synonym for deleted (that is `decommission-deletes-files`, and it is about mechanisms, not rules). Read one in full with `python3 tools/precedent_show.py SLUG`.
 
 | Practice | Status | Now in force at | Why it was withdrawn |
 |---|---|---|---|
+| [answer-first-ask-before-long-work](practices/answer-first-ask-before-long-work.md) | deduplicated | [answer-first-ask-before-long-work](practices/answer-first-ask-before-long-work.md) | A session launched an hours-long re-solve while four conceptual questions sat unanswered, then sat on a ninety-minute cold solve after a merge invalidated a cache, before answering a one-line question about the merge itself. |
 | [archive-command](practices/archive-command.md) | deduplicated | [archive-status-check](practices/archive-status-check.md) | **Deduplicated 2026-09-19, folded into `archive-status-check`.** Morgan: *"Note that 'Archive' and 'Archive?' are the same thing. |
 | [brief-it](practices/brief-it.md) | deduplicated | [my-options](practices/my-options.md) | Coined by Morgan, 2026-09-19. |
 | [handoff-is-pasteable](practices/handoff-is-pasteable.md) | deduplicated | [the-boildown](practices/the-boildown.md) | Asked for by Morgan on 2026-09-10, in his own words: instructions should give *"the name of the repo* and the exact text to copy paste in*, and then those instructions should always finish with, reminding me to return to the original session with a message to copy-paste there confirming its success or sharing other issues."* |
@@ -157,6 +162,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [merged-session-offers-a-practice](practices/merged-session-offers-a-practice.md) | deduplicated | [the-boildown](practices/the-boildown.md) | Morgan, 2026-09-14, on the practice engine he had been feeding by hand for weeks: *"I love the methodology of turning what we decide into Practices to be followed or enforced, but it seems like I'm always the one making the suggestions. |
 | [next-steps-after-commit](practices/next-steps-after-commit.md) | deduplicated | [the-boildown](practices/the-boildown.md) | Raised by Morgan as a standing personal preference, rather than in response to a specific missed handoff, and it lived in his individual set from 2026-09-04 to 2026-09-14. |
 | [session-text](practices/session-text.md) | deduplicated | [prompt-please](practices/prompt-please.md) | **Coined by Morgan, 2026-09-11**, in his own words: *"When you give me what I need to do, first look to see if it should be in a different session, and that includes most importantly checking for cross repo issues first. |
+| [their-constraints-are-given](practices/their-constraints-are-given.md) | deduplicated | [their-constraints-are-given](practices/their-constraints-are-given.md) | **2026-09-21, and this practice exists because Morgan asked for it after having the same argument more than once across different sessions.** |
 
 ## The engine
 
@@ -184,15 +190,17 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [tools/practice_audit.py](tools/practice_audit.py) | Audits the practice-export layer for a repo that vendors one (this repo does not) |
 | [tools/practice_simulation.py](tools/practice_simulation.py) | Synthetic scenario generation for routing quality — invented cases, never a replayed benchmark |
 | [tools/precedent_access_check.py](tools/precedent_access_check.py) | Probes, at session start, which repos in force this session can actually push to -- so work destined for one it cannot reach is discovered before it is done, not after |
-| [tools/precedent_beta_watermark_check.py](tools/precedent_beta_watermark_check.py) | Says whether anyone other than Morgan has pushed to precedent-beta-v01 since he was last told, against a watermark kept in his individual source rather than this repo -- unlike the upstream watermark above it auto-advances the moment it reports, since it gates a notification rather than an action; session start always prints a line, the reply gate's own `remind()` stays silent except on a real alert |
+| [tools/precedent_beta_watermark_check.py](tools/precedent_beta_watermark_check.py) | Says whether anyone other than you has pushed to precedent-beta-v01 since you were last told, against tools/beta_branch_watermark.json beside it -- one row per identity, since 'already told' is true of a person and not of a repository -- unlike the upstream watermark above it advances itself, but only on a run that actually reports somebody else's commits -- a run with nothing to tell you writes nothing at all, and a run whose checkout is mid-work or cannot push writes nothing either, keeping a gitignored per-container note instead, since it gates a notification rather than an action; session start always prints a line, the reply gate's own `remind()` stays silent except on a real alert |
 | [tools/precedent_bootstrap_source.py](tools/precedent_bootstrap_source.py) | Instantiates a brand-new individual or team practice set from a skeleton, for an adopter who has neither yet |
 | [tools/precedent_boundary_check.py](tools/precedent_boundary_check.py) | Whether a document project's contributor boundary is actually ON -- branch protection shaped as spec/CONTRIBUTOR_ACCESS.md needs, read from the GitHub API; UNVERIFIED when it could not ask, which is not a pass |
 | [tools/precedent_candidate.py](tools/precedent_candidate.py) | Stage 2 (phase 5) — raise, list and expire creation-pipeline candidates |
 | [tools/precedent_check.py](tools/precedent_check.py) | The ENFORCED loading channel — runs every practice's `checked_by` script |
+| [tools/precedent_ci_verified.py](tools/precedent_ci_verified.py) | Did CI actually run, and pass, on the commit about to be merged — advisory, one API call |
 | [tools/precedent_close_detect.py](tools/precedent_close_detect.py) | Stage 1's trigger — at the close of a session that merged and is ready to archive, offers at most one practice candidate found in that session's own material |
+| [tools/precedent_container_safe.py](tools/precedent_container_safe.py) | Would anything be lost if this container went away? Scans every git checkout in it for uncommitted, untracked and unpushed work |
 | [tools/precedent_decommission.py](tools/precedent_decommission.py) | Audits a deprecated file or directory before it is deleted -- refuses while anything still references it, or a workflow it names is still live -- then deletes and records it |
 | [tools/precedent_detect.py](tools/precedent_detect.py) | Stage 1 (phase 5) — the mechanical half of candidate detection |
-| [tools/precedent_engine_freshness.py](tools/precedent_engine_freshness.py) | Says whether this repo's VENDORED engine has fallen behind upstream — the one check that looks outward; prints, never refreshes |
+| [tools/precedent_engine_freshness.py](tools/precedent_engine_freshness.py) | Says whether anything this repo vendors or resolves live has fallen behind its upstream — every source precedent.json declares (the engine, each vendored tree, each live sibling clone), one row each; the one check that looks outward; prints, never refreshes |
 | [tools/precedent_gate.py](tools/precedent_gate.py) | The GATE-TRIGGERED loading channel — Rules for a named moment (merge, review, push, reply) |
 | [tools/precedent_identity.py](tools/precedent_identity.py) | Resolves WHO this repo's commits belong to, from a declaration only -- an override, the repo's own identity.json, or the individual source's; raises rather than guessing |
 | [tools/precedent_install.py](tools/precedent_install.py) | Installs Precedent into a project in one command (INSTALL.md section 0 performed mechanically: catalogue, engine, precedent.json, templates, sync, lint) and prints the placeholders it left for a person to adapt |

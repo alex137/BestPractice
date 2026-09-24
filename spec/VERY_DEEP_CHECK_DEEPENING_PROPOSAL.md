@@ -1,7 +1,7 @@
 ---
 title:         "Deepening the very deep check: fourteen proposed additions"
 kind:          proposal
-status:        drafted
+status:        executed
 opened:        2026-09-21
 closed:        null
 superseded_by: null
@@ -12,12 +12,120 @@ summary:       "Reads the very deep check's current formula against the incident
 
 # Deepening the very deep check: fourteen proposed additions
 
-**Nothing here is built, and nothing here is adopted.** Morgan asked, on
-2026-09-21, for a close read of the check's own formula against the week's
-real failures, and for specific proposals rather than a plan. Each item below
-says what to add, which pass it belongs in, whether it is mechanical or a
-read, what it would have caught, and what it costs. **Pick from it; it is not
-a sequence.**
+**Twelve of the fourteen are built and merged.** Morgan asked, on 2026-09-21,
+for a close read of the check's own formula against the week's real failures,
+and for specific proposals rather than a plan; he then authorized the five
+this document recommended first, in that order (strength: decided). Each item
+below says what to add, which pass it belongs in, whether it is mechanical or
+a read, what it would have caught, and what it costs. **Item 6 is held for a measured reason below; item 13's
+fix-sweep half remains a read.**
+
+## What shipped, 2026-09-21
+
+| Item | What landed | Where |
+|---|---|---|
+| **11** — settle the rotation | Step 2 says `verify_harness.py --all`; `PLANTED CASE COVERAGE` says every run whether this invocation settled it or owes it; `--with-harness` runs it and ledgers the result | [practices/very-deep-check.md](../practices/very-deep-check.md), [tools/very_deep_check.py](../tools/very_deep_check.py) |
+| **5** — workflow reality | `WORKFLOW REALITY` asks GitHub per file: registered, active, last run, does that run postdate the newest commit — with both limits printed. Plus `workflow-yaml-github-can-parse`, an enforced check refusing a YAML anchor in any workflow or shipped template, with a planted case carrying `&&`, `2>&1` and `*.md` so it proves it tells them apart | [tools/precedent_check.py](../tools/precedent_check.py), [tools/verify_harness.py](../tools/verify_harness.py), pass 2 item 19 |
+| **1 + 2** — the deletion direction | `precedent_vendor_engine` names every tracked file that still refers to something it just deleted, on both removal paths; `DELETIONS PENDING` asks the same question before the refresh rather than during it; a harness case covers both directions | [tools/precedent_vendor_engine.py](../tools/precedent_vendor_engine.py), pass 1 |
+| **12** — incident to detector | `INCIDENT COVERAGE` lists every gotcha filed and item closed since the ledger's last run, with what cites each slug. **First run: four of six gotchas filed that week were cited by nothing** | pass 2 item 20 |
+| **9** — the holistic-read registry | `ACCRETION` ranks tracked files by commits since anybody recorded reading them whole; `--record-read` writes [record/holistic-reads.json](../record/holistic-reads.json) and refuses a path that does not exist. The registry starts empty — back-dating a row would invent the evidence it exists to hold | pass 3 |
+
+**Items 3 and 8 landed next**, on the same authorization, after Morgan asked
+for the next step in the plan to be built:
+
+| Item | What landed | First run |
+|---|---|---|
+| **3** — the carry-through roll-up | `CARRY-THROUGH`: per repo in force, what it vendored, where upstream is now, and how many engine files were added, changed or **removed** since — removals by name, because a removal arriving on the next refresh is the one that breaks something. Reports; refreshes nothing | One source behind by five changed engine files, three current. **The first time this check has ever been able to see a stale vendored tree** |
+| **8** — identity off the commits | `IDENTITY REALITY`: the author of every commit in the window against the declared identity, the author-date offset against the declared timezone at that instant, and any tracked `settings.json` hardcoding `GIT_AUTHOR_*`. Somebody else's authorship is a note; a commit authored by nobody in particular is a finding | **Four of the five repos in force carry commits with the wrong author-date offset** — 17 at `+00:00` and 8 at `-04:00` against 275 at the declared `-03:00`, in this checkout alone. The one repo that declares its own identity came back clean, and its hardcoded `settings.json` was correctly read as the documented case rather than the bug |
+
+**Items 7 and 10 landed next**, on the same authorization:
+
+| Item | What landed | First run |
+|---|---|---|
+| **7** — the Actions bill | `ACTIONS FLOOR`: per workflow in every repo in force, runs × jobs over the window — the run count from one API call with a `created` filter, the job count read off the workflow file. A floor, never an invoice, and the lever it exposes is job count per workflow | **5,441 floor-minutes over 14 days in this checkout alone** — 1,356 deep-check runs × 3 jobs, plus 1,373 leak-gate runs × 1. The practice sources run no CI at all, which is `source-sets-run-no-ci` working |
+| **10** — config keys | `CONFIG KEYS`: every key declared in every `precedent.json` and `identity.json` in force, against every script the repo carries. Where a key has no local reader the row names which other repo mentions it | Two sources declare `grandfathered_commit_shas` with its readers living in a different repo in force — decidable rather than alarming, which is the whole point of naming where |
+
+**Items 4, 13 and 14 landed next**, on the same authorization:
+
+| Item | What landed | First run |
+|---|---|---|
+| **4** — does a deletion propagate, per shipped class | A three-column table in the practice, dated and re-verified each run: addition, change and deletion, one row per class this repo ships | **Its first asking found one**: a hook dropped upstream has **no removal path at all** — `precedent_vendor_engine` has exactly two, for engine files and CI workflows. The identical asymmetry the CI path carried until the day before. Filed as [todo-2026-09-21-a-dropped-hook-never-leaves-a-consumer](../todo/todo-2026-09-21-a-dropped-hook-never-leaves-a-consumer.md) |
+| **13** — sweep the class | `CHECK COVERAGE`: each repo's **own** vendored `precedent_check.py --full-sweep`, reported as passed/violated/skipped with the skips **grouped by cause**, the slug normalised out so one structural reason cannot wear forty names. This is also the mechanical half pass 2's question 15 had specified and never had | **All four sources skip 44 checks for one cause** — each keyed to a `practices/<slug>.md` a source set does not carry. Question 15 measured this in one set in September; it is every set |
+| **14** — premise-dated claims | `MOVED CLAIMS`: the sentence shapes that assert work moved somewhere — *now runs in*, *folded into*, *superseded by* — with the named destination checked for existence | **Zero rows in three repos and five in the one where the incident happened**, all naming the `precedent-check.yml` a refresh deleted out from under them |
+
+**Three narrowings in item 14 were forced by measurement, not designed in**,
+and they are the difference between a usable detector and one nobody runs
+twice: `see X` is a pointer rather than a move claim (39 rows of pure noise);
+markdown link text is stripped, since `doc_lint` already checks the real
+target; and a vendored file's prose belongs to upstream, so manifest-recorded
+files are skipped.
+
+**Item 13's first finding was acted on 2026-09-22**, which is the part a
+check that only reports never reaches. `CHECK COVERAGE` found all four
+sources skipping 44 checks for one cause. Reading all 44 one at a time, with
+`binds_publishers` forced on in each reachable set, put **13 of them** under
+enforcement in a source set for the first time — and stopped a fourteenth,
+`code-cites-practice`, which would have turned a correct practice citation
+into a blocking false positive in three repos at once because it validates
+slugs against the local twenty-file directory rather than the resolved
+catalogue. Recorded in
+[spec/PUBLISHER_GATE_AUDIT.md](PUBLISHER_GATE_AUDIT.md), with the 26 that
+cannot function there listed so nobody re-measures them.
+
+**The estimate that preceded it said twenty.** Twenty-four of the 44 function
+in a source set; functioning turned out to be half the test, and six of those
+inspect the repo's own machinery rather than anything it publishes. The gap
+between the estimate and the audit is the audit's whole value.
+
+**Item 13's remaining half landed 2026-09-22.** `FIX SWEEP` takes every
+check registered here since the ledger's last run and runs **this
+checkout's** copy of it against every repo in force — the mirror of item
+15a's `CHECK COVERAGE`, which runs each repo's own vendored engine. The two
+answer opposite questions and the difference is the whole point: what a
+consumer enforces is the code it has, and a detector it has not vendored yet
+reports nothing there, correctly, which is indistinguishable from clean.
+
+**Its first run carried the YAML-anchor detector, built three days earlier,
+into all three shared sources**: two decline for holding no workflow file,
+the third runs clean. 0.8 seconds for the sweep. It also surfaced a limit
+worth having found this way rather than later — **this clone holds no commit
+older than the ledger's own last-run date**, because sessions clone with a
+depth limit. The comparison falls back to the oldest commit present and says
+so in the output, since a narrower window under-reports and a silent
+under-report is the failure this whole item is about.
+
+With that, **thirteen of the fourteen proposals are built.** Item 6 is the
+one left, and it is held rather than outstanding:
+
+**Item 6 (required status checks) was weighed here and held back**, which is
+worth recording because it is the ledger's own argument applied before the
+fact rather than after: this session measured
+`/branches/{branch}/protection` answering **"Resource not accessible by
+integration"**, so the section would print `UNVERIFIED` on every run from a
+session shaped like this one. A section that cannot answer is a cost, not a
+safety net.
+
+**Corrected 2026-09-22, after the "so build it with a better token" reading
+was measured and found wrong.** A hosted session's outbound proxy mediates
+`api.github.com` and supplies its own credential: the same call returns the
+same authenticated login with the real token, with a deliberately invalid
+token, and with **no** `Authorization` header at all
+([the probe, and why two refusals that read alike are not alike](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/gotchas/gotcha-2026-09-22-the-api-proxy-ignores-the-token-you-set.md)).
+So no personal access token anyone creates changes what this section could
+see — the limit is the session's own GitHub App installation and repository
+scope. **And it would find nothing here regardless**: both `main` and
+`precedent-beta-v01` report `protected: false` with zero required contexts,
+so there is no protection on this repository to read. Item 6 is worth
+building the day a repository in scope actually protects a branch, and not
+before.
+
+**One correction the building itself produced**, which is the argument for
+running a new section rather than reasoning about it: `WORKFLOW REALITY`'s
+first live run reported a source set as *"Actions is off"* while quoting a
+body that said **"GitHub access to this repository is not enabled for this
+session"**. Two unlike refusals reached one branch. Only a body naming Actions
+as disabled is a finding now; everything else is `UNVERIFIED`, which is this
+session failing to look rather than a fact about the repo.
 
 ## What the check already covers, so nothing below repeats it
 

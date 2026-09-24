@@ -6,6 +6,7 @@ severity:    default
 applies_to:  ["**"]
 occasion:    "writing about a person in the third person -- a reply, a document, a commit message, a pull-request body"
 gates:       ["reply"]
+index_required: false
 index_clause: "use the pronouns a person declares; none declared means they/them, never guess"
 checked_by:  null
 defines:     ["pronouns"]

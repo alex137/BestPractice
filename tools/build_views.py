@@ -67,6 +67,19 @@ AGENTS_MD = ROOT / 'AGENTS.md'
 MAP_MD = ROOT / 'MAP.md'
 GLOSSARY_MD = ROOT / 'GLOSSARY.md'
 
+# The views this script writes IN FULL, from practices/ alone. Nothing
+# hand-authored survives in either, so a dirty copy of one in a source clone
+# is the engine's own output and may be discarded --
+# precedent_refresh_sources.engine_owned_paths reads this rather than
+# repeating the names, and is the reason the tuple is declared at all.
+#
+# AGENTS.md IS DELIBERATELY NOT HERE. Only its loader block is generated;
+# the rest is somebody's prose, and a modified AGENTS.md is far more likely
+# to be a person mid-edit than a stale render. Discarding that would be
+# exactly the mistake engine_owned_paths' own docstring says it must never
+# make, so AGENTS.md stays a person's file for that purpose.
+FULLY_GENERATED_VIEWS = ('MAP.md', 'GLOSSARY.md')
+
 sys.path.insert(0, str(_ENGINE_DIR))
 import split_practices as sp
 
@@ -519,10 +532,45 @@ def _json_str(raw):
 # precedent_sync_views.py actually produces for the same repo (practice:
 # session-load-budget). See the `scope` field: spec/PRACTICE_FORMAT.md.
 ENGINE_DEV_SCOPE = 'engine-dev'
+ANY_ADOPTER_SCOPE = 'any-adopter'
+
+# The two legal values, in one place, so the harness check added 2026-09-22
+# does not carry a second literal copy of them that can drift from the one
+# the predicate below actually compares against.
+SCOPE_VALUES = (ANY_ADOPTER_SCOPE, ENGINE_DEV_SCOPE)
 
 
 def _is_engine_dev_scoped(fm):
     return _json_str(fm.get('scope', '')) == ENGINE_DEV_SCOPE
+
+
+def scope_violation(fm, repo_local=False):
+    """Why this practice's `scope:` is not one of its legal values, or None.
+
+    ABSENT IS LEGAL and means `any-adopter` (spec/PRACTICE_FORMAT.md). Note
+    that `scope: null` never reaches here as a value at all: the one null
+    policy in split_practices.parse_frontmatter_fields drops a `null` field
+    on the floor, for every field in both formats, so `scope: null` and no
+    `scope:` line are the same input to every consumer in the engine. That
+    is why this cannot be the check that catches a practice somebody MEANT
+    to scope and did not -- nothing downstream can tell the two apart. The
+    spec's own named list is what catches that, in verify_harness.py.
+
+    `repo_local` flags the redundancy the spec asks for: `local/practices/`
+    never travels to another repo by a different mechanism entirely, so a
+    repo-local practice declaring `engine-dev` is stating a filter that
+    cannot do anything, and reads as a scope decision somebody made."""
+    raw = _json_str(fm.get('scope', ''))
+    if not raw:
+        return None
+    if raw not in SCOPE_VALUES:
+        return (f'scope: {raw!r} is not one of {SCOPE_VALUES} '
+                f'(absent means {ANY_ADOPTER_SCOPE})')
+    if repo_local and raw == ENGINE_DEV_SCOPE:
+        return ('a repo-local practice declares scope: engine-dev, which can '
+                'change nothing -- local/practices/ never travels to another '
+                'repo by a different mechanism entirely')
+    return None
 
 
 # A handful of practices carry a non-canonical rule-opening label kept as
@@ -1812,8 +1860,10 @@ TOOLS_DESCRIPTIONS = {
     'practice_audit.py': "Audits the practice-export layer for a repo that vendors one (this repo does not)",
     'practice_simulation.py': "Synthetic scenario generation for routing quality — invented cases, never a replayed benchmark",
     'precedent_check.py': "The ENFORCED loading channel — runs every practice's `checked_by` script",
+    'precedent_ci_verified.py': "Did CI actually run, and pass, on the commit about to be merged — advisory, one API call",
     'precedent_gate.py': "The GATE-TRIGGERED loading channel — Rules for a named moment (merge, review, push, reply)",
     'precedent_reply_check.py': "The reply gate's BLOCKING half — refuses a stop when the reply missed what a source's reply_check.json requires",
+    'precedent_container_safe.py': "Would anything be lost if this container went away? Scans every git checkout in it for uncommitted, untracked and unpushed work",
     'precedent_close_detect.py': "Stage 1's trigger — at the close of a session that merged and is ready to archive, offers at most one practice candidate found in that session's own material",
     'precedent_bootstrap_source.py': "Instantiates a brand-new individual or team practice set from a skeleton, for an adopter who has neither yet",
     'precedent_source_bootstrap.py': "Clone-or-pull for a privately-scoped individual or team source, used by its SessionStart hook and by precedent_resolve.py's own lazy self-heal",
@@ -1841,7 +1891,7 @@ TOOLS_DESCRIPTIONS = {
     'precedent_access_check.py': "Probes, at session start, which repos in force this session can actually push to -- so work destined for one it cannot reach is discovered before it is done, not after",
     'precedent_session_check.py': "Reports whether this session's SessionStart guarantees are actually in effect -- practices file, commit identity, backstop, packages, refspec, freshness, and the branch it started on -- and `--apply` runs the hooks by hand when the harness never did",
     'precedent_upstream_check.py': "Says whether the upstream branch has moved since the last commit carried onto this one, comparing against tools/upstream_watermark.json rather than git ancestry -- this branch carries `main` instead of merging it, so an ancestry test reports a permanent, meaningless gap; prints and never merges, and `--record` moves the watermark after a carry",
-    'precedent_beta_watermark_check.py': "Says whether anyone other than Morgan has pushed to precedent-beta-v01 since he was last told, against a watermark kept in his individual source rather than this repo -- unlike the upstream watermark above it auto-advances the moment it reports, since it gates a notification rather than an action; session start always prints a line, the reply gate's own `remind()` stays silent except on a real alert",
+    'precedent_beta_watermark_check.py': "Says whether anyone other than you has pushed to precedent-beta-v01 since you were last told, against tools/beta_branch_watermark.json beside it -- one row per identity, since 'already told' is true of a person and not of a repository -- unlike the upstream watermark above it advances itself, but only on a run that actually reports somebody else's commits -- a run with nothing to tell you writes nothing at all, and a run whose checkout is mid-work or cannot push writes nothing either, keeping a gitignored per-container note instead, since it gates a notification rather than an action; session start always prints a line, the reply gate's own `remind()` stays silent except on a real alert",
     'precedent_vocabulary.py': "Lists every standing command in force -- each phrase and the plain sentence a person reads -- collected from the `command:` field of every practice across every resolved source; answers the \"Vocabulary\" command and emits the reader-facing table",
     'precedent_show.py': "Loads a practice's Rule/Detail/Why/Story/Install — the one code path that reads a practice file",
     'precedent_time.py': "The ONE emitter for every date and time this repo writes down — resolves whose zone, always carries the offset; run it bare to see which rung answered",
@@ -1865,7 +1915,7 @@ TOOLS_DESCRIPTIONS = {
     'build_gotcha_index.py': "gotchas/INDEX.md, generated from gotchas/*.md's frontmatter and Symptom sections -- not loaded by AGENTS.md",
     'verify_harness.py': "The verification harness — run before trusting any change here",
     'very_deep_check.py': "The very deep check — on-demand whole-repo coherence review, distinct from full-practice-audit",
-    'precedent_engine_freshness.py': "Says whether this repo's VENDORED engine has fallen behind upstream — the one check that looks outward; prints, never refreshes",
+    'precedent_engine_freshness.py': "Says whether anything this repo vendors or resolves live has fallen behind its upstream — every source precedent.json declares (the engine, each vendored tree, each live sibling clone), one row each; the one check that looks outward; prints, never refreshes",
 }
 
 

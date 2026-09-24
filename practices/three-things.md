@@ -84,7 +84,7 @@ about from a different side. Three forces the judgment onto the session,
 which is the only thing being asked for.
 
 It also has a property the other commands here do not: it is the one phrase
-that asks for **attention rather than action**. `Go merge`, `Drop it` and
+that asks for **attention rather than action**. `Go update`, `Drop it` and
 `Update Vendors` each tell a session to do something. This one asks what it
 has noticed — which is only worth asking of a session that has actually read
 the repository, and is therefore also a fair test of whether the practice

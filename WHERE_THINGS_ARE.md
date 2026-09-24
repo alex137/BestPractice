@@ -1,8 +1,20 @@
 # Where things are — the full index
 
+<!-- No row count in the sentence below, on purpose, since 2026-09-22.
+     A hand-typed one lived here and was measured against the table at each
+     of the last eleven commits that touched this file: WRONG AT SIX OF
+     THEM, and at one point by nineteen (89 stated, 108 actual). It was
+     usually not anyone's arithmetic -- a row arrives on a branch that has
+     no reason to know a sentence elsewhere describes the total, and the
+     merge is where the two meet. Nothing gates it, and nobody opens this
+     file to learn how many rows it has.
+     A figure that IS worth keeping goes in a doc_sync generated block
+     (tools/doc_sync.py): that regenerates it and also refuses a hand-typed
+     copy of any figure a script owns. -->
+
 **Looking for something in this repository? Check here before searching it.**
 Every row is *looking for X → go to Y*, and the table below is the complete
-one: 109 rows.
+one.
 
 [AGENTS.md](AGENTS.md) carries a short version of this table — the dozen rows
 sessions reach for constantly — and links here for the rest. **That split is
@@ -34,6 +46,7 @@ not it is read.
 | How many practice sets of each level a person or a repo can have | [spec/SOURCES.md](spec/SOURCES.md)'s "How many sources of each level" row, reasoning at [spec/PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md#one-individual-set-per-person-not-per-team) |
 | How a practice-set source is named — the convention, what refuses vs. warns, and what a session must say before anyone picks a name | [spec/SOURCE_NAMING.md](spec/SOURCE_NAMING.md), rule at [practices/source-naming.md](practices/source-naming.md) |
 | The phase-4 enforced channel: what is checked, and what each check is blind to | [spec/ENFORCEMENT.md](spec/ENFORCEMENT.md) |
+| Why a practice source set skips most checks, and which 13 now bind it anyway | [spec/PUBLISHER_GATE_AUDIT.md](spec/PUBLISHER_GATE_AUDIT.md) — all 44 measured one at a time |
 | The phase-5 creation pipeline: what got built stage by stage, what's deferred, what phase 6 inherits | [spec/PHASE5_BRIEF.md](spec/PHASE5_BRIEF.md) |
 | The phase-5 candidate file format (Stage 2) and why universal candidates are GitHub Issues, not files | [spec/CANDIDATE_FORMAT.md](spec/CANDIDATE_FORMAT.md) |
 | The phase-5 deep-check before phase 6: real bugs found and fixed, real candidates landed, open questions for Morgan | [spec/PHASE5_DEEPCHECK.md](spec/PHASE5_DEEPCHECK.md) |
@@ -46,7 +59,7 @@ not it is read.
 | How a session rooted in an individual or team set gets the universal practices, and why its checks still do not run there | [spec/SOURCE_SET_PROSE_GAP.md](spec/SOURCE_SET_PROSE_GAP.md), open half at [`source-set-runs-no-universal-checks`](todo/todo-2026-09-13-source-set-runs-no-universal-checks.md) |
 | How a repo that already had BestPractice installed migrates to Precedent's three-source model (the recommended pattern, from the first real dependent-repo test) | [spec/MIGRATING_EXISTING_INSTALLS.md](spec/MIGRATING_EXISTING_INSTALLS.md) |
 | Deleting a file or directory a decommissioned mechanism left behind — the audit that has to pass first, and the record of what went | [practices/decommission-deletes-files.md](practices/decommission-deletes-files.md), audit at [tools/precedent_decommission.py](tools/precedent_decommission.py) |
-| Moving an existing, still-wanted practice from one level to another (team ↔ individual, team ↔ team, team → universal) — distinct from creating one or retiring one outright | [spec/MOVING_PRACTICES.md](spec/MOVING_PRACTICES.md); the tool that does both steps in order is [tools/precedent_move.py](tools/precedent_move.py) |
+| Moving an existing, still-wanted practice from one level to another (team ↔ individual, team ↔ team, team → universal, and — since 2026-09-23 — universal → team/individual, safely) — distinct from creating one or retiring one outright | [spec/MOVING_PRACTICES.md](spec/MOVING_PRACTICES.md); the tool that does both steps in order is [tools/precedent_move.py](tools/precedent_move.py) — `--from universal` duplicates on landing and needs a deliberate `--dedupe-only --accept-reach-loss` to actually withdraw the universal copy |
 | Why the miss rate is what it is, and the plan for it (read before phase 5) | [spec/ATTENTION_CEILING.md](spec/ATTENTION_CEILING.md) |
 | Who may write what in a project repo, and who may land a practice — **drafted, not executed; three GitHub behaviours in it are unverified** | [spec/CONTRIBUTOR_ACCESS.md](spec/CONTRIBUTOR_ACCESS.md) |
 | Team-level practice capture for document work at scale — the editorial team repo and document-project template, the "alternative to Google Docs" use case | [spec/DOCUMENT_WORK_PRACTICE_CAPTURE.md](spec/DOCUMENT_WORK_PRACTICE_CAPTURE.md) |
@@ -60,13 +73,14 @@ not it is read.
 | The full practice audit: manual, whole-catalogue sweep across every source, on request only | [practices/full-practice-audit.md](practices/full-practice-audit.md), engine at [tools/full_practice_audit.py](tools/full_practice_audit.py) |
 | The very deep check: four ordered passes over every repo in force, on request only — distinct from the full practice audit above | [practices/very-deep-check.md](practices/very-deep-check.md), engine at [tools/very_deep_check.py](tools/very_deep_check.py), run record at [spec/VERY_DEEP_CHECK.md](spec/VERY_DEEP_CHECK.md) |
 | Proposed additions to the very deep check — fourteen, written 2026-09-21 against that week's incidents, none adopted | [spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md](spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md) |
+| When anybody last read a whole file end to end, and what the read changed — what the very deep check's `ACCRETION` ranking counts from | [record/holistic-reads.json](record/holistic-reads.json) — written by `python3 tools/very_deep_check.py --record-read '<path>,note=…'`, never by hand |
 | What each part of the very deep check returned and cost, run after run, and which parts are owed a keep/cheapen/retire answer | [record/very-deep-check-ledger.json](record/very-deep-check-ledger.json) — **never hand-edit it**; the answers go in [spec/VERY_DEEP_CHECK.md](spec/VERY_DEEP_CHECK.md) |
-| Why `verify_harness.py` (the deep check) takes as long as it does, which checks actually cost the time, a parallelization that was tried and reverted for measuring no real gain, and the change-scoping fix that did measurably help | [spec/VERIFY_HARNESS_PERFORMANCE.md](spec/VERIFY_HARNESS_PERFORMANCE.md) |
+| Why [`verify_harness.py`](tools/verify_harness.py) (the deep check) takes as long as it does, which checks actually cost the time, a parallelization that was tried and reverted for measuring no real gain, and the change-scoping fix that did measurably help | [spec/VERIFY_HARNESS_PERFORMANCE.md](spec/VERIFY_HARNESS_PERFORMANCE.md) |
 | Cutting GitHub Actions minutes across every vendored repo — where the minutes actually go, the self-hosted-runner pilot (item 6), and what's shipped vs. still open | [spec/CI_MINUTES_PLAN.md](spec/CI_MINUTES_PLAN.md), open item tracked at [todo/todo-2026-09-16-revisit-ci-minutes-items-6-7.md](todo/todo-2026-09-16-revisit-ci-minutes-items-6-7.md) |
 | **Why a CI workflow costs what it costs** — GitHub bills per JOB rounded up to a whole minute, measured at 0.47s of work billed as 3 minutes; why five days of frequency fixes moved nothing, and the arithmetic retiring the debounce job | [spec/BILLING_FLOOR.md](spec/BILLING_FLOOR.md) |
 | Whether THIS repo's own `deep-check.yml` should move to a self-hosted runner for speed — a narrower, harder question than the CI-minutes plan's item 6, since this repo's CI is already free and public | [spec/DEEP_CHECK_SELF_HOSTED_RUNNER.md](spec/DEEP_CHECK_SELF_HOSTED_RUNNER.md) |
 | Step-by-step mechanics for registering a self-hosted GitHub Actions runner on a RunCloud-managed Linux server, for the item 6 pilot once it's authorized | [spec/SELF_HOSTED_RUNNER_SETUP.md](spec/SELF_HOSTED_RUNNER_SETUP.md) |
-| The branch sweep's own list — every merged, merged-elsewhere and unmerged branch in this checkout and every declared source, with a clickable delete or compare link on each row | `record/stale_branches.md` — **never hand-edit it**; written by `python3 tools/very_deep_check.py`'s branch sweep and committed like `MAP.md`, after it clears [tools/leak_gate.py](tools/leak_gate.py). This checkout's own merged-and-stale (safe-to-delete) slice is also embedded live in [spec/VERY_DEEP_CHECK.md](spec/VERY_DEEP_CHECK.md)'s "Branches safe to delete right now", a `tools/doc_sync.py`-gated block — that page, not this file, is where a person actually goes to delete branches |
+| The branch sweep's own list — every merged, merged-elsewhere and unmerged branch in this checkout and every declared source, with a clickable delete or compare link on each row | [`record/stale_branches.md`](record/stale_branches.md) — **never hand-edit it**; written by `python3 tools/very_deep_check.py`'s branch sweep and committed like [`MAP.md`](MAP.md), after it clears [tools/leak_gate.py](tools/leak_gate.py). This checkout's own merged-and-stale (safe-to-delete) slice is also embedded live in [spec/VERY_DEEP_CHECK.md](spec/VERY_DEEP_CHECK.md)'s "Branches safe to delete right now", a [`tools/doc_sync.py`](tools/doc_sync.py)-gated block — that page, not this file, is where a person actually goes to delete branches |
 | Gaps between what the plan approved and what got built (routing audit's own history, and what else to check) | [spec/UNBUILT_PLAN_ITEMS.md](spec/UNBUILT_PLAN_ITEMS.md) |
 | Whether every declared practice-source repository is still CALLED what this repo calls it — a rename redirects forever, so git never notices | [tools/precedent_source_names.py](tools/precedent_source_names.py), run at [vendor-update-runbook](practices/vendor-update-runbook.md)'s step 8; `UNVERIFIED` is not a pass |
 | Whether a document project's contributor boundary is actually ON — branch protection shaped as the plan needs, and a CODEOWNERS file to give it something to require; UNVERIFIED when it could not ask GitHub, which is not a pass | [tools/precedent_boundary_check.py](tools/precedent_boundary_check.py), design at [spec/CONTRIBUTOR_ACCESS.md](spec/CONTRIBUTOR_ACCESS.md)'s 2026-09-14 review, finding 5 |
@@ -79,8 +93,10 @@ not it is read.
 | Whether this session's SessionStart hooks actually ran, and repairing them if not | [tools/precedent_session_check.py](tools/precedent_session_check.py) — `--apply` runs them by hand; every [tools/precedent_gate.py](tools/precedent_gate.py) moment prints the failing rows unasked |
 | Whether `PRECEDENT_FRESHNESS_ALSO` names repositories that are actually there, and what to set it to on this container | [tools/precedent_session_check.py](tools/precedent_session_check.py) — the row prints the corrected value; a dead entry is skipped silently by design, so nothing else reports it |
 | Whether Alex has moved `main` since the last carry onto this branch, and what changed | [tools/precedent_upstream_check.py](tools/precedent_upstream_check.py) — printed at session start; the watermark it compares against is [tools/upstream_watermark.json](tools/upstream_watermark.json), moved with `--record` in the carry's own commit |
+| Whether anyone other than you has pushed to `precedent-beta-v01` since you were last told | [tools/precedent_beta_watermark_check.py](tools/precedent_beta_watermark_check.py) — printed at session start, silent on the reply gate except on a real alert; the watermark it compares against is [tools/beta_branch_watermark.json](tools/beta_branch_watermark.json), keyed by person and **never hand-edited** — the tool advances it on the run that reports, and only then |
 | Practices that fire at a moment rather than in a file | [tools/precedent_gate.py](tools/precedent_gate.py) — `merge`, `review`, `push`, `reply` |
 | Why the closing **Next Steps** section of a reply is not optional, and what refuses a turn without one | [tools/precedent_reply_check.py](tools/precedent_reply_check.py) — `--explain` says what is declared here; the same requirements are printed at the start of every turn by [tools/precedent_gate.py](tools/precedent_gate.py)'s reply gate |
+| Whether anything in this container would be lost if the session were archived — every checkout, not just this repo | [tools/precedent_container_safe.py](tools/precedent_container_safe.py) — run it bare; exit 1 and a per-checkout report when work is only here. The rule is archive condition 1 in [practices/the-boildown.md](practices/the-boildown.md), enforced blocking by [tools/precedent_reply_check.py](tools/precedent_reply_check.py) |
 | Why a long conversation is refused a reply that never says whether this is a cheap point to compact, and the number that decides "long" | [reply_check.json](reply_check.json), read by [tools/precedent_reply_check.py](tools/precedent_reply_check.py); the rule is [practices/session-spend-follows-the-task.md](practices/session-spend-follows-the-task.md) |
 | Why a team or individual practice registered to a gate used to load nothing | [tools/precedent_gate.py](tools/precedent_gate.py)'s `resolved_gate_practices` — the gate read one directory until 2026-09-13, so only universal practices ever reached it |
 | Which practices are enforced, and running one check | [tools/precedent_check.py](tools/precedent_check.py) — `--list`, `--explain`, `--only SLUG` |
@@ -102,7 +118,7 @@ not it is read.
 | What each practice is and why — **the live catalogue** | [practices/](practices/), indexed by [MAP.md](MAP.md); one rule at a time with `python3 tools/precedent_show.py SLUG` |
 | Practices no longer in force, and why each was withdrawn | [MAP.md](MAP.md)'s "Withdrawn practices" table — generated; the files are kept, never deleted |
 | The pre-fork single-file catalogue — **superseded, frozen at 53 practices since 2026-08-31**; kept for its prose and its numbering | [PRACTICES.md](PRACTICES.md) |
-| Repo map, generated (phase 2) | [MAP.md](MAP.md) — regenerate with `tools/build_views.py`, never hand-edit |
+| Repo map, generated (phase 2) | [MAP.md](MAP.md) — regenerate with [`tools/build_views.py`](tools/build_views.py), never hand-edit |
 | Canonical names, generated (phase 2) | [GLOSSARY.md](GLOSSARY.md) — built from every practice's `defines:` field |
 | The loader — resident block, occasion index, path-trigger channel | This file's generated block above; engine at [tools/build_views.py](tools/build_views.py), [tools/precedent_paths.py](tools/precedent_paths.py) |
 | Loader premise, measured against this repo's own history | [tools/behavioral_replay.py](tools/behavioral_replay.py) |
@@ -120,7 +136,7 @@ not it is read.
 | Every GitHub setting a Precedent project depends on, who clicks it, what fails without it — roles, branch protection with the four values, what GitHub does with CODEOWNERS and how this system generates it, Actions permissions and secrets, practice-set repositories | [documentation/GITHUB_SETTINGS.md](documentation/GITHUB_SETTINGS.md) |
 | CI checks for shell-less agents (install, require) | [GITHUB_ACTIONS.md](documentation/GITHUB_ACTIONS.md) |
 | Whether anything catches a drifted [MAP.md](MAP.md), [GLOSSARY.md](GLOSSARY.md) or loader block in a practice SET | the `views-drift` job inside [templates/github-actions/precedent-check.yml.template](templates/github-actions/precedent-check.yml.template) — there is no separate `views-drift.yml.template` since 2026-09-19, when it was folded in ([templates/github-actions/README.md](templates/github-actions/README.md)) |
-| Upstream open items / roadmap | [TODO.md](TODO.md) |
+| Upstream open items / roadmap | [todo/TODO.md](todo/TODO.md) (open) and [todo/CLOSED.md](todo/CLOSED.md); one file per item under [todo/](todo/). [`TODO.md`](TODO.md) at the root is a redirect stub and a pull request touching it is refused by CI. |
 | The full story behind any environment trap, one file each | [gotchas/](gotchas/) (generated overview: [gotchas/INDEX.md](gotchas/INDEX.md)) |
 | Gotchas that no longer fire, with the verdict that retired each one | [gotchas/](gotchas/) (`status: retired` in the file, in place -- nothing moves) |
 | GitAround — the reading view this work spun out | [alex137/GitAround](https://github.com/alex137/GitAround) — **a PRIVATE repository**, so that link 404s for anyone without access, and this row is the only thing that says so. A separate product since 2026-08-14 (its last push, checked 2026-09-21); a branch here still staging it under proposals/ is superseded, and its documents live there now |

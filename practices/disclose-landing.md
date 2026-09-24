@@ -6,6 +6,7 @@ severity:    default
 applies_to:  ["**"]
 occasion:    "a practice lands or a candidate is raised, at any level"
 gates:       ["reply"]
+index_required: false
 index_clause: "state plainly what happened and where — individual, named team, or universal"
 checked_by:  null
 defines:     []

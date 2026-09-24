@@ -19,7 +19,8 @@ checked on every run. **Install is adaptive**: you instantiate templates
 with the project's own subject matter, at their real locations. Nothing is
 fetched while you work.
 
-Two paths, and since 2026-09-14 the default is the first:
+One path. §1 below is described because installs made that way still
+exist, not because anyone should take it — it was retired 2026-09-23:
 
 - **[INSTALL.md §0](../INSTALL.md#0-installing-directly-onto-the-precedent-loader-new-2026-09-03--read-the-caveat-before-using)**
   — straight onto Precedent's three-source loader: the practice catalogue
@@ -38,12 +39,14 @@ Two paths, and since 2026-09-14 the default is the first:
   older vendored model: the whole upstream tree at `process/upstream/`, a
   **manifest** recording the mapping both ways, and a check-in loop in
   which an improvement made here is folded back upstream in generic form.
-  It installs the practice *prose* and none of the loader; take it only if
-  the project specifically wants the export-and-check-in loop. A project
-  that *already* vendored BestPractice this way and wants the loader takes
-  [spec/MIGRATING_EXISTING_INSTALLS.md](../spec/MIGRATING_EXISTING_INSTALLS.md).
+  It installs the practice *prose* and none of the loader, so **it is not
+  an install path any more**: a project installed this way ran with every
+  practice on disk and none in force, and its sessions said so. A project
+  that already vendored BestPractice this way migrates, per
+  [spec/MIGRATING_EXISTING_INSTALLS.md](../spec/MIGRATING_EXISTING_INSTALLS.md);
+  `practice_audit.py` fails until it does.
 
-The §1 sequence, in short, for a project that takes that path — each step
+What a classic install did, in short, so you can recognize one — each step
 is spelled out in full at the link:
 
 1. **Vendor** this repo's working tree (not its `.git`) into
@@ -55,8 +58,9 @@ is spelled out in full at the link:
    `TODO.md`, `GLOSSARY.md`, `GETTING_STARTED.md`, the PR template, the
    `.gitignore` baseline, and the harness adapter(s) from
    [templates/harness/](../templates/harness/) for whichever AI Assistant
-   will work the repo. `local/practices/project-voice.md` (a repo-local
-   practice, not a plain document) and `STYLEGUIDE.md` are the exception:
+   will work the repo. `local/practices/project-voice.md` and
+   `local/practices/project-visual-identity.md` (repo-local practices, not
+   plain documents) are the exception:
    both ship near-empty and **stay that way** — see "Optional, and
    deliberately left for later" below.
 3. **Ask the two questions only a person can answer** — which private
@@ -91,9 +95,10 @@ an upgrade or a migration:
   reached through the same occasion index as every other rule in force
   here. General writing quality is not in it; the practice catalogue
   covers that for every project at once.
-- **`STYLEGUIDE.md`** — the visual identity, transcribed as plain text from
-  whatever brand guideline exists. Never attach, vendor or link the source
-  document into the repo.
+- **`local/practices/project-visual-identity.md`** — the visual identity,
+  transcribed as plain text from whatever brand guideline exists. A
+  repo-local practice, not a plain document. Never attach, vendor or link
+  the source document into the repo.
 
 Both stay local to the project and are never exported upstream. **Fill
 either in whenever you want by asking your AI Assistant** — *"help me fill in

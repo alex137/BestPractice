@@ -3,7 +3,6 @@ slug:        their-constraints-are-given
 title:       "A person's account of their own constraints is given, not a claim to check"
 tier:        on-demand
 severity:    default
-scope:       null
 applies_to:  ["**"]
 occasion:    "a person states a fact about their own situation -- cost, risk, time, priorities, how they work -- that the session's own reading of the evidence would soften or contradict"
 gates:       []
@@ -11,12 +10,12 @@ index_clause: "their own situation is given -- say it once, then work from their
 checked_by:  null
 defines:     []
 command:     null
-status:      active
+status:      deduplicated
 supersedes:  []
 overrides:   null
 added:       "2026-09-21"
 approved_by: "requested by Morgan F, 2026-09-21, after the same argument recurred across sessions"
-in_force_at: null
+in_force_at: their-constraints-are-given
 strength: decided
 ---
 ## Rule
@@ -131,6 +130,17 @@ tracking how often a person repeats themselves. That idea is deliberately
 not built here: the answer to a repeated argument is to write the premise
 down once, not to instrument the person.
 
+**Moved to `precedent-shared-working-style` and back, same day, 2026-09-23.**
+A cross-repo practice-placement review moved this out of universal, on the
+reasoning that it is squarely that set's own subject. `verify_harness.py
+--as-ci`'s consumer-fixture check caught the real cost before it shipped:
+a plain Precedent consumer resolving only the universal catalogue (which is
+most of them) would have found this rule's `in_force_at:` pointing at a
+private team set it cannot see -- not a smaller audience, actually gone. The
+tool that runs every other kind of move refuses exactly this direction
+(`--from universal`) for exactly this reason, which this incident confirms
+rather than merely asserts. Reverted the same day, Morgan F: stays universal.
+
 ## Install
 
 Nothing to install. It binds a session's replies, and the occasion index
@@ -140,3 +150,7 @@ routes it — `python3 tools/precedent_show.py their-constraints-are-given`.
 the next session reads it rather than re-deriving it: a line in the
 project's instructions file, or an open item recording the decision and
 its strength ([decision-strength](decision-strength.md)).
+
+Also landed in the shared set `precedent-shared-working-style` on 2026-09-23, approved there by Morgan F. Kept ACTIVE here, not deduplicated: universal is the one level every Precedent consumer resolves, and a plain universal-only consumer never resolves a pointer into `precedent-shared-working-style` -- deduplicating this copy would leave the rule in force nowhere for them (the failure `verify_harness.py --as-ci`'s consumer-fixture check exists to catch, and did, 2026-09-23). Both copies are genuinely in force; review both when editing either. Withdraw this copy later, deliberately, with `--dedupe-only --accept-reach-loss` once the audience that matters has taken `precedent-shared-working-style`.
+
+Withdrawn from universal on 2026-09-23, deliberately, with --accept-reach-loss: deduplicated here; the rule is in force only from the shared set `precedent-shared-working-style` now. A consumer resolving only universal no longer gets it.

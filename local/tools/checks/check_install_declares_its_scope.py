@@ -6,7 +6,8 @@ local/practices/install-declares-its-scope.md.
 
 Scope: tree. INSTALL.md and SETUP.md each declare that an install does the
 essentials and stops, name what is NEVER deferred, and mention
-project-voice.md or STYLEGUIDE.md only beside a deferral marker.
+project-voice.md or project-visual-identity.md only beside a deferral
+marker.
 
 Assertion 3 is a POSITIVE requirement on purpose. The obvious form -- grep
 for "walk them through" -- fires on SETUP.md's own correct text, which says
@@ -52,19 +53,23 @@ COUNTERPART = (
 #    rather than an instruction.
 #
 #    Scoped to paragraphs naming BOTH, which is the shape every instruction
-#    about them takes -- "instantiate project-voice.md and STYLEGUIDE.md",
-#    "both ship near-empty". Scanning every paragraph naming EITHER was
-#    tried first (when this still read 'VOICE.md') and flagged three
-#    passages that are not install instructions at all: a S0 layout table
-#    about the templates, an update-path worked example, and the export
-#    gate's rule about where a generic writing rule belongs. A check that
-#    fires on correct text gets switched off, which is worse than not
-#    having it.
+#    about them takes -- "instantiate project-voice.md and
+#    project-visual-identity.md", "both ship near-empty". Scanning every
+#    paragraph naming EITHER was tried first (when this still read
+#    'VOICE.md') and flagged three passages that are not install
+#    instructions at all: a S0 layout table about the templates, an
+#    update-path worked example, and the export gate's rule about where a
+#    generic writing rule belongs. A check that fires on correct text gets
+#    switched off, which is worse than not having it.
 #
-#    'project-voice.md' (not the full 'local/practices/project-voice.md')
-#    on purpose: a substring match, so it still catches a mention that gives
-#    only the filename.
-OPTIONAL_FILES = ('project-voice.md', 'STYLEGUIDE.md')
+#    'project-voice.md' and 'project-visual-identity.md' (not their full
+#    'local/practices/' paths) on purpose: a substring match, so it still
+#    catches a mention that gives only the filename. STYLEGUIDE.md joined
+#    project-voice.md as a repo-local practice on 2026-09-22
+#    (project-visual-identity.md), so both names here now point at
+#    local/practices/ files rather than one root document and one
+#    practice.
+OPTIONAL_FILES = ('project-voice.md', 'project-visual-identity.md')
 DEFERRAL_MARKERS = (
     'optional', 'out of scope', 'skeleton', 'do not', "don't", 'never',
     'stay that way', 'stays that way', 'not part of', 'left for later',
@@ -139,10 +144,11 @@ def find_violations():
                 first = para.splitlines()[0].strip()
                 findings.append(
                     f'{name}:{line_no}: names project-voice.md and '
-                    f'STYLEGUIDE.md together with no deferral marker -- '
-                    f'reads as an instruction to fill them in during the '
-                    f'install. Say they are optional, out of scope, or ship '
-                    f'as skeletons. Paragraph opens: {first[:70]!r}')
+                    f'project-visual-identity.md together with no deferral '
+                    f'marker -- reads as an instruction to fill them in '
+                    f'during the install. Say they are optional, out of '
+                    f'scope, or ship as skeletons. '
+                    f'Paragraph opens: {first[:70]!r}')
     return findings
 
 

@@ -2,9 +2,10 @@
 """precedent_move.py -- move an existing practice from one level to another.
 
   python3 tools/precedent_move.py --slug SLUG \\
-      --from individual|team --from-path PATH \\
+      --from individual|team|universal --from-path PATH \\
       --to individual|team|universal --to-path PATH \\
       --approved-by NAME [--strength decided|assented] [--story TEXT] [--dry-run]
+      [--dedupe-only [--accept-reach-loss]]
 
 Run it from a Precedent checkout: the sets and the consuming repositories
 do not vendor it (the rehearsal of 2026-09-14 spent its first minutes
@@ -18,6 +19,10 @@ that is safe and with nothing left to remember:
      Rule, Detail, Why and Story exactly as they are -- this is vetted text,
      not a new draft -- with the destination level's own approval recorded
      (`--approved-by`; a listed approver for a team set).
+     One thing about the text does change: a link to a SIBLING practice
+     that is not at the destination is re-homed -- a universal practice's
+     URL, else the slug in backticks, never a URL into another set (see
+     _rehome_sibling_links for the 2026-09-23 incident). Each is printed.
   2. DEDUPLICATE the copy at the source: `status: deduplicated`,
      `in_force_at: <the slug>`, and one dated line appended to its ## Story
      saying where it went and who approved it. Never a delete: the resolver
@@ -44,9 +49,9 @@ somebody, and catalogue-carries-stories would hold the destination red);
 a destination that already carries the slug; a team destination whose
 approvers.json does not list `--approved-by`; a `checked_by` naming a check
 script the destination does not have (the script and its test move by hand
-first -- see spec/PRIVATE_ENFORCEMENT_BRIEF.md); and `--from universal`,
-which is the one direction the design does not offer (demoting a published
-rule is a decision for a pull request, not a tool).
+first -- see spec/PRIVATE_ENFORCEMENT_BRIEF.md); `--from universal --to
+universal` (nothing to move); and `--dedupe-only` on a practice that moved
+OUT of universal, without `--accept-reach-loss` also given (see below).
 
 UNIVERSAL AS THE DESTINATION drafts only: the file is written into the
 Precedent clone's practices/ and the source is left ACTIVE, because the
@@ -60,6 +65,32 @@ clone's own generated surfaces are regenerated (build_views.py, doc_sync.py
 source set has taken the new universal catalogue -- a consumer still
 vendoring the old one sees the rule in neither source, and its sync refuses
 to write until it is refreshed (INSTALL.md \u00a72 step 0, "Update Vendors").
+
+UNIVERSAL AS THE SOURCE duplicates, never deduplicates, on landing.
+`--from universal --to shared|individual` writes the destination copy
+exactly as any other landing, but the universal copy stays `status: active`
+-- it is NOT marked deduplicated, and `in_force_at` is not touched. This is
+structural, not caution: universal is the one level every Precedent
+consumer resolves, and a team or individual set is not, so a universal
+practice deduplicated to point at one leaves the rule genuinely in force
+nowhere for any consumer that never declared that destination -- most of
+them. [tools/precedent_sync_views.py](precedent_sync_views.py) treats an unresolvable `in_force_at` as a
+hard failure (IN FORCE NOWHERE), not an advisory, so that state breaks a
+plain consumer's own sync, not just a reader's understanding. Confirmed by
+incident, 2026-09-23: done by hand instead of by a tool, this exact move
+passed every fast check and was only caught by \u2018verify_harness.py
+--as-ci\u2019's consumer-fixture check hours later, after both copies had
+already been pushed.
+
+Both copies are then genuinely in force at once -- a deliberate, disclosed
+duplication, not a bug -- and a Story note in each says so and points at
+the other. Withdraw the universal copy later, on purpose, once the audience
+that matters has taken the destination: run this tool again with
+`--dedupe-only --accept-reach-loss`. `--accept-reach-loss` is required on
+that run and that run only, is refused without it, and is not needed for
+any other direction -- a plain universal-only consumer (most Precedent
+adopters) loses the rule entirely the moment that step runs, and the flag
+is the human decision that the audience who still needs it has moved.
 
 Exit 0 on a completed move (or a completed draft); 1 on a refusal, with the
 reason on stderr and nothing written.
@@ -141,25 +172,105 @@ def _check_checked_by(fm, to_level, to_path):
 def _rewrite_frontmatter(text, updates):
     """Rewrite named top-level frontmatter fields in place, byte-for-byte
     elsewhere. A field absent from the frontmatter is appended before the
-    closing fence. `updates` values are the raw text to put after the colon."""
+    closing fence. `updates` values are the raw text to put after the colon.
+
+    A field being replaced may itself have spanned multiple physical lines
+    in the original -- a quoted scalar folded onto a continuation line,
+    indented deeper than the key (`approved_by:` carries the longest ones
+    in this catalogue). Those continuation lines belong to the OLD value
+    and are dropped along with it: replacing only the first line and
+    leaving the rest in place corrupts the file, since the new value on
+    line one is already a complete, closed string and what follows reads
+    as a second, indented top-level scalar -- invalid YAML. Found 2026-09-23:
+    exactly this, landing dont-race-another-window's already multi-line
+    approved_by."""
     end = text.find('\n---\n', 4)
     fm_text, body = text[4:end], text[end:]
     lines = fm_text.split('\n')
     seen = set()
     out = []
+    skip_continuation = False
     for line in lines:
         m = re.match(r'^([A-Za-z_]+):(\s*)(.*)$', line)
-        if m and m.group(1) in updates:
-            key = m.group(1)
-            pad = m.group(2) or ' '
-            out.append(f'{key}:{pad}{updates[key]}')
-            seen.add(key)
+        if m:
+            skip_continuation = False
+            if m.group(1) in updates:
+                key = m.group(1)
+                pad = m.group(2) or ' '
+                out.append(f'{key}:{pad}{updates[key]}')
+                seen.add(key)
+                skip_continuation = True
+            else:
+                out.append(line)
+        elif skip_continuation:
+            continue
         else:
             out.append(line)
     for key, value in updates.items():
         if key not in seen:
             out.append(f'{key}: {value}')
     return '---\n' + '\n'.join(out) + body
+
+
+_SIBLING_LINK_RE = re.compile(r'(?<!!)\[([^\]]*)\]\(([a-z0-9][a-z0-9-]*)\.md(#[^)\s]*)?\)')
+
+
+def _universal_url_base():
+    """'https://github.com/<owner>/<repo>/blob/<base_branch>/practices/' for
+    this Precedent clone, or None when either half cannot be read. A link
+    into the universal catalogue is the one cross-set link that is safe to
+    publish from anywhere."""
+    try:
+        url = subprocess.run(['git', '-C', str(ROOT), 'remote', 'get-url', 'origin'],
+                             capture_output=True, text=True).stdout.strip()
+        branch = json.loads((ROOT / 'precedent.json').read_text(encoding='utf-8')).get('base_branch')
+    except (OSError, ValueError):
+        return None
+    m = re.search(r'github\.com[:/]+([^/]+/[^/\s]+?)(?:\.git)?/*$', url)
+    return f'https://github.com/{m.group(1)}/blob/{branch}/practices/' if m and branch else None
+
+
+def _rehome_sibling_links(text, dest_dir):
+    """-> (text, [what changed]). A practice's links to its SIBLINGS are
+    relative (`other-slug.md`), and the siblings that stay behind turn them
+    into dead links at the destination. The obvious hand repair -- a URL to
+    where the sibling stayed -- is the disclosure private-repo-scrub forbids
+    whenever that set is private, and it is exactly what happened on
+    2026-09-23 (practice: practice-links-travel). So the move does the
+    repair itself: a sibling that is also at the destination keeps its link,
+    a universal practice gets its universal URL, and anything else becomes
+    its slug in backticks. Link markup only; the words are untouched."""
+    universal = _universal_url_base()
+    changed = []
+
+    def repl(m):
+        label, slug, frag = m.group(1), m.group(2), m.group(3) or ''
+        # Inside a code span (an odd number of backticks before it): a value
+        # being documented, not a reference. The label's own backticks sit
+        # inside the match, so they never count here.
+        if m.string.count('`', 0, m.start()) % 2:
+            return m.group(0)
+        if (dest_dir / f'{slug}.md').is_file():
+            return m.group(0)
+        if universal and (ROOT / 'practices' / f'{slug}.md').is_file() \
+                and dest_dir.resolve() != (ROOT / 'practices').resolve():
+            new = f'[{label}]({universal}{slug}.md{frag})'
+        elif label.strip('`') == slug:
+            new = f'`{slug}`'
+        else:
+            new = f'{label} (`{slug}`)'
+        changed.append(f'{m.group(0)} -> {new}')
+        return new
+
+    out, fence = [], False
+    for line in text.splitlines(keepends=True):
+        if line.lstrip().startswith(('```', '~~~')):
+            fence = not fence
+        if fence or line.lstrip().startswith(('```', '~~~')):
+            out.append(line)
+            continue
+        out.append(_SIBLING_LINK_RE.sub(repl, line))
+    return ''.join(out), changed
 
 
 def _append_story(text, line):
@@ -203,16 +314,33 @@ def _regenerate(set_root):
 
 
 def move(slug, from_level, from_path, to_level, to_path, approved_by,
-         strength=None, story=None, dry_run=False, dedupe_only=False, say=print):
+         strength=None, story=None, dry_run=False, dedupe_only=False,
+         accept_reach_loss=False, say=print):
     from_level = LEVEL_ALIASES.get(from_level, from_level)
     to_level = LEVEL_ALIASES.get(to_level, to_level)
     if from_level not in LEVELS or to_level not in LEVELS:
         raise MoveRefused(f'levels are one of {LEVELS}')
-    if from_level == 'universal':
-        raise MoveRefused('moving a practice OUT of universal is not a designed path '
-                          '(spec/MOVING_PRACTICES.md, "The asymmetry that already exists"): '
-                          'a rule published to every adopter is withdrawn by a pull '
-                          'request that says why, not by a tool')
+    if from_level == 'universal' and to_level == 'universal':
+        raise MoveRefused('source and destination are both universal -- nothing to move')
+    # See the module docstring, "UNIVERSAL AS THE SOURCE" -- this incident's
+    # own remedy. A practice landed OUT of universal stays
+    # duplicated -- both copies active -- until a session deliberately
+    # withdraws the universal one. That withdrawal is real reach loss for
+    # any consumer resolving only universal, which precedent_sync_views.py
+    # cannot see and this tool cannot check, so a human says so explicitly
+    # rather than the tool inferring it from --dedupe-only alone.
+    duplicate_from_universal = from_level == 'universal' and to_level != 'universal'
+    if duplicate_from_universal and dedupe_only and not accept_reach_loss:
+        raise MoveRefused(
+            f'withdrawing `{slug}` from universal needs --accept-reach-loss on this '
+            f'--dedupe-only run. Universal is the one level every Precedent consumer '
+            f'resolves; the {to_level} set is not, so this step leaves the rule in '
+            f'force nowhere for any consumer that never declared it -- most of them, '
+            f'not a smaller audience. That is not a guess: verify_harness.py --as-ci\'s '
+            f'consumer-fixture check found exactly this shape of deduplication '
+            f'resolving nowhere, 2026-09-23, after it was done by hand instead of by '
+            f'this tool. Pass the flag once the audience that matters has taken the '
+            f'destination set.')
     if from_level == to_level and pathlib.Path(from_path).resolve() == pathlib.Path(to_path).resolve():
         raise MoveRefused('source and destination are the same set')
     if strength is not None and strength not in STRENGTHS:
@@ -258,14 +386,19 @@ def move(slug, from_level, from_path, to_level, to_path, approved_by,
     from_name = pathlib.Path(from_path).resolve().name
     to_name = pathlib.Path(to_path).resolve().name
     plan = []
+    rehomed = []
 
     if not dedupe_only:
         text = src.read_text(encoding='utf-8')
         if story and not (sections.get('story') or '').strip():
             text = _append_story(text, story)
         old_approved = _field(fm, 'approved_by')
-        approval = (f'"{approved_by}, {today}, moved from the {from_level} set '
-                    f'{from_name}' + (f' (there: {old_approved})' if old_approved else '') + '"')
+        if duplicate_from_universal:
+            approval = (f'"{approved_by}, {today}, duplicated from the universal set '
+                        f'{from_name} -- that copy stays active, see its own Story"')
+        else:
+            approval = (f'"{approved_by}, {today}, moved from the {from_level} set '
+                        f'{from_name}' + (f' (there: {old_approved})' if old_approved else '') + '"')
         updates = {'status': 'active', 'in_force_at': 'null',
                    'added': f'"{today}"', 'approved_by': approval}
         if to_level == 'universal':
@@ -274,17 +407,42 @@ def move(slug, from_level, from_path, to_level, to_path, approved_by,
         if strength:
             updates['strength'] = strength
         new_text = _rewrite_frontmatter(text, updates)
+        new_text, rehomed = _rehome_sibling_links(new_text, dest.parent)
         plan.append(('write', dest, new_text))
 
-    if to_level != 'universal' or dedupe_only:
+    if dedupe_only or (to_level != 'universal' and not duplicate_from_universal):
         src_text = src.read_text(encoding='utf-8')
         line = (f'Moved to the {to_level} set `{to_name}` on {today}'
                 + (f', approved there by {approved_by}' if approved_by else '')
                 + f'. This copy is deduplicated; the rule is in force there as `{slug}`.')
+        if duplicate_from_universal:
+            line = (f'Withdrawn from universal on {today}, deliberately, with '
+                    f'--accept-reach-loss: deduplicated here; the rule is in force only '
+                    f'from the {to_level} set `{to_name}` now. A consumer resolving only '
+                    f'universal no longer gets it.')
         src_new = _rewrite_frontmatter(src_text, {'status': 'deduplicated',
                                                   'in_force_at': slug})
         src_new = _append_story(src_new, line)
         plan.append(('write', src, src_new))
+    elif duplicate_from_universal:
+        src_text = src.read_text(encoding='utf-8')
+        line = (f'Also landed in the {to_level} set `{to_name}` on {today}'
+                + (f', approved there by {approved_by}' if approved_by else '')
+                + f'. Kept ACTIVE here, not deduplicated: universal is the one level '
+                  f'every Precedent consumer resolves, and a plain universal-only '
+                  f'consumer never resolves a pointer into `{to_name}` -- deduplicating '
+                  f'this copy would leave the rule in force nowhere for them '
+                  f'(the failure `verify_harness.py --as-ci`\'s consumer-fixture check '
+                  f'exists to catch, and did, 2026-09-23). Both copies are genuinely in '
+                  f'force; review both when editing either. Withdraw this copy later, '
+                  f'deliberately, with `--dedupe-only --accept-reach-loss` once the '
+                  f'audience that matters has taken `{to_name}`.')
+        src_new = _append_story(src_text, line)
+        plan.append(('write', src, src_new))
+
+    for change in rehomed:
+        say(f'{"would rewrite" if dry_run else "rewrote"} a sibling link that does not '
+            f'travel to {to_name}: {change}')
 
     if dry_run:
         for _op, path, _content in plan:
@@ -301,11 +459,23 @@ def move(slug, from_level, from_path, to_level, to_path, approved_by,
         _read(path)      # the written file must parse, or say so now
         say(f'wrote {path}')
 
-    for set_root in ({str(pathlib.Path(to_path).resolve()), str(pathlib.Path(from_path).resolve())}
-                     if to_level != 'universal' else {str(pathlib.Path(from_path).resolve())} if dedupe_only else set()):
-        say(f'  {_regenerate(set_root)}')
+    def _regen_for(level, path):
+        if level == 'universal':
+            return f'{path}: {_regenerate_universal(path)}'
+        return _regenerate(str(pathlib.Path(path).resolve()))
+
     if to_level == 'universal' and not dedupe_only:
-        say(f'  {to_path}: {_regenerate_universal(to_path)}')
+        say(f'  {_regen_for(to_level, to_path)}')
+    elif to_level == 'universal' and dedupe_only:
+        say(f'  {_regen_for(from_level, from_path)}')
+    else:
+        # to_level is shared/individual: the destination always changed.
+        # The source did too -- either deduplicated (ordinary move, or the
+        # deliberate --accept-reach-loss withdrawal) or kept active with a
+        # new Story note (duplicate_from_universal's initial landing) --
+        # and when it's universal, that regeneration needs doc_sync.py too.
+        say(f'  {_regen_for(to_level, to_path)}')
+        say(f'  {_regen_for(from_level, from_path)}')
 
     # practice: disclose-landing
     if to_level == 'universal' and not dedupe_only:
@@ -317,6 +487,20 @@ def move(slug, from_level, from_path, to_level, to_path, approved_by,
             f'consuming {from_name} has taken the new universal catalogue (INSTALL.md '
             f'\u00a72 step 0, or "Update Vendors"): a consumer that still vendors the '
             f'old catalogue sees the rule in neither source, and its next sync refuses.')
+    elif duplicate_from_universal and dedupe_only:
+        say(f'DISCLOSE TO THE HUMAN: `{slug}` is now WITHDRAWN from universal -- '
+            f'deduplicated in {from_name}, in force only from the {to_level} set '
+            f'{to_name}. Any consumer that resolves only universal (most of them) no '
+            f'longer gets this rule at all -- --accept-reach-loss was required for '
+            f'this step for exactly that reason.')
+    elif duplicate_from_universal:
+        say(f'DISCLOSE TO THE HUMAN: `{slug}` now ALSO lives in the {to_level} set '
+            f'{to_name}, approved by {approved_by}. The universal copy in {from_name} '
+            f'stays ACTIVE and is NOT deduplicated -- withdrawing it would break every '
+            f'consumer that does not declare {to_name}, which is most of them. Both '
+            f'copies are genuinely in force; edit either and check the other. Run this '
+            f'tool again with --dedupe-only --accept-reach-loss, deliberately, if and '
+            f'when withdrawing the universal copy is the right call.')
     elif dedupe_only:
         say(f'DISCLOSE TO THE HUMAN: `{slug}` is now deduplicated in the {from_level} set '
             f'{from_name}; the rule is in force from the {to_level} set {to_name}.')
@@ -334,7 +518,7 @@ def main(argv=None):
         return 0
     opts = {'--slug': None, '--from': None, '--from-path': None, '--to': None,
             '--to-path': None, '--approved-by': None, '--strength': None, '--story': None}
-    flags = {'--dry-run': False, '--dedupe-only': False}
+    flags = {'--dry-run': False, '--dedupe-only': False, '--accept-reach-loss': False}
     i = 0
     while i < len(argv):
         a = argv[i]
@@ -358,7 +542,8 @@ def main(argv=None):
         move(opts['--slug'], opts['--from'], opts['--from-path'], opts['--to'],
              opts['--to-path'], opts['--approved-by'], strength=opts['--strength'],
              story=opts['--story'], dry_run=flags['--dry-run'],
-             dedupe_only=flags['--dedupe-only'])
+             dedupe_only=flags['--dedupe-only'],
+             accept_reach_loss=flags['--accept-reach-loss'])
     except MoveRefused as e:
         print(f'precedent_move FAIL: {e}', file=sys.stderr)
         return 1

@@ -167,6 +167,12 @@ Run:
       session to hold the harness's own session list against.
   python3 tools/very_deep_check.py --skip-session-sweep
       -- skip that sweep entirely.
+  python3 tools/very_deep_check.py --with-harness
+      -- run `verify_harness.py --all` from inside this run and record the
+      result as its own ledger section. Off by default: it is minutes, and
+      its stress checks have OOM-killed a session's shell before. Left off,
+      the PLANTED CASE COVERAGE section says the rotation is still owed and
+      names the command.
   python3 tools/very_deep_check.py --skip-liveness
   python3 tools/very_deep_check.py --landable-only  # only repos this
                                   # session can push to; findings in the seam
@@ -189,6 +195,12 @@ Run:
       -- record a hand-worked pass's outcome against the most recent run in
       the ledger, and exit. `findings`, `tokens` and `note` are each
       optional; an absent one is recorded as absent, never estimated.
+  python3 tools/very_deep_check.py --record-read 'tools/verify_harness.py,by=...,note=...'
+      -- record that somebody read that file END TO END today, in
+      record/holistic-reads.json, and exit. The ACCRETION section ranks by
+      commits since a file's last recorded read, so this is what moves a
+      file off the top of it. Commit the registry: it is the only thing
+      that knows.
   python3 tools/very_deep_check.py --ledger PATH
       -- read and write the run ledger somewhere else (a fixture, or a
       second repository's own ledger).
@@ -202,7 +214,7 @@ Exit: 1 if any repo in force is not provably current (unless --allow-stale),
 or if a declared team/individual source is missing (unless
 --allow-missing-sources); 0 otherwise.
 """
-import collections, datetime, io, json, os, pathlib, re, subprocess, sys, time, urllib.parse
+import collections, datetime, io, json, os, pathlib, re, shutil, subprocess, sys, tempfile, time, urllib.parse
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'tools'))
@@ -891,6 +903,65 @@ def _orphan_scan(repo_dir):
     return out
 
 
+def planted_case_coverage(repo_root, run=False, timeout=2400):
+    """-> (status, lines) for the push gate's planted-case ROTATION, settled
+    or still owed. (practice: very-deep-check, order of operations step 2)
+
+    WHY THIS IS A SECTION AND NOT A SENTENCE. verify_harness.py runs a 10%
+    slice of its planted cases per commit and says so in its own result
+    line -- "covered within 10 commits (--all forces every one)". That is a
+    promise with no settlement date: nothing in the project ever forces the
+    full set, so a case that stopped firing months ago is covered by an
+    argument rather than by a run. The very deep check is the one moment
+    already expensive on purpose, which makes it the place to collect.
+
+    Default is to REPORT rather than run. A full harness run is minutes and
+    its stress checks have OOM-killed a session's shell before
+    (gotcha-2026-09-18-verify-harnesss-stress-checks-can-oom-kill-the-bash-tools),
+    so a tool that silently started one inside another long run would be
+    making that call for the session. --with-harness asks for it.
+
+    status is 'ran', 'owed', or 'n/a'."""
+    repo_root = pathlib.Path(repo_root)
+    harness = repo_root / 'tools' / 'verify_harness.py'
+    if not harness.is_file():
+        return 'n/a', ['no tools/verify_harness.py here -- this repo runs no '
+                       'planted cases, so there is no rotation to settle']
+    cmd = 'python3 tools/verify_harness.py --all'
+    if not run:
+        return 'owed', [
+            f'NOT RUN this invocation -- step 2 of the order of operations '
+            f'owes `{cmd}`',
+            'The bare command every other gate runs covers a 10% slice; this '
+            'check is the one place the whole set is meant to run.',
+            'Pass --with-harness to run it from here and record the result '
+            'in the ledger.']
+    started = time.time()
+    try:
+        proc = subprocess.run([sys.executable, str(harness), '--all'],
+                              cwd=str(repo_root), capture_output=True,
+                              text=True, timeout=timeout)
+    except subprocess.TimeoutExpired:
+        return 'owed', [f'FAIL: `{cmd}` did not finish within {timeout}s -- '
+                        f'the rotation is NOT settled by this run']
+    except OSError as exc:                                    # noqa: BLE001
+        return 'owed', [f'FAIL: could not run `{cmd}` -- {exc}']
+    took = time.time() - started
+    body = (proc.stdout or '') + (proc.stderr or '')
+    # The harness states its own selection in the result line; quoting it
+    # back is the evidence that --all actually took effect, rather than
+    # this section asserting it did.
+    sel = [l.strip() for l in body.splitlines()
+           if 'planted case' in l and 'ran' in l]
+    lines = [f'ran `{cmd}` in {took:.0f}s -- exit {proc.returncode}']
+    lines += [f'  {s}' for s in sel[:2]]
+    if proc.returncode != 0:
+        tail = [l for l in body.splitlines() if l.strip()][-8:]
+        lines.append('FAIL -- the full set does not pass. Tail:')
+        lines += [f'    {l}' for l in tail]
+    return 'ran', lines
+
+
 def _workflow_liveness_scan(repo_dir):
     """-> [str] CANDIDATES for a human to read, in one repo -- never a claim
     that any of them is actually dead.
@@ -950,6 +1021,1237 @@ def _workflow_liveness_scan(repo_dir):
            f'read its content before concluding anything'
            for rel in pve._untracked_ci_workflow_files(repo_dir, manifest)
            if rel not in exempt]
+
+
+HOLISTIC_READS_RELPATH = pathlib.Path('record') / 'holistic-reads.json'
+
+# How far back the accretion ranking counts commits for a file nobody has
+# ever recorded reading. A window, not "all history", for a reason that is
+# mechanical rather than aesthetic: a fresh session starts in a --depth 1
+# clone, where "all history" is one commit and every file would tie at 1.
+# Declared here as an input rather than buried in a call
+# (practice: constants-are-risk-inputs); a repo overrides it with
+# `holistic_read_window_days` in its own precedent.json.
+ACCRETION_WINDOW_DAYS = 30
+
+
+def holistic_reads_path_for(repo_root=None):
+    return pathlib.Path(repo_root or ROOT) / HOLISTIC_READS_RELPATH
+
+
+def _load_holistic_reads(repo_root):
+    """-> {path: {'date','by','note'}} keeping the NEWEST read per path."""
+    try:
+        data = json.loads(
+            holistic_reads_path_for(repo_root).read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return {}
+    newest = {}
+    for row in (data.get('reads') or []):
+        path, date = str(row.get('path') or ''), str(row.get('date') or '')
+        if not path or not date:
+            continue
+        if path not in newest or date > newest[path]['date']:
+            newest[path] = {'date': date, 'by': row.get('by') or '',
+                            'note': row.get('note') or ''}
+    return newest
+
+
+def _record_read(value, repo=None):
+    """Append one holistic read to the registry. `value` is
+    'PATH' or 'PATH,by=...,note=...'.
+
+    A REGISTRY, not a sentence in a document
+    (practice: registry-source-of-truth), for the reason the run ledger is
+    one: "when did anybody last read this whole file" is exactly the claim
+    memory gets wrong, and a prose note about it drifts from the tree the
+    moment either moves."""
+    repo_root = pathlib.Path(repo or ROOT).resolve()
+    parts = [x.strip() for x in value.split(',')]
+    path = parts[0]
+    if not path:
+        sys.exit("very deep check FAIL: --record-read needs a path, e.g. "
+                 "--record-read 'tools/verify_harness.py,note=...'.")
+    fields = {}
+    for part in parts[1:]:
+        k, _, v = part.partition('=')
+        if k.strip() in ('by', 'note') and v:
+            fields[k.strip()] = v.strip()
+    if not (repo_root / path).exists():
+        # Refused rather than recorded: a read recorded against a path that
+        # is not there is a claim about nothing, and it would sit in the
+        # registry suppressing the real file's row forever.
+        sys.exit(f"very deep check FAIL: {path} does not exist in "
+                 f"{repo_root} -- a read is recorded against a file, and a "
+                 f"typo here would silently retire the real file's row.")
+    out = holistic_reads_path_for(repo_root)
+    try:
+        data = json.loads(out.read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        data = {'_generated_by': 'tools/very_deep_check.py --record-read',
+                'reads': []}
+    data.setdefault('reads', []).append({
+        'path': path,
+        'date': precedent_time.date_from_unix(time.time()),
+        'by': fields.get('by', ''),
+        'note': fields.get('note', '')})
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(data, indent=2, ensure_ascii=False) + '\n',
+                   encoding='utf-8')
+    print(f"recorded a holistic read of {path} in "
+          f"{out.relative_to(repo_root)}. Commit it -- the registry is the "
+          f"only thing that knows, and a chat thread is not.")
+    return 0
+
+
+def _accretion(repo_dir, window_days=None, top=10):
+    """-> (rows, window, note). Tracked files ranked by how much has been
+    added to them since anybody last read the whole thing.
+    (practice: very-deep-check, pass 3)
+
+    THE SHAPE OF THE PROBLEM. Every other question here asks whether a file
+    is WRONG. This one asks whether anybody has looked at it as a thing
+    lately, which no amount of correctness per commit can answer: a file
+    grows one defensible line at a time and nobody is ever wrong on the day
+    they add theirs. The close read of the always-loaded instructions file
+    was added the day somebody noticed it had gone stale twice in one
+    file -- and nothing generalized that fix, while the measurement said the
+    instructions file was not even the worst offender.
+
+    rows are (path, commits, lines, last_read_date or None), ranked by
+    commits since the last recorded read, or across the window for a file
+    with no recorded read at all.
+
+    IT RANKS AND DOES NOT JUDGE. Churn is not a defect and a heavily edited
+    file may be exactly the healthy one; what the ranking buys is that the
+    file nobody has opened whole cannot stay invisible just because every
+    individual commit to it was fine."""
+    repo_dir = pathlib.Path(repo_dir)
+    window = window_days or _declared_holistic_window(repo_dir) \
+        or ACCRETION_WINDOW_DAYS
+    reads = _load_holistic_reads(repo_dir)
+    rc, out, _err = _run_git(repo_dir, 'log', f'--since={window} days ago',
+                             '--no-merges', '--name-only', '--pretty=format:')
+    if rc != 0:
+        return [], window, 'git log could not be read here'
+    counts = collections.Counter(x for x in out.split('\n') if x.strip())
+    if not counts:
+        return [], window, (f'no commits in the last {window} days, or a '
+                            f'shallow clone with no history to count')
+    rows = []
+    for path, n in counts.items():
+        f = repo_dir / path
+        if not f.is_file():
+            continue                      # deleted since: not a candidate
+        read = reads.get(path)
+        if read:
+            rc2, out2, _e = _run_git(
+                repo_dir, 'log', f'--since={read["date"]}', '--no-merges',
+                '--oneline', '--', path)
+            n = len([x for x in out2.split('\n') if x.strip()]) \
+                if rc2 == 0 else n
+        try:
+            lines = sum(1 for _ in f.open('r', encoding='utf-8',
+                                          errors='replace'))
+        except OSError:
+            lines = 0
+        rows.append((path, n, lines, read['date'] if read else None))
+    rows.sort(key=lambda r: (-r[1], -r[2]))
+    return rows[:top], window, ''
+
+
+def _declared_holistic_window(repo_dir):
+    """-> a repo's own `holistic_read_window_days`, or None. Same shape and
+    same reasoning as _declared_stale_days."""
+    try:
+        v = json.loads((pathlib.Path(repo_dir) / 'precedent.json')
+                       .read_text(encoding='utf-8')
+                       ).get('holistic_read_window_days')
+        return v if isinstance(v, int) and not isinstance(v, bool) and v > 0 \
+            else None
+    except Exception:                                         # noqa: BLE001
+        return None
+
+
+def _incident_frontmatter(path):
+    """-> {key: value} for the simple `key: value` frontmatter block these
+    catalogues use. Deliberately not a YAML load: parse_check.py already
+    reports a file PyYAML rejects, and this one must keep working on the
+    file that is currently malformed rather than vanishing with it."""
+    out = {}
+    try:
+        text = path.read_text(encoding='utf-8')
+    except OSError:
+        return out
+    if not text.startswith('---'):
+        return out
+    body = text.split('---', 2)
+    if len(body) < 3:
+        return out
+    for line in body[1].splitlines():
+        if ':' not in line or line.startswith((' ', '\t')):
+            continue
+        k, _, v = line.partition(':')
+        out[k.strip()] = v.strip().strip('"').strip("'")
+    return out
+
+
+def _last_run_date(repo_dir):
+    """-> 'YYYY-MM-DD' of the newest recorded very deep check run here, or
+    None. The ledger is the only record of when this check last looked, so
+    it is also the only honest start date for "what has happened since"."""
+    try:
+        data = json.loads(ledger_path_for(repo_dir).read_text(encoding='utf-8'))
+        runs = data.get('runs') or []
+        return str(runs[-1].get('date')) if runs else None
+    except (OSError, ValueError, AttributeError, IndexError):
+        return None
+
+
+def _incident_coverage(repo_dir, since=None):
+    """-> (since, rows, note). Every incident FILED here since the last
+    recorded run, with whatever in the tree cites it.
+    (practice: very-deep-check, pass 2)
+
+    THE QUESTION. This check has grown one bullet at a time, each added
+    after somebody noticed a gap -- which makes growth a function of who
+    happened to be looking. The standing version of that is cheap: take
+    every gotcha filed and every open item closed since the last run, and
+    ask of each one thing -- **what now prevents a recurrence, and is
+    there a planted case proving it fires?**
+
+    Three answers are honest, and the third is the one worth writing down:
+    a named check with a planted case; a named check with no planted case;
+    and nothing, deliberately, because the class is not mechanically
+    detectable. A gap that has been examined and declined is not the same
+    state as a gap nobody has looked at, and only the catalogue can tell
+    them apart.
+
+    IT ENUMERATES AND CITES; IT DOES NOT JUDGE. A slug appearing in a
+    tool's source is evidence that something cites the incident, never
+    proof that the incident cannot recur -- a docstring naming it reads
+    identically to a check testing for it. The reading is the session's;
+    what this removes is the part nobody does, which is assembling the
+    list."""
+    repo_dir = pathlib.Path(repo_dir)
+    since = since or _last_run_date(repo_dir)
+    if not since:
+        return None, [], ('no recorded run in the ledger here, so there is '
+                          'no "since" to read from')
+    corpus = {}
+    for sub in ('tools', 'practices'):
+        d = repo_dir / sub
+        if not d.is_dir():
+            continue
+        for f in sorted(d.rglob('*')):
+            if f.is_file() and f.suffix in ('.py', '.md', '.json'):
+                try:
+                    corpus[str(f.relative_to(repo_dir))] = f.read_text(
+                        encoding='utf-8')
+                except (OSError, UnicodeDecodeError):
+                    continue
+    rows = []
+    for kind, sub, datefield in (('gotcha filed', 'gotchas', 'noted'),
+                                 ('open item closed', 'todo', 'closed')):
+        d = repo_dir / sub
+        if not d.is_dir():
+            continue
+        for f in sorted(d.glob('*.md')):
+            fm = _incident_frontmatter(f)
+            when = fm.get(datefield) or ''
+            slug = fm.get('slug') or f.stem
+            if not when or when in ('null', 'None') or when < since:
+                continue
+            cites = sorted(path for path, text in corpus.items()
+                           if slug in text)
+            rows.append((kind, slug, when, cites))
+    rows.sort(key=lambda r: (r[2], r[1]))
+    return since, rows, ''
+
+
+
+_CHECK_REG = re.compile(r"^@check\(\s*'([a-z0-9-]+)'", re.M)
+
+
+def _detectors_added(repo_dir, since):
+    """-> (slugs, note, caveat). Checks registered in tools/precedent_check.py
+    that were NOT registered as of `since`. `note` means the question could not
+    be asked at all; `caveat` means it was asked over a narrower window than
+    the ledger called for, and the sweep still runs.
+
+    Reads the SET of registered slugs at two revisions and subtracts, rather
+    than scanning the diff for added lines. A registration moved, reindented
+    or rewrapped shows up in a diff as an addition and is not a new detector;
+    the set difference cannot make that mistake."""
+    repo_dir = pathlib.Path(repo_dir)
+    rel = 'tools/precedent_check.py'
+    if not (repo_dir / rel).is_file():
+        return [], f'no {rel} here -- nothing registers a detector', ''
+    if not since:
+        return [], ('no recorded run in the ledger here, so there is no '
+                    '"since" to read from'), ''
+    old_rev = subprocess.run(
+        ['git', 'rev-list', '-1', f'--before={since} 00:00:00', 'HEAD'],
+        cwd=str(repo_dir), capture_output=True, text=True).stdout.strip()
+    shallow = ''
+    if not old_rev:
+        # A DEPTH-LIMITED CLONE IS THE NORMAL CASE HERE, not a broken one:
+        # sessions clone with --depth, so the history often starts AFTER the
+        # ledger's last run. Falling back to the oldest commit the clone
+        # actually has keeps the sweep running on a narrower window, which
+        # UNDER-reports -- a detector registered before that commit reads as
+        # old and is not carried. That is the safe direction for a silent
+        # error and the wrong one to leave unsaid, so it is named in the
+        # return and printed by the caller.
+        old_rev = subprocess.run(
+            ['git', 'rev-list', '--max-parents=0', '-1', 'HEAD'],
+            cwd=str(repo_dir), capture_output=True, text=True).stdout.strip()
+        if not old_rev:
+            return [], (f'no commit here before {since}, and no root '
+                        f'commit either -- nothing to compare against'), ''
+        when = subprocess.run(
+            ['git', 'log', '-1', '--format=%ad', '--date=short', old_rev],
+            cwd=str(repo_dir), capture_output=True, text=True).stdout.strip()
+        shallow = (f' (this clone holds no commit before {since} -- the '
+                   f'comparison runs from its oldest, {old_rev[:9]} of '
+                   f'{when}, so a detector older than that is not carried)')
+    old = subprocess.run(['git', 'show', f'{old_rev}:{rel}'],
+                         cwd=str(repo_dir), capture_output=True, text=True)
+    if old.returncode != 0:
+        return [], f'{rel} did not exist at {old_rev[:9]} -- nothing to diff', ''
+    try:
+        now_text = (repo_dir / rel).read_text(encoding='utf-8')
+    except (OSError, UnicodeDecodeError) as exc:
+        return [], f'could not read {rel} ({type(exc).__name__})', ''
+    before = set(_CHECK_REG.findall(old.stdout))
+    after = set(_CHECK_REG.findall(now_text))
+    return sorted(after - before), '', shallow
+
+
+def _scratch_tree(src, dest, engine_src):
+    """Copy `src`'s tracked tree to `dest`, give it a one-commit history, and
+    drop THIS checkout's precedent_check.py in as its engine.
+
+    WHY A COPY AND NOT THE REPO ITSELF. precedent_check.py resolves ROOT from
+    its own location's git toplevel, so this checkout's copy cannot be pointed
+    at another tree from the outside -- it has to physically sit inside one.
+    Writing it into a real clone would leave an untracked file in somebody's
+    working tree if this run died halfway, which is exactly the residue the
+    container scanner exists to shout about.
+
+    THE SYNTHESISED HISTORY IS A LIMIT, NOT A TRICK, and the caller prints it:
+    the copy has one commit and a clean tree, so every change-scope check sees
+    no change and declines. What this sweep asks is a TREE question -- does
+    the new detector fire against what that repo holds right now -- and a
+    tree-scope check answers it correctly here. A change-scope one cannot be
+    answered from another repo's tree at all, and says so rather than passing."""
+    files = subprocess.run(['git', 'ls-files', '-z'], cwd=str(src),
+                           capture_output=True, text=True)
+    if files.returncode != 0:
+        return 'could not list its tracked files'
+    for rel in files.stdout.split('\0'):
+        if not rel:
+            continue
+        s, d = pathlib.Path(src) / rel, pathlib.Path(dest) / rel
+        if not s.is_file():
+            continue
+        d.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            shutil.copy2(s, d)
+        except OSError:
+            continue
+    shutil.copy2(engine_src, pathlib.Path(dest) / 'tools' / 'precedent_check.py')
+    for args in (['init', '-q'], ['add', '-A'],
+                 ['-c', 'user.email=sweep@localhost', '-c', 'user.name=sweep',
+                  'commit', '-qm', 'fix sweep scratch']):
+        r = subprocess.run(['git', *args], cwd=str(dest),
+                           capture_output=True, text=True)
+        if r.returncode != 0 and args[0] != '-c':
+            return f'could not git {args[0]} the copy'
+    return ''
+
+
+def _fix_sweep(repo_root, targets, since=None, timeout=300):
+    """-> (since, slugs, rows, note, caveat). Every detector added since the
+    last recorded run, run against every repo in force.
+    (practice: very-deep-check, pass 2 item 13 -- fix-the-original\'s half)
+
+    THE GAP THIS CLOSES. fix-the-original requires fixing the origin and then
+    every copy. Nothing checked that the sweep happened. The hardcoded-identity
+    check was written the day the trap was reported, HERE, and the repo that
+    actually had the problem was a consumer nobody re-scanned -- a check built
+    in response to an incident and never run where the incident happened is the
+    most expensive kind of clean result.
+
+    CHECK COVERAGE beside this asks the opposite question and they are easy to
+    confuse: it runs each repo\'s OWN vendored engine, because what a consumer
+    actually enforces is the code it has. This runs THIS checkout\'s engine
+    against that repo\'s tree, because the whole point is a detector the
+    consumer has not vendored yet. A consumer running an engine from before the
+    fix reports nothing, correctly, and that silence is what this is for.
+
+    IT SWEEPS REGISTERED CHECKS AND NOTHING ELSE. A fix that shipped its
+    detector as a standalone tool, a planted harness case or a hook is not
+    reached here, and the caller says so -- naming the limit beats a row that
+    reads like coverage it does not have."""
+    since = since or _last_run_date(repo_root)
+    slugs, note, caveat = _detectors_added(repo_root, since)
+    if note:
+        return since, [], [], note, ''
+    if not slugs:
+        return since, [], [], '', caveat
+    engine = pathlib.Path(repo_root) / 'tools' / 'precedent_check.py'
+    rows = []
+    for label, path in targets:
+        if not path or not pathlib.Path(path).is_dir():
+            rows.append((label, None, 'not on this disk -- cannot be swept'))
+            continue
+        if pathlib.Path(path).resolve() == pathlib.Path(repo_root).resolve():
+            rows.append((label, None, 'the origin of the fix -- swept by its '
+                                      'own gate, not here'))
+            continue
+        tmp = pathlib.Path(tempfile.mkdtemp(prefix='fix-sweep-'))
+        try:
+            bad = _scratch_tree(path, tmp, engine)
+            if bad:
+                rows.append((label, None, bad))
+                continue
+            verdicts = []
+            for slug in slugs:
+                try:
+                    proc = subprocess.run(
+                        [sys.executable, str(tmp / 'tools' /
+                                             'precedent_check.py'),
+                         '--only', slug, '--full-sweep'],
+                        cwd=str(tmp), capture_output=True, text=True,
+                        timeout=timeout)
+                except (OSError, subprocess.SubprocessError) as exc:
+                    verdicts.append((slug, 'ERRORED', type(exc).__name__))
+                    continue
+                body = (proc.stdout or '') + (proc.stderr or '')
+                why = ''
+                for line in body.splitlines():
+                    if line.startswith(('SKIPPED', 'VIOLATION')):
+                        for sep in ('\u2014', '--'):
+                            if sep in line:
+                                why = line.split(sep, 1)[1].strip()
+                                break
+                        break
+                m = re.search(r'precedent_check: (\d+) passed, (\d+) violated,'
+                              r' (\d+) advisory, (\d+) errored, (\d+) skipped',
+                              body)
+                if not m:
+                    verdicts.append((slug, 'UNREADABLE', 'no summary line'))
+                elif int(m.group(2)):
+                    verdicts.append((slug, 'VIOLATION', why))
+                elif int(m.group(1)):
+                    verdicts.append((slug, 'clean', ''))
+                elif int(m.group(5)):
+                    verdicts.append((slug, 'SKIPPED', why))
+                else:
+                    verdicts.append((slug, 'did not run', ''))
+            rows.append((label, verdicts, ''))
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    return since, slugs, rows, '', caveat
+
+def _pending_deletions(repo_dir):
+    """-> (rows, note) for files the NEXT refresh would delete here, each
+    with whatever still names them. rows is [(rel, [(path, line, text)])].
+
+    THE DIRECTION NOTHING ELSE REHEARSES. Pass 1 builds fixtures that
+    install and fixtures that move forward; both test a repo receiving
+    something. A deletion decided in one tree and executed in many is the
+    other direction, and until 2026-09-21 the two vendoring paths did not
+    even agree on whether it happened at all -- engine files diffed the
+    manifest and propagated, CI workflow files waited for somebody to
+    remember a tombstone.
+
+    This asks BEFORE the refresh what that refresh would take away, and who
+    is still leaning on it. precedent_vendor_engine warns after the fact
+    now, which is the same question asked too late to plan around.
+
+    Read against THIS checkout's engine lists deliberately -- the upstream's
+    current ones, which is what the next refresh will actually apply -- and
+    never against the consumer's own vendored copy, which may be months
+    old."""
+    repo_dir = pathlib.Path(repo_dir)
+    mpath = repo_dir / 'tools' / 'ENGINE_MANIFEST.json'
+    if not mpath.is_file():
+        return None, 'nothing vendored here -- no manifest to diff'
+    try:
+        manifest = json.loads(mpath.read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return None, 'tools/ENGINE_MANIFEST.json is unreadable'
+    try:
+        import precedent_vendor_engine as pve
+    except ImportError:
+        return None, 'precedent_vendor_engine did not import'
+    kind = manifest.get('kind', getattr(pve, 'DEFAULT_KIND', None))
+    rels = []
+    if kind in getattr(pve, 'KINDS', {}):
+        ships = set(pve.KINDS.get(kind, ())) | {'routing_scope.json'}
+        rels += [f'tools/{n}' for n in
+                 sorted(set(manifest.get('files') or []) - ships)]
+    recorded = set(manifest.get('ci_workflow_files') or ())
+    if kind in getattr(pve, 'CI_WORKFLOW_TEMPLATES', {}):
+        ships_ci = {ia for _t, ia in pve.CI_WORKFLOW_TEMPLATES[kind]}
+        rels += sorted(recorded - ships_ci)
+    rels += sorted(r for r in recorded
+                   if r in getattr(pve, 'RETIRED_CI_WORKFLOW_FILES', {}))
+    # HOOKS, the third path, added 2026-09-21 the same day the engine grew
+    # a remover for them. Same empty-directory guard the remover itself
+    # carries: an upstream hooks/ that globs to nothing means this checkout
+    # cannot see upstream, not that upstream ships no hooks, and reading it
+    # the other way would report every installed hook as about to vanish.
+    ships_hooks = set(pve._hook_file_names(ROOT / pve.HOOK_SOURCE_DIR)) \
+        if hasattr(pve, '_hook_file_names') else set()
+    if ships_hooks:
+        rels += sorted(f'{pve.HOOK_DEST_DIR}/{n}'
+                       for n in (manifest.get('hook_files') or [])
+                       if n not in ships_hooks)
+    # Only what is actually still on disk: a name the manifest tracks and
+    # the tree no longer has is already gone, and reporting it as pending
+    # would be reporting bookkeeping.
+    rels = sorted({r for r in rels if (repo_dir / r).is_file()})
+    if not rels:
+        return [], (f'kind {kind!r}: nothing this kind stopped shipping is '
+                    f'still on disk here')
+    deps = pve.dependents_of(repo_dir, rels)
+    return [(r, deps.get(r, [])) for r in rels], f'kind {kind!r}'
+
+
+def _identity_reality(repo_dir, days=30, cap=300):
+    """-> (rows, notes) for one repo: who the commits that LANDED say wrote
+    them, read against the identity this repo declares.
+    (practice: very-deep-check, pass 2, extending question 13)
+
+    QUESTION 13 ASKS WHAT A SESSION INHERITS -- every git config, env var
+    and sibling clone a person set up by hand. Nothing asked what actually
+    landed, which is the only place the answer shows. Three incidents in
+    six days made that gap expensive: commit identity unset in four clones,
+    so commits landed under the wrong author; a consumer's tracked
+    settings.json hardcoding one person's GIT_AUTHOR_* for every
+    collaborator who loads it; and a whole design document written for a
+    repo-scoped identity override no real requirement asked for.
+
+    Three mechanical reads here:
+
+    1. THE AUTHOR AND COMMITTER of every commit in the window, against the
+       declared identity. A commit by somebody else is a NOTE and never a
+       finding -- other people and machines commit, and a check that called
+       that wrong would be unusable. What IS a finding is a commit authored
+       by nobody in particular: the default identity a container invents
+       when nothing configured one.
+    2. THE AUTHOR-DATE OFFSET, against the declared timezone at that
+       instant. This is the field commit-identity.sh either ENFORCES or
+       merely guesses at depending on whether an identity is declared, so
+       drift here is the guess having been wrong, silently, in the past
+       tense.
+    3. A TRACKED settings.json naming GIT_AUTHOR_NAME or GIT_AUTHOR_EMAIL.
+       `no-hardcoded-git-identity` already checks this -- in a repo that
+       runs precedent_check.py. The repository where it was actually found
+       was a consumer, reported by hand, by a session that happened to
+       look, so asking it of every repo in force is the half that was
+       missing.
+
+    Never a finding on somebody else's authorship, and never a claim about
+    a repo whose identity cannot be read: both come back as notes."""
+    repo_dir = pathlib.Path(repo_dir)
+    rows, notes = [], []
+    try:
+        import precedent_identity as pi
+        declared = pi.declared_identity(str(repo_dir)) or {}
+    except Exception as exc:                                  # noqa: BLE001
+        declared = {}
+        notes.append(f'could not read a declared identity here '
+                     f'({type(exc).__name__}), so authorship is reported '
+                     f'without one to compare against')
+    email = (declared.get('email') or '').strip().lower()
+    tzname = (declared.get('timezone') or '').strip()
+
+    rc, out, _err = _run_git(repo_dir, 'log', f'--since={days} days ago',
+                             f'--max-count={cap}', '--no-merges',
+                             '--pretty=format:%H%x09%an%x09%ae%x09%aI')
+    if rc != 0:
+        notes.append('git log could not be read here')
+        return rows, notes
+    commits = [l.split('\t') for l in out.split('\n') if l.count('\t') == 3]
+    if not commits:
+        notes.append(f'no commits in the last {days} days to read')
+        return rows, notes
+
+    # 1 -- who wrote them
+    others, anonymous = {}, []
+    for sha, name, mail, _when in commits:
+        low = (mail or '').strip().lower()
+        if email and low == email:
+            continue
+        # The shapes a container invents when nothing configured an
+        # identity. Matched on the ADDRESS, never the name: a person may
+        # legitimately be called root somewhere, and nobody's real address
+        # ends in .(none).
+        if (not low or low.endswith('.(none)') or low.endswith('@localhost')
+                or '@' not in low):
+            anonymous.append((sha[:9], name, mail))
+        else:
+            others[low] = others.get(low, 0) + 1
+    if anonymous:
+        rows.append(('FINDING', f'{len(anonymous)} commit(s) authored with no '
+                                f'configured identity -- the address a '
+                                f'container invents when nothing set one: '
+                                + ', '.join(f'{s} <{m}>'
+                                            for s, _n, m in anonymous[:3])))
+    if others:
+        notes.append('other authors in the window (not a finding): '
+                     + ', '.join(f'{k} x{v}' for k, v in
+                                 sorted(others.items(), key=lambda x: -x[1])[:5]))
+
+    # 2 -- the author-date offset against the declared timezone
+    if not (email and tzname):
+        notes.append('no declared email and timezone here, so the '
+                     'author-date offset was not checked -- unverified, not '
+                     'clean')
+    else:
+        try:
+            from zoneinfo import ZoneInfo
+            zone = ZoneInfo(tzname)
+        except Exception as exc:                              # noqa: BLE001
+            zone = None
+            notes.append(f'timezone {tzname!r} could not be loaded '
+                         f'({type(exc).__name__}: no tzdata here?), so the '
+                         f'offset was not checked')
+        if zone is not None:
+            wrong = []
+            for sha, _name, mail, when in commits:
+                if (mail or '').strip().lower() != email:
+                    continue
+                try:
+                    stamp = datetime.datetime.fromisoformat(when)
+                except ValueError:
+                    continue
+                if stamp.utcoffset() is None:
+                    continue
+                expected = stamp.astimezone(zone).utcoffset()
+                if expected != stamp.utcoffset():
+                    # str(timedelta) renders -03:00 as "-1 day, 21:00:00",
+                    # which is the correct value and an unreadable one. One
+                    # formatter for this quantity, here
+                    # (practice: one-formatter-per-quantity).
+                    total = int(expected.total_seconds())
+                    sign = '-' if total < 0 else '+'
+                    total = abs(total)
+                    wrong.append((sha[:9], when,
+                                  f'{sign}{total // 3600:02d}:'
+                                  f'{(total % 3600) // 60:02d}'))
+            if wrong:
+                rows.append(('FINDING', f'{len(wrong)} commit(s) carry an '
+                                        f'author-date offset that is not '
+                                        f'{tzname} at that moment (first: '
+                                        f'{wrong[0][0]} at {wrong[0][1]}, '
+                                        f'expected {wrong[0][2]})'))
+            else:
+                rows.append(('OK', f'every commit of the declared person in '
+                                   f'the window carries the {tzname} offset '
+                                   f'for its own moment'))
+
+    # 3 -- a tracked settings.json that hardcodes somebody
+    for rel in ('.claude/settings.json', '.claude/settings.local.json'):
+        f = repo_dir / rel
+        if not f.is_file():
+            continue
+        if rel.endswith('local.json'):
+            continue                      # untracked and per-machine by design
+        try:
+            env = (json.loads(f.read_text(encoding='utf-8')).get('env')
+                   or {})
+        except (OSError, ValueError):
+            continue
+        named = [k for k in ('GIT_AUTHOR_NAME', 'GIT_AUTHOR_EMAIL')
+                 if env.get(k)]
+        if named and not (repo_dir / 'identity.json').is_file():
+            rows.append(('FINDING', f'{rel} hardcodes {" and ".join(named)} '
+                                    f'in its tracked env block -- every '
+                                    f'session and every collaborator who '
+                                    f'loads this file commits as that one '
+                                    f'person, because GIT_AUTHOR_* outranks '
+                                    f'`git config user.*`'))
+        elif named:
+            notes.append(f'{rel} names {" and ".join(named)}, and a root '
+                         f'identity.json says this repo IS that person\'s '
+                         f'own source -- the documented, correct case')
+    return rows, notes
+
+
+def _config_key_reads(repo_dir, others=()):
+    """-> (rows, note). Every key a repo DECLARES in its own config, and
+    which tool source mentions it.
+    (practice: very-deep-check, pass 2, beside the duplicate question)
+
+    THE INCIDENT (spec/CI_MINUTES_PLAN.md item 15, corrected 2026-09-21).
+    The plan told a session to set `ci_workflows: disabled` in a consuming
+    repo's precedent.json and then delete a workflow. `ci_preference()`
+    resolves that key from an individual or team SOURCE's identity.json and
+    never from a consumer's precedent.json, so the key would have been read
+    by nothing, and the deletion would have carried a commit message
+    claiming a toggle permitted it. A session read the engine and refused.
+    The next one might not.
+
+    A key nobody reads is not a typo, it is a BELIEF -- somebody wrote it
+    expecting it to do something, and the file goes on looking exactly as
+    intentional as a live one, forever. That is the same shape as an
+    orphan, which this check already sweeps for files.
+
+    IT CITES AND DOES NOT JUDGE, for the reason INCIDENT COVERAGE does:
+    a key name appearing in a tool's source proves something mentions it,
+    never that this file is where it is read from -- which is precisely the
+    distinction the incident above turned on. The reading is the session's;
+    what this removes is assembling the list.
+
+    Keys beginning with `_` are skipped: this tree uses them for comments,
+    by convention, and they are not read by design."""
+    repo_dir = pathlib.Path(repo_dir)
+    # THE CORPUS IS NOT JUST tools/*.py, AND THAT WAS THIS CHECK'S OWN FIRST
+    # FALSE POSITIVE. Run against tools/ alone, it reported
+    # `stale_checkout_hours` as read by nothing -- and it is read, by
+    # `freshness-guard.sh`, a HOOK. A config key is consumed by whatever
+    # runs, in whatever language, so the corpus is every script a repo
+    # carries: its tools, its hooks, its bootstrap, and the harness
+    # templates it ships. Caught before this shipped, by checking the one
+    # finding the first run produced rather than relaying it -- a detector
+    # that cries wolf on its first real run is one nobody runs twice.
+    roots = [repo_dir / 'tools', repo_dir / '.claude',
+             repo_dir / 'bootstrap', repo_dir / 'templates']
+    if not (repo_dir / 'tools').is_dir():
+        roots.append(ROOT / 'tools')
+    corpus = {}
+    for root in roots:
+        if not root.is_dir():
+            continue
+        for f in sorted(root.rglob('*')):
+            if f.is_file() and f.suffix in ('.py', '.sh'):
+                try:
+                    corpus[str(f.relative_to(repo_dir))
+                           if repo_dir in f.parents or f.is_relative_to(repo_dir)
+                           else f.name] = f.read_text(encoding='utf-8')
+                except (OSError, UnicodeDecodeError, ValueError):
+                    continue
+    if not corpus:
+        return [], 'no tool or hook sources to read the keys against'
+    rows = []
+    for name in ('precedent.json', 'identity.json'):
+        f = repo_dir / name
+        if not f.is_file():
+            continue
+        try:
+            doc = json.loads(f.read_text(encoding='utf-8'))
+        except (OSError, ValueError):
+            rows.append((name, '(unreadable)', [], []))
+            continue
+        if not isinstance(doc, dict):
+            continue
+        for key in sorted(doc):
+            if key.startswith('_'):
+                continue
+            where = sorted(n for n, text in corpus.items()
+                           if f"'{key}'" in text or f'"{key}"' in text)
+            elsewhere = []
+            if not where:
+                # A KEY READ BY NOTHING HERE IS NOT THE SAME AS A KEY READ
+                # BY NOTHING, and the difference is a whole class. One
+                # source declares `grandfathered_commit_shas` and its
+                # readers live in a DIFFERENT repo in force -- which may be
+                # exactly right, since a private check can run against
+                # every repo. Saying which repo mentions it is what makes
+                # that row decidable instead of alarming.
+                for label, other in others:
+                    other = pathlib.Path(other)
+                    if other == repo_dir or not other.is_dir():
+                        continue
+                    hit = False
+                    for root in ('tools', '.claude', 'bootstrap'):
+                        d = other / root
+                        if not d.is_dir():
+                            continue
+                        for g in d.rglob('*'):
+                            if (g.is_file() and g.suffix in ('.py', '.sh')):
+                                try:
+                                    text = g.read_text(encoding='utf-8')
+                                except (OSError, UnicodeDecodeError):
+                                    continue
+                                if f"'{key}'" in text or f'"{key}"' in text:
+                                    hit = True
+                                    break
+                        if hit:
+                            break
+                    if hit:
+                        elsewhere.append(label)
+            rows.append((name, key, where, elsewhere))
+    return rows, ''
+
+
+_MOVED_CLAIM = re.compile(
+    # `see X` is DELIBERATELY NOT HERE. It was, for one measurement: it
+    # produced 11 rows in this repo and 28 in a source, and every one was a
+    # pointer rather than a claim -- a fixture's invented path, a template
+    # describing the repo it will be installed into, a vendored tool citing
+    # a document that lives upstream. "See X" says where to look; it does
+    # not assert that work moved there, which is the class this exists for,
+    # and its bare-name half is already doc_lint's unlinked-reference
+    # warning.
+    r'(?P<claim>now runs? (?:as \w+ )?in|now lives? in|has moved to|'
+    r'moved into|folded into|superseded by|replaced by)\s+'
+    r'[`\[(]*'
+    r'(?P<target>(?:[A-Za-z0-9_.-]+/)*[A-Za-z0-9_.-]+'
+    r'\.(?:md|py|sh|yml|yaml|json|template))',
+    re.IGNORECASE)
+
+
+def _moved_claims(repo_dir, cap=40):
+    """-> [(file, line number, claim, target)] for sentences that say the
+    work moved SOMEWHERE, where the somewhere is not there -- or None when
+    this could not be established at all, which is NOT the same as [].
+    (practice: very-deep-check, pass 3)
+
+    THE INCIDENT (2026-09-21). `commit-identity.yml` was paused, its header
+    saying its checks "now run as steps in
+    .github/workflows/precedent-check.yml's single job". Four hours later a
+    refresh deleted that file from all four sets. The sentence was true when
+    it was written and false the same afternoon, and nothing looked, because
+    a claim about a DIFFERENT file is only ever caught by somebody who
+    happens to open that file.
+
+    A grep would have found it at any point in the following month. Nothing
+    ran one, because nothing was looking for the sentence shape.
+
+    WHAT IT DOES NOT COVER, said plainly: a destination that exists but no
+    longer does the thing (doc_lint catches neither, and pass 3's
+    documents-against-mechanisms bullet is the read that does). This asks
+    the cheap half -- is the named file even there -- which is the half
+    that produced the incident."""
+    repo_dir = pathlib.Path(repo_dir)
+    files = list(_tracked_text_files(repo_dir))
+    # EVERY BASENAME IN THE TREE, not just the tracked text ones: a claim
+    # naming `precedent_resolve.py` when the file is `tools/precedent_
+    # resolve.py` is under-qualified, which doc_lint already warns about as
+    # an unlinked reference. It is not this check's class, and reporting it
+    # here buries the one row that is. Measured on the first run: of 40
+    # rows, all but a handful were this and the markdown-link case below.
+    # A FAILED READ IS NOT AN EMPTY TREE, and this set is a SUPPRESSION:
+    # a target found among these basenames is a file named without its
+    # path, which the loop below skips. Coerce the failure to an empty set
+    # and the suppression silently disappears, so every under-qualified
+    # name becomes a row claiming no such file exists -- findings
+    # manufactured out of a read that did not happen. That is the same
+    # defect the endgame rehearsal carried into six red CI runs, in a
+    # different function: `git ls-files` failing there made every file on
+    # the integration branch look silently dropped. Found by sweeping for
+    # the pattern afterwards rather than by anything going wrong here
+    # (practice: control-asserts-which-failure -- a guard that cannot
+    # establish its own inputs says so, never returns a result).
+    rc, out_ls, _e = _run_git(repo_dir, 'ls-files')
+    if rc != 0:
+        return None
+    basenames = {pathlib.PurePosixPath(x).name
+                 for x in out_ls.splitlines()}
+    # THIS REPO WROTE IT vs THIS REPO RECEIVED IT, which is pass 2's own
+    # first question applied here. A vendored engine file's comments are
+    # UPSTREAM's prose, citing upstream's paths, and a repo that received
+    # the copy can neither fix nor be blamed for them -- reporting those
+    # rows makes a check that produces permanently unactionable findings,
+    # which is the one shape people learn to ignore.
+    vendored = set()
+    try:
+        _m = json.loads((repo_dir / 'tools' / 'ENGINE_MANIFEST.json')
+                        .read_text(encoding='utf-8'))
+        vendored = {f'tools/{n}' for n in (_m.get('files') or [])}
+    except (OSError, ValueError):
+        pass
+    out = []
+    for rel, text in files:
+        if rel in vendored:
+            continue
+        for i, line in enumerate(text.splitlines(), 1):
+            # A markdown link carries its own target and doc_lint checks
+            # that target; matching the link TEXT would report the label.
+            bare = re.sub(r'\[[^\]]*\]\([^)]*\)', ' ', line)
+            for m in _MOVED_CLAIM.finditer(bare):
+                target = m.group('target')
+                here = (repo_dir / target)
+                beside = (repo_dir / rel).parent / target
+                if here.exists() or beside.exists():
+                    continue
+                if pathlib.PurePosixPath(target).name in basenames:
+                    continue              # exists, just named without its path
+                out.append((rel, i, m.group('claim').strip(), target))
+                if len(out) >= cap:
+                    return out
+    return out
+
+
+def _check_coverage(repo_dir, timeout=300):
+    """-> (summary dict, note) -- what every registered check ACTUALLY did
+    in this repo, not what its practice claims.
+    (practice: very-deep-check, pass 2 questions 14 and 15)
+
+    QUESTION 15 ASKS WHETHER A CHECK EVER RUNS HERE, and says to enumerate
+    rather than sample, for every registered check in every repo in force.
+    It had no mechanism, so it was a read nobody could finish: one repo's
+    output at a time, by hand, with the comparison held in a session's
+    head. This is the enumeration.
+
+    THE SHAPE THE ANSWER TAKES IS THE FINDING. A team source measured
+    2026-09-12 ran 12 checks and skipped 42, and **every one of the 42 had
+    the same cause** -- each check is keyed to a `practices/<slug>.md` the
+    set does not carry, because a source set's practices/ holds its own
+    level only. One cause, 42 silent skips, and among them the rule
+    governing what a published practice file may link. So the grouping by
+    CAUSE is the point, not the count: forty skips for one structural
+    reason is a different problem from forty for forty reasons.
+
+    IT RUNS THE REPO'S OWN COPY, deliberately -- a consuming repo runs the
+    engine it vendored, not this checkout's, and asking this checkout's
+    copy what happens there would answer about the wrong code.
+
+    A skip is not a pass, and neither is a repo that could not be asked."""
+    repo_dir = pathlib.Path(repo_dir)
+    own = repo_dir / 'tools' / 'precedent_check.py'
+    if not own.is_file():
+        return None, 'no tools/precedent_check.py here -- nothing registered'
+    try:
+        proc = subprocess.run([sys.executable, str(own), '--full-sweep'],
+                              cwd=str(repo_dir), capture_output=True,
+                              text=True, timeout=timeout)
+    except (OSError, subprocess.SubprocessError) as exc:
+        return None, f'could not run it here ({type(exc).__name__})'
+    body = (proc.stdout or '') + (proc.stderr or '')
+    skipped, violated = {}, []
+    for line in body.splitlines():
+        if line.startswith('SKIPPED'):
+            rest = line[len('SKIPPED'):].strip()
+            slug = rest.split(None, 1)[0] if rest else '?'
+            why = ''
+            for sep in ('—', '--'):
+                if sep in rest:
+                    why = rest.split(sep, 1)[1].strip()
+                    break
+            skipped[slug] = why
+        elif line.startswith('VIOLATION'):
+            rest = line[len('VIOLATION'):].strip()
+            violated.append(rest.split(None, 1)[0] if rest else '?')
+    counts = {}
+    m = re.search(r'precedent_check: (\d+) passed, (\d+) violated, '
+                  r'(\d+) advisory, (\d+) errored, (\d+) skipped', body)
+    if m:
+        counts = dict(zip(('passed', 'violated', 'advisory', 'errored',
+                           'skipped'), (int(x) for x in m.groups())))
+    # Group by CAUSE, coarsely: the first clause of the reason, which is
+    # what distinguishes "one structural reason" from "forty reasons".
+    causes = {}
+    for _slug, why in skipped.items():
+        key = (why.split(',')[0].split(' -- ')[0].strip() or 'no reason given')
+        # NORMALISE THE SLUG OUT, or the grouping defeats itself: 42 skips
+        # reading "no practices/<a>.md", "no practices/<b>.md" ... are ONE
+        # structural cause wearing 42 names, and reporting them apart is
+        # exactly the shape that hid the real finding in the first place.
+        key = re.sub(r'practices/[A-Za-z0-9._-]+\.md',
+                     'practices/<slug>.md', key)
+        key = re.sub(r'\btools/checks/[A-Za-z0-9._-]+', 'tools/checks/<file>',
+                     key)
+        causes[key] = causes.get(key, 0) + 1
+    return {'counts': counts, 'violated': violated, 'skipped': len(skipped),
+            'causes': causes}, ''
+
+
+def _job_count(path):
+    """-> how many jobs a workflow file defines, or None.
+
+    PyYAML where it exists, a structural count where it does not -- the same
+    split, for the same reason, as workflow-yaml-github-can-parse: CI
+    installs no PyYAML, and a section that silently declines in the one
+    environment that gates every pull request is not a section."""
+    try:
+        text = pathlib.Path(path).read_text(encoding='utf-8')
+    except OSError:
+        return None
+    try:
+        import yaml
+        doc = yaml.safe_load(text)
+        jobs = doc.get('jobs') if isinstance(doc, dict) else None
+        if isinstance(jobs, dict):
+            return len(jobs)
+    except Exception:                                         # noqa: BLE001
+        pass
+    n, inside = 0, False
+    for line in text.splitlines():
+        if re.match(r'^jobs:\s*$', line):
+            inside = True
+            continue
+        if inside and re.match(r'^[A-Za-z]', line):
+            break
+        if inside and re.match(r'^  [A-Za-z0-9_-]+:\s*$', line):
+            n += 1
+    return n or None
+
+
+def _actions_bill(repo_dir, days=30):
+    """-> (rows, total_minutes, note) -- what this repo's workflows cost at
+    GitHub's per-job floor over a window.
+    (practice: very-deep-check, the closing budget section)
+
+    THE RUN ALREADY READS ITS OWN GITHUB API BILL and read nothing about the
+    bill that has actually been hurting. spec/CI_MINUTES_PLAN.md item 15
+    measured a 13-second job billed as a minute, 14 times a day, in one
+    repository: about 420 minutes a month with nothing misconfigured, the
+    floor being the entire cost. That number was found by a session doing a
+    one-off audit, and a number found once is a number that goes stale.
+
+    WHAT IT COMPUTES, AND WHAT IT DOES NOT. GitHub bills a whole minute per
+    JOB, so the floor is runs x jobs -- both of which are cheap to get: the
+    run count from one API call per workflow with a `created` filter, the
+    job count by reading the workflow file. **It is a floor, not an
+    invoice**: real minutes are at least this and usually more, and whether
+    they are billed at all depends on the repository being private. The
+    useful number was never the invoice anyway -- item 13 and item 15 both
+    landed on JOB COUNT as the only lever that moved, which is exactly what
+    this makes visible per workflow."""
+    repo_dir = pathlib.Path(repo_dir)
+    wf_dir = repo_dir / '.github' / 'workflows'
+    if not wf_dir.is_dir():
+        return [], 0, 'no .github/workflows/ here'
+    slug = _github_slug(repo_dir)
+    if not slug:
+        return [], 0, 'origin is not GitHub, so run counts cannot be asked'
+    data, err = _api_json(f'repos/{slug}/actions/workflows')
+    if err or not isinstance(data, dict) or 'workflows' not in data:
+        return [], 0, (f'could not list workflows for {slug} -- '
+                       f'{err or str(data)[:80]}')
+    since = precedent_time.date_from_unix(time.time() - days * 86400)
+    rows, total = [], 0
+    for w in (data.get('workflows') or []):
+        rel = w.get('path') or ''
+        local = repo_dir / rel
+        jobs = _job_count(local) if local.is_file() else None
+        runs, rerr = _api_json(
+            f'repos/{slug}/actions/workflows/{w.get("id")}/runs'
+            f'?per_page=1&created=%3E%3D{since}')
+        count = (runs or {}).get('total_count') if not rerr else None
+        if count is None or jobs is None:
+            rows.append((rel, count, jobs, None,
+                         'run count or job count unknown'))
+            continue
+        floor = count * jobs
+        total += floor
+        rows.append((rel, count, jobs, floor, ''))
+    return rows, total, ''
+
+
+def _carry_through(repo_dir):
+    """-> (status, lines) for one repo: how far its VENDORED engine is
+    behind the upstream it was vendored from.
+    (practice: very-deep-check, order of operations step 1)
+
+    CURRENT IS NOT THE SAME AS CARRIED, and this is the half nothing else
+    here asks. The freshness gate above proves a clone matches ITS OWN
+    origin -- a repo can be perfectly current with itself and be running an
+    engine from three weeks ago, because a fix merged upstream reaches an
+    installed repo only when somebody goes there and runs "Update Vendors".
+    Measured 2026-09-20: 18 of 22 repositories had never taken one.
+
+    That is also the structural reason a very deep check had never once
+    found a stale vendored tree. Not a gap in its passes -- a gap in what
+    any pass could see, since every pass reads one repository against
+    itself (todo-2026-09-21-nothing-checks-a-consumer-against-upstream.md).
+
+    A REMOVAL IS NAMED, NOT COUNTED. Among the three kinds of drift, a file
+    upstream DELETED is the one whose arrival breaks something here, so the
+    line prints those names while the other two get counts.
+
+    SCOPE IS THE REPOS THIS RUN ALREADY OPENS -- this checkout and every
+    attached source. The fleet version of this question, every Precedent
+    repo the person owns, is chief-of-staff's, and widening it here would
+    duplicate that practice while making an expensive check more expensive
+    for no new judgment."""
+    try:
+        import precedent_engine_freshness as pef
+    except ImportError:
+        return 'unverified', ['precedent_engine_freshness did not import']
+    manifest, why = pef.read_manifest(repo_dir)
+    if manifest is None:
+        return 'n/a', [why]
+    url = manifest.get('source_repo')
+    branch = manifest.get('source_branch')
+    recorded = manifest.get('source_commit')
+    if not (url and branch and recorded):
+        return 'unverified', ['the manifest records no source_repo/'
+                              'source_branch/source_commit, so what it was '
+                              'vendored from cannot be asked']
+    tip = pef.upstream_tip(url, branch)
+    if tip is None:
+        return 'unverified', [f'could not reach {url} ({branch}) -- whether '
+                              f'this engine is current is unknown, which is '
+                              f'not the same answer as current']
+    if tip == recorded:
+        return 'current', [f'vendored engine matches {branch} at '
+                           f'{recorded[:12]}']
+    lines = [f'vendored {recorded[:12]}; upstream {branch} is at {tip[:12]}']
+    result = pef.changed_files(repo_dir, url, recorded, tip,
+                              manifest.get('files') or [])
+    if result is None:
+        lines.append('could not fetch upstream objects, so WHICH files moved '
+                     'is unknown -- the commit difference still stands')
+        return 'behind', lines
+    added, removed, changed = result
+    new_here = [n for n in added if 'NOT YET VENDORED HERE' in n]
+    lines.append(f'{len(added)} added upstream ({len(new_here)} of them not '
+                 f'vendored here), {len(changed)} changed, '
+                 f'{len(removed)} removed')
+    if removed:
+        lines.append('REMOVED upstream, and still on disk here until a '
+                     'refresh: ' + ', '.join(removed[:6])
+                     + (f' (+{len(removed) - 6} more)' if len(removed) > 6
+                        else ''))
+    return 'behind', lines
+
+
+def _workflow_reality(repo_dir, max_workflows=25):
+    """-> [(verdict, message)] for one repo, asking GITHUB what it knows
+    about each workflow file in the tree. (practice: very-deep-check, pass 2)
+
+    THE CLASS THIS EXISTS FOR. Everything else in this tool reads the
+    repository against itself, and a workflow has a second existence nothing
+    local can see. A file GitHub's parser REFUSES does not go red -- it does
+    not appear at all, so the branch reads as having no CI rather than broken
+    CI (gotcha-2026-09-21-github-actions-rejects-yaml-anchors-python-accepts).
+    Actions switched off looks, from the tracked tree, exactly like working
+    CI. A trigger that stopped matching looks like nothing whatsoever.
+
+    Four questions, in cost order: is the file registered with Actions at
+    all; is it active; when did it last run; does that run postdate the
+    file's newest commit.
+
+    THE HONEST LIMITS, reported rather than assumed away:
+
+    - GitHub lists workflows from the DEFAULT BRANCH. A file that exists only
+      on this branch is correctly absent from the listing, so absence is a
+      FINDING only when the file is also on the default branch, and a NOTE
+      otherwise. Getting this backwards would make every feature branch look
+      broken.
+    - A workflow that has never run cannot be told apart from Actions being
+      disabled by this endpoint alone, which is why the disabled case is read
+      off the listing call's own error rather than inferred from silence
+      (gotcha-2026-09-21-actions-permissions-are-unreadable-from-a-session:
+      GET /repos/{owner}/{repo}/actions/permissions is unreachable from a
+      session, so this is the route that remains).
+    - Everything here needs a credential. Unauthenticated, a private repo
+      answers Not Found, which is not the same answer as "no workflows", so
+      the failure is reported as UNVERIFIED and never as clean."""
+    repo_dir = pathlib.Path(repo_dir)
+    wf_dir = repo_dir / '.github' / 'workflows'
+    local = sorted(x for x in wf_dir.iterdir()
+                   if x.suffix in ('.yml', '.yaml')) if wf_dir.is_dir() else []
+    if not local:
+        return []
+    slug = _github_slug(repo_dir)
+    if not slug:
+        return [('UNVERIFIED', 'origin is not GitHub, so nothing here can be '
+                               'asked about these workflow files')]
+    data, err = _api_json(f'repos/{slug}/actions/workflows')
+    if err or not isinstance(data, dict):
+        return [('UNVERIFIED', f'could not list workflows for {slug}: '
+                               f'{err or "unexpected response"} -- NOT the '
+                               f'same as having none')]
+    if 'workflows' not in data:
+        # TWO UNLIKE REFUSALS ARRIVE HERE AND MUST NOT BE REPORTED AS ONE.
+        # The 403 body for a repo with Actions switched off says so in as
+        # many words, and that is the one place this session can read that
+        # fact. Everything else -- a repo this session was never granted,
+        # a private repo asked without a credential -- is the check failing
+        # to look, which is not a finding about the repo
+        # (practice: diagnosis-is-measured; the misreading has its own
+        # gotcha: a session read "access to this repository is not enabled"
+        # as a token problem and went hunting for a credential that was
+        # fine).
+        msg = str(data.get('message') or data)[:160]
+        low = msg.lower()
+        if 'actions' in low and ('disabled' in low or 'not allowed' in low):
+            return [('FINDING', f'{slug}: Actions is off -- "{msg}". A repo '
+                                f'with workflow files committed and Actions '
+                                f'off looks, from the tree, exactly like a '
+                                f'repo with working CI')]
+        return [('UNVERIFIED', f'{slug}: could not list workflows -- '
+                               f'"{msg}". That is this session failing to '
+                               f'look, not a fact about the repo')]
+    registered = {w.get('path'): w for w in (data.get('workflows') or [])
+                  if isinstance(w, dict)}
+    default_branch = _default_remote_branch(repo_dir)
+    out = []
+    for path in local[:max_workflows]:
+        rel = f'.github/workflows/{path.name}'
+        meta = registered.get(rel)
+        if meta is None:
+            on_default = False
+            if default_branch:
+                rc, _o, _e = _run_git(repo_dir, 'cat-file', '-e',
+                                      f'origin/{default_branch}:{rel}')
+                on_default = rc == 0
+            if on_default:
+                out.append(('FINDING', f'{rel}: on origin/{default_branch} '
+                                       f'and NOT registered with Actions. '
+                                       f'GitHub parses workflow files when '
+                                       f'it receives them and silently keeps '
+                                       f'none it rejects, so this file is '
+                                       f'running nowhere and reporting '
+                                       f'nothing'))
+            else:
+                out.append(('NOTE', f'{rel}: not registered, and not on '
+                                    f'origin/{default_branch or "(unknown)"} '
+                                    f'either -- Actions lists the default '
+                                    f'branch, so this is expected, not a '
+                                    f'finding'))
+            continue
+        state = str(meta.get('state') or 'unknown')
+        if state != 'active':
+            out.append(('FINDING', f'{rel}: registered but state is '
+                                   f'{state!r} -- it is committed, it looks '
+                                   f'live in the tree, and it does not run'))
+        runs, rerr = _api_json(
+            f'repos/{slug}/actions/workflows/{meta.get("id")}/runs?per_page=1')
+        newest = None
+        if not rerr and isinstance(runs, dict):
+            rows = runs.get('workflow_runs') or []
+            if rows:
+                newest = str(rows[0].get('created_at') or '')[:10]
+        if rerr:
+            out.append(('UNVERIFIED', f'{rel}: could not read its runs -- '
+                                      f'{rerr}'))
+            continue
+        edited = _last_commit(repo_dir, rel)
+        edited_day = _stamp(edited[0])[:10] if edited else None
+        if newest is None:
+            out.append(('NOTE', f'{rel}: registered and active, and has '
+                                f'never run. Either nothing has matched its '
+                                f'triggers yet or it is newer than the last '
+                                f'event -- read it, do not assume'))
+        elif edited_day and newest < edited_day:
+            out.append(('FINDING', f'{rel}: last run {newest}, last edited '
+                                   f'{edited_day}. Every event since the '
+                                   f'edit either did not match its triggers '
+                                   f'or did not reach it'))
+    if len(local) > max_workflows:
+        out.append(('UNVERIFIED', f'{len(local) - max_workflows} more '
+                                  f'workflow file(s) not asked about this '
+                                  f'run -- the per-repo cap is '
+                                  f'{max_workflows}, to bound the API bill'))
+    if not out:
+        # A clean repo must not return the same empty list as a repo with no
+        # workflows at all: this section's whole subject is a thing that is
+        # silent when broken, so "asked and clean" has to be distinguishable
+        # from "never asked" in the row itself, not in the caller's memory.
+        out.append(('OK', f'{len(local)} workflow file(s): each registered '
+                          f'with Actions, active, and run since it was last '
+                          f'edited'))
+    return out
 
 
 def _last_commit(repo_dir, path):
@@ -1043,6 +2345,28 @@ _SETTLED_MARKERS = ('fixed ', 'no longer true', 'applies itself now',
                     'resolved for this machine', 'now automated')
 
 
+def _declared_ceilings(root):
+    """-> {surface path: ceiling} from THIS repo's own budget registry, or {}.
+
+    Each measured repo's own `tools/session_load_budgets.json`, never this
+    checkout's: a source set declares its own ceilings for its own always-loaded
+    files, and comparing one repo's surfaces against another's numbers would be
+    worse than not checking at all. `bv._budget` deliberately reads BestPractice's
+    copy for the engine-wide thresholds (`section_review_tokens`), which is a
+    different question and stays where it is.
+    """
+    f = pathlib.Path(root) / 'tools' / 'session_load_budgets.json'
+    try:
+        reg = json.loads(f.read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return {}
+    out = {}
+    for rel, entry in (reg.get('surfaces') or {}).items():
+        if isinstance(entry, dict) and isinstance(entry.get('ceiling'), int):
+            out[rel] = entry['ceiling']
+    return out
+
+
 def _split_projection(section):
     """-> a costed line for the SPLIT move, or '' when the section has no
     bulleted entries to split.
@@ -1119,12 +2443,30 @@ def _session_load(repo_dir):
     file when private sources resolved -- so the number a person sees is the
     number a session actually pays.
 
+    AND SEPARATELY, whether each FILE is inside the ceiling its own repo
+    declared for it -- read from that repo's tools/session_load_budgets.json,
+    alongside the section findings and never instead of them. The two answer
+    different questions, which is why both are here: a fat section is a
+    reading-cost problem somebody may reasonably decide to live with, and a
+    file over its ceiling is a budget somebody already decided being broken.
+    Nothing in a consuming repo was asking the second one. Measured
+    2026-09-22, in precedent-individual: AGENTS.md at 2,276 tokens against a
+    declared 1,800 -- 476 tokens, 26% over -- with every check green,
+    because the overage was spread across five sections and the largest of
+    them was 990. This pass would have reported ZERO findings on it. The one mechanism that does
+    compare a file to its ceiling, precedent_check.py's session-load-budget,
+    skips in any repo that does not carry the practice FILE -- and that repo
+    declared ceilings without carrying it. It surfaced because somebody ran
+    tools/session_load_trend.py by hand, which is not a mechanism.
+
     THE TRAP TO AVOID, stated here because the obvious use of this output is
     the wrong one: **do not optimise for the total.** Gotchas exist because
     sessions kept burning hours on the same environment traps, and a trimming
     pass that chases the number deletes the entries that are working. The
     question for each section is "would a session hit this today", never "how
-    big is it".
+    big is it". The ceiling finding does not soften that: what it asks for is
+    reduction-pass's menu -- delete what is duplicated, retire what cannot
+    happen, split what is still live and still long -- and never a raise.
     """
     root = pathlib.Path(repo_dir)
     rows, findings = [], []
@@ -1148,6 +2490,7 @@ def _session_load(repo_dir):
         return [], ['no instructions file found -- nothing to measure']
 
     total = 0
+    file_totals = {}
     for fname, text in loaded:
         heads = [(m.start(), m.group(0).strip('# ').strip())
                  for m in re.finditer(r'^## .+$', text, re.M)]
@@ -1162,6 +2505,7 @@ def _session_load(repo_dir):
         for name, body in spans:
             n = bv._approx_tokens(body)
             total += n
+            file_totals[fname] = file_totals.get(fname, 0) + n
             rows.append((fname, name, n))
             if n >= _SECTION_FLAG_TOKENS:
                 findings.append(
@@ -1179,6 +2523,42 @@ def _session_load(repo_dir):
                     f'is shortened on its way out,\n                and whatever '
                     f'checked the text has to follow it.'
                     + _split_projection(body))
+
+    # THE FILE AGAINST ITS OWN DECLARED CEILING -- see the docstring for the
+    # measurement that went silent. Every declared surface, not only the ones
+    # the loop above walked: CLAUDE.md is skipped up there when it is a bare
+    # @AGENTS.md include, so that its tokens are not counted twice into the
+    # total, and it still carries a ceiling of its own that something has to
+    # test.
+    over = []
+    for rel, ceiling in sorted(_declared_ceilings(root).items()):
+        n = file_totals.get(rel)
+        if n is None:
+            f = root / rel
+            if not f.is_file():
+                continue
+            n = bv._approx_tokens(f.read_text(encoding='utf-8',
+                                              errors='replace'))
+        if n <= ceiling:
+            continue
+        over.append(
+            f'OVER CEILING {rel}\n'
+            f'      {n:,} tokens, every session, against the {ceiling:,} this '
+            f'repo declares for it\n      in tools/session_load_budgets.json '
+            f'-- over by {n - ceiling:,} ({100.0 * (n - ceiling) / ceiling:.1f}%).\n'
+            f'      This is a budget somebody already decided, so it is not a '
+            f'judgment call\n      the way a large section is. Work '
+            f'reduction-pass\'s menu in order, cheapest\n      and provably '
+            f'lossless first: DELETE what is duplicated somewhere the\n'
+            f'      session already reads, RETIRE what can no longer happen '
+            f'(to a linked\n      record, IN FULL, with the verdict that '
+            f'retired it), SPLIT what is still\n      live and still long. '
+            f'Then report what moved and what it cost.\n'
+            f'      NEVER raise the ceiling to clear this -- '
+            f'session-load-budget\'s own line.\n'
+            f'      The overage may be spread thin, with no single section '
+            f'large enough to\n      appear above; that is the case this '
+            f'finding exists for.')
 
     # A live entry that says its own trap is settled is the strongest
     # mechanical signal available here, and it is the entry's own words.
@@ -1234,7 +2614,9 @@ def _session_load(repo_dir):
                     f'paid for twice, every\n      session. Deliberate '
                     f'repetition is a real answer; check which it is.\n'
                     f'      "{quote[:72]}..."')
-    return rows, findings
+    # Ceilings lead: a section flagged for review is a question, and a surface
+    # over a number somebody chose is work.
+    return rows, over + findings
 
 
 # --- gotcha currency (practice: very-deep-check) ------------------------
@@ -2234,9 +3616,11 @@ def _convergent_drift(collect, sources=None):
     says a person should not have to keep paying. `sources` -- the same list
     `_bootstrap_drift()` was already given -- lets this read each converged
     SET's own `very-deep-check-decisions.json` (a file that lives in the set,
-    not here, for the reason `beta-branch-watermark.json` lives in
-    precedent-individual rather than in BestPractice: the decision belongs to
-    the repo the finding is about). When every set that shares a convergence
+    not here, because the decision belongs to the repo the finding is about).
+    That principle used to be illustrated by where the beta-branch watermark
+    lived; it is a poor example now, since that file moved into this repo's
+    own tools/beta_branch_watermark.json on 2026-09-22 -- the principle
+    held, the example did not. When every set that shares a convergence
     has recorded the SAME verdict there and no `revisit` date has passed, the
     line prints as DECIDED instead of FINDING. Disagreement, a partial
     decision, or an expired `revisit` all still print the ordinary FINDING,
@@ -3132,23 +4516,83 @@ def endgame_merge(repo_dir, target=None, base=None, keep=False):
             out['status'] = 'error'
             out['note'] = f'could not create a throwaway worktree: {err}'
             return out
-        # Conflicts are the expected outcome, so the return code says
-        # nothing here -- what the merge DID is read out of the index.
-        # No identity is set for this: `--no-commit` never writes a
-        # commit, so git never asks for one -- and an address literal here
-        # is a leak-gate finding in a public tree (caught by that gate the
-        # first time this ran).
-        _run_git(work, 'merge', '--no-commit', '--no-ff', f'origin/{target}')
-        rc, conflicted, _ = _run_git(work, 'diff', '--name-only',
-                                     '--diff-filter=U')
-        conflicts = {ln for ln in conflicted.splitlines() if ln} if rc == 0 else set()
-        rc, staged, _ = _run_git(work, 'ls-files', '--stage')
+        # AN IDENTITY, SET ON THE INVOCATION. The comment that stood here
+        # said `--no-commit` never writes a commit, so git never asks for
+        # one. It does ask, and it REFUSES -- `Committer identity unknown`,
+        # `fatal: unable to auto-detect email address`, exit 128. A CI
+        # runner has no global identity and a session container does, which
+        # is the whole reason this rehearsal was green locally and red in
+        # continuous integration for five runs (2026-09-22). Set with `-c`
+        # so nothing outlives the command, and at a `.invalid` address --
+        # the old comment was right that a real address literal in this
+        # public tree is a leak-gate finding.
+        mrc, _, merr = _run_git(work, '-c', 'user.name=Precedent rehearsal',
+                                '-c', 'user.email=rehearsal@invalid',
+                                'merge', '--no-commit', '--no-ff',
+                                f'origin/{target}')
+
+        # A MERGE THAT COULD NOT RUN IS NOT A MERGE THAT DROPPED EVERYTHING.
+        # Until 2026-09-22 those were the same answer: the return code was
+        # discarded on the grounds that conflicts make it meaningless, so a
+        # refusal left the index holding only the base branch's files and
+        # `expected - present` named EVERY file on the integration branch.
+        # The most alarming output this tool can produce was what it
+        # produced when it had done nothing at all.
+        #
+        # The return code alone cannot decide it -- a conflicted merge is
+        # the expected outcome and exits 1. MERGE_HEAD is the evidence that
+        # a merge actually started: present after a clean `--no-commit`
+        # merge AND after a conflicted one, absent when git refused. Absent
+        # with a non-zero return is a refusal; absent with a zero return is
+        # "Already up to date", which is a real clean result.
+        # (practice: checks-plant-their-state)
+        hrc, _, _ = _run_git(work, 'rev-parse', '--verify', '--quiet',
+                             'MERGE_HEAD')
+        if mrc != 0 and hrc != 0:
+            out['status'] = 'error'
+            out['note'] = (
+                'the rehearsal merge could not run, so nothing here is a '
+                'finding about your branches -- treat this as UNKNOWN, not '
+                f'as clean and not as a drop. git said: {merr or "(nothing)"}')
+            return out
+
+        # THE SAME DEFECT, ONE LAYER DOWN. The merge is now known to have
+        # run -- but these two reads are how the result is learned, and
+        # until 2026-09-22 each coerced its own failure to an empty set.
+        # An `ls-files` that fails leaves `present` holding only the
+        # conflicts, so `expected - present` names almost every file on the
+        # integration branch: the identical fabricated drop list the merge
+        # refusal used to produce, arrived at by a different route and just
+        # as confident. Neither read is allowed to fail quietly. UNKNOWN is
+        # a worse-sounding answer than `clean` and a far better one than an
+        # invented finding (practice: control-asserts-which-failure -- a
+        # guard that cannot establish its own inputs says so).
+        rc, conflicted, diff_err = _run_git(work, 'diff', '--name-only',
+                                            '--diff-filter=U')
+        if rc != 0:
+            out['status'] = 'error'
+            out['note'] = (
+                f'the merge ran, but its result could not be read: '
+                f'`git diff --name-only --diff-filter=U` exited {rc}. Treat '
+                f'this as UNKNOWN -- nothing here is a statement about what '
+                f'{target} would lose. git said: '
+                f'{diff_err or "(nothing)"}')
+            return out
+        conflicts = {ln for ln in conflicted.splitlines() if ln}
+        rc, staged, staged_err = _run_git(work, 'ls-files', '--stage')
+        if rc != 0:
+            out['status'] = 'error'
+            out['note'] = (
+                f'the merge ran, but its result could not be read: '
+                f'`git ls-files --stage` exited {rc}. Treat this as UNKNOWN '
+                f'-- nothing here is a statement about what {target} would '
+                f'lose. git said: {staged_err or "(nothing)"}')
+            return out
         present = set(conflicts)
-        if rc == 0:
-            for line in staged.splitlines():
-                meta, _, path = line.partition('\t')
-                if path and meta.split()[-1] == '0':
-                    present.add(path)
+        for line in staged.splitlines():
+            meta, _, path = line.partition('\t')
+            if path and meta.split()[-1] == '0':
+                present.add(path)
         out['conflicts'] = sorted(conflicts)
         out['dropped'] = sorted(expected - present)
         out['status'] = 'findings' if out['dropped'] else 'clean'
@@ -3468,6 +4912,138 @@ def _markdown_sweep(repo_dir, timeout=900):
     m = re.search(r'doc_lint --strict FAIL: ([\d,]+) finding', out)
     count = int(m.group(1).replace(',', '')) if m else 0
     return summary, count, None
+
+
+# --- cross-repo absolute link check (practice: very-deep-check, pass 3) --
+#
+# doc_lint's broken-link check (check 4) is a single repo's own concern by
+# design: it resolves a RELATIVE link against the linking file's own
+# directory, and it explicitly skips absolute URLs. So a link written the
+# way doc-references-are-links asks for cross-repo citations -- a full
+# `https://github.com/<owner>/<repo>/blob/<ref>/<path>` URL, chosen
+# precisely because a relative path cannot cross a repo boundary and still
+# open for a raw-markdown reader -- is invisible to it. That includes a
+# repo linking to ITSELF this way, not only to a sibling: the absolute
+# form is exempt everywhere it appears, self-citation included.
+#
+# Found real, 2026-09-22: four links in precedent-individual citing files
+# at the root of BestPractice (PRACTICE_ENGINE_PLAN.md,
+# CHANGES_TO_TELL_ALEX.md) that actually live under spec/, plus a fifth
+# citing WHAT_IS_THIS_AND_BENEFITS.md, a path with no trace anywhere in
+# BestPractice's history. None of doc_lint --strict --all's findings, in
+# either repo, was this bug -- the class was structurally unreachable to
+# it, which is what a session reading only that summary would miss.
+#
+# WHAT THIS CHECKS. Every markdown link in every repo in force whose URL
+# is `https://github.com/<owner>/<repo>/(blob|tree)/<ref>/<path>`, where
+# `<owner>/<repo>` names a repo ALSO in force this run (compared by origin
+# URL, not by the string) -- this session already has that repo cloned, so
+# the check is a local git read, never a network fetch. `<ref>` is
+# ambiguous on its own (a branch name may itself contain `/`), so the
+# resolver tries the longest prefix of what follows `/blob/` that is a
+# real local ref (a branch, `origin/<branch>`, a tag, or a bare commit)
+# and treats the remainder as the path; a URL where no prefix resolves is
+# reported broken on the ref itself, not skipped -- that is exactly what a
+# reader clicking it gets, a 404, whether the file moved or the branch
+# was deleted.
+#
+# WHAT IT DOES NOT CHECK. A link into a repo that is not ALSO in force
+# this run -- an unrelated public repository, or a Precedent repo this
+# session never opened -- reads exactly like check_broken_links' own skip
+# of absolute URLs: out of reach without a live network call, which this
+# deliberately never makes. And it is a Pass 3 READ, same as
+# _markdown_sweep: it reports, it never refuses a commit or a push.
+_GITHUB_URL_RE = re.compile(
+    r'\[([^\]\n]*)\]\((https://github\.com/([\w.-]+)/([\w.-]+)/'
+    r'(blob|tree)/([^)\s#]+)(#[^\s)]*)?)\)'
+)
+_CROSS_LINK_CODE_SPAN_RE = re.compile(r'`[^`]*`')
+# Same reasoning as doc_lint's own LINK_CHECK_EXEMPT_DIRS: a deck slide's
+# and an eval fixture's links are not references to audit against today's
+# tree.
+_CROSS_LINK_EXEMPT_DIRS = ('deck/', 'evals/')
+
+
+def _local_ref_and_path(repo_dir, ref_and_path):
+    """-> (ref, path), or (None, reason) if no local ref in `repo_dir` is
+    a prefix of `ref_and_path`. Longest prefix first, so
+    `claude/foo-bar/practices/x.md` resolves to the branch
+    `claude/foo-bar`, not the near-always-wrong single segment `claude`.
+    `path` comes back empty for a bare `tree/<ref>` link (a link to a
+    branch itself, no file inside it) -- that is a real, common link
+    shape and not a truncated one."""
+    parts = ref_and_path.split('/')
+    for i in range(len(parts), 0, -1):
+        ref = '/'.join(parts[:i])
+        path = '/'.join(parts[i:])
+        for candidate in (ref, f'origin/{ref}', f'refs/tags/{ref}'):
+            rc, _out, _err = _run_git(repo_dir, 'rev-parse', '--verify',
+                                       '--quiet', candidate + '^{commit}')
+            if rc == 0:
+                return candidate, path
+    return None, ("no local ref is a prefix of this URL (branch deleted, "
+                   "never fetched here, or a bare commit this clone lacks)")
+
+
+def _path_exists_at_ref(repo_dir, ref, path):
+    rc, _out, _err = _run_git(repo_dir, 'cat-file', '-e', f'{ref}:{path}')
+    return rc == 0
+
+
+def _cross_repo_link_check(targets):
+    """-> (finding_lines, count, notes). Every repo in `targets`, read
+    against every repo in `targets` (self included) -- see the module
+    comment above for what this catches that doc_lint cannot."""
+    slug_to_target = {}
+    for name, repo_dir in targets:
+        url = _origin_url(repo_dir)
+        m = re.search(r'github\.com[:/]([\w.-]+)/([\w.-]+?)(?:\.git)?/?$', url)
+        if m:
+            slug_to_target[f'{m.group(1)}/{m.group(2)}'] = (name, pathlib.Path(repo_dir))
+
+    findings = []
+    scanned = 0
+    for name, repo_dir in targets:
+        root = pathlib.Path(repo_dir)
+        rc, tracked, _err = _run_git(repo_dir, 'ls-files', '*.md')
+        if rc != 0:
+            findings.append(f'{name}: CANNOT TELL -- `git ls-files` failed, not scanned')
+            continue
+        for rel in tracked.splitlines():
+            if not rel.strip() or rel.startswith(_CROSS_LINK_EXEMPT_DIRS):
+                continue
+            try:
+                text = (root / rel).read_text(encoding='utf-8', errors='ignore')
+            except OSError:
+                continue
+            in_fence = False
+            for lineno, line in enumerate(text.splitlines(), 1):
+                if line.lstrip().startswith(('```', '~~~')):
+                    in_fence = not in_fence
+                    continue
+                if in_fence:
+                    continue
+                stripped = _CROSS_LINK_CODE_SPAN_RE.sub('', line)
+                for m in _GITHUB_URL_RE.finditer(stripped):
+                    _label, url, owner, repo_name, _kind, ref_and_path, _frag = m.groups()
+                    slug = f'{owner}/{repo_name}'
+                    if slug not in slug_to_target:
+                        continue  # not a repo this session has open
+                    scanned += 1
+                    target_name, target_dir = slug_to_target[slug]
+                    ref, path_or_reason = _local_ref_and_path(target_dir, ref_and_path)
+                    if ref is None:
+                        findings.append(f'{name}/{rel}:{lineno}  {url}  -- {path_or_reason}')
+                        continue
+                    if not path_or_reason:
+                        continue  # a bare tree/<ref> link -- the ref existing is the whole claim
+                    if not _path_exists_at_ref(target_dir, ref, path_or_reason):
+                        findings.append(
+                            f'{name}/{rel}:{lineno}  {url}  -- {path_or_reason!r} '
+                            f'does not exist at {target_name} @ {ref}')
+    notes = [f'{scanned} absolute github.com link(s) checked, into '
+             f'{len(slug_to_target)} repo(s) also in force this run.']
+    return findings, len(findings), notes
 
 
 def _tracked_text_files(repo_dir):
@@ -4689,6 +6265,183 @@ def _merged_stale_checkout_markdown(scan):
     return '\n'.join(lines)
 
 
+def _practice_catalogue_rows(sources):
+    """-> [(level, name, slug, one_sentence), ...] for every IN-FORCE
+    practice in every source's own `practices/*.md`, sorted by (name, slug)
+    so an unchanged catalogue prints byte-identical rows run to run
+    (practice: very-deep-check, added 2026-09-23).
+
+    `sources` is `enumerate_scope()`'s own `data['sources']` -- it already
+    carries the universal source (this checkout, resolved to its real
+    path) alongside every individual, shared and repo-local source this
+    session has, so nothing here re-derives the checkout as a special
+    case the way the WITHIN-SOURCE CONFLICTS scan above does.
+
+    Reuses `bv.load_practices()` and `bv._index_clause()` rather than a
+    second frontmatter reader or a second one-line-summary rule: those are
+    the exact functions MAP.md's own occasion column and every practice's
+    occasion-index row are built from, so this list and the ones a session
+    already reads cannot render the same practice two different ways."""
+    rows = []
+    for s in sources:
+        pdir = pathlib.Path(s['path']) / 'practices'
+        if not pdir.is_dir():
+            continue
+        for fm, sections, f in bv.load_practices(pdir):
+            slug = bv._json_str(fm.get('slug', '')) or f.stem
+            clause = bv._index_clause(fm, sections) or '(no description on file)'
+            rows.append((s['level'], s['name'], slug, clause))
+    rows.sort(key=lambda r: (r[1], r[2]))
+    return rows
+
+
+def _practice_catalogue_markdown(sources):
+    """-> the practice catalogue from `_practice_catalogue_rows()`, as
+    markdown, one `### name (level)` heading per source and one bulleted
+    `slug — sentence` row per in-force practice under it. Shared by the
+    console PRACTICE CATALOGUE section (the scan it already paid for) and
+    `emit_practice_catalogue()` (its own fresh scan, for `--emit`), so the
+    two never drift into two different renderings of the same list.
+
+    EVERY ROW IS BLOCKQUOTED. Each clause is another source's own authored
+    `index_clause` -- this repo received it, never wrote it (pass 2's own
+    "this repo wrote it versus this repo received it" bucket) -- and
+    `tools/doc_lint.py`'s `scan_unglossed()` already carves out exactly this
+    case: a quoted line is somebody else's words, and a document cannot
+    gloss an acronym inside a quotation without altering the quote (its own
+    comment cites `precedent-individual`'s `name-the-branch` tripping this
+    same acronym check on a quoted message, for the same reason). Found
+    here 2026-09-23 on the first real render: `precedent-individual`'s own
+    `session-title-abbreviates-repo` clause reads "...ABC the repo's
+    abbreviation..." and there is no repository this tool could edit to fix
+    that -- rewording another source's clause would make this list say
+    something that source did not write, which is the one thing it exists
+    not to do. `> ` is the fix already built for this in this codebase,
+    not a new one invented for it."""
+    rows = _practice_catalogue_rows(sources)
+    if not rows:
+        return ('(no source in force resolved a practices/ directory -- '
+                'nothing to catalogue)')
+    lines = []
+    current = None
+    for level, name, slug, clause in rows:
+        label = f'{name} ({level})'
+        if label != current:
+            if current is not None:
+                lines.append('')
+            lines.append(f'### {label}')
+            lines.append('')
+            current = label
+        lines.append(f'> - `{slug}` — {clause}')
+    return '\n'.join(lines)
+
+
+def _practice_catalogue_for_tracked_doc(repo_root, sources):
+    """-> (markdown, held_back) for what `_update_spec_doc_block` may
+    actually WRITE into this repo's own tracked spec/VERY_DEEP_CHECK.md --
+    as opposed to `_practice_catalogue_markdown(sources)`, which is fine to
+    print to a session's own console/chat every time, since that output is
+    never committed.
+
+    THE MISTAKE THIS FIXES (found 2026-09-24, by Morgan, the morning after
+    the section first shipped): the first version embedded every source's
+    clauses into this file unconditionally, including `individual` and
+    `shared` sources -- so running the very deep check in a repo that
+    declares `visibility: public` (this one) committed
+    `precedent-individual`'s and every shared source's own practice text
+    into a world-readable file, permanently, the same disclosure
+    `build_views.py`'s `repo_is_public()` / `sources_for_tracked_block()`
+    already exist to prevent for the AGENTS.md loader block -- see that
+    function's own docstring, "THE ONE PLACE that decides what a repo's
+    COMMITTED loader block may carry." This reuses that exact function
+    rather than a second, drifting copy of the same level filter (pass 2's
+    own "is there a duplicate implementation" question).
+
+    Reuses it CORRECTLY, not just calls it: `sources_for_tracked_block`
+    also holds back a practice SET's own declared sources for a different
+    reason (case 2 in its docstring -- a set committing a second copy of
+    universal's text) -- irrelevant here, since this repo is the engine's
+    own origin and `repo_is_practice_source()` is False for it, but a
+    caller in a set's own tooling would get that split too, for free,
+    which is the point of calling the one function rather than
+    re-deriving `PRIVATE_LEVELS` locally.
+
+    `held_back` is `[]` exactly when nothing was excluded (a private repo,
+    or a public one with no non-universal, non-repo-local source
+    declared) -- the caller uses that to decide whether an advisory note is
+    owed at all."""
+    tracked, deferred, _notes = bv.sources_for_tracked_block(repo_root, sources)
+    md = _practice_catalogue_markdown(tracked)
+    if not deferred:
+        return md, []
+    held_back_names = [f"{s['name']} ({s['level']})" for s in deferred]
+    held_back_n = sum(1 for row in _practice_catalogue_rows(deferred))
+    advisory = (
+        f"\n\n**{held_back_n} practice(s) across {len(deferred)} source(s) "
+        f"held back from this file: {', '.join(held_back_names)}.** This "
+        f"repo's own `precedent.json` declares `visibility: public` (or "
+        f"never declared one, which this engine treats the same way, fail "
+        f"safe) -- this file is tracked, so writing another source's own "
+        f"practice text into it would publish that source, permanently, "
+        f"for the identical reason `build_views.py` already holds a team or "
+        f"individual source out of the generated AGENTS.md loader block. "
+        f"**The full list, held-back sources included, still prints to the "
+        f"session's own console/chat on every run** -- nothing here is lost, "
+        f"only kept out of this committed file. Advise the person of that "
+        f"before doing anything else with it, and ask which they actually "
+        f"want: committed here too (re-run with "
+        f"`--catalogue-include-private`, an explicit, informed choice, "
+        f"never a default), left as chat-only (nothing further to do), or "
+        f"not generated at all (`--skip-practice-catalogue`). Never decide "
+        f"this silently in either direction -- and never assume it once "
+        f"for every repo: a repo that declares `visibility: private` skips "
+        f"this note entirely, because there is nothing there to hold back.")
+    return md + advisory, deferred
+
+
+def emit_practice_catalogue(repo=None, user_config=None, include_private=False):
+    """-> the slug + one-sentence practice catalogue across this checkout
+    and every resolved source, as markdown, for `--emit` (practice:
+    very-deep-check).
+
+    MATCHES WHAT `_update_spec_doc_block` ACTUALLY WRITES, by default --
+    `include_private=False` (the default, and what a bare `--emit
+    practice-catalogue` gives you) runs the same
+    `_practice_catalogue_for_tracked_doc()` visibility gate the real run
+    uses before committing anything, so this command reproduces the tracked
+    block rather than a fuller one nothing ever commits. Pass
+    `include_private=True` (`--catalogue-include-private` on the CLI) only
+    once a person has actually said they want a public repo's tracked file
+    to carry another source's practice text -- see that function's
+    docstring for why this defaults closed rather than open.
+
+    WHY THIS EXISTS (2026-09-23). Morgan asked, in the same turn, for a
+    session-readable list -- every practice's slug and a one-sentence
+    description of what it does, one section per repo, across this
+    checkout, the individual source and every shared source -- so a very
+    deep check gives him something to review the CATALOGUE against,
+    rather than only a pass/fail read of the writing; and for that same
+    list every time, so the review is against a stable document rather
+    than a re-worded one each run. `_practice_catalogue_rows()`'s sort and
+    its reuse of `bv._index_clause()` (already the source of every
+    occasion-index row and MAP.md's own occasion column) is what makes
+    that hold: no judgment, no dates, no per-run prose, so an unchanged
+    catalogue renders byte-identical from one run to the next.
+
+    Deliberately local and offline, unlike most of a real run: it reads
+    whatever `practices/*.md` this session's own clones already hold,
+    never fetching anything, the same files `load_practices()` resolves
+    for ordinary loading. A stale clone reads as a stale catalogue, which
+    the freshness gate a real run already runs reports on its own; this
+    block does not repeat that check."""
+    repo_root = pathlib.Path(repo or ROOT).resolve()
+    data = enumerate_scope(repo_root, user_config)
+    if include_private:
+        return _practice_catalogue_markdown(data['sources'])
+    md, _held_back = _practice_catalogue_for_tracked_doc(repo_root, data['sources'])
+    return md
+
+
 def emit_merged_stale_checkout(repo_root=None):
     """-> the merged-and-stale (safe-to-delete) branch list for THIS
     checkout alone, as markdown, for `--emit` (practice: very-deep-check).
@@ -4716,26 +6469,36 @@ def emit_merged_stale_checkout(repo_root=None):
 
 
 SPEC_DOC_RELPATH = pathlib.Path('spec') / 'VERY_DEEP_CHECK.md'
-_VDC_EMBED_RE = re.compile(
-    r'(<!--vdc-embed:merged-stale-checkout:[^>]*-->\n).*?'
-    r'(\n<!--/vdc-embed:merged-stale-checkout-->)', re.S)
+
+# Named rather than singular since 2026-09-23, when 'practice-catalogue'
+# joined 'merged-stale-checkout' as a second block this same document
+# embeds -- the pattern is per-name so a new embed never has to touch the
+# regex either of the existing ones already matches.
+_VDC_EMBED_NAMES = ('merged-stale-checkout', 'practice-catalogue')
 
 
-def _update_spec_doc_block(repo_root, markdown):
-    """Rewrite the `<!--vdc-embed:merged-stale-checkout:...-->` block in
-    THIS repo's own spec/VERY_DEEP_CHECK.md, in place -- never in a
-    checked repo other than this one, since that document and this
-    practice both live only here. A silent no-op when the file or the
-    block is absent (a checked repo that vendors this engine has neither,
-    and a run against it must not fail over a document it does not own)."""
+def _vdc_embed_re(name):
+    n = re.escape(name)
+    return re.compile(r'(<!--vdc-embed:' + n + r':[^>]*-->\n).*?'
+                       r'(\n<!--/vdc-embed:' + n + r'-->)', re.S)
+
+
+def _update_spec_doc_block(repo_root, name, markdown):
+    """Rewrite the `<!--vdc-embed:<name>:...-->` block in THIS repo's own
+    spec/VERY_DEEP_CHECK.md, in place -- never in a checked repo other than
+    this one, since that document and this practice both live only here.
+    A silent no-op when the file or the named block is absent (a checked
+    repo that vendors this engine has neither, and a run against it must
+    not fail over a document it does not own)."""
     path = pathlib.Path(repo_root) / SPEC_DOC_RELPATH
     if not path.is_file():
         return False
     text = path.read_text(encoding='utf-8')
-    if not _VDC_EMBED_RE.search(text):
+    pattern = _vdc_embed_re(name)
+    if not pattern.search(text):
         return False
-    new_text = _VDC_EMBED_RE.sub(lambda m: m.group(1) + markdown + m.group(2),
-                                 text, count=1)
+    new_text = pattern.sub(lambda m: m.group(1) + markdown + m.group(2),
+                           text, count=1)
     if new_text != text:
         path.write_text(new_text, encoding='utf-8')
         return True
@@ -4964,6 +6727,14 @@ def _main(box):
                      "e.g. --record-pass '2=done,findings=3'.")
         record_pass = args[i + 1]
         args = args[:i] + args[i + 2:]
+    record_read = None
+    if '--record-read' in args:
+        i = args.index('--record-read')
+        if i + 1 >= len(args):
+            sys.exit("very deep check FAIL: --record-read needs a path, "
+                     "e.g. --record-read 'tools/verify_harness.py,note=...'.")
+        record_read = args[i + 1]
+        args = args[:i] + args[i + 2:]
     ledger_path = None          # default: the checked repo's own ledger
     if '--ledger' in args:
         i = args.index('--ledger')
@@ -4978,6 +6749,8 @@ def _main(box):
             sys.exit("very deep check FAIL: --branch-report needs a path.")
         branch_report_path = pathlib.Path(args[i + 1])
         args = args[:i] + args[i + 2:]
+    if record_read is not None:
+        return _record_read(record_read, repo)
     if record_pass is not None:
         return _record_pass(record_pass, ledger_path, repo)
     if '--emit' in args:
@@ -4991,17 +6764,25 @@ def _main(box):
         if i + 1 >= len(args):
             sys.exit("very deep check FAIL: --emit needs a block name.")
         name = args[i + 1]
-        if name != 'merged-stale-checkout':
+        if name not in _VDC_EMBED_NAMES:
             sys.exit(f"very deep check FAIL: --emit {name!r} is not a "
-                     f"block this script owns; the only one is "
-                     f"'merged-stale-checkout'.")
-        print(emit_merged_stale_checkout(repo))
+                     f"block this script owns; the only ones are "
+                     f"{', '.join(repr(n) for n in _VDC_EMBED_NAMES)}.")
+        if name == 'merged-stale-checkout':
+            print(emit_merged_stale_checkout(repo))
+        else:
+            print(emit_practice_catalogue(
+                repo, user_config,
+                include_private='--catalogue-include-private' in args))
         return 0
 
     as_json = '--json' in args
     allow_missing = '--allow-missing-sources' in args
     skip_branch_scan = '--skip-branch-scan' in args
+    skip_practice_catalogue = '--skip-practice-catalogue' in args
+    catalogue_include_private = '--catalogue-include-private' in args
     print_checklist = '--checklist' in args
+    with_harness = '--with-harness' in args
     skip_visibility = '--skip-visibility' in args
     skip_liveness = '--skip-liveness' in args
     # Narrow the read to repos this session can actually land work in. NOT the
@@ -5084,6 +6865,21 @@ def _main(box):
                  f"report anything else while one of them is malformed.")
 
     if led:
+        led.start('PLANTED CASE COVERAGE')
+    _pc_status, _pc_lines = planted_case_coverage(_root, run=with_harness)
+    if not as_json:
+        print("PLANTED CASE COVERAGE -- the push gate's rotation, settled "
+              "or still owed\n")
+        for _l in _pc_lines:
+            print(f"  {_l}")
+        print()
+    if led:
+        # An owed rotation is a finding: the promise "covered within 10
+        # commits" is the thing this section exists to stop taking on
+        # trust. 'n/a' is unmeasurable, never clean.
+        led.end(findings=None if _pc_status == 'n/a'
+                else (0 if _pc_status == 'ran' and not any(
+                    l.startswith('FAIL') for l in _pc_lines) else 1))
         led.start('VENDORING EXCLUSIONS')
     _vendor_findings = _vendored_exclusion_findings(_root)
     if not as_json:
@@ -5299,8 +7095,8 @@ def _main(box):
         # repo's -- see _update_spec_doc_block's docstring.
         if pathlib.Path(repo_root).resolve() == ROOT.resolve():
             _update_spec_doc_block(
-                repo_root, _merged_stale_checkout_markdown(
-                    branch_scans.get('checkout')))
+                repo_root, 'merged-stale-checkout',
+                _merged_stale_checkout_markdown(branch_scans.get('checkout')))
 
     # THE REPO SIDE of the live-session sweep, gathered here beside the
     # branch scan because it reads the same clones and asks the neighbouring
@@ -5379,6 +7175,65 @@ def _main(box):
     if led:
         led.end(items=c['practice_count']
                 + sum(s['practice_count'] for s in data['sources']))
+
+    # PRACTICE CATALOGUE (practice: very-deep-check, added 2026-09-23 at
+    # Morgan's request): every in-force practice's slug and one-sentence
+    # `_index_clause`, one section per source in force, so a very deep
+    # check gives him a list to review the CATALOGUE against rather than
+    # only a pass/fail read of the writing. `data['sources']` already
+    # carries the universal source resolved to this checkout's own path,
+    # so nothing here re-adds "this checkout" as a separate row the way
+    # the scope print above does.
+    #
+    # THE COMMITTED HALF IS GATED BY VISIBILITY, THE CONSOLE HALF NEVER IS.
+    # A session's own reply is never published anywhere by this tool, so
+    # the console print below always shows every source, held-back ones
+    # included -- that IS the "chat" option Morgan asked for, already
+    # satisfied on every run with nothing further to do. What is gated is
+    # only what `_update_spec_doc_block` COMMITS: see
+    # `_practice_catalogue_for_tracked_doc()`'s docstring for the incident
+    # this fixed (2026-09-24) -- the first version of this section wrote
+    # every source, private ones included, into this file unconditionally,
+    # which is exactly the disclosure `build_views.py`'s `repo_is_public()`
+    # already exists to prevent for the AGENTS.md loader block.
+    if led:
+        led.start('PRACTICE CATALOGUE', kind='read')
+    if skip_practice_catalogue:
+        if not as_json:
+            print("PRACTICE CATALOGUE -- skipped (--skip-practice-catalogue)\n")
+        _cat_rows = []
+    else:
+        _cat_rows = _practice_catalogue_rows(data['sources'])
+        _cat_md_console = _practice_catalogue_markdown(data['sources'])
+        if not as_json:
+            print("PRACTICE CATALOGUE -- every in-force practice's slug and "
+                  "one-sentence description,\none section per source in "
+                  "force (nothing here is committed by itself)\n")
+            print(_cat_md_console)
+            print()
+        # This repo's own spec/VERY_DEEP_CHECK.md only, same restriction as
+        # the branch-list embed below -- see _update_spec_doc_block's
+        # docstring.
+        if pathlib.Path(repo_root).resolve() == ROOT.resolve():
+            if catalogue_include_private:
+                _cat_md_doc, _held_back = _cat_md_console, []
+            else:
+                _cat_md_doc, _held_back = _practice_catalogue_for_tracked_doc(
+                    repo_root, data['sources'])
+            if _held_back and not as_json:
+                print(f"PRACTICE CATALOGUE: {len(_held_back)} source(s) "
+                      f"held back from spec/VERY_DEEP_CHECK.md because this "
+                      f"repo is public -- {', '.join(s['name'] for s in _held_back)}. "
+                      f"Full list is in the console output above. Ask the "
+                      f"person which they actually want before doing "
+                      f"anything else with it: committed here too "
+                      f"(--catalogue-include-private, an explicit choice), "
+                      f"chat-only (nothing further to do), or not generated "
+                      f"at all (--skip-practice-catalogue) -- never decide "
+                      f"this one silently.\n")
+            _update_spec_doc_block(repo_root, 'practice-catalogue', _cat_md_doc)
+    if led:
+        led.end(items=len(_cat_rows))
         led.start('WITHIN-SOURCE CONFLICTS')
     print("WITHIN-SOURCE CONFLICTS -- one catalogue disagreeing with itself\n")
     _conf_n = 0
@@ -5612,6 +7467,85 @@ def _main(box):
     print()
     if led:
         led.end(findings=_orph_n if _orph_seen else None)
+        led.start('CONFIG KEYS', kind='read')
+
+    print("CONFIG KEYS -- every key a repo declares, and what reads it\n")
+    _ck_unread = 0
+    _ck_rows = 0
+    for _name, _p in _orph_targets:
+        if not pathlib.Path(_p).is_dir():
+            continue
+        _rows, _note = _config_key_reads(_p, _orph_targets)
+        if _note:
+            print(f"  {_name}: not measured -- {_note}")
+            continue
+        _unread = [r for r in _rows if not r[2]]
+        _ck_rows += len(_rows)
+        _ck_unread += len(_unread)
+        if not _unread:
+            print(f"  {_name}: {len(_rows)} declared key(s), every one "
+                  f"mentioned by a script here")
+            continue
+        print(f"  {_name}: {len(_rows)} declared key(s), {len(_unread)} "
+              f"read by nothing here:")
+        for _file, _key, _where, _elsewhere in _unread:
+            _tail = (f" -- mentioned in {', '.join(_elsewhere)}"
+                     if _elsewhere else
+                     " -- mentioned in no repo in force")
+            print(f"      {_file}: {_key}{_tail}")
+    if _ck_rows:
+        print("\n  A key nothing reads is a BELIEF, not a typo: somebody "
+              "wrote it expecting it\n  to do something, and the file goes "
+              "on looking as intentional as a live one.\n  Mentioned "
+              "elsewhere is not a finding on its own -- a private check may "
+              "run\n  against every repo in force -- but mentioned nowhere "
+              "is worth an answer.")
+    print()
+    if led:
+        led.end(items=_ck_rows or None, findings=_ck_unread if _ck_rows
+                else None)
+        led.start('CHECK COVERAGE')
+
+    print("CHECK COVERAGE -- what every registered check actually did, per "
+          "repo in force\n")
+    _cc_findings = 0
+    _cc_measured = False
+    for _name, _p in _orph_targets:
+        if not pathlib.Path(_p).is_dir():
+            continue
+        _sum, _note = _check_coverage(_p)
+        if _sum is None:
+            print(f"  {_name}: not measured -- {_note}")
+            continue
+        _cc_measured = True
+        _c = _sum['counts']
+        print(f"  {_name}: {_c.get('passed', '?')} passed, "
+              f"{_c.get('violated', '?')} violated, "
+              f"{_c.get('skipped', '?')} SKIPPED")
+        if _sum['violated']:
+            _cc_findings += len(_sum['violated'])
+            print(f"      violated: {', '.join(_sum['violated'])}")
+        _top = sorted(_sum['causes'].items(), key=lambda x: -x[1])[:3]
+        for _cause, _n in _top:
+            # One cause behind most of a repo's skips is the finding; a
+            # long tail of one-offs is housekeeping.
+            _flag = 'ONE CAUSE' if _n >= 5 else 'cause    '
+            print(f"      {_flag} {_n:>3} skip(s): {_cause[:96]}")
+            if _n >= 5:
+                _cc_findings += 1
+    if not _cc_measured:
+        print("  nothing measured -- no repo in force carries a check "
+              "registry to run.")
+    else:
+        print("\n  A skip is not a pass. What matters is the CAUSE: many "
+              "skips behind one\n  structural reason is a coverage hole "
+              "wearing many names -- a source set whose\n  practices/ "
+              "holds its own level only skips every other level's check, "
+              "silently\n  and permanently. A long tail of one-offs is "
+              "housekeeping.")
+    print()
+    if led:
+        led.end(findings=_cc_findings if _cc_measured else None)
         led.start('CI WORKFLOW FILES OUTSIDE VENDORING')
 
     # Scope is honest, not aspirational: this checkout plus every FATAL_
@@ -5656,6 +7590,239 @@ def _main(box):
     print()
     if led:
         led.end(findings=_wf_n if _wf_seen else None)
+        led.start('WORKFLOW REALITY')
+
+    print("WORKFLOW REALITY -- what GitHub says about each workflow file, "
+          "not what the tree says\n")
+    _wr_n = 0
+    _wr_measured = False
+    if skip_liveness:
+        print("  not asked (--skip-liveness) -- UNVERIFIED, which is not the "
+              "same answer as clean.")
+    else:
+        for _name, _p in _orph_targets:
+            if not pathlib.Path(_p).is_dir():
+                continue
+            _rows = _workflow_reality(_p)
+            if not _rows:
+                continue
+            _measured_here = any(v != 'UNVERIFIED' for v, _ in _rows)
+            _wr_measured = _wr_measured or _measured_here
+            print(f"  {_name}:")
+            for _verdict, _msg in _rows:
+                print(f"      {_verdict:<11} {_msg}")
+                if _verdict == 'FINDING':
+                    _wr_n += 1
+        if not _wr_measured and _wr_n == 0:
+            print("  nothing measured -- no workflow file in any repo in "
+                  "force, or GitHub\n  could not be asked. Never read as "
+                  "clean.")
+        elif _wr_n == 0:
+            print("\n  No finding: every workflow file in force is "
+                  "registered, active, and has\n  run since it was last "
+                  "edited.")
+    print()
+    if led:
+        led.end(findings=_wr_n if (_wr_measured and not skip_liveness)
+                else None)
+        led.start('DELETIONS PENDING')
+
+    print("DELETIONS PENDING -- what the next refresh would take away, and "
+          "who still names it\n")
+    _del_n = 0
+    _del_measured = False
+    for _name, _p in _orph_targets:
+        if not pathlib.Path(_p).is_dir():
+            continue
+        _rows, _note = _pending_deletions(_p)
+        if _rows is None:
+            print(f"  {_name}: N/A -- {_note}")
+            continue
+        _del_measured = True
+        if not _rows:
+            print(f"  {_name}: none -- {_note}")
+            continue
+        print(f"  {_name} ({_note}):")
+        for _rel, _refs in _rows:
+            if _refs:
+                _del_n += 1
+                print(f"      FINDING     {_rel} -- the next refresh deletes "
+                      f"it, and {len(_refs)} tracked file(s) still name it:")
+                for _path, _line, _text in _refs[:4]:
+                    print(f"                    {_path}:{_line}  {_text}")
+            else:
+                print(f"      pending     {_rel} -- the next refresh deletes "
+                      f"it; nothing else names it")
+    if not _del_measured:
+        print("  nothing measured -- no repo in force vendors an engine "
+              "manifest to diff.")
+    print()
+    if led:
+        led.end(findings=_del_n if _del_measured else None)
+        led.start('CARRY-THROUGH')
+
+    print("CARRY-THROUGH -- how far each repo's vendored engine is behind "
+          "the upstream it came from\n")
+    _ct_n = 0
+    _ct_measured = False
+    if skip_liveness:
+        print("  not asked (--skip-liveness) -- UNVERIFIED, which is not the "
+              "same answer as current.")
+    else:
+        for _name, _p in _orph_targets:
+            if not pathlib.Path(_p).is_dir():
+                continue
+            _status, _lines = _carry_through(_p)
+            if _status in ('current', 'behind'):
+                _ct_measured = True
+            if _status == 'behind':
+                _ct_n += 1
+            print(f"  {_status.upper():<11} {_name}")
+            for _l in _lines:
+                print(f"                  {_l}")
+        if not _ct_measured:
+            print("\n  nothing measured -- no repo in force vendors an "
+                  "engine, or upstream could not\n  be reached. Never read "
+                  "as current.")
+        elif _ct_n == 0:
+            print("\n  Every repo in force is carrying the current engine.")
+        else:
+            print(f"\n  {_ct_n} repo(s) behind. Nothing here refreshes "
+                  f"anything: taking an update is\n  \"Update Vendors\", run "
+                  f"in that repo, and it is ordinary work authorized the\n"
+                  f"  ordinary way.")
+    print()
+    if led:
+        led.end(findings=_ct_n if _ct_measured else None)
+        led.start('IDENTITY REALITY')
+
+    _id_days = session_days or _declared_session_window_days(repo_root) or 30
+    print(f"IDENTITY REALITY -- who the commits that LANDED say wrote them "
+          f"({_id_days}-day window)\n")
+    _id_n = 0
+    _id_measured = False
+    for _name, _p in _orph_targets:
+        if not pathlib.Path(_p).is_dir():
+            continue
+        _rows, _notes = _identity_reality(_p, days=_id_days)
+        if not _rows and not _notes:
+            continue
+        _id_measured = _id_measured or bool(_rows)
+        print(f"  {_name}:")
+        for _verdict, _msg in _rows:
+            print(f"      {_verdict:<11} {_msg}")
+            if _verdict == 'FINDING':
+                _id_n += 1
+        for _note in _notes:
+            print(f"      note        {_note}")
+    if not _id_measured and _id_n == 0:
+        print("  nothing measured -- no repo in force could be read for "
+              "authorship. Never read as clean.")
+    elif _id_n == 0:
+        print("\n  No finding: every commit in the window carries a "
+              "configured identity, the\n  declared person's own offsets, "
+              "and no tracked settings.json hardcodes anyone.")
+    print()
+    if led:
+        led.end(findings=_id_n if _id_measured else None)
+        led.start('INCIDENT COVERAGE', kind='read')
+
+    print("INCIDENT COVERAGE -- what was filed since the last run, and what "
+          "cites it\n")
+    _ic_since, _ic_rows, _ic_note = _incident_coverage(repo_root)
+    if _ic_note:
+        print(f"  not measured -- {_ic_note}")
+    else:
+        print(f"  Since the last recorded run ({_ic_since}): "
+              f"{len(_ic_rows)} incident(s).\n")
+        for _kind, _slug, _when, _cites in _ic_rows:
+            print(f"      {_when}  {_kind}: {_slug}")
+            if _cites:
+                print(f"                  cited by {len(_cites)}: "
+                      f"{', '.join(_cites[:4])}")
+            else:
+                print("                  cited by NOTHING in tools/ or "
+                      "practices/")
+        if _ic_rows:
+            print("\n  Ask of each: what prevents a recurrence, and is "
+                  "there a planted case proving\n  it fires? A citation is "
+                  "evidence something names the incident, never proof the\n"
+                  "  class is closed -- a docstring reads the same as a "
+                  "check. 'Nothing, and\n  deliberately so' is an answer "
+                  "worth writing down; unexamined is not.")
+    print()
+    if led:
+        led.end(items=len(_ic_rows) if not _ic_note else None)
+        led.start('FIX SWEEP -- new detectors, run everywhere')
+
+    print("FIX SWEEP -- every detector added since the last run, against "
+          "every repo in force\n")
+    # The targets are the sources with a clone on this disk. A repo with no
+    # local clone is named and skipped rather than dropped: "could not be
+    # swept" and "swept clean" are different answers and must not read alike.
+    _fs_targets = [(_s.get('name'), _s.get('path')) for _s in data['sources']
+                   if _s.get('level') in FATAL_MISSING_LEVELS]
+    (_fs_since, _fs_slugs, _fs_rows,
+     _fs_note, _fs_caveat) = _fix_sweep(repo_root, _fs_targets)
+    _fs_findings = 0
+    if _fs_note:
+        print(f"  not measured -- {_fs_note}")
+    elif not _fs_slugs:
+        print(f"  No check was registered here since the last recorded run "
+              f"({_fs_since}), so there is\n  no new detector to carry "
+              f"anywhere.")
+        if _fs_caveat:
+            print(f"  NARROWER WINDOW THAN ASKED FOR{_fs_caveat}")
+    else:
+        print(f"  Registered here since {_fs_since}: "
+              f"{', '.join(_fs_slugs)}\n")
+        if _fs_caveat:
+            print(f"  NARROWER WINDOW THAN ASKED FOR{_fs_caveat}\n")
+        for _label, _verdicts, _why in _fs_rows:
+            if _verdicts is None:
+                print(f"      {_label}: {_why}")
+                continue
+            for _slug, _verdict, _detail in _verdicts:
+                if _verdict in ('VIOLATION', 'ERRORED', 'UNREADABLE'):
+                    _fs_findings += 1
+                _tail = f" -- {_detail}" if _detail else ''
+                print(f"      {_label}: {_slug} -> {_verdict}{_tail}")
+        print("\n  A VIOLATION here is the case this exists for: the fix "
+              "landed where the bug was\n  found, the detector came with "
+              "it, and the repo that still has the bug has not\n  vendored "
+              "the detector yet, so its own checks report nothing. Fix it "
+              "there, in\n  this run -- a sweep that only lists is the "
+              "clean result that costs the most.\n\n  Two limits, both "
+              "real. This sweeps REGISTERED CHECKS only: a fix whose "
+              "detector\n  shipped as a standalone tool, a planted harness "
+              "case or a hook is not reached\n  here. And each repo is "
+              "read as a one-commit copy, so a change-scope check has\n"
+              "  no change to look at and declines -- correctly, since "
+              "another repo's tree\n  cannot answer a question about this "
+              "one's diff.")
+    print()
+    if led:
+        led.end(findings=_fs_findings if not _fs_note else None)
+        led.start('ACCRETION -- files nobody has read whole', kind='read')
+
+    _ac_rows, _ac_window, _ac_note = _accretion(repo_root)
+    print(f"ACCRETION -- what has been added since anybody read the whole "
+          f"file ({_ac_window}-day window)\n")
+    if _ac_note:
+        print(f"  not measured -- {_ac_note}")
+    else:
+        print("  commits  lines  last read   file")
+        for _path, _n, _lines, _read in _ac_rows:
+            print(f"  {_n:>7}  {_lines:>5}  "
+                  f"{_read or 'never':<11} {_path}")
+        print("\n  Read ONE of these end to end this run, then "
+              "`--record-read '<path>,note=...'`.\n  Churn is not a defect "
+              "and the top row may be the healthy one; what the ranking\n"
+              "  buys is that a file nobody has opened whole cannot stay "
+              "invisible just\n  because every commit to it was fine.")
+    print()
+    if led:
+        led.end(items=len(_ac_rows) if not _ac_note else None)
         led.start('SESSION LOAD')
 
     print("SESSION LOAD -- what every session pays before it does anything\n")
@@ -5689,15 +7856,22 @@ def _main(box):
         print(f"  {_tot:7,d}  subtotal\n")
     if _grand:
         print(f"  {_grand:7,d}  TOTAL across every repo in force, every session, "
-              f"before any\n           work starts (rough: words x 1.3). Declared "
-              f"ceilings live in\n           tools/session_load_budgets.json; "
-              f"precedent_check.py --only\n           session-load-budget tests "
-              f"this checkout's against them.\n")
+              f"before any\n           work starts (rough: words x 1.3). Each "
+              f"repo's own declared ceilings\n           live in its "
+              f"tools/session_load_budgets.json, and every surface above is\n"
+              f"           tested against them below -- for each repo measured, "
+              f"not this\n           checkout alone, which is the half "
+              f"precedent_check.py --only\n           session-load-budget "
+              f"cannot reach from here.\n")
     for _m in _sl:
         print(f"  {_m}")
     if not _sl:
-        print("  no section is large enough to be worth splitting, and no "
-              "entry claims its\n  own trap is settled.")
+        print("  every surface is inside the ceiling its own repo declares "
+              "for it, no section\n  is large enough to be worth splitting, "
+              "and no entry claims its own trap is\n  settled. A repo that "
+              "declares no ceiling is not tested against one -- "
+              "session-\n  load-budget asks for the registry, and nothing "
+              "here can invent the number.")
     _gc_rows, _gc_msgs = _gotchas_currency(repo_root)
     if _gc_rows:
         print("\n  GOTCHA CURRENCY -- the tree read against each entry, not "
@@ -5817,6 +7991,54 @@ def _main(box):
     print()
     if led:
         led.end(items=len(_ship))
+        led.start('MOVED CLAIMS')
+
+    print("MOVED CLAIMS -- \"the work now lives in X\", where X is not "
+          "there\n")
+    _mc_n = 0
+    _mc_seen = False
+    _mc_unknown = []
+    for _name, _p in _orph_targets:
+        if not pathlib.Path(_p).is_dir():
+            continue
+        _mc_seen = True
+        _rows = _moved_claims(_p)
+        if _rows is None:
+            # Could not list the repo's tracked files, so the
+            # named-without-its-path suppression could not be built. Any
+            # rows produced from here would be artefacts of the failed
+            # read, not claims about this repository.
+            _mc_unknown.append(_name)
+            print(f"  {_name}: CANNOT TELL -- `git ls-files` failed, so "
+                  f"this repository was not scanned. Not a clean result.")
+            continue
+        if not _rows:
+            continue
+        _mc_n += len(_rows)
+        print(f"  {_name}:")
+        for _file, _line, _claim, _target in _rows:
+            print(f"      {_file}:{_line}  \"{_claim} {_target}\" -- no such "
+                  f"file here")
+    if not _mc_seen:
+        print("  (no repository to scan)")
+    elif _mc_n == 0 and _mc_unknown:
+        print("  no rows -- but " + ", ".join(_mc_unknown) + " could not be "
+              "scanned, so this is NOT 'none'.")
+    elif _mc_n == 0:
+        print("  none -- every file named as somewhere work moved to "
+              "exists.")
+    else:
+        print("\n  Each row is a premise that was true when it was written. "
+              "The file saying it\n  cannot know its destination went away, "
+              "and nobody reads a paused file to\n  check -- which is "
+              "exactly how two commit-scope checks came to run nowhere.")
+    print()
+    if led:
+        # Unknown is not zero: a count that silently omits an unscanned
+        # repository reads as a clean pass on it.
+        led.end(findings=(_mc_n if _mc_seen and not _mc_unknown
+                          else (None if _mc_unknown or not _mc_seen
+                                else _mc_n)))
         led.start('DOCUMENTATION CURRENCY')
 
     print("DOCUMENTATION CURRENCY -- what changed, against what still says "
@@ -5855,6 +8077,24 @@ def _main(box):
     print()
     if led:
         led.end(findings=_md_count)
+        led.start('CROSS-REPO LINKS')
+
+    print("CROSS-REPO LINKS -- do absolute github.com links into a repo "
+          "in force actually resolve\n")
+    _xl_findings, _xl_count, _xl_notes = _cross_repo_link_check(_orph_targets)
+    for _n in _xl_notes:
+        print(f"  note: {_n}")
+    if _xl_notes and _xl_findings:
+        print()
+    if not _xl_findings:
+        print("  clean -- every absolute github.com link into a repo this "
+              "session has open\n  resolves, self-citation included.")
+    else:
+        for _f in _xl_findings:
+            print(f"  {_f}")
+    print()
+    if led:
+        led.end(findings=_xl_count)
 
     # UNLANDED WORK, printed BEFORE the checklist rather than with the rest
     # of the branch scan at the end (practice: very-deep-check, step 4 of its
@@ -6291,6 +8531,54 @@ def _main(box):
                     extra_seconds=_endgame_secs)
     elif led:
         led.skipped('ENDGAME MERGE', '--skip-endgame-merge')
+
+    # THE OTHER BILL, the one that has actually been hurting. Placed beside
+    # the API budget below because they are the same question about two
+    # different meters, and read in the same breath.
+    if led:
+        led.start('ACTIONS FLOOR')
+    _ab_days = session_days or _declared_session_window_days(repo_root) or 14
+    print(f"ACTIONS FLOOR -- runs x jobs at GitHub's per-job minute floor "
+          f"({_ab_days}-day window)\n")
+    _ab_total, _ab_measured = 0, False
+    if skip_liveness:
+        print("  not asked (--skip-liveness).")
+    else:
+        for _name, _p in _orph_targets:
+            if not pathlib.Path(_p).is_dir():
+                continue
+            _rows, _sub, _note = _actions_bill(_p, days=_ab_days)
+            if _note:
+                print(f"  {_name}: not measured -- {_note}")
+                continue
+            _ab_measured = True
+            _ab_total += _sub
+            print(f"  {_name}:")
+            for _rel, _runs, _jobs, _floor, _why in _rows:
+                if _floor is None:
+                    print(f"      {_rel}: {_why}")
+                else:
+                    print(f"      {_rel}: {_runs} run(s) x {_jobs} job(s) "
+                          f"= {_floor} floor-minute(s)")
+            print(f"      subtotal: {_sub} floor-minute(s)")
+        if _ab_measured:
+            print(f"\n  {_ab_total} floor-minute(s) across every repo in "
+                  f"force, over {_ab_days} days.\n  A FLOOR, not an "
+                  f"invoice: real minutes are at least this, and whether "
+                  f"they are\n  billed at all depends on the repository "
+                  f"being private. The lever is job count\n  per workflow "
+                  f"-- two workflows on one pull request is two whole "
+                  f"minutes for\n  however little work (spec/CI_MINUTES_PLAN.md "
+                  f"items 13 and 15).")
+        else:
+            print("  nothing measured -- no repo in force runs a workflow, "
+                  "or GitHub could not\n  be asked.")
+    print()
+    if led:
+        # An estimate is material to read, never a finding to fix: the
+        # number is only a problem against a budget nobody has declared
+        # here yet.
+        led.end(items=_ab_total if _ab_measured else None)
 
     # WHAT THIS RUN COST, AND WHAT THE ACCOUNT HAS LEFT (practice:
     # github-api-budget). Last, deliberately: the spend figure is only

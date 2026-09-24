@@ -42,3 +42,23 @@ closed:            null
 ## Notes
 
 2026-09-16: migrated from TODO.md by tools/todo_migrate.py.
+
+2026-09-22: **the second half — "the check running there" — is done, and the
+first half is not.**
+[tools/very_deep_check.py](../tools/very_deep_check.py)'s SESSION LOAD pass
+now reads each measured repo's OWN `tools/session_load_budgets.json` and
+reports any surface over the ceiling declared there, and
+[tools/precedent_check.py](../tools/precedent_check.py)'s
+`session-load-budget` check binds wherever that registry exists rather than
+only where the practice file does (`check()`'s new `binds_when`). So a source
+that declares a ceiling is now measured against it from a BestPractice
+checkout, with nothing to refresh in that source first.
+
+What is still open is the first half, unchanged: **a source that declares no
+ceiling is still measured against nothing.** `precedent-individual` has a
+registry; the three team sets did not when this item was written. Neither
+mechanism can invent a number, and neither tries — a repo without a registry
+is reported as untested, not as clean. The blocked-on above is now narrower
+too: landing a registry in each source is still that repository's own merge,
+but the CHECK no longer has to reach those checkouts for the ceiling to be
+tested.

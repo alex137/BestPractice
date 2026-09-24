@@ -73,6 +73,7 @@ being checked by it.
 | `cite-the-incident` | change | a practice file whose Rule is new or changed must carry a non-empty ## Story |
 | `code-cites-practice` | tree | a `practice: SLUG` citation in tools/**/*.py names a real, active practice -- never a typo, a deleted file, one since retired, or a position number instead of a slug |
 | `computed-numbers-in-scripts` | tree | every generated block in a document matches what its script emits, is registered, and its document names the scripts that feed it |
+| `dated-list-runs-forward` | tree | every list marked `<!--dated-list-->` runs oldest first, and no entry after the first dated one is missing a date of its own |
 | `decision-strength` | tree | every `strength:` in a practice file or a decision record holds one of the two defined words, and the file it sits in also records who approved the thing; and every `**Strength:` line in prose records the date it was set and who set it |
 | `decommission-deletes-files` | tree | every path this repo declared decommissioned is still absent, and every decommissioning carries the reason it happened |
 | `deliverables-look-like-output` | change | a reader-facing document in scope carries no process residue — no verify-later flag, claims-to-source apparatus or decision provenance |
@@ -107,7 +108,7 @@ being checked by it.
 | `scrub-gate` | tree | every text file in a vendored tree destined for another repo is clean against that tree's blocklist, at all times |
 | `search-by-purpose` | change | a document carrying generated numbers is reachable from an index a reader actually consults |
 | `session-bootstrap` | tree | if the session instructions name a setup command, a session-start hook must run it |
-| `session-load-budget` | tree | every file a session loads before it works is declared in tools/session_load_budgets.json and is under its declared ceiling, and a change does not add text the practice catalogue already holds |
+| `session-load-budget` | tree | every file a session loads before it works is declared in tools/session_load_budgets.json and is under its declared ceiling, a repo that declares ceilings also declares headroom_floor_pct so the early-warning notice is not silently off, and a change does not add text the practice catalogue already holds |
 | `source-naming` | tree | every precedent.json in the tree names each source by a name its level allows -- `precedent` and `local` for universal and repo-local, a slug for a shared or individual set -- and every declared source on disk that carries a precedent-source.json answers to the name and level declared for it |
 | `speculation-is-marked` | tree | a speculative document under spec/ or record/ carries all four of its markers or none of them: the SPECULATIVE_ filename prefix requires a matching title, `kind: proposal`, a drafted/abandoned status and a warning block directly under the heading -- and, in the other direction, a document whose title or opening paragraph calls itself speculative must carry the prefix |
 | `technical-describes-people` | tree | no tracked path labels a FILE or DIRECTORY with a skill level; 'technical' and 'non-technical' describe people |
@@ -117,7 +118,7 @@ being checked by it.
 | `verify-postcondition` | turn-end | the state you wanted after the operations this turn: nothing committed but unpushed on any local branch, and no tracked file left modified |
 | `workflow-file-outside-vendoring` | tree | every .github/workflows/*.yml or *.yaml file that changed is either the one file this repo's kind vendors through precedent_vendor_engine.py, or already a known RETIRED_CI_WORKFLOW_FILES entry -- anything else is named, once, as worth a second look |
 
-49 of 140 practices are enforced. Run `python3 tools/precedent_check.py --explain` for what each check does **not** catch.
+50 of 146 practices are enforced. Run `python3 tools/precedent_check.py --explain` for what each check does **not** catch.
 <!--/gen:enforcement-->
 
 Numbers by: catalogue_stats.py

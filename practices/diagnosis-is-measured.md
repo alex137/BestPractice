@@ -6,6 +6,7 @@ severity:    default
 applies_to:  ["**"]
 occasion:    "a tool, hook or error message names the possible causes of a failure"
 gates:       ["reply"]
+index_required: false
 index_clause: "a tool's named causes are hypotheses; measure one before you relay it"
 checked_by:  null
 defines:     []
@@ -14,7 +15,12 @@ in_force_at: null
 supersedes:  []
 overrides:   null
 added:       "2026-09-14"
-approved_by: "Morgan, 2026-09-14 -- \"Note the rule violation. Go merge.\", directing this incident be written up and landed"
+approved_by: "Morgan, 2026-09-14 -- \"Note the rule violation. Go merge.\", directing this incident be written up and landed;
+  extended 2026-09-22, Morgan (strength: decided) -- \"File it that way, go
+  update\" -- with the comparison-check case: a check names the two things it
+  compares and never the inputs feeding them, so a stale clone is reported as
+  a fault in the output, and re-running against older code rules out the code
+  rather than the environment"
 strength:    decided
 source_practice_number: null
 ---
@@ -41,6 +47,23 @@ telling them to act on it costs them an afternoon -- and where the
 recommended action is to **delete** something, an unmeasured cause can talk
 them into destroying working configuration to fix a problem that was never
 there.
+
+**A check that COMPARES two things names those two things, and never the
+inputs feeding them.** This one has no cause list at all -- it reports a
+fact, and the fact is true: the document does not match what its script
+produces. What it cannot say is that the script read a stale clone, because
+the clone is not one of the two sides being compared, it is an input to one
+of them. So a stale input is reported, correctly and unhelpfully, as a fault
+in the output, and the finding points at the wrong file **by construction**.
+Where a run has been told anything is stale, behind, or diverged -- a source
+clone, a cache, a generated tree -- that notice is an input to every check
+that follows it, not housekeeping to read past.
+
+**And reproducing a finding against older code rules out the code, not the
+environment.** Re-running with the previous version and getting the same
+result feels like the decisive test and is not: both runs read the same
+stale input. It answers *"did my change cause this"*, which is worth
+knowing, and it is silently mistaken for *"what caused this"*.
 
 **The most dangerous message is the one that has already eliminated
 something.** *"A credential IS set, so a missing credential is not the
@@ -86,6 +109,34 @@ recommendation at face value, go looking for a problem that does not exist,
 and the session that sent them has spent their attention on nothing.
 
 ## Story
+**2026-09-22, in this repository.** A session ran [`precedent_check.py`](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/precedent_check.py) and
+got one violation: `computed-numbers-in-scripts`, reporting that a generated
+vocabulary block in a document no longer matched what its script emits. The
+finding named the document and the script, which are the two things it
+compares.
+
+The session read that as a standing drift in the document, decided
+regenerating it would publish a private practice's command into a public
+file, declined to touch it -- correctly -- and moved on. Then, to be sure
+the violation was not its own doing, it checked out the previous version of
+the checker and ran it against the same tree. Identical result. It treated
+that as settled and wrote the diagnosis into a commit message and a pull
+request body.
+
+**The cause was neither the document nor the script.** One of the practice
+source clones on the container was twenty commits behind its origin, and the
+fix for this exact drift had already landed there -- the offending row was
+never a vocabulary command and had lost its `command:` field at the source.
+The script was faithfully emitting a row that no longer existed upstream.
+The check was right; the reading of why was wrong.
+
+It surfaced by accident: the session reset that clone for an unrelated
+reason and the violation vanished. **The session-start output had named the
+stale clone on the first turn**, and it was read as housekeeping rather than
+as an input to every check the session was about to run. Morgan, 2026-09-22,
+on being shown the sequence: *"File it that way, go update"* (strength:
+decided).
+
 **2026-09-14, in this repository.** A session was asked for the standing
 command list. Its private practice sources -- three team sets and one
 individual set -- are cloned onto the container by a SessionStart hook, and

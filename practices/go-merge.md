@@ -9,7 +9,7 @@ gates:       ["merge"]
 index_clause: "\"Go update\"/\"Approved\": default push; high-risk -> sync, branch, PR, merge"
 checked_by:  null
 defines:     ["Go update", "Approved"]
-command:     {"Go update": "Save the work, publish it, and tell you where it went — without asking anything further.", "Approved": "The same as **Go update**: save the work, publish it, and tell you where it went."}
+command:     {"Go update": "Save the work, land it on the shared branch on origin, and tell you which branch it went to — without asking anything further.", "Approved": "The same as **Go update**: save the work, land it on the shared branch on origin, and tell you which branch it went to."}
 status:      active
 in_force_at: null
 supersedes:  ["merge-authorization-keyword"]
@@ -42,7 +42,11 @@ approved_by: "Morgan, 2026-09-08 -- moved up from his individual set to
   'go merge'... let's remove entirely the 'go merge' phrase/trigger, and
   only 'go update' for that,\" keeping `Go update` and `Approved` as the
   two -- see push-directly.md for the narrower phrase coined the same
-  conversation"
+  conversation; the landing target made explicit 2026-09-22, Morgan --
+  \"Does the 'go update' command make clear that this means that the update
+  should be made to main / precedent-beta-v01 or whatever the primary branch
+  is of that repo? If not, it should. (This helps avoid the problem of, I
+  tell it to update, and it does so but only the local clone only.)\""
 strength:    decided
 ---
 ## Rule
@@ -69,6 +73,13 @@ for it.
 punctuation around it, or what was said before it changes the answer, and
 you do not have to have announced that you are ready to commit first. Said
 before you have mentioned committing at all, it means get ready and go.
+
+**It means what this file says today.** An older copy of this rule in
+someone's own set, an installed instructions file, a sync note that
+declined it, or this file's own history narrows nothing. Those are records
+of earlier decisions, read only to investigate or to propose reconsidering
+the rule, and never while deciding whether to run it
+([current-rule-governs](current-rule-governs.md)).
 
 **Classify the pending change before running that chain — and the default
 has flipped.** Until 2026-09-20 the default was the full chain, with a
@@ -112,6 +123,24 @@ changes:**
   the four bullets above are.** The light check still runs before the
   commit and the deep check still runs before the push either way —
   verification never gets skipped, only the PR wrapper does.
+
+**Either path ends on the shared branch, never in the local clone.**
+`Go update` means make the change live: the direct push lands on the branch
+the repository's own rules say routine work lands on, and the full chain
+merges into that same branch -- in both cases a real branch on `origin`,
+and never a repository's *configured default* branch picked just because
+it is configured that way. That branch is the one the repository
+declares -- `base_branch` in its `precedent.json`, or a rule of its own --
+and in most repositories it is `main`
+([primary-branch](primary-branch.md)).
+**A commit sitting in the working copy has not satisfied the phrase, and
+neither has a push you only know succeeded because the command said so:**
+name the postcondition and test it
+([verify-postcondition](verify-postcondition.md)) -- fetch, and confirm
+`origin/<branch>` actually carries the commit -- before reporting where the
+work went. Where the push cannot run from this session at all, that is the
+blocked-step handoff below, said plainly; it is never a local commit
+reported as done.
 
 **This is the standing default for how `Go update` (and its synonyms) are
 read when nothing else qualifies them — it does not override a direct,
@@ -167,10 +196,12 @@ could honestly go either way. Committing locally is never blocked on
 this: do that regardless, and hold only the steps that touch the shared
 branch until the reading is confirmed.
 
-**Say the target branch before merging, every time.** It is spelled out
-here rather than left inside "usual conventions" because that is the step
-whose silent failure is expensive: a merge into the wrong branch looks
-identical to a correct one until somebody goes looking.
+**Say the target branch before pushing or merging, every time --
+including on the direct-push default, which is now the common path.** It is
+spelled out here rather than left inside "usual conventions" because that is
+the step whose silent failure is expensive: a push or a merge onto the wrong
+branch, or a commit that never left the clone, looks identical to a correct
+one in the reply until somebody goes looking.
 
 **A step you cannot perform hands off; it does not come back as a
 question.** If the push, the pull request or the merge is refused because
@@ -459,6 +490,22 @@ The two direct quotes from the 2026-09-20 decision above, which used
 `huge`/`NON-HUGE` in Morgan's own words, are left as said rather than
 edited to match; only this file's own vocabulary — the Rule, the Detail,
 and the surrounding narration in this Story — changed.
+
+**The landing target made explicit 2026-09-22, on Morgan's decision**, after
+he asked whether the command actually said where an update lands -- and named
+the failure it lets through: *"This helps avoid the problem of, I tell it to
+update, and it does so but only the local clone only."* Read back, the file
+said it twice for the full chain (sync with origin, push, pull request,
+merge) and never once for the direct push that the 2026-09-20 split had just
+made the **default** path: "pushes straight to the branch, no PR" named no
+branch and no remote, and the spoken-branch step said *before merging*, so on
+the common path it read as not applying at all. Nothing here changed what
+`Go update` authorizes -- a push to the shared branch was always what it
+meant. What changed is that the direct-push path now says so in the same
+words the merge path always did, and the postcondition
+([verify-postcondition](verify-postcondition.md)) is named where a session
+will hit it: `origin/<branch>` carries the commit, confirmed by a fetch, not
+by what `git push` printed.
 
 ## Install
 No mechanical check, and not for lack of trying: this governs how a chat

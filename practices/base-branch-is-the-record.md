@@ -6,6 +6,7 @@ severity:    default
 applies_to:  ["**"]
 occasion:    "starting work another session may already have done, or opening a pull request"
 gates:       ["push"]
+index_required: true
 index_clause: "read the base branch before starting and before the PR -- a summary lags"
 checked_by:  null
 defines:     []

@@ -6,6 +6,7 @@ severity:    default
 applies_to:  ["**/*.md"]
 occasion:    "writing anything a person will read -- a document, a reply, a commit message"
 gates:       ["reply"]
+index_required: false
 index_clause: "say the thing in your own words; unrewritten model output is output nobody thought about"
 checked_by:  null
 defines:     []

@@ -40,6 +40,21 @@ check reported **PASS** — a real bug, correctly fixed. The fix replaced it
 with `None`, trading a silent false pass for a loud crash, and nothing
 tested either behaviour because nothing local runs that path at all.
 
+**Update, 2026-09-22 — and do NOT try to emulate CI's environment.** The
+sensible-looking next step is to run the suite with the machine's git config
+nulled, on the theory that CI is "a machine with no git identity". Measured:
+it is not. Pointing `GIT_CONFIG_GLOBAL` at an empty file with an empty `HOME`
+makes two checks fail — the two about the commit-identity backstop — that pass
+in real CI on the same commit. `GIT_CONFIG_GLOBAL=/dev/null` does not even
+work: this git version rejects it outright with
+`fatal: bad config line 1 in file /dev/null`, several minutes into the run.
+
+So a "hermetic environment" job would manufacture failures CI does not have,
+which is worse than not having one. **The shard SHAPE is reproducible locally
+and worth reproducing; the ENVIRONMENT is not.** What actually catches the
+class of bug this entry describes is making fixture setup commands fail
+loudly, which is now what they do.
+
 ## Fix
 
 **Before trusting a green deep check ahead of a push, run the harness the
