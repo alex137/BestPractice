@@ -329,6 +329,40 @@ case "$ci_every_hours" in
   ''|*[!0-9.]*) ci_every_hours=0 ;;
 esac
 
+# The person's second switch, `ci_on_branches`, from the same files: false
+# means a commit on any branch but a private repo's primary one gets
+# [skip ci] every time, so pushes to working branches start no runner at
+# all. True -- and true is what an absent, unreadable or non-boolean value
+# resolves to -- leaves branches alone (Morgan, 2026-09-24: "I do NOT want
+# the github ci/cd active in the clones and other branch files", asked as a
+# flag each person sets for themselves).
+_personal_ci_on_branches() {
+  command -v python3 >/dev/null 2>&1 || { echo True; return 0; }
+  python3 - "$ROOT/identity.json" "${PRECEDENT_USER_CONFIG:-$HOME/.config/precedent/config.json}" <<'CI_BRANCHES' 2>/dev/null || echo True
+import json, os, pathlib, sys
+def load(p):
+    try:
+        return json.loads(pathlib.Path(os.path.expandvars(p)).expanduser()
+                          .read_text(encoding='utf-8'))
+    except Exception:
+        return None
+cands = [sys.argv[1]]
+cfg = load(sys.argv[2])
+if isinstance(cfg, dict):
+    path = (cfg.get('individual') or {}).get('path')
+    if isinstance(path, str) and path:
+        cands.append(os.path.join(path, 'identity.json'))
+for c in cands:
+    d = load(c)
+    if isinstance(d, dict) and 'ci_on_branches' in d:
+        print(False if d['ci_on_branches'] is False else True)
+        raise SystemExit(0)
+print(True)
+CI_BRANCHES
+}
+ci_on_branches="$(_personal_ci_on_branches)"
+[ "$ci_on_branches" = False ] || ci_on_branches=True
+
 # From here on `zone` is always a real zone, never empty -- the fallback is
 # a decision this project made, not an absence. `zone_is_guess` now governs
 # ENFORCEMENT alone: whether a mismatch is evidence of a mistake. It no
@@ -489,13 +523,22 @@ _set_global_identity
 #   - the cadence is above 0: the repo's own precedent.json `ci_every_hours`
 #     if it has one, else this person's value, baked in below
 #   - the repo's precedent.json says "visibility": "private"
-#   - HEAD is the repo's declared `base_branch` (feature branches become pull
-#     requests, and a pull request's required check must always report)
+#   - HEAD is the repo's declared `base_branch` (a working branch is decided
+#     by the branch switch below instead)
 #   - the newest commit on origin/<base_branch> WITHOUT a skip marker is less
 #     than that many hours old. ORIGIN, never local: two commits made before
 #     one push must not see each other, or the pushed head skips CI although
 #     none was run
 #   - PRECEDENT_CI_NOW=1 is not set
+#
+# On any OTHER branch it tags every commit when `ci_on_branches` resolves
+# false -- the repo's own precedent.json value, else the person's -- in a
+# private repo with a declared base_branch, unless PRECEDENT_CI_NOW=1. A repo
+# whose precedent.json sets `ci_every_hours` to 0 and says nothing about
+# branches runs CI on every push, branches included: that 0 is a repo saying
+# every push here must be checked. The cost of false: a pull request from a
+# tagged branch gets no CI run, so a REQUIRED status check never reports
+# until a commit is made with PRECEDENT_CI_NOW=1.
 _write_ci_cadence() {  # $1 = hooks directory
   local f="$1/precedent-ci-cadence"
   {
@@ -503,6 +546,7 @@ _write_ci_cadence() {  # $1 = hooks directory
     printf '%s -- written by the commit-identity SessionStart hook; safe to\n' "$marker"
     printf '# delete, it is rewritten at every session start. spec/CI_CADENCE_PLAN.md.\n'
     printf 'PERSONAL_CI_EVERY_HOURS = %s\n' "$ci_every_hours"
+    printf 'PERSONAL_CI_ON_BRANCHES = %s\n' "$ci_on_branches"
     cat <<'CADENCE'
 import json, os, re, subprocess, sys, time
 
@@ -522,9 +566,18 @@ def hours_of(v):
     return float(v)
 
 
+def on_branches(cfg):
+    """-> (bool, where): does CI run on a working branch of this repo?"""
+    if 'ci_on_branches' in cfg:
+        return cfg['ci_on_branches'] is not False, "this repo's precedent.json"
+    if 'ci_every_hours' in cfg and not hours_of(cfg['ci_every_hours']):
+        return True, "this repo's precedent.json (ci_every_hours 0)"
+    return PERSONAL_CI_ON_BRANCHES is not False, 'your identity.json'
+
+
 def decide(msg):
-    """-> (hours, age_seconds, where, base) when this commit should skip CI,
-    else None. None is the answer to every doubt."""
+    """-> (marker line, note) when this commit should skip CI, else None.
+    None is the answer to every doubt."""
     if os.environ.get('PRECEDENT_CI_NOW') == '1':
         return None
     root = git('rev-parse', '--show-toplevel')
@@ -537,20 +590,29 @@ def decide(msg):
         cfg = {}
     if not isinstance(cfg, dict):
         cfg = {}
-    if 'ci_every_hours' in cfg:
-        hours, where = hours_of(cfg['ci_every_hours']), "this repo's precedent.json"
-    else:
-        hours, where = hours_of(PERSONAL_CI_EVERY_HOURS), 'your identity.json'
-    if not hours:
-        return None
     if cfg.get('visibility') != 'private':
         return None
     base = cfg.get('base_branch')
     if not isinstance(base, str) or not base:
         return None
-    if git('symbolic-ref', '--short', '-q', 'HEAD') != base:
-        return None
     if SKIP.search(msg):
+        return None
+    head = git('symbolic-ref', '--short', '-q', 'HEAD')
+    if not head:
+        return None
+    if head != base:
+        run, where = on_branches(cfg)
+        if run:
+            return None
+        return ('[skip ci] -- working branch (ci_on_branches)',
+                f'ci-cadence: added [skip ci] -- {head} is not {base}, and '
+                f'{where} sets ci_on_branches to false. To run CI on this '
+                f'commit: PRECEDENT_CI_NOW=1 git commit ...')
+    if 'ci_every_hours' in cfg:
+        hours, where = hours_of(cfg['ci_every_hours']), "this repo's precedent.json"
+    else:
+        hours, where = hours_of(PERSONAL_CI_EVERY_HOURS), 'your identity.json'
+    if not hours:
         return None
     log = git('log', '--first-parent', '-n', '500', '--format=%ct%x00%B%x1e',
               f'refs/remotes/origin/{base}')
@@ -567,7 +629,12 @@ def decide(msg):
             age = time.time() - int(ct)
         except ValueError:
             return None
-        return (hours, age, where, base) if age < hours * 3600 else None
+        if age >= hours * 3600:
+            return None
+        return (f'[skip ci] -- CI ran within the last {hours:g}h (ci_every_hours)',
+                f'ci-cadence: added [skip ci] -- CI last ran on origin/{base} '
+                f'{age / 3600:.1f}h ago, and {where} sets ci_every_hours to '
+                f'{hours:g}. To run CI on this commit: PRECEDENT_CI_NOW=1 git commit ...')
     return None
 
 
@@ -580,8 +647,7 @@ def main():
     got = decide(msg)
     if not got:
         return
-    hours, age, where, base = got
-    line = f'[skip ci] -- CI ran within the last {hours:g}h (ci_every_hours)'
+    line, note = got
     first, _, rest = msg.partition('\n')
     if first.strip() and not first.startswith('#'):
         # After the subject, before the body, so a trailer block at the end
@@ -593,10 +659,7 @@ def main():
         new = msg.rstrip('\n') + f'\n\n{line}\n'
     with open(path, 'w', encoding='utf-8') as fh:
         fh.write(new)
-    print(f'ci-cadence: added [skip ci] -- CI last ran on origin/{base} '
-          f'{age / 3600:.1f}h ago, and {where} sets ci_every_hours to '
-          f'{hours:g}. To run CI on this commit: PRECEDENT_CI_NOW=1 git commit ...',
-          file=sys.stderr)
+    print(note, file=sys.stderr)
 
 
 try:
