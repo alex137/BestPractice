@@ -2555,6 +2555,15 @@ def check_practice_audit_declined():
         rc_nohash, out_nohash = run()
         gone.unlink()
         rc_gone, out_gone = run()
+        # Check 7: a decline written as prose is warned about, and only
+        # outside the generated block.
+        (repo / 'AGENTS.md').write_text(
+            'We declined the merge-keyword practice as a duplicate.\n'
+            'The personal pack wins on conflict.\n'
+            '<!-- BEGIN GENERATED: precedent-loader -->\n'
+            'this duplicate of something is generated text\n'
+            '<!-- END GENERATED -->\n', encoding='utf-8')
+        _rc_prose, out_prose = run()
         cases = [
             ('a decline made against the current upstream file passes',
              rc_fresh == 0 and 'declined OK' in out_fresh),
@@ -2571,6 +2580,11 @@ def check_practice_audit_declined():
              rc_nohash == 1 and 'no declined_upstream_sha256' in out_nohash),
             ('a decline whose upstream file is gone FAILS',
              rc_gone == 1 and 'no longer in the vendored tree' in out_gone),
+            ('check 7 warns on a prose decline and a blanket precedence clause',
+             'AGENTS.md:1 reads like a decline' in out_prose
+             and 'AGENTS.md:2 reads like a decline' in out_prose),
+            ('check 7 skips the generated loader block',
+             'AGENTS.md:4' not in out_prose),
         ]
         for name, passed in cases:
             if not passed:
@@ -21155,6 +21169,77 @@ def _looks_like_help(tool, out):
     return False
 
 
+def check_checkin_takes_the_work_branch():
+    """checkin.py update, with no branch recorded, takes the branch upstream
+    work lands on rather than the clone's default, and warns when the
+    branch it is about to mirror is behind that one (practice:
+    current-rule-governs). 2026-09-24: a classic consumer updated from
+    `main` the day after the classic install was retired on the work
+    branch, and got none of the retirement or its enforcement."""
+    import shutil, tempfile
+    import checkin, precedent_vendor_engine
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='checkin-workbranch-'))
+    try:
+        src = tmp / 'source'
+        src.mkdir()
+        g = lambda *a: subprocess.run(['git', '-C', str(src), *a],
+                                      capture_output=True, text=True)
+        g('init', '-q', '-b', 'main')
+        g('config', 'user.email', 't@t'); g('config', 'user.name', 't')
+        (src / 'marker.txt').write_text('from main\n')
+        g('add', '-A'); g('commit', '-qm', 'main content')
+        g('checkout', '-qb', 'precedent-beta-v01')
+        (src / 'marker.txt').write_text('from beta\n')
+        g('add', '-A'); g('commit', '-qm', 'beta content')
+        g('checkout', '-q', 'main')
+        main_sha = g('rev-parse', 'main').stdout.strip()
+
+        def consumer(name, branch):
+            c = tmp / name
+            tools = c / 'process' / 'upstream' / 'tools'
+            tools.mkdir(parents=True)
+            (c / 'process' / 'upstream' / 'marker.txt').write_text('from main\n')
+            for f in ('checkin.py', 'precedent_time.py'):
+                shutil.copy2(ROOT / 'tools' / f, tools / f)
+            # The mock tree matches the recorded commit, so update() sees no
+            # unexported local work: marker.txt plus the two tool files it
+            # needs. --force skips that comparison; the branch choice is
+            # what is under test.
+            up = {'repo': str(src), 'vendored_at': 'process/upstream', 'commit': main_sha}
+            if branch:
+                up['branch'] = branch
+            (c / 'process' / 'manifest.json').write_text(
+                json.dumps({'upstream': up, 'entries': []}) + '\n')
+            r = subprocess.run([sys.executable, str(tools / 'checkin.py'), 'update',
+                                str(src), '--force'],
+                               capture_output=True, text=True, cwd=str(c))
+            return c, r.stdout + r.stderr
+
+        unrec, out_unrec = consumer('unrecorded', None)
+        onmain, out_main = consumer('pinned-main', 'main')
+        cases = [
+            ('WORK_BRANCH matches precedent_vendor_engine.SOURCE_BRANCH',
+             checkin.WORK_BRANCH == precedent_vendor_engine.SOURCE_BRANCH),
+            ('with no branch recorded, update mirrors the work branch, not the '
+             'clone default',
+             (unrec / 'process' / 'upstream' / 'marker.txt').read_text() == 'from beta\n'),
+            ('and says nothing about being behind',
+             'COMMIT(S) BEHIND' not in out_unrec),
+            ('a manifest that pins main still mirrors main (the pin is honoured)',
+             (onmain / 'process' / 'upstream' / 'marker.txt').read_text() == 'from main\n'),
+            ('and is told, loudly, how far behind the work branch that is',
+             "WHICH IS 1 COMMIT(S) BEHIND 'precedent-beta-v01'" in out_main),
+        ]
+        for name, ok in cases:
+            if not ok:
+                print(f"  checkin work-branch fallback did NOT behave as stated: {name}")
+                print('    ' + (out_unrec + out_main)[-600:].replace('\n', '\n    '))
+        check(f"checkin.py update takes the work branch and warns on a stale one "
+              f"({len(cases)} stated cases)", all(ok for _, ok in cases))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 def check_checkin_update_never_mutates_the_clone():
     """`checkin.py update <clone>` reads the clone; it never moves its HEAD.
 
@@ -29983,6 +30068,7 @@ def main():
     check_practice_audit_fires()
     check_practice_audit_loader()
     check_practice_audit_declined()
+    check_checkin_takes_the_work_branch()
     check_freshness_gate_fires()
     check_doc_lint_exempts_links_in_a_mirrored_tree()
     check_repo_may_declare_its_own_fallback_zone()

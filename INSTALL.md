@@ -991,6 +991,17 @@ one sentence, not a walkthrough. `local/practices/project-voice.md` and
 `local/practices/project-visual-identity.md` in particular are never filled
 in by an update.
 
+**Follow the current copy of this procedure, taken from `precedent-beta-v01`.**
+The copy vendored in the repo being updated is from its last sync, and a
+session following it misses every correction made since. Read this section
+and
+[practices/vendor-update-runbook.md](practices/vendor-update-runbook.md)
+from a current upstream clone on `precedent-beta-v01`, and take the update
+from that branch, not from `main`, which only moves when the work branch is
+folded into it. `checkin.py update` falls back to `precedent-beta-v01` when
+the manifest records no branch, and warns when the branch it is about to
+mirror is behind it.
+
 **A classic install is not updated, it is migrated, in the same change.**
 Check first: if this repo vendors `process/upstream/` and its
 `precedent.json` declares no `level: "universal"` source (or there is no
@@ -1444,6 +1455,12 @@ Checks, in order — any FAIL exits non-zero:
    `declined_upstream_sha256`. Changed or gone → FAIL, naming where the rule
    lives now when the file says so. (The script numbers this check 6, after
    its layout and loader checks.)
+5. **Prose declines** (warn only): a hand-written line in `AGENTS.md` or
+   `CLAUDE.md`, outside the generated loader block, that reads like a
+   decline ("declined as a duplicate") or a blanket precedence clause ("the
+   personal pack wins on conflict"). Check 6 cannot see those, so move each
+   into the manifest as a `declined` entry or delete it. (The script's
+   check 7.)
 
 ## 7. Practice Packs (Domain Layers)
 

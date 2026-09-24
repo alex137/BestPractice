@@ -40,6 +40,20 @@ other. What the phrase removes is the second question, not the gate. So a
 failing check is reported, with what failed, and nothing is published -- that
 is the sequence working, not a refusal needing permission to stand.
 
+**Follow the upstream copy of this runbook, not the one vendored here.**
+The copy in this repo is from the last sync, and every correction made to
+the procedure since then is exactly what it lacks. Once step 1 has made the
+source clone current, read `practices/vendor-update-runbook.md` there, on
+`precedent-beta-v01`, and follow that. **Take the update from
+`precedent-beta-v01` too**, not from `main`, which only moves when that
+branch is folded into it and can sit weeks behind. `checkin.py update` now
+does this when no branch is recorded, and warns when it is about to mirror a
+branch that is behind. Incident, 2026-09-24: a classic consumer updated
+from `main` the day after classic installs were retired upstream, followed
+its own old copy of these steps, and got neither the retirement nor the
+check that enforces it
+([current-rule-governs](current-rule-governs.md)).
+
 A vendored tree is updated by a fixed sequence, in this order, because
 every step's answer is wrong if the one before it was skipped.
 
