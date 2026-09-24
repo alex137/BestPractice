@@ -71,6 +71,13 @@ checks against each manifest's own vendored tree — any FAIL exits non-zero:
      decline forward unread, and a session refused a command the rule in
      force plainly authorized.
 
+  7. PROSE DECLINES (warn only). Check 6 can only see a decline recorded in
+     a manifest. A decline written as prose in AGENTS.md or CLAUDE.md ("we
+     declined X as a duplicate", "the personal pack wins on conflict") has
+     no hash to compare, so this names each such line outside the generated
+     loader block for a person to either move into the manifest or delete.
+     It is a guess from wording, which is why it warns and never fails.
+
 Run:  python3 process/upstream/tools/practice_audit.py                    # gate (all manifests)
       python3 process/upstream/tools/practice_audit.py --update-baseline  # re-record hashes
       python3 process/upstream/tools/practice_audit.py --manifest process/manifest.json  # one manifest
@@ -384,6 +391,37 @@ def audit_manifest(manifest_path, update, fails, warns, pending):
               f"against the current upstream file.")
     return len(manifest.get('entries', []))
 
+PROSE_DECLINE_PATTERNS = [
+    re.compile(r'\b(?:declin|defer)\w*\b[^.\n]{0,80}\b(?:duplicate|practice|upstream)\b', re.I),
+    re.compile(r'\bduplicate of\b', re.I),
+    re.compile(r'\bwins? (?:on|in) (?:a |any |every )?conflicts?\b', re.I),
+]
+
+
+def prose_declines(root):
+    """-> [(path, line_no, text)] for hand-written lines in the root
+    instructions files that read like a decline or a blanket precedence
+    clause (check 7). The generated loader block is skipped: it is rebuilt
+    from the practices on every sync and is never where a stale decision
+    hides."""
+    hits = []
+    for name in ('AGENTS.md', 'CLAUDE.md'):
+        f = root / name
+        if not f.is_file():
+            continue
+        inside = False
+        for i, line in enumerate(f.read_text(encoding='utf-8', errors='replace').splitlines(), 1):
+            if LOADER_MARKER in line:
+                inside = True
+                continue
+            if inside and '<!-- END GENERATED' in line:
+                inside = False
+                continue
+            if not inside and any(p.search(line) for p in PROSE_DECLINE_PATTERNS):
+                hits.append((name, i, line.strip()[:110]))
+    return hits
+
+
 LOADER_MARKER = '<!-- BEGIN GENERATED: precedent-loader -->'
 MIGRATION_DOC = ('https://github.com/alex137/BestPractice/blob/precedent-beta-v01/'
                  'spec/MIGRATING_EXISTING_INSTALLS.md')
@@ -463,6 +501,11 @@ def audit(update=False, only=None):
                     for e in json.loads(m.read_text(encoding='utf-8')).get('entries', [])}
     layout(fails, claimed)  # check 4 — root hygiene, once per audit
     loader(fails)           # check 5 — the catalogue is actually in force
+    for name, i, text in prose_declines(ROOT):  # check 7 — warn only
+        warns.append(f"{name}:{i} reads like a decline or a blanket precedence "
+                     f"clause written as prose, which check 6 cannot see: move "
+                     f"it into the manifest as a 'declined' entry, or delete "
+                     f"it -- {text}")
 
     for p in pending:
         print(f"pending: {p}")

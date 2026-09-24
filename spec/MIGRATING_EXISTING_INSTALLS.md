@@ -673,6 +673,26 @@ widening what sessions may run
    moving on: the vendoring manifest proves the bytes arrived, not that
    they run here.
 
+   **7b. Then sweep what stays hand-written in that file**, and in
+   `CLAUDE.md`, for three things the generated block now owns and a stale
+   copy would contradict:
+   - a hand-written copy of a standing command or its rule (a paragraph on
+     what "go merge" means, say): delete it, since the occasion index lists
+     every command from the practice that defines it;
+   - a blanket precedence clause ("the personal pack wins on conflict"):
+     delete it, or narrow it to rules that are both current, because the
+     engine already ranks the sources;
+   - a decline written as prose ("declined X as a duplicate"): decide it
+     again against the current upstream file, then record it as a
+     `declined` manifest entry with `practice_audit.py --redecide`, or
+     delete it.
+
+   `practice_audit.py` warns on lines that look like the last two (check
+   7). Incident, 2026-09-24: a consumer's hand-written clause let an old
+   personal copy of the merge command outrank the current rule, and a
+   session answered the command with a question
+   ([current-rule-governs](../practices/current-rule-governs.md)).
+
 8. **Validate for real**, not against a fixture. **What a clean migrated
    run needs, beyond the sync**: a plain `python3 tools/precedent_check.py`
    on a migrated repo is red for reasons no step above creates and none

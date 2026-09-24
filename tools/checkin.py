@@ -619,6 +619,18 @@ def _tree_at(clone, ref, into):
     return pathlib.Path(into)
 
 
+# The branch upstream work lands on. Must match SOURCE_BRANCH in
+# precedent_vendor_engine.py (asserted by verify_harness.py); kept as a
+# literal here because a classic vendored tree may carry this file without
+# that one.
+WORK_BRANCH = 'precedent-beta-v01'
+
+
+def _has_ref(clone, branch):
+    return bool(_rev_parse_quiet(clone, f'origin/{branch}') or
+                _rev_parse_quiet(clone, branch))
+
+
 def _tracked_branch(clone):
     """The branch this install actually tracks, which is NOT always the
     clone's default branch.
@@ -632,7 +644,41 @@ def _tracked_branch(clone):
     merge direction -- never assume `main` just because it is the default.
     """
     recorded = (_manifest().get('upstream', {}) or {}).get('branch')
-    return recorded or _default_branch(clone)
+    if recorded:
+        return recorded
+    # NO BRANCH RECORDED used to mean the clone's default, which for
+    # BestPractice is `main`: a branch that only moves when someone folds
+    # the work branch into it, and can sit weeks behind. 2026-09-24: a
+    # classic consumer updated from `main` the day after the classic
+    # install was retired upstream, and got none of the retirement, the
+    # audit check that enforces it, or the rule its sessions then broke
+    # (practice: current-rule-governs). Where the clone carries the work
+    # branch, take that; a source that has none (a pack from another
+    # repository) keeps its own default.
+    if _has_ref(clone, WORK_BRANCH):
+        return WORK_BRANCH
+    return _default_branch(clone)
+
+
+def _behind_notice(clone, branch):
+    """Say loudly when the branch about to be mirrored is behind the branch
+    upstream work lands on. Mirroring it is allowed -- the manifest may pin
+    it on purpose -- but nobody should take a stale update without knowing."""
+    if branch == WORK_BRANCH or not _has_ref(clone, WORK_BRANCH):
+        return
+    ref = lambda b: (f'origin/{b}' if _rev_parse_quiet(clone, f'origin/{b}') else b)
+    rc, out = _git_rc(clone, 'rev-list', '--count', f'{ref(branch)}..{ref(WORK_BRANCH)}')
+    n = out.strip() if rc == 0 else ''
+    if not n.isdigit() or n == '0':
+        return
+    bar = '!' * 72
+    print(f"\n{bar}\nTHIS UPDATE TAKES {branch!r}, WHICH IS {n} COMMIT(S) BEHIND "
+          f"{WORK_BRANCH!r}, the branch upstream work lands on. Rules, checks "
+          f"and fixes made since {branch!r} last moved will NOT arrive. Unless "
+          f"this repo pins {branch!r} on purpose, take the update from "
+          f"{WORK_BRANCH!r} instead: set upstream.branch in "
+          f"process/manifest.json and see spec/MIGRATING_EXISTING_INSTALLS.md's "
+          f"\"The default-branch gotcha\".\n{bar}", file=sys.stderr)
 
 
 def _pinned_branch_hold(clone, allow=False):
@@ -782,6 +828,10 @@ def update(clone, force=False, allow_pinned=False):
         print(f"NOTICE: could not fetch origin/{branch} in {clone} "
               f"({fetched.stderr.strip()}) -- mirroring whatever that clone "
               f"already has for {branch}, which may be behind.")
+    if branch != WORK_BRANCH:
+        subprocess.run(['git', '-C', str(clone), 'fetch', 'origin', WORK_BRANCH],
+                       capture_output=True, text=True)
+    _behind_notice(clone, branch)
     src_ref = _rev_parse_quiet(clone, f'origin/{branch}') or \
         _rev_parse_quiet(clone, branch)
     if not src_ref:
