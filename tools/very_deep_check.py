@@ -6265,6 +6265,183 @@ def _merged_stale_checkout_markdown(scan):
     return '\n'.join(lines)
 
 
+def _practice_catalogue_rows(sources):
+    """-> [(level, name, slug, one_sentence), ...] for every IN-FORCE
+    practice in every source's own `practices/*.md`, sorted by (name, slug)
+    so an unchanged catalogue prints byte-identical rows run to run
+    (practice: very-deep-check, added 2026-09-23).
+
+    `sources` is `enumerate_scope()`'s own `data['sources']` -- it already
+    carries the universal source (this checkout, resolved to its real
+    path) alongside every individual, shared and repo-local source this
+    session has, so nothing here re-derives the checkout as a special
+    case the way the WITHIN-SOURCE CONFLICTS scan above does.
+
+    Reuses `bv.load_practices()` and `bv._index_clause()` rather than a
+    second frontmatter reader or a second one-line-summary rule: those are
+    the exact functions MAP.md's own occasion column and every practice's
+    occasion-index row are built from, so this list and the ones a session
+    already reads cannot render the same practice two different ways."""
+    rows = []
+    for s in sources:
+        pdir = pathlib.Path(s['path']) / 'practices'
+        if not pdir.is_dir():
+            continue
+        for fm, sections, f in bv.load_practices(pdir):
+            slug = bv._json_str(fm.get('slug', '')) or f.stem
+            clause = bv._index_clause(fm, sections) or '(no description on file)'
+            rows.append((s['level'], s['name'], slug, clause))
+    rows.sort(key=lambda r: (r[1], r[2]))
+    return rows
+
+
+def _practice_catalogue_markdown(sources):
+    """-> the practice catalogue from `_practice_catalogue_rows()`, as
+    markdown, one `### name (level)` heading per source and one bulleted
+    `slug — sentence` row per in-force practice under it. Shared by the
+    console PRACTICE CATALOGUE section (the scan it already paid for) and
+    `emit_practice_catalogue()` (its own fresh scan, for `--emit`), so the
+    two never drift into two different renderings of the same list.
+
+    EVERY ROW IS BLOCKQUOTED. Each clause is another source's own authored
+    `index_clause` -- this repo received it, never wrote it (pass 2's own
+    "this repo wrote it versus this repo received it" bucket) -- and
+    `tools/doc_lint.py`'s `scan_unglossed()` already carves out exactly this
+    case: a quoted line is somebody else's words, and a document cannot
+    gloss an acronym inside a quotation without altering the quote (its own
+    comment cites `precedent-individual`'s `name-the-branch` tripping this
+    same acronym check on a quoted message, for the same reason). Found
+    here 2026-09-23 on the first real render: `precedent-individual`'s own
+    `session-title-abbreviates-repo` clause reads "...ABC the repo's
+    abbreviation..." and there is no repository this tool could edit to fix
+    that -- rewording another source's clause would make this list say
+    something that source did not write, which is the one thing it exists
+    not to do. `> ` is the fix already built for this in this codebase,
+    not a new one invented for it."""
+    rows = _practice_catalogue_rows(sources)
+    if not rows:
+        return ('(no source in force resolved a practices/ directory -- '
+                'nothing to catalogue)')
+    lines = []
+    current = None
+    for level, name, slug, clause in rows:
+        label = f'{name} ({level})'
+        if label != current:
+            if current is not None:
+                lines.append('')
+            lines.append(f'### {label}')
+            lines.append('')
+            current = label
+        lines.append(f'> - `{slug}` — {clause}')
+    return '\n'.join(lines)
+
+
+def _practice_catalogue_for_tracked_doc(repo_root, sources):
+    """-> (markdown, held_back) for what `_update_spec_doc_block` may
+    actually WRITE into this repo's own tracked spec/VERY_DEEP_CHECK.md --
+    as opposed to `_practice_catalogue_markdown(sources)`, which is fine to
+    print to a session's own console/chat every time, since that output is
+    never committed.
+
+    THE MISTAKE THIS FIXES (found 2026-09-24, by Morgan, the morning after
+    the section first shipped): the first version embedded every source's
+    clauses into this file unconditionally, including `individual` and
+    `shared` sources -- so running the very deep check in a repo that
+    declares `visibility: public` (this one) committed
+    `precedent-individual`'s and every shared source's own practice text
+    into a world-readable file, permanently, the same disclosure
+    `build_views.py`'s `repo_is_public()` / `sources_for_tracked_block()`
+    already exist to prevent for the AGENTS.md loader block -- see that
+    function's own docstring, "THE ONE PLACE that decides what a repo's
+    COMMITTED loader block may carry." This reuses that exact function
+    rather than a second, drifting copy of the same level filter (pass 2's
+    own "is there a duplicate implementation" question).
+
+    Reuses it CORRECTLY, not just calls it: `sources_for_tracked_block`
+    also holds back a practice SET's own declared sources for a different
+    reason (case 2 in its docstring -- a set committing a second copy of
+    universal's text) -- irrelevant here, since this repo is the engine's
+    own origin and `repo_is_practice_source()` is False for it, but a
+    caller in a set's own tooling would get that split too, for free,
+    which is the point of calling the one function rather than
+    re-deriving `PRIVATE_LEVELS` locally.
+
+    `held_back` is `[]` exactly when nothing was excluded (a private repo,
+    or a public one with no non-universal, non-repo-local source
+    declared) -- the caller uses that to decide whether an advisory note is
+    owed at all."""
+    tracked, deferred, _notes = bv.sources_for_tracked_block(repo_root, sources)
+    md = _practice_catalogue_markdown(tracked)
+    if not deferred:
+        return md, []
+    held_back_names = [f"{s['name']} ({s['level']})" for s in deferred]
+    held_back_n = sum(1 for row in _practice_catalogue_rows(deferred))
+    advisory = (
+        f"\n\n**{held_back_n} practice(s) across {len(deferred)} source(s) "
+        f"held back from this file: {', '.join(held_back_names)}.** This "
+        f"repo's own `precedent.json` declares `visibility: public` (or "
+        f"never declared one, which this engine treats the same way, fail "
+        f"safe) -- this file is tracked, so writing another source's own "
+        f"practice text into it would publish that source, permanently, "
+        f"for the identical reason `build_views.py` already holds a team or "
+        f"individual source out of the generated AGENTS.md loader block. "
+        f"**The full list, held-back sources included, still prints to the "
+        f"session's own console/chat on every run** -- nothing here is lost, "
+        f"only kept out of this committed file. Advise the person of that "
+        f"before doing anything else with it, and ask which they actually "
+        f"want: committed here too (re-run with "
+        f"`--catalogue-include-private`, an explicit, informed choice, "
+        f"never a default), left as chat-only (nothing further to do), or "
+        f"not generated at all (`--skip-practice-catalogue`). Never decide "
+        f"this silently in either direction -- and never assume it once "
+        f"for every repo: a repo that declares `visibility: private` skips "
+        f"this note entirely, because there is nothing there to hold back.")
+    return md + advisory, deferred
+
+
+def emit_practice_catalogue(repo=None, user_config=None, include_private=False):
+    """-> the slug + one-sentence practice catalogue across this checkout
+    and every resolved source, as markdown, for `--emit` (practice:
+    very-deep-check).
+
+    MATCHES WHAT `_update_spec_doc_block` ACTUALLY WRITES, by default --
+    `include_private=False` (the default, and what a bare `--emit
+    practice-catalogue` gives you) runs the same
+    `_practice_catalogue_for_tracked_doc()` visibility gate the real run
+    uses before committing anything, so this command reproduces the tracked
+    block rather than a fuller one nothing ever commits. Pass
+    `include_private=True` (`--catalogue-include-private` on the CLI) only
+    once a person has actually said they want a public repo's tracked file
+    to carry another source's practice text -- see that function's
+    docstring for why this defaults closed rather than open.
+
+    WHY THIS EXISTS (2026-09-23). Morgan asked, in the same turn, for a
+    session-readable list -- every practice's slug and a one-sentence
+    description of what it does, one section per repo, across this
+    checkout, the individual source and every shared source -- so a very
+    deep check gives him something to review the CATALOGUE against,
+    rather than only a pass/fail read of the writing; and for that same
+    list every time, so the review is against a stable document rather
+    than a re-worded one each run. `_practice_catalogue_rows()`'s sort and
+    its reuse of `bv._index_clause()` (already the source of every
+    occasion-index row and MAP.md's own occasion column) is what makes
+    that hold: no judgment, no dates, no per-run prose, so an unchanged
+    catalogue renders byte-identical from one run to the next.
+
+    Deliberately local and offline, unlike most of a real run: it reads
+    whatever `practices/*.md` this session's own clones already hold,
+    never fetching anything, the same files `load_practices()` resolves
+    for ordinary loading. A stale clone reads as a stale catalogue, which
+    the freshness gate a real run already runs reports on its own; this
+    block does not repeat that check."""
+    repo_root = pathlib.Path(repo or ROOT).resolve()
+    data = enumerate_scope(repo_root, user_config)
+    if include_private:
+        return _practice_catalogue_markdown(data['sources'])
+    md, _held_back = _practice_catalogue_for_tracked_doc(repo_root, data['sources'])
+    return md
+
+
 def emit_merged_stale_checkout(repo_root=None):
     """-> the merged-and-stale (safe-to-delete) branch list for THIS
     checkout alone, as markdown, for `--emit` (practice: very-deep-check).
@@ -6292,26 +6469,36 @@ def emit_merged_stale_checkout(repo_root=None):
 
 
 SPEC_DOC_RELPATH = pathlib.Path('spec') / 'VERY_DEEP_CHECK.md'
-_VDC_EMBED_RE = re.compile(
-    r'(<!--vdc-embed:merged-stale-checkout:[^>]*-->\n).*?'
-    r'(\n<!--/vdc-embed:merged-stale-checkout-->)', re.S)
+
+# Named rather than singular since 2026-09-23, when 'practice-catalogue'
+# joined 'merged-stale-checkout' as a second block this same document
+# embeds -- the pattern is per-name so a new embed never has to touch the
+# regex either of the existing ones already matches.
+_VDC_EMBED_NAMES = ('merged-stale-checkout', 'practice-catalogue')
 
 
-def _update_spec_doc_block(repo_root, markdown):
-    """Rewrite the `<!--vdc-embed:merged-stale-checkout:...-->` block in
-    THIS repo's own spec/VERY_DEEP_CHECK.md, in place -- never in a
-    checked repo other than this one, since that document and this
-    practice both live only here. A silent no-op when the file or the
-    block is absent (a checked repo that vendors this engine has neither,
-    and a run against it must not fail over a document it does not own)."""
+def _vdc_embed_re(name):
+    n = re.escape(name)
+    return re.compile(r'(<!--vdc-embed:' + n + r':[^>]*-->\n).*?'
+                       r'(\n<!--/vdc-embed:' + n + r'-->)', re.S)
+
+
+def _update_spec_doc_block(repo_root, name, markdown):
+    """Rewrite the `<!--vdc-embed:<name>:...-->` block in THIS repo's own
+    spec/VERY_DEEP_CHECK.md, in place -- never in a checked repo other than
+    this one, since that document and this practice both live only here.
+    A silent no-op when the file or the named block is absent (a checked
+    repo that vendors this engine has neither, and a run against it must
+    not fail over a document it does not own)."""
     path = pathlib.Path(repo_root) / SPEC_DOC_RELPATH
     if not path.is_file():
         return False
     text = path.read_text(encoding='utf-8')
-    if not _VDC_EMBED_RE.search(text):
+    pattern = _vdc_embed_re(name)
+    if not pattern.search(text):
         return False
-    new_text = _VDC_EMBED_RE.sub(lambda m: m.group(1) + markdown + m.group(2),
-                                 text, count=1)
+    new_text = pattern.sub(lambda m: m.group(1) + markdown + m.group(2),
+                           text, count=1)
     if new_text != text:
         path.write_text(new_text, encoding='utf-8')
         return True
@@ -6577,16 +6764,23 @@ def _main(box):
         if i + 1 >= len(args):
             sys.exit("very deep check FAIL: --emit needs a block name.")
         name = args[i + 1]
-        if name != 'merged-stale-checkout':
+        if name not in _VDC_EMBED_NAMES:
             sys.exit(f"very deep check FAIL: --emit {name!r} is not a "
-                     f"block this script owns; the only one is "
-                     f"'merged-stale-checkout'.")
-        print(emit_merged_stale_checkout(repo))
+                     f"block this script owns; the only ones are "
+                     f"{', '.join(repr(n) for n in _VDC_EMBED_NAMES)}.")
+        if name == 'merged-stale-checkout':
+            print(emit_merged_stale_checkout(repo))
+        else:
+            print(emit_practice_catalogue(
+                repo, user_config,
+                include_private='--catalogue-include-private' in args))
         return 0
 
     as_json = '--json' in args
     allow_missing = '--allow-missing-sources' in args
     skip_branch_scan = '--skip-branch-scan' in args
+    skip_practice_catalogue = '--skip-practice-catalogue' in args
+    catalogue_include_private = '--catalogue-include-private' in args
     print_checklist = '--checklist' in args
     with_harness = '--with-harness' in args
     skip_visibility = '--skip-visibility' in args
@@ -6901,8 +7095,8 @@ def _main(box):
         # repo's -- see _update_spec_doc_block's docstring.
         if pathlib.Path(repo_root).resolve() == ROOT.resolve():
             _update_spec_doc_block(
-                repo_root, _merged_stale_checkout_markdown(
-                    branch_scans.get('checkout')))
+                repo_root, 'merged-stale-checkout',
+                _merged_stale_checkout_markdown(branch_scans.get('checkout')))
 
     # THE REPO SIDE of the live-session sweep, gathered here beside the
     # branch scan because it reads the same clones and asks the neighbouring
@@ -6981,6 +7175,65 @@ def _main(box):
     if led:
         led.end(items=c['practice_count']
                 + sum(s['practice_count'] for s in data['sources']))
+
+    # PRACTICE CATALOGUE (practice: very-deep-check, added 2026-09-23 at
+    # Morgan's request): every in-force practice's slug and one-sentence
+    # `_index_clause`, one section per source in force, so a very deep
+    # check gives him a list to review the CATALOGUE against rather than
+    # only a pass/fail read of the writing. `data['sources']` already
+    # carries the universal source resolved to this checkout's own path,
+    # so nothing here re-adds "this checkout" as a separate row the way
+    # the scope print above does.
+    #
+    # THE COMMITTED HALF IS GATED BY VISIBILITY, THE CONSOLE HALF NEVER IS.
+    # A session's own reply is never published anywhere by this tool, so
+    # the console print below always shows every source, held-back ones
+    # included -- that IS the "chat" option Morgan asked for, already
+    # satisfied on every run with nothing further to do. What is gated is
+    # only what `_update_spec_doc_block` COMMITS: see
+    # `_practice_catalogue_for_tracked_doc()`'s docstring for the incident
+    # this fixed (2026-09-24) -- the first version of this section wrote
+    # every source, private ones included, into this file unconditionally,
+    # which is exactly the disclosure `build_views.py`'s `repo_is_public()`
+    # already exists to prevent for the AGENTS.md loader block.
+    if led:
+        led.start('PRACTICE CATALOGUE', kind='read')
+    if skip_practice_catalogue:
+        if not as_json:
+            print("PRACTICE CATALOGUE -- skipped (--skip-practice-catalogue)\n")
+        _cat_rows = []
+    else:
+        _cat_rows = _practice_catalogue_rows(data['sources'])
+        _cat_md_console = _practice_catalogue_markdown(data['sources'])
+        if not as_json:
+            print("PRACTICE CATALOGUE -- every in-force practice's slug and "
+                  "one-sentence description,\none section per source in "
+                  "force (nothing here is committed by itself)\n")
+            print(_cat_md_console)
+            print()
+        # This repo's own spec/VERY_DEEP_CHECK.md only, same restriction as
+        # the branch-list embed below -- see _update_spec_doc_block's
+        # docstring.
+        if pathlib.Path(repo_root).resolve() == ROOT.resolve():
+            if catalogue_include_private:
+                _cat_md_doc, _held_back = _cat_md_console, []
+            else:
+                _cat_md_doc, _held_back = _practice_catalogue_for_tracked_doc(
+                    repo_root, data['sources'])
+            if _held_back and not as_json:
+                print(f"PRACTICE CATALOGUE: {len(_held_back)} source(s) "
+                      f"held back from spec/VERY_DEEP_CHECK.md because this "
+                      f"repo is public -- {', '.join(s['name'] for s in _held_back)}. "
+                      f"Full list is in the console output above. Ask the "
+                      f"person which they actually want before doing "
+                      f"anything else with it: committed here too "
+                      f"(--catalogue-include-private, an explicit choice), "
+                      f"chat-only (nothing further to do), or not generated "
+                      f"at all (--skip-practice-catalogue) -- never decide "
+                      f"this one silently.\n")
+            _update_spec_doc_block(repo_root, 'practice-catalogue', _cat_md_doc)
+    if led:
+        led.end(items=len(_cat_rows))
         led.start('WITHIN-SOURCE CONFLICTS')
     print("WITHIN-SOURCE CONFLICTS -- one catalogue disagreeing with itself\n")
     _conf_n = 0

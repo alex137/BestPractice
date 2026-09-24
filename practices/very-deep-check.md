@@ -93,6 +93,71 @@ one pull request is two whole minutes for however little work. Added
 [spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md)
 item 7.
 
+**It also builds him a catalogue to review, not only a verdict on the
+writing.** The `PRACTICE CATALOGUE` section lists every in-force practice's
+slug and a one-sentence description of what it does — its own
+`index_clause`, the same sentence the occasion index and
+[MAP.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/MAP.md)
+already render, so this list cannot describe a practice differently than a
+session reading the catalogue elsewhere would — grouped one section per
+source in force: this checkout, the individual source, and every shared
+source. **It is written into
+[spec/VERY_DEEP_CHECK.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/VERY_DEEP_CHECK.md)
+directly on every run that reaches this section**, the same embed-block
+mechanism the merged-stale-checkout list already uses, so the list is a
+page to open rather than something a session has to remember to paste. It
+is local and offline — no fetch, no judgment, nothing dated — so the same
+catalogue produces the same list byte for byte between two runs, and only
+a change to a `practices/*.md` file changes what it prints. Regenerate it
+alone with `python3 tools/very_deep_check.py --emit practice-catalogue`.
+
+**What gets COMMITTED is narrower than what a session sees, and the gap is
+deliberate.** The console/chat output always carries every source, held-back
+ones included — that costs nothing, since a reply is never itself a
+publication. What `_update_spec_doc_block` writes into this tracked file is
+gated by
+[tools/build_views.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/build_views.py)'s
+own `repo_is_public()` / `sources_for_tracked_block()` — the identical rule
+that already keeps a team or individual source's practice text out of the
+generated AGENTS.md loader block, reused rather than re-derived. A repo
+that declares (or, fail-safe, never declares) `visibility: public` gets
+only its own universal and repo-local practices committed here; every
+individual or shared source is held back, named but not quoted, with a
+note in the file itself saying how many practices and which sources, and
+telling the session to **advise the person and ask which they actually
+want** before doing anything further: committed here too
+(`--catalogue-include-private`, an explicit, informed choice, never a
+default), chat-only (already true, nothing further to do), or not
+generated at all (`--skip-practice-catalogue`). A repo that declares
+`visibility: private` holds nothing back — his own words: *"if I run this
+in a private repo, it's all private for me so I don't care if it's all
+there."*
+
+**Found the hard way, the day after the section first shipped.** The first
+version wrote every source's clauses into this file unconditionally,
+including `precedent-individual`'s and every shared source's — and this
+repo declares `visibility: public`, so that first commit published private
+practice text into a world-readable file, permanently. Morgan caught it
+before it reached `precedent-beta-v01`: *"it posts your precedent-individual
+and the precedet-\* ones to the list in the main repo so (if it's a public
+repo) it will become public. I don't think that's a problem, but it should
+advise the user first and ask him if he'd rather get the list of practices
+in the deep review doc, in the chat, or he doesn't want it."* Fixed
+2026-09-24 (Morgan, strength: decided, "Go update") by gating what this file
+commits on the same visibility check `build_views.py` already runs for the
+loader block, rather than inventing a second one — pass 2's own "is there a
+duplicate implementation" question, answered before it could drift. The
+disclosure did happen once, in this branch's own prior commit, before the
+base branch ever saw it — fixing it forward, never rewriting that commit's
+history, is [no-rewrite-for-warnings](no-rewrite-for-warnings.md)'s call,
+not this practice's to make on its own.
+
+Added
+2026-09-23 (Morgan, strength: decided) — asked for directly: a list of
+every practice by slug with one sentence each, across this repo, the
+individual source and the shared sources, generated the same way every time
+a very deep check runs, so he can review a source's practices against it.
+
 **Before anything is read, every repo in force must be provably current
 against its origin, and must still be a repository work can land in** — this checkout and every attached source.
 [tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/very_deep_check.py) fetches and compares
@@ -297,8 +362,8 @@ cannot tell a drift this run introduced from one that was there before. So:
    item 11.
 3. **Run [tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/very_deep_check.py)** for the
    enumeration, the machine-readable parse, the source-shape check, the
-   branch scan, and the GitHub API budget. A missing declared source stops
-   the run here.
+   branch scan, the practice catalogue, and the GitHub API budget. A
+   missing declared source stops the run here.
 4. **Read the unmerged-branch inventory, before any pass begins.** Not the
    verdicts — those are pass 4's expensive half and stay there. Just the
    list, and enough of each branch's diff to know *what already exists
@@ -2396,6 +2461,8 @@ it landed and still unreviewed.
 - **Extended 2026-09-21, Morgan (strength: decided)**, with the deletion-propagation table (proposal item 4), the CHECK COVERAGE enumeration (item 13, closing pass 2 question 15's own unbuilt half) and MOVED CLAIMS (item 14) -- "now build the next ones"; item 4's table found on its first asking that a hook dropped upstream has no removal path at all, and item 14's first run found the paused-workflow incident still live in one source
 - **Extended 2026-09-22, Morgan (strength: decided)**, with FIX SWEEP (proposal item 13's other half) -- "Build item 13's fix-sweep half, go update"; its first run carried the YAML-anchor detector built three days earlier into all three shared sources, two of which decline for having no workflow file and the third of which runs clean
 - **Extended 2026-09-23, Morgan (strength: decided)**, with pass 3's SOURCE-placement question, after asking for a cross-repo practice-placement review across the five Precedent repos and finding that nothing here or anywhere else ever asks which catalogue a practice belongs in, only whether its tier within one catalogue is right -- the session's own review is the bullet's worked example, five practices moved out of precedent-individual, two demoted from universal, and one live duplicate (vendor-neutral-by-default) found still open
+- **Extended again 2026-09-23, Morgan (strength: decided)**, with the PRACTICE CATALOGUE section -- asked directly for a list of every practice by slug with one sentence each, across this repo, the individual source and the shared sources, generated the same way every time a very deep check runs so it can be reviewed against; built to reuse each practice's own `index_clause` rather than compose a second description, and to write into [spec/VERY_DEEP_CHECK.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/VERY_DEEP_CHECK.md) directly rather than leave a session to remember to paste it, the same lesson the embedded stale-branch list already carries
+- **Bounded 2026-09-24, Morgan (strength: decided, "Go update")**, gating what the PRACTICE CATALOGUE section commits by the repo's own `visibility` -- "it posts your precedent-individual and the precedet-\* ones to the list in the main repo so (if it's a public repo) it will become public... it should advise the user first and ask him if he'd rather get the list of practices in the deep review doc, in the chat, or he doesn't want it" -- after the section's first run had already committed every source's clauses into this public repo's tracked file unconditionally; fixed by reusing `build_views.py`'s existing `repo_is_public()`/`sources_for_tracked_block()` rather than a second filter, so the console output still carries everything, chat-only and free, while the committed file holds back every individual and shared source and names them, with the choice put back to the person rather than decided either way
 ## Install
 [tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/very_deep_check.py) enumerates the scope
 (this checkout's own top-level documents plus every active source's
@@ -2413,7 +2480,7 @@ already-built sibling this one deliberately does not replace, and
 [spec/UNBUILT_PLAN_ITEMS.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/UNBUILT_PLAN_ITEMS.md) for the decision
 record this practice's own build closes out.
 
-Seven parts of the check *are* mechanical, as far as a mechanical check can
+Eight parts of the check *are* mechanical, as far as a mechanical check can
 reach (`checkable-gets-checked`): every repo in force is fetched and
 compared against its origin before the tool reads a line, and anything but
 provably-current exits non-zero (`--allow-stale` for a deliberately offline
@@ -2455,7 +2522,11 @@ about. It merges nothing and writes nothing, by design, and
 `check_base_branch_drift_ignores_carried_work`, which plants one carried and
 one stranded commit and asserts *which subject comes back by name*: a count
 would pass on an implementation that listed both, and a list that is mostly
-work already here is one a reader waves through whole.
+work already here is one a reader waves through whole. Eighth, the practice
+catalogue: every in-force practice's slug and its own `index_clause`, read
+straight off `practices/*.md` frontmatter with no judgment applied, so two
+runs against an unchanged catalogue print byte-identical rows —
+`--emit practice-catalogue` for the block alone.
 
 What stays a session step, deliberately: the branch sweep's other half —
 turning a mechanically-merged branch into a *reported* one requires knowing
