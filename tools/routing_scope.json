@@ -1188,6 +1188,13 @@
       "why": "Fires once, when a repo names its check levels. Nothing recurring to trigger on.",
       "decided": "phase 4 routing pass"
     },
+    "upstream-fix": {
+      "globs": [
+        "**"
+      ],
+      "why": "A phrase in a MESSAGE, about whatever change is in front of the session -- no file path reaches it, and its work (finding the cause, fixing the root, handing off the rest) happens inline rather than at merge/review/push/reply time. Reached through the occasion index alone.",
+      "decided": "2026-09-24, when the practice landed"
+    },
     "variant-re-derives": {
       "globs": [
         "**"

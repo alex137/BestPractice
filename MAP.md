@@ -6,7 +6,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 
 ## The practice catalogue
 
-`practices/` holds 136 practice files (10 resident, 126 on-demand). One file per practice. See [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md) for the design.
+`practices/` holds 137 practice files (10 resident, 127 on-demand). One file per practice. See [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md) for the design.
 
 | Practice | Tier | Occasion / scope |
 |---|---|---|
@@ -134,6 +134,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [todo-migrate-available-but-unused](practices/todo-migrate-available-but-unused.md) | on-demand | editing TODO.md, or just after a vendor refresh brings tools/todo_migrate.py into a repo for the first time |
 | [todo-reminder](practices/todo-reminder.md) | on-demand | a person says "Todo reminder", or asks to be reminded of something |
 | [two-check-levels](practices/two-check-levels.md) | on-demand | naming what "run the checks" means in a repo |
+| [upstream-fix](practices/upstream-fix.md) | on-demand | a person says "Upstream fix", or asks whether a change fixes the root cause rather than just this instance |
 | [variant-re-derives](practices/variant-re-derives.md) | on-demand | building a variant of an existing thing |
 | [vendor-rollout-disclosed](practices/vendor-rollout-disclosed.md) | on-demand | committing a change to content this repo ships to other repos -- a practice file, a hook script, a template, or one of the named engine files in tools/precedent_vendor_engine.py's ENGINE_FILES/CONSUMER_ENGINE_FILES lists -- before it is pushed or merged |
 | [vendor-update-runbook](practices/vendor-update-runbook.md) | on-demand | a message says "Update Vendors", or an upstream update is being taken into a repo that vendors a practice layer |

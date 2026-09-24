@@ -66,6 +66,7 @@ Built from every practice's `defines:` frontmatter field -- the terms that pract
 | Three Things | [three-things](practices/three-things.md) |
 | Todo reminder | [todo-reminder](practices/todo-reminder.md) |
 | Update Vendors | [vendor-update-runbook](practices/vendor-update-runbook.md) |
+| Upstream fix | [upstream-fix](practices/upstream-fix.md) |
 | very deep check | [very-deep-check](practices/very-deep-check.md) |
 | Vocabulary | [vocabulary](practices/vocabulary.md) |
 | wants: | [session-tags](practices/session-tags.md) |

@@ -116,6 +116,7 @@ each one saves you a paragraph of explaining:
 | **Three Things** | Tell you the three most important things you need to know right now, in three short lines. |
 | **Todo reminder** | Write the thing into the open-items file AND mark it as something to remind you about, so later sessions bring it up rather than waiting to be asked. |
 | **Update Vendors** | Pull in the latest version of the shared rules from the project they come from, and publish the result -- the merge is part of the phrase. |
+| **Upstream fix** | Say whether the change recommended, made, or about to be made in this session also fixes whatever caused the problem -- and if not, what would (a template, a generator, something vendored in from another repo) -- then fix that root yourself where it is reachable and sensible, and hand back a paste-ready prompt for any part that needs a session rooted in a different repo. |
 | **Very deep check** | Run a full review of the whole project — slow, occasional, and worth it before showing the work to someone new. |
 | **Vocabulary** | List every standing phrase this project recognizes, and what each one does. |
 | **Weak yes** | Go ahead with it, and record that you were not convinced. Nobody will ask you why. |
