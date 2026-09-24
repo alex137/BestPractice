@@ -894,7 +894,8 @@ def _place_rule_links(text, practice_file, block_dir, repo_root=None,
 
 def build_loader_block(practices, source_levels=None, defers_sources=False,
                        block_dir=None, repo_root=None, planned=(),
-                       budget_tokens=None, occasion_budget_tokens=None):
+                       budget_tokens=None, occasion_budget_tokens=None,
+                       carried=None, regen_comment=True):
     """practices: (fm, sections, file) triples, exactly as load_practices()
     returns for this repo's own single-source catalogue. source_levels:
     optional {slug: level} for a caller resolving MULTIPLE sources (e.g.
@@ -912,7 +913,21 @@ def build_loader_block(practices, source_levels=None, defers_sources=False,
     block_dir -- they differ only where the block is written below the repo
     root. planned: repo-relative paths this run will have written by the
     time the block is read. A resident Rule's relative links are repointed
-    for all three; see _place_rule_links."""
+    for all three; see _place_rule_links.
+
+    carried: text the reader already has loaded -- the session-practices
+    file passes its repo's tracked AGENTS.md. A standing-instruction
+    sentence, or the omitted-index note, that appears in it word for word
+    is left out here, because the session reads both files and a second
+    copy of a sentence is tokens that teach nothing (practice:
+    session-load-budget). Only a word-for-word
+    match drops text, so a repo whose AGENTS.md lacks one keeps it. None
+    (the default, and AGENTS.md's own render) drops nothing.
+
+    regen_comment=False leaves out the "Regenerate with build_views.py"
+    comment, which is true only of a block build_views writes into a tracked
+    file -- the session-practices file is rebuilt by its own tool every
+    session and has nothing to hand-edit or --check."""
     # Resolved, so the warning below names a path a reader can act on: a
     # caller passing `--repo .` otherwise produced "cannot be placed
     # relative to .", which says nothing.
@@ -971,7 +986,14 @@ def build_loader_block(practices, source_levels=None, defers_sources=False,
         index_lines.append(f"When {occasion}:")
         for slug, clause in sorted(by_occasion[occasion]):
             index_lines.append(f"  {slug} — {clause}")
-    if routed_out:
+    omitted_note = (
+        "(More on-demand practices are not listed here: one whose "
+        "applies_to names real paths, or which declares a gate, is "
+        "reached by those channels instead -- `precedent_paths.py FILE` "
+        "and `precedent_gate.py MOMENT`. A trigger a PERSON SAYS cannot "
+        "be reached that way and is always listed above. "
+        "`precedent_show.py --index-omitted` names the omitted ones.)")
+    if routed_out and not _is_carried(omitted_note, carried):
         # Say what is NOT here, and how to reach it. A session that cannot see
         # the omission reads a short index as the whole catalogue.
         index_lines.append('')
@@ -982,13 +1004,7 @@ def build_loader_block(practices, source_levels=None, defers_sources=False,
         # build (2026-09-14, this repo's local/practices/ counted by one and
         # not the other), which is the shape of drift that makes a reader
         # stop believing generated text. One source of truth: the flag.
-        index_lines.append(
-            "(More on-demand practices are not listed here: one whose "
-            "applies_to names real paths, or which declares a gate, is "
-            "reached by those channels instead -- `precedent_paths.py FILE` "
-            "and `precedent_gate.py MOMENT`. A trigger a PERSON SAYS cannot "
-            "be reached that way and is always listed above. "
-            "`precedent_show.py --index-omitted` names the omitted ones.)")
+        index_lines.append(omitted_note)
     index_text = '\n'.join(index_lines)
     # The generated half of what every session loads is capped too, not just
     # the resident block (practice: session-load-budget) -- but ONLY for a
@@ -1033,11 +1049,12 @@ def build_loader_block(practices, source_levels=None, defers_sources=False,
     # before its first turn, so it is spent against AGENTS.md's declared
     # ceiling (practice: session-load-budget) and the long version of the
     # argument belongs in the practice file, not here.
-    lines.append(f"<!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit "
-                 f"this block; `python3 tools/build_views.py --check` exits non-zero on "
-                 f"drift. Source: practices/ -- edit the practice file, never this "
-                 f"block. -->")
-    lines.append('')
+    if regen_comment:
+        lines.append(f"<!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit "
+                     f"this block; `python3 tools/build_views.py --check` exits non-zero on "
+                     f"drift. Source: practices/ -- edit the practice file, never this "
+                     f"block. -->")
+        lines.append('')
     count_detail = f"{len(resident)} of {len(practices)} practices"
     if source_levels and resident:
         # Levels of the RESIDENT set specifically (not all `practices`) --
@@ -1117,10 +1134,18 @@ def build_loader_block(practices, source_levels=None, defers_sources=False,
         scope = _ENGINE_DIR / 'routing_scope.json'
         vocab = json.loads(scope.read_text(encoding='utf-8')).get('gates', {})
         moments = ', '.join(_gate_moment(vocab[g]) for g in live_gates)
-        instruction.append(
-            f"At a named moment — {moments} — run "
-            f"`python3 tools/precedent_gate.py {'|'.join(live_gates)}`: some practices "
-            f"fire at a moment rather than in a file, and no path glob reaches those.")
+        gate_run = (f"At a named moment — {moments} — run "
+                    f"`python3 tools/precedent_gate.py {'|'.join(live_gates)}`")
+        gate_why = ("some practices fire at a moment rather than in a file, "
+                    "and no path glob reaches those.")
+        gate_full = f"{gate_run}: {gate_why}"
+        # Where the reader already has this sentence with a DIFFERENT gate
+        # list, the list is the only news, so the why after the colon goes.
+        # The same sentence whole is dropped below with the rest.
+        if not _is_carried(gate_full, carried) and _is_carried(gate_why, carried):
+            instruction.append(f"{gate_run}.")
+        else:
+            instruction.append(gate_full)
     # THE POINTER TO THE SESSION-TIME MULTI-SOURCE BLOCK, and why it is
     # conditional on `source_levels` being absent. When source_levels IS
     # given, this block was rendered from an already-resolved multi-source
@@ -1168,10 +1193,11 @@ def build_loader_block(practices, source_levels=None, defers_sources=False,
             "regenerated at session start and is deliberately untracked — never commit "
             "it or quote it into a pull request.")
 
-    if instruction:
+    shown = [i for i in instruction if not _is_carried(i, carried)]
+    if shown:
         lines.append("## Standing instruction")
         lines.append('')
-        lines.append(' '.join(instruction))
+        lines.append(' '.join(shown))
         lines.append('')
 
     if not resident and not index_text and not instruction:
@@ -1183,6 +1209,15 @@ def build_loader_block(practices, source_levels=None, defers_sources=False,
         lines.append('')
     lines.append(END_MARKER)
     return '\n'.join(lines), token_count, len(resident)
+
+
+def _is_carried(text, carried):
+    """Whether `text` appears word for word in `carried`, ignoring only how
+    whitespace wraps -- a hand-wrapped AGENTS.md and a one-line generated
+    sentence are the same words."""
+    if not carried:
+        return False
+    return ' '.join(text.split()) in ' '.join(carried.split())
 
 
 def repo_is_practice_source(root):
