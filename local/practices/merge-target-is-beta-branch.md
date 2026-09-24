@@ -52,7 +52,12 @@ precedent-beta-v01 for everything within that session; only the live
 version with changes will be pushed to main at a later date, think of it
 like a staging server; unless the manager of the session says otherwise;
 but note that this rule doesn't get vendored in anywhere, the primary
-branch of the vendored-in repo should be used, often main."*
+branch of the vendored-in repo should be used, often main."* **Other repos
+take their updates from `main`**, not from `precedent-beta-v01` (Morgan,
+2026-09-24, `strength: decided`: *"Yes, switch other repos to update from
+main"*). That is `SOURCE_BRANCH` in `tools/precedent_vendor_engine.py` and
+`tools/precedent_refresh_sources.py`, so a change here reaches them at the
+next fold-in and not before.
 
 ## Detail
 This holds even when `main` and `precedent-beta-v01` happen to be at the

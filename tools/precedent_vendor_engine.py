@@ -217,12 +217,14 @@ Run once, from BestPractice's own checkout, to vendor a NEW consumer repo
 (status/refresh above then work unchanged, kind auto-detected):
   python3 tools/precedent_vendor_engine.py seed <consumer-repo> --kind consumer
 
-SOURCE_BRANCH is 'precedent-beta-v01', not BestPractice's configured
-default branch ('main') — see local/practices/merge-target-is-beta-branch.md:
-until Alex's deliberate phase-7 fold-in, routine engine work lands on
-precedent-beta-v01, and 'main' is stale for this purpose. That practice's
-own retirement clause applies here too: the moment the fold-in happens,
-change SOURCE_BRANCH to 'main' in this one place, in the same PR.
+SOURCE_BRANCH is 'main', BestPractice's live branch. Work there lands on
+precedent-beta-v01, which is staging, and reaches main only when it is
+folded in (local/practices/merge-target-is-beta-branch.md). Every other
+repo takes its updates from live, never from staging (Morgan, 2026-09-24:
+"Yes, switch other repos to update from main"). Until 2026-09-24 this read
+'precedent-beta-v01', from before the fold-ins began; it moved to 'main'
+in the same change that folded it in, so no repo was ever pointed at a
+main that lacked the engine it was already running.
 """
 import hashlib
 import json
@@ -238,7 +240,7 @@ HERE = pathlib.Path(__file__).resolve()
 ENGINE_DIR = HERE.parent
 ROOT = ENGINE_DIR.parent
 SOURCE_REPO = 'https://github.com/alex137/BestPractice'
-SOURCE_BRANCH = 'precedent-beta-v01'  # see docstring: NOT the configured default
+SOURCE_BRANCH = 'main'  # live; precedent-beta-v01 is staging -- see docstring
 
 ENGINE_FILES = [
     'build_views.py',

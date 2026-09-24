@@ -95,6 +95,12 @@ still had nothing in force.
    every later step confidently wrong: the diff is against the wrong
    lineage, and "already up to date" is the answer you get.
 
+   **For BestPractice that branch is `main`, its live branch**, since
+   2026-09-24; `precedent-beta-v01` is its staging branch and no other repo
+   takes updates from it. An install whose `process/manifest.json` still
+   records `"branch": "precedent-beta-v01"` is repointed to `main` in this
+   same update. `checkin.py update` refuses until it is, and says so.
+
    **The two vendored layers do not both need this, and knowing which is
    which is the whole point of the step.** The ENGINE is read by blob out of
    a freshly fetched commit (see the pin note below), so the clone's checkout
