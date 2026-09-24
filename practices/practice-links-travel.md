@@ -63,6 +63,15 @@ repair that one, and nothing downstream should** — `_rewrite_links` refuses
 the private case on purpose, so the unlinked path is load-bearing rather than
 an oversight somebody should tidy up later.
 
+**A practice that lives in ANOTHER set is never linked by URL, whatever
+this source's visibility** -- the public-source advice above is about files
+in the publishing repository, and another set is not one. Write its slug in
+backticks. The one exception is a universal practice, linked on the
+universal source's declared `base_branch`. This is the shape a practice
+moved between sets is left carrying: its sibling links now point at files
+that stayed behind, and the obvious repair, a URL to where they stayed,
+published a private set's name from a public one on 2026-09-23.
+
 ## Detail
 **The public and private answers differ, and neither is the general case.**
 What decides it is whether the target is readable by whoever ends up holding

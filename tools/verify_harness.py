@@ -8271,7 +8271,8 @@ def check_precedent_check_fires():
                          '[c](https://github.com/alex137/BestPractice/blob/'
                          'precedent-beta-v01/no-such-planted-path.md), '
                          '[d](../tools/checks/check_not_here.py), '
-                         '[e](zzz-withdrawn.md).\n',
+                         '[e](zzz-withdrawn.md), '
+                         '[g](zzz-in-another-set.md).\n',
                          encoding='utf-8')
         # The fixture is a `git init` copy with no remote, and the
         # upstream-URL half of the check asks origin which repository this
@@ -8316,6 +8317,14 @@ def check_precedent_check_fires():
         cases.append(('practice-links-travel: a tools/checks/ link with no '
                       'such file in the tree is still reported',
                       'check_not_here.py' in planted['practice-links-travel'][1]))
+        # A sibling link to a practice that lives in ANOTHER set is told to
+        # become a backticked slug, never a URL: the URL advice is what put a
+        # private set's name into a public one on 2026-09-23.
+        _g = [l for l in _plt.splitlines() if 'zzz-in-another-set.md' in l]
+        cases.append(('practice-links-travel: a link to a practice in another '
+                      'set is told to use the backticked slug, not a URL',
+                      bool(_g) and all('`zzz-in-another-set` in backticks' in l
+                                       and 'https://' not in l for l in _g)))
         for _frag, _what in (
                 ('does not travel with this file', 'the relative link'),
                 ('precedent.json declares', 'the wrong-branch URL'),

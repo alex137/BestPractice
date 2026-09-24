@@ -1249,6 +1249,36 @@ def _practice_links_travel(ctx):
             if (_CHECK_SCRIPT_RE.fullmatch(base)
                     and (ROOT / base[3:]).exists()):
                 continue                        # this source's own check script
+            # A bare `<name>.md` with no such sibling names a practice that
+            # lives in ANOTHER set -- the shape a practice moved between sets
+            # is left carrying. The URL advice below is wrong for it twice
+            # over: it names a path in THIS repository where the file is not,
+            # and the session that corrects it points the link at the set the
+            # practice actually lives in, which is often private. That is how
+            # a shared set came to link an individual set by URL on
+            # 2026-09-23, straight past this finding's own advice. Only the
+            # universal source is safe to link; any other set gets the slug.
+            if '/' not in base and base.endswith('.md'):
+                uroot = _universal_source_root()
+                u_slug = _origin_slug(uroot) if uroot else None
+                if (u_slug and uroot.resolve() != ROOT.resolve()
+                        and (uroot / 'practices' / base).is_file()):
+                    u_branch = _declared_base_branch(uroot) or '<branch>'
+                    advice = (f'It lives in the universal set; link it as '
+                              f'https://github.com/{u_slug}/blob/{u_branch}/'
+                              f'practices/{base}')
+                else:
+                    advice = (f'Write `{base[:-3]}` in backticks with no link. '
+                              f'Never link it where it lives: another set may '
+                              f'be private, and its URL would publish that '
+                              f'repository into every consumer (practice: '
+                              f'private-repo-scrub)')
+                out.append(Finding(
+                    where, f'`{target}` names a practice that is not in this '
+                           f'set, so the link is dead here and in every '
+                           f'repository that receives the catalogue. '
+                           f'{advice}'))
+                continue
             fix = (f'https://github.com/{slug}/blob/{branch or "<branch>"}/'
                    f'{_strip_relative_prefix(base)}' if slug
                    else 'an absolute URL')
