@@ -53,7 +53,11 @@ python3 tools/precedent_move.py --slug <slug> \
 ```
 
 It lands the practice at the destination with its Rule, Detail, Why and
-Story carried verbatim and the destination's approval recorded, then
+Story carried verbatim and the destination's approval recorded -- except
+for a link to a sibling practice that is not at the destination, which it
+re-homes and prints: a universal practice gets its universal URL, anything
+else its slug in backticks, never a URL into another set (which may be
+private) -- then
 deduplicates the source copy (`status: deduplicated`, `in_force_at:` the
 slug, one dated `## Story` line), and regenerates both sets' views. It
 refuses an empty Story (`--story` fills it), a slug the destination already
