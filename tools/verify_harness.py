@@ -5356,12 +5356,14 @@ def check_session_practices_load_without_publishing():
         _rendered = psp.render(_extra, _levels, notes2)
         cases.append(('...and the file still renders rather than failing',
                       'did not resolve' in _rendered))
+        _deferred_only = psp.render(_extra, _levels,
+                                    [('deferred', 'precedent deferred to it')])
         cases.append(('a DEFERRED source is not filed under "did not resolve" '
                       '-- both kinds shared one heading until 2026-09-13, so a '
                       'set was told its working sources had failed',
-                      'Why these are here rather than in the tracked block'
-                      in psp.render(_extra, _levels,
-                                    [('deferred', 'precedent deferred to it')])))
+                      'did not resolve' not in _deferred_only
+                      and ('resolved' in _deferred_only
+                           or 'precedent deferred to it' in _deferred_only)))
 
         # WHAT THE FILE SAYS ABOUT THE REPO IT IS IN HAS TO BE TRUE. The
         # header explains why the file is untracked, and until 2026-09-14
@@ -10994,6 +10996,84 @@ def check_loader_block_advertises_only_live_channels():
           f'({len(cases)} stated cases over four fixture shapes)',
           not bad,
           '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad))
+
+
+def check_session_practices_drop_what_agents_md_carries():
+    """The session-practices file leaves out wrapping its repo's AGENTS.md
+    already carries word for word -- and ONLY that.
+
+    2026-09-24, precedent-individual: universal promoted one practice to
+    resident and the set's .precedent/SESSION_PRACTICES.md went to 5,266
+    tokens against a 5,200 ceiling. None of the overflow was the set's own
+    text, and a good part of it was not practice text at all: the standing
+    instruction's first two sentences and the omitted-index note, both
+    already in the tracked AGENTS.md the same session loads. build_loader_block
+    now takes `carried` and drops a sentence it finds there. The cases pin
+    both directions, because a drop that fires on a near-match would silently
+    take an instruction away from a repo whose AGENTS.md says something else.
+    """
+    import shutil, tempfile
+    import build_views as bv
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-carried-'))
+    cases = []
+    try:
+        pdir = tmp / 'practices'
+        pdir.mkdir()
+        for slug, gates, applies in (('spoken', '[]', '[]'),
+                                     ('gated', '["reply"]', '["**"]')):
+            (pdir / f'{slug}.md').write_text(
+                f'---\nslug: {slug}\ntitle: T\ntier: on-demand\nseverity: default\n'
+                f'applies_to: {applies}\noccasion: "a person says {slug}"\n'
+                f'gates: {gates}\nindex_clause: "the {slug} clause"\nchecked_by: null\n'
+                f'defines: []\nstatus: active\nsupersedes: []\noverrides: null\n'
+                f'added: 2026-09-24\napproved_by: "harness fixture"\n---\n'
+                f'## Rule\nR.\n\n## Why\nx\n\n## Story\n\n## Install\nx\n',
+                encoding='utf-8')
+        practices = bv.load_practices(pdir)
+        full, _t, _c = bv.build_loader_block(practices, block_dir=tmp)
+        instr = full.split('## Standing instruction', 1)[-1].split('<!--', 1)[0]
+        note = next((l for l in full.splitlines()
+                     if l.startswith('(More on-demand')), '')
+        cases.append(('the fixture renders both pieces with nothing carried, so '
+                      'the cases below test a drop and not an absence',
+                      '## Standing instruction' in full and bool(note)))
+
+        # Carried word for word, wrapped differently -- dropped.
+        wrapped = '\n'.join(' '.join(instr.split()).replace('. ', '.\n')
+                            .split('\n')) + '\n' + note.replace(' -- ', '\n-- ')
+        b, _t, _c = bv.build_loader_block(practices, block_dir=tmp,
+                                          carried=wrapped)
+        cases.append(('a standing instruction AGENTS.md carries word for word '
+                      '(however it wraps) is not repeated',
+                      '## Standing instruction' not in b))
+        cases.append(('...nor is the omitted-index note',
+                      '(More on-demand' not in b))
+        cases.append(('...while the practices themselves still render',
+                      'the spoken clause' in b))
+
+        # A DIFFERENT gate list: only the list is news.
+        other = ' '.join(instr.split()).replace('precedent_gate.py reply',
+                                                'precedent_gate.py merge')
+        b, _t, _c = bv.build_loader_block(practices, block_dir=tmp,
+                                          carried=other)
+        tail = b.split('## Standing instruction', 1)[-1]
+        cases.append(('where AGENTS.md names different gates, this block keeps '
+                      'its own gate list and drops only the shared why',
+                      'precedent_gate.py reply`.' in tail
+                      and 'no path glob reaches those' not in tail
+                      and 'Before starting work' not in tail))
+
+        # Not carried at all -- nothing dropped.
+        b, _t, _c = bv.build_loader_block(practices, block_dir=tmp,
+                                          carried='# an AGENTS.md that says '
+                                                  'something else entirely\n')
+        cases.append(('a repo whose AGENTS.md lacks them keeps both, whole',
+                      b == full))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [c[0] for c in cases if not c[1]]
+    check(f'the session-practices block drops only what AGENTS.md carries word '
+          f'for word ({len(cases)} stated cases)', not bad, '; '.join(bad))
 
 
 def check_source_sets_can_learn_they_are_stale():
@@ -30058,6 +30138,7 @@ def main():
     check_very_deep_check_boundary_audit_reads_the_setting()
     check_default_blocklist_runs_the_vocabulary_layer()
     check_session_practices_load_without_publishing()
+    check_session_practices_drop_what_agents_md_carries()
     check_not_binding_cannot_be_abused()
     check_codeowners_check_is_a_check()
     check_status_contract()
