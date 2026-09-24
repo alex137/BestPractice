@@ -6835,7 +6835,9 @@ def check_reply_check_names_what_it_cannot_evaluate():
 
 
 def check_declared_loss_unblocks_the_archive_line():
-    """The exception Morgan's rule always carried, and the code never had.
+    """The exception Morgan's rule always carried, and the code never had --
+    plus the marker route added after the phrase list turned out to be the
+    same bug in a different shape.
 
     `require_container_safe_if_says` blocks "You can archive this session"
     whenever any checkout in the container holds work no remote has. Its own
@@ -6852,7 +6854,19 @@ def check_declared_loss_unblocks_the_archive_line():
     2026-09-22 case that built the rule caught: a session that had never
     looked at the clone holding six unpushed commits could not have named
     it. Both halves are asserted here, and so is the failure of each half
-    alone (practice: control-asserts-which-failure)."""
+    alone (practice: control-asserts-which-failure).
+
+    THE MARKER ROUTE, ADDED LATER THE SAME DAY. The phrase list still made a
+    session guess an exact string: a later session said the same substance
+    ("safe to let the container reclaim them") in its own words, twice, and
+    was refused both times for matching none of the four fixed phrases.
+    Morgan: "That rule, as you read it, it makes no sense... if there's some
+    way to force it to fire, that would be great." `unless_reply_declares_
+    loss.marker` is a `**Checkout disposition:** NAME -- discard` line
+    checked PER CHECKOUT, which is also strictly narrower than the phrase
+    route's "name them all somewhere in the reply": a reply naming two
+    checkouts and giving only one a disposition line must still fail, which
+    the cases below assert as its own negative control."""
     import importlib.util as _ilu
     spec = _ilu.spec_from_file_location(
         '_rc_loss', ROOT / 'tools' / 'precedent_reply_check.py')
@@ -6872,6 +6886,9 @@ def check_declared_loss_unblocks_the_archive_line():
 
     cases = [('the rule declares the escape phrases',
               bool((rule.get('unless_reply_declares_loss') or {}).get('phrases')),
+              str(rule.get('unless_reply_declares_loss'))),
+             ('the rule declares the marker template',
+              bool((rule.get('unless_reply_declares_loss') or {}).get('marker')),
               str(rule.get('unless_reply_declares_loss'))),
              ('the key is known to the predicate reader',
               'unless_reply_declares_loss' in rc.KNOWN_REQUIREMENT_KEYS, '')]
@@ -6896,6 +6913,22 @@ def check_declared_loss_unblocks_the_archive_line():
             ('naming both without the phrase does not',
              'there is work in ~/precedent-individual and in BestPractice',
              False),
+            ('the marker route, both dispositioned, releases it',
+             '**Checkout disposition:** precedent-individual -- discard '
+             '(superseded)\n**Checkout disposition:** BestPractice -- '
+             'discard (test fixture)', True),
+            ('the marker with an em-dash and no parenthetical still works',
+             '**Checkout disposition:** precedent-individual — discard\n'
+             '**Checkout disposition:** BestPractice — discard', True),
+            ('the marker route is PER CHECKOUT -- one dispositioned line '
+             'does not cover a second unsafe checkout the reply never '
+             'mentions',
+             '**Checkout disposition:** precedent-individual -- discard '
+             '(superseded)', False),
+            ('a disposition line for the wrong checkout name does not '
+             'match the one that is actually unsafe',
+             '**Checkout disposition:** some-other-repo -- discard\n'
+             '**Checkout disposition:** BestPractice -- discard', False),
         ):
             got = rc._declares_loss(rule, text)
             cases.append((label, got is want, f'got {got}'))
@@ -15422,6 +15455,130 @@ def check_session_check_reports_a_dead_also_list_entry():
     failed = [n for n, ok in cases if not ok]
     check(f'the session check reports an also-list entry that names nothing '
           f'({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
+def check_session_check_never_calls_an_unfetched_clone_current():
+    """A source clone that never fetched must not report itself current.
+
+    THE INCIDENT, 2026-09-23. `_clone_behind` compared each clone against
+    its own remote-tracking ref and never fetched, so a clone that had not
+    fetched since it was made measured itself against its own stale copy of
+    origin, counted zero, and the row said CURRENT. This container's
+    precedent-shared-working-style clone sat six commits behind for a whole
+    session that way. Two practices that had been MOVED into that set read
+    as present in no source at all, and the session told its user three
+    times that two rules had been silently switched off. They had not been;
+    the copies had landed upstream hours earlier.
+
+    So the row has three states now, and this pins all three. The one that
+    must never come back is a silent True.
+
+    Everything is stubbed rather than read off the machine: a fixture that
+    lets the container decide passes on a developer box and fails in CI
+    (practice: fixture-owns-its-state)."""
+    import tempfile
+    import precedent_session_check as psc
+
+    cases = []
+    name_wanted = 'clone is current with its own origin'
+    saved_sources = psc._attachable_sources
+    saved_behind = psc._clone_behind
+
+    def row(offline=False):
+        for name, ok, detail in psc.checks(offline=offline):
+            if name_wanted in name:
+                return ok, str(detail)
+        return 'MISSING', ''
+
+    try:
+        psc._attachable_sources = lambda: [('~/precedent-individual', 'main')]
+
+        # A fetch happened and there is nothing to take -> the only True.
+        psc._clone_behind = lambda path, fetch=True: ('current', '')
+        ok, _ = row()
+        cases.append(('a clone confirmed current by a real fetch passes',
+                      ok is True, ''))
+
+        # THE REGRESSION THIS EXISTS FOR: nothing fetched, so "zero commits
+        # behind" means nothing. Undetermined, never green.
+        psc._clone_behind = lambda path, fetch=True: (
+            'unverified', 'not fetched -- offline path')
+        ok, detail = row()
+        cases.append(('a clone that could not be compared is NOT reported '
+                      'current', ok is None, f'ok={ok!r}'))
+        cases.append(('and the row says it is unmeasured rather than clean',
+                      'UNMEASURED' in detail, detail[:90]))
+
+        # Behind stays a hard failure, including off a stale ref.
+        psc._clone_behind = lambda path, fetch=True: (
+            'behind', '6 commit(s) behind origin/main')
+        ok, detail = row()
+        cases.append(('a clone measured behind still fails',
+                      ok is False and '6 commit(s)' in detail, detail[:90]))
+
+        # The offline path must not fetch -- that is the whole reason it
+        # exists -- and must still be capable of reporting a positive
+        # "behind" reading.
+        seen = {}
+
+        def _spy(path, fetch=True):
+            seen['fetch'] = fetch
+            return 'behind', '2 commit(s) behind origin/main'
+
+        psc._clone_behind = _spy
+        ok, _ = row(offline=True)
+        cases.append(('the offline path asks for no fetch',
+                      seen.get('fetch') is False, repr(seen)))
+        cases.append(('and still reports a clone it can see is behind',
+                      ok is False, f'ok={ok!r}'))
+    finally:
+        psc._attachable_sources = saved_sources
+        psc._clone_behind = saved_behind
+
+    # AND THE FUNCTION ITSELF, against real git rather than a stub. The
+    # cases above pin the ROW's three states; this pins the thing that
+    # actually broke -- that `_clone_behind` fetches before it compares. A
+    # stub cannot show that, and a stub is what would have let the original
+    # bug through: every caller was correct, the comparison was simply made
+    # against a ref nothing had refreshed.
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='clone-behind-'))
+    try:
+        upstream, clone = tmp / 'upstream', tmp / 'clone'
+        def g(cwd, *a):
+            subprocess.run(['git', '-C', str(cwd), *a], check=True,
+                           capture_output=True)
+        upstream.mkdir()
+        subprocess.run(['git', 'init', '-q', '-b', 'main', str(upstream)],
+                       check=True, capture_output=True)
+        g(upstream, 'config', 'user.email', 'harness@example.com')
+        g(upstream, 'config', 'user.name', 'harness')
+        (upstream / 'f.txt').write_text('one\n')
+        g(upstream, 'add', '-A')
+        g(upstream, 'commit', '-qm', 'one')
+        subprocess.run(['git', 'clone', '-q', str(upstream), str(clone)],
+                       check=True, capture_output=True)
+        # The clone is current and has fetched: the only shape that is True.
+        v, _ = psc._clone_behind(str(clone), fetch=True)
+        cases.append(('a freshly cloned tree reads as current',
+                      v == 'current', v))
+        # Upstream moves. The clone has NOT fetched, so its own
+        # remote-tracking ref still says zero -- the exact bug.
+        (upstream / 'f.txt').write_text('two\n')
+        g(upstream, 'add', '-A')
+        g(upstream, 'commit', '-qm', 'two')
+        v_off, _ = psc._clone_behind(str(clone), fetch=False)
+        cases.append(('WITHOUT a fetch a stale clone is unverified, never '
+                      'current', v_off == 'unverified', v_off))
+        v_on, phrase = psc._clone_behind(str(clone), fetch=True)
+        cases.append(('WITH a fetch the same clone is measured behind',
+                      v_on == 'behind' and '1 commit' in phrase,
+                      f'{v_on}: {phrase}'))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    return (not bad, f'{len(cases)} stated cases',
+            '; '.join(f'{n}: {d}' for n, d in bad))
 
 
 def check_session_check_reports_a_source_cloned_twice():
@@ -29266,6 +29423,8 @@ def main():
           *check_reply_check_names_what_it_cannot_evaluate())
     check('the session check reports a source cloned twice on one disk',
           *check_session_check_reports_a_source_cloned_twice())
+    check('the session check never calls an unfetched source clone current',
+          *check_session_check_never_calls_an_unfetched_clone_current())
     check('a declared loss releases the archive line, and only then',
           *check_declared_loss_unblocks_the_archive_line())
     check('every verdict-returning check is actually recorded',
