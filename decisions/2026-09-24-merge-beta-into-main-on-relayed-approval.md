@@ -76,3 +76,17 @@ that passed `verify_harness.py --as-ci` and CI. That run had one local
 failure: `commit-identity.sh` copies not byte-identical. It came from a
 precedent-individual clone on disk whose `bootstrap/` copy predates #586,
 failed identically on the branch tip, and CI cannot see it.
+
+## The fourth fold-in, later the same day
+
+Morgan: "Alex gives his go ahead to merge into main", in answer to a
+session that had said #589 (`ci_on_branches`, a personal switch that skips
+CI on working branches) was on `precedent-beta-v01` and waiting for this
+merge. Read as the same relayed approval as the three above. As before,
+this session never saw Alex's own words.
+
+Checked on an unshallowed clone before merging (PR #590): `main`
+contributed no content of its own, and the branch tip's tree was identical
+to `df17a4d`, which passed CI on #589. The local `--as-ci` run had the same
+one failure as the third fold-in, from the same on-disk
+precedent-individual clone.
