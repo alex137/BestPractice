@@ -19,6 +19,10 @@ that is safe and with nothing left to remember:
      Rule, Detail, Why and Story exactly as they are -- this is vetted text,
      not a new draft -- with the destination level's own approval recorded
      (`--approved-by`; a listed approver for a team set).
+     One thing about the text does change: a link to a SIBLING practice
+     that is not at the destination is re-homed -- a universal practice's
+     URL, else the slug in backticks, never a URL into another set (see
+     _rehome_sibling_links for the 2026-09-23 incident). Each is printed.
   2. DEDUPLICATE the copy at the source: `status: deduplicated`,
      `in_force_at: <the slug>`, and one dated line appended to its ## Story
      saying where it went and who approved it. Never a delete: the resolver
@@ -208,6 +212,67 @@ def _rewrite_frontmatter(text, updates):
     return '---\n' + '\n'.join(out) + body
 
 
+_SIBLING_LINK_RE = re.compile(r'(?<!!)\[([^\]]*)\]\(([a-z0-9][a-z0-9-]*)\.md(#[^)\s]*)?\)')
+
+
+def _universal_url_base():
+    """'https://github.com/<owner>/<repo>/blob/<base_branch>/practices/' for
+    this Precedent clone, or None when either half cannot be read. A link
+    into the universal catalogue is the one cross-set link that is safe to
+    publish from anywhere."""
+    try:
+        url = subprocess.run(['git', '-C', str(ROOT), 'remote', 'get-url', 'origin'],
+                             capture_output=True, text=True).stdout.strip()
+        branch = json.loads((ROOT / 'precedent.json').read_text(encoding='utf-8')).get('base_branch')
+    except (OSError, ValueError):
+        return None
+    m = re.search(r'github\.com[:/]+([^/]+/[^/\s]+?)(?:\.git)?/*$', url)
+    return f'https://github.com/{m.group(1)}/blob/{branch}/practices/' if m and branch else None
+
+
+def _rehome_sibling_links(text, dest_dir):
+    """-> (text, [what changed]). A practice's links to its SIBLINGS are
+    relative (`other-slug.md`), and the siblings that stay behind turn them
+    into dead links at the destination. The obvious hand repair -- a URL to
+    where the sibling stayed -- is the disclosure private-repo-scrub forbids
+    whenever that set is private, and it is exactly what happened on
+    2026-09-23 (practice: practice-links-travel). So the move does the
+    repair itself: a sibling that is also at the destination keeps its link,
+    a universal practice gets its universal URL, and anything else becomes
+    its slug in backticks. Link markup only; the words are untouched."""
+    universal = _universal_url_base()
+    changed = []
+
+    def repl(m):
+        label, slug, frag = m.group(1), m.group(2), m.group(3) or ''
+        # Inside a code span (an odd number of backticks before it): a value
+        # being documented, not a reference. The label's own backticks sit
+        # inside the match, so they never count here.
+        if m.string.count('`', 0, m.start()) % 2:
+            return m.group(0)
+        if (dest_dir / f'{slug}.md').is_file():
+            return m.group(0)
+        if universal and (ROOT / 'practices' / f'{slug}.md').is_file() \
+                and dest_dir.resolve() != (ROOT / 'practices').resolve():
+            new = f'[{label}]({universal}{slug}.md{frag})'
+        elif label.strip('`') == slug:
+            new = f'`{slug}`'
+        else:
+            new = f'{label} (`{slug}`)'
+        changed.append(f'{m.group(0)} -> {new}')
+        return new
+
+    out, fence = [], False
+    for line in text.splitlines(keepends=True):
+        if line.lstrip().startswith(('```', '~~~')):
+            fence = not fence
+        if fence or line.lstrip().startswith(('```', '~~~')):
+            out.append(line)
+            continue
+        out.append(_SIBLING_LINK_RE.sub(repl, line))
+    return ''.join(out), changed
+
+
 def _append_story(text, line):
     """Append one paragraph to the ## Story section, creating the section
     when the file has none."""
@@ -321,6 +386,7 @@ def move(slug, from_level, from_path, to_level, to_path, approved_by,
     from_name = pathlib.Path(from_path).resolve().name
     to_name = pathlib.Path(to_path).resolve().name
     plan = []
+    rehomed = []
 
     if not dedupe_only:
         text = src.read_text(encoding='utf-8')
@@ -341,6 +407,7 @@ def move(slug, from_level, from_path, to_level, to_path, approved_by,
         if strength:
             updates['strength'] = strength
         new_text = _rewrite_frontmatter(text, updates)
+        new_text, rehomed = _rehome_sibling_links(new_text, dest.parent)
         plan.append(('write', dest, new_text))
 
     if dedupe_only or (to_level != 'universal' and not duplicate_from_universal):
@@ -372,6 +439,10 @@ def move(slug, from_level, from_path, to_level, to_path, approved_by,
                   f'audience that matters has taken `{to_name}`.')
         src_new = _append_story(src_text, line)
         plan.append(('write', src, src_new))
+
+    for change in rehomed:
+        say(f'{"would rewrite" if dry_run else "rewrote"} a sibling link that does not '
+            f'travel to {to_name}: {change}')
 
     if dry_run:
         for _op, path, _content in plan:

@@ -25177,6 +25177,33 @@ def check_move_tool_lands_then_deduplicates():
                       'DISCLOSE TO THE HUMAN' in r.stdout and 'shared set precedent-team-fixture' in r.stdout
                       and 'individual set precedent-individual' in r.stdout, r.stdout[-400:]))
 
+        # -- sibling links that do not travel are re-homed by the move itself --
+        # On 2026-09-23 a moved practice kept its relative links to siblings
+        # that stayed in a private set, and the hand repair pointed them at
+        # that set by URL. The move now does the repair: a universal
+        # practice gets its universal URL, anything else its backticked slug.
+        (indiv / 'practices' / 'zz-left-behind.md').write_text(
+            practice('zz-left-behind'), encoding='utf-8')
+        (indiv / 'practices' / 'zz-links.md').write_text(
+            practice('zz-links', 'See [`zz-left-behind`](zz-left-behind.md), '
+                     '[the rule](zz-left-behind.md#rule), '
+                     '[go-merge](go-merge.md) and `[kept](zz-left-behind.md)`.'),
+            encoding='utf-8')
+        r = run([tool, '--slug', 'zz-links', '--from', 'individual', '--from-path', str(indiv),
+                 '--to', 'team', '--to-path', str(team), '--approved-by', 'Fixture Approver'])
+        ltext = ((team / 'practices' / 'zz-links.md').read_text(encoding='utf-8')
+                 if (team / 'practices' / 'zz-links.md').is_file() else '')
+        cases.append(('a move re-homes sibling links that do not travel: the backticked '
+                      'slug for a set practice, the universal URL for a universal one, '
+                      'and a link inside a code span untouched',
+                      r.returncode == 0
+                      and 'See `zz-left-behind`, the rule (`zz-left-behind`)' in ltext
+                      and '/practices/go-merge.md)' in ltext
+                      and '`[kept](zz-left-behind.md)`' in ltext
+                      and str(indiv) not in ltext and 'precedent-individual/blob' not in ltext
+                      and 'rewrote a sibling link' in r.stdout,
+                      (r.stdout + r.stderr)[-600:] + ltext[-400:]))
+
         # -- a consumer resolving both sets sees the practice from the team, once --
         consumer = tmp / 'consumer'
         consumer.mkdir()
