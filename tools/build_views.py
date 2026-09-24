@@ -1860,6 +1860,7 @@ TOOLS_DESCRIPTIONS = {
     'practice_audit.py': "Audits the practice-export layer for a repo that vendors one (this repo does not)",
     'practice_simulation.py': "Synthetic scenario generation for routing quality — invented cases, never a replayed benchmark",
     'precedent_check.py': "The ENFORCED loading channel — runs every practice's `checked_by` script",
+    'precedent_ci_verified.py': "Did CI actually run, and pass, on the commit about to be merged — advisory, one API call",
     'precedent_gate.py': "The GATE-TRIGGERED loading channel — Rules for a named moment (merge, review, push, reply)",
     'precedent_reply_check.py': "The reply gate's BLOCKING half — refuses a stop when the reply missed what a source's reply_check.json requires",
     'precedent_container_safe.py': "Would anything be lost if this container went away? Scans every git checkout in it for uncommitted, untracked and unpushed work",

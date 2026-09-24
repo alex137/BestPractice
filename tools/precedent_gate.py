@@ -567,6 +567,38 @@ def main():
         except ImportError:
             pass
 
+    # THE MERGE MOMENT, and only it: did CI actually run on the commit about
+    # to be merged?
+    #
+    # 2026-09-23, this repository. A pull request showed a green tick. One of
+    # its two workflows had run on the head commit; the other -- the one
+    # carrying verify_harness, precedent_check and doc_sync -- never fired,
+    # although the identical trigger had produced a run for the four previous
+    # pull requests on that same branch. The pull request page hid it: GitHub
+    # re-attaches a branch's historical runs to whatever pull request is open
+    # on it, so four green runs earned by EARLIER pull requests read as this
+    # one's own history. The merge was one call away from landing on a tree
+    # nothing had checked.
+    #
+    # ADVISORY, never a refusal, and that limit is deliberate: it asks GitHub
+    # unauthenticated, 60 requests an hour per IP shared across every session
+    # here (practice: github-api-budget). A gate that blocked a merge on
+    # somebody else's rate limit would be routed around in a week. It says
+    # what it found; the session decides. Silent when the commit is verified,
+    # which is the normal case.
+    if gate == 'merge':
+        try:
+            sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+            import precedent_ci_verified as pciv
+            block = pciv.remind(root, prefix='precedent gate')
+            if block:
+                print(f"{block}\n")
+        except Exception:
+            # One network call and a YAML-ish read; a gate that died because
+            # its ADVISORY block failed would be worse than a quiet one
+            # (practice: fail-gracefully).
+            pass
+
     # EVERY gate, not one of them: a session whose SessionStart hooks never
     # ran is working under rules it cannot see, with an identity it did not
     # choose, and nothing in its own output says so.
