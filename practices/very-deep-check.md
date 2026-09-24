@@ -152,6 +152,23 @@ base branch ever saw it — fixing it forward, never rewriting that commit's
 history, is [no-rewrite-for-warnings](no-rewrite-for-warnings.md)'s call,
 not this practice's to make on its own.
 
+**Its negative control is
+[tools/verify_harness.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/verify_harness.py)'s
+`check_practice_catalogue_holds_back_private_sources_on_public_repo`**,
+planted the same day (Morgan: *"do what you think is best to fix this now
+and going forward so the issue doesn't reappear"*) rather than trusting the
+fix to hold on its own — the same discipline
+`check_loader_block_covers_every_declared_source` already applies to the
+AGENTS.md loader block, asked of this newer mechanism. It builds a fixture
+repo declaring `visibility: public` with one individual and one shared
+source, asserts the marker clause reaches the console output but never the
+tracked-doc rendering, and — the discriminating case — asserts a `private`
+repo holds nothing back at all. Verified against the bug it guards, not
+only against the fix: reverting `_practice_catalogue_for_tracked_doc` to
+its original unconditional behaviour turns this check red immediately.
+Part of the ordinary deep-check gate every push already runs — no separate
+occasion needed for it to fire.
+
 Added
 2026-09-23 (Morgan, strength: decided) — asked for directly: a list of
 every practice by slug with one sentence each, across this repo, the
