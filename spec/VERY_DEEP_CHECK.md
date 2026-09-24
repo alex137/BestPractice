@@ -215,76 +215,7 @@ tools/very_deep_check.py's PRACTICE CATALOGUE section on every run -->
 > - `write-it-up` — "Write it up" -- commit a full report of the issue and fix, then link it
 > - `write-like-a-human` — say the thing in your own words; unrewritten model output is output nobody thought about
 
-### precedent-individual (individual)
-
-> - `audience-register` — plain words by default -- same substance, real names kept and glossed once
-> - `auto-delete-branches` — delete the just-merged branch locally, without asking; hand the remote over as a one-click link
-> - `buenos-aires-dates` — dates and commit timestamps are Buenos Aires time, not UTC
-> - `claude-web-bootstrap` — wire the SessionStart hook so this set clones and configures itself
-> - `commit-author` — git config user.name/email to Morgan F, don't ask
-> - `cost-concern-face-value` — take the concern at face value -- never answer it by pointing out a free tier, an unmetered public repo, or unused included minutes
-> - `file-header` — markdown files get a last-updated/by-me/version header
-> - `handoff-only-when-blocked` — hand off only what you have ESTABLISHED this session cannot do — a repo root you can't write to, or my explicit ask for a fresh session; and check `list_sessions` for one already on that work BEFORE spawning — route me to a blocked one, never spawn beside it
-> - `my-identity-is-not-private` — never blocklist my name, city, timezone or timestamps; never warn about them
-> - `practice-set-engine-refresh` — my own practice-set repos carry an on-demand engine-refresh workflow; no cron
-> - `session-title-abbreviates-repo` — title as `<ABC>: <differentiator>` -- ABC the repo's abbreviation, never its full name
-> - `so-what-test` — cut any sentence that fails "so what?" -- keep warnings, risks, calls for me, assumptions
-
-### precedent-shared-repo-maintenance (shared)
-
-> - `automation-issues` — a blocked job opens or updates an issue; an optional input it cannot reach is skipped and reported, never either silently
-> - `blank-blocklist` — leave a check-in blocklist blank at install; don't ask, don't remind
-> - `deep-check` — every mechanical audit, plus a full read of the repo against itself
-> - `default-branch` — check or set the default branch to main, once, at install
-> - `derived-file-marker` — a regenerated file's header names its source, recipe, and command
-> - `dont-race-another-window` — say so and DECLINE — tell me to continue in the other window; flagging the collision and doing it anyway is the failure, not the fix
-> - `drift-notice` — check source freshness at session start; raise it right away, not later
-> - `fresh-before-write` — verify and fast-forward the checkout before the session's first write, never after
-> - `fresh-check-escalation` — tell "could not verify" apart from "confirmed fresh"; verify directly
-> - `install` — vendor the tree, weave conventions into AGENTS.md, wire checks and manifest
-> - `light-check` — a cheap mechanical audit runs before every commit, not just merges
-> - `mirror-into-agents` — an agent-relevant instruction lands in both AGENTS.md and its human home
-> - `new-rule-placement` — place a new rule by subject, slug it, renumber, mirror, re-check
-> - `no-duplication` — a rule that only restates universal gets dropped
-> - `private-repo-scrub` — name a private repo only in general terms in anything that ships elsewhere
-> - `rule-scope-ask` — unclear which layer a new rule belongs to -- one document, the repo, or which SET? ask once
-> - `session-trailer` — a Session: <url> trailer on every commit
-> - `todo-gate` — add missed ideas, check off finished ones, before every push
-> - `vendor-neutral-by-default` — a team-maintained vendor source ships out whole -- default to provider-neutral
-
-### precedent-shared-working-style (shared)
-
-> - `answer-first-ask-before-long-work` — easy answers first; a long run is proposed with its cost -- never just started
-> - `assorted-notes` — a default content/ASSORTED_NOTES.md holds ideas never cited elsewhere (a plain listing link is fine)
-> - `content-directory` — put working files in content/ so they don't mix with agent/tooling files
-> - `default-register` — match the reader's declared register; with none declared, write plain English
-> - `nonblocking-questions` — do the independent work first, ask early, keep going
-> - `quiet-checks` — "checks passed" is fine; don't re-explain the same old backlog
-> - `report-up-the-chain` — report to whoever tasked you; noticed work goes up the chain, never out as a proposal
-> - `their-constraints-are-given` — their own situation is given -- say it once, then work from theirs
-
-### precedent-shared-writing (shared)
-
-> - `brainstorm-citations` — cite a formal document for support, never a raw brainstorm entry
-> - `branch-links` — link every git branch mentioned to its tree view
-> - `content-subdirs` — group deliverable content under a named subdirectory -- a recommendation
-> - `create-word-doc` — creating any Word (.docx) document means it carries a footer -- a structured export runs tools/create_word_doc.py (A4, 1.3 line spacing, footer, section page breaks, live word count, all in the same pass); anything else still needs a live Page X of Y footer plus a title/date line, built by hand into whatever script makes it
-> - `curly-quotes` — a straight " or ' in outward-facing prose becomes a typographic curly quote
-> - `deliverables-carry-no-process` — an output document carries no attribution stamps, practice slugs or convention notes -- the practice layer keeps that record
-> - `doc-link-text` — link text is the doc's name -- keep the href as the .md file
-> - `doc-recipe` — present-tense rules for one file, in doc-recipes/<name>.recipe.md
-> - `draft-marker` — wrap a draft placeholder in ➡️ TEXT ⬅️, bold and all caps
-> - `durable-list-anchors` — anchor and slug each entry of a durable numbered list, not just its number
-> - `file-mention-links` — every file mention in chat or PR/commit text is a live GitHub link
-> - `list-item-parity` — keep list items comparable in length; default to the shorter side
-> - `list-restraint` — don't reformat connected reasoning as bullet fragments
-> - `name-the-branch` — name a branch literally (precedent-beta-v01, main), never "the base branch" or "the default branch"
-> - `no-stale-counts` — drop a count that will go stale; say "several", not the number
-> - `proportional-emphasis` — give a point space matching its importance, not its drafting mood
-> - `resolved-issue-note-updates` — When a commit fixes a bug, closes a gap, or resolves a limitation that some ...
-> - `rule-links` — link anything mentioned that has a destination, on first use
-> - `sensitive-characterization-scrub` — soften or ask before committing a blunt description of a real person
-> - `trim-prose` — trim a paragraph right after editing it, and before calling it done
+**59 practice(s) across 4 source(s) held back from this file: precedent-individual (individual), precedent-shared-repo-maintenance (shared), precedent-shared-writing (shared), precedent-shared-working-style (shared).** This repo's own `precedent.json` declares `visibility: public` (or never declared one, which this engine treats the same way, fail safe) -- this file is tracked, so writing another source's own practice text into it would publish that source, permanently, for the identical reason `build_views.py` already holds a team or individual source out of the generated AGENTS.md loader block. **The full list, held-back sources included, still prints to the session's own console/chat on every run** -- nothing here is lost, only kept out of this committed file. Advise the person of that before doing anything else with it, and ask which they actually want: committed here too (re-run with `--catalogue-include-private`, an explicit, informed choice, never a default), left as chat-only (nothing further to do), or not generated at all (`--skip-practice-catalogue`). Never decide this silently in either direction -- and never assume it once for every repo: a repo that declares `visibility: private` skips this note entirely, because there is nothing there to hold back.
 <!--/vdc-embed:practice-catalogue-->
 
 ## Current run

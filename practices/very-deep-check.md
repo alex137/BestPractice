@@ -103,14 +103,56 @@ session reading the catalogue elsewhere would — grouped one section per
 source in force: this checkout, the individual source, and every shared
 source. **It is written into
 [spec/VERY_DEEP_CHECK.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/VERY_DEEP_CHECK.md)
-directly, in full, on every run that reaches this section**, the same
-embed-block mechanism the merged-stale-checkout list already uses, so the
-list is a page to open rather than something a session has to remember to
-paste. It is local and offline — no fetch, no judgment, nothing dated —
-so the same catalogue produces the same list byte for byte between two runs,
-and only a change to a `practices/*.md` file changes what it prints.
-Regenerate it alone with
-`python3 tools/very_deep_check.py --emit practice-catalogue`. Added
+directly on every run that reaches this section**, the same embed-block
+mechanism the merged-stale-checkout list already uses, so the list is a
+page to open rather than something a session has to remember to paste. It
+is local and offline — no fetch, no judgment, nothing dated — so the same
+catalogue produces the same list byte for byte between two runs, and only
+a change to a `practices/*.md` file changes what it prints. Regenerate it
+alone with `python3 tools/very_deep_check.py --emit practice-catalogue`.
+
+**What gets COMMITTED is narrower than what a session sees, and the gap is
+deliberate.** The console/chat output always carries every source, held-back
+ones included — that costs nothing, since a reply is never itself a
+publication. What `_update_spec_doc_block` writes into this tracked file is
+gated by
+[tools/build_views.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/build_views.py)'s
+own `repo_is_public()` / `sources_for_tracked_block()` — the identical rule
+that already keeps a team or individual source's practice text out of the
+generated AGENTS.md loader block, reused rather than re-derived. A repo
+that declares (or, fail-safe, never declares) `visibility: public` gets
+only its own universal and repo-local practices committed here; every
+individual or shared source is held back, named but not quoted, with a
+note in the file itself saying how many practices and which sources, and
+telling the session to **advise the person and ask which they actually
+want** before doing anything further: committed here too
+(`--catalogue-include-private`, an explicit, informed choice, never a
+default), chat-only (already true, nothing further to do), or not
+generated at all (`--skip-practice-catalogue`). A repo that declares
+`visibility: private` holds nothing back — his own words: *"if I run this
+in a private repo, it's all private for me so I don't care if it's all
+there."*
+
+**Found the hard way, the day after the section first shipped.** The first
+version wrote every source's clauses into this file unconditionally,
+including `precedent-individual`'s and every shared source's — and this
+repo declares `visibility: public`, so that first commit published private
+practice text into a world-readable file, permanently. Morgan caught it
+before it reached `precedent-beta-v01`: *"it posts your precedent-individual
+and the precedet-\* ones to the list in the main repo so (if it's a public
+repo) it will become public. I don't think that's a problem, but it should
+advise the user first and ask him if he'd rather get the list of practices
+in the deep review doc, in the chat, or he doesn't want it."* Fixed
+2026-09-24 (Morgan, strength: decided, "Go update") by gating what this file
+commits on the same visibility check `build_views.py` already runs for the
+loader block, rather than inventing a second one — pass 2's own "is there a
+duplicate implementation" question, answered before it could drift. The
+disclosure did happen once, in this branch's own prior commit, before the
+base branch ever saw it — fixing it forward, never rewriting that commit's
+history, is [no-rewrite-for-warnings](no-rewrite-for-warnings.md)'s call,
+not this practice's to make on its own.
+
+Added
 2026-09-23 (Morgan, strength: decided) — asked for directly: a list of
 every practice by slug with one sentence each, across this repo, the
 individual source and the shared sources, generated the same way every time
@@ -2420,6 +2462,7 @@ it landed and still unreviewed.
 - **Extended 2026-09-22, Morgan (strength: decided)**, with FIX SWEEP (proposal item 13's other half) -- "Build item 13's fix-sweep half, go update"; its first run carried the YAML-anchor detector built three days earlier into all three shared sources, two of which decline for having no workflow file and the third of which runs clean
 - **Extended 2026-09-23, Morgan (strength: decided)**, with pass 3's SOURCE-placement question, after asking for a cross-repo practice-placement review across the five Precedent repos and finding that nothing here or anywhere else ever asks which catalogue a practice belongs in, only whether its tier within one catalogue is right -- the session's own review is the bullet's worked example, five practices moved out of precedent-individual, two demoted from universal, and one live duplicate (vendor-neutral-by-default) found still open
 - **Extended again 2026-09-23, Morgan (strength: decided)**, with the PRACTICE CATALOGUE section -- asked directly for a list of every practice by slug with one sentence each, across this repo, the individual source and the shared sources, generated the same way every time a very deep check runs so it can be reviewed against; built to reuse each practice's own `index_clause` rather than compose a second description, and to write into [spec/VERY_DEEP_CHECK.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/VERY_DEEP_CHECK.md) directly rather than leave a session to remember to paste it, the same lesson the embedded stale-branch list already carries
+- **Bounded 2026-09-24, Morgan (strength: decided, "Go update")**, gating what the PRACTICE CATALOGUE section commits by the repo's own `visibility` -- "it posts your precedent-individual and the precedet-\* ones to the list in the main repo so (if it's a public repo) it will become public... it should advise the user first and ask him if he'd rather get the list of practices in the deep review doc, in the chat, or he doesn't want it" -- after the section's first run had already committed every source's clauses into this public repo's tracked file unconditionally; fixed by reusing `build_views.py`'s existing `repo_is_public()`/`sources_for_tracked_block()` rather than a second filter, so the console output still carries everything, chat-only and free, while the committed file holds back every individual and shared source and names them, with the choice put back to the person rather than decided either way
 ## Install
 [tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/very_deep_check.py) enumerates the scope
 (this checkout's own top-level documents plus every active source's

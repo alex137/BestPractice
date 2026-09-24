@@ -6336,10 +6336,84 @@ def _practice_catalogue_markdown(sources):
     return '\n'.join(lines)
 
 
-def emit_practice_catalogue(repo=None, user_config=None):
+def _practice_catalogue_for_tracked_doc(repo_root, sources):
+    """-> (markdown, held_back) for what `_update_spec_doc_block` may
+    actually WRITE into this repo's own tracked spec/VERY_DEEP_CHECK.md --
+    as opposed to `_practice_catalogue_markdown(sources)`, which is fine to
+    print to a session's own console/chat every time, since that output is
+    never committed.
+
+    THE MISTAKE THIS FIXES (found 2026-09-24, by Morgan, the morning after
+    the section first shipped): the first version embedded every source's
+    clauses into this file unconditionally, including `individual` and
+    `shared` sources -- so running the very deep check in a repo that
+    declares `visibility: public` (this one) committed
+    `precedent-individual`'s and every shared source's own practice text
+    into a world-readable file, permanently, the same disclosure
+    `build_views.py`'s `repo_is_public()` / `sources_for_tracked_block()`
+    already exist to prevent for the AGENTS.md loader block -- see that
+    function's own docstring, "THE ONE PLACE that decides what a repo's
+    COMMITTED loader block may carry." This reuses that exact function
+    rather than a second, drifting copy of the same level filter (pass 2's
+    own "is there a duplicate implementation" question).
+
+    Reuses it CORRECTLY, not just calls it: `sources_for_tracked_block`
+    also holds back a practice SET's own declared sources for a different
+    reason (case 2 in its docstring -- a set committing a second copy of
+    universal's text) -- irrelevant here, since this repo is the engine's
+    own origin and `repo_is_practice_source()` is False for it, but a
+    caller in a set's own tooling would get that split too, for free,
+    which is the point of calling the one function rather than
+    re-deriving `PRIVATE_LEVELS` locally.
+
+    `held_back` is `[]` exactly when nothing was excluded (a private repo,
+    or a public one with no non-universal, non-repo-local source
+    declared) -- the caller uses that to decide whether an advisory note is
+    owed at all."""
+    tracked, deferred, _notes = bv.sources_for_tracked_block(repo_root, sources)
+    md = _practice_catalogue_markdown(tracked)
+    if not deferred:
+        return md, []
+    held_back_names = [f"{s['name']} ({s['level']})" for s in deferred]
+    held_back_n = sum(1 for row in _practice_catalogue_rows(deferred))
+    advisory = (
+        f"\n\n**{held_back_n} practice(s) across {len(deferred)} source(s) "
+        f"held back from this file: {', '.join(held_back_names)}.** This "
+        f"repo's own `precedent.json` declares `visibility: public` (or "
+        f"never declared one, which this engine treats the same way, fail "
+        f"safe) -- this file is tracked, so writing another source's own "
+        f"practice text into it would publish that source, permanently, "
+        f"for the identical reason `build_views.py` already holds a team or "
+        f"individual source out of the generated AGENTS.md loader block. "
+        f"**The full list, held-back sources included, still prints to the "
+        f"session's own console/chat on every run** -- nothing here is lost, "
+        f"only kept out of this committed file. Advise the person of that "
+        f"before doing anything else with it, and ask which they actually "
+        f"want: committed here too (re-run with "
+        f"`--catalogue-include-private`, an explicit, informed choice, "
+        f"never a default), left as chat-only (nothing further to do), or "
+        f"not generated at all (`--skip-practice-catalogue`). Never decide "
+        f"this silently in either direction -- and never assume it once "
+        f"for every repo: a repo that declares `visibility: private` skips "
+        f"this note entirely, because there is nothing there to hold back.")
+    return md + advisory, deferred
+
+
+def emit_practice_catalogue(repo=None, user_config=None, include_private=False):
     """-> the slug + one-sentence practice catalogue across this checkout
     and every resolved source, as markdown, for `--emit` (practice:
     very-deep-check).
+
+    MATCHES WHAT `_update_spec_doc_block` ACTUALLY WRITES, by default --
+    `include_private=False` (the default, and what a bare `--emit
+    practice-catalogue` gives you) runs the same
+    `_practice_catalogue_for_tracked_doc()` visibility gate the real run
+    uses before committing anything, so this command reproduces the tracked
+    block rather than a fuller one nothing ever commits. Pass
+    `include_private=True` (`--catalogue-include-private` on the CLI) only
+    once a person has actually said they want a public repo's tracked file
+    to carry another source's practice text -- see that function's
+    docstring for why this defaults closed rather than open.
 
     WHY THIS EXISTS (2026-09-23). Morgan asked, in the same turn, for a
     session-readable list -- every practice's slug and a one-sentence
@@ -6362,7 +6436,10 @@ def emit_practice_catalogue(repo=None, user_config=None):
     block does not repeat that check."""
     repo_root = pathlib.Path(repo or ROOT).resolve()
     data = enumerate_scope(repo_root, user_config)
-    return _practice_catalogue_markdown(data['sources'])
+    if include_private:
+        return _practice_catalogue_markdown(data['sources'])
+    md, _held_back = _practice_catalogue_for_tracked_doc(repo_root, data['sources'])
+    return md
 
 
 def emit_merged_stale_checkout(repo_root=None):
@@ -6694,12 +6771,16 @@ def _main(box):
         if name == 'merged-stale-checkout':
             print(emit_merged_stale_checkout(repo))
         else:
-            print(emit_practice_catalogue(repo, user_config))
+            print(emit_practice_catalogue(
+                repo, user_config,
+                include_private='--catalogue-include-private' in args))
         return 0
 
     as_json = '--json' in args
     allow_missing = '--allow-missing-sources' in args
     skip_branch_scan = '--skip-branch-scan' in args
+    skip_practice_catalogue = '--skip-practice-catalogue' in args
+    catalogue_include_private = '--catalogue-include-private' in args
     print_checklist = '--checklist' in args
     with_harness = '--with-harness' in args
     skip_visibility = '--skip-visibility' in args
@@ -7103,19 +7184,54 @@ def _main(box):
     # carries the universal source resolved to this checkout's own path,
     # so nothing here re-adds "this checkout" as a separate row the way
     # the scope print above does.
+    #
+    # THE COMMITTED HALF IS GATED BY VISIBILITY, THE CONSOLE HALF NEVER IS.
+    # A session's own reply is never published anywhere by this tool, so
+    # the console print below always shows every source, held-back ones
+    # included -- that IS the "chat" option Morgan asked for, already
+    # satisfied on every run with nothing further to do. What is gated is
+    # only what `_update_spec_doc_block` COMMITS: see
+    # `_practice_catalogue_for_tracked_doc()`'s docstring for the incident
+    # this fixed (2026-09-24) -- the first version of this section wrote
+    # every source, private ones included, into this file unconditionally,
+    # which is exactly the disclosure `build_views.py`'s `repo_is_public()`
+    # already exists to prevent for the AGENTS.md loader block.
     if led:
         led.start('PRACTICE CATALOGUE', kind='read')
-    _cat_rows = _practice_catalogue_rows(data['sources'])
-    _cat_md = _practice_catalogue_markdown(data['sources'])
-    if not as_json:
-        print("PRACTICE CATALOGUE -- every in-force practice's slug and "
-              "one-sentence description,\none section per source in force\n")
-        print(_cat_md)
-        print()
-    # This repo's own spec/VERY_DEEP_CHECK.md only, same restriction as the
-    # branch-list embed below -- see _update_spec_doc_block's docstring.
-    if pathlib.Path(repo_root).resolve() == ROOT.resolve():
-        _update_spec_doc_block(repo_root, 'practice-catalogue', _cat_md)
+    if skip_practice_catalogue:
+        if not as_json:
+            print("PRACTICE CATALOGUE -- skipped (--skip-practice-catalogue)\n")
+        _cat_rows = []
+    else:
+        _cat_rows = _practice_catalogue_rows(data['sources'])
+        _cat_md_console = _practice_catalogue_markdown(data['sources'])
+        if not as_json:
+            print("PRACTICE CATALOGUE -- every in-force practice's slug and "
+                  "one-sentence description,\none section per source in "
+                  "force (nothing here is committed by itself)\n")
+            print(_cat_md_console)
+            print()
+        # This repo's own spec/VERY_DEEP_CHECK.md only, same restriction as
+        # the branch-list embed below -- see _update_spec_doc_block's
+        # docstring.
+        if pathlib.Path(repo_root).resolve() == ROOT.resolve():
+            if catalogue_include_private:
+                _cat_md_doc, _held_back = _cat_md_console, []
+            else:
+                _cat_md_doc, _held_back = _practice_catalogue_for_tracked_doc(
+                    repo_root, data['sources'])
+            if _held_back and not as_json:
+                print(f"PRACTICE CATALOGUE: {len(_held_back)} source(s) "
+                      f"held back from spec/VERY_DEEP_CHECK.md because this "
+                      f"repo is public -- {', '.join(s['name'] for s in _held_back)}. "
+                      f"Full list is in the console output above. Ask the "
+                      f"person which they actually want before doing "
+                      f"anything else with it: committed here too "
+                      f"(--catalogue-include-private, an explicit choice), "
+                      f"chat-only (nothing further to do), or not generated "
+                      f"at all (--skip-practice-catalogue) -- never decide "
+                      f"this one silently.\n")
+            _update_spec_doc_block(repo_root, 'practice-catalogue', _cat_md_doc)
     if led:
         led.end(items=len(_cat_rows))
         led.start('WITHIN-SOURCE CONFLICTS')
