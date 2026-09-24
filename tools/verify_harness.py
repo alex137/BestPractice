@@ -21207,6 +21207,115 @@ def check_loader_block_covers_every_declared_source():
               f'{len(leaked)} leaked: {", ".join(sorted(leaked)[:6])}')
 
 
+def check_practice_catalogue_holds_back_private_sources_on_public_repo():
+    """The very deep check's PRACTICE CATALOGUE section never commits a
+    private source's practice text into a public repo's tracked
+    spec/VERY_DEEP_CHECK.md -- the same disclosure
+    `check_loader_block_covers_every_declared_source` just above already
+    guards for the AGENTS.md loader block, asked of the newer mechanism
+    (practice: very-deep-check; control-asserts-which-failure).
+
+    THE INCIDENT (2026-09-24). The section's first version wrote every
+    resolved source's clauses into that file unconditionally. This repo
+    declares `visibility: public`, so its own first real run committed
+    `precedent-individual`'s and every shared source's practice text into a
+    world-readable file -- caught by Morgan before it reached
+    `precedent-beta-v01`, fixed the same day by routing the write through
+    `build_views.py`'s existing `repo_is_public()` /
+    `sources_for_tracked_block()` rather than a second filter. Nothing
+    proved that fix stays fixed -- this is that proof, planted so a later
+    edit that quietly writes `_practice_catalogue_markdown(sources)`
+    straight to the doc again (the exact shape of the original bug) fails
+    loudly instead of shipping quietly, the same way every other mechanism
+    in this repo that touches a privacy boundary carries a control.
+
+    THE DISCRIMINATING CASE is a private repo: nothing should be held back
+    there (Morgan's own words -- "if I run this in a private repo, it's
+    all private for me so I don't care if it's all there"), so a check that
+    only tried the public case could pass on an implementation that always
+    excludes individual/shared sources regardless of visibility, which
+    would silently break every private consumer's own catalogue.
+
+    The fixture owns its own tree (fixture-owns-its-state) -- a temp
+    checkout plus one temp individual and one temp shared source, each
+    with a single real practice file, never this repo's own."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import very_deep_check as vdc
+
+    MARKER = 'ZZFIXTUREMARKERZZ this clause must never reach a public tracked file'
+    PRACTICE = (
+        '---\nslug: fixture-private-practice\ntitle: fixture\ntier: on-demand\n'
+        'severity: advisory\nscope: any-adopter\napplies_to: ["**"]\n'
+        'occasion: "a fixture fires"\ngates: []\n'
+        f'index_clause: "{MARKER}"\nchecked_by: null\ndefines: []\n'
+        'status: active\nin_force_at: null\nsupersedes: []\noverrides: null\n'
+        'added: null\napproved_by: "fixture"\n---\n'
+        '## Rule\nFixture text, never read by a person.\n')
+
+    def build_sources(root, visibility):
+        (root / 'precedent.json').write_text(
+            json.dumps({'format_version': 1, 'visibility': visibility}),
+            encoding='utf-8')
+        ind = root.parent / (root.name + '-individual')
+        shared = root.parent / (root.name + '-shared')
+        for d in (ind, shared):
+            (d / 'practices').mkdir(parents=True, exist_ok=True)
+            (d / 'practices' / 'fixture-private-practice.md').write_text(
+                PRACTICE, encoding='utf-8')
+        return [
+            {'level': 'universal', 'name': 'precedent', 'path': str(root)},
+            {'level': 'individual', 'name': 'fixture-individual', 'path': str(ind)},
+            {'level': 'shared', 'name': 'fixture-shared', 'path': str(shared)},
+        ]
+
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='catalogue-visibility-'))
+    try:
+        pub_root = tmp / 'pub'
+        pub_root.mkdir()
+        pub_sources = build_sources(pub_root, 'public')
+
+        console_md = vdc._practice_catalogue_markdown(pub_sources)
+        cases.append(('the console/chat rendering always shows every '
+                      'source, held-back ones included',
+                      MARKER in console_md, console_md[:200]))
+
+        doc_md, held_back = vdc._practice_catalogue_for_tracked_doc(
+            pub_root, pub_sources)
+        cases.append(('THE CASE THIS EXISTS FOR: a public repo\'s tracked-doc '
+                      'rendering never carries a private source\'s clause',
+                      MARKER not in doc_md, doc_md[:200]))
+        cases.append(('and it names what it held back rather than silently '
+                      'dropping it',
+                      {s['name'] for s in held_back}
+                      == {'fixture-individual', 'fixture-shared'},
+                      repr(held_back)))
+        cases.append(('the held-back note in the doc says how many, so a '
+                      'reader is not left to guess',
+                      'held back' in doc_md, doc_md[-400:]))
+
+        priv_root = tmp / 'priv'
+        priv_root.mkdir()
+        priv_sources = build_sources(priv_root, 'private')
+        priv_doc_md, priv_held_back = vdc._practice_catalogue_for_tracked_doc(
+            priv_root, priv_sources)
+        cases.append(('THE DISCRIMINATING CASE: a private repo holds nothing '
+                      'back -- the gate is about visibility, not about '
+                      'individual/shared sources categorically',
+                      MARKER in priv_doc_md and not priv_held_back,
+                      priv_doc_md[:200]))
+    finally:
+        import shutil
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'the practice catalogue holds back a private source\'s clause from '
+          f'a public repo\'s tracked doc, and only there ({len(cases)} stated '
+          f'cases)',
+          not bad, '; '.join(f"{n} -- {d[:300]}" for n, d in bad))
+
+
 def check_tools_answer_help_without_writing():
     """`--help` is safe and informative on every tool in tools/.
 
@@ -29542,6 +29651,7 @@ def main():
     check_instantiated_template_links_survive_the_copy()
     check_tools_answer_help_without_writing()
     check_loader_block_covers_every_declared_source()
+    check_practice_catalogue_holds_back_private_sources_on_public_repo()
     check_title_case_leaves_code_and_first_word_alone()
     check_title_case_honours_repo_declared_internal_paths()
     check_title_case_never_corrupts_content()
