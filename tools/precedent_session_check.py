@@ -731,27 +731,44 @@ def _attachable_sources():
 
 
 def apply_repair():
-    """Run the three SessionStart hooks by hand, in settings.json's order."""
-    branch = _declared_branch() or 'main'
-    hooks = [
-        ('session-start.sh', []),
-        ('freshness-guard.sh', ['session-start', branch]),
-        ('commit-identity.sh', []),
-    ]
+    """Run this repo's SessionStart hooks by hand, in settings.json's own order.
+
+    Reads .claude/settings.json rather than naming hooks in this function --
+    a hook named here is one more place a NEW hook has to be remembered, and
+    that is exactly what went stale: 2026-09-20's additionalContext-emitting
+    hook (precedent-universal-catalogue.sh) shipped to every Precedent SET's
+    settings.json while this function still ran the three hooks BestPractice
+    itself happens to have, which do not include it -- so `--apply` on a set
+    repaired everything except the one guarantee this tool was written for.
+    settings.json is the one place a hook's presence is already declared;
+    reading it means a repair here stays correct for whatever hooks a repo
+    actually has, with no per-repo edit to this file, ever.
+    """
+    settings_path = ROOT / '.claude' / 'settings.json'
+    try:
+        settings = json.loads(settings_path.read_text(encoding='utf-8'))
+    except (OSError, ValueError) as e:
+        print(f'  SKIP -- could not read .claude/settings.json ({e})')
+        return True
+    commands = []
+    for matcher in settings.get('hooks', {}).get('SessionStart', []):
+        for h in matcher.get('hooks', []):
+            if h.get('type') == 'command' and h.get('command'):
+                commands.append(h['command'])
+    if not commands:
+        print('  SKIP -- no SessionStart hooks declared in .claude/settings.json')
+        return True
     failed = []
-    for name, args in hooks:
-        path = ROOT / '.claude' / 'hooks' / name
-        if not path.is_file():
-            print(f'  SKIP {name} -- not present in this checkout')
-            continue
-        print(f'  running {name} {" ".join(args)}')
-        p = subprocess.run(['bash', str(path), *args], cwd=str(ROOT))
+    for cmd in commands:
+        resolved = cmd.replace('$CLAUDE_PROJECT_DIR', str(ROOT))
+        print(f'  running: {resolved}')
+        p = subprocess.run(resolved, shell=True, cwd=str(ROOT))
         if p.returncode != 0:
-            failed.append(name)
+            failed.append(resolved)
     # Never silent: a repair that half-worked is the state this whole tool
     # exists to make visible.
-    for name in failed:
-        print(f'  WARN: {name} exited non-zero -- re-run it directly to see why')
+    for cmd in failed:
+        print(f'  WARN: exited non-zero -- re-run it directly to see why: {cmd}')
     return not failed
 
 

@@ -555,6 +555,20 @@ ENGINE_FILES = [
     'full_practice_audit.py',
     'session_load_trend.py',
     'todo_progress.py',
+    # The SessionStart self-heal: "did this repo's own hooks actually run,
+    # and repair it by hand if not" (added 2026-09-08, in BestPractice only
+    # until 2026-09-24). Never vendored, so no source set had it -- and a
+    # source set is exactly where the failure this tool exists for bites,
+    # since a team source resolving as a sibling clone is what roots a
+    # session one directory ABOVE every repo's hooks in the first place
+    # (this file's own docstring). In ENGINE_FILES rather than consumer-only
+    # for the same reason precedent_vocabulary.py is: the guarantee it
+    # checks -- and the additionalContext-emitting hook this file's own
+    # apply_repair() was found, the same day, to be silently skipping
+    # because its hook list was hardcoded rather than read from
+    # settings.json -- belongs to whatever repo the session is rooted in,
+    # source set or consumer alike.
+    'precedent_session_check.py',
     'precedent_vendor_engine.py',
 ]
 
