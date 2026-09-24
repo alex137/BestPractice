@@ -674,19 +674,14 @@ widening what sessions may run
    they run here.
 
    **7b. Then review every hand-written rule left in that file**, and in
-   `CLAUDE.md`, against the practices now in force. Nothing here is deleted
-   for being hand-written. Each rule gets two questions: **does it
-   conflict with a rule now in force, and is it still needed?**
-   - **Says the same as a practice in force**: delete it. The generated
-     block already carries that rule, and a second copy is the one that
-     goes stale.
-   - **Conflicts with a practice in force**: ask the person whether it is
-     a deliberate local exception. If it is, keep it, word it as an
-     exception to the named practice, and say why. If not, delete it; the
-     rule in force wins.
-   - **Doesn't conflict and covers something no practice covers**: keep
-     it. That is this repo's own rule, and it is exactly what this file is
-     for.
+   `CLAUDE.md`, against the practices now in force. This is the
+   conflicted-file review every update runs
+   ([vendor-update-runbook](../practices/vendor-update-runbook.md)),
+   applied to the whole file, because a migration is the first time the
+   generated block and the hand-written rules sit side by side. Nothing is
+   deleted for being hand-written: a rule that duplicates a practice in
+   force goes, one that conflicts is kept only as a confirmed local
+   exception, and one that covers what no practice covers stays.
 
    Two kinds get the same review with one extra step. A blanket precedence
    clause ("the personal pack wins on conflict") is kept only narrowed to
