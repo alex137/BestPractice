@@ -122,7 +122,7 @@ else:
 
 HERE = pathlib.Path(__file__).resolve().parent
 ROOT = HERE.parent
-SOURCE_BRANCH = 'precedent-beta-v01'   # kept in step with precedent_vendor_engine.SOURCE_BRANCH
+SOURCE_BRANCH = 'main'   # kept in step with precedent_vendor_engine.SOURCE_BRANCH
 MANIFEST = 'tools/ENGINE_MANIFEST.json'
 
 
