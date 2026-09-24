@@ -1,7 +1,7 @@
 ---
 title:         Run CI at most once every X hours in private repos
 kind:          proposal
-status:        drafted
+status:        accepted
 opened:        2026-09-24
 closed:        null
 superseded_by: null
@@ -19,9 +19,16 @@ hours.** `0` means every push, as today; `48` means once every two days.
 Public repos are untouched.
 
 **Status.** Morgan, 2026-09-24, after the brainstorm this came from: *"I
-don't want to save it, I want to do it"* (`strength: decided`, to build
-it). **The design below is a proposal awaiting his review**, not something
-he has approved line by line.
+don't want to save it, I want to do it"*, then, on reading this plan: *"The
+plan is great, with one detail change: the default setting for this should
+be 0 -- in other words, unless explicitly changed, the github ci/cd should
+run every time. Go update."* (`strength: decided`, both.) **Built** in
+BestPractice the same day; "Build steps" below says what is live and what
+waits on other repos.
+
+**The default is 0.** Nobody's CI changes until they write a number above 0
+into their own `identity.json` or a repo's `precedent.json`. An absent,
+unreadable or invalid value is 0 too.
 
 ## Why the obvious version loses money
 
@@ -70,7 +77,11 @@ tag itself, and the push of A+B would skip CI. GitHub reads only the head
 commit, B. Measured against `origin`, B sees what A saw, stays untagged, and
 the push runs CI.
 
-**Every failure leans toward running CI.** Commits get tagged only when the
+**Every failure leans toward running CI.** The step also sits above the
+hook's author override, `PRECEDENT_ALLOW_ANY_AUTHOR=1`, which waives the
+identity checks and nothing else -- the first build placed it below, and
+the test harness, which sets that override for its whole run, caught every
+cadence silently switched off. Commits get tagged only when the
 answer is a definite "not due". Missing python3, an unreadable
 `precedent.json`, no `origin/<primary>` ref, or `core.hooksPath` already
 claimed by something else all leave the message untouched. So does a commit
@@ -84,12 +95,13 @@ hook already reads:
 
     "ci_every_hours": 48
 
-(Example value only, not for pasting. Morgan picks it; see the questions
-below.)
+(Example value only, not for pasting. The individual skeleton,
+[identity.json.template](../templates/practice-set-individual/identity.json.template),
+ships the key at `0`.)
 
 **Repos others read from set their own `0`.** precedent-individual and the
-three shared practice sets are private, so the personal value would reach
-them. But every session in every repo pulls their newest commit at session
+three shared practice sets are private, so a personal value above 0 would
+reach them. But every session in every repo pulls their newest commit at session
 start, so a broken commit there spreads before CI would ever see it. Each
 declares `"ci_every_hours": 0` in its own `precedent.json`, and check 1 lets
 that win.
@@ -136,29 +148,39 @@ has read how that repo is used.
 
 ## Build steps
 
-1. **Engine, in this repo.** Add the step to the `prepare-commit-msg` body
-   that [commit-identity.sh](../templates/harness/claude-code/hooks/commit-identity.sh)
-   writes: X baked in at session start like the timezone offset, with
-   visibility, `base_branch` and the repo override read at commit time.
-   Harness cases in [tools/verify_harness.py](../tools/verify_harness.py),
-   each with a negative control: public repo, X=0, repo override 0, feature
-   branch, CI due, CI not due, the A+B case above, missing python3, and
+**Live in BestPractice (2026-09-24):**
+
+1. **The hook.** [commit-identity.sh](../templates/harness/claude-code/hooks/commit-identity.sh)
+   resolves the personal value at session start and writes a
+   `precedent-ci-cadence` script beside the commit hooks it already
+   installs, per checkout and globally. The `prepare-commit-msg` body calls
+   it. Thirteen cases in [tools/verify_harness.py](../tools/verify_harness.py)
+   (`check_commit_identity_ci_cadence`), each skip paired with its no-skip
+   case: the default, both override directions, public repo, feature
+   branch, CI due, the A+B case above, an invalid value, no origin ref, and
    `PRECEDENT_CI_NOW=1`.
-2. **Make the setting visible.** One row in
-   [tools/precedent_session_check.py](../tools/precedent_session_check.py)
-   saying what this repo resolved: *"CI cadence: private, primary `main`,
-   at most every 48h"*, or *"every push"* and which check decided it.
+2. **The setting is visible.** [tools/precedent_session_check.py](../tools/precedent_session_check.py)
+   has a row naming the cadence this repo resolves, where the value came
+   from and why it does or does not apply, and fails only when a number
+   above 0 is set and no cadence script is installed.
    `ci_debounce_minutes` taught this: a setting that looks live and does
    nothing is worse than no setting.
-3. **precedent-individual.** Add `ci_every_hours` to `identity.json`, take
-   the engine refresh (its `engine_paths` already carries
-   `commit-identity.sh`), and add `"ci_every_hours": 0` to its own
-   `precedent.json`.
-4. **The three shared sets.** `"ci_every_hours": 0` in each
-   `precedent.json`.
-5. **Look at each private repo's required status checks** before it runs
-   with X above 0.
-6. **Measure on one repo for a week**, minutes before and after, from
+3. **The skeleton.** [identity.json.template](../templates/practice-set-individual/identity.json.template)
+   carries `"ci_every_hours": 0` with a comment saying what a number does.
+
+**Waiting on other repos:**
+
+4. **precedent-individual takes the engine refresh** (its `engine_paths`
+   carries `commit-identity.sh`). Refreshes read BestPractice's `main`, so
+   this waits for the next merge of `precedent-beta-v01` into `main`.
+5. **precedent-individual and the three shared sets declare
+   `"ci_every_hours": 0`** in their own `precedent.json`, so a personal
+   value above 0 never reaches the repos everyone reads from.
+
+**Before anyone sets a number above 0:**
+
+6. **Look at each private repo's required status checks.**
+7. **Measure on one repo for a week**, minutes before and after, from
    Settings, then Billing. That also answers
    [todo-2026-09-21-measure-the-billing-floor-fix-on-one-repo](../todo/todo-2026-09-21-measure-the-billing-floor-fix-on-one-repo.md)'s
    question of what one repo spends.
@@ -166,18 +188,21 @@ has read how that repo is used.
 **How it reaches other repos:** `commit-identity.sh` is content this repo
 ships. It reaches precedent-individual through that repo's `engine_paths`
 at its next engine refresh, and every session that resolves
-precedent-individual then installs the updated global hook at session start.
-Consumer repos need no change of their own. The only per-repo edits are the
-`0` overrides in steps 3 and 4.
+precedent-individual then installs the updated hook at session start.
+Consumer repos need no change of their own. Until then they run the older
+hook, which has no cadence step, so they behave exactly as the default does.
 
 ## Questions for Morgan
 
-1. **What X?** 24 or 48 both came up. The example above uses 48.
-2. **Should a vendor update always run CI?** Recommended: yes. An
+1. **What X? Settled: 0 by default** (Morgan, 2026-09-24, above). A
+   number goes in only when someone chooses one.
+2. **Should a vendor update always run CI? Open**, and moot until a number
+   above 0 is set anywhere. Recommended: yes. An
    `Update Vendors` run is the largest change a consumer gets, so the
    [vendor-update-runbook](../practices/vendor-update-runbook.md) would set
    `PRECEDENT_CI_NOW=1` for its commits.
-3. **Weekly backstop run: dropped.** The brainstorm floated a scheduled
+3. **Weekly backstop run: dropped**, with the rest of the plan (Morgan,
+   2026-09-24: "The plan is great"). The brainstorm floated a scheduled
    weekly run to catch the tail end. Morgan argued it isn't needed, since
    the next push after a quiet stretch always runs CI and the local check
    covers the gap. The repos where a stale unchecked commit would matter are

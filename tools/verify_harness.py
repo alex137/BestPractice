@@ -15121,6 +15121,150 @@ def check_commit_identity_prevents_the_wrong_offset():
           f'({len(cases)} stated cases)', not failed, '; '.join(failed))
 
 
+
+def check_commit_identity_ci_cadence():
+    """The CI cadence step tags a commit [skip ci] only when every condition
+    in spec/CI_CADENCE_PLAN.md holds, and leaves it alone on any doubt.
+
+    Each skip case below is paired with the case that must NOT skip, because
+    the failure that matters is silent: a commit tagged when it should not be
+    means CI never ran and nothing says so. The default is the case Morgan
+    named, 2026-09-24: with no number declared, CI runs on every push.
+    """
+    import tempfile, json as _json
+    hook = ROOT / '.claude' / 'hooks' / 'commit-identity.sh'
+    if not hook.exists():
+        not_applicable('commit-identity applies the CI cadence',
+                       '.claude/hooks/commit-identity.sh is not present here')
+        return
+    if not pathlib.Path('/usr/share/zoneinfo/UTC').exists():
+        not_applicable('commit-identity applies the CI cadence',
+                       'no zoneinfo for UTC on this machine')
+        return
+
+    SKIP = '[skip ci]'
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+
+        def _setup(name, personal=None, repo_cfg=None):
+            base = tmp / name
+            home = base / 'home'
+            home.mkdir(parents=True)
+            subprocess.run(['git', 'init', '-q', '--bare', str(base / 'origin.git')],
+                           capture_output=True)
+            work = base / 'work'
+            subprocess.run(['git', 'clone', '-q', str(base / 'origin.git'), str(work)],
+                           capture_output=True)
+            ident = {'name': 'T', 'email': 't@example.com', 'timezone': 'UTC'}
+            if personal is not None:
+                ident['ci_every_hours'] = personal
+            (work / 'identity.json').write_text(_json.dumps(ident), encoding='utf-8')
+            cfg = {'visibility': 'private', 'base_branch': 'main'}
+            cfg.update(repo_cfg or {})
+            cfg = {k: v for k, v in cfg.items() if v is not None}
+            (work / 'precedent.json').write_text(_json.dumps(cfg), encoding='utf-8')
+            env = dict(os.environ)
+            for k in ('PRECEDENT_COMMIT_TZ', 'PRECEDENT_COMMIT_EMAIL',
+                      'PRECEDENT_COMMIT_NAME', 'PRECEDENT_CI_NOW'):
+                env.pop(k, None)
+            env.update(HOME=str(home), TZ='UTC',
+                       PRECEDENT_LOCALTIME=str(base / 'lt'),
+                       PRECEDENT_GLOBAL_HOOKS=str(home / 'git-hooks'),
+                       PRECEDENT_USER_CONFIG='/nonexistent/precedent-config.json',
+                       CLAUDE_PROJECT_DIR=str(work))
+            subprocess.run(['git', '-C', str(work), 'checkout', '-q', '-b', 'main'],
+                           capture_output=True, env=env)
+            subprocess.run(['bash', str(hook)], capture_output=True, text=True,
+                           timeout=120, env=env)
+            return work, env
+
+        def _commit(work, env, msg, *extra, old=False, **more):
+            e = dict(env, **more)
+            if old:
+                e['GIT_COMMITTER_DATE'] = '2000-01-01T00:00:00+0000'
+            subprocess.run(['git', '-C', str(work), 'add', '-A'], capture_output=True, env=e)
+            subprocess.run(['git', '-C', str(work), 'commit', '-q', '--allow-empty',
+                            '-m', msg, *extra], capture_output=True, text=True, env=e)
+            return subprocess.run(['git', '-C', str(work), 'log', '-1', '--format=%B'],
+                                  capture_output=True, text=True, env=e).stdout
+
+        def _push(work, env):
+            subprocess.run(['git', '-C', str(work), 'push', '-q', 'origin', 'main'],
+                           capture_output=True, env=env)
+
+        # The main line: X=48, private, on the primary branch.
+        work, env = _setup('main-line', personal=48)
+        cad = pathlib.Path(env['PRECEDENT_GLOBAL_HOOKS']) / 'precedent-ci-cadence'
+        cases.append(('the session-start hook writes the cadence script beside '
+                      'the global hooks, with the personal value baked in',
+                      cad.exists() and 'PERSONAL_CI_EVERY_HOURS = 48'
+                      in cad.read_text(encoding='utf-8')))
+        _commit(work, env, 'old', old=True)
+        _push(work, env)
+        a = _commit(work, env, 'A')
+        cases.append(('CI that is due runs: the first commit after a quiet '
+                      'stretch is not tagged', SKIP not in a))
+        b = _commit(work, env, 'B')
+        cases.append(('a second commit before the same push is not tagged '
+                      'either -- it measures origin, not local history',
+                      SKIP not in b))
+        _push(work, env)
+        c = _commit(work, env, 'C', '-m', 'Body.', '-m', 'Co-Authored-By: X <x@y>')
+        cases.append(('a commit within X hours of a CI run on origin is tagged',
+                      SKIP in c))
+        cases.append(('and the tag goes after the subject, leaving the trailer '
+                      'block last', c.startswith('C\n\n[skip ci]')
+                      and c.rstrip().endswith('Co-Authored-By: X <x@y>')))
+        d = _commit(work, env, 'D', PRECEDENT_CI_NOW='1')
+        cases.append(('PRECEDENT_CI_NOW=1 forces a run', SKIP not in d))
+        subprocess.run(['git', '-C', str(work), 'checkout', '-q', '-b', 'feature'],
+                       capture_output=True, env=env)
+        e = _commit(work, env, 'E')
+        cases.append(('a feature branch is never tagged, so a pull request '
+                      'always gets its check', SKIP not in e))
+
+        # The default: nothing declared means every push.
+        work, env = _setup('default')
+        _commit(work, env, 'old'); _push(work, env)
+        f = _commit(work, env, 'F')
+        cases.append(('with no ci_every_hours declared, a recent CI run still '
+                      'does not skip the next one (the default is 0)',
+                      SKIP not in f))
+
+        # The repo's own value wins, both ways.
+        work, env = _setup('repo-zero', personal=48, repo_cfg={'ci_every_hours': 0})
+        _commit(work, env, 'old'); _push(work, env)
+        g = _commit(work, env, 'G')
+        cases.append(('a repo declaring ci_every_hours 0 runs CI every push '
+                      'whatever the personal value', SKIP not in g))
+        work, env = _setup('repo-48', personal=0, repo_cfg={'ci_every_hours': 48})
+        _commit(work, env, 'old'); _push(work, env)
+        h = _commit(work, env, 'H')
+        cases.append(('a repo declaring its own cadence is honoured over a '
+                      'personal 0', SKIP in h))
+
+        # Doubt runs CI.
+        work, env = _setup('public', personal=48, repo_cfg={'visibility': None})
+        _commit(work, env, 'old'); _push(work, env)
+        i = _commit(work, env, 'I')
+        cases.append(('a repo that does not declare itself private is never '
+                      'tagged', SKIP not in i))
+        work, env = _setup('bad-value', personal='48')
+        _commit(work, env, 'old'); _push(work, env)
+        j = _commit(work, env, 'J')
+        cases.append(('a value that is not a number counts as 0', SKIP not in j))
+        work, env = _setup('no-origin-ref', personal=48)
+        _commit(work, env, 'old')
+        k = _commit(work, env, 'K')
+        cases.append(('with no origin/<base_branch> to measure, CI runs',
+                      SKIP not in k))
+
+    failed = [n for n, ok in cases if not ok]
+    check(f'commit-identity applies the CI cadence only when every condition '
+          f'holds ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
 def check_source_clone_is_pinned_to_a_branch():
     """A source clone must not ask the remote which branch to use.
 
@@ -30225,6 +30369,7 @@ def main():
     check_refresh_survives_an_upstream_rename()
     check_retirement_record_is_not_a_stranded_link()
     check_commit_identity_prevents_the_wrong_offset()
+    check_commit_identity_ci_cadence()
     check_source_clone_is_pinned_to_a_branch()
     check_generator_wires_every_template_guard_mode()
     check_verify_reports_a_source_wired_for_fewer_moments()
