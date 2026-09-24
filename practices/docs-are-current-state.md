@@ -53,3 +53,8 @@ State the convention in the project instructions with its
 exemption list; when touching a document, strip stale revision annotations
 from the parts you touch. A lint can flag `Rev \d`/`\*(added ` patterns
 outside the exempted file classes.
+
+**Related.** The same split holds for rules: a practice's `## Story`, a
+superseded copy or an old deferral is history, read to investigate, and the
+rule a session acts on is the one in force now
+([current-rule-governs](current-rule-governs.md)).

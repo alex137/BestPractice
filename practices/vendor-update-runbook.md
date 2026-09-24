@@ -213,6 +213,23 @@ still had nothing in force.
    itself committed and pushed. Reported from a dependent repo that hit it
    twice in one hop, 2026-09-21, and verified here against the tool's own
    git calls rather than taken on the report.
+
+   **Then decide every earlier decline again, in this same change.** Any
+   upstream practice this repo once declined or deferred ("a duplicate of
+   our own rule", "not now") was declined as its text stood *then*. For each
+   one, read the current upstream file and decide again: adopt it, or keep
+   declining it with a reason that fits the current text. A decline that
+   lives only in prose (a sync note, a paragraph in `AGENTS.md`) goes into
+   the manifest as a `declined` entry
+   ([INSTALL.md §5](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/INSTALL.md#5-the-manifest-schema-processmanifestjson)),
+   so the next sync does not depend on somebody remembering it.
+   `checkin.py update` lists the declines this update has moved past, and
+   `practice_audit.py` fails on them at step 6 until each is decided again
+   ([current-rule-governs](current-rule-governs.md)). Incident, 2026-09-24:
+   a dependent repo declined upstream's merge-keyword practice as a
+   duplicate of a personal rule. Upstream replaced it with a broader one,
+   two later syncs carried the old decline forward without reading it, and
+   a session refused a command the rule in force authorized.
 5. **Regenerate the generated views in the same change.** A refreshed
    generator whose output has not been re-run leaves the repo's committed
    views describing the old engine, and its own `--check` then fails on

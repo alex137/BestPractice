@@ -1387,6 +1387,14 @@ order records a hash the vendored tree doesn't match.
       "granularity": "file",
       "status": "local-only",
       "notes": "a repo-local practice, not a root document; filled in this project's own voice at install, and the template ships no general writing rules (those are the catalogue's). Never exported (INSTALL.md §3) — a project's voice is its own identity, not a generic practice"
+    },
+    {
+      "practice": "example-declined",
+      "upstream_path": "practices/example-declined.md",
+      "local_path": null,
+      "status": "declined",
+      "declined_upstream_sha256": "<recorded by practice_audit --redecide example-declined>",
+      "notes": "why this repo does not take it, as of the upstream text that hash names"
     }
   ]
 }
@@ -1402,7 +1410,16 @@ order records a hash the vendored tree doesn't match.
   where you can.
 - `status`: `synced` (installed copy matches its baseline) · `diverged`
   (local improvement pending export) · `local-only` (deliberately not
-  exported; say why in `notes`).
+  exported; say why in `notes`) · `declined` (an upstream practice this repo
+  chose not to take; say why in `notes`).
+- **A `declined` entry covers the upstream text it was decided against, and
+  nothing newer** ([current-rule-governs](practices/current-rule-governs.md)).
+  `declined_upstream_sha256` records that text's hash; once the vendored file
+  changes or disappears, the audit fails until the decline is made again
+  against the current file — adopt it, or update `notes` and run
+  `practice_audit.py --redecide <practice>`. `--update-baseline` never does
+  this for you. A decline written only in prose — a sync note, a line in
+  `AGENTS.md` — has no hash for the audit to compare, so record it here.
 
 ## 6. The Audit (`tools/practice_audit.py`)
 
@@ -1422,6 +1439,11 @@ Checks, in order — any FAIL exits non-zero:
    not failed.
 3. **Integrity:** manifest paths exist; `section_marker`s found (warn);
    `local-only` entries have notes.
+4. **Declined** ([current-rule-governs](practices/current-rule-governs.md)):
+   every `declined` entry's upstream file still hashes to
+   `declined_upstream_sha256`. Changed or gone → FAIL, naming where the rule
+   lives now when the file says so. (The script numbers this check 6, after
+   its layout and loader checks.)
 
 ## 7. Practice Packs (Domain Layers)
 

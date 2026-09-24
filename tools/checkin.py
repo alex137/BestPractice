@@ -1121,10 +1121,38 @@ def _loader_notice():
               f"done --\n{MIGRATION_DOC}\n{bar}", file=sys.stderr)
 
 
+def _declined_notice():
+    """Name every recorded decline this update just moved past (practice:
+    current-rule-governs). practice_audit.py's check 6 FAILS on the same
+    condition; saying it here puts it in front of the person taking the
+    update, which is when step 4 of the vendor-update runbook asks for the
+    decision to be made again. Incident, 2026-09-24: a decline recorded as
+    a "duplicate" rode through two syncs unread while the practice it
+    declined was replaced upstream."""
+    try:
+        from practice_audit import stale_declines
+    except Exception:  # an older vendored audit; the audit itself still runs
+        return
+    stale = []
+    for m in sorted((ROOT / 'process').glob('manifest*.json')):
+        try:
+            stale += stale_declines(m)
+        except (OSError, ValueError):
+            continue
+    if stale:
+        print('\nDECISIONS TO MAKE AGAIN: upstream changed a practice this repo '
+              'declined. Re-decide each in this same change (adopt it, or record '
+              'why it is still declined and run practice_audit.py --redecide):',
+              file=sys.stderr)
+        for name, sentence in stale:
+            print(f'  - [{name}] {sentence}', file=sys.stderr)
+
+
 def main():
     rc = _main()
     if {'status', 'update', 'record'} & set(sys.argv[1:]):
         _loader_notice()
+        _declined_notice()
     return rc
 
 

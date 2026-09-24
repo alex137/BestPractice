@@ -61,4 +61,6 @@ its content; an index is read for orientation, and lineage is orientation.
 
 ## Install
 **Related.** The current-state rule (git is the history) this completes;
-[search-by-purpose](search-by-purpose.md) (index what you write) supplies the index rows this rides on.
+[search-by-purpose](search-by-purpose.md) (index what you write) supplies the index rows this rides on;
+[current-rule-governs](current-rule-governs.md) says the same thing for practices, where a
+session acts on the rule in force and never on its lineage.

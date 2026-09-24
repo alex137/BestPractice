@@ -78,6 +78,11 @@ explicitly a thing they have not committed to. **Enthusiasm is the tell for
 - **Unmarked is neither.** It may be cited as what the repository records,
   and not as what the person wanted.
 
+**None of the three is a reason to leave a command undone.** The mark
+decides how hard a session may argue for reconsidering a rule, and that
+argument comes *after* doing what the rule in force says
+([current-rule-governs](current-rule-governs.md)).
+
 **Nothing is backfilled.** An approval already recorded without a `strength:`
 stays without one. Guessing which past "ok" was enthusiastic is exactly the
 invention [no-invented-specifics](no-invented-specifics.md) forbids, and it

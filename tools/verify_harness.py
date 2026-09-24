@@ -2486,6 +2486,101 @@ def check_practice_audit_loader():
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+def check_practice_audit_declined():
+    """practice_audit.py's check 6, stated as cases (practice:
+    current-rule-governs). A consumer declined upstream's merge-keyword
+    practice at one sync as a "duplicate"; upstream replaced it with a
+    broader rule, and two later syncs carried the decline forward unread,
+    so a session refused a command the rule in force authorized
+    (2026-09-24). A "declined" entry now records the upstream file's hash
+    as it stood when the decision was made, and the audit fails once the
+    file moves until somebody decides again."""
+    import hashlib, shutil, tempfile
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-auditdeclined-'))
+    try:
+        repo = tmp / 'repo'
+        up = repo / 'process' / 'upstream'
+        (up / 'tools').mkdir(parents=True)
+        (up / 'practices').mkdir()
+        shutil.copy(ROOT / 'tools' / 'practice_audit.py', up / 'tools' / 'practice_audit.py')
+        old = up / 'practices' / 'old-rule.md'
+        gone = up / 'practices' / 'gone-rule.md'
+        old.write_text('---\nslug: old-rule\nstatus: active\n---\n## Rule\nnarrow\n',
+                       encoding='utf-8')
+        gone.write_text('---\nslug: gone-rule\nstatus: active\n---\n', encoding='utf-8')
+        h = lambda f: hashlib.sha256(f.read_bytes()).hexdigest()
+        manifest = repo / 'process' / 'manifest.json'
+        manifest.write_text(json.dumps({
+            'upstream': {'vendored_at': 'process/upstream', 'scrub_blocklist': None},
+            'entries': [
+                {'practice': 'old-rule', 'upstream_path': 'practices/old-rule.md',
+                 'local_path': None, 'status': 'declined',
+                 'declined_upstream_sha256': h(old), 'notes': 'duplicate of a personal rule'},
+            ]}), encoding='utf-8')
+        (repo / 'precedent.json').write_text(json.dumps({'format_version': 1, 'sources': {
+            'precedent': {'level': 'universal', 'name': 'precedent', 'path': 'process/upstream'}}}),
+            encoding='utf-8')
+        (repo / 'AGENTS.md').write_text('<!-- BEGIN GENERATED: precedent-loader -->\n'
+                                        '<!-- END GENERATED -->\n', encoding='utf-8')
+        subprocess.run(['git', 'init', '-q', str(repo)], check=True)
+
+        def run(*extra):
+            r = subprocess.run([sys.executable, str(up / 'tools' / 'practice_audit.py'), *extra],
+                               capture_output=True, text=True, cwd=str(repo))
+            return r.returncode, r.stdout + r.stderr
+
+        def entries():
+            return {e['practice']: e for e in
+                    json.loads(manifest.read_text(encoding='utf-8'))['entries']}
+
+        rc_fresh, out_fresh = run()
+        # Upstream moves on: the declined file is deduplicated into a successor.
+        old.write_text('---\nslug: old-rule\nstatus: deduplicated\nin_force_at: new-rule\n'
+                       '---\n## Rule\nnarrow\n', encoding='utf-8')
+        (up / 'practices' / 'new-rule.md').write_text(
+            '---\nslug: new-rule\nstatus: active\nsupersedes:  ["old-rule"]\n---\n',
+            encoding='utf-8')
+        rc_moved, out_moved = run()
+        hash_before = entries()['old-rule']['declined_upstream_sha256']
+        run('--update-baseline')
+        hash_after_baseline = entries()['old-rule']['declined_upstream_sha256']
+        rc_re, out_re = run('--redecide', 'old-rule')
+        rc_after, out_after = run()
+        # A decline with no hash, and one whose file is gone.
+        m = json.loads(manifest.read_text(encoding='utf-8'))
+        m['entries'].append({'practice': 'unhashed', 'upstream_path': 'practices/gone-rule.md',
+                             'local_path': None, 'status': 'declined', 'notes': 'x'})
+        manifest.write_text(json.dumps(m), encoding='utf-8')
+        rc_nohash, out_nohash = run()
+        gone.unlink()
+        rc_gone, out_gone = run()
+        cases = [
+            ('a decline made against the current upstream file passes',
+             rc_fresh == 0 and 'declined OK' in out_fresh),
+            ('the upstream file changing since the decline FAILS',
+             rc_moved == 1 and 'DECLINED: [upstream:old-rule]' in out_moved),
+            ('and the failure names where the rule lives now and what replaced it',
+             'in force at new-rule' in out_moved and 'superseded by new-rule' in out_moved),
+            ('--update-baseline never re-baselines a decline',
+             hash_after_baseline == hash_before),
+            ('--redecide records the current hash and exits 0',
+             rc_re == 0 and entries()['old-rule']['declined_upstream_sha256'] == h(old)),
+            ('after --redecide the audit passes again', rc_after == 0),
+            ('a decline with no recorded hash FAILS',
+             rc_nohash == 1 and 'no declined_upstream_sha256' in out_nohash),
+            ('a decline whose upstream file is gone FAILS',
+             rc_gone == 1 and 'no longer in the vendored tree' in out_gone),
+        ]
+        for name, passed in cases:
+            if not passed:
+                print(f"  practice_audit check 6 did NOT behave as stated: {name}")
+        check(f"practice_audit fails a decline the upstream file has moved past "
+              f"({len(cases)} stated cases)", all(ok for _, ok in cases))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 def check_practice_audit_fires():
     """practice_audit.py's --update-baseline, stated as cases against a
     throwaway manifest (practice: mistakes-become-rules).
@@ -29852,6 +29947,7 @@ def main():
     check_leak_gate_fires()
     check_practice_audit_fires()
     check_practice_audit_loader()
+    check_practice_audit_declined()
     check_freshness_gate_fires()
     check_doc_lint_exempts_links_in_a_mirrored_tree()
     check_repo_may_declare_its_own_fallback_zone()
