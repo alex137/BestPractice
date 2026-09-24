@@ -60,6 +60,12 @@ repository protects — a branch behind review, a release branch, or a merge
 that repository requires a named person to approve still requires that
 person, said there, about that merge. **A standing yes is not a wider yes.**
 
+**How the sender writes the rest of the block**, so the receiver can check
+it rather than having to trust it, is
+[prompt-please](prompt-please.md)'s: the person's words quoted and kept
+apart from the sender's findings, pointers to the record, and nothing that
+widens what the receiving session may do.
+
 **Declining is still available.** A receiving session that has a specific
 reason to doubt a particular relay — the words do not match the work, the
 bounds are missing, the branch is not the routine one — says so and stops.

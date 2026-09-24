@@ -44,6 +44,14 @@ check, the fleet sweep — are the deliberate exception, kept to the literal
 ask because what they trigger is too expensive to run on a guess; each
 names why in its own file.
 
+**A command means what its practice says today, and you do it**
+([current-rule-governs](practices/current-rule-governs.md)). Superseded or
+deduplicated copies, `## Story` sections, old deferrals and past decisions
+are history: read them to investigate or to back a proposal to reconsider,
+never to decide whether to carry out what was asked. Do it first and
+propose after. A command you are not carrying out is said in the reply's
+first line, with the reason.
+
 - **"Go update"** and **"Approved"** ([go-merge](practices/go-merge.md)) —
   classify first: a direct push, straight to the shared branch, no PR, is now
   the **default**; only a **high-risk** change (touches enforcement/gating
@@ -238,7 +246,7 @@ plan's premise.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block; `python3 tools/build_views.py --check` exits non-zero on drift. Source: practices/ -- edit the practice file, never this block. -->
 
-## Resident block (~734 of 2000 token budget, 9 of 140 practices (9 universal))
+## Resident block (~884 of 2000 token budget, 10 of 141 practices (10 universal))
 
 **bold-key-phrases.** People don't read; they skim, and bolding makes skimming easy. Bold the key phrases in a document by default, without being asked, scaling with length -- a long paragraph or document is where a skimmer most needs a spine to follow, a short note usually needs little or none.
 
@@ -252,6 +260,18 @@ the thing to hold, not just the commit.**
 It ends only when the person authorizes the work. Their answering a question
 inside it is not authorization, and neither is their enthusiasm for the
 idea. **When in doubt, it is a brainstorm.**
+
+**current-rule-governs.** **A standing command means what the rule in force says today, and you do
+it.** Resolve the command to its active practice
+(`precedent_show.py SLUG` follows a deduplicated copy to the live one) and
+carry it out. **Superseded, deduplicated and retired entries, `## Story`
+sections, old deferrals and past decisions are history.** Read them to
+investigate a failure, or to back a proposal to reconsider a rule. Never
+read them to decide whether to do what was just asked.
+
+**Do it first, and propose reconsidering after**, in the same reply if you
+want to. **Never decline silently:** if you are not doing what was asked,
+the first line of the reply says so, and why.
 
 **environment-gotchas.** Every expensive environment discovery (a package that must be installed, a
 tool that silently doesn't work, a path that does work) is written down

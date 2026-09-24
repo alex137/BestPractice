@@ -74,6 +74,13 @@ punctuation around it, or what was said before it changes the answer, and
 you do not have to have announced that you are ready to commit first. Said
 before you have mentioned committing at all, it means get ready and go.
 
+**It means what this file says today.** An older copy of this rule in
+someone's own set, an installed instructions file, a sync note that
+declined it, or this file's own history narrows nothing. Those are records
+of earlier decisions, read only to investigate or to propose reconsidering
+the rule, and never while deciding whether to run it
+([current-rule-governs](current-rule-governs.md)).
+
 **Classify the pending change before running that chain — and the default
 has flipped.** Until 2026-09-20 the default was the full chain, with a
 narrow trivial carve-out for a direct push. That carve-out was too narrow:
