@@ -114,19 +114,15 @@ deliverables and indexes which documents back each part of each one.
   human happens to be watching for the failure, and the whole point is
   that a person only ever attaches the one repo they're actually working
   in; reaching for the others is this session's own job, every time.
-  **Where each copy lives is not the attach tool's call.**
-  <team-repo-name> is cloned beside this repo, at the `path`
-  `precedent.json` gives it (`../<team-repo-name>`); where the tool attaches
-  nothing (a public repo) or does not clone it, clone it there by hand.
-  **<individual-repo-name> is the opposite case: attach it, but never clone
-  it by hand, and edit it only in `~/precedent-individual`.** The attach
-  tool's reply says to clone it beside this repo too (as of 2026-09-25);
-  skip that part. The session-start hook already clones it to
-  `~/precedent-individual`, and that is the only copy anything reads
-  (`~/.config/precedent/config.json` points there). A second copy is one
-  nothing loads: an edit pushed from it looks landed while every session
-  keeps reading the other. On 2026-09-25 a session made that second copy by
-  following the tool, and within the hour the two had diverged.
+  **Attach <individual-repo-name>, but never clone it by hand** (practice
+  `attach-never-clone-individual`). The attach tool's reply says to clone
+  it to `/home/user/<name>`; ignore that part. The session-start hook
+  clones it to the path `~/.config/precedent/config.json` names (normally
+  `~/precedent-individual`), and that is the only copy anything reads, so
+  edit the individual set there. A hand clone is a second copy nothing
+  loads, and it drifts from the first within the hour. <team-repo-name> is
+  the other way round: its clone lives at the path `precedent.json`
+  resolves, beside this repo, so clone it there if nothing has.
 
 
 ## Git / workflow

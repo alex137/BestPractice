@@ -9689,6 +9689,37 @@ def check_precedent_check_fires():
                       'what the next reader trusts',
                       _d4_rc == 1 and 'something does call it' in _d4_out))
 
+        # A comment or docstring naming the declined hook is prose, not a
+        # call. Before 2026-09-25 the engine's own commentary about
+        # freshness-guard.sh made a consuming repo's decline read as stale.
+        # The string-literal line is the control: the same path as code
+        # still counts, so the fix did not just stop reading tools/.
+        def _plant_mentions(repo, as_code):
+            ref = _hook_ref(_DECLINED)
+            body = (f'"""Explains {ref}."""\n'
+                    f'# {ref} is declined here\n')
+            if as_code:
+                body += f'HOOK = {ref!r}\n'
+            (repo / 'tools' / 'zzz_mentions.py').write_text(
+                body, encoding='utf-8')
+
+        _d5 = fresh('hooks-decline-mentioned-in-prose')
+        _plant_decline(_d5, reason='we decided against it')
+        _plant_mentions(_d5, as_code=False)
+        _d5_rc, _d5_out = run(_d5, 'hooks-on-disk-are-reachable')
+        cases.append(('hooks-on-disk-are-reachable: an engine comment or '
+                      'docstring naming a declined hook does not make the '
+                      'decline stale',
+                      _d5_rc == 0 and 'something does call it' not in _d5_out))
+
+        _d6 = fresh('hooks-decline-called-from-code')
+        _plant_decline(_d6, reason='we decided against it')
+        _plant_mentions(_d6, as_code=True)
+        _d6_rc, _d6_out = run(_d6, 'hooks-on-disk-are-reachable')
+        cases.append(('hooks-on-disk-are-reachable: ...while the same path as '
+                      'a string literal in engine code still counts as a call',
+                      _d6_rc == 1 and 'something does call it' in _d6_out))
+
         # engine-plus-host-shims -- a host-tree fork of a vendored module
         def _setup_vendored(repo):
             up = repo / 'process' / 'upstream' / 'tools'
@@ -15941,6 +15972,57 @@ def check_push_check_gate():
             cases.append(('a full pass satisfies a later basic gate on the same '
                           'tree', not denied and 'already passed' in again))
             env.pop('PRECEDENT_USER_CONFIG')
+
+        # A pass is shared through origin, so a second checkout -- another
+        # window -- does not re-run the suite on files the first one passed
+        # (Morgan, 2026-09-25). And only exactly those files, at that tier.
+        env['PRECEDENT_USER_CONFIG'] = str(tmp / 'no-config.json')
+        hub = tmp / 'hub.git'
+        git(tmp, 'init', '-q', '--bare', '-b', 'main', str(hub))
+        git(work, 'remote', 'add', 'origin', f'file://{hub}')
+        git(work, 'push', '-q', 'origin', 'HEAD:refs/heads/main')
+
+        def run_check(cwd, *a):
+            return subprocess.run([sys.executable, 'tools/precedent_push_check.py',
+                                   *a], cwd=cwd, capture_output=True, text=True,
+                                  env=env).stdout
+
+        ran = run_check(work, '--tier', 'full')
+        files = git(hub, 'ls-tree', '-r', '--name-only',
+                    'precedent-check-receipts').stdout.split()
+        cases.append(('a full pass is published to origin as a receipt',
+                      'shared with every checkout' in ran
+                      and any(f.startswith('receipts/') for f in files)))
+        other = tmp / 'other'
+        git(tmp, 'clone', '-q', f'file://{hub}', str(other))
+        got = run_check(other, '--gate', '--tier', 'full')
+        cases.append(('another checkout of the same files does not re-run the '
+                      'suite, and says the pass came from elsewhere',
+                      'already passed the full check at' in got
+                      and 'another checkout' in got))
+        msg = git(hub, 'log', '-1', '--format=%B', 'precedent-check-receipts').stdout
+        cases.append(('the receipt branch carries no file of the repository, '
+                      'and its commits skip CI',
+                      bool(files) and all(f == 'ORDER' or f.startswith('receipts/')
+                                          for f in files)
+                      and '[skip ci]' in msg))
+        (other / 'list.txt').write_text('changed\n', encoding='utf-8')
+        git(other, 'add', 'list.txt')
+        git(other, 'commit', '-q', '-m', 'one change')
+        got = run_check(other, '--gate', '--tier', 'full')
+        cases.append(('one changed file and the suite runs again',
+                      'already passed' not in got and 'all passed' in got))
+        (work / 'basic.txt').write_text('b\n', encoding='utf-8')
+        git(work, 'add', 'basic.txt')
+        git(work, 'commit', '-q', '-m', 'basic only')
+        run_check(work, '--tier', 'basic')
+        git(work, 'push', '-q', 'origin', 'HEAD:refs/heads/main')
+        git(other, 'fetch', '-q', 'origin')
+        git(other, 'checkout', '-q', '--detach', 'origin/main')
+        got = run_check(other, '--gate', '--tier', 'full')
+        cases.append(('a shared BASIC pass never satisfies a full gate',
+                      'already passed' not in got and 'all passed' in got))
+        env.pop('PRECEDENT_USER_CONFIG')
 
         # A shallow clone is deepened before anything runs: history checks
         # on a shallow clone skip, and a skip would read as a pass here.
