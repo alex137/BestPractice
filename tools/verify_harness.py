@@ -16705,6 +16705,47 @@ def check_promote_pre_staging():
                       and git(work, 'log', '-1', '--format=%s',
                               tip('beta')).stdout.strip() == 'other-window'))
 
+        # The Promote lock: a branch that only moves forward, whose newest
+        # commit says who holds it. Every Promote above claimed and released
+        # it, so it reads free now.
+        def lock_subject():
+            git(work, 'fetch', '-q', 'origin')
+            return git(work, 'log', '-1', '--format=%s',
+                       'origin/precedent-promote-lock').stdout.strip()
+        cases.append(('after a Promote the lock branch exists and reads free, '
+                      'with [skip ci] so no workflow runs for it',
+                      lock_subject() == 'free [skip ci]'))
+
+        def hold(age_seconds):
+            when = f'@{int(time.time()) - age_seconds} -0300'
+            made = subprocess.run(
+                ['git', '-C', str(work), 'commit-tree',
+                 '4b825dc642cb6eb9a060e54bf8d69288fbee4904', '-p',
+                 'origin/precedent-promote-lock', '-m',
+                 'held by another window [skip ci]'], capture_output=True,
+                text=True, env=dict(env, GIT_COMMITTER_DATE=when,
+                                    GIT_AUTHOR_DATE=when)).stdout.strip()
+            git(work, 'push', '-q', 'origin',
+                f'{made}:refs/heads/precedent-promote-lock')
+
+        commit_to('pre-staging', 'list.txt', 'V\nb\nc\n', 'waits for the lock')
+        before = tip('beta')
+        hold(60)
+        rc, out = branches('--promote')
+        cases.append(('a Promote that finds the lock freshly held by another '
+                      'window does nothing, says who has it, and says not to '
+                      'Promote again', rc == 0
+                      and 'another window is promoting right now' in out
+                      and 'held by another window' in out
+                      and tip('beta') == before
+                      and lock_subject() == 'held by another window [skip ci]'))
+        hold(3 * 3600)
+        rc, out = branches('--promote')
+        cases.append(('a claim left behind by a window that died is taken over '
+                      'once it is stale, and the Promote goes ahead',
+                      rc == 0 and 'PROMOTED' in out and tip('beta') != before
+                      and lock_subject() == 'free [skip ci]'))
+
         commit_to('pre-staging', 'list.txt', 'X\nb\nc\n', 'pre-staging edits line 1')
         commit_to('beta', 'list.txt', 'Y\nb\nc\n', 'staging edits line 1 too')
         pre_before = tip('pre-staging')
