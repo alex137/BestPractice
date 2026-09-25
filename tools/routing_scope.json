@@ -1306,6 +1306,17 @@
       ],
       "why": "the three places a hook's kind is declared -- the shipped hooks, the two kinds' templates, and HOOK_WIRING -- are exactly these files; an edit anywhere else cannot add or drop a hook.",
       "decided": "2026-09-25, with the practice"
+    },
+    "promote": {
+      "globs": [
+        "**"
+      ],
+      "why": "A phrase in a MESSAGE, like go-merge's and push-directly's entries -- no file path reaches it. Routed by the `merge` gate.",
+      "decided": "2026-09-25, when the practice landed",
+      "gates": [
+        "merge"
+      ],
+      "gates_why": "Promote is the merge of pre-staging into staging -- the moment that gate exists for."
     }
   },
   "gates": {

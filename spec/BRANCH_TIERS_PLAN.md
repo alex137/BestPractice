@@ -27,7 +27,10 @@ flow."*
 to a branch that checks in seconds; the full list runs once per batch, when
 the batch is promoted.
 
-**Status: accepted, being built.** Worked out in a brainstorm on 2026-09-25
+**Status: accepted, being built.** Steps 1 to 4 landed 2026-09-25 (pull
+request #605); steps 5 to 7 are next, with `landing_branch` defaulting to
+staging until Alex has heard, so only a person who sets it lands on
+pre-staging meanwhile. Worked out in a brainstorm on 2026-09-25
 and approved the same day. The decisions, with how firmly each was made
 ([decision-strength](../practices/decision-strength.md)):
 
@@ -164,9 +167,13 @@ on a failure.
 **2. Pre-staging falls behind when someone pushes to staging directly.**
 Alex, or anyone who does not use pre-staging, may push straight to staging
 (fully checked). Windows syncing from pre-staging would not see that work.
-**The freshness guard merges staging into pre-staging at session start** when
-staging has moved -- a basic-tier push, seconds. Promote does the same merge
-first, and stops and reports if it conflicts rather than guessing.
+**The freshness guard reports it at session start and names the command**,
+`python3 tools/precedent_branches.py --sync-pre-staging`, which merges
+staging into pre-staging -- a basic-tier push, seconds. The guard itself
+never merges a base, the rule it has always kept, since a merge from a
+hook is a merge nobody chose to make. `Go update` landing on pre-staging
+and Promote both run the same sync first, and it stops and reports on a
+conflict rather than guessing.
 
 **3. A `[skip ci]` line could silence the main test.** GitHub skips
 pull-request workflows when the head commit says `[skip ci]`

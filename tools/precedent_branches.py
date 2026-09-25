@@ -40,10 +40,30 @@ then the person's identity.json (this repository's own when it is an
 individual source, else the one ~/.config/precedent/config.json names),
 then the default, `basic`. Nothing it says can lower staging or main.
 
+WHERE `Go update` LANDS is the person's `landing_branch` setting, read
+the same way: `pre-staging` or `staging`. Until Alex has heard about the
+change (plan step 6), the default stays `staging`, which is where every
+session landed work before the tiers existed; a person who sets
+`pre-staging` gets the lane now. An unreadable value lands on staging, the
+old behaviour, never somewhere new.
+
+PROMOTE moves pre-staging into staging (plan step 6; Morgan named the
+command, strength: assented). It merges staging into pre-staging first when
+staging has moved on its own, then makes a merge commit of pre-staging onto
+staging -- always a merge commit, never a fast-forward, so a `[skip ci]`
+line on a pre-staging commit can never become staging's head and silence
+the GitHub test on the pull request into main (plan, hole 3) -- runs the
+FULL push check on exactly that commit in a throwaway worktree, and pushes
+it to staging only if it passes. It pushes by itself, so it runs the check
+by itself: no push gate sees a push made from inside a script.
+
 CLI:
   precedent_branches.py                     the tiers, as this repo resolves them
   precedent_branches.py --tier BRANCH       prints `basic` or `full`
   precedent_branches.py --push ARGS...      the tier a `git push ARGS...` gets
+  precedent_branches.py --landing           where `Go update` lands for this person
+  precedent_branches.py --sync-pre-staging  create pre-staging, or merge staging into it
+  precedent_branches.py --promote           pre-staging into staging, fully checked
 """
 import json
 import os
@@ -61,6 +81,11 @@ TIERS = (BASIC, FULL)
 
 SETTING = 'branch_push_checks'
 DEFAULT_TIER = BASIC
+LANDING_SETTING = 'landing_branch'
+# Flips to PRE_STAGING once Alex has heard (spec/BRANCH_TIERS_PLAN.md,
+# "Settled at approval" 3) -- the one line that changes where every other
+# person's `Go update` lands.
+DEFAULT_LANDING = STAGING
 
 # Same names and values as precedent_identity.py, duplicated rather than
 # imported for the reason that file gives for duplicating them itself: this
@@ -151,10 +176,176 @@ def tier_for_branch(root, branch, user_config=None):
     return tier, f'{branch}: {why}'
 
 
+def landing_branch(root, user_config=None):
+    """-> (branch, why): where this person's `Go update` lands."""
+    value, where = personal_setting(root, LANDING_SETTING, user_config)
+    if value is None:
+        tier, why = DEFAULT_LANDING, f'{LANDING_SETTING} is not set; the default is {DEFAULT_LANDING}'
+    elif value in (PRE_STAGING, STAGING):
+        tier, why = value, f'{LANDING_SETTING} is "{value}" in {where}'
+    else:
+        tier, why = STAGING, (f'{LANDING_SETTING} is {value!r} in {where}, which '
+                              f'is neither "pre-staging" nor "staging" -- '
+                              f'landing on staging, as before the tiers')
+    return (PRE_STAGING if tier == PRE_STAGING else staging_branch(root)), why
+
+
 def _git(root, *args):
     p = subprocess.run(['git', '-C', str(root), *args],
                        capture_output=True, text=True)
     return p.stdout.strip() if p.returncode == 0 else None
+
+
+def _run(root, *args, env=None):
+    return subprocess.run(['git', '-C', str(root), *args],
+                          capture_output=True, text=True, env=env)
+
+
+def _remote_tip(root, branch):
+    out = _git(root, 'ls-remote', '--heads', 'origin', branch) or ''
+    for line in out.splitlines():
+        sha, _, ref = line.partition('\t')
+        if ref == f'refs/heads/{branch}':
+            return sha
+    return None
+
+
+def _merge_env():
+    """A merge commit this module makes must never carry `[skip ci]`
+    (plan, hole 3): PRECEDENT_CI_NOW is the cadence hook's own override."""
+    env = dict(os.environ, PRECEDENT_CI_NOW='1')
+    return env
+
+
+def _push_check_tool(root):
+    for rel in ('tools/precedent_push_check.py',
+                'process/upstream/tools/precedent_push_check.py'):
+        if (pathlib.Path(root) / rel).is_file():
+            return rel
+    return None
+
+
+class _Worktree:
+    """A throwaway detached worktree, removed on exit whatever happens."""
+    def __init__(self, root, commit):
+        import tempfile
+        self.root, self.commit = root, commit
+        self.tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-branches-'))
+        self.path = self.tmp / 'tree'
+
+    def __enter__(self):
+        p = _run(self.root, 'worktree', 'add', '-q', '--detach', str(self.path), self.commit)
+        if p.returncode != 0:
+            raise RuntimeError(f'could not make a worktree of {self.commit}: {p.stderr.strip()[:300]}')
+        return self.path
+
+    def __exit__(self, *exc):
+        import shutil
+        _run(self.root, 'worktree', 'remove', '--force', str(self.path))
+        shutil.rmtree(self.tmp, ignore_errors=True)
+        _run(self.root, 'worktree', 'prune')
+        return False
+
+
+def _check(root, wt, tier):
+    """-> (ok, output): the repo's own push check at `tier` in worktree
+    `wt`, reusing a pass the checkout already recorded for the same tree."""
+    tool = _push_check_tool(wt)
+    if tool is None:
+        return False, 'this repository carries no precedent_push_check.py, so nothing could be checked'
+    src = _git(root, 'rev-parse', '--git-path', 'precedent-push-check.json')
+    dst = _git(wt, 'rev-parse', '--git-path', 'precedent-push-check.json')
+    if src and dst:
+        import shutil
+        src_p = pathlib.Path(src) if pathlib.Path(src).is_absolute() else pathlib.Path(root) / src
+        dst_p = pathlib.Path(dst) if pathlib.Path(dst).is_absolute() else wt / dst
+        if src_p.is_file():
+            dst_p.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(src_p, dst_p)
+    p = subprocess.run([sys.executable, tool, '--gate', '--tier', tier],
+                       cwd=wt, capture_output=True, text=True)
+    return p.returncode == 0, (p.stdout + p.stderr).rstrip()
+
+
+def sync_pre_staging(root, say=print):
+    """Make origin's pre-staging exist and contain staging. -> True on
+    success. Creates it at staging's tip when origin has none; merges
+    staging in when staging has moved on its own (plan, hole 2); stops and
+    says so on a conflict, touching nothing."""
+    staging = staging_branch(root)
+    _run(root, 'fetch', '-q', 'origin', staging)
+    stip = _remote_tip(root, staging)
+    if not stip:
+        say(f'origin has no {staging} branch, so there is nothing to base pre-staging on.')
+        return False
+    ptip = _remote_tip(root, PRE_STAGING)
+    if not ptip:
+        p = _run(root, 'push', '-q', 'origin', f'{stip}:refs/heads/{PRE_STAGING}')
+        if p.returncode != 0:
+            say(f'could not create {PRE_STAGING} on origin: {p.stderr.strip()[:300]}')
+            return False
+        say(f'created {PRE_STAGING} on origin at {staging} ({stip[:12]}).')
+        return True
+    _run(root, 'fetch', '-q', 'origin', PRE_STAGING)
+    if _run(root, 'merge-base', '--is-ancestor', stip, ptip).returncode == 0:
+        return True
+    with _Worktree(root, ptip) as wt:
+        m = _run(wt, 'merge', '--no-ff', '-q', '-m',
+                 f'Merge {staging} into {PRE_STAGING}', stip, env=_merge_env())
+        if m.returncode != 0:
+            _run(wt, 'merge', '--abort')
+            say(f'{staging} does not merge cleanly into {PRE_STAGING} -- the same '
+                f'lines changed on both. Nothing was pushed. Merge {staging} into '
+                f'{PRE_STAGING} by hand, resolve it, and push to {PRE_STAGING}.')
+            return False
+        ok, out = _check(root, wt, BASIC)
+        if not ok:
+            say(f'the merge of {staging} into {PRE_STAGING} fails the basic check; nothing was pushed.\n{out}')
+            return False
+        p = _run(wt, 'push', '-q', 'origin', f'HEAD:refs/heads/{PRE_STAGING}')
+        if p.returncode != 0:
+            say(f'{PRE_STAGING} moved while this ran; run it again. ({p.stderr.strip()[:200]})')
+            return False
+    say(f'merged {staging} into {PRE_STAGING}.')
+    return True
+
+
+def promote(root, say=print):
+    """Pre-staging into staging, fully checked. -> 0 promoted or nothing to
+    promote; 1 refused (a failing check, a conflict, a race)."""
+    staging = staging_branch(root)
+    if not sync_pre_staging(root, say):
+        return 1
+    stip, ptip = _remote_tip(root, staging), _remote_tip(root, PRE_STAGING)
+    _run(root, 'fetch', '-q', 'origin', staging, PRE_STAGING)
+    if _run(root, 'merge-base', '--is-ancestor', ptip, stip).returncode == 0:
+        say(f'nothing to promote: {staging} already has everything on {PRE_STAGING}.')
+        return 0
+    batch = (_git(root, 'log', '--oneline', '--no-merges', f'{stip}..{ptip}') or '').splitlines()
+    with _Worktree(root, stip) as wt:
+        m = _run(wt, 'merge', '--no-ff', '-q', '-m',
+                 f'Promote {PRE_STAGING} into {staging} ({len(batch)} commit(s))',
+                 ptip, env=_merge_env())
+        if m.returncode != 0:
+            _run(wt, 'merge', '--abort')
+            say(f'{PRE_STAGING} does not merge cleanly into {staging}; nothing was pushed.')
+            return 1
+        say(f'checking {len(batch)} commit(s) from {PRE_STAGING} with the full push check...')
+        ok, out = _check(root, wt, FULL)
+        if not ok:
+            say(f'PROMOTE REFUSED: the full check failed, so {staging} did not move. '
+                f'The batch was:\n  ' + '\n  '.join(batch) + f'\n\n{out}\n\n'
+                f'Fix it on {PRE_STAGING} and Promote again.')
+            return 1
+        p = _run(wt, 'push', '-q', 'origin', f'HEAD:refs/heads/{staging}')
+        if p.returncode != 0:
+            say(f'{staging} moved while the check ran, so nothing was pushed; '
+                f'Promote again. ({p.stderr.strip()[:200]})')
+            return 1
+        new = _git(wt, 'rev-parse', 'HEAD')
+    say(f'PROMOTED {len(batch)} commit(s) from {PRE_STAGING} into {staging} '
+        f'({new[:12]}):\n  ' + '\n  '.join(batch))
+    return 0
 
 
 # `git push` options that take the NEXT word as their value.
@@ -255,12 +446,23 @@ def _main(argv):
         print(tier)
         print(why, file=sys.stderr)
         return 0
+    if argv == ['--landing']:
+        branch, why = landing_branch(root)
+        print(branch)
+        print(why, file=sys.stderr)
+        return 0
+    if argv == ['--sync-pre-staging']:
+        return 0 if sync_pre_staging(root) else 1
+    if argv == ['--promote']:
+        return promote(root)
     tier, why = branch_push_checks(root)
     print(f'pre-staging  {PRE_STAGING}')
     print(f'staging      {staging_branch(root)}')
     print(f'main         {MAIN}')
     print(f'always checked fully: {", ".join(sorted(full_branches(root)))}')
     print(f'every other branch: {tier} ({why})')
+    landing, lwhy = landing_branch(root)
+    print(f'Go update lands on: {landing} ({lwhy})')
     return 0
 
 
