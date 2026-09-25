@@ -364,9 +364,14 @@ def _unlanded_work(root, siblings=True):
             if pending:
                 name = repo.name if repo.resolve() != pathlib.Path(root).resolve() \
                     else 'this checkout'
-                out.append(f"{name}: {pending} commit(s) on 'pre-staging' that "
-                           f"are NOT on '{staging}' yet -- say Promote to run "
-                           f"the full check and move them")
+                # Said gently, on purpose. A pre-staging batch waiting on a
+                # Promote is the normal state of the tiers, not a problem, and
+                # an urgent, bolded nudge every turn had several windows
+                # promoting at once and racing each other (Morgan,
+                # 2026-09-25, strength: decided).
+                out.append(f"{name}: pre-staging is {pending} commit(s) ahead of "
+                           f"'{staging}' -- a Promote can move them whenever "
+                           f"it suits")
         if head == base:
             continue
         ahead = _git(repo, 'rev-list', '--count', f'origin/{base}..HEAD')
@@ -830,10 +835,15 @@ def main():
         except Exception:                                     # noqa: BLE001
             _unlanded = []
         for _line in _unlanded:
-            _rec = 'recommend Promote' if 'say Promote' in _line \
-                else 'recommend merging it'
+            if 'a Promote can move them' in _line:
+                # Not a hard requirement and not a call to action: one plain
+                # line, so the person knows, with no pressure to act now.
+                print(f"- For The Boildown, one plain line, not bolded and "
+                      f"without urgency: {_line}. Mention it; do not press "
+                      f"for it (practice: the-boildown).")
+                continue
             print(f"- NOT YET LANDED: {_line}. The Boildown MUST say so and "
-                  f"{_rec} -- do not close a turn leaving this "
+                  f"recommend merging it -- do not close a turn leaving this "
                   f"unsaid (practice: the-boildown).")
     if '--brief' in flags:
         print(f"\nFull text: `python3 tools/precedent_gate.py {gate}`.")
