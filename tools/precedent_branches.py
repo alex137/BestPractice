@@ -24,9 +24,12 @@ rename is a change in one place (practice: registry-source-of-truth).
 STAGING BEFORE THE RENAME. Until a repository has a branch called
 `staging`, its staging tier is whatever it declares as `base_branch` in
 precedent.json -- `precedent-beta-v01` in the Precedent repositories. A
-repository whose base_branch is `main` has no separate staging branch yet,
-so its staging tier is simply called `staging`, and its main is checked
-fully either way.
+repository whose base_branch is `main` -- most repositories that install
+Precedent -- has no separate staging branch yet, so its staging tier IS
+main: pre-staging is created from main and promoted into main, and `Go
+update` for a person who has not chosen pre-staging lands on main, as it
+always did. (Until 2026-09-25 this answered `staging` there, a branch those
+repositories do not have -- found before any of them had taken the engine.)
 
 A PUSH NOBODY CAN READ IS CHECKED FULLY. push_targets() returns None for a
 push whose destination it cannot establish (--all, --mirror, --tags, a tag
@@ -116,7 +119,7 @@ def base_branch(root):
 def staging_branch(root):
     """The staging tier's branch name in this repository, today."""
     declared = base_branch(root)
-    if declared and declared not in (MAIN, PRE_STAGING):
+    if declared and declared != PRE_STAGING:
         return declared
     return STAGING
 

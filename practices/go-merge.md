@@ -129,11 +129,15 @@ changes:**
 **Either path ends on the shared branch, never in the local clone.**
 `Go update` means make the change live: the direct push lands on the branch
 the repository's own rules say routine work lands on, and the full chain
-merges into staging -- the branch the repository declares, never
-pre-staging, because a high-risk change gets its full check at the merge
-rather than waiting for a Promote -- in both cases a real branch on
-`origin`, and never a repository's *configured default* branch picked just
-because it is configured that way. The direct push's branch is the
+merges into that same branch -- in both cases a real branch on `origin`,
+and never a repository's *configured default* branch picked just because
+it is configured that way. **When that branch is pre-staging and the change
+was high-risk, the reply says so twice**: a bolded paragraph in the body --
+**this high-risk change is on pre-staging, not on staging yet; say Promote
+to run the full check and move it** -- and the same line in The Boildown's
+next steps. A high-risk change lands on pre-staging like any other rather
+than jumping the queue, so the two branches do not drift apart, and gets
+its full check at the Promote. Morgan, 2026-09-25: *"the \"high risk\" ones should still go to pre-staging but have a strong, bolded message for me, in the main text as a paragraph and also in The Boildown, that now I need to push pre-staging to staging"* (strength: decided). That branch is the
 person's primary branch
 ([primary-branch](primary-branch.md)), and
 `python3 tools/precedent_branches.py --landing` names it: `pre-staging`

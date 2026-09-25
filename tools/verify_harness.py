@@ -16011,9 +16011,11 @@ def check_branch_tiers():
                       tier('claude/x', str(cfg)) == 'full'))
         (repo / 'precedent.json').write_text(_json.dumps(
             {'base_branch': 'main'}), encoding='utf-8')
-        cases.append(('a repo whose base_branch is main has staging called '
-                      'staging', pb.staging_branch(repo) == 'staging'
-                      and tier('staging') == 'full'))
+        cases.append(('a repo whose base_branch is main, with no staging '
+                      'branch yet, promotes into main -- never into a staging '
+                      'branch it does not have', pb.staging_branch(repo) == 'main'
+                      and tier('staging') == 'full'
+                      and pb.landing_branch(repo, nocfg)[0] == 'main'))
 
         def targets(args):
             return pb.push_targets(repo, args)
