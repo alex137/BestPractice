@@ -109,3 +109,22 @@ contributed no content of its own (merge-base tree `c15d6f5` is `main`'s
 tree), and the branch tip's tree (`dbfaa4d`) was identical to #592's head,
 which passed CI and a local `verify_harness.py --as-ci` with 0 failed.
 After the merge, `main`'s tree is `dbfaa4d`.
+
+## The sixth fold-in, 2026-09-25
+
+Morgan: "Let's merge precedent-beta-v01 to main. I spoke to Alex and he
+approves." Read as the same relayed approval as the five above. As
+before, this session never saw Alex's own words.
+
+It carried #594 to #601, #601 being the largest: every push a session
+makes now runs the pushed repo's full check list locally
+(`tools/precedent_push_check.py`, via `push-check-gate.sh`), and
+`deep-check.yml` is paused. Its three tools now run before every push
+instead.
+
+Checked on an unshallowed clone before merging (PR #602): `main`
+contributed no content of its own (merge-base tree `dbfaa4d` is `main`'s
+tree), and the branch tip's tree (`0cc8693`) was identical to #601's head
+`b90ad78`, which passed `python3 tools/precedent_push_check.py` locally
+with 0 failed. No CI ran the deep check on it, since `deep-check.yml` was
+paused by that same PR. After the merge, `main`'s tree is `0cc8693`.
