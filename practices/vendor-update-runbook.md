@@ -489,9 +489,21 @@ says so, both from the vendored tree under `process/upstream/`.
     "In the migration and updates, can we put a check explicitly for
     this?"). Until every file passes, step 6 fails and so does every push.
 
-    **(h) Report all of it in the reply**: what the refresh deleted, what
-    you deleted, what stays and why, each workflow's approval, and the todo
-    item.
+    **(h) Give the repo all three branches.** Run
+    `python3 tools/precedent_branches.py --ensure-tiers`. It says whether
+    origin has `pre-staging` and a `staging` branch of its own; if either is
+    missing, run it again with `--apply`, which creates them and, in a repo
+    whose staging tier was `main`, writes `"staging_branch": "staging"` into
+    `precedent.json` for this update to commit. `base_branch` stays as it
+    is, because it also pins where a practice source's session clone sits.
+    From then on work lands on pre-staging, Promote moves it to staging,
+    and main takes staging by pull request. Morgan, 2026-09-25: *"make sure
+    that all repos with precedent vendored-in have staging and pre-staging
+    branches? That should be part of the migration!"*
+
+    **(i) Report all of it in the reply**: what the refresh deleted, what
+    you deleted, what stays and why, each workflow's approval, the branches
+    step (h) created, and the todo item.
 
     While here, check `github_ci_workflows` (formerly `ci_workflows`)
     ([GITHUB_ACTIONS.md](https://github.com/alex137/BestPractice/blob/staging/documentation/GITHUB_ACTIONS.md))
