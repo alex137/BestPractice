@@ -8,7 +8,7 @@ applies_to:  ["templates/harness/claude-code/hooks/**", "templates/harness/claud
 occasion:    "adding, renaming or dropping a hook script this repo ships, or changing which hooks a kind of repo runs"
 gates:       ["merge"]
 index_required: false
-index_clause: "a new hook goes on its kind's HOOK_WIRING list and into that kind's template, same commit"
+index_clause: "a new hook joins its kind's HOOK_WIRING list and template, same commit"
 checked_by:  "tools/precedent_check.py"
 defines:     []
 status:      active
