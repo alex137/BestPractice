@@ -67,6 +67,7 @@ import precedent_candidate as pc  # noqa: E402
 # offset. Never a bare datetime.date.today(): that is the container's UTC.
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 import precedent_time  # noqa: E402
+import summary_text  # noqa: E402 -- links out BEFORE the index_clause cut
 
 
 
@@ -121,7 +122,7 @@ def _render_practice(fm, proposed_rule, observed, approved_by, level,
                      strength=None):
     today = precedent_time.today()
     index_clause = fm.get('index_clause') or (
-        proposed_rule[:76] + ('...' if len(proposed_rule) > 76 else ''))
+        summary_text.one_line(proposed_rule, 76, '...'))
     lines = ['---']
     lines.append(f"slug:        {fm['slug']}")
     lines.append(f"title:       {sp._yaml_scalar(fm['title'])}")

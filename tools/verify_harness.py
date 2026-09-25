@@ -29704,6 +29704,21 @@ def check_summary_fields_drop_links_before_the_cut():
     results.append(('todo_migrate fallback title: unlinked and balanced at '
                     'the 80 cut', len(items) == 1 and clean(items[0].title)))
 
+    # precedent_land.py: a practice landed without its own index_clause gets
+    # one cut from its proposed rule at 76, and that clause is printed in
+    # every occasion index that lists the practice.
+    land = load('precedent_land')
+    results.append(('fixture: a naive [:76] cut really is broken',
+                    naive_is_broken(straddling(76), 76)))
+    fm = land._render_practice({'slug': 'zzz-cut', 'title': 'Cut'},
+                               straddling(76), 'observed', 'harness',
+                               'universal')
+    clause = next((l for l in fm.splitlines()
+                   if l.startswith('index_clause:')), '')
+    results.append(('precedent_land default index_clause: unlinked and '
+                    'balanced at the 76 cut',
+                    bool(clause) and clean(clause.split(':', 1)[1])))
+
     failed = [n for n, ok in results if not ok]
     check(f'summary fields drop links before the cut ({len(results)} '
           f'stated cases)', not failed, '; '.join(failed))
