@@ -51,6 +51,7 @@ import re
 import subprocess
 import json
 import pathlib
+import shlex
 import shutil
 import sys
 
@@ -336,16 +337,30 @@ GENERATED_SOURCE = '(generated)'
 # source's tree, and a marker inserted for an author would prove nothing about
 # whether anyone understood the replacement. See _plan_checks' docstring.
 LOCAL_DRIVER_MARKER = 'LOCAL DRIVER -- not shipped to consumers'
-RUN_ALL_SCRIPT = """#!/bin/bash
+RUN_ALL_HEAD = """#!/bin/bash
 # GENERATED FILE -- do not hand-edit. Written by tools/precedent_materialize.py
 # on every sync; any edit here is overwritten without warning.
 #
 # Runs every materialized check's two-direction test. The glob is the point:
 # this driver runs whatever tests this repo actually materialized, which is
 # why it is generated here rather than copied from any one practice source.
+#
+# Every test here belongs to the source that shipped it -- owner_of below,
+# the same source MANIFEST.json records for it under checks[]. A failing one
+# is a bug in THAT source, and the summary at the end says so by name.
 set -uo pipefail
 cd "$(dirname "$0")"
+
+owner_of() {
+  owner=''
+  level=''
+  case "$1" in
+"""
+RUN_ALL_TAIL = """  esac
+}
+
 status=0
+failed=()
 for t in test_*.sh; do
   # A repo that materialized no tests leaves the glob unexpanded; without
   # this the driver would try to run a file literally named test_*.sh and
@@ -354,10 +369,68 @@ for t in test_*.sh; do
   echo "--- $t ---"
   if ! bash "$t"; then
     status=1
+    failed+=("$t")
   fi
 done
+
+if [ "$status" -ne 0 ]; then
+  echo
+  echo "=== ${#failed[@]} materialized test(s) failed -- who owns each ==="
+  shipped=0
+  for t in "${failed[@]}"; do
+    owner_of "$t"
+    if [ -z "$owner" ]; then
+      echo "FAILED: $t -- no source shipped it: the last sync did not write it"
+      echo "    and MANIFEST.json does not list it. Find out who put it here."
+    elif [ "$level" = repo-local ]; then
+      echo "FAILED: $t -- this repo's own repo-local source (local/): fix it here"
+    else
+      echo "FAILED: $t -- shipped by source '$owner' ($level level)"
+      shipped=1
+    fi
+  done
+  if [ "$shipped" -eq 1 ]; then
+    echo
+    echo "A test shipped by a source is not this repo's to own, and a failing one"
+    echo "is a bug in that source: fix it there and report it there -- from a"
+    echo "session rooted in that source's repository, or with a hand-off to one"
+    echo "if this session cannot reach it. Never record it here as pre-existing,"
+    echo "or as failing on the base branch too: that is true, and it is how a"
+    echo "shipped test stays red for days in every repo that carries it."
+  fi
+fi
 exit $status
 """
+
+
+def _run_all_script(test_owners):
+    """The generated driver, with `test_owners` ({test filename: (source
+    name, level)}) written into its owner_of table.
+
+    Why the owner is baked in rather than looked up at run time: the driver
+    has to name the owner in exactly the case where something is already
+    wrong, and a lookup that parses MANIFEST.json in bash is one more thing
+    to be wrong then. The table is built from the same plan the manifest's
+    checks[] entries are, in the same run, so the two cannot disagree -- and
+    drift() compares this file like any other, so a stale table is caught.
+
+    Why it exists at all (2026-09-25): consuming repos kept reporting "N
+    tests fail, but they fail on the base branch too, so not this change"
+    and moving on. That sentence is true and ends the conversation, and
+    nothing routed the failure back to the source that shipped the test,
+    so the same red test sat in a consumer for days. One case measured
+    that day: a test planted a fixture under vendor/ and ran `git add` on
+    it; the consumer's .gitignore ignored vendor/ (a dependency manager's
+    directory), so git refused the add -- in every consumer shaped like
+    that one, and in none of the source's own runs. Naming the owner, and
+    saying that a failure is that owner's bug, is what turns the red line
+    into a report someone can act on."""
+    lines = []
+    for name in sorted(test_owners):
+        src, level = test_owners[name]
+        lines.append(f"    {shlex.quote(name)}) owner={shlex.quote(src)}; "
+                     f"level={shlex.quote(level)} ;;\n")
+    return RUN_ALL_HEAD + ''.join(lines) + RUN_ALL_TAIL
 
 def _plan_checks(sources, res=None):
     """Read every source's per-check tools/checks/check_*.py and
@@ -509,8 +582,12 @@ def _plan_checks(sources, res=None):
               f"{RUN_ALL_NAME} does not say so -- add a header line "
               f"containing \"{LOCAL_DRIVER_MARKER}\" to each of: "
               + ', '.join(undeclared), file=sys.stderr)
+    level_of = {s['name']: s['level'] for s in sources}
+    test_owners = {filename: (source_name, level_of.get(source_name, 'unknown'))
+                   for rel_label, filename, source_name, _data in plan
+                   if rel_label == 'checks/tests'}
     plan.append(('checks/tests', RUN_ALL_NAME, GENERATED_SOURCE,
-                 RUN_ALL_SCRIPT.encode('utf-8')))
+                 _run_all_script(test_owners).encode('utf-8')))
     return plan
 
 

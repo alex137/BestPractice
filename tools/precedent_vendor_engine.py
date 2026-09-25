@@ -602,6 +602,13 @@ ENGINE_FILES = [
     # make, before a session merges a pull request through GitHub -- a push
     # no local hook sees. merge-check-gate.sh calls it; every kind merges.
     'precedent_merge_check.py',
+    # A practice source's check tests, run the way a consuming repository
+    # runs them (added 2026-09-25): precedent_push_check.py runs it in a
+    # source's full tier, so a test that only passes in its home layout
+    # fails there rather than in every consumer. Shared rather than
+    # source-only because a consumer's push check names nothing it needs,
+    # and a person in a consumer can still run it by hand on a source clone.
+    'precedent_consumer_shape.py',
     'precedent_vendor_engine.py',
 ]
 

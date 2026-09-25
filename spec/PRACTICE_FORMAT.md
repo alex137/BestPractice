@@ -649,6 +649,29 @@ failure, which cost a session time on 2026-09-13 confirming a pre-existing
 skip was not something it had broken. If you wrap these scripts in a loop of
 your own, treat 2 as "skipped", not "failed".
 
+### Its test runs in somebody else's repository
+
+A team or individual check ships with a two-direction test,
+`tools/checks/tests/test_<name>.sh`, and the test is materialized along with
+the script: **it runs in every consuming repository, against that
+repository's tree, not only in the source that wrote it.** Whatever it
+assumes about its home layout is an assumption about someone else's.
+
+- **Stage a planted fixture with `git add -f`, never a plain `git add`.** A
+  consumer's `.gitignore` may ignore the path — `vendor/` under a dependency
+  manager, `build/`, `dist/`, `node_modules/` — and git refuses a plain add
+  of an ignored file. On 2026-09-25 exactly this held a test red for days in
+  a consuming repository while it passed on every run in its source.
+- **The source's push check runs the suite a second time shaped like a
+  consumer**
+  ([tools/precedent_consumer_shape.py](../tools/precedent_consumer_shape.py)
+  — git told to ignore what consumers commonly ignore), so this class of
+  assumption fails at home rather than downstream.
+- **In a consumer, a failing materialized test is its source's bug.** The
+  generated driver names the source for each one; fix and report it there,
+  never note it as pre-existing where it merely showed up
+  ([two-check-levels](../practices/two-check-levels.md)).
+
 ## `index_clause`
 
 Not in the plan's frontmatter example, and load-bearing anyway: the occasion

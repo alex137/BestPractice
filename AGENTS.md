@@ -619,6 +619,12 @@ place — nothing is ever deleted, and nothing moves.
   [spec/ATTENTION_CEILING.md](spec/ATTENTION_CEILING.md)'s closing section,
   which says the same thing and records the audit that found a hardcoded
   one already wrong. Light check gates a commit; deep check gates a push.
+  **A failing test the deep check ran is not "pre-existing" when a source
+  shipped it**: `tools/checks/tests/run_all.sh` names each failing test's
+  source, and that source is where it gets fixed and reported
+  ([two-check-levels](practices/two-check-levels.md)). A practice source's
+  own push check also runs its tests shaped like a consumer
+  ([tools/precedent_consumer_shape.py](tools/precedent_consumer_shape.py)).
   **`--as-ci` is not decoration**: CI shards the harness across two jobs
   using variables a plain local run never sets, so the bare command
   certifies a shape nobody ships — it hid a crash on 2026-09-21 that turned
