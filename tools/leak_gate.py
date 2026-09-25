@@ -261,11 +261,18 @@ ALLOWED_PATHS = frozenset({'.claude/hooks/precedent-individual-bootstrap.sh'})
 # Content shapes that are private by construction, and safe to name here
 # because they are shapes rather than anyone's actual vocabulary.
 FORBIDDEN_CONTENT = [
-    # example.com/.org are the reserved documentation domains, and a GitHub
-    # noreply address is by construction not a private one -- both appear in
-    # templates as placeholders and are not leaks.
-    (re.compile(r'\b(?!noreply@)[\w.+-]+@(?!example\.(?:com|org)\b)'
-                r'(?!users\.noreply\.github\.com\b)[\w-]+\.[\w.-]+\b'),
+    # example.com/.org/.net are the reserved documentation domains, and a
+    # GitHub noreply address is by construction not a private one -- both
+    # appear in templates as placeholders and are not leaks. So are the
+    # reserved top-level domains .invalid, .test, .example and .localhost
+    # (RFC 2606): no mailbox can exist there. Added 2026-09-25, when a shared
+    # set's test fixture, `check@example.invalid`, turned out to have been
+    # failing this gate since the set's leak-gate workflow was retired --
+    # found the first time the gate ran locally before a push.
+    (re.compile(r'\b(?!noreply@)[\w.+-]+@(?!example\.(?:com|org|net)\b)'
+                r'(?!users\.noreply\.github\.com\b)'
+                r'(?![\w-]+(?:\.[\w-]+)*\.(?:invalid|test|example|localhost)(?![\w.-]))'
+                r'[\w-]+\.[\w.-]+\b'),
      'an email address'),
     # Requires a real username SEGMENT after the prefix, not just the prefix:
     # without that, this rule matched its own source in this file and the gate

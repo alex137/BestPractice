@@ -15657,6 +15657,162 @@ def check_commit_identity_ci_cadence():
           f'holds ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
 
+def check_push_check_gate():
+    """Everything CI used to run on a push now runs before it, locally
+    (Morgan, 2026-09-25: "the same list of everything we used to run (just
+    locally we do it, not via the github ci/cd)"). tools/precedent_push_check.py
+    holds the list; push-check-gate.sh refuses a session's `git push` until it
+    passes.
+
+    The cases that matter are the silent ones: a push let through with a
+    failing check, a push the gate did not recognise as one, a list that
+    has quietly fallen behind the workflows it replaces, and a repository's
+    own pre-push hook that the global core.hooksPath switched off -- which
+    is how templates/hooks/pre-push sat dead in every repo that installed it
+    until this was written."""
+    import tempfile, json as _json, re as _re, shutil as _shutil
+    name = 'the push check runs what CI ran, and the gate refuses on a failure'
+    hook = ROOT / 'templates' / 'harness' / 'claude-code' / 'hooks' / 'push-check-gate.sh'
+    tool = ROOT / 'tools' / 'precedent_push_check.py'
+    if not hook.exists() or not tool.exists():
+        not_applicable(name, 'push-check-gate.sh or precedent_push_check.py is absent')
+        return
+    if not _shutil.which('jq'):
+        not_applicable(name, 'no jq on this machine; the gate fails open without it')
+        return
+    cases = []
+
+    # 1. The upstream list covers every tool a workflow here runs. A workflow
+    #    added later, with no local twin, is exactly the drift this names.
+    listed = subprocess.run([sys.executable, str(tool), '--list'], cwd=ROOT,
+                            capture_output=True, text=True).stdout
+    ran = set()
+    for wf in (ROOT / '.github' / 'workflows').glob('*.yml'):
+        ran |= set(_re.findall(r'python3?\s+tools/(\w+)\.py',
+                               wf.read_text(encoding='utf-8')))
+    missing = sorted(t for t in ran if f'tools/{t}.py' not in listed)
+    cases.append((f'the upstream list names every tool a workflow here runs'
+                  f'{" (missing: " + ", ".join(missing) + ")" if missing else ""}',
+                  bool(ran) and not missing))
+
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+        env = dict(os.environ, PRECEDENT_ALLOW_ANY_AUTHOR='1',
+                   GIT_AUTHOR_NAME='T', GIT_AUTHOR_EMAIL='t@example.com',
+                   GIT_COMMITTER_NAME='T', GIT_COMMITTER_EMAIL='t@example.com',
+                   GIT_CONFIG_GLOBAL=str(tmp / 'gitconfig'))
+
+        def git(cwd, *a):
+            return subprocess.run(['git', '-C', str(cwd), *a],
+                                  capture_output=True, text=True, env=env)
+
+        work = tmp / 'work'
+        (work / 'tools').mkdir(parents=True)
+        git(tmp, 'init', '-q', '-b', 'main', str(work))
+        _shutil.copy2(tool, work / 'tools' / 'precedent_push_check.py')
+        (work / 'tools' / 'ENGINE_MANIFEST.json').write_text(
+            _json.dumps({'kind': 'consumer'}), encoding='utf-8')
+        # Stand-ins for the three consumer tools: each fails when a tracked
+        # FAIL file names it, so a failure is a property of the tree pushed.
+        for t in ('precedent_check', 'leak_gate', 'doc_lint'):
+            (work / 'tools' / f'{t}.py').write_text(
+                'import pathlib, sys\n'
+                f'f = pathlib.Path("FAIL")\n'
+                f'sys.exit(1 if f.exists() and "{t}" in f.read_text() else 0)\n',
+                encoding='utf-8')
+        git(work, 'add', '-A')
+        git(work, 'commit', '-q', '-m', 'init')
+
+        elsewhere = tmp / 'elsewhere'
+        elsewhere.mkdir()
+
+        def gate(command, cwd=work, project=work):
+            payload = _json.dumps({'tool_input': {'command': command},
+                                   'cwd': str(cwd)})
+            p = subprocess.run(['bash', str(hook)], input=payload, text=True,
+                               capture_output=True, timeout=300,
+                               env=dict(env, CLAUDE_PROJECT_DIR=str(project)))
+            return '"deny"' in p.stdout, p.stdout
+
+        denied, _ = gate('git push origin main')
+        record = work / '.git' / 'precedent-push-check.json'
+        cases.append(('a clean tree passing every check is let through',
+                      not denied))
+        cases.append(('and the pass is recorded against the tree',
+                      record.is_file()))
+
+        (work / 'FAIL').write_text('leak_gate', encoding='utf-8')
+        git(work, 'add', 'FAIL')
+        git(work, 'commit', '-q', '-m', 'break the leak gate')
+        denied, out = gate('git push origin main')
+        cases.append(('a tree failing one check is refused, and the refusal '
+                      'names that check', denied and 'leak_gate' in out))
+        denied, _ = gate('git commit -q -n -m x && git push')
+        cases.append(("`git commit -n && git push` is still a push: -n "
+                      "belongs to the commit", denied))
+        denied, _ = gate('git push --dry-run origin main')
+        cases.append(('a dry run sends nothing and is let through', not denied))
+        denied, _ = gate('echo "then run git push" > notes.txt')
+        cases.append(('`git push` quoted inside another command is not a push',
+                      not denied))
+        denied, _ = gate(f'git -C {work} push origin main', cwd=elsewhere,
+                         project=elsewhere)
+        cases.append(('`git -C <repo> push` from another project checks the '
+                      'repository actually pushed', denied))
+        denied, _ = gate(f'cd {work} && git push origin main', cwd=elsewhere,
+                         project=elsewhere)
+        cases.append(('so does a leading `cd <repo> &&`', denied))
+
+        git(work, 'rm', '-q', 'FAIL')
+        git(work, 'commit', '-q', '-m', 'fix it')
+        denied, _ = gate('git push origin main')
+        cases.append(('fixing the finding lets the push through', not denied))
+        (work / 'FAIL').write_text('doc_lint', encoding='utf-8')
+        git(work, 'add', 'FAIL')     # staged, not committed
+        (work / 'FAIL').write_text('doc_lint', encoding='utf-8')
+        denied, _ = gate('git push origin main')
+        cases.append(('a pass recorded for the committed tree is not reused '
+                      'over uncommitted edits that fail', denied))
+        git(work, 'reset', '-q', '--hard')
+
+        plain = tmp / 'plain'
+        git(tmp, 'init', '-q', str(plain))
+        denied, _ = gate(f'git -C {plain} push', cwd=plain, project=plain)
+        cases.append(('a repository without the push check is let through',
+                      not denied))
+
+        # The global pass-through: a repo's own pre-push runs, and decides.
+        ci_hook = ROOT / '.claude' / 'hooks' / 'commit-identity.sh'
+        if ci_hook.exists():
+            home = tmp / 'home'
+            home.mkdir()
+            (work / 'identity.json').write_text(_json.dumps(
+                {'name': 'T', 'email': 't@example.com', 'timezone': 'UTC'}),
+                encoding='utf-8')
+            hooks = home / 'git-hooks'
+            subprocess.run(['bash', str(ci_hook)], capture_output=True,
+                           text=True, timeout=120,
+                           env=dict(env, HOME=str(home), CLAUDE_PROJECT_DIR=str(work),
+                                    PRECEDENT_GLOBAL_HOOKS=str(hooks),
+                                    PRECEDENT_LOCALTIME=str(tmp / 'lt'),
+                                    PRECEDENT_USER_CONFIG='/nonexistent/c.json'))
+            own = work / '.git' / 'hooks' / 'pre-push'
+            own.write_text('#!/bin/sh\nread line; echo "OWN $1 $line"; exit 7\n',
+                           encoding='utf-8')
+            own.chmod(0o755)
+            p = subprocess.run([str(hooks / 'pre-push'), 'origin'], cwd=work,
+                               input='ref-line\n', capture_output=True,
+                               text=True, env=env)
+            cases.append(("the global hooks directory passes pre-push through to "
+                          "the repository's own hook, arguments, stdin and "
+                          "refusal intact",
+                          (hooks / 'pre-push').exists() and p.returncode == 7
+                          and 'OWN origin ref-line' in p.stdout))
+
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
 def check_source_clone_is_pinned_to_a_branch():
     """A source clone must not ask the remote which branch to use.
 
@@ -30978,6 +31134,7 @@ def main():
     check_retirement_record_is_not_a_stranded_link()
     check_commit_identity_prevents_the_wrong_offset()
     check_commit_identity_ci_cadence()
+    check_push_check_gate()
     check_source_clone_is_pinned_to_a_branch()
     check_generator_wires_every_template_guard_mode()
     check_verify_reports_a_source_wired_for_fewer_moments()

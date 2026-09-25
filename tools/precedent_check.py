@@ -2824,6 +2824,7 @@ DOGFOODED_HOOKS_MATCH_TEMPLATE = (
     'doc-lint-gate.sh',
     'freshness-guard.sh',
     'precedent-paths.sh',
+    'push-check-gate.sh',
     'seeded-prompt-gate.sh',
 )
 

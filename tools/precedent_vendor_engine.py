@@ -575,6 +575,12 @@ ENGINE_FILES = [
     # settings.json -- belongs to whatever repo the session is rooted in,
     # source set or consumer alike.
     'precedent_session_check.py',
+    # Everything CI used to run on a push, run locally instead (added
+    # 2026-09-25). A practice source runs no CI at all and a private
+    # consumer may run none, so this list is the only check their pushes
+    # get; push-check-gate.sh runs it before a session's `git push`. Every
+    # kind needs it, and it reads its own kind back from ENGINE_MANIFEST.json.
+    'precedent_push_check.py',
     'precedent_vendor_engine.py',
 ]
 

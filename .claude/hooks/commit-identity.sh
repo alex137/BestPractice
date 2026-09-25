@@ -966,6 +966,39 @@ exit 0
 GLOBALHOOK
     chmod +x "$dir/$hook" 2>/dev/null || true
   done
+
+  # EVERY OTHER HOOK NAME, PASSED STRAIGHT THROUGH (2026-09-25). The two
+  # above chained; nothing else did, so for as long as this backstop has
+  # existed a repository's own pre-push, commit-msg, post-checkout and the
+  # rest never ran here -- found while wiring the push check, when
+  # templates/hooks/pre-push (the leak gate) turned out to be dead on
+  # arrival in any repo that installed it. git-lfs lives in exactly these
+  # hooks, so a large-file repo pushed pointers without their content. Each
+  # of these only runs the repository's own hook, with its arguments and
+  # stdin, and does nothing when there is none. `--git-common-dir` rather
+  # than the git dir, so a linked worktree finds the hooks it shares.
+  # reference-transaction and post-index-change are left out on purpose:
+  # git calls them on nearly every command, and a shell per call to find
+  # nothing is a cost every repository would pay.
+  for hook in applypatch-msg pre-applypatch post-applypatch commit-msg \
+              pre-merge-commit post-commit pre-rebase post-checkout \
+              post-merge pre-push post-rewrite pre-auto-gc \
+              sendemail-validate; do
+    cat > "$dir/$hook" <<PASSTHROUGH
+#!/bin/sh
+$marker -- GLOBAL pass-through, installed by the commit-identity hook.
+# core.hooksPath points every repository here, so without this file a
+# repository's own $hook would never run. Safe to delete; rewritten at
+# every session start.
+_common="\$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null || git rev-parse --absolute-git-dir 2>/dev/null || true)"
+_own="\$_common/hooks/$hook"
+if [ -n "\$_common" ] && [ -x "\$_own" ] && ! grep -q "$marker" "\$_own" 2>/dev/null; then
+  exec "\$_own" "\$@"
+fi
+exit 0
+PASSTHROUGH
+    chmod +x "$dir/$hook" 2>/dev/null || true
+  done
   _write_ci_cadence "$dir"
 
   if [ "$existing" != "$dir" ]; then

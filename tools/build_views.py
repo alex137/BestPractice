@@ -1914,6 +1914,7 @@ TOOLS_DESCRIPTIONS = {
     'philosophy_backlinks.py': "EXPERIMENTAL — reports item-to-item citations in "
         "philosophy/ that run one way only; the return sentence is written by hand, "
         "never generated",
+    'precedent_push_check.py': "Everything GitHub CI used to run on a push, per kind of repository, run locally before it -- `push-check-gate.sh` refuses a push until it passes",
     'precedent_paths.py': "The PATH-TRIGGERED channel — matches a touched file against every practice's `applies_to`",
     'precedent_promote.py': "Stage 3 (phase 5) — runs a candidate against the four promotion criteria",
     'precedent_refresh_sources.py': "Reports which attached practice-set sources have a stale vendored engine, and with --apply brings them up to date; also writes the git credential helper into any attached source clone that has none",

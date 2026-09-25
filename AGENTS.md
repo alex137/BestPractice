@@ -574,7 +574,11 @@ place — nothing is ever deleted, and nothing moves.
   **deep check** is the full gate suite run before push or merge:
   `python3 tools/verify_harness.py --as-ci`, `python3 tools/doc_lint.py`,
   `python3 tools/leak_gate.py`, `python3 tools/precedent_check.py`, and
-  `python3 tools/doc_sync.py`. **What matters is `0 failed` and
+  `python3 tools/doc_sync.py` -- **all five in one command:
+  `python3 tools/precedent_push_check.py`**, which is also what
+  `push-check-gate.sh` runs before any `git push` a session makes. A pass
+  is recorded against the tree, so running it first makes the push
+  instant; skipping it makes the push wait for it. **What matters is `0 failed` and
   `0 violated`, never a passed/skipped count** — those grow as checks are
   added, so a figure written down here goes stale by design; see
   [spec/ATTENTION_CEILING.md](spec/ATTENTION_CEILING.md)'s closing section,

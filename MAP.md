@@ -211,6 +211,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [tools/precedent_owned_paths.py](tools/precedent_owned_paths.py) | Before a pull request: which changed files will wait for a code owner's review, and the plain-words sentence to say to the contributor about it |
 | [tools/precedent_paths.py](tools/precedent_paths.py) | The PATH-TRIGGERED channel — matches a touched file against every practice's `applies_to` |
 | [tools/precedent_promote.py](tools/precedent_promote.py) | Stage 3 (phase 5) — runs a candidate against the four promotion criteria |
+| [tools/precedent_push_check.py](tools/precedent_push_check.py) | Everything GitHub CI used to run on a push, per kind of repository, run locally before it -- `push-check-gate.sh` refuses a push until it passes |
 | [tools/precedent_refresh_sources.py](tools/precedent_refresh_sources.py) | Reports which attached practice-set sources have a stale vendored engine, and with --apply brings them up to date; also writes the git credential helper into any attached source clone that has none |
 | [tools/precedent_reply_check.py](tools/precedent_reply_check.py) | The reply gate's BLOCKING half — refuses a stop when the reply missed what a source's reply_check.json requires |
 | [tools/precedent_resolve.py](tools/precedent_resolve.py) | Resolves the universal, team and individual sources into one set, by precedence |
