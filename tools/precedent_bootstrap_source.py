@@ -166,7 +166,13 @@ SESSION_HOOKS = ('freshness-guard.sh', 'commit-identity.sh',
                  'doc-lint-gate.sh',
                  # The push check (2026-09-25): a set runs no CI, so this is
                  # the only thing that runs its checks before a push.
-                 'push-check-gate.sh')
+                 'push-check-gate.sh',
+                 # A set's sessions spawn and message other sessions like any
+                 # other's, and seeded-prompt-names-its-origin is universal.
+                 # Added 2026-09-25 with HOOK_WIRING's `source` list, which
+                 # this tuple and the payload below must agree with
+                 # (precedent_check.py: new-hook-joins-the-registry).
+                 'seeded-prompt-gate.sh')
 # The third hook a set gets, kept out of SESSION_HOOKS because it is the one
 # that is NOT a verbatim copy: it is instantiated from a .template with two
 # placeholders substituted, which is write_session_hook()'s job below.
@@ -592,6 +598,17 @@ def _install_session_hooks(dest, base_branch='main'):
                         {'type': 'command',
                          'command': '$CLAUDE_PROJECT_DIR/.claude/hooks/push-check-gate.sh',
                          'timeout': 900},
+                    ],
+                }, {
+                    # Refuses a prompt seeded into another session whose
+                    # first line does not name the sender
+                    # (seeded-prompt-names-its-origin). Same matcher as the
+                    # consumer template's entry.
+                    'matcher': ('mcp__.*__(create_session|create_trigger|'
+                                'update_trigger|fire_trigger|send_later)'),
+                    'hooks': [
+                        {'type': 'command',
+                         'command': '$CLAUDE_PROJECT_DIR/.claude/hooks/seeded-prompt-gate.sh'},
                     ],
                 }],
             },

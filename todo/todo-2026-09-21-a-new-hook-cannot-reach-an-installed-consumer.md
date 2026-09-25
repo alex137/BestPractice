@@ -3,18 +3,22 @@ slug:              todo-2026-09-21-a-new-hook-cannot-reach-an-installed-consumer
 kind:              manual
 domain:            vendoring
 severity:          high
-status:            open
+status:            done
 disposition:       ask
 remind_on:         null
 blocked_on:        null
 batch:             null
-decision:          null
-decision_strength: null
-waiting_on:        "Morgan -- changing how the engine decides which hooks a repo receives is a default that binds every adopter"
+decision:          "per-kind hook lists (HOOK_WIRING); a refresh adds a missing entry to settings.json, never edits or removes one; declined_adapters opts out"
+decision_strength: decided
+waiting_on:        null
 noted:             2026-09-21
-closed:            null
+closed:            2026-09-25
 ---
 ## What
+
+**Fixed 2026-09-25: a refresh now wires the hooks a repo's kind gets** --
+see "How It Closed" at the end. What follows is
+the item as filed.
 
 **A hook added upstream cannot reach a repository that is already
 installed.** Vendoring is gated on wiring, and a refresh deliberately never
@@ -123,3 +127,68 @@ adopter reads what to do rather than working it out. That is a band-aid
 and is marked as one ([durable-fix](../practices/durable-fix.md)): it
 makes a person's manual step discoverable, and does not remove the need
 for it.
+
+## How It Closed
+
+**Morgan, 2026-09-25, strength: decided:** *"I want to make sure we're not
+keeping a list of all repos themselves; this needs to work even if a repo
+isn't on our lists. I like the lists of 'repos that [are of this type] get
+[these hooks]' -- approved."*
+
+**The add-only settings write is the session's reading, not his words.**
+He approved the lists, and said *"Let's fix this now!"* The session had just
+told him that the lists alone leave the hook unwired, and that closing the
+bug means the refresh must also add the entry. It took "fix this now" as a
+yes to that, and said so in its reply. For that half, read the strength as
+`assented`, not `decided`.
+
+**What was built**, all in
+[tools/precedent_vendor_engine.py](../tools/precedent_vendor_engine.py):
+
+- **`HOOK_WIRING`**: per kind (`consumer`, `source`), the hooks that kind
+  runs, as settings.json entries. Keyed by kind, never by repository.
+- **`HOOKS_NO_KIND`**: shipped hooks no kind gets, each with its reason
+  (today only `commit-identity-push-gate.sh`, which runs a repo's own
+  `tools/checks/` scripts).
+- **The refresh ADDS a missing entry** from its kind's list to
+  `.claude/settings.json`, then vendors as before. It never edits or removes
+  an entry. It skips a hook the repo already runs from any path, one declared
+  in `declined_adapters`, and every hook for a manifest with no `kind`.
+  Wiring first and vendoring second means no file is ever planted that
+  nothing calls.
+
+**The fix went past the item's own proposal in one place.** A list alone
+would have delivered the file and left it unwired, because a hook only runs
+if settings.json names it. That is the orphan `hooks-on-disk-are-reachable`
+exists to catch. So the refresh writes the entry too, add-only.
+[tools/precedent_bootstrap_source.py](../tools/precedent_bootstrap_source.py)'s `ensure_hook_wired` had already
+established that a vendored tool writing an engine-defined entry is not
+refused the way a session editing the file is.
+
+**What keeps it from coming back:** practice
+[new-hook-joins-the-registry](../practices/new-hook-joins-the-registry.md),
+enforced by the [tools/precedent_check.py](../tools/precedent_check.py) check of the same name. The check
+refuses a shipped hook that is on no list, and a template that disagrees
+with its kind's list.
+
+**The sweep that built the lists found the same gap in more places:**
+
+- `commit-identity-once.sh` has been wired in this repo since 2026-09-22 and
+  was never in a template, so no consumer had it. It is now on the consumer
+  list.
+- `seeded-prompt-gate.sh` was in the consumer template from 2026-09-23 and
+  was never in a set's. It is now on the source list. A dry run against all
+  four sets on disk showed it as the only thing each would receive.
+- Every consumer installed before a hook entered the template never got that
+  hook: `reply-gate.sh` (2026-09-13), `doc-lint-gate.sh` (2026-09-21),
+  `seeded-prompt-gate.sh` and `stop-reply-check.sh` (2026-09-23). The last
+  one is the worst. The reply check moved OUT of `stop-git-check.sh` into
+  `stop-reply-check.sh` that day, so a consumer that took the split through a
+  refresh lost its reply check entirely. The next refresh in each of those
+  repos now wires all of them.
+
+**Left for a decision, not done here** ([todo-2026-09-25-should-sets-run-the-reply-gate.md](todo-2026-09-25-should-sets-run-the-reply-gate.md)): whether sets should also run the
+reply gate (`reply-gate.sh`, `stop-reply-check.sh`), `stop-git-check.sh` and
+`precedent-paths.sh`. No set wires any of them today, and adding them would
+change what every set session is held to. It is a policy call, not a
+catch-up.

@@ -449,6 +449,11 @@ def _bootstrap_and_ci(dest, ci_enabled, ci_note, force):
     # precedent_vendor_engine.record_ci_workflow_files's own docstring for
     # why this runs after seed(), not before.
     precedent_vendor_engine.record_ci_workflow_files(dest, 'consumer')
+    # Same for tools/bootstrap.sh: a baseline recorded now is what lets a
+    # later refresh tell the stock file from a locally edited one
+    # (precedent_vendor_engine.TEMPLATE_INSTANCES).
+    precedent_vendor_engine.record_template_instances(dest, 'consumer',
+                                                      TEMPLATES.parent)
     return out
 
 

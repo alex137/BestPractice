@@ -94,6 +94,7 @@ being checked by it.
 | `label-describes-content` | change | a heading or bold lead-in that claims "one line" / "one-liner" / "TL;DR" / "one paragraph" / "one-pager" must match the length of what actually follows it |
 | `layered-practice-packs` | tree | every practice in force in this repo is reachable by at least one loading channel here -- resident, occasion index, a path trigger, a gate, or a running check |
 | `migration-scrubs-vocabulary` | tree | a migrated repo carries no leftover pre-migration practice pack (process/manifest_*.json and its tree), and -- where the repo has declared process/retired_vocabulary.json -- none of its listed terms outside the declared exempt files/directories |
+| `new-hook-joins-the-registry` | tree | every hook script this repo ships (templates/harness/claude-code/hooks/*.sh) is on a repo kind's list in precedent_vendor_engine.py's HOOK_WIRING, or in HOOKS_NO_KIND with the reason no kind gets it; nothing is listed that is not shipped; and each kind's template -- the consumer settings.json and the set payload precedent_bootstrap_source.py writes -- wires exactly its list |
 | `no-rewrite-for-warnings` | turn-end | the commit this branch was last published at is still an ancestor of its tip — published history has not been rewritten |
 | `no-version-suffix` | change | a file added by this change must not carry a version, date or state suffix in its name |
 | `open-item-disposition` | tree | every `**Disposition:` line in a TODO file names one of the three dispositions, and a `parked` or `ask` line records the date it was set and who set it |
@@ -118,7 +119,7 @@ being checked by it.
 | `verify-postcondition` | turn-end | the state you wanted after the operations this turn: nothing committed but unpushed on any local branch, and no tracked file left modified |
 | `workflow-file-outside-vendoring` | tree | every .github/workflows/*.yml or *.yaml file that changed is either the one file this repo's kind vendors through precedent_vendor_engine.py, or already a known RETIRED_CI_WORKFLOW_FILES entry -- anything else is named, once, as worth a second look |
 
-50 of 146 practices are enforced. Run `python3 tools/precedent_check.py --explain` for what each check does **not** catch.
+51 of 147 practices are enforced. Run `python3 tools/precedent_check.py --explain` for what each check does **not** catch.
 <!--/gen:enforcement-->
 
 Numbers by: catalogue_stats.py

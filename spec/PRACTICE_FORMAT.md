@@ -799,6 +799,7 @@ by a different mechanism entirely.
 **Drafted 2026-09-15**, out of a conversation about why a content-only
 adopter's loaded file is dominated by triggers it can never use. **Tagged
 `engine-dev` today:** [cross-source-rollout](../practices/cross-source-rollout.md),
+[new-hook-joins-the-registry](../practices/new-hook-joins-the-registry.md),
 [parallel-artifact-ledger](../practices/parallel-artifact-ledger.md) and
 [routing-audit](../practices/routing-audit.md) — each fires only on a
 mechanism that exists in this repository, whose engine other sources depend
