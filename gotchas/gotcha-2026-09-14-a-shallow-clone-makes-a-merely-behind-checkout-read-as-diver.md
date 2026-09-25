@@ -50,7 +50,7 @@ fetch was not enough.
 message reporting a checkout as behind now carries how much OLDER it is than
 the remote tip — computed from the two tips' commit times, never from the
 container's clock — and past a declared limit (`stale_checkout_hours` in
-[precedent.json](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/precedent.json),
+[precedent.json](https://github.com/alex137/BestPractice/blob/staging/precedent.json),
 24) it is labelled `STALE` rather than merely behind. Morgan's reasoning for
 wanting the time and not the count, 2026-09-13: over a missed hour *"chances
 are not much changed"*, over a few days *"chances are a lot did, thus
@@ -169,7 +169,7 @@ since pruned from TODO.md.
 ## Fix
 
 **Fixed 2026-09-13** in both copies of
-[.claude/hooks/freshness-guard.sh](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/.claude/hooks/freshness-guard.sh):
+[.claude/hooks/freshness-guard.sh](https://github.com/alex137/BestPractice/blob/staging/.claude/hooks/freshness-guard.sh):
 when the counts say diverged and the clone is shallow, `_deepen_if_shallow`
 fetches `--deepen=500` (falling back to `--unshallow`, which some git policy
 hooks refuse) and both counts are recomputed before anything is believed. The

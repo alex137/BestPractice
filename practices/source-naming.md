@@ -103,14 +103,14 @@ by Alex).
 source's `precedent-source.json` in `load_source` and refuses a declared
 name or level the clone does not answer to; `check_source_name` refuses a
 name that is not a slug, and the two fixed names. Its `normalize_level`
-reads `team` as `shared`. [tools/precedent_bootstrap_source.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/precedent_bootstrap_source.py)
+reads `team` as `shared`. [tools/precedent_bootstrap_source.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_bootstrap_source.py)
 writes the manifest into every set it creates.
-[tools/precedent_source_bootstrap.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/precedent_source_bootstrap.py)
+[tools/precedent_source_bootstrap.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_source_bootstrap.py)
 clones a declared set from its declared `repo` when the repository is not
 called what the set is, else from the base URL and the name.
-[tools/leak_gate.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/leak_gate.py) recognises a vendored private
+[tools/leak_gate.py](https://github.com/alex137/BestPractice/blob/staging/tools/leak_gate.py) recognises a vendored private
 set by a declared name or by the manifest it carries, never by a name
-shape. [tools/checkin.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/checkin.py) `--source NAME` vendors the
+shape. [tools/checkin.py](https://github.com/alex137/BestPractice/blob/staging/tools/checkin.py) `--source NAME` vendors the
 code directories a shared set's manifest lists.
 [tools/precedent_check.py](../tools/precedent_check.py) checks every
 `precedent.json` in the tree, and every reachable source's manifest against

@@ -53,7 +53,7 @@ ever answering it by guessing.
 ## Story
 **Raised by Morgan, 2026-09-20**, mid-incident: a fresh GitHub Actions
 usage-report pull found personal repos still billing real minutes against
-workflow files [spec/CI_WORKFLOW_RETIREMENT_PLAN.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/CI_WORKFLOW_RETIREMENT_PLAN.md)
+workflow files [spec/CI_WORKFLOW_RETIREMENT_PLAN.md](https://github.com/alex137/BestPractice/blob/staging/spec/CI_WORKFLOW_RETIREMENT_PLAN.md)
 had already named as retired. Asked for the engine to auto-delete a
 retired file when safe (built, same session — see that document's Item 1),
 then for something broader: catch it happening at all, and have a very

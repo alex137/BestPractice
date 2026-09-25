@@ -44,11 +44,9 @@ individual source, else the one ~/.config/precedent/config.json names),
 then the default, `basic`. Nothing it says can lower staging or main.
 
 WHERE `Go update` LANDS is the person's `landing_branch` setting, read
-the same way: `pre-staging` or `staging`. Until Alex has heard about the
-change (plan step 6), the default stays `staging`, which is where every
-session landed work before the tiers existed; a person who sets
-`pre-staging` gets the lane now. An unreadable value lands on staging, the
-old behaviour, never somewhere new.
+the same way: `pre-staging` (the default, for everyone, since 2026-09-25)
+or `staging`. An unreadable value lands on staging, where work landed
+before the tiers existed, never somewhere new.
 
 PROMOTE moves pre-staging into staging (plan step 6; Morgan named the
 command, strength: assented). It merges staging into pre-staging first when
@@ -77,6 +75,13 @@ import sys
 
 PRE_STAGING = 'pre-staging'
 STAGING = 'staging'
+# The staging branch's name until 2026-09-25, in the Precedent repositories.
+# Kept on origin, and fast-forwarded to staging by every Promote, so an
+# install still pinned to it takes one more update from it -- onto an
+# engine that names staging -- and then follows staging. Work pushed there
+# by a session that has not moved yet is merged into pre-staging by the
+# sync, never lost (spec/BRANCH_TIERS_PLAN.md, step 10).
+LEGACY_STAGING = 'precedent-beta-v01'
 MAIN = 'main'
 BASIC = 'basic'
 FULL = 'full'
@@ -85,10 +90,10 @@ TIERS = (BASIC, FULL)
 SETTING = 'branch_push_checks'
 DEFAULT_TIER = BASIC
 LANDING_SETTING = 'landing_branch'
-# Flips to PRE_STAGING once Alex has heard (spec/BRANCH_TIERS_PLAN.md,
-# "Settled at approval" 3) -- the one line that changes where every other
-# person's `Go update` lands.
-DEFAULT_LANDING = STAGING
+# PRE_STAGING for everyone since 2026-09-25, once Alex had heard and
+# approved (relayed by Morgan: "Alex is on top of this and approves").
+# A person who wants to land on staging sets landing_branch there.
+DEFAULT_LANDING = PRE_STAGING
 
 # Same names and values as precedent_identity.py, duplicated rather than
 # imported for the reason that file gives for duplicating them itself: this
@@ -126,7 +131,9 @@ def staging_branch(root):
 
 def full_branches(root):
     """Every branch a push to is always fully checked."""
-    names = {MAIN, STAGING, staging_branch(root)}
+    # The pre-rename name stays fully checked while it exists: a push there
+    # is a push to staging under its old name.
+    names = {MAIN, STAGING, LEGACY_STAGING, staging_branch(root)}
     declared = base_branch(root)
     if declared and declared != PRE_STAGING:
         names.add(declared)
@@ -290,17 +297,26 @@ def sync_pre_staging(root, say=print):
         say(f'created {PRE_STAGING} on origin at {staging} ({stip[:12]}).')
         return True
     _run(root, 'fetch', '-q', 'origin', PRE_STAGING)
-    if _run(root, 'merge-base', '--is-ancestor', stip, ptip).returncode == 0:
+    sources = [(staging, stip)]
+    if staging != LEGACY_STAGING:
+        ltip = _remote_tip(root, LEGACY_STAGING)
+        if ltip:
+            _run(root, 'fetch', '-q', 'origin', LEGACY_STAGING)
+            sources.append((LEGACY_STAGING, ltip))
+    pending = [(b, t) for b, t in sources
+               if _run(root, 'merge-base', '--is-ancestor', t, ptip).returncode != 0]
+    if not pending:
         return True
     with _Worktree(root, ptip) as wt:
-        m = _run(wt, 'merge', '--no-ff', '-q', '-m',
-                 f'Merge {staging} into {PRE_STAGING}', stip, env=_merge_env())
-        if m.returncode != 0:
-            _run(wt, 'merge', '--abort')
-            say(f'{staging} does not merge cleanly into {PRE_STAGING} -- the same '
-                f'lines changed on both. Nothing was pushed. Merge {staging} into '
-                f'{PRE_STAGING} by hand, resolve it, and push to {PRE_STAGING}.')
-            return False
+        for branch, tip in pending:
+            m = _run(wt, 'merge', '--no-ff', '-q', '-m',
+                     f'Merge {branch} into {PRE_STAGING}', tip, env=_merge_env())
+            if m.returncode != 0:
+                _run(wt, 'merge', '--abort')
+                say(f'{branch} does not merge cleanly into {PRE_STAGING} -- the same '
+                    f'lines changed on both. Nothing was pushed. Merge {branch} into '
+                    f'{PRE_STAGING} by hand, resolve it, and push to {PRE_STAGING}.')
+                return False
         ok, out = _check(root, wt, BASIC)
         if not ok:
             say(f'the merge of {staging} into {PRE_STAGING} fails the basic check; nothing was pushed.\n{out}')
@@ -309,7 +325,7 @@ def sync_pre_staging(root, say=print):
         if p.returncode != 0:
             say(f'{PRE_STAGING} moved while this ran; run it again. ({p.stderr.strip()[:200]})')
             return False
-    say(f'merged {staging} into {PRE_STAGING}.')
+    say(f'merged {" and ".join(b for b, _ in pending)} into {PRE_STAGING}.')
     return True
 
 
@@ -348,7 +364,30 @@ def promote(root, say=print):
         new = _git(wt, 'rev-parse', 'HEAD')
     say(f'PROMOTED {len(batch)} commit(s) from {PRE_STAGING} into {staging} '
         f'({new[:12]}):\n  ' + '\n  '.join(batch))
+    _mirror_legacy(root, staging, new, say)
     return 0
+
+
+def _mirror_legacy(root, staging, new, say):
+    """Fast-forward the pre-rename name to what staging now holds, while it
+    exists. Never forced: the sync has already merged anything pushed there
+    into pre-staging, so a legacy tip that is not an ancestor means someone
+    pushed to it during this Promote, and it is said rather than overwritten."""
+    if staging == LEGACY_STAGING:
+        return
+    ltip = _remote_tip(root, LEGACY_STAGING)
+    if not ltip or ltip == new:
+        return
+    _run(root, 'fetch', '-q', 'origin', LEGACY_STAGING)
+    if _run(root, 'merge-base', '--is-ancestor', ltip, new).returncode != 0:
+        say(f'NOTE: {LEGACY_STAGING} has commits {staging} lacks, so it was not '
+            f'moved; the next Promote brings them in through {PRE_STAGING}.')
+        return
+    p = _run(root, 'push', '-q', 'origin', f'{new}:refs/heads/{LEGACY_STAGING}')
+    if p.returncode == 0:
+        say(f'also moved {LEGACY_STAGING} to it, for installs still pinned to the old name.')
+    else:
+        say(f'NOTE: could not move {LEGACY_STAGING}: {p.stderr.strip()[:200]}')
 
 
 # `git push` options that take the NEXT word as their value.

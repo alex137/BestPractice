@@ -219,7 +219,11 @@ Run once, from BestPractice's own checkout, to vendor a NEW consumer repo
 (status/refresh above then work unchanged, kind auto-detected):
   python3 tools/precedent_vendor_engine.py seed <consumer-repo> --kind consumer
 
-SOURCE_BRANCH is 'precedent-beta-v01', the branch work here lands on, and
+SOURCE_BRANCH is 'staging' -- precedent-beta-v01 until 2026-09-25, when
+the branch was renamed and the old name kept, fast-forwarded to staging by
+every Promote, so an install still pinned to it takes one last update from
+it and then follows staging (spec/BRANCH_TIERS_PLAN.md). It is the branch
+work here lands on once fully checked, and
 every other repo takes its updates from it too, for now, so they all
 follow one branch (Morgan, 2026-09-24, strength: decided: "for now, they
 should all follow precedent-beta-v01"; "maybe later we'll move them all
@@ -244,7 +248,7 @@ HERE = pathlib.Path(__file__).resolve()
 ENGINE_DIR = HERE.parent
 ROOT = ENGINE_DIR.parent
 SOURCE_REPO = 'https://github.com/alex137/BestPractice'
-SOURCE_BRANCH = 'precedent-beta-v01'  # every install follows it, for now -- see docstring
+SOURCE_BRANCH = 'staging'  # every install follows it, for now -- see docstring
 
 ENGINE_FILES = [
     'build_views.py',

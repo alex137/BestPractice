@@ -78,7 +78,7 @@ template's generic half without landing this first would have quietly removed
 the only statement of it anywhere.
 
 The incident behind the "round number" paragraph is this repository's own,
-recorded in [AGENTS.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/AGENTS.md)'s gotchas: a draft entry asserted
+recorded in [AGENTS.md](https://github.com/alex137/BestPractice/blob/staging/AGENTS.md)'s gotchas: a draft entry asserted
 counts that had never been counted, and the fix had to replace them with the
 frequency that was actually checkable.
 

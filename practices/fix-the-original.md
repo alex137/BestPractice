@@ -75,9 +75,9 @@ signal.** A copy that legitimately differs and a copy that drifted are
 identical to a differ, and nothing in the tree records which is which.
 **The checkable version of this practice is a provenance stamp**, not a
 similarity threshold — and that is a real design, not a shrug, filed in
-[TODO.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/TODO.md).
+[TODO.md](https://github.com/alex137/BestPractice/blob/staging/TODO.md).
 The one family that *does* carry provenance is already checked:
-[tools/precedent_refresh_sources.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/precedent_refresh_sources.py)
+[tools/precedent_refresh_sources.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_refresh_sources.py)
 compares each source's vendored engine against canonical, which is why
 engine staleness reaches a person at session start and template drift does
 not.
@@ -130,4 +130,4 @@ Two questions before any fix is reported, and one line in the reply.
 - **Where the origin is out of reach**, say so in those words and queue it
   per [todo-is-a-handoff](todo-is-a-handoff.md) with the repository named —
   the same `blocked-on` reasoning
-  [cross-source-rollout](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/cross-source-rollout.md) already uses.
+  [cross-source-rollout](https://github.com/alex137/BestPractice/blob/staging/practices/cross-source-rollout.md) already uses.

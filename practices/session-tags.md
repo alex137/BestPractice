@@ -91,7 +91,7 @@ slug are both trying to be `subject:`.
 
 ## Story
 **Drafted 2026-09-13** as part of
-[spec/CHIEF_OF_STAFF.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/CHIEF_OF_STAFF.md),
+[spec/CHIEF_OF_STAFF.md](https://github.com/alex137/BestPractice/blob/staging/spec/CHIEF_OF_STAFF.md),
 where the namespaces were proposed and their platform behaviour measured.
 Morgan held the whole proposal for a decision, so the tags waited with it.
 

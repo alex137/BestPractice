@@ -35,7 +35,7 @@ silent — a closed item is not re-read.
 
 **The hard part is the noticing, not the closing.** No session reads eighty
 open items asking what it might have finished, so the rule leans on
-[tools/todo_progress.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/todo_progress.py)
+[tools/todo_progress.py](https://github.com/alex137/BestPractice/blob/staging/tools/todo_progress.py)
 rather than on attention: `--changed BASE..HEAD` lists items naming a file the
 change touched, and stays **silent** when none do. It reports a resemblance and
 says so in its own output; the reading is yours.
@@ -84,6 +84,6 @@ put to him.
 
 ## Install
 An open-items file whose items carry anchors, plus
-[tools/todo_progress.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/todo_progress.py)
+[tools/todo_progress.py](https://github.com/alex137/BestPractice/blob/staging/tools/todo_progress.py)
 — `--changed BASE..HEAD` at the merge moment, and a bare run in the deep read.
 A repo with no `TODO.md` needs nothing: the tool says so and exits.

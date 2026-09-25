@@ -67,7 +67,7 @@ own, and that declaration is read only when somebody is working inside that
 set's own repository -- rung 5 means "this repo", never "my team". Decided
 against on 2026-09-11, by Morgan, with the reasoning and the two rejected
 placements recorded in
-https://github.com/alex137/BestPractice/blob/precedent-beta-v01/decisions/2026-09-11-no-team-rung-in-the-timezone-ladder.md
+https://github.com/alex137/BestPractice/blob/staging/decisions/2026-09-11-no-team-rung-in-the-timezone-ladder.md
 -- read that before re-deriving the question. The short version: a team can
 only ever answer "what zone do records here carry", which is what rung 5
 already is, and every set measured that day declared its own rung 5 anyway.

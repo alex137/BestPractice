@@ -18,7 +18,7 @@ added:       "2026-09-13"
 approved_by: "Morgan, 2026-09-13, choosing universal from the two readings the open item
   laid out -- \"Yes, make this one universal.\" It landed 2026-09-12 in his individual
   set and moved here under
-  https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/MOVING_PRACTICES.md
+  https://github.com/alex137/BestPractice/blob/staging/spec/MOVING_PRACTICES.md
   -- land at the destination first, deduplicate at the source second."
 strength:    decided
 source_practice_number: null
@@ -34,7 +34,7 @@ Two things this does not cover, and both still get said plainly:
 
 - **A real hit.** A gate failing a push is a finding, not a reminder — say
   what it caught, and stop.
-- **The deep review.** [very-deep-check](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/very-deep-check.md)'s
+- **The deep review.** [very-deep-check](https://github.com/alex137/BestPractice/blob/staging/practices/very-deep-check.md)'s
   repository-visibility pass is where the recommendations belong, and its
   `RECOMMENDATION:` lines are meant to be read there.
 

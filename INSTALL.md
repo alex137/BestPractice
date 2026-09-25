@@ -702,7 +702,7 @@ of that, so a §1 project that wants Precedent later takes
 it ran §1 — flipped on the very deep check's recommendation; `strength:
 assented`).
 
-From a sibling clone of Precedent, on `precedent-beta-v01`:
+From a sibling clone of Precedent, on `staging`:
 
 ```
 python3 tools/precedent_install.py <project path> --project-name "<name>" \
@@ -733,7 +733,7 @@ already-documented case —
 not this section.
 
 1. **Vendor the universal source.** Clone Precedent
-   (`precedent-beta-v01` today; `main` once phase 7 merges it back) and
+   (`staging` today; `main` once phase 7 merges it back) and
    copy two things into this repo as ordinary tracked files: its
    `practices/` tree, into a tracked path of your choosing (recommended:
    `precedent/universal/practices/`), and the loader engine itself.
@@ -1055,7 +1055,7 @@ it the old way — a WARN at every session start naming a fix that failed the
 same way.
 
 0. **(§0 installs) Replace the vendored universal catalogue.** From a
-   sibling Precedent clone, already on `precedent-beta-v01` and pulled:
+   sibling Precedent clone, already on `staging` and pulled:
    ```
    rm -rf <your universal source path>/practices
    cp -r ../BestPractice/practices <your universal source path>/practices
@@ -1235,7 +1235,7 @@ same way.
    python3 tools/precedent_vendor_engine.py status  ../BestPractice   # drift? behind?
    python3 tools/precedent_vendor_engine.py refresh ../BestPractice   # pull, re-vendor, re-stamp
    ```
-   **If `refresh` exits with "`precedent-beta-v01 @ <commit>` has no
+   **If `refresh` exits with "`staging @ <commit>` has no
    `tools/<name>`", reseed — do not go looking for the missing file.**
    `refresh` runs *this repo's own vendored copy* of the tool, which
    carries the file list it was vendored with. So the first refresh after
@@ -1259,7 +1259,7 @@ same way.
 
    `refresh` reads `kind` back out of `ENGINE_MANIFEST.json` itself — no
    `--kind` flag needed here, only at first `seed`. It pulls
-   `precedent-beta-v01` specifically (not this clone's configured default
+   `staging` specifically (not this clone's configured default
    branch — see
    [local/practices/merge-target-is-beta-branch.md](local/practices/merge-target-is-beta-branch.md)),
    and refuses to overwrite a hand-edited vendored file unless `--force` —

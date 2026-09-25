@@ -25,8 +25,8 @@ permission grant — the fact, and the exact detail needed to act on it (what
 it's called, what it does, any manual click to enable it), is written into
 the document that project's own people actually read, not left only inside
 Precedent's internal install playbook. For a dependent repo, that
-document is [templates/GETTING_STARTED.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/templates/GETTING_STARTED.md)'s
-administrator section — [INSTALL.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/INSTALL.md) records the installation
+document is [templates/GETTING_STARTED.md](https://github.com/alex137/BestPractice/blob/staging/templates/GETTING_STARTED.md)'s
+administrator section — [INSTALL.md](https://github.com/alex137/BestPractice/blob/staging/INSTALL.md) records the installation
 mechanics; GETTING_STARTED.md records the consequence for this project's
 administrator.
 
@@ -66,7 +66,7 @@ notice they were skipped:
    pushing a branch or opening a pull request on the project's behalf needs
    a key of its own. Distinct from the environment-level, read-only
    `PRECEDENT_GIT_TOKEN` that clones practice sets
-   ([INSTALL.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/INSTALL.md) §8) — name which one you mean.
+   ([INSTALL.md](https://github.com/alex137/BestPractice/blob/staging/INSTALL.md) §8) — name which one you mean.
 3. **A default branch named `main`** (**Settings → General → Default
    branch**). The shipped workflow template names `main` as a literal
    string, so a repository that calls it anything else runs no check on
@@ -76,9 +76,9 @@ notice they were skipped:
    opens a pull request for the project fails at the attempt without it.
 
 *(Click-paths as of 2026-09-10.)* The procedure is
-[INSTALL.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/INSTALL.md) §1 step 10 and §0 step 9; the plain-language
+[INSTALL.md](https://github.com/alex137/BestPractice/blob/staging/INSTALL.md) §1 step 10 and §0 step 9; the plain-language
 step-by-step version an installing session actually says is
-[SETUP.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/SETUP.md) step 7.
+[SETUP.md](https://github.com/alex137/BestPractice/blob/staging/SETUP.md) step 7.
 
 ## Why
 An install can turn on a GitHub Actions workflow and record that
@@ -106,10 +106,10 @@ document that project's own people read, not the install log, and with the
 exact detail needed to act -- what it is called, what it does, and any
 manual click required. A disclosure a reader cannot act on without asking a
 follow-up question has the same effect as no disclosure. See also
-[decisions/2026-09-03-setup-getting-started-disclosure-gap.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/decisions/2026-09-03-setup-getting-started-disclosure-gap.md).
+[decisions/2026-09-03-setup-getting-started-disclosure-gap.md](https://github.com/alex137/BestPractice/blob/staging/decisions/2026-09-03-setup-getting-started-disclosure-gap.md).
 
 ## Install
-[templates/GETTING_STARTED.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/templates/GETTING_STARTED.md)'s
+[templates/GETTING_STARTED.md](https://github.com/alex137/BestPractice/blob/staging/templates/GETTING_STARTED.md)'s
 administrator section carries a standing note for "automatic checks
 installed for this project," naming each workflow and what it does. Any
 future GitHub-specific addition — a required secret, a new required check —
@@ -122,7 +122,7 @@ change adds a `.github/workflows/*.yml` file whose filename appears in
 none of the repo's root `GETTING_STARTED.md`, a repo's own root
 `GITHUB_ACTIONS.md`, or `documentation/GITHUB_ACTIONS.md`. Until
 2026-09-10 it read only a root `GITHUB_ACTIONS.md`, which put this
-practice, its check, and [INSTALL.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/INSTALL.md) §1 step 6's
+practice, its check, and [INSTALL.md](https://github.com/alex137/BestPractice/blob/staging/INSTALL.md) §1 step 6's
 root-hygiene list in a three-way contradiction: the Rule named
 GETTING_STARTED.md, the check demanded a root GITHUB_ACTIONS.md, and root
 hygiene forbade a vendored GITHUB_ACTIONS.md at a dependent repo's root. A
@@ -132,15 +132,15 @@ three that carries the reasoning. A root `GITHUB_ACTIONS.md` is still
 accepted for a repo that has written its own there — distinct from a
 vendored copy, which root hygiene still forbids at the root. **This repo's
 own copy is no longer that case**: it moved to
-[documentation/GITHUB_ACTIONS.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/documentation/GITHUB_ACTIONS.md)
+[documentation/GITHUB_ACTIONS.md](https://github.com/alex137/BestPractice/blob/staging/documentation/GITHUB_ACTIONS.md)
 on 2026-09-20, so the check reads that path for BestPractice's own
 self-disclosure now.
 
 The owner-only settings above are the first-install case of the same rule,
 and they ship as procedure rather than as a thing to remember:
-[INSTALL.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/INSTALL.md) §1 step 10 (and §0 step 9) keeps the technical
-path to a short paragraph, [SETUP.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/SETUP.md) step 7 gives the guided
+[INSTALL.md](https://github.com/alex137/BestPractice/blob/staging/INSTALL.md) §1 step 10 (and §0 step 9) keeps the technical
+path to a short paragraph, [SETUP.md](https://github.com/alex137/BestPractice/blob/staging/SETUP.md) step 7 gives the guided
 conversation's plain-language steps, and
-[templates/GETTING_STARTED.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/templates/GETTING_STARTED.md) ships a
+[templates/GETTING_STARTED.md](https://github.com/alex137/BestPractice/blob/staging/templates/GETTING_STARTED.md) ships a
 "Settings Only You Can Turn On" section so the instantiated file carries
 them from the moment it is written.

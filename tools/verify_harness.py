@@ -16015,7 +16015,7 @@ def check_branch_tiers():
                       'branch yet, promotes into main -- never into a staging '
                       'branch it does not have', pb.staging_branch(repo) == 'main'
                       and tier('staging') == 'full'
-                      and pb.landing_branch(repo, nocfg)[0] == 'main'))
+                      and pb.landing_branch(repo, nocfg)[0] == 'pre-staging'))
 
         def targets(args):
             return pb.push_targets(repo, args)
@@ -16258,17 +16258,18 @@ def check_promote_pre_staging():
             return git(work, 'ls-remote', 'origin', f'refs/heads/{b}').stdout.split('\t')[0]
 
         rc, out = branches('--landing')
-        cases.append(('Go update lands on staging (the declared base) by default',
-                      out.split('\n')[0] == 'beta'))
+        cases.append(('Go update lands on pre-staging by default',
+                      out.split('\n')[0] == 'pre-staging'))
         indiv = tmp / 'indiv'
         indiv.mkdir()
         (tmp / 'config.json').write_text(_json.dumps({'individual': {'path': str(indiv)}}),
                                          encoding='utf-8')
         (indiv / 'identity.json').write_text(_json.dumps(
-            {'email': 'p@example.com', 'landing_branch': 'pre-staging'}), encoding='utf-8')
+            {'email': 'p@example.com', 'landing_branch': 'staging'}), encoding='utf-8')
         rc, out = branches('--landing')
-        cases.append(("a person's landing_branch sends it to pre-staging",
-                      out.split('\n')[0] == 'pre-staging'))
+        cases.append(("a person's landing_branch can send it to staging (the "
+                      "declared base, still named beta here)",
+                      out.split('\n')[0] == 'beta'))
         (indiv / 'identity.json').write_text(_json.dumps(
             {'email': 'p@example.com', 'landing_branch': 'somewhere'}), encoding='utf-8')
         rc, out = branches('--landing')
@@ -16355,6 +16356,82 @@ def check_promote_pre_staging():
         cases.append(("a branch whose commits are all on pre-staging is not "
                       "called unlanded for lacking them on staging",
                       not any("'w-landed'" in l for l in got)))
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
+def check_promote_keeps_the_old_name_in_step():
+    """precedent-beta-v01 was renamed staging on 2026-09-25, and the old name
+    is kept on origin while installs pinned to it catch up
+    (spec/BRANCH_TIERS_PLAN.md, step 10). Two things keep it safe: a Promote
+    moves the old name along with staging, and work a not-yet-moved session
+    pushes to the old name is merged into pre-staging, never lost."""
+    import tempfile, json as _json, shutil as _shutil
+    name = 'Promote keeps precedent-beta-v01 in step with staging, and loses nothing pushed to it'
+    if not (ROOT / 'tools' / 'precedent_branches.py').exists():
+        not_applicable(name, 'tools/precedent_branches.py is absent')
+        return
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+        env = dict(os.environ, PRECEDENT_ALLOW_ANY_AUTHOR='1',
+                   GIT_AUTHOR_NAME='T', GIT_AUTHOR_EMAIL='t@example.com',
+                   GIT_COMMITTER_NAME='T', GIT_COMMITTER_EMAIL='t@example.com',
+                   GIT_CONFIG_GLOBAL=str(tmp / 'gitconfig'),
+                   PRECEDENT_USER_CONFIG=str(tmp / 'none.json'))
+
+        def git(cwd, *a):
+            return subprocess.run(['git', '-C', str(cwd), *a],
+                                  capture_output=True, text=True, env=env)
+        bare = tmp / 'origin.git'
+        git(tmp, 'init', '-q', '--bare', '-b', 'staging', str(bare))
+        work = tmp / 'work'
+        (work / 'tools').mkdir(parents=True)
+        git(tmp, 'init', '-q', '-b', 'staging', str(work))
+        for f in ('precedent_push_check.py', 'precedent_branches.py'):
+            _shutil.copy2(ROOT / 'tools' / f, work / 'tools' / f)
+        (work / 'tools' / 'ENGINE_MANIFEST.json').write_text(
+            _json.dumps({'kind': 'consumer'}), encoding='utf-8')
+        for t in ('precedent_check', 'leak_gate', 'doc_lint'):
+            (work / 'tools' / f'{t}.py').write_text(
+                ('print("precedent_check: 3 passed, 0 violated")\n'
+                 if t == 'precedent_check' else '') + 'pass\n', encoding='utf-8')
+        (work / 'precedent.json').write_text(_json.dumps({'base_branch': 'staging'}),
+                                             encoding='utf-8')
+        git(work, 'add', '-A')
+        git(work, 'commit', '-q', '-m', 'init')
+        git(work, 'remote', 'add', 'origin', f'file://{bare}')
+        git(work, 'push', '-q', 'origin', 'staging', 'staging:precedent-beta-v01')
+
+        def tip(b):
+            return git(work, 'ls-remote', 'origin', f'refs/heads/{b}').stdout.split('\t')[0]
+
+        def branches(*a):
+            p = subprocess.run([sys.executable, 'tools/precedent_branches.py', *a],
+                               cwd=work, capture_output=True, text=True, env=env)
+            return p.returncode, p.stdout + p.stderr
+
+        def commit_to(branch, path, msg):
+            git(work, 'fetch', '-q', 'origin')
+            git(work, 'checkout', '-q', '-B', f'w-{branch}', f'origin/{branch}')
+            (work / path).write_text(msg, encoding='utf-8')
+            git(work, 'add', path)
+            git(work, 'commit', '-q', '-m', msg)
+            git(work, 'push', '-q', 'origin', f'HEAD:refs/heads/{branch}')
+
+        branches('--sync-pre-staging')
+        commit_to('precedent-beta-v01', 'old.txt', 'pushed under the old name')
+        rc, out = branches('--sync-pre-staging')
+        git(work, 'fetch', '-q', 'origin')
+        cases.append(('work pushed to the old name is merged into pre-staging',
+                      rc == 0 and git(work, 'merge-base', '--is-ancestor',
+                                      'origin/precedent-beta-v01',
+                                      'origin/pre-staging').returncode == 0))
+        commit_to('pre-staging', 'new.txt', 'window work')
+        rc, out = branches('--promote')
+        cases.append(('Promote moves staging, and the old name to the same commit',
+                      rc == 0 and tip('staging') == tip('precedent-beta-v01')
+                      and 'for installs still pinned to the old name' in out))
     failed = [n for n, ok in cases if not ok]
     check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
@@ -32239,6 +32316,7 @@ def main():
     check_merge_check_gate()
     check_promote_pre_staging()
     check_github_ci_setting_names()
+    check_promote_keeps_the_old_name_in_step()
     check_source_clone_is_pinned_to_a_branch()
     check_generator_wires_every_template_guard_mode()
     check_verify_reports_a_source_wired_for_fewer_moments()

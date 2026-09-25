@@ -56,7 +56,7 @@ are deleted, and `.github/workflows/bestpractice-docs.yml` is tombstoned in
 it a second time. Under this system's founding assumption every edit
 arrives through a cloud session, never a local checkout and never the
 GitHub web UI, so
-[doc_lint.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/doc_lint.py)
+[doc_lint.py](https://github.com/alex137/BestPractice/blob/staging/tools/doc_lint.py)
 has already run on every change before it is committed. CI was re-checking
 work the session in front of the person had just cleared — a measured 350
 billed minutes over 19 days in one repository, on a workflow that was
@@ -233,7 +233,7 @@ individual's own practice set or dependent project.
   any runner. A branch with an open PR gets checked on each synchronize,
   with `concurrency:` collapsing a burst into one surviving run. Widen the
   branch list
-  (`branches: [main, precedent-beta-v01]`, this repo's own pattern) if the
+  (`branches: [main, staging]`, this repo's own pattern) if the
   repo installing this has more than one routine merge target — each
   template's own header says so at the trigger block. Do not add
   `pull_request:` to a `push:` that still covers every branch: that

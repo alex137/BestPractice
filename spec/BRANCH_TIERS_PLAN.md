@@ -41,7 +41,17 @@ the batch is promoted.
   engine, and one still on an older engine would stop seeing a renamed key
   and fall back to the defaults, which run more CI, not less. Rename them
   once installs have taken this engine.
-- **Step 8's behaviour is held for a decision**, because landing any part of
+- **Step 8's workflow half and step 10 landed on pre-staging 2026-09-25,
+  waiting on a Promote.** The workflow templates run GitHub only on a pull
+  request into main (the light check) and, in a public repo, the leak check on
+  every push; new installs get them by default. `[skip ci]` stays on as a
+  backstop until every install carries the new files (Morgan: *"Backstops are
+  good especially on this issue. We'll keep it until we're 100% sure all have
+  been updated"*, strength: decided). `precedent-beta-v01` is renamed
+  `staging`, with the old name kept and moved in step by every Promote; the
+  default landing branch is pre-staging for everyone. Alex approved both,
+  relayed by Morgan: *"Alex is on top of this and approves"*.
+- **Superseded, 2026-09-25 -- Step 8's behaviour was held for a decision**, because landing any part of
   it alone costs money: "never tag staging" would, today, start a runner on
   every push to staging in a private repo that has `leak-gate.yml`
   installed, since that workflow still triggers on every push. It has to land
