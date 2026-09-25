@@ -50,7 +50,9 @@ It does the whole step, and a session adds nothing to it:
    **It does not run the suite a second time on files that already passed
    it.** When the full check already passed on exactly these files -- the
    usual case after a high-risk change, which ran it before landing on
-   pre-staging -- that result stands and nothing is re-run. "Exactly" is
+   pre-staging -- that result stands and nothing is re-run, **whichever
+   window ran it**: a pass is shared through origin, so Promote said in one
+   window finds the run another window made. "Exactly" is
    the whole condition: one changed character anywhere, including a push
    made straight to staging in between, and the suite runs. It is what the
    files are that decides, never which branch they came from. **It says
