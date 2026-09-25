@@ -152,25 +152,56 @@ def _require_root():
     return ROOT
 
 
-def load_registry():
-    """The decommissioning record, or an empty one. A malformed registry is an
-    error, never an empty default: silently treating it as empty would let
-    a typo erase every decommissioning this repo has recorded."""
-    p = ROOT / REGISTRY
+def read_registry(root):
+    """The decommissioning record at `root`, or an empty one. Raises
+    ValueError, with the sentence to print, on a malformed registry -- never
+    an empty default: silently treating it as empty would let a typo erase
+    every decommissioning this repo has recorded.
+
+    Split out of load_registry() 2026-09-24 so precedent_vendor_engine.py's
+    legacy sweep records into the SAME file, in the same shape, through the
+    same refusal, instead of a second writer that drifts from this one."""
+    p = pathlib.Path(root) / REGISTRY
     if not p.is_file():
         return {'decommissioned': [], 'exempt_files': []}
     try:
         cfg = json.loads(p.read_text(encoding='utf-8'))
     except json.JSONDecodeError as e:
-        sys.exit(f'precedent_decommission: {REGISTRY} is not valid JSON ({e}) '
-                 f'-- fix it before decommissioning anything, or a decommissioning will '
-                 f'be recorded into a file nothing can read')
+        raise ValueError(
+            f'{REGISTRY} is not valid JSON ({e}) -- fix it before '
+            f'decommissioning anything, or a decommissioning will be recorded '
+            f'into a file nothing can read')
     if not isinstance(cfg, dict):
-        sys.exit(f'precedent_decommission: {REGISTRY} must be a JSON object '
-                 f'with a "decommissioned" list, not a {type(cfg).__name__}')
+        raise ValueError(f'{REGISTRY} must be a JSON object with a '
+                         f'"decommissioned" list, not a {type(cfg).__name__}')
     cfg.setdefault('decommissioned', [])
     cfg.setdefault('exempt_files', [])
     return cfg
+
+
+def load_registry():
+    try:
+        return read_registry(ROOT)
+    except ValueError as e:
+        sys.exit(f'precedent_decommission: {e}')
+
+
+def record_decommissioned(root, paths, reason, cfg=None):
+    """Append one entry per path to <root>/REGISTRY and write it. Deletes
+    nothing: the caller has already removed the files (git rm here, a plain
+    unlink in a refresh) and this is only the record. -> the date recorded.
+    Raises ValueError on a malformed registry, like read_registry."""
+    root = pathlib.Path(root)
+    if cfg is None:
+        cfg = read_registry(root)
+    today = precedent_time.today()
+    for p in paths:
+        cfg['decommissioned'].append({'path': p.rstrip('/'), 'reason': reason,
+                                      'decommissioned_at': today})
+    (root / REGISTRY).parent.mkdir(parents=True, exist_ok=True)
+    (root / REGISTRY).write_text(
+        json.dumps(cfg, indent=2, ensure_ascii=False) + '\n', encoding='utf-8')
+    return today
 
 
 def _exempt(rel, patterns):
@@ -301,9 +332,17 @@ def live_workflow_triggers(rel):
     clear is a job that stops without anyone noticing."""
     p = ROOT / rel
     try:
-        lines = p.read_text(encoding='utf-8', errors='ignore').splitlines()
+        text = p.read_text(encoding='utf-8', errors='ignore')
     except OSError:
         return []
+    return live_triggers_in_text(text)
+
+
+def live_triggers_in_text(text):
+    """live_workflow_triggers() for text already in hand -- the same scan,
+    so the engine's legacy sweep and a person's audit call a workflow live
+    or paused by one definition, not two."""
+    lines = text.splitlines()
     live, in_on = [], False
     for line in lines:
         stripped = line.strip()
@@ -358,12 +397,7 @@ def audit(path, exempt, siblings=()):
         return blockers, evidence
     evidence.append(f'{len(targets)} tracked file(s) would be deleted')
 
-    dirty = _git('status', '--porcelain', '--', rel).stdout.strip()
-    if dirty:
-        blockers.append(
-            f'{rel!r} has uncommitted changes -- commit or discard them '
-            f'first. Git history holds a deleted file forever; it holds '
-            f'nothing that was never committed')
+    blockers += _dirty_refusal(ROOT, rel)
 
     # Everything going in this invocation, so a mutual reference between
     # two paths being decommissioned together is not read as a survivor.
@@ -379,15 +413,7 @@ def audit(path, exempt, siblings=()):
                         f'ambiguous: {", ".join(sorted(set(skipped)))}')
 
     for t in targets:
-        if t.startswith('.github/workflows/'):
-            live = live_workflow_triggers(t)
-            if live:
-                blockers.append(
-                    f'{t} is still live -- its `on:` block carries '
-                    f'{", ".join(live)}. Pause it (comment the trigger out, '
-                    f'leave workflow_dispatch) and let a cycle pass before '
-                    f'decommissioning it, so the decommissioning is never the first '
-                    f'thing that stops a running job')
+        blockers += _live_refusal(ROOT, t)
 
     last = _git('log', '-1', '--format=%h %ad %s', '--date=short', '--', rel)
     if last.returncode == 0 and last.stdout.strip():
@@ -400,15 +426,56 @@ def apply_retirement(paths, reason, cfg):
     if r.returncode != 0:
         sys.exit(f'precedent_decommission: git rm failed ({r.stderr.strip()}) '
                  f'-- nothing was recorded')
-    today = precedent_time.today()
-    for p in paths:
-        cfg['decommissioned'].append({'path': p.rstrip('/'), 'reason': reason,
-                               'decommissioned_at': today})
-    (ROOT / REGISTRY).parent.mkdir(parents=True, exist_ok=True)
-    (ROOT / REGISTRY).write_text(
-        json.dumps(cfg, indent=2, ensure_ascii=False) + '\n', encoding='utf-8')
+    today = record_decommissioned(ROOT, paths, reason, cfg)
     _git('add', '--', REGISTRY)
     return today
+
+
+def file_refusals(root, rel):
+    """The refusals that are about the FILE itself, not about who mentions
+    it: untracked, uncommitted edits, a live workflow trigger. -> [sentence].
+
+    audit() runs these plus the reference search. precedent_vendor_engine.py's
+    legacy sweep runs only these, and reports references instead of refusing
+    on them, the way every other refresh deletion does (its dependents_of):
+    in a consuming repo the materialized practices/ and the vendored
+    manifests name every retired workflow by design, so a reference refusal
+    there would refuse every time and delete nothing. These three are the
+    ones deletion can actually get wrong -- content that exists nowhere
+    else, and a job that stops with nobody told."""
+    root = pathlib.Path(root)
+    rel = rel.rstrip('/')
+    ls = _git('ls-files', '--error-unmatch', '--', rel, cwd=root)
+    if ls.returncode != 0:
+        return [f'{rel!r} is not tracked by git -- deleting it would destroy '
+                f'the only copy, so it is left for a person to look at']
+    return _dirty_refusal(root, rel) + _live_refusal(root, rel)
+
+
+def _dirty_refusal(root, rel):
+    if _git('status', '--porcelain', '--', rel, cwd=root).stdout.strip():
+        return [f'{rel!r} has uncommitted changes -- commit or discard them '
+                f'first. Git history holds a deleted file forever; it holds '
+                f'nothing that was never committed']
+    return []
+
+
+def _live_refusal(root, rel):
+    if not rel.startswith('.github/workflows/'):
+        return []
+    try:
+        text = (pathlib.Path(root) / rel).read_text(encoding='utf-8',
+                                                    errors='ignore')
+    except OSError:
+        return []
+    live = live_triggers_in_text(text)
+    if not live:
+        return []
+    return [f'{rel} is still live -- its `on:` block carries '
+            f'{", ".join(live)}. Pause it (comment the trigger out, '
+            f'leave workflow_dispatch) and let a cycle pass before '
+            f'decommissioning it, so the decommissioning is never the first '
+            f'thing that stops a running job']
 
 
 def main(argv=None):

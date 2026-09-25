@@ -79,6 +79,15 @@ checks against each manifest's own vendored tree — any FAIL exits non-zero:
      the rules in force, record a decline in the manifest, or delete it.
      It is a guess from wording, which is why it warns and never fails.
 
+  8. THE ENGINE IS VENDORED WHERE A REFRESH CAN REACH IT. A repo can run
+     the loader (check 5 passes) with its engine sitting only under
+     process/upstream/tools/ and no tools/ENGINE_MANIFEST.json -- the
+     migration stopped before its step 7. Then "Update Vendors" has nothing
+     to run `refresh` with, so no engine fix, hook fix or cleanup of the old
+     install's leftovers ever reaches it. Measured 2026-09-24 in one of six
+     installs, still carrying both retired workflows. FAILS until the
+     migration is finished (spec/MIGRATING_EXISTING_INSTALLS.md step 7).
+
 Run:  python3 process/upstream/tools/practice_audit.py                    # gate (all manifests)
       python3 process/upstream/tools/practice_audit.py --update-baseline  # re-record hashes
       python3 process/upstream/tools/practice_audit.py --manifest process/manifest.json  # one manifest
@@ -455,6 +464,27 @@ def loader_gaps(root):
     return gaps
 
 
+ENGINE_MANIFEST = 'tools/ENGINE_MANIFEST.json'
+
+
+def engine_gap(root):
+    """Check 8: a sentence when this repo loads the vendored catalogue but
+    never vendored the engine at its own tools/, else None. Silent where
+    check 5 already fails -- a classic install is told to migrate, whole,
+    and this is one step of that -- and where no catalogue is vendored.
+    Shared with checkin.py, like loader_gaps."""
+    if not (root / 'process' / 'upstream' / 'practices').is_dir():
+        return None
+    if loader_gaps(root) or (root / ENGINE_MANIFEST).is_file():
+        return None
+    return (f'{ENGINE_MANIFEST} does not exist, so the loader engine was never '
+            f'vendored at this repo\'s own tools/ (the migration stopped '
+            f'before its step 7). "Update Vendors" cannot run a refresh here, '
+            f'so no engine fix, hook fix or cleanup of the old install\'s '
+            f'leftover workflows ever reaches this repo. Finish the '
+            f'migration: ' + MIGRATION_DOC)
+
+
 def loader(fails):
     gaps = loader_gaps(ROOT)
     if not gaps:
@@ -502,6 +532,9 @@ def audit(update=False, only=None):
                     for e in json.loads(m.read_text(encoding='utf-8')).get('entries', [])}
     layout(fails, claimed)  # check 4 — root hygiene, once per audit
     loader(fails)           # check 5 — the catalogue is actually in force
+    gap = engine_gap(ROOT)  # check 8 — a refresh can reach the engine
+    if gap:
+        fails.append("ENGINE: " + gap)
     for name, i, text in prose_declines(ROOT):  # check 7 — warn only
         warns.append(f"{name}:{i} reads like a decline or a blanket precedence "
                      f"clause written as prose, which check 6 cannot see. Review "
@@ -542,6 +575,11 @@ if __name__ == '__main__':
                   "tell anyone they are. Say so to the person first thing, and "
                   "offer the migration (the classic install was retired "
                   "2026-09-23): " + MIGRATION_DOC)
+        gap = engine_gap(ROOT)
+        if gap:
+            print("PRECEDENT'S ENGINE WAS NEVER VENDORED HERE: " + gap
+                  + " Say so to the person first thing, and offer to finish "
+                    "the migration.")
         sys.exit(0)
     only = None
     if '--manifest' in args:

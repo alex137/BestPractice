@@ -748,16 +748,17 @@ _SECOND_PASS_ENV = 'PRECEDENT_VENDOR_ENGINE_SECOND_PASS'
 # ENGINE_MANIFEST.json under its own `hook_files`/`hooks_sha256` keys so
 # there is still one provenance record per repo, not two.
 #
-# WHAT THIS DELIBERATELY DOES NOT DO YET, said out loud rather than silently
-# missing (same discipline as the "what is deliberately in neither list"
-# passage above). No RETIRED_HOOK_FILES tombstone and no per-kind file list:
-# both kinds run the same Claude Code adapter, so every hook applies to
-# both. No untracked-hand-copy detector (_untracked_engine_files's hook
-# analog) -- a stray hand-copied hook is a real but unmeasured risk, not
-# something this pass closes. If a hook is ever renamed or dropped upstream,
-# the old copy is left behind in a consumer's .claude/hooks/, the same way
-# an engine file used to be before _remove_dropped_engine_files existed --
-# a known gap, not a silent one, closed properly if and when it happens.
+# HOW A HOOK LEAVES A CONSUMER (corrected 2026-09-24; this passage used to
+# say no removal existed, which stopped being true on 2026-09-21). A hook
+# the previous manifest recorded and upstream no longer ships, or one named
+# in RETIRED_HOOK_FILES, is deleted by _remove_dropped_hook_files when its
+# hash still matches. An UNTRACKED copy of a RETIRED_HOOK_FILES name --
+# vendored before `hook_files` existed -- is deleted by
+# retire_legacy_leftovers when its content matches the recogniser and
+# nothing in .claude/settings.json still calls it. There is still no
+# per-kind hook list: both kinds run the same Claude Code adapter, so every
+# hook applies to both. A hook upstream never shipped at all is the repo's
+# own and nothing here touches it.
 #
 # .claude/settings.json is deliberately NOT vendored here.
 # precedent_install.py's _harness() already leaves it alone once it exists,
@@ -1184,6 +1185,7 @@ def _write_hook_files(dest_root, hooks_src_dir):
     claimed = _adapter_claimed_paths(dest_root)
     adapter_owned = {n for n in available
                      if f'{HOOK_DEST_DIR}/{n}' in claimed}
+    available -= set(RETIRED_HOOK_FILES)
     names = sorted((available & wired) - adapter_owned)
     skipped = sorted(available - wired - adapter_owned)
     # A hook this repo wires from somewhere OTHER than .claude/hooks/ is
@@ -1299,7 +1301,8 @@ def _remove_dropped_hook_files(dest_root, manifest_path, available,
         return []
     previous = list(manifest.get('hook_files') or [])
     prev_hashes = manifest.get('hooks_sha256') or {}
-    dropped = sorted(n for n in previous if n not in available)
+    dropped = sorted(n for n in previous
+                     if n not in available or n in RETIRED_HOOK_FILES)
     if not dropped:
         return []
     dest_hooks = dest_root / HOOK_DEST_DIR
@@ -2054,6 +2057,14 @@ def _remove_retired_ci_workflow_files(dest_root, manifest, kind=None):
             deleted.append(rel)
         else:
             kept.append(rel)
+            if rel in LEGACY_CI_WORKFLOWS and LEGACY_CI_WORKFLOWS[rel][1](
+                    f.read_text(encoding='utf-8', errors='ignore')):
+                # Hand-paused copies of these are the common case (two of
+                # the five measured installs). The legacy sweep, which runs
+                # next, recognises this one by content and deletes it, so
+                # telling the reader to delete it by hand would be wrong.
+                # A copy it will NOT recognise still gets the warning.
+                continue
             why = RETIRED_CI_WORKFLOW_FILES.get(
                 rel, f'this kind ({kind}) no longer ships it')
             print(f"WARN: precedent_vendor_engine: {rel} was retired "
@@ -2078,6 +2089,485 @@ def _remove_retired_ci_workflow_files(dest_root, manifest, kind=None):
     print(f"precedent_vendor_engine: dropped {len(dropped)} retired CI workflow "
           f"tracking entry(s) from the manifest ({', '.join(dropped)}).")
     return dropped
+
+
+# --- Leftovers of the pre-Precedent install, recognised by CONTENT
+#
+# WHY THIS EXISTS (Morgan, 2026-09-24, strength: decided): "this needs to be
+# deleted from ALL installs, the migration to the new precedent should [have]
+# deleted this." Measured the same day in six of his installs: the old
+# install's workflows survived in five of them, a month after migration.
+#
+# WHY THE TWO REMOVERS ABOVE NEVER SAW THEM. _remove_retired_ci_workflow_files
+# and _remove_dropped_hook_files only consider a path the manifest recorded,
+# and only while its hash still matches. An install older than that tracking
+# recorded nothing, and a hand-paused copy no longer matches, so both kinds
+# were structurally invisible: `bestpractice-docs.yml` had been retired for
+# three days and was still in all five installs that had it -- two tracked but
+# hand-paused, three never tracked at all.
+#
+# WHY CONTENT AND NEVER THE NAME. Every copy of these files differs (four
+# installs, four different `bestpractice-upstream-sync.yml`s), so no single
+# hash can recognise them. And a name alone has already deleted live checks:
+# the 2026-09-20 sweep trusted a filename and took out nine
+# (spec/CI_MINUTES_PLAN.md item 14), `light-check.yml` among them, which is a
+# LIVE check in most installs. So a path is deleted only when its content has
+# the old install's structural shape, and a file with the name but not the
+# shape is kept and reported for a person to read. `light-check.yml` is on no
+# list here at all.
+#
+# WHAT IS REUSED RATHER THAN FORKED. precedent_decommission.py's refusals
+# about the file itself (untracked, uncommitted edits, a live trigger) and its
+# registry, process/decommissioned_paths.json. Its reference search is NOT
+# applied as a refusal, the same call dependents_of() makes for every other
+# refresh deletion: a consumer's materialized practices/ names every retired
+# workflow by design, so that refusal would fire every time and delete
+# nothing. The references are reported instead.
+LEGACY_REASON_UPSTREAM_SYNC = (
+    'the pre-Precedent scheduled upstream sync, retired 2026-09-24 (Morgan: '
+    '"this needs to be deleted from ALL installs"). Its schedule came off '
+    '2026-09-14 and "Update Vendors" replaced it; the manual trigger it kept '
+    'ran a job nothing uses')
+LEGACY_REASON_DOCS = (
+    'the Markdown-lint workflow, retired 2026-09-21 -- doc_lint.py already '
+    'gates every commit as the light check (spec/BILLING_FLOOR.md)')
+LEGACY_REASON_VIEWS_DRIFT = (
+    'folded into precedent-check.yml.template as its own job, 2026-09-19 '
+    '(spec/CI_MINUTES_PLAN.md item 9)')
+
+_USES_RE = re.compile(r'^\s*-?\s*uses:\s*["\']?([^@\s"\']+)', re.M)
+_PY_RE = re.compile(r'([\w./-]*\w)\.py\b')
+_SECRET_RE = re.compile(r'secrets\.([A-Za-z_][A-Za-z0-9_]*)')
+_STOCK_ACTIONS = {'actions/checkout', 'actions/setup-python'}
+
+
+def _code_lines(text):
+    return '\n'.join(ln for ln in text.splitlines()
+                     if not ln.lstrip().startswith('#'))
+
+
+def _workflow_facts(text):
+    """-> (actions used, .py basenames run or named) from the non-comment
+    lines of a workflow. Comments are dropped first: a header saying what a
+    file USED to run is exactly what a hand-paused copy carries."""
+    code = _code_lines(text)
+    uses = set(_USES_RE.findall(code))
+    scripts = {pathlib.PurePosixPath(m + '.py').name for m in _PY_RE.findall(code)}
+    return uses, scripts
+
+
+def _is_legacy_upstream_sync(text):
+    uses, scripts = _workflow_facts(text)
+    return 'anthropics/claude-code-action' in uses or 'checkin.py' in scripts
+
+
+def _is_legacy_docs(text):
+    uses, scripts = _workflow_facts(text)
+    return (scripts == {'doc_lint.py'} and uses <= _STOCK_ACTIONS)
+
+
+def _is_legacy_views_drift(text):
+    uses, scripts = _workflow_facts(text)
+    return (bool(scripts) and scripts <= {'build_views.py', 'precedent_sync_views.py'}
+            and uses <= _STOCK_ACTIONS)
+
+
+# path -> (why it is retired, content recogniser). A recogniser tests the
+# SHAPE only; whether the file is still live is precedent_decommission's
+# refusal, applied separately so the report can say which of the two held it.
+LEGACY_CI_WORKFLOWS = {
+    '.github/workflows/bestpractice-upstream-sync.yml':
+        (LEGACY_REASON_UPSTREAM_SYNC, _is_legacy_upstream_sync),
+    '.github/workflows/bestpractice-docs.yml':
+        (LEGACY_REASON_DOCS, _is_legacy_docs),
+    '.github/workflows/views-drift.yml':
+        (LEGACY_REASON_VIEWS_DRIFT, _is_legacy_views_drift),
+}
+
+# Pre-Precedent names with NO stock shape anyone can point at: none of them
+# was ever a template in this repository, on any branch, so there is nothing
+# to recognise them against. Never deleted here -- listed, so the session
+# running "Update Vendors" reads each one (vendor-update-runbook's "Retire
+# legacy leftovers" step). `commit-identity.yml` is a leftover only in a
+# CONSUMER; a practice set runs its own on purpose.
+LEGACY_CI_WORKFLOWS_TO_READ = {
+    '.github/workflows/practice-links-travel.yml':
+        'its check now runs inside precedent-check.yml as the '
+        '`practice-links-travel` case -- confirm that suite runs here, then '
+        'decommission this copy',
+    '.github/workflows/status-claims-check.yml': None,
+    '.github/workflows/unified-prompt-check.yml': None,
+    '.github/workflows/platform-docs-check.yml': None,
+    '.github/workflows/commit-identity.yml': None,
+}
+_LEGACY_TO_READ_KINDS = {'.github/workflows/commit-identity.yml': {'consumer'}}
+
+# Hook analog of RETIRED_CI_WORKFLOW_FILES + LEGACY_CI_WORKFLOWS: name ->
+# (why, content recogniser). EMPTY ON PURPOSE, and read as a decision: no
+# hook BestPractice ever shipped has been renamed or dropped (git history of
+# templates/harness/claude-code/hooks/, checked 2026-09-24), and the six
+# installs measured that day carry no hook of the old install -- their one
+# extra hook, a Stop hook enforcing file-mention-links, is live and enforces
+# a practice nothing else enforces. The mechanism exists so the FIRST drop
+# propagates: _remove_dropped_hook_files honours a tombstone here for a
+# tracked copy, and _retire_legacy_hooks for an untracked one.
+RETIRED_HOOK_FILES = {}
+
+# Config fields nothing reads any more, deleted from these files on refresh.
+RETIRED_CONFIG_FIELDS = {
+    'ci_debounce_minutes':
+        'retired 2026-09-20 -- the debounce job cost the minute it was '
+        'deciding whether to spend (spec/BILLING_FLOOR.md)',
+}
+_CONFIG_FILES = ('precedent.json', 'identity.json')
+
+# Secrets the old install's workflows read, which no current template does.
+LEGACY_SECRETS = ('PERSONAL_PACK_TOKEN',)
+
+# Filled by the sweeps below, printed once at the end of refresh() as
+# "Left for you": what the code would not do, and why.
+_LEFT_FOR_YOU = []
+
+
+def _left(item, why):
+    _LEFT_FOR_YOU.append((item, why))
+
+
+def _decommission_module():
+    """precedent_decommission, vendored beside this file -- or None when the
+    copy on disk predates the helpers this sweep shares with it (the first
+    pass of a self-replacing refresh runs against an older one)."""
+    try:
+        sys.path.insert(0, str(ENGINE_DIR))
+        import precedent_decommission as pd
+    except Exception:                                          # noqa: BLE001
+        return None
+    if not all(hasattr(pd, n) for n in ('file_refusals', 'record_decommissioned',
+                                         'read_registry')):
+        return None
+    return pd
+
+
+def _drop_process_manifest_entries(dest_root, rel):
+    """Remove every process/manifest*.json entry whose local_path is `rel`,
+    which was just deleted -> [manifest names touched]. practice_audit.py
+    FAILS on an entry whose local file is gone, so leaving one behind turns
+    a correct deletion into a red check. Three measured installs carried a
+    `diverged` entry for bestpractice-docs.yml."""
+    touched = []
+    proc = dest_root / 'process'
+    if not proc.is_dir():
+        return touched
+    for m in sorted(proc.glob('manifest*.json')):
+        try:
+            data = json.loads(m.read_text(encoding='utf-8'))
+        except (OSError, ValueError):
+            continue
+        entries = data.get('entries')
+        if not isinstance(entries, list):
+            continue
+        kept = [e for e in entries
+                if not (isinstance(e, dict) and e.get('local_path') == rel)]
+        if len(kept) != len(entries):
+            data['entries'] = kept
+            m.write_text(json.dumps(data, indent=2, ensure_ascii=False) + '\n',
+                         encoding='utf-8')
+            touched.append(m.name)
+    return touched
+
+
+def _retire_one(dest_root, pd, rel, reason):
+    """Delete `rel` if precedent_decommission's file refusals allow it, and
+    record it. -> True when deleted."""
+    refusals = pd.file_refusals(dest_root, rel)
+    if refusals:
+        _left(rel, 'recognised as a leftover of the old install, but not '
+                   'deleted: ' + '; '.join(refusals))
+        return False
+    # `git rm`, as precedent_decommission's own --apply does, so the
+    # deletion is staged with its record: decommission-deletes-files reads
+    # the TRACKED set, and an unstaged delete still counts as tracked.
+    if pd._git('rm', '-q', '--', rel, cwd=dest_root).returncode != 0:
+        (dest_root / rel).unlink()
+    try:
+        pd.record_decommissioned(dest_root, [rel], reason)
+        pd._git('add', '--', pd.REGISTRY, cwd=dest_root)
+    except ValueError as e:
+        _left(rel, f'deleted, but not recorded: {e}')
+    touched = _drop_process_manifest_entries(dest_root, rel)
+    print(f"precedent_vendor_engine refresh: retired {rel} -- {reason}. "
+          f"Recorded in {pd.REGISTRY}"
+          + (f"; dropped its entry from {', '.join(touched)}" if touched else '')
+          + '.')
+    return True
+
+
+def _retire_legacy_workflows(dest_root, manifest, kind, pd):
+    """-> ({rel: text} deleted, [rel kept]). See the block comment above."""
+    tracked = set(manifest.get('ci_workflow_files') or ())
+    declared = local_ci_workflows(dest_root)
+    deleted, kept = {}, []
+    for rel, (reason, recognise) in sorted(LEGACY_CI_WORKFLOWS.items()):
+        f = dest_root / rel
+        if not f.is_file() or rel in tracked or rel in declared:
+            continue
+        text = f.read_text(encoding='utf-8', errors='ignore')
+        if not recognise(text):
+            kept.append(rel)
+            _left(rel, 'carries a retired name but NOT the old install\'s '
+                       'shape, so it was kept -- read it. If it is this '
+                       'repo\'s own check, declare it under '
+                       f'`{LOCAL_CI_WORKFLOWS_KEY}` in precedent.json with a '
+                       'reason; if it is a leftover, decommission it with '
+                       'tools/precedent_decommission.py')
+            continue
+        if pd is None:
+            kept.append(rel)
+            _left(rel, 'recognised as a leftover, but the vendored '
+                       'precedent_decommission.py predates this sweep -- '
+                       'refresh once more and it goes')
+            continue
+        if _retire_one(dest_root, pd, rel, reason):
+            deleted[rel] = text
+        else:
+            kept.append(rel)
+    for rel, hint in sorted(LEGACY_CI_WORKFLOWS_TO_READ.items()):
+        kinds = _LEGACY_TO_READ_KINDS.get(rel)
+        if kinds is not None and kind not in kinds:
+            continue
+        if not (dest_root / rel).is_file() or rel in tracked or rel in declared:
+            continue
+        _left(rel, 'a workflow name from before Precedent with no stock shape '
+                   'to recognise it by, so nothing here deletes it. Read what '
+                   'it runs'
+                   + (f' ({hint})' if hint else '')
+                   + '; decommission it if a current check covers it, or '
+                   f'declare it under `{LOCAL_CI_WORKFLOWS_KEY}` if it is '
+                   'this repo\'s own')
+    if deleted:
+        _warn_about_dependents(dest_root, sorted(deleted),
+                               'retired as a leftover of the pre-Precedent install')
+    return deleted, kept
+
+
+def _retire_legacy_hooks(dest_root, manifest, pd):
+    """Untracked analog of _remove_dropped_hook_files, for RETIRED_HOOK_FILES.
+    A WIRED copy is never deleted: .claude/settings.json is the repo's own
+    and a refresh never writes it, and deleting a script it still calls
+    breaks every session start. -> [names deleted]"""
+    tracked = set(manifest.get('hook_files') or ())
+    wired = _wired_hook_names(dest_root)
+    deleted = []
+    for name, (reason, recognise) in sorted(RETIRED_HOOK_FILES.items()):
+        f = dest_root / HOOK_DEST_DIR / name
+        if not f.is_file() or name in tracked:
+            continue
+        rel = f'{HOOK_DEST_DIR}/{name}'
+        if not recognise(f.read_text(encoding='utf-8', errors='ignore')):
+            _left(rel, 'carries a retired hook name but not its shape -- kept; '
+                       'read it')
+            continue
+        if name in wired:
+            _left(rel, f'a retired hook ({reason}) still wired in '
+                       '.claude/settings.json -- remove that entry, then '
+                       'refresh again and it is deleted')
+            continue
+        if pd is not None and _retire_one(dest_root, pd, rel, reason):
+            deleted.append(name)
+    return deleted
+
+
+def _without_json_key(text, key):
+    """`text` with the top-level `"key": <scalar>` line removed, keeping every
+    other byte -> new text, or None if that cannot be done safely. A person's
+    precedent.json is hand-formatted and commented in `_comment` keys, so
+    re-serialising it would rewrite the whole file to delete one line."""
+    try:
+        before = json.loads(text)
+    except ValueError:
+        return None
+    if not isinstance(before, dict) or key not in before:
+        return None
+    expected = {k: v for k, v in before.items() if k != key}
+    # A file already in a canonical json.dumps shape is rewritten in that
+    # same shape -- the line surgery below cannot reach a key sharing its
+    # line with a brace.
+    tail = text[len(text.rstrip('\n')):]
+    for fmt in ({'indent': 2, 'ensure_ascii': False}, {}):
+        if json.dumps(before, **fmt) == text.rstrip('\n'):
+            return json.dumps(expected, **fmt) + tail
+    lines = text.splitlines(keepends=True)
+    pat = re.compile(r'^\s*"' + re.escape(key) + r'"\s*:\s*[^{\[]*?,?\s*$')
+    hits = [i for i, ln in enumerate(lines) if pat.match(ln)]
+    if len(hits) != 1:
+        return None
+    i = hits[0]
+    had_comma = lines[i].rstrip().endswith(',')
+    del lines[i]
+    if not had_comma:
+        # It was the last member: the one before it loses its comma.
+        for j in range(i - 1, -1, -1):
+            if lines[j].strip():
+                lines[j] = re.sub(r',(\s*)$', r'\1', lines[j])
+                break
+    out = ''.join(lines)
+    try:
+        after = json.loads(out)
+    except ValueError:
+        return None
+    return out if after == expected else None
+
+
+def _remove_retired_config_fields(dest_root):
+    """Delete RETIRED_CONFIG_FIELDS from precedent.json / identity.json.
+    -> [(file, field)] removed."""
+    removed = []
+    for name in _CONFIG_FILES:
+        f = dest_root / name
+        if not f.is_file():
+            continue
+        text = f.read_text(encoding='utf-8')
+        for field, why in RETIRED_CONFIG_FIELDS.items():
+            try:
+                present = field in (json.loads(text) or {})
+            except (ValueError, TypeError):
+                present = False
+            if not present:
+                continue
+            new = _without_json_key(text, field)
+            if new is None:
+                _left(f'{name}: {field}', f'{why}. Could not be removed '
+                      'without reformatting the file -- delete the field by '
+                      'hand')
+                continue
+            text = new
+            f.write_text(text, encoding='utf-8')
+            removed.append((name, field))
+            print(f"precedent_vendor_engine refresh: removed `{field}` from "
+                  f"{name} -- {why}.")
+    return removed
+
+
+def stale_source_paths(dest_root):
+    """-> [(name, path, why)] for a declared source whose clone path does not
+    carry its current name. The practice sets were renamed
+    precedent-team-* -> precedent-shared-*; two measured installs still
+    declared the old paths, and one the old names too. GitHub redirects a
+    renamed repository indefinitely, so the only symptom is a second clone of
+    the same set, or no clone at all where nothing clones it."""
+    try:
+        cfg = json.loads((dest_root / 'precedent.json').read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return []
+    sources = cfg.get('sources') if isinstance(cfg, dict) else None
+    if isinstance(sources, dict):
+        sources = list(sources.values())
+    out = []
+    for s in sources or []:
+        if not isinstance(s, dict):
+            continue
+        name, path = str(s.get('name') or ''), str(s.get('path') or '')
+        if not path.startswith('../'):
+            continue
+        base = pathlib.PurePosixPath(path).name
+        if name.startswith('precedent-team-') or base.startswith('precedent-team-'):
+            out.append((name, path, 'names a precedent-team-* set, renamed '
+                        'precedent-shared-*'))
+        elif base != name:
+            out.append((name, path, f'the path is {base!r} but the source is '
+                        f'{name!r}'))
+    return out
+
+
+_IDENTITY_RE = re.compile(
+    r'git\s+config\s+(?:--(?:global|local)\s+)?user\.(?:name|email)\s+'
+    r'["\']?[^"\'$\s-]')
+
+
+def hardcoded_identities(dest_root):
+    """-> ['path:line'] where a tracked wiring file sets a literal git
+    identity. A shared template must never name a person
+    (no-hardcoded-git-identity); commit-identity.sh resolves whoever is
+    running the session. Four of five measured installs carried an old
+    tools/bootstrap.sh doing exactly this."""
+    hits = []
+    for rel in ('tools/bootstrap.sh', '.claude/settings.json'):
+        try:
+            lines = (dest_root / rel).read_text(encoding='utf-8').splitlines()
+        except (OSError, UnicodeDecodeError):
+            continue
+        for n, ln in enumerate(lines, 1):
+            s = ln.strip()
+            if s.startswith('#') or s.startswith('echo') or 'echo ' in s:
+                continue
+            if _IDENTITY_RE.search(s):
+                hits.append(f'{rel}:{n}')
+    return hits
+
+
+def _orphaned_secrets(dest_root, deleted_texts):
+    """Secrets a just-deleted legacy workflow read that no remaining workflow
+    reads, plus the known legacy names when nothing reads them. Only the
+    person can delete a repository secret, and a credential with no reader
+    is a live key nobody is watching."""
+    remaining = set()
+    wf = dest_root / '.github' / 'workflows'
+    if wf.is_dir():
+        for p in wf.iterdir():
+            if p.suffix in ('.yml', '.yaml') and p.is_file():
+                remaining |= set(_SECRET_RE.findall(
+                    p.read_text(encoding='utf-8', errors='ignore')))
+    read_before = set()
+    for text in deleted_texts.values():
+        read_before |= set(_SECRET_RE.findall(text))
+    orphaned = (read_before - remaining) - {'GITHUB_TOKEN'}
+    if deleted_texts:
+        orphaned |= set(LEGACY_SECRETS) - remaining
+    return sorted(orphaned)
+
+
+def retire_legacy_leftovers(dest_root, manifest, kind):
+    """Run every legacy sweep; called at the top of refresh(), after
+    _remove_retired_ci_workflow_files (which clears a hand-paused tracked
+    entry first, so the untracked sweep then sees it). -> {'deleted': [...],
+    'secrets': [...]}. Everything it declined lands in _LEFT_FOR_YOU."""
+    pd = _decommission_module()
+    deleted_wf, _kept = _retire_legacy_workflows(dest_root, manifest, kind, pd)
+    deleted_hooks = _retire_legacy_hooks(dest_root, manifest, pd)
+    _remove_retired_config_fields(dest_root)
+    for name, path, why in stale_source_paths(dest_root):
+        _left(f'precedent.json source {name!r} at {path}',
+              f'{why} -- repoint it to the current name (vendor-update-runbook, '
+              f'"Retire legacy leftovers")')
+    for where in hardcoded_identities(dest_root):
+        _left(where, 'sets a literal git identity; replace the file from '
+                     'upstream templates/ -- commit-identity.sh resolves who '
+                     'is committing')
+    secrets = _orphaned_secrets(dest_root, deleted_wf)
+    for s in secrets:
+        _left(f'secret {s}', 'no remaining workflow reads it -- if it is set '
+                             'on this repository, only you can delete it '
+                             '(Settings -> Secrets and variables -> Actions)')
+    return {'deleted': sorted(deleted_wf) + [f'{HOOK_DEST_DIR}/{n}'
+                                             for n in deleted_hooks],
+            'secrets': secrets}
+
+
+def print_left_for_you():
+    """The closing list: what this refresh would not do by itself. Printed
+    even when the refresh had nothing else to do, because that is the run a
+    session reads as "all clean"."""
+    if not _LEFT_FOR_YOU:
+        return
+    print("\nLeft for you -- this refresh would not do these by itself "
+          "(vendor-update-runbook, \"Retire legacy leftovers\"):")
+    seen = set()
+    for item, why in _LEFT_FOR_YOU:
+        if (item, why) in seen:
+            continue
+        seen.add((item, why))
+        print(f"  - {item}: {why}")
+    _LEFT_FOR_YOU.clear()
 
 
 def _ci_workflow_incomplete(dest_root, kind, ci_workflows_dir, manifest):
@@ -2804,6 +3294,11 @@ def refresh(clone, force=False, ref=None):
     # own retirement can never be the reason refresh refuses. See
     # RETIRED_CI_WORKFLOW_FILES' own comment for the incident this closes.
     _remove_retired_ci_workflow_files(ROOT, manifest, kind)
+    # Then what no manifest ever recorded: the old install's own leftovers,
+    # recognised by content. Also before the drift check, so a hand-paused
+    # copy that _remove_retired_ci_workflow_files just stopped tracking is
+    # judged here rather than refused there. See LEGACY_CI_WORKFLOWS.
+    retire_legacy_leftovers(ROOT, manifest, kind)
 
     # A declared engine path that would give one file two writers is refused
     # before anything else, --force or not: force discards an edit, it does
@@ -2924,8 +3419,9 @@ def refresh(clone, force=False, ref=None):
         # (_wired_hook_names) -- never the full glob. Vendoring a hook this
         # repo never wired is the orphan hooks-on-disk-are-reachable exists
         # to catch; see _wired_hook_names's docstring for the incident.
-        # No hook analog of set_orphaned -- see HOOK_SOURCE_DIR's own comment
-        # on the deliberately-missing tombstone/removal mechanism.
+        # No hook analog of set_orphaned here: a hook upstream stops shipping
+        # is removed by _remove_dropped_hook_files inside _write_hook_files,
+        # and an untracked retired one by retire_legacy_leftovers at the top.
         new_hook_names = set(_hook_file_names(engine_dir / 'hooks')) & _wired_hook_names(ROOT)
         hooks_incomplete = sorted(
             n for n in new_hook_names
@@ -2954,6 +3450,7 @@ def refresh(clone, force=False, ref=None):
             # self-replacing refresh, and every later re-run, stayed silent.
             _warn_catalogue_skew(ROOT, new_commit)  # ROOT, not `dest` -- see below
             _warn_legacy_status_records(ROOT)
+            print_left_for_you()
             return 0
 
         if set_incomplete and new_commit == manifest.get('source_commit'):
@@ -3037,6 +3534,9 @@ def refresh(clone, force=False, ref=None):
         print("precedent_vendor_engine refresh: this refresh replaced the "
               "vendoring tool itself, so its own file list may have changed "
               "-- running once more with the new copy.")
+        # The second pass runs every sweep again and prints its own list;
+        # printing this one too would say each item twice.
+        _LEFT_FOR_YOU.clear()
         r = subprocess.run(
             [sys.executable, str(HERE), 'refresh', str(clone), '--force']
             + (['--from-ref', ref] if ref else []),
@@ -3045,6 +3545,7 @@ def refresh(clone, force=False, ref=None):
             return r.returncode
 
     _warn_bare_sync_invocations(ROOT)
+    print_left_for_you()
     print("next: review the diff, then `python3 tools/precedent_sync_views.py "
           "--repo .` (a refresh changes what the loader renders, so `--check` "
           "is expected to FAIL until the sync has run), review that diff too, "

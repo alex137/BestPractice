@@ -573,7 +573,7 @@ widening what sessions may run
 6. **Retire the old PACK's sync workflow entirely — the file is deleted,
    not disabled** (the workflow that vendored the second tree; the
    consuming repo's own `bestpractice-upstream-sync.yml` is a different
-   file and stays — see below. There is nothing left to vendor-and-sync for the
+   file, retired too — see below. There is nothing left to vendor-and-sync for the
    team/individual sources — they resolve live). Keeping the sibling
    clones themselves fresh becomes a session-start concern (a best-effort
    `git pull --ff-only` for the team clone; the individual clone's own
@@ -588,9 +588,22 @@ widening what sessions may run
    retire a workflow whose `on:` block carries any trigger but
    `workflow_dispatch`, so a retirement is never the first thing that
    stops a running job), let one cycle pass, then run the same audit-then-
-   `--apply` sequence step 5 describes. **Not every stood-down workflow is
-   being retired:** a consuming repo's `bestpractice-upstream-sync.yml`
-   stays, on `workflow_dispatch` only, so a person can still run it by hand.
+   `--apply` sequence step 5 describes.
+
+   **The consuming repo's own `bestpractice-upstream-sync.yml` goes too**
+   (2026-09-24, Morgan, strength: decided — *"this needs to be deleted from
+   ALL installs, the migration to the new precedent should [have] deleted
+   this"*). `Update Vendors` replaced it, and nothing runs it. You rarely
+   have to do this by hand: from the first refresh after step 7 seeds the
+   engine, `precedent_vendor_engine.py refresh` deletes it whenever its
+   content has the old shape (manual trigger only, running
+   `anthropics/claude-code-action` or [checkin.py](../tools/checkin.py)), tracked or not, and
+   records the deletion. A copy it cannot recognise, or one still on a live
+   trigger, is listed under **Left for you** at the end of the refresh, and
+   [vendor-update-runbook](../practices/vendor-update-runbook.md) step 10
+   has the session finish it. The secrets only it read
+   (`CLAUDE_CODE_OAUTH_TOKEN`, `ANTHROPIC_API_KEY`) are the person's to
+   delete, if nothing else reads them; the same step files them as one todo.
 
    **What changed 2026-09-14:** this used to read "stays, paused
    deliberately", pointing at
@@ -603,8 +616,17 @@ widening what sessions may run
    ([decision-strength](../practices/decision-strength.md)). So the
    `schedule:` block is **deleted, not commented out**, and the workflow
    keeps only its manual trigger. The distinction the old wording drew — a
-   hold versus a leftover — still matters for the *file*, which stays; it
-   just no longer applies to the schedule, which is gone.
+   hold versus a leftover — still mattered then for the *file*, which
+   stayed; on 2026-09-24 the file went too (below).
+
+   **What changed 2026-09-24:** until then this step said the file stays,
+   on `workflow_dispatch` only, "so a person can still run it by hand". That
+   reason outlived its premise. The file was kept first as a paused hold with
+   a condition for lifting it, then, once the schedules were killed on
+   2026-09-14, as a manual fallback. The 2026-09-24 audit of six installs
+   found four different copies, the only reader of the Claude keys in each
+   repo carrying one, and in the one repo whose run history it read, three
+   runs and no success. "Update Vendors" had been doing its job all along.
 
    **The same pass also sweeps every OTHER pre-Precedent `.github/workflows/`
    file this repo carries** (2026-09-16, spec/CI_MINUTES_PLAN.md items
@@ -616,16 +638,20 @@ widening what sessions may run
 
    | File | Verdict |
    |---|---|
-   | `bestpractice-upstream-sync.yml` | **Not retired — de-scheduled.** Stays, per the finding above; if it still carries a `schedule:` trigger, drop it to `workflow_dispatch` only, same as this step already does for the pack-sync workflow. |
-   | `practice-links-travel.yml` | Superseded once `precedent-check.yml` is installed and green — its check now runs as one case inside that whole-suite job (`practice-links-travel` in `tools/precedent_check.py`'s registry). Confirm the suite run covers it, then delete the standalone file. |
-   | `light-check.yml`, `commit-identity.yml` (the ordinary dependent-repo copy, not the practice-set workflow this step already covers), `status-claims-check.yml`, `unified-prompt-check.yml`, `platform-docs-check.yml` | **No trace in this repo's own history** — none of them were ever a Precedent template, in this branch or any other this repo can see. Confirm in the repo carrying the file what each one actually checks before touching it; a check with no equivalent anywhere in the current engine is a gap to raise with the person, not a file to delete on a guess. |
+   | `bestpractice-upstream-sync.yml` | **Retired** (2026-09-24, above). The refresh deletes a copy with the old shape automatically; anything else it lists for the session. |
+   | `bestpractice-docs.yml` | **Retired** (2026-09-21 — [tools/doc_lint.py](../tools/doc_lint.py) already gates every commit). The refresh deletes a copy that only runs that linter, hand-paused or not, tracked or not. |
+   | `views-drift.yml` | **Retired** (2026-09-19, folded into `precedent-check.yml`). Deleted by the refresh when paused and stock-shaped; a live copy is listed, to be paused first. |
+   | `practice-links-travel.yml` | Superseded once `precedent-check.yml` is installed and green — its check now runs as one case inside that whole-suite job (`practice-links-travel` in `tools/precedent_check.py`'s registry). Confirm the suite run covers it, then delete the standalone file. The refresh lists it; it never deletes it. |
+   | `commit-identity.yml` (the ordinary dependent-repo copy, not the practice-set workflow this step already covers), `status-claims-check.yml`, `unified-prompt-check.yml`, `platform-docs-check.yml` | **No trace in this repo's own history** — none of them were ever a Precedent template, in this branch or any other this repo can see. Confirm in the repo carrying the file what each one actually checks before touching it; a check with no equivalent anywhere in the current engine is a gap to raise with the person, not a file to delete on a guess. The refresh lists each one it finds. |
+   | `light-check.yml` | **Not a leftover.** It is a current template ([templates/github-actions/light-check.yml.template](../templates/github-actions/light-check.yml.template), added 2026-09-21) and a live check in most installs, sometimes running the repo's own `tools/light_check.py`. Nothing deletes it. Until 2026-09-24 this table listed it with the "never a Precedent template" row, which stopped being true the day the template landed. |
 
    Applying `ci_workflows`
    ([GITHUB_ACTIONS.md](../documentation/GITHUB_ACTIONS.md)) to whatever CI templates this
    migration keeps is part of the same pass, per
    [spec/INSTALL_QUESTIONS.md](INSTALL_QUESTIONS.md)'s row for it.
    `ci_debounce_minutes` is **retired** (2026-09-20) and is not applied to
-   anything: a migration that finds the field in a repo deletes it. It
+   anything: the refresh deletes the field from `precedent.json` and
+   `identity.json` (since 2026-09-24; before that, by hand). It
    bought nothing at any setting, because the job that read it cost the
    same billed minute it was deciding whether to spend
    ([spec/BILLING_FLOOR.md](BILLING_FLOOR.md)).

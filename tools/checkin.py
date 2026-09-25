@@ -1126,6 +1126,19 @@ def _loader_notice():
         from practice_audit import loader_gaps, MIGRATION_DOC
     except Exception:  # an older vendored audit; the audit itself still runs
         return
+    try:
+        from practice_audit import engine_gap
+    except Exception:
+        engine_gap = None
+    gap = engine_gap(ROOT) if engine_gap else None
+    if gap:
+        # practice_audit's check 8, said at the update that could not reach
+        # the engine: this mirror refreshed the catalogue and nothing else.
+        bar = '!' * 72
+        print(f"\n{bar}\nTHIS UPDATE REFRESHED THE CATALOGUE ONLY. {gap}\n"
+              f"Follow vendor-update-runbook's \"Retire legacy leftovers\" "
+              f"step: say so, confirm with the person, and finish the "
+              f"migration in this same change.\n{bar}", file=sys.stderr)
     gaps = loader_gaps(ROOT)
     if gaps:
         bar = '!' * 72
