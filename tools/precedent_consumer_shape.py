@@ -164,6 +164,9 @@ def run(root):
 
 
 def main(argv):
+    if '-h' in argv or '--help' in argv:
+        print(__doc__)
+        return 0
     root = None
     if '--repo' in argv:
         i = argv.index('--repo')
