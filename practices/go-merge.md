@@ -146,7 +146,8 @@ person's primary branch
 `python3 tools/precedent_branches.py --landing` names it: `pre-staging`,
 unless the person's `landing_branch` says `staging` -- then the branch the
 repository declares, `base_branch` in its `precedent.json`, which in most
-repositories is `main`. **Landing on pre-staging,
+repositories is `main` -- or `main` itself, which skips staging but never
+the checks, and still answers to the repository's own rule about main. **Landing on pre-staging,
 bring it in first**: `python3 tools/precedent_branches.py
 --sync-pre-staging` creates it from staging when origin has none, then
 merge `origin/pre-staging` into the work before pushing, so every window

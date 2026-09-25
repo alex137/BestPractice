@@ -63,7 +63,7 @@ first line, with the reason.
   and merges — **without asking again.** **Either path ends on the branch on
   `origin`** — the person's landing branch
   (`python3 tools/precedent_branches.py --landing`: `pre-staging`, unless
-  their `landing_branch` says `staging`), for the pull request
+  their `landing_branch` says `staging` or `main`), for the pull request
   too; never `main` for being the configured default. **A high-risk change
   landed on pre-staging gets a bolded paragraph in the reply and a line in
   The Boildown asking the person to act: "Please move this to staging soon:
@@ -91,7 +91,7 @@ first line, with the reason.
   target it explicitly; say it bare and it defaults to the primary branch
   the work is already on — the person's landing branch
   (`python3 tools/precedent_branches.py --landing`), which is
-  `pre-staging` unless their `landing_branch` says `staging`; never `main` just because that is the repository's
+  `pre-staging` unless their `landing_branch` says `staging` or `main`; never `main` just because that is the repository's
   configured default. Not a standing exemption — it authorizes the change
   in front of it, not every change after it.
 - **"Drop it"** ([park-it](practices/park-it.md)) — write

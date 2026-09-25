@@ -16271,6 +16271,11 @@ def check_promote_pre_staging():
                       "declared base, still named beta here)",
                       out.split('\n')[0] == 'beta'))
         (indiv / 'identity.json').write_text(_json.dumps(
+            {'email': 'p@example.com', 'landing_branch': 'main'}), encoding='utf-8')
+        rc, out = branches('--landing')
+        cases.append(("a person's landing_branch can send it straight to main",
+                      out.split('\n')[0] == 'main'))
+        (indiv / 'identity.json').write_text(_json.dumps(
             {'email': 'p@example.com', 'landing_branch': 'somewhere'}), encoding='utf-8')
         rc, out = branches('--landing')
         cases.append(('an unreadable landing_branch lands on staging, never somewhere new',

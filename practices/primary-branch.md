@@ -40,7 +40,7 @@ default chosen just because it is configured that way.
 on** ([spec/BRANCH_TIERS_PLAN.md](https://github.com/alex137/BestPractice/blob/staging/spec/BRANCH_TIERS_PLAN.md)):
 `python3 tools/precedent_branches.py --landing` names it -- `pre-staging`
 for everyone since 2026-09-25, unless a person's `landing_branch` says
-staging, the branch the repository declares above. Staging and main are then what the
+staging, the branch the repository declares above, or `main`. Staging and main are then what the
 primary branch is promoted into, never where routine work is pushed.
 Morgan, 2026-09-25: *"we now have a concept called \"primary branch\" -
 that should probably be updated in reference to this"* (strength:
