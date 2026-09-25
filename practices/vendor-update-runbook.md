@@ -243,8 +243,26 @@ says so, both from the vendored tree under `process/upstream/`.
    the **Left for you** list for step 10(d). Before this date nothing
    delivered a template change to an installed copy; a real consumer ran
    two days without the session-start freshness check for exactly that
-   reason. Nothing else outside `tools/`, `.claude/hooks/`, the CI workflows
-   and `tools/bootstrap.sh` is touched.
+   reason.
+   **Since 2026-09-25 it also refreshes the sections `AGENTS.md` took from
+   its template, on the same terms, one section at a time.** A section is a
+   `##` or `###` heading and what follows it; the generated loader block is
+   not one, and stays the sync's (step 5). An unedited section — matching
+   the hash recorded under `agents_md_sections_sha256`, or with nothing
+   recorded, identical to that section in some past version of the
+   template — is rewritten to the current template. An edited one is never
+   rewritten, `--force` included: it is reported `DIVERGED` with each
+   bullet, paragraph or table row of the template's section it lacks, down
+   to the missing sentences, and goes on **Left for you**. A section the
+   template has and the file does not is reported `MISSING` once, and never
+   written in. Before this date whatever the template wrote at install was
+   frozen: a template fix reached no installed repo, and nothing said so.
+   The same run lists every line of `AGENTS.md`, `CLAUDE.md` and
+   `tools/bootstrap.sh` that still names a **retired branch**
+   (`precedent-beta-v01`, renamed `staging` on 2026-09-25), outside the
+   generated block. Nothing else outside `tools/`, `.claude/hooks/`, the CI
+   workflows, `tools/bootstrap.sh` and those `AGENTS.md` sections is
+   touched.
    **Since 2026-09-19, check whether this refresh newly vendors
    `tools/todo_migrate.py` or `tools/build_todo_index.py`** — the one-time
    per-item TODO migration tool and its ongoing index generator
@@ -434,7 +452,9 @@ says so, both from the vendored tree under `process/upstream/`.
     repo just clones the same set twice, or not at all. Run step 8's tool
     afterwards.
 
-    **(d) Bring a diverged `tools/bootstrap.sh` up to the template.** The
+    **(d) Bring diverged template-written text up to the template:
+    `tools/bootstrap.sh`, `AGENTS.md`'s sections, and retired branch
+    names.** For `tools/bootstrap.sh`: the
     refresh already rewrote an unedited copy (step 3). One it reported
     `DIVERGED` has local edits, and the output lists each block of upstream
     `templates/bootstrap.sh` it lacks, as `templates/bootstrap.sh:LINE
@@ -443,6 +463,23 @@ says so, both from the vendored tree under `process/upstream/`.
     added**, then re-run step 3's refresh: it should report the file as
     carrying every block. Never replace the whole file to get there, and
     never reach for `--force`, which does not touch it anyway.
+
+    **For each `AGENTS.md` section reported `DIVERGED`**, the output names
+    the template line of each block the section lacks, and under a block it
+    has only part of, each sentence it lacks. Read each against what the
+    section already says. Where the repo says the same thing in its own
+    words, leave it — the report compares text, not meaning, so a local
+    rewrite of a template sentence always lists that sentence. Where it
+    does not, copy the template's text in, fill its `<placeholders>` with
+    this repo's real names, and keep every line the repo added. A section
+    reported `MISSING`: copy it in where it belongs if it applies here, or
+    leave it out and say so in the reply — the next refresh notes it in one
+    line and stops listing it. **Each retired branch name** the run lists:
+    change it to the new name on that line, unless the line records the
+    rename on purpose, in which case name the new branch on the same line
+    and the report stops listing it. Upstream keeps the old name working as
+    an alias until no refresh reports one, so this is not an emergency, and
+    it is how the alias gets to retire.
 
     **In the same file, remove a hardcoded git identity.** A literal
     `git config user.name` or `user.email` in `tools/bootstrap.sh` or

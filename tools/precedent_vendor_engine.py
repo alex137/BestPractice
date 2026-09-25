@@ -3274,6 +3274,585 @@ def record_template_instances(dest_root, kind, source_root):
     return [manifest_path]
 
 
+# --- AGENTS.md's template-written sections ----------------------------------
+# The same gap as TEMPLATE_INSTANCES above, one file over, closed the same
+# way on 2026-09-25. precedent_install.py writes AGENTS.md from
+# templates/AGENTS.md.loader.template once, and from then on the only part
+# of it anything rewrites is the generated loader block, which
+# precedent_sync_views.py owns. Every other section the template wrote --
+# "### Session start", "### Two check levels", "## Git / workflow" and the
+# rest -- was frozen at install, so no fix to the template ever reached an
+# installed repo, and nothing said so. Measured the same day in a real
+# consumer: the template's session-start bullet told a session to attach the
+# individual practice set but not where its clone lives, the attach tool
+# said /home/user/<name>, the session-start hook had already cloned it to
+# ~/precedent-individual (the only copy anything reads), and within the
+# hour the two copies had diverged. The consumer fixed its own copy by hand;
+# no template fix could have reached it.
+#
+# THE UNIT IS A SECTION, NOT THE FILE. AGENTS.md is the one file every repo
+# is told to fill in, so the file as a whole is always edited; comparing it
+# whole would call every install diverged and deliver nothing. A section is
+# a `##` or `###` heading and everything up to the next one (or the
+# generated block's marker), keyed by the heading line. A template heading
+# that is itself a placeholder (`## <Deliverable build workflow>`) is the
+# repo's to name and is never tracked; its fixed-heading subsections are.
+#
+# WHAT HAPPENS TO EACH, per refresh -- never a local edit overwritten:
+#   current  -- already the template's text (placeholders substituted the
+#               way install substitutes them). Recorded.
+#   refresh  -- matches the hash recorded for it, so nobody edited it, and
+#               the template moved. Rewritten; the new text recorded.
+#   adopt    -- nothing recorded (every install before this date), but
+#               identical to the section in SOME past version of either
+#               AGENTS.md template. Stock, so rewritten and recorded -- the
+#               one-time catch-up.
+#   diverged -- anything else. Left alone, --force included, and reported
+#               with every block (bullet, paragraph, table row) of the
+#               current template's section it lacks, down to the sentences
+#               where it has part of one. On the Left-for-you list.
+#   missing  -- the template has the section, this AGENTS.md does not, and
+#               no refresh has seen that before. Reported and put on the
+#               list, never written in: where it belongs in a file this
+#               repo has rearranged is a judgment. Recorded as absent, so
+#               the next refresh says it in one line rather than again in
+#               full -- a section a repo chose not to have is a decision.
+#   absent   -- that, on a later refresh.
+# A heading that appears twice in AGENTS.md is diverged: no write can know
+# which of the two was meant.
+AGENTS_MD = 'AGENTS.md'
+AGENTS_MD_TEMPLATES = {
+    # First is the template a refresh writes from. The classic one is
+    # history only: a repo migrated onto the loader may still carry a
+    # section exactly as the classic template wrote it, which is stock too.
+    'consumer': ('templates/AGENTS.md.loader.template',
+                 'templates/AGENTS.md.template'),
+    'source': (),
+}
+AGENTS_MD_SECTIONS_KEY = 'agents_md_sections_sha256'
+_AGENTS_MD_HISTORY_NAME = 'agents-md-history.json'
+_GENERATED_BEGIN = '<!-- BEGIN GENERATED'
+_GENERATED_END = '<!-- END GENERATED'
+_MD_HEADING_RE = re.compile(r'^(#{1,3})\s+\S')
+_MD_PLACEHOLDER_RE = re.compile(r'<[A-Za-z][^<>\n]{0,70}>')
+_MD_ITEM_RE = re.compile(r'^\s*(?:[-*+]|\d+\.)\s')
+# A block whose own words, placeholders aside, are fewer than this is an
+# example row for the repo to replace ("| <key deliverable> and its
+# builder | `<path>` |"), not text it can be said to lack.
+_MIN_LITERAL_WORDS = 4
+
+
+def _agents_md_subs(dest_root):
+    """The substitutions precedent_install.py makes in AGENTS.md, as far as
+    any section can carry them: `<default-branch>` from precedent.json's
+    base_branch, and the upstream URL. The rest of install's map never
+    appears in this template, and a template placeholder not listed here
+    stays for the person to fill in, as install leaves it."""
+    try:
+        branch = json.loads((dest_root / 'precedent.json')
+                            .read_text(encoding='utf-8')).get('base_branch')
+    except (OSError, ValueError):
+        branch = None
+    return {'<precedent upstream URL>': SOURCE_REPO,
+            '<default-branch>': branch if isinstance(branch, str) and branch.strip()
+            else 'main'}
+
+
+def _instantiate(text, subs):
+    for old, new in subs.items():
+        text = text.replace(old, new)
+    return text
+
+
+def _md_sections(text):
+    """-> [(key, first, end)] for each `##`/`###` section of a markdown
+    file, as 0-based line indexes into text.split('\\n'), `end` exclusive
+    and short of any trailing blank lines. Headings inside a fenced block,
+    an HTML comment or the generated loader block do not count; the
+    generated block and a `#` heading both end the section before them."""
+    lines = text.split('\n')
+    out, cur = [], None
+    fence = comment = generated = False
+
+    def close(end):
+        if cur is None:
+            return
+        while end > cur[1] + 1 and not lines[end - 1].strip():
+            end -= 1
+        out.append((cur[0], cur[1], end))
+
+    for i, line in enumerate(lines):
+        s = line.strip()
+        if generated:
+            if s.startswith(_GENERATED_END):
+                generated = False
+            continue
+        if s.startswith(_GENERATED_BEGIN):
+            close(i)
+            cur, generated = None, True
+            continue
+        if comment:
+            if '-->' in s:
+                comment = False
+            continue
+        if s.startswith('```') or s.startswith('~~~'):
+            fence = not fence
+            continue
+        if fence:
+            continue
+        if s.startswith('<!--') and '-->' not in s[4:]:
+            comment = True
+            continue
+        m = _MD_HEADING_RE.match(line)
+        if m:
+            close(i)
+            cur = (line.rstrip(), i) if len(m.group(1)) > 1 else None
+    close(len(lines))
+    return out
+
+
+def _section_text(lines, first, end):
+    return '\n'.join(ln.rstrip() for ln in lines[first:end])
+
+
+def _template_sections(text):
+    """-> {key: (line_no, raw_text)} for every trackable section of a
+    template: fixed heading, first occurrence."""
+    lines = text.split('\n')
+    out = {}
+    for key, first, end in _md_sections(text):
+        if _MD_PLACEHOLDER_RE.search(key) or key in out:
+            continue
+        out[key] = (first + 1, _section_text(lines, first, end))
+    return out
+
+
+def _sha_text(text):
+    return hashlib.sha256(text.encode('utf-8')).hexdigest()
+
+
+def _read_agents_md_sources(clone, commit, kind, out_dir):
+    """Write the current AGENTS.md template at `commit` into
+    out_dir/<its path>, and every section text either template has ever
+    carried, keyed by heading, into out_dir/agents-md-history.json -- the
+    catch-up's evidence of what stock looked like. Read-only against
+    `clone`. `--follow`, because the classic template began as
+    templates/CLAUDE.md.template."""
+    history = {}
+    for n, src_rel in enumerate(AGENTS_MD_TEMPLATES.get(kind, ())):
+        if n == 0:
+            blob = subprocess.run(['git', '-C', str(clone), 'show',
+                                   f'{commit}:{src_rel}'], capture_output=True)
+            if blob.returncode == 0:
+                out = out_dir / src_rel
+                out.parent.mkdir(parents=True, exist_ok=True)
+                out.write_bytes(blob.stdout)
+        ok, log = _git_read(clone, 'log', '--follow', '--format=@%H',
+                            '--name-only', commit, '--', src_rel)
+        if not ok:
+            continue
+        sha = None
+        for line in log.splitlines():
+            line = line.strip()
+            if line.startswith('@'):
+                sha = line[1:]
+            elif line and sha:
+                old = subprocess.run(['git', '-C', str(clone), 'show',
+                                      f'{sha}:{line}'], capture_output=True)
+                if old.returncode != 0:
+                    continue
+                text = old.stdout.decode('utf-8', errors='replace')
+                for key, (_n, sec) in _template_sections(text).items():
+                    seen = history.setdefault(key, [])
+                    if sec not in seen:
+                        seen.append(sec)
+    (out_dir / _AGENTS_MD_HISTORY_NAME).write_text(json.dumps(history),
+                                                   encoding='utf-8')
+
+
+def _agents_md_plan(dest_root, kind, templates_dir, manifest):
+    """-> [(key, src_rel, line_no, action, span)], one per trackable section
+    of the current template, in template order -- see the block comment
+    above for the actions. `span` is (first, end) in AGENTS.md, or None.
+    Empty when there is no AGENTS.md or no template to compare with."""
+    srcs = AGENTS_MD_TEMPLATES.get(kind, ())
+    path = dest_root / AGENTS_MD
+    if not srcs or not (templates_dir / srcs[0]).is_file() or not path.is_file():
+        return []
+    subs = _agents_md_subs(dest_root)
+    template = _template_sections((templates_dir / srcs[0]).read_text(encoding='utf-8'))
+    try:
+        history = json.loads((templates_dir / _AGENTS_MD_HISTORY_NAME)
+                             .read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        history = {}
+    recorded = manifest.get(AGENTS_MD_SECTIONS_KEY) or {}
+    local = path.read_text(encoding='utf-8')
+    lines = local.split('\n')
+    spans = collections.defaultdict(list)
+    for key, first, end in _md_sections(local):
+        spans[key].append((first, end))
+    plan = []
+    for key, (line_no, raw) in template.items():
+        found = spans.get(key) or []
+        if not found:
+            plan.append((key, srcs[0], line_no,
+                         'absent' if key in recorded else 'missing', None))
+            continue
+        if len(found) > 1:
+            plan.append((key, srcs[0], line_no, 'diverged', None))
+            continue
+        span = found[0]
+        text = _section_text(lines, *span)
+        if text == _instantiate(raw, subs):
+            action = 'current'
+        elif recorded.get(key):
+            action = 'refresh' if _sha_text(text) == recorded[key] else 'diverged'
+        elif any(text in (past, _instantiate(past, subs))
+                 for past in history.get(key) or ()):
+            action = 'adopt'
+        else:
+            action = 'diverged'
+        plan.append((key, srcs[0], line_no, action, span))
+    return plan
+
+
+def _agents_md_pending(plan, manifest):
+    """True when applying `plan` would change AGENTS.md or the manifest."""
+    recorded = manifest.get(AGENTS_MD_SECTIONS_KEY) or {}
+    for key, _s, _n, action, _span in plan:
+        if action in ('refresh', 'adopt', 'missing'):
+            return True
+        if action == 'current' and not recorded.get(key):
+            return True
+        if action == 'absent' and recorded.get(key) is not None:
+            return True
+    return False
+
+
+def _md_blocks(section_text):
+    """-> [(offset, text)] for each block of a section body: a list item, a
+    table row, a fenced block or a paragraph, whitespace-collapsed, `offset`
+    its first line's index within the section. HTML comments and the
+    heading are skipped: a comment is guidance to whoever fills the
+    template in, and a repo deleting it has lost nothing."""
+    lines = section_text.split('\n')
+    out, cur, start = [], [], 0
+    comment = fence = False
+
+    def flush():
+        if cur:
+            out.append((start, ' '.join(' '.join(cur).split())))
+        cur.clear()
+
+    for i, line in enumerate(lines[1:], 1):
+        s = line.strip()
+        if comment:
+            if '-->' in s:
+                comment = False
+            continue
+        if fence:
+            cur.append(s)
+            if s.startswith('```') or s.startswith('~~~'):
+                fence = False
+                flush()
+            continue
+        if s.startswith('<!--'):
+            flush()
+            comment = '-->' not in s[4:]
+            continue
+        if s.startswith('```') or s.startswith('~~~'):
+            flush()
+            start, fence = i, True
+            cur.append(s)
+            continue
+        if not s:
+            flush()
+            continue
+        if s.startswith('|'):
+            flush()
+            if not re.fullmatch(r'[|:\-\s]+', s):
+                out.append((i, s))
+            continue
+        if _MD_ITEM_RE.match(line) or not cur:
+            flush()
+            start = i
+        cur.append(s)
+    flush()
+    return out
+
+
+def _sentences(text):
+    """Split whitespace-collapsed text after `.`, `!` or `?` and a space --
+    never inside a `code span`, where `--repo .` is not a sentence end."""
+    out, cur, code = [], [], False
+    for i, ch in enumerate(text):
+        cur.append(ch)
+        if ch == '`':
+            code = not code
+        elif ch == ' ' and not code and i and text[i - 1] in '.!?':
+            out.append(''.join(cur).strip())
+            cur = []
+    if ''.join(cur).strip():
+        out.append(''.join(cur).strip())
+    return out
+
+
+def _wildcard(text):
+    """A regex for `text` in which each remaining template placeholder
+    matches whatever a repo filled it in with -- or None when the text
+    carries too few words of its own to be lacked (_MIN_LITERAL_WORDS)."""
+    pieces = _MD_PLACEHOLDER_RE.split(text)
+    if len(re.findall(r'[A-Za-z]{2,}', ' '.join(pieces))) < _MIN_LITERAL_WORDS:
+        return None
+    return re.compile('.+?'.join(re.escape(p) for p in pieces))
+
+
+def missing_markdown_blocks(local_section, template_section):
+    """-> [(offset, title, how, absent_sentences)] for each block of
+    `template_section` that `local_section` does not carry. Compared on
+    whitespace-collapsed text, so rewrapping and local lines added around a
+    block never count against it; a placeholder the repo filled in matches
+    whatever it was filled with. `how` is 'missing' when not one of the
+    block's sentences is there, else how many are absent or changed."""
+    have_lines = [ln for ln in local_section.split('\n')[1:]]
+    have = ' '.join(' '.join(have_lines).split())
+    out = []
+    for offset, block in _md_blocks(template_section):
+        whole = _wildcard(block)
+        if whole is None or whole.search(have):
+            continue
+        sentences = _sentences(block)
+        absent = []
+        for s in sentences:
+            rx = _wildcard(s)
+            if rx is not None and not rx.search(have):
+                absent.append(s)
+        if not absent:
+            # Every sentence is there, just not as one run -- reordered or
+            # split by a local line. Nothing to copy in.
+            continue
+        title = block if len(block) <= 72 else block[:69].rstrip() + '...'
+        how = ('missing' if len(absent) == len(sentences)
+               else f'{len(absent)} of its {len(sentences)} sentences absent or changed')
+        out.append((offset, title, how, absent if absent != sentences else []))
+    return out
+
+
+def _report_agents_md(dest_root, templates_dir, plan):
+    """Print what refresh (or status) found in AGENTS.md's template
+    sections, and put what needs a person on the Left-for-you list. Every
+    run, the early exit included, for the reason
+    _report_diverged_template_instances gives."""
+    if not plan:
+        return
+    subs = _agents_md_subs(dest_root)
+    lines = (dest_root / AGENTS_MD).read_text(encoding='utf-8').split('\n')
+    template_text = None
+    complete = []
+    for key, src_rel, line_no, action, span in plan:
+        if action == 'missing':
+            print(f"MISSING: {AGENTS_MD} has no \"{key}\" section; upstream's "
+                  f"{src_rel}:{line_no} has one. Not written in: where it goes "
+                  f"in this file is a judgment. The next refresh says this in "
+                  f"one line.")
+            _left(f'{AGENTS_MD} "{key}"', f'the template has this section and '
+                  f'this file does not -- copy it in from {src_rel}:{line_no} '
+                  f'if it applies here, or leave it out on purpose '
+                  f'(vendor-update-runbook step 10(d))')
+            continue
+        if action == 'absent':
+            print(f"  NOTE: {AGENTS_MD} still has no \"{key}\" section "
+                  f"({src_rel}:{line_no}) -- left out, as at the last refresh.")
+            continue
+        if action != 'diverged':
+            continue
+        if span is None:
+            print(f"DIVERGED: {AGENTS_MD} has \"{key}\" more than once, so "
+                  f"refresh cannot tell which is the template's and leaves "
+                  f"both alone. Merge them into one.")
+            _left(f'{AGENTS_MD} "{key}"', 'appears more than once -- merge '
+                  'them, then refresh again')
+            continue
+        if template_text is None:
+            template_text = _template_sections(
+                (templates_dir / src_rel).read_text(encoding='utf-8'))
+        t_line, raw = template_text[key]
+        lacks = missing_markdown_blocks(_section_text(lines, *span),
+                                        _instantiate(raw, subs))
+        if not lacks:
+            complete.append(key)
+            continue
+        print(f"DIVERGED: {AGENTS_MD} \"{key}\" (line {span[0] + 1}) has local "
+              f"edits, so refresh leaves it alone (it never overwrites a line "
+              f"of it, --force included). It lacks {len(lacks)} block(s) the "
+              f"current template's section carries:")
+        for offset, title, how, absent in lacks:
+            print(f"    {src_rel}:{t_line + offset} \"{title}\" -- {how}")
+            for s in absent:
+                print(f"        lacks: \"{s if len(s) <= 160 else s[:157] + '...'}\"")
+        _left(f'{AGENTS_MD} "{key}"', f'diverged from {src_rel} and lacks '
+              f'{len(lacks)} of its blocks (listed above) -- copy each in by '
+              f'hand, keeping this repo\'s own text (vendor-update-runbook '
+              f'step 10(d))')
+    if complete:
+        print(f"DIVERGED, nothing to copy in: {AGENTS_MD} "
+              f"{', '.join(repr(k) for k in complete)} carr"
+              f"{'ies' if len(complete) == 1 else 'y'} local edits and every "
+              f"block of the template's version -- left as they are.")
+
+
+def _refresh_agents_md(dest_root, templates_dir, manifest, plan):
+    """Apply `plan`: rewrite each 'refresh'/'adopt' section to the current
+    template, bottom-up so earlier spans stay valid, and read-modify-write
+    ENGINE_MANIFEST.json's AGENTS_MD_SECTIONS_KEY -- after
+    _write_engine_files, like _refresh_template_instances, and for the
+    same reason a diverged section keeps whatever was recorded for it.
+
+    Returns the section keys rewritten. With no plan (no AGENTS.md, or a
+    ref whose template is gone) what was recorded is carried over as it
+    was: _write_engine_files has just dropped it, and a baseline lost is
+    an unedited section the next refresh can only judge from history."""
+    recorded = dict(manifest.get(AGENTS_MD_SECTIONS_KEY) or {})
+    rewritten = []
+    if plan:
+        rewritten = _apply_agents_md_plan(dest_root, templates_dir, plan, recorded)
+    if not plan and not recorded:
+        return []
+    manifest_path = dest_root / 'tools' / MANIFEST_NAME
+    live = json.loads(manifest_path.read_text(encoding='utf-8'))
+    live[AGENTS_MD_SECTIONS_KEY] = recorded
+    manifest_path.write_text(json.dumps(live, indent=2, ensure_ascii=False) + '\n',
+                             encoding='utf-8')
+    return rewritten
+
+
+def _apply_agents_md_plan(dest_root, templates_dir, plan, recorded):
+    """_refresh_agents_md's write to AGENTS.md itself; updates `recorded`
+    in place and returns the section keys rewritten, in file order."""
+    subs = _agents_md_subs(dest_root)
+    path = dest_root / AGENTS_MD
+    lines = path.read_text(encoding='utf-8').split('\n')
+    template = _template_sections(
+        (templates_dir / plan[0][1]).read_text(encoding='utf-8'))
+    rewritten = []
+    for key, _src, _n, action, span in sorted(
+            plan, key=lambda p: p[4][0] if p[4] else -1, reverse=True):
+        new = _instantiate(template[key][1], subs)
+        if action in ('refresh', 'adopt'):
+            lines[span[0]:span[1]] = new.split('\n')
+            rewritten.append(key)
+        if action in ('refresh', 'adopt', 'current'):
+            recorded[key] = _sha_text(new)
+        elif action in ('missing', 'absent'):
+            recorded[key] = None
+    if rewritten:
+        path.write_text('\n'.join(lines), encoding='utf-8')
+    return list(reversed(rewritten))
+
+
+def record_agents_md_sections(dest_root, kind, source_root):
+    """Record a baseline for each AGENTS.md section an installer just wrote
+    from the template -- called by precedent_install.py after seed(), as
+    record_template_instances is. A section that already differs (an
+    AGENTS.md kept from before the install) is left unrecorded, for the next
+    refresh to judge from history."""
+    manifest_path = dest_root / 'tools' / MANIFEST_NAME
+    srcs = AGENTS_MD_TEMPLATES.get(kind, ())
+    if not srcs or not manifest_path.is_file() \
+            or not (source_root / srcs[0]).is_file() \
+            or not (dest_root / AGENTS_MD).is_file():
+        return []
+    manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
+    recorded = dict(manifest.get(AGENTS_MD_SECTIONS_KEY) or {})
+    subs = _agents_md_subs(dest_root)
+    template = _template_sections((source_root / srcs[0]).read_text(encoding='utf-8'))
+    local = (dest_root / AGENTS_MD).read_text(encoding='utf-8')
+    lines = local.split('\n')
+    for key, first, end in _md_sections(local):
+        if key in template and _section_text(lines, first, end) == \
+                _instantiate(template[key][1], subs):
+            recorded[key] = _sha_text(_section_text(lines, first, end))
+    manifest[AGENTS_MD_SECTIONS_KEY] = recorded
+    manifest_path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + '\n',
+                             encoding='utf-8')
+    return [manifest_path]
+
+
+# --- A renamed branch, still named in a repo's own text --------------------
+# 525e90a (2026-09-25) renamed precedent-beta-v01 to staging. The engine's
+# own pin moved with the refresh that carried it; the text a repo wrote
+# itself did not: a real consumer measured that day named the old branch on
+# six lines of AGENTS.md and three of tools/bootstrap.sh, in links, in a
+# `git clone --branch` line and in a session-start warning.
+#
+# TWO WAYS THAT TEXT COULD CATCH UP, and why this is the second. (1) Keep
+# the old name as an alias until consumers catch up. It already is one --
+# every Promote fast-forwards precedent-beta-v01 to staging -- and that is
+# what keeps the stale lines working today. But an alias alone never tells
+# anyone the text is stale, so "until consumers catch up" has no event to
+# end on, and the alias has to live forever. (2) Report every mention, on
+# every refresh and status. That is the half that actually reaches the
+# text, and it gives the alias its retirement condition: it goes once no
+# consumer's refresh reports one. So both, with the report as the
+# mechanism and the alias as the bridge.
+#
+# What is left out: a line inside the generated block (the next sync
+# rewrites it from the catalogue; a hand edit there is refused), and a line
+# that also names the new branch, which is recording the rename rather than
+# using the old name ("`staging` (named `precedent-beta-v01` until ...)").
+RETIRED_BRANCH_NAMES = {
+    # old name: (new name, date renamed)
+    'precedent-beta-v01': ('staging', '2026-09-25'),
+}
+RETIRED_NAME_FILES = ('AGENTS.md', 'CLAUDE.md', 'tools/bootstrap.sh')
+
+
+def retired_branch_mentions(dest_root):
+    """-> [(rel, line_no, old, new)] for each line of RETIRED_NAME_FILES
+    that names a retired branch -- see the block comment above for what is
+    left out."""
+    out = []
+    for rel in RETIRED_NAME_FILES:
+        path = dest_root / rel
+        if not path.is_file():
+            continue
+        generated = False
+        for n, line in enumerate(path.read_text(encoding='utf-8', errors='replace')
+                                 .splitlines(), 1):
+            s = line.strip()
+            if s.startswith(_GENERATED_BEGIN):
+                generated = True
+            elif s.startswith(_GENERATED_END):
+                generated = False
+                continue
+            if generated:
+                continue
+            for old, (new, _date) in RETIRED_BRANCH_NAMES.items():
+                if re.search(rf'(?<![\w-]){re.escape(old)}(?![\w-])', line) \
+                        and not re.search(rf'(?<![\w-]){re.escape(new)}(?![\w-])', line):
+                    out.append((rel, n, old, new))
+    return out
+
+
+def _report_retired_branch_names(dest_root):
+    hits = retired_branch_mentions(dest_root)
+    by_old = collections.defaultdict(list)
+    for rel, n, old, new in hits:
+        by_old[(old, new)].append(f'{rel}:{n}')
+    for (old, new), where in by_old.items():
+        date = RETIRED_BRANCH_NAMES[old][1]
+        print(f"RETIRED BRANCH NAME: {len(where)} line(s) of this repo's own text "
+              f"still name {old}, renamed {new} on {date}: {', '.join(where)}. "
+              f"The old name still works for now -- upstream keeps it as an "
+              f"alias until no refresh reports a mention -- so change each to "
+              f"{new} rather than waiting for it to break.")
+        _left(f'{len(where)} mention(s) of {old}',
+              f'renamed {new} on {date} -- change each line listed above '
+              f'(vendor-update-runbook step 10(d))')
+    return hits
+
+
 def _git(cwd, *args):
     """Run git and return stdout, DISCARDING the exit code.
 
@@ -3634,6 +4213,14 @@ def _status_template_instances(clone, commit, kind, manifest):
             if action in says:
                 print(f"  NOTE: {rel} is {says[action]}.")
         _report_diverged_template_instances(ROOT, tmp, plan)
+        _read_agents_md_sources(clone, commit, kind, tmp)
+        agents_plan = _agents_md_plan(ROOT, kind, tmp, manifest)
+        for key, _src, _n, action, _span in agents_plan:
+            if action in ('refresh', 'adopt'):
+                print(f"  NOTE: {AGENTS_MD} \"{key}\" is unedited and behind "
+                      f"the template -- `refresh` brings it up to date.")
+        _report_agents_md(ROOT, tmp, agents_plan)
+        _report_retired_branch_names(ROOT)
         _LEFT_FOR_YOU.clear()   # status only reports; the list is refresh's
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
@@ -3799,6 +4386,9 @@ def _source_tools_at(clone, kind=DEFAULT_KIND, ref=None, fetch=True):
     # with the history of blob ids the catch-up needs -- see
     # TEMPLATE_INSTANCES.
     _read_template_sources(clone, commit, kind, tmp / 'templates')
+    # AGENTS.md's template and the section texts it has ever carried -- see
+    # AGENTS_MD_TEMPLATES.
+    _read_agents_md_sources(clone, commit, kind, tmp / 'templates')
     return commit, tmp
 
 
@@ -4095,11 +4685,17 @@ def refresh(clone, force=False, ref=None):
         template_pending = _template_instances_pending(template_plan, manifest)
         _report_diverged_template_instances(ROOT, engine_dir / 'templates',
                                             template_plan)
+        # AGENTS.md's template-written sections, on the same terms: an
+        # unedited one is brought up to the template, an edited one is only
+        # reported. See AGENTS_MD_TEMPLATES.
+        agents_plan = _agents_md_plan(ROOT, kind, engine_dir / 'templates', manifest)
+        agents_pending = _agents_md_pending(agents_plan, manifest)
+        _report_agents_md(ROOT, engine_dir / 'templates', agents_plan)
 
         if new_commit == manifest.get('source_commit') and not force \
                 and not set_incomplete and not hooks_incomplete and not ci_incomplete \
                 and not engine_paths_incomplete and not template_pending \
-                and not wiring_pending:
+                and not wiring_pending and not agents_pending:
             print(f"precedent_vendor_engine refresh: already current with {SOURCE_BRANCH} "
                   f"@ {new_commit[:12]} -- nothing to do.")
             # Reported here too, and this is the case that matters MOST: a
@@ -4110,6 +4706,7 @@ def refresh(clone, force=False, ref=None):
             # self-replacing refresh, and every later re-run, stayed silent.
             _warn_catalogue_skew(ROOT, new_commit)  # ROOT, not `dest` -- see below
             _warn_legacy_status_records(ROOT)
+            _report_retired_branch_names(ROOT)
             print_left_for_you()
             return 0
 
@@ -4144,6 +4741,10 @@ def refresh(clone, force=False, ref=None):
                   f"template-instanced file needs bringing up to date or "
                   f"recording ({', '.join(r for _s, r, a in template_plan if a != 'diverged')}) "
                   f"-- refreshing anyway.")
+        if agents_pending and new_commit == manifest.get('source_commit'):
+            print(f"NOTICE: the recorded commit already matches, but "
+                  f"{AGENTS_MD}'s template sections need bringing up to date "
+                  f"or recording -- refreshing anyway.")
         if engine_paths_incomplete and new_commit == manifest.get('source_commit'):
             print(f"NOTICE: the recorded commit already matches, but "
                   f"{ENGINE_PATHS_KEY} has changed or is not yet recorded "
@@ -4171,6 +4772,10 @@ def refresh(clone, force=False, ref=None):
         template_rewritten = _refresh_template_instances(
             ROOT, kind, engine_dir / 'templates', manifest, template_plan)
         written += [ROOT / rel for rel in template_rewritten]
+        agents_rewritten = _refresh_agents_md(ROOT, engine_dir / 'templates',
+                                              manifest, agents_plan)
+        if agents_rewritten:
+            written.append(ROOT / AGENTS_MD)
         if engine_paths or manifest.get('engine_paths_sha256'):
             written += _write_engine_paths(ROOT, engine_paths,
                                            engine_path_sources, manifest)
@@ -4184,6 +4789,10 @@ def refresh(clone, force=False, ref=None):
     if template_rewritten:
         print(f"precedent_vendor_engine refresh: brought {', '.join(template_rewritten)} "
               f"up to the current template -- it carried no local edits.")
+    if agents_rewritten:
+        print(f"precedent_vendor_engine refresh: brought {len(agents_rewritten)} "
+              f"{AGENTS_MD} section(s) up to the current template -- none carried "
+              f"local edits: {', '.join(repr(k) for k in agents_rewritten)}.")
     # EVERY RUN, with the reason. This is the whole difference between a
     # declared local workflow and `--force`: force is a decision taken once
     # and never seen again, while a declaration announces itself for as long
@@ -4233,6 +4842,7 @@ def refresh(clone, force=False, ref=None):
             return r.returncode
 
     _warn_bare_sync_invocations(ROOT)
+    _report_retired_branch_names(ROOT)
     print_left_for_you()
     print("next: review the diff, then `python3 tools/precedent_sync_views.py "
           "--repo .` (a refresh changes what the loader renders, so `--check` "
@@ -4285,7 +4895,7 @@ def _warn_bare_sync_invocations(root):
                 "fails the same way. Re-instantiate tools/bootstrap.sh and the "
                 "harness hooks from upstream's templates/, or add `--repo .` "
                 "to each line; a refresh never rewrites a file carrying local "
-                "edits, and never rewrites the instructions file at all.")
+                "edits, nor an instructions-file section that carries any.")
 
 
 def fresh():
