@@ -67,6 +67,21 @@ is keyed on the tree and the check list together, so any change to either
 invalidates it, and it lives in the git directory, never in the tracked
 tree.
 
+AND THE PASS IS SHARED WITH EVERY CHECKOUT (Morgan, 2026-09-25, strength:
+decided). The record above lives in one checkout, and a person working in
+many windows has one checkout per window: a full run in one window was
+invisible to the Promote said in another, which ran the whole suite again
+on files it had already passed. So a recorded pass is also published to
+origin, as the ref refs/precedent-passed/<check list>/<tree> -- a commit
+with an empty tree whose message is the record, so it carries no file of
+the repository and publishes no unpushed work. `--gate` asks origin for
+that ref when this checkout has no record of its own, one `ls-remote`.
+The trade, said plainly: anyone who can push to origin can write one, and
+every checkout then believes it. Only this file writes them, and only after
+every check passed -- the trust the local record already asked for, now
+reaching every window instead of one. PRECEDENT_NO_SHARED_PASS=1 turns
+both halves off.
+
 TWO TIERS, BY BRANCH (spec/BRANCH_TIERS_PLAN.md, Morgan, 2026-09-25,
 strength: decided). A push to staging or main runs every check below -- the
 FULL tier. A push to pre-staging or any other branch runs only the BASIC
@@ -90,6 +105,7 @@ Exit status: 0 everything passed; 1 a check failed; 2 nothing could be run
 """
 import hashlib
 import json
+import os
 import re
 import subprocess
 import sys
@@ -98,6 +114,14 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 RECORD = 'precedent-push-check.json'
+SHARED_REF = 'refs/precedent-passed'
+# The shared pass is a commit of the empty tree: it names the files it
+# vouches for by hash and carries none of them.
+EMPTY_TREE = '4b825dc642cb6eb9a060e54bf8d69288fbee4904'
+SHARED_ENV = {'GIT_AUTHOR_NAME': 'precedent_push_check',
+              'GIT_AUTHOR_EMAIL': 'precedent-push-check@localhost',
+              'GIT_COMMITTER_NAME': 'precedent_push_check',
+              'GIT_COMMITTER_EMAIL': 'precedent-push-check@localhost'}
 TAIL_LINES = 40
 # The lines that say WHY a check failed, printed before the tail. A check can
 # end on pages of lines that are not the finding -- precedent_check prints its
@@ -336,6 +360,66 @@ def already_passed(root, checks, also=()):
     return None
 
 
+def _shared_off(root):
+    return (os.environ.get('PRECEDENT_NO_SHARED_PASS') == '1'
+            or not git(root, 'remote', 'get-url', 'origin'))
+
+
+def _git_env(root, args, timeout, env=None):
+    try:
+        return subprocess.run(['git', '-C', str(root), *args], capture_output=True,
+                              text=True, timeout=timeout,
+                              env=dict(os.environ, **(env or {})))
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+
+
+def shared_pass(root, tree, sigs):
+    """The record another checkout published to origin for `tree` under any
+    of the check-list signatures `sigs`, else None. Never raises: a remote
+    that cannot be reached is a pass not found, and the suite runs."""
+    if not tree or _shared_off(root):
+        return None
+    refs = [f'{SHARED_REF}/{s}/{tree}' for s in sigs]
+    p = _git_env(root, ['ls-remote', 'origin', *refs], 30)
+    if p is None or p.returncode != 0 or not p.stdout.strip():
+        return None
+    sha, _, ref = p.stdout.strip().splitlines()[0].partition('\t')
+    rec = {'tree': tree, 'checks': ref.split('/')[-2], 'shared': ref}
+    f = _git_env(root, ['fetch', '-q', '--no-tags', 'origin', ref], 30)
+    if f is not None and f.returncode == 0:
+        try:
+            rec.update(json.loads(git(root, 'log', '-1', '--format=%B', sha) or '{}'))
+        except ValueError:
+            pass
+    return rec
+
+
+def publish_pass(root, rec):
+    """Publish a recorded pass to origin for every other checkout. Best
+    effort: a failure is said and never fails the run that passed."""
+    if _shared_off(root):
+        return
+    ref = f'{SHARED_REF}/{rec["checks"]}/{rec["tree"]}'
+    _git_env(root, ['hash-object', '-t', 'tree', '-w', '/dev/null'], 10)
+    c = _git_env(root, ['commit-tree', EMPTY_TREE, '-m',
+                        json.dumps(rec, sort_keys=True)], 10, SHARED_ENV)
+    if c is None or c.returncode != 0:
+        print('precedent_push_check: NOTE -- could not make the shared record; '
+              'other checkouts will run the suite themselves.')
+        return
+    # --no-verify: a pre-push hook here is this very check.
+    p = _git_env(root, ['push', '-q', '--no-verify', 'origin',
+                        f'+{c.stdout.strip()}:{ref}'], 60)
+    if p is not None and p.returncode == 0:
+        print('precedent_push_check: shared with every checkout of this '
+              'repository, so no other window re-runs it on these files.')
+    else:
+        why = (p.stderr.strip()[:200] if p is not None else 'timed out')
+        print(f'precedent_push_check: NOTE -- could not share the pass with '
+              f'other checkouts ({why}); they will run the suite themselves.')
+
+
 def _tier_from_args(root, argv):
     """-> (tier, why). --tier wins; else --push-command names the push and
     precedent_branches.py decides; else FULL, today's behaviour."""
@@ -442,11 +526,22 @@ def main(argv):
 
     also = [plan(root, tier=FULL)[1]] if tier == BASIC else []
     rec = already_passed(root, checks, also) if '--gate' in argv else None
+    where = ''
+    if '--gate' in argv and not rec:
+        sigs = [signature(checks), *(signature(c) for c in also)]
+        rec = shared_pass(root, clean_tree(root), sigs)
+        if rec:
+            where = ', in another checkout'
+            path = record_path(root)
+            if path:
+                path.write_text(json.dumps(
+                    {k: v for k, v in rec.items() if k != 'shared'},
+                    indent=2) + '\n', encoding='utf-8')
     if rec:
         when = f' at {rec["at"]}' if rec.get('at') else ''
         print(f'precedent_push_check: this exact tree already passed the '
-              f'{rec.get("tier", tier)} check{when} ({len(checks)} check(s)); '
-              f'nothing to re-run.')
+              f'{rec.get("tier", tier)} check{when}{where} ({len(checks)} '
+              f'check(s)); nothing to re-run.')
         return 0
 
     if git(root, 'rev-parse', '--is-shallow-repository') == 'true':
@@ -487,13 +582,13 @@ def main(argv):
               f'Refresh the vendored engine to get it.')
     path = record_path(root)
     if tree and path:
-        path.write_text(json.dumps({
-            'tree': tree, 'checks': signature(checks), 'kind': kind,
-            'tier': tier, 'at': time.strftime('%Y-%m-%dT%H:%M:%S%z'),
-        }, indent=2) + '\n', encoding='utf-8')
+        rec = {'tree': tree, 'checks': signature(checks), 'kind': kind,
+               'tier': tier, 'at': time.strftime('%Y-%m-%dT%H:%M:%S%z')}
+        path.write_text(json.dumps(rec, indent=2) + '\n', encoding='utf-8')
         print(f'\nprecedent_push_check: all passed in {total:.0f}s; recorded '
               f'for tree {tree[:12]} ({tier}), so a push of this commit will '
               f'not re-run them.')
+        publish_pass(root, rec)
     else:
         print(f'\nprecedent_push_check: all passed in {total:.0f}s, over a '
               f'working tree with uncommitted changes -- NOT recorded, since '

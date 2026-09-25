@@ -15942,6 +15942,53 @@ def check_push_check_gate():
                           'tree', not denied and 'already passed' in again))
             env.pop('PRECEDENT_USER_CONFIG')
 
+        # A pass is shared through origin, so a second checkout -- another
+        # window -- does not re-run the suite on files the first one passed
+        # (Morgan, 2026-09-25). And only exactly those files, at that tier.
+        env['PRECEDENT_USER_CONFIG'] = str(tmp / 'no-config.json')
+        hub = tmp / 'hub.git'
+        git(tmp, 'init', '-q', '--bare', '-b', 'main', str(hub))
+        git(work, 'remote', 'add', 'origin', f'file://{hub}')
+        git(work, 'push', '-q', 'origin', 'HEAD:refs/heads/main')
+
+        def run_check(cwd, *a):
+            return subprocess.run([sys.executable, 'tools/precedent_push_check.py',
+                                   *a], cwd=cwd, capture_output=True, text=True,
+                                  env=env).stdout
+
+        ran = run_check(work, '--tier', 'full')
+        refs = git(hub, 'for-each-ref', 'refs/precedent-passed').stdout
+        cases.append(('a full pass is published to origin as a shared record',
+                      'shared with every checkout' in ran and refs.strip() != ''))
+        other = tmp / 'other'
+        git(tmp, 'clone', '-q', f'file://{hub}', str(other))
+        got = run_check(other, '--gate', '--tier', 'full')
+        cases.append(('another checkout of the same files does not re-run the '
+                      'suite, and says the pass came from elsewhere',
+                      'already passed the full check at' in got
+                      and 'another checkout' in got))
+        blob = (git(hub, 'cat-file', '-p', refs.split()[0]).stdout
+                if refs.split() else '')
+        cases.append(('the shared record carries no file of the repository',
+                      'tree 4b825dc642cb6eb9a060e54bf8d69288fbee4904' in blob))
+        (other / 'list.txt').write_text('changed\n', encoding='utf-8')
+        git(other, 'add', 'list.txt')
+        git(other, 'commit', '-q', '-m', 'one change')
+        got = run_check(other, '--gate', '--tier', 'full')
+        cases.append(('one changed file and the suite runs again',
+                      'already passed' not in got and 'all passed' in got))
+        (work / 'basic.txt').write_text('b\n', encoding='utf-8')
+        git(work, 'add', 'basic.txt')
+        git(work, 'commit', '-q', '-m', 'basic only')
+        run_check(work, '--tier', 'basic')
+        git(work, 'push', '-q', 'origin', 'HEAD:refs/heads/main')
+        git(other, 'fetch', '-q', 'origin')
+        git(other, 'checkout', '-q', '--detach', 'origin/main')
+        got = run_check(other, '--gate', '--tier', 'full')
+        cases.append(('a shared BASIC pass never satisfies a full gate',
+                      'already passed' not in got and 'all passed' in got))
+        env.pop('PRECEDENT_USER_CONFIG')
+
         # A shallow clone is deepened before anything runs: history checks
         # on a shallow clone skip, and a skip would read as a pass here.
         shallow = tmp / 'shallow'
