@@ -220,7 +220,14 @@ re-runs the hook, the hook declines again, and the row stays red however many
 times you try. A session rooted one directory ABOVE this repo runs NONE of its
 hooks, silently, including the one that writes
 `.precedent/SESSION_PRACTICES.md` — see the gotcha "The session's PRIMARY repo
-does not run its SessionStart hooks either" below.
+does not run its SessionStart hooks either" below. **This is not a
+primary-repo-only problem**: when the session root sits above *every*
+attached repo and none of them is `$CLAUDE_PROJECT_DIR` — the ordinary shape
+of a multi-source session, since a team source resolves as a sibling clone —
+no repo's hooks fire, primary or attached; 2026-09-25 also caught the global
+git identity and the checked-out branch drifting mid-session with no repo
+tool in the loop, in that same topology
+([gotcha-2026-09-25](gotchas/gotcha-2026-09-25-a-session-rooted-above-every-repo-it-touches-gets-hooks-and.md)).
 **Since 2026-09-14 you also get told without asking**: every
 [tools/precedent_gate.py](tools/precedent_gate.py) moment prints any guarantee
 that is down, because a session that skipped this paragraph is exactly the

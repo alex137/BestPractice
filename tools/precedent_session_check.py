@@ -293,6 +293,22 @@ def checks(offline=False):
     #    this repo's own tools. Detection is therefore the whole remedy
     #    available: a stamp written on the first run of a session, compared on
     #    every later one.
+    #
+    #    A SECOND, INDEPENDENT OCCURRENCE, 2026-09-25 -- gotchas/gotcha-2026-
+    #    09-25-a-session-rooted-above-every-repo-it-touches-gets-hooks-and.md.
+    #    Same shape (HEAD moved to the base branch mid-turn, none of the
+    #    three suspects above in play), in a session where every repo's own
+    #    hooks were provably inert throughout (none of the four attached
+    #    repos was $CLAUDE_PROJECT_DIR). That same session also caught the
+    #    global git identity in ~/.gitconfig flip back to the container's
+    #    bot account mid-session with no `git config` command run in
+    #    between, and traced `gpg.ssh.program` to the container's own
+    #    session orchestrator (`environment-manager`) as the best-fit
+    #    suspect for both -- flagged there as a theory, not confirmed. Read
+    #    that gotcha before extending this row: the stamp below only catches
+    #    a move on a run AFTER the one that recorded the baseline, so run
+    #    this check as close to session start as possible when rooted above
+    #    every repo you touch.
     stamp = ROOT / '.git' / 'precedent-session-branch'
     rc, cur, _ = _git('rev-parse', '--abbrev-ref', 'HEAD')
     if rc == 0 and cur:
