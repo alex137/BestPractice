@@ -1,7 +1,7 @@
 ---
 title:         Three branch tiers -- pre-staging, staging, main
 kind:          proposal
-status:        drafted
+status:        accepted
 opened:        2026-09-25
 closed:        null
 superseded_by: null
@@ -27,8 +27,8 @@ flow."*
 to a branch that checks in seconds; the full list runs once per batch, when
 the batch is promoted.
 
-**Status: drafted, not yet built.** Worked out in a brainstorm on 2026-09-25.
-The decisions so far, with how firmly each was made
+**Status: accepted, being built.** Worked out in a brainstorm on 2026-09-25
+and approved the same day. The decisions, with how firmly each was made
 ([decision-strength](../practices/decision-strength.md)):
 
 | Decision | Morgan's words | Strength |
@@ -42,7 +42,10 @@ The decisions so far, with how firmly each was made
 | The leak gate joins the basic check | *"Good on nothing private going out."* | assented |
 | The one GitHub test is the full check, on the pull request into main | *"Good on the one GitHub test."* | assented |
 | The freshness guard syncs from pre-staging | *"the freshness guard at pre-staging is good"* | assented |
-| Keep yesterday's CI settings as opt-ins rather than retiring them | raised as a question: *"would they still be useful in case someone turns in that they want CI on branches, or on prestaging"* | not yet recorded -- this plan adopts it |
+| Keep yesterday's CI settings as opt-ins rather than retiring them | raised as a question: *"would they still be useful in case someone turns in that they want CI on branches, or on prestaging"*, then the plan saying so approved | assented |
+| Rename the GitHub settings to start with `github_ci_` | *"since those refer only to github's tests, maybe we rename them all to start with github_ci_ instead of ci_ to make that clear"* | decided |
+| Build it | *"Otherwise, this looks great, let's do it, go ahead, go update"* | decided |
+| The recommendations under "Settled at approval" below | approved with the plan as a whole, not one by one | assented |
 
 ## The rule
 
@@ -124,19 +127,24 @@ keeps the name it had at the time, because it is history.
   on staging or main.
 
 **GitHub's checks** keep the three existing settings, with the default
-narrowed to main and each one becoming the way to widen it:
+narrowed to main and each one becoming the way to widen it. **Each is
+renamed to start with `github_ci_`**, because each governs GitHub's runs
+only and never our own checks -- the bare `ci_` prefix let a reader think
+`ci_on_branches: false` meant "no checks on branches". A reader accepts the
+old name for as long as any file still carries it, and the new name wins
+where both appear:
 
-- **`ci_workflows`** -- whether the installer writes a GitHub workflow into
+- **`github_ci_workflows`** (was `ci_workflows`) -- whether the installer writes a GitHub workflow into
   a repo at all. **The default becomes `"enabled"`**, installing a workflow
   that triggers only on pull requests into main, so every repository gets
   its main test. `"disabled"` still means no workflow, and then main has no
   GitHub test -- a choice, said out loud at install time. Morgan's own
   `identity.json` says `"disabled"` today and would change to `"enabled"`
   for his main test to exist.
-- **`ci_on_branches`** -- `false` by default now. `true` adds GitHub runs
+- **`github_ci_on_branches`** (was `ci_on_branches`) -- `false` by default now. `true` adds GitHub runs
   on pushes to pre-staging, staging and other branches, for someone who wants
   them.
-- **`ci_every_hours`** -- still caps how often those opted-in runs happen
+- **`github_ci_every_hours`** (was `ci_every_hours`) -- still caps how often those opted-in runs happen
   in a private repo. **It never skips the main test.**
 
 ## Three holes this has to close
@@ -160,7 +168,7 @@ first, and stops and reports if it conflicts rather than guessing.
 **3. A `[skip ci]` line could silence the main test.** GitHub skips
 pull-request workflows when the head commit says `[skip ci]`
 ([CI_CADENCE_PLAN.md](CI_CADENCE_PLAN.md), "The branch switch"), and with
-`ci_on_branches` off, commits on pre-staging carry that line. If staging were
+`github_ci_on_branches` off, commits on pre-staging carry that line. If staging were
 fast-forwarded onto one of them, the pull request from staging into main
 would get no run. So **Promote always makes a merge commit** (`--no-ff`),
 which the cadence hook never tags, and **the hook never tags a commit on
@@ -172,8 +180,10 @@ squash message would carry the branch's `[skip ci]` lines with it.
 **Every repository has the three branches; no person has to use
 pre-staging.** Pushing straight to staging stays allowed, and is fully
 checked, so someone who prefers to work that way -- Alex, perhaps -- loses
-nothing. What changes for everyone is where `Go update` lands by default;
-that is an open decision below.
+nothing. **Where `Go update` lands is a per-person setting,
+`landing_branch`, and its default is `staging`** -- what every session does
+today -- so nothing changes for anyone until they choose it. Morgan's
+`identity.json` sets `"pre-staging"`.
 
 ## Build steps
 
@@ -201,7 +211,8 @@ In order. Each step leaves every repository working.
    commits on pre-staging and not on staging are named, with the
    recommendation to Promote.
 8. **GitHub workflow templates trigger on pull requests into main only**,
-   plus the opt-ins; the `ci_workflows` default flips; the cadence hook
+   plus the opt-ins; the three settings take their `github_ci_` names; the
+   `github_ci_workflows` default flips; the cadence hook
    stops tagging staging (hole 3). This repo's own
    [deep-check.yml](../.github/workflows/deep-check.yml), paused on
    2026-09-25, comes back scoped to pull requests into main.
@@ -214,7 +225,20 @@ In order. Each step leaves every repository working.
    over the one-click delete link
    ([never-delete-a-remote-branch](../practices/never-delete-a-remote-branch.md)).
    Rewrite the current rules -- AGENTS.md's merge-target paragraph first --
-   to say `staging`.
+   to say `staging`. **Waits on Alex hearing about it first** (below).
+
+   **Other sessions keep working through the rename.** Nothing is deleted
+   or renamed in place; `staging` is added beside the old branch. During
+   the transition, a sync -- run by Promote, by the freshness guard, and by
+   any push to either branch -- merges each branch into the other and pushes
+   both, so a session in another repository that still pushes to
+   `precedent-beta-v01`, or an install that still pulls from it, sees the
+   same content it would have seen anyway. The one conflict it cannot settle
+   by itself is two sessions changing the same lines on the two branches at
+   once; it stops and reports that, exactly as a merge would today. A
+   one-click GitHub rename is ruled out for this reason: it would leave every
+   session that is mid-work pushing to a name that no longer means what it
+   did.
 10. **Tests** in [verify_harness.py](../tools/verify_harness.py): each tier
     by branch, the setting and its override, the merge gate, the
     staging-into-pre-staging merge, Promote's `--no-ff`, and the rename
@@ -226,16 +250,19 @@ request. It also changes content other repositories vendor, so it reaches
 them only through Update Vendors
 ([vendor-rollout-disclosed](../practices/vendor-rollout-disclosed.md)).
 
-## Still open
+## Settled at approval
 
-1. **Where `Go update` lands by default for someone other than Morgan.**
-   Recommended: a per-person setting defaulting to pre-staging, Alex's set to
-   staging, and Alex told before step 6 ships.
-2. **Is `Promote` the command word?**
-3. **Alex before the rename.** Step 9 renames the branch his own
-   merge-target rule is named after and changes where he pushes. It is not a
-   main merge, so the rule does not require his go-ahead; he should still
-   hear about it before it happens rather than after.
+1. **Where `Go update` lands** is the per-person `landing_branch`, default
+   `staging`, so nobody's sessions change until they opt in; Morgan's is
+   `pre-staging`. (Refines the recommendation made before approval --
+   "default pre-staging, Alex's set to staging" -- which would have needed a
+   write to Alex's own individual source.)
+2. **The command word is `Promote`.**
+3. **Alex hears about the rename before step 9 runs.** It renames the branch
+   his own merge-target rule is named after and changes where he pushes. It
+   is not a main merge, so the rule does not require his go-ahead; he should
+   still hear about it before it happens rather than after. Steps 1 to 8
+   change nothing for him and do not wait.
 
 ## What this gives up
 
