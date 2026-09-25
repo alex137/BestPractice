@@ -578,7 +578,14 @@ place — nothing is ever deleted, and nothing moves.
   `python3 tools/precedent_push_check.py`**, which is also what
   `push-check-gate.sh` runs before any `git push` a session makes. A pass
   is recorded against the tree, so running it first makes the push
-  instant; skipping it makes the push wait for it. **What matters is `0 failed` and
+  instant; skipping it makes the push wait for it. **Which of the two a push
+  gets depends on the branch** ([spec/BRANCH_TIERS_PLAN.md](spec/BRANCH_TIERS_PLAN.md)):
+  a push to `precedent-beta-v01` (staging) or `main` runs the deep check; a
+  push to any other branch runs the basic tier -- the lint, the leak gate
+  and the commit-author checks, seconds -- unless the person's
+  `branch_push_checks` says `full`. A pull request merged through GitHub
+  gets the same check at its base branch's tier, from `merge-check-gate.sh`.
+  `python3 tools/precedent_branches.py` says what this checkout resolves. **What matters is `0 failed` and
   `0 violated`, never a passed/skipped count** — those grow as checks are
   added, so a figure written down here goes stale by design; see
   [spec/ATTENTION_CEILING.md](spec/ATTENTION_CEILING.md)'s closing section,

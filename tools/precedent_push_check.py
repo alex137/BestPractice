@@ -67,10 +67,23 @@ is keyed on the tree and the check list together, so any change to either
 invalidates it, and it lives in the git directory, never in the tracked
 tree.
 
+TWO TIERS, BY BRANCH (spec/BRANCH_TIERS_PLAN.md, Morgan, 2026-09-25,
+strength: decided). A push to staging or main runs every check below -- the
+FULL tier. A push to pre-staging or any other branch runs only the BASIC
+tier: the markdown lint, the leak gate (pushing any branch of a public
+repository publishes it) and the commit-author checks, seconds rather than
+minutes. The person's `branch_push_checks` setting can raise the other
+branches to full; nothing lowers staging or main. Which branch gets which
+lives in precedent_branches.py, not here. A full pass satisfies a basic
+gate; a basic pass never satisfies a full one.
+
 Run:
-  python3 tools/precedent_push_check.py          # every check, record a pass
-  python3 tools/precedent_push_check.py --gate   # skip if this tree passed
-  python3 tools/precedent_push_check.py --list   # what would run, and why
+  python3 tools/precedent_push_check.py                  # every check, record a pass
+  python3 tools/precedent_push_check.py --tier basic     # the basic tier only
+  python3 tools/precedent_push_check.py --gate           # skip if this tree passed
+  python3 tools/precedent_push_check.py --gate --push-command 'origin pre-staging'
+                                  # the tier that push needs (what the hook runs)
+  python3 tools/precedent_push_check.py --list           # what would run, and why
 
 Exit status: 0 everything passed; 1 a check failed; 2 nothing could be run
 (not a git checkout, or a repository of no kind this file knows).
@@ -110,6 +123,13 @@ IDENTITY_CHECKS = (
 )
 # Entries a repo may simply not have: skipped with a note, never a failure.
 OPTIONAL = {'deep_check', 'commit_author', 'commit_dates'}
+# The BASIC tier: what a push to pre-staging or any other working branch
+# runs. Everything else in a kind's list is FULL-only. The leak gate is
+# here because a push IS publication in a public repository, and cannot
+# wait for promotion (Morgan, 2026-09-25: "Good on nothing private going
+# out", strength: assented). Each costs seconds.
+BASIC_CHECKS = {'doc_lint', 'leak_gate', 'commit_author', 'commit_dates'}
+BASIC, FULL = 'basic', 'full'
 PUSH_CHECKS = {
     'upstream': (
         ('verify_harness', ['{engine}/verify_harness.py', '--as-ci'],
@@ -213,15 +233,18 @@ def repo_kind(engine=HERE):
     return None
 
 
-def plan(root, engine=HERE):
+def plan(root, engine=HERE, tier=FULL):
     """-> (kind, [(name, argv, replaces)]) with {engine} resolved relative
-    to `root`, so the commands print the way a person would type them."""
+    to `root`, so the commands print the way a person would type them.
+    `tier` BASIC keeps only BASIC_CHECKS."""
     kind = repo_kind(engine)
     if kind is None:
         return None, []
     rel = engine.relative_to(root) if engine.is_relative_to(root) else engine
     out = []
     for name, argv, replaces in PUSH_CHECKS[kind]:
+        if tier == BASIC and name not in BASIC_CHECKS:
+            continue
         argv = [a.replace('{engine}', str(rel)) for a in argv]
         if argv[0].endswith('.py'):
             argv = [sys.executable, *argv]
@@ -252,7 +275,11 @@ def clean_tree(root):
     return git(root, 'rev-parse', 'HEAD^{tree}')
 
 
-def already_passed(root, checks):
+def already_passed(root, checks, also=()):
+    """True when this tree's recorded pass covers `checks` -- or any of the
+    check lists in `also`, which is how a FULL pass satisfies a BASIC gate.
+    The record names the list it passed by signature, so a BASIC pass can
+    never satisfy a FULL gate."""
     tree = clean_tree(root)
     path = record_path(root)
     if not tree or not path or not path.is_file():
@@ -261,7 +288,33 @@ def already_passed(root, checks):
         rec = json.loads(path.read_text(encoding='utf-8'))
     except (OSError, ValueError):
         return False
-    return rec.get('tree') == tree and rec.get('checks') == signature(checks)
+    accepted = {signature(checks), *(signature(c) for c in also)}
+    return rec.get('tree') == tree and rec.get('checks') in accepted
+
+
+def _tier_from_args(root, argv):
+    """-> (tier, why). --tier wins; else --push-command names the push and
+    precedent_branches.py decides; else FULL, today's behaviour."""
+    if '--tier' in argv:
+        i = argv.index('--tier')
+        value = argv[i + 1] if i + 1 < len(argv) else ''
+        if value in (BASIC, FULL):
+            return value, f'--tier {value}'
+        return FULL, f'--tier {value!r} is not basic or full; running full'
+    if '--push-command' in argv:
+        i = argv.index('--push-command')
+        cmd = argv[i + 1] if i + 1 < len(argv) else ''
+        try:
+            sys.path.insert(0, str(HERE))
+            import precedent_branches
+        except ImportError:
+            return FULL, ('precedent_branches.py is not beside this file, so '
+                          'the branch cannot be read -- running full')
+        finally:
+            sys.path.pop(0)
+        return precedent_branches.tier_for_push(root, cmd)
+    return FULL, 'no tier named'
+
 
 
 def run(root, checks):
@@ -318,7 +371,8 @@ def main(argv):
               'check.', file=sys.stderr)
         return 2
     root = Path(root_s)
-    kind, checks = plan(root)
+    tier, why = _tier_from_args(root, argv)
+    kind, checks = plan(root, tier=tier)
     if kind is None:
         print(f'precedent_push_check: cannot tell what kind of repository '
               f'{root} is (no ENGINE_MANIFEST.json kind beside this file, and '
@@ -328,15 +382,18 @@ def main(argv):
 
     if '--list' in argv:
         print(f'{root.name} is {"an" if kind[0] in "aeiou" else "a"} {kind} '
-              f'repository. Before a push:')
-        for name, a, replaces in checks:
-            print(f'  {name:16} {shown_interpreter(a)} {" ".join(a[1:])}')
-            print(f'  {"":16} replaces {replaces}')
+              f'repository. Before a push to staging or main (full); a push '
+              f'to any other branch runs only the checks marked basic:')
+        for name, a, replaces in plan(root, tier=FULL)[1]:
+            mark = 'basic' if name in BASIC_CHECKS else 'full '
+            print(f'  {name:16} [{mark}] {shown_interpreter(a)} {" ".join(a[1:])}')
+            print(f'  {"":16}         replaces {replaces}')
         return 0
 
-    if '--gate' in argv and already_passed(root, checks):
-        print(f'precedent_push_check: this exact tree already passed all '
-              f'{len(checks)} check(s); nothing to re-run.')
+    also = [plan(root, tier=FULL)[1]] if tier == BASIC else []
+    if '--gate' in argv and already_passed(root, checks, also):
+        print(f'precedent_push_check: this exact tree already passed the '
+              f'{tier} check ({len(checks)} check(s)); nothing to re-run.')
         return 0
 
     if git(root, 'rev-parse', '--is-shallow-repository') == 'true':
@@ -351,9 +408,14 @@ def main(argv):
                   'cannot run. Run `git fetch --unshallow` and try again.')
             return 1
 
-    print(f'precedent_push_check: {kind} repository {root.name}, '
-          f'{len(checks)} check(s) -- everything CI used to run, run here.',
-          flush=True)
+    if tier == FULL:
+        print(f'precedent_push_check: {kind} repository {root.name}, '
+              f'{len(checks)} check(s) -- everything CI used to run, run here '
+              f'({why}).', flush=True)
+    else:
+        print(f'precedent_push_check: {kind} repository {root.name}, the '
+              f'basic check, {len(checks)} check(s) ({why}). Staging and main '
+              f'get everything.', flush=True)
     failed, missing, total = run(root, checks)
     tree = clean_tree(root)
     if failed:
@@ -369,11 +431,11 @@ def main(argv):
     if tree and path:
         path.write_text(json.dumps({
             'tree': tree, 'checks': signature(checks), 'kind': kind,
-            'at': time.strftime('%Y-%m-%dT%H:%M:%S%z'),
+            'tier': tier, 'at': time.strftime('%Y-%m-%dT%H:%M:%S%z'),
         }, indent=2) + '\n', encoding='utf-8')
         print(f'\nprecedent_push_check: all passed in {total:.0f}s; recorded '
-              f'for tree {tree[:12]}, so a push of this commit will not '
-              f're-run them.')
+              f'for tree {tree[:12]} ({tier}), so a push of this commit will '
+              f'not re-run them.')
     else:
         print(f'\nprecedent_push_check: all passed in {total:.0f}s, over a '
               f'working tree with uncommitted changes -- NOT recorded, since '

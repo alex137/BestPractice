@@ -589,6 +589,15 @@ ENGINE_FILES = [
     # get; push-check-gate.sh runs it before a session's `git push`. Every
     # kind needs it, and it reads its own kind back from ENGINE_MANIFEST.json.
     'precedent_push_check.py',
+    # The three branch tiers (spec/BRANCH_TIERS_PLAN.md, 2026-09-25): which
+    # branch is pre-staging, staging and main in this repository, and which
+    # tier of the push check a push to each one gets. precedent_push_check.py
+    # asks it whenever the push gate names the push; every kind pushes.
+    'precedent_branches.py',
+    # The merge gate's engine: the push check, run on the merge GitHub would
+    # make, before a session merges a pull request through GitHub -- a push
+    # no local hook sees. merge-check-gate.sh calls it; every kind merges.
+    'precedent_merge_check.py',
     'precedent_vendor_engine.py',
 ]
 
@@ -833,6 +842,9 @@ HOOK_DEST_DIR = '.claude/hooks'
 # `new-hook-joins-the-registry` refuses a tree where any of those disagree.
 _SEEDED_PROMPT_MATCHER = ('mcp__.*__(create_session|create_trigger|'
                           'update_trigger|fire_trigger|send_later)')
+# The merge gate fires on the GitHub MCP server's merge tool and on Bash,
+# where it looks for `gh pr merge` and exits at once on anything else.
+MERGE_GATE_MATCHER = 'Bash|mcp__.*__merge_pull_request'
 HOOK_WIRING = {
     'consumer': (
         ('SessionStart', None, 'session-start.sh', ''),
@@ -854,6 +866,9 @@ HOOK_WIRING = {
         ('PreToolUse', _SEEDED_PROMPT_MATCHER, 'seeded-prompt-gate.sh', ''),
         # Everything CI used to run on a push, run before it (2026-09-25).
         ('PreToolUse', 'Bash', 'push-check-gate.sh', ''),
+        # The same check before a merge through GitHub, which no push gate
+        # sees (spec/BRANCH_TIERS_PLAN.md, hole 1).
+        ('PreToolUse', MERGE_GATE_MATCHER, 'merge-check-gate.sh', ''),
         ('Stop', None, 'stop-git-check.sh', ''),
         ('Stop', None, 'stop-reply-check.sh', ''),
     ),
@@ -876,6 +891,7 @@ HOOK_WIRING = {
         # A set runs no CI at all (source-sets-run-no-ci), so this is the
         # only thing that runs its checks before a push (2026-09-25).
         ('PreToolUse', 'Bash', 'push-check-gate.sh', ''),
+        ('PreToolUse', MERGE_GATE_MATCHER, 'merge-check-gate.sh', ''),
     ),
 }
 # A hook that needs more than the harness's default time gets its own
@@ -884,7 +900,7 @@ HOOK_WIRING = {
 # 840-second deadline inside this one, so an expiry refuses the push instead
 # of the harness killing the hook -- which it treats as a non-blocking error,
 # letting the push through unchecked.
-HOOK_TIMEOUTS = {'push-check-gate.sh': 900}
+HOOK_TIMEOUTS = {'push-check-gate.sh': 900, 'merge-check-gate.sh': 900}
 # Shipped in HOOK_SOURCE_DIR and on NO kind's list, each with the reason. A
 # repo that wires one itself still has it vendored and kept current -- the
 # wiring gate below still applies -- but no refresh adds it anywhere.
