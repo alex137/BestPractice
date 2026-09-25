@@ -167,6 +167,9 @@ SESSION_HOOKS = ('freshness-guard.sh', 'commit-identity.sh',
                  # The push check (2026-09-25): a set runs no CI, so this is
                  # the only thing that runs its checks before a push.
                  'push-check-gate.sh',
+                 # The same check before a merge through GitHub, which no
+                 # push gate sees (spec/BRANCH_TIERS_PLAN.md, hole 1).
+                 'merge-check-gate.sh',
                  # A set's sessions spawn and message other sessions like any
                  # other's, and seeded-prompt-names-its-origin is universal.
                  # Added 2026-09-25 with HOOK_WIRING's `source` list, which
@@ -597,6 +600,17 @@ def _install_session_hooks(dest, base_branch='main'):
                     'hooks': [
                         {'type': 'command',
                          'command': '$CLAUDE_PROJECT_DIR/.claude/hooks/push-check-gate.sh',
+                         'timeout': 900},
+                    ],
+                }, {
+                    # THE MERGE CHECK (2026-09-25): the push check again,
+                    # before a pull request is merged through GitHub -- a
+                    # push no local hook sees. Same matcher and timeout as
+                    # HOOK_WIRING's entry in precedent_vendor_engine.py.
+                    'matcher': 'Bash|mcp__.*__merge_pull_request',
+                    'hooks': [
+                        {'type': 'command',
+                         'command': '$CLAUDE_PROJECT_DIR/.claude/hooks/merge-check-gate.sh',
                          'timeout': 900},
                     ],
                 }, {

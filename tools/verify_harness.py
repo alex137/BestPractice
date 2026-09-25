@@ -15738,6 +15738,9 @@ def check_push_check_gate():
         (work / 'tools').mkdir(parents=True)
         git(tmp, 'init', '-q', '-b', 'main', str(work))
         _shutil.copy2(tool, work / 'tools' / 'precedent_push_check.py')
+        if (ROOT / 'tools' / 'precedent_branches.py').exists():
+            _shutil.copy2(ROOT / 'tools' / 'precedent_branches.py',
+                          work / 'tools' / 'precedent_branches.py')
         (work / 'tools' / 'ENGINE_MANIFEST.json').write_text(
             _json.dumps({'kind': 'consumer'}), encoding='utf-8')
         # Stand-ins for the three consumer tools: each fails when a tracked
@@ -15826,6 +15829,42 @@ def check_push_check_gate():
                       'over uncommitted edits that fail', denied))
         git(work, 'reset', '-q', '--hard')
 
+        # The branch tiers (spec/BRANCH_TIERS_PLAN.md): precedent_check is
+        # full-only, leak_gate is basic. The environment's own person must
+        # not decide these, so no user config resolves.
+        if (work / 'tools' / 'precedent_branches.py').exists():
+            env['PRECEDENT_USER_CONFIG'] = str(tmp / 'no-config.json')
+            (work / 'FAIL').write_text('precedent_check', encoding='utf-8')
+            git(work, 'add', 'FAIL')
+            git(work, 'commit', '-q', '-m', 'break a full-only check')
+            denied, _ = gate('git push -u origin feature')
+            cases.append(('a push to a working branch gets the basic check: a '
+                          'failing full-only check does not refuse it', not denied))
+            denied, _ = gate('git push origin HEAD:pre-staging')
+            cases.append(('so does a push to pre-staging', not denied))
+            denied, out = gate('git push origin main')
+            cases.append(('the same tree pushed to main is refused by the full '
+                          'check -- the basic pass just recorded does not '
+                          'satisfy it', denied and 'precedent_check' in out))
+            denied, out = gate('git push origin feature main')
+            cases.append(('one push naming a working branch and main is checked '
+                          'fully', denied and 'precedent_check' in out))
+            (work / 'FAIL').write_text('leak_gate', encoding='utf-8')
+            git(work, 'commit', '-q', '-am', 'break the leak gate again')
+            denied, out = gate('git push origin feature')
+            cases.append(('the leak gate runs on a working-branch push too',
+                          denied and 'leak_gate' in out))
+            git(work, 'rm', '-q', 'FAIL')
+            git(work, 'commit', '-q', '-m', 'fix it again')
+            denied, _ = gate('git push origin main')
+            again = subprocess.run(
+                [sys.executable, 'tools/precedent_push_check.py', '--gate',
+                 '--push-command', 'origin feature'],
+                cwd=work, capture_output=True, text=True, env=env).stdout
+            cases.append(('a full pass satisfies a later basic gate on the same '
+                          'tree', not denied and 'already passed' in again))
+            env.pop('PRECEDENT_USER_CONFIG')
+
         # A shallow clone is deepened before anything runs: history checks
         # on a shallow clone skip, and a skip would read as a pass here.
         shallow = tmp / 'shallow'
@@ -15871,6 +15910,261 @@ def check_push_check_gate():
                           (hooks / 'pre-push').exists() and p.returncode == 7
                           and 'OWN origin ref-line' in p.stdout))
 
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
+def check_branch_tiers():
+    """The three branch tiers (spec/BRANCH_TIERS_PLAN.md, Morgan, 2026-09-25,
+    strength: decided): a push to staging or main is checked fully; a push
+    to pre-staging or any other branch gets the basic check unless the
+    person's `branch_push_checks` says full. tools/precedent_branches.py
+    holds the rule; this pins what it answers.
+
+    The cases that matter are the ones that would land unchecked work: a
+    push whose destination cannot be read must come out FULL, a typo in the
+    setting must come out FULL, and nothing the setting says may lower
+    staging or main. A branch the repository still calls by its pre-rename
+    name (`base_branch`) is staging and must be full too."""
+    import tempfile, json as _json
+    name = 'branch tiers: staging and main full, other branches basic by default'
+    tool = ROOT / 'tools' / 'precedent_branches.py'
+    if not tool.exists():
+        not_applicable(name, 'tools/precedent_branches.py is absent')
+        return
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_branches as pb
+    finally:
+        sys.path.pop(0)
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+        env = dict(os.environ, GIT_CONFIG_GLOBAL=str(tmp / 'gitconfig'),
+                   GIT_AUTHOR_NAME='T', GIT_AUTHOR_EMAIL='t@example.com',
+                   GIT_COMMITTER_NAME='T', GIT_COMMITTER_EMAIL='t@example.com',
+                   PRECEDENT_ALLOW_ANY_AUTHOR='1')
+        repo = tmp / 'repo'
+        subprocess.run(['git', 'init', '-q', '-b', 'topic', str(repo)],
+                       capture_output=True, env=env)
+        subprocess.run(['git', '-C', str(repo), 'commit', '-q', '--allow-empty',
+                        '-m', 'x'], capture_output=True, env=env)
+        (repo / 'precedent.json').write_text(_json.dumps(
+            {'base_branch': 'precedent-beta-v01'}), encoding='utf-8')
+        nocfg = str(tmp / 'no-config.json')
+        indiv = tmp / 'indiv'
+        indiv.mkdir()
+        cfg = tmp / 'config.json'
+        cfg.write_text(_json.dumps({'individual': {'path': str(indiv)}}),
+                       encoding='utf-8')
+
+        def tier(branch, user_config=nocfg):
+            return pb.tier_for_branch(repo, branch, user_config)[0]
+
+        cases.append(('pre-staging is basic by default', tier('pre-staging') == 'basic'))
+        cases.append(('a working branch is basic by default', tier('claude/x') == 'basic'))
+        cases.append(('main is full', tier('main') == 'full'))
+        cases.append(('staging is full', tier('staging') == 'full'))
+        cases.append(("the repo's declared base_branch (staging before the "
+                      "rename) is full", tier('precedent-beta-v01') == 'full'))
+        cases.append(('staging_branch() names the declared branch until the '
+                      'rename', pb.staging_branch(repo) == 'precedent-beta-v01'))
+
+        (indiv / 'identity.json').write_text(_json.dumps(
+            {'email': 'p@example.com', 'branch_push_checks': 'full'}), encoding='utf-8')
+        cases.append(("the person's identity.json can raise other branches to "
+                      "full", tier('claude/x', str(cfg)) == 'full'))
+        (indiv / 'identity.json').write_text(_json.dumps(
+            {'email': 'p@example.com', 'branch_push_checks': 'bassic'}), encoding='utf-8')
+        cases.append(('a value that is neither basic nor full is checked fully',
+                      tier('claude/x', str(cfg)) == 'full'))
+        (indiv / 'identity.json').write_text(_json.dumps(
+            {'email': 'p@example.com', 'branch_push_checks': 'basic'}), encoding='utf-8')
+        cases.append(('nothing the setting says lowers main',
+                      tier('main', str(cfg)) == 'full'))
+        (repo / 'precedent.json').write_text(_json.dumps(
+            {'base_branch': 'precedent-beta-v01', 'branch_push_checks': 'full'}),
+            encoding='utf-8')
+        cases.append(("a repo's own precedent.json wins over the person",
+                      tier('claude/x', str(cfg)) == 'full'))
+        (repo / 'precedent.json').write_text(_json.dumps(
+            {'base_branch': 'main'}), encoding='utf-8')
+        cases.append(('a repo whose base_branch is main has staging called '
+                      'staging', pb.staging_branch(repo) == 'staging'
+                      and tier('staging') == 'full'))
+
+        def targets(args):
+            return pb.push_targets(repo, args)
+        cases.append(('`origin pre-staging` writes pre-staging',
+                      targets('origin pre-staging') == ['pre-staging']))
+        cases.append(('`-u origin a b` writes a and b',
+                      targets('-u origin a b') == ['a', 'b']))
+        cases.append(('`origin +x:refs/heads/main` writes main',
+                      targets('origin +x:refs/heads/main') == ['main']))
+        cases.append(('`origin HEAD` writes the current branch',
+                      targets('origin HEAD') == ['topic']))
+        cases.append(('a bare push writes the current branch',
+                      targets('') == ['topic']))
+        cases.append(('`--tags` cannot be read, so it is None',
+                      targets('--tags') is None))
+        cases.append(('a tag refspec is not a branch, so it is None',
+                      targets('origin v1:refs/tags/v1') is None))
+        cases.append(('an unreadable push is checked fully',
+                      pb.tier_for_push(repo, '--all', nocfg)[0] == 'full'))
+        cases.append(('a push naming a working branch and main is checked '
+                      'fully', pb.tier_for_push(repo, 'origin feat main', nocfg)[0] == 'full'))
+        subprocess.run(['git', '-C', str(repo), 'checkout', '-q', '--detach'],
+                       capture_output=True, env=env)
+        cases.append(('a bare push from a detached HEAD cannot be read',
+                      targets('') is None))
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
+def check_merge_check_gate():
+    """A pull request merged through GitHub is a push no push gate sees
+    (spec/BRANCH_TIERS_PLAN.md, hole 1). merge-check-gate.sh runs
+    tools/precedent_merge_check.py before the merge tool: the push check, on
+    the merge GitHub would make, at the tier of the base branch.
+
+    The fixture is a local "origin" carrying refs/pull/N/head and
+    refs/pull/N/merge the way GitHub does. The cases that matter are the
+    ones that would land unchecked work: a pull request into main must get
+    the full check; a base that cannot be matched must get it too; and a
+    base branch sitting at the same commit as main -- exactly how
+    AGENTS.md's merge-target rule began, and how this check's first live
+    run misread a real pull request -- must not be mistaken for the
+    working branch alone."""
+    import tempfile, json as _json, shutil as _shutil
+    name = 'the merge gate checks what a GitHub merge would land, at its base branch\'s tier'
+    hook = ROOT / 'templates' / 'harness' / 'claude-code' / 'hooks' / 'merge-check-gate.sh'
+    engine = ROOT / 'tools' / 'precedent_merge_check.py'
+    if not hook.exists() or not engine.exists():
+        not_applicable(name, 'merge-check-gate.sh or precedent_merge_check.py is absent')
+        return
+    if not _shutil.which('jq'):
+        not_applicable(name, 'no jq on this machine; the gate fails open without it')
+        return
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+        env = dict(os.environ, PRECEDENT_ALLOW_ANY_AUTHOR='1',
+                   GIT_AUTHOR_NAME='T', GIT_AUTHOR_EMAIL='t@example.com',
+                   GIT_COMMITTER_NAME='T', GIT_COMMITTER_EMAIL='t@example.com',
+                   GIT_CONFIG_GLOBAL=str(tmp / 'gitconfig'),
+                   PRECEDENT_USER_CONFIG=str(tmp / 'no-config.json'))
+
+        def git(cwd, *a):
+            return subprocess.run(['git', '-C', str(cwd), *a],
+                                  capture_output=True, text=True, env=env)
+
+        bare = tmp / 'alex' / 'proj.git'
+        bare.parent.mkdir()
+        git(tmp, 'init', '-q', '--bare', '-b', 'main', str(bare))
+        work = tmp / 'work'
+        (work / 'tools').mkdir(parents=True)
+        git(tmp, 'init', '-q', '-b', 'main', str(work))
+        for f in ('precedent_push_check.py', 'precedent_branches.py',
+                  'precedent_merge_check.py'):
+            _shutil.copy2(ROOT / 'tools' / f, work / 'tools' / f)
+        (work / 'tools' / 'ENGINE_MANIFEST.json').write_text(
+            _json.dumps({'kind': 'consumer'}), encoding='utf-8')
+        for t in ('precedent_check', 'leak_gate', 'doc_lint'):
+            (work / 'tools' / f'{t}.py').write_text(
+                'import pathlib, sys\n'
+                'f = pathlib.Path("FAIL")\n'
+                'body = f.read_text() if f.exists() else ""\n'
+                + ('print("precedent_check: 3 passed, 0 violated")\n'
+                   if t == 'precedent_check' else '')
+                + f'sys.exit(1 if "{t}" in body else 0)\n',
+                encoding='utf-8')
+        git(work, 'add', '-A')
+        git(work, 'commit', '-q', '-m', 'init')
+        git(work, 'remote', 'add', 'origin', f'file://{bare}')
+        git(work, 'push', '-q', 'origin', 'main')
+        # A base branch of its own, one commit past main.
+        git(work, 'checkout', '-q', '-b', 'fb')
+        (work / 'fb.txt').write_text('fb', encoding='utf-8')
+        git(work, 'add', 'fb.txt')
+        git(work, 'commit', '-q', '-m', 'fb')
+        git(work, 'push', '-q', 'origin', 'fb')
+
+        def pull(number, base, fail):
+            """Publish pull request `number` into `base` whose head plants
+            FAIL=`fail`, with the test merge GitHub would make."""
+            git(work, 'checkout', '-q', '-B', f'head{number}', base)
+            (work / 'FAIL').write_text(fail, encoding='utf-8')
+            git(work, 'add', 'FAIL')
+            git(work, 'commit', '-q', '-m', f'pr {number}')
+            git(work, 'push', '-q', 'origin', f'head{number}:refs/pull/{number}/head')
+            git(work, 'checkout', '-q', '-B', f'merge{number}', base)
+            git(work, 'merge', '-q', '--no-ff', '-m', f'merge {number}', f'head{number}')
+            git(work, 'push', '-q', 'origin', f'merge{number}:refs/pull/{number}/merge')
+            git(work, 'checkout', '-q', 'main')
+
+        pull(7, 'main', 'precedent_check')
+        pull(8, 'fb', 'precedent_check')
+        pull(9, 'fb', 'leak_gate')
+        # 10: a test merge whose first parent is no branch's tip.
+        git(work, 'checkout', '-q', '-b', 'gone', 'main')
+        (work / 'gone.txt').write_text('gone', encoding='utf-8')
+        git(work, 'add', 'gone.txt')
+        git(work, 'commit', '-q', '-m', 'gone')
+        pull(10, 'gone', 'precedent_check')
+        # 11: a working branch sitting at main's own commit, named so that
+        # origin lists it BEFORE main -- the order that made this check's
+        # first live run read a pull request into the staging branch as one
+        # into a working branch.
+        git(work, 'push', '-q', 'origin', 'main:aaa-topic')
+
+        def gate(payload, project=work):
+            p = subprocess.run(['bash', str(hook)], input=_json.dumps(payload),
+                               text=True, capture_output=True, timeout=300,
+                               env=dict(env, CLAUDE_PROJECT_DIR=str(project)))
+            return '"deny"' in p.stdout, p.stdout + p.stderr
+
+        def mcp(number, owner='alex', repo='proj'):
+            return gate({'tool_name': 'mcp__github__merge_pull_request',
+                         'tool_input': {'owner': owner, 'repo': repo,
+                                        'pullNumber': number},
+                         'cwd': str(work)})
+
+        denied, out = mcp(7)
+        cases.append(('a pull request into main gets the full check, and a '
+                      'failing full-only check refuses the merge',
+                      denied and 'merge check REFUSED' in out
+                      and 'precedent_check' in out))
+        denied, out = mcp(8)
+        cases.append(('a pull request into a working branch gets the basic '
+                      'check, so the same failure is let through', not denied))
+        denied, out = mcp(9)
+        cases.append(('the basic check still refuses a failing leak gate',
+                      denied and 'leak_gate' in out))
+        denied, out = mcp(10)
+        cases.append(('a base that matches no branch on origin is checked '
+                      'fully', denied and 'unmatched base' in out))
+        pull(11, 'main', 'precedent_check')
+        denied, out = mcp(11)
+        cases.append(('a base sitting at the same commit as main is checked '
+                      'fully, not read as the working branch alone',
+                      denied and 'precedent_check' in out))
+        denied, out = gate({'tool_name': 'Bash',
+                            'tool_input': {'command': 'gh pr merge 7 --merge'},
+                            'cwd': str(work)})
+        cases.append(('`gh pr merge N` is checked the same way, the repository '
+                      'read from origin', denied and 'precedent_check' in out))
+        denied, out = gate({'tool_name': 'Bash',
+                            'tool_input': {'command': 'echo "gh pr merge 7"'},
+                            'cwd': str(work)})
+        cases.append(('`gh pr merge` quoted inside another command is not a '
+                      'merge', not denied and not out.strip()))
+        denied, out = mcp(7, owner='nobody')
+        cases.append(('no checkout of the repository: let through, and said',
+                      not denied and 'NOTE: merge-check-gate' in out))
+        wts = git(work, 'worktree', 'list').stdout.strip().splitlines()
+        refs = git(work, 'for-each-ref', 'refs/precedent-merge-check').stdout.strip()
+        cases.append(('no worktree and no fetched pull request ref is left '
+                      'behind', len(wts) == 1 and not refs))
     failed = [n for n, ok in cases if not ok]
     check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
@@ -31688,6 +31982,8 @@ def main():
     check_commit_identity_prevents_the_wrong_offset()
     check_commit_identity_ci_cadence()
     check_push_check_gate()
+    check_branch_tiers()
+    check_merge_check_gate()
     check_source_clone_is_pinned_to_a_branch()
     check_generator_wires_every_template_guard_mode()
     check_verify_reports_a_source_wired_for_fewer_moments()
