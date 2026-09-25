@@ -411,8 +411,16 @@ says so, both from the vendored tree under `process/upstream/`.
     `git config user.name` or `user.email` in `tools/bootstrap.sh` or
     `.claude/settings.json` names a person in a shared template. Re-instantiate
     `tools/bootstrap.sh` from upstream `templates/bootstrap.sh`, keeping
-    anything this repo added on purpose. `commit-identity.sh` resolves who
-    is committing.
+    anything this repo added on purpose — or, where the file is marked
+    `diverged`, delete just those lines. `commit-identity.sh` resolves who
+    is committing. **A fallback branch is not an exception.** One that
+    names a person "only when the individual source has not resolved yet"
+    was tested 2026-09-25 on a scratch consumer with no individual source:
+    `commit-identity.sh` already set the right author from
+    `PRECEDENT_COMMIT_*` or the authenticated GitHub account; with neither,
+    its backstop refused the bot-authored commit rather than letting it
+    through; and with a second person's identity declared, the fallback
+    overwrote it with the named one.
 
     **(e) Finish an unfinished migration.** No `tools/ENGINE_MANIFEST.json`
     means (a) could not run at all. Say so out loud, confirm with the person

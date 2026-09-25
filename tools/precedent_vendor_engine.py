@@ -2540,10 +2540,20 @@ def retire_legacy_leftovers(dest_root, manifest, kind):
         _left(f'precedent.json source {name!r} at {path}',
               f'{why} -- repoint it to the current name (vendor-update-runbook, '
               f'"Retire legacy leftovers")')
+    # A fallback branch is not exempt, and the message says so, because the
+    # first session to see this on a diverged bootstrap.sh read "only runs
+    # when the individual source is missing" as a reason to keep it.
+    # Measured 2026-09-25 on a scratch consumer with no individual source:
+    # commit-identity.sh set the right author from the environment override
+    # or the authenticated GitHub account; with neither, its backstop
+    # refused the bot-authored commit; and under a second person's declared
+    # identity the fallback overwrote theirs with the named one
+    # (practice: vendor-update-runbook, step 10(d)).
     for where in hardcoded_identities(dest_root):
-        _left(where, 'sets a literal git identity; replace the file from '
-                     'upstream templates/ -- commit-identity.sh resolves who '
-                     'is committing')
+        _left(where, 'sets a literal git identity; delete it, even in a '
+                     'fallback branch, keeping the rest of the file -- '
+                     'commit-identity.sh resolves who is committing, and a '
+                     'name written here credits anyone else to that person')
     secrets = _orphaned_secrets(dest_root, deleted_wf)
     for s in secrets:
         _left(f'secret {s}', 'no remaining workflow reads it -- if it is set '
