@@ -56,8 +56,9 @@ on:
   # templates/github-actions/doc-lint.yml.template's header for the
   # measurement, and spec/BILLING_FLOOR.md for why the trigger, not the
   # per-job floor, was the driver in the repo where this was found.
-  pull_request:
-    types: [opened, reopened, ready_for_review]
+  # PAUSED 2026-09-25 -- see the note above `workflow_dispatch` below.
+  # pull_request:
+  #   types: [opened, reopened, ready_for_review]
 
   # push only sat here, deliberately, from 2026-09-07 to 2026-09-19.
   # `pull_request:` sat here from this file's first commit (2236a94, copied
@@ -83,8 +84,20 @@ on:
   # sec.4 has a dependent repo push its branch HERE from a dual-repo
   # session, because a single-repo session cannot write to this repo at
   # all -- it does not fork.
-  push:
-    branches: [main, precedent-beta-v01]
+  # push:
+  #   branches: [main, precedent-beta-v01]
+  #
+  # PAUSED 2026-09-25: both triggers above are commented out, so this runs
+  # only when started by hand. Every one of its three tools now runs before
+  # each push from a session, on our own machine, as part of
+  # tools/precedent_push_check.py (push-check-gate.sh refuses the push until
+  # it passes). Morgan asked that these checks run "on our side, not on
+  # github minutes", and agreed to pausing this one while keeping
+  # leak-gate.yml, which covers changes that never pass through a session
+  # (strength: assented -- "Sure let's follow your recommendation"). Paused
+  # rather than deleted because tools/precedent_decommission.py requires a
+  # cycle to pass before a live workflow's files go (decommission-deletes-
+  # files); delete it with that tool once one has.
   workflow_dispatch:
 
 permissions:

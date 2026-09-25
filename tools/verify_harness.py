@@ -6596,13 +6596,13 @@ def check_reply_gate_names_work_not_yet_landed():
         g('push', '-q', '-u', 'origin', 'trunk')
 
         cases.append(('on the base branch, with nothing ahead, it says nothing',
-                      pg._unlanded_work(repo) == [], str(pg._unlanded_work(repo))))
+                      pg._unlanded_work(repo, siblings=False) == [], str(pg._unlanded_work(repo, siblings=False))))
 
         # A commit on a feature branch -- the exact shape that gets forgotten.
         g('switch', '-q', '-c', 'feature')
         (repo / 'b.txt').write_text('two\n', encoding='utf-8')
         g('add', '-A'); g('commit', '-qm', 'second')
-        got = pg._unlanded_work(repo)
+        got = pg._unlanded_work(repo, siblings=False)
         cases.append(('a commit on a feature branch is reported',
                       len(got) == 1, str(got)))
         cases.append(('it names the branch it is NOT on, which is the '
@@ -6614,7 +6614,7 @@ def check_reply_gate_names_work_not_yet_landed():
         # PUSHING THE FEATURE BRANCH CHANGES NOTHING -- that is the whole
         # point, and it is what the stop hook's "unpushed" test misses.
         g('push', '-q', '-u', 'origin', 'feature')
-        after = pg._unlanded_work(repo)
+        after = pg._unlanded_work(repo, siblings=False)
         cases.append(('pushing the feature branch does NOT clear it -- pushed '
                       'is not landed', len(after) == 1, str(after)))
 
@@ -6622,7 +6622,7 @@ def check_reply_gate_names_work_not_yet_landed():
         g('switch', '-q', 'trunk'); g('merge', '-q', 'feature')
         g('push', '-q', 'origin', 'trunk')
         cases.append(('merging into the base branch clears it',
-                      pg._unlanded_work(repo) == [], str(pg._unlanded_work(repo))))
+                      pg._unlanded_work(repo, siblings=False) == [], str(pg._unlanded_work(repo, siblings=False))))
 
         # A SQUASH merge clears it too. The squashed commit on trunk is new,
         # so the branch's own commits never become its ancestors and
@@ -6638,7 +6638,7 @@ def check_reply_gate_names_work_not_yet_landed():
         g('commit', '-qm', 'squash of squashed')
         g('push', '-q', 'origin', 'trunk')
         g('switch', '-q', 'squashed')
-        got = pg._unlanded_work(repo)
+        got = pg._unlanded_work(repo, siblings=False)
         cases.append(('a squash-merged branch is not reported', got == [], str(got)))
 
         # The base moving on with someone else's work must not bring the
@@ -6648,13 +6648,13 @@ def check_reply_gate_names_work_not_yet_landed():
         g('add', '-A'); g('commit', '-qm', 'unrelated')
         g('push', '-q', 'origin', 'trunk')
         g('switch', '-q', 'squashed')
-        got = pg._unlanded_work(repo)
+        got = pg._unlanded_work(repo, siblings=False)
         cases.append(('it stays cleared after the base moves on', got == [], str(got)))
 
         # And real work on top of the squashed branch is still reported.
         (repo / 'c.txt').write_text('three, revised again\n', encoding='utf-8')
         g('add', '-A'); g('commit', '-qm', 'fifth')
-        got = pg._unlanded_work(repo)
+        got = pg._unlanded_work(repo, siblings=False)
         cases.append(('a real commit after the squash is still reported',
                       len(got) == 1 and "'trunk'" in got[0], str(got)))
         g('switch', '-q', 'trunk')
@@ -6664,7 +6664,7 @@ def check_reply_gate_names_work_not_yet_landed():
         g('add', '-A'); g('commit', '-qm', 'drop config')
         g('push', '-q', 'origin', 'trunk')
         cases.append(('a repo with no precedent.json does not crash',
-                      isinstance(pg._unlanded_work(repo), list), 'raised'))
+                      isinstance(pg._unlanded_work(repo, siblings=False), list), 'raised'))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
@@ -10914,7 +10914,16 @@ def check_precedent_check_fires():
         # would show that commit as a violation with no plant at all --
         # practice: fixture-owns-its-state. Re-dated under an explicit TZ
         # rather than assumed from whatever machine happens to run this.
+        #
+        # And since 2026-09-25 the fixture must BE an individual source: the
+        # check enforces a person's zone only in a repo carrying its own
+        # identity.json (Morgan: "only use the individual one in the
+        # precedent-individual"), and stands down everywhere else.
         def _setup_buenos_aires_dates(repo):
+            (repo / 'identity.json').write_text(json.dumps(
+                {'name': _ID_NAME, 'email': _ID_EMAIL, 'timezone': _ID_TZ}),
+                encoding='utf-8')
+            git(repo, 'add', 'identity.json')
             git(repo, '-c', f'user.name={_ID_NAME}', '-c',
                 f'user.email={_ID_EMAIL}', 'commit', '--amend',
                 '--reset-author', '--no-edit',
@@ -15676,6 +15685,196 @@ def check_commit_identity_ci_cadence():
           f'holds ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
 
+def check_push_check_gate():
+    """Everything CI used to run on a push now runs before it, locally
+    (Morgan, 2026-09-25: "the same list of everything we used to run (just
+    locally we do it, not via the github ci/cd)"). tools/precedent_push_check.py
+    holds the list; push-check-gate.sh refuses a session's `git push` until it
+    passes.
+
+    The cases that matter are the silent ones: a push let through with a
+    failing check, a push the gate did not recognise as one, a list that
+    has quietly fallen behind the workflows it replaces, and a repository's
+    own pre-push hook that the global core.hooksPath switched off -- which
+    is how templates/hooks/pre-push sat dead in every repo that installed it
+    until this was written."""
+    import tempfile, json as _json, re as _re, shutil as _shutil
+    name = 'the push check runs what CI ran, and the gate refuses on a failure'
+    hook = ROOT / 'templates' / 'harness' / 'claude-code' / 'hooks' / 'push-check-gate.sh'
+    tool = ROOT / 'tools' / 'precedent_push_check.py'
+    if not hook.exists() or not tool.exists():
+        not_applicable(name, 'push-check-gate.sh or precedent_push_check.py is absent')
+        return
+    if not _shutil.which('jq'):
+        not_applicable(name, 'no jq on this machine; the gate fails open without it')
+        return
+    cases = []
+
+    # 1. The upstream list covers every tool a workflow here runs. A workflow
+    #    added later, with no local twin, is exactly the drift this names.
+    listed = subprocess.run([sys.executable, str(tool), '--list'], cwd=ROOT,
+                            capture_output=True, text=True).stdout
+    ran = set()
+    for wf in (ROOT / '.github' / 'workflows').glob('*.yml'):
+        ran |= set(_re.findall(r'python3?\s+tools/(\w+)\.py',
+                               wf.read_text(encoding='utf-8')))
+    missing = sorted(t for t in ran if f'tools/{t}.py' not in listed)
+    cases.append((f'the upstream list names every tool a workflow here runs'
+                  f'{" (missing: " + ", ".join(missing) + ")" if missing else ""}',
+                  bool(ran) and not missing))
+
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+        env = dict(os.environ, PRECEDENT_ALLOW_ANY_AUTHOR='1',
+                   GIT_AUTHOR_NAME='T', GIT_AUTHOR_EMAIL='t@example.com',
+                   GIT_COMMITTER_NAME='T', GIT_COMMITTER_EMAIL='t@example.com',
+                   GIT_CONFIG_GLOBAL=str(tmp / 'gitconfig'))
+
+        def git(cwd, *a):
+            return subprocess.run(['git', '-C', str(cwd), *a],
+                                  capture_output=True, text=True, env=env)
+
+        work = tmp / 'work'
+        (work / 'tools').mkdir(parents=True)
+        git(tmp, 'init', '-q', '-b', 'main', str(work))
+        _shutil.copy2(tool, work / 'tools' / 'precedent_push_check.py')
+        (work / 'tools' / 'ENGINE_MANIFEST.json').write_text(
+            _json.dumps({'kind': 'consumer'}), encoding='utf-8')
+        # Stand-ins for the three consumer tools: each fails when a tracked
+        # FAIL file names it, so a failure is a property of the tree pushed.
+        # precedent_check's stand-in prints the summary line the push check
+        # requires; a planted "zero" in FAIL makes it report 0 passed.
+        for t in ('precedent_check', 'leak_gate', 'doc_lint'):
+            (work / 'tools' / f'{t}.py').write_text(
+                'import pathlib, sys\n'
+                'f = pathlib.Path("FAIL")\n'
+                'body = f.read_text() if f.exists() else ""\n'
+                + ('print("precedent_check: %d passed, 0 violated" % '
+                   '(0 if "zero" in body else 3))\n'
+                   if t == 'precedent_check' else '')
+                + f'sys.exit(1 if "{t}" in body else 0)\n',
+                encoding='utf-8')
+        # The deep-check driver, when a repo has one, is on the list too.
+        drv = work / 'tools' / 'checks' / 'tests' / 'run_all.sh'
+        drv.parent.mkdir(parents=True)
+        drv.write_text('#!/bin/bash\ncd "$(dirname "$0")/../../.."\n'
+                       '[ -f FAIL ] && grep -q deep_check FAIL && exit 1\nexit 0\n',
+                       encoding='utf-8')
+        git(work, 'add', '-A')
+        git(work, 'commit', '-q', '-m', 'init')
+
+        elsewhere = tmp / 'elsewhere'
+        elsewhere.mkdir()
+
+        def gate(command, cwd=work, project=work):
+            payload = _json.dumps({'tool_input': {'command': command},
+                                   'cwd': str(cwd)})
+            p = subprocess.run(['bash', str(hook)], input=payload, text=True,
+                               capture_output=True, timeout=300,
+                               env=dict(env, CLAUDE_PROJECT_DIR=str(project)))
+            return '"deny"' in p.stdout, p.stdout
+
+        denied, _ = gate('git push origin main')
+        record = work / '.git' / 'precedent-push-check.json'
+        cases.append(('a clean tree passing every check is let through',
+                      not denied))
+        cases.append(('and the pass is recorded against the tree',
+                      record.is_file()))
+
+        (work / 'FAIL').write_text('leak_gate', encoding='utf-8')
+        git(work, 'add', 'FAIL')
+        git(work, 'commit', '-q', '-m', 'break the leak gate')
+        denied, out = gate('git push origin main')
+        cases.append(('a tree failing one check is refused, and the refusal '
+                      'names that check', denied and 'leak_gate' in out))
+        denied, _ = gate('git commit -q -n -m x && git push')
+        cases.append(("`git commit -n && git push` is still a push: -n "
+                      "belongs to the commit", denied))
+        denied, _ = gate('git push --dry-run origin main')
+        cases.append(('a dry run sends nothing and is let through', not denied))
+        denied, _ = gate('echo "then run git push" > notes.txt')
+        cases.append(('`git push` quoted inside another command is not a push',
+                      not denied))
+        denied, _ = gate(f'git -C {work} push origin main', cwd=elsewhere,
+                         project=elsewhere)
+        cases.append(('`git -C <repo> push` from another project checks the '
+                      'repository actually pushed', denied))
+        denied, _ = gate(f'cd {work} && git push origin main', cwd=elsewhere,
+                         project=elsewhere)
+        cases.append(('so does a leading `cd <repo> &&`', denied))
+
+        (work / 'FAIL').write_text('zero', encoding='utf-8')
+        git(work, 'commit', '-q', '-am', 'a run that checks nothing')
+        denied, out = gate('git push origin main')
+        cases.append(('a precedent_check run that passed ZERO checks is '
+                      'refused although it exits 0', denied and 'ZERO' in out))
+        (work / 'FAIL').write_text('deep_check', encoding='utf-8')
+        git(work, 'commit', '-q', '-am', 'break the deep check suite')
+        denied, out = gate('git push origin main')
+        cases.append(("a repo's own deep-check suite (tools/checks/tests/"
+                      "run_all.sh) runs, and its failure refuses the push",
+                      denied and 'deep_check' in out))
+        git(work, 'rm', '-q', 'FAIL')
+        git(work, 'commit', '-q', '-m', 'fix it')
+        denied, _ = gate('git push origin main')
+        cases.append(('fixing the finding lets the push through', not denied))
+        (work / 'FAIL').write_text('doc_lint', encoding='utf-8')
+        git(work, 'add', 'FAIL')     # staged, not committed
+        (work / 'FAIL').write_text('doc_lint', encoding='utf-8')
+        denied, _ = gate('git push origin main')
+        cases.append(('a pass recorded for the committed tree is not reused '
+                      'over uncommitted edits that fail', denied))
+        git(work, 'reset', '-q', '--hard')
+
+        # A shallow clone is deepened before anything runs: history checks
+        # on a shallow clone skip, and a skip would read as a pass here.
+        shallow = tmp / 'shallow'
+        git(tmp, 'clone', '-q', '--depth', '1', f'file://{work}', str(shallow))
+        was = git(shallow, 'rev-parse', '--is-shallow-repository').stdout.strip()
+        subprocess.run([sys.executable, 'tools/precedent_push_check.py'],
+                       cwd=shallow, capture_output=True, text=True, env=env)
+        now = git(shallow, 'rev-parse', '--is-shallow-repository').stdout.strip()
+        cases.append(('a shallow clone is deepened before the checks run',
+                      was == 'true' and now == 'false'))
+
+        plain = tmp / 'plain'
+        git(tmp, 'init', '-q', str(plain))
+        denied, _ = gate(f'git -C {plain} push', cwd=plain, project=plain)
+        cases.append(('a repository without the push check is let through',
+                      not denied))
+
+        # The global pass-through: a repo's own pre-push runs, and decides.
+        ci_hook = ROOT / '.claude' / 'hooks' / 'commit-identity.sh'
+        if ci_hook.exists():
+            home = tmp / 'home'
+            home.mkdir()
+            (work / 'identity.json').write_text(_json.dumps(
+                {'name': 'T', 'email': 't@example.com', 'timezone': 'UTC'}),
+                encoding='utf-8')
+            hooks = home / 'git-hooks'
+            subprocess.run(['bash', str(ci_hook)], capture_output=True,
+                           text=True, timeout=120,
+                           env=dict(env, HOME=str(home), CLAUDE_PROJECT_DIR=str(work),
+                                    PRECEDENT_GLOBAL_HOOKS=str(hooks),
+                                    PRECEDENT_LOCALTIME=str(tmp / 'lt'),
+                                    PRECEDENT_USER_CONFIG='/nonexistent/c.json'))
+            own = work / '.git' / 'hooks' / 'pre-push'
+            own.write_text('#!/bin/sh\nread line; echo "OWN $1 $line"; exit 7\n',
+                           encoding='utf-8')
+            own.chmod(0o755)
+            p = subprocess.run([str(hooks / 'pre-push'), 'origin'], cwd=work,
+                               input='ref-line\n', capture_output=True,
+                               text=True, env=env)
+            cases.append(("the global hooks directory passes pre-push through to "
+                          "the repository's own hook, arguments, stdin and "
+                          "refusal intact",
+                          (hooks / 'pre-push').exists() and p.returncode == 7
+                          and 'OWN origin ref-line' in p.stdout))
+
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
 def check_source_clone_is_pinned_to_a_branch():
     """A source clone must not ask the remote which branch to use.
 
@@ -17735,16 +17934,34 @@ def check_identity_reaches_a_repo_that_did_not_exist_yet():
         cases.append(('and the refusal names itself as the global backstop',
                       'GLOBAL backstop' in out))
 
+        # A PERSON'S ZONE BINDS THEIR OWN REPO ONLY (Morgan, 2026-09-25:
+        # "only use the individual one in the precedent-individual"). This
+        # case asserted the opposite until then: a wrong offset refused in
+        # every repository. Now the attached repo, which carries no
+        # identity.json, takes any offset, and the individual source itself,
+        # which does, still refuses one.
         g('config', 'user.email', 'm@example.com', cwd=later)
         r = subprocess.run(['git', 'commit', '-m', 'tz'], cwd=str(later),
                            capture_output=True, text=True,
                            env=dict(env, TZ='UTC'), timeout=120)
-        cases.append(('a wrong-offset commit is refused there',
-                      'declared timezone' in (r.stdout + r.stderr)))
-        r = subprocess.run(['git', 'commit', '-q', '-m', 'ok'], cwd=str(later),
+        cases.append(("a repo that is not the person's individual source is "
+                      "NOT held to their timezone", r.returncode == 0
+                      and 'declared timezone' not in (r.stdout + r.stderr)))
+        g('config', 'user.name', 'Morgan F', cwd=src)
+        g('config', 'user.email', 'm@example.com', cwd=src)
+        (src / 'z').write_text('z', encoding='utf-8')
+        g('add', 'z', cwd=src)
+        r = subprocess.run(['git', 'commit', '-m', 'tz'], cwd=str(src),
+                           capture_output=True, text=True,
+                           env=dict(env, TZ='UTC'), timeout=120)
+        cases.append(('the individual source itself still refuses a '
+                      'wrong-offset commit', 'declared timezone' in
+                      (r.stdout + r.stderr)))
+        r = subprocess.run(['git', 'commit', '-q', '-m', 'ok'], cwd=str(src),
                            capture_output=True, text=True,
                            env=dict(env, TZ=ZONE), timeout=120)
-        cases.append(('a correct commit is not blocked', r.returncode == 0))
+        cases.append(('and a correct commit there is not blocked',
+                      r.returncode == 0))
 
         # MUST NOT FIRE 1: a repository's own hook is not disabled.
         own = tmp / 'own-hooks'
@@ -26890,6 +27107,32 @@ def check_declared_identity_has_a_passing_state_in_a_shared_repo():
                       and got_own['timezone'].endswith('Buenos_Aires'),
                       str(got_own)))
 
+        # The override names the person without a zone: the repo's own
+        # identity.json supplies it (2026-09-25 -- an environment that kept
+        # PRECEDENT_COMMIT_NAME/EMAIL and dropped PRECEDENT_COMMIT_TZ left
+        # the individual source reporting "declares no timezone").
+        _saved = {k: os.environ.get(k) for k in
+                  ('PRECEDENT_COMMIT_EMAIL', 'PRECEDENT_COMMIT_NAME',
+                   'PRECEDENT_COMMIT_TZ')}
+        try:
+            os.environ['PRECEDENT_COMMIT_EMAIL'] = 'fixture@example.com'
+            os.environ['PRECEDENT_COMMIT_NAME'] = 'Fixture Person'
+            os.environ.pop('PRECEDENT_COMMIT_TZ', None)
+            got_env = pr.declared_identity(own, user_config=empty_cfg)
+            got_env_shared = pr.declared_identity(shared, user_config=empty_cfg)
+        finally:
+            for k, v in _saved.items():
+                if v is None:
+                    os.environ.pop(k, None)
+                else:
+                    os.environ[k] = v
+        cases.append(('an environment override with no zone takes the zone '
+                      "from the repo's own identity.json",
+                      got_env['timezone'].endswith('Buenos_Aires'), str(got_env)))
+        cases.append(('...and in a shared repo, with no identity.json, it has '
+                      'none', got_env_shared['timezone'] == '',
+                      str(got_env_shared)))
+
         # A shared repo whose PERSON has an individual source: step 3. This
         # is the case the two checks needed and never had.
         cfg = tmp / 'user-config.json'
@@ -31444,6 +31687,7 @@ def main():
     check_retirement_record_is_not_a_stranded_link()
     check_commit_identity_prevents_the_wrong_offset()
     check_commit_identity_ci_cadence()
+    check_push_check_gate()
     check_source_clone_is_pinned_to_a_branch()
     check_generator_wires_every_template_guard_mode()
     check_verify_reports_a_source_wired_for_fewer_moments()

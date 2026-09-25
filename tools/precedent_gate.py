@@ -247,7 +247,7 @@ def resolved_gate_practices(root, gate):
     return entries, notes, unresolved_level
 
 
-def _unlanded_work(root):
+def _unlanded_work(root, siblings=True):
     """-> [str] one line per repo in this session whose committed work is not
     on the branch that repo actually merges into. Never raises.
 
@@ -284,7 +284,14 @@ def _unlanded_work(root):
     # Sibling Precedent repos this session may also have committed in. A
     # session that made a commit in a source set and left it on a branch has
     # the same problem, and nothing else in this preamble looks there.
-    for parent in {pathlib.Path(root).parent, pathlib.Path.home()}:
+    #
+    # `siblings=False` is for a test fixture, which must see only itself.
+    # The scan includes the home directory, so a harness run on a machine
+    # whose real practice sets carried unmerged work failed on THEIR state
+    # -- found 2026-09-25, the first time the harness gated a push, with the
+    # push check's own rollout commits sitting on the sets' working branches.
+    for parent in ({pathlib.Path(root).parent, pathlib.Path.home()}
+                   if siblings else ()):
         try:
             entries = sorted(parent.iterdir())
         except OSError:

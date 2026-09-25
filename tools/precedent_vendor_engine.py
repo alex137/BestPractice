@@ -583,6 +583,12 @@ ENGINE_FILES = [
     # settings.json -- belongs to whatever repo the session is rooted in,
     # source set or consumer alike.
     'precedent_session_check.py',
+    # Everything CI used to run on a push, run locally instead (added
+    # 2026-09-25). A practice source runs no CI at all and a private
+    # consumer may run none, so this list is the only check their pushes
+    # get; push-check-gate.sh runs it before a session's `git push`. Every
+    # kind needs it, and it reads its own kind back from ENGINE_MANIFEST.json.
+    'precedent_push_check.py',
     'precedent_vendor_engine.py',
 ]
 
@@ -846,6 +852,8 @@ HOOK_WIRING = {
         ('PreToolUse', 'Edit|Write|NotebookEdit|Bash', 'commit-identity-once.sh', ''),
         ('PreToolUse', 'Bash', 'doc-lint-gate.sh', ''),
         ('PreToolUse', _SEEDED_PROMPT_MATCHER, 'seeded-prompt-gate.sh', ''),
+        # Everything CI used to run on a push, run before it (2026-09-25).
+        ('PreToolUse', 'Bash', 'push-check-gate.sh', ''),
         ('Stop', None, 'stop-git-check.sh', ''),
         ('Stop', None, 'stop-reply-check.sh', ''),
     ),
@@ -865,8 +873,18 @@ HOOK_WIRING = {
         # in a set can spawn sessions like any other, and the hook needs
         # nothing but bash and jq -- no engine file a set lacks.
         ('PreToolUse', _SEEDED_PROMPT_MATCHER, 'seeded-prompt-gate.sh', ''),
+        # A set runs no CI at all (source-sets-run-no-ci), so this is the
+        # only thing that runs its checks before a push (2026-09-25).
+        ('PreToolUse', 'Bash', 'push-check-gate.sh', ''),
     ),
 }
+# A hook that needs more than the harness's default time gets its own
+# `timeout` (seconds) on the entry a refresh adds. push-check-gate.sh can run
+# BestPractice's whole harness, about six minutes, and enforces its own
+# 840-second deadline inside this one, so an expiry refuses the push instead
+# of the harness killing the hook -- which it treats as a non-blocking error,
+# letting the push through unchecked.
+HOOK_TIMEOUTS = {'push-check-gate.sh': 900}
 # Shipped in HOOK_SOURCE_DIR and on NO kind's list, each with the reason. A
 # repo that wires one itself still has it vendored and kept current -- the
 # wiring gate below still applies -- but no refresh adds it anywhere.
@@ -1109,6 +1127,8 @@ def _apply_hook_wiring(dest_root, kind, hooks_src_dir):
         cmd = f'$CLAUDE_PROJECT_DIR/{HOOK_DEST_DIR}/{name}' + (
             f' {args}' if args else '')
         entry = collections.OrderedDict([('type', 'command'), ('command', cmd)])
+        if name in HOOK_TIMEOUTS:
+            entry['timeout'] = HOOK_TIMEOUTS[name]
         groups = hooks.setdefault(event, [])
         home = next((g for g in groups if isinstance(g, dict)
                      and g.get('matcher') == matcher

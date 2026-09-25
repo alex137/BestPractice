@@ -31,7 +31,11 @@ registry-source-of-truth).
 
   1. PRECEDENT_COMMIT_TZ            — an explicit override
   2. this repo's own identity.json  — the repo IS somebody's individual source
-  3. the individual source's identity.json, via ~/.config/precedent/config.json
+  3. (retired 2026-09-25) the individual source's identity.json, via
+     ~/.config/precedent/config.json -- a person's zone now stays in their
+     own repo. Morgan: "That is in personal-individual ONLY FOR ME. The
+     default timezone here should be New York, or here should be none, and
+     only use the individual one in the precedent-individual."
   4. TZ in the environment          — the harness `env` block, itself derived
                                       from identity.json at session start
   5. precedent.json's `fallback_timezone` — THIS REPOSITORY's declared fallback
@@ -163,8 +167,8 @@ def resolved(root=None):
         (os.environ.get('PRECEDENT_COMMIT_TZ'), 'the PRECEDENT_COMMIT_TZ override'),
         (_read_identity_zone(root / 'identity.json'),
          "this repository's own identity.json"),
-        (_individual_identity_zone(),
-         "the individual practice source's identity.json"),
+        # No rung for the individual source's zone: it binds that repo only
+        # (see rung 3 in the module docstring).
         (os.environ.get('TZ'), 'TZ in the environment'),
         (_repo_fallback_zone(root),
          "this repository's declared fallback_timezone (no zone was found for this person)"),
