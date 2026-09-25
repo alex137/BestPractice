@@ -51,6 +51,15 @@ words. No workflow ever ran it; it was run by hand, or not. Morgan,
 set's cases red, fixed the same day. A repo with no driver skips the entry
 and says so.
 
+AND IN A PRACTICE SOURCE, RUNS IT A SECOND TIME SHAPED LIKE A CONSUMER.
+Those tests ship: every repository that resolves the source runs them
+against its own tree. precedent_consumer_shape.py runs the suite again with
+git ignoring what a typical consuming repository ignores, so a test that
+passes only in its home layout goes red here instead of there. 2026-09-25:
+one test staged a fixture under vendor/ with a plain `git add`, passed on
+every run in its source, and failed for days in a consumer that ignores
+vendor/, where nobody could fix it.
+
 A SHALLOW CLONE IS DEEPENED FIRST, or the push is refused. Every clone in
 a cloud session starts shallow, and a check that walks `git log` over a
 shallow clone reports SKIPPED -- which this list would then call a pass.
@@ -159,6 +168,11 @@ def _finding_lines(out):
 # else restates it (practice: registry-source-of-truth).
 DEEP_CHECK_SUITE = ('deep_check', ['bash', 'tools/checks/tests/run_all.sh'],
                     "no workflow -- the deep-check practice's own suite")
+# The same suite as a consumer will run it -- a practice source only, since
+# only a source ships its tests (practice: two-check-levels).
+CONSUMER_SHAPE_SUITE = ('consumer_shape',
+                        ['{engine}/precedent_consumer_shape.py'],
+                        "no workflow -- the deep-check suite, consumer-shaped")
 # The author and timezone checks, where a repo carries them. They ran in
 # precedent-individual's commit-identity.yml and precedent-check.yml until
 # 2026-09-21; commit-identity-push-gate.sh runs them too, but only where it
@@ -220,6 +234,7 @@ PUSH_CHECKS = {
          'doc-lint.yml, retired 2026-09-21'),
         CI_WORKFLOWS_CHECK,
         DEEP_CHECK_SUITE,
+        CONSUMER_SHAPE_SUITE,
         *IDENTITY_CHECKS,
     ),
     'consumer': (

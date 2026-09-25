@@ -56,6 +56,30 @@ one of them has will disagree. Green on the local shape means the shape is
 not what breaks. It does not mean CI is green, and a mode that implies
 otherwise repeats the failure it was built to fix.
 
+**A failing test in the deep check belongs to whoever shipped it, and "it
+fails on the base branch too" is never where that ends.** In a repository
+that resolves practice sources, most of the tests its deep check runs were
+written somewhere else and materialized in, and the generated driver
+(`tools/checks/tests/run_all.sh`) names each failing test's source. A
+failing one is a bug in that source: fix it there and report it there, from
+a session rooted in that source's repository or with a hand-off to one.
+Noting it as pre-existing is true and changes nothing, because nothing else
+routes it home — it stays red in every repository that carries it, and a red
+suite everyone has learned to read past no longer gates anything.
+
+**The source's half: its own push check runs its tests a second time shaped
+like a consumer**, with git ignoring what consuming repositories commonly
+ignore ([tools/precedent_consumer_shape.py](../tools/precedent_consumer_shape.py)),
+so a test that only works in its home layout fails before it ships. A test
+that plants a fixture file stages it with `git add -f`, never a plain
+`git add`.
+
+*(2026-09-25: a test staged a fixture under `vendor/` with a plain `git add`.
+It passed on every run in its source, where nothing ignores `vendor/`, and
+failed for days in a consuming repository whose dependency manager's
+`vendor/` was ignored — each session there calling it pre-existing and
+moving on, since the test was not theirs and nothing said whose it was.)*
+
 ## Why
 Without named levels, "run the checks" is ambiguous between two
 very different costs, and the drift goes one of two ways: sessions run the

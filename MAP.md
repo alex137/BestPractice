@@ -6,13 +6,14 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 
 ## The practice catalogue
 
-`practices/` holds 140 practice files (10 resident, 130 on-demand). One file per practice. See [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md) for the design.
+`practices/` holds 141 practice files (10 resident, 131 on-demand). One file per practice. See [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md) for the design.
 
 | Practice | Tier | Occasion / scope |
 |---|---|---|
 | [acronyms-glossary](practices/acronyms-glossary.md) | on-demand | writing or editing a document |
 | [affordance-is-shared](practices/affordance-is-shared.md) | on-demand | building a mechanism that makes something discoverable or reachable |
 | [archive-status-check](practices/archive-status-check.md) | on-demand | a message says "Archive", with or without a question mark, or otherwise asks whether the session can be archived |
+| [attach-never-clone-individual](practices/attach-never-clone-individual.md) | on-demand | attaching a practice source to a session with the repo-attach tool, or that tool's reply says to clone what it attached |
 | [attach-the-original](practices/attach-the-original.md) | on-demand | asked to include an image, logo, or other binary asset the person is supplying, rather than approximate one from a description |
 | [base-branch-is-the-record](practices/base-branch-is-the-record.md) | on-demand | starting work another session may already have done, or opening a pull request |
 | [bold-key-phrases](practices/bold-key-phrases.md) | resident | writing any document meant to be read |
@@ -201,6 +202,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [tools/precedent_check.py](tools/precedent_check.py) | The ENFORCED loading channel — runs every practice's `checked_by` script |
 | [tools/precedent_ci_verified.py](tools/precedent_ci_verified.py) | Did CI actually run, and pass, on the commit about to be merged — advisory, one API call |
 | [tools/precedent_close_detect.py](tools/precedent_close_detect.py) | Stage 1's trigger — at the close of a session that merged and is ready to archive, offers at most one practice candidate found in that session's own material |
+| [tools/precedent_consumer_shape.py](tools/precedent_consumer_shape.py) | A practice source's check tests run the way a consuming repository runs them -- with git ignoring what a consumer typically ignores -- so a test that passes only in its home layout fails at home; a source's push check runs it |
 | [tools/precedent_container_safe.py](tools/precedent_container_safe.py) | Would anything be lost if this container went away? Scans every git checkout in it for uncommitted, untracked and unpushed work |
 | [tools/precedent_decommission.py](tools/precedent_decommission.py) | Audits a deprecated file or directory before it is deleted -- refuses while anything still references it, or a workflow it names is still live -- then deletes and records it |
 | [tools/precedent_detect.py](tools/precedent_detect.py) | Stage 1 (phase 5) — the mechanical half of candidate detection |
