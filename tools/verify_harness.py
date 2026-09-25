@@ -13802,7 +13802,9 @@ def check_materialize_bridges_loader():
                       and (consumer / 'tools' / 'checks' / 'tests' / 'test_shared_name.sh').exists()))
 
         (consumer / 'tools').mkdir(parents=True, exist_ok=True)
-        for f in ('build_views.py', 'split_practices.py'):
+        # summary_text.py since 2026-09-25: build_views.py imports it at
+        # module level, as it does split_practices.py.
+        for f in ('build_views.py', 'split_practices.py', 'summary_text.py'):
             shutil.copyfile(ROOT / 'tools' / f, consumer / 'tools' / f)
         (consumer / 'AGENTS.md').write_text(
             '# fixture\n\n<!-- BEGIN GENERATED: precedent-loader -->\n'
@@ -29419,6 +29421,115 @@ def check_withdrawn_table_never_links_a_successor_it_does_not_have():
           '; '.join(failed) + (f' [rendered: {out[-300:]!r}]' if failed else ''))
 
 
+def check_summary_fields_drop_links_before_the_cut():
+    """Every generator that copies prose into a one-line or length-capped
+    field drops the prose's links BEFORE cutting it (tools/summary_text.py;
+    practice: control-asserts-which-failure).
+
+    THE INCIDENT, 2026-09-25. build_todo_index.py cut an item's title at
+    `[:120]`, and in a consumer repo the cut landed inside a link's URL,
+    leaving "(../meeting-notes/<name>-" open in todo/TODO.md. Harmless while
+    that row was last; once a row came after it, the consumer's link checker
+    paired the stray "(" with the next row's ")" and reported a broken link.
+    This repo's own TODO.md and CLOSED.md already carried three such cut
+    links, unnoticed.
+
+    Each case builds prose whose link STRADDLES that generator's cut, and
+    first asserts that a naive cut of it really is unbalanced -- otherwise a
+    fixture that drifted off the cut would pass with the fix deleted. Then
+    it asserts the generated field carries no "](" and balanced parentheses.
+    """
+    import tempfile
+    import importlib.util
+
+    def load(name):
+        spec = importlib.util.spec_from_file_location(
+            f'_sumtext_{name}', ROOT / 'tools' / f'{name}.py')
+        mod = importlib.util.module_from_spec(spec)
+        sys.path.insert(0, str(ROOT / 'tools'))
+        try:
+            spec.loader.exec_module(mod)
+        finally:
+            sys.path.pop(0)
+        return mod
+
+    def straddling(limit):
+        """Prose whose one link opens 12 characters before `limit`."""
+        lead = 'w' * (limit - 12 - 1) + ' '
+        return (lead + '[the notes](../meeting-notes/some-person-and-morgan-'
+                '2026-09-25.md) and the rest of the sentence after it.')
+
+    def naive_is_broken(text, limit):
+        cut = text[:limit]
+        return '](' in cut and cut.count('(') != cut.count(')')
+
+    def clean(field):
+        return '](' not in field and field.count('(') == field.count(')')
+
+    results = []
+    for limit in (120, 80, 400):
+        results.append((f'fixture: a naive [:{limit}] cut really is broken',
+                        naive_is_broken(straddling(limit), limit)))
+
+    todo = load('build_todo_index')
+    gotcha = load('build_gotcha_index')
+    views = load('build_views')
+    migrate = load('todo_migrate')
+
+    with tempfile.TemporaryDirectory() as tmp:
+        repo = pathlib.Path(tmp)
+        tdir = repo / 'todo'
+        tdir.mkdir()
+        blocked = straddling(80).replace('"', "'")
+        for slug, status in (('todo-2026-09-25-open-one', 'open'),
+                             ('todo-2026-09-25-closed-one', 'done')):
+            (tdir / f'{slug}.md').write_text(
+                f'---\nslug: {slug}\nstatus: {status}\nkind: analysis\n'
+                f'noted: 2026-09-25\nclosed: 2026-09-25\ndisposition: wait\n'
+                f'blocked_on: "{blocked}"\n---\n\n## What\n\n'
+                f'**{straddling(120)}**\n', encoding='utf-8')
+        rc = todo.main(['--repo', str(repo)])
+        results.append(('build_todo_index ran on the fixture', rc == 0))
+        for name, want in (('TODO.md', 'todo-2026-09-25-open-one'),
+                           ('CLOSED.md', 'todo-2026-09-25-closed-one')):
+            text = (tdir / name).read_text(encoding='utf-8')
+            rows = [l for l in text.splitlines() if want in l]
+            results.append((f'{name} carries the fixture row', bool(rows)))
+            for row in rows:
+                cells = row.strip('|').split(' | ')
+                results.append((f'{name}: the row still links its own item',
+                                cells[0].strip().endswith(f'({want}.md)')))
+                results.append((f'{name}: every copied cell is unlinked and '
+                                f'balanced', all(clean(c) for c in cells[1:])))
+
+        gdir = repo / 'gotchas'
+        gdir.mkdir()
+        (gdir / 'gotcha-2026-09-25-x.md').write_text(
+            '---\nslug: gotcha-2026-09-25-x\nstatus: live\nnoted: 2026-09-25\n'
+            f'---\n\n## Symptom\n\n{straddling(120)}\n\n## Story\n\nx\n',
+            encoding='utf-8')
+        rc = gotcha.main(['--repo', str(repo)])
+        line = [l for l in (gdir / 'INDEX.md').read_text(encoding='utf-8')
+                .splitlines() if 'gotcha-2026-09-25-x' in l]
+        results.append(('gotcha INDEX: the symptom is unlinked, the story '
+                        'link stays', rc == 0 and len(line) == 1
+                        and clean(line[0].split('** [story]')[0])
+                        and line[0].endswith('(gotcha-2026-09-25-x.md)')))
+
+    reason = views._withdrawn_reason({'story': straddling(397)})
+    results.append(('MAP.md withdrawn reason: unlinked and balanced at the '
+                    '400 cut', clean(reason) and reason.endswith('...')))
+
+    items = migrate.parse_todo_items(
+        '# TODO\n\n- <a id="x"></a> ' + straddling(80 - 20) + '\n')
+    results.append(('todo_migrate fallback title: unlinked and balanced at '
+                    'the 80 cut', len(items) == 1 and clean(items[0].title)))
+
+    failed = [n for n, ok in results if not ok]
+    check(f'summary fields drop links before the cut ({len(results)} '
+          f'stated cases)', not failed, '; '.join(failed))
+
+
 def check_leak_gate_refuses_a_fresh_container():
     """A repo that declares a private source must not pass the leak gate with
     the vocabulary layer unrun, even with no git config anywhere.
@@ -30864,6 +30975,7 @@ def main():
     check_doc_currency_finds_a_stale_document()
     check_template_freshness_reads_the_skeleton_correctly()
     check_withdrawn_table_never_links_a_successor_it_does_not_have()
+    check_summary_fields_drop_links_before_the_cut()
     check_source_precedence()
     check_cross_source_resident_budget()
     check_doc_lint_fires()

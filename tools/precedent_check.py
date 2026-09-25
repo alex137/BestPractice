@@ -7230,7 +7230,9 @@ def _dup_words(text):
     """-> normalized words. Markup differs between a practice file and the
     prose quoting it -- backticks, link syntax, bolding, line wrapping -- and
     comparing raw text finds nothing. Compare what a reader would hear."""
-    text = re.sub(r'\[([^\]]*)\]\([^)]*\)', r'\1', text)
+    # `[^)\n]`: a destination never spans lines, and this runs over whole
+    # files, where `[^)]` can swallow text up to a ")" paragraphs away.
+    text = re.sub(r'\[([^\]]*)\]\([^)\n]*\)', r'\1', text)
     text = re.sub(r'[`*_#>|]', ' ', text)
     return re.findall(r"[a-z0-9']+", text.lower())
 

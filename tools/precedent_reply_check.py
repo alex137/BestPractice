@@ -337,7 +337,13 @@ def _strip_quoted_spans(s):
 # named without the anchored `practice:` form -- see
 # todo-2026-09-07-universal-code-cites-team-slug for why, in the fail-gracefully
 # citations that were in exactly this spot until they were promoted).
-_MD_LINK_RE = re.compile(r'\[[^\]]*\]\([^)]*\)')
+#
+# The destination never crosses a line break (`[^)\n]`, not `[^)]`): a URL
+# holds no newline, and the looser class lets a stray "(" pair with a ")"
+# lines further on and blank out everything between -- mentions included,
+# which then pass as linked. Same shape as a consumer's link checker that
+# reported a broken link across two todo rows, 2026-09-25.
+_MD_LINK_RE = re.compile(r'\[[^\]]*\]\([^)\n]*\)')
 
 
 def _strip_markdown_links(s):

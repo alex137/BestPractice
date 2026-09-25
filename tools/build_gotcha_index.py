@@ -33,6 +33,7 @@ import sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+import summary_text  # a symptom is a summary: its links go, see there
 import title_case  # practice: headline-capitalization -- applied by tool,
                    # never by hand, on every heading this file generates
 
@@ -93,7 +94,7 @@ def read_gotcha(path):
                   re.MULTILINE | re.DOTALL)
     if not m:
         sys.exit(f'build_gotcha_index FAIL: {path} has no ## Symptom section.')
-    symptom = re.sub(r'\s+', ' ', m.group(1)).strip()
+    symptom = summary_text.one_line(m.group(1))
     return GotchaItem(path, fields, symptom)
 
 
