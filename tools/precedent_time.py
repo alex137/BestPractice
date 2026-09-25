@@ -31,11 +31,16 @@ registry-source-of-truth).
 
   1. PRECEDENT_COMMIT_TZ            — an explicit override
   2. this repo's own identity.json  — the repo IS somebody's individual source
-  3. (retired 2026-09-25) the individual source's identity.json, via
-     ~/.config/precedent/config.json -- a person's zone now stays in their
-     own repo. Morgan: "That is in personal-individual ONLY FOR ME. The
-     default timezone here should be New York, or here should be none, and
-     only use the individual one in the precedent-individual."
+  3. the individual source's identity.json, via
+     ~/.config/precedent/config.json -- the PERSON's zone, in every repo
+     they work in. Retired the morning of 2026-09-25 and restored the same
+     evening, Morgan: "is there a way to have the individual timezone take
+     precedence, if there is one? I meant the repo timezone to be a
+     fallback, in case there is no defined individual timezone defined"
+     (strength: decided). What the morning change was right about stays:
+     his zone is not AUDITED against a shared repo's history, where other
+     people's commits live (check_buenos_aires_dates.py stands down
+     outside an individual source). It is only applied to his own records.
   4. TZ in the environment          — the harness `env` block, itself derived
                                       from identity.json at session start
   5. precedent.json's `fallback_timezone` — THIS REPOSITORY's declared fallback
@@ -167,8 +172,8 @@ def resolved(root=None):
         (os.environ.get('PRECEDENT_COMMIT_TZ'), 'the PRECEDENT_COMMIT_TZ override'),
         (_read_identity_zone(root / 'identity.json'),
          "this repository's own identity.json"),
-        # No rung for the individual source's zone: it binds that repo only
-        # (see rung 3 in the module docstring).
+        (_individual_identity_zone(),
+         "the person's own zone, from their individual source's identity.json"),
         (os.environ.get('TZ'), 'TZ in the environment'),
         (_repo_fallback_zone(root),
          "this repository's declared fallback_timezone (no zone was found for this person)"),

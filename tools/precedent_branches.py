@@ -381,8 +381,9 @@ def _merge_env(root=None):
     """A merge commit this module makes must never carry `[skip ci]`
     (plan, hole 3): PRECEDENT_CI_NOW is the cadence hook's own override.
 
-    It is also dated in the repository's own zone, never the container's
-    (practice: timestamps-carry-offset). On 2026-09-25 a Promote in an
+    It is also dated in the committing person's zone -- the repository's
+    fallback only when no person's zone is declared -- never the
+    container's (practice: timestamps-carry-offset). On 2026-09-25 a Promote in an
     individual source was refused by its own full check: the merge commit
     this module had just made carried the container's -0400, and that
     repository enforces its owner's declared zone on every commit. The zone
