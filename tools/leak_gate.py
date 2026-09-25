@@ -1105,10 +1105,17 @@ def load_blocklist():
     except ValueError:
         pass  # outside the repo, which is the point
     else:
-        sys.exit(f"leak gate FAIL: the blocklist at {path} is INSIDE Precedent. A list "
-                 f"of private terms committed to a public repo publishes the terms it "
-                 f"exists to protect. Keep it in the private set "
-                 f"(see practice: scrub-gate) and point {BLOCKLIST_ENV} at it there.")
+        # A repository that declares itself private is the one place a
+        # private list belongs -- it is the individual source that holds the
+        # list, pushed by its owner. Refusing there made every push from
+        # precedent-individual fail the push check before the private
+        # stand-down below was ever reached (found 2026-09-25, the first
+        # time a session pushed to it with the gate in force).
+        if declared_visibility(ROOT)[0] != 'private':
+            sys.exit(f"leak gate FAIL: the blocklist at {path} is INSIDE Precedent. A list "
+                     f"of private terms committed to a public repo publishes the terms it "
+                     f"exists to protect. Keep it in the private set "
+                     f"(see practice: scrub-gate) and point {BLOCKLIST_ENV} at it there.")
     # practice_audit.py's scrub reads the same file format and honours a
     # leading `!` as a path exemption. This gate deliberately does NOT --
     # see _parse_blocklist, which refuses it for both halves.

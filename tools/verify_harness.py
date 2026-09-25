@@ -18754,6 +18754,28 @@ def check_leak_gate_scans_the_consuming_repo():
         cases.append(('and names what still guards the export path',
                       'practice_audit' in out))
 
+        # A private repo holding its OWN private blocklist -- the individual
+        # source -- stands down; a public one holding it still fails.
+        (priv / 'leak-blocklist.txt').write_text('secretterm\n', encoding='utf-8')
+        r = subprocess.run(
+            [sys.executable, str(priv / 'process' / 'upstream' / 'tools' / 'leak_gate.py')],
+            capture_output=True, text=True, cwd=str(priv), timeout=300,
+            env=dict(os.environ, PRECEDENT_ALLOW_ANY_AUTHOR='1',
+                     PRECEDENT_LEAK_BLOCKLIST=str(priv / 'leak-blocklist.txt')))
+        out = r.stdout + r.stderr
+        cases.append(('a private repo holding its own blocklist stands down '
+                      'rather than failing', 'NOT APPLICABLE' in out
+                      and 'INSIDE' not in out and r.returncode == 0))
+        (pub / 'leak-blocklist.txt').write_text('secretterm\n', encoding='utf-8')
+        r = subprocess.run(
+            [sys.executable, str(pub / 'process' / 'upstream' / 'tools' / 'leak_gate.py')],
+            capture_output=True, text=True, cwd=str(pub), timeout=300,
+            env=dict(os.environ, PRECEDENT_ALLOW_ANY_AUTHOR='1',
+                     PRECEDENT_LEAK_BLOCKLIST=str(pub / 'leak-blocklist.txt')))
+        out = r.stdout + r.stderr
+        cases.append(('a public repo holding the blocklist still fails, naming '
+                      'it', r.returncode != 0 and 'INSIDE' in out))
+
         # ABSENT visibility must NOT be read as private.
         none = _consumer(tmp / 'none', None)
         r = subprocess.run(
