@@ -16709,9 +16709,12 @@ def check_promote_pre_staging():
                 os.environ.pop('PRECEDENT_USER_CONFIG', None)
             else:
                 os.environ['PRECEDENT_USER_CONFIG'] = saved
-        cases.append(("unpromoted work on pre-staging is named with a Promote "
-                      "recommendation", any("on 'pre-staging'" in l and 'say Promote' in l
-                                            for l in got)))
+        cases.append(("unpromoted work on pre-staging is named gently, as "
+                      "something a Promote can move whenever it suits",
+                      any(l.startswith("this checkout: pre-staging is ")
+                          and 'a Promote can move them' in l
+                          and 'NOT' not in l and 'MUST' not in l
+                          for l in got)))
         cases.append(("a branch whose commits are all on pre-staging is not "
                       "called unlanded for lacking them on staging",
                       not any("'w-landed'" in l for l in got)))
