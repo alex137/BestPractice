@@ -9689,6 +9689,37 @@ def check_precedent_check_fires():
                       'what the next reader trusts',
                       _d4_rc == 1 and 'something does call it' in _d4_out))
 
+        # A comment or docstring naming the declined hook is prose, not a
+        # call. Before 2026-09-25 the engine's own commentary about
+        # freshness-guard.sh made a consuming repo's decline read as stale.
+        # The string-literal line is the control: the same path as code
+        # still counts, so the fix did not just stop reading tools/.
+        def _plant_mentions(repo, as_code):
+            ref = _hook_ref(_DECLINED)
+            body = (f'"""Explains {ref}."""\n'
+                    f'# {ref} is declined here\n')
+            if as_code:
+                body += f'HOOK = {ref!r}\n'
+            (repo / 'tools' / 'zzz_mentions.py').write_text(
+                body, encoding='utf-8')
+
+        _d5 = fresh('hooks-decline-mentioned-in-prose')
+        _plant_decline(_d5, reason='we decided against it')
+        _plant_mentions(_d5, as_code=False)
+        _d5_rc, _d5_out = run(_d5, 'hooks-on-disk-are-reachable')
+        cases.append(('hooks-on-disk-are-reachable: an engine comment or '
+                      'docstring naming a declined hook does not make the '
+                      'decline stale',
+                      _d5_rc == 0 and 'something does call it' not in _d5_out))
+
+        _d6 = fresh('hooks-decline-called-from-code')
+        _plant_decline(_d6, reason='we decided against it')
+        _plant_mentions(_d6, as_code=True)
+        _d6_rc, _d6_out = run(_d6, 'hooks-on-disk-are-reachable')
+        cases.append(('hooks-on-disk-are-reachable: ...while the same path as '
+                      'a string literal in engine code still counts as a call',
+                      _d6_rc == 1 and 'something does call it' in _d6_out))
+
         # engine-plus-host-shims -- a host-tree fork of a vendored module
         def _setup_vendored(repo):
             up = repo / 'process' / 'upstream' / 'tools'

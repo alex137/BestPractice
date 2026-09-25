@@ -69,6 +69,14 @@ on:
   # only on a Promote, and the head that merges is the head that must have
   # been checked.
   #
+  # THAT REASONING ASSUMES A STAGING TIER. In a repository whose working
+  # branches open their pull requests straight into main, the head moves on
+  # every push, and `synchronize` bills a run for each one. Today the
+  # `[skip ci]` backstop below hides that cost. Such a repository must
+  # re-decide this line -- keep it, or drop it and re-run by hand before
+  # merging -- before that backstop is removed (a consuming repo found the
+  # gap on 2026-09-25, installing this file).
+  #
   # The `[skip ci]` line the commit hook adds in a private repo is kept as a
   # backstop until every install has this file (Morgan, 2026-09-25: "Backstops
   # are good especially on this issue. We'll keep it until we're 100% sure

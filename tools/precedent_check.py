@@ -3053,6 +3053,51 @@ def _settings_hook_dirs():
     return out
 
 
+def _invocation_text(path, text):
+    """-> the part of a caller file that could actually run a hook.
+
+    A comment is prose, and so is a docstring: engine code that EXPLAINS
+    `.claude/hooks/freshness-guard.sh` does not run it. Reading the whole
+    file made every such mention a call, so a repo that declined the hook
+    was told its decline was stale ("something does call it") by the
+    engine's own commentary. Measured 2026-09-25 in a consuming repo on the
+    engine at 077069e: freshness-guard.sh and stop-git-check.sh, both
+    declined and wired nowhere, both reported, the "callers" being comments
+    in precedent_materialize.py, precedent_vendor_engine.py and this file.
+
+    So a Python caller contributes its string literals only, docstrings
+    excluded, and not a `$CLAUDE_PROJECT_DIR`-rooted one either: in Python
+    that is settings text being written for some settings.json
+    (precedent_bootstrap_source.py writes a NEW set's), and a settings file
+    that really wires a hook is read directly as its own caller. A shell
+    caller loses its whole-line comments. Anything that does not parse is
+    read whole, which is the old behaviour: over-counting a caller costs a
+    missed orphan, never a working hook called dead."""
+    if path.suffix == '.py':
+        try:
+            tree = ast.parse(text)
+        except (SyntaxError, ValueError):        # practice: fail-gracefully
+            return text
+        docs = set()
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.Module, ast.ClassDef, ast.FunctionDef,
+                                 ast.AsyncFunctionDef)) and node.body:
+                first = node.body[0]
+                if (isinstance(first, ast.Expr)
+                        and isinstance(first.value, ast.Constant)
+                        and isinstance(first.value.value, str)):
+                    docs.add(id(first.value))
+        return '\n'.join(
+            n.value for n in ast.walk(tree)
+            if isinstance(n, ast.Constant) and isinstance(n.value, str)
+            and id(n) not in docs
+            and not re.match(r'\s*\$\{?CLAUDE_PROJECT_DIR\b', n.value))
+    if path.suffix == '.json':
+        return text
+    return '\n'.join(line for line in text.splitlines()
+                     if not line.lstrip().startswith('#'))
+
+
 @check('hooks-on-disk-are-reachable', 'tree',
        'every hook file in .claude/hooks/ is reachable from something that '
        'could run it — a settings*.json entry, another hook, or an engine '
@@ -3172,9 +3217,10 @@ def _hooks_on_disk_are_reachable(ctx):
     texts = []
     for c in callers:
         try:
-            texts.append((c, c.read_text(encoding='utf-8', errors='ignore')))
+            raw = c.read_text(encoding='utf-8', errors='ignore')
         except OSError:                          # practice: fail-gracefully
             continue
+        texts.append((c, _invocation_text(c, raw)))
     # practice: code-cites-practice -- checkable-gets-checked. The declared
     # declines, read the same way filename_separator_exempt is: an entry
     # without a reason buys nothing.
