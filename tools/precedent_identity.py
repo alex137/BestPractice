@@ -105,13 +105,6 @@ def declared_identity(repo, user_config=None):
     wrong thing to JUDGE one against -- a check that treated the container's
     ambient git config as the expected author would pass whatever it found.
     """
-    env_email = os.environ.get('PRECEDENT_COMMIT_EMAIL')
-    if env_email:
-        return {'name': os.environ.get('PRECEDENT_COMMIT_NAME') or '',
-                'email': env_email,
-                'timezone': os.environ.get('PRECEDENT_COMMIT_TZ') or '',
-                'source': 'PRECEDENT_COMMIT_* environment'}
-
     def _read(path, where):
         try:
             ident = json.loads(pathlib.Path(path).read_text(encoding='utf-8'))
@@ -128,6 +121,20 @@ def declared_identity(repo, user_config=None):
     own = _read(repo_root / 'identity.json',
                 f'{repo_root / "identity.json"} -- this repository is itself '
                 f'an individual practice source')
+
+    # The override names the person; its zone, when it gives none, is this
+    # repo's own identity.json's -- the same fill commit-identity.sh does.
+    # Found 2026-09-25: once PRECEDENT_COMMIT_TZ left an environment that
+    # kept PRECEDENT_COMMIT_NAME/EMAIL (a person's zone now binds only their
+    # own repo), the individual source itself reported "declares no
+    # timezone" although its identity.json declares one.
+    env_email = os.environ.get('PRECEDENT_COMMIT_EMAIL')
+    if env_email:
+        return {'name': os.environ.get('PRECEDENT_COMMIT_NAME') or '',
+                'email': env_email,
+                'timezone': (os.environ.get('PRECEDENT_COMMIT_TZ')
+                             or (own or {}).get('timezone') or ''),
+                'source': 'PRECEDENT_COMMIT_* environment'}
     if own:
         return own
 

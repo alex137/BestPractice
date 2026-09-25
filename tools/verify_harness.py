@@ -27107,6 +27107,32 @@ def check_declared_identity_has_a_passing_state_in_a_shared_repo():
                       and got_own['timezone'].endswith('Buenos_Aires'),
                       str(got_own)))
 
+        # The override names the person without a zone: the repo's own
+        # identity.json supplies it (2026-09-25 -- an environment that kept
+        # PRECEDENT_COMMIT_NAME/EMAIL and dropped PRECEDENT_COMMIT_TZ left
+        # the individual source reporting "declares no timezone").
+        _saved = {k: os.environ.get(k) for k in
+                  ('PRECEDENT_COMMIT_EMAIL', 'PRECEDENT_COMMIT_NAME',
+                   'PRECEDENT_COMMIT_TZ')}
+        try:
+            os.environ['PRECEDENT_COMMIT_EMAIL'] = 'fixture@example.com'
+            os.environ['PRECEDENT_COMMIT_NAME'] = 'Fixture Person'
+            os.environ.pop('PRECEDENT_COMMIT_TZ', None)
+            got_env = pr.declared_identity(own, user_config=empty_cfg)
+            got_env_shared = pr.declared_identity(shared, user_config=empty_cfg)
+        finally:
+            for k, v in _saved.items():
+                if v is None:
+                    os.environ.pop(k, None)
+                else:
+                    os.environ[k] = v
+        cases.append(('an environment override with no zone takes the zone '
+                      "from the repo's own identity.json",
+                      got_env['timezone'].endswith('Buenos_Aires'), str(got_env)))
+        cases.append(('...and in a shared repo, with no identity.json, it has '
+                      'none', got_env_shared['timezone'] == '',
+                      str(got_env_shared)))
+
         # A shared repo whose PERSON has an individual source: step 3. This
         # is the case the two checks needed and never had.
         cfg = tmp / 'user-config.json'
