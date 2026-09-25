@@ -17906,16 +17906,34 @@ def check_identity_reaches_a_repo_that_did_not_exist_yet():
         cases.append(('and the refusal names itself as the global backstop',
                       'GLOBAL backstop' in out))
 
+        # A PERSON'S ZONE BINDS THEIR OWN REPO ONLY (Morgan, 2026-09-25:
+        # "only use the individual one in the precedent-individual"). This
+        # case asserted the opposite until then: a wrong offset refused in
+        # every repository. Now the attached repo, which carries no
+        # identity.json, takes any offset, and the individual source itself,
+        # which does, still refuses one.
         g('config', 'user.email', 'm@example.com', cwd=later)
         r = subprocess.run(['git', 'commit', '-m', 'tz'], cwd=str(later),
                            capture_output=True, text=True,
                            env=dict(env, TZ='UTC'), timeout=120)
-        cases.append(('a wrong-offset commit is refused there',
-                      'declared timezone' in (r.stdout + r.stderr)))
-        r = subprocess.run(['git', 'commit', '-q', '-m', 'ok'], cwd=str(later),
+        cases.append(("a repo that is not the person's individual source is "
+                      "NOT held to their timezone", r.returncode == 0
+                      and 'declared timezone' not in (r.stdout + r.stderr)))
+        g('config', 'user.name', 'Morgan F', cwd=src)
+        g('config', 'user.email', 'm@example.com', cwd=src)
+        (src / 'z').write_text('z', encoding='utf-8')
+        g('add', 'z', cwd=src)
+        r = subprocess.run(['git', 'commit', '-m', 'tz'], cwd=str(src),
+                           capture_output=True, text=True,
+                           env=dict(env, TZ='UTC'), timeout=120)
+        cases.append(('the individual source itself still refuses a '
+                      'wrong-offset commit', 'declared timezone' in
+                      (r.stdout + r.stderr)))
+        r = subprocess.run(['git', 'commit', '-q', '-m', 'ok'], cwd=str(src),
                            capture_output=True, text=True,
                            env=dict(env, TZ=ZONE), timeout=120)
-        cases.append(('a correct commit is not blocked', r.returncode == 0))
+        cases.append(('and a correct commit there is not blocked',
+                      r.returncode == 0))
 
         # MUST NOT FIRE 1: a repository's own hook is not disabled.
         own = tmp / 'own-hooks'

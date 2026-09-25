@@ -97,7 +97,11 @@ DEEP_CHECK_SUITE = ('deep_check', ['bash', 'tools/checks/tests/run_all.sh'],
 # precedent-individual's commit-identity.yml and precedent-check.yml until
 # 2026-09-21; commit-identity-push-gate.sh runs them too, but only where it
 # is wired, and a person running this list by hand should get everything.
-# Exit 2 ("no declared identity resolved") fails here, as it did there.
+# Exit 2 ("could not run here") fails in a repo that carries its own
+# identity.json, as it did there; anywhere else it is the expected answer --
+# a person's timezone binds only their own individual source (Morgan,
+# 2026-09-25: "only use the individual one in the precedent-individual").
+SKIP_IS_FINE_WITHOUT_IDENTITY = {'commit_author', 'commit_dates'}
 IDENTITY_CHECKS = (
     ('commit_author', ['{engine}/checks/check_commit_author.py'],
      "precedent-individual's commit-identity.yml, retired 2026-09-21"),
@@ -291,6 +295,11 @@ def run(root, checks):
             continue
         if p.returncode == 0:
             print(f'      passed in {took:.0f}s', flush=True)
+            continue
+        if (p.returncode == 2 and name in SKIP_IS_FINE_WITHOUT_IDENTITY
+                and not (root / 'identity.json').is_file()):
+            print(f'      stood aside in {took:.0f}s -- not an individual '
+                  f'source, so there is no person to hold it to', flush=True)
             continue
         failed.append(name)
         print(f'      FAILED (exit {p.returncode}) in {took:.0f}s; last '

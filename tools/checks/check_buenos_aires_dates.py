@@ -200,6 +200,18 @@ def _resolve():
     declaration, and this check is the thing that reports it.
 
     `stand_down` is a NotApplicable for every other non-answer."""
+    # A PERSON'S ZONE BINDS THEIR OWN REPO ONLY (Morgan, 2026-09-25,
+    # strength: decided): "That is in personal-individual ONLY FOR ME. The
+    # default timezone here should be New York, or here should be none, and
+    # only use the individual one in the precedent-individual." So a repo
+    # without its own identity.json -- every shared and consuming repo --
+    # has no commit timezone to enforce, and this check stands down there
+    # instead of resolving the person through the user-level config.
+    if not IDENTITY_FILE.is_file():
+        return None, "", NotApplicable(
+            "this repo has no identity.json of its own, so it is not "
+            "anybody's individual practice source, and a person's timezone "
+            "is enforced only in their own individual source")
     try:
         engine = _identity_module()
     except NotApplicable as e:

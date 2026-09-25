@@ -62,8 +62,18 @@
 # repository.
 #
 # TIMEZONE. Nothing in a GitHub profile says where someone is. So: an
-# explicit override, else the individual source's declared timezone, else
-# America/New_York -- the DECLARED FALLBACK.
+# explicit override, else the timezone in THIS repository's own
+# identity.json -- which only a person's individual source carries -- else
+# the repo's declared fallback_timezone, else America/New_York.
+#
+# A PERSON'S ZONE STAYS IN THEIR OWN REPO (Morgan, 2026-09-25, strength:
+# decided): "the timezone for the commits shouldn't be buenos aires! That is
+# in personal-individual ONLY FOR ME. The default timezone here should be
+# New York, or here should be none, and only use the individual one in the
+# precedent-individual." Until then the individual source's zone (rung 3
+# below) was applied to every session and ENFORCED by the global backstop in
+# every repository on the machine, shared ones included. Rung 3 still
+# supplies the name and email; it no longer supplies the zone.
 #
 # The fallback is APPLIED but NOT ENFORCED, and the two halves have
 # different reasons:
@@ -134,6 +144,10 @@ if [ -n "${PRECEDENT_COMMIT_EMAIL:-}" ]; then
   declared=1
 fi
 zone="${PRECEDENT_COMMIT_TZ:-}"
+# Where a declared zone came from: `env` (the override, meant everywhere) or
+# `own` (this repo's own identity.json, meant for this repo alone).
+zone_from=""
+[ -n "$zone" ] && zone_from=env
 
 # --- 2. this repository's OWN identity.json -- it is an individual source
 _read_identity_file() {
@@ -150,7 +164,7 @@ print(ident.get('timezone') or '')
 PY
 }
 
-_take_identity() {  # $1 = three lines, $2 = where it came from
+_take_identity() {  # $1 = three lines, $2 = where it came from, $3 = "nozone" to take the name and email only
   local i_name i_email i_zone
   i_name="$(printf '%s\n' "$1" | sed -n '1p')"
   i_email="$(printf '%s\n' "$1" | sed -n '2p')"
@@ -158,8 +172,9 @@ _take_identity() {  # $1 = three lines, $2 = where it came from
   if [ -z "$email" ] && [ -n "$i_email" ]; then
     name="$i_name"; email="$i_email"; source="$2"; declared=1
   fi
-  if [ -z "$zone" ] && [ -n "$i_zone" ]; then
+  if [ -z "$zone" ] && [ -n "$i_zone" ] && [ "${3:-}" != nozone ]; then
     zone="$i_zone"
+    zone_from=own
   fi
 }
 
@@ -170,8 +185,9 @@ if [ -z "$email" ] || [ -z "$zone" ]; then
   fi
 fi
 
-# --- 3. the individual practice source named by the user-level config
-if [ -z "$email" ] || [ -z "$zone" ]; then
+# --- 3. the individual practice source named by the user-level config --
+# name and email only; its zone is for its own repo (see TIMEZONE above)
+if [ -z "$email" ]; then
   cfg="${PRECEDENT_USER_CONFIG:-$HOME/.config/precedent/config.json}"
   if [ -f "$cfg" ] && command -v python3 >/dev/null 2>&1; then
     indiv="$(python3 - "$cfg" <<'PY' 2>/dev/null || true
@@ -185,7 +201,7 @@ PY
 )"
     if [ -n "$indiv" ] && [ -f "$indiv/identity.json" ]; then
       resolved="$(_read_identity_file "$indiv/identity.json" || true)"
-      [ -n "$resolved" ] && _take_identity "$resolved" "the individual practice source's identity.json"
+      [ -n "$resolved" ] && _take_identity "$resolved" "the individual practice source's identity.json" nozone
     fi
   fi
 fi
@@ -956,6 +972,14 @@ if [ -z "\$email" ] || [ -z "\$name" ]; then
 fi
 
 expected_offset="$expected_offset"
+# A zone declared in a repo's own identity.json binds THAT repo only; this
+# global hook fires in every repository, so it enforces the offset only in
+# one that carries an identity.json itself. An explicit PRECEDENT_COMMIT_TZ
+# override is meant everywhere and is enforced everywhere.
+if [ "$zone_from" = own ]; then
+  _top="\$(git rev-parse --show-toplevel 2>/dev/null || true)"
+  [ -n "\$_top" ] && [ -f "\$_top/identity.json" ] || expected_offset=""
+fi
 if [ -n "\$expected_offset" ] && [ "\$offset" != "\$expected_offset" ]; then
   echo "commit refused: author-date offset is '\$offset', but the declared timezone ($zone) is '\$expected_offset'." >&2
   echo "  TZ=\"$zone\" git commit ..." >&2
