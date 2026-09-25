@@ -59,8 +59,10 @@ downstream from BestPractice only, since neither a source set nor a
 consumer's own tools/ has engine code of its own to contribute back — and
 it sits inside tools/ ALONGSIDE non-vendored, repo-owned files (tools/checks/,
 routing_scope.json is vendored but trimmed, a source set's own
-build_codeowners.py, a consumer's own bootstrap.sh/light_check.py/
-report_automation_issue.py) that a whole-directory mirror-and-delete would
+build_codeowners.py, a consumer's own light_check.py/
+report_automation_issue.py -- and its tools/bootstrap.sh, which since
+2026-09-25 is refreshed only while it carries no local edits; see
+TEMPLATE_INSTANCES) that a whole-directory mirror-and-delete would
 destroy. So this is a NEW, narrower tool, not an extension of checkin.py:
 it touches only the files it knows about, by name, per kind.
 
@@ -1511,6 +1513,7 @@ def _engine_owned_paths(dest_root, manifest, kind):
     hooks = set(manifest.get('hook_files') or []) | _wired_hook_names(dest_root)
     owned |= {f'{HOOK_DEST_DIR}/{n}' for n in hooks}
     owned |= {rel for _t, rel in CI_WORKFLOW_TEMPLATES.get(kind, ())}
+    owned |= {rel for _s, rel in TEMPLATE_INSTANCES.get(kind, ())}
     return owned
 
 
@@ -2716,6 +2719,265 @@ def _refresh_ci_workflow_files(dest_root, kind, ci_workflows_dir, manifest):
     return refreshed, catchup
 
 
+# --- Repo-owned files instantiated from a template: tools/bootstrap.sh -----
+# The third mechanism of the same family as the hooks and CI workflows
+# above, added 2026-09-25, and the only one of the three that NEVER
+# overwrites a file carrying local edits, --force included.
+#
+# THE GAP. precedent_install.py copies templates/bootstrap.sh to a
+# consumer's tools/bootstrap.sh once, verbatim, and until this block nothing
+# ever looked at it again: this module's own docstring called it repo-owned,
+# so refresh left it alone and nothing compared it to the template. Measured
+# 2026-09-25 in a real consumer taking an update: its bootstrap.sh was the
+# template minus the two blocks added around 2026-09-23 (the practice_audit
+# `--loader-notice` call and `precedent_engine_freshness.py --quiet`), so
+# the session-start freshness check that
+# todo/todo-2026-09-21-nothing-checks-a-consumer-against-upstream.md
+# describes as running "for every consumer" had never once run there. The
+# fix that came in the same update only arrived because a session copied it
+# by hand. Reproduced on a scratch consumer holding the pre-2026-09-23
+# template: `refresh` said "already current -- nothing to do" and `status`
+# said nothing at all.
+#
+# WHY IT NEVER OVERWRITES AN EDITED COPY, unlike the CI workflows. The
+# template tells every repo to add entries to this file ("every entry here
+# should exist because its absence cost a real session"), so local lines
+# are the file working as designed, not drift to refuse or discard. An
+# edited copy is reported DIVERGED, with the template blocks it lacks named
+# by line, and the refresh carries on.
+#
+# WHAT COUNTS AS UNEDITED. Either the manifest recorded a hash for it and
+# the file still matches, or -- the catch-up for every install that predates
+# this block, which recorded nothing -- the file is byte-identical to SOME
+# past version of the template in the upstream clone's history. Either way
+# it is stock content nobody touched, so it is rewritten to the current
+# template. Anything else is diverged. A shallow upstream clone can hide the
+# matching past version; that errs toward DIVERGED, the side that loses
+# nothing.
+TEMPLATE_INSTANCES = {
+    'consumer': (('templates/bootstrap.sh', 'tools/bootstrap.sh'),),
+    # A practice set has no tools/bootstrap.sh; precedent_bootstrap_source.py
+    # never writes one.
+    'source': (),
+}
+TEMPLATE_INSTANCES_KEY = 'template_instances_sha256'
+_TEMPLATE_HISTORY_NAME = 'template-history.json'
+# Closers and keywords that appear in every block, so their presence says
+# nothing about whether a particular block is there.
+_TRIVIAL_SHELL_LINES = {'fi', 'else', 'then', 'do', 'done', '}', 'esac', ';;'}
+
+
+def _git_blob_id(data):
+    """The id git gives these bytes as a blob -- so an on-disk file can be
+    looked up among a path's historical blobs without a repository."""
+    return hashlib.sha1(b'blob %d\0' % len(data) + data).hexdigest()
+
+
+def _read_template_sources(clone, commit, kind, out_dir):
+    """Write this kind's TEMPLATE_INSTANCES sources at `commit` into
+    out_dir/<src_rel>, and every blob id each one has had in the history
+    reachable from `commit` into out_dir/template-history.json. Read-only
+    against `clone`, like the rest of _source_tools_at. A template this
+    commit lacks is skipped: nothing to compare against, nothing done."""
+    history = {}
+    for src_rel, _rel in TEMPLATE_INSTANCES.get(kind, ()):
+        blob = subprocess.run(['git', '-C', str(clone), 'show',
+                               f'{commit}:{src_rel}'], capture_output=True)
+        if blob.returncode != 0:
+            continue
+        out = out_dir / src_rel
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_bytes(blob.stdout)
+        ok, log = _git_read(clone, 'log', '--format=', '--raw', '--no-abbrev',
+                            commit, '--', src_rel)
+        blobs = set()
+        if ok:
+            for line in log.splitlines():
+                parts = line.split()
+                if line.startswith(':') and len(parts) >= 4:
+                    blobs.add(parts[3])
+        history[src_rel] = sorted(blobs)
+    (out_dir / _TEMPLATE_HISTORY_NAME).write_text(json.dumps(history),
+                                                   encoding='utf-8')
+
+
+def _shell_blocks(text):
+    """-> [(line_no, title, code_lines)] for each blank-line-separated block
+    of a shell template that carries code. The title is the block's first
+    comment line (its heading, by this template's convention), or its first
+    code line when it has none."""
+    out, start, cur = [], 0, []
+    for n, line in enumerate(text.splitlines() + [''], 1):
+        if line.strip():
+            if not cur:
+                start = n
+            cur.append(line.strip())
+            continue
+        if cur:
+            comments = [c.lstrip('#').strip() for c in cur if c.startswith('#')]
+            code = [c for c in cur
+                    if not c.startswith('#') and c not in _TRIVIAL_SHELL_LINES]
+            if code:
+                title = next((c for c in comments if c and not c.startswith('!')),
+                             code[0])
+                if len(title) > 72:
+                    title = title[:69].rstrip() + '...'
+                out.append((start, title, code))
+            cur = []
+    return out
+
+
+def missing_template_blocks(local_text, template_text):
+    """-> [(line_no, title, how)] for each template block whose code is not
+    all present in `local_text`: 'missing' when none of it is, else how many
+    of its lines are absent. Compared line by line after stripping, so local
+    re-indentation or local lines added around a block do not count
+    against it."""
+    have = {ln.strip() for ln in local_text.splitlines()}
+    out = []
+    for line_no, title, code in _shell_blocks(template_text):
+        absent = [c for c in code if c not in have]
+        if not absent:
+            continue
+        how = ('missing' if len(absent) == len(code)
+               else f'{len(absent)} of its {len(code)} lines absent or changed')
+        out.append((line_no, title, how))
+    return out
+
+
+def _template_instance_plan(dest_root, kind, templates_dir, manifest):
+    """-> [(src_rel, rel, action)], one per TEMPLATE_INSTANCES entry whose
+    template `templates_dir` holds. Actions:
+
+      'absent'   -- not on disk. Never recreated: a repo that deleted its
+                    bootstrap.sh decided something.
+      'current'  -- byte-identical to the template.
+      'refresh'  -- matches the recorded hash (unedited), template moved.
+      'adopt'    -- nothing recorded, but identical to a past version of
+                    the template (unedited, predates tracking).
+      'diverged' -- carries local edits. Reported, never written."""
+    recorded = manifest.get(TEMPLATE_INSTANCES_KEY) or {}
+    try:
+        history = json.loads((templates_dir / _TEMPLATE_HISTORY_NAME)
+                             .read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        history = {}
+    plan = []
+    for src_rel, rel in TEMPLATE_INSTANCES.get(kind, ()):
+        src = templates_dir / src_rel
+        if not src.is_file():
+            continue
+        path = dest_root / rel
+        if not path.is_file():
+            plan.append((src_rel, rel, 'absent'))
+            continue
+        on_disk = _sha256(path)
+        if on_disk == _sha256(src):
+            action = 'current'
+        elif rel in recorded:
+            action = 'refresh' if on_disk == recorded[rel] else 'diverged'
+        elif _git_blob_id(path.read_bytes()) in set(history.get(src_rel) or ()):
+            action = 'adopt'
+        else:
+            action = 'diverged'
+        plan.append((src_rel, rel, action))
+    return plan
+
+
+def _template_instances_pending(plan, manifest):
+    """True when applying `plan` would change a file or the manifest -- what
+    refresh()'s early exit has to ask, like ci_incomplete."""
+    recorded = manifest.get(TEMPLATE_INSTANCES_KEY) or {}
+    return any(action in ('refresh', 'adopt')
+               or (action == 'current' and rel not in recorded)
+               or (action == 'absent' and rel in recorded)
+               for _s, rel, action in plan)
+
+
+def _report_diverged_template_instances(dest_root, templates_dir, plan):
+    """Print, for every diverged instance, which template blocks it lacks,
+    and put it on the Left-for-you list when it lacks any. Every run, the
+    early exit included: a divergence that is only said once stops being
+    seen."""
+    for src_rel, rel, action in plan:
+        if action != 'diverged':
+            continue
+        lacks = missing_template_blocks(
+            (dest_root / rel).read_text(encoding='utf-8', errors='replace'),
+            (templates_dir / src_rel).read_text(encoding='utf-8'))
+        if not lacks:
+            print(f"DIVERGED: {rel} has local edits and carries every block "
+                  f"of upstream's {src_rel} -- left as it is, nothing to "
+                  f"copy in.")
+            continue
+        print(f"DIVERGED: {rel} has local edits, so refresh leaves it "
+              f"alone (it never overwrites a line of it, --force included). "
+              f"It lacks {len(lacks)} block(s) upstream's {src_rel} carries:")
+        for line_no, title, how in lacks:
+            print(f"    {src_rel}:{line_no} \"{title}\" -- {how}")
+        _left(rel, f'diverged from {src_rel} and lacks {len(lacks)} of its '
+                   f'blocks (listed above) -- copy each in from the template '
+                   f'by hand, keeping this repo\'s own lines '
+                   f'(vendor-update-runbook step 10(d))')
+
+
+def _refresh_template_instances(dest_root, kind, templates_dir, manifest, plan):
+    """Apply `plan`: rewrite each 'refresh'/'adopt' instance to the current
+    template, and read-modify-write ENGINE_MANIFEST.json's
+    TEMPLATE_INSTANCES_KEY -- AFTER _write_engine_files, whose fresh manifest
+    knows nothing about this key, from `manifest` as it was before the
+    refresh. A diverged instance keeps whatever was recorded for it: a
+    baseline is never moved onto an edited file, or the next refresh would
+    take the edit for stock content and overwrite it.
+
+    Returns the rel paths rewritten."""
+    recorded = dict(manifest.get(TEMPLATE_INSTANCES_KEY) or {})
+    rewritten = []
+    for src_rel, rel, action in plan:
+        src = templates_dir / src_rel
+        if action in ('refresh', 'adopt'):
+            path = dest_root / rel
+            shutil.copyfile(src, path)
+            path.chmod(0o755)
+            rewritten.append(rel)
+        if action in ('refresh', 'adopt', 'current'):
+            recorded[rel] = _sha256(src)
+        elif action == 'absent' and recorded.pop(rel, None):
+            print(f"NOTE: precedent_vendor_engine refresh: {rel} is gone from "
+                  f"disk -- no longer tracked, and not recreated.")
+    manifest_path = dest_root / 'tools' / MANIFEST_NAME
+    live = json.loads(manifest_path.read_text(encoding='utf-8'))
+    if recorded:
+        live[TEMPLATE_INSTANCES_KEY] = recorded
+    else:
+        live.pop(TEMPLATE_INSTANCES_KEY, None)
+    manifest_path.write_text(json.dumps(live, indent=2, ensure_ascii=False) + '\n',
+                             encoding='utf-8')
+    return rewritten
+
+
+def record_template_instances(dest_root, kind, source_root):
+    """Record a baseline for each template instance an installer just wrote,
+    when it is byte-identical to `source_root`'s template -- called by
+    precedent_install.py after seed(), for the same reason
+    record_ci_workflow_files is. One that differs is left unrecorded: the
+    next refresh decides from history whether it is stock or edited."""
+    manifest_path = dest_root / 'tools' / MANIFEST_NAME
+    if not manifest_path.is_file():
+        return []
+    manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
+    recorded = dict(manifest.get(TEMPLATE_INSTANCES_KEY) or {})
+    for src_rel, rel in TEMPLATE_INSTANCES.get(kind, ()):
+        src, path = source_root / src_rel, dest_root / rel
+        if src.is_file() and path.is_file() and _sha256(src) == _sha256(path):
+            recorded[rel] = _sha256(path)
+    if recorded:
+        manifest[TEMPLATE_INSTANCES_KEY] = recorded
+    manifest_path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + '\n',
+                             encoding='utf-8')
+    return [manifest_path]
+
+
 def _git(cwd, *args):
     """Run git and return stdout, DISCARDING the exit code.
 
@@ -3040,6 +3302,8 @@ def status(clone):
     recorded = manifest.get('source_commit')
     print(f"kind: {kind}")
     print(f"manifest source_commit: {recorded}")
+    if clone_head:
+        _status_template_instances(clone, clone_head, kind, manifest)
     if not clone_head:
         # Not "fresh" and not "moved" -- unknown. Same discipline as fresh().
         print(f"COULD NOT VERIFY: {clone} has no {SOURCE_BRANCH} "
@@ -3054,6 +3318,29 @@ def status(clone):
         print(f"NOTICE: BestPractice's {SOURCE_BRANCH} has moved since this engine was "
               f"last vendored -- run `refresh` to pick it up.")
     return 1 if (drift or untracked or retired) else 0
+
+
+def _status_template_instances(clone, commit, kind, manifest):
+    """status()'s view of TEMPLATE_INSTANCES against `commit`: what refresh
+    would do to each, and what a diverged one lacks. Informational -- a
+    diverged bootstrap.sh is expected variance, so it never sets the exit
+    code."""
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-templates-'))
+    try:
+        _read_template_sources(clone, commit, kind, tmp)
+        plan = _template_instance_plan(ROOT, kind, tmp, manifest)
+        says = {'refresh': 'unedited and behind the template -- `refresh` '
+                           'brings it up to date',
+                'adopt': 'an unedited past version of the template, not yet '
+                         'tracked -- `refresh` brings it up to date',
+                'absent': 'not on disk -- never recreated'}
+        for _src, rel, action in plan:
+            if action in says:
+                print(f"  NOTE: {rel} is {says[action]}.")
+        _report_diverged_template_instances(ROOT, tmp, plan)
+        _LEFT_FOR_YOU.clear()   # status only reports; the list is refresh's
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
 
 
 def _source_tools_at(clone, kind=DEFAULT_KIND, ref=None, fetch=True):
@@ -3211,6 +3498,11 @@ def _source_tools_at(clone, kind=DEFAULT_KIND, ref=None, fetch=True):
         if blob.returncode != 0:
             continue
         (ci_tmp / template).write_bytes(blob.stdout)
+
+    # Template-instanced files (tools/bootstrap.sh), into tmp/templates/,
+    # with the history of blob ids the catch-up needs -- see
+    # TEMPLATE_INSTANCES.
+    _read_template_sources(clone, commit, kind, tmp / 'templates')
     return commit, tmp
 
 
@@ -3491,9 +3783,20 @@ def refresh(clone, force=False, ref=None):
         # than this fix makes.
         ci_incomplete = _ci_workflow_incomplete(ROOT, kind, engine_dir / 'ci-workflows', manifest)
 
+        # tools/bootstrap.sh and anything else TEMPLATE_INSTANCES names. Not
+        # waived or widened by --force: a diverged copy is reported and left
+        # alone whatever the flags, which is why it is not in the drift
+        # refusal above either. Reported before the early exit so a re-run
+        # that has nothing else to do still says what the file lacks.
+        template_plan = _template_instance_plan(ROOT, kind, engine_dir / 'templates',
+                                                manifest)
+        template_pending = _template_instances_pending(template_plan, manifest)
+        _report_diverged_template_instances(ROOT, engine_dir / 'templates',
+                                            template_plan)
+
         if new_commit == manifest.get('source_commit') and not force \
                 and not set_incomplete and not hooks_incomplete and not ci_incomplete \
-                and not engine_paths_incomplete:
+                and not engine_paths_incomplete and not template_pending:
             print(f"precedent_vendor_engine refresh: already current with {SOURCE_BRANCH} "
                   f"@ {new_commit[:12]} -- nothing to do.")
             # Reported here too, and this is the case that matters MOST: a
@@ -3527,6 +3830,11 @@ def refresh(clone, force=False, ref=None):
             print(f"NOTICE: the recorded commit already matches, but this "
                   f"repo's CI workflow file(s) need attention "
                   f"({', '.join(ci_incomplete)}) -- refreshing anyway.")
+        if template_pending and new_commit == manifest.get('source_commit'):
+            print(f"NOTICE: the recorded commit already matches, but a "
+                  f"template-instanced file needs bringing up to date or "
+                  f"recording ({', '.join(r for _s, r, a in template_plan if a != 'diverged')}) "
+                  f"-- refreshing anyway.")
         if engine_paths_incomplete and new_commit == manifest.get('source_commit'):
             print(f"NOTICE: the recorded commit already matches, but "
                   f"{ENGINE_PATHS_KEY} has changed or is not yet recorded "
@@ -3544,6 +3852,9 @@ def refresh(clone, force=False, ref=None):
         ci_refreshed, ci_catchup = _refresh_ci_workflow_files(
             ROOT, kind, engine_dir / 'ci-workflows', manifest)
         written += [ROOT / rel for rel in ci_refreshed]
+        template_rewritten = _refresh_template_instances(
+            ROOT, kind, engine_dir / 'templates', manifest, template_plan)
+        written += [ROOT / rel for rel in template_rewritten]
         if engine_paths or manifest.get('engine_paths_sha256'):
             written += _write_engine_paths(ROOT, engine_paths,
                                            engine_path_sources, manifest)
@@ -3554,6 +3865,9 @@ def refresh(clone, force=False, ref=None):
     if ci_refreshed:
         print(f"precedent_vendor_engine refresh: refreshed {len(ci_refreshed)} CI "
               f"workflow file(s) to the current template ({', '.join(ci_refreshed)}).")
+    if template_rewritten:
+        print(f"precedent_vendor_engine refresh: brought {', '.join(template_rewritten)} "
+              f"up to the current template -- it carried no local edits.")
     # EVERY RUN, with the reason. This is the whole difference between a
     # declared local workflow and `--force`: force is a decision taken once
     # and never seen again, while a declaration announces itself for as long
@@ -3626,6 +3940,11 @@ def _warn_bare_sync_invocations(root):
     every session opened with a WARN naming a fix that failed the same way.
     Nothing in the refresh had told it (practice: change-updates-its-docs --
     the mechanism moved, the wiring that calls it did not).
+
+    Since 2026-09-25 an UNEDITED tools/bootstrap.sh is brought up to the
+    template by refresh itself (TEMPLATE_INSTANCES), so a hit there now
+    means a copy with local edits, which refresh reports as DIVERGED and
+    never rewrites.
     """
     candidates = [root / 'tools' / 'bootstrap.sh', root / 'AGENTS.md',
                   root / 'CLAUDE.md']
@@ -3649,8 +3968,8 @@ def _warn_bare_sync_invocations(root):
                 "check there will WARN on every session and name a fix that "
                 "fails the same way. Re-instantiate tools/bootstrap.sh and the "
                 "harness hooks from upstream's templates/, or add `--repo .` "
-                "to each line; these files are not in the engine manifest, so "
-                "a refresh never rewrites them.")
+                "to each line; a refresh never rewrites a file carrying local "
+                "edits, and never rewrites the instructions file at all.")
 
 
 def fresh():
