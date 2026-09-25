@@ -1980,6 +1980,21 @@ def _write_engine_paths(dest_root, mapping, sources, manifest):
 # LATER refresh, once that baseline exists, can tell "matches what we
 # recorded" from "hand-edited" and act on it.
 CI_WORKFLOWS_SOURCE_DIR = 'templates/github-actions'
+# WRITTEN AT INSTALL, NEVER REFRESHED (2026-09-25, spec/BRANCH_TIERS_PLAN.md).
+# The light check is a repository's one GitHub test, on the pull request into
+# main, and precedent_install.py writes it into a new install when
+# github_ci_workflows allows. It is deliberately NOT in CI_WORKFLOW_TEMPLATES:
+# many installs already run a light-check.yml of their own, written by hand
+# and running their own command (the template's own header says so), and a
+# file on that list is baselined on one refresh and replaced by the template
+# on the next. A file here is written only where none exists, and never
+# touched again.
+CI_INSTALL_ONLY_TEMPLATES = {
+    'consumer': (
+        ('light-check.yml.template', '.github/workflows/light-check.yml'),
+    ),
+    'source': (),
+}
 CI_WORKFLOW_TEMPLATES = {
     # NO WORKFLOW EXISTS SOLELY TO LINT MARKDOWN (2026-09-21). The consumer
     # side used to ship doc-lint.yml.template as bestpractice-docs.yml, and

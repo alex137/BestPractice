@@ -27080,15 +27080,22 @@ def check_installer_produces_a_clean_install():
                       gs[:400]))
         # No individual source resolves here (PRECEDENT_USER_CONFIG points at
         # a file that does not exist), so ci_preference() has nothing to read
-        # and the engine's own default -- disabled -- applies (practice:
-        # declared-default-is-applied). Minutes cost money on a private repo;
-        # nothing declared should not silently opt an adopter into paying for
-        # a workflow they never asked for.
-        cases.append(('nothing declares ci_workflows, so the installer does NOT write the '
-                      'GitHub Actions workflow, and says so in GETTING_STARTED.md',
-                      not (proj / '.github' / 'workflows' / 'bestpractice-docs.yml').exists()
-                      and 'No GitHub Actions workflow was installed' in gs
-                      and 'ci_workflows' in gs,
+        # and the engine's own default applies (practice:
+        # declared-default-is-applied) -- ENABLED since 2026-09-25, because
+        # what it installs is now one light check on pull requests into main,
+        # and a leak gate that never runs in a private repo
+        # (spec/BRANCH_TIERS_PLAN.md).
+        _wfs = proj / '.github' / 'workflows'
+        _lc = (_wfs / 'light-check.yml').read_text(encoding='utf-8') \
+            if (_wfs / 'light-check.yml').exists() else ''
+        _lg = (_wfs / 'leak-gate.yml').read_text(encoding='utf-8') \
+            if (_wfs / 'leak-gate.yml').exists() else ''
+        cases.append(('nothing declares github_ci_workflows, so the installer writes the '
+                      'light check -- pull requests into main only -- and the leak gate, '
+                      'skipped in a private repo, and GETTING_STARTED.md says so',
+                      'branches: [main]' in _lc and '\n  push:' not in _lc
+                      and 'github.event.repository.private != true' in _lg
+                      and 'Before anything reaches `main`' in gs,
                       gs[:600]))
         settings = proj / '.claude' / 'settings.json'
         stext = settings.read_text(encoding='utf-8') if settings.is_file() else ''
@@ -27123,10 +27130,10 @@ def check_installer_produces_a_clean_install():
                       r.stderr[:300]))
 
         # The other direction (practice: control-asserts-which-failure -- a
-        # guard that can only say no is not proven by the no-case alone).
-        # A declared individual source with ci_workflows: enabled should get
-        # the workflow installed, with the concurrency block in it, and
-        # GETTING_STARTED.md should carry the "on" paragraph instead.
+        # default that can only say yes is not proven by the yes-case alone).
+        # Since the default became enabled (2026-09-25), the direction to
+        # prove is a DECLARED "disabled": nothing installed, and
+        # GETTING_STARTED.md says so instead.
         indiv = tmp / 'indiv-ci-on'
         indiv.mkdir()
         (indiv / 'practices').mkdir()
@@ -27155,7 +27162,7 @@ def check_installer_produces_a_clean_install():
             encoding='utf-8')
         (indiv / 'identity.json').write_text(json.dumps({
             'format_version': 1, 'name': 'Dana', 'email': 'dana@example.com',
-            'ci_workflows': 'enabled',
+            'github_ci_workflows': 'disabled',
         }), encoding='utf-8')
         user_cfg = tmp / 'user-config-ci-on.json'
         user_cfg.write_text(json.dumps({'individual': {'path': str(indiv)}}), encoding='utf-8')
@@ -27174,11 +27181,11 @@ def check_installer_produces_a_clean_install():
         # retired 2026-09-21 and the leak gate is what a consumer now gets.
         wf2 = proj2 / '.github' / 'workflows' / 'leak-gate.yml'
         gs2 = (proj2 / 'GETTING_STARTED.md').read_text(encoding='utf-8') if (proj2 / 'GETTING_STARTED.md').is_file() else ''
-        cases.append(('a declared ci_workflows: enabled installs the workflow WITH its '
-                      'concurrency block, and GETTING_STARTED.md carries the "on" paragraph',
-                      r.returncode == 0 and wf2.is_file()
-                      and 'concurrency:' in wf2.read_text(encoding='utf-8')
-                      and 'A leak check runs on every push and pull request' in gs2,
+        cases.append(('a declared github_ci_workflows: disabled installs no workflow, '
+                      'and GETTING_STARTED.md carries the "off" paragraph',
+                      r.returncode == 0 and not wf2.exists()
+                      and not (proj2 / '.github' / 'workflows' / 'light-check.yml').exists()
+                      and 'No GitHub Actions workflow was installed' in gs2,
                       (r.stdout + r.stderr)[-500:]))
         # AND the Markdown lint is NOT a GitHub check any more -- the
         # direction that would otherwise go untested, since every assertion

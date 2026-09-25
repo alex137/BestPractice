@@ -22,8 +22,9 @@ Three workflows run on this repo itself, in [.github/workflows/](../.github/work
   that broke every re-sync after it) sitting undetected on a branch whose
   merges were all green — neither doc_lint.py nor leak_gate.py could ever
   have caught either, since neither runs the resolver or materializer at
-  all. Runs on every push and pull request, on every branch, same as
-  leak-gate.yml below.
+  all. Since 2026-09-25 it runs only on a pull request into `main` -- this
+  repo's one GitHub test ([spec/BRANCH_TIERS_PLAN.md](../spec/BRANCH_TIERS_PLAN.md));
+  every other push is checked locally by the push check first.
 - **`leak-gate.yml`** — added at phase 2 of the Precedent rewrite
   (`b3bfb54`). Runs [tools/leak_gate.py](../tools/leak_gate.py)'s structural
   layer on every push and every pull request, on every branch (this repo is
@@ -134,7 +135,20 @@ copy the same way it refreshes the other two CI templates.
 
 ## Controlling Actions Minutes
 
-**`precedent_install.py` does not install this workflow by default (2026-09-15).**
+**What a new install gets, since 2026-09-25** ([spec/BRANCH_TIERS_PLAN.md](../spec/BRANCH_TIERS_PLAN.md)):
+one GitHub test and no more. `light-check.yml` runs only on a pull request
+into `main`, about one billed minute per merge into main in a private repo;
+`leak-gate.yml` runs on every push in a public repo, where a push is
+publication, and never in a private one, where its job is skipped before a
+runner starts. Every other push is checked on the person's own machine by
+the push check. **The installer writes these by default**; a declared
+`"github_ci_workflows": "disabled"` still installs nothing. The light check
+is written only where the repo has no `light-check.yml` of its own, and a
+refresh never touches it; `leak-gate.yml` is refreshed like any other
+installed template. The `[skip ci]` line the commit hook adds in a private
+repo stays on as a backstop until every install carries these files.
+
+**Until 2026-09-25, `precedent_install.py` did not install any workflow by default (from 2026-09-15).**
 GitHub Actions minutes are metered per PRIVATE repository and billed per
 run, rounded up to the minute. Vendoring Precedent into many private repos
 and committing the way a save button gets used means paying for a workflow
@@ -148,8 +162,8 @@ source it can reach ([tools/precedent_identity.py](../tools/precedent_identity.p
 `ci_preference()`, same resolution order as `relayed_authorization`: the
 repo's own `identity.json` when it IS an individual source, else the one
 the user-level config names) and installs the workflow only when that
-value is exactly `"enabled"`. Nothing declared resolves to disabled — the
-engine's own default, applied silently
+value was exactly `"enabled"`. Nothing declared resolved to disabled — the
+engine's own default at the time, applied silently
 ([declared-default-is-applied](../practices/declared-default-is-applied.md)) —
 and the install log and the project's own `GETTING_STARTED.md` both say so,
 naming the field and where to set it. **This only changes what

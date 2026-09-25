@@ -208,14 +208,16 @@ def _ci_preference(dest):
     """(enabled: bool, note: str) -- whether precedent_install.py should
     write the GitHub Actions workflow, and a one-line reason for the log.
     practice: declared-default-is-applied -- nothing here asks; absent
-    resolves to the engine's own default, which is disabled."""
+    resolves to the engine's own default, which is enabled since 2026-09-25
+    (the light check on pull requests into main only)."""
     try:
         pref = precedent_identity.ci_preference(dest)
     except precedent_identity.NoDeclaredIdentity:
-        return False, ('no individual source declares github_ci_workflows -- '
-                        "disabled by default (GITHUB_ACTIONS.md)")
+        return True, ('no individual source declares github_ci_workflows -- '
+                      "enabled by default (GITHUB_ACTIONS.md)")
     if pref['enabled']:
-        return True, f"github_ci_workflows: enabled ({pref['source']})"
+        shown = pref['value'] or 'enabled by default'
+        return True, f"github_ci_workflows: {shown} ({pref['source']})"
     shown = pref['value'] or '(absent)'
     return False, f"github_ci_workflows: {shown} ({pref['source']})"
 
@@ -227,12 +229,14 @@ def _substitute(text, subs):
 
 
 _CI_PARAGRAPH_ON = (
-    "- **A leak check runs on every push and pull request** (the GitHub Actions\n"
-    "  workflow `leak-gate.yml`) and refuses anything that would publish\n"
-    "  something private. It needs no maintenance. If it doesn't appear on a\n"
-    "  pull request's checks, GitHub Actions may be disabled for this\n"
-    "  repository — an administrator can turn it on at repository\n"
-    "  **Settings → Actions**.\n"
+    "- **Before anything reaches `main`, GitHub checks it once** (the GitHub\n"
+    "  Actions workflow `light-check.yml`, on the pull request into `main`).\n"
+    "  Every other push is checked on your own machine before it leaves. In a\n"
+    "  public repository a leak check (`leak-gate.yml`) also runs on every push\n"
+    "  and refuses anything that would publish something private. Neither needs\n"
+    "  maintenance. If they don't appear on a pull request's checks, GitHub\n"
+    "  Actions may be disabled for this repository — an administrator can turn\n"
+    "  it on at repository **Settings → Actions**.\n"
     "- **Your writing is checked before it is saved, not after.** A formatting\n"
     "  check runs on every commit, so a broken link or a malformed heading is\n"
     "  caught while you are still working rather than once it is shared. This\n"
@@ -246,10 +250,10 @@ def _ci_paragraph_off():
     # to name, not just log internally.
     return (
         "- **No GitHub Actions workflow was installed.** Precedent's CI\n"
-        "  workflows ship as templates but are off by default — GitHub Actions\n"
+        "  workflows were switched off for this install by the `github_ci_workflows`\n"
+        "  setting of the individual or team source it resolves — GitHub Actions\n"
         "  minutes are metered per private repository and billed in whole-minute\n"
-        "  increments per JOB, so installing them unconditionally charges every\n"
-        "  adopter for checks they may not want on every push. Turn them on by\n"
+        "  increments per JOB. Turn them on by\n"
         "  declaring `\"github_ci_workflows\": \"enabled\"` in the individual or team\n"
         "  source this project resolves, then re-run the installer with `--force`\n"
         "  — or copy a template in by hand any time. Note that the Markdown\n"
@@ -420,11 +424,18 @@ def _bootstrap_and_ci(dest, ci_enabled, ci_note, force):
     # joined it, 2026-09-20, spec/CI_MINUTES_PLAN.md item 12) -- one gate,
     # one loop, so a future consumer-kind template needs no second copy of
     # this block to be written at all.
-    for _wf_template, _wf_rel in precedent_vendor_engine.CI_WORKFLOW_TEMPLATES['consumer']:
+    # The light check (CI_INSTALL_ONLY_TEMPLATES) is written only where no
+    # light-check.yml exists, --force or not: an existing one is somebody's
+    # own check, running their own command.
+    for _wf_template, _wf_rel in (
+            *precedent_vendor_engine.CI_WORKFLOW_TEMPLATES['consumer'],
+            *precedent_vendor_engine.CI_INSTALL_ONLY_TEMPLATES['consumer']):
         wf = dest / _wf_rel
+        _install_only = (_wf_template, _wf_rel) in \
+            precedent_vendor_engine.CI_INSTALL_ONLY_TEMPLATES['consumer']
         if ci_enabled:
             wf.parent.mkdir(parents=True, exist_ok=True)
-            if not wf.exists() or force:
+            if not wf.exists() or (force and not _install_only):
                 shutil.copy2(TEMPLATES / 'github-actions' / _wf_template, wf)
                 out.append(f'{_wf_rel}: written ({ci_note})')
         else:

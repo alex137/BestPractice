@@ -132,10 +132,13 @@ the repository's own rules say routine work lands on, and the full chain
 merges into that same branch -- in both cases a real branch on `origin`,
 and never a repository's *configured default* branch picked just because
 it is configured that way. **When that branch is pre-staging and the change
-was high-risk, the reply says so twice**: a bolded paragraph in the body --
-**this high-risk change is on pre-staging, not on staging yet; say Promote
-to run the full check and move it** -- and the same line in The Boildown's
-next steps. A high-risk change lands on pre-staging like any other rather
+was high-risk, the reply asks the person to act, twice**: a bolded paragraph
+in the body -- **Please move this to staging soon: say Promote, so it gets
+the full testing.** -- and the same line in The Boildown's next steps. It
+is a call to action, not a status report (Morgan, 2026-09-25: *"the point
+isn't to tell me it's not on staging, the point is to tell the user
+\"Please put this on staging [as soon as possible (ASAP)] for more thorough testing!\" with
+emphasis"*, strength: decided). A high-risk change lands on pre-staging like any other rather
 than jumping the queue, so the two branches do not drift apart, and gets
 its full check at the Promote. Morgan, 2026-09-25: *"the \"high risk\" ones should still go to pre-staging but have a strong, bolded message for me, in the main text as a paragraph and also in The Boildown, that now I need to push pre-staging to staging"* (strength: decided). That branch is the
 person's primary branch

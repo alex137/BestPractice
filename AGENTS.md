@@ -65,7 +65,8 @@ first line, with the reason.
   `landing_branch` says so, else `precedent-beta-v01`), for the pull request
   too; never `main` for being the configured default. **A high-risk change
   landed on pre-staging gets a bolded paragraph in the reply and a line in
-  The Boildown: it is not on staging until a Promote** — **and a commit still sitting
+  The Boildown asking the person to act: "Please move this to staging soon:
+  say Promote, so it gets the full testing."** — **and a commit still sitting
   in the local clone has not done it**: fetch and confirm `origin` carries it
   before the reply says where the work went. Say which path you took, and why,
   in the reply. Unsure which it is? High-risk. A step this session cannot

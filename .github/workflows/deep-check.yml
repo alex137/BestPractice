@@ -56,9 +56,13 @@ on:
   # templates/github-actions/doc-lint.yml.template's header for the
   # measurement, and spec/BILLING_FLOOR.md for why the trigger, not the
   # per-job floor, was the driver in the repo where this was found.
-  # PAUSED 2026-09-25 -- see the note above `workflow_dispatch` below.
-  # pull_request:
-  #   types: [opened, reopened, ready_for_review]
+  # BACK, FOR PULL REQUESTS INTO MAIN ONLY, 2026-09-25 (spec/BRANCH_TIERS_PLAN.md):
+  # this repo's one GitHub test, on the pull request that carries staging
+  # into main -- the one place a clean machine without the private sources
+  # can catch what a local run cannot. Every other push is checked locally.
+  pull_request:
+    branches: [main]
+    types: [opened, reopened, ready_for_review, synchronize]
 
   # push only sat here, deliberately, from 2026-09-07 to 2026-09-19.
   # `pull_request:` sat here from this file's first commit (2236a94, copied
