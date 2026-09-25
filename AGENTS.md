@@ -216,6 +216,13 @@ Until one of the two routes works, every personal and team practice in force
 here is **silently absent**, and this repository's rules are the only ones a
 session sees.
 
+**Attach `precedent-individual`, never clone it by hand**
+([attach-never-clone-individual](practices/attach-never-clone-individual.md)):
+the tool's reply says to clone it to `/home/user/`, and the only copy
+anything reads is the one `~/.config/precedent/config.json` names. A shared
+set clones beside this repo, where [precedent.json](precedent.json)
+resolves it.
+
 **Then, before trusting any of this file's "the session-start hook does
 this" claims: run
 [tools/precedent_session_check.py](tools/precedent_session_check.py).** It
@@ -268,7 +275,7 @@ plan's premise.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block; `python3 tools/build_views.py --check` exits non-zero on drift. Source: practices/ -- edit the practice file, never this block. -->
 
-## Resident block (~884 of 2000 token budget, 10 of 145 practices (10 universal))
+## Resident block (~884 of 2000 token budget, 10 of 146 practices (10 universal))
 
 **bold-key-phrases.** People don't read; they skim, and bolding makes skimming easy. Bold the key phrases in a document by default, without being asked, scaling with length -- a long paragraph or document is where a skimmer most needs a spine to follow, a short note usually needs little or none.
 
@@ -404,6 +411,8 @@ When adding a file to a directory that already holds files of the same kind:
   filename-separator — one word separator per directory and file kind -- never both - and _
 When asked to include an image, logo, or other binary asset the person is supplying, rather than approximate one from a description:
   attach-the-original — attach the file itself -- recreating an original from a description is invention
+When attaching a practice source to a session with the repo-attach tool, or that tool's reply says to clone what it attached:
+  attach-never-clone-individual — attach the individual set, never hand-clone it -- work where the user config points; a shared set clones to its precedent.json path
 When building a mechanism that makes something discoverable or reachable:
   affordance-is-shared — name who else the mechanism you just built now serves
 When building a permutation or configuration-sweep table:
