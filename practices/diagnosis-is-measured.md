@@ -109,7 +109,7 @@ recommendation at face value, go looking for a problem that does not exist,
 and the session that sent them has spent their attention on nothing.
 
 ## Story
-**2026-09-22, in this repository.** A session ran [`precedent_check.py`](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/precedent_check.py) and
+**2026-09-22, in this repository.** A session ran [`precedent_check.py`](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_check.py) and
 got one violation: `computed-numbers-in-scripts`, reporting that a generated
 vocabulary block in a document no longer matched what its script emits. The
 finding named the document and the script, which are the two things it
@@ -150,7 +150,7 @@ configure access."*
 
 The session repeated that, and then went further: it recommended checking
 whether the three repositories still existed and dropping them from
-[precedent.json](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/precedent.json)
+[precedent.json](https://github.com/alex137/BestPractice/blob/staging/precedent.json)
 if they did not. It had run no command against any of them.
 
 **Neither named cause was the cause.** The credential was fine and no

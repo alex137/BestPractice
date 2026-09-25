@@ -40,7 +40,7 @@ remind_on:   <date, or the item's own `noted` date if none was given>
 item defaults to `wait` and no session raises it — the exact opposite of what
 was asked for. `remind_on` is what makes it a Reminder rather than an
 ordinary `ask` item, per
-[spec/OPEN_ITEM_AND_GOTCHA_PLAN.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/OPEN_ITEM_AND_GOTCHA_PLAN.md)'s
+[spec/OPEN_ITEM_AND_GOTCHA_PLAN.md](https://github.com/alex137/BestPractice/blob/staging/spec/OPEN_ITEM_AND_GOTCHA_PLAN.md)'s
 **Reminders** section: unset, it defaults to the item's `noted` date, which
 reproduces "eligible immediately" — never leave it unset meaning "sometime."
 Saying "Todo reminder" **is** the person setting `ask` on that item, which
@@ -54,7 +54,7 @@ message back into a session later — `send_later`, `create_trigger` with
 description says "remind." The Todo item above is the one standing
 mechanism, on every provider, whether or not this session's harness happens
 to offer a scheduler: **pull, not push**, as
-[spec/OPEN_ITEM_AND_GOTCHA_PLAN.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/OPEN_ITEM_AND_GOTCHA_PLAN.md)'s
+[spec/OPEN_ITEM_AND_GOTCHA_PLAN.md](https://github.com/alex137/BestPractice/blob/staging/spec/OPEN_ITEM_AND_GOTCHA_PLAN.md)'s
 **Reminders** section settles it. A scheduled trigger is a live resource
 tied to one session's lifecycle — archived, and it silently stops firing —
 where a Todo item just sits in the repository until a session, any session,
@@ -70,9 +70,9 @@ later, by a session that was not here.
 fields do is make the item visible to the two places that look:
 [three-things](three-things.md), which weighs marked items when choosing what
 matters now, and the **Due Reminders** table in generated
-[todo/TODO.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/todo/TODO.md)
+[todo/TODO.md](https://github.com/alex137/BestPractice/blob/staging/todo/TODO.md)
 (built by
-[tools/build_todo_index.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/build_todo_index.py)),
+[tools/build_todo_index.py](https://github.com/alex137/BestPractice/blob/staging/tools/build_todo_index.py)),
 which lists every `disposition: ask` item whose `remind_on` has actually
 arrived — not merely every marked item, the way the older, date-blind
 listing once did.
@@ -106,10 +106,10 @@ container restart would have taken it.
 
 **Amended 2026-09-16**, the same day the open-item format migration (Part 1
 of
-[spec/OPEN_ITEM_AND_GOTCHA_PLAN.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/OPEN_ITEM_AND_GOTCHA_PLAN.md))
-landed and retired the single [TODO.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/TODO.md)
+[spec/OPEN_ITEM_AND_GOTCHA_PLAN.md](https://github.com/alex137/BestPractice/blob/staging/spec/OPEN_ITEM_AND_GOTCHA_PLAN.md))
+landed and retired the single [TODO.md](https://github.com/alex137/BestPractice/blob/staging/TODO.md)
 this practice's Rule had described since 2026-09-13, in favor of one file per
-item under [todo/](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/todo/)
+item under [todo/](https://github.com/alex137/BestPractice/blob/staging/todo/)
 carrying `disposition` and `remind_on` as real fields rather than a
 `**Remind:**` prose line. In the same conversation, asked to remove
 Claude-only functionality from the practice layer more broadly — spawning
@@ -126,7 +126,7 @@ caught up to the frontmatter format the migration introduced.
 ## Install
 Nothing beyond the open-items directory itself. `disposition` and
 `remind_on` are frontmatter fields on the item;
-[tools/build_todo_index.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/build_todo_index.py)
-regenerates [todo/TODO.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/todo/TODO.md)'s
+[tools/build_todo_index.py](https://github.com/alex137/BestPractice/blob/staging/tools/build_todo_index.py)
+regenerates [todo/TODO.md](https://github.com/alex137/BestPractice/blob/staging/todo/TODO.md)'s
 Due Reminders table on every run, and the very deep check prints them under
 OPEN ITEMS.

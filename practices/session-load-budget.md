@@ -19,7 +19,7 @@ approved_by: "Morgan, 2026-09-11 (strength: decided) -- asked whether the very d
 ## Rule
 **Everything a session loads before it does any work carries a declared
 ceiling, and every ceiling lives in one registry** —
-[tools/session_load_budgets.json](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/session_load_budgets.json).
+[tools/session_load_budgets.json](https://github.com/alex137/BestPractice/blob/staging/tools/session_load_budgets.json).
 That is the instructions file, anything it includes, the generated resident
 block, and the session-start file the private sources write. A surface that
 is loaded and not in the registry is the finding; so is one over its ceiling.
@@ -56,7 +56,7 @@ with the reason written in the registry — never a way to make a red check
 green.
 
 **When the resident cap refuses a new practice, the person picks what comes
-out.** [tools/build_views.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/build_views.py)
+out.** [tools/build_views.py](https://github.com/alex137/BestPractice/blob/staging/tools/build_views.py)
 exits non-zero rather than write an over-budget block, and its message says
 to demote or retire a resident practice — that is a session's cue to **ask**,
 not to choose. List the resident practices with what each costs and what
@@ -74,12 +74,12 @@ because somebody asked, or anything reached through a link. The line is
 whether a session pays for it having decided nothing.
 
 **Two ceilings that are not the same ceiling.** `resident_block_tokens` is a
-hard build cap — [tools/build_views.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/build_views.py) refuses to
+hard build cap — [tools/build_views.py](https://github.com/alex137/BestPractice/blob/staging/tools/build_views.py) refuses to
 generate a resident block over it, so the trade is forced at the moment
 somebody promotes a practice. A surface `ceiling` is a review trigger: it
 fails the check, and what it asks for is a reduction pass, not a deletion.
 `section_review_tokens` is neither — it is the size at which
-[tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/very_deep_check.py)'s SESSION LOAD
+[tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/very_deep_check.py)'s SESSION LOAD
 section flags one `##` section as worth splitting.
 
 **Where the reduction usually is.** In practice it is one section, not the
@@ -105,7 +105,7 @@ where it was has to follow it.
 
 **This does not license trimming a source you do not own.** A team or
 individual source over its ceiling is a finding to report to whoever owns it
-([cross-source-rollout](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/cross-source-rollout.md)), not an edit to make from
+([cross-source-rollout](https://github.com/alex137/BestPractice/blob/staging/practices/cross-source-rollout.md)), not an edit to make from
 here.
 
 ## Why
@@ -129,7 +129,7 @@ does the work.
 
 ## Story
 **Morgan asked for it on 2026-09-11**, as a question about
-[very-deep-check](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/very-deep-check.md): does the very deep check review token
+[very-deep-check](https://github.com/alex137/BestPractice/blob/staging/practices/very-deep-check.md): does the very deep check review token
 use across the repo *and the repos it calls*, check the 2,000-token cap at
 its various points, and then look for where usage can be reduced — and if
 not, that should be a rule.
@@ -137,10 +137,10 @@ not, that should be a rule.
 Half of it was already there and half was not. Pass 3 of the very deep check
 carries "What every session loads, and what it costs", added 2026-09-08 after
 the resident block's 2,000-token budget was found reporting green for weeks
-while [AGENTS.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/AGENTS.md) around it passed 17,000 — the budget
+while [AGENTS.md](https://github.com/alex137/BestPractice/blob/staging/AGENTS.md) around it passed 17,000 — the budget
 governing 4% of the cost, with nothing measuring the rest. That pass moved 24
 gotcha entries' full text to
-[record/GOTCHAS_ARCHIVE.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/record/GOTCHAS_ARCHIVE.md) and took ≈4,900
+[record/GOTCHAS_ARCHIVE.md](https://github.com/alex137/BestPractice/blob/staging/record/GOTCHAS_ARCHIVE.md) and took ≈4,900
 tokens off every session, deleting nothing.
 
 **What was missing was everything that makes it a rule rather than a
@@ -162,7 +162,7 @@ keeping. The ceiling was set at 19,000 against a checkout 14 commits behind;
 merging `precedent-beta-v01` brought a freshness-guard gotcha added upstream
 the same day and put the file at 19,687, over its own ceiling. The rule's
 first demand is a reduction pass, so that is what was run: every entry
-[tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/very_deep_check.py) flagged as claiming its
+[tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/very_deep_check.py) flagged as claiming its
 own trap settled was read against the tree, and each still bites — including
 the new one, which says in its own words that the shape of the trap survives
 the fix. So nothing was archived and the ceiling was raised once, to 20,000,
@@ -176,7 +176,7 @@ the clause is about**, and the difference is only ever visible in what the
 Morgan, asking what happens when a new resident practice would break the
 2,000-token cap: *"do we check to see if it kills the 2000 token limit before
 we do that? If it does, it should ask what we want to remove."* The check
-existed — [tools/build_views.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/build_views.py)
+existed — [tools/build_views.py](https://github.com/alex137/BestPractice/blob/staging/tools/build_views.py)
 refuses to write an over-budget block and exits non-zero — and what was
 missing was the second half: its failure message tells a session to demote or
 retire something, and says nothing about whose call that is. The obvious
@@ -184,12 +184,12 @@ reading of a refusal is that the session clears its own path.
 
 ## Install
 The registry is
-[tools/session_load_budgets.json](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/session_load_budgets.json): one
+[tools/session_load_budgets.json](https://github.com/alex137/BestPractice/blob/staging/tools/session_load_budgets.json): one
 entry per always-loaded surface, each carrying `ceiling`, the `measured` size
 and the date it was `reviewed`, plus the `resident_block_tokens` cap
-[tools/build_views.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/build_views.py) enforces at build time and
+[tools/build_views.py](https://github.com/alex137/BestPractice/blob/staging/tools/build_views.py) enforces at build time and
 the `section_review_tokens` flag
-[tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/very_deep_check.py) prints against. Both
+[tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/very_deep_check.py) prints against. Both
 tools read the registry rather than carrying their own literal, so no cap is
 spelled twice.
 
@@ -200,7 +200,7 @@ registry gets a named skip, not a pass.
 
 **Keeping the registry is the opt-in, and carrying the practice file is not a
 second condition.** That check binds wherever
-[tools/session_load_budgets.json](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/session_load_budgets.json)
+[tools/session_load_budgets.json](https://github.com/alex137/BestPractice/blob/staging/tools/session_load_budgets.json)
 exists, whether or not the repo vendors
 this practice's own text — a repo that wrote a ceiling down has asked for it
 to be enforced. Before 2026-09-22 it also required the practice file, and a
@@ -210,7 +210,7 @@ wrong about the registry sitting right there. Its AGENTS.md ran 476 tokens
 over its own declared ceiling with every check green.
 
 The sum across every repo in force — and the reduction pass itself — is
-[very-deep-check](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/very-deep-check.md)'s SESSION LOAD section, which prints
+[very-deep-check](https://github.com/alex137/BestPractice/blob/staging/practices/very-deep-check.md)'s SESSION LOAD section, which prints
 this checkout and each attached source, section by section, **and reports any
 file over the ceiling its own repo declared.** Those are two different
 findings on purpose: a section flagged for review is a reading-cost question,

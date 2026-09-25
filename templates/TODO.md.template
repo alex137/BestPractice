@@ -19,7 +19,7 @@ agent-doable from the desk; **verify** = source-check before external use;
 **physical** = needs hardware/vendor/test; **decision** = the user's call),
 with a small YAML frontmatter block carrying its status, disposition, and
 (where it has one) what it's blocked on — see
-[spec/OPEN_ITEM_AND_GOTCHA_PLAN.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/OPEN_ITEM_AND_GOTCHA_PLAN.md)
+[spec/OPEN_ITEM_AND_GOTCHA_PLAN.md](https://github.com/alex137/BestPractice/blob/staging/spec/OPEN_ITEM_AND_GOTCHA_PLAN.md)
 Part 1 for the full field list and a worked example.
 
 **A TODO is a handoff, not a parking lot** (practice `todo-is-a-handoff`): an

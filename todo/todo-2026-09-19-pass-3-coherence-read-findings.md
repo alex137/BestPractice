@@ -23,16 +23,16 @@ closed:            null
     small, mechanical ones were fixed in the same pass: 13 stale
     `[spawn-session](...)` link labels (the rename to `session-text` moved
     the targets but not the visible text) across
-    [practices/](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/),
-    [spec/CHIEF_OF_STAFF.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/CHIEF_OF_STAFF.md)
+    [practices/](https://github.com/alex137/BestPractice/blob/staging/practices/),
+    [spec/CHIEF_OF_STAFF.md](https://github.com/alex137/BestPractice/blob/staging/spec/CHIEF_OF_STAFF.md)
     and
-    [record/GOTCHAS.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/record/GOTCHAS.md);
+    [record/GOTCHAS.md](https://github.com/alex137/BestPractice/blob/staging/record/GOTCHAS.md);
     5 stray `~` approximations that should read `≈`
     (`doc-references-are-links`); and 2 unexpanded `VCS` first-uses
     (`acronyms-glossary`) in
-    [docs-are-current-state.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/docs-are-current-state.md)
+    [docs-are-current-state.md](https://github.com/alex137/BestPractice/blob/staging/practices/docs-are-current-state.md)
     and
-    [no-version-suffix.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/no-version-suffix.md).
+    [no-version-suffix.md](https://github.com/alex137/BestPractice/blob/staging/practices/no-version-suffix.md).
     **What's left needs a person's judgment, not a session's:**
 
   **Contradictions**

@@ -78,7 +78,7 @@ approved_by: "<undecided>"
 Anything this project generates that has a visual form -- a deck, a chart,
 a diagram, a document with a letterhead -- follows this project's own
 stated visual identity below. Read this before generating a deck (the
-upstream [deck/](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/deck/)
+upstream [deck/](https://github.com/alex137/BestPractice/blob/staging/deck/)
 engine), a chart, or any other visual artifact; when a rule here conflicts
 with a tool's default, this file wins.
 
@@ -125,8 +125,8 @@ fact look like an insight. Project-specific visual tells to avoid go here:
 **Formats this project produces.** <List the recurring outputs and where
 their conventions live, e.g.:>
 - **Slide decks:** built with the upstream
-  [deck/build_deck.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/deck/build_deck.py);
-  engine-level conventions in [deck/README.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/deck/README.md); this
+  [deck/build_deck.py](https://github.com/alex137/BestPractice/blob/staging/deck/build_deck.py);
+  engine-level conventions in [deck/README.md](https://github.com/alex137/BestPractice/blob/staging/deck/README.md); this
   section covers only this project's palette/type choices, not the deck
   mechanics.
 - **<other format>:** <convention or tool>

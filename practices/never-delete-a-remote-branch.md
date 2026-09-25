@@ -66,7 +66,7 @@ because a person says so, not because a session tested it again.
 
 `git push origin --delete` fails like this — what the first line calls a
 remote procedure call (RPC) is git's own push negotiation over HTTPS
-([the measurement, 2026-09-14](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/gotchas/gotcha-2026-09-14-a-session-can-push-branches-but-cannot-delete-a-remote-branc.md)):
+([the measurement, 2026-09-14](https://github.com/alex137/BestPractice/blob/staging/gotchas/gotcha-2026-09-14-a-session-can-push-branches-but-cannot-delete-a-remote-branc.md)):
 
     error: RPC failed; HTTP 403 curl 22 The requested URL returned error: 403
     send-pack: unexpected disconnect while reading sideband packet

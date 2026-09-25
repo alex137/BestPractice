@@ -196,14 +196,14 @@ do not touch a developer's own environment — does not extend to reading and
 repairing git state.
 
 ## Install
-[templates/bootstrap.sh](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/templates/bootstrap.sh) →
+[templates/bootstrap.sh](https://github.com/alex137/BestPractice/blob/staging/templates/bootstrap.sh) →
 `tools/bootstrap.sh` (harness-neutral; all real setup lives here), wired in
-per-harness via [templates/harness/](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/templates/harness/README.md): a hook
+per-harness via [templates/harness/](https://github.com/alex137/BestPractice/blob/staging/templates/harness/README.md): a hook
 that runs it automatically where the harness supports one (hard guarantee),
 an instructions-file directive where it doesn't (soft guarantee), plus a
 permission allowlist where the harness has that concept. Where the harness
 also supports a blocking stop/teardown hook (Claude Code does; see
-[templates/harness/claude-code/hooks/stop-git-check.sh](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/templates/harness/claude-code/hooks/stop-git-check.sh)),
+[templates/harness/claude-code/hooks/stop-git-check.sh](https://github.com/alex137/BestPractice/blob/staging/templates/harness/claude-code/hooks/stop-git-check.sh)),
 install that too — some managed environments already provide an equivalent
 check outside the repo, but this makes the same guarantee travel with the
 practice layer for the ones that don't.
@@ -211,7 +211,7 @@ practice layer for the ones that don't.
 **A multi-repo session (Detail's third variant, above) gets neither
 guarantee for any repo but its harness's primary one — run
 `bash tools/bootstrap.sh` by hand, once per repo, before that repo's first
-commit.** [templates/AGENTS.md.template](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/templates/AGENTS.md.template)'s
+commit.** [templates/AGENTS.md.template](https://github.com/alex137/BestPractice/blob/staging/templates/AGENTS.md.template)'s
 own Session start section says so directly, for a fresh install; an
 already-installed repo gets the same instruction by reading this
 practice's own materialized copy, which is why it lives here and not only
@@ -229,14 +229,14 @@ the carry gate exists because even attended ones did.
 
 **A privately-scoped source's own bootstrap hook is a separate template,
 for the reason in Detail above.**
-[`templates/harness/claude-code/hooks/individual-source-bootstrap.sh.template`](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/templates/harness/claude-code/hooks/individual-source-bootstrap.sh.template) →
+[`templates/harness/claude-code/hooks/individual-source-bootstrap.sh.template`](https://github.com/alex137/BestPractice/blob/staging/templates/harness/claude-code/hooks/individual-source-bootstrap.sh.template) →
 `.claude/hooks/precedent-individual-bootstrap.sh` in the *consuming*
 project (never in the individual repo itself — a brand-new container has
 no `$HOME` yet, so the hook that populates `$HOME` cannot live there),
 instantiated by
 `python3 tools/precedent_bootstrap_source.py --write-session-hook ...`
 rather than hand-copied (see
-[spec/BOOTSTRAP_NEW_SOURCES.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/BOOTSTRAP_NEW_SOURCES.md)). It
+[spec/BOOTSTRAP_NEW_SOURCES.md](https://github.com/alex137/BestPractice/blob/staging/spec/BOOTSTRAP_NEW_SOURCES.md)). It
 delegates to the vendored
 [`tools/precedent_source_bootstrap.py`](../tools/precedent_source_bootstrap.py),
 so an improvement to the mechanism — the self-heal `tools/precedent_resolve.py`

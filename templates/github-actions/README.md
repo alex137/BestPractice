@@ -2,7 +2,7 @@
 
 Three templates, for two different kinds of repository. All are read-only:
 they report, and none holds a token that could write
-([ci-commits-carry-identity](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/ci-commits-carry-identity.md)).
+([ci-commits-carry-identity](https://github.com/alex137/BestPractice/blob/staging/practices/ci-commits-carry-identity.md)).
 
 | Template | Install as | In which repo |
 |---|---|---|
@@ -63,7 +63,7 @@ its own). A real individual set's `MAP.md` sat three practices stale under a
 generated header claiming a guard was failing the build on exactly that.
 
 Sets created by
-[`tools/precedent_bootstrap_source.py`](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/precedent_bootstrap_source.py)
+[`tools/precedent_bootstrap_source.py`](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_bootstrap_source.py)
 get it installed; a set created before 2026-09-11 needs `precedent-check.yml`
 installed (which now carries this job), and that tool's `--verify` names it
 as missing until it is there.
@@ -73,7 +73,7 @@ as missing until it is there.
 from sources a runner cannot reach), when the loader block turns out to be
 built from unreachable sources, or when no engine is vendored at all. The
 job's own comments say which case is which, and
-[GITHUB_ACTIONS.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/documentation/GITHUB_ACTIONS.md)
+[GITHUB_ACTIONS.md](https://github.com/alex137/BestPractice/blob/staging/documentation/GITHUB_ACTIONS.md)
 covers what gates a consuming repo instead.
 
 ## The light check template
@@ -86,7 +86,7 @@ never automatic: what it runs is a per-repository decision this repo cannot
 make for you.
 
 **Why it exists** ([spec/BILLING_FLOOR.md](../../spec/BILLING_FLOOR.md)).
-[two-check-levels](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/two-check-levels.md)
+[two-check-levels](https://github.com/alex137/BestPractice/blob/staging/practices/two-check-levels.md)
 tells every adopter to name a fast check and a full check. This repository
 shipped the **rule** and never shipped a **shape**, so twelve repositories
 each invented their own `light-check.yml` and not one got the one-job or
@@ -134,12 +134,12 @@ in front of the person had just cleared. Measured in one consuming
 repository: **350 billed minutes over 19 days** for that re-run, on a
 workflow that was already one job with `paths:` filters from the day it
 was installed
-([spec/BILLING_FLOOR.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/BILLING_FLOOR.md)).
+([spec/BILLING_FLOOR.md](https://github.com/alex137/BestPractice/blob/staging/spec/BILLING_FLOOR.md)).
 
 **What replaced it is stricter, not weaker.** "The light check gates a
 commit" was written in `AGENTS.md` and followed by sessions, but nothing
 refused a commit that skipped it. `.claude/hooks/doc-lint-gate.sh` now
-does: a `git commit` whose staged Markdown fails [doc_lint.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/doc_lint.py) is denied,
+does: a `git commit` whose staged Markdown fails [doc_lint.py](https://github.com/alex137/BestPractice/blob/staging/tools/doc_lint.py) is denied,
 with the linter's own output handed back. It costs no Actions minutes and
 it catches the problem **before** the commit rather than after the push.
 
@@ -150,7 +150,7 @@ Markdown.**
 
 Copy [`leak-gate.yml.template`](leak-gate.yml.template) to
 `.github/workflows/leak-gate.yml`. First vendored 2026-09-20
-([spec/CI_MINUTES_PLAN.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/CI_MINUTES_PLAN.md)
+([spec/CI_MINUTES_PLAN.md](https://github.com/alex137/BestPractice/blob/staging/spec/CI_MINUTES_PLAN.md)
 item 12) — before that date `leak-gate.yml` existed only in this repo,
 un-vendored, run unconditionally on every branch because this repo is
 public and a leak here is already published the instant it is pushed.

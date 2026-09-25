@@ -110,7 +110,7 @@ was measured and found wrong.** A hosted session's outbound proxy mediates
 `api.github.com` and supplies its own credential: the same call returns the
 same authenticated login with the real token, with a deliberately invalid
 token, and with **no** `Authorization` header at all
-([the probe, and why two refusals that read alike are not alike](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/gotchas/gotcha-2026-09-22-the-api-proxy-ignores-the-token-you-set.md)).
+([the probe, and why two refusals that read alike are not alike](https://github.com/alex137/BestPractice/blob/staging/gotchas/gotcha-2026-09-22-the-api-proxy-ignores-the-token-you-set.md)).
 So no personal access token anyone creates changes what this section could
 see — the limit is the session's own GitHub App installation and repository
 scope. **And it would find nothing here regardless**: both `main` and

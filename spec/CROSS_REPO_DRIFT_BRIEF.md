@@ -24,8 +24,8 @@ and/or contribute their own layer of practices:
 
 - `precedent-individual` — Morgan's personal practice set (private, owner
   `themorgan` on the evidence in this repo's own
-  [`record/stale_branches.md`](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/record/stale_branches.md)
-  and [`AGENTS.md`](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/AGENTS.md)).
+  [`record/stale_branches.md`](https://github.com/alex137/BestPractice/blob/staging/record/stale_branches.md)
+  and [`AGENTS.md`](https://github.com/alex137/BestPractice/blob/staging/AGENTS.md)).
 - `precedent-team-writing` — a shared team practice set, "the craft of
   writing and formatting prose for a human reader" (private, same owner).
 - `precedent-team-repo-maintenance` — a shared team practice set, "how to
@@ -75,7 +75,7 @@ by direct inspection**, independent of the check tooling:
 
 `precedent-team-writing/TODO.md` (its item 4,
 `todo-gotcha-stale-reference-exempted`) names a stale link to
-`https://github.com/alex137/BestPractice/blob/precedent-beta-v01/TODO.md`,
+`https://github.com/alex137/BestPractice/blob/staging/TODO.md`,
 anchored on `source-checks-adopt-engine-helpers`,
 and says: *"that item is gone from BestPractice's current `todo/` tree and
 its own `spec/TODO_GOTCHA_MIGRATION_MAP.md`, and nothing found here
@@ -87,22 +87,22 @@ item 51, "Move the two private practice sets' checks onto the engine
 helpers added 2026-09-10") existed, marked `DONE 2026-09-10`, in the commit
 immediately before the 2026-09-16 migration (`9a08363b`) — but the
 migration dropped it instead of writing the `status: done` file its own
-plan ([`spec/OPEN_ITEM_AND_GOTCHA_PLAN.md`](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/OPEN_ITEM_AND_GOTCHA_PLAN.md)
+plan ([`spec/OPEN_ITEM_AND_GOTCHA_PLAN.md`](https://github.com/alex137/BestPractice/blob/staging/spec/OPEN_ITEM_AND_GOTCHA_PLAN.md)
 Part 4.1, step 2) calls for. It
 had no row in the migration map and no file under `todo/` or
 `todo/CLOSED.md`.
 
 **Fixed in this session, committed and pushed to `precedent-beta-v01`**
 (`38bd9c96`):
-- [`todo/todo-2026-09-10-source-checks-adopt-engine-helpers.md`](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/todo/todo-2026-09-10-source-checks-adopt-engine-helpers.md) — the
+- [`todo/todo-2026-09-10-source-checks-adopt-engine-helpers.md`](https://github.com/alex137/BestPractice/blob/staging/todo/todo-2026-09-10-source-checks-adopt-engine-helpers.md) — the
   restored archive, recreated verbatim from `git show 9a08363b^:TODO.md`.
-- [`spec/TODO_GOTCHA_MIGRATION_MAP.md`](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/TODO_GOTCHA_MIGRATION_MAP.md) — added
+- [`spec/TODO_GOTCHA_MIGRATION_MAP.md`](https://github.com/alex137/BestPractice/blob/staging/spec/TODO_GOTCHA_MIGRATION_MAP.md) — added
   the missing `source-checks-adopt-engine-helpers` row.
-- [`todo/CLOSED.md`](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/todo/CLOSED.md) — regenerated.
+- [`todo/CLOSED.md`](https://github.com/alex137/BestPractice/blob/staging/todo/CLOSED.md) — regenerated.
 
 **This closes the "blocked-on" for `precedent-team-writing`'s item 4.** A
 session rooted there can now repoint its stale link to
-[`todo/todo-2026-09-10-source-checks-adopt-engine-helpers.md`](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/todo/todo-2026-09-10-source-checks-adopt-engine-helpers.md)
+[`todo/todo-2026-09-10-source-checks-adopt-engine-helpers.md`](https://github.com/alex137/BestPractice/blob/staging/todo/todo-2026-09-10-source-checks-adopt-engine-helpers.md)
 and drop the `not_binding` exemption for that finding in
 `precedent-team-writing/precedent.json` (it may still need to stay
 exempted for the file's other flagged string, the instructional
@@ -118,7 +118,7 @@ whether the exemption should narrow).
 ```
 **the names of my private repositories**, which is a different rule with
 its own gate — see
-[private-repo-scrub](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/private-repo-scrub.md).
+[private-repo-scrub](https://github.com/alex137/BestPractice/blob/staging/practices/private-repo-scrub.md).
 ```
 
 `private-repo-scrub.md` has never existed in BestPractice (confirmed: no
@@ -129,7 +129,7 @@ session's own `.precedent/SESSION_PRACTICES.md` (generated at session
 start from the sources this account's config declares) resolves
 `private-repo-scrub` from that same pack repo.
 
-BestPractice's own [`practices/practice-links-travel.md`](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/practice-links-travel.md) already states the
+BestPractice's own [`practices/practice-links-travel.md`](https://github.com/alex137/BestPractice/blob/staging/practices/practice-links-travel.md) already states the
 rule this link breaks: *"From a PRIVATE source, drop the link markup and
 keep the backticked path — an absolute URL would publish the private
 repository's name into every consumer that materializes the practice...
@@ -144,7 +144,7 @@ this file) — it is the bare backticked slug.
 ```diff
 - **the names of my private repositories**, which is a different rule with
 - its own gate — see
-- [private-repo-scrub](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/private-repo-scrub.md).
+- [private-repo-scrub](https://github.com/alex137/BestPractice/blob/staging/practices/private-repo-scrub.md).
 + **the names of my private repositories**, which is a different rule with
 + its own gate — see `private-repo-scrub`.
 ```
@@ -203,7 +203,7 @@ now fixed and pushed here (`3d75dc61`, same branch).
 `precedent-individual` has this check vendored — `practice-links-travel`
 is `checked_by: tools/precedent_check.py` — and it ran clean anyway. Read
 of the check's own code found why:
-[`tools/precedent_check.py`](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/precedent_check.py)'s
+[`tools/precedent_check.py`](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_check.py)'s
 `_practice_links_travel` validated an absolute URL only when it named
 *this* repository; a URL naming any other repository — including
 BestPractice itself, checked from inside a repo that vendors it — was

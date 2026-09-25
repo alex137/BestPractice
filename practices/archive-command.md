@@ -62,7 +62,7 @@ Coined 2026-09-16 in Morgan's individual set, the same day he asked whether arch
 Moved to universal the same day, on his decision that it belongs alongside the project's other commands rather than staying his own habit: *"I think this should be a universal command not just for me."*
 
 **Amended 2026-09-17**, closing the last named gap in
-[spec/PROVIDER_PORTABILITY_PLAN.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/PROVIDER_PORTABILITY_PLAN.md)'s
+[spec/PROVIDER_PORTABILITY_PLAN.md](https://github.com/alex137/BestPractice/blob/staging/spec/PROVIDER_PORTABILITY_PLAN.md)'s
 Phase 4: this practice was still naming Claude Code Remote's tool calls as
 if any provider could make them. Unlike [session-text](session-text.md)'s
 waking mechanism, there is no provider-neutral substitute to fall back

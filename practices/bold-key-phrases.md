@@ -54,8 +54,8 @@ register.
 
 The heading-dense clause in the Detail arrived on 2026-09-07, from a page
 the rule had been applied to correctly and then outgrown. A pre-launch audit
-sweep ([`spec/PRELAUNCH_AUDIT.md`](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/PRELAUNCH_AUDIT.md))
-found [`documentation/WHY_PRECEDENT.md`](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/documentation/WHY_PRECEDENT.md)
+sweep ([`spec/PRELAUNCH_AUDIT.md`](https://github.com/alex137/BestPractice/blob/staging/spec/PRELAUNCH_AUDIT.md))
+found [`documentation/WHY_PRECEDENT.md`](https://github.com/alex137/BestPractice/blob/staging/documentation/WHY_PRECEDENT.md)
 at a fraction of the bold density of every other outward-facing document
 there and added emphasis throughout, which was right for the page as it
 stood. The page then grew another group and half again as many items, and at

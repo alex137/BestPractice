@@ -156,7 +156,7 @@ unknown return, and they are the one who knows when they want to look.
 in an ordinary working session. It does **not** work in a fresh session fired
 by a Routine, which gets none of those tools and reports the run as succeeded
 anyway
-(https://github.com/alex137/BestPractice/blob/precedent-beta-v01/record/GOTCHAS.md#g38).
+(https://github.com/alex137/BestPractice/blob/staging/record/GOTCHAS.md#g38).
 
 **Prefer the session you are already in.** A sweep costs its own read of the
 fleet — roughly 15,000 tokens per page of thirty, several pages deep — and
@@ -197,7 +197,7 @@ wrong here is a sweep nobody asked for, not a differently-worded reply.
 
 ## Story
 **Proposed by Morgan on 2026-09-13** and written up at
-[spec/CHIEF_OF_STAFF.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/CHIEF_OF_STAFF.md)
+[spec/CHIEF_OF_STAFF.md](https://github.com/alex137/BestPractice/blob/staging/spec/CHIEF_OF_STAFF.md)
 with the platform capability measured rather than assumed. He held
 implementation and left four questions open, the phrase among them.
 

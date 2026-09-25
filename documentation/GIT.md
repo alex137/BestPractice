@@ -115,7 +115,7 @@ section covers git's and GitHub's own.
 - **`origin`** — **the name of the remote you cloned from.** It is a
   nickname, not a place, and it means "the copy on GitHub this one came
   from". Nothing about it says which *branch*: `origin/main` and
-  `origin/precedent-beta-v01` are both on `origin`.
+  `origin/staging` are both on `origin`.
 - **Fork** — your own copy of somebody else's repository on GitHub, which you
   can push to. Used when you cannot write to theirs.
 
@@ -130,7 +130,7 @@ section covers git's and GitHub's own.
 - **`main`** — the branch a repository treats as its shared truth, by
   convention. Also called the **default branch**, because it is what GitHub
   shows first and what a fresh clone lands on. **In this repository the real
-  work happens on `precedent-beta-v01` instead**, which is why "the default
+  work happens on `staging` instead**, which is why "the default
   branch" and "the branch we merge into" are not the same sentence here.
 - **`HEAD`** — where your clone is standing right now: the commit you would
   build the next one on top of.

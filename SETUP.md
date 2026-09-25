@@ -73,7 +73,7 @@ nothing to choose here — this page installs §0, always.
      whole fleet at once.
 3. **Install without further questions.** Clone the public repo
    `https://github.com/alex137/BestPractice` beside the project (a sibling
-   directory, not inside it) **on its `precedent-beta-v01` branch** — the
+   directory, not inside it) **on its `staging` branch** — the
    branch this file lives on; `main` took the same tree on 2026-09-14 but
    everything after that lands here first — and run, from that clone:
 

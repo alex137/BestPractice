@@ -76,11 +76,11 @@ at once into one branch with only the fastest check, and pay for the full
 suite once, from a background window, when the batch moves on. He ruled out
 a scheduled promotion in favour of a push a person starts. The plan, with
 the decisions and how firmly each was made, is
-[spec/BRANCH_TIERS_PLAN.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/BRANCH_TIERS_PLAN.md).
+[spec/BRANCH_TIERS_PLAN.md](https://github.com/alex137/BestPractice/blob/staging/spec/BRANCH_TIERS_PLAN.md).
 
 ## Install
 Nothing to install beyond the engine: [precedent_branches.py](../tools/precedent_branches.py) ships in
-every kind's engine files. Its behaviour is pinned by [verify_harness.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/verify_harness.py)'s
+every kind's engine files. Its behaviour is pinned by [verify_harness.py](https://github.com/alex137/BestPractice/blob/staging/tools/verify_harness.py)'s
 `check_promote_pre_staging` -- a failing batch leaves staging where it was,
 a passing one lands as a merge commit whose second parent is pre-staging,
 and a conflicting direct push to staging stops the sync without pushing.

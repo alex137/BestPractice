@@ -41,7 +41,17 @@ the batch is promoted.
   engine, and one still on an older engine would stop seeing a renamed key
   and fall back to the defaults, which run more CI, not less. Rename them
   once installs have taken this engine.
-- **Step 8's behaviour is held for a decision**, because landing any part of
+- **Step 8's workflow half and step 10 landed on pre-staging 2026-09-25,
+  waiting on a Promote.** The workflow templates run GitHub only on a pull
+  request into main (the light check) and, in a public repo, the leak check on
+  every push; new installs get them by default. `[skip ci]` stays on as a
+  backstop until every install carries the new files (Morgan: *"Backstops are
+  good especially on this issue. We'll keep it until we're 100% sure all have
+  been updated"*, strength: decided). `precedent-beta-v01` is renamed
+  `staging`, with the old name kept and moved in step by every Promote; the
+  default landing branch is pre-staging for everyone. Alex approved both,
+  relayed by Morgan: *"Alex is on top of this and approves"*.
+- **Superseded, 2026-09-25 -- Step 8's behaviour was held for a decision**, because landing any part of
   it alone costs money: "never tag staging" would, today, start a runner on
   every push to staging in a private repo that has `leak-gate.yml`
   installed, since that workflow still triggers on every push. It has to land
@@ -69,6 +79,7 @@ and approved the same day. The decisions, with how firmly each was made
 | `Go update` lands on pre-staging by default | *"in go update" ruleset, the default place to push it to is "pre-staging"? Update the spec to reflect these"* | decided |
 | Installs take their updates from main | *"Maybe vendored-in copies are now taken from \*main\*? [...] Update the spec to reflect these"* | decided -- with the 2026-09-24 reversal below in view |
 | A high-risk change lands on pre-staging too, with a bolded Promote reminder in the reply and in The Boildown | *"the \"high risk\" ones should still go to pre-staging but have a strong, bolded message for me, in the main text as a paragraph and also in The Boildown, that now I need to push pre-staging to staging"* | decided |
+| `landing_branch` may also say `main` | *"they have to be able to set it to \"main\" if they want, right?"* | decided |
 | The primary branch is brought in line with the tiers | *"we now have a concept called \"primary branch\" - that should probably be updated in reference to this"* | decided |
 
 ## The rule

@@ -321,12 +321,14 @@ Click-paths as of <install date>.
      `<upstream-docs>/`. Add a line whenever a future install step
      introduces a new one (a required secret, a new required check). -->
 
-- **A leak check runs on every push and pull request** (the GitHub Actions
-  workflow `leak-gate.yml`) and refuses anything that would publish
-  something private. It needs no maintenance. If it doesn't appear on a
-  pull request's checks, GitHub Actions may be disabled for this
-  repository — an administrator can turn it on at repository
-  **Settings → Actions**.
+- **Before anything reaches `main`, GitHub checks it once** (the GitHub
+  Actions workflow `light-check.yml`, on the pull request into `main`).
+  Every other push is checked on your own machine before it leaves. In a
+  public repository a leak check (`leak-gate.yml`) also runs on every push
+  and refuses anything that would publish something private. Neither needs
+  maintenance. If they don't appear on a pull request's checks, GitHub
+  Actions may be disabled for this repository — an administrator can turn
+  it on at repository **Settings → Actions**.
 - **Your writing is checked before it is saved, not after.** A formatting
   check runs on every commit, so a broken link or a malformed heading is
   caught while you are still working rather than once it is shared. This

@@ -87,7 +87,7 @@ normal too.
 same reduction pass that moved
 [fence-block-for-paste](fence-block-for-paste.md). The cross-source resident
 block measured 2,198 tokens against the 2,000-token cap
-([todo-2026-09-21-resident-cap-was-measured-on-the-wrong-shape.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/todo/todo-2026-09-21-resident-cap-was-measured-on-the-wrong-shape.md)),
+([todo-2026-09-21-resident-cap-was-measured-on-the-wrong-shape.md](https://github.com/alex137/BestPractice/blob/staging/todo/todo-2026-09-21-resident-cap-was-measured-on-the-wrong-shape.md)),
 and this practice's 124 tokens were being paid on every turn for text the
 `reply` gate already delivers at the one moment it applies. Morgan chose it
 from a costed menu, 2026-09-21: *"Do A and B and C - I like all"*. strength:
@@ -102,7 +102,7 @@ which was weighed and accepted.
 
 ## Install
 Convention in
-[templates/AGENTS.md.template](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/templates/AGENTS.md.template).
+[templates/AGENTS.md.template](https://github.com/alex137/BestPractice/blob/staging/templates/AGENTS.md.template).
 
 **On-demand since 2026-09-21**, reached by the `reply` gate rather than by
 residency; see `## Story`. The convention itself is unchanged.

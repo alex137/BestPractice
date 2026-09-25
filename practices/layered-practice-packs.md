@@ -47,7 +47,7 @@ practice — Universal or Team — whose `applies_to` / `occasion` / `gates`
 scope it to that domain's work, routed by the same occasion index and
 path-triggered channel as every other on-demand practice. The decision rule
 above still holds; only the *implementation* of the middle tier changed.
-Recorded in [CHANGES_TO_TELL_ALEX.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/CHANGES_TO_TELL_ALEX.md).
+Recorded in [CHANGES_TO_TELL_ALEX.md](https://github.com/alex137/BestPractice/blob/staging/spec/CHANGES_TO_TELL_ALEX.md).
 
 **Closed 2026-09-18: a domain bundle shared across more than one team is a
 `shared` source.** The level that used to be called `team` is any set a
@@ -95,7 +95,7 @@ every other on-demand practice.
 
 **Pre-migration (a repo still vendoring BestPractice the old way):** vendor
 the pack tree at `process/<pack>/`; write `process/manifest_<pack>.json`
-(schema of [INSTALL.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/INSTALL.md) §5, plus `upstream.scrub_blocklist` — a
+(schema of [INSTALL.md](https://github.com/alex137/BestPractice/blob/staging/INSTALL.md) §5, plus `upstream.scrub_blocklist` — a
 path, or `null` to opt a private pack out of the scrub); instantiate the
 pack's practices in the repo's real files and record the mapping; install its
 harness adapter so the rules load when the domain work happens. The export

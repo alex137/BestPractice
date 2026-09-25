@@ -86,7 +86,7 @@ path needs an owner's review, and a practice is suggested by anyone and landed
 only by a listed approver.** Nothing here is keyed to a kind of person, and
 that is the design — a rule keyed to "technical" or "non-technical" needs
 something to decide which a person is, and nothing can
-([technical-describes-people](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/technical-describes-people.md)).
+([technical-describes-people](https://github.com/alex137/BestPractice/blob/staging/practices/technical-describes-people.md)).
 
 **GitHub role — Write.** The contributor is a **Write** collaborator here.
 They push branches, open pull requests and merge their own document work,
@@ -128,14 +128,14 @@ every practice idea through the candidate flow below.
 practice idea in plain language, Claude:
 
 1. Restates it back to them in their own words to confirm before acting.
-2. Drafts a candidate with [`tools/precedent_candidate.py`](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/precedent_candidate.py).
+2. Drafts a candidate with [`tools/precedent_candidate.py`](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_candidate.py).
    **Because they are not a listed approver
    (`precedent-team-writing`'s `approvers.json`), this defaults to
    `precedent_candidate.py --as-issue true` against
    `precedent-team-writing`** —
    a quiet `candidates/*.md` file accomplishes nothing when nobody with
    landing authority is watching it, per
-   [`spec/CANDIDATE_FORMAT.md`](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/CANDIDATE_FORMAT.md#which-one-for-team-file-or-issue)'s
+   [`spec/CANDIDATE_FORMAT.md`](https://github.com/alex137/BestPractice/blob/staging/spec/CANDIDATE_FORMAT.md#which-one-for-team-file-or-issue)'s
    rule for team candidates raised by a non-approver. Use a plain individual
    candidate file instead only if the idea is explicitly just their own
    working style, not something to share with the team.
@@ -217,7 +217,7 @@ Conflicts in shared files are EXPECTED. The fast, safe path:
   PRs and open candidate Issues on `precedent-team-writing`, summarize each in
   plain language, and take the verdict in chat.
 - **"Add project members"** — same flow as
-  [`templates/AGENTS.md.loader.template`](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/templates/AGENTS.md.loader.template)'s
+  [`templates/AGENTS.md.loader.template`](https://github.com/alex137/BestPractice/blob/staging/templates/AGENTS.md.loader.template)'s
   own "Add project members" section, with one addition: grant **Write**, and
   check that [`.github/CODEOWNERS`](.github/CODEOWNERS) and branch protection
   are both in place first — `python3 tools/precedent_boundary_check.py`
@@ -227,7 +227,7 @@ Conflicts in shared files are EXPECTED. The fast, safe path:
 ## Practice sources — Precedent loader (policy)
 
 - `precedent.json` declares every practice source in force here — see
-  [INSTALL.md §0](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/INSTALL.md#0-installing-directly-onto-the-precedent-loader-new-2026-09-03--read-the-caveat-before-using)
+  [INSTALL.md §0](https://github.com/alex137/BestPractice/blob/staging/INSTALL.md#0-installing-directly-onto-the-precedent-loader-new-2026-09-03--read-the-caveat-before-using)
   for the resolution and precedence rules. The `universal` source is a
   **real vendored copy** at `precedent/universal/`, not a live reference.
   The `team` sources resolve live from sibling clones instead — never

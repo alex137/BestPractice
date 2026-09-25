@@ -131,18 +131,18 @@ not start the work itself.
 Said in the Chief of Staff session it is a status request. Said anywhere
 else it is a redirect — *this belongs in Chief of Staff, here is the link* —
 which is the same shape as
-[session-text](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/session-text.md)'s
+[session-text](https://github.com/alex137/BestPractice/blob/staging/practices/session-text.md)'s
 honest "this session is the right one" answer.
 
 The phrase is Morgan's, proposed 2026-09-13: *"Maybe the phrase is just
 'Chief of Staff'."* It would join
-[go-merge](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/go-merge.md),
-[park-it](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/park-it.md),
-[three-things](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/three-things.md),
-[plain-words](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/plain-words.md),
-[weak-yes](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/weak-yes.md),
-[session-text](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/session-text.md)
-and [my-options](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/my-options.md)
+[go-merge](https://github.com/alex137/BestPractice/blob/staging/practices/go-merge.md),
+[park-it](https://github.com/alex137/BestPractice/blob/staging/practices/park-it.md),
+[three-things](https://github.com/alex137/BestPractice/blob/staging/practices/three-things.md),
+[plain-words](https://github.com/alex137/BestPractice/blob/staging/practices/plain-words.md),
+[weak-yes](https://github.com/alex137/BestPractice/blob/staging/practices/weak-yes.md),
+[session-text](https://github.com/alex137/BestPractice/blob/staging/practices/session-text.md)
+and [my-options](https://github.com/alex137/BestPractice/blob/staging/practices/my-options.md)
 in the universal command vocabulary.
 
 ## Every session it names is a clickable link
@@ -333,7 +333,7 @@ the problem it was created for.
 
 It also **does not merge anything on Morgan's behalf.** A merge
 authorization is his to give in the session that holds the work
-([go-merge](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/go-merge.md)),
+([go-merge](https://github.com/alex137/BestPractice/blob/staging/practices/go-merge.md)),
 and routing him to the right window to say it is the whole job.
 
 One asymmetry is deliberate: **only Chief of Staff spawns sessions.** A tree

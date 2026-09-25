@@ -44,7 +44,7 @@ update`'s push-by-default/high-risk classification would otherwise call for
 on this change.
 
 **The phrase names its own target when the message says so.** "Push
-directly to main", "push directly to precedent-beta-v01" -- whatever
+directly to main", "push directly to staging" -- whatever
 follows "to" is the branch to push to, full stop, whatever branch a
 session might otherwise have guessed.
 
@@ -54,8 +54,8 @@ own work has actually been developed and committed against, never a
 repository's configured default branch chosen just because it is
 configured that way. Under the branch tiers that is where this person's
 `Go update` lands, which `python3 tools/precedent_branches.py --landing`
-names -- `pre-staging` for a person whose `landing_branch` says so;
-otherwise, where the repository declares a branch -- `base_branch` in its
+names -- `pre-staging`, unless the person's `landing_branch` says
+`staging`; for them, where the repository declares a branch -- `base_branch` in its
 `precedent.json`, or a rule of its own -- the declaration decides it
 ([primary-branch](primary-branch.md)); absent one, it is whichever branch
 the change in front of you is already on.
@@ -135,7 +135,7 @@ primary branch rather than leave a session to guess or stop and ask. He
 invoked the amended phrase, in the same message that asked for the
 amendment, to authorize landing the amendment itself: "Push directly to
 precedent-beta-v01" -- naming this repo's actual routine branch, not
-`main`, exactly the distinction [merge-target-is-beta-branch](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/local/practices/merge-target-is-beta-branch.md)
+`main`, exactly the distinction [merge-target-is-beta-branch](https://github.com/alex137/BestPractice/blob/staging/local/practices/merge-target-is-beta-branch.md)
 exists to keep a session from blurring.
 
 ## Install

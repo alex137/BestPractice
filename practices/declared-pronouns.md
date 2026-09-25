@@ -84,12 +84,12 @@ project or this team: any repository, for any person, needs the same answer.
 
 ## Install
 `identity.json` carries `pronouns`, shipped in the individual skeleton at
-[`templates/practice-set-individual/identity.json.template`](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/templates/practice-set-individual/identity.json.template)
+[`templates/practice-set-individual/identity.json.template`](https://github.com/alex137/BestPractice/blob/staging/templates/practice-set-individual/identity.json.template)
 as `{{PERSON_PRONOUNS}}`.
 
 **Two halves of "is it filled in", because a new set and a migrated set fail
 differently.** A set created by
-[`tools/precedent_bootstrap_source.py`](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/precedent_bootstrap_source.py)
+[`tools/precedent_bootstrap_source.py`](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_bootstrap_source.py)
 and never finished still holds the literal placeholder, which that tool's
 `verify()` already sweeps for. A set **migrated** into place predates the
 field entirely and holds no `pronouns` key at all — which the placeholder
@@ -108,6 +108,6 @@ second check into `tools/checks/` would add nothing: a consuming repo has no
 `identity.json` to check.
 
 The install and migration procedures name it as a value to ask for:
-[`spec/BOOTSTRAP_NEW_SOURCES.md`](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/BOOTSTRAP_NEW_SOURCES.md)
+[`spec/BOOTSTRAP_NEW_SOURCES.md`](https://github.com/alex137/BestPractice/blob/staging/spec/BOOTSTRAP_NEW_SOURCES.md)
 and
-[`spec/MIGRATING_EXISTING_INSTALLS.md`](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/MIGRATING_EXISTING_INSTALLS.md).
+[`spec/MIGRATING_EXISTING_INSTALLS.md`](https://github.com/alex137/BestPractice/blob/staging/spec/MIGRATING_EXISTING_INSTALLS.md).

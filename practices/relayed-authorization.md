@@ -156,7 +156,7 @@ what their approvals mean when they travel.
 **The declaration:** add `"relayed_authorization": "accepted"` to
 `identity.json` in your own individual practice set. The individual skeleton
 at
-[templates/practice-set-individual/identity.json.template](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/templates/practice-set-individual/identity.json.template)
+[templates/practice-set-individual/identity.json.template](https://github.com/alex137/BestPractice/blob/staging/templates/practice-set-individual/identity.json.template)
 ships the field with its comment, so a set created after 2026-09-14 is asked
 the question at creation; an older set has to add it. **Absent means refused**,
 which is the safe default and is also the state every existing set is in.

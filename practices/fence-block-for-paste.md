@@ -127,7 +127,7 @@ other things those files call a block. strength: decided.
 reduction pass against the cross-source resident block. The combined block
 across this account's four sources measured 2,198 tokens against the
 2,000-token cap -- the wall
-[todo-2026-09-21-resident-cap-was-measured-on-the-wrong-shape.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/todo/todo-2026-09-21-resident-cap-was-measured-on-the-wrong-shape.md)
+[todo-2026-09-21-resident-cap-was-measured-on-the-wrong-shape.md](https://github.com/alex137/BestPractice/blob/staging/todo/todo-2026-09-21-resident-cap-was-measured-on-the-wrong-shape.md)
 records -- and this practice was one of the two largest entries whose full
 text a session already reaches at a guaranteed moment. Morgan chose it from
 a costed menu, 2026-09-21: *"Do A and B and C - I like all"*. strength:
@@ -143,7 +143,7 @@ somebody says it; this fires always.
 
 **The caveat, stated because it is real:** `reply-gate.sh` is the Claude
 Code adapter's hook
-([templates/harness/README.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/templates/harness/README.md)). Codex and
+([templates/harness/README.md](https://github.com/alex137/BestPractice/blob/staging/templates/harness/README.md)). Codex and
 Gemini CLI have no prompt-submit hook to wire it into, so in those harnesses
 this rule now arrives through the standing instruction and the occasion
 index rather than automatically. That was weighed and accepted.

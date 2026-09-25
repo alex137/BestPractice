@@ -97,7 +97,7 @@ decides otherwise.
 without it: the moment it runs, a consumer that resolves only universal
 loses the rule entirely, and nothing the tool can measure says whether the
 audience that still needs it has moved to the destination set. That is a
-human call, the same shape [`go-merge`](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/go-merge.md)
+human call, the same shape [`go-merge`](https://github.com/alex137/BestPractice/blob/staging/practices/go-merge.md)
 already asks for on anything hard to reverse — say the read out loud and
 confirm it, rather than letting a flag default to "yes."
 

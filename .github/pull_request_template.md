@@ -25,7 +25,7 @@
 
 ## Gates
 
-- [ ] Base branch is `precedent-beta-v01`, not `main` (see AGENTS.md's opening note) — checked explicitly, not assumed from the default branch
+- [ ] Base branch is `pre-staging` or `staging` (named `precedent-beta-v01` until 2026-09-25), not `main` (see AGENTS.md's opening note) — checked explicitly, not assumed from the default branch
 - [ ] Deep check run and clean: `verify_harness.py`, `doc_lint.py`, `leak_gate.py`, `precedent_check.py`, `doc_sync.py`
 - [ ] Generated views regenerated if any `practices/*.md` front matter changed (`tools/build_views.py`) — AGENTS.md/MAP.md/GLOSSARY.md byte-identical to a fresh build
 - [ ] Relevant `todo/` item(s) opened/closed, listed below
