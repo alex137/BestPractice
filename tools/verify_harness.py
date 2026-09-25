@@ -14069,6 +14069,194 @@ def check_materialize_bridges_loader():
           not bad, '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad))
 
 
+def check_shipped_tests_name_their_owner_and_fail_at_home():
+    """A check test a practice source ships runs in every consuming
+    repository, against that repository's tree -- and until 2026-09-25 a
+    failing one there was nobody's. Sessions in consumers reported "fails on
+    the base branch too, not this change" and moved on, and one test stayed
+    red for days: it staged a fixture under vendor/ with a plain `git add`,
+    which a consumer ignoring vendor/ refuses and its home source never did.
+
+    Two halves, each with its own way of regressing:
+
+    * the generated tools/checks/tests/run_all.sh names the source of every
+      failing test, says a shipped one is that source's bug, and tells the
+      repo-local and unknown cases apart -- and stays silent about owners
+      when everything passes (the negative control);
+    * tools/precedent_consumer_shape.py fails, at home, the test that passes
+      in its home layout and not in a consumer's, passes the same test once
+      it stages with `git add -f`, and is wired into a practice source's
+      full push check."""
+    import importlib.util, shutil, tempfile
+    name = ('a shipped test names its owner when it fails in a consumer, '
+            'and a home-only test fails at home')
+    materialize_tool = ROOT / 'tools' / 'precedent_materialize.py'
+    shape_tool = ROOT / 'tools' / 'precedent_consumer_shape.py'
+    push_tool = ROOT / 'tools' / 'precedent_push_check.py'
+    if not (materialize_tool.exists() and shape_tool.exists() and push_tool.exists()):
+        not_applicable(name, 'precedent_materialize.py, precedent_consumer_shape.py '
+                             'or precedent_push_check.py is absent')
+        return
+
+    def load(mod_name, path):
+        spec = importlib.util.spec_from_file_location(mod_name, path)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        return mod
+
+    pm = load('_pm_owner', materialize_tool)
+    pcs = load('_pcs_owner', shape_tool)
+    ppc = load('_ppc_owner', push_tool)
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-shipped-tests-'))
+    # The fixture owns git's configuration: a machine's own global excludes
+    # would otherwise decide whether the "passes at home" premise holds
+    # (practice: fixture-owns-its-state).
+    (tmp / 'gitconfig').write_text('', encoding='utf-8')
+    env = {k: v for k, v in os.environ.items()
+           if not k.startswith('GIT_CONFIG_')}
+    env.update(GIT_CONFIG_GLOBAL=str(tmp / 'gitconfig'),
+               GIT_CONFIG_NOSYSTEM='1', PRECEDENT_ALLOW_ANY_AUTHOR='1',
+               GIT_AUTHOR_NAME='T', GIT_AUTHOR_EMAIL='t@example.com',
+               GIT_COMMITTER_NAME='T', GIT_COMMITTER_EMAIL='t@example.com')
+
+    def write_test(d, fname, body):
+        d.mkdir(parents=True, exist_ok=True)
+        (d / fname).write_text('#!/bin/bash\n' + body + '\n', encoding='utf-8')
+
+    try:
+        # --- half 1: the generated driver names the owner -----------------
+        team, local = tmp / 'team', tmp / 'local-src'
+        write_test(team / 'tools' / 'checks' / 'tests', 'test_bad.sh', 'exit 1')
+        write_test(team / 'tools' / 'checks' / 'tests', 'test_good.sh', 'exit 0')
+        write_test(local / 'tools' / 'checks' / 'tests', 'test_local_bad.sh', 'exit 1')
+        sources = [{'name': 'precedent-team-fixture', 'level': 'shared',
+                    'path': str(team)},
+                   {'name': 'local', 'level': 'repo-local', 'path': str(local)}]
+        plan = pm._plan_checks(sources, None)
+        consumer_tests = tmp / 'consumer' / 'tools' / 'checks' / 'tests'
+        consumer_tests.mkdir(parents=True)
+        for rel_label, filename, _src, data in plan:
+            if rel_label == 'checks/tests':
+                (consumer_tests / filename).write_bytes(data)
+        driver_text = (consumer_tests / 'run_all.sh').read_text(encoding='utf-8')
+        # The table agrees with what the manifest records for each test: the
+        # manifest's checks[] source comes from this same plan entry.
+        table_ok = all(f"{fn}) owner={src};" in driver_text
+                       for rel, fn, src, _d in plan
+                       if rel == 'checks/tests' and fn != 'run_all.sh')
+        cases.append(("the driver's owner table carries every materialized "
+                      "test's source, as MANIFEST.json's checks[] records it",
+                      table_ok))
+        # A test nobody materialized: dropped in by hand, failing.
+        write_test(consumer_tests, 'test_stray.sh', 'exit 1')
+        r = subprocess.run(['bash', 'run_all.sh'], cwd=consumer_tests,
+                           capture_output=True, text=True, env=env)
+        out = r.stdout + r.stderr
+        cases.append(('the driver still exits 1 when a test fails',
+                      r.returncode == 1, f'exit {r.returncode}'))
+        cases.append(('a failing shipped test is named with its source and level',
+                      "FAILED: test_bad.sh -- shipped by source "
+                      "'precedent-team-fixture' (shared level)" in out))
+        cases.append(('the driver says a shipped failure is not to be recorded '
+                      'as pre-existing',
+                      'Never record it here as pre-existing' in out))
+        cases.append(("a repo-local test's failure is this repo's own to fix",
+                      "FAILED: test_local_bad.sh -- this repo's own repo-local "
+                      "source (local/): fix it here" in out))
+        cases.append(('a test no source shipped is called out as such, not '
+                      'pinned on a source',
+                      'FAILED: test_stray.sh -- no source shipped it' in out))
+        cases.append(('a passing test is never named as failed',
+                      'FAILED: test_good.sh' not in out))
+        found = ppc._finding_lines(out.splitlines())
+        cases.append(("the push check's finding extraction carries the owner "
+                      "line, so a refused push shows whose test failed",
+                      any("shipped by source 'precedent-team-fixture'" in l
+                          for l in found)))
+        # Negative control: nothing failing, nothing said about owners.
+        for f in ('test_bad.sh', 'test_local_bad.sh', 'test_stray.sh'):
+            (consumer_tests / f).unlink()
+        r = subprocess.run(['bash', 'run_all.sh'], cwd=consumer_tests,
+                           capture_output=True, text=True, env=env)
+        cases.append(('all passing: exit 0 and no ownership summary at all',
+                      r.returncode == 0 and 'who owns each' not in r.stdout
+                      and 'pre-existing' not in r.stdout))
+
+        # --- half 2: consumer-shaped run fails a home-only test at home ---
+        def source_repo(label, add_cmd):
+            d = tmp / label
+            write_test(d / 'tools' / 'checks' / 'tests', 'test_plant.sh',
+                       'set -e\ns="$(mktemp -d)"\ngit init -q "$s"\n'
+                       'mkdir -p "$s/vendor"\necho x > "$s/vendor/THIRD_PARTY.md"\n'
+                       f'git -C "$s" {add_cmd} vendor/THIRD_PARTY.md\n'
+                       'rm -rf "$s"\necho ok')
+            subprocess.run(['git', 'init', '-q', str(d)], env=env,
+                           capture_output=True)
+            return d
+
+        plain = source_repo('src-plain-add', 'add')
+        forced = source_repo('src-forced-add', 'add -f')
+        home = subprocess.run(['bash', 'test_plant.sh'],
+                              cwd=plain / 'tools' / 'checks' / 'tests',
+                              capture_output=True, text=True, env=env)
+        cases.append(('premise: the plain-add test passes in its home layout',
+                      home.returncode == 0, (home.stdout + home.stderr)[-200:]))
+        r = subprocess.run([sys.executable, str(shape_tool), '--repo', str(plain)],
+                           capture_output=True, text=True, env=env)
+        cases.append(('the consumer-shaped run fails it, naming the test and the '
+                      'cause class',
+                      r.returncode == 1 and 'FAILED: test_plant.sh -- fails where '
+                      'git ignores what a consuming repository typically ignores'
+                      in r.stdout, f'exit {r.returncode}: {r.stdout[-300:]}'))
+        r = subprocess.run([sys.executable, str(shape_tool), '--repo', str(forced)],
+                           capture_output=True, text=True, env=env)
+        cases.append(('the same test staging with `git add -f` passes the '
+                      'consumer-shaped run',
+                      r.returncode == 0 and 'all 1 passed' in r.stdout,
+                      f'exit {r.returncode}: {r.stdout[-300:]}'))
+        bare = tmp / 'no-tests'
+        subprocess.run(['git', 'init', '-q', str(bare)], env=env, capture_output=True)
+        r = subprocess.run([sys.executable, str(shape_tool), '--repo', str(bare)],
+                           capture_output=True, text=True, env=env)
+        cases.append(('a repo with no tests: exit 0, and it says there was '
+                      'nothing to run',
+                      r.returncode == 0 and 'nothing to run' in r.stdout))
+        r = subprocess.run([sys.executable, str(shape_tool), '--repo',
+                            str(tmp / 'team')], capture_output=True, text=True,
+                           env=dict(env, GIT_CEILING_DIRECTORIES=str(tmp)))
+        cases.append(('outside a git checkout: exit 2, said so',
+                      r.returncode == 2 and 'not inside a git checkout' in r.stderr))
+        base = {'GIT_CONFIG_COUNT': '1', 'GIT_CONFIG_KEY_0': 'a.b',
+                'GIT_CONFIG_VALUE_0': 'c'}
+        merged = pcs.consumer_env('/x/ignore', base=base)
+        cases.append(('the ignores are appended to GIT_CONFIG_COUNT entries '
+                      'already set, never replacing them',
+                      merged.get('GIT_CONFIG_COUNT') == '2'
+                      and merged.get('GIT_CONFIG_KEY_0') == 'a.b'
+                      and merged.get('GIT_CONFIG_KEY_1') == 'core.excludesFile'
+                      and merged.get('GIT_CONFIG_VALUE_1') == '/x/ignore'))
+
+        names = {kind: [n for n, _a, _r in ppc.PUSH_CHECKS[kind]]
+                 for kind in ppc.PUSH_CHECKS}
+        cases.append(("a practice source's full push check runs the "
+                      'consumer-shaped suite, right after its own',
+                      'consumer_shape' in names['source']
+                      and names['source'].index('consumer_shape')
+                      == names['source'].index('deep_check') + 1
+                      and 'consumer_shape' not in ppc.BASIC_CHECKS))
+        cases.append(('it ships with the engine every kind vendors',
+                      "'precedent_consumer_shape.py'" in
+                      (ROOT / 'tools' / 'precedent_vendor_engine.py').read_text(
+                          encoding='utf-8')))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
+    check(f'{name} ({len(cases)} stated cases)', not bad,
+          '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad))
+
+
 def check_materialize_carries_harness_adapters():
     """tools/precedent_materialize.py — a practice source's HARNESS ADAPTERS
     travel with it, the way its checks already do.
@@ -32594,6 +32782,7 @@ def main():
     check_source_sets_can_learn_they_are_stale()
     check_loader_tools_are_repo_relocatable()
     check_materialize_bridges_loader()
+    check_shipped_tests_name_their_owner_and_fail_at_home()
     check_materialize_carries_harness_adapters()
     check_show_flags_unreachable_materialized_source()
     check_sync_views_cross_source()

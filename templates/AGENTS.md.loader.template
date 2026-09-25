@@ -65,7 +65,10 @@ deliverables and indexes which documents back each part of each one.
   Fast, run before every commit without thinking about it. Gates a commit.
 - **Deep check** — the full suite: `python3 tools/precedent_check.py`,
   `python3 tools/precedent_sync_views.py --repo . --check`, and `<your own audits>`.
-  Gates a push and a merge.
+  Gates a push and a merge. `bash tools/checks/tests/run_all.sh` runs the
+  tests materialized from this repo's sources and names each failing test's
+  source: a failing one is that source's bug, fixed and reported there —
+  never noted here as pre-existing.
 
 ### Build-environment gotchas — do NOT rediscover these
 
