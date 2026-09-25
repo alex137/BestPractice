@@ -53,11 +53,15 @@ version with changes will be pushed to main at a later date, think of it
 like a staging server; unless the manager of the session says otherwise;
 but note that this rule doesn't get vendored in anywhere, the primary
 branch of the vendored-in repo should be used, often main."* **Other repos
-take their updates from `main`**, not from `precedent-beta-v01` (Morgan,
-2026-09-24, `strength: decided`: *"Yes, switch other repos to update from
-main"*). That is `SOURCE_BRANCH` in `tools/precedent_vendor_engine.py` and
-`tools/precedent_refresh_sources.py`, so a change here reaches them at the
-next fold-in and not before.
+take their updates from `precedent-beta-v01` too, for now**, all of them on
+the same branch (Morgan, 2026-09-24, `strength: decided`: *"they should all
+be consistent and following the same one. Maybe later we'll move them all
+to follow main but, for now, they should all follow precedent-beta-v01"*).
+That is `SOURCE_BRANCH` in `tools/precedent_vendor_engine.py` and
+`tools/precedent_refresh_sources.py`. Earlier the same day it briefly read
+`main`, on *"Yes, switch other repos to update from main"*, which Morgan
+later recorded as `strength: assented`: *"That was more an assent, than a
+decision. I didn't think about it."*
 
 ## Detail
 This holds even when `main` and `precedent-beta-v01` happen to be at the

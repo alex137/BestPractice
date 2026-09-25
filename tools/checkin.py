@@ -691,19 +691,6 @@ def _pinned_branch_hold(clone, allow=False):
     default = _default_branch(clone)
     if default and pinned == default:
         return
-    if pinned == 'precedent-beta-v01' and default == 'main':
-        # 2026-09-24: BestPractice publishes on main; precedent-beta-v01 is
-        # its staging branch. An install pinned there before that date is
-        # told to repoint rather than walked through the manual mirror.
-        sys.exit(
-            "checkin FAIL: this install is PINNED to 'precedent-beta-v01', "
-            "BestPractice's staging branch. Since 2026-09-24 other repos take "
-            "their updates from 'main', its live branch.\n"
-            "  Set upstream.branch to \"main\" in process/manifest.json and "
-            "re-run: once repointed, the hold lifts by itself. That replaces "
-            "the manual mirror this message used to prescribe.\n"
-            "  To take staging anyway, for this run only: pass --allow-pinned "
-            "(or set PRECEDENT_ALLOW_PINNED_UPDATE=1).")
     named = f"the clone's default branch ({default})" if default else         "this clone's default branch, which could not be determined"
     sys.exit(
         f"checkin FAIL: this install is PINNED to {pinned!r}, which is not "
@@ -1126,6 +1113,19 @@ def _loader_notice():
         from practice_audit import loader_gaps, MIGRATION_DOC
     except Exception:  # an older vendored audit; the audit itself still runs
         return
+    try:
+        from practice_audit import engine_gap
+    except Exception:
+        engine_gap = None
+    gap = engine_gap(ROOT) if engine_gap else None
+    if gap:
+        # practice_audit's check 8, said at the update that could not reach
+        # the engine: this mirror refreshed the catalogue and nothing else.
+        bar = '!' * 72
+        print(f"\n{bar}\nTHIS UPDATE REFRESHED THE CATALOGUE ONLY. {gap}\n"
+              f"Follow vendor-update-runbook's \"Retire legacy leftovers\" "
+              f"step: say so, confirm with the person, and finish the "
+              f"migration in this same change.\n{bar}", file=sys.stderr)
     gaps = loader_gaps(ROOT)
     if gaps:
         bar = '!' * 72

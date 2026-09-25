@@ -6,7 +6,7 @@ severity:          null
 status:            open
 disposition:       wait
 remind_on:         null
-blocked_on:        "that design call. The cheaper half is not blocked and is worth doing first — teaching [very-deep-check](../practices/very-deep-check.md)'s housekeeping pass to look for dead paths by hand, which is where a judgment a script cannot make already belongs."
+blocked_on:        "nothing any more: the one objection to the mechanical workflow check (a deliberately paused bestpractice-upstream-sync.yml in every consumer) ended 2026-09-24, when that file was retired. Out of scope for the change that retired it; a session can now build the check."
 batch:             null
 decision:          null
 decision_strength: null
@@ -32,24 +32,25 @@ closed:            null
   trigger is `workflow_dispatch`, or whose schedule is commented out, is a
   decommissioning someone started and never finished. It is mechanical, it is
   cheap, and it targets exactly the shape this practice was raised about.
-  It was not built because it fires hardest on the one case this repo
-  *deliberately* holds — every consumer's paused `bestpractice-upstream-sync.yml`,
-  parked on `workflow_dispatch` on purpose per
+  **It was rejected on 2026-09-07 for a reason that no longer holds.** It
+  fired hardest on the one case this repo then held on purpose — every
+  consumer's `bestpractice-upstream-sync.yml`, parked on
+  `workflow_dispatch` per
   [`relax-the-pinned-branch-hold`](todo-2026-09-06-relax-the-pinned-branch-hold.md) —
-  so shipping it means every consuming repo starts failing a check for
-  doing what this repo told it to do. Making it honest needs a way to
-  declare a pause with a stated condition for lifting it, which is a
-  design call rather than a check.
+  so shipping it would have failed every consuming repo for doing what
+  this repo told it to do. On 2026-09-24 that file was retired and the
+  refresh now deletes it (Morgan, strength: decided), so the check no
+  longer has a deliberate hold to trip over. A repo that pauses a
+  workflow of its own on purpose can still say so: `local_ci_workflows` in
+  `precedent.json` takes a path and a reason, which is the declaration
+  this paragraph used to say was missing.
 
-  **Blocked on:** that design call. The cheaper half is not blocked and is
-  worth doing first — teaching
-  [very-deep-check](../practices/very-deep-check.md)'s housekeeping pass to
-  look for dead paths by hand, which is where a judgment a script cannot
-  make already belongs.
+  **Not blocked any more; out of scope for the change that unblocked it.**
+  The cheaper half landed 2026-09-17 (Notes).
 
 ## How It Closes
 
-Not open until: that design call. The cheaper half is not blocked and is worth doing first — teaching [very-deep-check](../practices/very-deep-check.md)'s housekeeping pass to look for dead paths by hand, which is where a judgment a script cannot make already belongs.
+When something finds a deprecated file nobody declared: the mechanical `.github/workflows/` check above, honouring `local_ci_workflows` as the declared exception, or a decision that the very-deep-check pass is enough.
 
 ## Notes
 
@@ -65,3 +66,13 @@ on the design call above** — nothing here declares a deliberate pause with a
 stated condition for lifting it, so a mechanical scan of `.github/workflows/`
 for a paused schedule would still fire identically on a deliberate hold and
 an abandoned one; that half stays open.
+
+2026-09-24: the design call this item waited on was needed only because of
+one deliberate hold, `bestpractice-upstream-sync.yml`, and that file is now
+retired. `precedent_vendor_engine.py refresh` recognises it and
+`bestpractice-docs.yml` by content and deletes them in every install on its
+next `Update Vendors`, and
+[vendor-update-runbook](../practices/vendor-update-runbook.md) step 10 has
+the session read every other leftover name. So the old install's leftovers
+are covered; this item is left with the general case, a dead file of the
+repo's own.

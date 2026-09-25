@@ -183,6 +183,17 @@ live replacement to verify — but that should be confirmed per file, once,
 rather than assumed from here, since none of them have any trace in this
 repo's history to check against directly.
 
+**Superseded 2026-09-24 for `bestpractice-upstream-sync.yml`.** The
+replacement this pushback asked about is `Update Vendors`, present in every
+repo that runs the engine, and the file's schedule had been gone since
+2026-09-14. Morgan retired the file outright (strength: decided): *"this
+needs to be deleted from ALL installs."* `precedent_vendor_engine.py
+refresh` now deletes it, and `bestpractice-docs.yml`, by content, so the
+per-file check this section asked for is the recogniser, not a person.
+[vendor-update-runbook](../practices/vendor-update-runbook.md) step 10 has
+the session finish what the code will not. The other names here still need
+the per-file read, and nothing deletes them by name.
+
 ## Item 2b — pushback: this repo's own three workflows are a different case
 
 **I'm pushing back on this one rather than folding it in.**
@@ -863,6 +874,12 @@ lifting it, which is exactly what distinguishes one from a leftover* — and
 it is `workflow_dispatch`-only in every copy since its crons came off, so
 deleting it saves nothing forward.
 
+**Reversed 2026-09-24.** The hold that quote describes had ended on
+2026-09-14, and the file stayed on a reason nobody re-read. Saving minutes
+was never the case for deleting it: it was the only reader of the Claude
+keys in each repo that carried it, and it did nothing `Update Vendors` does
+not. It is now retired and deleted by the refresh (see item 2/2a's note).
+
 ## Item 15 — the same one-minute floor, measured in a consuming repo (2026-09-21)
 
 Item 13 measured the per-job billing floor in a **practice set**: 0.47
@@ -952,7 +969,11 @@ repo, the next time it installs, migrates, or takes an update.
   Morgan's to do — that repo is outside this session's reach.
 - **Phase B — the retired-workflow deletion sweep still hasn't run
   anywhere; the costly part reached all four repos on its own, ahead of
-  it (verified 2026-09-19).** `MIGRATING_EXISTING_INSTALLS.md`'s step 6
+  it (verified 2026-09-19).** *(2026-09-24: no longer a by-hand sweep. The
+  refresh recognises the old workflows by content and deletes them, and
+  vendor-update-runbook step 10 makes every `Update Vendors` finish the
+  rest, so this runs in each repo on its next update. What follows is the
+  2026-09-19 status as it stood.)* `MIGRATING_EXISTING_INSTALLS.md`'s step 6
   and `vendor-update-runbook.md`'s step 10 still carry the
   retired-workflow table for items 2/2a/3's file-deletion pass, and that
   hasn't run in any dependent repo yet — two of the four dependent repos
