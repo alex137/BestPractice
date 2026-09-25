@@ -16392,6 +16392,23 @@ def check_promote_pre_staging():
                       len(parents) == 3 and parents[2] == tip('pre-staging')))
         cases.append(("and staging's head carries no [skip ci], though a "
                       "promoted commit did", '[skip ci]' not in msg))
+        cases.append(('and it says the full check ran, rather than leaving a '
+                      'person to guess', 'check ran on the batch and passed' in out
+                      and 'NOT re-run' not in out))
+
+        # Same files, already fully checked: Promote says it did not re-run
+        # the suite, and when the earlier run was (Morgan, 2026-09-25: "it
+        # should not run the full suite again if nothing has changed").
+        commit_to('pre-staging', 'list.txt', 'Z\nb\nc\n', 'another edit')
+        subprocess.run([sys.executable, 'tools/precedent_push_check.py',
+                        '--tier', 'full'], cwd=work, capture_output=True,
+                       text=True, env=env)
+        rc, out = branches('--promote')
+        cases.append(('a batch whose exact files already passed the full check '
+                      'is promoted without re-running it, and says so, with '
+                      'when it passed', rc == 0 and 'PROMOTED' in out
+                      and 'NOT re-run' in out and 'already passed the full '
+                      'check at' in out))
 
         commit_to('pre-staging', 'list.txt', 'X\nb\nc\n', 'pre-staging edits line 1')
         commit_to('beta', 'list.txt', 'Y\nb\nc\n', 'staging edits line 1 too')

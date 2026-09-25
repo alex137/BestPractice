@@ -318,20 +318,22 @@ def clean_tree(root):
 
 
 def already_passed(root, checks, also=()):
-    """True when this tree's recorded pass covers `checks` -- or any of the
-    check lists in `also`, which is how a FULL pass satisfies a BASIC gate.
-    The record names the list it passed by signature, so a BASIC pass can
-    never satisfy a FULL gate."""
+    """The record, when this tree's recorded pass covers `checks` -- or any
+    of the check lists in `also`, which is how a FULL pass satisfies a BASIC
+    gate -- else None. The record names the list it passed by signature, so
+    a BASIC pass can never satisfy a FULL gate."""
     tree = clean_tree(root)
     path = record_path(root)
     if not tree or not path or not path.is_file():
-        return False
+        return None
     try:
         rec = json.loads(path.read_text(encoding='utf-8'))
     except (OSError, ValueError):
-        return False
+        return None
     accepted = {signature(checks), *(signature(c) for c in also)}
-    return rec.get('tree') == tree and rec.get('checks') in accepted
+    if rec.get('tree') == tree and rec.get('checks') in accepted:
+        return rec
+    return None
 
 
 def _tier_from_args(root, argv):
@@ -439,9 +441,12 @@ def main(argv):
         return 0
 
     also = [plan(root, tier=FULL)[1]] if tier == BASIC else []
-    if '--gate' in argv and already_passed(root, checks, also):
+    rec = already_passed(root, checks, also) if '--gate' in argv else None
+    if rec:
+        when = f' at {rec["at"]}' if rec.get('at') else ''
         print(f'precedent_push_check: this exact tree already passed the '
-              f'{tier} check ({len(checks)} check(s)); nothing to re-run.')
+              f'{rec.get("tier", tier)} check{when} ({len(checks)} check(s)); '
+              f'nothing to re-run.')
         return 0
 
     if git(root, 'rev-parse', '--is-shallow-repository') == 'true':

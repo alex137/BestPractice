@@ -72,6 +72,7 @@ import pathlib
 import shlex
 import subprocess
 import sys
+import time
 
 PRE_STAGING = 'pre-staging'
 STAGING = 'staging'
@@ -360,7 +361,9 @@ def promote(root, say=print):
             say(f'{PRE_STAGING} does not merge cleanly into {staging}; nothing was pushed.')
             return 1
         say(f'checking {len(batch)} commit(s) from {PRE_STAGING} with the full push check...')
+        t0 = time.monotonic()
         ok, out = _check(root, wt, FULL)
+        took = time.monotonic() - t0
         if not ok:
             say(f'PROMOTE REFUSED: the full check failed, so {staging} did not move. '
                 f'The batch was:\n  ' + '\n  '.join(batch) + f'\n\n{out}\n\n'
@@ -372,6 +375,14 @@ def promote(root, say=print):
                 f'Promote again. ({p.stderr.strip()[:200]})')
             return 1
         new = _git(wt, 'rev-parse', 'HEAD')
+    # Say which it was. A reused pass and a fresh run end the same way, and a
+    # person who cannot tell them apart assumes the suite ran twice.
+    reused = next((l for l in out.splitlines() if 'already passed' in l), None)
+    if reused:
+        say('the full check was NOT re-run: ' + reused.split(': ', 1)[-1]
+            + ' Same files, so the earlier run stands.')
+    else:
+        say(f'the full check ran on the batch and passed, in {took:.0f}s.')
     say(f'PROMOTED {len(batch)} commit(s) from {PRE_STAGING} into {staging} '
         f'({new[:12]}):\n  ' + '\n  '.join(batch))
     _mirror_legacy(root, staging, new, say)

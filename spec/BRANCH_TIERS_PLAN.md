@@ -366,6 +366,14 @@ them only through Update Vendors
   `"full"`.
 - **"Is my edit live?" gets a second answer**: on pre-staging, waiting for
   Promote.
+- **A full check counts only in the checkout that ran it.** Promote never
+  re-runs the suite on files that already passed it (Morgan, 2026-09-25,
+  decided), but the record of that pass lives in one checkout's `.git`. A
+  window that ran the full check before landing a high-risk change on
+  pre-staging saves the time only if the Promote runs in that same window;
+  any other window runs the suite again. Closing it means keeping the
+  record somewhere every window can read -- proposed 2026-09-25, not yet
+  decided.
 
 ## Acronyms
 
