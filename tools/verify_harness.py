@@ -9465,6 +9465,23 @@ def check_precedent_check_fires():
                       'precedent-paths.sh' in
                       planted['dogfooded-hooks-match-template'][1]))
 
+        # new-hook-joins-the-registry -- a hook script dropped into the
+        # shipped hooks directory and put on no kind's list. That is the
+        # 2026-09-21 bug with one extra step in it: a hook no list names is
+        # never wired into an installed repo by a refresh, so it reaches
+        # fresh installs at best and existing repos never.
+        def _plant_unlisted_hook(repo):
+            (repo / 'templates' / 'harness' / 'claude-code' / 'hooks'
+             / 'zzz-unlisted.sh').write_text('#!/bin/sh\necho unlisted\n',
+                                             encoding='utf-8')
+        case('new-hook-joins-the-registry', _plant_unlisted_hook)
+        cases.append(('new-hook-joins-the-registry: the planted violation '
+                      'names the unlisted hook and where to list it',
+                      'zzz-unlisted.sh' in
+                      planted['new-hook-joins-the-registry'][1]
+                      and 'HOOK_WIRING' in
+                      planted['new-hook-joins-the-registry'][1]))
+
         # hooks-on-disk-are-reachable -- the other end of the same failure.
         # declared-hooks-exist above plants a settings entry whose file is
         # gone; this plants a file no settings entry, no other hook and no
@@ -20445,9 +20462,17 @@ def check_vendor_engine_refresh_converges_with_adapter_owned_hooks():
                           'vendored hooks are missing' not in out2, detail))
             cases.append((f'{label}: ...and touches no file', not changed,
                           f'changed: {changed[:10]} -- {detail}'))
-            want = [vendored] if claimed else sorted((*owned, vendored))
-            cases.append((f'{label}: hook_files records exactly the hooks this engine '
-                          f'vendored ({want})', manifest.get('hook_files') == want,
+            # Not an exact list since 2026-09-25: a consumer refresh now also
+            # wires and vendors every hook on HOOK_WIRING's consumer list
+            # (check_vendor_engine_wires_a_new_hook_into_an_installed_repo).
+            # What this test owns is the adapter exclusion, so that is what
+            # it asserts.
+            got = set(manifest.get('hook_files') or [])
+            ok = (vendored in got and not (set(owned) & got)) if claimed \
+                else set((*owned, vendored)) <= got
+            cases.append((f'{label}: hook_files records the wired hooks this engine '
+                          f'vendored and {"none" if claimed else "all"} of the '
+                          f'adapter-owned ones', ok,
                           f"hook_files={manifest.get('hook_files')}"))
             if claimed:
                 cases.append((f'{label}: the adapter-owned hooks keep the source\'s bytes',
@@ -20462,6 +20487,141 @@ def check_vendor_engine_refresh_converges_with_adapter_owned_hooks():
           not bad,
           '; '.join(f"{n} -- {d[:900]}" for n, d in bad))
 
+
+
+def check_vendor_engine_wires_a_new_hook_into_an_installed_repo():
+    """THE BUG (todo-2026-09-21-a-new-hook-cannot-reach-an-installed-
+    consumer.md). Vendoring was gated on the repo's own settings.json and a
+    refresh never wrote it, so a hook added upstream could not reach a repo
+    that was already installed. Since 2026-09-25 a refresh ADDS the entries
+    HOOK_WIRING gives the repo's kind, then vendors as before.
+
+    The fixture is an installed consumer as it would really look: the
+    consumer template with its base branch set to `trunk`, minus the entries
+    a repo installed before they existed would lack (doc-lint-gate.sh,
+    commit-identity-once.sh, and the user-prompt freshness guard), plus a
+    hook of its own in the Bash group and a declared decline for
+    stop-reply-check.sh. Cases:
+
+    A. the missing hooks are wired and their files arrive, on one refresh;
+    B. the base branch is read off the repo's own freshness-guard entries,
+       never assumed to be `main`;
+    C. ADD-ONLY: every entry the repo had is still there, in order, and its
+       own hook keeps its group -- the new Bash entry joins that group;
+    D. the declined hook is neither wired nor vendored;
+    E. a second refresh at the same commit is a no-op, byte for byte;
+    F. CONTROL: the same repo with no `kind` in its manifest is not wired at
+       all -- guessing a kind is how a consumer would get a set's hooks."""
+    import shutil, tempfile
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-hook-wiring-'))
+    cases = []
+    try:
+        engine_bytes = (ROOT / 'tools' / 'precedent_vendor_engine.py').read_bytes()
+        template = json.loads((ROOT / 'templates' / 'harness' / 'claude-code'
+                               / 'settings.json').read_text(encoding='utf-8'))
+        dropped = ('doc-lint-gate.sh', 'commit-identity-once.sh',
+                   'freshness-guard.sh user-prompt', 'stop-reply-check.sh')
+
+        def make_repo(name, with_kind):
+            repo = tmp / name
+            (repo / 'tools').mkdir(parents=True)
+            (repo / '.claude' / 'hooks').mkdir(parents=True)
+            (repo / 'tools' / 'precedent_vendor_engine.py').write_bytes(engine_bytes)
+            man = {'source_commit': 'deadbeef',
+                   'files': ['precedent_vendor_engine.py'],
+                   'sha256': {'precedent_vendor_engine.py':
+                              hashlib.sha256(engine_bytes).hexdigest()}}
+            if with_kind:
+                man['kind'] = 'consumer'
+            (repo / 'tools' / 'ENGINE_MANIFEST.json').write_text(
+                json.dumps(man), encoding='utf-8')
+            hooks = {}
+            for event, groups in template['hooks'].items():
+                for g in groups:
+                    kept = [dict(h, command=h['command'].replace(' main', ' trunk'))
+                            for h in g['hooks']
+                            if not any(d in h['command'] for d in dropped)]
+                    if g.get('matcher') == 'Bash':
+                        kept.insert(0, {'type': 'command',
+                                        'command': '$CLAUDE_PROJECT_DIR/tools/my-own.sh'})
+                    if kept:
+                        hooks.setdefault(event, []).append(dict(g, hooks=kept))
+            (repo / '.claude' / 'settings.json').write_text(
+                json.dumps({'hooks': hooks}, indent=2) + '\n', encoding='utf-8')
+            (repo / 'precedent.json').write_text(json.dumps({
+                'declined_adapters': [{'path': '.claude/hooks/stop-reply-check.sh',
+                                       'reason': 'this repo gates replies elsewhere'}],
+            }), encoding='utf-8')
+            return repo, hooks
+
+        ref = _ref_including_worktree(ROOT)
+
+        def run_refresh(repo):
+            r = subprocess.run(
+                [sys.executable, str(repo / 'tools' / 'precedent_vendor_engine.py'),
+                 'refresh', str(ROOT), '--from-ref', ref],
+                capture_output=True, text=True, cwd=str(repo))
+            return r.returncode, r.stdout + r.stderr
+
+        def commands(settings, event=None):
+            return [h['command'] for ev, gs in settings['hooks'].items()
+                    if event in (None, ev) for g in gs for h in g['hooks']]
+
+        repo, before = make_repo('consumer', True)
+        rc1, out1 = run_refresh(repo)
+        after = json.loads((repo / '.claude' / 'settings.json').read_text(encoding='utf-8'))
+        cmds = commands(after)
+        detail = f'rc={rc1} {out1[-900:]}'
+        cases.append(('the refresh succeeds', rc1 == 0, detail))
+        for name in ('doc-lint-gate.sh', 'commit-identity-once.sh'):
+            cases.append((f'A: {name} is wired', any(name in c for c in cmds),
+                          repr(cmds)))
+            cases.append((f'A: ...and its file arrived on the same refresh',
+                          (repo / '.claude' / 'hooks' / name).is_file(), detail))
+        cases.append(('B: the re-added freshness guard carries the repo\'s own '
+                      'base branch, trunk, not main',
+                      any(c.endswith('freshness-guard.sh user-prompt trunk')
+                          for c in commands(after, 'UserPromptSubmit')), repr(cmds)))
+        kept_in_order = all(
+            [h['command'] for h in g['hooks']][:len(og['hooks'])]
+            == [h['command'] for h in og['hooks']]
+            for event, ogs in before.items()
+            for og, g in zip(ogs, after['hooks'][event]))
+        cases.append(('C: every entry the repo already had is still there, in '
+                      'its group, in order', kept_in_order, repr(after)[:900]))
+        bash_groups = [g for g in after['hooks']['PreToolUse']
+                       if g.get('matcher') == 'Bash']
+        cases.append(('C: the new Bash entry joined the repo\'s existing Bash '
+                      'group beside its own hook, not a second group',
+                      len(bash_groups) == 1 and any(
+                          'doc-lint-gate.sh' in h['command']
+                          for h in bash_groups[0]['hooks']), repr(bash_groups)))
+        cases.append(('D: the declined hook is not wired',
+                      not any('stop-reply-check.sh' in c for c in cmds), repr(cmds)))
+        cases.append(('D: ...and not vendored',
+                      not (repo / '.claude' / 'hooks' / 'stop-reply-check.sh').exists(),
+                      detail))
+        snap = (repo / '.claude' / 'settings.json').read_bytes()
+        rc2, out2 = run_refresh(repo)
+        cases.append(('E: a second refresh at the same commit has nothing to do',
+                      rc2 == 0 and 'nothing to do' in out2, out2[-600:]))
+        cases.append(('E: ...and leaves settings.json byte-identical',
+                      (repo / '.claude' / 'settings.json').read_bytes() == snap, ''))
+
+        ctl, ctl_before = make_repo('no-kind', False)
+        ctl_snap = (ctl / '.claude' / 'settings.json').read_bytes()
+        rc3, out3 = run_refresh(ctl)
+        cases.append(('F CONTROL: a manifest with no kind gets no wiring at all',
+                      (ctl / '.claude' / 'settings.json').read_bytes() == ctl_snap,
+                      f'rc={rc3} {out3[-600:]}'))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f"a refresh wires a hook its kind's list names into an installed repo, "
+          f"add-only, and the file arrives on the same run ({len(cases)} stated "
+          f"cases)", not bad, '; '.join(f'{n} -- {d[:700]}' for n, d in bad))
 
 def check_vendor_engine_refreshes_ci_workflow_files():
     """"Update Vendors" refreshing tools/ and .claude/hooks/*.sh but never
@@ -31306,6 +31466,7 @@ def main():
     check_vendor_engine_consumer_case()
     check_vendor_engine_hook_drift_respects_adapters()
     check_vendor_engine_refresh_converges_with_adapter_owned_hooks()
+    check_vendor_engine_wires_a_new_hook_into_an_installed_repo()
     check_vendor_engine_refreshes_ci_workflow_files()
     check_vendor_engine_refreshes_bootstrap_sh()
     check_vendor_engine_retires_ci_workflow_files()

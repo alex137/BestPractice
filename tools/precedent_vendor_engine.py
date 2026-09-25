@@ -229,6 +229,7 @@ assent, than a decision. I didn't think about it."), which left the
 installs split across two branches. Moving everyone to 'main' later is
 this one line plus runbook step 1, changed in the same PR.
 """
+import collections
 import hashlib
 import json
 import os
@@ -763,19 +764,119 @@ _SECOND_PASS_ENV = 'PRECEDENT_VENDOR_ENGINE_SECOND_PASS'
 # hash still matches. An UNTRACKED copy of a RETIRED_HOOK_FILES name --
 # vendored before `hook_files` existed -- is deleted by
 # retire_legacy_leftovers when its content matches the recogniser and
-# nothing in .claude/settings.json still calls it. There is still no
-# per-kind hook list: both kinds run the same Claude Code adapter, so every
-# hook applies to both. A hook upstream never shipped at all is the repo's
-# own and nothing here touches it.
+# nothing in .claude/settings.json still calls it. A hook upstream never
+# shipped at all is the repo's own and nothing here touches it.
 #
-# .claude/settings.json is deliberately NOT vendored here.
+# .claude/settings.json is never OVERWRITTEN here.
 # precedent_install.py's _harness() already leaves it alone once it exists,
 # on purpose -- a consumer may have wired its own extra hooks alongside the
-# vendored ones -- and a routine refresh has no business overwriting a
-# repo's own hook wiring. Only the hook SCRIPTS are vendored engine code;
-# the settings that call them are the consumer's own.
+# vendored ones -- and a routine refresh has no business replacing a repo's
+# own hook wiring. What a refresh DOES do, since 2026-09-25, is ADD the
+# entry for a hook HOOK_WIRING says this repo's kind gets and that the repo
+# neither wires nor declined -- see HOOK_WIRING below. It adds; it never
+# edits or removes an entry that is already there.
 HOOK_SOURCE_DIR = 'templates/harness/claude-code/hooks'
 HOOK_DEST_DIR = '.claude/hooks'
+
+# WHICH HOOKS EACH KIND OF REPO GETS -- declared, never inferred from what a
+# repo happens to wire already (Morgan, 2026-09-25, strength: decided: "I
+# like the lists of 'repos that [are of this type] get [these hooks]' --
+# approved"). Keyed by KIND, never by repository: a repo nobody has ever
+# heard of gets its kind's list, exactly like a repo on every list we keep.
+#
+# THE BUG THIS CLOSES (todo-2026-09-21-a-new-hook-cannot-reach-an-installed-
+# consumer.md). Vendoring used to be gated on the repo's own settings.json
+# alone, and a refresh never wrote that file -- so a hook added upstream
+# could not reach a repo that was already installed. It was not vendored
+# until it was wired, and wiring it meant naming a file that was not there
+# yet. The engine read "not wired" as "declined", when for a new hook it
+# only ever means "not yet". doc-lint-gate.sh made that a correctness bug:
+# Markdown lint left CI on 2026-09-21 because the hook replaced it, so a
+# repo that took the update and never got the hook lost lint entirely.
+#
+# HOW IT IS APPLIED (_hook_wiring_plan, _apply_hook_wiring). For each entry
+# here, on each refresh: if the repo already runs that hook at that event
+# (from ANY path -- a set that calls a script in place from its own
+# bootstrap/ is already wired), or declared it in precedent.json's
+# `declined_adapters`, nothing happens. Otherwise the entry is ADDED to
+# .claude/settings.json, and the ordinary vendoring below -- still gated on
+# wiring -- then delivers the file on the same run. Adding the entry first
+# is what keeps the gate's own guarantee: no file is ever planted that
+# nothing calls (hooks-on-disk-are-reachable).
+#
+# The two reasons the wiring gate existed both still hold, and this list is
+# how each is kept rather than broken:
+#   1. a source set and a consumer run different subsets of the one shared
+#      hooks/ directory -- so each kind has its own list;
+#   2. a repo that declined a hook stays declined -- by declaring it in
+#      `declined_adapters` with a reason, never by leaving it unwired and
+#      hoping the engine guesses.
+#
+# Each entry: (event, matcher or None, hook file, arguments). `{base}` in
+# the arguments is the repo's base branch, read off the freshness-guard
+# entries it already has; where there are none the entry is reported and
+# left for a person, never guessed. A manifest with no `kind` (vendored
+# before kinds existed) gets NO list applied: guessing a kind is how a
+# consumer would receive a set's hooks.
+#
+# ADDING A HOOK (practice: new-hook-joins-the-registry). A new *.sh in
+# HOOK_SOURCE_DIR goes on a kind's list here AND into that kind's template
+# -- templates/harness/claude-code/settings.json for a consumer,
+# precedent_bootstrap_source.py's settings payload for a set -- or into
+# HOOKS_NO_KIND with the reason no kind gets it. precedent_check.py's
+# `new-hook-joins-the-registry` refuses a tree where any of those disagree.
+_SEEDED_PROMPT_MATCHER = ('mcp__.*__(create_session|create_trigger|'
+                          'update_trigger|fire_trigger|send_later)')
+HOOK_WIRING = {
+    'consumer': (
+        ('SessionStart', None, 'session-start.sh', ''),
+        ('SessionStart', None, 'freshness-guard.sh', 'session-start {base}'),
+        ('SessionStart', None, 'commit-identity.sh', ''),
+        ('UserPromptSubmit', None, 'reply-gate.sh', ''),
+        ('UserPromptSubmit', None, 'freshness-guard.sh', 'user-prompt {base}'),
+        ('PreToolUse', 'Edit|Write|NotebookEdit', 'precedent-paths.sh', ''),
+        ('PreToolUse', 'Edit|Write|NotebookEdit|Bash', 'freshness-guard.sh',
+         'pre-write {base}'),
+        # Added to the consumer list by the 2026-09-25 sweep: shipped and
+        # wired in this repo since 2026-09-22, and never in the consumer
+        # template, so no consumer ever received it. Its reason applies to
+        # a consumer unchanged -- a session rooted one directory above the
+        # repo runs none of its SessionStart hooks (gotcha-2026-09-13), and
+        # this is the only other moment commit-identity.sh gets to run.
+        ('PreToolUse', 'Edit|Write|NotebookEdit|Bash', 'commit-identity-once.sh', ''),
+        ('PreToolUse', 'Bash', 'doc-lint-gate.sh', ''),
+        ('PreToolUse', _SEEDED_PROMPT_MATCHER, 'seeded-prompt-gate.sh', ''),
+        ('Stop', None, 'stop-git-check.sh', ''),
+        ('Stop', None, 'stop-reply-check.sh', ''),
+    ),
+    # precedent-individual-bootstrap.sh is not here: it is rendered from a
+    # .template by precedent_bootstrap_source.py, not shipped as a *.sh this
+    # engine copies, and every set is created with it wired.
+    'source': (
+        ('SessionStart', None, 'precedent-universal-catalogue.sh', ''),
+        ('SessionStart', None, 'freshness-guard.sh', 'session-start {base}'),
+        ('SessionStart', None, 'commit-identity.sh', ''),
+        ('UserPromptSubmit', None, 'freshness-guard.sh', 'user-prompt {base}'),
+        ('PreToolUse', 'Edit|Write|NotebookEdit|Bash', 'freshness-guard.sh',
+         'pre-write {base}'),
+        ('PreToolUse', 'Bash', 'doc-lint-gate.sh', ''),
+        # Added to the set list by the 2026-09-25 sweep. The practice it
+        # enforces (seeded-prompt-names-its-origin) is universal, a session
+        # in a set can spawn sessions like any other, and the hook needs
+        # nothing but bash and jq -- no engine file a set lacks.
+        ('PreToolUse', _SEEDED_PROMPT_MATCHER, 'seeded-prompt-gate.sh', ''),
+    ),
+}
+# Shipped in HOOK_SOURCE_DIR and on NO kind's list, each with the reason. A
+# repo that wires one itself still has it vendored and kept current -- the
+# wiring gate below still applies -- but no refresh adds it anywhere.
+HOOKS_NO_KIND = {
+    'commit-identity-push-gate.sh':
+        'runs tools/checks/check_commit_author.py and '
+        'check_buenos_aires_dates.py, which are a repo\'s own and never '
+        'vendored -- in a repo without them the hook is a silent no-op, so '
+        'only a repo that carries them wires it',
+}
 
 
 def _hook_file_names(hooks_dir):
@@ -886,6 +987,150 @@ def _settings_hook_names(dest_root, pattern):
                     names.add(m.group(1))
     return names
 
+
+
+_BASE_BRANCH_RE = re.compile(
+    r'freshness-guard\.sh\s+(?:session-start|user-prompt|pre-write)\s+(\S+)')
+
+
+def _declined_hook_names(dest_root):
+    """Basenames of the hooks this repo declares in precedent.json's
+    `declined_adapters` -- the one way a repo says it does not want a hook
+    its kind gets. A decline without a reason still counts here: the
+    reason is precedent_check.py's business (hooks-on-disk-are-reachable
+    reports it), and re-wiring a hook somebody said no to, because they
+    forgot to say why, would be the worse error."""
+    try:
+        cfg = json.loads((pathlib.Path(dest_root) / 'precedent.json')
+                         .read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return set()
+    return {pathlib.PurePosixPath(str(e['path'])).name
+            for e in (cfg.get('declined_adapters') or [])
+            if isinstance(e, dict) and e.get('path')}
+
+
+def _hook_wiring_plan(dest_root, kind, hooks_src_dir):
+    """-> (to_add, unresolved): HOOK_WIRING[kind] entries this repo does not
+    run yet and should, and entries it should but that cannot be written
+    without a guess.
+
+    Pure: reads, never writes. refresh() asks it before deciding whether a
+    run at an unchanged commit has anything to do, and _apply_hook_wiring
+    asks it again at write time.
+
+    An entry is ALREADY SATISFIED when any command at that event names the
+    hook file from any path -- `.claude/hooks/`, a set's own `bootstrap/`,
+    anything -- and carries the entry's mode word where it has one
+    (freshness-guard.sh runs three times, once per mode). The matcher is
+    deliberately not compared: a repo that runs doc-lint-gate.sh under a
+    wider matcher of its own already runs it, and a second entry would run
+    it twice.
+
+    Nothing is planned for a hook upstream does not ship at this commit
+    (an old ref), one the repo declined, one RETIRED_HOOK_FILES names, or
+    a kind this module does not know -- the last is how a manifest with no
+    `kind` stays untouched rather than guessed at."""
+    entries = HOOK_WIRING.get(kind)
+    if not entries:
+        return [], []
+    settings_path = pathlib.Path(dest_root) / '.claude' / 'settings.json'
+    if not settings_path.is_file():
+        return [], []
+    try:
+        settings = json.loads(settings_path.read_text(encoding='utf-8'))
+    except (ValueError, OSError):
+        return [], []
+    shipped = set(_hook_file_names(hooks_src_dir)) - set(RETIRED_HOOK_FILES)
+    declined = _declined_hook_names(dest_root)
+    hooks = settings.get('hooks') if isinstance(settings, dict) else None
+    hooks = hooks if isinstance(hooks, dict) else {}
+    commands = {}
+    for event, groups in hooks.items():
+        for g in groups if isinstance(groups, list) else []:
+            for h in (g.get('hooks') or []) if isinstance(g, dict) else []:
+                commands.setdefault(event, []).append(
+                    str((h or {}).get('command') or ''))
+    base = None
+    for cmd in (c for cs in commands.values() for c in cs):
+        m = _BASE_BRANCH_RE.search(cmd)
+        if m:
+            base = m.group(1)
+            break
+    to_add, unresolved = [], []
+    for event, matcher, name, args in entries:
+        if name not in shipped or name in declined:
+            continue
+        mode = args.split()[0] if args else None
+        if any(re.search(r'(^|[/\s])' + re.escape(name) + r'(\s|$)', c)
+               and (mode is None or mode in c.split())
+               for c in commands.get(event, [])):
+            continue
+        if '{base}' in args and base is None:
+            unresolved.append((event, matcher, name, args))
+            continue
+        to_add.append((event, matcher, name,
+                       args.replace('{base}', base or '')))
+    return to_add, unresolved
+
+
+def _apply_hook_wiring(dest_root, kind, hooks_src_dir):
+    """ADD the settings.json entries _hook_wiring_plan names. -> [added]
+
+    Add-only, and that is the whole safety argument: an entry already in
+    the file is never edited, moved or removed, so a repo's own hooks,
+    its own matchers and its own order all survive. A new entry joins the
+    first group at its event with the same matcher (no matcher for
+    SessionStart/UserPromptSubmit/Stop), or a new group at the end.
+
+    Written by a tool, never by the session: the harness refuses a session
+    hand-editing .claude/settings.json, and precedent_bootstrap_source.py's
+    ensure_hook_wired already showed the refusal does not reach a vendored
+    tool writing entries the engine defines. Said out loud on every run
+    that adds something, with how to decline instead."""
+    to_add, unresolved = _hook_wiring_plan(dest_root, kind, hooks_src_dir)
+    for event, matcher, name, args in unresolved:
+        print(f"NOTE: precedent_vendor_engine: {name} ({event}"
+              f"{', ' + matcher if matcher else ''}) is on the {kind} hook "
+              f"list and this repo does not run it, but its entry needs the "
+              f"repo's base branch and no freshness-guard.sh entry here says "
+              f"what that is -- not guessed. Wire it by hand from "
+              f"templates/harness/claude-code/settings.json upstream, or "
+              f"decline it in precedent.json's declined_adapters with the "
+              f"reason.", file=sys.stderr)
+    if not to_add:
+        return []
+    settings_path = pathlib.Path(dest_root) / '.claude' / 'settings.json'
+    data = json.loads(settings_path.read_text(encoding='utf-8'),
+                      object_pairs_hook=collections.OrderedDict)
+    hooks = data.setdefault('hooks', collections.OrderedDict())
+    added = []
+    for event, matcher, name, args in to_add:
+        cmd = f'$CLAUDE_PROJECT_DIR/{HOOK_DEST_DIR}/{name}' + (
+            f' {args}' if args else '')
+        entry = collections.OrderedDict([('type', 'command'), ('command', cmd)])
+        groups = hooks.setdefault(event, [])
+        home = next((g for g in groups if isinstance(g, dict)
+                     and g.get('matcher') == matcher
+                     and isinstance(g.get('hooks'), list)), None)
+        if home is None:
+            home = collections.OrderedDict()
+            if matcher is not None:
+                home['matcher'] = matcher
+            home['hooks'] = []
+            groups.append(home)
+        home['hooks'].append(entry)
+        added.append(f'{event}: {name}' + (f' {args}' if args else ''))
+    settings_path.write_text(json.dumps(data, indent=2, ensure_ascii=False)
+                             + '\n', encoding='utf-8')
+    print(f"precedent_vendor_engine refresh: wired {len(added)} hook "
+          f"entr{'y' if len(added) == 1 else 'ies'} this repo's kind "
+          f"({kind}) gets and it did not run yet, into .claude/settings.json "
+          f"-- added only, nothing already there was changed: "
+          f"{'; '.join(added)}. To opt out of one, remove its entry and "
+          f"declare it in precedent.json's declined_adapters with the "
+          f"reason; a later refresh then leaves it alone.")
+    return added
 
 def dependents_of(dest_root, rels, cap=8):
     """-> {rel: [(referring path, line number, the line)]} for files that
@@ -1235,24 +1480,19 @@ def _write_hook_files(dest_root, hooks_src_dir):
               f"double-maintenance that reads as a hand-edit later.",
               file=sys.stderr)
     if skipped:
+        # Since 2026-09-25 a hook this repo's kind gets is WIRED by the
+        # refresh before this runs (HOOK_WIRING, _apply_hook_wiring), so
+        # what is left here is only ever a hook another kind gets, one on
+        # no kind's list, one this repo declined, or one whose entry needs
+        # a base branch nobody wrote down -- and the last says so itself.
         print(f"NOTE: precedent_vendor_engine: {len(skipped)} hook script(s) "
               f"BestPractice ships are not wired in this repo's own "
               f".claude/settings.json ({', '.join(skipped)}) -- not vendored. "
-              f"That is expected for a hook only a different repo kind wires "
-              f"(a practice set vs. a consumer), or one this repo declined on "
-              f"purpose.\n"
-              f"      IF IT IS NEITHER -- if upstream has added a hook this "
-              f"repo wants -- NOTHING WILL DELIVER IT ON ITS OWN. Vendoring "
-              f"is gated on wiring and a refresh never writes your "
-              f"settings.json, so a NEW hook cannot reach a repo that is "
-              f"already installed: it is not vendored until it is wired, and "
-              f"wiring it means naming a file that is not there yet. Break "
-              f"the loop by hand -- copy the entry from "
-              f"templates/harness/claude-code/settings.json in the upstream "
-              f"checkout into yours, then re-run this refresh and the file "
-              f"arrives. Reported 2026-09-21 by a repo that hit exactly "
-              f"this; todo/todo-2026-09-21-a-new-hook-cannot-reach-an-"
-              f"installed-consumer.md has the analysis.", file=sys.stderr)
+              f"Each is a hook another repo kind gets, one no kind gets "
+              f"(HOOKS_NO_KIND, with its reason), or one this repo declined "
+              f"in precedent.json. A hook THIS repo's kind gets is wired and "
+              f"delivered by the refresh on its own (HOOK_WIRING).",
+              file=sys.stderr)
     for n in sorted(adapter_owned & wired):
         source_name = claimed[f'{HOOK_DEST_DIR}/{n}']
         print(f"NOTE: precedent_vendor_engine: {n} is not vendored by this "
@@ -3770,6 +4010,12 @@ def refresh(clone, force=False, ref=None):
         # uses to decide what to write -- see its docstring for the loop a
         # separate computation here caused.
         new_hook_names = _vendorable_hook_names(ROOT, engine_dir / 'hooks')
+        # A hook this kind gets and this repo does not run yet -- see
+        # HOOK_WIRING. Asked before the early exit for the same reason
+        # hooks_incomplete is: a new hook upstream at an unchanged recorded
+        # commit is exactly the case the early exit used to swallow.
+        wiring_pending, _unresolved = _hook_wiring_plan(
+            ROOT, kind if 'kind' in manifest else None, engine_dir / 'hooks')
         hooks_incomplete = sorted(
             n for n in new_hook_names
             if n not in set(manifest.get('hook_files') or [])
@@ -3797,7 +4043,8 @@ def refresh(clone, force=False, ref=None):
 
         if new_commit == manifest.get('source_commit') and not force \
                 and not set_incomplete and not hooks_incomplete and not ci_incomplete \
-                and not engine_paths_incomplete and not template_pending:
+                and not engine_paths_incomplete and not template_pending \
+                and not wiring_pending:
             print(f"precedent_vendor_engine refresh: already current with {SOURCE_BRANCH} "
                   f"@ {new_commit[:12]} -- nothing to do.")
             # Reported here too, and this is the case that matters MOST: a
@@ -3827,6 +4074,12 @@ def refresh(clone, force=False, ref=None):
                      "Each is wired in this repo's settings.json but missing from "
                      "disk or from the manifest's 'hook_files'; this refresh writes "
                      "and records it, so the next run at this commit is a no-op."))
+        if wiring_pending and new_commit == manifest.get('source_commit'):
+            print(f"NOTICE: the recorded commit already matches, but this "
+                  f"repo does not yet run {len(wiring_pending)} hook "
+                  f"entr{'y' if len(wiring_pending) == 1 else 'ies'} its kind "
+                  f"gets ({', '.join(sorted({n for _e, _m, n, _a in wiring_pending}))}) "
+                  f"-- refreshing anyway.")
         if ci_incomplete and new_commit == manifest.get('source_commit'):
             print(f"NOTICE: the recorded commit already matches, but this "
                   f"repo's CI workflow file(s) need attention "
@@ -3849,6 +4102,13 @@ def refresh(clone, force=False, ref=None):
         # is nothing left to find it by. `manifest` is the copy loaded at the
         # top of this function, which is the one that still remembers.
         _remove_dropped_engine_files(dest_tools, manifest, kind)
+        # Wire first, then vendor: _write_hook_files is still gated on what
+        # settings.json wires, so the entries it needs have to be there
+        # before it looks. Never the other way round -- a file written
+        # before its entry is an orphan if the wiring step then stops.
+        if _apply_hook_wiring(ROOT, kind if 'kind' in manifest else None,
+                              engine_dir / 'hooks'):
+            written.append(ROOT / '.claude' / 'settings.json')
         written += _write_hook_files(ROOT, engine_dir / 'hooks')
         ci_refreshed, ci_catchup = _refresh_ci_workflow_files(
             ROOT, kind, engine_dir / 'ci-workflows', manifest)

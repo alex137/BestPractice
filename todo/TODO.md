@@ -129,7 +129,6 @@
 | [`todo-2026-09-19-dedupe-push-back-in-team-writing`](todo-2026-09-19-dedupe-push-back-in-team-writing.md) | Run the second half of the `push-back` move. | 6d | wait | this PR merging into precedent-beta-v01, and every repository consuming preceden… |
 | [`todo-2026-09-19-dedupe-small-calls-in-team-working-style`](todo-2026-09-19-dedupe-small-calls-in-team-working-style.md) | Run the second half of the `small-calls` move. | 6d | wait | this PR merging into precedent-beta-v01, and every repository consuming preceden… |
 | [`todo-2026-09-20-carry-one-job-ci-templates-into-installed-repos`](todo-2026-09-20-carry-one-job-ci-templates-into-installed-repos.md) | The one-job CI templates land in BestPractice but reach nobody until each repo takes an "Update Vendors". | 5d | ask | a session whose GitHub access reaches themorgan/* — this one is scoped to alex13… |
-| [`todo-2026-09-21-a-new-hook-cannot-reach-an-installed-consumer`](todo-2026-09-21-a-new-hook-cannot-reach-an-installed-consumer.md) | A hook added upstream cannot reach a repository that is already installed. | 4d | ask |  |
 | [`todo-2026-09-21-alex137-is-not-declared-private-by-default`](todo-2026-09-21-alex137-is-not-declared-private-by-default.md) | This public tree links a private repository, and the check whose whole job is preventing that never asked. | 4d | ask |  |
 | [`todo-2026-09-21-branch-delete-links-not-yet-vendored-to-consumers`](todo-2026-09-21-branch-delete-links-not-yet-vendored-to-consumers.md) | The branch-delete-link work landed in BestPractice's originals only. Every consuming repo still carries the pre-change c | 4d | ask |  |
 | [`todo-2026-09-21-commit-identity-reaches-some-sessions-and-not-others`](todo-2026-09-21-commit-identity-reaches-some-sessions-and-not-others.md) | `commit-identity.sh` reaches some sessions and not others, and the commits that landed say which. | 4d | wait |  |
@@ -148,6 +147,7 @@
 | [`todo-2026-09-21-vocabulary-emit-would-publish-a-private-command`](todo-2026-09-21-vocabulary-emit-would-publish-a-private-command.md) | `python3 tools/doc_sync.py --write` would publish a private practice's command into a public, tracked file | 4d | ask |  |
 | [`todo-2026-09-22-code-cites-practice-validates-against-the-wrong-catalogue`](todo-2026-09-22-code-cites-practice-validates-against-the-wrong-catalogue.md) | `code-cites-practice` decides whether a cited slug is real by listing the local `practices/` directory | 3d | raise |  |
 | [`todo-2026-09-22-the-endgame-merge-rehearsal-is-red-in-ci-green-locally`](todo-2026-09-22-the-endgame-merge-rehearsal-is-red-in-ci-green-locally.md) | `verify_harness (everything else)` has been failing on `precedent-beta-v01` itself, on one check, and every pull request | 3d | ask |  |
+| [`todo-2026-09-25-should-sets-run-the-reply-gate`](todo-2026-09-25-should-sets-run-the-reply-gate.md) | Should practice sets run the reply gate and the other consumer-only hooks? | 0d | ask |  |
 
 ## Decisions (the Person's Call)
 

@@ -276,6 +276,18 @@ list.)
      | `precedent-paths.sh` | **Only with the Precedent loader.** It surfaces path-triggered practice Rules; without a resolved catalogue it has nothing to read. |
      | `reply-gate.sh` | **Only with the Precedent loader**, same reason. One line per reply-gate practice, on every prompt; it never blocks (a `UserPromptSubmit` hook that exits non-zero eats the person's message). |
 
+     **Taking one out means declining it, not just deleting its entry.**
+     Since 2026-09-25 a refresh ADDS any hook this repo's kind gets that
+     settings.json does not run (`HOOK_WIRING` in
+     [tools/precedent_vendor_engine.py](tools/precedent_vendor_engine.py)),
+     so a hook added upstream reaches repos that are already installed. It
+     never edits or removes an entry. The same mechanism means a deleted
+     entry comes back on the next refresh unless the repo says no. To say
+     no, add the hook to `precedent.json` with the reason:
+     `"declined_adapters": [{"path": ".claude/hooks/stop-git-check.sh",
+     "reason": "..."}]`. The refresh leaves a declined hook alone from
+     then on.
+
      **`commit-identity.sh` names no person, and that is the whole point.**
      The install that declined it did so because it looked like it would pin
      one person's name into a repository two people share — the opposite of
