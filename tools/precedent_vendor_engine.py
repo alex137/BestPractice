@@ -1159,6 +1159,28 @@ def _adapter_claimed_paths(dest_root):
             if isinstance(a, dict) and a.get('path')}
 
 
+def _vendorable_hook_names(dest_root, hooks_src_dir):
+    """The hook names this engine vendors into `dest_root`: what
+    `hooks_src_dir` ships, minus RETIRED_HOOK_FILES, intersected with what
+    this repo wires (_wired_hook_names), minus what a declared source's own
+    adapter claims at the destination (_adapter_claimed_paths).
+
+    ONE definition, called by both _write_hook_files (what gets written and
+    recorded in `hook_files`) and refresh()'s `hooks_incomplete` (what counts
+    as missing). They used to compute it separately, and refresh's copy
+    dropped the adapter and retired exclusions: a consumer whose individual
+    source ships commit-identity.sh and freshness-guard.sh had both skipped
+    by the writer, never recorded, and still counted as missing -- so every
+    refresh printed the "one-time catch-up" NOTICE and rewrote every engine
+    file at an unchanged commit. Measured 2026-09-25 in a consumer running
+    "Update Vendors". Asking both questions of one function is what keeps
+    the answer from forking again."""
+    claimed = _adapter_claimed_paths(dest_root)
+    available = set(_hook_file_names(hooks_src_dir)) - set(RETIRED_HOOK_FILES)
+    return {n for n in available & _wired_hook_names(dest_root)
+            if f'{HOOK_DEST_DIR}/{n}' not in claimed}
+
+
 def _write_hook_files(dest_root, hooks_src_dir):
     """Copy every hook script in `hooks_src_dir` into
     <dest_root>/.claude/hooks/, and record them in the SAME
@@ -1192,7 +1214,7 @@ def _write_hook_files(dest_root, hooks_src_dir):
     adapter_owned = {n for n in available
                      if f'{HOOK_DEST_DIR}/{n}' in claimed}
     available -= set(RETIRED_HOOK_FILES)
-    names = sorted((available & wired) - adapter_owned)
+    names = sorted(_vendorable_hook_names(dest_root, hooks_src_dir))
     skipped = sorted(available - wired - adapter_owned)
     # A hook this repo wires from somewhere OTHER than .claude/hooks/ is
     # wired. Saying it is not, and then telling the reader to hand-wire it,
@@ -1242,7 +1264,20 @@ def _write_hook_files(dest_root, hooks_src_dir):
                                hooks_src_dir)
     if not names:
         # Nothing wired here to write -- but a drop sweep may still have had
-        # something to do, so this return comes AFTER it, not before.
+        # something to do, so this return comes AFTER it, not before. When
+        # upstream DID ship hooks, the record still has to say "none vendored
+        # here": a hook recorded before a source's adapter took its path over
+        # would otherwise stay in `hook_files` forever, and `status` would
+        # keep promising a refresh drops it. An absent source dir (nothing
+        # shipped) still leaves the record alone, per the docstring.
+        if available and manifest_path.is_file():
+            manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
+            if manifest.get('hook_files') or manifest.get('hooks_sha256'):
+                manifest['hook_files'] = []
+                manifest['hooks_sha256'] = {}
+                manifest_path.write_text(
+                    json.dumps(manifest, indent=2, ensure_ascii=False) + '\n',
+                    encoding='utf-8')
         return []
     dest_hooks.mkdir(parents=True, exist_ok=True)
     written = []
@@ -2951,7 +2986,7 @@ def status(clone):
               f"{claimed[f'{HOOK_DEST_DIR}/{name}']!r}'s own adapters "
               f"mechanism, not this engine -- expected divergence, not a "
               f"hand-edit; `refresh` will stop vendoring and tracking it.")
-    if not manifest.get('hook_files'):
+    if 'hook_files' not in manifest:
         print(f"  NOTE: this manifest has no hook_files recorded yet -- vendored before hook "
               f"scripts were tracked. `refresh` will pick them up on the next run.")
     ci_drift = _ci_workflow_drift(ROOT, manifest)
@@ -3438,7 +3473,10 @@ def refresh(clone, force=False, ref=None):
         # No hook analog of set_orphaned here: a hook upstream stops shipping
         # is removed by _remove_dropped_hook_files inside _write_hook_files,
         # and an untracked retired one by retire_legacy_leftovers at the top.
-        new_hook_names = set(_hook_file_names(engine_dir / 'hooks')) & _wired_hook_names(ROOT)
+        # Asked of _vendorable_hook_names, the same function _write_hook_files
+        # uses to decide what to write -- see its docstring for the loop a
+        # separate computation here caused.
+        new_hook_names = _vendorable_hook_names(ROOT, engine_dir / 'hooks')
         hooks_incomplete = sorted(
             n for n in new_hook_names
             if n not in set(manifest.get('hook_files') or [])
@@ -3478,9 +3516,13 @@ def refresh(clone, force=False, ref=None):
             print(f"NOTICE: the recorded commit already matches, but this "
                   f"repo's vendored hooks are missing {len(hooks_incomplete)} "
                   f"file(s) BestPractice now ships "
-                  f"({', '.join(hooks_incomplete)}) -- refreshing anyway. This is the "
-                  f"one-time catch-up for a repo vendored before hooks were tracked "
-                  f"at all (manifest has no 'hook_files' yet).")
+                  f"({', '.join(hooks_incomplete)}) -- refreshing anyway. "
+                  + ("This is the one-time catch-up for a repo vendored before hooks "
+                     "were tracked at all (manifest has no 'hook_files' yet)."
+                     if 'hook_files' not in manifest else
+                     "Each is wired in this repo's settings.json but missing from "
+                     "disk or from the manifest's 'hook_files'; this refresh writes "
+                     "and records it, so the next run at this commit is a no-op."))
         if ci_incomplete and new_commit == manifest.get('source_commit'):
             print(f"NOTICE: the recorded commit already matches, but this "
                   f"repo's CI workflow file(s) need attention "

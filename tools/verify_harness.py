@@ -17093,6 +17093,116 @@ def check_freshness_guard_waves_through_a_branch_origin_never_saw():
           not failed, '; '.join(failed))
 
 
+def check_bootstrap_separates_an_unpushed_branch_from_a_failed_fetch():
+    """bootstrap.sh's freshness block, the same split
+    check_freshness_guard_waves_through_a_branch_origin_never_saw asserts
+    for the hook.
+
+    `git fetch origin <branch>` fails with "couldn't find remote ref" on a
+    branch that has never been pushed -- every fresh Claude Code web
+    session -- and bootstrap.sh read that as a failed fetch, opening the
+    session on "could not fetch -- freshness NOT verified" with nothing to
+    be stale against. Reported 2026-09-25 from a consumer's session.
+
+    Four cases per copy (the template an adopter instantiates, and this
+    repo's own tools/bootstrap.sh): an unpushed branch is NOTEd, not WARNed;
+    one cut from a stale base with no commits of its own is fast-forwarded;
+    one with commits of its own on a stale base is WARNed about the base;
+    and an unreachable origin still prints the unverified-fetch WARN,
+    asserted by its message (control-asserts-which-failure)."""
+    import tempfile
+
+    scripts = [ROOT / 'templates' / 'bootstrap.sh', ROOT / 'tools' / 'bootstrap.sh']
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+        # A stub pip so the script's first line never reaches the network,
+        # and an empty global config so no ambient identity or hooksPath
+        # decides whether the fixture commits succeed (fixture-owns-its-state).
+        (tmp / 'bin').mkdir()
+        (tmp / 'bin' / 'pip').write_text('#!/bin/sh\nexit 0\n', encoding='utf-8')
+        (tmp / 'bin' / 'pip').chmod(0o755)
+        (tmp / 'gitconfig').write_text('', encoding='utf-8')
+        env = dict(os.environ)
+        env.pop('CLAUDE_PROJECT_DIR', None)
+        env['PATH'] = f"{tmp / 'bin'}:{env.get('PATH', '')}"
+        env['GIT_CONFIG_GLOBAL'] = str(tmp / 'gitconfig')
+        env['GIT_AUTHOR_NAME'] = env['GIT_COMMITTER_NAME'] = 'Harness'
+        env['GIT_AUTHOR_EMAIL'] = env['GIT_COMMITTER_EMAIL'] = 'harness@example.com'
+
+        def _git(d, *a):
+            r = subprocess.run(['git', '-C', str(d), *a],
+                               capture_output=True, text=True, env=env)
+            if r.returncode != 0:
+                raise RuntimeError('bootstrap fixture setup failed: git %s: %s'
+                                   % (' '.join(a), (r.stderr or r.stdout).strip()))
+            return r
+
+        origin = tmp / 'origin'
+        _git(tmp, 'init', '-q', '--bare', '-b', 'main', str(origin))
+        seed = tmp / 'seed'
+        _git(tmp, 'init', '-q', '-b', 'main', str(seed))
+        _git(seed, 'commit', '-q', '--allow-empty', '-m', 'one')
+        _git(seed, 'remote', 'add', 'origin', str(origin))
+        _git(seed, 'push', '-q', 'origin', 'main')
+
+        def _clone(name, branch):
+            d = tmp / name
+            _git(tmp, 'clone', '-q', str(origin), str(d))
+            _git(d, 'checkout', '-q', '-b', branch)
+            (d / 'precedent.json').write_text('{"base_branch": "main"}', encoding='utf-8')
+            (d / '.git' / 'info' / 'exclude').write_text('precedent.json\n', encoding='utf-8')
+            return d
+
+        def _advance_base():
+            _git(seed, 'commit', '-q', '--allow-empty', '-m', 'moved')
+            _git(seed, 'push', '-q', 'origin', 'main')
+
+        def _run(script, d):
+            return subprocess.run(['bash', str(script)], cwd=str(d),
+                                  capture_output=True, text=True, env=env).stderr
+
+        for script in scripts:
+            tag = str(script.relative_to(ROOT))
+            d = _clone(f'absent-{script.parent.name}', 'unpushed')
+            err = _run(script, d)
+            cases.append((f'{tag}: an unpushed branch is named, not reported as an '
+                          f'unverified fetch',
+                          'is not on origin yet' in err and 'could not fetch' not in err,
+                          err[-400:]))
+
+            d = _clone(f'stale-clean-{script.parent.name}', 'unpushed-stale')
+            _advance_base()
+            err = _run(script, d)
+            cases.append((f'{tag}: an unpushed branch with no commits of its own, cut '
+                          f'from a stale base, is fast-forwarded to it',
+                          'fast-forwarded' in err
+                          and _git(d, 'rev-parse', 'HEAD').stdout
+                          == _git(d, 'rev-parse', 'origin/main').stdout, err[-400:]))
+
+            d = _clone(f'stale-own-{script.parent.name}', 'unpushed-own')
+            _git(d, 'commit', '-q', '--allow-empty', '-m', 'mine')
+            _advance_base()
+            err = _run(script, d)
+            cases.append((f'{tag}: an unpushed branch with commits of its own on a stale '
+                          f'base is warned about the base, not moved',
+                          'missing 1 commit(s) from origin/main' in err
+                          and 'fast-forwarded' not in err, err[-400:]))
+
+            d = _clone(f'unreachable-{script.parent.name}', 'unpushed-unreachable')
+            _git(d, 'remote', 'set-url', 'origin', str(tmp / 'no-such-repo'))
+            err = _run(script, d)
+            cases.append((f'{tag}: CONTROL: an unreachable origin still WARNs that '
+                          f'freshness is not verified',
+                          'could not fetch origin/unpushed-unreachable' in err
+                          and 'freshness NOT verified' in err, err[-400:]))
+
+    bad = [(n, e) for n, ok, e in cases if not ok]
+    check(f'bootstrap.sh separates a branch origin never saw from a fetch that failed '
+          f'({len(cases)} stated cases, both copies)',
+          not bad, '; '.join(f'{n} -- {e}' for n, e in bad))
+
+
 def check_commit_identity_copies_are_identical():
     """The hook exists three times and every copy must be the same file.
 
@@ -20244,6 +20354,113 @@ def check_vendor_engine_hook_drift_respects_adapters():
           f"status/refresh stop reading that as a hand-edit ({len(cases)} stated cases)",
           not bad,
           '; '.join(f"{n} -- {d[:800]}" for n, d in bad))
+
+
+def check_vendor_engine_refresh_converges_with_adapter_owned_hooks():
+    """Two refreshes in a row at one commit: the second is a no-op, even
+    when a declared source's adapters own some of the hooks this repo wires.
+
+    THE BUG. refresh() decided whether hooks were missing from its own
+    computation of the wanted set, which left out the adapter exclusion
+    _write_hook_files applies. commit-identity.sh and freshness-guard.sh,
+    owned by the individual source's adapters in a real consumer, were
+    skipped by the writer, never recorded in `hook_files`, and still counted
+    as missing -- so every refresh printed the "one-time catch-up" NOTICE and
+    rewrote every engine file at an unchanged commit. Reported 2026-09-25
+    from a consumer's "Update Vendors" run; both questions now ask
+    _vendorable_hook_names.
+
+    Same fixture shape as check_vendor_engine_refreshes_ci_workflow_files
+    (one fresh consumer per scenario, --from-ref to a ref carrying this
+    working tree). The CONTROL drops the adapter claim, so the same wiring
+    vendors all three hooks and still converges -- proving the fixture's
+    settings.json is actually read, and that the no-op is not simply
+    "hooks are never looked at"."""
+    import shutil, tempfile
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-hook-converge-'))
+    cases = []
+    try:
+        engine_bytes = (ROOT / 'tools' / 'precedent_vendor_engine.py').read_bytes()
+        owned = ('commit-identity.sh', 'freshness-guard.sh')
+        vendored = 'stop-git-check.sh'
+        adapter_text = '#!/bin/sh\n# the individual source\'s own copy\n'
+
+        def make_consumer(name, claimed):
+            consumer = tmp / name
+            (consumer / 'tools').mkdir(parents=True)
+            hooks = consumer / '.claude' / 'hooks'
+            hooks.mkdir(parents=True)
+            (consumer / 'tools' / 'precedent_vendor_engine.py').write_bytes(engine_bytes)
+            (consumer / 'tools' / 'ENGINE_MANIFEST.json').write_text(json.dumps({
+                'kind': 'consumer', 'source_commit': 'deadbeef',
+                'files': ['precedent_vendor_engine.py'],
+                'sha256': {'precedent_vendor_engine.py':
+                           hashlib.sha256(engine_bytes).hexdigest()},
+            }), encoding='utf-8')
+            (consumer / '.claude' / 'settings.json').write_text(json.dumps({
+                'hooks': {'SessionStart': [{'hooks': [
+                    {'type': 'command',
+                     'command': f'$CLAUDE_PROJECT_DIR/.claude/hooks/{n}'}
+                    for n in (*owned, vendored)]}]},
+            }), encoding='utf-8')
+            if claimed:
+                for n in owned:
+                    (hooks / n).write_text(adapter_text, encoding='utf-8')
+                (consumer / 'MANIFEST.json').write_text(json.dumps({
+                    'generated_by': 'tools/precedent_materialize.py',
+                    'adapters': [{'path': f'.claude/hooks/{n}',
+                                  'source': 'precedent-individual'} for n in owned],
+                }), encoding='utf-8')
+            return consumer
+
+        ref = _ref_including_worktree(ROOT)
+
+        def run_refresh(consumer):
+            r = subprocess.run(
+                [sys.executable, str(consumer / 'tools' / 'precedent_vendor_engine.py'),
+                 'refresh', str(ROOT), '--from-ref', ref],
+                capture_output=True, text=True, cwd=str(consumer))
+            return r.returncode, r.stdout + r.stderr
+
+        def snapshot(consumer):
+            return {str(f.relative_to(consumer)): (f.stat().st_mtime_ns, f.read_bytes())
+                    for f in sorted(consumer.rglob('*'))
+                    if f.is_file() and '__pycache__' not in f.parts}
+
+        for label, claimed in (('adapter-owned', True), ('CONTROL: no adapter claim', False)):
+            c = make_consumer(label.split(':')[0].replace(' ', '-'), claimed)
+            rc1, out1 = run_refresh(c)
+            before = snapshot(c)
+            rc2, out2 = run_refresh(c)
+            after = snapshot(c)
+            changed = sorted(k for k in after if before.get(k) != after[k])
+            manifest = json.loads(
+                (c / 'tools' / 'ENGINE_MANIFEST.json').read_text(encoding='utf-8'))
+            detail = f'first: rc={rc1} {out1[-600:]} || second: rc={rc2} {out2[-600:]}'
+            cases.append((f'{label}: the first refresh succeeds', rc1 == 0, detail))
+            cases.append((f'{label}: the second refresh at the same commit says '
+                          f'"nothing to do"', rc2 == 0 and 'nothing to do' in out2, detail))
+            cases.append((f'{label}: ...and prints no missing-hooks NOTICE',
+                          'vendored hooks are missing' not in out2, detail))
+            cases.append((f'{label}: ...and touches no file', not changed,
+                          f'changed: {changed[:10]} -- {detail}'))
+            want = [vendored] if claimed else sorted((*owned, vendored))
+            cases.append((f'{label}: hook_files records exactly the hooks this engine '
+                          f'vendored ({want})', manifest.get('hook_files') == want,
+                          f"hook_files={manifest.get('hook_files')}"))
+            if claimed:
+                cases.append((f'{label}: the adapter-owned hooks keep the source\'s bytes',
+                              all((c / '.claude' / 'hooks' / n).read_text(encoding='utf-8')
+                                  == adapter_text for n in owned), detail))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f"refresh converges when a source's adapters own some wired hooks -- a second "
+          f"refresh at the same commit is a no-op ({len(cases)} stated cases)",
+          not bad,
+          '; '.join(f"{n} -- {d[:900]}" for n, d in bad))
 
 
 def check_vendor_engine_refreshes_ci_workflow_files():
@@ -30731,6 +30948,7 @@ def main():
     check_freshness_guard_checks_attached_repositories()
     check_freshness_guard_user_prompt_never_resets_mid_session()
     check_freshness_guard_waves_through_a_branch_origin_never_saw()
+    check_bootstrap_separates_an_unpushed_branch_from_a_failed_fetch()
     check_unmerged_branch_verdicts()
     check_branch_scan_sees_every_branch()
     check_base_branch_drift_ignores_carried_work()
@@ -30893,6 +31111,7 @@ def main():
     check_rotation_gap_widens_to_find_coverage()
     check_vendor_engine_consumer_case()
     check_vendor_engine_hook_drift_respects_adapters()
+    check_vendor_engine_refresh_converges_with_adapter_owned_hooks()
     check_vendor_engine_refreshes_ci_workflow_files()
     check_vendor_engine_retires_ci_workflow_files()
     check_workflow_file_outside_vendoring_detects_candidates()
