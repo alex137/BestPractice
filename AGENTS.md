@@ -6,7 +6,8 @@
      has its own instantiated AGENTS.md at ITS root. -->
 
 **TEMPORARY, read before opening or merging any pull request (PR) here:
-every PR in this repository targets `precedent-beta-v01`, never `main`.
+every PR in this repository targets `precedent-beta-v01` -- or `pre-staging`,
+for a person whose landing branch is pre-staging -- never `main`.
 Alex merged the branch into `main` on 2026-09-14 and Morgan merges it there
 regularly; **that does not retire this rule** — work still lands here, and
 `main` takes it by those merges only (Morgan, 2026-09-14). Merging a PR
@@ -59,11 +60,12 @@ first line, with the reason.
   once live, or you're not confident it's none of those) runs the full chain —
   syncs, says the branch out loud, commits, pushes, opens the pull request,
   and merges — **without asking again.** **Either path ends on the branch on
-  `origin`** — the direct push on the person's landing branch
+  `origin`** — the person's landing branch
   (`python3 tools/precedent_branches.py --landing`: `pre-staging` where their
-  `landing_branch` says so, else `precedent-beta-v01`), the pull request on
-  `precedent-beta-v01` per the rule at the top of this file; never `main` for
-  being the configured default — **and a commit still sitting
+  `landing_branch` says so, else `precedent-beta-v01`), for the pull request
+  too; never `main` for being the configured default. **A high-risk change
+  landed on pre-staging gets a bolded paragraph in the reply and a line in
+  The Boildown: it is not on staging until a Promote** — **and a commit still sitting
   in the local clone has not done it**: fetch and confirm `origin` carries it
   before the reply says where the work went. Say which path you took, and why,
   in the reply. Unsure which it is? High-risk. A step this session cannot

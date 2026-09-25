@@ -68,6 +68,7 @@ and approved the same day. The decisions, with how firmly each was made
 | The recommendations under "Settled at approval" below | approved with the plan as a whole, not one by one | assented |
 | `Go update` lands on pre-staging by default | *"in go update" ruleset, the default place to push it to is "pre-staging"? Update the spec to reflect these"* | decided |
 | Installs take their updates from main | *"Maybe vendored-in copies are now taken from \*main\*? [...] Update the spec to reflect these"* | decided -- with the 2026-09-24 reversal below in view |
+| A high-risk change lands on pre-staging too, with a bolded Promote reminder in the reply and in The Boildown | *"the \"high risk\" ones should still go to pre-staging but have a strong, bolded message for me, in the main text as a paragraph and also in The Boildown, that now I need to push pre-staging to staging"* | decided |
 | The primary branch is brought in line with the tiers | *"we now have a concept called \"primary branch\" - that should probably be updated in reference to this"* | decided |
 
 ## The rule

@@ -31,6 +31,11 @@ branch; but I will regularly merge the precedent branch with main"* —
 the base branch is `precedent-beta-v01` — do not assume `main` is the
 default just because it is the repository's configured default branch.
 
+**For a person whose landing branch is pre-staging, a PR targets
+`pre-staging` instead**, and reaches `precedent-beta-v01` by a Promote
+([spec/BRANCH_TIERS_PLAN.md](../../spec/BRANCH_TIERS_PLAN.md)): Morgan, 2026-09-25: *"the \"high risk\" ones should still go to pre-staging but have a strong, bolded message for me, in the main text as a paragraph and also in The Boildown, that now I need to push pre-staging to staging"* (strength: decided).
+Never `main`, either way.
+
 Merging a PR into `precedent-beta-v01` needs no sign-off from Alex: once
 the PR's own deep check (`two-check-levels`) passes, a session may merge
 it directly — that branch is where routine work lands, not a gate he sits
