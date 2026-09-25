@@ -8706,7 +8706,7 @@ def check_precedent_check_fires():
                          '[b](https://github.com/alex137/BestPractice/blob/'
                          'main/TODO.md), '
                          '[c](https://github.com/alex137/BestPractice/blob/'
-                         'precedent-beta-v01/no-such-planted-path.md), '
+                         'staging/no-such-planted-path.md), '
                          '[d](../tools/checks/check_not_here.py), '
                          '[e](zzz-withdrawn.md), '
                          '[g](zzz-in-another-set.md), '
@@ -9263,7 +9263,7 @@ def check_precedent_check_fires():
             git(repo, 'add', '-A')
             git(repo, 'commit', '-qm', 'second commit for the plant')
             c2 = git(repo, 'rev-parse', 'HEAD')
-            git(repo, 'update-ref', 'refs/remotes/origin/precedent-beta-v01', c1)
+            git(repo, 'update-ref', 'refs/remotes/origin/staging', c1)
             git(repo, 'update-ref', 'refs/remotes/origin/main', c2)
         case('merge-target-is-beta-branch', _plant_mtib)
 
@@ -12445,7 +12445,7 @@ def check_reply_check_requires_a_destination_for_a_fence_block():
             '; '.join(f'{n}: {d}' for n, d in bad_cases))
 
 
-def _beta_watermark_fixture(tmp, git, branch='precedent-beta-v01'):
+def _beta_watermark_fixture(tmp, git, branch='staging'):
     """A bare origin, a seed clone to land commits through, and the WORK
     clone the tool runs in -- which is now the same repository the watermark
     lives in, so it needs a tools/ directory and a .gitignore carrying
@@ -12658,7 +12658,7 @@ def check_beta_watermark_commits_only_when_it_actually_reports_something():
               'PRECEDENT_COMMIT_TIMEZONE', 'PRECEDENT_USER_CONFIG')}
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='beta-watermark-'))
     try:
-        branch = 'precedent-beta-v01'
+        branch = 'staging'
         os.environ['PRECEDENT_COMMIT_EMAIL'] = MINE
         os.environ['PRECEDENT_COMMIT_NAME'] = 'Watermark Owner'
         os.environ['PRECEDENT_COMMIT_TIMEZONE'] = 'UTC'
@@ -12837,7 +12837,7 @@ def check_beta_watermark_never_writes_into_a_busy_or_unpushable_checkout():
               'PRECEDENT_COMMIT_TIMEZONE', 'PRECEDENT_USER_CONFIG')}
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='beta-watermark-busy-'))
     try:
-        branch = 'precedent-beta-v01'
+        branch = 'staging'
         os.environ['PRECEDENT_COMMIT_EMAIL'] = MINE
         os.environ['PRECEDENT_COMMIT_NAME'] = 'Watermark Owner'
         os.environ['PRECEDENT_COMMIT_TIMEZONE'] = 'UTC'
