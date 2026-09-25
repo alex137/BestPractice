@@ -751,6 +751,17 @@ widening what sessions may run
    `--check` on a second pass to confirm it's stable (byte-identical,
    nothing left to regenerate) before committing the result.
 
+   **Every workflow file needs the person's approval before the migration
+   is done** ([ci-workflow-approved](../practices/ci-workflow-approved.md),
+   2026-09-25). Run `python3 tools/precedent_check.py --only
+   ci-workflow-approved`. For each file it names, show the person what it
+   runs and when it triggers, and ask. Record their words in
+   `precedent.json`'s `github_ci_approved`, pinned by sha256, or delete the
+   file. A legacy check the old install left, like a repo's own
+   `light-check.yml`, is exactly what this is for: it keeps running on
+   whatever triggers the last session gave it, and nothing upstream ever
+   updates it.
+
    **Re-confirm step 5's vocabulary scrub here too, as a named gate, not
    just at the moment step 5 itself was done.** `process/retired_vocabulary.json`
    has no other check pointed at it and nothing else in this pattern
