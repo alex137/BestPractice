@@ -2780,6 +2780,7 @@ def _read_template_sources(clone, commit, kind, out_dir):
     against `clone`, like the rest of _source_tools_at. A template this
     commit lacks is skipped: nothing to compare against, nothing done."""
     history = {}
+    out_dir.mkdir(parents=True, exist_ok=True)
     for src_rel, _rel in TEMPLATE_INSTANCES.get(kind, ()):
         blob = subprocess.run(['git', '-C', str(clone), 'show',
                                f'{commit}:{src_rel}'], capture_output=True)
