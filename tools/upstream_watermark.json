@@ -23,7 +23,7 @@
     "that quotes it restates it)."
   ],
   "upstream_branch": "main",
-  "working_branch": "precedent-beta-v01",
+  "working_branch": "staging",
   "last_carried": {
     "sha": "f4f9ac956ca5f12d5fe2c618a95fb24cfd27539a",
     "recorded": "2026-09-14",

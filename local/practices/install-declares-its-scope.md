@@ -17,8 +17,8 @@ added:       null
 approved_by: "Morgan, 2026-09-14, choosing a check over a universal practice"
 ---
 ## Rule
-[INSTALL.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/INSTALL.md)
-and [SETUP.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/SETUP.md)
+[INSTALL.md](https://github.com/alex137/BestPractice/blob/staging/INSTALL.md)
+and [SETUP.md](https://github.com/alex137/BestPractice/blob/staging/SETUP.md)
 — the two documents an install, upgrade or migration is driven from — each
 carry a section declaring that **an install does the essentials and stops**,
 and that section names **both halves**: what is deferred, and what is never

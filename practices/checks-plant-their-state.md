@@ -67,7 +67,7 @@ ended by running the real reply gate and asserting that it prints the
 container-safety requirement. But the gate prints that requirement **only
 when the container actually holds unpushed work** — deliberately, with a
 comment in
-[tools/precedent_gate.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/precedent_gate.py)
+[tools/precedent_gate.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_gate.py)
 saying not to nag about a requirement already met.
 
 The suite ran **253 passed, 0 failed. Twice.** Then a session pushed its own
@@ -96,7 +96,7 @@ removing one thing — the global git identity, which a CI runner does not
 have and a session container does. The rehearsal runs
 `git merge --no-commit --no-ff`, which refuses without a committer identity,
 and its own comment asserted the opposite. Filed and diagnosed at
-[todo/todo-2026-09-22-the-endgame-merge-rehearsal-is-red-in-ci-green-locally.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/todo/todo-2026-09-22-the-endgame-merge-rehearsal-is-red-in-ci-green-locally.md).
+[todo/todo-2026-09-22-the-endgame-merge-rehearsal-is-red-in-ci-green-locally.md](https://github.com/alex137/BestPractice/blob/staging/todo/todo-2026-09-22-the-endgame-merge-rehearsal-is-red-in-ci-green-locally.md).
 
 **Two of these in one day, in one repository, is the argument for a rule
 rather than a note on one check.** And the second shows a shape the first
@@ -116,9 +116,9 @@ said.
 
 **Static detection fires on correct work.** The one concrete signature —
 a check invoking this repo's own
-[tools/precedent_gate.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/precedent_gate.py)
+[tools/precedent_gate.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_gate.py)
 rather than a planted copy — appears in four legitimate check functions in
-[tools/verify_harness.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/verify_harness.py)
+[tools/verify_harness.py](https://github.com/alex137/BestPractice/blob/staging/tools/verify_harness.py)
 today: `check_gate_channel`, `check_reply_gate_sees_every_source`,
 `check_reply_check_requires_a_destination_for_a_fence_block` and
 `check_show_flags_unreachable_materialized_source`. Each reads the live gate
@@ -129,7 +129,7 @@ things to catch one wrong one is worse than no check.
 this practice.** Running the suspect checks twice under two ambient states
 and flagging any verdict that moves is the right shape, and the state is
 genuinely perturbable: `checkouts()` in
-[tools/precedent_container_safe.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/precedent_container_safe.py)
+[tools/precedent_container_safe.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_container_safe.py)
 reads `pathlib.Path.home()`, so `$HOME` steers part of it. But that same
 function also scans the repo root and the root's siblings unconditionally,
 which nothing outside can redirect — so on a machine whose real tree is

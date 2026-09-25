@@ -30,7 +30,7 @@ that adds a `*.sh` under `templates/harness/claude-code/hooks/`:
    `consumer`, `source`, or both. The list is by kind, never by repository:
    a repo nobody has heard of gets its kind's hooks like any other.
 2. **Wire it into that kind's template to match**: the consumer template
-   [templates/harness/claude-code/settings.json](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/templates/harness/claude-code/settings.json)
+   [templates/harness/claude-code/settings.json](https://github.com/alex137/BestPractice/blob/staging/templates/harness/claude-code/settings.json)
    and, for a set, the settings payload and `SESSION_HOOKS` in
    [tools/precedent_bootstrap_source.py](../tools/precedent_bootstrap_source.py).
 3. **If no kind should get it, say why**: put it in `HOOKS_NO_KIND` with the
@@ -49,7 +49,7 @@ bug the list was built to close, with one extra step.
 
 ## Story
 Filed as
-[todo-2026-09-21-a-new-hook-cannot-reach-an-installed-consumer.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/todo/todo-2026-09-21-a-new-hook-cannot-reach-an-installed-consumer.md):
+[todo-2026-09-21-a-new-hook-cannot-reach-an-installed-consumer.md](https://github.com/alex137/BestPractice/blob/staging/todo/todo-2026-09-21-a-new-hook-cannot-reach-an-installed-consumer.md):
 vendoring was gated on a repo's own wiring, and a refresh never wrote that
 wiring, so a new hook could not reach an installed repo. `doc-lint-gate.sh`
 turned this into a real loss, because Markdown lint left CI on 2026-09-21 when

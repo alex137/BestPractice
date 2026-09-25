@@ -38,7 +38,7 @@ cheapest. A sweep that finds an open item with neither reason either does it
 in the sweeping session or closes it as not worth doing.
 
 **In the per-item `todo/todo-<date>-<slug>.md` format**
-([spec/OPEN_ITEM_AND_GOTCHA_PLAN.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/OPEN_ITEM_AND_GOTCHA_PLAN.md)
+([spec/OPEN_ITEM_AND_GOTCHA_PLAN.md](https://github.com/alex137/BestPractice/blob/staging/spec/OPEN_ITEM_AND_GOTCHA_PLAN.md)
 Part 1), the same two reasons are the `blocked_on` frontmatter field's
 content, not prose. Widened here, 2026-09-18, alongside `applies_to`.
 
@@ -72,7 +72,7 @@ stated `blocked-on`/`out-of-scope` reason is a plausible candidate
 (`checkable-gets-checked` applies), left `checked_by: null` here rather than
 wired in without testing, since this file is a straight conversion of
 Alex's addition to `main` (merged after this branch's fork point — see
-[CHANGES_TO_TELL_ALEX.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/CHANGES_TO_TELL_ALEX.md); this file's own
+[CHANGES_TO_TELL_ALEX.md](https://github.com/alex137/BestPractice/blob/staging/spec/CHANGES_TO_TELL_ALEX.md); this file's own
 `source_practice_number` above records its original BestPractice number)
 and not new authorship going through the creation pipeline's own review. Revisit when phase 5's
 enforcement work reaches the backlog.

@@ -330,7 +330,7 @@ runs at each one:
    *drafts* `practices/<slug>.md` — landing it for real means committing
    that draft to a branch and opening a pull request (PR) against
    Precedent, merged once its own deep check passes — no second sign-off
-   required, same as any other PR into `precedent-beta-v01`.
+   required, same as any other PR into `staging`.
 
 ## Who May Change What
 
@@ -393,7 +393,7 @@ has to say yes?*
   around needing someone else's agreement.
 - **Everyone's (universal):** goes up as a PR against the shared
   Precedent repository, merged once its own deep check passes — the same
-  branch-level gate as any other PR into `precedent-beta-v01`, not a
+  branch-level gate as any other PR into `staging`, not a
   second reviewer's sign-off.
 
 ## How Enforcement Works

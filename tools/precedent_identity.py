@@ -253,7 +253,17 @@ def ci_preference(repo, user_config=None):
     only for the exact string 'enabled', `who` is the declared name, and
     `source` is the file it was read from.
 
-    ABSENT MEANS DISABLED (practice: declared-default-is-applied). GitHub
+    ABSENT MEANS ENABLED, SINCE 2026-09-25 (spec/BRANCH_TIERS_PLAN.md,
+    practice: declared-default-is-applied). What gets installed changed
+    first: one light check that runs only on a pull request into main, and
+    a leak gate that never runs in a private repo -- about one billed minute
+    per merge into main, and nothing for any other push. Morgan approved
+    that shape ("Perfect") and the default that goes with it ("For new
+    installs, github_ci_workflows defaults to installing that one light
+    check"). A declared "disabled" still installs nothing, and still wins.
+
+    THE EARLIER DEFAULT, AND WHY IT HELD UNTIL THEN. ABSENT MEANT DISABLED
+    (practice: declared-default-is-applied). GitHub
     Actions minutes are metered per PRIVATE repository and billed in
     whole-minute increments per run; a person vendoring Precedent into many
     private repos, committing the way a save button is used, pays for a
@@ -268,7 +278,7 @@ def ci_preference(repo, user_config=None):
     Same resolution order as relayed_authorization(): this repo's own
     identity.json when it IS an individual source, else the one the
     user-level config names. Raises NoDeclaredIdentity when neither
-    resolves -- a caller treats that exactly like a declared 'disabled'.
+    resolves -- a caller treats that exactly like an absent value: enabled.
     """
     def _read(path, where):
         try:
@@ -282,7 +292,7 @@ def ci_preference(repo, user_config=None):
         value = ident.get('github_ci_workflows',
                           ident.get('ci_workflows')) or ''
         return {'value': value if isinstance(value, str) else '',
-                'enabled': value == CI_ENABLED,
+                'enabled': value in (CI_ENABLED, ''),
                 'who': ident.get('name') or '',
                 'source': where}
 

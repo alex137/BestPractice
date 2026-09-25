@@ -22,7 +22,7 @@ tool that silently doesn't work, a path that does work) is written down
 **with the story of what failed and why, not just the fix**, in its own
 file — one trap, one file, forever — under `gotchas/gotcha-<date>-<slug>.md`
 (directory and frontmatter shape:
-[spec/OPEN_ITEM_AND_GOTCHA_PLAN.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/OPEN_ITEM_AND_GOTCHA_PLAN.md)
+[spec/OPEN_ITEM_AND_GOTCHA_PLAN.md](https://github.com/alex137/BestPractice/blob/staging/spec/OPEN_ITEM_AND_GOTCHA_PLAN.md)
 Part 2).
 
 **None of that catalogue loads into the instructions file, at any size** —
@@ -74,7 +74,7 @@ and a grep instruction.
 
 
 **Rule compressed 2026-09-21**, in the reduction pass recorded in
-[todo-2026-09-21-resident-cap-was-measured-on-the-wrong-shape.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/todo/todo-2026-09-21-resident-cap-was-measured-on-the-wrong-shape.md).
+[todo-2026-09-21-resident-cap-was-measured-on-the-wrong-shape.md](https://github.com/alex137/BestPractice/blob/staging/todo/todo-2026-09-21-resident-cap-was-measured-on-the-wrong-shape.md).
 153 tokens -> 100. The "none of it loads, at any size" clause stayed, because
 it is the rule that keeps an instructions file from regrowing the catalogue;
 what left is the sentence about the generated overview, which is a pointer
@@ -86,9 +86,9 @@ grep instruction — no entries, no index — plus
 [session-bootstrap](session-bootstrap.md) (encode the fixes as a bootstrap
 hook so they apply themselves). One file per trap under
 `gotchas/gotcha-<date>-<slug>.md`;
-[tools/build_gotcha_index.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/build_gotcha_index.py)
+[tools/build_gotcha_index.py](https://github.com/alex137/BestPractice/blob/staging/tools/build_gotcha_index.py)
 generates
-[gotchas/INDEX.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/gotchas/INDEX.md)
+[gotchas/INDEX.md](https://github.com/alex137/BestPractice/blob/staging/gotchas/INDEX.md)
 for the deliberate read from those files' frontmatter and `## Symptom`
 sections.
 

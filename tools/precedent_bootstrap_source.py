@@ -319,7 +319,7 @@ def _install_workflows(dest):
 # The untracked-file line, written into a set rather than assumed. A set that
 # does not ignore .precedent/ will offer SESSION_PRACTICES.md to the next
 # `git add -A`, and the whole point of shape 3
-# (https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/SOURCE_SET_PROSE_GAP.md)
+# (https://github.com/alex137/BestPractice/blob/staging/spec/SOURCE_SET_PROSE_GAP.md)
 # is that universal's text is NEVER committed into a set. Measured
 # 2026-09-13 against a real set: `git check-ignore` said not ignored, and
 # the generated file showed up in `git status` as untracked-and-addable.
@@ -408,7 +408,7 @@ def ensure_universal_source(dest):
     rooted in it reads that set's practices and not one of universal's 94
     occasion entries -- measured 2026-09-13, with a real failure attached
     (practices/seeded-prompt-names-its-origin.md's Story). Shape 3 of
-    https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/SOURCE_SET_PROSE_GAP.md.
+    https://github.com/alex137/BestPractice/blob/staging/spec/SOURCE_SET_PROSE_GAP.md.
 
     A SIBLING PATH, not a `~` one, and that is the measured answer rather
     than the tidy-looking one. `$HOME` is /root on some containers and

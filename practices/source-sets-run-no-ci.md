@@ -98,7 +98,7 @@ whether a set should run any.
 
 ## Install
 `CI_WORKFLOW_TEMPLATES['source']` in
-[tools/precedent_vendor_engine.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/precedent_vendor_engine.py)
+[tools/precedent_vendor_engine.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_vendor_engine.py)
 is an empty tuple. **The emptiness is load-bearing and is read as a
 decision**: `_remove_retired_ci_workflow_files` sweeps whatever a kind no
 longer ships, but only for a kind it recognises — so `source` being present

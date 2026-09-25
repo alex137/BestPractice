@@ -139,7 +139,7 @@ so universal practice text never reached it. Its own run of this engine's
 mechanical checks is reported at **12 passed and 42 skipped, every skip the same
 cause** — the repository carries no practice file of the slug each check is keyed
 to — a figure recorded in
-[very-deep-check](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/very-deep-check.md)'s Pass 2 as well. *(Reported, not
+[very-deep-check](https://github.com/alex137/BestPractice/blob/staging/practices/very-deep-check.md)'s Pass 2 as well. *(Reported, not
 verified here: cross-owner attaches are refused, so that source cannot be read
 from this repository at all.)* The session had a readable clone of the upstream
 catalogue in its scratchpad the whole time and never grepped `practices/`

@@ -35,7 +35,7 @@ individual; *only here?* → repo-local — and the session applies it and
 proceeds. **Do not stop to ask which level.** The person reviews the choice
 before the merge, which is the right moment for it: they can see the actual
 text by then, and a wrong level is one file move away
-([spec/MOVING_PRACTICES.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/MOVING_PRACTICES.md)), not a rewrite.
+([spec/MOVING_PRACTICES.md](https://github.com/alex137/BestPractice/blob/staging/spec/MOVING_PRACTICES.md)), not a rewrite.
 
 **A level stated without its reason cannot be disagreed with**, which is the
 whole point of stating it. *"Universal, because nothing in it is specific to
@@ -71,7 +71,7 @@ The three shapes this actually takes:
 - **Universal** — never in force yet on landing; it is a draft that needs a
   pull request (PR) merged into `precedent-beta-v01`, gated by that
   branch's own deep check rather than a second reviewer
-  ([merge-target-is-beta-branch](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/local/practices/merge-target-is-beta-branch.md)).
+  ([merge-target-is-beta-branch](https://github.com/alex137/BestPractice/blob/staging/local/practices/merge-target-is-beta-branch.md)).
   Say so explicitly rather than letting "landed" read as "done."
 
 ## Why

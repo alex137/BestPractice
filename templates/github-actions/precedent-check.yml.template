@@ -144,10 +144,12 @@ on:
   # push events (a PR's merge commit landing on main is a push to main, not
   # an event on the now-closed PR branch). Nothing here fires twice for
   # the same commit.
+  # Pull requests into main only (spec/BRANCH_TIERS_PLAN.md, 2026-09-25):
+  # every other branch is checked locally before each push, and GitHub's
+  # one test guards what reaches main.
   pull_request:
-    types: [opened, reopened, ready_for_review]
-  push:
     branches: [main]
+    types: [opened, reopened, ready_for_review, synchronize]
   workflow_dispatch:
 
 # No `paths:` filter, for the same reason each check job below gives on its

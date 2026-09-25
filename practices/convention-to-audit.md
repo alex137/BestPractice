@@ -36,7 +36,7 @@ matters as much as the check: a gate that lives only in a merge runbook
 binds only the sessions that run the runbook — a PR merged through the
 hosting platform's web UI skips it entirely (a dependent repo's first
 member merges bypassed the capture and export gates exactly this way,
-2026-08). A required CI check ([GITHUB_ACTIONS.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/documentation/GITHUB_ACTIONS.md)) is
+2026-08). A required CI check ([GITHUB_ACTIONS.md](https://github.com/alex137/BestPractice/blob/staging/documentation/GITHUB_ACTIONS.md)) is
 the form that binds every path to the default branch.
 
 ## Story
@@ -62,6 +62,6 @@ involve a session at all.
 
 ## Install
 [tools/doc_lint.py](../tools/doc_lint.py) and
-[tools/practice_audit.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/practice_audit.py) are audits of this kind
+[tools/practice_audit.py](https://github.com/alex137/BestPractice/blob/staging/tools/practice_audit.py) are audits of this kind
 (and worked examples for writing your own). Run them before commit; wire them
 into the merge runbook ([merge-runbook](merge-runbook.md)).

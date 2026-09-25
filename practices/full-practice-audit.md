@@ -20,7 +20,7 @@ approved_by: "pending review"
 ---
 ## Rule
 When a person explicitly asks for a full practice audit, run
-[tools/full_practice_audit.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/full_practice_audit.py): it enumerates
+[tools/full_practice_audit.py](https://github.com/alex137/BestPractice/blob/staging/tools/full_practice_audit.py): it enumerates
 every active practice from every source in force for the checkout —
 universal, team, repo-local, and individual, resolved the same way
 [tools/precedent_resolve.py](../tools/precedent_resolve.py) does for ordinary
@@ -42,7 +42,7 @@ judgment-only remainder.
 
 ## Why
 **Read this before trusting the result.**
-[spec/ATTENTION_CEILING.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/ATTENTION_CEILING.md) pre-registered and
+[spec/ATTENTION_CEILING.md](https://github.com/alex137/BestPractice/blob/staging/spec/ATTENTION_CEILING.md) pre-registered and
 ran almost exactly this shape — a retrospective, judge-only pass over
 practice candidates, "the review arm" — before this practice existed.
 Predicted 80–86% recall; measured 54%, *worse* than a session doing the
@@ -55,7 +55,7 @@ unproven backstop for whatever enforcement has not yet reached — worth
 having for what it can still catch (a formatting or naming convention with
 no mechanical signature, missed by every other channel) — never a
 substitute for enforcement. **Two independent evaluations ran 2026-09-04
-and 2026-09-05** ([spec/ATTENTION_CEILING.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/ATTENTION_CEILING.md),
+and 2026-09-05** ([spec/ATTENTION_CEILING.md](https://github.com/alex137/BestPractice/blob/staging/spec/ATTENTION_CEILING.md),
 "The audit-judgment result" and "run 2") and scored 6 of 6 (100%) both
 times, on six seeded/known cases each with a different judge, validating
 the prediction that full-Rule, one-at-a-time, evidence-attached judgment
@@ -63,7 +63,7 @@ escapes the review arm's 54% ceiling — but N=6 per run by a single judge
 each time is still a first signal, not the review arm's own multi-run
 discipline, so still not something to lean on routinely at higher stakes
 without the fuller evaluation
-[spec/UNBUILT_PLAN_ITEMS.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/UNBUILT_PLAN_ITEMS.md) still names as
+[spec/UNBUILT_PLAN_ITEMS.md](https://github.com/alex137/BestPractice/blob/staging/spec/UNBUILT_PLAN_ITEMS.md) still names as
 open.
 
 **Kept on the explicit ask, as a session's own judgment call, when the
@@ -85,7 +85,7 @@ silently, without surfacing that history, would have repeated the exact
 failure this repository's own research already found once.
 
 ## Install
-[tools/full_practice_audit.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/full_practice_audit.py) is the
+[tools/full_practice_audit.py](https://github.com/alex137/BestPractice/blob/staging/tools/full_practice_audit.py) is the
 enumeration; it reuses `tools/precedent_resolve.py`'s own source resolution
 rather than re-walking `precedent.json`, so it always reports exactly the
 sources a session's ordinary loading would also see. No mechanical
@@ -96,13 +96,13 @@ tool-existence-and-bookkeeping check is — the same class of resistant-to-
 automation practice `checkable-gets-checked` and `mistakes-become-rules`
 already name. See [routing-audit](routing-audit.md) for the cheaper,
 narrower sibling mechanism this one deliberately does not replace, and
-[spec/UNBUILT_PLAN_ITEMS.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/UNBUILT_PLAN_ITEMS.md) for the
+[spec/UNBUILT_PLAN_ITEMS.md](https://github.com/alex137/BestPractice/blob/staging/spec/UNBUILT_PLAN_ITEMS.md) for the
 pre-registered evaluation this practice's own reliability still needs.
 
 **It stopped being engine-only on 2026-09-21**, with
 [very-deep-check](very-deep-check.md) and for the same reason: `scope:
 engine-dev` withheld it from a consuming repo's tree, so "Practice check"
 was a word a session could not act on anywhere but here.
-[tools/full_practice_audit.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/full_practice_audit.py)
+[tools/full_practice_audit.py](https://github.com/alex137/BestPractice/blob/staging/tools/full_practice_audit.py)
 is vendored now. A consumer's catalogue is its own resolved set, which is
 exactly what an audit there should sweep.

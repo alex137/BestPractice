@@ -95,9 +95,9 @@ recognisable: *"cross-tier adds are not supported in v1: requested
 **Plan for the refusal; do not plan *on* it.** Upstream's own record has it
 refused three times, including as a session's very first tool call, alongside
 two sessions that held both owners at once — with no explanation fitting both
-([the gotchas index](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/AGENTS.md#build-environment-gotchas--do-not-rediscover-these), in full in
-[record/GOTCHAS.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/record/GOTCHAS.md), with the contradictory sequence itself in
-[the archive](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/record/GOTCHAS_ARCHIVE.md)). **Call it and read what it says, never a
+([the gotchas index](https://github.com/alex137/BestPractice/blob/staging/AGENTS.md#build-environment-gotchas--do-not-rediscover-these), in full in
+[record/GOTCHAS.md](https://github.com/alex137/BestPractice/blob/staging/record/GOTCHAS.md), with the contradictory sequence itself in
+[the archive](https://github.com/alex137/BestPractice/blob/staging/record/GOTCHAS_ARCHIVE.md)). **Call it and read what it says, never a
 remembered result.**
 
 **Settle who merges before the work starts.** This is the half that bites
@@ -109,7 +109,7 @@ same moment you name the repositories.
 
 **Since 2026-09-14 the session tells you this before your first turn, and you
 do not have to remember to ask.**
-[tools/precedent_access_check.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/precedent_access_check.py)
+[tools/precedent_access_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_access_check.py)
 runs from the session-start hook and prints, per repo in force, whether this
 session can push to it: `LAND`, `HANDOFF`, or `UNKNOWN`. It is a real
 `git push --dry-run`, so a `HANDOFF` line is a quotable refusal and satisfies
@@ -191,7 +191,7 @@ reads and pastes themselves, never something handed to an automated
 `create_session` call -- the ambiguity it closes is theirs, at the moment
 they decide whether to type `Go merge` into the window they just opened. It
 is also part of why `create_session` is gone from this practice at all:
-[record/GOTCHAS.md#g43](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/record/GOTCHAS.md#g43)
+[record/GOTCHAS.md#g43](https://github.com/alex137/BestPractice/blob/staging/record/GOTCHAS.md#g43)
 found the harness's own permission classifier refusing a `create_session`
 call outright over a baked-in merge instruction, `[Merge Without Review]` --
 one data point among the ones that led to retiring the automated route
@@ -281,7 +281,7 @@ to write there, which is after the reading, the reasoning and the context
 that would have made the work cheap — and none of that moves to the session
 that *can* write. Worse, some of it cannot be repaired mid-flight at all:
 `add_repo` has refused a cross-owner attach
-([recorded upstream](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/AGENTS.md#build-environment-gotchas--do-not-rediscover-these)), so a session rooted under one owner
+([recorded upstream](https://github.com/alex137/BestPractice/blob/staging/AGENTS.md#build-environment-gotchas--do-not-rediscover-these)), so a session rooted under one owner
 may simply never reach the other's repositories for its whole life.
 
 **What "Session Text" means concretely, as of 2026-09-16.** Never call a
@@ -374,7 +374,7 @@ whenever a new repo might be needed, but also have the explicit command for
 when you don't."*
 
 **The failures it is built on are all already in upstream's own record**
-([its gotchas section](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/AGENTS.md#build-environment-gotchas--do-not-rediscover-these)).
+([its gotchas section](https://github.com/alex137/BestPractice/blob/staging/AGENTS.md#build-environment-gotchas--do-not-rediscover-these)).
 `add_repo` has refused a cross-owner attach repeatedly, including as a
 session's very first tool call, which is what forces work spanning two owners
 to be split across sessions at all. A session ran most of a working day here
@@ -532,7 +532,7 @@ full merge instruction into `create_session`'s seeded prompt, on the reading
 that a spawned session should carry the same authorization it would have had
 inline. The harness's own permission classifier refused the `create_session`
 call itself over it -- `[Merge Without Review]`, recorded in full as
-[record/GOTCHAS.md#g43](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/record/GOTCHAS.md#g43)
+[record/GOTCHAS.md#g43](https://github.com/alex137/BestPractice/blob/staging/record/GOTCHAS.md#g43)
 -- which is what prompted Morgan to ask about it: *"Could it be related to
 the fact that you, in spawning new sessions, a day or two ago, we had it
 include 'go merge'?"* His proposed fix, in his own words: *"maybe we remove

@@ -85,7 +85,7 @@ every step's answer is wrong if the one before it was skipped.
 `process/upstream/` vendored, no universal source in `precedent.json`, no
 generated block in `AGENTS.md` — is not updated, it is migrated, in the
 same change:
-[spec/MIGRATING_EXISTING_INSTALLS.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/MIGRATING_EXISTING_INSTALLS.md).
+[spec/MIGRATING_EXISTING_INSTALLS.md](https://github.com/alex137/BestPractice/blob/staging/spec/MIGRATING_EXISTING_INSTALLS.md).
 `practice_audit.py`, `checkin.py update` and the session-start bootstrap all
 say so when it is. An update that leaves the repo classic has refreshed text
 that no session reads, which is how a consumer took one on 2026-09-23 and
@@ -103,12 +103,15 @@ says so, both from the vendored tree under `process/upstream/`.
    every later step confidently wrong: the diff is against the wrong
    lineage, and "already up to date" is the answer you get.
 
-   **For BestPractice that branch is `precedent-beta-v01`, for every
-   install, for now** (Morgan, 2026-09-24, `strength: decided`: *"they
+   **For BestPractice that branch is `staging`, for every
+   install, for now** -- named `precedent-beta-v01` until 2026-09-25, a name
+   kept on origin and moved in step by every Promote, so an install still
+   pinned to it takes this update from it and is repointed to `staging` in
+   the same update, like one pinned to `main` (Morgan, 2026-09-24, `strength: decided`: *"they
    should all be consistent and following the same one… for now, they
    should all follow precedent-beta-v01"*). An install whose
    `process/manifest.json` records `"branch": "main"` is repointed to
-   `precedent-beta-v01` in this same update, and so is its
+   `staging` in this same update, and so is its
    `tools/ENGINE_MANIFEST.json`. For a few hours on 2026-09-24 this step
    said the opposite, on an approval Morgan later called assent rather than
    a decision; that is how installs ended up split between the two
@@ -132,7 +135,7 @@ says so, both from the vendored tree under `process/upstream/`.
    2026-09-21 it printed `applied.` and exited 0 however many sources it had
    declined, and four of them drifted 17 to 34 commits behind while every
    session start reported success
-   ([todo-2026-09-21-refresh-output-blocks-the-next-pull](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/todo/todo-2026-09-21-refresh-output-blocks-the-next-pull.md)).
+   ([todo-2026-09-21-refresh-output-blocks-the-next-pull](https://github.com/alex137/BestPractice/blob/staging/todo/todo-2026-09-21-refresh-output-blocks-the-next-pull.md)).
 
    **Two things it deliberately does not do.** It never touches a modified
    file the clone's own `ENGINE_MANIFEST.json` does not list — the engine may
@@ -205,7 +208,7 @@ says so, both from the vendored tree under `process/upstream/`.
    were written once, at initial install, and never refreshed: a template fix
    landing after install — the `concurrency:` block `doc-lint.yml.template`
    gained on 2026-09-15, then
-   [spec/CI_MINUTES_PLAN.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/CI_MINUTES_PLAN.md)'s
+   [spec/CI_MINUTES_PLAN.md](https://github.com/alex137/BestPractice/blob/staging/spec/CI_MINUTES_PLAN.md)'s
    Phase C debounce-guard step the very next day — reached an already-installed
    `bestpractice-docs.yml` only if that repo happened to reinstall from
    scratch. A repo vendored before this date has no `ci_workflows_sha256` in
@@ -246,7 +249,7 @@ says so, both from the vendored tree under `process/upstream/`.
    **Since 2026-09-19, check whether this refresh newly vendors
    `tools/todo_migrate.py` or `tools/build_todo_index.py`** — the one-time
    per-item TODO migration tool and its ongoing index generator
-   ([spec/OPEN_ITEM_AND_GOTCHA_PLAN.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/OPEN_ITEM_AND_GOTCHA_PLAN.md)
+   ([spec/OPEN_ITEM_AND_GOTCHA_PLAN.md](https://github.com/alex137/BestPractice/blob/staging/spec/OPEN_ITEM_AND_GOTCHA_PLAN.md)
    Part 4.2). Vendoring the tool is not the same as running it, and nothing
    else says so: this repo shipped both to every consumer on 2026-09-15/16
    and, once source sets turned out to need them too, to every source set
@@ -296,7 +299,7 @@ says so, both from the vendored tree under `process/upstream/`.
    declining it with a reason that fits the current text. A decline that
    lives only in prose (a sync note, a paragraph in `AGENTS.md`) goes into
    the manifest as a `declined` entry
-   ([INSTALL.md §5](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/INSTALL.md#5-the-manifest-schema-processmanifestjson)),
+   ([INSTALL.md §5](https://github.com/alex137/BestPractice/blob/staging/INSTALL.md#5-the-manifest-schema-processmanifestjson)),
    so the next sync does not depend on somebody remembering it. Any other
    hand-written rule an updated practice now touches gets the
    conflicted-file review at the top of this runbook.
@@ -413,7 +416,7 @@ says so, both from the vendored tree under `process/upstream/`.
     **Never by name alone.** `light-check.yml` is a live check in most
     installs and is not a leftover; the 2026-09-20 sweep deleted nine live
     checks by trusting names
-    ([spec/CI_MINUTES_PLAN.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/CI_MINUTES_PLAN.md)
+    ([spec/CI_MINUTES_PLAN.md](https://github.com/alex137/BestPractice/blob/staging/spec/CI_MINUTES_PLAN.md)
     item 14). A live one is paused first and decommissioned a cycle later,
     as [tools/precedent_decommission.py](../tools/precedent_decommission.py)
     requires.
@@ -453,7 +456,7 @@ says so, both from the vendored tree under `process/upstream/`.
     means (a) could not run at all. Say so out loud, confirm with the person
     that this update will finish the migration — it is bigger than an
     update — then do
-    [spec/MIGRATING_EXISTING_INSTALLS.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/MIGRATING_EXISTING_INSTALLS.md)
+    [spec/MIGRATING_EXISTING_INSTALLS.md](https://github.com/alex137/BestPractice/blob/staging/spec/MIGRATING_EXISTING_INSTALLS.md)
     from step 7 on, which seeds the engine at `tools/`. Then run step 3's
     refresh and continue from (a). If the person says not now, stop before
     publishing: step 6 fails until it is done.
@@ -471,7 +474,7 @@ says so, both from the vendored tree under `process/upstream/`.
     you deleted, what stays and why, and the todo item.
 
     While here, check `github_ci_workflows` (formerly `ci_workflows`)
-    ([GITHUB_ACTIONS.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/documentation/GITHUB_ACTIONS.md))
+    ([GITHUB_ACTIONS.md](https://github.com/alex137/BestPractice/blob/staging/documentation/GITHUB_ACTIONS.md))
     is set the way the person actually wants, not just inherited from
     whatever an earlier install or migration left.
 11. **Verify by content on the remote**, never by ref equality

@@ -7,11 +7,11 @@ labels: precedent-candidate
 
 <!--
 This is Stage 2 of PRACTICE_ENGINE_PLAN.md's creation pipeline
-(https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/PRACTICE_ENGINE_PLAN.md#stage-2--the-candidate),
+(https://github.com/alex137/BestPractice/blob/staging/spec/PRACTICE_ENGINE_PLAN.md#stage-2--the-candidate),
 for the UNIVERSAL level specifically. Individual and team candidates are
 files in their own private repos' candidates/ directories -- see
 spec/CANDIDATE_FORMAT.md
-(https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/CANDIDATE_FORMAT.md)
+(https://github.com/alex137/BestPractice/blob/staging/spec/CANDIDATE_FORMAT.md)
 for why universal candidates are Issues instead, and for what every field
 below means. Filling this in costs nothing and commits to nothing --
 Stage 3's promotion criteria run against what you write here before

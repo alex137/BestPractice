@@ -58,7 +58,7 @@ before anything else.
 
 
 **Rule compressed 2026-09-21**, in the reduction pass recorded in
-[todo-2026-09-21-resident-cap-was-measured-on-the-wrong-shape.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/todo/todo-2026-09-21-resident-cap-was-measured-on-the-wrong-shape.md).
+[todo-2026-09-21-resident-cap-was-measured-on-the-wrong-shape.md](https://github.com/alex137/BestPractice/blob/staging/todo/todo-2026-09-21-resident-cap-was-measured-on-the-wrong-shape.md).
 208 tokens -> 124. All three parts stayed; what moved into `## Detail` is
 the pair of definitions the Rule was carrying inline -- what counts as an
 easy question, and the four examples of a long task. The exceptions stayed

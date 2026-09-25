@@ -95,9 +95,9 @@ changes:**
 - **High-risk** — the change does at least one of these:
   - **Touches enforcement or gating code** — a check other work is judged
     against
-    ([tools/precedent_check.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/precedent_check.py),
-    [tools/leak_gate.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/leak_gate.py),
-    [tools/verify_harness.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/verify_harness.py),
+    ([tools/precedent_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_check.py),
+    [tools/leak_gate.py](https://github.com/alex137/BestPractice/blob/staging/tools/leak_gate.py),
+    [tools/verify_harness.py](https://github.com/alex137/BestPractice/blob/staging/tools/verify_harness.py),
     a CI workflow file, a repo's own branch-restriction rule). A bad direct
     push here does not just break one thing — it silently stops catching
     the next hundred.
@@ -123,7 +123,7 @@ changes:**
   the four bullets above are.** The light check still runs before the
   commit and the push check still runs before the push either way, at the
   tier the target branch gets -- basic for pre-staging, full for staging
-  and main ([spec/BRANCH_TIERS_PLAN.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/BRANCH_TIERS_PLAN.md)) --
+  and main ([spec/BRANCH_TIERS_PLAN.md](https://github.com/alex137/BestPractice/blob/staging/spec/BRANCH_TIERS_PLAN.md)) --
   so verification never gets skipped, only the PR wrapper does.
 
 **Either path ends on the shared branch, never in the local clone.**
@@ -132,18 +132,21 @@ the repository's own rules say routine work lands on, and the full chain
 merges into that same branch -- in both cases a real branch on `origin`,
 and never a repository's *configured default* branch picked just because
 it is configured that way. **When that branch is pre-staging and the change
-was high-risk, the reply says so twice**: a bolded paragraph in the body --
-**this high-risk change is on pre-staging, not on staging yet; say Promote
-to run the full check and move it** -- and the same line in The Boildown's
-next steps. A high-risk change lands on pre-staging like any other rather
+was high-risk, the reply asks the person to act, twice**: a bolded paragraph
+in the body -- **Please move this to staging soon: say Promote, so it gets
+the full testing.** -- and the same line in The Boildown's next steps. It
+is a call to action, not a status report (Morgan, 2026-09-25: *"the point
+isn't to tell me it's not on staging, the point is to tell the user
+\"Please put this on staging [as soon as possible (ASAP)] for more thorough testing!\" with
+emphasis"*, strength: decided). A high-risk change lands on pre-staging like any other rather
 than jumping the queue, so the two branches do not drift apart, and gets
 its full check at the Promote. Morgan, 2026-09-25: *"the \"high risk\" ones should still go to pre-staging but have a strong, bolded message for me, in the main text as a paragraph and also in The Boildown, that now I need to push pre-staging to staging"* (strength: decided). That branch is the
 person's primary branch
 ([primary-branch](primary-branch.md)), and
-`python3 tools/precedent_branches.py --landing` names it: `pre-staging`
-for a person whose `landing_branch` says so, otherwise the branch the
-repository declares -- `base_branch` in its `precedent.json`, or a rule of
-its own -- which in most repositories is `main`. **Landing on pre-staging,
+`python3 tools/precedent_branches.py --landing` names it: `pre-staging`,
+unless the person's `landing_branch` says `staging` -- then the branch the
+repository declares, `base_branch` in its `precedent.json`, which in most
+repositories is `main`. **Landing on pre-staging,
 bring it in first**: `python3 tools/precedent_branches.py
 --sync-pre-staging` creates it from staging when origin has none, then
 merge `origin/pre-staging` into the work before pushing, so every window
@@ -168,7 +171,7 @@ classification above is only what runs in its absence.
 **Say which path you took and why, in one clause, in the reply.** Not
 "pushed the fix" — *"pushed directly (content change, not gating code)"*
 or *"opened a PR (touches
-[tools/precedent_check.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/precedent_check.py),
+[tools/precedent_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_check.py),
 a gating check)"*. A
 path taken without its reason is exactly as unreviewable as no reason at
 all.
@@ -270,14 +273,14 @@ waiting for review.
 
 **High-risk reads narrowly, not generously — the opposite bias from the old
 trivial test.** "Fixed a bug in
-[tools/precedent_check.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/precedent_check.py)",
+[tools/precedent_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_check.py)",
 "changed what
-[tools/leak_gate.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/leak_gate.py)
+[tools/leak_gate.py](https://github.com/alex137/BestPractice/blob/staging/tools/leak_gate.py)
 enforces", "edited `go-merge.md` itself" are high-risk, even at one line, even
 when the fix is obviously correct — because what they touch is the
 machinery that catches mistakes, or the rule that governs how changes
 land. "Fixed a typo in
-[README.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/README.md)",
+[README.md](https://github.com/alex137/BestPractice/blob/staging/README.md)",
 "reworded a confusing sentence", "added a new practice about doc-link
 formatting", "rewrote a function's internals without touching what calls
 it or what it's checked against" are not high-risk, however large the diff,
@@ -498,7 +501,7 @@ itself, which `Go update` still always makes.
 **Renamed `huge` to `high-risk` 2026-09-21, on Morgan's decision, for
 formality — no change to the four criteria themselves.** Asked to
 recommend a less informal replacement, the session proposed `high-risk`
-over `major` specifically because [merge-target-is-beta-branch](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/local/practices/merge-target-is-beta-branch.md)
+over `major` specifically because [merge-target-is-beta-branch](https://github.com/alex137/BestPractice/blob/staging/local/practices/merge-target-is-beta-branch.md)
 already uses "major changes" for a different gate (Alex's sign-off on a
 `main` merge) — reusing it here would have made two distinct gates read
 as one. Morgan confirmed and asked for the rename to reach every mention.
@@ -544,9 +547,9 @@ criteria are still a judgment call no diff can settle alone — "hard to
 reverse" and "not confident" both require reading what changed, not just
 where. But **"touches enforcement or gating code" and "changes a
 governance practice" are close to mechanical**: a fixed list of paths
-([tools/precedent_check.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/precedent_check.py),
-[tools/leak_gate.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/leak_gate.py),
-[tools/verify_harness.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/verify_harness.py),
+([tools/precedent_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_check.py),
+[tools/leak_gate.py](https://github.com/alex137/BestPractice/blob/staging/tools/leak_gate.py),
+[tools/verify_harness.py](https://github.com/alex137/BestPractice/blob/staging/tools/verify_harness.py),
 `.github/workflows/*`, the governance practices named in the Rule above)
 and a check could flag a direct push landing on one of them with no open
 pull request. Recorded rather than left silent; not built here.

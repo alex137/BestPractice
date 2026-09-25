@@ -8706,7 +8706,7 @@ def check_precedent_check_fires():
                          '[b](https://github.com/alex137/BestPractice/blob/'
                          'main/TODO.md), '
                          '[c](https://github.com/alex137/BestPractice/blob/'
-                         'precedent-beta-v01/no-such-planted-path.md), '
+                         'staging/no-such-planted-path.md), '
                          '[d](../tools/checks/check_not_here.py), '
                          '[e](zzz-withdrawn.md), '
                          '[g](zzz-in-another-set.md), '
@@ -9263,7 +9263,7 @@ def check_precedent_check_fires():
             git(repo, 'add', '-A')
             git(repo, 'commit', '-qm', 'second commit for the plant')
             c2 = git(repo, 'rev-parse', 'HEAD')
-            git(repo, 'update-ref', 'refs/remotes/origin/precedent-beta-v01', c1)
+            git(repo, 'update-ref', 'refs/remotes/origin/staging', c1)
             git(repo, 'update-ref', 'refs/remotes/origin/main', c2)
         case('merge-target-is-beta-branch', _plant_mtib)
 
@@ -12445,7 +12445,7 @@ def check_reply_check_requires_a_destination_for_a_fence_block():
             '; '.join(f'{n}: {d}' for n, d in bad_cases))
 
 
-def _beta_watermark_fixture(tmp, git, branch='precedent-beta-v01'):
+def _beta_watermark_fixture(tmp, git, branch='staging'):
     """A bare origin, a seed clone to land commits through, and the WORK
     clone the tool runs in -- which is now the same repository the watermark
     lives in, so it needs a tools/ directory and a .gitignore carrying
@@ -12658,7 +12658,7 @@ def check_beta_watermark_commits_only_when_it_actually_reports_something():
               'PRECEDENT_COMMIT_TIMEZONE', 'PRECEDENT_USER_CONFIG')}
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='beta-watermark-'))
     try:
-        branch = 'precedent-beta-v01'
+        branch = 'staging'
         os.environ['PRECEDENT_COMMIT_EMAIL'] = MINE
         os.environ['PRECEDENT_COMMIT_NAME'] = 'Watermark Owner'
         os.environ['PRECEDENT_COMMIT_TIMEZONE'] = 'UTC'
@@ -12837,7 +12837,7 @@ def check_beta_watermark_never_writes_into_a_busy_or_unpushable_checkout():
               'PRECEDENT_COMMIT_TIMEZONE', 'PRECEDENT_USER_CONFIG')}
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='beta-watermark-busy-'))
     try:
-        branch = 'precedent-beta-v01'
+        branch = 'staging'
         os.environ['PRECEDENT_COMMIT_EMAIL'] = MINE
         os.environ['PRECEDENT_COMMIT_NAME'] = 'Watermark Owner'
         os.environ['PRECEDENT_COMMIT_TIMEZONE'] = 'UTC'
@@ -16015,7 +16015,7 @@ def check_branch_tiers():
                       'branch yet, promotes into main -- never into a staging '
                       'branch it does not have', pb.staging_branch(repo) == 'main'
                       and tier('staging') == 'full'
-                      and pb.landing_branch(repo, nocfg)[0] == 'main'))
+                      and pb.landing_branch(repo, nocfg)[0] == 'pre-staging'))
 
         def targets(args):
             return pb.push_targets(repo, args)
@@ -16258,17 +16258,18 @@ def check_promote_pre_staging():
             return git(work, 'ls-remote', 'origin', f'refs/heads/{b}').stdout.split('\t')[0]
 
         rc, out = branches('--landing')
-        cases.append(('Go update lands on staging (the declared base) by default',
-                      out.split('\n')[0] == 'beta'))
+        cases.append(('Go update lands on pre-staging by default',
+                      out.split('\n')[0] == 'pre-staging'))
         indiv = tmp / 'indiv'
         indiv.mkdir()
         (tmp / 'config.json').write_text(_json.dumps({'individual': {'path': str(indiv)}}),
                                          encoding='utf-8')
         (indiv / 'identity.json').write_text(_json.dumps(
-            {'email': 'p@example.com', 'landing_branch': 'pre-staging'}), encoding='utf-8')
+            {'email': 'p@example.com', 'landing_branch': 'staging'}), encoding='utf-8')
         rc, out = branches('--landing')
-        cases.append(("a person's landing_branch sends it to pre-staging",
-                      out.split('\n')[0] == 'pre-staging'))
+        cases.append(("a person's landing_branch can send it to staging (the "
+                      "declared base, still named beta here)",
+                      out.split('\n')[0] == 'beta'))
         (indiv / 'identity.json').write_text(_json.dumps(
             {'email': 'p@example.com', 'landing_branch': 'somewhere'}), encoding='utf-8')
         rc, out = branches('--landing')
@@ -16355,6 +16356,82 @@ def check_promote_pre_staging():
         cases.append(("a branch whose commits are all on pre-staging is not "
                       "called unlanded for lacking them on staging",
                       not any("'w-landed'" in l for l in got)))
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
+def check_promote_keeps_the_old_name_in_step():
+    """precedent-beta-v01 was renamed staging on 2026-09-25, and the old name
+    is kept on origin while installs pinned to it catch up
+    (spec/BRANCH_TIERS_PLAN.md, step 10). Two things keep it safe: a Promote
+    moves the old name along with staging, and work a not-yet-moved session
+    pushes to the old name is merged into pre-staging, never lost."""
+    import tempfile, json as _json, shutil as _shutil
+    name = 'Promote keeps precedent-beta-v01 in step with staging, and loses nothing pushed to it'
+    if not (ROOT / 'tools' / 'precedent_branches.py').exists():
+        not_applicable(name, 'tools/precedent_branches.py is absent')
+        return
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+        env = dict(os.environ, PRECEDENT_ALLOW_ANY_AUTHOR='1',
+                   GIT_AUTHOR_NAME='T', GIT_AUTHOR_EMAIL='t@example.com',
+                   GIT_COMMITTER_NAME='T', GIT_COMMITTER_EMAIL='t@example.com',
+                   GIT_CONFIG_GLOBAL=str(tmp / 'gitconfig'),
+                   PRECEDENT_USER_CONFIG=str(tmp / 'none.json'))
+
+        def git(cwd, *a):
+            return subprocess.run(['git', '-C', str(cwd), *a],
+                                  capture_output=True, text=True, env=env)
+        bare = tmp / 'origin.git'
+        git(tmp, 'init', '-q', '--bare', '-b', 'staging', str(bare))
+        work = tmp / 'work'
+        (work / 'tools').mkdir(parents=True)
+        git(tmp, 'init', '-q', '-b', 'staging', str(work))
+        for f in ('precedent_push_check.py', 'precedent_branches.py'):
+            _shutil.copy2(ROOT / 'tools' / f, work / 'tools' / f)
+        (work / 'tools' / 'ENGINE_MANIFEST.json').write_text(
+            _json.dumps({'kind': 'consumer'}), encoding='utf-8')
+        for t in ('precedent_check', 'leak_gate', 'doc_lint'):
+            (work / 'tools' / f'{t}.py').write_text(
+                ('print("precedent_check: 3 passed, 0 violated")\n'
+                 if t == 'precedent_check' else '') + 'pass\n', encoding='utf-8')
+        (work / 'precedent.json').write_text(_json.dumps({'base_branch': 'staging'}),
+                                             encoding='utf-8')
+        git(work, 'add', '-A')
+        git(work, 'commit', '-q', '-m', 'init')
+        git(work, 'remote', 'add', 'origin', f'file://{bare}')
+        git(work, 'push', '-q', 'origin', 'staging', 'staging:precedent-beta-v01')
+
+        def tip(b):
+            return git(work, 'ls-remote', 'origin', f'refs/heads/{b}').stdout.split('\t')[0]
+
+        def branches(*a):
+            p = subprocess.run([sys.executable, 'tools/precedent_branches.py', *a],
+                               cwd=work, capture_output=True, text=True, env=env)
+            return p.returncode, p.stdout + p.stderr
+
+        def commit_to(branch, path, msg):
+            git(work, 'fetch', '-q', 'origin')
+            git(work, 'checkout', '-q', '-B', f'w-{branch}', f'origin/{branch}')
+            (work / path).write_text(msg, encoding='utf-8')
+            git(work, 'add', path)
+            git(work, 'commit', '-q', '-m', msg)
+            git(work, 'push', '-q', 'origin', f'HEAD:refs/heads/{branch}')
+
+        branches('--sync-pre-staging')
+        commit_to('precedent-beta-v01', 'old.txt', 'pushed under the old name')
+        rc, out = branches('--sync-pre-staging')
+        git(work, 'fetch', '-q', 'origin')
+        cases.append(('work pushed to the old name is merged into pre-staging',
+                      rc == 0 and git(work, 'merge-base', '--is-ancestor',
+                                      'origin/precedent-beta-v01',
+                                      'origin/pre-staging').returncode == 0))
+        commit_to('pre-staging', 'new.txt', 'window work')
+        rc, out = branches('--promote')
+        cases.append(('Promote moves staging, and the old name to the same commit',
+                      rc == 0 and tip('staging') == tip('precedent-beta-v01')
+                      and 'for installs still pinned to the old name' in out))
     failed = [n for n, ok in cases if not ok]
     check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
@@ -27080,15 +27157,22 @@ def check_installer_produces_a_clean_install():
                       gs[:400]))
         # No individual source resolves here (PRECEDENT_USER_CONFIG points at
         # a file that does not exist), so ci_preference() has nothing to read
-        # and the engine's own default -- disabled -- applies (practice:
-        # declared-default-is-applied). Minutes cost money on a private repo;
-        # nothing declared should not silently opt an adopter into paying for
-        # a workflow they never asked for.
-        cases.append(('nothing declares ci_workflows, so the installer does NOT write the '
-                      'GitHub Actions workflow, and says so in GETTING_STARTED.md',
-                      not (proj / '.github' / 'workflows' / 'bestpractice-docs.yml').exists()
-                      and 'No GitHub Actions workflow was installed' in gs
-                      and 'ci_workflows' in gs,
+        # and the engine's own default applies (practice:
+        # declared-default-is-applied) -- ENABLED since 2026-09-25, because
+        # what it installs is now one light check on pull requests into main,
+        # and a leak gate that never runs in a private repo
+        # (spec/BRANCH_TIERS_PLAN.md).
+        _wfs = proj / '.github' / 'workflows'
+        _lc = (_wfs / 'light-check.yml').read_text(encoding='utf-8') \
+            if (_wfs / 'light-check.yml').exists() else ''
+        _lg = (_wfs / 'leak-gate.yml').read_text(encoding='utf-8') \
+            if (_wfs / 'leak-gate.yml').exists() else ''
+        cases.append(('nothing declares github_ci_workflows, so the installer writes the '
+                      'light check -- pull requests into main only -- and the leak gate, '
+                      'skipped in a private repo, and GETTING_STARTED.md says so',
+                      'branches: [main]' in _lc and '\n  push:' not in _lc
+                      and 'github.event.repository.private != true' in _lg
+                      and 'Before anything reaches `main`' in gs,
                       gs[:600]))
         settings = proj / '.claude' / 'settings.json'
         stext = settings.read_text(encoding='utf-8') if settings.is_file() else ''
@@ -27123,10 +27207,10 @@ def check_installer_produces_a_clean_install():
                       r.stderr[:300]))
 
         # The other direction (practice: control-asserts-which-failure -- a
-        # guard that can only say no is not proven by the no-case alone).
-        # A declared individual source with ci_workflows: enabled should get
-        # the workflow installed, with the concurrency block in it, and
-        # GETTING_STARTED.md should carry the "on" paragraph instead.
+        # default that can only say yes is not proven by the yes-case alone).
+        # Since the default became enabled (2026-09-25), the direction to
+        # prove is a DECLARED "disabled": nothing installed, and
+        # GETTING_STARTED.md says so instead.
         indiv = tmp / 'indiv-ci-on'
         indiv.mkdir()
         (indiv / 'practices').mkdir()
@@ -27155,7 +27239,7 @@ def check_installer_produces_a_clean_install():
             encoding='utf-8')
         (indiv / 'identity.json').write_text(json.dumps({
             'format_version': 1, 'name': 'Dana', 'email': 'dana@example.com',
-            'ci_workflows': 'enabled',
+            'github_ci_workflows': 'disabled',
         }), encoding='utf-8')
         user_cfg = tmp / 'user-config-ci-on.json'
         user_cfg.write_text(json.dumps({'individual': {'path': str(indiv)}}), encoding='utf-8')
@@ -27174,11 +27258,11 @@ def check_installer_produces_a_clean_install():
         # retired 2026-09-21 and the leak gate is what a consumer now gets.
         wf2 = proj2 / '.github' / 'workflows' / 'leak-gate.yml'
         gs2 = (proj2 / 'GETTING_STARTED.md').read_text(encoding='utf-8') if (proj2 / 'GETTING_STARTED.md').is_file() else ''
-        cases.append(('a declared ci_workflows: enabled installs the workflow WITH its '
-                      'concurrency block, and GETTING_STARTED.md carries the "on" paragraph',
-                      r.returncode == 0 and wf2.is_file()
-                      and 'concurrency:' in wf2.read_text(encoding='utf-8')
-                      and 'A leak check runs on every push and pull request' in gs2,
+        cases.append(('a declared github_ci_workflows: disabled installs no workflow, '
+                      'and GETTING_STARTED.md carries the "off" paragraph',
+                      r.returncode == 0 and not wf2.exists()
+                      and not (proj2 / '.github' / 'workflows' / 'light-check.yml').exists()
+                      and 'No GitHub Actions workflow was installed' in gs2,
                       (r.stdout + r.stderr)[-500:]))
         # AND the Markdown lint is NOT a GitHub check any more -- the
         # direction that would otherwise go untested, since every assertion
@@ -32232,6 +32316,7 @@ def main():
     check_merge_check_gate()
     check_promote_pre_staging()
     check_github_ci_setting_names()
+    check_promote_keeps_the_old_name_in_step()
     check_source_clone_is_pinned_to_a_branch()
     check_generator_wires_every_template_guard_mode()
     check_verify_reports_a_source_wired_for_fewer_moments()

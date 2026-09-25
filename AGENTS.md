@@ -6,19 +6,20 @@
      has its own instantiated AGENTS.md at ITS root. -->
 
 **TEMPORARY, read before opening or merging any pull request (PR) here:
-every PR in this repository targets `precedent-beta-v01` -- or `pre-staging`,
+every PR in this repository targets `staging` (named `precedent-beta-v01`
+until 2026-09-25) -- or `pre-staging`,
 for a person whose landing branch is pre-staging -- never `main`.
 Alex merged the branch into `main` on 2026-09-14 and Morgan merges it there
 regularly; **that does not retire this rule** — work still lands here, and
 `main` takes it by those merges only (Morgan, 2026-09-14). Merging a PR
-into `precedent-beta-v01` needs no sign-off from Alex — once its deep
+into `staging` needs no sign-off from Alex — once its deep
 check passes, a session may merge it directly; that branch is where
 routine work lands, not a gate he sits behind. Alex's approval is reserved
 for `main`, and specifically for merges carrying major changes onto it —
 the phase-7 fold-in is the paradigm case, but any other merge reaching
 `main` with a non-trivial change needs the same explicit, named go-ahead.
 A general "PR and merge it" authorization, with no branch named, still
-means `precedent-beta-v01`; merging into `main` requires Alex naming
+means `staging`; merging into `main` requires Alex naming
 `main` explicitly, in that specific request. Check the base branch
 explicitly before acting — do not assume `main` just because it is the
 repository's configured default branch, and do not assume the two
@@ -61,11 +62,12 @@ first line, with the reason.
   syncs, says the branch out loud, commits, pushes, opens the pull request,
   and merges — **without asking again.** **Either path ends on the branch on
   `origin`** — the person's landing branch
-  (`python3 tools/precedent_branches.py --landing`: `pre-staging` where their
-  `landing_branch` says so, else `precedent-beta-v01`), for the pull request
+  (`python3 tools/precedent_branches.py --landing`: `pre-staging`, unless
+  their `landing_branch` says `staging`), for the pull request
   too; never `main` for being the configured default. **A high-risk change
   landed on pre-staging gets a bolded paragraph in the reply and a line in
-  The Boildown: it is not on staging until a Promote** — **and a commit still sitting
+  The Boildown asking the person to act: "Please move this to staging soon:
+  say Promote, so it gets the full testing."** — **and a commit still sitting
   in the local clone has not done it**: fetch and confirm `origin` carries it
   before the reply says where the work went. Say which path you took, and why,
   in the reply. Unsure which it is? High-risk. A step this session cannot
@@ -89,8 +91,7 @@ first line, with the reason.
   target it explicitly; say it bare and it defaults to the primary branch
   the work is already on — the person's landing branch
   (`python3 tools/precedent_branches.py --landing`), which is
-  `precedent-beta-v01` here unless their `landing_branch` says
-  `pre-staging`; never `main` just because that is the repository's
+  `pre-staging` unless their `landing_branch` says `staging`; never `main` just because that is the repository's
   configured default. Not a standing exemption — it authorizes the change
   in front of it, not every change after it.
 - **"Drop it"** ([park-it](practices/park-it.md)) — write
@@ -188,7 +189,7 @@ asking, and where reading it is a genuine judgment call rather than a clean
 one, say the read out loud and confirm before the shared-branch steps run,
 rather than either guessing silently or holding silently. `Go update` and
 `Weak yes` above spell out what that looks like for each. An authorization
-to merge, in whatever words it arrives, means `precedent-beta-v01` per the
+to merge, in whatever words it arrives, means `staging` per the
 paragraph above, and is not done until a fetch confirms the pushed content
 is actually there ([verify-postcondition](practices/verify-postcondition.md)).
 
@@ -299,7 +300,7 @@ tool that silently doesn't work, a path that does work) is written down
 **with the story of what failed and why, not just the fix**, in its own
 file — one trap, one file, forever — under `gotchas/gotcha-<date>-<slug>.md`
 (directory and frontmatter shape:
-[spec/OPEN_ITEM_AND_GOTCHA_PLAN.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/OPEN_ITEM_AND_GOTCHA_PLAN.md)
+[spec/OPEN_ITEM_AND_GOTCHA_PLAN.md](https://github.com/alex137/BestPractice/blob/staging/spec/OPEN_ITEM_AND_GOTCHA_PLAN.md)
 Part 2).
 
 **None of that catalogue loads into the instructions file, at any size** —
@@ -442,7 +443,7 @@ When naming or scoping something around a person's skill level:
 When naming what "run the checks" means in a repo:
   two-check-levels — name a fast check and a full check; say which gates what
 When opening or merging a pull request in this repository:
-  merge-target-is-beta-branch — Alex approves only major main merges; precedent-beta-v01 is unrestricted
+  merge-target-is-beta-branch — Alex approves only major main merges; staging is unrestricted
 When printing a numeric quantity that will be compared across rows:
   one-formatter-per-quantity — one formatter per quantity kind, declared in one module
 When publishing a document with a multi-column sortable table:
@@ -596,7 +597,7 @@ place — nothing is ever deleted, and nothing moves.
   is recorded against the tree, so running it first makes the push
   instant; skipping it makes the push wait for it. **Which of the two a push
   gets depends on the branch** ([spec/BRANCH_TIERS_PLAN.md](spec/BRANCH_TIERS_PLAN.md)):
-  a push to `precedent-beta-v01` (staging) or `main` runs the deep check; a
+  a push to `staging` or `main` runs the deep check; a
   push to any other branch runs the basic tier -- the lint, the leak gate
   and the commit-author checks, seconds -- unless the person's
   `branch_push_checks` says `full`. A pull request merged through GitHub
