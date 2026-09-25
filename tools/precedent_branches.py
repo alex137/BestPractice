@@ -371,6 +371,21 @@ def promote(root, say=print):
             return 1
         p = _run(wt, 'push', '-q', 'origin', f'HEAD:refs/heads/{staging}')
         if p.returncode != 0:
+            # Most often another window promoted the same batch while this
+            # one was checking it. Then there is nothing left to do, and
+            # "Promote again" would only send the person round a second
+            # time for work already on staging (2026-09-25: two sessions
+            # raced this way twice in a row, each told to try again).
+            now = _remote_tip(root, staging)
+            if now:
+                _run(root, 'fetch', '-q', 'origin', staging)
+            if now and _run(root, 'merge-base', '--is-ancestor', ptip,
+                            now).returncode == 0:
+                say(f'another window promoted this batch while the check ran: '
+                    f'{staging} ({now[:12]}) already has everything that was on '
+                    f'{PRE_STAGING}. Nothing was pushed, and there is nothing '
+                    f'left to promote.')
+                return 0
             say(f'{staging} moved while the check ran, so nothing was pushed; '
                 f'Promote again. ({p.stderr.strip()[:200]})')
             return 1
