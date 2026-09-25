@@ -59,8 +59,11 @@ first line, with the reason.
   once live, or you're not confident it's none of those) runs the full chain —
   syncs, says the branch out loud, commits, pushes, opens the pull request,
   and merges — **without asking again.** **Either path ends on the branch on
-  `origin`** — `precedent-beta-v01` here per the rule at the top of this file,
-  never `main` for being the configured default — **and a commit still sitting
+  `origin`** — the direct push on the person's landing branch
+  (`python3 tools/precedent_branches.py --landing`: `pre-staging` where their
+  `landing_branch` says so, else `precedent-beta-v01`), the pull request on
+  `precedent-beta-v01` per the rule at the top of this file; never `main` for
+  being the configured default — **and a commit still sitting
   in the local clone has not done it**: fetch and confirm `origin` carries it
   before the reply says where the work went. Say which path you took, and why,
   in the reply. Unsure which it is? High-risk. A step this session cannot
@@ -82,8 +85,10 @@ first line, with the reason.
   straight to that branch, no PR, whatever `Go update` would otherwise call
   for on this one change. Name the branch ("push directly to main") to
   target it explicitly; say it bare and it defaults to the primary branch
-  the work is already on — `precedent-beta-v01` here, per the rule at the
-  top of this file, never `main` just because that is the repository's
+  the work is already on — the person's landing branch
+  (`python3 tools/precedent_branches.py --landing`), which is
+  `precedent-beta-v01` here unless their `landing_branch` says
+  `pre-staging`; never `main` just because that is the repository's
   configured default. Not a standing exemption — it authorizes the change
   in front of it, not every change after it.
 - **"Drop it"** ([park-it](practices/park-it.md)) — write

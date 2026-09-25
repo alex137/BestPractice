@@ -129,9 +129,12 @@ changes:**
 **Either path ends on the shared branch, never in the local clone.**
 `Go update` means make the change live: the direct push lands on the branch
 the repository's own rules say routine work lands on, and the full chain
-merges into that same branch -- in both cases a real branch on `origin`,
-and never a repository's *configured default* branch picked just because
-it is configured that way. That branch is the person's primary branch
+merges into staging -- the branch the repository declares, never
+pre-staging, because a high-risk change gets its full check at the merge
+rather than waiting for a Promote -- in both cases a real branch on
+`origin`, and never a repository's *configured default* branch picked just
+because it is configured that way. The direct push's branch is the
+person's primary branch
 ([primary-branch](primary-branch.md)), and
 `python3 tools/precedent_branches.py --landing` names it: `pre-staging`
 for a person whose `landing_branch` says so, otherwise the branch the
