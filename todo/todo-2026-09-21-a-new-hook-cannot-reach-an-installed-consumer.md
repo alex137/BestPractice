@@ -135,6 +135,13 @@ keeping a list of all repos themselves; this needs to work even if a repo
 isn't on our lists. I like the lists of 'repos that [are of this type] get
 [these hooks]' -- approved."*
 
+**The add-only settings write is the session's reading, not his words.**
+He approved the lists, and said *"Let's fix this now!"* The session had just
+told him that the lists alone leave the hook unwired, and that closing the
+bug means the refresh must also add the entry. It took "fix this now" as a
+yes to that, and said so in its reply. For that half, read the strength as
+`assented`, not `decided`.
+
 **What was built**, all in
 [tools/precedent_vendor_engine.py](../tools/precedent_vendor_engine.py):
 
