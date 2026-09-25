@@ -46,6 +46,9 @@ and approved the same day. The decisions, with how firmly each was made
 | Rename the GitHub settings to start with `github_ci_` | *"since those refer only to github's tests, maybe we rename them all to start with github_ci_ instead of ci_ to make that clear"* | decided |
 | Build it | *"Otherwise, this looks great, let's do it, go ahead, go update"* | decided |
 | The recommendations under "Settled at approval" below | approved with the plan as a whole, not one by one | assented |
+| `Go update` lands on pre-staging by default | *"in go update" ruleset, the default place to push it to is "pre-staging"? Update the spec to reflect these"* | decided |
+| Installs take their updates from main | *"Maybe vendored-in copies are now taken from \*main\*? [...] Update the spec to reflect these"* | decided -- with the 2026-09-24 reversal below in view |
+| The primary branch is brought in line with the tiers | *"we now have a concept called \"primary branch\" - that should probably be updated in reference to this"* | decided |
 
 ## The rule
 
@@ -177,13 +180,59 @@ squash message would carry the branch's `[skip ci]` lines with it.
 
 ## Who it binds
 
-**Every repository has the three branches; no person has to use
-pre-staging.** Pushing straight to staging stays allowed, and is fully
-checked, so someone who prefers to work that way -- Alex, perhaps -- loses
-nothing. **Where `Go update` lands is a per-person setting,
-`landing_branch`, and its default is `staging`** -- what every session does
-today -- so nothing changes for anyone until they choose it. Morgan's
-`identity.json` sets `"pre-staging"`.
+**Every repository has the three branches, and `Go update` lands on
+pre-staging by default, for everyone.** Pushing straight to staging stays
+allowed, and is fully checked, so someone who prefers to work that way --
+Alex, perhaps -- loses nothing: a per-person setting, `landing_branch`,
+set to `"staging"` in that person's own `identity.json`, sends their
+`Go update` there instead. Alex hears about this before it ships (step 6),
+since it changes where his sessions land their work.
+
+## The primary branch is pre-staging
+
+[primary-branch](../practices/primary-branch.md) defines the primary branch
+as *"the one shared branch regular work pushes to and pull requests
+target"*. Under this plan that is **pre-staging**, in every repository:
+`Go update`, `Push directly` with no branch named, and a session's pull
+request all land there. Staging and main are not the primary branch; they
+are what the primary branch is promoted into.
+
+Two things in that practice change with it:
+
+- **The repository no longer chooses the name.** Today each repository
+  declares its own primary branch (`base_branch` in `precedent.json`), and
+  the practice says that choice never travels to the repositories that
+  take updates from it. With the same three names everywhere, the tiers are
+  one universal rule rather than one repository's rule, and they travel
+  like any other practice.
+- **`base_branch` means staging until the rename is done.** Every tool that
+  reads it today reads it as "where finished work lands", which is what
+  staging now is. It is read through the one branch-names module (step 1),
+  never directly, so the rename changes one place.
+
+## Installs take their updates from main
+
+**Every install -- every repository that vendors Precedent, and every
+practice source a session clones -- takes its updates from `main`**, all
+of them at once, not some now and some later. That is the one branch whose
+content has passed every local check *and* the GitHub test.
+
+This has been tried once already: on 2026-09-24 installs were pointed at
+main and moved back to `precedent-beta-v01` the same day, because that
+approval had been *"more an assent, than a decision"*, and because the
+move had left installs split across two branches. Morgan then: *"they
+should all be consistent and following the same one. Maybe later we'll
+move them all to follow main"*. This is that later move, and it keeps
+both conditions: decided, and every install at once.
+
+**What it costs:** a change reaches Morgan's other repositories only after
+it reaches main -- in this repository, a merge that needs Alex's named
+go-ahead when the change is major. Work that sits on staging waiting for
+that merge is invisible to every install.
+
+**What it simplifies:** the rename (step 9) no longer touches any install,
+because no install follows staging. Only sessions working inside the
+Precedent repositories themselves see the old and new names.
 
 ## Build steps
 
@@ -201,12 +250,16 @@ In order. Each step leaves every repository working.
 4. **The merge gate** (hole 1), in the harness adapter, with a
    harness-neutral script behind it
    ([vendor-neutral-by-default](../local/practices/vendor-neutral-by-default.md)).
-5. **Pre-staging exists.** Created from the primary branch on first use in
+5. **Pre-staging exists.** Created from staging (today, `base_branch`) on first use in
    any repository; the freshness guard syncs from it and merges staging in
    (hole 2).
-6. **`Go update` and `Push directly` land on pre-staging** for anyone whose
-   default is pre-staging; **a new `Promote` command** does the merge and
-   push to staging, as a new practice file.
+6. **`Go update` and `Push directly` land on pre-staging**, unless the
+   person's `landing_branch` says staging; **a new `Promote` command** does
+   the merge and push to staging, as a new practice file; and
+   [primary-branch](../practices/primary-branch.md),
+   [go-merge](../practices/go-merge.md) and
+   [push-directly](../practices/push-directly.md) are rewritten to say so.
+   Alex hears about it first.
 7. **The Boildown's "not yet landed" line becomes a Promote reminder**:
    commits on pre-staging and not on staging are named, with the
    recommendation to Promote.
@@ -216,12 +269,17 @@ In order. Each step leaves every repository working.
    stops tagging staging (hole 3). This repo's own
    [deep-check.yml](../.github/workflows/deep-check.yml), paused on
    2026-09-25, comes back scoped to pull requests into main.
-9. **The rename.** Create `staging` at `precedent-beta-v01`'s tip in each
-   Precedent repository. Move every `base_branch`, installer pin and source
-   pin to `staging`, reaching other repositories through
-   [Update Vendors](../practices/vendor-update-runbook.md). **Keep
-   `precedent-beta-v01` updated alongside `staging`** until a check confirms
-   no install still follows the old name. Then stop updating it and hand
+9. **Installs follow main.** `SOURCE_BRANCH` in
+   [precedent_vendor_engine.py](../tools/precedent_vendor_engine.py) and
+   [precedent_refresh_sources.py](../tools/precedent_refresh_sources.py)
+   becomes `main`, with every other pin that names a branch, in one change,
+   and reaches each install through its next
+   [Update Vendors](../practices/vendor-update-runbook.md). Nothing here
+   waits on the rename, and the rename then waits on nothing here.
+10. **The rename.** Create `staging` at `precedent-beta-v01`'s tip in each
+   Precedent repository, and move every `base_branch` to it. **Keep
+   `precedent-beta-v01` updated alongside `staging`** until no session
+   still pushes to the old name. Then stop updating it and hand
    over the one-click delete link
    ([never-delete-a-remote-branch](../practices/never-delete-a-remote-branch.md)).
    Rewrite the current rules -- AGENTS.md's merge-target paragraph first --
@@ -232,14 +290,14 @@ In order. Each step leaves every repository working.
    the transition, a sync -- run by Promote, by the freshness guard, and by
    any push to either branch -- merges each branch into the other and pushes
    both, so a session in another repository that still pushes to
-   `precedent-beta-v01`, or an install that still pulls from it, sees the
+   `precedent-beta-v01`, or an install not yet moved to main (step 9), sees the
    same content it would have seen anyway. The one conflict it cannot settle
    by itself is two sessions changing the same lines on the two branches at
    once; it stops and reports that, exactly as a merge would today. A
    one-click GitHub rename is ruled out for this reason: it would leave every
    session that is mid-work pushing to a name that no longer means what it
    did.
-10. **Tests** in [verify_harness.py](../tools/verify_harness.py): each tier
+11. **Tests** in [verify_harness.py](../tools/verify_harness.py): each tier
     by branch, the setting and its override, the merge gate, the
     staging-into-pre-staging merge, Promote's `--no-ff`, and the rename
     transition.
@@ -252,17 +310,14 @@ them only through Update Vendors
 
 ## Settled at approval
 
-1. **Where `Go update` lands** is the per-person `landing_branch`, default
-   `staging`, so nobody's sessions change until they opt in; Morgan's is
-   `pre-staging`. (Refines the recommendation made before approval --
-   "default pre-staging, Alex's set to staging" -- which would have needed a
-   write to Alex's own individual source.)
+1. **Where `Go update` lands** is pre-staging by default; the per-person
+   `landing_branch` can send one person's to staging instead.
 2. **The command word is `Promote`.**
-3. **Alex hears about the rename before step 9 runs.** It renames the branch
+3. **Alex hears about the rename before step 10 runs.** It renames the branch
    his own merge-target rule is named after and changes where he pushes. It
    is not a main merge, so the rule does not require his go-ahead; he should
-   still hear about it before it happens rather than after. Steps 1 to 8
-   change nothing for him and do not wait.
+   still hear about it before it happens rather than after. He also hears
+   before step 6, which changes where his sessions land their work.
 
 ## What this gives up
 
