@@ -16954,9 +16954,14 @@ def check_promote_only_and_tier_branches():
         # 2026-09-25: an individual source refused its own Promote because
         # the merge commit this module made carried the container's -0400.
         # PRECEDENT_COMMIT_TZ is the ladder's override rung, so it is cleared
-        # here: the case is about which zone the REPOSITORY declares.
-        saved = {k: os.environ.pop(k) for k in ('PRECEDENT_COMMIT_TZ',)
+        # here: the case is about which zone the REPOSITORY declares. So is
+        # the user-level config: since the evening of 2026-09-25 its
+        # individual source supplies the person's zone (rung 3), and this
+        # machine's own person must not decide the case.
+        saved = {k: os.environ.pop(k) for k in ('PRECEDENT_COMMIT_TZ',
+                                                  'PRECEDENT_USER_CONFIG')
                  if k in os.environ}
+        os.environ['PRECEDENT_USER_CONFIG'] = str(work / 'no-user-config.json')
         old_tz = os.environ.get('TZ')
         try:
             (work / 'identity.json').write_text(_json.dumps(
@@ -16971,6 +16976,7 @@ def check_promote_only_and_tier_branches():
                 os.environ.pop('TZ', None)
             else:
                 os.environ['TZ'] = old_tz
+            os.environ.pop('PRECEDENT_USER_CONFIG', None)
             os.environ.update(saved)
         cases.append(("Promote's merge commits are dated in the zone the "
                       "repository's identity.json declares",
