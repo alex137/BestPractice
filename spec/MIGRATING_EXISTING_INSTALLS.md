@@ -743,6 +743,11 @@ widening what sessions may run
    consumers (`todo-migrate-available-but-unused`). Then: `python3
    tools/precedent_sync_views.py --repo .` from the consuming repo, with
    its `precedent.json` and a real user-level individual config in place.
+   Last, since 2026-09-25: `python3 tools/precedent_branches.py
+   --ensure-tiers --apply`, so the migrated repo has `pre-staging` and a
+   `staging` branch of its own on origin, and commit the
+   `"staging_branch": "staging"` it writes into `precedent.json` when the
+   repo's staging tier had been `main`.
    Check the reported precedence, any `overridden`/`blocked` entries, the
    combined resident-block budget, and that the generated `AGENTS.md`
    actually names practices from every source that's supposed to be in

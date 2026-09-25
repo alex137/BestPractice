@@ -479,6 +479,26 @@ def publish_pass(root, rec):
           f'other checkouts ({why}); they will run the suite themselves.')
 
 
+def _promote_only_refusal(root, argv):
+    """-> why the named push is refused before any check runs, or None.
+    Only a person who turned promote_only on is ever refused here
+    (precedent_branches.direct_push_refusal); an engine too old to know the
+    setting refuses nothing."""
+    if '--push-command' not in argv:
+        return None
+    i = argv.index('--push-command')
+    cmd = argv[i + 1] if i + 1 < len(argv) else ''
+    try:
+        sys.path.insert(0, str(HERE))
+        import precedent_branches
+    except ImportError:
+        return None
+    finally:
+        sys.path.pop(0)
+    refusal = getattr(precedent_branches, 'direct_push_refusal', None)
+    return refusal(root, cmd) if refusal else None
+
+
 def _tier_from_args(root, argv):
     """-> (tier, why). --tier wins; else --push-command names the push and
     precedent_branches.py decides; else FULL, today's behaviour."""
@@ -564,6 +584,10 @@ def main(argv):
               'check.', file=sys.stderr)
         return 2
     root = Path(root_s)
+    refused = _promote_only_refusal(root, argv)
+    if refused:
+        print(f'precedent_push_check: REFUSED -- {refused}', file=sys.stderr)
+        return 1
     tier, why = _tier_from_args(root, argv)
     kind, checks = plan(root, tier=tier)
     if kind is None:

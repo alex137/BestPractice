@@ -65,6 +65,9 @@ CLI:
   precedent_branches.py --landing           where `Go update` lands for this person
   precedent_branches.py --sync-pre-staging  create pre-staging, or merge staging into it
   precedent_branches.py --promote           pre-staging into staging, fully checked
+  precedent_branches.py --ensure-tiers [--apply]
+                                            report (or make) pre-staging and a real
+                                            staging branch on origin -- the migration step
 """
 import json
 import os
@@ -122,8 +125,20 @@ def base_branch(root):
     return value.strip() if isinstance(value, str) and value.strip() else None
 
 
+# A repository's own staging branch, when it has one apart from base_branch.
+# Written by --ensure-tiers into a repository whose base_branch is main, so it
+# gains a real staging branch WITHOUT base_branch moving: base_branch also
+# pins where a practice source's session clone sits, and that pin stays on
+# main (spec/BRANCH_TIERS_PLAN.md, "Installs take their updates from main").
+STAGING_KEY = 'staging_branch'
+
+
 def staging_branch(root):
     """The staging tier's branch name in this repository, today."""
+    explicit = precedent_json(root).get(STAGING_KEY)
+    if isinstance(explicit, str) and explicit.strip() \
+            and explicit.strip() != PRE_STAGING:
+        return explicit.strip()
     declared = base_branch(root)
     if declared and declared != PRE_STAGING:
         return declared
@@ -209,6 +224,137 @@ def landing_branch(root, user_config=None):
         # decides whether a session may push there.
         return MAIN, why
     return staging_branch(root), why
+
+
+# PROMOTE ONLY -- a per-person setting, off unless that person turns it on
+# (Morgan, 2026-09-25: "please make this an INDIVIDUAL rule for me, because I
+# believe that Alex and others won't necessarily use this system"). With it
+# on, staging and main take work only by promotion: the push gate refuses a
+# `git push` that writes to either, and the merge gate refuses a pull request
+# into either unless its head is the tier directly below. Promote itself
+# pushes from inside this module, where no push gate sees it, so the one
+# sanctioned route stays open.
+#
+# Why (2026-09-25, measured in a practice source that has no staging branch
+# of its own): five changes reached its main in one day without passing
+# through pre-staging -- sessions committing on the main checkout the
+# session-start clone gives them, and a pull request opened against the
+# default branch. Nothing refused any of it: the push check chose how hard
+# to test by branch, and a push to main passed the full check.
+PROMOTE_ONLY_SETTING = 'promote_only'
+
+
+def promote_only(root, user_config=None):
+    """-> (on, where). Only a literal `true` turns it on."""
+    value, where = personal_setting(root, PROMOTE_ONLY_SETTING, user_config)
+    return value is True, where
+
+
+def _promotion_heads(root, base):
+    """The branches allowed to be merged into `base` when promote_only is on:
+    the tier directly below it."""
+    if base == MAIN:
+        return {staging_branch(root), STAGING, LEGACY_STAGING} - {MAIN}
+    return {PRE_STAGING}
+
+
+def direct_push_refusal(root, args, user_config=None):
+    """-> None, or why a `git push <args>` is refused: promote_only is on
+    and the push writes straight to staging or main. A push whose
+    destination cannot be read is left to the full check, not refused."""
+    on, where = promote_only(root, user_config)
+    if not on:
+        return None
+    targets = push_targets(root, args)
+    hit = sorted(set(targets or ()) & full_branches(root))
+    if not hit:
+        return None
+    return (f'{" and ".join(hit)} take{"s" if len(hit) == 1 else ""} work only '
+            f'by promotion here -- {PROMOTE_ONLY_SETTING} is on in {where}. '
+            f'Push to {PRE_STAGING} instead (`git push origin HEAD:{PRE_STAGING}`), '
+            f'then say Promote. A commit made on a local {hit[0]} checkout goes '
+            f'the same way; move the checkout back with '
+            f'`git reset --keep origin/{hit[0]}` once origin/{PRE_STAGING} has it.')
+
+
+def merge_refusal(root, bases, heads, user_config=None):
+    """-> None, or why merging a pull request is refused: promote_only is
+    on, its base is staging or main, and its head is not the tier directly
+    below. `bases` and `heads` are every branch at the base and head tips;
+    when the base is ambiguous (two branches at one commit, one of them not
+    protected) nothing is refused -- a wrong refusal of an ordinary pull
+    request into pre-staging would be the common case right after Promote."""
+    on, where = promote_only(root, user_config)
+    if not on or not bases:
+        return None
+    protected = full_branches(root)
+    if not all(b in protected for b in bases):
+        return None
+    allowed = set()
+    for b in bases:
+        allowed |= _promotion_heads(root, b)
+    if set(heads or ()) & allowed:
+        return None
+    return (f'a pull request into {" or ".join(sorted(bases))} is merged only '
+            f'from {" or ".join(sorted(allowed))} here -- {PROMOTE_ONLY_SETTING} '
+            f'is on in {where}. Retarget it at {PRE_STAGING}, merge it there, '
+            f'and say Promote.')
+
+
+def ensure_tiers(root, apply=False, say=print):
+    """Make origin carry pre-staging and a real staging branch. -> 0 when
+    both exist (or were just made), 1 when something is missing and
+    `apply` is off, or could not be made.
+
+    A repository whose staging tier is main (base_branch "main", no
+    staging_branch) gains a `staging` branch at main's tip, and its
+    precedent.json gains `"staging_branch": "staging"` -- written here,
+    committed by the session running the migration. base_branch itself is
+    left alone (see STAGING_KEY). Then pre-staging is made from staging by
+    sync_pre_staging, the same way first use makes it everywhere else."""
+    root = pathlib.Path(root)
+    staging = staging_branch(root)
+    missing = []
+    wants_staging_branch = staging == MAIN
+    if wants_staging_branch:
+        missing.append(f'a separate {STAGING} branch (the staging tier is '
+                       f'{MAIN} here)')
+    elif not _remote_tip(root, staging):
+        missing.append(f'{staging} on origin')
+    if not _remote_tip(root, PRE_STAGING):
+        missing.append(f'{PRE_STAGING} on origin')
+    if not missing:
+        say(f'tiers: {PRE_STAGING} -> {staging} -> {MAIN}, all present.')
+        return 0
+    if not apply:
+        say('tiers: missing ' + '; '.join(missing) +
+            ' -- run `python3 tools/precedent_branches.py --ensure-tiers --apply`.')
+        return 1
+    if wants_staging_branch or not _remote_tip(root, staging):
+        src = MAIN if wants_staging_branch else (base_branch(root) or MAIN)
+        tip = _remote_tip(root, STAGING) or _remote_tip(root, src)
+        if not tip:
+            say(f'origin has no {src} branch, so there is nothing to base '
+                f'{STAGING} on; nothing was changed.')
+            return 1
+        if not _remote_tip(root, STAGING):
+            p = _run(root, 'push', '-q', 'origin', f'{tip}:refs/heads/{STAGING}')
+            if p.returncode != 0:
+                say(f'could not create {STAGING} on origin: {p.stderr.strip()[:300]}')
+                return 1
+            say(f'created {STAGING} on origin at {src} ({tip[:12]}).')
+        if wants_staging_branch:
+            path = root / 'precedent.json'
+            data = _read_json(path) or {}
+            data[STAGING_KEY] = STAGING
+            path.write_text(json.dumps(data, indent=2, ensure_ascii=False) + '\n',
+                            encoding='utf-8')
+            say(f'wrote "{STAGING_KEY}": "{STAGING}" into precedent.json -- commit '
+                f'it; {MAIN} now takes work from {STAGING} by pull request.')
+    if not sync_pre_staging(root, say):
+        return 1
+    say(f'tiers: {PRE_STAGING} -> {staging_branch(root)} -> {MAIN}.')
+    return 0
 
 
 def _git(root, *args):
@@ -386,6 +532,21 @@ def promote(root, say=print):
             return 1
         p = _run(wt, 'push', '-q', 'origin', f'HEAD:refs/heads/{staging}')
         if p.returncode != 0:
+            # Most often another window promoted the same batch while this
+            # one was checking it. Then there is nothing left to do, and
+            # "Promote again" would only send the person round a second
+            # time for work already on staging (2026-09-25: two sessions
+            # raced this way twice in a row, each told to try again).
+            now = _remote_tip(root, staging)
+            if now:
+                _run(root, 'fetch', '-q', 'origin', staging)
+            if now and _run(root, 'merge-base', '--is-ancestor', ptip,
+                            now).returncode == 0:
+                say(f'another window promoted this batch while the check ran: '
+                    f'{staging} ({now[:12]}) already has everything that was on '
+                    f'{PRE_STAGING}. Nothing was pushed, and there is nothing '
+                    f'left to promote.')
+                return 0
             say(f'{staging} moved while the check ran, so nothing was pushed; '
                 f'Promote again. ({p.stderr.strip()[:200]})')
             return 1
@@ -533,6 +694,8 @@ def _main(argv):
         return 0 if sync_pre_staging(root) else 1
     if argv == ['--promote']:
         return promote(root)
+    if argv[:1] == ['--ensure-tiers'] and set(argv[1:]) <= {'--apply'}:
+        return ensure_tiers(root, apply='--apply' in argv)
     tier, why = branch_push_checks(root)
     print(f'pre-staging  {PRE_STAGING}')
     print(f'staging      {staging_branch(root)}')

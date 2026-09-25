@@ -63,7 +63,22 @@ It does the whole step, and a session adds nothing to it:
 the full check ran or stood from an earlier run, or -- on
 `PROMOTE REFUSED` -- the failing check and the batch it was run on. A
 refusal is fixed on pre-staging, like any other edit, and promoted again;
-never by pushing the batch to staging some other way.
+never by pushing the batch to staging some other way. When another window
+promoted the same batch while this one was checking it, Promote says so and
+exits cleanly -- *"another window promoted this batch while the check
+ran"* -- and that is the whole report: the work is on staging, and there is
+nothing to run again.
+
+**Never suggest a Promote that another session is already running**, and
+the same goes for `Go update` or a merge of the same pull request or the
+same work: two windows doing one job race, and the loser throws away a full
+check run. Before recommending one, look -- the pull request's state, the
+branch tips, and any session this one knows is on the same work -- and when
+another session has it, say that it does, not that the person should do it
+again (Morgan, 2026-09-25, after two sessions promoted the same batch at
+once: *"you should NEVER suggest to \"promote\" or \"go update\" or
+\"merge\" when another session is already doing that with the same
+PR/thing"*, strength: decided).
 
 **It can take as long as the full check does** -- minutes in this
 repository. Run it with a long timeout, or in the background, and keep

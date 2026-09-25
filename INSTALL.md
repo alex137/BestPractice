@@ -865,6 +865,15 @@ not this section.
    `precedent_sync_views.py --repo .` — `build_views.py --check` alone
    reports the hand-templated `MAP.md` and `GLOSSARY.md` as drift, which
    they are not.
+
+   **Then give the repo its three branches**:
+   `python3 tools/precedent_branches.py --ensure-tiers --apply`. It creates
+   `staging` and `pre-staging` on origin where they are missing and, in a
+   repo whose staging tier was `main`, writes `"staging_branch": "staging"`
+   into `precedent.json` — commit that with the rest. Work then lands on
+   pre-staging, Promote moves it to staging, and main takes staging by pull
+   request (the same step closes out every Update Vendors: the
+   [vendor-update-runbook](practices/vendor-update-runbook.md)'s step 10(h)).
 7. **Root-hygiene rule, adapted from §1**: nothing from Precedent lands
    loose at the repo root except the instantiated files above and step 6's
    `practices/` and `MANIFEST.json` — the vendored engine and universal

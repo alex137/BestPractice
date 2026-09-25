@@ -64,11 +64,11 @@ first line, with the reason.
   `origin`** — the person's landing branch
   (`python3 tools/precedent_branches.py --landing`: `pre-staging`, unless
   their `landing_branch` says `staging` or `main`), for the pull request
-  too; never `main` for being the configured default. **A high-risk change
-  landed on pre-staging gets a bolded paragraph in the reply and a line in
-  The Boildown asking the person to act: "Please move this to staging soon:
-  say Promote, so it gets the full testing."** — **and a commit still sitting
-  in the local clone has not done it**: fetch and confirm `origin` carries it
+  too; never `main` for being the configured default. A high-risk change
+  landed on pre-staging gets one plain, unbolded line in The Boildown saying
+  how far pre-staging is ahead of staging, with no urgency — a Promote can
+  move it whenever it suits. **A commit still sitting
+  in the local clone has not landed anything**: fetch and confirm `origin` carries it
   before the reply says where the work went. Say which path you took, and why,
   in the reply. Unsure which it is? High-risk. A step this session cannot
   perform hands off rather than coming back as a question: the

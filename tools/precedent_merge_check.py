@@ -125,13 +125,18 @@ def resolve_pull(root, number):
         return sha, [], 'its head (GitHub has no test merge for it)'
     sha = git(root, 'rev-parse', f'{ns}/merge')
     base_tip = git(root, 'rev-parse', f'{ns}/merge^1')
-    bases = []
+    return sha, branches_at(root, base_tip), 'the merge GitHub would make'
+
+
+def branches_at(root, tip):
+    """Every branch on origin whose tip is `tip`."""
+    out = []
     listing = git(root, 'ls-remote', '--heads', 'origin') or ''
     for line in listing.splitlines():
-        tip, _, ref = line.partition('\t')
-        if tip == base_tip and ref.startswith('refs/heads/'):
-            bases.append(ref[len('refs/heads/'):])
-    return sha, bases, 'the merge GitHub would make'
+        sha, _, ref = line.partition('\t')
+        if tip and sha == tip and ref.startswith('refs/heads/'):
+            out.append(ref[len('refs/heads/'):])
+    return out
 
 
 def _cleanup_refs(root, number):
@@ -225,6 +230,15 @@ def main(argv):
         if sha is None:
             print(f'precedent_merge_check: {what}')
             return 2
+        refusal = getattr(pb, 'merge_refusal', None) if pb else None
+        if refusal:
+            heads = branches_at(root, git(root, 'rev-parse',
+                                          f'refs/precedent-merge-check/{number}/head'))
+            why_not = refusal(root, bases, heads)
+            if why_not:
+                print(f'precedent_merge_check: REFUSED pull request #{number} '
+                      f'of {owner}/{repo} -- {why_not}')
+                return 1
         if bases and pb:
             # Every branch at that commit could be the base; the strictest
             # of them decides.
