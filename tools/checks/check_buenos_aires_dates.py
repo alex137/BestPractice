@@ -200,13 +200,14 @@ def _resolve():
     declaration, and this check is the thing that reports it.
 
     `stand_down` is a NotApplicable for every other non-answer."""
-    # A PERSON'S ZONE BINDS THEIR OWN REPO ONLY (Morgan, 2026-09-25,
-    # strength: decided): "That is in personal-individual ONLY FOR ME. The
-    # default timezone here should be New York, or here should be none, and
-    # only use the individual one in the precedent-individual." So a repo
-    # without its own identity.json -- every shared and consuming repo --
-    # has no commit timezone to enforce, and this check stands down there
-    # instead of resolving the person through the user-level config.
+    # NO SHARED REPO'S HISTORY IS AUDITED AGAINST ONE PERSON'S ZONE (Morgan,
+    # 2026-09-25): other people's commits live there. A repo without its own
+    # identity.json -- every shared and consuming repo -- stands down here
+    # instead of resolving the person through the user-level config. The
+    # person's own NEW commits there still carry their zone: that is
+    # enforced at commit time by commit-identity.sh's backstop ("I meant the
+    # repo timezone to be a fallback, in case there is no defined individual
+    # timezone defined", the same day), not by auditing history.
     if not IDENTITY_FILE.is_file():
         return None, "", NotApplicable(
             "this repo has no identity.json of its own, so it is not "

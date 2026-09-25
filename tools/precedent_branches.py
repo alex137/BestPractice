@@ -231,10 +231,25 @@ def _remote_tip(root, branch):
     return None
 
 
-def _merge_env():
+def _merge_env(root):
     """A merge commit this module makes must never carry `[skip ci]`
-    (plan, hole 3): PRECEDENT_CI_NOW is the cadence hook's own override."""
+    (plan, hole 3): PRECEDENT_CI_NOW is the cadence hook's own override.
+
+    And it carries the committing person's own timezone, whatever the
+    session's clock says: on 2026-09-25 a Promote into precedent-individual
+    made its merge at -0400 in a session running on New York time, and the
+    full check refused it. precedent_time.py resolves the zone the same way
+    commit-identity.sh does -- the person's first, the repo's fallback
+    after -- so the merge is right by construction."""
     env = dict(os.environ, PRECEDENT_CI_NOW='1')
+    sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+    try:
+        import precedent_time
+        env['TZ'] = precedent_time.resolved(root)[1]
+    except Exception:          # no zone module here: the session's clock stands
+        pass
+    finally:
+        sys.path.pop(0)
     return env
 
 
@@ -321,7 +336,7 @@ def sync_pre_staging(root, say=print):
     with _Worktree(root, ptip) as wt:
         for branch, tip in pending:
             m = _run(wt, 'merge', '--no-ff', '-q', '-m',
-                     f'Merge {branch} into {PRE_STAGING}', tip, env=_merge_env())
+                     f'Merge {branch} into {PRE_STAGING}', tip, env=_merge_env(root))
             if m.returncode != 0:
                 _run(wt, 'merge', '--abort')
                 say(f'{branch} does not merge cleanly into {PRE_STAGING} -- the same '
@@ -355,7 +370,7 @@ def promote(root, say=print):
     with _Worktree(root, stip) as wt:
         m = _run(wt, 'merge', '--no-ff', '-q', '-m',
                  f'Promote {PRE_STAGING} into {staging} ({len(batch)} commit(s))',
-                 ptip, env=_merge_env())
+                 ptip, env=_merge_env(root))
         if m.returncode != 0:
             _run(wt, 'merge', '--abort')
             say(f'{PRE_STAGING} does not merge cleanly into {staging}; nothing was pushed.')
