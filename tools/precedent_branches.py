@@ -44,8 +44,8 @@ individual source, else the one ~/.config/precedent/config.json names),
 then the default, `basic`. Nothing it says can lower staging or main.
 
 WHERE `Go update` LANDS is the person's `landing_branch` setting, read
-the same way: `pre-staging` (the default, for everyone, since 2026-09-25)
-or `staging`. An unreadable value lands on staging, where work landed
+the same way: `pre-staging` (the default, for everyone, since 2026-09-25),
+`staging`, or `main`. An unreadable value lands on staging, where work landed
 before the tiers existed, never somewhere new.
 
 PROMOTE moves pre-staging into staging (plan step 6; Morgan named the
@@ -191,13 +191,23 @@ def landing_branch(root, user_config=None):
     value, where = personal_setting(root, LANDING_SETTING, user_config)
     if value is None:
         tier, why = DEFAULT_LANDING, f'{LANDING_SETTING} is not set; the default is {DEFAULT_LANDING}'
-    elif value in (PRE_STAGING, STAGING):
+    elif value in (PRE_STAGING, STAGING, MAIN):
         tier, why = value, f'{LANDING_SETTING} is "{value}" in {where}'
     else:
         tier, why = STAGING, (f'{LANDING_SETTING} is {value!r} in {where}, which '
-                              f'is neither "pre-staging" nor "staging" -- '
+                              f'is none of "pre-staging", "staging" or "main" -- '
                               f'landing on staging, as before the tiers')
-    return (PRE_STAGING if tier == PRE_STAGING else staging_branch(root)), why
+    if tier == PRE_STAGING:
+        return PRE_STAGING, why
+    if tier == MAIN:
+        # Straight to main is a person's choice to make (Morgan, 2026-09-25:
+        # "they have to be able to set it to \"main\" if they want"). It
+        # skips staging, never the checks: a push to main is fully checked
+        # like one to staging. A repository's own rule about main -- this
+        # one's needs Alex's named go-ahead for a major change -- still
+        # decides whether a session may push there.
+        return MAIN, why
+    return staging_branch(root), why
 
 
 def _git(root, *args):
