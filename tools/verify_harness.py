@@ -16575,6 +16575,12 @@ def check_promote_pre_staging():
                 + ('name = ("ci_workflows" if "ci-workflow-approved" in '
                    'sys.argv else "precedent_check")\n'
                    if t == 'precedent_check' else f'name = "{t}"\n')
+                # PROMOTE_RACE: a command the stub runs mid-check, standing
+                # in for another window promoting the same batch meanwhile.
+                + ('import os, subprocess\n'
+                   'if os.environ.get("PROMOTE_RACE"):\n'
+                   '    subprocess.run(os.environ["PROMOTE_RACE"], shell=True)\n'
+                   if t == 'precedent_check' else '')
                 + 'sys.exit(1 if name in body else 0)\n',
                 encoding='utf-8')
         # A repo whose staging still goes by its pre-rename name.
@@ -16586,9 +16592,10 @@ def check_promote_pre_staging():
         git(work, 'remote', 'add', 'origin', f'file://{bare}')
         git(work, 'push', '-q', 'origin', 'beta')
 
-        def branches(*a):
+        def branches(*a, extra=None):
             p = subprocess.run([sys.executable, 'tools/precedent_branches.py', *a],
-                               cwd=work, capture_output=True, text=True, env=env)
+                               cwd=work, capture_output=True, text=True,
+                               env=dict(env, **(extra or {})))
             return p.returncode, p.stdout + p.stderr
 
         def tip(b):
@@ -16679,6 +16686,24 @@ def check_promote_pre_staging():
                       'when it passed', rc == 0 and 'PROMOTED' in out
                       and 'NOT re-run' in out and 'already passed the full '
                       'check at' in out))
+
+        # Another window promotes the same batch while this one checks it.
+        # The push is refused, and Promote must say the work is already on
+        # staging -- not send the person round again with "Promote again".
+        commit_to('pre-staging', 'list.txt', 'W\nb\nc\n', 'raced edit')
+        race = tmp / 'race'
+        git(tmp, 'clone', '-q', f'file://{bare}', str(race))
+        rc, out = branches('--promote', extra={'PROMOTE_RACE': (
+            f'git -C {race} fetch -q origin && '
+            f'git -C {race} checkout -q -B r origin/beta && '
+            f'git -C {race} merge -q --no-ff -m other-window origin/pre-staging && '
+            f'git -C {race} push -q origin HEAD:refs/heads/beta')})
+        cases.append(('a batch another window promoted mid-check is reported '
+                      'as already on staging, not as "Promote again"',
+                      rc == 0 and 'another window promoted this batch' in out
+                      and 'Promote again' not in out
+                      and git(work, 'log', '-1', '--format=%s',
+                              tip('beta')).stdout.strip() == 'other-window'))
 
         commit_to('pre-staging', 'list.txt', 'X\nb\nc\n', 'pre-staging edits line 1')
         commit_to('beta', 'list.txt', 'Y\nb\nc\n', 'staging edits line 1 too')
