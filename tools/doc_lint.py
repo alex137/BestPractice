@@ -186,6 +186,13 @@ FILENAME_STEM_RE = re.compile(r'\.[a-z][a-z0-9]{0,4}\b')
 HTML_COMMENT_RE = re.compile(r'<!--.*?-->', re.S)
 GLOSSARY_PATH = ROOT / 'GLOSSARY.md'
 ACRONYM_SKIP_FILES = {'GLOSSARY.md'}
+# Generated summary indexes whose generators drop every link from the copied
+# prose on purpose (tools/summary_text.py -- a cut could land inside one, and
+# each row already links its full item). A bare file name in one of their
+# cells is the design, and hand-linking it fails the generator's drift check,
+# so "link the ones you touched" is advice nobody can take there. Only the
+# unlinked-reference warning is skipped; every other check still runs.
+UNLINKED_SKIP_FILES = {'todo/TODO.md', 'todo/CLOSED.md', 'gotchas/INDEX.md'}
 # common words / units / universally-known tech that are never worth glossing:
 ACRONYM_STOP = {
     'THE','AND','FOR','NOT','BUT','ALL','ONE','TWO','OUR','YOU','WHO','WHY','HOW','NEW',
@@ -908,7 +915,8 @@ def check_file(path, fix=False, known=None):
         # unlinked refs: a `file.md` code span not immediately followed by ](
         for m in REF_RE.finditer(line):
             after = line[m.end():m.end()+2]
-            if after != '](' and is_file_reference(m.group(1)):
+            if (after != '](' and is_file_reference(m.group(1))
+                    and str(path).replace('\\', '/') not in UNLINKED_SKIP_FILES):
                 unlinked.append((i, m.group(1)))
         # target= anchors: GitHub strips the attribute from rendered HTML (check 4);
         # code spans stripped first so documenting the rule doesn't trip it

@@ -253,7 +253,7 @@ plan's premise.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block; `python3 tools/build_views.py --check` exits non-zero on drift. Source: practices/ -- edit the practice file, never this block. -->
 
-## Resident block (~884 of 2000 token budget, 10 of 142 practices (10 universal))
+## Resident block (~884 of 2000 token budget, 10 of 143 practices (10 universal))
 
 **bold-key-phrases.** People don't read; they skim, and bolding makes skimming easy. Bold the key phrases in a document by default, without being asked, scaling with length -- a long paragraph or document is where a skimmer most needs a spine to follow, a short note usually needs little or none.
 
@@ -574,7 +574,11 @@ place — nothing is ever deleted, and nothing moves.
   **deep check** is the full gate suite run before push or merge:
   `python3 tools/verify_harness.py --as-ci`, `python3 tools/doc_lint.py`,
   `python3 tools/leak_gate.py`, `python3 tools/precedent_check.py`, and
-  `python3 tools/doc_sync.py`. **What matters is `0 failed` and
+  `python3 tools/doc_sync.py` -- **all five in one command:
+  `python3 tools/precedent_push_check.py`**, which is also what
+  `push-check-gate.sh` runs before any `git push` a session makes. A pass
+  is recorded against the tree, so running it first makes the push
+  instant; skipping it makes the push wait for it. **What matters is `0 failed` and
   `0 violated`, never a passed/skipped count** — those grow as checks are
   added, so a figure written down here goes stale by design; see
   [spec/ATTENTION_CEILING.md](spec/ATTENTION_CEILING.md)'s closing section,

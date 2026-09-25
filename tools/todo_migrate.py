@@ -69,6 +69,7 @@ import sys
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 import precedent_time  # practice: timestamps-carry-offset -- the one module
+import summary_text  # a fallback title is a summary: links out before the cut
 
 # The bullet marker a top-level item starts with: an unordered `- ` bullet,
 # or a NUMBERED `51. ` one. Both are real pre-migration shapes -- this
@@ -357,7 +358,8 @@ def parse_todo_items(text):
         cm = None if anchor else TODO_CHECKBOX_RE.match(block[0])
         checked = (cm.group(1).lower() == 'x') if cm else None
         tm = TITLE_RE.search(raw)
-        title = tm.group(1).strip() if tm else raw.strip().splitlines()[0][:80]
+        title = (tm.group(1).strip() if tm
+                 else summary_text.one_line(raw.strip().splitlines()[0], 80))
         items.append(Item(anchor, title, raw, has_anchor=bool(anchor),
                            checked=checked,
                            section_kind=section_kind_at[starts[idx]]))

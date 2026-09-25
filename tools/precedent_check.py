@@ -2824,6 +2824,7 @@ DOGFOODED_HOOKS_MATCH_TEMPLATE = (
     'doc-lint-gate.sh',
     'freshness-guard.sh',
     'precedent-paths.sh',
+    'push-check-gate.sh',
     'seeded-prompt-gate.sh',
 )
 
@@ -3245,7 +3246,18 @@ def _hooks_on_disk_are_reachable(ctx):
     # A decline naming nothing on disk. The adapter went and the note
     # outlived it, which quietly exempts a path that may come back later.
     on_disk = {str(h.relative_to(ROOT)) for h in hooks}
-    for path in sorted(set(declined) - on_disk):
+    # A hook a repo kind gets from the engine's list is NOT vendored once it
+    # is declined -- declining it is how a repo keeps a refresh from wiring
+    # it (precedent_vendor_engine.py's HOOK_WIRING) -- so its absence is the
+    # decline working, not the note outliving the file.
+    try:
+        import precedent_vendor_engine as _pve
+        shipped_by_list = {f'.claude/hooks/{n}'
+                           for entries in _pve.HOOK_WIRING.values()
+                           for _e, _m, n, _a in entries}
+    except Exception:                            # practice: fail-gracefully
+        shipped_by_list = set()
+    for path in sorted(set(declined) - on_disk - shipped_by_list):
         found.append(Finding(
             'precedent.json',
             f'declines {path}, and no such file is here. Either the adapter '
@@ -3253,6 +3265,121 @@ def _hooks_on_disk_are_reachable(ctx):
             'leave a standing exemption for something nobody can see'))
     return found
 
+
+
+@check('new-hook-joins-the-registry', 'tree',
+       'every hook script this repo ships (templates/harness/claude-code/'
+       'hooks/*.sh) is on a repo kind\'s list in precedent_vendor_engine.py\'s '
+       'HOOK_WIRING, or in HOOKS_NO_KIND with the reason no kind gets it; '
+       'nothing is listed that is not shipped; and each kind\'s template -- '
+       'the consumer settings.json and the set payload '
+       'precedent_bootstrap_source.py writes -- wires exactly its list',
+       'whether a hook is on the RIGHT kind\'s list: that is a judgment this '
+       'cannot make, only one it forces somebody to write down. Blind to '
+       'every harness but Claude Code, and to a repo that ships no hook '
+       'templates at all, which is every repo except the engine\'s own.')
+def _new_hook_joins_the_registry(ctx):
+    """A hook nobody put on a list reaches nobody -- the gap
+    todo-2026-09-21-a-new-hook-cannot-reach-an-installed-consumer.md filed.
+
+    A refresh now wires, into every installed repo, the hooks its kind's
+    list names (HOOK_WIRING). That only helps a hook that IS on a list, so
+    the list is the single place this can go wrong again: a new script
+    dropped into the hooks directory and wired into one template by hand
+    reaches fresh installs and no existing repo, which is the original bug
+    with one more step in it. The 2026-09-25 sweep that built the list
+    found exactly that twice over -- commit-identity-once.sh, wired here
+    since 2026-09-22 and in no template, and seeded-prompt-gate.sh, in the
+    consumer template and never in a set's."""
+    root = ctx.root
+    hooks_dir = root / 'templates' / 'harness' / 'claude-code' / 'hooks'
+    if not hooks_dir.is_dir():
+        raise NotApplicable('this repo ships no Claude Code hook templates, '
+                            'so it has no hook list to keep')
+    try:
+        import precedent_vendor_engine as pve
+        import precedent_bootstrap_source as pbs
+    except Exception as e:                       # practice: fail-gracefully
+        raise NotApplicable(f'could not load the hook lists: {e}')
+    rel_dir = str(hooks_dir.relative_to(root))
+    shipped = {p.name for p in hooks_dir.glob('*.sh')}
+    listed = {n for entries in pve.HOOK_WIRING.values()
+              for _e, _m, n, _a in entries}
+    no_kind = dict(pve.HOOKS_NO_KIND)
+    found = []
+    for n in sorted(shipped - listed - set(no_kind)):
+        found.append(Finding(
+            f'{rel_dir}/{n}',
+            'ships and is on no repo kind\'s list. Add it to HOOK_WIRING for '
+            'each kind that should run it (and to that kind\'s template), or '
+            'to HOOKS_NO_KIND with the reason -- otherwise no installed repo '
+            'ever receives it'))
+    for n in sorted((listed | set(no_kind)) - shipped):
+        found.append(Finding(
+            'tools/precedent_vendor_engine.py',
+            f'lists {n}, which {rel_dir}/ does not ship'))
+    for n in sorted(listed & set(no_kind)):
+        found.append(Finding(
+            'tools/precedent_vendor_engine.py',
+            f'{n} is on a kind\'s list AND in HOOKS_NO_KIND -- say which'))
+    for n, why in sorted(no_kind.items()):
+        if not str(why or '').strip():
+            found.append(Finding(
+                'tools/precedent_vendor_engine.py',
+                f'HOOKS_NO_KIND names {n} with no reason'))
+
+    def _wiring(settings_path):
+        data = json.loads(settings_path.read_text(encoding='utf-8'))
+        out = set()
+        for event, groups in (data.get('hooks') or {}).items():
+            for g in groups:
+                for h in g.get('hooks', []):
+                    parts = str(h.get('command') or '').split()
+                    if not parts:
+                        continue
+                    name = parts[0].rsplit('/', 1)[-1]
+                    out.add((event, g.get('matcher'), name,
+                             parts[1] if len(parts) > 1 else None))
+        return out
+
+    def _declared(kind):
+        return {(e, m, n, a.split()[0] if a else None)
+                for e, m, n, a in pve.HOOK_WIRING[kind]}
+
+    def _compare(kind, where, actual):
+        want = _declared(kind)
+        for e, m, n, mode in sorted(want - actual, key=str):
+            found.append(Finding(where, (
+                f'does not wire {n}{" " + mode if mode else ""} at {e}'
+                f'{" (" + m + ")" if m else ""}, which HOOK_WIRING gives '
+                f'the {kind} kind -- a fresh {kind} would start without '
+                f'it')))
+        for e, m, n, mode in sorted(actual - want, key=str):
+            found.append(Finding(where, (
+                f'wires {n}{" " + mode if mode else ""} at {e}'
+                f'{" (" + m + ")" if m else ""}, which is not on '
+                f'HOOK_WIRING\'s {kind} list -- an installed {kind} would '
+                f'never receive it')))
+
+    consumer_tpl = root / 'templates' / 'harness' / 'claude-code' / 'settings.json'
+    if consumer_tpl.is_file():
+        _compare('consumer', str(consumer_tpl.relative_to(root)),
+                 _wiring(consumer_tpl))
+    import shutil, tempfile
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-hook-registry-'))
+    try:
+        pbs._install_session_hooks(tmp, 'main')
+        actual = {w for w in _wiring(tmp / '.claude' / 'settings.json')
+                  if w[2] != pbs.INDIVIDUAL_SOURCE_HOOK}
+        _compare('source', 'tools/precedent_bootstrap_source.py '
+                 '(_install_session_hooks)', actual)
+    except Exception as e:                       # practice: fail-gracefully
+        found.append(Unverified('tools/precedent_bootstrap_source.py',
+                                f'could not build a set\'s settings to '
+                                f'compare: {e}'))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    return found
 
 @check('no-hardcoded-git-identity', 'tree',
        'a tracked .claude/settings.json never names a person\'s '
@@ -7230,7 +7357,9 @@ def _dup_words(text):
     """-> normalized words. Markup differs between a practice file and the
     prose quoting it -- backticks, link syntax, bolding, line wrapping -- and
     comparing raw text finds nothing. Compare what a reader would hear."""
-    text = re.sub(r'\[([^\]]*)\]\([^)]*\)', r'\1', text)
+    # `[^)\n]`: a destination never spans lines, and this runs over whole
+    # files, where `[^)]` can swallow text up to a ")" paragraphs away.
+    text = re.sub(r'\[([^\]]*)\]\([^)\n]*\)', r'\1', text)
     text = re.sub(r'[`*_#>|]', ' ', text)
     return re.findall(r"[a-z0-9']+", text.lower())
 

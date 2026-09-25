@@ -90,3 +90,22 @@ contributed no content of its own, and the branch tip's tree was identical
 to `df17a4d`, which passed CI on #589. The local `--as-ci` run had the same
 one failure as the third fold-in, from the same on-disk
 precedent-individual clone.
+
+## The fifth fold-in, later the same day
+
+Morgan: "Alex gives his goahead to merge precedent-beta-v01 into main on
+precedent", after a session had said the fold-in would carry #591 (every
+Update Vendors retires the old install's leftovers) and #592 (every install
+follows `precedent-beta-v01` again, for now). Read as the same relayed
+approval as the four above. As before, this session never saw Alex's own
+words.
+
+#592 undid the second fold-in's pin switch, and so had to reach `main` as
+well: an install pinned to `main` reads `SOURCE_BRANCH` from the engine it
+vendored from there, and would otherwise never be pointed back.
+
+Checked on an unshallowed clone before merging (PR #593): `main`
+contributed no content of its own (merge-base tree `c15d6f5` is `main`'s
+tree), and the branch tip's tree (`dbfaa4d`) was identical to #592's head,
+which passed CI and a local `verify_harness.py --as-ci` with 0 failed.
+After the merge, `main`'s tree is `dbfaa4d`.

@@ -6596,13 +6596,13 @@ def check_reply_gate_names_work_not_yet_landed():
         g('push', '-q', '-u', 'origin', 'trunk')
 
         cases.append(('on the base branch, with nothing ahead, it says nothing',
-                      pg._unlanded_work(repo) == [], str(pg._unlanded_work(repo))))
+                      pg._unlanded_work(repo, siblings=False) == [], str(pg._unlanded_work(repo, siblings=False))))
 
         # A commit on a feature branch -- the exact shape that gets forgotten.
         g('switch', '-q', '-c', 'feature')
         (repo / 'b.txt').write_text('two\n', encoding='utf-8')
         g('add', '-A'); g('commit', '-qm', 'second')
-        got = pg._unlanded_work(repo)
+        got = pg._unlanded_work(repo, siblings=False)
         cases.append(('a commit on a feature branch is reported',
                       len(got) == 1, str(got)))
         cases.append(('it names the branch it is NOT on, which is the '
@@ -6614,7 +6614,7 @@ def check_reply_gate_names_work_not_yet_landed():
         # PUSHING THE FEATURE BRANCH CHANGES NOTHING -- that is the whole
         # point, and it is what the stop hook's "unpushed" test misses.
         g('push', '-q', '-u', 'origin', 'feature')
-        after = pg._unlanded_work(repo)
+        after = pg._unlanded_work(repo, siblings=False)
         cases.append(('pushing the feature branch does NOT clear it -- pushed '
                       'is not landed', len(after) == 1, str(after)))
 
@@ -6622,7 +6622,7 @@ def check_reply_gate_names_work_not_yet_landed():
         g('switch', '-q', 'trunk'); g('merge', '-q', 'feature')
         g('push', '-q', 'origin', 'trunk')
         cases.append(('merging into the base branch clears it',
-                      pg._unlanded_work(repo) == [], str(pg._unlanded_work(repo))))
+                      pg._unlanded_work(repo, siblings=False) == [], str(pg._unlanded_work(repo, siblings=False))))
 
         # A SQUASH merge clears it too. The squashed commit on trunk is new,
         # so the branch's own commits never become its ancestors and
@@ -6638,7 +6638,7 @@ def check_reply_gate_names_work_not_yet_landed():
         g('commit', '-qm', 'squash of squashed')
         g('push', '-q', 'origin', 'trunk')
         g('switch', '-q', 'squashed')
-        got = pg._unlanded_work(repo)
+        got = pg._unlanded_work(repo, siblings=False)
         cases.append(('a squash-merged branch is not reported', got == [], str(got)))
 
         # The base moving on with someone else's work must not bring the
@@ -6648,13 +6648,13 @@ def check_reply_gate_names_work_not_yet_landed():
         g('add', '-A'); g('commit', '-qm', 'unrelated')
         g('push', '-q', 'origin', 'trunk')
         g('switch', '-q', 'squashed')
-        got = pg._unlanded_work(repo)
+        got = pg._unlanded_work(repo, siblings=False)
         cases.append(('it stays cleared after the base moves on', got == [], str(got)))
 
         # And real work on top of the squashed branch is still reported.
         (repo / 'c.txt').write_text('three, revised again\n', encoding='utf-8')
         g('add', '-A'); g('commit', '-qm', 'fifth')
-        got = pg._unlanded_work(repo)
+        got = pg._unlanded_work(repo, siblings=False)
         cases.append(('a real commit after the squash is still reported',
                       len(got) == 1 and "'trunk'" in got[0], str(got)))
         g('switch', '-q', 'trunk')
@@ -6664,7 +6664,7 @@ def check_reply_gate_names_work_not_yet_landed():
         g('add', '-A'); g('commit', '-qm', 'drop config')
         g('push', '-q', 'origin', 'trunk')
         cases.append(('a repo with no precedent.json does not crash',
-                      isinstance(pg._unlanded_work(repo), list), 'raised'))
+                      isinstance(pg._unlanded_work(repo, siblings=False), list), 'raised'))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
@@ -9465,6 +9465,23 @@ def check_precedent_check_fires():
                       'precedent-paths.sh' in
                       planted['dogfooded-hooks-match-template'][1]))
 
+        # new-hook-joins-the-registry -- a hook script dropped into the
+        # shipped hooks directory and put on no kind's list. That is the
+        # 2026-09-21 bug with one extra step in it: a hook no list names is
+        # never wired into an installed repo by a refresh, so it reaches
+        # fresh installs at best and existing repos never.
+        def _plant_unlisted_hook(repo):
+            (repo / 'templates' / 'harness' / 'claude-code' / 'hooks'
+             / 'zzz-unlisted.sh').write_text('#!/bin/sh\necho unlisted\n',
+                                             encoding='utf-8')
+        case('new-hook-joins-the-registry', _plant_unlisted_hook)
+        cases.append(('new-hook-joins-the-registry: the planted violation '
+                      'names the unlisted hook and where to list it',
+                      'zzz-unlisted.sh' in
+                      planted['new-hook-joins-the-registry'][1]
+                      and 'HOOK_WIRING' in
+                      planted['new-hook-joins-the-registry'][1]))
+
         # hooks-on-disk-are-reachable -- the other end of the same failure.
         # declared-hooks-exist above plants a settings entry whose file is
         # gone; this plants a file no settings entry, no other hook and no
@@ -10897,7 +10914,16 @@ def check_precedent_check_fires():
         # would show that commit as a violation with no plant at all --
         # practice: fixture-owns-its-state. Re-dated under an explicit TZ
         # rather than assumed from whatever machine happens to run this.
+        #
+        # And since 2026-09-25 the fixture must BE an individual source: the
+        # check enforces a person's zone only in a repo carrying its own
+        # identity.json (Morgan: "only use the individual one in the
+        # precedent-individual"), and stands down everywhere else.
         def _setup_buenos_aires_dates(repo):
+            (repo / 'identity.json').write_text(json.dumps(
+                {'name': _ID_NAME, 'email': _ID_EMAIL, 'timezone': _ID_TZ}),
+                encoding='utf-8')
+            git(repo, 'add', 'identity.json')
             git(repo, '-c', f'user.name={_ID_NAME}', '-c',
                 f'user.email={_ID_EMAIL}', 'commit', '--amend',
                 '--reset-author', '--no-edit',
@@ -13802,7 +13828,9 @@ def check_materialize_bridges_loader():
                       and (consumer / 'tools' / 'checks' / 'tests' / 'test_shared_name.sh').exists()))
 
         (consumer / 'tools').mkdir(parents=True, exist_ok=True)
-        for f in ('build_views.py', 'split_practices.py'):
+        # summary_text.py since 2026-09-25: build_views.py imports it at
+        # module level, as it does split_practices.py.
+        for f in ('build_views.py', 'split_practices.py', 'summary_text.py'):
             shutil.copyfile(ROOT / 'tools' / f, consumer / 'tools' / f)
         (consumer / 'AGENTS.md').write_text(
             '# fixture\n\n<!-- BEGIN GENERATED: precedent-loader -->\n'
@@ -15657,6 +15685,196 @@ def check_commit_identity_ci_cadence():
           f'holds ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
 
+def check_push_check_gate():
+    """Everything CI used to run on a push now runs before it, locally
+    (Morgan, 2026-09-25: "the same list of everything we used to run (just
+    locally we do it, not via the github ci/cd)"). tools/precedent_push_check.py
+    holds the list; push-check-gate.sh refuses a session's `git push` until it
+    passes.
+
+    The cases that matter are the silent ones: a push let through with a
+    failing check, a push the gate did not recognise as one, a list that
+    has quietly fallen behind the workflows it replaces, and a repository's
+    own pre-push hook that the global core.hooksPath switched off -- which
+    is how templates/hooks/pre-push sat dead in every repo that installed it
+    until this was written."""
+    import tempfile, json as _json, re as _re, shutil as _shutil
+    name = 'the push check runs what CI ran, and the gate refuses on a failure'
+    hook = ROOT / 'templates' / 'harness' / 'claude-code' / 'hooks' / 'push-check-gate.sh'
+    tool = ROOT / 'tools' / 'precedent_push_check.py'
+    if not hook.exists() or not tool.exists():
+        not_applicable(name, 'push-check-gate.sh or precedent_push_check.py is absent')
+        return
+    if not _shutil.which('jq'):
+        not_applicable(name, 'no jq on this machine; the gate fails open without it')
+        return
+    cases = []
+
+    # 1. The upstream list covers every tool a workflow here runs. A workflow
+    #    added later, with no local twin, is exactly the drift this names.
+    listed = subprocess.run([sys.executable, str(tool), '--list'], cwd=ROOT,
+                            capture_output=True, text=True).stdout
+    ran = set()
+    for wf in (ROOT / '.github' / 'workflows').glob('*.yml'):
+        ran |= set(_re.findall(r'python3?\s+tools/(\w+)\.py',
+                               wf.read_text(encoding='utf-8')))
+    missing = sorted(t for t in ran if f'tools/{t}.py' not in listed)
+    cases.append((f'the upstream list names every tool a workflow here runs'
+                  f'{" (missing: " + ", ".join(missing) + ")" if missing else ""}',
+                  bool(ran) and not missing))
+
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+        env = dict(os.environ, PRECEDENT_ALLOW_ANY_AUTHOR='1',
+                   GIT_AUTHOR_NAME='T', GIT_AUTHOR_EMAIL='t@example.com',
+                   GIT_COMMITTER_NAME='T', GIT_COMMITTER_EMAIL='t@example.com',
+                   GIT_CONFIG_GLOBAL=str(tmp / 'gitconfig'))
+
+        def git(cwd, *a):
+            return subprocess.run(['git', '-C', str(cwd), *a],
+                                  capture_output=True, text=True, env=env)
+
+        work = tmp / 'work'
+        (work / 'tools').mkdir(parents=True)
+        git(tmp, 'init', '-q', '-b', 'main', str(work))
+        _shutil.copy2(tool, work / 'tools' / 'precedent_push_check.py')
+        (work / 'tools' / 'ENGINE_MANIFEST.json').write_text(
+            _json.dumps({'kind': 'consumer'}), encoding='utf-8')
+        # Stand-ins for the three consumer tools: each fails when a tracked
+        # FAIL file names it, so a failure is a property of the tree pushed.
+        # precedent_check's stand-in prints the summary line the push check
+        # requires; a planted "zero" in FAIL makes it report 0 passed.
+        for t in ('precedent_check', 'leak_gate', 'doc_lint'):
+            (work / 'tools' / f'{t}.py').write_text(
+                'import pathlib, sys\n'
+                'f = pathlib.Path("FAIL")\n'
+                'body = f.read_text() if f.exists() else ""\n'
+                + ('print("precedent_check: %d passed, 0 violated" % '
+                   '(0 if "zero" in body else 3))\n'
+                   if t == 'precedent_check' else '')
+                + f'sys.exit(1 if "{t}" in body else 0)\n',
+                encoding='utf-8')
+        # The deep-check driver, when a repo has one, is on the list too.
+        drv = work / 'tools' / 'checks' / 'tests' / 'run_all.sh'
+        drv.parent.mkdir(parents=True)
+        drv.write_text('#!/bin/bash\ncd "$(dirname "$0")/../../.."\n'
+                       '[ -f FAIL ] && grep -q deep_check FAIL && exit 1\nexit 0\n',
+                       encoding='utf-8')
+        git(work, 'add', '-A')
+        git(work, 'commit', '-q', '-m', 'init')
+
+        elsewhere = tmp / 'elsewhere'
+        elsewhere.mkdir()
+
+        def gate(command, cwd=work, project=work):
+            payload = _json.dumps({'tool_input': {'command': command},
+                                   'cwd': str(cwd)})
+            p = subprocess.run(['bash', str(hook)], input=payload, text=True,
+                               capture_output=True, timeout=300,
+                               env=dict(env, CLAUDE_PROJECT_DIR=str(project)))
+            return '"deny"' in p.stdout, p.stdout
+
+        denied, _ = gate('git push origin main')
+        record = work / '.git' / 'precedent-push-check.json'
+        cases.append(('a clean tree passing every check is let through',
+                      not denied))
+        cases.append(('and the pass is recorded against the tree',
+                      record.is_file()))
+
+        (work / 'FAIL').write_text('leak_gate', encoding='utf-8')
+        git(work, 'add', 'FAIL')
+        git(work, 'commit', '-q', '-m', 'break the leak gate')
+        denied, out = gate('git push origin main')
+        cases.append(('a tree failing one check is refused, and the refusal '
+                      'names that check', denied and 'leak_gate' in out))
+        denied, _ = gate('git commit -q -n -m x && git push')
+        cases.append(("`git commit -n && git push` is still a push: -n "
+                      "belongs to the commit", denied))
+        denied, _ = gate('git push --dry-run origin main')
+        cases.append(('a dry run sends nothing and is let through', not denied))
+        denied, _ = gate('echo "then run git push" > notes.txt')
+        cases.append(('`git push` quoted inside another command is not a push',
+                      not denied))
+        denied, _ = gate(f'git -C {work} push origin main', cwd=elsewhere,
+                         project=elsewhere)
+        cases.append(('`git -C <repo> push` from another project checks the '
+                      'repository actually pushed', denied))
+        denied, _ = gate(f'cd {work} && git push origin main', cwd=elsewhere,
+                         project=elsewhere)
+        cases.append(('so does a leading `cd <repo> &&`', denied))
+
+        (work / 'FAIL').write_text('zero', encoding='utf-8')
+        git(work, 'commit', '-q', '-am', 'a run that checks nothing')
+        denied, out = gate('git push origin main')
+        cases.append(('a precedent_check run that passed ZERO checks is '
+                      'refused although it exits 0', denied and 'ZERO' in out))
+        (work / 'FAIL').write_text('deep_check', encoding='utf-8')
+        git(work, 'commit', '-q', '-am', 'break the deep check suite')
+        denied, out = gate('git push origin main')
+        cases.append(("a repo's own deep-check suite (tools/checks/tests/"
+                      "run_all.sh) runs, and its failure refuses the push",
+                      denied and 'deep_check' in out))
+        git(work, 'rm', '-q', 'FAIL')
+        git(work, 'commit', '-q', '-m', 'fix it')
+        denied, _ = gate('git push origin main')
+        cases.append(('fixing the finding lets the push through', not denied))
+        (work / 'FAIL').write_text('doc_lint', encoding='utf-8')
+        git(work, 'add', 'FAIL')     # staged, not committed
+        (work / 'FAIL').write_text('doc_lint', encoding='utf-8')
+        denied, _ = gate('git push origin main')
+        cases.append(('a pass recorded for the committed tree is not reused '
+                      'over uncommitted edits that fail', denied))
+        git(work, 'reset', '-q', '--hard')
+
+        # A shallow clone is deepened before anything runs: history checks
+        # on a shallow clone skip, and a skip would read as a pass here.
+        shallow = tmp / 'shallow'
+        git(tmp, 'clone', '-q', '--depth', '1', f'file://{work}', str(shallow))
+        was = git(shallow, 'rev-parse', '--is-shallow-repository').stdout.strip()
+        subprocess.run([sys.executable, 'tools/precedent_push_check.py'],
+                       cwd=shallow, capture_output=True, text=True, env=env)
+        now = git(shallow, 'rev-parse', '--is-shallow-repository').stdout.strip()
+        cases.append(('a shallow clone is deepened before the checks run',
+                      was == 'true' and now == 'false'))
+
+        plain = tmp / 'plain'
+        git(tmp, 'init', '-q', str(plain))
+        denied, _ = gate(f'git -C {plain} push', cwd=plain, project=plain)
+        cases.append(('a repository without the push check is let through',
+                      not denied))
+
+        # The global pass-through: a repo's own pre-push runs, and decides.
+        ci_hook = ROOT / '.claude' / 'hooks' / 'commit-identity.sh'
+        if ci_hook.exists():
+            home = tmp / 'home'
+            home.mkdir()
+            (work / 'identity.json').write_text(_json.dumps(
+                {'name': 'T', 'email': 't@example.com', 'timezone': 'UTC'}),
+                encoding='utf-8')
+            hooks = home / 'git-hooks'
+            subprocess.run(['bash', str(ci_hook)], capture_output=True,
+                           text=True, timeout=120,
+                           env=dict(env, HOME=str(home), CLAUDE_PROJECT_DIR=str(work),
+                                    PRECEDENT_GLOBAL_HOOKS=str(hooks),
+                                    PRECEDENT_LOCALTIME=str(tmp / 'lt'),
+                                    PRECEDENT_USER_CONFIG='/nonexistent/c.json'))
+            own = work / '.git' / 'hooks' / 'pre-push'
+            own.write_text('#!/bin/sh\nread line; echo "OWN $1 $line"; exit 7\n',
+                           encoding='utf-8')
+            own.chmod(0o755)
+            p = subprocess.run([str(hooks / 'pre-push'), 'origin'], cwd=work,
+                               input='ref-line\n', capture_output=True,
+                               text=True, env=env)
+            cases.append(("the global hooks directory passes pre-push through to "
+                          "the repository's own hook, arguments, stdin and "
+                          "refusal intact",
+                          (hooks / 'pre-push').exists() and p.returncode == 7
+                          and 'OWN origin ref-line' in p.stdout))
+
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
 def check_source_clone_is_pinned_to_a_branch():
     """A source clone must not ask the remote which branch to use.
 
@@ -17091,6 +17309,116 @@ def check_freshness_guard_waves_through_a_branch_origin_never_saw():
           not failed, '; '.join(failed))
 
 
+def check_bootstrap_separates_an_unpushed_branch_from_a_failed_fetch():
+    """bootstrap.sh's freshness block, the same split
+    check_freshness_guard_waves_through_a_branch_origin_never_saw asserts
+    for the hook.
+
+    `git fetch origin <branch>` fails with "couldn't find remote ref" on a
+    branch that has never been pushed -- every fresh Claude Code web
+    session -- and bootstrap.sh read that as a failed fetch, opening the
+    session on "could not fetch -- freshness NOT verified" with nothing to
+    be stale against. Reported 2026-09-25 from a consumer's session.
+
+    Four cases per copy (the template an adopter instantiates, and this
+    repo's own tools/bootstrap.sh): an unpushed branch is NOTEd, not WARNed;
+    one cut from a stale base with no commits of its own is fast-forwarded;
+    one with commits of its own on a stale base is WARNed about the base;
+    and an unreachable origin still prints the unverified-fetch WARN,
+    asserted by its message (control-asserts-which-failure)."""
+    import tempfile
+
+    scripts = [ROOT / 'templates' / 'bootstrap.sh', ROOT / 'tools' / 'bootstrap.sh']
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+        # A stub pip so the script's first line never reaches the network,
+        # and an empty global config so no ambient identity or hooksPath
+        # decides whether the fixture commits succeed (fixture-owns-its-state).
+        (tmp / 'bin').mkdir()
+        (tmp / 'bin' / 'pip').write_text('#!/bin/sh\nexit 0\n', encoding='utf-8')
+        (tmp / 'bin' / 'pip').chmod(0o755)
+        (tmp / 'gitconfig').write_text('', encoding='utf-8')
+        env = dict(os.environ)
+        env.pop('CLAUDE_PROJECT_DIR', None)
+        env['PATH'] = f"{tmp / 'bin'}:{env.get('PATH', '')}"
+        env['GIT_CONFIG_GLOBAL'] = str(tmp / 'gitconfig')
+        env['GIT_AUTHOR_NAME'] = env['GIT_COMMITTER_NAME'] = 'Harness'
+        env['GIT_AUTHOR_EMAIL'] = env['GIT_COMMITTER_EMAIL'] = 'harness@example.com'
+
+        def _git(d, *a):
+            r = subprocess.run(['git', '-C', str(d), *a],
+                               capture_output=True, text=True, env=env)
+            if r.returncode != 0:
+                raise RuntimeError('bootstrap fixture setup failed: git %s: %s'
+                                   % (' '.join(a), (r.stderr or r.stdout).strip()))
+            return r
+
+        origin = tmp / 'origin'
+        _git(tmp, 'init', '-q', '--bare', '-b', 'main', str(origin))
+        seed = tmp / 'seed'
+        _git(tmp, 'init', '-q', '-b', 'main', str(seed))
+        _git(seed, 'commit', '-q', '--allow-empty', '-m', 'one')
+        _git(seed, 'remote', 'add', 'origin', str(origin))
+        _git(seed, 'push', '-q', 'origin', 'main')
+
+        def _clone(name, branch):
+            d = tmp / name
+            _git(tmp, 'clone', '-q', str(origin), str(d))
+            _git(d, 'checkout', '-q', '-b', branch)
+            (d / 'precedent.json').write_text('{"base_branch": "main"}', encoding='utf-8')
+            (d / '.git' / 'info' / 'exclude').write_text('precedent.json\n', encoding='utf-8')
+            return d
+
+        def _advance_base():
+            _git(seed, 'commit', '-q', '--allow-empty', '-m', 'moved')
+            _git(seed, 'push', '-q', 'origin', 'main')
+
+        def _run(script, d):
+            return subprocess.run(['bash', str(script)], cwd=str(d),
+                                  capture_output=True, text=True, env=env).stderr
+
+        for script in scripts:
+            tag = str(script.relative_to(ROOT))
+            d = _clone(f'absent-{script.parent.name}', 'unpushed')
+            err = _run(script, d)
+            cases.append((f'{tag}: an unpushed branch is named, not reported as an '
+                          f'unverified fetch',
+                          'is not on origin yet' in err and 'could not fetch' not in err,
+                          err[-400:]))
+
+            d = _clone(f'stale-clean-{script.parent.name}', 'unpushed-stale')
+            _advance_base()
+            err = _run(script, d)
+            cases.append((f'{tag}: an unpushed branch with no commits of its own, cut '
+                          f'from a stale base, is fast-forwarded to it',
+                          'fast-forwarded' in err
+                          and _git(d, 'rev-parse', 'HEAD').stdout
+                          == _git(d, 'rev-parse', 'origin/main').stdout, err[-400:]))
+
+            d = _clone(f'stale-own-{script.parent.name}', 'unpushed-own')
+            _git(d, 'commit', '-q', '--allow-empty', '-m', 'mine')
+            _advance_base()
+            err = _run(script, d)
+            cases.append((f'{tag}: an unpushed branch with commits of its own on a stale '
+                          f'base is warned about the base, not moved',
+                          'missing 1 commit(s) from origin/main' in err
+                          and 'fast-forwarded' not in err, err[-400:]))
+
+            d = _clone(f'unreachable-{script.parent.name}', 'unpushed-unreachable')
+            _git(d, 'remote', 'set-url', 'origin', str(tmp / 'no-such-repo'))
+            err = _run(script, d)
+            cases.append((f'{tag}: CONTROL: an unreachable origin still WARNs that '
+                          f'freshness is not verified',
+                          'could not fetch origin/unpushed-unreachable' in err
+                          and 'freshness NOT verified' in err, err[-400:]))
+
+    bad = [(n, e) for n, ok, e in cases if not ok]
+    check(f'bootstrap.sh separates a branch origin never saw from a fetch that failed '
+          f'({len(cases)} stated cases, both copies)',
+          not bad, '; '.join(f'{n} -- {e}' for n, e in bad))
+
+
 def check_commit_identity_copies_are_identical():
     """The hook exists three times and every copy must be the same file.
 
@@ -17606,16 +17934,34 @@ def check_identity_reaches_a_repo_that_did_not_exist_yet():
         cases.append(('and the refusal names itself as the global backstop',
                       'GLOBAL backstop' in out))
 
+        # A PERSON'S ZONE BINDS THEIR OWN REPO ONLY (Morgan, 2026-09-25:
+        # "only use the individual one in the precedent-individual"). This
+        # case asserted the opposite until then: a wrong offset refused in
+        # every repository. Now the attached repo, which carries no
+        # identity.json, takes any offset, and the individual source itself,
+        # which does, still refuses one.
         g('config', 'user.email', 'm@example.com', cwd=later)
         r = subprocess.run(['git', 'commit', '-m', 'tz'], cwd=str(later),
                            capture_output=True, text=True,
                            env=dict(env, TZ='UTC'), timeout=120)
-        cases.append(('a wrong-offset commit is refused there',
-                      'declared timezone' in (r.stdout + r.stderr)))
-        r = subprocess.run(['git', 'commit', '-q', '-m', 'ok'], cwd=str(later),
+        cases.append(("a repo that is not the person's individual source is "
+                      "NOT held to their timezone", r.returncode == 0
+                      and 'declared timezone' not in (r.stdout + r.stderr)))
+        g('config', 'user.name', 'Morgan F', cwd=src)
+        g('config', 'user.email', 'm@example.com', cwd=src)
+        (src / 'z').write_text('z', encoding='utf-8')
+        g('add', 'z', cwd=src)
+        r = subprocess.run(['git', 'commit', '-m', 'tz'], cwd=str(src),
+                           capture_output=True, text=True,
+                           env=dict(env, TZ='UTC'), timeout=120)
+        cases.append(('the individual source itself still refuses a '
+                      'wrong-offset commit', 'declared timezone' in
+                      (r.stdout + r.stderr)))
+        r = subprocess.run(['git', 'commit', '-q', '-m', 'ok'], cwd=str(src),
                            capture_output=True, text=True,
                            env=dict(env, TZ=ZONE), timeout=120)
-        cases.append(('a correct commit is not blocked', r.returncode == 0))
+        cases.append(('and a correct commit there is not blocked',
+                      r.returncode == 0))
 
         # MUST NOT FIRE 1: a repository's own hook is not disabled.
         own = tmp / 'own-hooks'
@@ -20244,6 +20590,256 @@ def check_vendor_engine_hook_drift_respects_adapters():
           '; '.join(f"{n} -- {d[:800]}" for n, d in bad))
 
 
+def check_vendor_engine_refresh_converges_with_adapter_owned_hooks():
+    """Two refreshes in a row at one commit: the second is a no-op, even
+    when a declared source's adapters own some of the hooks this repo wires.
+
+    THE BUG. refresh() decided whether hooks were missing from its own
+    computation of the wanted set, which left out the adapter exclusion
+    _write_hook_files applies. commit-identity.sh and freshness-guard.sh,
+    owned by the individual source's adapters in a real consumer, were
+    skipped by the writer, never recorded in `hook_files`, and still counted
+    as missing -- so every refresh printed the "one-time catch-up" NOTICE and
+    rewrote every engine file at an unchanged commit. Reported 2026-09-25
+    from a consumer's "Update Vendors" run; both questions now ask
+    _vendorable_hook_names.
+
+    Same fixture shape as check_vendor_engine_refreshes_ci_workflow_files
+    (one fresh consumer per scenario, --from-ref to a ref carrying this
+    working tree). The CONTROL drops the adapter claim, so the same wiring
+    vendors all three hooks and still converges -- proving the fixture's
+    settings.json is actually read, and that the no-op is not simply
+    "hooks are never looked at"."""
+    import shutil, tempfile
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-hook-converge-'))
+    cases = []
+    try:
+        engine_bytes = (ROOT / 'tools' / 'precedent_vendor_engine.py').read_bytes()
+        owned = ('commit-identity.sh', 'freshness-guard.sh')
+        vendored = 'stop-git-check.sh'
+        adapter_text = '#!/bin/sh\n# the individual source\'s own copy\n'
+
+        def make_consumer(name, claimed):
+            consumer = tmp / name
+            (consumer / 'tools').mkdir(parents=True)
+            hooks = consumer / '.claude' / 'hooks'
+            hooks.mkdir(parents=True)
+            (consumer / 'tools' / 'precedent_vendor_engine.py').write_bytes(engine_bytes)
+            (consumer / 'tools' / 'ENGINE_MANIFEST.json').write_text(json.dumps({
+                'kind': 'consumer', 'source_commit': 'deadbeef',
+                'files': ['precedent_vendor_engine.py'],
+                'sha256': {'precedent_vendor_engine.py':
+                           hashlib.sha256(engine_bytes).hexdigest()},
+            }), encoding='utf-8')
+            (consumer / '.claude' / 'settings.json').write_text(json.dumps({
+                'hooks': {'SessionStart': [{'hooks': [
+                    {'type': 'command',
+                     'command': f'$CLAUDE_PROJECT_DIR/.claude/hooks/{n}'}
+                    for n in (*owned, vendored)]}]},
+            }), encoding='utf-8')
+            if claimed:
+                for n in owned:
+                    (hooks / n).write_text(adapter_text, encoding='utf-8')
+                (consumer / 'MANIFEST.json').write_text(json.dumps({
+                    'generated_by': 'tools/precedent_materialize.py',
+                    'adapters': [{'path': f'.claude/hooks/{n}',
+                                  'source': 'precedent-individual'} for n in owned],
+                }), encoding='utf-8')
+            return consumer
+
+        ref = _ref_including_worktree(ROOT)
+
+        def run_refresh(consumer):
+            r = subprocess.run(
+                [sys.executable, str(consumer / 'tools' / 'precedent_vendor_engine.py'),
+                 'refresh', str(ROOT), '--from-ref', ref],
+                capture_output=True, text=True, cwd=str(consumer))
+            return r.returncode, r.stdout + r.stderr
+
+        def snapshot(consumer):
+            return {str(f.relative_to(consumer)): (f.stat().st_mtime_ns, f.read_bytes())
+                    for f in sorted(consumer.rglob('*'))
+                    if f.is_file() and '__pycache__' not in f.parts}
+
+        for label, claimed in (('adapter-owned', True), ('CONTROL: no adapter claim', False)):
+            c = make_consumer(label.split(':')[0].replace(' ', '-'), claimed)
+            rc1, out1 = run_refresh(c)
+            before = snapshot(c)
+            rc2, out2 = run_refresh(c)
+            after = snapshot(c)
+            changed = sorted(k for k in after if before.get(k) != after[k])
+            manifest = json.loads(
+                (c / 'tools' / 'ENGINE_MANIFEST.json').read_text(encoding='utf-8'))
+            detail = f'first: rc={rc1} {out1[-600:]} || second: rc={rc2} {out2[-600:]}'
+            cases.append((f'{label}: the first refresh succeeds', rc1 == 0, detail))
+            cases.append((f'{label}: the second refresh at the same commit says '
+                          f'"nothing to do"', rc2 == 0 and 'nothing to do' in out2, detail))
+            cases.append((f'{label}: ...and prints no missing-hooks NOTICE',
+                          'vendored hooks are missing' not in out2, detail))
+            cases.append((f'{label}: ...and touches no file', not changed,
+                          f'changed: {changed[:10]} -- {detail}'))
+            # Not an exact list since 2026-09-25: a consumer refresh now also
+            # wires and vendors every hook on HOOK_WIRING's consumer list
+            # (check_vendor_engine_wires_a_new_hook_into_an_installed_repo).
+            # What this test owns is the adapter exclusion, so that is what
+            # it asserts.
+            got = set(manifest.get('hook_files') or [])
+            ok = (vendored in got and not (set(owned) & got)) if claimed \
+                else set((*owned, vendored)) <= got
+            cases.append((f'{label}: hook_files records the wired hooks this engine '
+                          f'vendored and {"none" if claimed else "all"} of the '
+                          f'adapter-owned ones', ok,
+                          f"hook_files={manifest.get('hook_files')}"))
+            if claimed:
+                cases.append((f'{label}: the adapter-owned hooks keep the source\'s bytes',
+                              all((c / '.claude' / 'hooks' / n).read_text(encoding='utf-8')
+                                  == adapter_text for n in owned), detail))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f"refresh converges when a source's adapters own some wired hooks -- a second "
+          f"refresh at the same commit is a no-op ({len(cases)} stated cases)",
+          not bad,
+          '; '.join(f"{n} -- {d[:900]}" for n, d in bad))
+
+
+
+def check_vendor_engine_wires_a_new_hook_into_an_installed_repo():
+    """THE BUG (todo-2026-09-21-a-new-hook-cannot-reach-an-installed-
+    consumer.md). Vendoring was gated on the repo's own settings.json and a
+    refresh never wrote it, so a hook added upstream could not reach a repo
+    that was already installed. Since 2026-09-25 a refresh ADDS the entries
+    HOOK_WIRING gives the repo's kind, then vendors as before.
+
+    The fixture is an installed consumer as it would really look: the
+    consumer template with its base branch set to `trunk`, minus the entries
+    a repo installed before they existed would lack (doc-lint-gate.sh,
+    commit-identity-once.sh, and the user-prompt freshness guard), plus a
+    hook of its own in the Bash group and a declared decline for
+    stop-reply-check.sh. Cases:
+
+    A. the missing hooks are wired and their files arrive, on one refresh;
+    B. the base branch is read off the repo's own freshness-guard entries,
+       never assumed to be `main`;
+    C. ADD-ONLY: every entry the repo had is still there, in order, and its
+       own hook keeps its group -- the new Bash entry joins that group;
+    D. the declined hook is neither wired nor vendored;
+    E. a second refresh at the same commit is a no-op, byte for byte;
+    F. CONTROL: the same repo with no `kind` in its manifest is not wired at
+       all -- guessing a kind is how a consumer would get a set's hooks."""
+    import shutil, tempfile
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-hook-wiring-'))
+    cases = []
+    try:
+        engine_bytes = (ROOT / 'tools' / 'precedent_vendor_engine.py').read_bytes()
+        template = json.loads((ROOT / 'templates' / 'harness' / 'claude-code'
+                               / 'settings.json').read_text(encoding='utf-8'))
+        dropped = ('doc-lint-gate.sh', 'commit-identity-once.sh',
+                   'freshness-guard.sh user-prompt', 'stop-reply-check.sh')
+
+        def make_repo(name, with_kind):
+            repo = tmp / name
+            (repo / 'tools').mkdir(parents=True)
+            (repo / '.claude' / 'hooks').mkdir(parents=True)
+            (repo / 'tools' / 'precedent_vendor_engine.py').write_bytes(engine_bytes)
+            man = {'source_commit': 'deadbeef',
+                   'files': ['precedent_vendor_engine.py'],
+                   'sha256': {'precedent_vendor_engine.py':
+                              hashlib.sha256(engine_bytes).hexdigest()}}
+            if with_kind:
+                man['kind'] = 'consumer'
+            (repo / 'tools' / 'ENGINE_MANIFEST.json').write_text(
+                json.dumps(man), encoding='utf-8')
+            hooks = {}
+            for event, groups in template['hooks'].items():
+                for g in groups:
+                    kept = [dict(h, command=h['command'].replace(' main', ' trunk'))
+                            for h in g['hooks']
+                            if not any(d in h['command'] for d in dropped)]
+                    if g.get('matcher') == 'Bash':
+                        kept.insert(0, {'type': 'command',
+                                        'command': '$CLAUDE_PROJECT_DIR/tools/my-own.sh'})
+                    if kept:
+                        hooks.setdefault(event, []).append(dict(g, hooks=kept))
+            (repo / '.claude' / 'settings.json').write_text(
+                json.dumps({'hooks': hooks}, indent=2) + '\n', encoding='utf-8')
+            (repo / 'precedent.json').write_text(json.dumps({
+                'declined_adapters': [{'path': '.claude/hooks/stop-reply-check.sh',
+                                       'reason': 'this repo gates replies elsewhere'}],
+            }), encoding='utf-8')
+            return repo, hooks
+
+        ref = _ref_including_worktree(ROOT)
+
+        def run_refresh(repo):
+            r = subprocess.run(
+                [sys.executable, str(repo / 'tools' / 'precedent_vendor_engine.py'),
+                 'refresh', str(ROOT), '--from-ref', ref],
+                capture_output=True, text=True, cwd=str(repo))
+            return r.returncode, r.stdout + r.stderr
+
+        def commands(settings, event=None):
+            return [h['command'] for ev, gs in settings['hooks'].items()
+                    if event in (None, ev) for g in gs for h in g['hooks']]
+
+        repo, before = make_repo('consumer', True)
+        rc1, out1 = run_refresh(repo)
+        after = json.loads((repo / '.claude' / 'settings.json').read_text(encoding='utf-8'))
+        cmds = commands(after)
+        detail = f'rc={rc1} {out1[-900:]}'
+        cases.append(('the refresh succeeds', rc1 == 0, detail))
+        for name in ('doc-lint-gate.sh', 'commit-identity-once.sh'):
+            cases.append((f'A: {name} is wired', any(name in c for c in cmds),
+                          repr(cmds)))
+            cases.append((f'A: ...and its file arrived on the same refresh',
+                          (repo / '.claude' / 'hooks' / name).is_file(), detail))
+        cases.append(('B: the re-added freshness guard carries the repo\'s own '
+                      'base branch, trunk, not main',
+                      any(c.endswith('freshness-guard.sh user-prompt trunk')
+                          for c in commands(after, 'UserPromptSubmit')), repr(cmds)))
+        kept_in_order = all(
+            [h['command'] for h in g['hooks']][:len(og['hooks'])]
+            == [h['command'] for h in og['hooks']]
+            for event, ogs in before.items()
+            for og, g in zip(ogs, after['hooks'][event]))
+        cases.append(('C: every entry the repo already had is still there, in '
+                      'its group, in order', kept_in_order, repr(after)[:900]))
+        bash_groups = [g for g in after['hooks']['PreToolUse']
+                       if g.get('matcher') == 'Bash']
+        cases.append(('C: the new Bash entry joined the repo\'s existing Bash '
+                      'group beside its own hook, not a second group',
+                      len(bash_groups) == 1 and any(
+                          'doc-lint-gate.sh' in h['command']
+                          for h in bash_groups[0]['hooks']), repr(bash_groups)))
+        cases.append(('D: the declined hook is not wired',
+                      not any('stop-reply-check.sh' in c for c in cmds), repr(cmds)))
+        cases.append(('D: ...and not vendored',
+                      not (repo / '.claude' / 'hooks' / 'stop-reply-check.sh').exists(),
+                      detail))
+        snap = (repo / '.claude' / 'settings.json').read_bytes()
+        rc2, out2 = run_refresh(repo)
+        cases.append(('E: a second refresh at the same commit has nothing to do',
+                      rc2 == 0 and 'nothing to do' in out2, out2[-600:]))
+        cases.append(('E: ...and leaves settings.json byte-identical',
+                      (repo / '.claude' / 'settings.json').read_bytes() == snap, ''))
+
+        ctl, ctl_before = make_repo('no-kind', False)
+        ctl_snap = (ctl / '.claude' / 'settings.json').read_bytes()
+        rc3, out3 = run_refresh(ctl)
+        cases.append(('F CONTROL: a manifest with no kind gets no wiring at all',
+                      (ctl / '.claude' / 'settings.json').read_bytes() == ctl_snap,
+                      f'rc={rc3} {out3[-600:]}'))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f"a refresh wires a hook its kind's list names into an installed repo, "
+          f"add-only, and the file arrives on the same run ({len(cases)} stated "
+          f"cases)", not bad, '; '.join(f'{n} -- {d[:700]}' for n, d in bad))
+
 def check_vendor_engine_refreshes_ci_workflow_files():
     """"Update Vendors" refreshing tools/ and .claude/hooks/*.sh but never
     .github/workflows/*.yml is the bug this closes -- see
@@ -20430,6 +21026,185 @@ def check_vendor_engine_refreshes_ci_workflow_files():
           not bad,
           '; '.join(f"{n} -- {d[:800]}" for n, d in bad))
 
+
+def check_vendor_engine_refreshes_bootstrap_sh():
+    """Nothing delivered a templates/bootstrap.sh change to an installed
+    consumer -- see precedent_vendor_engine.py's TEMPLATE_INSTANCES block
+    (2026-09-25) for the measured case: a consumer whose bootstrap.sh was
+    the stock template minus two blocks added two days earlier, told
+    "already current -- nothing to do" by every refresh.
+
+    THE FIXTURE OWNS ITS UPSTREAM (practice: fixture-owns-its-state). It
+    builds one synthetic commit on top of this working tree whose only change
+    is a new, distinctive block in templates/bootstrap.sh, so the tree under
+    test always has exactly one known past version (OLD) and one current
+    version (CUR) -- however shallow this clone's own history is, and
+    whatever real edits the template picks up later. The commit is an object
+    only: no ref points at it and nothing is checked out.
+
+    Seven cases, one fresh consumer each. The discriminating ones are the
+    edited copies: never overwritten, --force included, and the report names
+    the exact block a copy lacks rather than just calling it different
+    (practice: control-asserts-which-failure)."""
+    import shutil, tempfile
+    import precedent_vendor_engine as pve
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-bootstrap-instance-'))
+    cases = []
+    rel = 'tools/bootstrap.sh'
+    marker = 'FIXTURE BLOCK ADDED UPSTREAM'
+    try:
+        base = _ref_including_worktree(ROOT)
+        old = subprocess.run(['git', '-C', str(ROOT), 'show',
+                              f'{base}:templates/bootstrap.sh'],
+                             capture_output=True, check=True).stdout
+        added = (f'# {marker} -- the block a stale copy lacks\n'
+                 'if [ -f tools/fixture_probe.py ]; then\n'
+                 '  python3 tools/fixture_probe.py --fixture-only || true\n'
+                 'fi\n\n').encode()
+        tail = b'# A bootstrap that blocks startup'
+        assert old.count(tail) == 1, 'template tail moved; repoint this fixture'
+        cur = old.replace(tail, added + tail)
+
+        with tempfile.TemporaryDirectory(prefix='precedent-fixture-index-') as idx:
+            env = dict(os.environ, GIT_INDEX_FILE=str(pathlib.Path(idx) / 'index'),
+                       GIT_AUTHOR_NAME='fixture', GIT_AUTHOR_EMAIL='fixture@invalid',
+                       GIT_COMMITTER_NAME='fixture', GIT_COMMITTER_EMAIL='fixture@invalid')
+
+            def git(*args, data=None):
+                return subprocess.run(['git', '-C', str(ROOT), *args], input=data,
+                                      capture_output=True, env=env, check=True
+                                      ).stdout.decode().strip()
+            git('read-tree', base)
+            blob = git('hash-object', '-w', '--stdin', data=cur)
+            git('update-index', '--cacheinfo', f'100755,{blob},templates/bootstrap.sh')
+            ref = git('commit-tree', git('write-tree'), '-p', base, '-m',
+                      'verify_harness: bootstrap.sh fixture (never pushed)')
+
+        engine_bytes = (ROOT / 'tools' / 'precedent_vendor_engine.py').read_bytes()
+        sha = lambda b: hashlib.sha256(b).hexdigest()
+
+        def make_consumer(name, boot_bytes, recorded):
+            consumer = tmp / name
+            (consumer / 'tools').mkdir(parents=True)
+            (consumer / 'tools' / 'precedent_vendor_engine.py').write_bytes(engine_bytes)
+            manifest = {'kind': 'consumer', 'source_commit': 'deadbeef',
+                        'files': ['precedent_vendor_engine.py'],
+                        'sha256': {'precedent_vendor_engine.py': sha(engine_bytes)}}
+            if recorded is not None:
+                manifest['template_instances_sha256'] = {rel: recorded}
+            (consumer / 'tools' / 'ENGINE_MANIFEST.json').write_text(
+                json.dumps(manifest), encoding='utf-8')
+            if boot_bytes is not None:
+                (consumer / rel).write_bytes(boot_bytes)
+            return consumer
+
+        def run_refresh(consumer, extra=()):
+            r = subprocess.run(
+                [sys.executable, str(consumer / 'tools' / 'precedent_vendor_engine.py'),
+                 'refresh', str(ROOT), '--from-ref', ref, *extra],
+                capture_output=True, text=True, cwd=str(consumer))
+            return r.returncode, r.stdout + r.stderr
+
+        def recorded_of(consumer):
+            m = json.loads((consumer / 'tools' / 'ENGINE_MANIFEST.json')
+                           .read_text(encoding='utf-8'))
+            return (m.get('template_instances_sha256') or {}).get(rel)
+
+        # -- A: unedited (matches its recorded baseline), template moved --
+        a = make_consumer('recorded-stale', old, sha(old))
+        rc, out = run_refresh(a)
+        cases.append(('an unedited bootstrap.sh whose baseline is recorded is '
+                      'rewritten to the current template',
+                      rc == 0 and (a / rel).read_bytes() == cur, out[-800:]))
+        cases.append(('...its new baseline is the current template, and the '
+                      'refresh says what it did',
+                      recorded_of(a) == sha(cur)
+                      and 'brought tools/bootstrap.sh up to the current template' in out,
+                      out[-800:]))
+
+        # -- B: nothing recorded, byte-identical to a PAST template -- every
+        # install that predates tracking, the measured case --
+        b = make_consumer('untracked-stale', old, None)
+        rc, out = run_refresh(b)
+        cases.append(('an untracked bootstrap.sh identical to a past version of '
+                      'the template is recognised as stock and brought up to date',
+                      rc == 0 and (b / rel).read_bytes() == cur
+                      and recorded_of(b) == sha(cur), out[-800:]))
+
+        # -- C: edited (an old copy plus a local line), baseline recorded --
+        edited = old.replace(tail, b'echo "a line this repo added"\n\n' + tail)
+        for name, label, extra in (('edited', '', ()),
+                                   ('edited-forced', ' with --force', ('--force',))):
+            c = make_consumer(name, edited, sha(old))
+            rc, out = run_refresh(c, extra)
+            cases.append((f'an edited bootstrap.sh is never overwritten{label}',
+                          (c / rel).read_bytes() == edited, out[-800:]))
+            cases.append((f'...the refresh still succeeds and reports it DIVERGED, '
+                          f'naming the missing upstream block{label}',
+                          rc == 0 and f'DIVERGED: {rel}' in out
+                          and marker in out and '-- missing' in out, out[-1200:]))
+            cases.append((f'...its baseline is NOT moved onto the edit{label}, so a '
+                          f'later refresh cannot mistake it for stock',
+                          recorded_of(c) == sha(old), out[-400:]))
+
+        # -- D: a copy missing one block the template has always had, and
+        # nothing else -- names THAT block, and not the one it does carry --
+        blocks = pve._shell_blocks(cur.decode())
+        victim = next(b for b in blocks
+                      if any('precedent_engine_freshness.py --quiet' in ln for ln in b[2]))
+        cur_lines = cur.decode().splitlines(keepends=True)
+        start = victim[0] - 1
+        end = start
+        while end < len(cur_lines) and cur_lines[end].strip():
+            end += 1
+        lacking = ''.join(cur_lines[:start] + cur_lines[end:]).encode()
+        d = make_consumer('missing-a-block', lacking, None)
+        rc, out = run_refresh(d)
+        report = [ln for ln in out.splitlines() if 'templates/bootstrap.sh:' in ln]
+        cases.append(('THE DISCRIMINATING CASE: a copy missing one block is left '
+                      'alone and the report names exactly that block, missing',
+                      rc == 0 and (d / rel).read_bytes() == lacking
+                      and len(report) == 1
+                      and f'templates/bootstrap.sh:{victim[0]} ' in report[0]
+                      and report[0].endswith('-- missing'), '\n'.join(report) or out[-800:]))
+        cases.append(('...and it lands on the Left-for-you list, where step 10 '
+                      'of the runbook works from',
+                      f'  - {rel}: diverged from templates/bootstrap.sh and lacks 1' in out,
+                      out[-800:]))
+
+        # -- E, CONTROL: edited but carrying every block -- no lacks list --
+        extra_line = cur.replace(tail, b'echo "ours"\n\n' + tail)
+        e = make_consumer('edited-complete', extra_line, None)
+        rc, out = run_refresh(e)
+        cases.append(('CONTROL: an edited copy that carries every template block '
+                      'is left alone and reported as lacking nothing',
+                      rc == 0 and (e / rel).read_bytes() == extra_line
+                      and 'carries every block' in out and 'Left for you' not in out,
+                      out[-800:]))
+
+        # -- F: already the current template, nothing recorded -- recorded --
+        f = make_consumer('current', cur, None)
+        rc, out = run_refresh(f)
+        cases.append(('a copy already identical to the template gets a baseline '
+                      'and is otherwise untouched',
+                      rc == 0 and (f / rel).read_bytes() == cur
+                      and recorded_of(f) == sha(cur) and 'DIVERGED' not in out,
+                      out[-800:]))
+
+        # -- G: no bootstrap.sh at all -- never recreated --
+        g = make_consumer('absent', None, None)
+        rc, out = run_refresh(g)
+        cases.append(('CONTROL: a consumer with no bootstrap.sh is not given one',
+                      rc == 0 and not (g / rel).exists(), out[-800:]))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'"Update Vendors" delivers templates/bootstrap.sh to an unedited copy '
+          f'and reports what an edited one lacks, never overwriting it '
+          f'({len(cases)} stated cases)',
+          not bad, '; '.join(f"{n} -- {d[:800]}" for n, d in bad))
 
 def check_a_hook_wired_from_elsewhere_is_reported_as_wired():
     """A hook a repo calls in place, from a path of its own, is WIRED --
@@ -26332,6 +27107,32 @@ def check_declared_identity_has_a_passing_state_in_a_shared_repo():
                       and got_own['timezone'].endswith('Buenos_Aires'),
                       str(got_own)))
 
+        # The override names the person without a zone: the repo's own
+        # identity.json supplies it (2026-09-25 -- an environment that kept
+        # PRECEDENT_COMMIT_NAME/EMAIL and dropped PRECEDENT_COMMIT_TZ left
+        # the individual source reporting "declares no timezone").
+        _saved = {k: os.environ.get(k) for k in
+                  ('PRECEDENT_COMMIT_EMAIL', 'PRECEDENT_COMMIT_NAME',
+                   'PRECEDENT_COMMIT_TZ')}
+        try:
+            os.environ['PRECEDENT_COMMIT_EMAIL'] = 'fixture@example.com'
+            os.environ['PRECEDENT_COMMIT_NAME'] = 'Fixture Person'
+            os.environ.pop('PRECEDENT_COMMIT_TZ', None)
+            got_env = pr.declared_identity(own, user_config=empty_cfg)
+            got_env_shared = pr.declared_identity(shared, user_config=empty_cfg)
+        finally:
+            for k, v in _saved.items():
+                if v is None:
+                    os.environ.pop(k, None)
+                else:
+                    os.environ[k] = v
+        cases.append(('an environment override with no zone takes the zone '
+                      "from the repo's own identity.json",
+                      got_env['timezone'].endswith('Buenos_Aires'), str(got_env)))
+        cases.append(('...and in a shared repo, with no identity.json, it has '
+                      'none', got_env_shared['timezone'] == '',
+                      str(got_env_shared)))
+
         # A shared repo whose PERSON has an individual source: step 3. This
         # is the case the two checks needed and never had.
         cfg = tmp / 'user-config.json'
@@ -29202,6 +30003,130 @@ def check_withdrawn_table_never_links_a_successor_it_does_not_have():
           '; '.join(failed) + (f' [rendered: {out[-300:]!r}]' if failed else ''))
 
 
+def check_summary_fields_drop_links_before_the_cut():
+    """Every generator that copies prose into a one-line or length-capped
+    field drops the prose's links BEFORE cutting it (tools/summary_text.py;
+    practice: control-asserts-which-failure).
+
+    THE INCIDENT, 2026-09-25. build_todo_index.py cut an item's title at
+    `[:120]`, and in a consumer repo the cut landed inside a link's URL,
+    leaving "(../meeting-notes/<name>-" open in todo/TODO.md. Harmless while
+    that row was last; once a row came after it, the consumer's link checker
+    paired the stray "(" with the next row's ")" and reported a broken link.
+    This repo's own TODO.md and CLOSED.md already carried three such cut
+    links, unnoticed.
+
+    Each case builds prose whose link STRADDLES that generator's cut, and
+    first asserts that a naive cut of it really is unbalanced -- otherwise a
+    fixture that drifted off the cut would pass with the fix deleted. Then
+    it asserts the generated field carries no "](" and balanced parentheses.
+    """
+    import tempfile
+    import importlib.util
+
+    def load(name):
+        spec = importlib.util.spec_from_file_location(
+            f'_sumtext_{name}', ROOT / 'tools' / f'{name}.py')
+        mod = importlib.util.module_from_spec(spec)
+        sys.path.insert(0, str(ROOT / 'tools'))
+        try:
+            spec.loader.exec_module(mod)
+        finally:
+            sys.path.pop(0)
+        return mod
+
+    def straddling(limit):
+        """Prose whose one link opens 12 characters before `limit`."""
+        lead = 'w' * (limit - 12 - 1) + ' '
+        return (lead + '[the notes](../meeting-notes/some-person-and-morgan-'
+                '2026-09-25.md) and the rest of the sentence after it.')
+
+    def naive_is_broken(text, limit):
+        cut = text[:limit]
+        return '](' in cut and cut.count('(') != cut.count(')')
+
+    def clean(field):
+        return '](' not in field and field.count('(') == field.count(')')
+
+    results = []
+    for limit in (120, 80, 400):
+        results.append((f'fixture: a naive [:{limit}] cut really is broken',
+                        naive_is_broken(straddling(limit), limit)))
+
+    todo = load('build_todo_index')
+    gotcha = load('build_gotcha_index')
+    views = load('build_views')
+    migrate = load('todo_migrate')
+
+    with tempfile.TemporaryDirectory() as tmp:
+        repo = pathlib.Path(tmp)
+        tdir = repo / 'todo'
+        tdir.mkdir()
+        blocked = straddling(80).replace('"', "'")
+        for slug, status in (('todo-2026-09-25-open-one', 'open'),
+                             ('todo-2026-09-25-closed-one', 'done')):
+            (tdir / f'{slug}.md').write_text(
+                f'---\nslug: {slug}\nstatus: {status}\nkind: analysis\n'
+                f'noted: 2026-09-25\nclosed: 2026-09-25\ndisposition: wait\n'
+                f'blocked_on: "{blocked}"\n---\n\n## What\n\n'
+                f'**{straddling(120)}**\n', encoding='utf-8')
+        rc = todo.main(['--repo', str(repo)])
+        results.append(('build_todo_index ran on the fixture', rc == 0))
+        for name, want in (('TODO.md', 'todo-2026-09-25-open-one'),
+                           ('CLOSED.md', 'todo-2026-09-25-closed-one')):
+            text = (tdir / name).read_text(encoding='utf-8')
+            rows = [l for l in text.splitlines() if want in l]
+            results.append((f'{name} carries the fixture row', bool(rows)))
+            for row in rows:
+                cells = row.strip('|').split(' | ')
+                results.append((f'{name}: the row still links its own item',
+                                cells[0].strip().endswith(f'({want}.md)')))
+                results.append((f'{name}: every copied cell is unlinked and '
+                                f'balanced', all(clean(c) for c in cells[1:])))
+
+        gdir = repo / 'gotchas'
+        gdir.mkdir()
+        (gdir / 'gotcha-2026-09-25-x.md').write_text(
+            '---\nslug: gotcha-2026-09-25-x\nstatus: live\nnoted: 2026-09-25\n'
+            f'---\n\n## Symptom\n\n{straddling(120)}\n\n## Story\n\nx\n',
+            encoding='utf-8')
+        rc = gotcha.main(['--repo', str(repo)])
+        line = [l for l in (gdir / 'INDEX.md').read_text(encoding='utf-8')
+                .splitlines() if 'gotcha-2026-09-25-x' in l]
+        results.append(('gotcha INDEX: the symptom is unlinked, the story '
+                        'link stays', rc == 0 and len(line) == 1
+                        and clean(line[0].split('** [story]')[0])
+                        and line[0].endswith('(gotcha-2026-09-25-x.md)')))
+
+    reason = views._withdrawn_reason({'story': straddling(397)})
+    results.append(('MAP.md withdrawn reason: unlinked and balanced at the '
+                    '400 cut', clean(reason) and reason.endswith('...')))
+
+    items = migrate.parse_todo_items(
+        '# TODO\n\n- <a id="x"></a> ' + straddling(80 - 20) + '\n')
+    results.append(('todo_migrate fallback title: unlinked and balanced at '
+                    'the 80 cut', len(items) == 1 and clean(items[0].title)))
+
+    # precedent_land.py: a practice landed without its own index_clause gets
+    # one cut from its proposed rule at 76, and that clause is printed in
+    # every occasion index that lists the practice.
+    land = load('precedent_land')
+    results.append(('fixture: a naive [:76] cut really is broken',
+                    naive_is_broken(straddling(76), 76)))
+    fm = land._render_practice({'slug': 'zzz-cut', 'title': 'Cut'},
+                               straddling(76), 'observed', 'harness',
+                               'universal')
+    clause = next((l for l in fm.splitlines()
+                   if l.startswith('index_clause:')), '')
+    results.append(('precedent_land default index_clause: unlinked and '
+                    'balanced at the 76 cut',
+                    bool(clause) and clean(clause.split(':', 1)[1])))
+
+    failed = [n for n, ok in results if not ok]
+    check(f'summary fields drop links before the cut ({len(results)} '
+          f'stated cases)', not failed, '; '.join(failed))
+
+
 def check_leak_gate_refuses_a_fresh_container():
     """A repo that declares a private source must not pass the leak gate with
     the vocabulary layer unrun, even with no git config anywhere.
@@ -30620,6 +31545,7 @@ def main():
     check_freshness_guard_checks_attached_repositories()
     check_freshness_guard_user_prompt_never_resets_mid_session()
     check_freshness_guard_waves_through_a_branch_origin_never_saw()
+    check_bootstrap_separates_an_unpushed_branch_from_a_failed_fetch()
     check_unmerged_branch_verdicts()
     check_branch_scan_sees_every_branch()
     check_base_branch_drift_ignores_carried_work()
@@ -30646,6 +31572,7 @@ def main():
     check_doc_currency_finds_a_stale_document()
     check_template_freshness_reads_the_skeleton_correctly()
     check_withdrawn_table_never_links_a_successor_it_does_not_have()
+    check_summary_fields_drop_links_before_the_cut()
     check_source_precedence()
     check_cross_source_resident_budget()
     check_doc_lint_fires()
@@ -30760,6 +31687,7 @@ def main():
     check_retirement_record_is_not_a_stranded_link()
     check_commit_identity_prevents_the_wrong_offset()
     check_commit_identity_ci_cadence()
+    check_push_check_gate()
     check_source_clone_is_pinned_to_a_branch()
     check_generator_wires_every_template_guard_mode()
     check_verify_reports_a_source_wired_for_fewer_moments()
@@ -30781,7 +31709,10 @@ def main():
     check_rotation_gap_widens_to_find_coverage()
     check_vendor_engine_consumer_case()
     check_vendor_engine_hook_drift_respects_adapters()
+    check_vendor_engine_refresh_converges_with_adapter_owned_hooks()
+    check_vendor_engine_wires_a_new_hook_into_an_installed_repo()
     check_vendor_engine_refreshes_ci_workflow_files()
+    check_vendor_engine_refreshes_bootstrap_sh()
     check_vendor_engine_retires_ci_workflow_files()
     check_workflow_file_outside_vendoring_detects_candidates()
     check_very_deep_check_workflow_liveness_scan()

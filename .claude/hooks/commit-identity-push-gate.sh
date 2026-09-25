@@ -129,7 +129,12 @@ $out
         # not read its own set and this gate enforced nothing. Refusing on
         # it is commit-identity.yml's "Refuse a silent identity skip" step,
         # which existed because a silent skip reads exactly like a pass.
-        2) findings+="
+        # Outside an individual source (no identity.json at the root) a skip
+        # is the right answer, not a failure: the timezone check binds only
+        # the person's own repo (Morgan, 2026-09-25), and the author check
+        # has no declared person to hold a shared repo to.
+        2) [[ -f "$project_dir/identity.json" ]] || continue
+           findings+="
 === $check: SKIPPED (exit 2), which in THIS repo is a failure ===
 No declared identity resolved, so the check enforced nothing. identity.json
 is tracked at this repo's root and is rung 2 of the ladder, so this means

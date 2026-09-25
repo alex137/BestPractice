@@ -186,7 +186,13 @@ says so, both from the vendored tree under `process/upstream/`.
    Vendors" ran. A repo vendored before this date has no `hook_files` in
    its manifest yet; its first refresh after taking this change prints a
    one-time catch-up notice and vendors all of them, even though the
-   `tools/` commit may already match. `.claude/settings.json` is still never
+   `tools/` commit may already match. **One time is the point: a second
+   refresh at the same commit prints "nothing to do".** Until 2026-09-25 a
+   hook a declared source's adapters own (`commit-identity.sh`,
+   `freshness-guard.sh` from an individual source) was skipped, never
+   recorded, and still counted as missing, so the notice repeated on every
+   refresh and every engine file was rewritten; seeing it twice in a row now
+   is a bug to report. `.claude/settings.json` is still never
    touched — only the hook scripts it calls are vendored engine code, and a
    consumer's own hook wiring is its own.
    **Since 2026-09-18 this also refreshes the installed CI workflow file(s)**
@@ -223,8 +229,20 @@ says so, both from the vendored tree under `process/upstream/`.
    if it is already identical to upstream**; otherwise the refresh refuses,
    names how many lines differ, and `--force` does not waive it — move the
    difference upstream first. A mapping onto a path an adapter writes, or
-   one this engine already vendors, is refused outright. Nothing else
-   outside `tools/`, `.claude/hooks/` and the CI workflows is touched.
+   one this engine already vendors, is refused outright.
+   **Since 2026-09-25 it also refreshes a consumer's `tools/bootstrap.sh`
+   — but only while it carries no local edits.** Unedited means it matches
+   the baseline hash `ENGINE_MANIFEST.json` records for it
+   (`template_instances_sha256`), or, where nothing is recorded yet, it is
+   byte-identical to some past version of upstream `templates/bootstrap.sh`.
+   Either way it is rewritten to the current template. A copy with local
+   edits is never rewritten, `--force` included: the refresh reports it
+   `DIVERGED`, names each template block it lacks by line, and puts it on
+   the **Left for you** list for step 10(d). Before this date nothing
+   delivered a template change to an installed copy; a real consumer ran
+   two days without the session-start freshness check for exactly that
+   reason. Nothing else outside `tools/`, `.claude/hooks/`, the CI workflows
+   and `tools/bootstrap.sh` is touched.
    **Since 2026-09-19, check whether this refresh newly vendors
    `tools/todo_migrate.py` or `tools/build_todo_index.py`** — the one-time
    per-item TODO migration tool and its ongoing index generator
@@ -407,12 +425,29 @@ says so, both from the vendored tree under `process/upstream/`.
     repo just clones the same set twice, or not at all. Run step 8's tool
     afterwards.
 
-    **(d) Remove a hardcoded git identity.** A literal
+    **(d) Bring a diverged `tools/bootstrap.sh` up to the template.** The
+    refresh already rewrote an unedited copy (step 3). One it reported
+    `DIVERGED` has local edits, and the output lists each block of upstream
+    `templates/bootstrap.sh` it lacks, as `templates/bootstrap.sh:LINE
+    "heading" -- missing` or `-- N of its M lines absent or changed`. Copy
+    each listed block in from the template, **keeping every line this repo
+    added**, then re-run step 3's refresh: it should report the file as
+    carrying every block. Never replace the whole file to get there, and
+    never reach for `--force`, which does not touch it anyway.
+
+    **In the same file, remove a hardcoded git identity.** A literal
     `git config user.name` or `user.email` in `tools/bootstrap.sh` or
-    `.claude/settings.json` names a person in a shared template. Re-instantiate
-    `tools/bootstrap.sh` from upstream `templates/bootstrap.sh`, keeping
-    anything this repo added on purpose. `commit-identity.sh` resolves who
-    is committing.
+    `.claude/settings.json` names a person in a shared template; the
+    refresh lists each one under **Left for you**. Delete just those lines,
+    keeping the rest of the file. `commit-identity.sh` resolves who
+    is committing. **A fallback branch is not an exception.** One that
+    names a person "only when the individual source has not resolved yet"
+    was tested 2026-09-25 on a scratch consumer with no individual source:
+    `commit-identity.sh` already set the right author from
+    `PRECEDENT_COMMIT_*` or the authenticated GitHub account; with neither,
+    its backstop refused the bot-authored commit rather than letting it
+    through; and with a second person's identity declared, the fallback
+    overwrote it with the named one.
 
     **(e) Finish an unfinished migration.** No `tools/ENGINE_MANIFEST.json`
     means (a) could not run at all. Say so out loud, confirm with the person
