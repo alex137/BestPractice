@@ -22213,11 +22213,14 @@ def check_vendor_engine_refreshes_agents_md_sections():
         base = _ref_including_worktree(ROOT)
         old = subprocess.run(['git', '-C', str(ROOT), 'show', f'{base}:{src}'],
                              capture_output=True, check=True).stdout.decode()
-        anchor = '  Gates a push and a merge.\n'
+        # Anchored on the NEXT section's heading, not on a bullet's wording,
+        # which changes whenever someone rewords "Two check levels" (it did
+        # on 2026-09-25, the day this fixture landed).
+        anchor = '\n\n### Build-environment gotchas'
         assert old.count(anchor) == 1, 'template anchor moved; repoint this fixture'
-        added = (f'- **{marker}** — a bullet every stale copy of this '
-                 f'section lacks, and nothing else does.\n')
-        cur = old.replace(anchor, anchor + added)
+        added = (f'\n- **{marker}** — a bullet every stale copy of this '
+                 f'section lacks, and nothing else does.')
+        cur = old.replace(anchor, added + anchor)
 
         with tempfile.TemporaryDirectory(prefix='precedent-fixture-index-') as idx:
             env = dict(os.environ, GIT_INDEX_FILE=str(pathlib.Path(idx) / 'index'),
