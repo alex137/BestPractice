@@ -9,7 +9,7 @@ gates:       ["merge"]
 index_clause: "\"Promote\" -- pre-staging into staging, fully checked, by a merge commit"
 checked_by:  null
 defines:     ["Promote", "pre-staging"]
-command:     {"Promote": "Move everything waiting on pre-staging into staging: the full check runs on the whole batch, and staging moves only if it passes."}
+command:     {"Promote": "Land this session's own unsaved work on pre-staging first, then move everything waiting on pre-staging into staging: the full check runs on the whole batch, and staging moves only if it passes."}
 status:      active
 in_force_at: null
 supersedes:  []
@@ -26,17 +26,31 @@ approved_by: "Morgan, 2026-09-25 -- the three branch tiers are his own
   the suite on files that already passed it is his rule too (Morgan,
   2026-09-25: \"staging will not run the full suite of tests if it's being
   promoted from pre-staging to staging and the full suite of tests ran on
-  pre-staging and nothing has changed\", strength: decided)."
+  pre-staging and nothing has changed\", strength: decided). Saving the
+  session's own work with Go update before promoting is his rule too
+  (Morgan, 2026-09-25, strength: decided)."
 strength:    assented
 ---
 ## Rule
 When a message says **"Promote"** about the branch tiers -- the whole
-message, or a clause like "promote pre-staging" -- run, in the repository
-the work is in:
+message, or a clause like "promote pre-staging" -- **first check this
+session's own branch for work that is not on pre-staging yet**: anything
+uncommitted, or committed but not yet landed. **If there is any, run
+[Go update](go-merge.md) on it first**, which lands it on pre-staging, and
+confirm `origin/pre-staging` carries it. Promote carries that authorization
+itself: nobody is asked a second time. Only then run, in the repository the
+work is in:
 
     python3 tools/precedent_branches.py --promote
 
-It does the whole step, and a session adds nothing to it:
+Promote moves what is on pre-staging, so work still sitting in the session
+would otherwise miss the batch the person just asked to move (Morgan,
+2026-09-25: *"If there is anything in that session's branch that is not yet
+committed, to first do a 'go update' [which go into pre-staging] before
+starting the 'promote'"*, strength: decided). Nothing to save means
+nothing to do here: go straight to the command.
+
+The command does the whole promotion, and a session adds nothing to it:
 
 1. **Brings pre-staging up to date with staging** when staging has moved on
    its own (somebody pushed there directly), by a merge. A conflict stops it
@@ -63,7 +77,22 @@ It does the whole step, and a session adds nothing to it:
 the full check ran or stood from an earlier run, or -- on
 `PROMOTE REFUSED` -- the failing check and the batch it was run on. A
 refusal is fixed on pre-staging, like any other edit, and promoted again;
-never by pushing the batch to staging some other way.
+never by pushing the batch to staging some other way. When another window
+promoted the same batch while this one was checking it, Promote says so and
+exits cleanly -- *"another window promoted this batch while the check
+ran"* -- and that is the whole report: the work is on staging, and there is
+nothing to run again.
+
+**Never suggest a Promote that another session is already running**, and
+the same goes for `Go update` or a merge of the same pull request or the
+same work: two windows doing one job race, and the loser throws away a full
+check run. Before recommending one, look -- the pull request's state, the
+branch tips, and any session this one knows is on the same work -- and when
+another session has it, say that it does, not that the person should do it
+again (Morgan, 2026-09-25, after two sessions promoted the same batch at
+once: *"you should NEVER suggest to \"promote\" or \"go update\" or
+\"merge\" when another session is already doing that with the same
+PR/thing"*, strength: decided).
 
 **It can take as long as the full check does** -- minutes in this
 repository. Run it with a long timeout, or in the background, and keep

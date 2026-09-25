@@ -493,6 +493,11 @@ def _bootstrap_and_ci(dest, ci_enabled, ci_note, force):
     # (precedent_vendor_engine.TEMPLATE_INSTANCES).
     precedent_vendor_engine.record_template_instances(dest, 'consumer',
                                                       TEMPLATES.parent)
+    # And for each section AGENTS.md took from its template, which a later
+    # refresh brings up to date only while it carries no local edits
+    # (precedent_vendor_engine.AGENTS_MD_TEMPLATES).
+    precedent_vendor_engine.record_agents_md_sections(dest, 'consumer',
+                                                      TEMPLATES.parent)
     return out
 
 

@@ -128,4 +128,6 @@ Full catalogue, one file per trap. AGENTS.md carries only a pointer to this file
 
 - **A GitHub application programming interface (API) call from a hosted session is refused — `Resource not accessible by integration`, or the harness's own `GitHub access to this repository is not enabled for this session` — and the obvious diagnosis is that `PRECEDENT_GIT_TOKEN` needs more permission. A session then designs a token: which scopes, who creates it, where it goes.** [story](gotcha-2026-09-22-the-api-proxy-ignores-the-token-you-set.md)
 
+- **A push to a ref that is not a branch, such as `refs/precedent/promote-lock`, fails from a Claude Code on the web session:** [story](gotcha-2026-09-25-a-session-cannot-push-a-ref-outside-refs-heads.md)
+
 - **A hosted session whose project directory sits ABOVE every repo it touches (`/home/user` holding several sibling clones, none of them `$CLAUDE_PROJECT_DIR`) gets its git state reset mid-session -- the commit identity in `~/.gitconfig` flips back to the container's own bot account with no `git config` command in between, and `HEAD` moves onto the base branch with no repo tool in the loop -- by something outside any repo's own tooling entirely.** [story](gotcha-2026-09-25-a-session-rooted-above-every-repo-it-touches-gets-hooks-and.md)
