@@ -6,7 +6,7 @@ severity:    default
 applies_to:  ["**"]
 occasion:    "attaching a practice source to a session with the repo-attach tool, or that tool's reply says to clone what it attached"
 gates:       []
-index_clause: "attach the individual set, never hand-clone it -- work where the user config points; a shared set clones to its precedent.json path"
+index_clause: "attach the individual set, never hand-clone it; shared sets clone beside"
 checked_by:  null
 defines:     []
 status:      active

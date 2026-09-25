@@ -412,7 +412,7 @@ When adding a file to a directory that already holds files of the same kind:
 When asked to include an image, logo, or other binary asset the person is supplying, rather than approximate one from a description:
   attach-the-original — attach the file itself -- recreating an original from a description is invention
 When attaching a practice source to a session with the repo-attach tool, or that tool's reply says to clone what it attached:
-  attach-never-clone-individual — attach the individual set, never hand-clone it -- work where the user config points; a shared set clones to its precedent.json path
+  attach-never-clone-individual — attach the individual set, never hand-clone it; shared sets clone beside
 When building a mechanism that makes something discoverable or reachable:
   affordance-is-shared — name who else the mechanism you just built now serves
 When building a permutation or configuration-sweep table:
