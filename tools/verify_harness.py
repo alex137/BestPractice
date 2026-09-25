@@ -20244,6 +20244,113 @@ def check_vendor_engine_hook_drift_respects_adapters():
           '; '.join(f"{n} -- {d[:800]}" for n, d in bad))
 
 
+def check_vendor_engine_refresh_converges_with_adapter_owned_hooks():
+    """Two refreshes in a row at one commit: the second is a no-op, even
+    when a declared source's adapters own some of the hooks this repo wires.
+
+    THE BUG. refresh() decided whether hooks were missing from its own
+    computation of the wanted set, which left out the adapter exclusion
+    _write_hook_files applies. commit-identity.sh and freshness-guard.sh,
+    owned by the individual source's adapters in a real consumer, were
+    skipped by the writer, never recorded in `hook_files`, and still counted
+    as missing -- so every refresh printed the "one-time catch-up" NOTICE and
+    rewrote every engine file at an unchanged commit. Reported 2026-09-25
+    from a consumer's "Update Vendors" run; both questions now ask
+    _vendorable_hook_names.
+
+    Same fixture shape as check_vendor_engine_refreshes_ci_workflow_files
+    (one fresh consumer per scenario, --from-ref to a ref carrying this
+    working tree). The CONTROL drops the adapter claim, so the same wiring
+    vendors all three hooks and still converges -- proving the fixture's
+    settings.json is actually read, and that the no-op is not simply
+    "hooks are never looked at"."""
+    import shutil, tempfile
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-hook-converge-'))
+    cases = []
+    try:
+        engine_bytes = (ROOT / 'tools' / 'precedent_vendor_engine.py').read_bytes()
+        owned = ('commit-identity.sh', 'freshness-guard.sh')
+        vendored = 'stop-git-check.sh'
+        adapter_text = '#!/bin/sh\n# the individual source\'s own copy\n'
+
+        def make_consumer(name, claimed):
+            consumer = tmp / name
+            (consumer / 'tools').mkdir(parents=True)
+            hooks = consumer / '.claude' / 'hooks'
+            hooks.mkdir(parents=True)
+            (consumer / 'tools' / 'precedent_vendor_engine.py').write_bytes(engine_bytes)
+            (consumer / 'tools' / 'ENGINE_MANIFEST.json').write_text(json.dumps({
+                'kind': 'consumer', 'source_commit': 'deadbeef',
+                'files': ['precedent_vendor_engine.py'],
+                'sha256': {'precedent_vendor_engine.py':
+                           hashlib.sha256(engine_bytes).hexdigest()},
+            }), encoding='utf-8')
+            (consumer / '.claude' / 'settings.json').write_text(json.dumps({
+                'hooks': {'SessionStart': [{'hooks': [
+                    {'type': 'command',
+                     'command': f'$CLAUDE_PROJECT_DIR/.claude/hooks/{n}'}
+                    for n in (*owned, vendored)]}]},
+            }), encoding='utf-8')
+            if claimed:
+                for n in owned:
+                    (hooks / n).write_text(adapter_text, encoding='utf-8')
+                (consumer / 'MANIFEST.json').write_text(json.dumps({
+                    'generated_by': 'tools/precedent_materialize.py',
+                    'adapters': [{'path': f'.claude/hooks/{n}',
+                                  'source': 'precedent-individual'} for n in owned],
+                }), encoding='utf-8')
+            return consumer
+
+        ref = _ref_including_worktree(ROOT)
+
+        def run_refresh(consumer):
+            r = subprocess.run(
+                [sys.executable, str(consumer / 'tools' / 'precedent_vendor_engine.py'),
+                 'refresh', str(ROOT), '--from-ref', ref],
+                capture_output=True, text=True, cwd=str(consumer))
+            return r.returncode, r.stdout + r.stderr
+
+        def snapshot(consumer):
+            return {str(f.relative_to(consumer)): (f.stat().st_mtime_ns, f.read_bytes())
+                    for f in sorted(consumer.rglob('*'))
+                    if f.is_file() and '__pycache__' not in f.parts}
+
+        for label, claimed in (('adapter-owned', True), ('CONTROL: no adapter claim', False)):
+            c = make_consumer(label.split(':')[0].replace(' ', '-'), claimed)
+            rc1, out1 = run_refresh(c)
+            before = snapshot(c)
+            rc2, out2 = run_refresh(c)
+            after = snapshot(c)
+            changed = sorted(k for k in after if before.get(k) != after[k])
+            manifest = json.loads(
+                (c / 'tools' / 'ENGINE_MANIFEST.json').read_text(encoding='utf-8'))
+            detail = f'first: rc={rc1} {out1[-600:]} || second: rc={rc2} {out2[-600:]}'
+            cases.append((f'{label}: the first refresh succeeds', rc1 == 0, detail))
+            cases.append((f'{label}: the second refresh at the same commit says '
+                          f'"nothing to do"', rc2 == 0 and 'nothing to do' in out2, detail))
+            cases.append((f'{label}: ...and prints no missing-hooks NOTICE',
+                          'vendored hooks are missing' not in out2, detail))
+            cases.append((f'{label}: ...and touches no file', not changed,
+                          f'changed: {changed[:10]} -- {detail}'))
+            want = [vendored] if claimed else sorted((*owned, vendored))
+            cases.append((f'{label}: hook_files records exactly the hooks this engine '
+                          f'vendored ({want})', manifest.get('hook_files') == want,
+                          f"hook_files={manifest.get('hook_files')}"))
+            if claimed:
+                cases.append((f'{label}: the adapter-owned hooks keep the source\'s bytes',
+                              all((c / '.claude' / 'hooks' / n).read_text(encoding='utf-8')
+                                  == adapter_text for n in owned), detail))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f"refresh converges when a source's adapters own some wired hooks -- a second "
+          f"refresh at the same commit is a no-op ({len(cases)} stated cases)",
+          not bad,
+          '; '.join(f"{n} -- {d[:900]}" for n, d in bad))
+
+
 def check_vendor_engine_refreshes_ci_workflow_files():
     """"Update Vendors" refreshing tools/ and .claude/hooks/*.sh but never
     .github/workflows/*.yml is the bug this closes -- see
@@ -30781,6 +30888,7 @@ def main():
     check_rotation_gap_widens_to_find_coverage()
     check_vendor_engine_consumer_case()
     check_vendor_engine_hook_drift_respects_adapters()
+    check_vendor_engine_refresh_converges_with_adapter_owned_hooks()
     check_vendor_engine_refreshes_ci_workflow_files()
     check_vendor_engine_retires_ci_workflow_files()
     check_workflow_file_outside_vendoring_detects_candidates()

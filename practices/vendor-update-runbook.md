@@ -186,7 +186,13 @@ says so, both from the vendored tree under `process/upstream/`.
    Vendors" ran. A repo vendored before this date has no `hook_files` in
    its manifest yet; its first refresh after taking this change prints a
    one-time catch-up notice and vendors all of them, even though the
-   `tools/` commit may already match. `.claude/settings.json` is still never
+   `tools/` commit may already match. **One time is the point: a second
+   refresh at the same commit prints "nothing to do".** Until 2026-09-25 a
+   hook a declared source's adapters own (`commit-identity.sh`,
+   `freshness-guard.sh` from an individual source) was skipped, never
+   recorded, and still counted as missing, so the notice repeated on every
+   refresh and every engine file was rewritten; seeing it twice in a row now
+   is a bug to report. `.claude/settings.json` is still never
    touched — only the hook scripts it calls are vendored engine code, and a
    consumer's own hook wiring is its own.
    **Since 2026-09-18 this also refreshes the installed CI workflow file(s)**
