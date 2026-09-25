@@ -15720,6 +15720,12 @@ def check_push_check_gate():
                 f'f = pathlib.Path("FAIL")\n'
                 f'sys.exit(1 if f.exists() and "{t}" in f.read_text() else 0)\n',
                 encoding='utf-8')
+        # The deep-check driver, when a repo has one, is on the list too.
+        drv = work / 'tools' / 'checks' / 'tests' / 'run_all.sh'
+        drv.parent.mkdir(parents=True)
+        drv.write_text('#!/bin/bash\ncd "$(dirname "$0")/../../.."\n'
+                       '[ -f FAIL ] && grep -q deep_check FAIL && exit 1\nexit 0\n',
+                       encoding='utf-8')
         git(work, 'add', '-A')
         git(work, 'commit', '-q', '-m', 'init')
 
@@ -15763,6 +15769,12 @@ def check_push_check_gate():
                          project=elsewhere)
         cases.append(('so does a leading `cd <repo> &&`', denied))
 
+        (work / 'FAIL').write_text('deep_check', encoding='utf-8')
+        git(work, 'commit', '-q', '-am', 'break the deep check suite')
+        denied, out = gate('git push origin main')
+        cases.append(("a repo's own deep-check suite (tools/checks/tests/"
+                      "run_all.sh) runs, and its failure refuses the push",
+                      denied and 'deep_check' in out))
         git(work, 'rm', '-q', 'FAIL')
         git(work, 'commit', '-q', '-m', 'fix it')
         denied, _ = gate('git push origin main')
@@ -15774,6 +15786,17 @@ def check_push_check_gate():
         cases.append(('a pass recorded for the committed tree is not reused '
                       'over uncommitted edits that fail', denied))
         git(work, 'reset', '-q', '--hard')
+
+        # A shallow clone is deepened before anything runs: history checks
+        # on a shallow clone skip, and a skip would read as a pass here.
+        shallow = tmp / 'shallow'
+        git(tmp, 'clone', '-q', '--depth', '1', f'file://{work}', str(shallow))
+        was = git(shallow, 'rev-parse', '--is-shallow-repository').stdout.strip()
+        subprocess.run([sys.executable, 'tools/precedent_push_check.py'],
+                       cwd=shallow, capture_output=True, text=True, env=env)
+        now = git(shallow, 'rev-parse', '--is-shallow-repository').stdout.strip()
+        cases.append(('a shallow clone is deepened before the checks run',
+                      was == 'true' and now == 'false'))
 
         plain = tmp / 'plain'
         git(tmp, 'init', '-q', str(plain))

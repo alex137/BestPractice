@@ -42,6 +42,22 @@ AGENTS.md warns about, and a sweep costs seconds. And leak_gate runs whole,
 not `--structural-only`: CI could only run the structural half because it
 never had the private blocklist, and a local run does.
 
+THE DEEP CHECK'S OWN SUITE RUNS TOO, wherever a repo has one. A set that
+maintains check scripts under tools/checks/ keeps a two-direction test for
+each and a driver, tools/checks/tests/run_all.sh, that runs them all --
+the mechanical half of its `deep-check` practice, in that practice's own
+words. No workflow ever ran it; it was run by hand, or not. Morgan,
+2026-09-25: "We had a deep_check too." The first run found five of one
+set's cases red, fixed the same day. A repo with no driver skips the entry
+and says so.
+
+A SHALLOW CLONE IS DEEPENED FIRST, or the push is refused. Every clone in
+a cloud session starts shallow, and a check that walks `git log` over a
+shallow clone reports SKIPPED -- which this list would then call a pass.
+Measured 2026-09-25: all five of that day's clones were shallow, and a
+history check in one set had been skipping on every run. `git fetch
+--unshallow` took one to five seconds each.
+
 A PASS IS RECORDED AGAINST THE TREE, so the gate does not run the suite
 twice. After a clean run with nothing uncommitted, the HEAD tree's hash
 goes into .git/precedent-push-check.json. `--gate` finds that record and
@@ -70,9 +86,14 @@ HERE = Path(__file__).resolve().parent
 RECORD = 'precedent-push-check.json'
 TAIL_LINES = 40
 
-# name, argv (paths relative to the engine directory, marked {engine}), and
-# the workflow it stands in for. ONE list per kind -- this is the registry;
-# nothing else restates it (practice: registry-source-of-truth).
+# name, argv, and the workflow it stands in for. A python3 script is named
+# by its path alone ({engine} is the engine directory); anything else gives
+# its interpreter first. ONE list per kind -- this is the registry; nothing
+# else restates it (practice: registry-source-of-truth).
+DEEP_CHECK_SUITE = ('deep_check', ['bash', 'tools/checks/tests/run_all.sh'],
+                    "no workflow -- the deep-check practice's own suite")
+# Entries a repo may simply not have: skipped with a note, never a failure.
+OPTIONAL = {'deep_check'}
 PUSH_CHECKS = {
     'upstream': (
         ('verify_harness', ['{engine}/verify_harness.py', '--as-ci'],
@@ -85,6 +106,7 @@ PUSH_CHECKS = {
          'leak-gate.yml (structural half only in CI)'),
         ('doc_lint', ['{engine}/doc_lint.py'],
          'docs.yml, retired 2026-09-21'),
+        DEEP_CHECK_SUITE,
     ),
     'source': (
         ('precedent_check', ['{engine}/precedent_check.py', '--full-sweep'],
@@ -95,6 +117,7 @@ PUSH_CHECKS = {
          'leak-gate.yml, retired 2026-09-21'),
         ('doc_lint', ['{engine}/doc_lint.py'],
          'doc-lint.yml, retired 2026-09-21'),
+        DEEP_CHECK_SUITE,
     ),
     'consumer': (
         ('precedent_check', ['{engine}/precedent_check.py', '--full-sweep'],
@@ -103,6 +126,7 @@ PUSH_CHECKS = {
          'leak-gate.yml (structural half only in CI)'),
         ('doc_lint', ['{engine}/doc_lint.py'],
          'bestpractice-docs.yml, retired 2026-09-21'),
+        DEEP_CHECK_SUITE,
     ),
 }
 
@@ -140,10 +164,14 @@ def plan(root, engine=HERE):
     out = []
     for name, argv, replaces in PUSH_CHECKS[kind]:
         argv = [a.replace('{engine}', str(rel)) for a in argv]
-        # A check whose tool this repo does not carry cannot be run, and
-        # saying so beats a crash. It is reported, never silently dropped.
-        out.append((name, [sys.executable, *argv], replaces))
+        if argv[0].endswith('.py'):
+            argv = [sys.executable, *argv]
+        out.append((name, argv, replaces))
     return kind, out
+
+
+def shown_interpreter(argv):
+    return 'python3' if argv[0] == sys.executable else argv[0]
 
 
 def signature(checks):
@@ -182,8 +210,14 @@ def run(root, checks):
     started = time.monotonic()
     for i, (name, argv, replaces) in enumerate(checks, 1):
         script = root / argv[1]
-        shown = ' '.join(['python3', *argv[1:]])
+        shown = ' '.join([shown_interpreter(argv), *argv[1:]])
+        if not script.is_file() and name in OPTIONAL:
+            print(f'[{i}/{len(checks)}] {name}: not here -- this repo has no '
+                  f'{argv[1]}', flush=True)
+            continue
         if not script.is_file():
+            # A check whose tool this repo does not carry cannot be run, and
+            # saying so beats a crash. Reported, never silently dropped.
             missing.append(name)
             print(f'[{i}/{len(checks)}] {name}: NOT RUN -- {argv[1]} is not '
                   f'in this repo (stands in for {replaces})', flush=True)
@@ -224,7 +258,7 @@ def main(argv):
         print(f'{root.name} is {"an" if kind[0] in "aeiou" else "a"} {kind} '
               f'repository. Before a push:')
         for name, a, replaces in checks:
-            print(f'  {name:16} python3 {" ".join(a[1:])}')
+            print(f'  {name:16} {shown_interpreter(a)} {" ".join(a[1:])}')
             print(f'  {"":16} replaces {replaces}')
         return 0
 
@@ -232,6 +266,18 @@ def main(argv):
         print(f'precedent_push_check: this exact tree already passed all '
               f'{len(checks)} check(s); nothing to re-run.')
         return 0
+
+    if git(root, 'rev-parse', '--is-shallow-repository') == 'true':
+        print('precedent_push_check: this clone is shallow, so every check '
+              'that reads history would skip -- deepening it first '
+              '(git fetch --unshallow).', flush=True)
+        subprocess.run(['git', '-C', str(root), 'fetch', '-q', '--unshallow'],
+                       capture_output=True, text=True)
+        if git(root, 'rev-parse', '--is-shallow-repository') == 'true':
+            print('precedent_push_check: FAILED -- the clone is still shallow '
+                  '(the fetch did not complete), so the history checks '
+                  'cannot run. Run `git fetch --unshallow` and try again.')
+            return 1
 
     print(f'precedent_push_check: {kind} repository {root.name}, '
           f'{len(checks)} check(s) -- everything CI used to run, run here.',
