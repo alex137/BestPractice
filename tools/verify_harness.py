@@ -6596,13 +6596,13 @@ def check_reply_gate_names_work_not_yet_landed():
         g('push', '-q', '-u', 'origin', 'trunk')
 
         cases.append(('on the base branch, with nothing ahead, it says nothing',
-                      pg._unlanded_work(repo) == [], str(pg._unlanded_work(repo))))
+                      pg._unlanded_work(repo, siblings=False) == [], str(pg._unlanded_work(repo, siblings=False))))
 
         # A commit on a feature branch -- the exact shape that gets forgotten.
         g('switch', '-q', '-c', 'feature')
         (repo / 'b.txt').write_text('two\n', encoding='utf-8')
         g('add', '-A'); g('commit', '-qm', 'second')
-        got = pg._unlanded_work(repo)
+        got = pg._unlanded_work(repo, siblings=False)
         cases.append(('a commit on a feature branch is reported',
                       len(got) == 1, str(got)))
         cases.append(('it names the branch it is NOT on, which is the '
@@ -6614,7 +6614,7 @@ def check_reply_gate_names_work_not_yet_landed():
         # PUSHING THE FEATURE BRANCH CHANGES NOTHING -- that is the whole
         # point, and it is what the stop hook's "unpushed" test misses.
         g('push', '-q', '-u', 'origin', 'feature')
-        after = pg._unlanded_work(repo)
+        after = pg._unlanded_work(repo, siblings=False)
         cases.append(('pushing the feature branch does NOT clear it -- pushed '
                       'is not landed', len(after) == 1, str(after)))
 
@@ -6622,7 +6622,7 @@ def check_reply_gate_names_work_not_yet_landed():
         g('switch', '-q', 'trunk'); g('merge', '-q', 'feature')
         g('push', '-q', 'origin', 'trunk')
         cases.append(('merging into the base branch clears it',
-                      pg._unlanded_work(repo) == [], str(pg._unlanded_work(repo))))
+                      pg._unlanded_work(repo, siblings=False) == [], str(pg._unlanded_work(repo, siblings=False))))
 
         # A SQUASH merge clears it too. The squashed commit on trunk is new,
         # so the branch's own commits never become its ancestors and
@@ -6638,7 +6638,7 @@ def check_reply_gate_names_work_not_yet_landed():
         g('commit', '-qm', 'squash of squashed')
         g('push', '-q', 'origin', 'trunk')
         g('switch', '-q', 'squashed')
-        got = pg._unlanded_work(repo)
+        got = pg._unlanded_work(repo, siblings=False)
         cases.append(('a squash-merged branch is not reported', got == [], str(got)))
 
         # The base moving on with someone else's work must not bring the
@@ -6648,13 +6648,13 @@ def check_reply_gate_names_work_not_yet_landed():
         g('add', '-A'); g('commit', '-qm', 'unrelated')
         g('push', '-q', 'origin', 'trunk')
         g('switch', '-q', 'squashed')
-        got = pg._unlanded_work(repo)
+        got = pg._unlanded_work(repo, siblings=False)
         cases.append(('it stays cleared after the base moves on', got == [], str(got)))
 
         # And real work on top of the squashed branch is still reported.
         (repo / 'c.txt').write_text('three, revised again\n', encoding='utf-8')
         g('add', '-A'); g('commit', '-qm', 'fifth')
-        got = pg._unlanded_work(repo)
+        got = pg._unlanded_work(repo, siblings=False)
         cases.append(('a real commit after the squash is still reported',
                       len(got) == 1 and "'trunk'" in got[0], str(got)))
         g('switch', '-q', 'trunk')
@@ -6664,7 +6664,7 @@ def check_reply_gate_names_work_not_yet_landed():
         g('add', '-A'); g('commit', '-qm', 'drop config')
         g('push', '-q', 'origin', 'trunk')
         cases.append(('a repo with no precedent.json does not crash',
-                      isinstance(pg._unlanded_work(repo), list), 'raised'))
+                      isinstance(pg._unlanded_work(repo, siblings=False), list), 'raised'))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
