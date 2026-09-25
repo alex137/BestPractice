@@ -22,7 +22,11 @@ approved_by: "Morgan, 2026-09-25 -- the three branch tiers are his own
   decided), with promotion by a person rather than a schedule (\"I think
   that it should not be on a cron\", decided). The word itself was the
   session's recommendation, approved with the plan as a whole: \"Otherwise,
-  this looks great, let's do it, go ahead, go update\"."
+  this looks great, let's do it, go ahead, go update\". Not re-running
+  the suite on files that already passed it is his rule too (Morgan,
+  2026-09-25: \"staging will not run the full suite of tests if it's being
+  promoted from pre-staging to staging and the full suite of tests ran on
+  pre-staging and nothing has changed\", strength: decided)."
 strength:    assented
 ---
 ## Rule
@@ -42,10 +46,21 @@ It does the whole step, and a session adds nothing to it:
    line can become staging's head and silence the GitHub test on the pull
    request into main.
 3. **Runs the full push check on exactly that commit**, in a throwaway
-   worktree, and **pushes it to staging only if it passes.** A pass already
-   recorded for the same tree is reused.
+   worktree, and **pushes it to staging only if it passes.**
+   **It does not run the suite a second time on files that already passed
+   it.** When the full check already passed on exactly these files -- the
+   usual case after a high-risk change, which ran it before landing on
+   pre-staging -- that result stands and nothing is re-run, **whichever
+   window ran it**: a pass is shared through origin, so Promote said in one
+   window finds the run another window made. "Exactly" is
+   the whole condition: one changed character anywhere, including a push
+   made straight to staging in between, and the suite runs. It is what the
+   files are that decides, never which branch they came from. **It says
+   which happened**: "NOT re-run", with when the earlier run passed, or how
+   long the run it just did took.
 
-**Report what it printed, plainly**: the commits promoted, or -- on
+**Report what it printed, plainly**: the commits promoted and whether
+the full check ran or stood from an earlier run, or -- on
 `PROMOTE REFUSED` -- the failing check and the batch it was run on. A
 refusal is fixed on pre-staging, like any other edit, and promoted again;
 never by pushing the batch to staging some other way.

@@ -147,6 +147,7 @@
 | [`todo-2026-09-21-vocabulary-emit-would-publish-a-private-command`](todo-2026-09-21-vocabulary-emit-would-publish-a-private-command.md) | `python3 tools/doc_sync.py --write` would publish a private practice's command into a public, tracked file | 4d | ask |  |
 | [`todo-2026-09-22-code-cites-practice-validates-against-the-wrong-catalogue`](todo-2026-09-22-code-cites-practice-validates-against-the-wrong-catalogue.md) | `code-cites-practice` decides whether a cited slug is real by listing the local `practices/` directory | 3d | raise |  |
 | [`todo-2026-09-22-the-endgame-merge-rehearsal-is-red-in-ci-green-locally`](todo-2026-09-22-the-endgame-merge-rehearsal-is-red-in-ci-green-locally.md) | `verify_harness (everything else)` has been failing on `precedent-beta-v01` itself, on one check, and every pull request | 3d | ask |  |
+| [`todo-2026-09-25-every-install-approves-its-workflows`](todo-2026-09-25-every-install-approves-its-workflows.md) | Every install still carries workflow files nobody has approved under ci-workflow-approved. | 0d | ask |  |
 | [`todo-2026-09-25-should-sets-run-the-reply-gate`](todo-2026-09-25-should-sets-run-the-reply-gate.md) | Should practice sets run the reply gate and the other consumer-only hooks? | 0d | ask |  |
 
 ## Decisions (the Person's Call)

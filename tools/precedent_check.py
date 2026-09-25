@@ -4499,6 +4499,139 @@ def _workflow_file_outside_vendoring(ctx):
     return findings
 
 
+# The approval record a workflow file needs (practice: ci-workflow-approved).
+GITHUB_CI_APPROVED_KEY = 'github_ci_approved'
+_APPROVAL_DATE = re.compile(r'\b20\d\d-\d\d-\d\d\b')
+_APPROVAL_QUOTE = re.compile(r'"[^"]{3,}"|“[^”]{3,}”')
+
+
+def _approval_problem(entry):
+    """-> None when `entry` is a usable approval, else what is wrong with it.
+    Usable means a sha256, and an approved_by carrying a date and the
+    person's own words in quotes -- or, for a file precedent_install.py
+    wrote straight from a shipped template, the template's name instead of
+    the quote. Nothing here can prove the quote is real; what it can do is
+    make a session that invents one write the invention down, where a
+    reader will see it."""
+    if not isinstance(entry, dict):
+        return 'is not an object with sha256 and approved_by'
+    if not re.fullmatch(r'[0-9a-f]{64}', str(entry.get('sha256') or '')):
+        return 'has no sha256 of the approved content'
+    by = str(entry.get('approved_by') or '')
+    if not _APPROVAL_DATE.search(by):
+        return 'approved_by carries no date (YYYY-MM-DD)'
+    if not (_APPROVAL_QUOTE.search(by) or entry.get('template')):
+        return ('approved_by quotes nobody -- it must carry the person\'s '
+                'own words, in double quotes')
+    return None
+
+
+def _workflow_triggers(path):
+    """-> a one-line summary of a workflow's `on:` keys, for the finding --
+    the person approving needs to see WHEN it runs, since that is what
+    costs. '' when it cannot be read."""
+    try:
+        import yaml
+        doc = yaml.safe_load(path.read_text(encoding='utf-8'))
+    except Exception:                                          # noqa: BLE001
+        return ''
+    if not isinstance(doc, dict):
+        return ''
+    on = doc.get('on', doc.get(True))
+    if isinstance(on, str):
+        return on
+    if isinstance(on, list):
+        return ', '.join(map(str, on))
+    if not isinstance(on, dict):
+        return ''
+    parts = []
+    for event, spec in on.items():
+        branches = spec.get('branches') if isinstance(spec, dict) else None
+        cron = ([c.get('cron') for c in spec if isinstance(c, dict)]
+                if isinstance(spec, list) else None)
+        parts.append(f'{event} {branches}' if branches else
+                     f'{event} {cron}' if cron else str(event))
+    return ', '.join(parts)
+
+
+@check('ci-workflow-approved', 'tree',
+       "every .github/workflows/*.yml or *.yaml file is either the "
+       "engine's own copy, untouched since the manifest recorded it, or "
+       "carries the person's approval in precedent.json's "
+       "github_ci_approved, pinned to its exact content by sha256 -- so "
+       "adding a workflow, or editing one (a new trigger, a new job), fails "
+       "until the person approves the new content in their own words",
+       "whether the quoted approval is genuine: it can require the quote "
+       "and a date, and cannot tell a real one from an invented one. "
+       "An engine-tracked file re-baselined with `record-ci` reads as "
+       "untouched. A workflow file added through the GitHub API or web "
+       "editor never passes through a session's push gate, so only this "
+       "check running in CI, or the next local run, sees it. Never "
+       "applies in BestPractice itself, which has no manifest.",
+       binds_when=('.github/workflows',))
+def _ci_workflow_approved(ctx):
+    import hashlib
+
+    manifest = _engine_manifest()
+    if not manifest:
+        raise NotApplicable('no tools/ENGINE_MANIFEST.json -- this repo has '
+                            'never vendored the engine, or is the engine\'s '
+                            'own origin')
+    wf_dir = ctx.root / '.github' / 'workflows'
+    if not wf_dir.is_dir():
+        return []
+    tracked = manifest.get('ci_workflows_sha256') or {}
+    try:
+        cfg = json.loads((ctx.root / 'precedent.json').read_text(
+            encoding='utf-8'))
+        approved = cfg.get(GITHUB_CI_APPROVED_KEY) or {}
+    except (OSError, ValueError, AttributeError):
+        approved = {}
+    if not isinstance(approved, dict):
+        approved = {}
+
+    findings = []
+    for path in sorted(wf_dir.iterdir()):
+        if not (path.is_file() and path.suffix in ('.yml', '.yaml')):
+            continue
+        rel = f'.github/workflows/{path.name}'
+        sha = hashlib.sha256(path.read_bytes()).hexdigest()
+        if tracked.get(rel) == sha:
+            continue
+        entry = approved.get(rel)
+        problem = _approval_problem(entry) if entry is not None else None
+        if entry is not None and problem is None and entry['sha256'] == sha:
+            continue
+        runs = _workflow_triggers(path)
+        runs = f' It runs on: {runs}.' if runs else ''
+        if entry is None:
+            what = ('has no approval -- nobody has said this workflow should '
+                    'exist')
+        elif problem:
+            what = f'has an approval that {problem}'
+        else:
+            what = ('was EDITED after it was approved -- its content no '
+                    'longer matches the approved sha256')
+        findings.append(Finding(
+            rel,
+            f'{what}.{runs} Every run bills at least a minute in a private '
+            f'repository. Show the person the file and when it runs, and '
+            f'ask. If they want it, record their words in precedent.json: '
+            f'"{GITHUB_CI_APPROVED_KEY}": {{"{rel}": {{"sha256": "{sha}", '
+            f'"approved_by": "<Name>, <YYYY-MM-DD>: \\"<their words>\\""}}}}. '
+            f'If not, delete the file. Never write an approval the person '
+            f'did not give (practice: ci-workflow-approved).'))
+    # An approval that outlived its file is a hole nobody sees: bring the
+    # file back byte for byte and it would pass unasked
+    # (practice: checks-carry-a-declared-decline).
+    for rel in sorted(approved):
+        if not (ctx.root / rel).is_file():
+            findings.append(Finding(
+                rel, f'is approved in {GITHUB_CI_APPROVED_KEY} but no longer '
+                     f'exists -- remove the entry'))
+    return findings
+
+
 @check('vocabulary-reaches-the-consumer', 'tree',
        "every practice that declares a standing COMMAND is actually "
        "reachable where the engine is vendored -- not withheld from a "

@@ -10611,6 +10611,39 @@ def check_precedent_check_fires():
         case('workflow-file-outside-vendoring', _plant_workflow_outside_vendoring,
              setup=_setup_workflow_outside_vendoring, advisory=True)
 
+        # ci-workflow-approved (2026-09-25). Setup gives the fixture a
+        # vendored consumer's shape: a manifest tracking one workflow at its
+        # real hash, so the unplanted tree is the engine's own untouched
+        # copy and passes. The plant adds a workflow nobody approved -- the
+        # incident's shape, a repo-owned check with a push trigger on main.
+        def _setup_ci_workflow_approved(repo):
+            import hashlib
+            wf = repo / '.github' / 'workflows'
+            if wf.is_dir():
+                shutil.rmtree(wf)
+            wf.mkdir(parents=True)
+            body = 'name: Leak gate\n'
+            (wf / 'leak-gate.yml').write_text(body, encoding='utf-8')
+            (repo / 'tools' / 'ENGINE_MANIFEST.json').write_text(json.dumps({
+                'kind': 'consumer',
+                'ci_workflow_files': ['.github/workflows/leak-gate.yml'],
+                'ci_workflows_sha256': {
+                    '.github/workflows/leak-gate.yml':
+                        hashlib.sha256(body.encode()).hexdigest()},
+            }), encoding='utf-8')
+            git(repo, 'add', '-A')
+            git(repo, 'commit', '-qm', 'planted consumer manifest, engine workflow')
+
+        def _plant_ci_workflow_unapproved(repo):
+            (repo / '.github/workflows/light-check.yml').write_text(
+                'name: Light check\non:\n  push:\n    branches: [main]\n',
+                encoding='utf-8')
+            git(repo, 'add', '-A')
+            git(repo, 'commit', '-qm', 'planted unapproved workflow file')
+
+        case('ci-workflow-approved', _plant_ci_workflow_unapproved,
+             setup=_setup_ci_workflow_approved)
+
         # shipped-template-carries-its-script (2026-09-21). The check reads
         # THIS repo's templates/github-actions/ against the REAL
         # CI_WORKFLOW_TEMPLATES/KINDS imported from tools/ -- so the fixture
@@ -15777,7 +15810,13 @@ def check_push_check_gate():
                 + ('print("precedent_check: %d passed, 0 violated" % '
                    '(0 if "zero" in body else 3))\n'
                    if t == 'precedent_check' else '')
-                + f'fail = "{t}" in body\n'
+                # precedent_check.py also answers as the basic tier's
+                # ci_workflows (--only ci-workflow-approved), a check of
+                # its own: fail it only when FAIL names that one.
+                + ('name = ("ci_workflows" if "ci-workflow-approved" in '
+                   'sys.argv else "precedent_check")\n'
+                   if t == 'precedent_check' else f'name = "{t}"\n')
+                + 'fail = name in body\n'
                 # A failure that prints its finding and then pages of noise,
                 # as precedent_check does with every SKIPPED check after its
                 # VIOLATION block.
@@ -15902,6 +15941,57 @@ def check_push_check_gate():
             cases.append(('a full pass satisfies a later basic gate on the same '
                           'tree', not denied and 'already passed' in again))
             env.pop('PRECEDENT_USER_CONFIG')
+
+        # A pass is shared through origin, so a second checkout -- another
+        # window -- does not re-run the suite on files the first one passed
+        # (Morgan, 2026-09-25). And only exactly those files, at that tier.
+        env['PRECEDENT_USER_CONFIG'] = str(tmp / 'no-config.json')
+        hub = tmp / 'hub.git'
+        git(tmp, 'init', '-q', '--bare', '-b', 'main', str(hub))
+        git(work, 'remote', 'add', 'origin', f'file://{hub}')
+        git(work, 'push', '-q', 'origin', 'HEAD:refs/heads/main')
+
+        def run_check(cwd, *a):
+            return subprocess.run([sys.executable, 'tools/precedent_push_check.py',
+                                   *a], cwd=cwd, capture_output=True, text=True,
+                                  env=env).stdout
+
+        ran = run_check(work, '--tier', 'full')
+        files = git(hub, 'ls-tree', '-r', '--name-only',
+                    'precedent-check-receipts').stdout.split()
+        cases.append(('a full pass is published to origin as a receipt',
+                      'shared with every checkout' in ran
+                      and any(f.startswith('receipts/') for f in files)))
+        other = tmp / 'other'
+        git(tmp, 'clone', '-q', f'file://{hub}', str(other))
+        got = run_check(other, '--gate', '--tier', 'full')
+        cases.append(('another checkout of the same files does not re-run the '
+                      'suite, and says the pass came from elsewhere',
+                      'already passed the full check at' in got
+                      and 'another checkout' in got))
+        msg = git(hub, 'log', '-1', '--format=%B', 'precedent-check-receipts').stdout
+        cases.append(('the receipt branch carries no file of the repository, '
+                      'and its commits skip CI',
+                      bool(files) and all(f == 'ORDER' or f.startswith('receipts/')
+                                          for f in files)
+                      and '[skip ci]' in msg))
+        (other / 'list.txt').write_text('changed\n', encoding='utf-8')
+        git(other, 'add', 'list.txt')
+        git(other, 'commit', '-q', '-m', 'one change')
+        got = run_check(other, '--gate', '--tier', 'full')
+        cases.append(('one changed file and the suite runs again',
+                      'already passed' not in got and 'all passed' in got))
+        (work / 'basic.txt').write_text('b\n', encoding='utf-8')
+        git(work, 'add', 'basic.txt')
+        git(work, 'commit', '-q', '-m', 'basic only')
+        run_check(work, '--tier', 'basic')
+        git(work, 'push', '-q', 'origin', 'HEAD:refs/heads/main')
+        git(other, 'fetch', '-q', 'origin')
+        git(other, 'checkout', '-q', '--detach', 'origin/main')
+        got = run_check(other, '--gate', '--tier', 'full')
+        cases.append(('a shared BASIC pass never satisfies a full gate',
+                      'already passed' not in got and 'all passed' in got))
+        env.pop('PRECEDENT_USER_CONFIG')
 
         # A shallow clone is deepened before anything runs: history checks
         # on a shallow clone skip, and a skip would read as a pass here.
@@ -16116,7 +16206,13 @@ def check_merge_check_gate():
                 'body = f.read_text() if f.exists() else ""\n'
                 + ('print("precedent_check: 3 passed, 0 violated")\n'
                    if t == 'precedent_check' else '')
-                + f'sys.exit(1 if "{t}" in body else 0)\n',
+                # precedent_check.py also answers as the basic tier's
+                # ci_workflows (--only ci-workflow-approved), a check of
+                # its own: fail it only when FAIL names that one.
+                + ('name = ("ci_workflows" if "ci-workflow-approved" in '
+                   'sys.argv else "precedent_check")\n'
+                   if t == 'precedent_check' else f'name = "{t}"\n')
+                + 'sys.exit(1 if name in body else 0)\n',
                 encoding='utf-8')
         git(work, 'add', '-A')
         git(work, 'commit', '-q', '-m', 'init')
@@ -16254,7 +16350,13 @@ def check_promote_pre_staging():
                 'body = f.read_text() if f.exists() else ""\n'
                 + ('print("precedent_check: 3 passed, 0 violated")\n'
                    if t == 'precedent_check' else '')
-                + f'sys.exit(1 if "{t}" in body else 0)\n',
+                # precedent_check.py also answers as the basic tier's
+                # ci_workflows (--only ci-workflow-approved), a check of
+                # its own: fail it only when FAIL names that one.
+                + ('name = ("ci_workflows" if "ci-workflow-approved" in '
+                   'sys.argv else "precedent_check")\n'
+                   if t == 'precedent_check' else f'name = "{t}"\n')
+                + 'sys.exit(1 if name in body else 0)\n',
                 encoding='utf-8')
         # A repo whose staging still goes by its pre-rename name.
         (work / 'precedent.json').write_text(_json.dumps({'base_branch': 'beta'}),
@@ -16341,6 +16443,23 @@ def check_promote_pre_staging():
                       len(parents) == 3 and parents[2] == tip('pre-staging')))
         cases.append(("and staging's head carries no [skip ci], though a "
                       "promoted commit did", '[skip ci]' not in msg))
+        cases.append(('and it says the full check ran, rather than leaving a '
+                      'person to guess', 'check ran on the batch and passed' in out
+                      and 'NOT re-run' not in out))
+
+        # Same files, already fully checked: Promote says it did not re-run
+        # the suite, and when the earlier run was (Morgan, 2026-09-25: "it
+        # should not run the full suite again if nothing has changed").
+        commit_to('pre-staging', 'list.txt', 'Z\nb\nc\n', 'another edit')
+        subprocess.run([sys.executable, 'tools/precedent_push_check.py',
+                        '--tier', 'full'], cwd=work, capture_output=True,
+                       text=True, env=env)
+        rc, out = branches('--promote')
+        cases.append(('a batch whose exact files already passed the full check '
+                      'is promoted without re-running it, and says so, with '
+                      'when it passed', rc == 0 and 'PROMOTED' in out
+                      and 'NOT re-run' in out and 'already passed the full '
+                      'check at' in out))
 
         commit_to('pre-staging', 'list.txt', 'X\nb\nc\n', 'pre-staging edits line 1')
         commit_to('beta', 'list.txt', 'Y\nb\nc\n', 'staging edits line 1 too')
@@ -22520,6 +22639,130 @@ def check_vendor_engine_retires_ci_workflow_files():
           f'stated cases)',
           not bad,
           '; '.join(f"{n} -- {d[:800]}" for n, d in bad))
+
+
+def check_ci_workflow_approved_pins_approval_to_content():
+    """THE INCIDENT (practice: ci-workflow-approved), 2026-09-25: a
+    consumer's own light-check.yml billed a minute on every merge to main
+    because a session had put back a push trigger another session removed
+    six days earlier. An advisory check flagged the file on every run and
+    nobody acted. This proves the blocking replacement: a workflow passes
+    only as the engine's untouched copy or with an approval quoting the
+    person, pinned by sha256 -- so an EDIT fails, not just an addition --
+    and that the push gate runs it in the basic tier."""
+    import hashlib, shutil, tempfile
+    import precedent_install as _pi
+    import precedent_push_check as _ppc
+    import precedent_vendor_engine as _pve
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-ci-approved-'))
+    cases = []
+    rel = '.github/workflows/light-check.yml'
+    body = 'name: Light check\non:\n  pull_request:\n    branches: [main]\n'
+    edited = body + '  push:\n    branches: [main]\n'
+    quote = 'Morgan, 2026-09-25: "Please stop it running every time"'
+    sha = hashlib.sha256(body.encode()).hexdigest()
+    py = {n: (ROOT / 'tools' / n).read_bytes()
+          for n in _pve.KINDS['consumer'] if n.endswith('.py')}
+    try:
+        def consumer(name, text=body, approved=None, tracked=None,
+                     manifest=True):
+            # No practices/ci-workflow-approved.md on purpose: the check
+            # binds any repo keeping .github/workflows (binds_when), and a
+            # fixture carrying the practice would hide that gate breaking.
+            c = tmp / name
+            (c / 'tools').mkdir(parents=True)
+            (c / '.github' / 'workflows').mkdir(parents=True)
+            for n, b in py.items():
+                (c / 'tools' / n).write_bytes(b)
+            if text is not None:
+                (c / rel).write_text(text)
+            if manifest:
+                (c / 'tools' / 'ENGINE_MANIFEST.json').write_text(json.dumps(
+                    {'kind': 'consumer', 'source_commit': 'deadbeef',
+                     'files': [], 'sha256': {},
+                     'ci_workflow_files': sorted(tracked or {}),
+                     'ci_workflows_sha256': tracked or {}}))
+            cfg = {'sources': []}
+            if approved is not None:
+                cfg['github_ci_approved'] = approved
+            (c / 'precedent.json').write_text(json.dumps(cfg))
+            r = subprocess.run(
+                [sys.executable, str(c / 'tools' / 'precedent_check.py'),
+                 '--only', 'ci-workflow-approved'],
+                capture_output=True, text=True, cwd=str(c))
+            return r.returncode, r.stdout + r.stderr
+
+        rc, out = consumer('unapproved')
+        cases.append(('a workflow nobody approved is a VIOLATION, and says so',
+                      rc != 0 and 'VIOLATION' in out
+                      and 'has no approval' in out, out[-1500:]))
+        cases.append(('...and the finding names when it runs and the sha to '
+                      'pin', 'pull_request' in out and sha in out, out[-1500:]))
+        good = {rel: {'sha256': sha, 'approved_by': quote}}
+        rc, out = consumer('approved', approved=good)
+        cases.append(('CONTROL: an approval quoting the person, pinned to '
+                      'this content, passes', rc == 0 and '0 violated' in out,
+                      out[-1500:]))
+        rc, out = consumer('edited', text=edited, approved=good)
+        cases.append(('an EDIT after approval (a push trigger put back) fails',
+                      rc != 0 and 'EDITED after it was approved' in out,
+                      out[-1500:]))
+        rc, out = consumer('unquoted', approved={
+            rel: {'sha256': sha, 'approved_by': 'Morgan, 2026-09-25'}})
+        cases.append(('an approval quoting nobody is not an approval',
+                      rc != 0 and 'quotes nobody' in out, out[-1500:]))
+        rc, out = consumer('undated', approved={
+            rel: {'sha256': sha, 'approved_by': 'Morgan: "yes"'}})
+        cases.append(('an undated approval is not an approval',
+                      rc != 0 and 'carries no date' in out, out[-1500:]))
+        rc, out = consumer('tracked', tracked={rel: sha})
+        cases.append(('CONTROL: the engine\'s own untouched copy passes '
+                      'with no approval', rc == 0, out[-1500:]))
+        rc, out = consumer('tracked-edited', text=edited, tracked={rel: sha})
+        cases.append(('an edited engine copy with no approval fails',
+                      rc != 0 and 'has no approval' in out, out[-1500:]))
+        rc, out = consumer('stale', text=None, approved=good)
+        cases.append(('an approval whose file is gone is reported',
+                      rc != 0 and 'no longer exists' in out, out[-1500:]))
+        rc, out = consumer('no-manifest', manifest=False)
+        cases.append(('CONTROL: no manifest (BestPractice\'s shape) is '
+                      'SKIPPED, never a pass or a crash',
+                      rc == 0 and 'SKIPPED' in out, out[-1500:]))
+
+        inst = tmp / 'install'
+        (inst / '.github' / 'workflows').mkdir(parents=True)
+        (inst / rel).write_text(body)
+        (inst / 'precedent.json').write_text(json.dumps({'sources': []}))
+        _pi._approve_installed_workflow(inst, rel, 'light-check.yml.template')
+        entry = json.loads((inst / 'precedent.json').read_text()).get(
+            'github_ci_approved', {}).get(rel, {})
+        cases.append(('an install-only template the installer writes is '
+                      'approved by the install, pinned, naming the template',
+                      entry.get('sha256') == sha
+                      and entry.get('template') == 'light-check.yml.template',
+                      str(entry)))
+
+        for kind in ('consumer', 'source'):
+            names = [n for n, _a, _r in _ppc.PUSH_CHECKS[kind]]
+            cases.append((f'the {kind} push check runs ci_workflows',
+                          'ci_workflows' in names, str(names)))
+        cases.append(('...in the BASIC tier, so a push to any branch runs it',
+                      'ci_workflows' in _ppc.BASIC_CHECKS,
+                      str(_ppc.BASIC_CHECKS)))
+        cases.append(('a consumer\'s own light_check runs before a push, and '
+                      'is optional where the repo has none',
+                      'light_check' in [n for n, _a, _r
+                                        in _ppc.PUSH_CHECKS['consumer']]
+                      and 'light_check' in _ppc.OPTIONAL, ''))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'ci-workflow-approved fails an unapproved or edited workflow, '
+          f'passes a pinned approval or the engine\'s own copy, and runs '
+          f'before every push ({len(cases)} stated cases)',
+          not bad, '; '.join(f'{n} -- {d[:1500]}' for n, d in bad))
 
 
 def check_workflow_file_outside_vendoring_detects_candidates():
@@ -32365,6 +32608,7 @@ def main():
     check_vendor_engine_refreshes_bootstrap_sh()
     check_vendor_engine_retires_ci_workflow_files()
     check_workflow_file_outside_vendoring_detects_candidates()
+    check_ci_workflow_approved_pins_approval_to_content()
     check_very_deep_check_workflow_liveness_scan()
     check_rule_rewrite_detection()
     check_source_shape_is_verified()

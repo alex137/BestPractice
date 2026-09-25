@@ -1276,6 +1276,13 @@
       "why": "No locus. A standing command phrase fires on something the person said, not on a file being edited; it is reached through the occasion index and the reply gate.",
       "decided": "2026-09-09"
     },
+    "ci-workflow-approved": {
+      "globs": [
+        ".github/workflows/**"
+      ],
+      "why": "Its own applies_to. The moment it matters is a session about to add or edit a workflow file, which is exactly the glob; the push gate runs the check whatever the path channel did, so a miss here costs a refused push, not a billed run.",
+      "decided": "2026-09-25, when the practice landed"
+    },
     "workflow-file-outside-vendoring": {
       "globs": [
         ".github/workflows/**"

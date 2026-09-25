@@ -34,6 +34,11 @@ for either answer. Read what the file actually runs before deciding.
 **This never deletes anything, and never fails a build.** It names a
 finding; a person or a session reads it and decides.
 
+**Whether the file may run at all is a separate, blocking question**, since
+2026-09-25: [ci-workflow-approved](ci-workflow-approved.md) fails any
+workflow file the person has not approved, pinned to its content. This
+practice still asks the other question: is it a leftover?
+
 ## Why
 Two failures this practice exists to keep apart. The first: a retired
 workflow file left on disk keeps costing real money and real confusion

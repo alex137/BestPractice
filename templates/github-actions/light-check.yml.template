@@ -44,6 +44,13 @@
 # SINCE 2026-09-25 THIS FILE CARRIES NO `paths:` FILTER: it runs only on a
 # pull request into main, which is rare enough that skipping one by file
 # type saves little and risks the one check guarding main. See `on:` below.
+#
+# DO NOT CHANGE WHEN THIS RUNS WITHOUT THE PERSON'S APPROVAL (2026-09-25,
+# practice: ci-workflow-approved). The installer pins this file's content in
+# precedent.json's github_ci_approved; any edit changes the hash and fails
+# every push until the person approves the new content, in their own words.
+# A consuming repo's own copy ran on every push to main for four days
+# because one session put back a trigger another had removed.
 name: Light check
 
 on:

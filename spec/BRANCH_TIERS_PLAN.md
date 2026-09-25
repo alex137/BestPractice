@@ -366,6 +366,17 @@ them only through Update Vendors
   `"full"`.
 - **"Is my edit live?" gets a second answer**: on pre-staging, waiting for
   Promote.
+- **Every window trusts a pass any window recorded.** Promote never re-runs
+  the suite on files that already passed it (Morgan, 2026-09-25, decided).
+  The record of a pass first lived in one checkout's `.git`, so a Promote
+  said in another window ran the suite again; since 2026-09-25 it is also
+  published to origin as a small receipt on the branch
+  `precedent-check-receipts` -- one file per pass, naming the files by hash
+  and carrying none of them, each commit marked `[skip ci]` (Morgan: "#2
+  okay. Go update", decided). A branch, not a hidden ref: a cloud session's
+  git proxy refused the hidden ref with a 403. The cost is trust: anyone who can push to origin
+  can write one, and every checkout believes it. Only the push check writes
+  them, and only after every check passed.
 
 ## Acronyms
 
