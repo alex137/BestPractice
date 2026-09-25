@@ -52,6 +52,15 @@ nothing to do here: go straight to the command.
 
 The command does the whole promotion, and a session adds nothing to it:
 
+0. **Takes the Promote lock**, so only one window promotes at a time. The
+   lock is the branch `precedent-promote-lock` on origin, which only ever
+   moves forward: one empty `[skip ci]` commit per claim or release, the
+   newest one saying who holds it. **If another window holds it, this
+   Promote does nothing** and says so -- *"another window is promoting
+   right now"* -- and that is the whole report: don't Promote again while
+   it runs, and don't suggest it either. A claim left by a window that died
+   frees itself after 45 minutes. The branch is never deleted (a session
+   can't), and it is not unlanded work or a branch to tidy up.
 1. **Brings pre-staging up to date with staging** when staging has moved on
    its own (somebody pushed there directly), by a merge. A conflict stops it
    before anything is pushed.

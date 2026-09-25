@@ -503,7 +503,118 @@ def sync_pre_staging(root, say=print):
     return True
 
 
+# THE PROMOTE LOCK. Two windows promoting at once race: both run the full
+# check, one push wins, and the other run was minutes thrown away (seen twice
+# in a row on 2026-09-25). So a Promote first claims a lock on origin, and a
+# second one that finds it held stops before doing anything.
+#
+# The lock is a BRANCH, because a web session's git proxy refuses a push to
+# any ref outside refs/heads/ (gotchas/gotcha-2026-09-25-a-session-cannot-
+# push-a-ref-outside-refs-heads.md), and it can never be deleted, for the
+# same reason (practice: never-delete-a-remote-branch). So it is never
+# created and removed: it only ever moves FORWARD, one empty commit per
+# claim or release, and its newest commit's subject says its state --
+# "held by ..." or "free". A plain (never forced) push is the compare-and-
+# swap: if another window moved it first, the push is not a fast-forward
+# and is refused, so two windows cannot both hold it. Each commit carries
+# [skip ci], so a workflow that runs on every branch push spends nothing.
+#
+# A holder that dies leaves it held; after LOCK_STALE_SECONDS anyone may
+# claim it on top. Morgan, 2026-09-25: "yes to the lock branch, very much
+# approved and supported" (strength: decided).
+LOCK_BRANCH = 'precedent-promote-lock'
+LOCK_STALE_SECONDS = 45 * 60
+_EMPTY_TREE = '4b825dc642cb6eb9a060e54bf8d69288fbee4904'
+
+
+def _lock_holder_name():
+    """Who a claim names: whatever the environment says this session is
+    called, else host and process -- enough to tell two windows apart."""
+    import socket
+    return (os.environ.get('PRECEDENT_SESSION_NAME')
+            or f'{socket.gethostname()} pid {os.getpid()}')
+
+
+def _lock_state(root):
+    """-> (tip, subject, committed_at) of the lock branch on origin, or
+    (None, None, None) when it does not exist yet."""
+    tip = _remote_tip(root, LOCK_BRANCH)
+    if not tip:
+        return None, None, None
+    _run(root, 'fetch', '-q', 'origin', LOCK_BRANCH)
+    subject = _git(root, 'log', '-1', '--format=%s', tip) or ''
+    stamp = _git(root, 'log', '-1', '--format=%ct', tip) or '0'
+    return tip, subject, int(stamp) if stamp.isdigit() else 0
+
+
+def _lock_push(root, parent, subject, body):
+    """Commit `subject` on top of `parent` and push it to the lock branch.
+    -> (ok, commit, stderr). Never forced."""
+    args = ['commit-tree', _EMPTY_TREE, '-m', f'{subject} [skip ci]', '-m', body]
+    if parent:
+        args += ['-p', parent]
+    made = _run(root, *args, env=_merge_env(root))
+    commit = made.stdout.strip()
+    if made.returncode != 0 or not commit:
+        return False, None, made.stderr.strip()
+    p = _run(root, 'push', '-q', 'origin', f'{commit}:refs/heads/{LOCK_BRANCH}')
+    return p.returncode == 0, commit, p.stderr.strip()
+
+
+def _lock_claim(root, say):
+    """-> ('held', commit) when this window now holds the lock; ('busy',
+    reason) when another does; ('none', reason) when the lock could not be
+    used at all, and the Promote goes ahead without it, as before."""
+    tip, subject, at = _lock_state(root)
+    age = time.time() - at if at else None
+    if tip and subject.startswith('held by') and age is not None \
+            and age < LOCK_STALE_SECONDS:
+        return 'busy', f'{subject.replace(" [skip ci]", "")}, {int(age // 60)} min ago'
+    stale = ' (taking over a claim older than %d min)' % (LOCK_STALE_SECONDS // 60) \
+        if tip and subject.startswith('held by') else ''
+    ok, commit, err = _lock_push(
+        root, tip, f'held by {_lock_holder_name()}',
+        'A Promote is running. tools/precedent_branches.py releases this when '
+        f'it ends; a claim older than {LOCK_STALE_SECONDS // 60} minutes may be '
+        f'taken over.{stale}')
+    if ok:
+        return 'held', commit
+    if any(w in err for w in ('non-fast-forward', 'fetch first', 'rejected')):
+        tip, subject, at = _lock_state(root)
+        who = subject.replace(' [skip ci]', '') if subject else 'another window'
+        return 'busy', f'{who}, just now'
+    return 'none', err[:200] or 'the lock commit could not be made'
+
+
+def _lock_release(root, held, say):
+    ok, _commit, err = _lock_push(root, held, 'free', 'No Promote is running.')
+    if not ok:
+        say(f'NOTE: could not release {LOCK_BRANCH} ({err[:160]}); it frees '
+            f'itself after {LOCK_STALE_SECONDS // 60} minutes.')
+
+
 def promote(root, say=print):
+    """Pre-staging into staging, fully checked, one window at a time. -> 0
+    promoted, nothing to promote, or another window already promoting; 1
+    refused (a failing check, a conflict, a race)."""
+    state, info = _lock_claim(root, say)
+    if state == 'busy':
+        say(f'another window is promoting right now ({info}), so this one did '
+            f'nothing. It carries what was on {PRE_STAGING} when it started; '
+            f'anything pushed there since goes in the next Promote. Do not '
+            f'Promote again while it runs.')
+        return 0
+    if state == 'none':
+        say(f'NOTE: could not take the Promote lock ({info}); going ahead '
+            f'without it.')
+        return _promote_unlocked(root, say)
+    try:
+        return _promote_unlocked(root, say)
+    finally:
+        _lock_release(root, info, say)
+
+
+def _promote_unlocked(root, say=print):
     """Pre-staging into staging, fully checked. -> 0 promoted or nothing to
     promote; 1 refused (a failing check, a conflict, a race)."""
     staging = staging_branch(root)
