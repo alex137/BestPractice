@@ -15957,9 +15957,11 @@ def check_push_check_gate():
                                   env=env).stdout
 
         ran = run_check(work, '--tier', 'full')
-        refs = git(hub, 'for-each-ref', 'refs/precedent-passed').stdout
-        cases.append(('a full pass is published to origin as a shared record',
-                      'shared with every checkout' in ran and refs.strip() != ''))
+        files = git(hub, 'ls-tree', '-r', '--name-only',
+                    'precedent-check-receipts').stdout.split()
+        cases.append(('a full pass is published to origin as a receipt',
+                      'shared with every checkout' in ran
+                      and any(f.startswith('receipts/') for f in files)))
         other = tmp / 'other'
         git(tmp, 'clone', '-q', f'file://{hub}', str(other))
         got = run_check(other, '--gate', '--tier', 'full')
@@ -15967,10 +15969,12 @@ def check_push_check_gate():
                       'suite, and says the pass came from elsewhere',
                       'already passed the full check at' in got
                       and 'another checkout' in got))
-        blob = (git(hub, 'cat-file', '-p', refs.split()[0]).stdout
-                if refs.split() else '')
-        cases.append(('the shared record carries no file of the repository',
-                      'tree 4b825dc642cb6eb9a060e54bf8d69288fbee4904' in blob))
+        msg = git(hub, 'log', '-1', '--format=%B', 'precedent-check-receipts').stdout
+        cases.append(('the receipt branch carries no file of the repository, '
+                      'and its commits skip CI',
+                      bool(files) and all(f == 'ORDER' or f.startswith('receipts/')
+                                          for f in files)
+                      and '[skip ci]' in msg))
         (other / 'list.txt').write_text('changed\n', encoding='utf-8')
         git(other, 'add', 'list.txt')
         git(other, 'commit', '-q', '-m', 'one change')

@@ -72,14 +72,14 @@ decided). The record above lives in one checkout, and a person working in
 many windows has one checkout per window: a full run in one window was
 invisible to the Promote said in another, which ran the whole suite again
 on files it had already passed. So a recorded pass is also published to
-origin, as the ref refs/precedent-passed/<check list>/<tree> -- a commit
-with an empty tree whose message is the record, so it carries no file of
-the repository and publishes no unpushed work. `--gate` asks origin for
-that ref when this checkout has no record of its own, one `ls-remote`.
-The trade, said plainly: anyone who can push to origin can write one, and
-every checkout then believes it. Only this file writes them, and only after
-every check passed -- the trust the local record already asked for, now
-reaching every window instead of one. PRECEDENT_NO_SHARED_PASS=1 turns
+origin as a small receipt on the branch precedent-check-receipts --
+receipts/<check list>/<tree>.json, naming the files by hash and carrying
+none of them, so it publishes no unpushed work. `--gate` fetches that
+branch when this checkout has no record of its own. The trade, said
+plainly: anyone who can push to origin can write one, and every checkout
+then believes it. Only this file writes them, and only after every check
+passed -- the trust the local record already asked for, now reaching every
+window instead of one. PRECEDENT_NO_SHARED_PASS=1 turns
 both halves off.
 
 TWO TIERS, BY BRANCH (spec/BRANCH_TIERS_PLAN.md, Morgan, 2026-09-25,
@@ -114,9 +114,13 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 RECORD = 'precedent-push-check.json'
-SHARED_REF = 'refs/precedent-passed'
-# The shared pass is a commit of the empty tree: it names the files it
-# vouches for by hash and carries none of them.
+# The shared receipts live on one branch -- a cloud session's git proxy
+# lets it push branches and nothing else, so a hidden ref namespace was
+# refused with a 403 (measured 2026-09-25). One small file per pass,
+# receipts/<check list>/<tree>.json, the newest RECEIPTS_KEPT of them.
+RECEIPT_BRANCH = 'precedent-check-receipts'
+RECEIPT_REF = 'refs/precedent/receipts'
+RECEIPTS_KEPT = 300
 EMPTY_TREE = '4b825dc642cb6eb9a060e54bf8d69288fbee4904'
 SHARED_ENV = {'GIT_AUTHOR_NAME': 'precedent_push_check',
               'GIT_AUTHOR_EMAIL': 'precedent-push-check@localhost',
@@ -374,50 +378,88 @@ def _git_env(root, args, timeout, env=None):
         return None
 
 
+def _fetch_receipts(root):
+    """-> the receipt branch's tip, fetched into a private ref, or None."""
+    f = _git_env(root, ['fetch', '-q', '--no-tags', 'origin',
+                        f'+refs/heads/{RECEIPT_BRANCH}:{RECEIPT_REF}'], 30)
+    if f is None or f.returncode != 0:
+        return None
+    return git(root, 'rev-parse', '-q', '--verify', RECEIPT_REF) or None
+
+
 def shared_pass(root, tree, sigs):
     """The record another checkout published to origin for `tree` under any
     of the check-list signatures `sigs`, else None. Never raises: a remote
     that cannot be reached is a pass not found, and the suite runs."""
-    if not tree or _shared_off(root):
+    if not tree or _shared_off(root) or not _fetch_receipts(root):
         return None
-    refs = [f'{SHARED_REF}/{s}/{tree}' for s in sigs]
-    p = _git_env(root, ['ls-remote', 'origin', *refs], 30)
-    if p is None or p.returncode != 0 or not p.stdout.strip():
-        return None
-    sha, _, ref = p.stdout.strip().splitlines()[0].partition('\t')
-    rec = {'tree': tree, 'checks': ref.split('/')[-2], 'shared': ref}
-    f = _git_env(root, ['fetch', '-q', '--no-tags', 'origin', ref], 30)
-    if f is not None and f.returncode == 0:
-        try:
-            rec.update(json.loads(git(root, 'log', '-1', '--format=%B', sha) or '{}'))
-        except ValueError:
-            pass
-    return rec
+    for sig in sigs:
+        body = git(root, 'cat-file', '-p', f'{RECEIPT_REF}:receipts/{sig}/{tree}.json')
+        if body:
+            try:
+                rec = json.loads(body)
+            except ValueError:
+                continue
+            if rec.get('tree') == tree and rec.get('checks') == sig:
+                return rec
+    return None
 
 
 def publish_pass(root, rec):
-    """Publish a recorded pass to origin for every other checkout. Best
-    effort: a failure is said and never fails the run that passed."""
+    """Add a recorded pass to the receipt branch on origin, for every other
+    checkout. Best effort: a failure is said and never fails the run that
+    passed. Two windows writing at once is a rejected push, retried on the
+    newer tip."""
     if _shared_off(root):
         return
-    ref = f'{SHARED_REF}/{rec["checks"]}/{rec["tree"]}'
-    _git_env(root, ['hash-object', '-t', 'tree', '-w', '/dev/null'], 10)
-    c = _git_env(root, ['commit-tree', EMPTY_TREE, '-m',
-                        json.dumps(rec, sort_keys=True)], 10, SHARED_ENV)
-    if c is None or c.returncode != 0:
-        print('precedent_push_check: NOTE -- could not make the shared record; '
-              'other checkouts will run the suite themselves.')
+    path = f'receipts/{rec["checks"]}/{rec["tree"]}.json'
+    index = git(root, 'rev-parse', '--git-path', 'precedent-receipts.index')
+    if not index:
         return
-    # --no-verify: a pre-push hook here is this very check.
-    p = _git_env(root, ['push', '-q', '--no-verify', 'origin',
-                        f'+{c.stdout.strip()}:{ref}'], 60)
-    if p is not None and p.returncode == 0:
-        print('precedent_push_check: shared with every checkout of this '
-              'repository, so no other window re-runs it on these files.')
-    else:
-        why = (p.stderr.strip()[:200] if p is not None else 'timed out')
-        print(f'precedent_push_check: NOTE -- could not share the pass with '
-              f'other checkouts ({why}); they will run the suite themselves.')
+    env = dict(SHARED_ENV, GIT_INDEX_FILE=str(
+        Path(index) if Path(index).is_absolute() else root / index))
+    why = 'no attempt made'
+    for _ in range(3):
+        tip = _fetch_receipts(root)
+        _git_env(root, ['read-tree', tip or '--empty'], 10, env)
+        order = (git(root, 'cat-file', '-p', f'{tip}:ORDER') if tip else '') or ''
+        order = [l for l in order.splitlines() if l and l != path] + [path]
+        blob = subprocess.run(['git', '-C', str(root), 'hash-object', '-w', '--stdin'],
+                              input=json.dumps(rec, indent=2, sort_keys=True) + '\n',
+                              capture_output=True, text=True).stdout.strip()
+        olist = subprocess.run(['git', '-C', str(root), 'hash-object', '-w', '--stdin'],
+                               input='\n'.join(order[-RECEIPTS_KEPT:]) + '\n',
+                               capture_output=True, text=True).stdout.strip()
+        for old in order[:-RECEIPTS_KEPT]:
+            _git_env(root, ['update-index', '--force-remove', old], 10, env)
+        _git_env(root, ['update-index', '--add', '--cacheinfo',
+                        f'100644,{blob},{path}'], 10, env)
+        _git_env(root, ['update-index', '--add', '--cacheinfo',
+                        f'100644,{olist},ORDER'], 10, env)
+        tree = _git_env(root, ['write-tree'], 10, env)
+        if tree is None or tree.returncode != 0:
+            why = 'could not build the receipt'
+            break
+        # [skip ci]: a workflow that runs on every branch push must not
+        # bill a run for a receipt.
+        c = _git_env(root, ['commit-tree', tree.stdout.strip(),
+                            *(['-p', tip] if tip else []), '-m',
+                            f'[skip ci] receipt: {rec["tier"]} check passed on '
+                            f'tree {rec["tree"][:12]}'], 10, SHARED_ENV)
+        if c is None or c.returncode != 0:
+            why = 'could not build the receipt'
+            break
+        # --no-verify: a pre-push hook here is this very check.
+        p = _git_env(root, ['push', '-q', '--no-verify', 'origin',
+                            f'{c.stdout.strip()}:refs/heads/{RECEIPT_BRANCH}'], 60)
+        if p is not None and p.returncode == 0:
+            _git_env(root, ['update-ref', RECEIPT_REF, c.stdout.strip()], 10)
+            print('precedent_push_check: receipt shared with every checkout of '
+                  'this repository, so no other window re-runs these files.')
+            return
+        why = p.stderr.strip()[:200] if p is not None else 'timed out'
+    print(f'precedent_push_check: NOTE -- could not share the receipt with '
+          f'other checkouts ({why}); they will run the suite themselves.')
 
 
 def _tier_from_args(root, argv):
