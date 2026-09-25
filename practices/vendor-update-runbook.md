@@ -476,8 +476,22 @@ says so, both from the vendored tree under `process/upstream/`.
     and variables → Actions). A session cannot delete a secret; never say it
     did.
 
-    **(g) Report all of it in the reply**: what the refresh deleted, what
-    you deleted, what stays and why, and the todo item.
+    **(g) Get the person's approval for every workflow file that stays.**
+    Run `python3 tools/precedent_check.py --only ci-workflow-approved`.
+    Every file it names bills at least a minute per run in a private repo,
+    and nobody has approved it as it stands. For each one, show the person
+    what it runs and **when it triggers**, in one line, and ask. Record the
+    answer in `precedent.json`'s `github_ci_approved`, pinned to the file's
+    sha256 and quoting their words, or delete the file. **Never approve one
+    on the person's behalf**, and never "fix" a trigger to make it pass
+    without asking
+    ([ci-workflow-approved](ci-workflow-approved.md), Morgan, 2026-09-25:
+    "In the migration and updates, can we put a check explicitly for
+    this?"). Until every file passes, step 6 fails and so does every push.
+
+    **(h) Report all of it in the reply**: what the refresh deleted, what
+    you deleted, what stays and why, each workflow's approval, and the todo
+    item.
 
     While here, check `github_ci_workflows` (formerly `ci_workflows`)
     ([GITHUB_ACTIONS.md](https://github.com/alex137/BestPractice/blob/staging/documentation/GITHUB_ACTIONS.md))

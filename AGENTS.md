@@ -268,7 +268,7 @@ plan's premise.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block; `python3 tools/build_views.py --check` exits non-zero on drift. Source: practices/ -- edit the practice file, never this block. -->
 
-## Resident block (~884 of 2000 token budget, 10 of 144 practices (10 universal))
+## Resident block (~884 of 2000 token budget, 10 of 145 practices (10 universal))
 
 **bold-key-phrases.** People don't read; they skim, and bolding makes skimming easy. Bold the key phrases in a document by default, without being asked, scaling with length -- a long paragraph or document is where a skimmer most needs a spine to follow, a short note usually needs little or none.
 
@@ -348,6 +348,8 @@ cheapest evidence a reader has that somebody did.
 ## Occasion index
 
 ```
+When a .github/workflows/*.yml file is added, edited, or found during an update or migration:
+  ci-workflow-approved — no workflow added or edited without the person's words, pinned by hash
 When a branch has done its job -- a pull request merged, a tidy-up, or a person saying to delete some branches:
   never-delete-a-remote-branch — never attempt a remote branch delete; hand over the one-click link
 When a computation books a transfer between two parties:

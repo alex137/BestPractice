@@ -146,14 +146,25 @@ IDENTITY_CHECKS = (
     ('commit_dates', ['{engine}/checks/check_buenos_aires_dates.py'],
      "precedent-individual's commit-identity.yml, retired 2026-09-21"),
 )
+# Every workflow file is the engine's own untouched copy or carries the
+# person's approval pinned to its content (practice: ci-workflow-approved).
+CI_WORKFLOWS_CHECK = (
+    'ci_workflows', ['{engine}/precedent_check.py', '--only',
+                     'ci-workflow-approved'],
+    'no workflow -- the check that keeps workflows from being added unasked')
 # Entries a repo may simply not have: skipped with a note, never a failure.
-OPTIONAL = {'deep_check', 'commit_author', 'commit_dates'}
+OPTIONAL = {'deep_check', 'commit_author', 'commit_dates', 'light_check'}
 # The BASIC tier: what a push to pre-staging or any other working branch
 # runs. Everything else in a kind's list is FULL-only. The leak gate is
 # here because a push IS publication in a public repository, and cannot
 # wait for promotion (Morgan, 2026-09-25: "Good on nothing private going
 # out", strength: assented). Each costs seconds.
-BASIC_CHECKS = {'doc_lint', 'leak_gate', 'commit_author', 'commit_dates'}
+# ci_workflows is here because a workflow file starts billing the moment it
+# reaches ANY branch GitHub runs it on; light_check is the repo's own fast
+# check, and its secret scan wants every push (practice: ci-workflow-approved;
+# Morgan, 2026-09-25, "we need to absolutely put a hard stop to this").
+BASIC_CHECKS = {'doc_lint', 'leak_gate', 'commit_author', 'commit_dates',
+                'ci_workflows', 'light_check'}
 BASIC, FULL = 'basic', 'full'
 PUSH_CHECKS = {
     'upstream': (
@@ -179,6 +190,7 @@ PUSH_CHECKS = {
          'leak-gate.yml, retired 2026-09-21'),
         ('doc_lint', ['{engine}/doc_lint.py'],
          'doc-lint.yml, retired 2026-09-21'),
+        CI_WORKFLOWS_CHECK,
         DEEP_CHECK_SUITE,
         *IDENTITY_CHECKS,
     ),
@@ -189,6 +201,11 @@ PUSH_CHECKS = {
          'leak-gate.yml (structural half only in CI)'),
         ('doc_lint', ['{engine}/doc_lint.py'],
          'bestpractice-docs.yml, retired 2026-09-21'),
+        CI_WORKFLOWS_CHECK,
+        # The repo's OWN light check, where it has one: what its
+        # light-check.yml ran on GitHub, run here instead of there.
+        ('light_check', ['tools/light_check.py'],
+         "the repo's own light-check.yml"),
         DEEP_CHECK_SUITE,
         *IDENTITY_CHECKS,
     ),

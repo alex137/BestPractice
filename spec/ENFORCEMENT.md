@@ -70,6 +70,7 @@ being checked by it.
 | `acronyms-glossary` | change | a changed document does not introduce a NEW unglossed acronym -- one not already in GLOSSARY.md and not expanded on first use |
 | `catalogue-carries-stories` | tree | every status: active practice in this catalogue carries a non-empty ## Story |
 | `ci-commits-carry-identity` | tree | a .github/workflows/*.yml that runs `git commit` resolves the author from a declared identity (an identity.json, or an explicit PRECEDENT_COMMIT_*) rather than naming the github-actions bot or configuring a git identity from nothing |
+| `ci-workflow-approved` | tree | every .github/workflows/*.yml or *.yaml file is either the engine's own copy, untouched since the manifest recorded it, or carries the person's approval in precedent.json's github_ci_approved, pinned to its exact content by sha256 -- so adding a workflow, or editing one (a new trigger, a new job), fails until the person approves the new content in their own words |
 | `cite-the-incident` | change | a practice file whose Rule is new or changed must carry a non-empty ## Story |
 | `code-cites-practice` | tree | a `practice: SLUG` citation in tools/**/*.py names a real, active practice -- never a typo, a deleted file, one since retired, or a position number instead of a slug |
 | `computed-numbers-in-scripts` | tree | every generated block in a document matches what its script emits, is registered, and its document names the scripts that feed it |
@@ -119,7 +120,7 @@ being checked by it.
 | `verify-postcondition` | turn-end | the state you wanted after the operations this turn: nothing committed but unpushed on any local branch, and no tracked file left modified |
 | `workflow-file-outside-vendoring` | tree | every .github/workflows/*.yml or *.yaml file that changed is either the one file this repo's kind vendors through precedent_vendor_engine.py, or already a known RETIRED_CI_WORKFLOW_FILES entry -- anything else is named, once, as worth a second look |
 
-51 of 148 practices are enforced. Run `python3 tools/precedent_check.py --explain` for what each check does **not** catch.
+52 of 149 practices are enforced. Run `python3 tools/precedent_check.py --explain` for what each check does **not** catch.
 <!--/gen:enforcement-->
 
 Numbers by: catalogue_stats.py

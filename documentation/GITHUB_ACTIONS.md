@@ -148,6 +148,14 @@ refresh never touches it; `leak-gate.yml` is refreshed like any other
 installed template. The `[skip ci]` line the commit hook adds in a private
 repo stays on as a backstop until every install carries these files.
 
+**A workflow file nobody approved fails every push, since 2026-09-25**
+([ci-workflow-approved](../practices/ci-workflow-approved.md)). Each file
+under `.github/workflows/` is either the engine's own untouched copy or is
+listed in `precedent.json`'s `github_ci_approved`, pinned by sha256 and
+quoting the person. Editing a trigger changes the hash, so the edit needs
+their approval too. The one file the installer writes itself,
+`light-check.yml`, is approved by the install.
+
 **Until 2026-09-25, `precedent_install.py` did not install any workflow by default (from 2026-09-15).**
 GitHub Actions minutes are metered per PRIVATE repository and billed per
 run, rounded up to the minute. Vendoring Precedent into many private repos
