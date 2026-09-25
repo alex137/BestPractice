@@ -100,6 +100,20 @@ if [ -n "$branch" ] && [ "$branch" != "HEAD" ]; then
   # a bounded fetch works either way.
   git_dir="$(git rev-parse --git-dir 2>/dev/null || true)"
   fetch_ok=1
+  # A branch origin has never seen fails `git fetch origin <branch>` with
+  # "couldn't find remote ref", exactly like an unreachable origin does --
+  # and that is every fresh Claude Code web session, whose branch is not
+  # pushed until its first push. Reported 2026-09-25: those sessions opened
+  # on "could not fetch -- freshness NOT verified" when there was nothing to
+  # be stale against. `ls-remote --exit-code` tells the two apart: 2 means
+  # origin answered and has no such branch; anything else non-zero means the
+  # question could not be asked, and that keeps the warning. Same test as
+  # freshness-guard.sh's _branch_absent_from_origin.
+  branch_absent=0
+  _branch_absent_from_origin() {
+    git ls-remote --exit-code --heads origin "$1" >/dev/null 2>&1
+    [ "$?" = "2" ]
+  }
   if [ -n "$git_dir" ] && [ -f "$git_dir/shallow" ]; then
     # TODO.md's shallow-clone-self-heal-hardening item (BestPractice
     # record/GOTCHAS.md#g37, third occurrence): one bounded attempt used to
@@ -113,13 +127,17 @@ if [ -n "$branch" ] && [ "$branch" != "HEAD" ]; then
     if timeout 90 git fetch --quiet --depth=1000 origin "$branch" 2>/dev/null \
        || timeout 60 git fetch --quiet --depth=1000 origin "$branch" 2>/dev/null; then
       [ -n "$git_dir" ] && rm -f "$git_dir/PRECEDENT_SHALLOW_UNRESOLVED" 2>/dev/null || true
+    elif _branch_absent_from_origin "$branch"; then
+      # Nothing to deepen along; the base-branch check below deepens along
+      # the base instead, and owns the shallow warning if that fails too.
+      branch_absent=1
     else
       fetch_ok=0
       echo "WARN: could not deepen this shallow clone after two attempts -- history-reading checks may see far less than the real history. Remedy by hand: git fetch --unshallow" >&2
       [ -n "$git_dir" ] && : > "$git_dir/PRECEDENT_SHALLOW_UNRESOLVED" 2>/dev/null || true
     fi
-  else
-    git fetch --quiet origin "$branch" 2>/dev/null || fetch_ok=0
+  elif ! git fetch --quiet origin "$branch" 2>/dev/null; then
+    if _branch_absent_from_origin "$branch"; then branch_absent=1; else fetch_ok=0; fi
   fi
   # A FAILED fetch must never read as "in sync". Without this the compare
   # below runs against an unrefreshed remote-tracking ref: local HEAD equals
@@ -129,7 +147,53 @@ if [ -n "$branch" ] && [ "$branch" != "HEAD" ]; then
   if [ "$fetch_ok" = "0" ]; then
     echo "WARN: could not fetch origin/$branch -- freshness NOT verified, and any comparison below is against a possibly stale remote-tracking ref. Re-run 'git fetch origin $branch' before trusting what you read here." >&2
   fi
-  if git rev-parse --verify -q "origin/$branch" >/dev/null 2>&1; then
+  # Not on origin yet: nothing there to be behind, but the branch can still
+  # be cut from a stale base, which is the staleness that matters for a
+  # brand-new branch. The base is precedent.json's `base_branch` when
+  # declared (origin/HEAD is the wrong answer in any repo that pins work to
+  # a non-default branch), else origin/HEAD. Repairs only the unambiguous
+  # case, as above: clean tree, no commits of its own, strictly behind.
+  if [ "$branch_absent" = "1" ]; then
+    base_branch=""
+    if [ -f precedent.json ]; then
+      base_branch="$(python3 -c 'import json,sys; print(json.load(open("precedent.json")).get("base_branch") or "")' 2>/dev/null || true)"
+    fi
+    if [ -z "$base_branch" ]; then
+      base_branch="$(git symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null || true)"
+      base_branch="${base_branch#origin/}"
+    fi
+    if [ -z "$base_branch" ] || [ "$base_branch" = "$branch" ]; then
+      echo "NOTE: '$branch' is not on origin yet -- nothing to be behind there. No base branch resolved (set base_branch in precedent.json), so the base check is SKIPPED, not passed." >&2
+    else
+      echo "NOTE: '$branch' is not on origin yet -- nothing to be behind there. Checking it against origin/$base_branch instead." >&2
+      if [ -n "$git_dir" ] && [ -f "$git_dir/shallow" ]; then
+        if timeout 90 git fetch --quiet --depth=1000 origin "$base_branch" 2>/dev/null \
+           || timeout 60 git fetch --quiet --depth=1000 origin "$base_branch" 2>/dev/null; then
+          rm -f "$git_dir/PRECEDENT_SHALLOW_UNRESOLVED" 2>/dev/null || true
+        else
+          fetch_ok=0
+          echo "WARN: could not deepen this shallow clone along origin/$base_branch after two attempts -- history-reading checks may see far less than the real history. Remedy by hand: git fetch --unshallow" >&2
+          : > "$git_dir/PRECEDENT_SHALLOW_UNRESOLVED" 2>/dev/null || true
+        fi
+      else
+        git fetch --quiet origin "$base_branch" 2>/dev/null || fetch_ok=0
+      fi
+      if [ "$fetch_ok" = "0" ]; then
+        echo "WARN: could not fetch origin/$base_branch -- freshness NOT verified. Re-run 'git fetch origin $base_branch' before trusting what you read here." >&2
+      elif git rev-parse --verify -q "origin/$base_branch" >/dev/null 2>&1 \
+           && ! git merge-base --is-ancestor "origin/$base_branch" HEAD 2>/dev/null; then
+        behind="$(git rev-list --count "HEAD..origin/$base_branch" 2>/dev/null || echo '?')"
+        ahead="$(git rev-list --count "origin/$base_branch..HEAD" 2>/dev/null || echo '?')"
+        if [ "$ahead" = "0" ] && [ -z "$(git status --porcelain --untracked-files=no 2>/dev/null || true)" ] \
+           && git merge --ff-only --quiet "origin/$base_branch" 2>/dev/null; then
+          echo "NOTE: '$branch' was cut $behind commit(s) behind origin/$base_branch and has no commits of its own; fast-forwarded to $(git rev-parse --short HEAD). Your checkout NOW matches origin/$base_branch -- anything read before this line was stale." >&2
+        else
+          echo "WARN: '$branch' is missing $behind commit(s) from origin/$base_branch -- it was cut from a stale base. NOT repaired automatically (it has commits of its own, or a dirty tree). Bring it up to date deliberately: git merge origin/$base_branch" >&2
+        fi
+      fi
+    fi
+  fi
+  if [ "$branch_absent" = "0" ] && git rev-parse --verify -q "origin/$branch" >/dev/null 2>&1; then
     local_head="$(git rev-parse HEAD 2>/dev/null || true)"
     remote_head="$(git rev-parse --verify -q "origin/$branch" 2>/dev/null || true)"
     if [ -n "$local_head" ] && [ -n "$remote_head" ] && [ "$local_head" != "$remote_head" ]; then
