@@ -10897,7 +10897,16 @@ def check_precedent_check_fires():
         # would show that commit as a violation with no plant at all --
         # practice: fixture-owns-its-state. Re-dated under an explicit TZ
         # rather than assumed from whatever machine happens to run this.
+        #
+        # And since 2026-09-25 the fixture must BE an individual source: the
+        # check enforces a person's zone only in a repo carrying its own
+        # identity.json (Morgan: "only use the individual one in the
+        # precedent-individual"), and stands down everywhere else.
         def _setup_buenos_aires_dates(repo):
+            (repo / 'identity.json').write_text(json.dumps(
+                {'name': _ID_NAME, 'email': _ID_EMAIL, 'timezone': _ID_TZ}),
+                encoding='utf-8')
+            git(repo, 'add', 'identity.json')
             git(repo, '-c', f'user.name={_ID_NAME}', '-c',
                 f'user.email={_ID_EMAIL}', 'commit', '--amend',
                 '--reset-author', '--no-edit',
