@@ -7,6 +7,7 @@ scope:       engine-dev
 applies_to:  ["templates/harness/claude-code/hooks/**", "templates/harness/claude-code/settings.json", "tools/precedent_bootstrap_source.py", "tools/precedent_vendor_engine.py"]
 occasion:    "adding, renaming or dropping a hook script this repo ships, or changing which hooks a kind of repo runs"
 gates:       ["merge"]
+index_required: false
 index_clause: "a new hook goes on its kind's HOOK_WIRING list and into that kind's template, same commit"
 checked_by:  "tools/precedent_check.py"
 defines:     []
@@ -60,3 +61,9 @@ and added to the list, too."* The sweep that built the lists found two hooks
 the gap had already caught. `commit-identity-once.sh` had been wired in this
 repo since 2026-09-22 but was in no template, so no consumer had it.
 `seeded-prompt-gate.sh` was in the consumer template but not in any set.
+
+## Install
+Nothing to install. It binds only this repository, the one that ships the
+hooks, and the check is already registered in
+[tools/precedent_check.py](../tools/precedent_check.py). It reports "not
+applicable" in any repo without `templates/harness/claude-code/hooks/`.
