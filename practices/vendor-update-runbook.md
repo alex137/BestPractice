@@ -470,7 +470,7 @@ says so, both from the vendored tree under `process/upstream/`.
     **(g) Report all of it in the reply**: what the refresh deleted, what
     you deleted, what stays and why, and the todo item.
 
-    While here, check `ci_workflows`
+    While here, check `github_ci_workflows` (formerly `ci_workflows`)
     ([GITHUB_ACTIONS.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/documentation/GITHUB_ACTIONS.md))
     is set the way the person actually wants, not just inherited from
     whatever an earlier install or migration left.

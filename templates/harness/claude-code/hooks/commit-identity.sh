@@ -306,6 +306,13 @@ else
 fi
 # ---- the person's CI cadence (spec/CI_CADENCE_PLAN.md)
 #
+# THE NAMES. Each setting is `github_ci_*` since 2026-09-25 (Morgan: "since
+# those refer only to github's tests, maybe we rename them all to start
+# with github_ci_ instead of ci_", strength: decided,
+# spec/BRANCH_TIERS_PLAN.md). The old `ci_*` name is still read wherever the
+# new one is absent, so nobody's file breaks, and the new one wins where a
+# file carries both.
+#
 # How often GitHub Actions runs in this person's PRIVATE repos: at most once
 # every `ci_every_hours` hours, read from the same identity.json as the
 # name and zone above -- this repository's own, then the individual source's.
@@ -332,11 +339,12 @@ if isinstance(cfg, dict):
         cands.append(os.path.join(path, 'identity.json'))
 for c in cands:
     d = load(c)
-    if isinstance(d, dict) and 'ci_every_hours' in d:
-        v = d['ci_every_hours']
-        ok = isinstance(v, (int, float)) and not isinstance(v, bool) and v >= 0
-        print(repr(v) if ok else 0)
-        raise SystemExit(0)
+    for key in ('github_ci_every_hours', 'ci_every_hours'):
+        if isinstance(d, dict) and key in d:
+            v = d[key]
+            ok = isinstance(v, (int, float)) and not isinstance(v, bool) and v >= 0
+            print(repr(v) if ok else 0)
+            raise SystemExit(0)
 print(0)
 CI_HOURS
 }
@@ -370,9 +378,10 @@ if isinstance(cfg, dict):
         cands.append(os.path.join(path, 'identity.json'))
 for c in cands:
     d = load(c)
-    if isinstance(d, dict) and 'ci_on_branches' in d:
-        print(False if d['ci_on_branches'] is False else True)
-        raise SystemExit(0)
+    for key in ('github_ci_on_branches', 'ci_on_branches'):
+        if isinstance(d, dict) and key in d:
+            print(False if d[key] is False else True)
+            raise SystemExit(0)
 print(True)
 CI_BRANCHES
 }
@@ -582,12 +591,22 @@ def hours_of(v):
     return float(v)
 
 
+def setting(cfg, name):
+    """-> (present, value) for `github_ci_<name>`, else the old `ci_<name>`."""
+    for key in ('github_ci_' + name, 'ci_' + name):
+        if key in cfg:
+            return True, cfg[key]
+    return False, None
+
+
 def on_branches(cfg):
     """-> (bool, where): does CI run on a working branch of this repo?"""
-    if 'ci_on_branches' in cfg:
-        return cfg['ci_on_branches'] is not False, "this repo's precedent.json"
-    if 'ci_every_hours' in cfg and not hours_of(cfg['ci_every_hours']):
-        return True, "this repo's precedent.json (ci_every_hours 0)"
+    has, v = setting(cfg, 'on_branches')
+    if has:
+        return v is not False, "this repo's precedent.json"
+    has, v = setting(cfg, 'every_hours')
+    if has and not hours_of(v):
+        return True, "this repo's precedent.json (github_ci_every_hours 0)"
     return PERSONAL_CI_ON_BRANCHES is not False, 'your identity.json'
 
 
@@ -620,12 +639,13 @@ def decide(msg):
         run, where = on_branches(cfg)
         if run:
             return None
-        return ('[skip ci] -- working branch (ci_on_branches)',
+        return ('[skip ci] -- working branch (github_ci_on_branches)',
                 f'ci-cadence: added [skip ci] -- {head} is not {base}, and '
-                f'{where} sets ci_on_branches to false. To run CI on this '
-                f'commit: PRECEDENT_CI_NOW=1 git commit ...')
-    if 'ci_every_hours' in cfg:
-        hours, where = hours_of(cfg['ci_every_hours']), "this repo's precedent.json"
+                f'{where} sets github_ci_on_branches to false. To run CI on '
+                f'this commit: PRECEDENT_CI_NOW=1 git commit ...')
+    has, v = setting(cfg, 'every_hours')
+    if has:
+        hours, where = hours_of(v), "this repo's precedent.json"
     else:
         hours, where = hours_of(PERSONAL_CI_EVERY_HOURS), 'your identity.json'
     if not hours:
@@ -647,9 +667,9 @@ def decide(msg):
             return None
         if age >= hours * 3600:
             return None
-        return (f'[skip ci] -- CI ran within the last {hours:g}h (ci_every_hours)',
+        return (f'[skip ci] -- CI ran within the last {hours:g}h (github_ci_every_hours)',
                 f'ci-cadence: added [skip ci] -- CI last ran on origin/{base} '
-                f'{age / 3600:.1f}h ago, and {where} sets ci_every_hours to '
+                f'{age / 3600:.1f}h ago, and {where} sets github_ci_every_hours to '
                 f'{hours:g}. To run CI on this commit: PRECEDENT_CI_NOW=1 git commit ...')
     return None
 

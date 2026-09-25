@@ -15680,6 +15680,28 @@ def check_commit_identity_ci_cadence():
         cases.append(('a repo that does not declare itself private is never '
                       'tagged on a branch either', SKIP not in x))
 
+        # The github_ci_ names (spec/BRANCH_TIERS_PLAN.md): read first, the
+        # old ci_ names still read where they are absent.
+        work, env = _setup('new-name-hours')
+        ident = _json.loads((work / 'identity.json').read_text(encoding='utf-8'))
+        ident['github_ci_every_hours'] = 48
+        (work / 'identity.json').write_text(_json.dumps(ident), encoding='utf-8')
+        subprocess.run(['bash', str(hook)], capture_output=True, text=True,
+                       timeout=120, env=env)
+        _commit(work, env, 'old'); _push(work, env)
+        y = _commit(work, env, 'Y')
+        cases.append(('the personal github_ci_every_hours is read', SKIP in y))
+        work, env = _setup('new-name-repo', repo_cfg={'github_ci_on_branches': False})
+        _branch(work, env)
+        z = _commit(work, env, 'Z')
+        cases.append(("a repo's github_ci_on_branches is read", SKIP in z))
+        work, env = _setup('both-names', repo_cfg={'ci_on_branches': False,
+                                                   'github_ci_on_branches': True})
+        _branch(work, env)
+        zz = _commit(work, env, 'ZZ')
+        cases.append(('where a file carries both names, github_ci_ wins',
+                      SKIP not in zz))
+
     failed = [n for n, ok in cases if not ok]
     check(f'commit-identity applies the CI cadence only when every condition '
           f'holds ({len(cases)} stated cases)', not failed, '; '.join(failed))
@@ -16331,6 +16353,40 @@ def check_promote_pre_staging():
         cases.append(("a branch whose commits are all on pre-staging is not "
                       "called unlanded for lacking them on staging",
                       not any("'w-landed'" in l for l in got)))
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
+def check_github_ci_setting_names():
+    """The three GitHub settings are named `github_ci_*` since 2026-09-25
+    (spec/BRANCH_TIERS_PLAN.md); every reader takes the new name first and
+    the old `ci_*` one where it is absent. The failure that matters is
+    silent: a renamed key nobody reads falls back to the default, and for
+    the workflow switch the default decides whether a workflow is installed
+    at all."""
+    import tempfile, json as _json
+    name = 'the github_ci_ setting names are read, and the old ci_ names still are'
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_identity as pi
+    finally:
+        sys.path.pop(0)
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        repo = pathlib.Path(td)
+        nocfg = str(repo / 'none.json')
+
+        def pref(ident):
+            (repo / 'identity.json').write_text(_json.dumps(
+                dict({'name': 'T', 'email': 't@example.com'}, **ident)), encoding='utf-8')
+            return pi.ci_preference(repo, nocfg)['enabled']
+        cases.append(('github_ci_workflows "enabled" is read',
+                      pref({'github_ci_workflows': 'enabled'})))
+        cases.append(('the old ci_workflows is still read',
+                      pref({'ci_workflows': 'enabled'})))
+        cases.append(('where both appear, github_ci_workflows wins',
+                      not pref({'ci_workflows': 'enabled',
+                                'github_ci_workflows': 'disabled'})))
     failed = [n for n, ok in cases if not ok]
     check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
@@ -32173,6 +32229,7 @@ def main():
     check_branch_tiers()
     check_merge_check_gate()
     check_promote_pre_staging()
+    check_github_ci_setting_names()
     check_source_clone_is_pinned_to_a_branch()
     check_generator_wires_every_template_guard_mode()
     check_verify_reports_a_source_wired_for_fewer_moments()

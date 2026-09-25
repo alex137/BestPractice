@@ -27,10 +27,27 @@ flow."*
 to a branch that checks in seconds; the full list runs once per batch, when
 the batch is promoted.
 
-**Status: accepted, being built.** Steps 1 to 4 landed 2026-09-25 (pull
-request #605); steps 5 to 7 are next, with `landing_branch` defaulting to
-staging until Alex has heard, so only a person who sets it lands on
-pre-staging meanwhile. Worked out in a brainstorm on 2026-09-25
+**Status: accepted, being built.** As of 2026-09-25:
+
+- **Steps 1 to 4 landed** (pull request #605): the branch-names module, the
+  basic and full tiers, the push gate choosing by branch, and the merge gate.
+- **Steps 5 to 7 landed** (pull request #606): pre-staging, `Promote`, the
+  landing setting and the Boildown's Promote reminder. `landing_branch`
+  defaults to staging until Alex has heard; Morgan's own `identity.json`
+  sets `pre-staging`, so he has the lane now.
+- **Step 8's rename landed**: every reader takes the `github_ci_` name first
+  and the old `ci_` name where it is absent. Nobody's file was renamed yet --
+  a person's `identity.json` is read by every repository's own vendored
+  engine, and one still on an older engine would stop seeing a renamed key
+  and fall back to the defaults, which run more CI, not less. Rename them
+  once installs have taken this engine.
+- **Step 8's behaviour is held for a decision**, because landing any part of
+  it alone costs money: "never tag staging" would, today, start a runner on
+  every push to staging in a private repo that has `leak-gate.yml`
+  installed, since that workflow still triggers on every push. It has to land
+  together with main-only triggers, and which workflow is a consuming
+  repository's one GitHub test is not settled: a consumer install writes
+  only `leak-gate.yml` today. Worked out in a brainstorm on 2026-09-25
 and approved the same day. The decisions, with how firmly each was made
 ([decision-strength](../practices/decision-strength.md)):
 

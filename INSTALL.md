@@ -378,7 +378,7 @@ list.)
    `local/practices/project-visual-identity.md` (repo-local practices, not
    root files, but still install artifacts — nothing else may land under
    `local/`), `tools/bootstrap.sh`, `.github/workflows/leak-gate.yml` (only
-   when the individual or team source resolved declares `"ci_workflows":
+   when the individual or team source resolved declares `"github_ci_workflows":
    "enabled"` — disabled is the default; see GITHUB_ACTIONS.md), and
    `.github/pull_request_template.md`. Everything else that ships
    with Precedent (INSTALL.md, PRACTICES.md, SETUP.md,
