@@ -20650,6 +20650,185 @@ def check_vendor_engine_refreshes_ci_workflow_files():
           '; '.join(f"{n} -- {d[:800]}" for n, d in bad))
 
 
+def check_vendor_engine_refreshes_bootstrap_sh():
+    """Nothing delivered a templates/bootstrap.sh change to an installed
+    consumer -- see precedent_vendor_engine.py's TEMPLATE_INSTANCES block
+    (2026-09-25) for the measured case: a consumer whose bootstrap.sh was
+    the stock template minus two blocks added two days earlier, told
+    "already current -- nothing to do" by every refresh.
+
+    THE FIXTURE OWNS ITS UPSTREAM (practice: fixture-owns-its-state). It
+    builds one synthetic commit on top of this working tree whose only change
+    is a new, distinctive block in templates/bootstrap.sh, so the tree under
+    test always has exactly one known past version (OLD) and one current
+    version (CUR) -- however shallow this clone's own history is, and
+    whatever real edits the template picks up later. The commit is an object
+    only: no ref points at it and nothing is checked out.
+
+    Seven cases, one fresh consumer each. The discriminating ones are the
+    edited copies: never overwritten, --force included, and the report names
+    the exact block a copy lacks rather than just calling it different
+    (practice: control-asserts-which-failure)."""
+    import shutil, tempfile
+    import precedent_vendor_engine as pve
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-bootstrap-instance-'))
+    cases = []
+    rel = 'tools/bootstrap.sh'
+    marker = 'FIXTURE BLOCK ADDED UPSTREAM'
+    try:
+        base = _ref_including_worktree(ROOT)
+        old = subprocess.run(['git', '-C', str(ROOT), 'show',
+                              f'{base}:templates/bootstrap.sh'],
+                             capture_output=True, check=True).stdout
+        added = (f'# {marker} -- the block a stale copy lacks\n'
+                 'if [ -f tools/fixture_probe.py ]; then\n'
+                 '  python3 tools/fixture_probe.py --fixture-only || true\n'
+                 'fi\n\n').encode()
+        tail = b'# A bootstrap that blocks startup'
+        assert old.count(tail) == 1, 'template tail moved; repoint this fixture'
+        cur = old.replace(tail, added + tail)
+
+        with tempfile.TemporaryDirectory(prefix='precedent-fixture-index-') as idx:
+            env = dict(os.environ, GIT_INDEX_FILE=str(pathlib.Path(idx) / 'index'),
+                       GIT_AUTHOR_NAME='fixture', GIT_AUTHOR_EMAIL='fixture@invalid',
+                       GIT_COMMITTER_NAME='fixture', GIT_COMMITTER_EMAIL='fixture@invalid')
+
+            def git(*args, data=None):
+                return subprocess.run(['git', '-C', str(ROOT), *args], input=data,
+                                      capture_output=True, env=env, check=True
+                                      ).stdout.decode().strip()
+            git('read-tree', base)
+            blob = git('hash-object', '-w', '--stdin', data=cur)
+            git('update-index', '--cacheinfo', f'100755,{blob},templates/bootstrap.sh')
+            ref = git('commit-tree', git('write-tree'), '-p', base, '-m',
+                      'verify_harness: bootstrap.sh fixture (never pushed)')
+
+        engine_bytes = (ROOT / 'tools' / 'precedent_vendor_engine.py').read_bytes()
+        sha = lambda b: hashlib.sha256(b).hexdigest()
+
+        def make_consumer(name, boot_bytes, recorded):
+            consumer = tmp / name
+            (consumer / 'tools').mkdir(parents=True)
+            (consumer / 'tools' / 'precedent_vendor_engine.py').write_bytes(engine_bytes)
+            manifest = {'kind': 'consumer', 'source_commit': 'deadbeef',
+                        'files': ['precedent_vendor_engine.py'],
+                        'sha256': {'precedent_vendor_engine.py': sha(engine_bytes)}}
+            if recorded is not None:
+                manifest['template_instances_sha256'] = {rel: recorded}
+            (consumer / 'tools' / 'ENGINE_MANIFEST.json').write_text(
+                json.dumps(manifest), encoding='utf-8')
+            if boot_bytes is not None:
+                (consumer / rel).write_bytes(boot_bytes)
+            return consumer
+
+        def run_refresh(consumer, extra=()):
+            r = subprocess.run(
+                [sys.executable, str(consumer / 'tools' / 'precedent_vendor_engine.py'),
+                 'refresh', str(ROOT), '--from-ref', ref, *extra],
+                capture_output=True, text=True, cwd=str(consumer))
+            return r.returncode, r.stdout + r.stderr
+
+        def recorded_of(consumer):
+            m = json.loads((consumer / 'tools' / 'ENGINE_MANIFEST.json')
+                           .read_text(encoding='utf-8'))
+            return (m.get('template_instances_sha256') or {}).get(rel)
+
+        # -- A: unedited (matches its recorded baseline), template moved --
+        a = make_consumer('recorded-stale', old, sha(old))
+        rc, out = run_refresh(a)
+        cases.append(('an unedited bootstrap.sh whose baseline is recorded is '
+                      'rewritten to the current template',
+                      rc == 0 and (a / rel).read_bytes() == cur, out[-800:]))
+        cases.append(('...its new baseline is the current template, and the '
+                      'refresh says what it did',
+                      recorded_of(a) == sha(cur)
+                      and 'brought tools/bootstrap.sh up to the current template' in out,
+                      out[-800:]))
+
+        # -- B: nothing recorded, byte-identical to a PAST template -- every
+        # install that predates tracking, the measured case --
+        b = make_consumer('untracked-stale', old, None)
+        rc, out = run_refresh(b)
+        cases.append(('an untracked bootstrap.sh identical to a past version of '
+                      'the template is recognised as stock and brought up to date',
+                      rc == 0 and (b / rel).read_bytes() == cur
+                      and recorded_of(b) == sha(cur), out[-800:]))
+
+        # -- C: edited (an old copy plus a local line), baseline recorded --
+        edited = old.replace(tail, b'echo "a line this repo added"\n\n' + tail)
+        for name, label, extra in (('edited', '', ()),
+                                   ('edited-forced', ' with --force', ('--force',))):
+            c = make_consumer(name, edited, sha(old))
+            rc, out = run_refresh(c, extra)
+            cases.append((f'an edited bootstrap.sh is never overwritten{label}',
+                          (c / rel).read_bytes() == edited, out[-800:]))
+            cases.append((f'...the refresh still succeeds and reports it DIVERGED, '
+                          f'naming the missing upstream block{label}',
+                          rc == 0 and f'DIVERGED: {rel}' in out
+                          and marker in out and '-- missing' in out, out[-1200:]))
+            cases.append((f'...its baseline is NOT moved onto the edit{label}, so a '
+                          f'later refresh cannot mistake it for stock',
+                          recorded_of(c) == sha(old), out[-400:]))
+
+        # -- D: a copy missing one block the template has always had, and
+        # nothing else -- names THAT block, and not the one it does carry --
+        blocks = pve._shell_blocks(cur.decode())
+        victim = next(b for b in blocks
+                      if any('precedent_engine_freshness.py --quiet' in ln for ln in b[2]))
+        cur_lines = cur.decode().splitlines(keepends=True)
+        start = victim[0] - 1
+        end = start
+        while end < len(cur_lines) and cur_lines[end].strip():
+            end += 1
+        lacking = ''.join(cur_lines[:start] + cur_lines[end:]).encode()
+        d = make_consumer('missing-a-block', lacking, None)
+        rc, out = run_refresh(d)
+        report = [ln for ln in out.splitlines() if 'templates/bootstrap.sh:' in ln]
+        cases.append(('THE DISCRIMINATING CASE: a copy missing one block is left '
+                      'alone and the report names exactly that block, missing',
+                      rc == 0 and (d / rel).read_bytes() == lacking
+                      and len(report) == 1
+                      and f'templates/bootstrap.sh:{victim[0]} ' in report[0]
+                      and report[0].endswith('-- missing'), '\n'.join(report) or out[-800:]))
+        cases.append(('...and it lands on the Left-for-you list, where step 10 '
+                      'of the runbook works from',
+                      f'  - {rel}: diverged from templates/bootstrap.sh and lacks 1' in out,
+                      out[-800:]))
+
+        # -- E, CONTROL: edited but carrying every block -- no lacks list --
+        extra_line = cur.replace(tail, b'echo "ours"\n\n' + tail)
+        e = make_consumer('edited-complete', extra_line, None)
+        rc, out = run_refresh(e)
+        cases.append(('CONTROL: an edited copy that carries every template block '
+                      'is left alone and reported as lacking nothing',
+                      rc == 0 and (e / rel).read_bytes() == extra_line
+                      and 'carries every block' in out and 'Left for you' not in out,
+                      out[-800:]))
+
+        # -- F: already the current template, nothing recorded -- recorded --
+        f = make_consumer('current', cur, None)
+        rc, out = run_refresh(f)
+        cases.append(('a copy already identical to the template gets a baseline '
+                      'and is otherwise untouched',
+                      rc == 0 and (f / rel).read_bytes() == cur
+                      and recorded_of(f) == sha(cur) and 'DIVERGED' not in out,
+                      out[-800:]))
+
+        # -- G: no bootstrap.sh at all -- never recreated --
+        g = make_consumer('absent', None, None)
+        rc, out = run_refresh(g)
+        cases.append(('CONTROL: a consumer with no bootstrap.sh is not given one',
+                      rc == 0 and not (g / rel).exists(), out[-800:]))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'"Update Vendors" delivers templates/bootstrap.sh to an unedited copy '
+          f'and reports what an edited one lacks, never overwriting it '
+          f'({len(cases)} stated cases)',
+          not bad, '; '.join(f"{n} -- {d[:800]}" for n, d in bad))
+
 def check_a_hook_wired_from_elsewhere_is_reported_as_wired():
     """A hook a repo calls in place, from a path of its own, is WIRED --
     reported as wired, and still not vendored
@@ -31128,6 +31307,7 @@ def main():
     check_vendor_engine_hook_drift_respects_adapters()
     check_vendor_engine_refresh_converges_with_adapter_owned_hooks()
     check_vendor_engine_refreshes_ci_workflow_files()
+    check_vendor_engine_refreshes_bootstrap_sh()
     check_vendor_engine_retires_ci_workflow_files()
     check_workflow_file_outside_vendoring_detects_candidates()
     check_very_deep_check_workflow_liveness_scan()

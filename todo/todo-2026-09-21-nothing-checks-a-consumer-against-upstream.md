@@ -135,3 +135,16 @@ called it). Planted end to end in the harness
 (`check_freshness_covers_every_declared_source`). Its first real run found
 that consumer's shared-set code one commit behind the set's `main`. Item 3
 is unchanged.
+
+**"For every consumer" was not true until 2026-09-25.** It held only for a
+consumer installed after the template gained the line: nothing delivered a
+`templates/bootstrap.sh` change to an installed `tools/bootstrap.sh`, which
+the vendoring engine treated as repo-owned and never compared. A real
+consumer measured that day had the template minus this block and the
+`--loader-notice` one, so the check above had never run there. The engine
+now tracks the file (`TEMPLATE_INSTANCES` in
+[precedent_vendor_engine.py](../tools/precedent_vendor_engine.py)): a copy
+with no local edits is brought up to the template on `refresh`, and an
+edited one is reported `DIVERGED` with each missing block named. So the
+check reaches an existing consumer on its next "Update Vendors", or, where
+its copy is edited, once somebody copies the named block in.
