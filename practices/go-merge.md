@@ -121,18 +121,27 @@ changes:**
   ordinary code, a change spanning several files or systems — none of
   that alone makes a change high-risk. **Size and reach are not the test; only
   the four bullets above are.** The light check still runs before the
-  commit and the deep check still runs before the push either way —
-  verification never gets skipped, only the PR wrapper does.
+  commit and the push check still runs before the push either way, at the
+  tier the target branch gets -- basic for pre-staging, full for staging
+  and main ([spec/BRANCH_TIERS_PLAN.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/BRANCH_TIERS_PLAN.md)) --
+  so verification never gets skipped, only the PR wrapper does.
 
 **Either path ends on the shared branch, never in the local clone.**
 `Go update` means make the change live: the direct push lands on the branch
 the repository's own rules say routine work lands on, and the full chain
 merges into that same branch -- in both cases a real branch on `origin`,
 and never a repository's *configured default* branch picked just because
-it is configured that way. That branch is the one the repository
-declares -- `base_branch` in its `precedent.json`, or a rule of its own --
-and in most repositories it is `main`
-([primary-branch](primary-branch.md)).
+it is configured that way. That branch is the person's primary branch
+([primary-branch](primary-branch.md)), and
+`python3 tools/precedent_branches.py --landing` names it: `pre-staging`
+for a person whose `landing_branch` says so, otherwise the branch the
+repository declares -- `base_branch` in its `precedent.json`, or a rule of
+its own -- which in most repositories is `main`. **Landing on pre-staging,
+bring it in first**: `python3 tools/precedent_branches.py
+--sync-pre-staging` creates it from staging when origin has none, then
+merge `origin/pre-staging` into the work before pushing, so every window
+lands on top of the others. Getting it onto staging is a separate step,
+[promote](promote.md).
 **A commit sitting in the working copy has not satisfied the phrase, and
 neither has a push you only know succeeded because the command said so:**
 name the postcondition and test it
