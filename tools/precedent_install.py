@@ -212,12 +212,12 @@ def _ci_preference(dest):
     try:
         pref = precedent_identity.ci_preference(dest)
     except precedent_identity.NoDeclaredIdentity:
-        return False, ('no individual source declares ci_workflows -- '
+        return False, ('no individual source declares github_ci_workflows -- '
                         "disabled by default (GITHUB_ACTIONS.md)")
     if pref['enabled']:
-        return True, f"ci_workflows: enabled ({pref['source']})"
+        return True, f"github_ci_workflows: enabled ({pref['source']})"
     shown = pref['value'] or '(absent)'
-    return False, f"ci_workflows: {shown} ({pref['source']})"
+    return False, f"github_ci_workflows: {shown} ({pref['source']})"
 
 
 def _substitute(text, subs):
@@ -250,7 +250,7 @@ def _ci_paragraph_off():
         "  minutes are metered per private repository and billed in whole-minute\n"
         "  increments per JOB, so installing them unconditionally charges every\n"
         "  adopter for checks they may not want on every push. Turn them on by\n"
-        "  declaring `\"ci_workflows\": \"enabled\"` in the individual or team\n"
+        "  declaring `\"github_ci_workflows\": \"enabled\"` in the individual or team\n"
         "  source this project resolves, then re-run the installer with `--force`\n"
         "  — or copy a template in by hand any time. Note that the Markdown\n"
         "  lint is deliberately NOT among them: it runs before every commit\n"

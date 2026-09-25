@@ -7,7 +7,7 @@ they report, and none holds a token that could write
 | Template | Install as | In which repo |
 |---|---|---|
 | [`precedent-check.yml.template`](precedent-check.yml.template) | `.github/workflows/precedent-check.yml` | a practice SET only (its own header says why); a consuming repo skips it. Covers the generated-views drift check too (see below) — there is no separate `views-drift.yml.template` any more. |
-| [`leak-gate.yml.template`](leak-gate.yml.template) | `.github/workflows/leak-gate.yml` | any dependent repository or practice SET, gated by `ci_workflows` the same as the row above — see below, its trigger shape is deliberately different from the other three |
+| [`leak-gate.yml.template`](leak-gate.yml.template) | `.github/workflows/leak-gate.yml` | any dependent repository or practice SET, gated by `github_ci_workflows` the same as the row above — see below, its trigger shape is deliberately different from the other three |
 | [`light-check.yml.template`](light-check.yml.template) | `.github/workflows/light-check.yml` | any dependent repository that declares a light check — **never installed automatically**, and never installed without reading the existing file first; see below |
 
 **Trigger shape, all three (2026-09-19, spec/CI_MINUTES_PLAN.md item 8):**
@@ -80,7 +80,7 @@ covers what gates a consuming repo instead.
 
 Copy [`light-check.yml.template`](light-check.yml.template) to
 `.github/workflows/light-check.yml` — **by hand, after reading whatever is
-already there.** The installer does not place it and `ci_workflows` does
+already there.** The installer does not place it and `github_ci_workflows` does
 not reach it, for the same reason `doc-lint-scheduled.yml.template` is
 never automatic: what it runs is a per-repository decision this repo cannot
 make for you.

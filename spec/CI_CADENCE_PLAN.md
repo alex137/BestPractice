@@ -12,6 +12,13 @@ summary:       "Let Morgan push as often as he likes to a private repo while Git
 
 # Run CI at most once every X hours in private repos
 
+**The settings this plan names were renamed on 2026-09-25**: `ci_every_hours`,
+`ci_on_branches` and `ci_workflows` are now `github_ci_every_hours`,
+`github_ci_on_branches` and `github_ci_workflows`, because each governs
+GitHub's runs only ([BRANCH_TIERS_PLAN.md](BRANCH_TIERS_PLAN.md)). The old
+names are still read wherever the new one is absent. The text below keeps
+the names it was written with.
+
 **The ask.** Morgan pushes many times a day. In a private repo every push
 starts GitHub Actions, and every job is billed at least a minute. He wants
 one number, set once in his individual source: **run CI at most once every X

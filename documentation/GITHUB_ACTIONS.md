@@ -126,7 +126,7 @@ it scans accordingly — full account, including why this has to be a
 job-level runtime check rather than a scoped trigger (GitHub Actions cannot
 read repo config before a trigger fires), in
 [templates/github-actions/README.md](../templates/github-actions/README.md)'s
-"The leak gate template" section. Gated by `ci_workflows`, same as
+"The leak gate template" section. Gated by `github_ci_workflows`, same as
 `doc-lint.yml.template`; `precedent_install.py` and
 `precedent_bootstrap_source.py` both install it automatically once that
 preference is enabled, and "Update Vendors" refreshes an already-installed
@@ -142,7 +142,8 @@ run on every one of those saves, whether the check was wanted or not — and
 that adds up fastest for exactly the person most likely to be running it
 everywhere.
 
-So the installer resolves `"ci_workflows"` from the individual or team
+(Named `ci_workflows` until 2026-09-25; the old name is still read.)
+So the installer resolves `"github_ci_workflows"` from the individual or team
 source it can reach ([tools/precedent_identity.py](../tools/precedent_identity.py)'s
 `ci_preference()`, same resolution order as `relayed_authorization`: the
 repo's own `identity.json` when it IS an individual source, else the one
@@ -177,7 +178,7 @@ individual's own practice set or dependent project.
   is the actual fix for a repo pushed to constantly, direct to its default
   branch, with no pull request in the loop: however many saves land in one
   window, they cost one run. It is **not** installed by either default —
-  `precedent_install.py` never writes it, and turning `ci_workflows` on
+  `precedent_install.py` never writes it, and turning `github_ci_workflows` on
   does not choose it over the per-push template — because a `schedule:`
   is a clock in somebody else's repository that they never picked (this
   file's own Limits section says the same about an inherited schedule).
@@ -272,7 +273,7 @@ process/upstream/tools/doc_lint.py
 
 If the dependent repository instead copies or adapts the linter into its own tools directory, update the workflow command to use that local path and record the adaptation in `process/manifest.json`.
 
-The same install step, when `ci_workflows` is enabled, also writes
+The same install step, when `github_ci_workflows` is enabled, also writes
 `leak-gate.yml` from
 [leak-gate.yml.template](../templates/github-actions/leak-gate.yml.template) —
 see "The Leak Gate Template" above.
@@ -290,7 +291,7 @@ get it installed automatically; older sets need the copy below, and
 `python3 tools/precedent_bootstrap_source.py --verify <path>` names it as
 missing until it is there.
 
-**A set also gets `leak-gate.yml`**, same tool, same `ci_workflows` gate —
+**A set also gets `leak-gate.yml`**, same tool, same `github_ci_workflows` gate —
 see "The Leak Gate Template" above for why a set is always treated as
 `visibility: private` there.
 

@@ -114,7 +114,7 @@
         "tools/precedent_identity.py",
         "tools/precedent_check.py"
       ],
-      "why": "It is the account of which CI checks exist, how they're installed and disabled, and how they read the ci_workflows preference. A new or changed workflow, template, or the identity resolution it reads from is what dates it."
+      "why": "It is the account of which CI checks exist, how they're installed and disabled, and how they read the github_ci_workflows preference. A new or changed workflow, template, or the identity resolution it reads from is what dates it."
     },
     "documentation/METHOD.md": {
       "describes": [

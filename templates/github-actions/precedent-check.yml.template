@@ -182,7 +182,7 @@ permissions:
 # can stand up on their behalf. spec/CI_MINUTES_PLAN.md item 6 has the
 # trade-offs; GITHUB_ACTIONS.md's "Controlling Actions Minutes" is where
 # this variable is documented alongside the levers that need no opt-in at
-# all (ci_workflows disabled by default, branch scoping, one job per run).
+# all (github_ci_workflows disabled by default, branch scoping, one job per run).
 jobs:
   # ONE job. Both checks below are steps in it, not jobs of their own, and
   # there is no debounce job in front of them -- the header arithmetic is

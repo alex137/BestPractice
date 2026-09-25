@@ -277,7 +277,10 @@ def ci_preference(repo, user_config=None):
             return None
         if not isinstance(ident, dict) or not ident.get('email'):
             return None
-        value = ident.get('ci_workflows') or ''
+        # `github_ci_workflows` since 2026-09-25 (spec/BRANCH_TIERS_PLAN.md);
+        # the old `ci_workflows` is still read where the new name is absent.
+        value = ident.get('github_ci_workflows',
+                          ident.get('ci_workflows')) or ''
         return {'value': value if isinstance(value, str) else '',
                 'enabled': value == CI_ENABLED,
                 'who': ident.get('name') or '',

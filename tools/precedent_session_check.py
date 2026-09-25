@@ -607,36 +607,47 @@ def _ci_cadence_row():
             idents.append(pathlib.Path(os.path.expandvars(path))
                           .expanduser() / 'identity.json')
 
-    def _personal(key):
+    # The github_ci_ name first, the old ci_ name where it is absent
+    # (spec/BRANCH_TIERS_PLAN.md) -- the same order the cadence script reads.
+    def _repo(name):
+        for key in ('github_ci_' + name, 'ci_' + name):
+            if key in cfg:
+                return True, cfg[key]
+        return False, None
+
+    def _personal(name):
         for c in idents:
             d = _load(c)
-            if isinstance(d, dict) and key in d:
-                return d[key], f'{c}'
+            for key in ('github_ci_' + name, 'ci_' + name):
+                if isinstance(d, dict) and key in d:
+                    return d[key], f'{c}'
         return None, 'the default'
 
-    if 'ci_every_hours' in cfg:
-        hours, where = _hours(cfg['ci_every_hours']), "this repo's precedent.json"
+    has_hours, repo_hours = _repo('every_hours')
+    if has_hours:
+        hours, where = _hours(repo_hours), "this repo's precedent.json"
     else:
-        v, where = _personal('ci_every_hours')
+        v, where = _personal('every_hours')
         hours = _hours(v)
     # Mirrors the cadence script's on_branches(): the repo's own switch, else
-    # a repo-declared ci_every_hours of 0 (every push, branches too), else
+    # a repo-declared github_ci_every_hours of 0 (every push, branches too), else
     # the person's; anything but a literal false means CI runs on branches.
-    if 'ci_on_branches' in cfg:
-        branches, bwhere = cfg['ci_on_branches'] is not False, "this repo's precedent.json"
-    elif 'ci_every_hours' in cfg and not hours:
-        branches, bwhere = True, "this repo's precedent.json (ci_every_hours 0)"
+    has_br, repo_br = _repo('on_branches')
+    if has_br:
+        branches, bwhere = repo_br is not False, "this repo's precedent.json"
+    elif has_hours and not hours:
+        branches, bwhere = True, "this repo's precedent.json (github_ci_every_hours 0)"
     else:
-        v, bwhere = _personal('ci_on_branches')
+        v, bwhere = _personal('on_branches')
         branches = v is not False
     if not hours and branches:
-        return (name, True, f'every push runs CI (ci_every_hours is 0, from '
-                            f'{where}; ci_on_branches is true, from {bwhere})')
+        return (name, True, f'every push runs CI (github_ci_every_hours is 0, from '
+                            f'{where}; github_ci_on_branches is true, from {bwhere})')
     asked = []
     if hours:
-        asked.append(f'ci_every_hours is {hours:g} (from {where})')
+        asked.append(f'github_ci_every_hours is {hours:g} (from {where})')
     if not branches:
-        asked.append(f'ci_on_branches is false (from {bwhere})')
+        asked.append(f'github_ci_on_branches is false (from {bwhere})')
     asked = ' and '.join(asked)
     if cfg.get('visibility') != 'private':
         return (name, True, f'every push runs CI: {asked}, but this repo does '
@@ -658,7 +669,7 @@ def _ci_cadence_row():
                              f'identity')
     on_base = (f'CI runs at most once every {hours:g}h (from {where})'
                if hours else 'every push runs CI')
-    on_other = ('other branches never run CI (ci_on_branches false, from '
+    on_other = ('other branches never run CI (github_ci_on_branches false, from '
                 f'{bwhere})' if not branches else 'other branches run CI on '
                 'every push')
     return (name, True, f'private, primary branch {base}: {on_base}; '
