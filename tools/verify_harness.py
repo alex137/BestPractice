@@ -17091,6 +17091,116 @@ def check_freshness_guard_waves_through_a_branch_origin_never_saw():
           not failed, '; '.join(failed))
 
 
+def check_bootstrap_separates_an_unpushed_branch_from_a_failed_fetch():
+    """bootstrap.sh's freshness block, the same split
+    check_freshness_guard_waves_through_a_branch_origin_never_saw asserts
+    for the hook.
+
+    `git fetch origin <branch>` fails with "couldn't find remote ref" on a
+    branch that has never been pushed -- every fresh Claude Code web
+    session -- and bootstrap.sh read that as a failed fetch, opening the
+    session on "could not fetch -- freshness NOT verified" with nothing to
+    be stale against. Reported 2026-09-25 from a consumer's session.
+
+    Four cases per copy (the template an adopter instantiates, and this
+    repo's own tools/bootstrap.sh): an unpushed branch is NOTEd, not WARNed;
+    one cut from a stale base with no commits of its own is fast-forwarded;
+    one with commits of its own on a stale base is WARNed about the base;
+    and an unreachable origin still prints the unverified-fetch WARN,
+    asserted by its message (control-asserts-which-failure)."""
+    import tempfile
+
+    scripts = [ROOT / 'templates' / 'bootstrap.sh', ROOT / 'tools' / 'bootstrap.sh']
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+        # A stub pip so the script's first line never reaches the network,
+        # and an empty global config so no ambient identity or hooksPath
+        # decides whether the fixture commits succeed (fixture-owns-its-state).
+        (tmp / 'bin').mkdir()
+        (tmp / 'bin' / 'pip').write_text('#!/bin/sh\nexit 0\n', encoding='utf-8')
+        (tmp / 'bin' / 'pip').chmod(0o755)
+        (tmp / 'gitconfig').write_text('', encoding='utf-8')
+        env = dict(os.environ)
+        env.pop('CLAUDE_PROJECT_DIR', None)
+        env['PATH'] = f"{tmp / 'bin'}:{env.get('PATH', '')}"
+        env['GIT_CONFIG_GLOBAL'] = str(tmp / 'gitconfig')
+        env['GIT_AUTHOR_NAME'] = env['GIT_COMMITTER_NAME'] = 'Harness'
+        env['GIT_AUTHOR_EMAIL'] = env['GIT_COMMITTER_EMAIL'] = 'harness@example.com'
+
+        def _git(d, *a):
+            r = subprocess.run(['git', '-C', str(d), *a],
+                               capture_output=True, text=True, env=env)
+            if r.returncode != 0:
+                raise RuntimeError('bootstrap fixture setup failed: git %s: %s'
+                                   % (' '.join(a), (r.stderr or r.stdout).strip()))
+            return r
+
+        origin = tmp / 'origin'
+        _git(tmp, 'init', '-q', '--bare', '-b', 'main', str(origin))
+        seed = tmp / 'seed'
+        _git(tmp, 'init', '-q', '-b', 'main', str(seed))
+        _git(seed, 'commit', '-q', '--allow-empty', '-m', 'one')
+        _git(seed, 'remote', 'add', 'origin', str(origin))
+        _git(seed, 'push', '-q', 'origin', 'main')
+
+        def _clone(name, branch):
+            d = tmp / name
+            _git(tmp, 'clone', '-q', str(origin), str(d))
+            _git(d, 'checkout', '-q', '-b', branch)
+            (d / 'precedent.json').write_text('{"base_branch": "main"}', encoding='utf-8')
+            (d / '.git' / 'info' / 'exclude').write_text('precedent.json\n', encoding='utf-8')
+            return d
+
+        def _advance_base():
+            _git(seed, 'commit', '-q', '--allow-empty', '-m', 'moved')
+            _git(seed, 'push', '-q', 'origin', 'main')
+
+        def _run(script, d):
+            return subprocess.run(['bash', str(script)], cwd=str(d),
+                                  capture_output=True, text=True, env=env).stderr
+
+        for script in scripts:
+            tag = str(script.relative_to(ROOT))
+            d = _clone(f'absent-{script.parent.name}', 'unpushed')
+            err = _run(script, d)
+            cases.append((f'{tag}: an unpushed branch is named, not reported as an '
+                          f'unverified fetch',
+                          'is not on origin yet' in err and 'could not fetch' not in err,
+                          err[-400:]))
+
+            d = _clone(f'stale-clean-{script.parent.name}', 'unpushed-stale')
+            _advance_base()
+            err = _run(script, d)
+            cases.append((f'{tag}: an unpushed branch with no commits of its own, cut '
+                          f'from a stale base, is fast-forwarded to it',
+                          'fast-forwarded' in err
+                          and _git(d, 'rev-parse', 'HEAD').stdout
+                          == _git(d, 'rev-parse', 'origin/main').stdout, err[-400:]))
+
+            d = _clone(f'stale-own-{script.parent.name}', 'unpushed-own')
+            _git(d, 'commit', '-q', '--allow-empty', '-m', 'mine')
+            _advance_base()
+            err = _run(script, d)
+            cases.append((f'{tag}: an unpushed branch with commits of its own on a stale '
+                          f'base is warned about the base, not moved',
+                          'missing 1 commit(s) from origin/main' in err
+                          and 'fast-forwarded' not in err, err[-400:]))
+
+            d = _clone(f'unreachable-{script.parent.name}', 'unpushed-unreachable')
+            _git(d, 'remote', 'set-url', 'origin', str(tmp / 'no-such-repo'))
+            err = _run(script, d)
+            cases.append((f'{tag}: CONTROL: an unreachable origin still WARNs that '
+                          f'freshness is not verified',
+                          'could not fetch origin/unpushed-unreachable' in err
+                          and 'freshness NOT verified' in err, err[-400:]))
+
+    bad = [(n, e) for n, ok, e in cases if not ok]
+    check(f'bootstrap.sh separates a branch origin never saw from a fetch that failed '
+          f'({len(cases)} stated cases, both copies)',
+          not bad, '; '.join(f'{n} -- {e}' for n, e in bad))
+
+
 def check_commit_identity_copies_are_identical():
     """The hook exists three times and every copy must be the same file.
 
@@ -30620,6 +30730,7 @@ def main():
     check_freshness_guard_checks_attached_repositories()
     check_freshness_guard_user_prompt_never_resets_mid_session()
     check_freshness_guard_waves_through_a_branch_origin_never_saw()
+    check_bootstrap_separates_an_unpushed_branch_from_a_failed_fetch()
     check_unmerged_branch_verdicts()
     check_branch_scan_sees_every_branch()
     check_base_branch_drift_ignores_carried_work()
