@@ -82,6 +82,7 @@ FULLY_GENERATED_VIEWS = ('MAP.md', 'GLOSSARY.md')
 
 sys.path.insert(0, str(_ENGINE_DIR))
 import split_practices as sp
+import summary_text  # a withdrawn reason is a summary: links out before the cut
 
 BEGIN_MARKER = '<!-- BEGIN GENERATED: precedent-loader -->'
 END_MARKER = '<!-- END GENERATED -->'
@@ -1653,6 +1654,10 @@ def _withdrawn_reason(sections):
         # a practice carrying an excellent one.
         if not para or para.startswith(('|', '#', '- ', '* ')):
             continue
+        # Links out BEFORE looking for the sentence end or cutting at 400:
+        # either cut can land inside one ("[e.g. Foo](x.md)" splits at its
+        # own ". F"), and this row already links the practice file itself.
+        para = summary_text.unlink(para)
         # First sentence, but never a fragment: a ". " inside "e.g." or a
         # version number would otherwise cut mid-thought.
         cut = para.find('. ')
@@ -1662,7 +1667,7 @@ def _withdrawn_reason(sections):
                 break
             cut = nxt
         line = para[:cut + 1] if cut > 0 else para
-        return line if len(line) <= 400 else line[:397] + '...'
+        return line if len(line) <= 400 else summary_text.one_line(line, 397, '...')
     return ''
 
 
@@ -1743,29 +1748,19 @@ def _render_withdrawn(withdrawn):
             # than no link (practice: doc-references-are-links).
             where = (f"`{target}` — in another source; "
                      f"`python3 tools/precedent_show.py {target}`")
-        # REPOINT THE STORY'S OWN LINKS FIRST. This lands in MAP.md at the
-        # REPO ROOT, and a Story is written inside practices/ -- so a
-        # sibling citation like `[x](x.md)`, correct where it was authored,
-        # resolves to a root-level `x.md` that does not exist. The loader
-        # block has had _place_rule_links for exactly this since 2026-09-11;
-        # this column never did, and copied the prose verbatim.
-        #
-        # Reported 2026-09-21 by a session auditing four practice sets: one
-        # set's MAP.md carried a broken link to reply-fits-one-screen.md
-        # that regenerating did not clear, because the SOURCE is correct and
-        # only the copy is wrong. It does not reproduce in this repo -- none
-        # of these practices happens to carry a sibling link in its Story's
-        # first sentence -- which is why a clean tree here proved nothing.
+        # THE STORY'S LINKS ARE DROPPED, NOT REPOINTED. This lands in MAP.md
+        # at the REPO ROOT, and a Story is written inside practices/, so a
+        # sibling citation like `[x](x.md)` resolves to a root-level `x.md`
+        # that does not exist. From 2026-09-21 this repointed them with
+        # _place_rule_links (reported by a session auditing four practice
+        # sets: one set's MAP.md carried a broken link to
+        # reply-fits-one-screen.md that regenerating did not clear). Since
+        # 2026-09-25 _withdrawn_reason() unlinks the sentence instead, before
+        # its 400-character cut: a cut could still land inside a repointed
+        # link, and the row's first cell already links the practice whose
+        # Story this is (tools/summary_text.py says why every summary field
+        # goes this way).
         _reason_raw = _withdrawn_reason(sections)
-        if _reason_raw:
-            _reason_raw, _unplaced = _place_rule_links(
-                _reason_raw, _f, ROOT, ROOT)
-            if _unplaced:
-                print(f"build_views NOTE: {slug}'s Story cites "
-                      f"{', '.join(sorted(set(_unplaced)))}, which cannot be "
-                      f"placed relative to the repository root -- left as "
-                      f"written in MAP.md, where it will not resolve.",
-                      file=sys.stderr)
         reason = _reason_raw.replace('|', '\\|') or \
             '*(no ## Story -- catalogue-carries-stories should have caught this)*'
         lines.append(f"| [{slug}](practices/{slug}.md) | {status} | {where} | {reason} |")
@@ -1943,6 +1938,7 @@ TOOLS_DESCRIPTIONS = {
     'routing_eval_synthetic.py': "Stress-tests the occasion-index channel alone, on hand-written synthetic tasks rather than real commits",
     'session_load_trend.py': "How much room every always-loaded surface has left and how fast it is going -- headroom, the hand-written/generated split, and the growth rate; its headroom_notice() is what the merge and push gates print",
     'split_practices.py': "PRACTICES.md ↔ practices/ converter",
+    'summary_text.py': "Turns prose into a summary field: links out first, then the cut — run bare to self-check",
     'table_fmt.py': "One formatter per quantity kind — the engine",
     'title_case.py': "Headline (New York Times) capitalization for markdown headings — --check to gate, --write to fix",
     'todo_migrate.py': "One-time converter from the old TODO.md/gotchas-index format into spec/OPEN_ITEM_AND_GOTCHA_PLAN.md's per-item todo/gotchas files, dry-run by default",

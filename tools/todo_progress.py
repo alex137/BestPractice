@@ -33,7 +33,10 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 # An item opens with `N. <a id="slug"></a>` and runs to the next such line.
 ITEM_RE = re.compile(r'(?m)^(\d+)\. <a id="([A-Za-z0-9_-]+)"></a>')
 # Paths an item names: markdown links to repo files, and backticked paths.
-LINK_RE = re.compile(r'\]\((?!https?://|mailto:|#)([^)#]+)[^)]*\)')
+# The destination excludes whitespace: an item body is many lines, and `[^)]`
+# would pair a stray "(" with a ")" lines later and report the text between
+# as a path.
+LINK_RE = re.compile(r'\]\((?!https?://|mailto:|#)([^)#\s]+)[^)\s]*\)')
 TICKED_PATH_RE = re.compile(r'`((?:[\w.-]+/)+[\w.-]+\.\w+)`')
 REMIND_RE = re.compile(r'(?m)^\s*\*\*Remind:\*\*\s*(.+)$')
 # A closed item is marked in one of two shapes here: a bolded DONE/Closed

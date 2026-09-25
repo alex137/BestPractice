@@ -461,6 +461,11 @@ ENGINE_FILES = [
     # real run, the same failure shape precedent_check.py's own promotion
     # (see below) was caught by.
     'title_case.py',
+    # The one way a generator copies prose into a summary field: links out,
+    # then the cut (added 2026-09-25). build_todo_index.py, todo_migrate.py,
+    # build_views.py and build_gotcha_index.py all import it at module level,
+    # so it rides here for the same reason title_case.py does just above.
+    'summary_text.py',
     # THE SCRIPT leak-gate.yml.template RUNS (added 2026-09-21, practice:
     # cite-the-incident). CI_WORKFLOW_TEMPLATES has listed
     # leak-gate.yml.template for BOTH kinds since 2026-09-20 (item 12), and

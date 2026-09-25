@@ -31,6 +31,7 @@ import sys
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 import precedent_time  # practice: timestamps-carry-offset
+import summary_text  # links out BEFORE any cut -- see its docstring
 import title_case  # practice: headline-capitalization -- applied by tool,
                    # never by hand, on every heading this file generates
 
@@ -87,7 +88,7 @@ class TodoItem:
         body = m.group(1)
         tm = re.search(r'\*\*(.+?)\*\*', body, re.DOTALL)
         one_line = tm.group(1) if tm else body.splitlines()[0]
-        return re.sub(r'\s+', ' ', one_line).strip()[:120]
+        return summary_text.one_line(one_line, 120)
 
 
 def _unquote(v):
@@ -151,7 +152,7 @@ def _row(item, today, extra=''):
     link = f'[`{item.slug}`]({item.slug}.md)'
     disp = item.get('disposition', 'wait')
     blocked = item.get('blocked_on')
-    blocked_s = (blocked[:80] + '…') if blocked and len(blocked) > 80 else (blocked or '')
+    blocked_s = summary_text.one_line(blocked, 80, '…')
     return f'| {link} | {item.title} | {age_s} | {disp} | {blocked_s}{extra} |'
 
 
