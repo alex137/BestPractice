@@ -86,7 +86,10 @@ Morgan retired `bestpractice-upstream-sync.yml` outright (strength: decided,
 *"this needs to be deleted from ALL installs"*), and the refresh deletes it by
 content on each install's next `Update Vendors`. Nothing in this item keeps
 it any more. The two remaining parts are unchanged, and the same day moved
-them closer: `SOURCE_BRANCH` became `main`, and vendor-update-runbook step 1
-repoints each install's `process/manifest.json` to `main`, which lifts
-`_pinned_branch_hold` for that repo as it goes. Still open on its own
+them closer, and then undid that: `SOURCE_BRANCH` became `main` for a few
+hours, and was put back to `precedent-beta-v01` the same evening, when
+Morgan decided every install follows that one branch for now (see
+vendor-update-runbook step 1). So an install pinned to
+`precedent-beta-v01` is held by `_pinned_branch_hold` again, exactly as
+before. Still open on its own
 condition: Morgan saying the fix has held.

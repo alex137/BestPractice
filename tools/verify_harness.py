@@ -17310,10 +17310,6 @@ def check_update_refuses_while_a_branch_is_pinned():
         # under such a harness has no non-refused override to reach for.
         cases.append(('and names the --allow-pinned flag',
                       '--allow-pinned' in out))
-        # Since 2026-09-24 main is live and precedent-beta-v01 is staging, so
-        # an install pinned to staging is told where to point instead.
-        cases.append(('and, pinned to staging, says to repoint upstream.branch to main',
-                      'Set upstream.branch to "main"' in out))
 
         _, out = _run(repo, clone, override=True)
         cases.append(('the env-var override gets past the hold',

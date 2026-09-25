@@ -103,11 +103,17 @@ says so, both from the vendored tree under `process/upstream/`.
    every later step confidently wrong: the diff is against the wrong
    lineage, and "already up to date" is the answer you get.
 
-   **For BestPractice that branch is `main`, its live branch**, since
-   2026-09-24; `precedent-beta-v01` is its staging branch and no other repo
-   takes updates from it. An install whose `process/manifest.json` still
-   records `"branch": "precedent-beta-v01"` is repointed to `main` in this
-   same update. `checkin.py update` refuses until it is, and says so.
+   **For BestPractice that branch is `precedent-beta-v01`, for every
+   install, for now** (Morgan, 2026-09-24, `strength: decided`: *"they
+   should all be consistent and following the same one… for now, they
+   should all follow precedent-beta-v01"*). An install whose
+   `process/manifest.json` records `"branch": "main"` is repointed to
+   `precedent-beta-v01` in this same update, and so is its
+   `tools/ENGINE_MANIFEST.json`. For a few hours on 2026-09-24 this step
+   said the opposite, on an approval Morgan later called assent rather than
+   a decision; that is how installs ended up split between the two
+   branches. Moving them all to `main` later is his call, made for every
+   install at once.
 
    **The two vendored layers do not both need this, and knowing which is
    which is the whole point of the step.** The ENGINE is read by blob out of
