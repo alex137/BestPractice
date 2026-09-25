@@ -1324,6 +1324,13 @@
         "merge"
       ],
       "gates_why": "Promote is the merge of pre-staging into staging -- the moment that gate exists for."
+    },
+    "attach-never-clone-individual": {
+      "globs": [
+        "**"
+      ],
+      "why": "No locus, and deliberately `**`. The mistake is a session running `git clone` into the wrong directory right after the repo-attach tool answers, outside every repo's tree; no file in this one is edited when it happens, so a narrower glob would never fire. The occasion index is the channel.",
+      "decided": "2026-09-25, when the practice was written"
     }
   },
   "gates": {
