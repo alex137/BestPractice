@@ -160,6 +160,22 @@ keeps the name it had at the time, because it is history.
   `precedent.json` may override it, the same pattern
   [CI_CADENCE_PLAN.md](CI_CADENCE_PLAN.md) uses. Nothing can lower the check
   on staging or main.
+- **`promote_only`** (added 2026-09-25, off unless set) -- `true` in a
+  person's `identity.json` makes staging and main take work only by
+  promotion, for that person: the push gate refuses a `git push` to either,
+  and the merge gate refuses a pull request into either unless its head is
+  the tier directly below (pre-staging into staging, staging into main).
+  Promote pushes from inside [`precedent_branches.py`](../tools/precedent_branches.py), where no gate sees
+  it, so the sanctioned route stays open. A per-person opt-in on purpose:
+  Morgan, *"please make this an INDIVIDUAL rule for me, because I believe
+  that Alex and others won't necessarily use this system"*.
+
+**A repository gets a real staging branch** with `--ensure-tiers --apply`
+(added 2026-09-25, part of every migration and every Update Vendors). Where
+the staging tier had been `main`, it creates `staging` and writes
+`"staging_branch": "staging"` into `precedent.json`; `base_branch` is left
+alone, since it also pins where a practice source's session clone sits, and
+that stays `main` (below).
 
 **GitHub's checks** keep the three existing settings, with the default
 narrowed to main and each one becoming the way to widen it. **Each is

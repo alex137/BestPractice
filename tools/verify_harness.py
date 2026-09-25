@@ -16722,6 +16722,172 @@ def check_promote_pre_staging():
     check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
 
+def check_promote_only_and_tier_branches():
+    """Two 2026-09-25 additions to the branch tiers (spec/BRANCH_TIERS_PLAN.md).
+
+    `promote_only`, a per-person opt-in: with it on, staging and main take
+    work only by promotion. That day five changes reached a practice
+    source's main without passing pre-staging, and nothing refused any of
+    them. The cases that matter: it is OFF unless a person turns it on
+    (Morgan asked for it as his own rule, not everyone's), a direct push or
+    an off-tier pull request is refused with the way round named, and the
+    promotion routes themselves -- pre-staging into staging, staging into
+    main -- are never refused. An ambiguous base is not refused either,
+    since two branches at one commit is the normal state right after
+    Promote.
+
+    `--ensure-tiers`, the migration step that gives a repository all three
+    branches. A repo whose staging tier was main gains a real `staging`
+    branch and a `staging_branch` key, and keeps `base_branch` -- which also
+    pins a practice source's session clone -- exactly as it was."""
+    import tempfile, json as _json, shutil as _shutil
+    name = ('promote_only refuses direct pushes and off-tier merges for the '
+            'person who sets it; --ensure-tiers makes staging and pre-staging')
+    tool = ROOT / 'tools' / 'precedent_branches.py'
+    if not tool.exists():
+        not_applicable(name, 'tools/precedent_branches.py is absent')
+        return
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_branches as pb
+    finally:
+        sys.path.pop(0)
+    if not hasattr(pb, 'direct_push_refusal'):
+        check(name, False, 'precedent_branches.py has no direct_push_refusal')
+        return
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+        env = dict(os.environ, PRECEDENT_ALLOW_ANY_AUTHOR='1',
+                   GIT_AUTHOR_NAME='T', GIT_AUTHOR_EMAIL='t@example.com',
+                   GIT_COMMITTER_NAME='T', GIT_COMMITTER_EMAIL='t@example.com',
+                   GIT_CONFIG_GLOBAL=str(tmp / 'gitconfig'),
+                   GIT_CONFIG_NOSYSTEM='1',
+                   PRECEDENT_USER_CONFIG=str(tmp / 'config.json'))
+
+        def git(cwd, *a):
+            return subprocess.run(['git', '-C', str(cwd), *a],
+                                  capture_output=True, text=True, env=env)
+
+        bare = tmp / 'origin.git'
+        git(tmp, 'init', '-q', '--bare', '-b', 'main', str(bare))
+        work = tmp / 'work'
+        (work / 'tools').mkdir(parents=True)
+        git(tmp, 'init', '-q', '-b', 'main', str(work))
+        for f in ('precedent_push_check.py', 'precedent_branches.py'):
+            _shutil.copy2(ROOT / 'tools' / f, work / 'tools' / f)
+        (work / 'tools' / 'ENGINE_MANIFEST.json').write_text(
+            _json.dumps({'kind': 'consumer'}), encoding='utf-8')
+        # A repository whose staging tier is main: the shape every practice
+        # source and most installs had on 2026-09-25.
+        (work / 'precedent.json').write_text(_json.dumps({'base_branch': 'main'}),
+                                             encoding='utf-8')
+        git(work, 'add', '-A')
+        git(work, 'commit', '-q', '-m', 'init')
+        git(work, 'remote', 'add', 'origin', f'file://{bare}')
+        git(work, 'push', '-q', 'origin', 'main')
+
+        indiv = tmp / 'indiv'
+        indiv.mkdir()
+        cfg = tmp / 'config.json'
+        cfg.write_text(_json.dumps({'individual': {'path': str(indiv)}}),
+                       encoding='utf-8')
+
+        def person(**settings):
+            (indiv / 'identity.json').write_text(_json.dumps(
+                {'email': 'p@example.com', **settings}), encoding='utf-8')
+
+        def push_refused(args):
+            return pb.direct_push_refusal(work, args, str(cfg))
+
+        def merge_refused(bases, heads):
+            return pb.merge_refusal(work, bases, heads, str(cfg))
+
+        # --- off unless the person turns it on ---
+        person()
+        cases.append(('off by default: a push to main is not refused',
+                      push_refused('origin main') is None))
+        cases.append(('off by default: a pull request into main from a working '
+                      'branch is not refused',
+                      merge_refused(['main'], ['claude/x']) is None))
+        person(promote_only='yes')
+        cases.append(('only a literal true turns it on', push_refused('origin main') is None))
+
+        # --- on ---
+        person(promote_only=True)
+        why = push_refused('origin main') or ''
+        cases.append(('on: a push to main is refused, naming the setting and the '
+                      'way round', 'promote_only is on' in why
+                      and 'HEAD:pre-staging' in why and 'Promote' in why, why))
+        cases.append(('on: a refspec onto main is refused too',
+                      push_refused('origin HEAD:main') is not None))
+        cases.append(('on: a push to staging is refused',
+                      push_refused('origin staging') is not None))
+        cases.append(('on: a push to pre-staging goes through',
+                      push_refused('origin pre-staging') is None))
+        cases.append(('on: a push to a working branch goes through',
+                      push_refused('origin claude/x') is None))
+        cases.append(('on: pre-staging into staging is the promotion route, '
+                      'never refused', merge_refused(['staging'], ['pre-staging']) is None))
+        cases.append(('on: staging into main is the promotion route, never refused',
+                      merge_refused(['main'], ['staging']) is None))
+        why = merge_refused(['staging'], ['claude/x']) or ''
+        cases.append(('on: a working branch into staging is refused, saying to '
+                      'retarget at pre-staging', 'Retarget it at pre-staging' in why, why))
+        cases.append(('on: pre-staging straight into main is refused (it skips '
+                      'staging)', merge_refused(['main'], ['pre-staging']) is not None))
+        cases.append(('on: an ambiguous base (pre-staging and staging at one '
+                      'commit) is not refused',
+                      merge_refused(['pre-staging', 'staging'], ['claude/x']) is None))
+        (work / 'precedent.json').write_text(_json.dumps(
+            {'base_branch': 'main', 'promote_only': False}), encoding='utf-8')
+        cases.append(("a repository's own precedent.json overrides the person, "
+                      'as every branch setting does', push_refused('origin main') is None))
+        (work / 'precedent.json').write_text(_json.dumps({'base_branch': 'main'}),
+                                             encoding='utf-8')
+
+        # The push gate's own entry point refuses before running anything.
+        p = subprocess.run([sys.executable, 'tools/precedent_push_check.py', '--gate',
+                            '--push-command', 'origin main'], cwd=work,
+                           capture_output=True, text=True, env=env)
+        cases.append(('the push gate refuses a direct push to main, exit 1, with '
+                      'the refusal in its output',
+                      p.returncode == 1 and 'REFUSED' in p.stderr
+                      and 'promote_only is on' in p.stderr,
+                      f'exit {p.returncode}: {(p.stdout + p.stderr)[-300:]}'))
+
+        # --- ensure-tiers ---
+        def branches(*a):
+            q = subprocess.run([sys.executable, 'tools/precedent_branches.py', *a],
+                               cwd=work, capture_output=True, text=True, env=env)
+            return q.returncode, q.stdout + q.stderr
+
+        def tip(b):
+            return git(work, 'ls-remote', 'origin', f'refs/heads/{b}').stdout.split('\t')[0]
+
+        rc, out = branches('--ensure-tiers')
+        cases.append(('report mode on a main-only repo: exit 1, naming what is '
+                      'missing, changing nothing',
+                      rc == 1 and 'missing' in out and not tip('staging')
+                      and not tip('pre-staging'), out[-300:]))
+        rc, out = branches('--ensure-tiers', '--apply')
+        data = _json.loads((work / 'precedent.json').read_text(encoding='utf-8'))
+        cases.append(('--apply creates staging and pre-staging on origin at main',
+                      rc == 0 and tip('staging') == tip('main') == tip('pre-staging')
+                      and bool(tip('main')), out[-300:]))
+        cases.append(('--apply writes staging_branch and leaves base_branch on main',
+                      data.get('staging_branch') == 'staging'
+                      and data.get('base_branch') == 'main'))
+        cases.append(('the staging tier is now the staging branch',
+                      pb.staging_branch(work) == 'staging'))
+        rc, out = branches('--ensure-tiers')
+        cases.append(('a second report finds all three present, exit 0',
+                      rc == 0 and 'all present' in out, out[-200:]))
+    bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
+    check(f'{name} ({len(cases)} stated cases)', not bad,
+          '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad))
+
+
 def check_promote_keeps_the_old_name_in_step():
     """precedent-beta-v01 was renamed staging on 2026-09-25, and the old name
     is kept on origin while installs pinned to it catch up
@@ -32802,6 +32968,7 @@ def main():
     check_branch_tiers()
     check_merge_check_gate()
     check_promote_pre_staging()
+    check_promote_only_and_tier_branches()
     check_github_ci_setting_names()
     check_promote_keeps_the_old_name_in_step()
     check_source_clone_is_pinned_to_a_branch()
