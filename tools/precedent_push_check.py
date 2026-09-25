@@ -99,6 +99,31 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 RECORD = 'precedent-push-check.json'
 TAIL_LINES = 40
+# The lines that say WHY a check failed, printed before the tail. A check can
+# end on pages of lines that are not the finding -- precedent_check prints its
+# VIOLATION block and then every SKIPPED and unverified check after it -- so a
+# tail alone can hold nothing but noise. On 2026-09-25 a merge gate refused a
+# consumer's pull request over one unbumped version header, and the session it
+# refused could not see why: all forty lines it was shown said SKIPPED.
+FINDING = re.compile(r'^\s*(VIOLATION|ERROR|FAIL(ED|URE)?)\b')
+FINDING_LINES = 30
+
+
+def _finding_lines(out):
+    """The finding headers in `out`, each with the indented lines under it
+    (its findings, not the rule text after them), capped at FINDING_LINES."""
+    picked, i = [], 0
+    while i < len(out) and len(picked) < FINDING_LINES:
+        if FINDING.match(out[i]):
+            picked.append(out[i])
+            i += 1
+            while (i < len(out) and out[i].startswith('    ')
+                   and len(picked) < FINDING_LINES):
+                picked.append(out[i])
+                i += 1
+            continue
+        i += 1
+    return picked
 
 # name, argv, and the workflow it stands in for. A python3 script is named
 # by its path alone ({engine} is the engine directory); anything else gives
@@ -335,7 +360,7 @@ def _tier_from_args(root, argv):
 
 
 def run(root, checks):
-    failed, missing = [], []
+    failed, missing, findings = [], [], {}
     started = time.monotonic()
     for i, (name, argv, replaces) in enumerate(checks, 1):
         script = root / argv[1]
@@ -372,13 +397,19 @@ def run(root, checks):
                   f'source, so there is no person to hold it to', flush=True)
             continue
         failed.append(name)
-        print(f'      FAILED (exit {p.returncode}) in {took:.0f}s; last '
-              f'{TAIL_LINES} lines:', flush=True)
-        tail = (p.stdout + p.stderr).rstrip().splitlines()[-TAIL_LINES:]
-        for line in tail:
+        out = (p.stdout + p.stderr).rstrip().splitlines()
+        found = _finding_lines(out)
+        findings[name] = found
+        if found:
+            print(f'      FAILED (exit {p.returncode}) in {took:.0f}s; what '
+                  f'it found:', flush=True)
+            for line in found:
+                print(f'      | {line}')
+        print(f'      last {TAIL_LINES} lines of its output:', flush=True)
+        for line in out[-TAIL_LINES:]:
             print(f'      | {line}')
     total = time.monotonic() - started
-    return failed, missing, total
+    return failed, missing, total, findings
 
 
 def main(argv):
@@ -433,9 +464,14 @@ def main(argv):
         print(f'precedent_push_check: {kind} repository {root.name}, the '
               f'basic check, {len(checks)} check(s) ({why}). Staging and main '
               f'get everything.', flush=True)
-    failed, missing, total = run(root, checks)
+    failed, missing, total, findings = run(root, checks)
     tree = clean_tree(root)
     if failed:
+        # Said again at the very end, because the end is what every caller
+        # that truncates -- the push gate, the merge gate -- keeps.
+        for name in failed:
+            for line in findings.get(name, []):
+                print(f'  {name} | {line}')
         print(f'\nprecedent_push_check: FAILED -- {", ".join(failed)} '
               f'({total:.0f}s). Fix the finding and run this again; do not '
               f'push past it.')

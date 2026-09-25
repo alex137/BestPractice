@@ -15816,7 +15816,15 @@ def check_push_check_gate():
                 + ('name = ("ci_workflows" if "ci-workflow-approved" in '
                    'sys.argv else "precedent_check")\n'
                    if t == 'precedent_check' else f'name = "{t}"\n')
-                + 'sys.exit(1 if name in body else 0)\n',
+                + 'fail = name in body\n'
+                # A failure that prints its finding and then pages of noise,
+                # as precedent_check does with every SKIPPED check after its
+                # VIOLATION block.
+                + f'if fail and "noisy" in body:\n'
+                  f'    print("VIOLATION  planted-{t}")\n'
+                  f'    print("    the buried finding")\n'
+                  f'    print("\\n".join(["SKIPPED filler"] * 150))\n'
+                + 'sys.exit(1 if fail else 0)\n',
                 encoding='utf-8')
         # The deep-check driver, when a repo has one, is on the list too.
         drv = work / 'tools' / 'checks' / 'tests' / 'run_all.sh'
@@ -15851,6 +15859,14 @@ def check_push_check_gate():
         denied, out = gate('git push origin main')
         cases.append(('a tree failing one check is refused, and the refusal '
                       'names that check', denied and 'leak_gate' in out))
+        (work / 'FAIL').write_text('leak_gate noisy', encoding='utf-8')
+        git(work, 'commit', '-q', '-am', 'bury the finding under noise')
+        denied, out = gate('git push origin main')
+        cases.append(('a finding printed before pages of noise still reaches '
+                      'the refusal, which shows only the tail',
+                      denied and 'the buried finding' in out))
+        (work / 'FAIL').write_text('leak_gate', encoding='utf-8')
+        git(work, 'commit', '-q', '-am', 'plain leak gate failure again')
         denied, _ = gate('git commit -q -n -m x && git push')
         cases.append(("`git commit -n && git push` is still a push: -n "
                       "belongs to the commit", denied))
