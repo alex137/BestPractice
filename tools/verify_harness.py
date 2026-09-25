@@ -22351,6 +22351,250 @@ def check_vendor_engine_refreshes_bootstrap_sh():
           f'({len(cases)} stated cases)',
           not bad, '; '.join(f"{n} -- {d[:800]}" for n, d in bad))
 
+def check_vendor_engine_refreshes_agents_md_sections():
+    """Whatever the AGENTS.md template wrote at install was frozen from then
+    on: refresh rewrote only the generated loader block, so no template fix
+    reached an installed repo and nothing reported the drift -- see
+    precedent_vendor_engine.py's AGENTS_MD_TEMPLATES block (2026-09-25) for
+    the measured case. Also pins RETIRED_BRANCH_NAMES' report.
+
+    THE FIXTURE OWNS ITS UPSTREAM (practice: fixture-owns-its-state), as
+    check_vendor_engine_refreshes_bootstrap_sh's does: one synthetic commit
+    on top of this working tree whose only change is a new, distinctive
+    bullet in the loader template's "### Two check levels" section, so OLD
+    and CUR are known whatever the real template picks up later.
+
+    The discriminating cases are the edited section (never overwritten,
+    --force included, and the report names the exact bullet it lacks), the
+    missing section (reported, never written in, and quiet on the next
+    run), and the untouched neighbours: a rewrite that moved one byte
+    outside its own section would fail them
+    (practice: control-asserts-which-failure)."""
+    import shutil, tempfile
+    import precedent_vendor_engine as pve
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-agents-md-sections-'))
+    cases = []
+    src = 'templates/AGENTS.md.loader.template'
+    key = '### Two check levels'
+    marker = 'FIXTURE BULLET ADDED UPSTREAM'
+    try:
+        base = _ref_including_worktree(ROOT)
+        old = subprocess.run(['git', '-C', str(ROOT), 'show', f'{base}:{src}'],
+                             capture_output=True, check=True).stdout.decode()
+        # Anchored on the NEXT section's heading, not on a bullet's wording,
+        # which changes whenever someone rewords "Two check levels" (it did
+        # on 2026-09-25, the day this fixture landed).
+        anchor = '\n\n### Build-environment gotchas'
+        assert old.count(anchor) == 1, 'template anchor moved; repoint this fixture'
+        added = (f'\n- **{marker}** — a bullet every stale copy of this '
+                 f'section lacks, and nothing else does.')
+        cur = old.replace(anchor, added + anchor)
+
+        with tempfile.TemporaryDirectory(prefix='precedent-fixture-index-') as idx:
+            env = dict(os.environ, GIT_INDEX_FILE=str(pathlib.Path(idx) / 'index'),
+                       GIT_AUTHOR_NAME='fixture', GIT_AUTHOR_EMAIL='fixture@invalid',
+                       GIT_COMMITTER_NAME='fixture', GIT_COMMITTER_EMAIL='fixture@invalid')
+
+            def git(*args, data=None):
+                return subprocess.run(['git', '-C', str(ROOT), *args], input=data,
+                                      capture_output=True, env=env, check=True
+                                      ).stdout.decode().strip()
+            git('read-tree', base)
+            blob = git('hash-object', '-w', '--stdin', data=cur.encode())
+            git('update-index', '--cacheinfo', f'100644,{blob},{src}')
+            ref = git('commit-tree', git('write-tree'), '-p', base, '-m',
+                      'verify_harness: AGENTS.md section fixture (never pushed)')
+
+        engine_bytes = (ROOT / 'tools' / 'precedent_vendor_engine.py').read_bytes()
+        sha = lambda b: hashlib.sha256(b).hexdigest()
+        subs = {'<precedent upstream URL>': pve.SOURCE_REPO, '<default-branch>': 'trunk'}
+        stock_old = pve._instantiate(old, subs)
+        # What a real install leaves: the generated block filled in (here
+        # with a heading and a retired branch name of its own, neither of
+        # which is any section's or report's business) and one section the
+        # repo has made its own.
+        generated = ('<!-- BEGIN GENERATED: precedent-loader -->\n'
+                     '## Resident block\n\nLinks to blob/precedent-beta-v01/x.\n'
+                     '<!-- END GENERATED -->')
+        repo_old = stock_old.replace(
+            '<!-- BEGIN GENERATED: precedent-loader -->\n<!-- END GENERATED -->',
+            generated).replace(
+            '| Open items: analyses, verifications, decisions | `TODO.md` |\n',
+            '| Open items: analyses, verifications, decisions | `TODO.md` |\n'
+            '| A row this repo added | `ours.md` |\n')
+        assert generated in repo_old and 'A row this repo added' in repo_old, \
+            'template shape moved; repoint this fixture'
+
+        def section_of(text, k=key):
+            lines = text.split('\n')
+            spans = [(f, e) for kk, f, e in pve._md_sections(text) if kk == k]
+            return pve._section_text(lines, *spans[0]) if spans else None
+
+        old_sec = section_of(stock_old)
+        cur_sec = pve._instantiate(section_of(cur), subs)
+
+        def make_consumer(name, agents, recorded):
+            consumer = tmp / name
+            (consumer / 'tools').mkdir(parents=True)
+            (consumer / 'tools' / 'precedent_vendor_engine.py').write_bytes(engine_bytes)
+            manifest = {'kind': 'consumer', 'source_commit': 'deadbeef',
+                        'files': ['precedent_vendor_engine.py'],
+                        'sha256': {'precedent_vendor_engine.py': sha(engine_bytes)}}
+            if recorded is not None:
+                manifest['agents_md_sections_sha256'] = recorded
+            (consumer / 'tools' / 'ENGINE_MANIFEST.json').write_text(
+                json.dumps(manifest), encoding='utf-8')
+            (consumer / 'precedent.json').write_text(
+                json.dumps({'base_branch': 'trunk'}), encoding='utf-8')
+            if agents is not None:
+                (consumer / 'AGENTS.md').write_text(agents, encoding='utf-8')
+            return consumer
+
+        def run_refresh(consumer, extra=()):
+            r = subprocess.run(
+                [sys.executable, str(consumer / 'tools' / 'precedent_vendor_engine.py'),
+                 'refresh', str(ROOT), '--from-ref', ref, *extra],
+                capture_output=True, text=True, cwd=str(consumer))
+            return r.returncode, r.stdout + r.stderr
+
+        def recorded_of(consumer):
+            m = json.loads((consumer / 'tools' / 'ENGINE_MANIFEST.json')
+                           .read_text(encoding='utf-8'))
+            return m.get('agents_md_sections_sha256') or {}
+
+        def agents(consumer):
+            return (consumer / 'AGENTS.md').read_text(encoding='utf-8')
+
+        want_after = repo_old.replace(old_sec, cur_sec)
+        assert want_after != repo_old
+
+        # -- A: unedited (matches its recorded baseline), template moved --
+        a = make_consumer('recorded-stale', repo_old,
+                          {key: sha(old_sec.encode())})
+        rc, out = run_refresh(a)
+        cases.append(('an unedited section whose baseline is recorded is '
+                      'rewritten to the current template, and not one byte '
+                      'outside it moves -- the generated block and the '
+                      'section this repo edited included',
+                      rc == 0 and agents(a) == want_after, out[-900:]))
+        cases.append(('...its new baseline is the current section, and the '
+                      'refresh names what it rewrote',
+                      recorded_of(a).get(key) == sha(cur_sec.encode())
+                      and "section(s) up to the current template" in out
+                      and repr(key) in out, out[-900:]))
+
+        # -- B: nothing recorded, identical to a PAST template -- every
+        # install before this date, the one-time catch-up --
+        b = make_consumer('untracked-stale', repo_old, None)
+        rc, out = run_refresh(b)
+        cases.append(('an untracked section identical to a past version of '
+                      'the template is recognised as stock and brought up to date',
+                      rc == 0 and agents(b) == want_after
+                      and recorded_of(b).get(key) == sha(cur_sec.encode()),
+                      out[-900:]))
+        cases.append(('...a section already current, <default-branch> '
+                      'substituted from precedent.json, is recorded as it is',
+                      bool(recorded_of(b).get('## Git / workflow'))
+                      and 'origin/trunk' in agents(b), out[-600:]))
+        cases.append(('...and the section this repo edited, lacking nothing, '
+                      'is left alone, unrecorded and off the list',
+                      'A row this repo added' in agents(b)
+                      and not recorded_of(b).get(
+                          '## Where things are (quick index — check here '
+                          'BEFORE searching the repo)')
+                      and 'AGENTS.md "## Where things are' not in out,
+                      out[-900:]))
+
+        # -- C: edited section, baseline recorded --
+        edited = repo_old.replace(old_sec, old_sec + '\n- A check this repo added.')
+        for name, label, extra in (('edited', '', ()),
+                                   ('edited-forced', ' with --force', ('--force',))):
+            c = make_consumer(name, edited, {key: sha(old_sec.encode())})
+            rc, out = run_refresh(c, extra)
+            cases.append((f'an edited section is never overwritten{label}',
+                          agents(c) == edited, out[-900:]))
+            report = [ln for ln in out.splitlines() if f'{src}:' in ln]
+            cases.append((f'...the refresh still succeeds and reports it '
+                          f'DIVERGED, naming exactly the missing upstream '
+                          f'bullet{label}',
+                          rc == 0 and f'DIVERGED: AGENTS.md "{key}"' in out
+                          and len(report) == 1 and marker in report[0]
+                          and report[0].endswith('-- missing'),
+                          '\n'.join(report) or out[-1200:]))
+            cases.append((f'...its baseline is NOT moved onto the edit{label}',
+                          recorded_of(c).get(key) == sha(old_sec.encode()),
+                          out[-400:]))
+            cases.append((f'...and it is on the Left-for-you list{label}',
+                          f'  - AGENTS.md "{key}": diverged from {src} and lacks 1'
+                          in out, out[-900:]))
+
+        # -- D: the section is missing altogether --
+        lacking = repo_old.replace(old_sec + '\n', '')
+        assert section_of(lacking) is None
+        d = make_consumer('missing-section', lacking, None)
+        rc, out = run_refresh(d)
+        cases.append(('a missing section is reported and put on the list, '
+                      'never written in',
+                      rc == 0 and agents(d) == lacking
+                      and f'MISSING: AGENTS.md has no "{key}" section' in out
+                      and f'  - AGENTS.md "{key}": the template has this section' in out,
+                      out[-900:]))
+        cases.append(('...recorded as absent, so the next refresh says it in '
+                      'one line and leaves it off the list',
+                      key in recorded_of(d) and recorded_of(d)[key] is None,
+                      json.dumps(recorded_of(d))[:400]))
+        rc, out = run_refresh(d)
+        cases.append(('...which it does: a NOTE, no MISSING, no list entry, '
+                      'and the file still untouched',
+                      rc == 0 and agents(d) == lacking and 'MISSING:' not in out
+                      and f'still has no "{key}" section' in out
+                      and f'AGENTS.md "{key}"' not in out, out[-900:]))
+
+        # -- E, CONTROL: edited but carrying the new bullet too --
+        complete = repo_old.replace(old_sec, cur_sec + '\n- Ours.')
+        e = make_consumer('edited-complete', complete, None)
+        rc, out = run_refresh(e)
+        cases.append(('CONTROL: an edited section carrying every template '
+                      'block is left alone and reported as lacking nothing',
+                      rc == 0 and agents(e) == complete
+                      and 'nothing to copy in' in out
+                      and f'AGENTS.md "{key}":' not in out, out[-900:]))
+
+        # -- F: retired branch names -- reported by line, outside the
+        # generated block only, and not on a line recording the rename --
+        named = repo_old.replace(
+            '## Git / workflow\n',
+            '## Git / workflow\n\n- Clone `precedent-beta-v01` for reference.\n'
+            '- `staging` (named `precedent-beta-v01` until 2026-09-25).\n', 1)
+        f = make_consumer('retired-name', named, None)
+        rc, out = run_refresh(f)
+        # Counted in the file as the refresh left it: the scan runs after
+        # the stale "### Two check levels" above it was rewritten.
+        want_line = agents(f).split('\n').index(
+            '- Clone `precedent-beta-v01` for reference.') + 1
+        hit = [ln for ln in out.splitlines() if ln.startswith('RETIRED BRANCH NAME:')]
+        cases.append(('a hand-written line naming a retired branch is '
+                      'reported by line; the generated block and a line '
+                      'recording the rename are not',
+                      rc == 0 and len(hit) == 1
+                      and f'1 line(s)' in hit[0] and f'AGENTS.md:{want_line}.' in hit[0],
+                      '\n'.join(hit) or out[-900:]))
+
+        # -- G, CONTROL: no AGENTS.md -- never created --
+        g = make_consumer('absent', None, None)
+        rc, out = run_refresh(g)
+        cases.append(('CONTROL: a consumer with no AGENTS.md is not given one',
+                      rc == 0 and not (g / 'AGENTS.md').exists(), out[-800:]))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'"Update Vendors" brings an unedited AGENTS.md template section up '
+          f'to date and reports what an edited or missing one lacks, never '
+          f'overwriting it ({len(cases)} stated cases)',
+          not bad, '; '.join(f"{n} -- {d[:800]}" for n, d in bad))
+
 def check_a_hook_wired_from_elsewhere_is_reported_as_wired():
     """A hook a repo calls in place, from a path of its own, is WIRED --
     reported as wired, and still not vendored
@@ -32996,6 +33240,7 @@ def main():
     check_vendor_engine_wires_a_new_hook_into_an_installed_repo()
     check_vendor_engine_refreshes_ci_workflow_files()
     check_vendor_engine_refreshes_bootstrap_sh()
+    check_vendor_engine_refreshes_agents_md_sections()
     check_vendor_engine_retires_ci_workflow_files()
     check_workflow_file_outside_vendoring_detects_candidates()
     check_ci_workflow_approved_pins_approval_to_content()
