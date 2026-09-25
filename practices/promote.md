@@ -43,6 +43,12 @@ work is in:
 
     python3 tools/precedent_branches.py --promote
 
+**Waiting for a Promote never keeps a session open.** Work on pre-staging
+is already on `origin`, and any later session can promote it, so a pending
+Promote is never a reason for "Don't archive this session" unless there is
+a genuinely urgent reason to move it now ([the-boildown](the-boildown.md),
+archive condition 2).
+
 Promote moves what is on pre-staging, so work still sitting in the session
 would otherwise miss the batch the person just asked to move (Morgan,
 2026-09-25: *"If there is anything in that session's branch that is not yet

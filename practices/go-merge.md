@@ -134,7 +134,9 @@ and never a repository's *configured default* branch picked just because
 it is configured that way. **When that branch is pre-staging and the change was high-risk, the reply
 says so in one plain line, in The Boildown** -- not bolded, not urgent,
 for example *"Pre-staging is 2 commits ahead of staging; it can be
-promoted whenever it suits."* It is information, not a call to act now.
+promoted whenever it suits."* It is information, not a call to act now, and never a reason to keep the
+session open: the archive line ignores it
+([the-boildown](the-boildown.md), archive condition 2).
 A high-risk change lands on pre-staging like any other rather than jumping
 the queue, so the two branches do not drift apart, and gets its full check
 at the next Promote, whenever that comes. Morgan, 2026-09-25, reversing the

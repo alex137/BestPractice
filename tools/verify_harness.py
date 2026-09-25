@@ -15999,10 +15999,17 @@ def check_push_check_gate():
 
     with tempfile.TemporaryDirectory() as td:
         tmp = pathlib.Path(td)
+        # PRECEDENT_USER_CONFIG points at nothing, so no real person's
+        # identity.json reaches the fixture (practice: fixture-owns-its-state).
+        # Without it, a machine whose individual set turns promote_only on
+        # refused the clean push to main below as a promotion-only branch:
+        # red on every such machine, green in CI, which has no individual
+        # source.
         env = dict(os.environ, PRECEDENT_ALLOW_ANY_AUTHOR='1',
                    GIT_AUTHOR_NAME='T', GIT_AUTHOR_EMAIL='t@example.com',
                    GIT_COMMITTER_NAME='T', GIT_COMMITTER_EMAIL='t@example.com',
-                   GIT_CONFIG_GLOBAL=str(tmp / 'gitconfig'))
+                   GIT_CONFIG_GLOBAL=str(tmp / 'gitconfig'),
+                   PRECEDENT_USER_CONFIG=str(tmp / 'no-user-config.json'))
 
         def git(cwd, *a):
             return subprocess.run(['git', '-C', str(cwd), *a],

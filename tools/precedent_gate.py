@@ -838,9 +838,13 @@ def main():
             if 'a Promote can move them' in _line:
                 # Not a hard requirement and not a call to action: one plain
                 # line, so the person knows, with no pressure to act now.
+                # Never an archive blocker either (Morgan, 2026-09-25): the
+                # work is already on origin, and a Promote can run from any
+                # session later.
                 print(f"- For The Boildown, one plain line, not bolded and "
                       f"without urgency: {_line}. Mention it; do not press "
-                      f"for it (practice: the-boildown).")
+                      f"for it, and never let it hold the archive line "
+                      f"(practice: the-boildown).")
                 continue
             print(f"- NOT YET LANDED: {_line}. The Boildown MUST say so and "
                   f"recommend merging it -- do not close a turn leaving this "
