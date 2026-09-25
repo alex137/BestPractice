@@ -80,3 +80,13 @@ Not open until: the fix surviving real sync cycles rather than only its own test
 ## Notes
 
 2026-09-16: noted date is a floor, not exact -- this item predates anchor tracking (every anchor was retrofitted 2026-09-06) and its true creation date is unknown. Migrated from TODO.md by tools/todo_migrate.py.
+
+2026-09-24: the workflow this item's withdrawn third part was about is gone.
+Morgan retired `bestpractice-upstream-sync.yml` outright (strength: decided,
+*"this needs to be deleted from ALL installs"*), and the refresh deletes it by
+content on each install's next `Update Vendors`. Nothing in this item keeps
+it any more. The two remaining parts are unchanged, and the same day moved
+them closer: `SOURCE_BRANCH` became `main`, and vendor-update-runbook step 1
+repoints each install's `process/manifest.json` to `main`, which lifts
+`_pinned_branch_hold` for that repo as it goes. Still open on its own
+condition: Morgan saying the fix has held.

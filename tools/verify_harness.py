@@ -2420,7 +2420,8 @@ def check_practice_audit_loader():
 
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-auditloader-'))
     try:
-        def make(name, catalogue=True, universal=False, block=False):
+        def make(name, catalogue=True, universal=False, block=False,
+                 engine=True):
             repo = tmp / name
             tools_dir = repo / 'process' / 'upstream' / 'tools'
             tools_dir.mkdir(parents=True)
@@ -2442,6 +2443,10 @@ def check_practice_audit_loader():
                 '# notes\n' + ('<!-- BEGIN GENERATED: precedent-loader -->\n'
                                '<!-- END GENERATED -->\n' if block else ''),
                 encoding='utf-8')
+            if engine:
+                (repo / 'tools').mkdir(exist_ok=True)
+                (repo / 'tools' / 'ENGINE_MANIFEST.json').write_text(
+                    '{}\n', encoding='utf-8')
             subprocess.run(['git', 'init', '-q', str(repo)], check=True)
             return repo
 
@@ -2461,6 +2466,11 @@ def check_practice_audit_loader():
         rc_p, out_p = run(pack)
         rc_n, out_n = run(classic, '--loader-notice')
         rc_nl, out_nl = run(loaded, '--loader-notice')
+        # Check 8 (2026-09-24): loaded, but the engine never vendored at
+        # tools/ -- the migration stopped before its step 7.
+        noengine = make('noengine', universal=True, block=True, engine=False)
+        rc_e, out_e = run(noengine)
+        rc_en, out_en = run(noengine, '--loader-notice')
         cases = [
             ('a classic install (catalogue vendored, no universal source, no '
              'block) FAILS', rc_c == 1 and 'LOADER:' in out_c),
@@ -2476,6 +2486,14 @@ def check_practice_audit_loader():
              rc_n == 0 and 'NOT RUNNING' in out_n),
             ('--loader-notice is silent where the loader runs',
              rc_nl == 0 and out_nl.strip() == ''),
+            ('check 8: the loader runs but tools/ENGINE_MANIFEST.json is '
+             'missing -- FAILS and names the migration',
+             rc_e == 1 and 'ENGINE:' in out_e
+             and 'MIGRATING_EXISTING_INSTALLS' in out_e),
+            ('and --loader-notice says so, still exiting 0',
+             rc_en == 0 and 'NEVER VENDORED' in out_en),
+            ('NEGATIVE: the same install WITH the manifest is not flagged',
+             'ENGINE:' not in out_l),
         ]
         for name, passed in cases:
             if not passed:
@@ -2523,6 +2541,9 @@ def check_practice_audit_declined():
             encoding='utf-8')
         (repo / 'AGENTS.md').write_text('<!-- BEGIN GENERATED: precedent-loader -->\n'
                                         '<!-- END GENERATED -->\n', encoding='utf-8')
+        # A migrated install: the engine is vendored at tools/ (check 8).
+        (repo / 'tools').mkdir(exist_ok=True)
+        (repo / 'tools' / 'ENGINE_MANIFEST.json').write_text('{}\n', encoding='utf-8')
         subprocess.run(['git', 'init', '-q', str(repo)], check=True)
 
         def run(*extra):
@@ -6726,6 +6747,276 @@ def check_a_source_set_ships_no_ci_workflow():
                       'somebody else\'s manifest must not delete their CI',
                       all((repo2 / r).exists() for r in old),
                       str([r for r in old if not (repo2 / r).exists()])))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    return (not bad, f'{len(cases)} stated cases',
+            '; '.join(f'{n}: {d}' for n, d in bad))
+
+
+def check_legacy_leftovers_retired_by_content():
+    """The old install's leftovers leave an install on its next refresh,
+    recognised by CONTENT -- tracked or not, hand-paused or not -- and a file
+    that only shares a name is kept and reported.
+
+    Morgan, 2026-09-24 (strength: decided): "this needs to be deleted from
+    ALL installs". Measured that day in six installs: `bestpractice-docs.yml`,
+    retired three days earlier, survived in all five that had it, because
+    both removers only considered a path the manifest had recorded while its
+    hash still matched. Two had hand-paused it (hash mismatch, kept), three
+    had never tracked it (invisible).
+
+    THE NEGATIVE CONTROLS ARE THE POINT. The 2026-09-20 sweep deleted nine
+    live checks by trusting names (spec/CI_MINUTES_PLAN.md item 14), so
+    every deletion case below is paired with the same name in a shape that
+    must survive: hand-authored content, a live trigger, uncommitted edits,
+    and `light-check.yml`, which is on no list at all."""
+    import precedent_vendor_engine as pve
+    import practice_audit as pa
+    import tempfile
+
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-legacy-'))
+    env = dict(os.environ, GIT_AUTHOR_NAME='t', GIT_AUTHOR_EMAIL='harness@example.com',
+               GIT_COMMITTER_NAME='t', GIT_COMMITTER_EMAIL='harness@example.com')
+
+    def g(repo, *a):
+        return subprocess.run(['git', '-C', str(repo), *a], env=env,
+                              capture_output=True, text=True)
+
+    sync_stock = ('name: BestPractice sync\non:\n  # schedule:\n  #   - cron: x\n'
+                  '  workflow_dispatch:\njobs:\n  update:\n    runs-on: u\n'
+                  '    steps:\n      - uses: actions/checkout@v4\n'
+                  '      - uses: anthropics/claude-code-action@v1\n'
+                  '        with:\n          anthropic_api_key: '
+                  '${{ secrets.ANTHROPIC_API_KEY }}\n')
+    docs_paused = ('name: Precedent documentation checks\non:\n'
+                   '  # push:\n  workflow_dispatch:\njobs:\n  m:\n'
+                   '    steps:\n      - uses: actions/checkout@v4\n'
+                   '      - uses: actions/setup-python@v5\n'
+                   '      - run: python -m pip install cmarkgfm\n'
+                   '      - run: python3 process/upstream/tools/doc_lint.py\n')
+    docs_own = ('name: our docs\non:\n  workflow_dispatch:\njobs:\n  m:\n'
+                '    steps:\n      - uses: actions/checkout@v4\n'
+                '      - run: python3 tools/our_own_check.py\n')
+    light = ('name: light\non:\n  workflow_dispatch:\njobs:\n  l:\n'
+             '    steps:\n      - uses: actions/checkout@v4\n'
+             '      - run: python3 tools/light_check.py\n')
+
+    def make(name, files, manifest=None):
+        repo = tmp / name
+        for rel, text in files.items():
+            (repo / rel).parent.mkdir(parents=True, exist_ok=True)
+            (repo / rel).write_text(text, encoding='utf-8')
+        if manifest is not None:
+            (repo / 'tools').mkdir(parents=True, exist_ok=True)
+            (repo / 'tools' / pve.MANIFEST_NAME).write_text(
+                json.dumps(manifest), encoding='utf-8')
+        g(repo, 'init', '-q')
+        g(repo, 'add', '-A')
+        g(repo, 'commit', '-qm', 'base')
+        return repo
+
+    def sweep(repo, kind='consumer'):
+        mp = repo / 'tools' / pve.MANIFEST_NAME
+        m = json.loads(mp.read_text(encoding='utf-8')) if mp.is_file() else {}
+        pve._LEFT_FOR_YOU.clear()
+        pve._remove_retired_ci_workflow_files(repo, m, kind)
+        res = pve.retire_legacy_leftovers(repo, m, kind)
+        left = list(pve._LEFT_FOR_YOU)
+        pve._LEFT_FOR_YOU.clear()
+        return res, left
+
+    def left_names(left, rel):
+        return [why for item, why in left if item == rel]
+
+    SYNC = '.github/workflows/bestpractice-upstream-sync.yml'
+    DOCS = '.github/workflows/bestpractice-docs.yml'
+    LIGHT = '.github/workflows/light-check.yml'
+    try:
+        # 1. A stock-shaped legacy workflow goes, untracked -- and tracked.
+        r1 = make('untracked', {SYNC: sync_stock, LIGHT: light},
+                  {'kind': 'consumer'})
+        res, left = sweep(r1)
+        cases.append(('an UNTRACKED stock-shaped upstream sync is deleted',
+                      not (r1 / SYNC).exists(), str(res)))
+        regp = r1 / 'process' / 'decommissioned_paths.json'
+        reg = (json.loads(regp.read_text(encoding='utf-8')) if regp.is_file()
+               else {'decommissioned': []})
+        cases.append(('and recorded in process/decommissioned_paths.json',
+                      [e['path'] for e in reg['decommissioned']] == [SYNC],
+                      str(reg['decommissioned'])))
+        cases.append(('and its deletion is staged, so decommission-deletes-'
+                      'files sees it gone', SYNC not in g(r1, 'ls-files').stdout,
+                      g(r1, 'status', '--short').stdout))
+        cases.append(('the secrets only it read are named for the person',
+                      {'ANTHROPIC_API_KEY', 'PERSONAL_PACK_TOKEN'}
+                      <= set(res['secrets']), str(res['secrets'])))
+        cases.append(('NEGATIVE: light-check.yml is never touched, whatever '
+                      'it runs', (r1 / LIGHT).is_file(), ''))
+
+        tracked_hash = 'f' * 64      # recorded, then hand-edited since
+        r1b = make('tracked', {SYNC: sync_stock},
+                   {'kind': 'consumer', 'ci_workflow_files': [SYNC],
+                    'ci_workflows_sha256': {SYNC: tracked_hash}})
+        sweep(r1b)
+        cases.append(('a TRACKED copy whose hash no longer matches is deleted '
+                      'by content too', not (r1b / SYNC).exists(), ''))
+
+        # 2. The hand-paused bestpractice-docs.yml shape (two real installs),
+        #    with the `diverged` process/manifest.json entry three carried.
+        pm = {'upstream': {'vendored_at': 'process/upstream'},
+              'entries': [{'practice': 'doc-lint-workflow',
+                           'local_path': DOCS, 'status': 'diverged'},
+                          {'practice': 'other', 'local_path': 'X.md'}]}
+        r2 = make('paused', {DOCS: docs_paused,
+                             'process/manifest.json': json.dumps(pm, indent=2)},
+                  {'kind': 'consumer', 'ci_workflow_files': [DOCS],
+                   'ci_workflows_sha256': {DOCS: tracked_hash}})
+        sweep(r2)
+        cases.append(('the hand-paused bestpractice-docs.yml is deleted',
+                      not (r2 / DOCS).exists(), ''))
+        entries = json.loads((r2 / 'process' / 'manifest.json').read_text(
+            encoding='utf-8'))['entries']
+        cases.append(('its process/manifest.json entry goes with it, and '
+                      'only that one', [e['practice'] for e in entries]
+                      == ['other'], str(entries)))
+
+        # 3. NEGATIVE: the same name, hand-authored -> kept and reported.
+        r3 = make('own', {DOCS: docs_own}, {'kind': 'consumer'})
+        res, left = sweep(r3)
+        cases.append(('NEGATIVE: a same-name hand-authored workflow is kept',
+                      (r3 / DOCS).is_file(), str(res)))
+        cases.append(('and reported under Left for you',
+                      any('NOT the old install' in w
+                          for w in left_names(left, DOCS)), str(left)))
+
+        # 4. NEGATIVE: a live trigger is kept, and the report says why.
+        live = sync_stock.replace('  workflow_dispatch:', '  push:\n  '
+                                  'workflow_dispatch:')
+        r4 = make('live', {SYNC: live}, {'kind': 'consumer'})
+        res, left = sweep(r4)
+        cases.append(('NEGATIVE: a stock-shaped file on a LIVE trigger is kept',
+                      (r4 / SYNC).is_file(), str(res)))
+        cases.append(('and the report names the live trigger',
+                      any('still live' in w for w in left_names(left, SYNC)),
+                      str(left)))
+
+        # 4b. NEGATIVE: uncommitted edits are never destroyed.
+        r4b = make('dirty', {SYNC: sync_stock}, {'kind': 'consumer'})
+        (r4b / SYNC).write_text(sync_stock + '# local edit\n', encoding='utf-8')
+        sweep(r4b)
+        cases.append(('NEGATIVE: a copy with uncommitted edits is kept',
+                      (r4b / SYNC).is_file(), ''))
+
+        # 5. Hooks. The tombstone ships empty (no hook was ever retired), so
+        #    the mechanism is exercised with a planted entry.
+        saved = dict(pve.RETIRED_HOOK_FILES)
+        try:
+            pve.RETIRED_HOOK_FILES.clear()
+            pve.RETIRED_HOOK_FILES.update({
+                'old-gate.sh': ('retired in a test', lambda t: 'OLD-GATE' in t),
+                'wired-old.sh': ('retired in a test', lambda t: 'OLD-GATE' in t),
+                'mine.sh': ('retired in a test', lambda t: 'OLD-GATE' in t)})
+            settings = {'hooks': {'Stop': [{'hooks': [{
+                'type': 'command',
+                'command': '$CLAUDE_PROJECT_DIR/.claude/hooks/wired-old.sh'}]}]}}
+            r5 = make('hooks', {
+                '.claude/hooks/old-gate.sh': '#!/bin/sh\n# OLD-GATE\n',
+                '.claude/hooks/wired-old.sh': '#!/bin/sh\n# OLD-GATE\n',
+                '.claude/hooks/mine.sh': '#!/bin/sh\necho ours\n',
+                '.claude/settings.json': json.dumps(settings)},
+                {'kind': 'consumer'})
+            res, left = sweep(r5)
+            cases.append(('an UNTRACKED retired hook nothing calls is removed',
+                          not (r5 / '.claude/hooks/old-gate.sh').exists(),
+                          str(res)))
+            cases.append(('NEGATIVE: a hand-authored hook under a retired name '
+                          'is kept', (r5 / '.claude/hooks/mine.sh').is_file(),
+                          ''))
+            cases.append(('NEGATIVE: a retired hook settings.json still calls '
+                          'is kept, and the report says to un-wire it',
+                          (r5 / '.claude/hooks/wired-old.sh').is_file() and any(
+                              'still wired' in w for w in left_names(
+                                  left, '.claude/hooks/wired-old.sh')),
+                          str(left)))
+        finally:
+            pve.RETIRED_HOOK_FILES.clear()
+            pve.RETIRED_HOOK_FILES.update(saved)
+        cases.append(('the shipped hook tombstone is a dict the sweep reads',
+                      isinstance(pve.RETIRED_HOOK_FILES, dict), ''))
+
+        # 6. ci_debounce_minutes, removed without reformatting the file.
+        cfg = ('{\n  "format_version": 1,\n  "_comment": ["keep  spacing"],\n'
+               '  "ci_debounce_minutes": 360,\n  "_ci_debounce_minutes_retired": '
+               '["a note"],\n  "sources": []\n}\n')
+        r6 = make('debounce', {'precedent.json': cfg,
+                               'identity.json': '{"ci_debounce_minutes": 30}\n'},
+                  {'kind': 'consumer'})
+        sweep(r6)
+        after = (r6 / 'precedent.json').read_text(encoding='utf-8')
+        cases.append(('ci_debounce_minutes is removed from precedent.json',
+                      'ci_debounce_minutes"' not in after.replace(
+                          '_ci_debounce_minutes_retired', ''), after))
+        cases.append(('NEGATIVE: every other byte stays, including a '
+                      'comment key that names the field',
+                      after == cfg.replace('  "ci_debounce_minutes": 360,\n',
+                                           ''), after))
+        cases.append(('and from identity.json, as its last member',
+                      json.loads((r6 / 'identity.json').read_text(
+                          encoding='utf-8')) == {}, ''))
+
+        # 7. Stale source paths, and a hardcoded identity.
+        pj = {'sources': [
+            {'name': 'precedent-shared-writing',
+             'path': '../precedent-team-writing', 'level': 'shared'},
+            {'name': 'precedent-shared-working-style',
+             'path': '../precedent-shared-working-style', 'level': 'shared'}]}
+        r7 = make('paths', {'precedent.json': json.dumps(pj),
+                            'tools/bootstrap.sh':
+                                'git config user.name "A Person"\n'
+                                'git config --global user.email "$email"\n'},
+                  {'kind': 'consumer'})
+        _res, left = sweep(r7)
+        flagged = [i for i, _w in left if i.startswith('precedent.json source')]
+        cases.append(('a stale ../precedent-team-* source path is reported',
+                      any('precedent-team-writing' in i for i in flagged),
+                      str(flagged)))
+        cases.append(('NEGATIVE: a current ../precedent-shared-* path is not',
+                      not any('working-style' in i for i in flagged),
+                      str(flagged)))
+        ids = [i for i, _w in left if i.startswith('tools/bootstrap.sh')]
+        cases.append(('a literal git identity is reported; one read from a '
+                      'variable is not', ids == ['tools/bootstrap.sh:1'],
+                      str(ids)))
+
+        # 8. An install with no ENGINE_MANIFEST is detected and routed to
+        #    the migration -- by practice_audit, the tool it CAN run.
+        def install(name, manifest):
+            root = tmp / name
+            (root / 'process' / 'upstream' / 'practices').mkdir(parents=True)
+            (root / 'precedent.json').write_text(json.dumps(
+                {'sources': [{'name': 'precedent', 'level': 'universal',
+                              'path': 'process/upstream'}]}), encoding='utf-8')
+            (root / 'AGENTS.md').write_text(pa.LOADER_MARKER + '\n',
+                                            encoding='utf-8')
+            if manifest:
+                (root / 'tools').mkdir()
+                (root / 'tools' / 'ENGINE_MANIFEST.json').write_text('{}')
+            return root
+        gap = pa.engine_gap(install('unmigrated', False))
+        cases.append(('no tools/ENGINE_MANIFEST.json is detected and routed '
+                      'to the migration document',
+                      bool(gap) and 'MIGRATING_EXISTING_INSTALLS' in gap,
+                      str(gap)))
+        cases.append(('NEGATIVE: a migrated install is not flagged',
+                      pa.engine_gap(install('migrated', True)) is None, ''))
+        classic = install('classic', False)
+        (classic / 'AGENTS.md').write_text('no block\n', encoding='utf-8')
+        cases.append(('NEGATIVE: a classic install is left to check 5, which '
+                      'already says migrate, whole',
+                      pa.engine_gap(classic) is None, ''))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
@@ -14836,6 +15127,43 @@ def check_refresh_removes_dropped_engine_files():
                           (base2 / 'tools' / extra).is_file()))
             cases.append(('and said so, rather than deleted silently',
                           'hand-edited' in out2))
+
+        # END TO END for the legacy sweep (2026-09-24): refresh() itself
+        # calls it, before the drift check, and closes with "Left for you".
+        # check_legacy_leftovers_retired_by_content covers the cases; this
+        # covers the wiring, which is what a real install runs.
+        base3 = _consumer(tmp / 'legacy')
+        if base3 is not None:
+            _shutil.copy2(ROOT / 'tools' / 'precedent_decommission.py',
+                          base3 / 'tools' / 'precedent_decommission.py')
+            wf = base3 / '.github' / 'workflows'
+            wf.mkdir(parents=True)
+            (wf / 'bestpractice-upstream-sync.yml').write_text(
+                'on:\n  workflow_dispatch:\njobs:\n  u:\n    steps:\n'
+                '      - uses: anthropics/claude-code-action@v1\n',
+                encoding='utf-8')
+            (wf / 'bestpractice-docs.yml').write_text(
+                'on:\n  workflow_dispatch:\njobs:\n  d:\n    steps:\n'
+                '      - run: python3 tools/our_own.py\n', encoding='utf-8')
+            genv = dict(env, GIT_AUTHOR_NAME='t', GIT_AUTHOR_EMAIL='harness@example.com',
+                        GIT_COMMITTER_NAME='t', GIT_COMMITTER_EMAIL='harness@example.com')
+            subprocess.run(['git', '-C', str(base3), 'add', '-A'],
+                           capture_output=True, env=genv)
+            subprocess.run(['git', '-C', str(base3), 'commit', '-qm', 'base'],
+                           capture_output=True, env=genv)
+            r3 = subprocess.run(
+                [sys.executable, str(base3 / 'tools' / 'precedent_vendor_engine.py'),
+                 'refresh', str(ROOT), '--force', '--from-ref', ref],
+                capture_output=True, text=True, timeout=600, cwd=str(base3), env=env)
+            out3 = r3.stdout + r3.stderr
+            cases.append(('refresh itself retires a stock-shaped legacy '
+                          'workflow no manifest ever tracked',
+                          not (wf / 'bestpractice-upstream-sync.yml').exists()))
+            cases.append(('and keeps a same-name file of the repo\'s own, '
+                          'listing it under "Left for you"',
+                          (wf / 'bestpractice-docs.yml').is_file()
+                          and 'Left for you' in out3
+                          and 'bestpractice-docs.yml' in out3))
 
     failed = [n for n, ok in cases if not ok]
     check(f'refresh removes engine files the set no longer includes, and only '
@@ -30363,6 +30691,8 @@ def main():
           *check_filtered_check_does_not_break_the_unpack_family())
     check('a practice source ships no CI workflow, and an existing set loses one',
           *check_a_source_set_ships_no_ci_workflow())
+    check('the old install\'s leftovers leave by content, never by name',
+          *check_legacy_leftovers_retired_by_content())
     check('the instruction files name only repositories that exist',
           *check_instruction_files_name_repos_that_exist())
     check('a consumer may declare a CI workflow its own and keep it',

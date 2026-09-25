@@ -19,7 +19,8 @@ approved_by: "Morgan; amended 2026-09-14, Morgan -- the phrase now carries
   the merge as well as the update; amended 2026-09-21, Morgan (decided) --
   step 1 makes the clone current rather than telling somebody to; amended
   2026-09-23, Morgan (assented) -- a classic install is migrated, not
-  updated"
+  updated; amended 2026-09-24, Morgan (decided) -- every update retires
+  the old install's leftovers (step 10)"
 ---
 ## Rule
 **"Update Vendors" is the phrase that asks for this**, and it authorizes the
@@ -29,7 +30,7 @@ otherwise has to spell out every time. **It carries the merge too**: when the
 sequence below is done, run [go-merge](go-merge.md)'s chain on what it
 produced -- say the target branch out loud, commit, push, open the pull
 request, merge -- without going back for a second authorization. That is step
-10, and it is part of the phrase rather than a separate grant.
+12, and it is part of the phrase rather than a separate grant.
 
 **This does not lift the gate the chain already runs through**, and it does
 not add one. `Go update` publishes by the repository's usual conventions, and
@@ -89,6 +90,13 @@ same change:
 say so when it is. An update that leaves the repo classic has refreshed text
 that no session reads, which is how a consumer took one on 2026-09-23 and
 still had nothing in force.
+
+**The same goes for a repo that runs the loader but has no
+`tools/ENGINE_MANIFEST.json`** — its engine sits only under
+`process/upstream/tools/`, because the migration stopped before its step 7.
+`refresh` cannot run there, so nothing in step 3 reaches it. Step 10(e) says
+what to do; `practice_audit.py` fails on it (check 8) and `checkin.py update`
+says so, both from the vendored tree under `process/upstream/`.
 
 1. **Make the SOURCE clone current first, against the branch this repo is
    pinned to** — not the source's default branch. A stale source makes
@@ -357,44 +365,79 @@ still had nothing in force.
    dynamically (a count, or a pointer to `precedent.json`) rather than
    naming it.
 
-10. **Sweep this repo's own `.github/workflows/` against the retired-file
-    table** ([spec/MIGRATING_EXISTING_INSTALLS.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/MIGRATING_EXISTING_INSTALLS.md)'s
-    step 6, added 2026-09-16) — an ordinary update touches the same
-    workflow files a migration would, and a repo that migrated before this
-    table existed has never had the chance to apply it. **As of
-    2026-09-20, this step's own table only still matters for two cases**:
-    a file the manifest never tracked a hash for at all (the pre-2026-09-14
-    legacy names — `light-check.yml`, `bestpractice-upstream-sync.yml`, and
-    the rest — [spec/CI_WORKFLOW_RETIREMENT_PLAN.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/CI_WORKFLOW_RETIREMENT_PLAN.md)
-    has the full list), and a `RETIRED_CI_WORKFLOW_FILES` entry that has
-    been hand-edited since the manifest last recorded it. A tracked,
-    untouched retired entry (currently just `views-drift.yml`) is now
-    deleted automatically by the `refresh` step above — nothing left to
-    sweep there. **Never match by filename alone before touching anything
-    on this list** — a name that looks retired can be a live, distinct,
-    repo-specific check that only coincidentally shares it (found
-    2026-09-20 in a real repo: `light-check.yml` running `tools/
-    light_check.py`, that repo's own required light check, not a leftover
-    copy of BestPractice's retired install template of the same name).
-    Diff what the file actually runs against its supposed replacement
-    before deleting or recommending deletion of anything on this table.
-    Per file, never a blanket delete: the table names what each one is, and
-    which are a confirm-before-delete rather than an automatic one. While
-    here, check
-    `ci_workflows`
+10. **Retire legacy leftovers — on every update, not only after a
+    migration.** Whatever the old, pre-Precedent install left behind goes in
+    this update: Morgan, 2026-09-24 (strength: decided), *"this needs to be
+    deleted from ALL installs, the migration to the new precedent should
+    [have] deleted this."* This step is how that reaches every install
+    without anyone remembering a sweep. Do all of it:
+
+    **(a) Read the end of step 3's refresh output.** The refresh already
+    deleted what it could recognise: a leftover workflow whose CONTENT has
+    the old install's shape (`bestpractice-upstream-sync.yml`,
+    `bestpractice-docs.yml`, `views-drift.yml`), tracked or not, hand-paused
+    or not; a retired hook nothing calls; and `ci_debounce_minutes` in
+    `precedent.json` or `identity.json`. Each deletion is staged and
+    recorded in `process/decommissioned_paths.json`. What it would not do is
+    under **Left for you** at the very end.
+
+    **(b) Work that list, item by item.** Read each kept file, hook or
+    field. Then either delete it with
+    `python3 tools/precedent_decommission.py PATH --reason "..." --apply`,
+    or record why it stays: a CI workflow under `local_ci_workflows` in
+    `precedent.json` with its reason, anything else in the pull request.
+    **Never by name alone.** `light-check.yml` is a live check in most
+    installs and is not a leftover; the 2026-09-20 sweep deleted nine live
+    checks by trusting names
+    ([spec/CI_MINUTES_PLAN.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/CI_MINUTES_PLAN.md)
+    item 14). A live one is paused first and decommissioned a cycle later,
+    as [tools/precedent_decommission.py](../tools/precedent_decommission.py)
+    requires.
+
+    **(c) Fix stale source paths.** Each source in `precedent.json` whose
+    path is not its current name gets both corrected — the practice sets
+    were renamed `precedent-team-*` → `precedent-shared-*`. The refresh
+    lists each one. GitHub redirects the old name, so nothing fails: the
+    repo just clones the same set twice, or not at all. Run step 8's tool
+    afterwards.
+
+    **(d) Remove a hardcoded git identity.** A literal
+    `git config user.name` or `user.email` in `tools/bootstrap.sh` or
+    `.claude/settings.json` names a person in a shared template. Re-instantiate
+    `tools/bootstrap.sh` from upstream `templates/bootstrap.sh`, keeping
+    anything this repo added on purpose. `commit-identity.sh` resolves who
+    is committing.
+
+    **(e) Finish an unfinished migration.** No `tools/ENGINE_MANIFEST.json`
+    means (a) could not run at all. Say so out loud, confirm with the person
+    that this update will finish the migration — it is bigger than an
+    update — then do
+    [spec/MIGRATING_EXISTING_INSTALLS.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/MIGRATING_EXISTING_INSTALLS.md)
+    from step 7 on, which seeds the engine at `tools/`. Then run step 3's
+    refresh and continue from (a). If the person says not now, stop before
+    publishing: step 6 fails until it is done.
+
+    **(f) File the secrets only the person can delete.** List every
+    repository secret no remaining workflow reads. The refresh names the
+    ones it can see: what a deleted workflow read (the Claude keys, once the
+    upstream sync is gone) and `PERSONAL_PACK_TOKEN`. Write **one** `todo/`
+    item for the person listing them all, with `disposition: ask` and
+    `remind_on` set to today, and where to delete them (Settings → Secrets
+    and variables → Actions). A session cannot delete a secret; never say it
+    did.
+
+    **(g) Report all of it in the reply**: what the refresh deleted, what
+    you deleted, what stays and why, and the todo item.
+
+    While here, check `ci_workflows`
     ([GITHUB_ACTIONS.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/documentation/GITHUB_ACTIONS.md))
     is set the way the person actually wants, not just inherited from
-    whatever an earlier install or migration left. **`ci_debounce_minutes`
-    is retired** (2026-09-20) -- nothing reads it, and a repo still
-    carrying it should have the field DELETED here rather than retuned,
-    because a live-looking knob that controls nothing is worse than no
-    knob. Why it went, and the arithmetic that retired it, is in
-    [spec/BILLING_FLOOR.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/BILLING_FLOOR.md).
+    whatever an earlier install or migration left.
 11. **Verify by content on the remote**, never by ref equality
    ([verify-postcondition](verify-postcondition.md)).
 12. **Publish it, without asking again.** Run [go-merge](go-merge.md)'s
     chain on the result and report which branch it landed on. The phrase
-    authorizes this step; do not stop at step 9 and ask. Every condition
+    authorizes this step; do not stop after step 11 and ask. Every condition
     `Go update` carries still holds -- a branch the repository restricts is
     still restricted, and a step this session cannot reach hands off rather
     than coming back as a question.
@@ -491,6 +534,20 @@ direction to guess. The scoping clause is the whole fix. **A runbook step
 that names a tool has to say where that tool exists**, because the session
 reading it has no other way to tell "not for this repo" from "your install
 is broken" -- the two look identical from a shell.
+
+**Step 10 used to be a sweep a person ran by hand, and it never ran.**
+Until 2026-09-24 it pointed at a table in the migration document and said
+which leftovers still mattered; every install that migrated before the table
+existed was expected to come back and apply it. Measured that day in six
+installs: `bestpractice-docs.yml`, retired three days earlier, was still in
+all five that had it, and `bestpractice-upstream-sync.yml` in four. The
+removers only deleted what a manifest had recorded, and the oldest installs
+had recorded nothing. The table's own first row also kept the upstream sync
+on purpose, "so a person can still run it by hand", after the hold that
+reason served had ended on 2026-09-14. Morgan reversed that the same day and
+asked for the cleanup to run on every update instead. The refresh now
+recognises the old files by content, and this step makes the session finish
+what the code will not.
 
 **The phrase this began as is deliberately not here.** A keyword is one
 person's preference, and a universal rule telling every adopting repository
