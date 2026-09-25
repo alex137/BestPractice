@@ -9,7 +9,7 @@ gates:       ["merge"]
 index_clause: "\"Promote\" -- pre-staging into staging, fully checked, by a merge commit"
 checked_by:  null
 defines:     ["Promote", "pre-staging"]
-command:     {"Promote": "Move everything waiting on pre-staging into staging: the full check runs on the whole batch, and staging moves only if it passes."}
+command:     {"Promote": "Land this session's own unsaved work on pre-staging first, then move everything waiting on pre-staging into staging: the full check runs on the whole batch, and staging moves only if it passes."}
 status:      active
 in_force_at: null
 supersedes:  []
@@ -26,18 +26,41 @@ approved_by: "Morgan, 2026-09-25 -- the three branch tiers are his own
   the suite on files that already passed it is his rule too (Morgan,
   2026-09-25: \"staging will not run the full suite of tests if it's being
   promoted from pre-staging to staging and the full suite of tests ran on
-  pre-staging and nothing has changed\", strength: decided)."
+  pre-staging and nothing has changed\", strength: decided). Saving the
+  session's own work with Go update before promoting is his rule too
+  (Morgan, 2026-09-25, strength: decided)."
 strength:    assented
 ---
 ## Rule
 When a message says **"Promote"** about the branch tiers -- the whole
-message, or a clause like "promote pre-staging" -- run, in the repository
-the work is in:
+message, or a clause like "promote pre-staging" -- **first check this
+session's own branch for work that is not on pre-staging yet**: anything
+uncommitted, or committed but not yet landed. **If there is any, run
+[Go update](go-merge.md) on it first**, which lands it on pre-staging, and
+confirm `origin/pre-staging` carries it. Promote carries that authorization
+itself: nobody is asked a second time. Only then run, in the repository the
+work is in:
 
     python3 tools/precedent_branches.py --promote
 
-It does the whole step, and a session adds nothing to it:
+Promote moves what is on pre-staging, so work still sitting in the session
+would otherwise miss the batch the person just asked to move (Morgan,
+2026-09-25: *"If there is anything in that session's branch that is not yet
+committed, to first do a 'go update' [which go into pre-staging] before
+starting the 'promote'"*, strength: decided). Nothing to save means
+nothing to do here: go straight to the command.
 
+The command does the whole promotion, and a session adds nothing to it:
+
+0. **Takes the Promote lock**, so only one window promotes at a time. The
+   lock is the branch `precedent-promote-lock` on origin, which only ever
+   moves forward: one empty `[skip ci]` commit per claim or release, the
+   newest one saying who holds it. **If another window holds it, this
+   Promote does nothing** and says so -- *"another window is promoting
+   right now"* -- and that is the whole report: don't Promote again while
+   it runs, and don't suggest it either. A claim left by a window that died
+   frees itself after 45 minutes. The branch is never deleted (a session
+   can't), and it is not unlanded work or a branch to tidy up.
 1. **Brings pre-staging up to date with staging** when staging has moved on
    its own (somebody pushed there directly), by a merge. A conflict stops it
    before anything is pushed.

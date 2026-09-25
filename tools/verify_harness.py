@@ -16705,6 +16705,47 @@ def check_promote_pre_staging():
                       and git(work, 'log', '-1', '--format=%s',
                               tip('beta')).stdout.strip() == 'other-window'))
 
+        # The Promote lock: a branch that only moves forward, whose newest
+        # commit says who holds it. Every Promote above claimed and released
+        # it, so it reads free now.
+        def lock_subject():
+            git(work, 'fetch', '-q', 'origin')
+            return git(work, 'log', '-1', '--format=%s',
+                       'origin/precedent-promote-lock').stdout.strip()
+        cases.append(('after a Promote the lock branch exists and reads free, '
+                      'with [skip ci] so no workflow runs for it',
+                      lock_subject() == 'free [skip ci]'))
+
+        def hold(age_seconds):
+            when = f'@{int(time.time()) - age_seconds} -0300'
+            made = subprocess.run(
+                ['git', '-C', str(work), 'commit-tree',
+                 '4b825dc642cb6eb9a060e54bf8d69288fbee4904', '-p',
+                 'origin/precedent-promote-lock', '-m',
+                 'held by another window [skip ci]'], capture_output=True,
+                text=True, env=dict(env, GIT_COMMITTER_DATE=when,
+                                    GIT_AUTHOR_DATE=when)).stdout.strip()
+            git(work, 'push', '-q', 'origin',
+                f'{made}:refs/heads/precedent-promote-lock')
+
+        commit_to('pre-staging', 'list.txt', 'V\nb\nc\n', 'waits for the lock')
+        before = tip('beta')
+        hold(60)
+        rc, out = branches('--promote')
+        cases.append(('a Promote that finds the lock freshly held by another '
+                      'window does nothing, says who has it, and says not to '
+                      'Promote again', rc == 0
+                      and 'another window is promoting right now' in out
+                      and 'held by another window' in out
+                      and tip('beta') == before
+                      and lock_subject() == 'held by another window [skip ci]'))
+        hold(3 * 3600)
+        rc, out = branches('--promote')
+        cases.append(('a claim left behind by a window that died is taken over '
+                      'once it is stale, and the Promote goes ahead',
+                      rc == 0 and 'PROMOTED' in out and tip('beta') != before
+                      and lock_subject() == 'free [skip ci]'))
+
         commit_to('pre-staging', 'list.txt', 'X\nb\nc\n', 'pre-staging edits line 1')
         commit_to('beta', 'list.txt', 'Y\nb\nc\n', 'staging edits line 1 too')
         pre_before = tip('pre-staging')
@@ -16908,6 +16949,34 @@ def check_promote_only_and_tier_branches():
         rc, out = branches('--ensure-tiers')
         cases.append(('a second report finds all three present, exit 0',
                       rc == 0 and 'all present' in out, out[-200:]))
+
+        # --- Promote's own merge commits carry the repository's zone ---
+        # 2026-09-25: an individual source refused its own Promote because
+        # the merge commit this module made carried the container's -0400.
+        # PRECEDENT_COMMIT_TZ is the ladder's override rung, so it is cleared
+        # here: the case is about which zone the REPOSITORY declares.
+        saved = {k: os.environ.pop(k) for k in ('PRECEDENT_COMMIT_TZ',)
+                 if k in os.environ}
+        old_tz = os.environ.get('TZ')
+        try:
+            (work / 'identity.json').write_text(_json.dumps(
+                {'email': 'p@example.com',
+                 'timezone': 'America/Argentina/Buenos_Aires'}), encoding='utf-8')
+            zone_decl = pb._merge_env(work).get('TZ')
+            (work / 'identity.json').unlink()
+            os.environ['TZ'] = 'Asia/Tokyo'
+            zone_env = pb._merge_env(work).get('TZ')
+        finally:
+            if old_tz is None:
+                os.environ.pop('TZ', None)
+            else:
+                os.environ['TZ'] = old_tz
+            os.environ.update(saved)
+        cases.append(("Promote's merge commits are dated in the zone the "
+                      "repository's identity.json declares",
+                      zone_decl == 'America/Argentina/Buenos_Aires', str(zone_decl)))
+        cases.append(('with no zone declared, they keep the environment TZ, as '
+                      'before', zone_env == 'Asia/Tokyo', str(zone_env)))
     bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
     check(f'{name} ({len(cases)} stated cases)', not bad,
           '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad))
