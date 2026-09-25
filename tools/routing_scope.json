@@ -1296,6 +1296,16 @@
       ],
       "why": "Its own applies_to. The occasion is writing anything a person will read, so the path channel fires on markdown and nothing else -- and it is tier: resident anyway, so the glob is a second reminder rather than the only channel. The half no glob can reach is the chat reply, which is why it also carries the `reply` gate.",
       "decided": "landed universal 2026-09-07"
+    },
+    "new-hook-joins-the-registry": {
+      "globs": [
+        "templates/harness/claude-code/hooks/**",
+        "templates/harness/claude-code/settings.json",
+        "tools/precedent_bootstrap_source.py",
+        "tools/precedent_vendor_engine.py"
+      ],
+      "why": "the three places a hook's kind is declared -- the shipped hooks, the two kinds' templates, and HOOK_WIRING -- are exactly these files; an edit anywhere else cannot add or drop a hook.",
+      "decided": "2026-09-25, with the practice"
     }
   },
   "gates": {
