@@ -77,6 +77,7 @@ Exit status: 0 everything passed; 1 a check failed; 2 nothing could be run
 """
 import hashlib
 import json
+import re
 import subprocess
 import sys
 import time
@@ -92,8 +93,19 @@ TAIL_LINES = 40
 # else restates it (practice: registry-source-of-truth).
 DEEP_CHECK_SUITE = ('deep_check', ['bash', 'tools/checks/tests/run_all.sh'],
                     "no workflow -- the deep-check practice's own suite")
+# The author and timezone checks, where a repo carries them. They ran in
+# precedent-individual's commit-identity.yml and precedent-check.yml until
+# 2026-09-21; commit-identity-push-gate.sh runs them too, but only where it
+# is wired, and a person running this list by hand should get everything.
+# Exit 2 ("no declared identity resolved") fails here, as it did there.
+IDENTITY_CHECKS = (
+    ('commit_author', ['{engine}/checks/check_commit_author.py'],
+     "precedent-individual's commit-identity.yml, retired 2026-09-21"),
+    ('commit_dates', ['{engine}/checks/check_buenos_aires_dates.py'],
+     "precedent-individual's commit-identity.yml, retired 2026-09-21"),
+)
 # Entries a repo may simply not have: skipped with a note, never a failure.
-OPTIONAL = {'deep_check'}
+OPTIONAL = {'deep_check', 'commit_author', 'commit_dates'}
 PUSH_CHECKS = {
     'upstream': (
         ('verify_harness', ['{engine}/verify_harness.py', '--as-ci'],
@@ -107,6 +119,7 @@ PUSH_CHECKS = {
         ('doc_lint', ['{engine}/doc_lint.py'],
          'docs.yml, retired 2026-09-21'),
         DEEP_CHECK_SUITE,
+        *IDENTITY_CHECKS,
     ),
     'source': (
         ('precedent_check', ['{engine}/precedent_check.py', '--full-sweep'],
@@ -118,6 +131,7 @@ PUSH_CHECKS = {
         ('doc_lint', ['{engine}/doc_lint.py'],
          'doc-lint.yml, retired 2026-09-21'),
         DEEP_CHECK_SUITE,
+        *IDENTITY_CHECKS,
     ),
     'consumer': (
         ('precedent_check', ['{engine}/precedent_check.py', '--full-sweep'],
@@ -127,8 +141,49 @@ PUSH_CHECKS = {
         ('doc_lint', ['{engine}/doc_lint.py'],
          'bestpractice-docs.yml, retired 2026-09-21'),
         DEEP_CHECK_SUITE,
+        *IDENTITY_CHECKS,
     ),
 }
+
+
+# WHAT A PASS HAS TO SHOW, beyond exit 0. The retired precedent-check.yml
+# refused three shapes of "green" that verified nothing, each after it had
+# happened for real; they are carried over here rather than lost with it.
+def _guard_precedent_check(out, engine):
+    m = re.search(r'^precedent_check: (\d+) passed', out, re.M)
+    if not m:
+        return ('no precedent_check summary line, so nothing says what it '
+                'checked')
+    if int(m.group(1)) == 0:
+        return ('ZERO checks passed -- every one skipped or did not run, and '
+                'a skip is not a pass')
+    if repo_kind(engine) == 'source':
+        # An engine from before binds_publishers skips, in a practice set,
+        # the checks whose practice lives upstream, and still exits 0.
+        p = subprocess.run(
+            [sys.executable, '-c',
+             'import sys; sys.path.insert(0, sys.argv[1]); '
+             'import precedent_check as pc; '
+             'sys.exit(0 if any(c.get("binds_publishers") for c in '
+             'pc.CHECKS.values()) else 1)', str(engine)],
+            capture_output=True, text=True)
+        if p.returncode != 0:
+            return ('the vendored engine predates binds_publishers, so in a '
+                    'practice set it skips the checks that bind what this '
+                    'repo publishes -- refresh it (precedent_vendor_engine.py '
+                    'refresh)')
+    return None
+
+
+def _guard_build_views(out, engine):
+    if 'NOT VERIFIABLE' in out:
+        return ('the loader block is built from sources this machine cannot '
+                'reach, so "no drift" was not established')
+    return None
+
+
+GUARDS = {'precedent_check': _guard_precedent_check,
+          'build_views': _guard_build_views}
 
 
 def git(root, *args):
@@ -226,6 +281,14 @@ def run(root, checks):
         t0 = time.monotonic()
         p = subprocess.run(argv, cwd=root, capture_output=True, text=True)
         took = time.monotonic() - t0
+        guard = GUARDS.get(name)
+        why = guard(p.stdout + p.stderr, HERE) if guard and p.returncode == 0 \
+            else None
+        if why:
+            failed.append(name)
+            print(f'      FAILED in {took:.0f}s although it exited 0: {why}',
+                  flush=True)
+            continue
         if p.returncode == 0:
             print(f'      passed in {took:.0f}s', flush=True)
             continue

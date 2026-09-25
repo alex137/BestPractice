@@ -15714,11 +15714,17 @@ def check_push_check_gate():
             _json.dumps({'kind': 'consumer'}), encoding='utf-8')
         # Stand-ins for the three consumer tools: each fails when a tracked
         # FAIL file names it, so a failure is a property of the tree pushed.
+        # precedent_check's stand-in prints the summary line the push check
+        # requires; a planted "zero" in FAIL makes it report 0 passed.
         for t in ('precedent_check', 'leak_gate', 'doc_lint'):
             (work / 'tools' / f'{t}.py').write_text(
                 'import pathlib, sys\n'
-                f'f = pathlib.Path("FAIL")\n'
-                f'sys.exit(1 if f.exists() and "{t}" in f.read_text() else 0)\n',
+                'f = pathlib.Path("FAIL")\n'
+                'body = f.read_text() if f.exists() else ""\n'
+                + ('print("precedent_check: %d passed, 0 violated" % '
+                   '(0 if "zero" in body else 3))\n'
+                   if t == 'precedent_check' else '')
+                + f'sys.exit(1 if "{t}" in body else 0)\n',
                 encoding='utf-8')
         # The deep-check driver, when a repo has one, is on the list too.
         drv = work / 'tools' / 'checks' / 'tests' / 'run_all.sh'
@@ -15769,6 +15775,11 @@ def check_push_check_gate():
                          project=elsewhere)
         cases.append(('so does a leading `cd <repo> &&`', denied))
 
+        (work / 'FAIL').write_text('zero', encoding='utf-8')
+        git(work, 'commit', '-q', '-am', 'a run that checks nothing')
+        denied, out = gate('git push origin main')
+        cases.append(('a precedent_check run that passed ZERO checks is '
+                      'refused although it exits 0', denied and 'ZERO' in out))
         (work / 'FAIL').write_text('deep_check', encoding='utf-8')
         git(work, 'commit', '-q', '-am', 'break the deep check suite')
         denied, out = gate('git push origin main')
