@@ -377,10 +377,27 @@ def _remote_tip(root, branch):
     return None
 
 
-def _merge_env():
+def _merge_env(root=None):
     """A merge commit this module makes must never carry `[skip ci]`
-    (plan, hole 3): PRECEDENT_CI_NOW is the cadence hook's own override."""
+    (plan, hole 3): PRECEDENT_CI_NOW is the cadence hook's own override.
+
+    It is also dated in the repository's own zone, never the container's
+    (practice: timestamps-carry-offset). On 2026-09-25 a Promote in an
+    individual source was refused by its own full check: the merge commit
+    this module had just made carried the container's -0400, and that
+    repository enforces its owner's declared zone on every commit. The zone
+    comes from precedent_time.py's ladder, the one every other stamp uses;
+    when that module is not beside this one, the environment is left as it
+    is, as before."""
     env = dict(os.environ, PRECEDENT_CI_NOW='1')
+    try:
+        sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+        import precedent_time
+        env['TZ'] = precedent_time.resolved(root)[1]
+    except Exception:
+        pass
+    finally:
+        sys.path.pop(0)
     return env
 
 
@@ -467,7 +484,7 @@ def sync_pre_staging(root, say=print):
     with _Worktree(root, ptip) as wt:
         for branch, tip in pending:
             m = _run(wt, 'merge', '--no-ff', '-q', '-m',
-                     f'Merge {branch} into {PRE_STAGING}', tip, env=_merge_env())
+                     f'Merge {branch} into {PRE_STAGING}', tip, env=_merge_env(root))
             if m.returncode != 0:
                 _run(wt, 'merge', '--abort')
                 say(f'{branch} does not merge cleanly into {PRE_STAGING} -- the same '
@@ -501,7 +518,7 @@ def promote(root, say=print):
     with _Worktree(root, stip) as wt:
         m = _run(wt, 'merge', '--no-ff', '-q', '-m',
                  f'Promote {PRE_STAGING} into {staging} ({len(batch)} commit(s))',
-                 ptip, env=_merge_env())
+                 ptip, env=_merge_env(root))
         if m.returncode != 0:
             _run(wt, 'merge', '--abort')
             say(f'{PRE_STAGING} does not merge cleanly into {staging}; nothing was pushed.')

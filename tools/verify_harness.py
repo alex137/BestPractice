@@ -16883,6 +16883,34 @@ def check_promote_only_and_tier_branches():
         rc, out = branches('--ensure-tiers')
         cases.append(('a second report finds all three present, exit 0',
                       rc == 0 and 'all present' in out, out[-200:]))
+
+        # --- Promote's own merge commits carry the repository's zone ---
+        # 2026-09-25: an individual source refused its own Promote because
+        # the merge commit this module made carried the container's -0400.
+        # PRECEDENT_COMMIT_TZ is the ladder's override rung, so it is cleared
+        # here: the case is about which zone the REPOSITORY declares.
+        saved = {k: os.environ.pop(k) for k in ('PRECEDENT_COMMIT_TZ',)
+                 if k in os.environ}
+        old_tz = os.environ.get('TZ')
+        try:
+            (work / 'identity.json').write_text(_json.dumps(
+                {'email': 'p@example.com',
+                 'timezone': 'America/Argentina/Buenos_Aires'}), encoding='utf-8')
+            zone_decl = pb._merge_env(work).get('TZ')
+            (work / 'identity.json').unlink()
+            os.environ['TZ'] = 'Asia/Tokyo'
+            zone_env = pb._merge_env(work).get('TZ')
+        finally:
+            if old_tz is None:
+                os.environ.pop('TZ', None)
+            else:
+                os.environ['TZ'] = old_tz
+            os.environ.update(saved)
+        cases.append(("Promote's merge commits are dated in the zone the "
+                      "repository's identity.json declares",
+                      zone_decl == 'America/Argentina/Buenos_Aires', str(zone_decl)))
+        cases.append(('with no zone declared, they keep the environment TZ, as '
+                      'before', zone_env == 'Asia/Tokyo', str(zone_env)))
     bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
     check(f'{name} ({len(cases)} stated cases)', not bad,
           '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad))
