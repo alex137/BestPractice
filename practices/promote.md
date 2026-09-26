@@ -36,7 +36,7 @@ When a message says **"Promote"** about the branch tiers -- the whole
 message, or a clause like "promote pre-staging" -- **first check this
 session's own branch for work that is not on pre-staging yet**: anything
 uncommitted, or committed but not yet landed. **If there is any, run
-[Go update](go-merge.md) on it first**, which lands it on pre-staging, and
+[Go update](go-update.md) on it first**, which lands it on pre-staging, and
 confirm `origin/pre-staging` carries it. Promote carries that authorization
 itself: nobody is asked a second time. Only then run, in the repository the
 work is in:

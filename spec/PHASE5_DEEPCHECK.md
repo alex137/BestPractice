@@ -276,7 +276,7 @@ from the team set, `buenos-aires-dates` from the individual set, the rest
 from universal — not just proving files got copied. `precedent_paths.py`
 and `precedent_gate.py`, run unmodified against the same materialized
 directory, also correctly surfaced team-level practices
-(`brainstorm-citations` on a path match; `deep-check`/`go-merge`/
+(`brainstorm-citations` on a path match; `deep-check`/`go-update`/
 `mirror-into-agents`/`private-repo-scrub` on the `merge` gate) alongside
 universal ones. `precedent_check.py --list` loads cleanly too, though most
 of its individual checks are BestPractice-catalogue-specific and not

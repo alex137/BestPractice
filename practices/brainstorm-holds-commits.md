@@ -115,7 +115,7 @@ name after taking the three that came before it.
 
 ## Install
 **No mechanical check, and the reason is the same one
-[go-merge](go-merge.md) records:**
+[go-update](go-update.md) records:**
 the trigger lives in the conversation, and nothing left behind afterwards
 distinguishes a commit made under authorization from one made on a
 session's own initiative. Both leave the identical commit.

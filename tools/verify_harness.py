@@ -7834,7 +7834,7 @@ def check_suggested_links_keep_a_dotfiles_leading_dot():
         ('.claude/settings.json', '.claude/settings.json'),
         ('../tools/precedent_check.py', 'tools/precedent_check.py'),
         ('tools/precedent_check.py', 'tools/precedent_check.py'),
-        ('./practices/go-merge.md', 'practices/go-merge.md'),
+        ('./practices/go-update.md', 'practices/go-update.md'),
     ]
     bad = []
     for given, want in cases:
@@ -9398,7 +9398,7 @@ def check_precedent_check_fires():
         # park-it -- the standing phrase stripped out of AGENTS.md, leaving
         # the practice file in force and nothing a session reads that says
         # what the phrase means. That is not a hypothetical: it is the state
-        # `go-merge` was in when a session met the phrase cold and went and
+        # `go-update` was in when a session met the phrase cold and went and
         # asked Morgan what it meant, which is the interruption the phrase
         # exists to stop. Only the phrase is removed, not the word `parked`,
         # so the planted case also proves the check names the missing half
@@ -30290,7 +30290,7 @@ def check_move_tool_lands_then_deduplicates():
         (indiv / 'practices' / 'zz-links.md').write_text(
             practice('zz-links', 'See [`zz-left-behind`](zz-left-behind.md), '
                      '[the rule](zz-left-behind.md#rule), '
-                     '[go-merge](go-merge.md) and `[kept](zz-left-behind.md)`.'),
+                     '[go-update](go-update.md) and `[kept](zz-left-behind.md)`.'),
             encoding='utf-8')
         r = run([tool, '--slug', 'zz-links', '--from', 'individual', '--from-path', str(indiv),
                  '--to', 'team', '--to-path', str(team), '--approved-by', 'Fixture Approver'])

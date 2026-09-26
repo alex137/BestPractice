@@ -25,7 +25,7 @@ strength:    decided
 **"Primary branch" is this repo's own word for trunk** -- the one shared
 branch regular work pushes to and pull requests target, whatever any one
 repository happens to call it. Saying it does not itself trigger an action:
-[go-merge](go-merge.md) and [push-directly](push-directly.md) already
+[go-update](go-update.md) and [push-directly](push-directly.md) already
 resolve a bare instruction to this branch by default. This practice exists
 so the word has a definition a session -- and a person -- can look up,
 rather than one only ever spelled out inline inside those two.

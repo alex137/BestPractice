@@ -38,7 +38,7 @@ the same thing in other words gets the same treatment, and where a command
 authorizes something hard to reverse (a push, a merge, a mark recording how
 convinced he was) and the reading is a genuine judgment call rather than a
 clean one, that is said out loud and confirmed rather than guessed —
-[go-merge](practices/go-merge.md) and [weak-yes](practices/weak-yes.md)
+[go-update](practices/go-update.md) and [weak-yes](practices/weak-yes.md)
 spell out exactly how, below. A few — a full practice audit, a very deep
 check, the fleet sweep — are the deliberate exception, kept to the literal
 ask because what they trigger is too expensive to run on a guess; each
@@ -52,7 +52,7 @@ never to decide whether to carry out what was asked. Do it first and
 propose after. A command you are not carrying out is said in the reply's
 first line, with the reason.
 
-- **"Go update"** and **"Approved"** ([go-merge](practices/go-merge.md)) —
+- **"Go update"** and **"Approved"** ([go-update](practices/go-update.md)) —
   classify first: a direct push, straight to the shared branch, no PR, is now
   the **default**; only a **high-risk** change (touches enforcement/gating
   code, changes a governance or authorization practice, is hard to reverse
@@ -367,7 +367,7 @@ When a judgment call is needed to keep work moving:
 When a message says "Archive" or "Archive?", or asks whether the session can be archived:
   archive-status-check — check pending; archive if clear, else say what isn't
 When a message says "Go update" or "Approved", or plainly authorizes a merge:
-  go-merge — "Go update"/"Approved": default push; high-risk: sync, branch, PR, merge
+  go-update — "Go update"/"Approved": default push; high-risk: sync, branch, PR, merge
 When a message says "Promote" about branch tiers, or asks to move pre-staging into staging or staging into main:
   promote — pre-staging->staging or staging->main, chosen from the work; says which
 When a message says "Push directly" [to a branch], or says to skip the PR for one change:

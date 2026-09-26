@@ -19,7 +19,7 @@ approved_by: "Morgan, 2026-09-08 -- asked for the phrase, chose this one,
   placed at universal; extended 2026-09-16, Morgan, on Alex's
   intent-over-keyword point; renamed 2026-09-20, Morgan -- \"just because I
   use the word simple, not plain\": the slug and file stay `plain-words`,
-  matching how `go-merge` kept its slug when `Go update` became the lead
+  matching how `go-update` kept its slug when `Go update` became the lead
   phrase; renamed again 2026-09-26, Morgan, to \"Simple please\""
 ---
 ## Rule
@@ -106,7 +106,7 @@ being written that way except that nobody had asked.**
 
 **Extended 2026-09-16, on Alex's design point**, that a plain request for
 this register should count as much as the phrase itself — low-stakes here,
-unlike the same conversation's changes to `go-merge` and `weak-yes`: a wrong
+unlike the same conversation's changes to `go-update` and `weak-yes`: a wrong
 read just gets corrected with "no, plainer" and costs nothing else.
 
 **Renamed to `Simple words`, 2026-09-20, Morgan**: *"Let's rename 'Plain

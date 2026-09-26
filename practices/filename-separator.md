@@ -28,7 +28,7 @@ settles it:**
 - **A name something else determines** — a language's import rules
   (`build_views.py`; Python cannot import a hyphen), a platform's required
   filename (`pull_request_template.md`), a slug the catalogue already owns
-  (`go-merge.md`), or the name of the file this one generates
+  (`go-update.md`), or the name of the file this one generates
   (`leak-blocklist.txt.template`) — takes that separator, and mixing is fine
   because nobody chose either one.
 - **A name nobody else determines** — an ordinary document — takes the

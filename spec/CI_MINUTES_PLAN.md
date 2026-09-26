@@ -785,7 +785,7 @@ That reason holds. It is worth revisiting only with a filter derived from
 the inputs rather than guessed at.
 
 Authorized: *"Go update with your changes."* `strength: decided`. Classified
-**high-risk** under [go-merge](../practices/go-merge.md) — vendored gating
+**high-risk** under [go-update](../practices/go-update.md) — vendored gating
 code that other repos install — so it took the full chain rather than the
 direct-push default.
 

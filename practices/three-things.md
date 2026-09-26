@@ -93,25 +93,25 @@ sources resolved at all.
 ## Story
 **Coined by Morgan, 2026-09-08**, in the same message that raised the
 day-to-day usage documentation — placed at universal from the start rather
-than promoted later, unlike `go-merge` and `park-it`, which each spent a day
+than promoted later, unlike `go-update` and `park-it`, which each spent a day
 at the wrong level first: *"Have a new command, in vocab etc, called 'Three
 Things'."*
 
 He supplied the prompt text himself and it is quoted above rather than
 paraphrased, which is deliberate. The wording is the specification: an
-earlier command in this set (`go-merge`) was retired once and reinstated
+earlier command in this set (`go-update`) was retired once and reinstated
 because the version that survived had told each adopter to invent their own
 phrasing, and a phrase nobody spells out is a phrase every session guesses
 at.
 
 **Extended 2026-09-16, on Alex's design point, that a plain ask for the same
-shape of answer should count too** — low-stakes here, unlike `go-merge` and
+shape of answer should count too** — low-stakes here, unlike `go-update` and
 `weak-yes` from the same conversation: guessing wrong just produces a
 differently-shaped reply, not an action to undo, so no confirmation step was
 added.
 
 ## Install
-Nothing mechanical checks that a reply obeyed the shape — like `go-merge` and
+Nothing mechanical checks that a reply obeyed the shape — like `go-update` and
 `park-it`, that lives in the conversation. What reaches a session is the
 occasion index entry above, which is generated, so an adopter installs
 nothing.

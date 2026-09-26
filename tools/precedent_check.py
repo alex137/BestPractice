@@ -1252,9 +1252,9 @@ def _sibling_not_in_force(pdir, base):
     # so the surviving copy lands at exactly the same `practices/<slug>.md`
     # the link already points at. Reporting it was a false positive, and the
     # message it printed was degenerate in the bargain: "that rule is in force
-    # as `go-merge` -- link `go-merge.md` instead" of `go-merge.md`.
+    # as `go-update` -- link `go-update.md` instead" of `go-update.md`.
     # Measured 2026-09-14 against the resolver rather than reasoned: a
-    # universal `go-merge` (active) plus an individual `go-merge`
+    # universal `go-update` (active) plus an individual `go-update`
     # (deduplicated, in_force_at itself) resolves to the universal one, so a
     # consumer does receive the file. Found by the session running this
     # check's own first vendor update, which it blocked (practice:

@@ -25,9 +25,9 @@ approved_by: "Morgan; amended 2026-09-14, Morgan -- the phrase now carries
 ## Rule
 **"Update Vendors" is the phrase that asks for this**, and it authorizes the
 whole sequence below without asking again -- the same standing-phrase
-mechanism as [go-merge](go-merge.md), for the other operation a person
+mechanism as [go-update](go-update.md), for the other operation a person
 otherwise has to spell out every time. **It carries the merge too**: when the
-sequence below is done, run [go-merge](go-merge.md)'s chain on what it
+sequence below is done, run [go-update](go-update.md)'s chain on what it
 produced -- say the target branch out loud, commit, push, open the pull
 request, merge -- without going back for a second authorization. That is step
 12, and it is part of the phrase rather than a separate grant.
@@ -574,7 +574,7 @@ says so, both from the vendored tree under `process/upstream/`.
     whatever an earlier install or migration left.
 11. **Verify by content on the remote**, never by ref equality
    ([verify-postcondition](verify-postcondition.md)).
-12. **Publish it, without asking again.** Run [go-merge](go-merge.md)'s
+12. **Publish it, without asking again.** Run [go-update](go-update.md)'s
     chain on the result and report which branch it landed on. The phrase
     authorizes this step; do not stop after step 11 and ask. Every condition
     `Go update` carries still holds -- a branch the repository restricts is

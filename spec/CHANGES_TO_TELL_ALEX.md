@@ -115,7 +115,7 @@ preference — his phrase is "Go merge" — generalized into a universal rule
 that nobody else had asked for. Morgan retired it himself on 2026-09-07,
 in exactly those terms: the phrase should be personal, and the universal
 practice should go. The behaviour it described did not disappear; it moved
-down a level, to `go-merge` in his individual set, where a preference
+down a level, to `go-update` in his individual set, where a preference
 belongs and where it binds only his own work.
 
 **What this costs a consumer repo.** Nothing mechanical: `checked_by` was

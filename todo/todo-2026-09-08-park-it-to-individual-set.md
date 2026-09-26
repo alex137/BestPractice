@@ -20,7 +20,7 @@ closed:            2026-09-08
   set.** [local/practices/park-it.md](../local/practices/park-it.md) records his standing phrase "Park
   it" — one person's preference, which by
   [layered-practice-packs](../practices/layered-practice-packs.md) belongs at the individual level beside
-  `go-merge`, not in a repo-local source that binds everyone working here.
+  `go-update`, not in a repo-local source that binds everyone working here.
   It is a level too low on purpose and says so in its own text.
 
   **Closed 2026-09-08 — resolved UPWARD instead, and the item's premise was
