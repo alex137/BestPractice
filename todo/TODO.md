@@ -150,6 +150,7 @@
 | [`todo-2026-09-25-every-install-approves-its-workflows`](todo-2026-09-25-every-install-approves-its-workflows.md) | Every install still carries workflow files nobody has approved under ci-workflow-approved. | 1d | ask |  |
 | [`todo-2026-09-25-should-sets-run-the-reply-gate`](todo-2026-09-25-should-sets-run-the-reply-gate.md) | Should practice sets run the reply gate and the other consumer-only hooks? | 1d | ask |  |
 | [`todo-2026-09-26-consumer-occasion-index-cap-is-an-undecided-fallback`](todo-2026-09-26-consumer-occasion-index-cap-is-an-undecided-fallback.md) | Every consumer's occasion index is capped at 4,000 tokens, and nobody decided that number. | 0d | ask |  |
+| [`todo-2026-09-26-retire-precedent-beta-v01`](todo-2026-09-26-retire-precedent-beta-v01.md) | Retire `precedent-beta-v01` | 0d | ask |  |
 
 ## Decisions (the Person's Call)
 
@@ -225,3 +226,4 @@
 | [`todo-2026-09-16-review-portability-plan`](todo-2026-09-16-review-portability-plan.md) | Review spec/PROVIDER_PORTABILITY_PLAN.md | 2026-09-19 |
 | [`todo-2026-09-16-revisit-ci-minutes-items-6-7`](todo-2026-09-16-revisit-ci-minutes-items-6-7.md) | Get back to items 6 and 7 of | 2026-09-19 |
 | [`todo-2026-09-17-weekly-very-deep-check-trigger-decision`](todo-2026-09-17-weekly-very-deep-check-trigger-decision.md) | Decide on, and if approved create, the weekly `very-deep-check` Routine | 2026-09-19 |
+| [`todo-2026-09-26-retire-precedent-beta-v01`](todo-2026-09-26-retire-precedent-beta-v01.md) | Retire `precedent-beta-v01` | 2026-09-26 |
