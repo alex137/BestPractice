@@ -561,8 +561,16 @@ def sync_pre_staging(root, say=print):
 # A holder that dies leaves it held; after LOCK_STALE_SECONDS anyone may
 # claim it on top. Morgan, 2026-09-25: "yes to the lock branch, very much
 # approved and supported" (strength: decided).
+#
+# 20 minutes, down from 45, on 2026-09-26. That day a window died holding
+# the lock and every Promote said in other windows did nothing for the full
+# 45 minutes, while staging sat still. A live Promote holds it for its one
+# full check plus a merge and a push: the slowest full check measured that
+# day took 379 seconds, so 20 minutes is still about three times what a
+# live holder needs. Morgan: "Please update the lock to be 20 minutes
+# unless you disagree" (strength: decided).
 LOCK_BRANCH = 'precedent-promote-lock'
-LOCK_STALE_SECONDS = 45 * 60
+LOCK_STALE_SECONDS = 20 * 60
 _EMPTY_TREE = '4b825dc642cb6eb9a060e54bf8d69288fbee4904'
 
 
