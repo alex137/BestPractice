@@ -135,3 +135,5 @@ Full catalogue, one file per trap. AGENTS.md carries only a pointer to this file
 - **A consumer repo declares a shared practice set in `precedent.json`, on purpose, and **the set is missing from every fresh container**. Nothing at session start says so. `python3 tools/precedent_sync_views.py --check` then reports dozens of differences in the loader block, and they all come from one absent directory. Clone the set by hand beside the repo and they drop to zero.** [story](gotcha-2026-09-26-a-declared-shared-set-is-never-cloned-in-a-consumer-s-fresh.md)
 
 - **Right after a pull request into `main` is merged, `staging` is gone from origin:** [story](gotcha-2026-09-26-a-pull-request-from-staging-deletes-staging.md)
+
+- **`checkin.py record` refuses an ordinary Update Vendors with a long list of `LOST from <file>:` lines and "pending vendored additions are MISSING from the landed upstream tree", while `checkin.py status` reads 0 files differing against the clone. Every listed line turns out to be one upstream removed itself.** [story](gotcha-2026-09-26-the-carry-check-counted-upstream-s-own-deletions-as-lost.md)
