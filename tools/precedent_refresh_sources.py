@@ -424,8 +424,37 @@ def classify_dirt(repo):
         if path.startswith('"') and path.endswith('"'):
             path = path[1:-1]
         is_engine = code in ('M', '??') and path in owned
+        if not is_engine and code == 'M' and path == SETTINGS_PATH:
+            is_engine = _settings_dirt_is_wiring(repo)
         (engine if is_engine else other).append(path)
     return sorted(engine), sorted(other)
+
+
+SETTINGS_PATH = '.claude/settings.json'
+
+
+def _settings_dirt_is_wiring(repo):
+    """True when the clone's .claude/settings.json differs from its last
+    commit only by hook entries the refresh itself wires in -- regenerated
+    on every refresh, so never work a person could lose. The shape test is
+    precedent_vendor_engine.settings_change_is_wiring_only's, beside the code
+    that writes those entries; anything it cannot confirm stays a person's
+    edit (2026-09-26: every refreshed set clone read as unsafe to archive
+    over exactly this)."""
+    try:
+        sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+        import precedent_vendor_engine as _ve
+        check = _ve.settings_change_is_wiring_only
+    except Exception:                                         # noqa: BLE001
+        return False
+    ok, head = _git('show', f'HEAD:{SETTINGS_PATH}', cwd=repo)
+    if not ok:
+        return False
+    try:
+        work = (pathlib.Path(repo) / SETTINGS_PATH).read_text(encoding='utf-8')
+    except OSError:
+        return False
+    return check(head, work)
 
 
 def discard_engine_dirt(repo, paths):

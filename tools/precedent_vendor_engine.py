@@ -1191,6 +1191,88 @@ def _apply_hook_wiring(dest_root, kind, hooks_src_dir):
           f"reason; a later refresh then leaves it alone.")
     return added
 
+def settings_change_is_wiring_only(before_text, after_text):
+    """True when AFTER is BEFORE plus nothing but entries _apply_hook_wiring
+    writes. -> bool, never raises.
+
+    WHY (2026-09-26). The refresh wires hooks into a source clone's
+    .claude/settings.json and, like everything else it writes there, never
+    commits the result. precedent_refresh_sources.classify_dirt did not
+    count that file as engine output, so precedent_container_safe.py called
+    every refreshed clone "uncommitted changes" and the archive gate said
+    "Don't archive this session" on every reply, over an edit the next
+    session's refresh makes again anyway. Morgan, the same day: if it is
+    regenerated at every session start, why is it a reason not to archive?
+
+    The file is also a person's, so it cannot simply join the owned set: a
+    hand edit there is exactly what the scanner exists to protect. This
+    answers the narrower question instead -- is the difference exactly what
+    the refresh would have written? -- by the shape _apply_hook_wiring
+    produces and nothing looser: every key but `hooks` unchanged; every
+    group already there unchanged except for entries appended to the end of
+    its `hooks` list; any new group appended after the old ones; and every
+    added entry a `type: command` whose command is
+    `$CLAUDE_PROJECT_DIR/.claude/hooks/<name>[ args]` for a hook HOOK_WIRING
+    lists at that event. Anything else, and anything that does not parse, is
+    False, so the doubtful case stays a person's work."""
+    try:
+        before = json.loads(before_text)
+        after = json.loads(after_text)
+    except (ValueError, TypeError):
+        return False
+    if not isinstance(before, dict) or not isinstance(after, dict):
+        return False
+    if before == after:
+        return False
+    if ({k: v for k, v in before.items() if k != 'hooks'}
+            != {k: v for k, v in after.items() if k != 'hooks'}):
+        return False
+    bh, ah = before.get('hooks') or {}, after.get('hooks') or {}
+    if not isinstance(bh, dict) or not isinstance(ah, dict):
+        return False
+    if any(ev not in ah for ev in bh):
+        return False
+    wired = {(ev, name) for entries in HOOK_WIRING.values()
+             for ev, _m, name, _a in entries}
+    prefix = f'$CLAUDE_PROJECT_DIR/{HOOK_DEST_DIR}/'
+
+    def is_wiring(event, entry):
+        if not isinstance(entry, dict) or entry.get('type') != 'command':
+            return False
+        if set(entry) - {'type', 'command', 'timeout'}:
+            return False
+        cmd = str(entry.get('command') or '')
+        if not cmd.startswith(prefix):
+            return False
+        name = cmd[len(prefix):].split(' ', 1)[0]
+        return (event, name) in wired
+
+    for event, agroups in ah.items():
+        bgroups = bh.get(event) or []
+        if not isinstance(agroups, list) or not isinstance(bgroups, list):
+            return False
+        if len(agroups) < len(bgroups):
+            return False
+        for bg, ag in zip(bgroups, agroups):
+            if not isinstance(bg, dict) or not isinstance(ag, dict):
+                return False
+            if ({k: v for k, v in bg.items() if k != 'hooks'}
+                    != {k: v for k, v in ag.items() if k != 'hooks'}):
+                return False
+            bl, al = bg.get('hooks') or [], ag.get('hooks') or []
+            if al[:len(bl)] != bl:
+                return False
+            if not all(is_wiring(event, e) for e in al[len(bl):]):
+                return False
+        for ag in agroups[len(bgroups):]:
+            if not isinstance(ag, dict) or set(ag) - {'matcher', 'hooks'}:
+                return False
+            if not ag.get('hooks') or not all(is_wiring(event, e)
+                                              for e in ag['hooks']):
+                return False
+    return True
+
+
 def dependents_of(dest_root, rels, cap=8):
     """-> {rel: [(referring path, line number, the line)]} for files that
     are about to stop existing, or just have.

@@ -26786,6 +26786,104 @@ def check_null_frontmatter_is_absent():
           out[-200:])
 
 
+def check_refresh_wired_settings_is_not_lost_work():
+    """A source clone's .claude/settings.json that differs from its commit
+    only by hook entries the refresh wires in is engine output, not a
+    person's work. On 2026-09-26 all four set clones read as "uncommitted
+    changes" over exactly that, and the archive gate said "Don't archive
+    this session" on every reply about an edit the next session's refresh
+    makes again. The file is also a person's, so the other half matters as
+    much: any edit that is not that exact shape stays theirs.
+
+    Stated cases for the shape test, then both halves through
+    classify_dirt in a real clone, with a control (practice:
+    control-asserts-which-failure)."""
+    import tempfile
+    import precedent_vendor_engine as pve
+    import precedent_refresh_sources as rs
+    cases = []
+    cmd = '$CLAUDE_PROJECT_DIR/.claude/hooks/'
+    base = {'permissions': {'allow': ['Bash(git status)']},
+            'hooks': {'PreToolUse': [{'matcher': 'Bash', 'hooks': [
+                {'type': 'command', 'command': cmd + 'freshness-guard.sh pre-write main'}]}]}}
+
+    def with_hooks(extra_pre=(), new_groups=(), perms=None):
+        d = json.loads(json.dumps(base))
+        d['hooks']['PreToolUse'][0]['hooks'].extend(extra_pre)
+        d['hooks']['PreToolUse'].extend(new_groups)
+        if perms is not None:
+            d['permissions'] = perms
+        return json.dumps(d, indent=2)
+
+    before = json.dumps(base, indent=2)
+    wf = {'type': 'command', 'command': cmd + 'workflow-write-gate.sh'}
+    wired = with_hooks(new_groups=[{'matcher': pve.WORKFLOW_WRITE_MATCHER,
+                                    'hooks': [wf]}])
+    shape = pve.settings_change_is_wiring_only
+    cases.append(('a new group holding a hook HOOK_WIRING lists is wiring',
+                  shape(before, wired), wired))
+    cases.append(('an entry appended to an existing group is wiring',
+                  shape(before, with_hooks(extra_pre=[
+                      {'type': 'command', 'command': cmd + 'doc-lint-gate.sh'}])), ''))
+    cases.append(("a person's permissions edit beside the wiring is NOT",
+                  not shape(before, with_hooks(
+                      new_groups=[{'matcher': 'x', 'hooks': [wf]}],
+                      perms={'allow': ['Bash(*)']})), ''))
+    cases.append(('a hook HOOK_WIRING does not list is NOT',
+                  not shape(before, with_hooks(extra_pre=[
+                      {'type': 'command', 'command': cmd + 'my-own-hook.sh'}])), ''))
+    edited = json.loads(before)
+    edited['hooks']['PreToolUse'][0]['hooks'][0]['command'] += ' --loud'
+    cases.append(('an existing entry changed in place is NOT',
+                  not shape(before, json.dumps(edited)), ''))
+    cases.append(('no change, or unparseable JSON, is NOT',
+                  not shape(before, before) and not shape(before, '{oops'), ''))
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='wired-settings-'))
+    try:
+        def git(*a):
+            return subprocess.run(['git', '-C', str(tmp), *a],
+                                  capture_output=True, text=True)
+        git('init', '--quiet')
+        git('config', 'user.email', 'fixture' + chr(64) + 'example.invalid')
+        git('config', 'user.name', 'Fixture')
+        (tmp / '.claude').mkdir()
+        sp_ = tmp / '.claude' / 'settings.json'
+        sp_.write_text(before + '\n', encoding='utf-8')
+        git('add', '-A')
+        git('commit', '--quiet', '-m', 'first')
+        sp_.write_text(wired + '\n', encoding='utf-8')
+        engine, other = rs.classify_dirt(tmp)
+        cases.append(('classify_dirt: refresh-wired settings.json is engine dirt',
+                      engine == ['.claude/settings.json'] and not other,
+                      f'engine={engine} other={other}'))
+        sp_.write_text(with_hooks(new_groups=[{'matcher': 'x', 'hooks': [wf]}],
+                                  perms={'allow': ['Bash(*)']}) + '\n',
+                       encoding='utf-8')
+        engine, other = rs.classify_dirt(tmp)
+        cases.append(("classify_dirt: a person's edit to it stays theirs",
+                      other == ['.claude/settings.json'] and not engine,
+                      f'engine={engine} other={other}'))
+        sp_.write_text(wired + '\n', encoding='utf-8')
+        saved = pve.HOOK_WIRING
+        try:
+            pve.HOOK_WIRING = {}
+            engine, other = rs.classify_dirt(tmp)
+        finally:
+            pve.HOOK_WIRING = saved
+        cases.append(('CONTROL: with HOOK_WIRING empty the same file is a '
+                      "person's, so the verdict comes from the wiring list",
+                      other == ['.claude/settings.json'] and not engine,
+                      f'engine={engine} other={other}'))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'a settings.json the refresh only wired hooks into is engine output, '
+          f'and any other edit to it is a person\'s ({len(cases)} stated cases)',
+          not bad, '; '.join(f"{n} -- {d[:400]}" for n, d in bad))
+
+
 def check_frontmatter_field_order_fixer():
     """frontmatter_yaml.reorder_fields: puts a practice's frontmatter into
     FIELD_ORDER and changes nothing else. On 2026-09-26 it rewrote 49 of 151
@@ -35141,6 +35239,7 @@ def main():
     check_null_frontmatter_is_absent()
     check_frontmatter_is_real_yaml()
     check_frontmatter_field_order_fixer()
+    check_refresh_wired_settings_is_not_lost_work()
     check_link_anchors_resolve()
     check_materialized_links_are_placed()
     check_source_supplied_checks_run()
