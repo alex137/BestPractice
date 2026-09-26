@@ -6,16 +6,21 @@ severity:    default
 applies_to:  ["**"]
 occasion:    "a person says \"Chief of Staff\""
 gates:       ["reply"]
-index_clause: "on request only; name the window read, link every session"
+index_clause: "on request only; name the window read, link every session; Promotion Reviews last"
 checked_by:  null
-defines:     ["Chief of Staff", "the sweeper", "the desk"]
-command:     {"Chief of Staff": "Stop and route this: tell you what every open session is blocked on and what is colliding, with a clickable link to each."}
+defines:     ["Chief of Staff", "the sweeper", "the desk", "Promotion Reviews"]
+command:     {"Chief of Staff": "Stop and route this: tell you what every open session is blocked on and what is colliding, with a clickable link to each, and end on Promotion Reviews: per repo you worked in this week, what waits to be promoted and which recent branches are stale."}
 status:      active
 in_force_at: null
 supersedes:  []
 overrides:   null
 added:       "2026-09-14"
-approved_by: "extended 2026-09-21, Morgan (strength: decided, relayed) --
+approved_by: "extended 2026-09-26, Morgan (strength: decided) -- asked
+  for a Promotion Reviews section, last in the report, covering staging
+  into main, pre-staging into staging, and a stale-branch review with its
+  unlanded work read; the state-based reading of stale and of uncommitted
+  are the session's resolutions of what that ask left open;
+  extended 2026-09-21, Morgan (strength: decided, relayed) --
   after a fleet audit found 110 merged-but-undeleted branches across 9
   repos, he asked for them rendered as filtered branches-page links and
   placed the fleet sweep here, with very-deep-check keeping only its own
@@ -44,6 +49,11 @@ named above as exactly the kind of row a dead session leaves behind. Every row
 is a one-click delete link, built the one way
 [branch-delete-links](branch-delete-links.md) specifies — the mechanism is
 there, in full, and is not restated here.
+
+**It ends on Promotion Reviews**, one block per repository the person worked
+in that week: whether staging waits to go into main, whether pre-staging waits
+to go into staging, and which of the week's branches are stale, with the
+unlanded work on each read and judged keep or discard. Detail says how.
 
 ## Detail
 ### What counts as blocked, and what does not
@@ -146,6 +156,94 @@ deletions is how the work gets thrown away.
 person clicks them. A Chief of Staff that started deleting branches would be
 the second window with a stale view that this practice exists to prevent.
 
+### Promotion Reviews, the last section
+
+**The report ends on a section headed Promotion Reviews** — after the
+sessions, the collisions and the branch sweep, and before
+[The Boildown](the-boildown.md). It takes one block per repository, and each
+block answers three questions:
+
+- **A. Does staging need promoting into main?**
+- **B. Does pre-staging need promoting into staging?**
+- **C. Which branches from the last seven days are stale, and is the work on
+  them worth keeping?**
+
+**Its repository set is the repositories the person was active in during the
+same seven days**: the repositories of every session updated inside the
+window, plus every repository `list_repos` shows pushed to inside it. Name the
+set and the window, as the other two halves do. It is a third bound, and a
+different one on purpose: the branch sweep reads every repository with an
+install because its rows are old by nature, while a promotion is only waiting
+where work has recently moved.
+
+**A and B read the tiers each repository actually has.** The names come from
+[precedent_branches.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_branches.py)'s
+rules, never from memory: staging is `precedent-beta-v01` wherever the rename
+has not happened, and a repository whose `base_branch` is `main` has no
+separate staging tier, so its A reads *"no staging tier — main is staging
+here"*. A repository with no pre-staging branch says so on B. Where the tier
+exists, each answer is one line:
+
+- **how many commits the lower branch carries that the upper one does not**,
+  and the date of the oldest of them;
+- **whether CI is green on the lower branch's head**, naming the check when
+  it is not;
+- **a verdict**: *nothing to promote*, *ready — say "Promote" in any session
+  rooted here*, or *hold*, with the red check named as the reason.
+
+A pre-staging that is behind staging, as well as ahead of it, is noted and
+not treated as a problem: [promote](promote.md) copies down before it
+promotes. **Say the counts plainly and without urgency.** A waiting Promote
+keeps nothing open (promote's own rule), and the person asked to see the
+state, not to be pressed.
+
+**C takes every branch whose newest commit falls inside the window**, minus
+the tier branches themselves and the `precedent-promote-lock` branch. A branch
+whose work has fully landed is already a row in the branch sweep above: name
+it once here, as landed, and do not list it twice. Every other branch gets a
+row, and the row is decided by state, never by the branch's age:
+
+- **Live** — its session is running or waiting on the person, or its pull
+  request is open. Not stale. Say what it is waiting on and link the session.
+- **Stale** — nothing is going to move it: its session is archived or
+  completed, and no open pull request carries it. **Every stale branch with
+  work on it gets that work read.**
+
+**"Uncommitted" has two readings here, and the report covers both.** A
+remote branch cannot hold uncommitted edits; what it can hold is commits
+that landed on no tier. So read the branch's diff against the tier it was
+headed for. Edits nobody committed exist only in a session's container,
+which this session cannot open. The owning session's last reply says whether
+it had any, because its archive line names them
+([the-boildown](the-boildown.md)). Read it through the session's events
+rather than guessing, and say where you read it.
+
+**Then give each piece of unlanded work a verdict, with its evidence in the
+same line:**
+
+- **Discard**, and why: the same change reached a tier by another route
+  (name the commit or pull request), a later branch superseded it, or the
+  subject was parked. A discardable branch carries its filtered delete link,
+  built the way [branch-delete-links](branch-delete-links.md) says, **in its
+  own list, never mixed into the merged sweep**: the proof here is the
+  session's reading, not a merged pull request, and the row says so.
+- **Keep**, and what it does that nothing on the tiers does. Route it to its
+  own session with a link. If that session is archived, give a
+  [Prompt Please](prompt-please.md) block that lands it, stopping at the pull
+  request unless the person authorized a merge for that handoff.
+- **Can't tell**, and the specific thing that would settle it. A guess in
+  either direction loses work or keeps junk, so an honest "can't tell" beats
+  both.
+
+**Read the diffs only for stale branches that carry work.** That is where
+this section's cost goes. Landed branches and live ones need no diff, and
+reading them anyway spends the budget on rows that have no decision in them.
+
+**Nothing here is carried out by this session.** It does not promote, delete
+or land anything. A Promote is said in a session rooted in that repository,
+a deletion is the person's click, and keeping a branch's work is its own
+session's job.
+
 ### Where it runs, and what it costs
 
 **It runs when the person asks, and only then.** No schedule, no Routine, no
@@ -244,6 +342,16 @@ rather than inherited. This practice's standing rule is that a report names the
 window it read — seven days over sessions. Branches are not sessions, and a
 seven-day window over them would filter out the rows the sweep is for. The
 resolution is in Detail: bound by repository set, and name the set.
+
+**Promotion Reviews arrived on 2026-09-26**, once the branch tiers existed.
+With pre-staging added beneath staging, work could now wait at two promotion
+points, and no report read either of them. He asked for the
+section by name, placed it last, and set its three questions: whether staging
+waits on main, whether pre-staging waits on staging, and which of the week's
+branches are stale, with any uncommitted work on them read and judged. A
+Chief of Staff cannot see another session's container, so the session
+resolved "uncommitted" into the two things it can read: the owning session's
+own archive line, and the commits a branch carries that landed nowhere.
 
 ## Install
 The sweeper is a Routine on the person's own account, created once — it is not

@@ -46,6 +46,7 @@ Built from every practice's `defines:` frontmatter field -- the terms that pract
 | pre-staging | [promote](practices/promote.md) |
 | Primary branch | [primary-branch](practices/primary-branch.md) |
 | Promote | [promote](practices/promote.md) |
+| Promotion Reviews | [chief-of-staff](practices/chief-of-staff.md) |
 | Prompt Please | [prompt-please](practices/prompt-please.md) |
 | pronouns | [declared-pronouns](practices/declared-pronouns.md) |
 | Push directly | [push-directly](practices/push-directly.md) |
