@@ -82,6 +82,7 @@
 | [`todo-2026-09-20-the-load-budget-registry-asserts-loads-nothing-verifies`](todo-2026-09-20-the-load-budget-registry-asserts-loads-nothing-verifies.md) | tools/session_load_budgets.json declares what every session loads, and nothing checks that any of it is loaded. | 6d | wait |  |
 | [`todo-2026-09-22-ported-identity-checks-have-no-planted-harness-cases`](todo-2026-09-22-ported-identity-checks-have-no-planted-harness-cases.md) | `tools/checks/check_commit_author.py` and `check_buenos_aires_dates.py`, ported to this repo from precedent-individual ( | 4d | ask |  |
 | [`todo-2026-09-22-session-practices-slug-can-render-twice`](todo-2026-09-22-session-practices-slug-can-render-twice.md) | tools/precedent_session_practices.py's `collect()` can render the same slug twice in front of a session | 4d | raise |  |
+| [`todo-2026-09-26-create-word-doc-declares-its-script`](todo-2026-09-26-create-word-doc-declares-its-script.md) | `create-word-doc` in `precedent-shared-writing` adds `ships: ["tools/create_word_doc.py"]` to its frontmatter | 0d | wait | precedent-shared-writing not attached with push this session |
 
 ## Verify Before External Use
 
@@ -149,6 +150,7 @@
 | [`todo-2026-09-22-the-endgame-merge-rehearsal-is-red-in-ci-green-locally`](todo-2026-09-22-the-endgame-merge-rehearsal-is-red-in-ci-green-locally.md) | `verify_harness (everything else)` has been failing on `precedent-beta-v01` itself, on one check, and every pull request | 4d | ask |  |
 | [`todo-2026-09-25-every-install-approves-its-workflows`](todo-2026-09-25-every-install-approves-its-workflows.md) | Every install still carries workflow files nobody has approved under ci-workflow-approved. | 1d | ask |  |
 | [`todo-2026-09-25-should-sets-run-the-reply-gate`](todo-2026-09-25-should-sets-run-the-reply-gate.md) | Should practice sets run the reply gate and the other consumer-only hooks? | 1d | ask |  |
+| [`todo-2026-09-26-consumer-occasion-index-cap-is-an-undecided-fallback`](todo-2026-09-26-consumer-occasion-index-cap-is-an-undecided-fallback.md) | Every consumer's occasion index is capped at 4,000 tokens, and nobody decided that number. | 0d | ask |  |
 
 ## Decisions (the Person's Call)
 

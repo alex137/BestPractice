@@ -1,6 +1,6 @@
 ---
 slug:              todo-2026-09-26-create-word-doc-declares-its-script
-kind:              agent
+kind:              analysis
 domain:            vendoring
 severity:          null
 status:            open

@@ -12,10 +12,10 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 |---|---|---|
 | [acronyms-glossary](practices/acronyms-glossary.md) | on-demand | writing or editing a document |
 | [affordance-is-shared](practices/affordance-is-shared.md) | on-demand | building a mechanism that makes something discoverable or reachable |
-| [archive-status-check](practices/archive-status-check.md) | on-demand | a message says "Archive", with or without a question mark, or otherwise asks whether the session can be archived |
-| [attach-never-clone-individual](practices/attach-never-clone-individual.md) | on-demand | attaching a practice source to a session with the repo-attach tool, or that tool's reply says to clone what it attached |
-| [attach-the-original](practices/attach-the-original.md) | on-demand | asked to include an image, logo, or other binary asset the person is supplying, rather than approximate one from a description |
-| [base-branch-is-the-record](practices/base-branch-is-the-record.md) | on-demand | starting work another session may already have done, or opening a pull request |
+| [archive-status-check](practices/archive-status-check.md) | on-demand | a message says "Archive" or "Archive?", or asks whether the session can be archived |
+| [attach-never-clone-individual](practices/attach-never-clone-individual.md) | on-demand | attaching a practice source with the repo-attach tool, or its reply says to clone |
+| [attach-the-original](practices/attach-the-original.md) | on-demand | asked to include an image, logo or other binary asset the person supplies |
+| [base-branch-is-the-record](practices/base-branch-is-the-record.md) | on-demand | starting work another session may have done, or opening a PR |
 | [bold-key-phrases](practices/bold-key-phrases.md) | resident | writing any document meant to be read |
 | [brainstorm-holds-commits](practices/brainstorm-holds-commits.md) | resident | a conversation is exploratory, or a person calls it a brainstorm |
 | [branch-delete-links](practices/branch-delete-links.md) | on-demand | telling a person a branch can be deleted -- one branch after a merge, or a whole repo's worth, or a fleet's |
@@ -29,11 +29,11 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [checks-plant-their-state](practices/checks-plant-their-state.md) | on-demand | writing or changing a check, test or gate whose result could depend on the machine it runs on |
 | [chief-of-staff](practices/chief-of-staff.md) | on-demand | a person says "Chief of Staff" |
 | [ci-commits-carry-identity](practices/ci-commits-carry-identity.md) | on-demand | adding or editing a CI workflow that commits, pushes, or opens a pull request |
-| [ci-workflow-approved](practices/ci-workflow-approved.md) | on-demand | a .github/workflows/*.yml file is added, edited, or found during an update or migration |
+| [ci-workflow-approved](practices/ci-workflow-approved.md) | on-demand | a .github/workflows file is added, edited, or found in an update or migration |
 | [cite-the-incident](practices/cite-the-incident.md) | on-demand | writing a new convention or rule |
 | [code-cites-practice](practices/code-cites-practice.md) | on-demand | writing code because a specific practice requires it |
 | [computed-numbers-in-scripts](practices/computed-numbers-in-scripts.md) | on-demand | writing a document that cites a computed number |
-| [constants-are-risk-inputs](practices/constants-are-risk-inputs.md) | on-demand | a model, study or comparison table rests on an operating constant nobody decided — a margin, a cap, a rate, a floor |
+| [constants-are-risk-inputs](practices/constants-are-risk-inputs.md) | on-demand | a model or comparison rests on an operating constant nobody decided |
 | [control-asserts-which-failure](practices/control-asserts-which-failure.md) | on-demand | writing a test, fixture or control that proves a guard fires |
 | [convention-to-audit](practices/convention-to-audit.md) | on-demand | a convention is violated for the first time |
 | [cross-source-rollout](practices/cross-source-rollout.md) | on-demand | a change here has implications for how an attached team, individual, or repo-local source should work |
@@ -42,7 +42,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [decision-strength](practices/decision-strength.md) | on-demand | recording that someone approved a practice or a decision, or citing their past approval back to them |
 | [declared-default-is-applied](practices/declared-default-is-applied.md) | on-demand | a setting has no value from the person -- at install, at setup, or in the middle of work |
 | [declared-pronouns](practices/declared-pronouns.md) | on-demand | writing about a person in the third person -- a reply, a document, a commit message, a pull-request body |
-| [decommission-deletes-files](practices/decommission-deletes-files.md) | on-demand | decommissioning a mechanism — a workflow, a tool, a vendored tree, a config — that leaves files behind with no remaining job |
+| [decommission-deletes-files](practices/decommission-deletes-files.md) | on-demand | decommissioning a mechanism that leaves files with no remaining job |
 | [deliverables-look-like-output](practices/deliverables-look-like-output.md) | on-demand | writing a reader-facing deliverable with supporting apparatus |
 | [diagnosis-is-measured](practices/diagnosis-is-measured.md) | on-demand | a tool, hook or error message names the possible causes of a failure |
 | [disclose-landing](practices/disclose-landing.md) | on-demand | a practice lands or a candidate is raised, at any level |
@@ -55,102 +55,102 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [environment-gotchas](practices/environment-gotchas.md) | resident | hitting an environment or tooling quirk |
 | [fail-gracefully](practices/fail-gracefully.md) | on-demand | writing code that depends on something outside its own control, handling a part that could not run, or deciding how loudly to report one |
 | [fence-block-for-paste](practices/fence-block-for-paste.md) | on-demand | a reply hands over text meant to be pasted somewhere else -- a prompt, a commit message, a PR description, a config snippet, a comment for another tool |
-| [filename-separator](practices/filename-separator.md) | on-demand | adding a file to a directory that already holds files of the same kind |
+| [filename-separator](practices/filename-separator.md) | on-demand | adding a file beside others of its kind |
 | [findings-return-through-repo](practices/findings-return-through-repo.md) | on-demand | discovering something a session in another window will need, or the person adopts a recommendation you gave in chat |
 | [fix-the-original](practices/fix-the-original.md) | on-demand | fixing a file that came from somewhere else -- a template, a vendored tree, another repo's copy |
 | [fixture-owns-its-state](practices/fixture-owns-its-state.md) | on-demand | writing a test, fixture or control that reads or edits state it did not create |
 | [frame-from-audience-question](practices/frame-from-audience-question.md) | on-demand | starting an outward-facing deliverable |
-| [full-practice-audit](practices/full-practice-audit.md) | on-demand | a person explicitly asks for a full practice audit (or "practice check") across the whole catalogue |
+| [full-practice-audit](practices/full-practice-audit.md) | on-demand | a person explicitly asks for a full practice audit (or "practice check") |
 | [generated-artifact-provenance](practices/generated-artifact-provenance.md) | on-demand | building or committing a generated artifact |
 | [generated-edit-goes-upstream](practices/generated-edit-goes-upstream.md) | on-demand | asked to add, change or remove something in a generated file |
 | [github-api-budget](practices/github-api-budget.md) | on-demand | writing or changing anything that calls the GitHub API, or a session is refused with a rate-limit error |
 | [github-setup-disclosed](practices/github-setup-disclosed.md) | on-demand | an install step adds something GitHub-specific, or a first install finishes |
 | [go-merge](practices/go-merge.md) | on-demand | a message says "Go update" or "Approved", or plainly authorizes a merge |
-| [grep-before-search](practices/grep-before-search.md) | on-demand | about to search a repository, or reaching for a GitHub search or file-read tool for something the local clone already holds |
+| [grep-before-search](practices/grep-before-search.md) | on-demand | about to search a repo, or use a GitHub tool for what the clone holds |
 | [heading-outline](practices/heading-outline.md) | on-demand | adding or re-levelling a heading in any document |
 | [headline-capitalization](practices/headline-capitalization.md) | on-demand | writing or editing a heading in an outward-facing document |
 | [index-remembers-past](practices/index-remembers-past.md) | on-demand | a document replaces or is replaced by an earlier one |
-| [item-closes-on-its-condition](practices/item-closes-on-its-condition.md) | on-demand | work touches something an open item is about, or a branch is merged |
+| [item-closes-on-its-condition](practices/item-closes-on-its-condition.md) | on-demand | work touches an open item's subject, or a branch merges |
 | [label-describes-content](practices/label-describes-content.md) | on-demand | writing or editing a document |
 | [layered-practice-packs](practices/layered-practice-packs.md) | on-demand | deciding where a new rule belongs |
 | [lead-with-what-it-is](practices/lead-with-what-it-is.md) | on-demand | writing a README or other project-facing entry document |
 | [leak-gate-is-background](practices/leak-gate-is-background.md) | on-demand | a leak gate, blocklist, or scrub result is in front of you, or you are about to mention one to the person |
 | [merge-runbook](practices/merge-runbook.md) | on-demand | merging a branch that touches shared files |
-| [migration-scrubs-vocabulary](practices/migration-scrubs-vocabulary.md) | on-demand | migrating a repo off an old practice system onto Precedent |
+| [migration-scrubs-vocabulary](practices/migration-scrubs-vocabulary.md) | on-demand | migrating a repo onto Precedent from an old system |
 | [mistakes-become-rules](practices/mistakes-become-rules.md) | on-demand | a defect is fixed -- whether a review found it, the person reported it, or the session hit it itself |
-| [my-options](practices/my-options.md) | on-demand | a person says "My options", asks to have a decision's options laid out, or asks -- about a current issue -- for the options to hand off to another session |
+| [my-options](practices/my-options.md) | on-demand | a person says "My options", or asks to see a decision's options or hand them off |
 | [name-both-sides-of-ledger](practices/name-both-sides-of-ledger.md) | on-demand | a computation books a transfer between two parties |
-| [never-delete-a-remote-branch](practices/never-delete-a-remote-branch.md) | on-demand | a branch has done its job -- a pull request merged, a tidy-up, or a person saying to delete some branches |
+| [never-delete-a-remote-branch](practices/never-delete-a-remote-branch.md) | on-demand | a branch has done its job, or a person says to delete branches |
 | [new-hook-joins-the-registry](practices/new-hook-joins-the-registry.md) | on-demand | adding, renaming or dropping a hook script this repo ships, or changing which hooks a kind of repo runs |
 | [no-invented-specifics](practices/no-invented-specifics.md) | resident | writing a sentence that would land better with a specific figure, date, name or source |
 | [no-rewrite-for-warnings](practices/no-rewrite-for-warnings.md) | on-demand | a tool warns about already-published git history |
 | [no-version-suffix](practices/no-version-suffix.md) | on-demand | naming a new file |
-| [one-formatter-per-quantity](practices/one-formatter-per-quantity.md) | on-demand | printing a numeric quantity that will be compared across rows |
+| [one-formatter-per-quantity](practices/one-formatter-per-quantity.md) | on-demand | printing a number compared across rows |
 | [open-item-disposition](practices/open-item-disposition.md) | on-demand | writing or triaging an open item, or deciding whether to raise one in a reply |
 | [orientation-map](practices/orientation-map.md) | resident | orienting in a repo for the first time this session |
 | [outward-summary-discipline](practices/outward-summary-discipline.md) | on-demand | writing an outward-facing summary of claims |
 | [parallel-artifact-ledger](practices/parallel-artifact-ledger.md) | on-demand | a change must propagate across several parallel artifacts |
 | [park-it](practices/park-it.md) | on-demand | a person says "Drop it" about an open item or a question |
 | [permutation-frontier-column](practices/permutation-frontier-column.md) | on-demand | building a permutation or configuration-sweep table |
-| [plain-words](practices/plain-words.md) | on-demand | a person says "Simple words", or plainly asks to be talked to that way |
+| [plain-words](practices/plain-words.md) | on-demand | a person says "Simple words", or asks to be talked to that way |
 | [pr-template-honest-gates](practices/pr-template-honest-gates.md) | on-demand | writing or filling out a pull-request description |
 | [practice-carries-its-files](practices/practice-carries-its-files.md) | on-demand | writing a practice that owns a file besides its check script and test -- a tool its Rule tells a session to run, a file its test reads -- or moving a practice to another set |
 | [practice-export-loop](practices/practice-export-loop.md) | on-demand | merging a branch that improved a generic practice |
 | [practice-links-travel](practices/practice-links-travel.md) | on-demand | writing or editing a practice file |
-| [primary-branch](practices/primary-branch.md) | on-demand | a person says "Primary branch", or asks which branch is trunk, the routine working branch, or where regular pushes and pull requests land |
-| [promote](practices/promote.md) | on-demand | a message says "Promote" about the branch tiers, or asks to move pre-staging into staging |
-| [prompt-please](practices/prompt-please.md) | on-demand | handing the person work to do, starting work that may touch a repository this session cannot reach, or the person wants to act on a recommendation already given by opening a fresh session |
+| [primary-branch](practices/primary-branch.md) | on-demand | a person says "Primary branch", or asks which branch is trunk or takes routine pushes and PRs |
+| [promote](practices/promote.md) | on-demand | a message says "Promote" about branch tiers, or asks to move pre-staging into staging |
+| [prompt-please](practices/prompt-please.md) | on-demand | handing the person work, starting work in a repo this session cannot reach, or moving advice to a fresh session |
 | [push-back](practices/push-back.md) | on-demand | drafting or reviewing prose meant to persuade or be judged |
-| [push-directly](practices/push-directly.md) | on-demand | a message says "Push directly", naming a branch ("push directly to main") or not, or gives a specific instruction to skip the PR for this one change |
+| [push-directly](practices/push-directly.md) | on-demand | a message says "Push directly" [to a branch], or says to skip the PR for one change |
 | [quick-index](practices/quick-index.md) | resident | looking for where something lives, before searching |
 | [quote-discipline](practices/quote-discipline.md) | on-demand | quoting or compressing someone else's figures |
 | [readers-vocabulary](practices/readers-vocabulary.md) | on-demand | writing an outward-facing document |
 | [reduction-pass](practices/reduction-pass.md) | on-demand | a person says "Reduction pass", or an always-loaded surface is near its ceiling |
-| [registry-source-of-truth](practices/registry-source-of-truth.md) | on-demand | tracking state that multiple documents need to agree on |
+| [registry-source-of-truth](practices/registry-source-of-truth.md) | on-demand | tracking state several documents must agree on |
 | [relayed-authorization](practices/relayed-authorization.md) | on-demand | acting on, or sending, an authorization relayed from another session |
-| [rename-updates-links](practices/rename-updates-links.md) | on-demand | renaming, moving, or deleting a file other files may link to |
-| [repair-cannot-discard-work](practices/repair-cannot-discard-work.md) | on-demand | when writing or changing anything that automatically fixes a state it found wrong |
+| [rename-updates-links](practices/rename-updates-links.md) | on-demand | renaming, moving or deleting a file others may link to |
+| [repair-cannot-discard-work](practices/repair-cannot-discard-work.md) | on-demand | writing or changing anything that automatically repairs a state it found wrong |
 | [reply-links-files](practices/reply-links-files.md) | on-demand | ending a reply that created, modified or deleted files |
 | [repo-is-memory](practices/repo-is-memory.md) | resident | starting any session cold |
-| [routing-audit](practices/routing-audit.md) | on-demand | checking whether the practices that should have fired for recent work actually fired |
+| [routing-audit](practices/routing-audit.md) | on-demand | checking whether practices that should have fired for recent work did |
 | [rule-level-by-reach](practices/rule-level-by-reach.md) | on-demand | deciding which practice set a new rule belongs in -- repo-local, shared, individual or universal |
 | [scripts-assert-properties](practices/scripts-assert-properties.md) | on-demand | writing a script whose numbers a document will cite |
 | [scrub-gate](practices/scrub-gate.md) | on-demand | committing anything that touches the vendored/public tree |
 | [search-by-purpose](practices/search-by-purpose.md) | on-demand | starting work the repository may already cover |
-| [second-pass-capture](practices/second-pass-capture.md) | on-demand | finishing a substantial work-product, before the merge-time capture gate |
+| [second-pass-capture](practices/second-pass-capture.md) | on-demand | finishing substantial work, before the merge capture gate |
 | [section-order-by-frequency](practices/section-order-by-frequency.md) | on-demand | ordering sections in a document |
-| [seeded-prompt-names-its-origin](practices/seeded-prompt-names-its-origin.md) | on-demand | seeding a prompt into another session -- spawning one, or scheduling a message into one |
+| [seeded-prompt-names-its-origin](practices/seeded-prompt-names-its-origin.md) | on-demand | seeding or scheduling a prompt into another session |
 | [session-bootstrap](practices/session-bootstrap.md) | on-demand | setting up a new repo's session start |
 | [session-load-budget](practices/session-load-budget.md) | on-demand | adding to a file every session loads, or asking what a session pays before it starts work |
-| [session-spend-follows-the-task](practices/session-spend-follows-the-task.md) | on-demand | creating a session |
-| [session-tags](practices/session-tags.md) | on-demand | creating a session, or retagging one |
-| [session-title-names-the-difference](practices/session-title-names-the-difference.md) | on-demand | naming or renaming a session, at creation or once its differentiator is known |
-| [slow-steps-report-and-cache](practices/slow-steps-report-and-cache.md) | on-demand | writing or running a gate, audit or solve that takes more than about a minute |
+| [session-spend-follows-the-task](practices/session-spend-follows-the-task.md) | on-demand | creating, renaming or retagging a session |
+| [session-tags](practices/session-tags.md) | on-demand | creating, renaming or retagging a session |
+| [session-title-names-the-difference](practices/session-title-names-the-difference.md) | on-demand | creating, renaming or retagging a session |
+| [slow-steps-report-and-cache](practices/slow-steps-report-and-cache.md) | on-demand | writing or running a gate, audit or solve over a minute |
 | [small-calls](practices/small-calls.md) | on-demand | a judgment call is needed to keep work moving |
 | [source-naming](practices/source-naming.md) | on-demand | importing, creating, or declaring a repository that holds practices |
 | [source-sets-run-no-ci](practices/source-sets-run-no-ci.md) | on-demand | installing, refreshing or adding a continuous-integration workflow in a practice SOURCE -- an individual or shared set |
 | [speculation-is-marked](practices/speculation-is-marked.md) | on-demand | recording exploratory thinking -- an idea nobody has committed to -- as a document |
-| [tabular-shared-renderer](practices/tabular-shared-renderer.md) | on-demand | publishing a document with a multi-column sortable table |
+| [tabular-shared-renderer](practices/tabular-shared-renderer.md) | on-demand | publishing a sortable multi-column table |
 | [technical-describes-people](practices/technical-describes-people.md) | on-demand | naming or scoping something around a person's skill level |
 | [the-boildown](practices/the-boildown.md) | on-demand | ** |
-| [three-things](practices/three-things.md) | on-demand | a person says "Three Things", or plainly asks for exactly this shape of answer |
+| [three-things](practices/three-things.md) | on-demand | a person says "Three Things", or plainly asks for this shape of answer |
 | [timestamps-carry-offset](practices/timestamps-carry-offset.md) | on-demand | writing code that stamps a date or a time into a file, a record or a document |
 | [todo-is-a-handoff](practices/todo-is-a-handoff.md) | on-demand | writing or triaging an open item |
 | [todo-migrate-available-but-unused](practices/todo-migrate-available-but-unused.md) | on-demand | editing TODO.md, or just after a vendor refresh brings tools/todo_migrate.py into a repo for the first time |
 | [todo-reminder](practices/todo-reminder.md) | on-demand | a person says "Todo reminder", or asks to be reminded of something |
 | [two-check-levels](practices/two-check-levels.md) | on-demand | naming what "run the checks" means in a repo |
-| [upstream-fix](practices/upstream-fix.md) | on-demand | a person says "Upstream fix", or asks whether a change fixes the root cause rather than just this instance |
+| [upstream-fix](practices/upstream-fix.md) | on-demand | a person says "Upstream fix", or asks whether a change fixes the root cause |
 | [variant-re-derives](practices/variant-re-derives.md) | on-demand | building a variant of an existing thing |
-| [vendor-rollout-disclosed](practices/vendor-rollout-disclosed.md) | on-demand | committing a change to content this repo ships to other repos -- a practice file, a hook script, a template, or one of the named engine files in tools/precedent_vendor_engine.py's ENGINE_FILES/CONSUMER_ENGINE_FILES lists -- before it is pushed or merged |
-| [vendor-update-runbook](practices/vendor-update-runbook.md) | on-demand | a message says "Update Vendors", or an upstream update is being taken into a repo that vendors a practice layer |
+| [vendor-rollout-disclosed](practices/vendor-rollout-disclosed.md) | on-demand | committing a shipped practice, hook, template or engine file, before push or merge |
+| [vendor-update-runbook](practices/vendor-update-runbook.md) | on-demand | a message says "Update Vendors", or an upstream update is taken into a vendoring repo |
 | [verify-decomposition](practices/verify-decomposition.md) | on-demand | reporting a computed total or a negative feasibility result |
 | [verify-postcondition](practices/verify-postcondition.md) | resident | after any state-changing operation |
-| [very-deep-check](practices/very-deep-check.md) | on-demand | a person explicitly asks for a "very deep check" across the whole repo, or after work that invites drift |
+| [very-deep-check](practices/very-deep-check.md) | on-demand | a person explicitly asks for a "very deep check", or after work that invites drift |
 | [vocabulary](practices/vocabulary.md) | on-demand | a person says "Vocabulary", or asks what the standing commands are |
 | [volatile-rules-carry-dates](practices/volatile-rules-carry-dates.md) | on-demand | writing a rule that depends on the outside world |
-| [weak-yes](practices/weak-yes.md) | on-demand | a person says "Weak yes", or agrees in words that carry no conviction |
+| [weak-yes](practices/weak-yes.md) | on-demand | a person says "Weak yes", or agrees without conviction |
 | [workflow-file-outside-vendoring](practices/workflow-file-outside-vendoring.md) | on-demand | a .github/workflows/*.yml file is added or changed |
-| [write-it-up](practices/write-it-up.md) | on-demand | a person asks, in whatever words, for a write-up of the issue or bug being worked |
+| [write-it-up](practices/write-it-up.md) | on-demand | a person asks for a write-up of the issue being worked |
 | [write-like-a-human](practices/write-like-a-human.md) | resident | writing anything a person will read -- a document, a reply, a commit message |
 
 ## Withdrawn practices

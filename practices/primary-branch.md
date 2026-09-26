@@ -4,9 +4,9 @@ title:       "\"Primary branch\" names trunk -- the one shared branch regular wo
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
-occasion:    "a person says \"Primary branch\", or asks which branch is trunk, the routine working branch, or where regular pushes and pull requests land"
+occasion:    "a person says \"Primary branch\", or asks which branch is trunk or takes routine pushes and PRs"
 gates:       []
-index_clause: "\"Primary branch\" -- trunk; the branch regular work pushes to and PRs target"
+index_clause: "trunk: the branch regular work pushes to and PRs target"
 checked_by:  null
 defines:     ["Primary branch"]
 command:     {"Primary branch": "Trunk -- the one shared branch regular work pushes to and pull requests target, as this repository declares it (usually main)."}
