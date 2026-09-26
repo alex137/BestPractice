@@ -2894,7 +2894,21 @@ def stale_source_paths(dest_root):
     precedent-team-* -> precedent-shared-*; two measured installs still
     declared the old paths, and one the old names too. GitHub redirects a
     renamed repository indefinitely, so the only symptom is a second clone of
-    the same set, or no clone at all where nothing clones it."""
+    the same set, or no clone at all where nothing clones it.
+
+    THE ONE PAIR THAT DIFFERS ON PURPOSE. The universal source is named
+    `precedent` and cloned at `../BestPractice`, the repository's real name --
+    precedent_bootstrap_source.py writes exactly that pair into every set it
+    creates. Comparing name to path flagged it in every install, and on
+    2026-09-26 the "repoint it" advice was nearly followed: `../precedent`
+    names no clone, so every universal practice would have gone silently
+    absent."""
+    canonical = ('precedent', '../BestPractice')
+    try:
+        import precedent_bootstrap_source as _pbs
+        canonical = (_pbs.UNIVERSAL_SOURCE_NAME, _pbs.UNIVERSAL_SOURCE_PATH)
+    except Exception:
+        pass
     try:
         cfg = json.loads((dest_root / 'precedent.json').read_text(encoding='utf-8'))
     except (OSError, ValueError):
@@ -2907,7 +2921,7 @@ def stale_source_paths(dest_root):
         if not isinstance(s, dict):
             continue
         name, path = str(s.get('name') or ''), str(s.get('path') or '')
-        if not path.startswith('../'):
+        if not path.startswith('../') or (name, path) == canonical:
             continue
         base = pathlib.PurePosixPath(path).name
         if name.startswith('precedent-team-') or base.startswith('precedent-team-'):
