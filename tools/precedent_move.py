@@ -49,7 +49,9 @@ somebody, and catalogue-carries-stories would hold the destination red);
 a destination that already carries the slug; a team destination whose
 approvers.json does not list `--approved-by`; a `checked_by` naming a check
 script the destination does not have (the script and its test move by hand
-first -- see spec/PRIVATE_ENFORCEMENT_BRIEF.md); `--from universal --to
+first -- see spec/PRIVATE_ENFORCEMENT_BRIEF.md); a `ships:` file the
+destination does not have (same: copy it first, and commit it with the
+practice); `--from universal --to
 universal` (nothing to move); and `--dedupe-only` on a practice that moved
 OUT of universal, without `--accept-reach-loss` also given (see below).
 
@@ -167,6 +169,32 @@ def _check_checked_by(fm, to_level, to_path):
             f'its test first (spec/PRIVATE_ENFORCEMENT_BRIEF.md), then the practice; '
             f'a checked_by naming a check the set cannot run is a coverage claim '
             f'nobody tested')
+
+
+def _check_ships(fm, to_path):
+    """Every file the practice declares in `ships:` must already be at the
+    destination, byte for byte where the source still has it.
+
+    practice: practice-carries-its-files -- a practice moves with everything
+    it owns, in one commit. Before `ships:` existed nothing declared a
+    practice's other files, so a move could leave its script behind and
+    nothing noticed until a consumer's test went red (2026-09-26,
+    create-word-doc)."""
+    import build_views as bv
+    try:
+        ships = bv.ships_paths(fm)
+    except ValueError as e:
+        raise MoveRefused(f'the practice\'s {e} -- fix the declaration before '
+                          f'moving it')
+    missing = [rel for rel in ships
+               if not (pathlib.Path(to_path) / rel).is_file()]
+    if missing:
+        raise MoveRefused(
+            f'the practice ships {", ".join(missing)}, and the destination '
+            f'does not carry {"it" if len(missing) == 1 else "them"}. Copy '
+            f'each file to the same path there first -- the practice, its '
+            f'checked_by script, that script\'s test and every `ships:` file '
+            f'land in one commit (spec/MOVING_PRACTICES.md)')
 
 
 def _rewrite_frontmatter(text, updates):
@@ -382,6 +410,7 @@ def move(slug, from_level, from_path, to_level, to_path, approved_by,
         if to_level == 'shared':
             _check_team_approver(to_path, approved_by)
         _check_checked_by(fm, to_level, to_path)
+        _check_ships(fm, to_path)
 
     from_name = pathlib.Path(from_path).resolve().name
     to_name = pathlib.Path(to_path).resolve().name
