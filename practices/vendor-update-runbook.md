@@ -309,6 +309,18 @@ says so, both from the vendored tree under `process/upstream/`.
    twice in one hop, 2026-09-21, and verified here against the tool's own
    git calls rather than taken on the report.
 
+   **A line upstream deleted itself is never counted as lost**, since
+   2026-09-26. Under the branch tiers your base branch takes the update by
+   Promote, later, so its committed tree is often one sync behind the
+   manifest; the check used to read every line upstream removed in between
+   as dropped local work (301 of them on one consumer, none real). It now
+   compares that tree against every upstream commit it could have come
+   from, and sets aside what upstream's own history deleted, saying how
+   many. **A `LOST` line it prints is a line upstream never had**: carry it
+   or pass `--accept-loss` knowingly -- never hand-write `upstream.commit`
+   to step around it
+   ([gotcha](../gotchas/gotcha-2026-09-26-the-carry-check-counted-upstream-s-own-deletions-as-lost.md)).
+
    **Then decide every earlier decline again, in this same change.** Any
    upstream practice this repo once declined or deferred ("a duplicate of
    our own rule", "not now") was declined as its text stood *then*. For each
