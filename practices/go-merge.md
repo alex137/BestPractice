@@ -147,10 +147,12 @@ several windows open that had two sessions promoting at once and racing
 urgency"*, strength: decided). That branch is the
 person's primary branch
 ([primary-branch](primary-branch.md)), and
-`python3 tools/precedent_branches.py --landing` names it: `pre-staging`,
-unless the person's `landing_branch` says `staging` -- then the branch the
+`python3 tools/precedent_branches.py --landing` names it: the branch the
 repository declares, `base_branch` in its `precedent.json`, which in most
-repositories is `main` -- or `main` itself, which skips staging but never
+repositories is `main` -- unless the person's `landing_branch` says
+`pre-staging`, the tiered route, opt-in per person since 2026-09-26 (Morgan:
+*"This forced pre-staging -> staging -> main should be mandatory for me, but
+not necessarily anyone else"*, strength: decided), or `main` itself, which skips staging but never
 the checks, and still answers to the repository's own rule about main. **Landing on pre-staging,
 bring it in first**: `python3 tools/precedent_branches.py
 --sync-pre-staging` creates it from staging when origin has none, then
