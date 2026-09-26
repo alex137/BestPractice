@@ -39,6 +39,28 @@ if [ -f .claude/hooks/commit-identity.sh ]; then
     echo "WARN: commit-identity.sh failed - commits may be authored as whatever git is already configured with" >&2
 fi
 
+# Clone every shared practice set precedent.json declares, beside this repo,
+# where the environment carries a credential (PRECEDENT_GIT_TOKEN and
+# PRECEDENT_SOURCE_BASE_URL -- documentation/PER_MACHINE_SETUP.md); pull the
+# ones already there. No credential: the tool names each set that is missing
+# and why, and startup carries on. It runs BEFORE the loader-block check below,
+# which otherwise compares AGENTS.md against sources that are not on disk.
+#
+# Until 2026-09-26 this step was not in the template. The only session-start
+# code that ran it was precedent-universal-catalogue.sh, a hook for practice
+# sets that every consumer is told to decline, so a consumer declaring a
+# shared set never got it cloned in a fresh container. Seen in a real consumer
+# that day: the set missing from every fresh container, and
+# precedent_sync_views.py --check reporting 36 differences that disappeared
+# once it was cloned by hand (gotchas/, "a declared shared set is never
+# cloned"). precedent_check.py's declared-sources-are-cloned fails a repo that
+# declares a shared set and wires nothing that clones it.
+if [ -f precedent.json ] && [ -f tools/precedent_source_bootstrap.py ]; then
+  python3 tools/precedent_source_bootstrap.py --sources-from . --remote-only false || true
+elif [ -f precedent.json ] && [ -f process/upstream/tools/precedent_source_bootstrap.py ]; then
+  python3 process/upstream/tools/precedent_source_bootstrap.py --sources-from . --remote-only false || true
+fi
+
 # Repair a single-branch clone's refspec before anything tries to fetch.
 # A repository attached mid-session (Claude Code's `add_repo`, and any
 # `git clone --single-branch`) is handed exactly one refspec --

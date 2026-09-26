@@ -9289,6 +9289,22 @@ def check_precedent_check_fires():
             git(repo, 'update-ref', 'refs/remotes/origin/main', c2)
         case('merge-target-is-beta-branch', _plant_mtib)
 
+        # declared-sources-are-cloned -- this repo declares three shared sets
+        # beside itself, and both .claude/hooks/session-start.sh and the
+        # tools/bootstrap.sh it runs clone them. Planted by deleting that
+        # line from both: the finding must name the missing clone step.
+        def _plant_dsac(repo):
+            for rel in ('tools/bootstrap.sh', '.claude/hooks/session-start.sh'):
+                rewrite(repo, rel, lambda t: re.sub(
+                    r'\n[^\n]*precedent_source_bootstrap\.py --teams-from[^\n]*',
+                    '', t))
+        case('declared-sources-are-cloned', _plant_dsac)
+        cases.append(('declared-sources-are-cloned: the planted finding names '
+                      'the missing session-start clone step',
+                      'no session-start step clones them' in
+                      planted.get('declared-sources-are-cloned', (0, ''))[1]
+                      or 'declared-sources-are-cloned' not in ran))
+
         # philosophy-is-not-repo-policy -- a practice whose ## Rule leans on
         # an essay for its authority, which is exactly the drift the
         # philosophy/ copy created the risk of. Planted in the EXPORTED
@@ -17947,6 +17963,34 @@ def check_source_clone_is_pinned_to_a_branch():
                       f'(got {branch_of(clone)!r}, {out!r})',
                       ok and branch_of(clone) == 'main'))
 
+        # Only a clone THIS tool made is moved (CLONE_MARKER). A checkout
+        # the harness or a person made may be a session's working copy: a
+        # practice set declares universal at ../BestPractice, and
+        # BestPractice declares it at `.`, itself.
+        cases.append(('a clone the tool made carries its marker',
+                      psb._is_marked_clone(clone)))
+        foreign = W / 'foreign'
+        git(W, 'clone', '-q', '--branch', 'main', str(src), str(foreign))
+        git(foreign, 'checkout', '-q', 'claude/feature')
+        ok, out = psb._try_sync(url, foreign)
+        cases.append((f'a checkout the tool did NOT make is left on its branch '
+                      f'(got {branch_of(foreign)!r}, {out!r})',
+                      (not ok) and branch_of(foreign) == 'claude/feature'
+                      and 'was not cloned by this tool' in out))
+        itself = W / 'itself'
+        git(W, 'clone', '-q', '--branch', 'main', str(src), str(itself))
+        (itself / 'practices').mkdir()
+        (itself / 'precedent.json').write_text(json.dumps({
+            'base_branch': 'main', 'sources': [
+                {'level': 'universal', 'name': 'precedent', 'path': '.'}]}),
+            encoding='utf-8')
+        git(itself, 'checkout', '-q', 'claude/feature')
+        res = psb.sources_from_repo(itself)
+        cases.append((f'a source declared at `.` does not move the repo itself '
+                      f'(got {branch_of(itself)!r}, {res!r})',
+                      branch_of(itself) == 'claude/feature'
+                      and res and 'declared inside this repository' in res[0][2]))
+
         git(clone, 'checkout', '-q', 'claude/feature')
         (clone / 'rule.md').write_text('work nobody committed\n', encoding='utf-8')
         ok, out = psb._try_sync(url, clone)
@@ -17979,6 +18023,38 @@ def check_source_clone_is_pinned_to_a_branch():
     failed = [n for n, ok in cases if not ok]
     check(f'a source clone is pinned to a branch rather than asking the '
           f'remote ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
+def check_consumer_bootstrap_clones_declared_sources():
+    """templates/bootstrap.sh must clone the shared sets a consumer declares,
+    before it checks the loader block against them.
+
+    Until 2026-09-26 it did not: the only session-start step that cloned
+    declared sources was precedent-universal-catalogue.sh, which consumers
+    decline, so a consumer's declared set was missing from every fresh
+    container and its loader block read as drifted (gotchas/, 2026-09-26).
+    Asserted with precedent_check's own pattern, so the template and the
+    check that fails a repo without the step cannot disagree about what the
+    step looks like. The negative control strips the step and must stop
+    matching."""
+    import precedent_check as pc
+    text = (ROOT / 'templates' / 'bootstrap.sh').read_text(encoding='utf-8')
+    code = '\n'.join(l for l in text.splitlines()
+                     if not l.lstrip().startswith('#'))
+    m = pc._SOURCE_CLONE_RE.search(code)
+    sync = code.find('precedent_sync_views.py --repo . --check')
+    stripped = '\n'.join(l for l in code.splitlines()
+                         if 'precedent_source_bootstrap.py' not in l)
+    cases = [
+        ('the template runs precedent_source_bootstrap.py --sources-from', bool(m)),
+        ('and runs it before the loader-block check',
+         bool(m) and sync != -1 and m.start() < sync),
+        ('negative control: without that line the pattern finds nothing',
+         not pc._SOURCE_CLONE_RE.search(stripped)),
+    ]
+    failed = [n for n, ok in cases if not ok]
+    check(f'the consumer bootstrap template clones declared shared sets '
+          f'({len(cases)} stated cases)', not failed, '; '.join(failed))
 
 
 def check_generator_wires_every_template_guard_mode():
@@ -24524,6 +24600,78 @@ def check_vendor_engine_retires_ci_workflow_files():
           f'stated cases)',
           not bad,
           '; '.join(f"{n} -- {d[:800]}" for n, d in bad))
+
+
+def check_ledger_accepts_a_row_added_with_its_change():
+    """practice: parallel-artifact-ledger, 2026-09-26. A commit cannot name
+    its own ID, so the ledger check now also accepts a row added IN the
+    commit that changed an adapter. Planted in a scratch history: a row
+    arriving with its change passes; a change with no row, or with a row
+    added only in a later commit, still fails; a row naming the change by
+    ID still passes."""
+    import shutil, tempfile
+    import precedent_check as pc
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-ledger-same-commit-'))
+    member = tmp / 'templates' / 'harness' / 'claude-code'
+    ledger = tmp / 'templates' / 'harness' / 'LEDGER.md'
+    head = ('| Date | Originating change | claude-code | codex | gemini-cli '
+            '| grok-build |\n|---|---|---|---|---|---|\n')
+
+    def g(*a):
+        return subprocess.run(['git', *a], cwd=str(tmp), capture_output=True,
+                              text=True, env=dict(os.environ,
+                              GIT_AUTHOR_NAME='t', GIT_AUTHOR_EMAIL='t@e.invalid',
+                              GIT_COMMITTER_NAME='t',
+                              GIT_COMMITTER_EMAIL='t@e.invalid'))
+
+    def commit(msg, hook_text=None, row=None):
+        if hook_text is not None:
+            (member / 'hook.sh').write_text(hook_text)
+        if row is not None:
+            ledger.write_text(ledger.read_text() + row + '\n')
+        g('add', '-A')
+        g('-c', 'core.hooksPath=/dev/null', 'commit', '-qm', msg)
+        return g('rev-parse', 'HEAD').stdout.strip()
+
+    old_root = pc.ROOT
+    cases = []
+    try:
+        member.mkdir(parents=True)
+        g('init', '-q')
+        ledger.write_text(head)
+        (tmp / 'README').write_text('x')
+        commit('root')                                   # repo root: exempt
+        commit('inception of claude-code', hook_text='v1')  # dir's first: exempt
+        with_row = commit('change with its row', hook_text='v2',
+                          row='| 2026-09-26 | the gate learns v2 | applied | none | none | none |')
+        pc.ROOT = tmp
+        f1 = [str(x) for x in pc._parallel_artifact_ledger(None)]
+        cases.append(('CONTROL: a row added in the same commit as the change '
+                      'passes, with no ID in it', f1 == []))
+        bare = commit('change with no row', hook_text='v3')
+        late = commit('row added later, without the ID',
+                      row='| 2026-09-26 | the gate learns v3 | applied | none | none | none |')
+        f2 = [str(x) for x in pc._parallel_artifact_ledger(None)]
+        cases.append(('a change with no row of its own still fails, even '
+                      'when a later commit adds an ID-less row',
+                      any(bare[:7] in x and 'no row references' in x
+                          for x in f2)))
+        cases.append(('...and the ledger-only commit is not an adapter '
+                      'change', not any(late[:7] in x for x in f2)))
+        commit('pin', row=f'| 2026-09-26 | [`{bare[:7]}`](x) pinned | applied | none | none | none |')
+        f3 = [str(x) for x in pc._parallel_artifact_ledger(None)]
+        cases.append(('a row naming the change by ID still passes, as before',
+                      f3 == []))
+        cases.append(('the same-commit row was the one that passed',
+                      pc._ledger_row_added_by(with_row) is True
+                      and pc._ledger_row_added_by(bare) is False))
+    finally:
+        pc.ROOT = old_root
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [c[0] for c in cases if not c[1]]
+    check(f'the ledger check accepts a row added with its change, and still '
+          f'fails a change with no row ({len(cases)} stated cases)',
+          not bad, '; '.join(bad))
 
 
 def check_ci_workflow_approved_pins_approval_to_content():
@@ -34706,6 +34854,7 @@ def main():
     check_promote_keeps_the_old_name_in_step()
     check_sync_copies_work_from_above_once_checked()
     check_source_clone_is_pinned_to_a_branch()
+    check_consumer_bootstrap_clones_declared_sources()
     check_generator_wires_every_template_guard_mode()
     check_verify_reports_a_source_wired_for_fewer_moments()
     check_verify_flags_missing_session_practices_ceiling()
@@ -34738,6 +34887,7 @@ def main():
     check_vendor_engine_retires_ci_workflow_files()
     check_workflow_file_outside_vendoring_detects_candidates()
     check_ci_workflow_approved_pins_approval_to_content()
+    check_ledger_accepts_a_row_added_with_its_change()
     check_ci_fleet_audit_reads_github_not_the_clone()
     check_session_start_warns_of_unapproved_workflow()
     check_workflow_write_gate_refuses_api_writes()

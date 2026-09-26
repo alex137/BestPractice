@@ -374,6 +374,11 @@ Built 2026-09-14, on Morgan's authorization:
   front of you is now the rule, because the fleet is re-read from scratch
   either way and a second session only adds its own context to the bill.
 
+- **Promotion Reviews**, added 2026-09-26 as the report's last section: per
+  repository active in the week, what waits on each promotion step and which
+  recent branches are stale, with their unlanded work judged. The rule is in
+  the practice's Detail.
+
 - **The tag namespaces**, [practices/session-tags.md](../practices/session-tags.md) —
   `subject:`, `repo:`, `role:`, `wants:`, applied in the `create_session` call
   and wired into [session-text](../practices/session-text.md), which is the
