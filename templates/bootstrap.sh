@@ -309,6 +309,26 @@ if [ -f tools/precedent_engine_freshness.py ]; then
     echo "WARN: source freshness did not run -- whether anything this repo vendors or resolves live is current is unknown this session" >&2
 fi
 
+# A WORKFLOW NOBODY APPROVED, said at session start (2026-09-26, practice:
+# ci-workflow-approved). The same check refuses a session's push, but a
+# workflow edited on GitHub's website or written through the API never
+# passes a push, and it bills from the moment it lands. This clone was just
+# taken from GitHub, so it holds such an edit already: say so before any
+# work starts, not at the first push. Loud when something is wrong, silent
+# otherwise, and it never gates.
+if [ -f tools/precedent_check.py ] && [ -f tools/ENGINE_MANIFEST.json ] && \
+   [ -d .github/workflows ]; then
+  # `|| _wf_rc=$?`: under this file's `set -e` a failing check inside $()
+  # would otherwise end the whole bootstrap.
+  _wf_rc=0
+  _wf_out=$(python3 tools/precedent_check.py --only ci-workflow-approved 2>&1) || _wf_rc=$?
+  if [ "$_wf_rc" -ne 0 ] && grep -q '^VIOLATION' <<<"$_wf_out"; then
+    echo "WARNING: a GitHub Actions workflow here has no approval, or changed since it was approved -- it may be spending Actions minutes now:" >&2
+    { grep -E '^    \.github/workflows/' <<<"$_wf_out" | cut -c1-400 >&2; } || true
+    echo "  Show the person each one and ask before doing anything else (practice: ci-workflow-approved)." >&2
+  fi
+fi
+
 # A bootstrap that blocks startup is worse than anything it protects against,
 # and `set -e` at the top would otherwise let a non-zero last command take the
 # session down. Every check here reports; none of them gates.

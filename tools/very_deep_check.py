@@ -7630,6 +7630,60 @@ def _main(box):
     if led:
         led.end(findings=_wr_n if (_wr_measured and not skip_liveness)
                 else None)
+        led.start('CI FLEET AUDIT')
+
+    # CI FLEET AUDIT (practice: ci-workflow-approved, 2026-09-26). WORKFLOW
+    # REALITY above reads the files in the trees on disk. This asks GitHub
+    # about every branch of every repo it can reach, which is where a
+    # workflow edited on the website, written through the API, or left on a
+    # side branch shows up -- none of those passes a session's push gate.
+    # Its report names other repositories, so it goes to this session's
+    # output only; a person pastes nothing from it into a repo or an issue.
+    # A subprocess, so its API bill is judged against its own budget.
+    _fa_n = None
+    _fa_here = pathlib.Path(__file__).resolve().parent
+    _fa_tool = _fa_here / 'ci_fleet_audit.py'
+    if skip_liveness:
+        print("CI FLEET AUDIT -- not asked (--skip-liveness), which is "
+              "UNVERIFIED, not clean.\n")
+    elif not _fa_tool.is_file():
+        print("CI FLEET AUDIT -- tools/ci_fleet_audit.py is not in this "
+              "tree; not run.\n")
+    else:
+        _fa_repos = []
+        for _name, _p in _orph_targets:
+            if pathlib.Path(_p).is_dir():
+                _s = _github_slug(_p)
+                if _s and _s not in _fa_repos:
+                    _fa_repos.append(_s)
+        try:
+            sys.path.insert(0, str(_fa_here))
+            import ci_fleet_audit as _cfa
+            for _s in _cfa.discover(_fa_here.parent):
+                if _s.lower() not in {x.lower() for x in _fa_repos}:
+                    _fa_repos.append(_s)
+        except Exception:                                      # noqa: BLE001
+            pass
+        _argv = [sys.executable, str(_fa_tool)]
+        for _s in _fa_repos:
+            _argv += ['--repo', _s]
+        try:
+            _fa = subprocess.run(_argv, capture_output=True, text=True,
+                                 timeout=1800)
+            print(_fa.stdout.rstrip())
+            _m = re.search(r'^ci_fleet_audit: (\d+) finding', _fa.stdout,
+                           re.M)
+            _fa_n = int(_m.group(1)) if _m else None
+            if _fa.returncode != 0:
+                print(f"  ci_fleet_audit exited {_fa.returncode}: "
+                      f"{_fa.stderr.strip()[-300:]}")
+        except subprocess.TimeoutExpired:
+            print("CI FLEET AUDIT -- timed out after 30 minutes; UNVERIFIED.")
+        print("\n  Read each FINDING (practice: ci-workflow-approved): a "
+              "workflow nobody approved,\n  or one that runs from a side "
+              "branch, is money spent without anyone deciding to.\n")
+    if led:
+        led.end(findings=_fa_n)
         led.start('DELETIONS PENDING')
 
     print("DELETIONS PENDING -- what the next refresh would take away, and "

@@ -524,6 +524,10 @@ ENGINE_FILES = [
     # upstream repo can do. See documentation/FOR_DEVELOPERS.md and
     # templates/GETTING_STARTED.md, which now say so.
     'very_deep_check.py',
+    # Its CI FLEET AUDIT section runs this beside it (2026-09-26): every
+    # workflow on every branch, asked of GitHub (practice:
+    # ci-workflow-approved).
+    'ci_fleet_audit.py',
     'parse_check.py',
     'precedent_bootstrap_source.py',
     # THE ONE CHECK THAT LOOKS OUTWARD (2026-09-21). Every other check in

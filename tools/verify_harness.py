@@ -23706,6 +23706,166 @@ def check_ci_workflow_approved_pins_approval_to_content():
           not bad, '; '.join(f'{n} -- {d[:1500]}' for n, d in bad))
 
 
+def check_session_start_warns_of_unapproved_workflow():
+    """practice: ci-workflow-approved, 2026-09-26. templates/bootstrap.sh
+    runs the check at session start, because a workflow edited on GitHub's
+    website is in a fresh clone before any push. Its block is run here as
+    the template has it, under the template's own `set -euo pipefail`: loud
+    for an unapproved workflow, silent for an approved one, and never ending
+    the bootstrap either way."""
+    import hashlib, shutil, tempfile
+    import precedent_vendor_engine as _pve
+    text = (ROOT / 'templates' / 'bootstrap.sh').read_text(encoding='utf-8')
+    start = text.find('# A WORKFLOW NOBODY APPROVED')
+    end = text.find('\nfi\n', start)
+    block = text[start:end + 4] if start >= 0 and end > 0 else ''
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-wf-sessionstart-'))
+    rel = '.github/workflows/light-check.yml'
+    body = 'name: Light check\non:\n  pull_request:\n    branches: [main]\n'
+    cases = [('the template carries the block', bool(block))]
+    try:
+        def run(approve):
+            c = tmp / ('approved' if approve else 'unapproved')
+            (c / 'tools').mkdir(parents=True)
+            (c / '.github' / 'workflows').mkdir(parents=True)
+            for n in _pve.KINDS['consumer']:
+                if n.endswith('.py') and (ROOT / 'tools' / n).is_file():
+                    shutil.copy2(ROOT / 'tools' / n, c / 'tools' / n)
+            (c / rel).write_text(body)
+            (c / 'tools' / 'ENGINE_MANIFEST.json').write_text(json.dumps(
+                {'kind': 'consumer', 'files': [], 'sha256': {},
+                 'ci_workflow_files': [], 'ci_workflows_sha256': {}}))
+            cfg = {'sources': []}
+            if approve:
+                cfg['github_ci_approved'] = {rel: {
+                    'sha256': hashlib.sha256(body.encode()).hexdigest(),
+                    'approved_by': 'Morgan, 2026-09-26: "keep it"'}}
+            (c / 'precedent.json').write_text(json.dumps(cfg))
+            script = 'set -euo pipefail\n' + block + '\necho REACHED-END\n'
+            p = subprocess.run(['bash', '-c', script], cwd=str(c),
+                               capture_output=True, text=True, timeout=120)
+            return p.stdout + p.stderr
+        loud, quiet = run(False), run(True)
+        cases += [
+            ('an unapproved workflow prints the WARNING naming the file',
+             'WARNING: a GitHub Actions workflow here has no approval' in loud
+             and rel in loud),
+            ('...and the bootstrap still runs to the end', 'REACHED-END' in loud),
+            ('CONTROL: an approved workflow prints nothing but the end',
+             quiet.strip() == 'REACHED-END'),
+        ]
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [c[0] for c in cases if not c[1]]
+    check(f'session start warns of an unapproved workflow, stays silent for '
+          f'an approved one, and never ends the bootstrap '
+          f'({len(cases)} stated cases)', not bad, '; '.join(bad))
+
+
+def check_ci_fleet_audit_reads_github_not_the_clone():
+    """practice: ci-workflow-approved, 2026-09-26. The push-time check sees
+    only a session's own pushes; tools/ci_fleet_audit.py asks GitHub, so it
+    sees a workflow edited on the website, one left on a side branch, and a
+    repository it cannot reach. Planted against a fake GitHub, so the
+    verdicts are a property of the code, not of the network."""
+    import base64, datetime, hashlib, io
+    import ci_fleet_audit as cfa
+
+    def b64(t):
+        return base64.b64encode(t.encode()).decode()
+
+    approved = 'name: ok\non:\n  pull_request:\n    branches: [main]\n'
+    rogue = 'name: rogue\non:\n  push:\n    branches: [main]\n'
+    side = 'name: side\non:\n  push:\n'
+    quiet = 'name: quiet\non:\n  pull_request:\n'
+    cron = ('name: nightly\non:\n  schedule:\n    - cron: "15 3 * * *"\n')
+    sha = hashlib.sha256(approved.encode()).hexdigest()
+    cfg = {'github_ci_approved': {'.github/workflows/ok.yml': {
+        'sha256': sha, 'approved_by': 'Morgan, 2026-09-26: "yes, that one"'}}}
+    blobs = {'b-ok': approved, 'b-rogue': rogue, 'b-side': side,
+             'b-quiet': quiet, 'b-cron': cron}
+
+    def listing(names):
+        return [{'name': n, 'type': 'file', 'sha': b} for n, b in names]
+
+    def fake(path):
+        o = 'repos/o/r'
+        routes = {
+            f'{o}': {'default_branch': 'main', 'private': True},
+            f'{o}/actions/workflows?per_page=100': {'workflows': []},
+            f'{o}/contents/precedent.json?ref=main':
+                {'content': b64(json.dumps(cfg))},
+            f'{o}/branches?per_page=100':
+                [{'name': 'main'}, {'name': 'stale'}, {'name': 'calm'}],
+            f'{o}/contents/.github/workflows?ref=main': listing(
+                [('ok.yml', 'b-ok'), ('rogue.yml', 'b-rogue'),
+                 ('nightly.yml', 'b-cron')]),
+            f'{o}/contents/.github/workflows?ref=stale': listing(
+                [('ok.yml', 'b-ok'), ('side.yml', 'b-side')]),
+            f'{o}/contents/.github/workflows?ref=calm': listing(
+                [('ok.yml', 'b-ok'), ('quiet.yml', 'b-quiet')]),
+        }
+        if path.startswith(f'{o}/actions/runs'):
+            return {'total_count': 2, 'workflow_runs': [
+                {'path': '.github/workflows/rogue.yml', 'event': 'push',
+                 'created_at': '2026-09-25T10:00:00Z'},
+                {'path': '.github/workflows/gone.yml', 'event': 'push',
+                 'created_at': '2026-09-24T10:00:00Z'}]}, None
+        if path.startswith(f'{o}/git/blobs/'):
+            return {'content': b64(blobs[path.rsplit('/', 1)[1]])}, None
+        if path in routes:
+            return routes[path], None
+        if path.startswith('repos/o/unreached'):
+            return {'message': 'GitHub access to this repository is not '
+                               'enabled for this session.'}, None
+        return {'message': 'Not Found'}, None
+
+    today = datetime.date(2026, 9, 26)
+    r = cfa.audit_repo('o/r', call=fake, today=today)
+    u = cfa.audit_repo('o/unreached', call=fake, today=today)
+    rows = '\n'.join(f'{v} {t}' for v, t in r['rows'])
+    buf = io.StringIO()
+    n = cfa.render([r, u], out=buf)
+    out = buf.getvalue()
+    cases = [
+        ('CONTROL: a workflow approved at this exact content is OK',
+         any(
+             v == 'OK' and 'ok.yml [main]' in t for v, t in r['rows'])),
+        ('a workflow nobody approved (say, edited on the website) is a '
+         'FINDING that names its push-on-main cost',
+         any(v == 'FINDING' and 'rogue.yml [main]' in t
+             and 'APPROVED BY NOBODY' in t and 'every merge bills a run' in t
+             for v, t in r['rows'])),
+        ('a side branch whose workflow runs on its own push is a FINDING',
+         any(v == 'FINDING' and 'side.yml on branch stale' in t
+             for v, t in r['rows'])),
+        ('CONTROL: a side branch whose workflow cannot run on a push is '
+         'only counted', 'quiet.yml' not in rows
+         and '1 workflow version(s) on 1 side branch(es)' in rows),
+        ('a workflow GitHub ran this week that is not on main is a FINDING',
+         any(v == 'FINDING' and 'gone.yml: not on main' in t
+             for v, t in r['rows'])),
+        ('every schedule lands in the CRON REVIEW, in plain words',
+         "'15 3 * * *' = daily at 03:15 UTC, ~30 runs/month -- NOT APPROVED"
+         in out),
+        ('a repository it cannot reach is NOT REACHED, never clean',
+         not u['reached'] and 'NOT REACHED' in out and 'o/unreached' in out),
+        ('the totals line counts the findings it printed',
+         f'ci_fleet_audit: {n} finding(s) in 1 repo(s) reached; 1 not '
+         f'reached.' in out and n == 4),
+        ('a push trigger limited to tags never fires on a branch push',
+         not cfa.push_fires({'push': {'tags': ['v*']}}, 'main')
+         and cfa.push_fires({'push': {'branches': ['rel/*']}}, 'rel/1')
+         and not cfa.push_fires({'push': {'branches-ignore': ['x']}}, 'x')),
+    ]
+    bad = [c[0] for c in cases if not c[1]]
+    check(f'ci_fleet_audit reads GitHub: approved passes, an unapproved '
+          f'workflow, a push-triggered side branch and a stray run are '
+          f'findings, crons are listed, the unreachable is named '
+          f'({len(cases)} stated cases)',
+          not bad, '; '.join(bad) + ' -- ' + out[-1500:])
+
+
 def check_workflow_file_outside_vendoring_detects_candidates():
     """THE INCIDENT this guards against (practice: workflow-file-outside-
     vendoring), 2026-09-20: a sweep list built by matching workflow
@@ -33555,6 +33715,8 @@ def main():
     check_vendor_engine_retires_ci_workflow_files()
     check_workflow_file_outside_vendoring_detects_candidates()
     check_ci_workflow_approved_pins_approval_to_content()
+    check_ci_fleet_audit_reads_github_not_the_clone()
+    check_session_start_warns_of_unapproved_workflow()
     check_very_deep_check_workflow_liveness_scan()
     check_rule_rewrite_detection()
     check_source_shape_is_verified()

@@ -93,7 +93,18 @@ makes. It binds any repo that keeps a `.github/workflows/` directory
 (`binds_when`), whether or not the practice text resolved there, and reports
 "not applicable" in BestPractice itself, which has no engine manifest.
 
-**What it cannot see:** whether a quote is genuine, and a workflow added
-through the GitHub API or web editor, which never passes a session's push
-gate. The check running in the repo's own CI, or the next local run,
-catches the second.
+**What the push check cannot see, and what covers it** (2026-09-26):
+
+- **A workflow added through the GitHub API or edited on the website**
+  never passes a session's push. Every session start runs the same check on
+  the fresh clone and prints a loud warning
+  ([templates/bootstrap.sh](https://github.com/alex137/BestPractice/blob/staging/templates/bootstrap.sh)),
+  so it is named before the first piece of work.
+- **A workflow on a side branch, one GitHub ran that is no longer on the
+  default branch, a schedule, or a repo that is not a Precedent install**
+  is visible only to GitHub.
+  [tools/ci_fleet_audit.py](https://github.com/alex137/BestPractice/blob/staging/tools/ci_fleet_audit.py)
+  asks GitHub about every branch of every repo it can reach, and the very
+  deep check runs it (item 22). Its report stays in the session.
+- **Whether a quote is genuine** is beyond any check. An invented one is
+  written down where a reader will see it.
