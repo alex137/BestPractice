@@ -1235,6 +1235,13 @@
       ],
       "gates_why": "An update lands as a merge, and the merge is the last moment the sequence can still be checked before it is someone else's committed history."
     },
+    "verdict-not-mechanism": {
+      "globs": [
+        "**"
+      ],
+      "why": "No locus. It fires when a tool's output reaches a reply, which is a moment, not a file -- the same reason small-calls has none. Reached through the reply gate and the occasion index.",
+      "decided": "2026-09-26, when the practice landed at universal"
+    },
     "verify-decomposition": {
       "globs": [
         "**"
