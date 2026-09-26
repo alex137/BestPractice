@@ -383,7 +383,7 @@ When a person explicitly asks for a "very deep check", or after work that invite
 When a person explicitly asks for a full practice audit (or "practice check"):
   full-practice-audit — every source's catalogue, one practice at a time; on request only
 When a person says "Chief of Staff":
-  chief-of-staff — on request only; name the window read, link every session; Promotion Reviews last
+  chief-of-staff — on request; name the window read, link every session; Promotion Reviews last
 When a person says "Drop it" about an open item or a question:
   park-it — mark the item `parked` now; never raise it unprompted again
 When a person says "My options", or asks to see a decision's options or hand them off:

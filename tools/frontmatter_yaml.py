@@ -231,6 +231,9 @@ def own_practice_files(root=None):
 
 
 def main(argv):
+    if argv and argv[0] in ('-h', '--help'):
+        print(__doc__)
+        return 0
     if not argv or argv[0] not in ('--fix-order', '--check-order'):
         print(__doc__)
         return 2
