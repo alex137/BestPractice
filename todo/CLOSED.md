@@ -4,6 +4,7 @@
 
 | Item | What | Status | Closed |
 |---|---|---|---|
+| [`todo-2026-09-26-create-word-doc-declares-its-script`](todo-2026-09-26-create-word-doc-declares-its-script.md) | `create-word-doc` in `precedent-shared-writing` adds `ships: ["tools/create_word_doc.py"]` to its frontmatter | done | 2026-09-26 |
 | [`todo-2026-09-21-a-new-hook-cannot-reach-an-installed-consumer`](todo-2026-09-21-a-new-hook-cannot-reach-an-installed-consumer.md) | Fixed 2026-09-25: a refresh now wires the hooks a repo's kind gets | done | 2026-09-25 |
 | [`todo-2026-09-21-a-dropped-hook-never-leaves-a-consumer`](todo-2026-09-21-a-dropped-hook-never-leaves-a-consumer.md) | A hook dropped upstream stays installed in every consumer, forever. | done | 2026-09-22 |
 | [`todo-2026-09-21-deep-check-definition-omits-the-ci-shards`](todo-2026-09-21-deep-check-definition-omits-the-ci-shards.md) | What this repository calls a "deep check" runs tools/verify_harness.py the one way that cannot catch the class of bug go | done | 2026-09-22 |

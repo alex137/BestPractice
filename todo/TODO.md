@@ -82,7 +82,6 @@
 | [`todo-2026-09-20-the-load-budget-registry-asserts-loads-nothing-verifies`](todo-2026-09-20-the-load-budget-registry-asserts-loads-nothing-verifies.md) | tools/session_load_budgets.json declares what every session loads, and nothing checks that any of it is loaded. | 6d | wait |  |
 | [`todo-2026-09-22-ported-identity-checks-have-no-planted-harness-cases`](todo-2026-09-22-ported-identity-checks-have-no-planted-harness-cases.md) | `tools/checks/check_commit_author.py` and `check_buenos_aires_dates.py`, ported to this repo from precedent-individual ( | 4d | ask |  |
 | [`todo-2026-09-22-session-practices-slug-can-render-twice`](todo-2026-09-22-session-practices-slug-can-render-twice.md) | tools/precedent_session_practices.py's `collect()` can render the same slug twice in front of a session | 4d | raise |  |
-| [`todo-2026-09-26-create-word-doc-declares-its-script`](todo-2026-09-26-create-word-doc-declares-its-script.md) | `create-word-doc` in `precedent-shared-writing` adds `ships: ["tools/create_word_doc.py"]` to its frontmatter | 0d | wait | precedent-shared-writing not attached with push this session |
 
 ## Verify Before External Use
 
