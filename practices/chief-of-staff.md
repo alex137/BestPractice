@@ -15,7 +15,9 @@ in_force_at: null
 supersedes:  []
 overrides:   null
 added:       "2026-09-14"
-approved_by: "extended 2026-09-26, Morgan (strength: decided) -- asked
+approved_by: "extended 2026-09-26 again, Morgan (strength: decided) --
+  the branch list is a one-click page, never a downloaded file;
+  extended 2026-09-26, Morgan (strength: decided) -- asked
   for a Promotion Reviews section, last in the report, covering staging
   into main, pre-staging into staging, and a stale-branch review with its
   unlanded work read; the state-based reading of stale and of uncommitted
@@ -151,6 +153,15 @@ homework.
 load-bearing rather than tidy, and the practice above says why: a branch with
 no merged pull request may be carrying work, and presenting it beside proven
 deletions is how the work gets thrown away.
+
+**The list is delivered as a page the person opens with one click, never as
+a file to download.** Where the session can publish a hosted page (a Claude
+Artifact, for one), the full sweep goes there: every row a live delete link,
+grouped by repository, smallest first, with the total at the top. The reply
+gives the total, the per-repository counts and the page's link. A markdown or
+text file handed over as an attachment fails this, because opening it means
+downloading it first, and the links inside are dead text until then. Where
+nothing can publish a page, the rows go into the reply itself.
 
 **This stays inside "it does not do the work."** The sweep emits links; the
 person clicks them. A Chief of Staff that started deleting branches would be
@@ -352,6 +363,12 @@ branches are stale, with any uncommitted work on them read and judged. A
 Chief of Staff cannot see another session's container, so the session
 resolved "uncommitted" into the two things it can read: the owning session's
 own archive line, and the commits a branch carries that landed nowhere.
+
+**The page replaced an attached file the same day.** The first sweep under
+Promotion Reviews handed its 267 delete links over as a markdown file, and
+Morgan pointed out that opening one means downloading it: *"the branches to
+merge list should be an artefact so I can click and open and it has the
+links (with an .md I need to download it and I want to avoid that)."*
 
 ## Install
 The sweeper is a Routine on the person's own account, created once — it is not
