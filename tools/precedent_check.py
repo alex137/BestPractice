@@ -4572,13 +4572,69 @@ def _approval_problem(entry):
     return None
 
 
+def _workflow_triggers_plain(text):
+    """_workflow_triggers without PyYAML: the top-level `on:` block read by
+    line -- an inline value (`on: push`, `on: [push, pull_request]`), or
+    each event key under it with the branches or cron it names. The same
+    one-line shape the parsed version gives. '' when there is no `on:`."""
+    import re as _re
+    lines = text.splitlines()
+    start = next((i for i, l in enumerate(lines)
+                  if _re.match(r"""^['"]?on['"]?\s*:""", l)), None)
+    if start is None:
+        return ''
+    inline = lines[start].split(':', 1)[1].split('#', 1)[0].strip()
+    if inline:
+        return inline.strip('[]').replace(' ', '').replace(',', ', ')
+    parts, event, indent, detail = [], None, None, []
+
+    def flush():
+        if event is not None:
+            parts.append(f'{event} {detail}' if detail else event)
+
+    for line in lines[start + 1:]:
+        if not line.strip() or line.lstrip().startswith('#'):
+            continue
+        if not line[0].isspace():
+            break
+        depth = len(line) - len(line.lstrip())
+        key = _re.match(r'^\s*([A-Za-z_][\w-]*)\s*:\s*(.*)$', line)
+        if indent is None:
+            indent = depth
+        if depth == indent and key:
+            flush()
+            event, detail = key.group(1), []
+            continue
+        body = line.split('#', 1)[0].strip()
+        branches = _re.match(r'^branches\s*:\s*\[(.*)\]', body)
+        if branches:
+            detail += [b.strip().strip("'\"") for b in branches.group(1).split(',')
+                       if b.strip()]
+        cron = _re.match(r"""^-\s*cron\s*:\s*['"]?([^'"]+)""", body)
+        if cron:
+            detail.append(cron.group(1).strip())
+    flush()
+    return ', '.join(parts)
+
+
 def _workflow_triggers(path):
     """-> a one-line summary of a workflow's `on:` keys, for the finding --
     the person approving needs to see WHEN it runs, since that is what
     costs. '' when it cannot be read."""
     try:
+        text = path.read_text(encoding='utf-8')
+    except OSError:
+        return ''
+    try:
         import yaml
-        doc = yaml.safe_load(path.read_text(encoding='utf-8'))
+    except ImportError:
+        # GitHub's runner has no PyYAML, and the finding lost its "It runs
+        # on" there while passing everywhere a session runs (2026-09-25,
+        # the pull request of staging into main). A workflow's `on:` block
+        # is plain enough to read by line, so it is read that way.
+        return _workflow_triggers_plain(text)
+    try:
+        doc = yaml.safe_load(text)
     except Exception:                                          # noqa: BLE001
         return ''
     if not isinstance(doc, dict):
