@@ -19755,6 +19755,158 @@ def check_update_refuses_while_a_branch_is_pinned():
           f'({len(cases)} stated cases)', not failed, '; '.join(failed))
 
 
+def check_carry_check_never_counts_upstream_deletions():
+    """`checkin.py record`'s carry check never reports a line upstream
+    deleted itself as lost, and still reports a line upstream never had.
+
+    Reproduced 2026-09-26 on a real consumer: 301 "LOST" lines, every one a
+    line BestPractice had deleted between the two syncs. The consumer's base
+    branch takes work by Promote, so it still held the PREVIOUS sync while
+    the manifest named the new one; diffing that committed tree against the
+    new commit alone made every upstream deletion in between look like
+    dropped local work. The session could not confirm them one by one, so
+    it wrote the commit by hand -- the fourth consumer update in a row to
+    step around the guard, which is how a guard stops guarding.
+
+    Three stated cases, each run through the consumer's own vendored copy
+    (see check_update_refuses_while_a_branch_is_pinned for why), and each
+    reading the message rather than the exit code alone:
+      * the incident: committed tree one sync behind the manifest;
+      * a stale committed stamp, so only upstream's own deletion history can
+        explain the line -- the second of the two mechanisms;
+      * a real local line upstream never wrote: still refused, still named.
+    """
+    import tempfile, json as _json, shutil as _shutil
+    src = ROOT / 'tools' / 'checkin.py'
+    if not src.exists():
+        not_applicable('carry check never counts upstream deletions',
+                       'tools/checkin.py is not present in this tree')
+        return
+
+    def _git(d, *a):
+        return subprocess.run(['git', '-C', str(d)] + list(a),
+                              capture_output=True, text=True)
+
+    def _ident(d):
+        _git(d, 'config', 'user.email', 'harness@example.com')
+        _git(d, 'config', 'user.name', 'Harness')
+        _git(d, 'config', 'commit.gpgsign', 'false')
+
+    tools = {n: (ROOT / 'tools' / n).read_text(encoding='utf-8')
+             for n in ('checkin.py', 'precedent_time.py')}
+    # Upstream history: A, then B ADDS "gamma", then C DELETES "beta" and
+    # "gamma" -- upstream's own deletions -- and adds "delta".
+    history = [
+        ('A', 'alpha line one\nbeta line two\n'),
+        ('B', 'alpha line one\nbeta line two\ngamma line three\n'),
+        ('C', 'alpha line one\ndelta line four\n'),
+    ]
+
+    def _upstream(base):
+        up = base / 'upstream'
+        (up / 'tools').mkdir(parents=True)
+        _git(up, 'init', '-q', '-b', 'main'); _ident(up)
+        shas = {}
+        for name, text in history:
+            (up / 'notes.md').write_text(text, encoding='utf-8')
+            for n, t in tools.items():
+                (up / 'tools' / n).write_text(t, encoding='utf-8')
+            _git(up, 'add', '-A'); _git(up, 'commit', '-qm', name)
+            shas[name] = _git(up, 'rev-parse', 'HEAD').stdout.strip()
+        clone = base / 'clone'
+        subprocess.run(['git', 'clone', '-q', str(up), str(clone)],
+                       capture_output=True)
+        return clone, shas
+
+    def _consumer(base, clone, committed_at, committed_stamp, working_commit,
+                  extra_line=''):
+        """A consumer whose origin/main holds the vendored tree mirrored
+        from `committed_at` (plus `extra_line`, a local addition) with a
+        committed manifest stamped `committed_stamp`, and whose working
+        tree has since been updated to the clone's HEAD with the manifest
+        naming `working_commit`."""
+        origin, repo = base / 'origin.git', base / 'consumer'
+        repo.mkdir(parents=True)
+        _git(base, 'init', '-q', '--bare', '-b', 'main', str(origin))
+        _git(repo, 'init', '-q', '-b', 'main'); _ident(repo)
+        _git(repo, 'remote', 'add', 'origin', str(origin))
+        vend = repo / 'process' / 'upstream'
+
+        def _mirror(ref):
+            if vend.exists():
+                _shutil.rmtree(vend)
+            (vend / 'tools').mkdir(parents=True)
+            for rel in ('notes.md', 'tools/checkin.py', 'tools/precedent_time.py'):
+                (vend / rel).write_text(_git(clone, 'show', f'{ref}:{rel}').stdout,
+                                        encoding='utf-8')
+
+        def _manifest(commit):
+            (repo / 'process' / 'manifest.json').write_text(_json.dumps(
+                {'upstream': {'repo': 'x/y', 'branch': 'main', 'commit': commit,
+                              'synced_from': commit}, 'practices': []}),
+                encoding='utf-8')
+
+        (repo / 'precedent.json').write_text('{"base_branch": "main"}\n',
+                                             encoding='utf-8')
+        _mirror(committed_at)
+        if extra_line:
+            with (vend / 'notes.md').open('a', encoding='utf-8') as fh:
+                fh.write(extra_line + '\n')
+        _manifest(committed_stamp)
+        _git(repo, 'add', '-A'); _git(repo, 'commit', '-qm', 'vendored')
+        _git(repo, 'push', '-q', 'origin', 'main')
+        # The update, landed in the working tree but not on origin/main yet.
+        _mirror('HEAD')
+        _manifest(working_commit)
+        return repo
+
+    def _record(repo, clone):
+        script = repo / 'process' / 'upstream' / 'tools' / 'checkin.py'
+        r = subprocess.run([sys.executable, str(script), 'record', str(clone)],
+                           capture_output=True, text=True, cwd=str(repo),
+                           timeout=180)
+        return r.returncode, r.stdout + r.stderr
+
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        base = pathlib.Path(td)
+        clone, sha = _upstream(base / 'up')
+
+        # 1. The incident: origin/main still holds the sync from B, the
+        #    manifest already names C.
+        rc, out = _record(_consumer(base / 'one', clone, sha['B'], sha['B'],
+                                    sha['C']), clone)
+        cases.append(('a committed tree one sync behind the manifest records '
+                      'cleanly', rc == 0 and 'checkin record OK' in out))
+        cases.append(('and names no upstream deletion as LOST',
+                      'LOST' not in out and 'gamma' not in out))
+
+        # 2. A committed tree mirrored from B but stamped A (a hand-written
+        #    stamp gone stale). "gamma" is in no base's tree; only upstream's
+        #    own deletion of it between A and C explains its absence.
+        rc, out = _record(_consumer(base / 'two', clone, sha['B'], sha['A'],
+                                    sha['A']), clone)
+        cases.append(('a stale committed stamp still records cleanly',
+                      rc == 0 and 'checkin record OK' in out))
+        cases.append(('and says it set aside upstream\'s own deletions',
+                      "upstream's own deletions" in out))
+
+        # 3. A real loss: a line nobody upstream ever wrote.
+        rc, out = _record(_consumer(base / 'three', clone, sha['B'], sha['B'],
+                                    sha['C'], extra_line='a local line upstream never had'),
+                          clone)
+        cases.append(('a line upstream never wrote is still refused',
+                      rc != 0 and 'MISSING from the landed upstream' in out))
+        cases.append(('and is the one line named LOST',
+                      'a local line upstream never had' in out
+                      and 'gamma line three' not in out
+                      and 'beta line two' not in out))
+
+    failed = [n for n, ok in cases if not ok]
+    check(f'checkin.py record never counts upstream\'s own deletions as lost '
+          f'({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
 def check_bare_sync_warning_ignores_prose_mentions():
     """_warn_bare_sync_invocations flags a real bare invocation of
     precedent_sync_views.py, never a shell guard or a markdown link that
@@ -34955,6 +35107,7 @@ def main():
     check_repo_reference_allowlist()
     check_leak_gate_scans_the_consuming_repo()
     check_update_refuses_while_a_branch_is_pinned()
+    check_carry_check_never_counts_upstream_deletions()
     check_bare_sync_warning_ignores_prose_mentions()
     check_leftover_pack_is_flagged_after_migration()
     check_detect_restated_fires()

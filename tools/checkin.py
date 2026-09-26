@@ -937,6 +937,54 @@ def _base_is_present(clone, base):
     return _git_rc(clone, 'cat-file', '-e', f'{base}^{{commit}}')[0] == 0
 
 
+def _committed_tree_bases(clone, base, dep_ref):
+    """-> every upstream commit the vendored tree committed on `dep_ref`
+    could have been mirrored from: `base` (the working manifest's
+    upstream.commit) plus the `synced_from` and `commit` the manifest
+    committed on that same ref records. Each one is checked present in the
+    clone, deepening once, for the same reason `base` is; a committed stamp
+    that still is not there is named and left out, never guessed at."""
+    rel = MANIFEST.relative_to(ROOT).as_posix()
+    rc, text = _git_rc(ROOT, 'show', f'{dep_ref}:{rel}')
+    stamps = []
+    if rc == 0:
+        try:
+            up = json.loads(text).get('upstream', {})
+            stamps = [up.get('synced_from'), up.get('commit')]
+        except ValueError:
+            pass
+    bases = [base]
+    for s in stamps:
+        if not isinstance(s, str) or not s.strip() or any(_same_commit(s, b) for b in bases):
+            continue
+        if not _base_is_present(clone, s):
+            subprocess.run(['git', '-C', str(clone), 'fetch', '--depth=1000', 'origin',
+                            _tracked_branch(clone)], capture_output=True, text=True)
+        if _base_is_present(clone, s):
+            bases.append(s)
+        else:
+            print(f"NOTICE: carry check: {dep_ref}'s committed {rel} records upstream "
+                  f"{s[:12]}, which is not in {clone} even after deepening -- lines "
+                  f"upstream changed since then may be reported as lost; each one is "
+                  f"still checked against upstream's own deletions.")
+    return bases
+
+
+def _upstream_deleted_lines(clone, bases, rel):
+    """-> every line an upstream commit between any of `bases` and the
+    clone's HEAD removed from `rel`. A line in that set that the committed
+    tree has and the landed tree lacks is upstream's own deletion."""
+    out = set()
+    for b in bases:
+        rc, log = _git_rc(clone, 'log', '-p', '--format=', '--no-renames',
+                          f'{b}..HEAD', '--', rel)
+        if rc != 0:
+            continue
+        out.update(l[1:] for l in log.splitlines()
+                   if l.startswith('-') and not l.startswith('---'))
+    return out
+
+
 def _carry_check(clone, accept_loss):
     """No pending vendored addition may vanish across a check-in cycle.
 
@@ -963,6 +1011,22 @@ def _carry_check(clone, accept_loss):
     hand. That manual verification is the half a session skips, and the
     tempting shortcut is `--accept-loss`, which would accept a loss nobody
     measured -- turning the guard against silent data loss into its cause.
+
+    UPSTREAM'S OWN DELETIONS ARE NEVER A LOSS, and two things make sure of
+    it (2026-09-26, a real consumer: 301 "LOST" lines, every one a line
+    BestPractice had deleted itself). The committed tree is read from the
+    dependent's base branch, and under the branch tiers that branch takes
+    work by Promote, later -- so it routinely holds an OLDER sync than the
+    manifest names, and a hand-written `upstream.commit` widens the gap.
+    Diffing it against the manifest's commit alone made every line upstream
+    changed in between look local, and every one upstream deleted look lost.
+    So: (1) a line is pending only if it is absent from the upstream tree at
+    EVERY commit the committed tree could have come from -- the working
+    manifest's commit and the committed manifest's own `synced_from` and
+    `commit`, read off the same ref; and (2) a line still missing after that
+    which an upstream commit between one of those and the landed HEAD
+    deleted is reported as upstream's deletion and not counted. A line
+    upstream never wrote still fails the check, exactly as before.
     """
     base = _manifest().get('upstream', {}).get('commit')
     if not base:
@@ -1007,20 +1071,24 @@ def _carry_check(clone, accept_loss):
                               'refs/remotes/origin/HEAD').strip().rsplit('/', 1)[-1]
                   or 'main')
     prefix = UPSTREAM.relative_to(ROOT).as_posix()
+    bases = _committed_tree_bases(clone, base, f'origin/{dep_branch}')
     names = _dep_git('ls-tree', '-r', '--name-only', f'origin/{dep_branch}', prefix).split()
     landed_all = None
     lost = []
+    upstream_deleted = 0
     for name in names:
         rel = name[len(prefix) + 1:]
         committed = _dep_git('show', f'origin/{dep_branch}:{name}')
-        # rc is now consulted, and it can only mean one thing: the base
-        # commit is present (asserted above), so a non-zero exit here says
-        # this path did not exist at base -- a genuinely new file, every
-        # line of which really is pending.
-        rc, base_txt = _git_rc(clone, 'show', f'{base}:{rel}')
-        if rc != 0:
-            base_txt = ''
-        pending = set(committed.splitlines()) - set(base_txt.splitlines())
+        # rc is now consulted, and it can only mean one thing: every base
+        # is present (asserted above and in _committed_tree_bases), so a
+        # non-zero exit here says this path did not exist at that base -- a
+        # genuinely new file there, every line of which really is pending.
+        from_upstream = set()
+        for b in bases:
+            rc, base_txt = _git_rc(clone, 'show', f'{b}:{rel}')
+            if rc == 0:
+                from_upstream.update(base_txt.splitlines())
+        pending = set(committed.splitlines()) - from_upstream
         pending = {l for l in pending if len(l.strip()) > 3}
         if not pending:
             continue
@@ -1034,7 +1102,16 @@ def _carry_check(clone, accept_loss):
                                         in ('.md', '.py', '.sh', '.json', '.yml', '.template'))
             missing = {l for l in missing if l not in landed_all}
         if missing:
+            deleted_upstream = _upstream_deleted_lines(clone, bases, rel)
+            upstream_deleted += len(missing & deleted_upstream)
+            missing -= deleted_upstream
+        if missing:
             lost.append((rel, sorted(missing)))
+    if upstream_deleted:
+        print(f"carry check: {upstream_deleted} line(s) the committed tree has and the "
+              f"landed tree lacks were deleted by upstream itself (git log between "
+              f"{', '.join(b[:12] for b in bases)} and the clone's HEAD) -- upstream's "
+              f"own deletions, not a loss; not counted.")
     if not lost:
         return
     for rel, lines in lost:
