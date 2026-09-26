@@ -6,7 +6,7 @@ severity:    default
 applies_to:  ["**"]
 occasion:    "a person says \"Drop it\" about an open item or a question"
 gates:       ["reply"]
-index_clause: "\"Drop it\" -- mark the item `parked` now; never raise it unprompted again"
+index_clause: "mark the item `parked` now; never raise it unprompted again"
 checked_by:  null
 defines:     ["Drop it"]
 command:     {"Drop it": "Mark the open question as parked and drop the subject. It won't be raised again unless you raise it."}

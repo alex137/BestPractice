@@ -5,9 +5,9 @@ tier:        on-demand
 severity:    default
 scope:       any-adopter
 applies_to:  ["**"]
-occasion:    "a branch has done its job -- a pull request merged, a tidy-up, or a person saying to delete some branches"
+occasion:    "a branch has done its job, or a person says to delete branches"
 gates:       []
-index_clause: "never attempt a remote branch delete; hand over the one-click link"
+index_clause: "never delete a remote branch; hand over the one-click link"
 index_required: true
 checked_by:  null
 defines:     []

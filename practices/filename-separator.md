@@ -4,9 +4,9 @@ title:       One word separator per directory, and never two for the same kind
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
-occasion:    "adding a file to a directory that already holds files of the same kind"
+occasion:    "adding a file beside others of its kind"
 gates:       []
-index_clause: "one word separator per directory and file kind -- never both - and _"
+index_clause: "one word separator per directory and kind; never both - and _"
 checked_by:  "tools/precedent_check.py"
 defines:     []
 status:      active

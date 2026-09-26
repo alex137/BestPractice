@@ -4,7 +4,7 @@ title:       Attach the individual set, never clone it by hand
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
-occasion:    "attaching a practice source to a session with the repo-attach tool, or that tool's reply says to clone what it attached"
+occasion:    "attaching a practice source with the repo-attach tool, or its reply says to clone"
 gates:       []
 index_clause: "attach the individual set, never hand-clone it; shared sets clone beside"
 checked_by:  null

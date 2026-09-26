@@ -4,9 +4,9 @@ title:       The clone on disk answers first — GitHub's search API is the scar
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
-occasion:    "about to search a repository, or reaching for a GitHub search or file-read tool for something the local clone already holds"
+occasion:    "about to search a repo, or use a GitHub tool for what the clone holds"
 gates:       []
-index_clause: "grep the clone; a repo-scoped list before a search; fewer windows at once"
+index_clause: "grep the clone first; list before search; fewer windows at once"
 checked_by:  null
 defines:     ["search allowance"]
 status:      active
