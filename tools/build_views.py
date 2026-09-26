@@ -699,6 +699,75 @@ def _index_clause(fm, sections):
     return _occasion_clause(sections.get('rule', ''))
 
 
+_INDEX_CLAUSE_LINE_RE = re.compile(r'^index_clause:.*$', re.M)
+
+
+def over_long_index_clauses(practices, root):
+    """-> [(path, length)] for each on-demand practice this repo AUTHORS whose
+    index_clause is over INDEX_CLAUSE_MAX and was written or changed since
+    the base branch.
+
+    WHY THE GENERATOR REFUSES, and not only the test suite (2026-09-26). A
+    session extended chief-of-staff's clause to 81 characters, ran this tool,
+    and got the 81 characters rendered into the occasion index without a
+    word. The limit was a constant here and a sentence in
+    spec/PRACTICE_FORMAT.md, and nothing put it in front of the writer at
+    the moment of writing. Only verify_harness.py compared the two, and a
+    push to pre-staging does not run it, so the next session to run the full
+    check inherited the failure. A model cannot count characters by eye
+    either, so the limit has to be measured by the tool the writer already
+    runs (practice: checkable-gets-checked).
+
+    WHY ONLY A CHANGED CLAUSE, IN A REPO THAT WROTE IT. The practice sets
+    were never held to the limit and carry longer clauses already; this
+    runs in them at every session start, where refusing an old clause would
+    stop the refresh over text nobody touched that day. A consumer's
+    practices/ is materialized from other sources, so a clause there is
+    never its own to shorten. What is refused is the case this exists for:
+    a clause somebody in THIS repo just wrote or edited."""
+    try:
+        kind = json.loads((root / 'tools' / 'ENGINE_MANIFEST.json')
+                          .read_text(encoding='utf-8')).get('kind')
+    except OSError:
+        kind = 'source'        # no manifest: the repo the engine comes from
+    except ValueError:
+        kind = None
+    if kind != 'source':
+        return []
+    try:
+        base = json.loads((root / 'precedent.json').read_text(
+            encoding='utf-8')).get('base_branch') or 'main'
+    except (OSError, ValueError):
+        base = 'main'
+    ref = f'origin/{base}'
+    if subprocess.run(['git', '-C', str(root), 'rev-parse', '--verify', '-q',
+                       ref], capture_output=True).returncode != 0:
+        ref = 'HEAD'
+    out = []
+    for fm, _sections, f in practices:
+        # Only an on-demand clause is rendered, in the occasion index; the
+        # harness asks the same of the same set.
+        if fm.get('tier') != 'on-demand':
+            continue
+        clause = _json_str(fm.get('index_clause', ''))
+        if len(clause) <= INDEX_CLAUSE_MAX:
+            continue
+        try:
+            rel = pathlib.Path(f).resolve().relative_to(root.resolve())
+            now = _INDEX_CLAUSE_LINE_RE.search(f.read_text(encoding='utf-8'))
+        except (OSError, ValueError):
+            out.append((f, len(clause)))
+            continue
+        was = subprocess.run(['git', '-C', str(root), 'show',
+                              f'{ref}:{rel.as_posix()}'],
+                             capture_output=True, text=True)
+        before = (_INDEX_CLAUSE_LINE_RE.search(was.stdout)
+                  if was.returncode == 0 else None)
+        if not (now and before and now.group(0) == before.group(0)):
+            out.append((f, len(clause)))
+    return out
+
+
 def _occasion_clause(rule_text, max_len=90):
     """First sentence of a practice's Rule, collapsed to one line, for the
     occasion index. Joins the whole first paragraph (not just its first
@@ -2194,6 +2263,11 @@ def main():
     # GLOSSARY conventions.
     agents_only = '--agents-only' in argv
     practices = load_practices(practices_dir)
+    too_long = over_long_index_clauses(practices, root)
+    if too_long:
+        sys.exit('build_views FAIL: index_clause over the '
+                 f'{INDEX_CLAUSE_MAX}-character limit -- shorten it:\n' +
+                 '\n'.join(f'  {f.name}: {n} characters' for f, n in too_long))
 
     # MAP.md and GLOSSARY.md stay this repo's OWN catalogue -- they document
     # the set it publishes. Only the loader block covers every declared

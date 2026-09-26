@@ -4132,6 +4132,62 @@ def check_index_clauses(files):
           f'{bv.INDEX_CLAUSE_MAX} chars', ok)
 
 
+def check_build_views_refuses_a_long_index_clause():
+    """build_views.py refuses an on-demand index_clause over the limit that
+    this repo wrote or changed, and only that one.
+
+    2026-09-26: a clause was extended to 81 characters and build_views
+    rendered it silently; only this harness knew the limit, and a push to
+    pre-staging does not run it. The writer finds out from the tool it
+    runs. Three states: an over-long clause the base already had passes
+    (practice sets carry older ones), the same file edited is refused, and
+    a consumer, whose practices/ is materialized from other sources, is
+    never refused."""
+    import tempfile
+    n = bv.INDEX_CLAUSE_MAX + 1
+    long_clause = 'x' * n
+
+    def git(cwd, *a):
+        env = dict(os.environ, PRECEDENT_ALLOW_ANY_AUTHOR='1')
+        return subprocess.run(['git', '-C', str(cwd), *a],
+                              capture_output=True, text=True, env=env)
+
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        root = pathlib.Path(td)
+        git(root, 'init', '-q', '-b', 'main')
+        (root / 'practices').mkdir()
+        f = root / 'practices' / 'p.md'
+        f.write_text(f'---\nindex_clause: "{long_clause}"\n---\n',
+                     encoding='utf-8')
+        (root / 'precedent.json').write_text('{"base_branch": "main"}\n',
+                                             encoding='utf-8')
+        git(root, 'add', '-A')
+        git(root, '-c', 'user.email=f@x', '-c', 'user.name=f', 'commit', '-qm', 'a')
+        git(root, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
+        fm = {'tier': 'on-demand', 'index_clause': long_clause}
+        practices = [(fm, {}, f)]
+        cases.append(('an over-long clause the base branch already had is '
+                      'not refused', bv.over_long_index_clauses(practices, root) == []))
+        edited = long_clause + 'y'
+        f.write_text(f'---\nindex_clause: "{edited}"\n---\n', encoding='utf-8')
+        got = bv.over_long_index_clauses(
+            [({'tier': 'on-demand', 'index_clause': edited}, {}, f)], root)
+        cases.append((f'the same clause edited is refused, with its length '
+                      f'(got {got!r})', got == [(f, n + 1)]))
+        (root / 'tools').mkdir()
+        (root / 'tools' / 'ENGINE_MANIFEST.json').write_text(
+            '{"kind": "consumer"}', encoding='utf-8')
+        cases.append(('a consumer is never refused -- its practices are '
+                      'other sources\' to fix',
+                      bv.over_long_index_clauses(
+                          [({'tier': 'on-demand', 'index_clause': edited}, {}, f)],
+                          root) == []))
+    failed = [c for c, ok in cases if not ok]
+    check(f'build_views refuses a long index_clause the writer just wrote '
+          f'({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
 # (path, glob, expected) -- the semantics `applies_to` is written against.
 # This table exists because the path-triggered channel shipped with a bare
 # fnmatch.fnmatch(path, glob), under which "**/*.md" silently never matched
@@ -34830,6 +34886,7 @@ def main():
     check_all_workflows_disclosed()
     check_example_set()
     check_index_clauses(files)
+    check_build_views_refuses_a_long_index_clause()
     check_rule_is_self_contained(files)
     check_glob_semantics()
     check_symlinked_root_path_matching()
