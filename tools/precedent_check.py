@@ -919,6 +919,84 @@ def _catalogue_carries_stories(ctx):
     return out
 
 
+# ---- retired-branch-name-ships ---------------------------------------------
+# The practice text a sync WRITES into other repositories -- the one-line
+# fields every generated block and the vocabulary render, and a resident
+# practice's whole Rule -- must not name a branch that has been renamed.
+_SHIPPED_FIELDS = ('title', 'occasion', 'index_clause', 'command')
+
+
+@check('retired-branch-name-ships', 'tree',
+       'no active practice in this catalogue names a retired branch '
+       '(precedent_vendor_engine.RETIRED_BRANCH_NAMES) in the text a sync '
+       'writes into other repositories -- its title, occasion, index_clause '
+       'or command, or the Rule of a resident practice -- unless the same '
+       'text also names the branch it became',
+       'a retired name in a Rule or Detail that stays on demand, and every '
+       'Why and Story: those are read one practice at a time, and most of '
+       'the mentions there are dated history that should keep the name it '
+       'had. It also knows only the renames the registry lists.',
+       practice_backed=False, binds_publishers=True,
+       selects_on=('practices/*.md', 'tools/precedent_vendor_engine.py'))
+def _retired_branch_name_ships(ctx):
+    """A retired branch name shipped from a catalogue comes back on every
+    sync, so the consumer-side report cannot be where it is fixed.
+
+    THE INCIDENT (2026-09-26). precedent-beta-v01 was renamed staging on
+    2026-09-25, and refresh started listing each line of a consumer's own
+    AGENTS.md, CLAUDE.md and tools/bootstrap.sh that still named it. It
+    skips the generated block on purpose -- the next sync rewrites that
+    from the catalogue, and a hand edit there is refused. Run against a
+    real consumer the day after, the generated block still named the old
+    branch: a shared set's name-the-branch practice carried it in its
+    index_clause, "name a branch literally (precedent-beta-v01, main)", so
+    the sync that was supposed to clear it wrote it straight back. Nothing
+    reported it anywhere. The fix belongs where the text is authored, so
+    this runs in whichever repo publishes the practice.
+    """
+    try:
+        import precedent_vendor_engine as pve
+    except ImportError:
+        raise NotApplicable('precedent_vendor_engine.py did not import, so '
+                            'the retired branch names cannot be read')
+    retired = getattr(pve, 'RETIRED_BRANCH_NAMES', None)
+    if not retired:
+        raise NotApplicable('this engine predates RETIRED_BRANCH_NAMES')
+    pdir = ROOT / 'practices'
+    if not pdir.is_dir():
+        return []
+
+    def named(name, text):
+        return re.search(rf'(?<![\w-]){re.escape(name)}(?![\w-])', text)
+
+    out = []
+    for path in sorted(pdir.glob('*.md')):
+        rel = str(path.relative_to(ROOT))
+        if _foreign_practice(rel):
+            continue
+        try:
+            fm, sections = sp._read_practice_file(path)
+        except Exception:
+            continue
+        if _practice_status(path.read_text(encoding='utf-8',
+                                           errors='ignore')) != 'active':
+            continue
+        shipped = [(f, str(fm.get(f) or '')) for f in _SHIPPED_FIELDS]
+        if str(fm.get('tier') or '').strip('"') == 'resident':
+            shipped.append(('## Rule', sections.get('rule') or ''))
+        for where, text in shipped:
+            for old, (new, date) in retired.items():
+                for line in text.splitlines():
+                    if named(old, line) and not named(new, line):
+                        out.append(Finding(
+                            rel, f'its {where} names {old}, renamed {new} on '
+                                 f'{date}, and every sync copies that into the '
+                                 f'repos that load this practice -- name {new} '
+                                 f'here instead'))
+                        break
+    return out
+
+
 
 # ---- practice-links-travel -------------------------------------------------
 # A practice file is copied into every repository that adopts the catalogue,
@@ -1116,7 +1194,8 @@ def _sibling_not_in_force(pdir, base):
 @check('practice-links-travel', 'tree',
        'every link in a practice file THIS repo owns either travels with the '
        "file (a sibling practice, a vendored engine file, this source's own "
-       'tools/checks/ check script or tests/ test, which must exist here) or '
+       'tools/checks/ check script or tests/ test, or a file a practice here '
+       'declares in `ships:` -- each of which must exist here) or '
        'is an absolute URL into this repository on '
        'its declared base_branch, naming a path that exists. A sibling link '
        'from an ACTIVE practice must also point at one that is in force: a '
@@ -1170,6 +1249,7 @@ def _practice_links_travel(ctx):
                             f'({e}), so what travels is unknown')
     branch = _declared_base_branch(ROOT)
     slug = _origin_slug()
+    shipped = _declared_ships(owned)
     out = []
     for path in owned:
         rel = str(path.relative_to(ROOT))
@@ -1255,6 +1335,14 @@ def _practice_links_travel(ctx):
                 continue                        # a sibling practice file
             if base.startswith('../') and base[3:] in travel:
                 continue                        # a vendored engine file
+            # A file some practice here declares in `ships:` travels too:
+            # precedent_materialize.py delivers it to the same path in every
+            # consumer. It must exist here, which practice-carries-its-files
+            # holds this repository to separately.
+            # practice: practice-carries-its-files
+            if base.startswith('../') and base[3:] in shipped \
+                    and (ROOT / base[3:]).is_file():
+                continue                        # a file a practice ships
             # A source's own check scripts travel too: materialize writes
             # every declared source's tools/checks/** into the consuming
             # repo alongside practices/. Missing this was a false violation
@@ -1305,8 +1393,220 @@ def _practice_links_travel(ctx):
             out.append(Finding(
                 where, f'`{target}` does not travel with this file -- it is '
                        f'live here and dead in every repository that receives '
-                       f'the catalogue. Link it as {fix}, or drop the link '
-                       f'markup and keep the backticked path'))
+                       f'the catalogue. Link it as {fix}, declare it in the '
+                       f'practice\'s `ships:` if the practice owns it, or '
+                       f'drop the link markup and keep the backticked path'))
+    return out
+
+
+def _declared_ships(practice_files):
+    """{path} every ACTIVE practice among `practice_files` declares in
+    `ships:`. A malformed declaration contributes nothing here --
+    practice-carries-its-files reports it, once, in its own words."""
+    import build_views as _bv
+    out = set()
+    for path in practice_files:
+        fields = _practice_status_fields(path)
+        if fields is not None and not fields[0]:
+            continue
+        try:
+            fm, _sections = sp._read_practice_file(path)
+            out.update(_bv.ships_paths(fm))
+        except Exception:                          # practice: fail-gracefully
+            continue
+    return out
+
+
+# A test's own root: `cd "$(dirname "$0")/../../.."` then `ROOT="$(pwd)"`,
+# the shape every shipped test in every set used on 2026-09-26, or the
+# one-line `ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"`.
+_TEST_CD_ROOT_RE = re.compile(
+    r'''^\s*cd\s+["']?\$\(dirname\s+["']?\$\{?(?:0|BASH_SOURCE(?:\[0\])?)\}?'''
+    r'''["']?\)["']?/\.\./\.\./\.\.["']?\s*(?:$|[;&|#])''')
+_TEST_PWD_ASSIGN_RE = re.compile(
+    r'''^\s*(?:export\s+|readonly\s+)?([A-Za-z_]\w*)=["']?(?:\$\(pwd\)|\$PWD|\$\{PWD\})["']?\s*$''')
+_TEST_ROOT_ASSIGN_RE = re.compile(
+    r'''^\s*(?:export\s+|readonly\s+)?([A-Za-z_]\w*)=["']?\$\(\s*cd\s+["']?'''
+    r'''\$\(dirname\s+["']?\$\{?(?:0|BASH_SOURCE(?:\[0\])?)\}?["']?\)["']?'''
+    r'''/\.\./\.\./\.\.["']?\s*&&\s*pwd\s*\)''')
+
+
+def _test_root_vars(text):
+    """The variables a shipped test binds to its own repository root."""
+    names, at_root = set(), False
+    for line in text.splitlines():
+        m = _TEST_ROOT_ASSIGN_RE.match(line)
+        if m:
+            names.add(m.group(1))
+            continue
+        if _TEST_CD_ROOT_RE.match(line):
+            at_root = True
+            continue
+        if re.match(r'^\s*cd\b', line):
+            at_root = False
+            continue
+        m = _TEST_PWD_ASSIGN_RE.match(line)
+        if m and at_root:
+            names.add(m.group(1))
+    return names
+
+
+def _test_reads_tools(text):
+    """-> {tools/<path>: first line number} for every tools/ file outside
+    tools/checks/ that a test READS through its root variable without first
+    asking whether it is there. A path the test probes (`[ -f "$ROOT/x" ]`,
+    `-d`, `-e`, ...) anywhere is taken as handled: the test has an answer
+    for its absence, and running it where it is absent is the consumer-shape
+    run's job, not this parser's."""
+    roots = _test_root_vars(text)
+    if not roots:
+        return {}
+    alt = '|'.join(re.escape(r) for r in sorted(roots))
+    ref = re.compile(r'\$\{?(?:' + alt + r')\}?/(tools/[A-Za-z0-9_.\-/]*'
+                     r'[A-Za-z0-9_])')
+    probe = re.compile(r'(?:-[defrsx]|test\s+-[defrsx])\s+["\']?\$\{?(?:'
+                       + alt + r')\}?/(tools/[A-Za-z0-9_.\-/]*[A-Za-z0-9_])')
+    probed = set(probe.findall(text))
+    out = {}
+    for lineno, line in enumerate(text.splitlines(), 1):
+        if line.lstrip().startswith('#'):
+            continue
+        for path in ref.findall(line):
+            if path.startswith('tools/checks/') or path in probed:
+                continue
+            out.setdefault(path, lineno)
+    return out
+
+
+@check('practice-carries-its-files', 'tree',
+       "every file a practice this repository PUBLISHES depends on is where "
+       "a consumer will find it: each `ships:` entry is a legal path that "
+       "exists here; each concrete (non-glob) `applies_to` path under tools/ "
+       "and the `checked_by` script exist here; and every tools/ file outside "
+       "tools/checks/ that the practice's shipped test reads through its "
+       "root is either a vendored engine file or declared in `ships:` by a "
+       "practice here",
+       "a file the test reaches any other way -- a relative path after a "
+       "`cd`, a variable built up in pieces, a Python script the test runs "
+       "that opens the file itself. It reads `$ROOT/tools/...` literals and "
+       "nothing cleverer; precedent_consumer_shape.py runs every shipped "
+       "test without this source's own tools/ and catches the rest at the "
+       "source's push. It also says nothing about a file a practice's RULE "
+       "names in prose without shipping it, which is session judgment -- "
+       "and nothing about local/practices/, which never travels.",
+       # A source set holds its own practices only, so without this the
+       # check would skip in exactly the repositories it exists for.
+       binds_publishers=True,
+       selects_on=('practices/*.md', 'tools/**'))
+def _practice_carries_its_files(ctx):
+    """practice: practice-carries-its-files
+
+    THE INCIDENT (2026-09-26). precedent-shared-writing's create-word-doc
+    practice owns tools/create_word_doc.py; its shipped test copies it
+    (`cp "$SET_ROOT/tools/create_word_doc.py" ...`). The materializer never
+    delivered tools/ scripts, the practice said consumers "copy it in by
+    hand", and in a consumer that had not, the deep check went red on a
+    test nobody there could fix. Nothing declared the dependency, so
+    nothing could deliver it -- and the same missing declaration meant a
+    practice moved to another set could leave its script behind without
+    anything noticing. `ships:` is the declaration; this is what holds a
+    publishing repository to it, at that repository's own push rather
+    than at a consumer's."""
+    import build_views as _bv
+    pdir = ROOT / 'practices'
+    if not pdir.is_dir():
+        raise NotApplicable('this repo has no practices/ directory')
+    if (ROOT / 'MANIFEST.json').is_file():
+        raise NotApplicable(
+            'practices/ here is materialized from declared sources (a '
+            'MANIFEST.json records it) -- each source holds its own practices '
+            'to this at its own push, and their files are not expected here')
+    engine = _bv._engine_tool_paths() | {'tools/ENGINE_MANIFEST.json'}
+    engine |= {f'tools/{n}' for n in (_engine_manifest().get('files') or [])
+               if isinstance(n, str)}
+    files = sorted(pdir.glob('*.md'))
+    active = [p for p in files
+              if (_practice_status_fields(p) or (True,))[0]]
+    shipped = _declared_ships(active)
+    out = []
+    for path in active:
+        rel = str(path.relative_to(ROOT))
+        try:
+            fm, _sections = sp._read_practice_file(path)
+        except Exception as e:                     # practice: fail-gracefully
+            out.append(Finding(rel, f'does not parse as a practice file ({e}), '
+                                    f'so what it depends on cannot be read'))
+            continue
+        try:
+            ships = _bv.ships_paths(fm)
+        except ValueError as e:
+            out.append(Finding(rel, f'{e} -- write it as a JSON list, e.g. '
+                                    f'ships: ["tools/my_script.py"]'))
+            ships = []
+        for entry in ships:
+            why = _bv.ship_path_problem(entry)
+            if why:
+                out.append(Finding(rel, f'`ships:` entry {entry!r} {why}'))
+            elif not (ROOT / entry).is_file():
+                out.append(Finding(
+                    rel, f'ships `{entry}`, which is not in this repository -- '
+                         f'every consumer is promised a file this source does '
+                         f'not carry. If the practice moved here, the file '
+                         f'moves with it, in the same commit'))
+        try:
+            applies = json.loads(fm.get('applies_to') or '[]')
+        except (TypeError, ValueError):
+            applies = []
+        # Only a concrete tools/ path: that is a script the practice owns.
+        # A concrete root file (`precedent.json`, `AGENTS.md`) is one every
+        # repository keeps its own copy of, and firing on it was a false
+        # positive on a correct bare source set (the harness caught it on
+        # source-naming, whose applies_to names precedent.json).
+        for entry in applies if isinstance(applies, list) else []:
+            if (not isinstance(entry, str) or not entry.startswith('tools/')
+                    or entry.startswith('tools/checks/')
+                    or any(c in entry for c in '*?[]{}')):
+                continue
+            if not (ROOT / entry).exists():
+                out.append(Finding(
+                    rel, f'applies_to names `{entry}`, which is not in this '
+                         f'repository -- a script the practice fires on is one '
+                         f'it owns, and it did not come along. Move it here '
+                         f'with the practice'))
+        cb = str(fm.get('checked_by') or '').strip().strip('"\' ')
+        if cb and cb != 'null' and not (ROOT / cb).is_file():
+            out.append(Finding(
+                rel, f'checked_by names `{cb}`, which is not in this '
+                     f'repository -- the check a practice claims moves with '
+                     f'it, script and test together'))
+            continue
+        name = pathlib.PurePosixPath(cb).name if cb else ''
+        if not (name.startswith('check_') and name.endswith('.py')
+                and '/checks/' in cb):
+            continue
+        test = (ROOT / 'tools').joinpath('checks', 'tests') / (
+            'test_' + name[len('check_'):-3] + '.sh')
+        if not test.is_file():
+            continue
+        text = test.read_text(encoding='utf-8', errors='replace')
+        test_rel = str(test.relative_to(ROOT))
+        for dep, lineno in sorted(_test_reads_tools(text).items()):
+            if dep in engine or dep in shipped:
+                continue
+            if (ROOT / dep).exists():
+                why = (f'`{dep}`, which is in this repository and reaches no '
+                       f'consumer: it is not a vendored engine file, and no '
+                       f'practice here ships it. Add it to `ships:` in '
+                       f'{rel} so every consumer receives it')
+            else:
+                why = (f'`{dep}`, which is not in this repository at all, and no '
+                       f'consumer receives it either. If it stayed behind '
+                       f'when the practice moved, move it here and declare '
+                       f'it in `ships:` in {rel}')
+            out.append(Finding(
+                f'{test_rel}:{lineno}',
+                f'the shipped test for {path.stem} reads {why}; without it the '
+                f'test goes red in every consumer, where nobody can fix it'))
     return out
 
 @check('no-version-suffix', 'change',
@@ -3648,6 +3948,10 @@ def _engine_plus_host_shims(ctx):
         _mf = json.loads((ROOT / 'MANIFEST.json').read_text(encoding='utf-8'))
         vendored_engine = vendored_engine | frozenset(
             c['path'] for c in _mf.get('checks') or [] if isinstance(c, dict) and c.get('path'))
+        # A file a practice ships is recorded the same way, under `ships`,
+        # and drift-checked the same way (practice: practice-carries-its-files).
+        vendored_engine = vendored_engine | frozenset(
+            f['path'] for f in _mf.get('ships') or [] if isinstance(f, dict) and f.get('path'))
     except (OSError, ValueError, TypeError):
         pass
 

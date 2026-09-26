@@ -4,9 +4,9 @@ title:       "Decommissioning a mechanism deletes its files, once an audit says 
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
-occasion:    "decommissioning a mechanism — a workflow, a tool, a vendored tree, a config — that leaves files behind with no remaining job"
+occasion:    "decommissioning a mechanism that leaves files with no remaining job"
 gates:       []
-index_clause: "delete what the decommissioned mechanism owned; audit first, never on a hunch"
+index_clause: "delete what it owned; audit first, never on a hunch"
 checked_by:  "tools/precedent_check.py"
 defines:     ["decommission"]
 status:      active

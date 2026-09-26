@@ -4,10 +4,10 @@ title:       "The base branch is the record; another session's summary is not"
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
-occasion:    "starting work another session may already have done, or opening a pull request"
+occasion:    "starting work another session may have done, or opening a PR"
 gates:       ["push"]
 index_required: true
-index_clause: "read the base branch before starting and before the PR -- a summary lags"
+index_clause: "read the base branch before starting and before the PR"
 checked_by:  null
 defines:     []
 status:      active

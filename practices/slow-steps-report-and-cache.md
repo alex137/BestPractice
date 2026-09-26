@@ -4,9 +4,9 @@ title:       A step that runs longer than a minute reports progress, and a heavy
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
-occasion:    "writing or running a gate, audit or solve that takes more than about a minute"
+occasion:    "writing or running a gate, audit or solve over a minute"
 gates:       []
-index_clause: "a long step prints elapsed and remaining; a heavy solve caches to disk"
+index_clause: "print elapsed and remaining; cache a heavy solve to disk"
 checked_by:  null
 defines:     []
 status:      active

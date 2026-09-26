@@ -4,9 +4,9 @@ title:       "\"My options\" asks for the real choices, plainly, with a recommen
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
-occasion:    "a person says \"My options\", asks to have a decision's options laid out, or asks -- about a current issue -- for the options to hand off to another session"
+occasion:    "a person says \"My options\", or asks to see a decision's options or hand them off"
 gates:       ["reply"]
-index_clause: "\"My options\" -- every option, plainer, your pick -- or a paste-ready handoff"
+index_clause: "every option, plainer, your pick -- or a paste-ready handoff"
 checked_by:  null
 defines:     ["My options"]
 command:     {"My options": "Lay out the real choices in plainer words, the good and the bad of each, and tell you which one it recommends and why -- and when it's about a current issue meant for another session, add that session's id and link, which repository has to be the primary seed root, and which others need to be attached, then hand the whole thing back as one paste-ready block."}

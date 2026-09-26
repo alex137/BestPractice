@@ -4,9 +4,9 @@ title:       Undecided operating constants are risk inputs, not doctrine
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
-occasion:    "a model, study or comparison table rests on an operating constant nobody decided — a margin, a cap, a rate, a floor"
+occasion:    "a model or comparison rests on an operating constant nobody decided"
 gates:       []
-index_clause: "a constant nobody decided is a swept, registered input -- never doctrine"
+index_clause: "an undecided constant is a swept, registered input, never doctrine"
 checked_by:  null
 defines:     ["conservative corner", "bet-relevant"]
 status:      active

@@ -101,8 +101,9 @@ being checked by it.
 | `open-item-disposition` | tree | every `**Disposition:` line in a TODO file names one of the three dispositions, and a `parked` or `ask` line records the date it was set and who set it |
 | `orientation-map` | tree | MAP.md exists at the repository root, is not empty, and the session instructions point at it |
 | `parallel-artifact-ledger` | tree | `templates/harness/LEDGER.md` exists, and every commit that touched a harness-adapter member (claude-code/, codex/, or gemini-cli/) is named in exactly one row's `Originating change` cell -- a mention in another row's prose is a citation, not that commit's own row |
+| `practice-carries-its-files` | tree | every file a practice this repository PUBLISHES depends on is where a consumer will find it: each `ships:` entry is a legal path that exists here; each concrete (non-glob) `applies_to` path under tools/ and the `checked_by` script exist here; and every tools/ file outside tools/checks/ that the practice's shipped test reads through its root is either a vendored engine file or declared in `ships:` by a practice here |
 | `practice-export-loop` | tree | every manifest entry marked synced still matches its baseline — a local improvement to a vendored file has been exported, not absorbed |
-| `practice-links-travel` | tree | every link in a practice file THIS repo owns either travels with the file (a sibling practice, a vendored engine file, this source's own tools/checks/ check script or tests/ test, which must exist here) or is an absolute URL into this repository on its declared base_branch, naming a path that exists. A sibling link from an ACTIVE practice must also point at one that is in force: a withdrawn practice is not materialized, so a link to one resolves here and nowhere else -- unless its `in_force_at:` names its own slug, which is the deduplication case and still travels, because another source carries that slug and resolves to the same filename |
+| `practice-links-travel` | tree | every link in a practice file THIS repo owns either travels with the file (a sibling practice, a vendored engine file, this source's own tools/checks/ check script or tests/ test, or a file a practice here declares in `ships:` -- each of which must exist here) or is an absolute URL into this repository on its declared base_branch, naming a path that exists. A sibling link from an ACTIVE practice must also point at one that is in force: a withdrawn practice is not materialized, so a link to one resolves here and nowhere else -- unless its `in_force_at:` names its own slug, which is the deduplication case and still travels, because another source carries that slug and resolves to the same filename |
 | `quick-index` | tree | the session instructions carry a "looking for X → go to Y" table with at least five rows |
 | `rename-updates-links` | tree | no tracked file still references a path this branch renamed away or deleted |
 | `routing-audit` | tree | tools/routing_audit.py exists, and tools/routing_audit_state.json (if present) has no rotation entry for a practice that is not currently active |
@@ -120,7 +121,7 @@ being checked by it.
 | `verify-postcondition` | turn-end | the state you wanted after the operations this turn: nothing committed but unpushed on any local branch, and no tracked file left modified |
 | `workflow-file-outside-vendoring` | tree | every .github/workflows/*.yml or *.yaml file that changed is either the one file this repo's kind vendors through precedent_vendor_engine.py, or already a known RETIRED_CI_WORKFLOW_FILES entry -- anything else is named, once, as worth a second look |
 
-52 of 150 practices are enforced. Run `python3 tools/precedent_check.py --explain` for what each check does **not** catch.
+53 of 151 practices are enforced. Run `python3 tools/precedent_check.py --explain` for what each check does **not** catch.
 <!--/gen:enforcement-->
 
 Numbers by: catalogue_stats.py

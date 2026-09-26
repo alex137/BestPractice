@@ -4,9 +4,9 @@ title:       "\"Simple words\" asks for the same substance in speech, not prose"
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
-occasion:    "a person says \"Simple words\", or plainly asks to be talked to that way"
+occasion:    "a person says \"Simple words\", or asks to be talked to that way"
 gates:       ["reply"]
-index_clause: "\"Simple words\" -- say it as you would out loud; same substance"
+index_clause: "say it as you would out loud; same substance"
 checked_by:  null
 defines:     ["Simple words"]
 command:     {"Simple words": "Drop the formal register and explain it the way somebody would say it out loud — same answer, plainer telling."}

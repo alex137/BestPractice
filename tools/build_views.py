@@ -103,6 +103,9 @@ def _budget(key, default):
 RESIDENT_BUDGET_TOKENS = _budget('resident_block_tokens', 2000)
 # code-cites-practice: session-load-budget -- the generated occasion index
 # grew unbudgeted to 29% of AGENTS.md; see OccasionIndexBudgetExceeded.
+# The 4000 fallback is what a consumer without its own registry row gets, and
+# nobody decided it (practice: constants-are-risk-inputs) -- registered in
+# session_load_budgets.json's _occasion_index_fallback_comment.
 OCCASION_INDEX_BUDGET_TOKENS = _budget('occasion_index_tokens', 4000)
 
 
@@ -571,6 +574,87 @@ def scope_violation(fm, repo_local=False):
         return ('a repo-local practice declares scope: engine-dev, which can '
                 'change nothing -- local/practices/ never travels to another '
                 'repo by a different mechanism entirely')
+    return None
+
+
+# `ships:` -- the files a practice owns besides its `checked_by` script and
+# that script's test, which travel on their own (spec/PRACTICE_FORMAT.md,
+# "ships"). Parsed and validated HERE, once, because four tools ask the same
+# question of the same field: precedent_materialize.py delivers the files,
+# precedent_check.py's practice-carries-its-files holds a source to them,
+# precedent_consumer_shape.py keeps them in its consumer-shaped copy, and
+# precedent_move.py refuses a move that would leave one behind. Four parsers
+# would disagree about a malformed entry the first time somebody wrote one
+# (practice: registry-source-of-truth).
+SHIPS_FIELD = 'ships'
+# Destinations another mechanism already owns. A shipped file there would be
+# overwritten on the next run of that mechanism, or overwrite its output.
+_SHIPS_MANAGED_PREFIXES = ('practices/', 'tools/checks/')
+_SHIPS_RESERVED_PATHS = ('MANIFEST.json', 'AGENTS.md', 'CLAUDE.md',
+                         'precedent.json', 'tools/ENGINE_MANIFEST.json')
+_SHIPS_RESERVED_BASENAMES = ('settings.json', 'settings.local.json')
+
+
+def ships_paths(fm):
+    """-> the `ships:` list as strings, [] when absent or null.
+
+    Raises ValueError when the field is present and is not a JSON list of
+    strings -- a declaration nobody can read is not the same as no
+    declaration, and treating it as empty would ship nothing and say
+    nothing."""
+    raw = fm.get(SHIPS_FIELD)
+    if raw is None or str(raw).strip() in ('', 'null'):
+        return []
+    try:
+        value = json.loads(raw)
+    except (TypeError, json.JSONDecodeError):
+        raise ValueError(f'`{SHIPS_FIELD}:` is not a JSON list: {raw!r}')
+    if not isinstance(value, list) or not all(isinstance(v, str) for v in value):
+        raise ValueError(f'`{SHIPS_FIELD}:` must be a JSON list of path '
+                         f'strings, got {raw!r}')
+    return value
+
+
+def _engine_tool_paths():
+    """{'tools/<name>'} for every file the vendoring engine installs, of
+    either kind -- asked of precedent_vendor_engine.py, the one place that
+    answers it. Empty when it cannot be imported, which only weakens the
+    one refusal below that uses it."""
+    try:
+        import precedent_vendor_engine as pve
+    except Exception:                               # practice: fail-gracefully
+        return set()
+    names = set(getattr(pve, 'ENGINE_FILES', ())) | set(
+        getattr(pve, 'CONSUMER_ENGINE_FILES', ()))
+    return {f'tools/{n}' for n in names}
+
+
+def ship_path_problem(path):
+    """Why `path` cannot be a `ships:` entry, or None when it can.
+
+    A shipped file lands at the same relative path in every consuming
+    repository, so every refusal here is about a path that would reach
+    outside that repository, or into a file some other mechanism owns."""
+    if not path or path != path.strip():
+        return 'is empty or carries surrounding whitespace'
+    p = pathlib.PurePosixPath(path)
+    if path.startswith('/') or p.is_absolute():
+        return 'is an absolute path'
+    if '..' in p.parts:
+        return 'walks above the repository with ".."'
+    if any(c in path for c in '*?[]{}'):
+        return ('is a glob -- `ships:` names concrete files, so a consumer '
+                'receives exactly what the source declared')
+    norm = p.as_posix()
+    if norm.startswith(_SHIPS_MANAGED_PREFIXES):
+        return ('is under practices/ or tools/checks/, which travel already '
+                '-- the practice file, its checked_by script and its test '
+                'need no declaration')
+    if norm in _SHIPS_RESERVED_PATHS or p.name in _SHIPS_RESERVED_BASENAMES:
+        return 'is a file every repository keeps its own copy of'
+    if norm in _engine_tool_paths():
+        return ('is an engine file, which precedent_vendor_engine.py installs '
+                'in every repository already')
     return None
 
 
@@ -1911,7 +1995,7 @@ TOOLS_DESCRIPTIONS = {
         "never generated",
     'precedent_push_check.py': "Everything GitHub CI used to run on a push, per kind of repository, run locally before it -- `push-check-gate.sh` refuses a push until it passes; a push to a working branch or pre-staging runs its basic tier only",
     'precedent_branches.py': "The three branch tiers -- which branch is pre-staging, staging and main here, and whether a push to one gets the basic or the full push check (spec/BRANCH_TIERS_PLAN.md)",
-    'precedent_consumer_shape.py': "A practice source's check tests run the way a consuming repository runs them -- with git ignoring what a consumer typically ignores -- so a test that passes only in its home layout fails at home; a source's push check runs it",
+    'precedent_consumer_shape.py': "A practice source's check tests run the way a consuming repository runs them -- with git ignoring what a consumer typically ignores, in a copy without the source's own tools/ (only the engine, tools/checks/ and what practices ship) -- so a test that passes only in its home layout fails at home; a source's push check runs it",
     'precedent_merge_check.py': "The push check on the merge GitHub would make, at its base branch's tier -- `merge-check-gate.sh` runs it before a pull request is merged through GitHub, a push no push gate sees",
     'precedent_paths.py': "The PATH-TRIGGERED channel — matches a touched file against every practice's `applies_to`",
     'precedent_promote.py': "Stage 3 (phase 5) — runs a candidate against the four promotion criteria",

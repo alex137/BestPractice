@@ -4,9 +4,9 @@ title:       A workflow file runs only with the person's approval, pinned to its
 tier:        on-demand
 severity:    default
 applies_to:  [".github/workflows/**"]
-occasion:    "a .github/workflows/*.yml file is added, edited, or found during an update or migration"
+occasion:    "a .github/workflows file is added, edited, or found in an update or migration"
 gates:       ["push"]
-index_clause: "no workflow added or edited without the person's words, pinned by hash"
+index_clause: "no workflow added or edited without the person's words, hash-pinned"
 index_required: true
 checked_by:  "tools/precedent_check.py"
 defines:     []

@@ -4,9 +4,9 @@ title:       "\"Upstream fix\" asks whether the change fixes what caused the pro
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
-occasion:    "a person says \"Upstream fix\", or asks whether a change fixes the root cause rather than just this instance"
+occasion:    "a person says \"Upstream fix\", or asks whether a change fixes the root cause"
 gates:       []
-index_clause: "\"Upstream fix\" -- does it fix the cause? if not, fix the root or hand it off"
+index_clause: "does it fix the cause? if not, fix the root or hand off"
 checked_by:  null
 defines:     ["Upstream fix"]
 command:     {"Upstream fix": "Say whether the change recommended, made, or about to be made in this session also fixes whatever caused the problem -- and if not, what would (a template, a generator, something vendored in from another repo) -- then fix that root yourself where it is reachable and sensible, and hand back a paste-ready prompt for any part that needs a session rooted in a different repo."}

@@ -4,8 +4,8 @@ title:       A repair that can discard work is not a repair
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
-occasion:    "when writing or changing anything that automatically fixes a state it found wrong"
-index_clause: "an automatic repair must not be able to discard work; reporting is not repairing"
+occasion:    "writing or changing anything that automatically repairs a state it found wrong"
+index_clause: "an auto-repair must never discard work; reporting is not repairing"
 gates:       []
 checked_by:  null
 defines:     []

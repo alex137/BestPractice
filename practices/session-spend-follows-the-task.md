@@ -4,7 +4,7 @@ title:       "Model choice follows the task's shape, not a default"
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
-occasion:    "creating a session"
+occasion:    "creating, renaming or retagging a session"
 gates:       []
 index_clause: "pick the model for the job -- reading runs small, judgment doesn't"
 checked_by:  null

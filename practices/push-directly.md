@@ -4,9 +4,9 @@ title:       "\"Push directly to [branch]\" -- skip go-merge's judgment call, pu
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
-occasion:    "a message says \"Push directly\", naming a branch (\"push directly to main\") or not, or gives a specific instruction to skip the PR for this one change"
+occasion:    "a message says \"Push directly\" [to a branch], or says to skip the PR for one change"
 gates:       ["merge"]
-index_clause: "\"Push directly [to BRANCH]\" -- no PR; unnamed defaults to the branch in play"
+index_clause: "no PR; with no branch named, the branch already in play"
 checked_by:  null
 defines:     ["Push directly"]
 command:     {"Push directly": "Save the work and push it straight to the branch right now -- no pull request, whatever go-merge's classification would otherwise call for. Name the branch (\"push directly to main\") to target it explicitly; say it bare and it targets whichever branch the work is already headed toward."}
