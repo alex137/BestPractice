@@ -58,7 +58,7 @@ Built from every practice's `defines:` frontmatter field -- the terms that pract
 | routing audit | [routing-audit](practices/routing-audit.md) |
 | search allowance | [grep-before-search](practices/grep-before-search.md) |
 | session load | [session-load-budget](practices/session-load-budget.md) |
-| Simple words | [plain-words](practices/plain-words.md) |
+| Simple please | [plain-words](practices/plain-words.md) |
 | skipped heading level | [heading-outline](practices/heading-outline.md) |
 | source manifest | [source-naming](practices/source-naming.md) |
 | speculative document | [speculation-is-marked](practices/speculation-is-marked.md) |

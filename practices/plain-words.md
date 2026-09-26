@@ -1,15 +1,15 @@
 ---
 slug:        plain-words
-title:       "\"Simple words\" asks for the same substance in speech, not prose"
+title:       "\"Simple please\" asks for the same substance in speech, not prose"
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
-occasion:    "a person says \"Simple words\", or asks to be talked to that way"
+occasion:    "a person says \"Simple please\", or asks to be talked to that way"
 gates:       ["reply"]
 index_clause: "say it as you would out loud; same substance"
 checked_by:  null
-defines:     ["Simple words"]
-command:     {"Simple words": "Drop the formal register and explain it the way somebody would say it out loud — same answer, plainer telling."}
+defines:     ["Simple please"]
+command:     {"Simple please": "Drop the formal register and explain it the way somebody would say it out loud — same answer, plainer telling."}
 status:      active
 in_force_at: null
 supersedes:  []
@@ -20,12 +20,12 @@ approved_by: "Morgan, 2026-09-08 -- asked for the phrase, chose this one,
   intent-over-keyword point; renamed 2026-09-20, Morgan -- \"just because I
   use the word simple, not plain\": the slug and file stay `plain-words`,
   matching how `go-merge` kept its slug when `Go update` became the lead
-  phrase"
+  phrase; renamed again 2026-09-26, Morgan, to \"Simple please\""
 ---
 ## Rule
 **The phrase is the clean trigger, not the only one** — "can you just say
 that plainly" or "talk to me like I'm across the desk from you" ask for the
-same thing and get it. When the person says **"Simple words"**, or plainly
+same thing and get it. When the person says **"Simple please"**, or plainly
 asks for it, explain it the way you would say it out loud to them across a
 desk. Short sentences. Everyday vocabulary. The concrete case before the
 general principle. **No hedging, no caveat stack, no survey of positions you
@@ -115,6 +115,13 @@ The slug, filename and every historical quote above keep the old wording —
 only the trigger phrase, and every live reference to it, changed. This is
 the same low-stakes shape as the 2026-09-16 extension: a session that hears
 the old word still recognizes the intent and gets corrected once.
+
+**Renamed again, to `Simple please`, 2026-09-26, Morgan**: *"I want to
+rename 'Simple words' to 'Simple please'."* Strength: decided. Same shape as
+the rename before it: only the trigger phrase and its live references moved,
+and the slug, the file and the quotes above stay as they were. "Simple
+words" still gets this reply, as any plain ask for the register does; it is
+just no longer the phrase the vocabulary lists.
 
 ## Install
 Nothing mechanical checks it, and the attempt was considered rather than
