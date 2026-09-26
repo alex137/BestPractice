@@ -112,6 +112,44 @@ LEVEL_ALIASES = {'team': 'shared'}   # the pre-2026-09-18 spelling still reads
 SOURCE_BRANCH_DEFAULT = 'main'
 
 
+# WHICH CHECKOUTS THIS TOOL MAY MOVE BETWEEN BRANCHES (2026-09-26).
+#
+# The pin below re-checks-out an existing clone onto its pinned branch before
+# pulling, because a clone that once landed on the wrong branch otherwise
+# stays there. That is right for a clone this tool made, and wrong for any
+# other checkout that happens to sit at a declared path -- and in a
+# multi-repo session most of them do: a practice set declares universal at
+# `../BestPractice`, which is the session's own working copy of BestPractice,
+# and BestPractice declares universal at `.`, which is itself.
+#
+# Measured 2026-09-26 on a scratch repo declaring universal at `.`, clean, on
+# a branch called `feature`: one sources_from_repo() call left it on
+# `staging`. Every session start ran that call (tools/bootstrap.sh), and so
+# does precedent_resolve.py's self-heal mid-turn, from a set whose other
+# declared source is missing. It matches the "HEAD moved onto the base branch
+# with no repo tool in the loop" rows in precedent_session_check.py and
+# gotcha-2026-09-25, and it is a plausible cause of them, not a proven one.
+#
+# So a clone this tool makes is marked inside its own .git, and only a marked
+# checkout is ever moved between branches. An unmarked one is still pulled
+# when it already sits on the pinned branch, and otherwise left exactly where
+# it is, with a message saying so.
+CLONE_MARKER = 'precedent-source-clone'
+
+
+def _mark_clone(clone_path):
+    try:
+        (pathlib.Path(clone_path) / '.git' / CLONE_MARKER).write_text(
+            'cloned by tools/precedent_source_bootstrap.py -- it may move this '
+            'checkout onto its pinned branch\n', encoding='utf-8')
+    except OSError:                          # practice: fail-gracefully
+        pass
+
+
+def _is_marked_clone(clone_path):
+    return (pathlib.Path(clone_path) / '.git' / CLONE_MARKER).is_file()
+
+
 def expected_branch(clone_path):
     """-> str the branch a source clone belongs on: whatever its own
     precedent.json DECLARES, else SOURCE_BRANCH_DEFAULT. Never read off the
@@ -306,6 +344,13 @@ def _sync_once(repo_url, clone_path, branch=None):
                                 '--abbrev-ref', 'HEAD'])
         if not ok:
             return False, current
+        if current != branch and not _is_marked_clone(clone_path):
+            # Not a clone this tool made, so possibly a session's working
+            # copy -- see CLONE_MARKER. Still in force as it stands.
+            return False, (
+                f"{clone_path} is on {current!r}, not the pinned {branch!r}, "
+                f"and was not cloned by this tool, so it may be somebody's "
+                f"working copy. Left where it is and not pulled.")
         if current != branch:
             # A clone with uncommitted work is somebody's working copy, and
             # moving it is not this tool's call to make. Refusing is the safe
@@ -346,6 +391,8 @@ def _sync_once(repo_url, clone_path, branch=None):
         cmd = [*cred, 'clone', '--quiet', '--branch', branch,
                repo_url, str(clone_path)]
         ok, out = _run_git(cmd)
+        if ok:
+            _mark_clone(clone_path)
         if ok or not _branch_absent(out):
             return ok, out
         # THE ONE CASE THE PIN GIVES WAY, AND WHY IT IS NOT THE INCIDENT
@@ -363,7 +410,11 @@ def _sync_once(repo_url, clone_path, branch=None):
               f"{branch!r}; cloning its default instead. Declare base_branch "
               f"in that repository's precedent.json to pin it explicitly.",
               file=sys.stderr)
-        return _run_git([*cred, 'clone', '--quiet', repo_url, str(clone_path)])
+        ok, out = _run_git([*cred, 'clone', '--quiet', repo_url,
+                            str(clone_path)])
+        if ok:
+            _mark_clone(clone_path)
+        return ok, out
     return _run_git(cmd)
 
 
@@ -543,6 +594,16 @@ def sources_from_repo(repo_path, base_url=None, retries=DEFAULT_RETRIES,
                             'the declared source has no name or no path'))
             continue
         clone_path = (repo_path / rel).resolve()
+        here = repo_path.resolve()
+        if clone_path == here or here in clone_path.parents:
+            # The repository itself (BestPractice declares universal at `.`)
+            # or a copy vendored inside it (a consumer's
+            # precedent/universal). Neither is a clone: the first used to be
+            # checked out onto its base branch from here, and the second was
+            # handed to `git clone` as a non-empty target.
+            results.append((name, True, 'declared inside this repository -- '
+                                        'nothing to clone or pull'))
+            continue
         if (clone_path / 'practices').is_dir():
             # ON DISK IS NOT THE SAME AS CURRENT, and until 2026-09-11 this
             # returned 'already on disk' and stopped -- so a team clone was
