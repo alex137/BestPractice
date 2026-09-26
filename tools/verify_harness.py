@@ -9398,7 +9398,7 @@ def check_precedent_check_fires():
         # park-it -- the standing phrase stripped out of AGENTS.md, leaving
         # the practice file in force and nothing a session reads that says
         # what the phrase means. That is not a hypothetical: it is the state
-        # `go-update` was in when a session met the phrase cold and went and
+        # `go-merge` was in when a session met the phrase cold and went and
         # asked Morgan what it meant, which is the interruption the phrase
         # exists to stop. Only the phrase is removed, not the word `parked`,
         # so the planted case also proves the check names the missing half
@@ -30301,7 +30301,7 @@ def check_move_tool_lands_then_deduplicates():
                       'and a link inside a code span untouched',
                       r.returncode == 0
                       and 'See `zz-left-behind`, the rule (`zz-left-behind`)' in ltext
-                      and '/practices/go-merge.md)' in ltext
+                      and '/practices/go-update.md)' in ltext
                       and '`[kept](zz-left-behind.md)`' in ltext
                       and str(indiv) not in ltext and 'precedent-individual/blob' not in ltext
                       and 'rewrote a sibling link' in r.stdout,

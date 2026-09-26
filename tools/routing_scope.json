@@ -512,6 +512,11 @@
       "why": "The distinguishing condition is that the install step is GitHub-SPECIFIC, and the workflow files are exactly that. INSTALL.md and SETUP.md were in a first draft of this glob; they are where the fact must be DISCLOSED, not what makes the practice fire, and including them surfaced it on half the eval cases.",
       "decided": "phase 4 routing pass"
     },
+    "go-merge": {
+      "globs": [],
+      "why": "DEDUPLICATED 2026-09-26 -- the slug go-update replaced. Kept so links to go-merge.md resolve; it routes nothing, the rule is in force as go-update.",
+      "decided": "2026-09-26 rename"
+    },
     "go-update": {
       "globs": [
         "**"
