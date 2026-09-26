@@ -535,7 +535,7 @@ says so, both from the vendored tree under `process/upstream/`.
     one: a branch runs a workflow when it is pushed, and a stale branch
     nobody pushes runs nothing. Run `python3 tools/ci_fleet_audit.py --repo
     OWNER/NAME` for this repo. It reads only side branches with a commit in
-    the last 14 days and names any whose workflow would run on its next
+    the last 7 days and names any whose workflow would run on its next
     push. For each one, say whether the branch holds anything unmerged, and
     hand the person its one-click link to delete it
     ([never-delete-a-remote-branch](never-delete-a-remote-branch.md)).
