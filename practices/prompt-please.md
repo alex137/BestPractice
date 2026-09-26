@@ -50,7 +50,11 @@ approved_by: "Morgan, 2026-09-20 -- described the two cases and the phrase
   practice binding every reply, not only this command's; this file now
   points there and names the mechanism as a fence block explicitly, on his
   own instruction, to keep it distinct from other uses of \"block\" in this
-  catalogue."
+  catalogue. Extended 2026-09-26, Morgan, in his own words: when the
+  intended existing session is known, a line right after the seed-root
+  line names it and links it; when it is not known, or there is none, or
+  the session is new, nothing is written there at all. Authorized: \"Go
+  update.\""
 strength:    decided
 source_practice_number: null
 ---
@@ -122,6 +126,17 @@ anything else in the list above.** A requirement that is just one bullet
 among several in an unordered list is easy to satisfy and easy to bury --
 the single fact that tells a reader where to open this is neither optional
 content nor free to place last.
+
+**When the prompt is meant for a particular existing session, say which one,
+on the line right after the seed root:** *"This prompt is intended for the
+session \<session name\> -- \<session link\>."* It sits there because it
+answers the same question the seed-root line does -- where does this go --
+one step more precisely. **When there is no such session, or you do not
+know of one, or the prompt is for a new session, leave the line out
+entirely** -- no placeholder, no "none", no "unknown" -- and carry on with
+the block as normal. When the line is there, the plain sentence outside the
+block names that session too (*"Paste this into \<session name\> --
+\<session link\>."*) rather than telling the person to open a new one.
 
 **Render it as a fence block** -- an actual fenced markdown block (triple
 backticks), never a paragraph that only reads as paste-ready -- per
@@ -310,6 +325,21 @@ originating incident recorded in that file rather than here. Morgan asked
 in the same breath that the mechanism read as a **fence block** rather
 than a bare "block," so it stays distinct from every other thing this
 catalogue calls one. Strength: decided.
+
+**Extended 2026-09-26.** Morgan asked for one more line: *"if we know what
+particular existing session to paste that into then paste another line that
+says ... this prompt is intended for the session and then put the session
+name and the session link and if you do not know that ... or there is none
+... do not put out anything ... and continue as normal."* He first placed it
+right after the provenance line, then moved it in the same message: *"we
+already say this is intended for a session rooted in and then the repo and
+the branch to root it in ... this new line is related to it's about where to
+put it. Therefore ... we should put it right after the related sentence."*
+The practice already routed a handoff to a repository; a person who knows a
+live session is already holding the context had no place in the block to be
+told so. Making the outside sentence name the same session, rather than
+still saying "open a new session", was this session's call, so the two
+routings cannot disagree. Strength: decided.
 
 ## Install
 Nothing for an adopter to set up. The occasion index entry is generated
