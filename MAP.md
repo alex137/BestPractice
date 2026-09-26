@@ -98,7 +98,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [practice-export-loop](practices/practice-export-loop.md) | on-demand | merging a branch that improved a generic practice |
 | [practice-links-travel](practices/practice-links-travel.md) | on-demand | writing or editing a practice file |
 | [primary-branch](practices/primary-branch.md) | on-demand | a person says "Primary branch", or asks which branch is trunk or takes routine pushes and PRs |
-| [promote](practices/promote.md) | on-demand | a message says "Promote" about branch tiers, or asks to move pre-staging into staging |
+| [promote](practices/promote.md) | on-demand | a message says "Promote" about branch tiers, or asks to move pre-staging into staging or staging into main |
 | [prompt-please](practices/prompt-please.md) | on-demand | handing the person work, starting work in a repo this session cannot reach, or moving advice to a fresh session |
 | [push-back](practices/push-back.md) | on-demand | drafting or reviewing prose meant to persuade or be judged |
 | [push-directly](practices/push-directly.md) | on-demand | a message says "Push directly" [to a branch], or says to skip the PR for one change |
