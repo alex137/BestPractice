@@ -56,6 +56,7 @@ import fnmatch
 import hashlib
 import json
 import pathlib
+import re
 import subprocess
 import sys
 
@@ -91,9 +92,68 @@ def _triggers_text(text):
     return precedent_check.workflow_triggers_text(text)
 
 
+_FILTERS = ('branches', 'branches-ignore', 'tags', 'tags-ignore')
+
+
+def _on_plain(text):
+    """_on without PyYAML: the top-level `on:` block read by line, into the
+    shape yaml.safe_load gives -- a string, a list, or {event: spec}, where
+    spec carries only the branch and tag filters push_fires reads (None
+    when an event has none). GitHub's runner has no PyYAML, and there every
+    `push:` read as never firing: the 2026-09-26 pull request of staging
+    into main went red on this, green in every session (practice:
+    durable-fix; precedent_check._workflow_triggers_plain is the same fix
+    for the trigger text)."""
+    lines = text.splitlines()
+    start = next((i for i, l in enumerate(lines)
+                  if re.match(r"""^['"]?on['"]?\s*:""", l)), None)
+    if start is None:
+        return None
+    inline = lines[start].split(':', 1)[1].split('#', 1)[0].strip()
+    if inline.startswith('['):
+        return [e.strip().strip("'\"") for e in inline.strip('[]').split(',')
+                if e.strip()]
+    if inline:
+        return inline.strip("'\"")
+    on, event, indent, key = {}, None, None, None
+    for line in lines[start + 1:]:
+        if not line.strip() or line.lstrip().startswith('#'):
+            continue
+        if not line[0].isspace():
+            break
+        depth = len(line) - len(line.lstrip())
+        body = line.split('#', 1)[0].strip()
+        if indent is None:
+            indent = depth
+        m = re.match(r'^([A-Za-z_][\w-]*)\s*:\s*(.*)$', body)
+        if depth == indent and m:
+            event, key = m.group(1), None
+            on[event] = None
+            continue
+        if event is None:
+            continue
+        if m and m.group(1) in _FILTERS:
+            key = m.group(1)
+            spec = on[event] if isinstance(on[event], dict) else {}
+            val = m.group(2).strip()
+            spec[key] = [v.strip().strip("'\"") for v in val.strip('[]').split(',')
+                         if v.strip()] if val else []
+            on[event] = spec
+        elif m:
+            key = None
+            if not isinstance(on[event], dict):
+                on[event] = {}
+        elif body.startswith('-') and key:
+            on[event][key].append(body[1:].strip().strip("'\""))
+    return on
+
+
 def _on(text):
     try:
         import yaml
+    except ImportError:
+        return _on_plain(text)
+    try:
         doc = yaml.safe_load(text)
     except Exception:                                          # noqa: BLE001
         return None
