@@ -8374,6 +8374,13 @@ def check_precedent_check_fires():
                          encoding='utf-8')
         case('catalogue-carries-stories', _plant_catalogue_stories)
 
+        def _plant_retired_branch_name(repo):
+            f = repo / 'practices' / 'name-both-sides-of-ledger.md'
+            body = f.read_text(encoding='utf-8')
+            f.write_text(re.sub(r'^index_clause: "', 'index_clause: "on precedent-beta-v01, ',
+                                body, count=1, flags=re.M), encoding='utf-8')
+        case('retired-branch-name-ships', _plant_retired_branch_name)
+
         # generated-edit-goes-upstream -- four shapes in one fixture, told
         # apart by the messages below rather than by the exit status
         # (practice: control-asserts-which-failure). MAP.md loses its
@@ -8744,6 +8751,21 @@ def check_precedent_check_fires():
                          encoding='utf-8')
         case('practice-links-travel', _plant_practice_links,
              setup=_setup_origin)
+
+        # practice: practice-carries-its-files -- a practice promising
+        # consumers a file this repository does not carry.
+        def _plant_ship_missing(repo):
+            f = repo / 'practices' / 'repo-is-memory.md'
+            f.write_text(f.read_text(encoding='utf-8').replace(
+                '\ndefines:', '\nships:       ["tools/not_shipped_here.py"]'
+                '\ndefines:', 1), encoding='utf-8')
+        case('practice-carries-its-files', _plant_ship_missing)
+        if 'practice-carries-its-files' in planted:
+            cases.append(('practice-carries-its-files: the finding names the '
+                          'shipped file the repository does not carry',
+                          'ships `tools/not_shipped_here.py`, which is not in '
+                          'this repository'
+                          in planted['practice-carries-its-files'][1]))
         _plt = planted['practice-links-travel'][1]
         cases.append(("practice-links-travel: a source's own check script is "
                       'not reported as failing to travel',
@@ -14206,9 +14228,10 @@ def check_shipped_tests_name_their_owner_and_fail_at_home():
                            capture_output=True, text=True, env=env)
         cases.append(('the consumer-shaped run fails it, naming the test and the '
                       'cause class',
-                      r.returncode == 1 and 'FAILED: test_plant.sh -- fails where '
-                      'git ignores what a consuming repository typically ignores'
-                      in r.stdout, f'exit {r.returncode}: {r.stdout[-300:]}'))
+                      r.returncode == 1 and 'FAILED: test_plant.sh -- fails in '
+                      'a consumer-shaped copy of this repository' in r.stdout
+                      and 'git add -f' in r.stdout,
+                      f'exit {r.returncode}: {r.stdout[-300:]}'))
         r = subprocess.run([sys.executable, str(shape_tool), '--repo', str(forced)],
                            capture_output=True, text=True, env=env)
         cases.append(('the same test staging with `git add -f` passes the '
@@ -14463,6 +14486,312 @@ def check_materialize_carries_harness_adapters():
           f'collision, settings.json, "..", a wiped directory, and an '
           f'unreadable source config)',
           not bad, '; '.join(bad))
+
+
+def check_practice_ships_its_files():
+    """practice: practice-carries-its-files -- a practice's `ships:` files
+    reach every consumer, a publishing set is held to them at its own push,
+    and a shipped test that reads a source-only tools/ file fails at home.
+
+    THE INCIDENT (2026-09-26): create-word-doc's shipped test copies
+    tools/create_word_doc.py, the materializer never delivered tools/
+    scripts, and a consumer's deep check went red on a test nobody there
+    could fix. Three mechanisms close it, and each has its own way to
+    regress silently, so each is exercised in both directions here
+    (practice: control-asserts-which-failure):
+
+    * precedent_materialize.py delivers, records, drift-checks, honours a
+      declared decline, and refuses the malformed and the colliding;
+    * precedent_check.py's practice-carries-its-files fires in a source set
+      on an undeclared dependency and on a declared file the set lacks, and
+      is quiet once the declaration is right;
+    * precedent_consumer_shape.py fails the test that reads a source-only
+      file, passes it once the file is shipped, and leaves the source's own
+      checkout untouched."""
+    import shutil, tempfile
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-ships-'))
+    cases = []
+
+    def practice(root, slug, ships=None, checked_by='null', body_link=''):
+        p = root / 'practices' / f'{slug}.md'
+        p.parent.mkdir(parents=True, exist_ok=True)
+        ships_line = f'ships: {json.dumps(ships)}\n' if ships is not None else ''
+        p.write_text(
+            f'---\nslug: {slug}\ntitle: Fixture\ntier: on-demand\n'
+            f'severity: default\napplies_to: ["**"]\noccasion: "x"\n'
+            f'gates: []\nindex_clause: "x"\nchecked_by: {checked_by}\n'
+            f'{ships_line}defines: []\nstatus: active\nsupersedes: []\n'
+            f'overrides: null\nadded: 2026-09-26\n'
+            f'approved_by: "harness, 2026-09-26"\n---\n## Rule\nx{body_link}\n\n'
+            f'## Why\nx\n\n## Story\nx\n\n## Install\nx\n', encoding='utf-8')
+
+    try:
+        # --- delivery ------------------------------------------------------
+        uni, team, consumer = tmp / 'universal', tmp / 'team', tmp / 'consumer'
+        practice(uni, 'uni-fixture')
+        practice(team, 'team-fixture', ships=['tools/helper.py'],
+                 body_link=' Run [the helper](../tools/helper.py).')
+        (team / 'tools').mkdir(parents=True)
+        helper = team / 'tools' / 'helper.py'
+        helper.write_text('print("v1")\n', encoding='utf-8')
+        os.chmod(helper, 0o755)
+        consumer.mkdir()
+
+        def config(extra=None):
+            d = {'sources': [
+                {'level': 'universal', 'name': 'precedent', 'path': str(uni)},
+                {'level': 'team', 'name': 'precedent-team-fixture',
+                 'path': str(team)}]}
+            d.update(extra or {})
+            (consumer / 'precedent.json').write_text(json.dumps(d),
+                                                     encoding='utf-8')
+        config()
+        fixture_home = tmp / 'home'
+        fixture_home.mkdir()
+        env = {k: v for k, v in os.environ.items()
+               if k != 'CLAUDE_CODE_REMOTE' and not k.startswith('PRECEDENT_')}
+        env['HOME'] = str(fixture_home)
+        tool = str(ROOT / 'tools' / 'precedent_materialize.py')
+
+        def run():
+            r = subprocess.run([sys.executable, tool, '--out', str(consumer),
+                                '--repo', str(consumer)],
+                               capture_output=True, text=True, env=env)
+            return r.returncode, r.stdout + r.stderr
+
+        def manifest():
+            mf = consumer / 'MANIFEST.json'
+            return json.loads(mf.read_text(encoding='utf-8')) if mf.is_file() else {}
+
+        def drift():
+            sys.path.insert(0, str(ROOT / 'tools'))
+            import precedent_resolve as _pr, precedent_materialize as _pm
+            # The fixture owns the whole environment the resolver reads, not
+            # only HOME: a PRECEDENT_* variable left in this process would
+            # hand it this container's real individual source.
+            saved = {k: v for k, v in os.environ.items()
+                     if k == 'HOME' or k.startswith('PRECEDENT_')}
+            try:
+                for k in saved:
+                    del os.environ[k]
+                os.environ['HOME'] = str(fixture_home)
+                # Named explicitly: the resolver fixed its default user
+                # config path from the real HOME when it was first imported.
+                user_cfg = tmp / 'user-config.json'
+                user_cfg.write_text('{}', encoding='utf-8')
+                srcs = _pr.load_config(str(consumer), str(user_cfg))
+                return _pm.drift(srcs, _pr.resolve(srcs), consumer)
+            finally:
+                os.environ.pop('HOME', None)
+                os.environ.update(saved)
+
+        delivered = consumer / 'tools' / 'helper.py'
+
+        # Every read and write of the delivered file tolerates its absence:
+        # a regression in delivery must show up as named failing cases, not
+        # a traceback (practice: control-asserts-which-failure).
+        def text_of(path):
+            return path.read_text(encoding='utf-8') if path.is_file() else ''
+
+        def put(path, text):
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(text, encoding='utf-8')
+        rc, out = run()
+        cases.append(('a declared `ships:` file is delivered to the same path '
+                      'in the consumer', rc == 0 and delivered.is_file(), out[-300:]))
+        cases.append(('it keeps its executable bit',
+                      delivered.is_file() and os.access(delivered, os.X_OK)))
+        rows = [f for f in manifest().get('ships', [])
+                if f.get('path') == 'tools/helper.py']
+        cases.append(('it is recorded in MANIFEST.json with the practice and '
+                      'source that ship it',
+                      len(rows) == 1 and rows[0].get('practice') == 'team-fixture'
+                      and rows[0].get('source') == 'precedent-team-fixture'))
+        linked = consumer / 'practices' / 'team-fixture.md'
+        cases.append(("the practice's relative link to the file it ships stays "
+                      'relative -- the file is right there',
+                      '](../tools/helper.py)' in text_of(linked)))
+        cases.append(('a fresh sync reports no drift', drift() == []))
+
+        helper.write_text('print("v2")\n', encoding='utf-8')
+        rc, out = run()
+        cases.append(("a change in the source reaches the consumer on the next "
+                      'sync, quietly',
+                      rc == 0 and 'v2' in text_of(delivered)
+                      and 'REPLACED' not in out))
+
+        put(delivered, 'print("hand edited")\n')
+        cases.append(('a hand-edit to a delivered file is drift',
+                      any('tools/helper.py differs' in x for x in drift())))
+        rc, out = run()
+        cases.append(('replacing an unrecorded copy says so, and names the way '
+                      'to keep one', rc == 0 and 'REPLACED' in out
+                      and 'tools/helper.py' in out and 'declined_ships' in out))
+
+        # --- decline --------------------------------------------------------
+        config({'declined_ships': {'tools/helper.py': 'we have our own'}})
+        put(delivered, 'print("ours")\n')
+        rc, out = run()
+        declined = manifest().get('declined_ships', [])
+        cases.append(('a declined file is left alone and the decline is '
+                      'recorded with its reason',
+                      rc == 0 and 'ours' in text_of(delivered)
+                      and declined == [{'path': 'tools/helper.py',
+                                        'slug': 'team-fixture',
+                                        'reason': 'we have our own'}]))
+        cases.append(('a declined file is not drift', drift() == []))
+        config({'declined_ships': {'tools/helper.py': ''}})
+        rc, out = run()
+        cases.append(('a decline without a reason refuses',
+                      rc == 1 and 'non-empty reason' in out))
+        config({'declined_ships': {'tools/nothing.py': 'stale'}})
+        rc, out = run()
+        cases.append(('a decline naming nothing any practice ships warns as '
+                      'stale', rc == 0 and 'the decline is stale' in out))
+        config()
+        run()
+
+        # --- no longer shipped: reported, never deleted ---------------------
+        practice(team, 'team-fixture', ships=[])
+        rc, out = run()
+        cases.append(('a file no practice ships any more is reported and left '
+                      'in place', rc == 0 and delivered.is_file()
+                      and 'no practice in force here ships any more' in out))
+        cases.append(('a consumer that ships nothing carries no `ships` key '
+                      'in its manifest (no churn for every other consumer)',
+                      'ships' not in manifest()))
+
+        # --- refusals -------------------------------------------------------
+        practice(team, 'team-fixture', ships=['tools/helper.py'])
+        practice(uni, 'uni-fixture', ships=['tools/helper.py'])
+        (uni / 'tools').mkdir(exist_ok=True)
+        (uni / 'tools' / 'helper.py').write_text('x\n', encoding='utf-8')
+        rc, out = run()
+        cases.append(('two sources shipping one destination refuses',
+                      rc == 1 and 'destination collision' in out))
+        practice(uni, 'uni-fixture')
+        for bad, words in ((['tools/precedent_check.py'], 'is an engine file'),
+                           (['tools/*.py'], 'is a glob'),
+                           (['../escape.py'], 'walks above the repository'),
+                           (['tools/checks/check_x.py'], 'travel already'),
+                           ('"tools/helper.py"', 'must be a JSON list')):
+            if isinstance(bad, str):
+                p = team / 'practices' / 'team-fixture.md'
+                practice(team, 'team-fixture', ships=[])
+                p.write_text(p.read_text(encoding='utf-8').replace(
+                    'ships: []', f'ships: {bad}'), encoding='utf-8')
+            else:
+                practice(team, 'team-fixture', ships=bad)
+            rc, out = run()
+            cases.append((f'`ships: {bad}` refuses ({words})',
+                          rc == 1 and words in out, out[-200:]))
+        practice(team, 'team-fixture', ships=['tools/absent.py'])
+        rc, out = run()
+        cases.append(('a declared file missing from its source warns and is '
+                      'skipped', rc == 0 and 'NOT delivered' in out
+                      and not (consumer / 'tools' / 'absent.py').exists()))
+        cases.append(('the fixture owned its source set',
+                      not any(fixture_home.iterdir())))
+
+        # --- the source-side check -----------------------------------------
+        src = tmp / 'set'
+        src.mkdir()
+        shutil.copytree(ROOT / 'tools', src / 'tools',
+                        ignore=shutil.ignore_patterns('__pycache__', 'checks'))
+        (src / 'tools' / 'ENGINE_MANIFEST.json').write_text(
+            json.dumps({'kind': 'source', 'files': []}), encoding='utf-8')
+        (src / 'tools' / 'own_tool.py').write_text('print(1)\n', encoding='utf-8')
+        checks_dir = src / 'tools' / 'checks'
+        (checks_dir / 'tests').mkdir(parents=True)
+        (checks_dir / 'check_x.py').write_text('import sys\nsys.exit(0)\n',
+                                               encoding='utf-8')
+        (checks_dir / 'tests' / 'test_x.sh').write_text(
+            '#!/bin/bash\nset -e\ncd "$(dirname "$0")/../../.."\n'
+            'SET_ROOT="$(pwd)"\n'
+            'if [ -f "$SET_ROOT/tools/probed.py" ]; then echo p; fi\n'
+            'cp "$SET_ROOT/tools/own_tool.py" "$(mktemp -d)/"\n'
+            'git -C "$SET_ROOT" status --porcelain -- tools | '
+            '(! grep -q .)\necho ok\n', encoding='utf-8')
+        practice(src, 'x-practice', checked_by='"tools/checks/check_x.py"')
+        genv = dict(env, GIT_AUTHOR_NAME='T', GIT_AUTHOR_EMAIL='t@example.com',
+                    GIT_COMMITTER_NAME='T', GIT_COMMITTER_EMAIL='t@example.com',
+                    GIT_CONFIG_GLOBAL=str(tmp / 'gitconfig'),
+                    GIT_CONFIG_NOSYSTEM='1')
+        (tmp / 'gitconfig').write_text('', encoding='utf-8')
+        for args in (['init', '-q'], ['add', '-A'], ['commit', '-qm', 'base']):
+            subprocess.run(['git', '-C', str(src), *args], env=genv,
+                           capture_output=True)
+
+        def pcheck():
+            r = subprocess.run([sys.executable, str(src / 'tools' / 'precedent_check.py'),
+                                '--only', 'practice-carries-its-files'],
+                               capture_output=True, text=True, cwd=str(src), env=genv)
+            return r.returncode, r.stdout + r.stderr
+
+        rc, out = pcheck()
+        cases.append(('the check fires in a source set on a shipped test that '
+                      'reads an undeclared source-only tools/ file, naming it',
+                      rc == 1 and 'test_x.sh:6' in out
+                      and '`tools/own_tool.py`, which is in this repository'
+                      ' and reaches no consumer' in out, out[-400:]))
+        cases.append(('a path the test probes first is not reported',
+                      'tools/probed.py' not in out))
+        practice(src, 'x-practice', checked_by='"tools/checks/check_x.py"',
+                 ships=['tools/own_tool.py'])
+        rc, out = pcheck()
+        cases.append(('declaring it in `ships:` clears the check',
+                      rc == 0 and '1 passed' in out, out[-300:]))
+        practice(src, 'x-practice', checked_by='"tools/checks/check_x.py"',
+                 ships=['tools/own_tool.py', 'tools/left_behind.py'])
+        rc, out = pcheck()
+        cases.append(('a `ships:` file the set does not carry fires -- the '
+                      'moved-without-its-script case',
+                      rc == 1 and 'ships `tools/left_behind.py`, which is not '
+                      'in this repository' in out, out[-300:]))
+        practice(src, 'x-practice', checked_by='"tools/checks/check_gone.py"',
+                 ships=['tools/own_tool.py'])
+        rc, out = pcheck()
+        cases.append(('a checked_by script the set does not carry fires',
+                      rc == 1 and 'checked_by names `tools/checks/check_gone.py`'
+                      in out, out[-300:]))
+        practice(src, 'x-practice', checked_by='"tools/checks/check_x.py"',
+                 ships=['tools/own_tool.py'])
+
+        # --- the consumer-shaped run -----------------------------------------
+        shape = str(ROOT / 'tools' / 'precedent_consumer_shape.py')
+
+        def shape_run():
+            r = subprocess.run([sys.executable, shape, '--repo', str(src)],
+                               capture_output=True, text=True, env=genv)
+            return r.returncode, r.stdout + r.stderr
+
+        rc, out = shape_run()
+        cases.append(('with the file shipped, the consumer-shaped run passes, '
+                      'and a git status in the copy is as clean as at home',
+                      rc == 0 and 'all 1 passed' in out, out[-400:]))
+        practice(src, 'x-practice', checked_by='"tools/checks/check_x.py"')
+        rc, out = shape_run()
+        cases.append(('undeclared, the consumer-shaped run fails the test and '
+                      'lists the file the copy lacks',
+                      rc == 1 and 'FAILED: test_x.sh' in out
+                      and any('no consumer receives:' in l
+                              and 'tools/own_tool.py' in l.split()
+                              for l in out.splitlines()),
+                      out[-400:]))
+        cases.append(("the source's own checkout is untouched by the run",
+                      (src / 'tools' / 'own_tool.py').is_file()
+                      and subprocess.run(['git', '-C', str(src), 'status',
+                                          '--porcelain', '-uno', '--', 'tools'],
+                                         capture_output=True, text=True,
+                                         env=genv).stdout == ''))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
+    check(f'a practice\'s `ships:` files travel, are held at the source, and '
+          f'a home-only dependency fails at home ({len(cases)} stated cases)',
+          not bad, '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad))
 
 
 def check_show_flags_unreachable_materialized_source():
@@ -22903,6 +23232,98 @@ def check_vendor_engine_refreshes_agents_md_sections():
           f'to date and reports what an edited or missing one lacks, never '
           f'overwriting it ({len(cases)} stated cases)',
           not bad, '; '.join(f"{n} -- {d[:800]}" for n, d in bad))
+
+def check_retired_branch_name_does_not_ship():
+    """precedent_check's retired-branch-name-ships: a practice whose shipped
+    text names a retired branch is reported where it is authored, because
+    every sync writes that text back into the consumers' generated blocks,
+    which refresh's own retired-name report skips on purpose. Measured
+    2026-09-26: a shared set's name-the-branch index_clause put
+    precedent-beta-v01 back into a consumer's AGENTS.md on every sync.
+
+    Both halves planted (practice: checks-plant-their-state): each shipped
+    place it must catch, each place it must leave alone, and a control that
+    empties the registry and watches the loud cases go quiet, so the
+    finding is shown to come from RETIRED_BRANCH_NAMES and nothing else
+    (practice: control-asserts-which-failure).
+    """
+    import tempfile
+    import precedent_check as pc
+    import precedent_vendor_engine as pve
+    old, (new, _date) = next(iter(pve.RETIRED_BRANCH_NAMES.items()))
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='retired-name-ships-'))
+
+    def practice(slug, tier='on-demand', status='active', clause='x',
+                 rule='Do the thing.', detail='More.', story='It happened.'):
+        return (f'---\nslug:        {slug}\ntitle:       T\ntier:        {tier}\n'
+                f'severity:    default\napplies_to:  []\noccasion:    "doing x"\n'
+                f'gates:       []\nindex_clause: "{clause}"\nchecked_by:  null\n'
+                f'defines:     []\nstatus:      {status}\nsupersedes:  []\n'
+                f'added:       "2026-09-26"\napproved_by: "fixture"\n---\n'
+                f'## Rule\n{rule}\n\n## Detail\n{detail}\n\n## Why\nw\n\n'
+                f'## Story\n{story}\n\n## Install\nNothing.\n')
+
+    files = {
+        'fx-clause': practice('fx-clause', clause=f'name it ({old}, main)'),
+        'fx-resident': practice('fx-resident', tier='resident',
+                                rule=f'Push to `{old}`.'),
+        'fx-both-names': practice('fx-both-names',
+                                  clause=f'`{new}` (named `{old}` until then)'),
+        'fx-history': practice('fx-history', rule=f'Pushed to `{old}` once.',
+                               detail=f'`{old}` was red.',
+                               story=f'It landed on `{old}`.'),
+        'fx-retired': practice('fx-retired', status='deduplicated',
+                               clause=f'name it ({old})'),
+        'fx-longer': practice('fx-longer', clause=f'name it ({old}-archive)'),
+    }
+    pdir = tmp / 'practices'
+    pdir.mkdir(parents=True)
+    for slug, text in files.items():
+        (pdir / f'{slug}.md').write_text(text, encoding='utf-8')
+
+    saved_root, saved_names = pc.ROOT, pve.RETIRED_BRANCH_NAMES
+    try:
+        pc.ROOT = tmp
+        found = {f.where: str(f.detail) for f in pc._retired_branch_name_ships(None)}
+        clause = found.get('practices/fx-clause.md', '')
+        cases.append(('an index_clause naming a retired branch is reported, in '
+                      'the check\'s own words and naming the new branch',
+                      f'its index_clause names {old}, renamed {new}' in clause
+                      and f'name {new} here instead' in clause, repr(found)))
+        cases.append(('a RESIDENT practice\'s Rule naming it is reported -- '
+                      'the resident block carries the whole Rule',
+                      'its ## Rule names' in found.get('practices/fx-resident.md', ''),
+                      repr(found)))
+        cases.append(('QUIET: text that names the new branch beside the old one '
+                      'is recording the rename, not using the old name',
+                      'practices/fx-both-names.md' not in found, repr(found)))
+        cases.append(('QUIET: an on-demand practice\'s Rule, Detail and Story '
+                      'keep their dated history',
+                      'practices/fx-history.md' not in found, repr(found)))
+        cases.append(('QUIET: a practice no longer in force ships nothing',
+                      'practices/fx-retired.md' not in found, repr(found)))
+        cases.append(('QUIET: a longer branch name containing the old one is a '
+                      'different branch',
+                      'practices/fx-longer.md' not in found, repr(found)))
+        pve.RETIRED_BRANCH_NAMES = {}
+        try:
+            pc._retired_branch_name_ships(None)
+            emptied = 'ran'
+        except pc.NotApplicable as e:
+            emptied = str(e)
+        cases.append(('CONTROL: with the registry empty the check says it cannot '
+                      'apply, so the findings above came from it',
+                      'predates RETIRED_BRANCH_NAMES' in emptied, emptied))
+    finally:
+        pc.ROOT, pve.RETIRED_BRANCH_NAMES = saved_root, saved_names
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'a retired branch name is caught in the practice text a sync ships, '
+          f'where it is authored ({len(cases)} stated cases)',
+          not bad, '; '.join(f"{n} -- {d[:600]}" for n, d in bad))
+
 
 def check_a_hook_wired_from_elsewhere_is_reported_as_wired():
     """A hook a repo calls in place, from a path of its own, is WIRED --
@@ -33506,6 +33927,7 @@ def main():
     check_materialize_bridges_loader()
     check_shipped_tests_name_their_owner_and_fail_at_home()
     check_materialize_carries_harness_adapters()
+    check_practice_ships_its_files()
     check_show_flags_unreachable_materialized_source()
     check_sync_views_cross_source()
     check_sync_refuses_to_lose_a_recorded_practice()
@@ -33552,6 +33974,7 @@ def main():
     check_vendor_engine_refreshes_ci_workflow_files()
     check_vendor_engine_refreshes_bootstrap_sh()
     check_vendor_engine_refreshes_agents_md_sections()
+    check_retired_branch_name_does_not_ship()
     check_vendor_engine_retires_ci_workflow_files()
     check_workflow_file_outside_vendoring_detects_candidates()
     check_ci_workflow_approved_pins_approval_to_content()

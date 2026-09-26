@@ -16,7 +16,9 @@ precedent_check.py at that directory unchanged."
 THIS TOOL WRITES WHAT A SOURCE PUBLISHES, NOT THE ENGINE: the resolved
 practices/ tree, each source's own tools/checks/ (a checked_by claim has
 nothing behind it if only practices/ is copied — engine-plus-host-shims: the
-engine travels with what it enforces), and since 2026-09-12 each source's
+engine travels with what it enforces), since 2026-09-26 every file a resolved
+practice declares in its `ships:` field (see "Shipped files" below), and
+since 2026-09-12 each source's
 declared HARNESS ADAPTERS — the `bootstrap/*.sh` scripts its own practices
 tell every consuming repo to wire into `.claude/hooks/`, which until then
 travelled by hand-copy and so went silently stale (see the "Harness adapters"
@@ -41,8 +43,10 @@ claim one slug" refusal is the same discipline applied here.
 Usage:
   precedent_materialize.py --out DIR [--repo REPO] [--user-config PATH]
 Exit: 0 on a clean materialization, 1 on a resolve conflict, an over-budget
-resident set, a checks/ filename collision, or a harness adapter declaration
-that is malformed or collides on its destination.
+resident set, a checks/ filename collision, a harness adapter declaration
+that is malformed or collides on its destination, or a `ships:` declaration
+(or a `declined_ships` entry in this repo's precedent.json) that is malformed
+or collides on its destination.
 """
 import datetime
 import hashlib
@@ -787,6 +791,153 @@ def _plan_adapters(sources):
     return plan
 
 
+# --------------------------------------------------------------------------
+# Shipped files
+# --------------------------------------------------------------------------
+#
+# practice: practice-carries-its-files -- a practice declares the files it
+# owns besides its checked_by script and test, in `ships:`, and this is what
+# delivers them.
+#
+# THE INCIDENT (2026-09-26). precedent-shared-writing's create-word-doc
+# practice owns tools/create_word_doc.py: its Rule tells a session to run the
+# script, and its shipped test copies it (`cp "$SET_ROOT/tools/
+# create_word_doc.py" ...`). This tool shipped the practice and the test and
+# never the script, so in a consumer without a hand-copy the consumer's deep
+# check went red on a test it could neither fix nor satisfy. The practice's
+# own Detail said consumers "copy it in by hand" -- the same arrangement the
+# harness adapters above had until their two measured incidents, and the
+# same outcome. Nothing declared the dependency, so nothing could deliver it,
+# and nothing noticed when a practice moved between sets without it.
+#
+# SAME CONTRACT AS THE ADAPTERS, for the same reasons: read everything
+# before writing anything; refuse a destination two sources both claim;
+# write file by file, never by emptying a directory (tools/ holds the
+# consumer's own scripts and the vendored engine); record each file in
+# MANIFEST.json so drift() can compare it; replace a copy the manifest never
+# recorded, loudly; report, never delete, a file no practice ships any more.
+#
+# ONE DIFFERENCE: a consumer may DECLINE one, in its own precedent.json,
+# with a reason. An adapter is part of the machinery every consumer runs; a
+# shipped file serves a practice's Rule, and a repository may have decided
+# it does not want the half of that Rule the file serves -- create-word-doc
+# itself allows every export to be a hand-built one-off. The reason is
+# required and recorded in the manifest, so "declined" and "never
+# delivered" stay distinguishable:
+#
+#   "declined_ships": {"tools/create_word_doc.py": "we never export .docx"}
+DECLINED_SHIPS_KEY = 'declined_ships'
+
+
+def _declined_ships(out_dir):
+    """{path: reason} from the consuming repo's own precedent.json.
+
+    Raises on a malformed declaration: it is this repo's own edit, and a
+    decline nobody can read must not silently become a delivery."""
+    cfg = pathlib.Path(out_dir) / 'precedent.json'
+    if not cfg.is_file():
+        return {}
+    try:
+        data = json.loads(cfg.read_text(encoding='utf-8'))
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        return {}      # load_config already refused an unreadable config
+    decl = data.get(DECLINED_SHIPS_KEY) if isinstance(data, dict) else None
+    if decl is None:
+        return {}
+    if not isinstance(decl, dict) or not all(
+            isinstance(k, str) and isinstance(v, str) and v.strip()
+            for k, v in decl.items()):
+        raise MaterializeError(
+            f"{cfg}: \"{DECLINED_SHIPS_KEY}\" must be an object mapping each "
+            f"declined path to a non-empty reason, e.g. "
+            f"{{\"tools/create_word_doc.py\": \"we never export .docx\"}}.")
+    return dict(decl)
+
+
+def _plan_ships(res, declined=None, adapter_dests=()):
+    """-> (plan, declined_rows). `plan` is [(dest, source_name, slug, bytes,
+    executable)], `declined_rows` [{'path', 'reason', 'slug'}]. Reads, never
+    writes -- same contract as _plan_checks and _plan_adapters.
+
+    Only a practice this run actually materializes ships anything: one that
+    lost its slug to a higher-precedence source, or is withdrawn, or is
+    engine-dev scoped, is not in force here and its files have nothing to
+    serve. A declared file missing from its source WARNS and is skipped, as
+    an adapter's does -- the ordinary cause is a stale clone. A malformed
+    declaration raises, as an adapter's does; practice-carries-its-files
+    refuses it at the source's own push first, so a consumer should never
+    be the one to hear about it."""
+    declined = dict(declined or {})
+    adapter_dests = set(adapter_dests)
+    owner_of, plan, missing, declined_rows = {}, [], [], []
+    for slug, practice in sorted(res['practices'].items()):
+        if _is_engine_dev_scoped(practice):
+            continue
+        try:
+            paths = pr.bv.ships_paths(practice.get('fm', {}))
+        except ValueError as e:
+            raise MaterializeError(f"{practice['file']}: {e}")
+        root = pathlib.Path(practice['file']).resolve().parent.parent
+        for rel in paths:
+            why = pr.bv.ship_path_problem(rel)
+            if why:
+                raise MaterializeError(
+                    f"{practice['file']}: `ships:` entry {rel!r} {why}.")
+            dest = pathlib.PurePosixPath(rel).as_posix()
+            if dest in adapter_dests:
+                raise MaterializeError(
+                    f"{dest} is both a harness adapter destination and a file "
+                    f"{slug!r} ships -- two mechanisms cannot own one file. "
+                    f"Drop one of the two declarations.")
+            prior = owner_of.get(dest)
+            if prior is not None:
+                if prior[0] != practice['source']:
+                    raise MaterializeError(
+                        f"{dest} is shipped by both {prior[1]!r} (source "
+                        f"{prior[0]!r}) and {slug!r} (source "
+                        f"{practice['source']!r}) -- a destination collision. "
+                        f"Pick one, or rename one of the files.")
+                continue        # two practices of one source share a file
+            owner_of[dest] = (practice['source'], slug)
+            if dest in declined:
+                declined_rows.append({'path': dest, 'slug': slug,
+                                      'reason': declined.pop(dest).strip()})
+                continue
+            src_file = root / rel
+            if not src_file.is_file():
+                missing.append(f'{rel} ({slug}, {practice["source"]})')
+                continue
+            plan.append((dest, practice['source'], slug, src_file.read_bytes(),
+                         os.access(src_file, os.X_OK)))
+    if missing:
+        print("precedent_materialize: shipped file(s) a practice declares "
+              "that are not in its source tree, NOT delivered -- the source "
+              "names a file it does not carry, or its clone here is stale: "
+              + ', '.join(missing), file=sys.stderr)
+    if declined:
+        print(f"precedent_materialize: precedent.json declines "
+              f"{', '.join(sorted(declined))} under \"{DECLINED_SHIPS_KEY}\", "
+              f"and no practice in force here ships it -- the decline is "
+              f"stale; remove it", file=sys.stderr)
+    return plan, declined_rows
+
+
+def _prior_ship_hashes(out_dir):
+    """{destination: sha256_16} from the manifest this tree already carries
+    -- the same question _prior_adapter_hashes answers, for shipped files."""
+    mf = pathlib.Path(out_dir) / 'MANIFEST.json'
+    if not mf.is_file():
+        return {}
+    try:
+        data = json.loads(mf.read_text(encoding='utf-8'))
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        return {}
+    if not isinstance(data, dict):
+        return {}
+    return {s['path']: s.get('sha256_16') for s in data.get('ships', [])
+            if isinstance(s, dict) and isinstance(s.get('path'), str)}
+
+
 def _prior_adapter_hashes(out_dir):
     """{destination: sha256_16} from the manifest this tree ALREADY carries --
     what the last sync says it installed, which is what separates an ordinary
@@ -805,7 +956,19 @@ def _prior_adapter_hashes(out_dir):
             if isinstance(a, dict) and isinstance(a.get('path'), str)}
 
 
-def materialize(sources, res, out_dir, dry_run=False, withheld=None):
+def materialize(sources, res, out_dir, dry_run=False, withheld=None,
+                declined_ships=None):
+    """-> (written, checks_written, adapters_written, rstats) -- see
+    _materialize, which does the work and also returns what drift() needs
+    about shipped files. The four-tuple is what every caller already
+    unpacks, so it stays."""
+    r = _materialize(sources, res, out_dir, dry_run=dry_run,
+                     withheld=withheld, declined_ships=declined_ships)
+    return r['written'], r['checks'], r['adapters'], r['rstats']
+
+
+def _materialize(sources, res, out_dir, dry_run=False, withheld=None,
+                 declined_ships=None):
     """Reads every resolved practice file and every source's check/test
     file INTO MEMORY before deleting or writing anything in out_dir.
 
@@ -857,6 +1020,9 @@ def materialize(sources, res, out_dir, dry_run=False, withheld=None):
                       if not _is_engine_dev_scoped(practice)}
     checks_plan = _plan_checks(sources, res)   # raises MaterializeError before any write
     adapters_plan = _plan_adapters(sources)    # same -- reads, never writes
+    ships_plan, declined_rows = _plan_ships(   # same
+        res, _declined_ships(out_dir) if declined_ships is None else declined_ships,
+        adapter_dests=[a[0] for a in adapters_plan])
 
     if not dry_run:
         if practices_dir.exists():
@@ -870,6 +1036,9 @@ def materialize(sources, res, out_dir, dry_run=False, withheld=None):
     planned_out = {f'practices/{slug}.md' for slug in practice_plan}
     planned_out.update(f'tools/{rel_label}/{filename}'
                        for rel_label, filename, _src, _data in checks_plan)
+    # A practice citing the script it ships (`../tools/create_word_doc.py`)
+    # keeps its relative link: this run writes that file.
+    planned_out.update(dest for dest, *_rest in ships_plan)
     for slug, (practice, data) in sorted(practice_plan.items()):
         dest = practices_dir / f'{slug}.md'
         # Rewritten, not copied: a practice's relative links are written
@@ -951,6 +1120,41 @@ def materialize(sources, res, out_dir, dry_run=False, withheld=None):
               "reverted. `git diff` shows exactly what went, before you "
               "commit: " + ', '.join(adopted), file=sys.stderr)
 
+    # Shipped files: written file by file for the reason adapters are, since
+    # tools/ also holds the vendored engine and the consumer's own scripts.
+    ships_written = []
+    prior_ships = _prior_ship_hashes(out_dir)
+    ships_adopted = []
+    for dest_rel, source_name, slug, data, executable in ships_plan:
+        dest = out_dir / dest_rel
+        want = hashlib.sha256(data).hexdigest()[:16]
+        if dest.is_file():
+            have = hashlib.sha256(dest.read_bytes()).hexdigest()[:16]
+            if have != want and prior_ships.get(dest_rel) != have:
+                ships_adopted.append(f'{dest_rel} ({slug}, {source_name})')
+        if not dry_run:
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            dest.write_bytes(data)
+            os.chmod(dest, 0o755 if executable else 0o644)
+        ships_written.append({'path': dest_rel, 'source': source_name,
+                              'practice': slug, 'sha256_16': want,
+                              'executable': executable})
+    stale_ships = sorted(set(prior_ships) - {s['path'] for s in ships_written}
+                         - {d['path'] for d in declined_rows})
+    if stale_ships and not dry_run:
+        print("precedent_materialize: shipped file(s) this tree received that "
+              "no practice in force here ships any more -- left in place, not "
+              "deleted. Remove each by hand once nothing here uses it: "
+              + ', '.join(stale_ships), file=sys.stderr)
+    if ships_adopted and not dry_run:
+        print("precedent_materialize: shipped file(s) whose previous content "
+              "this tree had not recorded as materialized were REPLACED -- a "
+              "hand-copy being adopted, or a local edit being reverted. `git "
+              "diff` shows exactly what went, before you commit; to keep a "
+              f"repository's own version instead, decline it under "
+              f"\"{DECLINED_SHIPS_KEY}\" in precedent.json: "
+              + ', '.join(ships_adopted), file=sys.stderr)
+
     rstats = pr.resident_stats(res)
     if rstats['over_budget']:
         raise MaterializeError(
@@ -961,16 +1165,21 @@ def materialize(sources, res, out_dir, dry_run=False, withheld=None):
 
     manifest = _build_manifest(sources, written, checks_written, rstats,
                                adapters_written, withheld=withheld,
-                               excluded_engine_dev=excluded_engine_dev)
+                               excluded_engine_dev=excluded_engine_dev,
+                               ships_written=ships_written,
+                               declined_ships=declined_rows)
     if not dry_run:
         (out_dir / 'MANIFEST.json').write_text(
             json.dumps(manifest, indent=2, sort_keys=True) + '\n', encoding='utf-8')
-    return written, checks_written, adapters_written, rstats
+    return {'written': written, 'checks': checks_written,
+            'adapters': adapters_written, 'rstats': rstats,
+            'ships': ships_written, 'declined_ships': declined_rows}
 
 
 def _build_manifest(sources, written, checks_written, rstats,
                     adapters_written=(), withheld=None,
-                    excluded_engine_dev=None):
+                    excluded_engine_dev=None, ships_written=(),
+                    declined_ships=()):
     """`withheld` names the slugs a PUBLIC repo's visibility keeps out of this
     tree -- recorded because "absent" and "never existed" look identical on
     disk, and several checks turn that difference into a finding.
@@ -991,7 +1200,7 @@ def _build_manifest(sources, written, checks_written, rstats,
     about who could ever act on it, and the two lists can overlap for
     unrelated reasons (name-both-sides-of-ledger: keep what is excluded and
     why distinguishable, not just the fact that something was)."""
-    return {
+    manifest = {
         'generated_by': 'tools/precedent_materialize.py',
         'generated_at_utc': precedent_time.utc_iso(),
         'note': 'DERIVED ARTIFACT -- never hand-edit. Regenerate by re-running '
@@ -1007,6 +1216,15 @@ def _build_manifest(sources, written, checks_written, rstats,
         'withheld': sorted(withheld or []),
         'excluded_engine_dev': sorted(excluded_engine_dev or []),
     }
+    # Written only when there is something to say. Every consumer that ships
+    # nothing would otherwise see its MANIFEST.json change on the first sync
+    # after this engine arrives, over two empty lists.
+    if ships_written:
+        manifest['ships'] = list(ships_written)
+    if declined_ships:
+        manifest[DECLINED_SHIPS_KEY] = sorted(declined_ships,
+                                              key=lambda d: d['path'])
+    return manifest
 
 
 # The read-only half. A check that mutates what it is checking is worse
@@ -1043,8 +1261,9 @@ def drift(sources, res, out_dir, withheld=None):
     every run -- so --check could never come back clean in the one kind of
     repo the exclusion exists for. Caught the day the exclusion landed."""
     out_dir = pathlib.Path(out_dir)
-    written, checks_written, adapters_written, rstats = materialize(
-        sources, res, out_dir, withheld=withheld, dry_run=True)
+    plan = _materialize(sources, res, out_dir, withheld=withheld, dry_run=True)
+    written, checks_written = plan['written'], plan['checks']
+    adapters_written, rstats = plan['adapters'], plan['rstats']
     # Derived from res alone, so -- unlike withheld -- it is safe to
     # recompute here rather than thread through: the same bug shape as the
     # withheld one above, caught the same way, by --check refusing to agree
@@ -1100,12 +1319,39 @@ def drift(sources, res, out_dir, withheld=None):
                       f"declared source publishes it any more -- a sync "
                       f"leaves it in place and reports it")
 
+    # Shipped files: the adapters' comparison, for the adapters' reason --
+    # tools/ is not this tool's to sweep.
+    for f in plan['ships']:
+        dest = out_dir / f['path']
+        label = f"shipped by {f['practice']}, {f['source']}"
+        if not dest.is_file():
+            found.append(f"{f['path']} is missing -- a fresh sync delivers it "
+                          f"({label})")
+        elif hashlib.sha256(dest.read_bytes()).hexdigest()[:16] != f['sha256_16']:
+            found.append(f"{f['path']} differs from what a fresh sync delivers "
+                          f"({label}) -- to keep this repository's own "
+                          f"version, decline it under \"{DECLINED_SHIPS_KEY}\" "
+                          f"in precedent.json")
+        elif os.access(dest, os.X_OK) != f['executable']:
+            want_x = 'executable' if f['executable'] else 'not executable'
+            found.append(f"{f['path']} is {'not ' if f['executable'] else ''}"
+                          f"executable and a fresh sync delivers it {want_x} "
+                          f"({label})")
+    for path in sorted(set(_prior_ship_hashes(out_dir))
+                       - {f['path'] for f in plan['ships']}
+                       - {d['path'] for d in plan['declined_ships']}):
+        found.append(f"{path} was delivered as a shipped file and no practice "
+                      f"in force here ships it any more -- a sync leaves it in "
+                      f"place and reports it")
+
     # generated_at_utc is a timestamp, not state -- comparing it would make
     # every run report drift against itself.
     mf = out_dir / 'MANIFEST.json'
     want = _build_manifest(sources, written, checks_written, rstats,
                            adapters_written, withheld=withheld,
-                           excluded_engine_dev=excluded_engine_dev)
+                           excluded_engine_dev=excluded_engine_dev,
+                           ships_written=plan['ships'],
+                           declined_ships=plan['declined_ships'])
     if not mf.is_file():
         found.append('MANIFEST.json is missing -- a fresh sync writes it')
     else:
@@ -1168,14 +1414,19 @@ def main():
               file=sys.stderr)
 
     try:
-        written, checks_written, adapters_written, rstats = materialize(
-            sources, res, pathlib.Path(out))
+        r = _materialize(sources, res, pathlib.Path(out))
     except MaterializeError as e:
         sys.exit(f"precedent_materialize FAIL: {e}")
+    written, checks_written = r['written'], r['checks']
+    adapters_written, rstats = r['adapters'], r['rstats']
 
     print(f"materialized {len(written)} practice(s), {len(checks_written)} "
-          f"check script(s)/test(s) and {len(adapters_written)} harness "
-          f"adapter(s) from {len(sources)} source(s) into {out}")
+          f"check script(s)/test(s), {len(adapters_written)} harness "
+          f"adapter(s) and {len(r['ships'])} shipped file(s) from "
+          f"{len(sources)} source(s) into {out}")
+    if r['declined_ships']:
+        print('declined here: ' + ', '.join(
+            f"{d['path']} ({d['reason']})" for d in r['declined_ships']))
     print(f"resident block: ~{rstats['tokens']} of {rstats['budget']} token budget")
     print(f"manifest: {pathlib.Path(out) / 'MANIFEST.json'}")
     return 0

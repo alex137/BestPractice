@@ -41,6 +41,15 @@ audience). This is distinct from:
 
 ## The pattern
 
+**A move carries everything the practice owns, in one commit at the
+destination:** the practice file, its `checked_by` script, that script's
+test, and every file its `ships:` field declares
+([practice-carries-its-files](../practices/practice-carries-its-files.md)).
+Copy the files first; the tool refuses until they are there, and the
+destination's own push check refuses a practice whose declared files are
+missing. Leaving the source's copies in place is fine until the
+deduplication step, since the deduplicated practice no longer ships them.
+
 **Since 2026-09-14 one tool does both steps, in the one safe order.** Run
 it from a checkout of Precedent — the sets and the consuming repositories
 do not vendor it, and the paths are the sets':
@@ -62,7 +71,8 @@ deduplicates the source copy (`status: deduplicated`, `in_force_at:` the
 slug, one dated `## Story` line), and regenerates both sets' views. It
 refuses an empty Story (`--story` fills it), a slug the destination already
 carries, an approver not listed in a team set's `approvers.json`, a
-`checked_by` naming a check the destination cannot run, and `--dedupe-only`
+`checked_by` naming a check the destination cannot run, a `ships:` file the
+destination does not carry yet, and `--dedupe-only`
 on a practice moving *out of* universal without `--accept-reach-loss` also
 given (below). **With `--to universal` it drafts only** — the file goes
 into the clone's `practices/`, the clone's own [`build_views.py`](../tools/build_views.py) and
@@ -276,8 +286,9 @@ practice from individual back out to a team, exactly as the note on
 
 Until 2026-09-14 this section said no tool automated the two steps and
 named a [`precedent_move.py`](../tools/precedent_move.py) as future work; it exists now (above). What
-still stays by hand: a `checked_by` practice's check script and test move
-before the practice does (the tool refuses until they have), a move
+still stays by hand: a `checked_by` practice's check script and test, and
+every file it declares in `ships:`, are copied to the destination before the
+practice lands (the tool refuses until they have), a move
 between two sets this session cannot both write to is two sessions'
 work, and committing and publishing each set is the owner's act — the
 tool writes files and regenerates views, and nothing else.
