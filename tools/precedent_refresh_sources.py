@@ -34,7 +34,8 @@ merge rules, which this tool has no way to know. Nor does --apply write
 into a CONSUMER repo unless --path names it: one attached beside this
 checkout is reported and left alone, because its engine and hooks move by
 "Update Vendors" there, which checks and commits them (2026-09-26; the
-story is in main()).
+story is in main()). And once --path names anything, --apply writes into
+those repos and no others; every other one found is reported and left alone.
 
 THERE IS NO UNATTENDED PATH, AND THAT IS THE DECISION (2026-09-14). This
 paragraph used to end by naming one -- "the scheduled workflow the source
@@ -94,6 +95,7 @@ Run:
   python3 tools/precedent_refresh_sources.py --apply         # refresh + regenerate
   python3 tools/precedent_refresh_sources.py --apply --commit
   python3 tools/precedent_refresh_sources.py --path ../other-set
+  python3 tools/precedent_refresh_sources.py --apply --path ../other-set   # writes that repo ONLY
 Exit: 0 always, except --check with a stale source, or a malformed manifest.
 """
 import json, os, pathlib, re, subprocess, sys
@@ -926,10 +928,12 @@ def _credential_reminder():
 
 
 def _may_write(entry, asked=()):
-    """True when --apply may write into this repo: any practice set, and a
-    consumer only when --path named it. See main() for why."""
-    return (entry.get('kind') != 'consumer'
-            or pathlib.Path(entry['repo']).resolve() in set(asked))
+    """True when --apply may write into this repo. With --path, only the repos
+    it names. Without it, any practice set, and a consumer never. See main()
+    for why."""
+    if asked:
+        return pathlib.Path(entry['repo']).resolve() in set(asked)
+    return entry.get('kind') != 'consumer'
 
 
 def main(argv):
@@ -1026,18 +1030,29 @@ def main(argv):
     # existed. A consumer's engine and hooks move by "Update Vendors" in that
     # repo, which checks and commits what it writes. So a consumer is
     # reported here as before, and left alone unless --path names it.
+    #
+    # AND --path NAMES THE WHOLE TARGET, NOT AN EXTRA ONE (2026-09-26). It
+    # used to add a repo to the scan, so `--apply --path X`, run to refresh
+    # X, also rewrote every other set beside this checkout and under $HOME --
+    # the session's own source clones, whose uncommitted engine output then
+    # sat in the container reading as unsaved work. Asked to do one repo, it
+    # does that repo. Everything found is still REPORTED; only the writing
+    # is scoped.
     asked = {pathlib.Path(x).expanduser().resolve() for x in extra}
     held = [e for e in {id(e): e for e in (*stale, *hookbad)}.values()
             if not _may_write(e, asked)]
     for e in held:
-        print(f"\n--- {_label(e['repo'])}\n  LEFT ALONE: a consumer repo -- its "
-              f"engine and hooks move by \"Update Vendors\" there, which checks "
-              f"and commits them. Name it with --path to write into it from here.")
+        why = ("not named -- with --path, --apply writes only into the repos "
+               "it names" if asked else
+               "a consumer repo -- its engine and hooks move by \"Update "
+               "Vendors\" there, which checks and commits them. Name it with "
+               "--path to write into it from here")
+        print(f"\n--- {_label(e['repo'])}\n  LEFT ALONE: {why}.")
     stale = [e for e in stale if _may_write(e, asked)]
     hookbad = [e for e in hookbad if _may_write(e, asked)]
     if not stale and not hookbad:
         print("\nprecedent_refresh_sources: nothing written -- every repo "
-              "needing work here is a consumer left alone above.")
+              "needing work here is left alone above.")
         return 0
 
     failed = False

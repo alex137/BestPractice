@@ -24145,6 +24145,133 @@ def check_refresh_sources_leaves_an_attached_consumer_alone():
           not bad, '; '.join(f"{n} -- {d[:600]}" for n, d in bad))
 
 
+def check_refresh_sources_path_names_the_whole_target():
+    """`--apply --path X` writes into X and nothing else. It used to ADD X to
+    the scan, so refreshing one named set also rewrote every other set beside
+    the checkout and under $HOME -- on 2026-09-26, the session's own source
+    clones, left holding uncommitted engine output nobody had asked for.
+
+    Both worlds planted (practice: checks-plant-their-state): two stale
+    practice sets, one named; only the named one reaches the writers, the
+    other is reported LEFT ALONE. CONTROL: the same fixture with no --path
+    writes both, so the quiet case comes from the scoping (practice:
+    control-asserts-which-failure). Hermetic: the writers are stubbed to
+    record who they were called for, and nothing is fetched."""
+    import contextlib, io, json as _j, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_refresh_sources as prs
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='refresh-path-scope-'))
+
+    def plant(name):
+        repo = tmp / name
+        (repo / 'tools').mkdir(parents=True, exist_ok=True)
+        (repo / 'tools' / 'ENGINE_MANIFEST.json').write_text(_j.dumps(
+            {'kind': 'source', 'source_commit': 'fixture-old'}), encoding='utf-8')
+        return repo.resolve()
+
+    names = ('candidate_dirs', 'head_commit', 'apply_to', 'repair_hooks',
+             'classify_dirt', 'make_current', '_declared_base_branch',
+             'ensure_source_credentials')
+    saved = {n: getattr(prs, n) for n in names}
+    wrote = []
+    try:
+        a, b = plant('named-set'), plant('other-set')
+        prs.candidate_dirs = lambda extra=(): [a, b]
+        prs.head_commit = lambda: ('fixture-tip', 'origin/fixture')
+        prs.ensure_source_credentials = lambda found: []
+        prs.classify_dirt = lambda repo: ([], [])
+        prs.make_current = lambda repo, want: (True, 'fixture')
+        prs._declared_base_branch = lambda repo: 'main'
+        prs.repair_hooks = lambda repo: (wrote.append(pathlib.Path(repo).resolve()),
+                                         (True, 'fixture'))[1]
+        prs.apply_to = lambda e, commit=False: (
+            wrote.append(pathlib.Path(e['repo']).resolve()), [])[1]
+
+        def run(argv):
+            wrote.clear()
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                prs.main(argv)
+            return set(wrote), buf.getvalue()
+
+        got, out = run(['--apply', '--path', str(a)])
+        cases.append(('the set --path names is written', a in got, out[-600:]))
+        cases.append(('...and the set it does not name is not', b not in got,
+                      out[-600:]))
+        cases.append(('...and is reported LEFT ALONE as not named',
+                      'LEFT ALONE: not named' in out, out[-600:]))
+        got, out = run(['--apply'])
+        cases.append(('CONTROL: with no --path both sets are written, so the '
+                      'quiet case above came from the scoping',
+                      a in got and b in got, out[-600:]))
+    finally:
+        for n, f in saved.items():
+            setattr(prs, n, f)
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'refresh --apply --path writes only the repos it names '
+          f'({len(cases)} stated cases)',
+          not bad, '; '.join(f"{n} -- {d[:600]}" for n, d in bad))
+
+
+def check_push_check_installs_gate_packages():
+    """precedent_push_check.py installs the packages the gates import before
+    it runs anything, and stops at once, naming them, when it cannot --
+    rather than letting verify_harness fail minutes later without saying a
+    package was absent (2026-09-14, 2026-09-26). Hermetic: import and install
+    are stubbed, so nothing is fetched (practice: control-asserts-which-failure:
+    the present case never calls the installer)."""
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_push_check as ppc
+    cases, calls = [], []
+    have = {'present'}
+    ok, note = ppc.ensure_gate_packages(('present',), have.__contains__,
+                                        lambda m: calls.append(list(m)) or '')
+    cases.append(('all present: ok, silent, installer never called',
+                  ok and note == '' and not calls, f'{ok} {note!r} {calls}'))
+    ok, note = ppc.ensure_gate_packages(
+        ('present', 'absent'), have.__contains__,
+        lambda m: (calls.append(list(m)), have.update(m))[1] or '')
+    cases.append(('one missing: installs exactly that one and says so',
+                  ok and calls[-1] == ['absent'] and 'installed absent' in note,
+                  f'{ok} {note!r} {calls}'))
+    ok, note = ppc.ensure_gate_packages(('gone',), lambda m: False,
+                                        lambda m: 'no network')
+    cases.append(('install fails: not ok, and the note names the package',
+                  not ok and 'gone' in note and 'pip install gone' in note,
+                  f'{ok} {note!r}'))
+    cases.append(('the list matches the session check\'s row',
+                  ppc.GATE_PACKAGES == ('cmarkgfm', 'markdown'), ''))
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'the push check installs the gate packages or stops naming them '
+          f'({len(cases)} stated cases)',
+          not bad, '; '.join(f"{n} -- {d}" for n, d in bad))
+
+def check_stale_source_paths_accepts_the_universal_pair():
+    """The universal source is `precedent` at `../BestPractice` by design --
+    precedent_bootstrap_source.py writes that pair -- so the stale-path
+    report must not tell anyone to repoint it; `../precedent` names no clone.
+    A real mismatch is still caught (practice: control-asserts-which-failure)."""
+    import json as _j, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_vendor_engine as pve
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='stale-source-paths-'))
+    try:
+        (tmp / 'precedent.json').write_text(_j.dumps({'sources': [
+            {'level': 'universal', 'name': 'precedent', 'path': '../BestPractice'},
+            {'level': 'shared', 'name': 'precedent-shared-writing',
+             'path': '../precedent-shared-writing'},
+            {'level': 'shared', 'name': 'precedent-shared-x',
+             'path': '../precedent-team-x'}]}), encoding='utf-8')
+        got = [n for n, _p, _w in pve.stale_source_paths(tmp)]
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    check('stale_source_paths leaves the universal precedent/../BestPractice '
+          'pair alone and still flags a renamed set',
+          got == ['precedent-shared-x'], f'flagged: {got}')
+
 def check_a_hook_wired_from_elsewhere_is_reported_as_wired():
     """A hook a repo calls in place, from a path of its own, is WIRED --
     reported as wired, and still not vendored
@@ -35285,6 +35412,9 @@ def main():
     check_vendor_engine_refreshes_agents_md_sections()
     check_retired_branch_name_does_not_ship()
     check_refresh_sources_leaves_an_attached_consumer_alone()
+    check_refresh_sources_path_names_the_whole_target()
+    check_stale_source_paths_accepts_the_universal_pair()
+    check_push_check_installs_gate_packages()
     check_vendor_engine_retires_ci_workflow_files()
     check_workflow_file_outside_vendoring_detects_candidates()
     check_ci_workflow_approved_pins_approval_to_content()
