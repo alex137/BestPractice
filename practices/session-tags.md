@@ -6,8 +6,8 @@ severity:    default
 applies_to:  ["**"]
 occasion:    "creating, renaming or retagging a session"
 gates:       ["reply"]
-index_required: true
 index_clause: "tag at creation: subject, repo, role, wants; never retrofitted"
+index_required: true
 checked_by:  null
 defines:     ["subject:", "repo:", "role:", "wants:"]
 command:     null

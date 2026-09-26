@@ -25,9 +25,9 @@ approved_by: "Morgan; amended 2026-09-14, Morgan -- the phrase now carries
 ## Rule
 **"Update Vendors" is the phrase that asks for this**, and it authorizes the
 whole sequence below without asking again -- the same standing-phrase
-mechanism as [go-merge](go-merge.md), for the other operation a person
+mechanism as [go-update](go-update.md), for the other operation a person
 otherwise has to spell out every time. **It carries the merge too**: when the
-sequence below is done, run [go-merge](go-merge.md)'s chain on what it
+sequence below is done, run [go-update](go-update.md)'s chain on what it
 produced -- say the target branch out loud, commit, push, open the pull
 request, merge -- without going back for a second authorization. That is step
 12, and it is part of the phrase rather than a separate grant.
@@ -309,6 +309,18 @@ says so, both from the vendored tree under `process/upstream/`.
    twice in one hop, 2026-09-21, and verified here against the tool's own
    git calls rather than taken on the report.
 
+   **A line upstream deleted itself is never counted as lost**, since
+   2026-09-26. Under the branch tiers your base branch takes the update by
+   Promote, later, so its committed tree is often one sync behind the
+   manifest; the check used to read every line upstream removed in between
+   as dropped local work (301 of them on one consumer, none real). It now
+   compares that tree against every upstream commit it could have come
+   from, and sets aside what upstream's own history deleted, saying how
+   many. **A `LOST` line it prints is a line upstream never had**: carry it
+   or pass `--accept-loss` knowingly -- never hand-write `upstream.commit`
+   to step around it
+   ([gotcha](https://github.com/alex137/BestPractice/blob/staging/gotchas/gotcha-2026-09-26-the-carry-check-counted-upstream-s-own-deletions-as-lost.md)).
+
    **Then decide every earlier decline again, in this same change.** Any
    upstream practice this repo once declined or deferred ("a duplicate of
    our own rule", "not now") was declined as its text stood *then*. For each
@@ -562,7 +574,7 @@ says so, both from the vendored tree under `process/upstream/`.
     whatever an earlier install or migration left.
 11. **Verify by content on the remote**, never by ref equality
    ([verify-postcondition](verify-postcondition.md)).
-12. **Publish it, without asking again.** Run [go-merge](go-merge.md)'s
+12. **Publish it, without asking again.** Run [go-update](go-update.md)'s
     chain on the result and report which branch it landed on. The phrase
     authorizes this step; do not stop after step 11 and ask. Every condition
     `Go update` carries still holds -- a branch the repository restricts is

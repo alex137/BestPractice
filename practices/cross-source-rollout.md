@@ -7,8 +7,8 @@ scope:       engine-dev
 applies_to:  ["**"]
 occasion:    "a change here has implications for how an attached team, individual, or repo-local source should work"
 gates:       ["merge"]
-index_required: false
 index_clause: "roll it out to attached sources now; else a blocked-on TODO"
+index_required: false
 checked_by:  null
 defines:     ["cross-source rollout"]
 status:      active

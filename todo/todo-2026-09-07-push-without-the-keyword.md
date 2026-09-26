@@ -51,7 +51,7 @@ closed:            "2026-09-16"
      and the reason this is not just "use judgment".
 
   **Where the answer goes**, whichever it is: [AGENTS.md](../AGENTS.md)'s
-  "Go merge" paragraph, and the `go-merge` practice in Morgan's individual
+  "Go merge" paragraph, and the `go-update` practice in Morgan's individual
   set (private, so named rather than linked). **Not**
   `practices/merge-authorization-keyword.md`, which this item originally
   named — that universal practice was retired hours later, on 2026-09-07,
@@ -97,12 +97,12 @@ closed:            "2026-09-16"
   phrase removes doubt outright, and doubt otherwise gets a stated
   confirmation rather than a silent guess in either direction. Recorded in
   [AGENTS.md](../AGENTS.md)'s "Go merge" and "Weak yes" paragraphs and in
-  [go-merge.md](../practices/go-merge.md),
+  [go-update.md](../practices/go-update.md),
   [weak-yes.md](../practices/weak-yes.md) and
   [decision-strength.md](../practices/decision-strength.md) directly.
 
   **The individual-set mirroring this item once named as a separate blocker
-  is moot.** It referred to `go-merge` in Morgan's individual set as the
+  is moot.** It referred to `go-update` in Morgan's individual set as the
   "private canonical text" a public paraphrase could drift from — true
   2026-09-07, before the practice moved to universal the next day. Since
   then the individual copy is `status: deduplicated`, pointing back at this

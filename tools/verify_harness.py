@@ -4132,6 +4132,65 @@ def check_index_clauses(files):
           f'{bv.INDEX_CLAUSE_MAX} chars', ok)
 
 
+def check_build_views_refuses_a_long_index_clause():
+    """build_views.py refuses an on-demand index_clause over the limit that
+    this repo wrote or changed, and only that one.
+
+    2026-09-26: a clause was extended to 81 characters and build_views
+    rendered it silently; only this harness knew the limit, and a push to
+    pre-staging does not run it. The writer finds out from the tool it
+    runs. Three states: an over-long clause the base already had passes
+    (practice sets carry older ones), the same file edited is refused, and
+    a consumer, whose practices/ is materialized from other sources, is
+    never refused."""
+    import tempfile
+    n = bv.INDEX_CLAUSE_MAX + 1
+    long_clause = 'x' * n
+
+    def git(cwd, *a):
+        env = dict(os.environ, PRECEDENT_ALLOW_ANY_AUTHOR='1')
+        return subprocess.run(['git', '-C', str(cwd), *a],
+                              capture_output=True, text=True, env=env)
+
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        root = pathlib.Path(td)
+        git(root, 'init', '-q', '-b', 'main')
+        (root / 'practices').mkdir()
+        f = root / 'practices' / 'p.md'
+        f.write_text(f'---\nindex_clause: "{long_clause}"\n---\n',
+                     encoding='utf-8')
+        (root / 'precedent.json').write_text('{"base_branch": "main"}\n',
+                                             encoding='utf-8')
+        # A practice set: a repo that authors the practices it ships.
+        (root / 'tools').mkdir()
+        (root / 'tools' / 'ENGINE_MANIFEST.json').write_text(
+            '{"kind": "source"}', encoding='utf-8')
+        git(root, 'add', '-A')
+        git(root, '-c', 'user.email=f@x', '-c', 'user.name=f', 'commit', '-qm', 'a')
+        git(root, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
+        fm = {'tier': 'on-demand', 'index_clause': long_clause}
+        practices = [(fm, {}, f)]
+        cases.append(('an over-long clause the base branch already had is '
+                      'not refused', bv.over_long_index_clauses(practices, root) == []))
+        edited = long_clause + 'y'
+        f.write_text(f'---\nindex_clause: "{edited}"\n---\n', encoding='utf-8')
+        got = bv.over_long_index_clauses(
+            [({'tier': 'on-demand', 'index_clause': edited}, {}, f)], root)
+        cases.append((f'the same clause edited is refused, with its length '
+                      f'(got {got!r})', got == [(f, n + 1)]))
+        (root / 'tools' / 'ENGINE_MANIFEST.json').write_text(
+            '{"kind": "consumer"}', encoding='utf-8')
+        cases.append(('a consumer is never refused -- its practices are '
+                      'other sources\' to fix',
+                      bv.over_long_index_clauses(
+                          [({'tier': 'on-demand', 'index_clause': edited}, {}, f)],
+                          root) == []))
+    failed = [c for c, ok in cases if not ok]
+    check(f'build_views refuses a long index_clause the writer just wrote '
+          f'({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
 # (path, glob, expected) -- the semantics `applies_to` is written against.
 # This table exists because the path-triggered channel shipped with a bare
 # fnmatch.fnmatch(path, glob), under which "**/*.md" silently never matched
@@ -7775,7 +7834,7 @@ def check_suggested_links_keep_a_dotfiles_leading_dot():
         ('.claude/settings.json', '.claude/settings.json'),
         ('../tools/precedent_check.py', 'tools/precedent_check.py'),
         ('tools/precedent_check.py', 'tools/precedent_check.py'),
-        ('./practices/go-merge.md', 'practices/go-merge.md'),
+        ('./practices/go-update.md', 'practices/go-update.md'),
     ]
     bad = []
     for given, want in cases:
@@ -8380,6 +8439,16 @@ def check_precedent_check_fires():
             f.write_text(re.sub(r'^index_clause: "', 'index_clause: "on precedent-beta-v01, ',
                                 body, count=1, flags=re.M), encoding='utf-8')
         case('retired-branch-name-ships', _plant_retired_branch_name)
+
+        # frontmatter-field-order -- ADVISORY by design (see its registration):
+        # a planted misorder reports, and does not fail the run.
+        def _plant_field_order(repo):
+            f = repo / 'practices' / 'name-both-sides-of-ledger.md'
+            body = f.read_text(encoding='utf-8')
+            line = re.search(r'^index_clause:.*\n', body, re.M).group(0)
+            body = body.replace(line, '', 1)
+            f.write_text(body.replace('---\n', '---\n' + line, 1), encoding='utf-8')
+        case('frontmatter-field-order', _plant_field_order, advisory=True)
 
         # generated-edit-goes-upstream -- four shapes in one fixture, told
         # apart by the messages below rather than by the exit status
@@ -17151,6 +17220,296 @@ def check_promote_pre_staging():
     check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
 
+def _engine_commit_fixture(tmp, name, kind, git_env):
+    """A repository with an origin, the REAL engine files the engine-commit
+    checks exercise, and stubs for the gates they do not. -> (work, bare).
+    The stubs pass; test_in_copy.sh leaves a marker naming the checkout it
+    ran in when CS_MARK is set, so a caller can prove consumer_shape ran."""
+    import json as _json, shutil as _shutil
+    bare, work = tmp / f'{name}.git', tmp / name
+    subprocess.run(['git', 'init', '-q', '--bare', '-b', 'beta', str(bare)],
+                   env=git_env, capture_output=True)
+    (work / 'tools' / 'checks' / 'tests').mkdir(parents=True)
+    subprocess.run(['git', 'init', '-q', '-b', 'beta', str(work)],
+                   env=git_env, capture_output=True)
+    real = ['precedent_branches.py', 'precedent_push_check.py',
+            'precedent_identity.py', 'precedent_time.py',
+            'precedent_consumer_shape.py']
+    for f in real:
+        _shutil.copy2(ROOT / 'tools' / f, work / 'tools' / f)
+    stubs = {
+        'precedent_check.py': (
+            'import sys\n'
+            'CHECKS = {"x": {"binds_publishers": True}}\n'
+            'if __name__ == "__main__":\n'
+            '    print("precedent_check: 3 passed, 0 violated")\n'),
+        'leak_gate.py': '',
+        'doc_lint.py': '',
+        # consumer_shape imports these two for what a consumer receives.
+        'build_views.py': ('def _engine_tool_paths(): return set()\n'
+                           'def _json_str(v): return v\n'
+                           'def ships_paths(fm): return []\n'),
+        'split_practices.py': 'def _read_practice_file(p): return {}, {}\n',
+    }
+    for f, body in stubs.items():
+        (work / 'tools' / f).write_text(body, encoding='utf-8')
+    (work / 'tools' / 'ENGINE_MANIFEST.json').write_text(_json.dumps(
+        {'kind': kind, 'files': real + list(stubs)}), encoding='utf-8')
+    tests = work / 'tools' / 'checks' / 'tests'
+    (tests / 'run_all.sh').write_text('exit 0\n', encoding='utf-8')
+    (tests / 'test_in_copy.sh').write_text(
+        'top="$(git rev-parse --show-toplevel)" || exit 1\n'
+        'git rev-parse -q --verify HEAD >/dev/null || exit 1\n'
+        '[ -z "$(git status --porcelain --untracked-files=no)" ] || '
+        '{ git status --porcelain; exit 1; }\n'
+        '[ -n "${CS_MARK:-}" ] && echo "ran in $(basename "$top")" >> "$CS_MARK"\n'
+        'exit 0\n', encoding='utf-8')
+    (work / 'precedent.json').write_text(_json.dumps({'base_branch': 'beta'}),
+                                         encoding='utf-8')
+    (work / 'list.txt').write_text('a\n', encoding='utf-8')
+    for args in (['add', '-A'], ['commit', '-q', '-m', 'init'],
+                 ['remote', 'add', 'origin', f'file://{bare}'],
+                 ['push', '-q', 'origin', 'beta']):
+        subprocess.run(['git', '-C', str(work), *args], env=git_env,
+                       capture_output=True, text=True)
+    return work, bare
+
+
+def _engine_commit_env(tmp):
+    """-> (ambient, person, person_git). `ambient` is what a hookless session
+    had on 2026-09-26: git's global identity is the container's bot, no
+    ~/.config/precedent/config.json, and a TZ that is not the person's --
+    and nothing else from this machine (practice: fixture-owns-its-state).
+    `person` is the PRECEDENT_COMMIT_* declaration on top of it;
+    `person_git` authors the fixture's OWN commits as the person, so the
+    only commits that can come out as the bot are the ones the engine made."""
+    gcfg = tmp / 'gitconfig'
+    gcfg.write_text('[user]\n\tname = Claude\n\temail = noreply@anthropic.com\n',
+                    encoding='utf-8')
+    ambient = {k: v for k, v in os.environ.items()
+               if not k.startswith(('GIT_', 'PRECEDENT_', 'CLAUDE_'))
+               and k != 'TZ'}
+    ambient.update(GIT_CONFIG_GLOBAL=str(gcfg), GIT_CONFIG_NOSYSTEM='1',
+                   PRECEDENT_USER_CONFIG=str(tmp / 'no-such-config.json'),
+                   PRECEDENT_ALLOW_ANY_AUTHOR='1', TZ='America/New_York')
+    person = dict(ambient, PRECEDENT_COMMIT_NAME='Pat Person',
+                  PRECEDENT_COMMIT_EMAIL='pat@example.com',
+                  PRECEDENT_COMMIT_TZ='Asia/Kolkata')
+    person_git = dict(ambient, GIT_AUTHOR_NAME='Pat Person',
+                      GIT_AUTHOR_EMAIL='pat@example.com',
+                      GIT_COMMITTER_NAME='Pat Person',
+                      GIT_COMMITTER_EMAIL='pat@example.com')
+    return ambient, person, person_git
+
+
+def check_engine_commits_state_their_author():
+    """Every commit the engine makes states its author (2026-09-26).
+
+    A session rooted above four attached practice sets ran no SessionStart
+    hook, so git kept the container's global identity, and no
+    ~/.config/precedent/config.json existed. PRECEDENT_COMMIT_NAME/EMAIL were
+    in the environment and nothing turned them into git's author: every
+    merge and lock commit Promote made came out as the bot, in all four
+    sets. `git merge` and `git commit-tree` run no `pre-commit`, so the
+    global backstop never saw them. And Promote's full check refused every
+    real run in a source, because consumer_shape would not run in the linked
+    worktree Promote always checks in.
+
+    The fixture reproduces that session exactly -- bot global identity, no
+    user config, a TZ that is not the person's -- and asserts on the commits
+    Promote actually pushed. THE CONTROL: the same Promote with nobody
+    declared still authors as the bot (a shared repo has no person to be
+    wrong about), which proves the fixture's ambient identity really is the
+    bot, so the declared case is not passing by accident. And a repository
+    that IS somebody's individual source, with an identity.json nobody can
+    be read out of, refuses the commit in the tool's own words rather than
+    making it (practice: control-asserts-which-failure)."""
+    import tempfile
+    name = ('Engine commits state their author: Promote in a hookless '
+            'session authors as the declared person, in their zone')
+    need = ['precedent_branches.py', 'precedent_identity.py',
+            'precedent_time.py', 'precedent_consumer_shape.py']
+    absent = [f for f in need if not (ROOT / 'tools' / f).exists()]
+    if absent:
+        not_applicable(name, f'not in this tree: {absent}')
+        return
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+        ambient, person, person_git = _engine_commit_env(tmp)
+
+        def run_in(work, env, *args):
+            p = subprocess.run([sys.executable, 'tools/precedent_branches.py',
+                                *args], cwd=work, capture_output=True,
+                               text=True, env=env)
+            return p.returncode, p.stdout + p.stderr
+
+        def git(work, *args):
+            return subprocess.run(['git', '-C', str(work), *args],
+                                  capture_output=True, text=True,
+                                  env=person_git).stdout.strip()
+
+        def to_pre_staging(work, path, text, msg):
+            git(work, 'fetch', '-q', 'origin')
+            git(work, 'checkout', '-q', '-B', 'w', 'origin/pre-staging')
+            (work / path).write_text(text, encoding='utf-8')
+            git(work, 'add', path)
+            git(work, 'commit', '-q', '-m', msg)
+            git(work, 'push', '-q', 'origin', 'HEAD:refs/heads/pre-staging')
+
+        def head_of(work, branch):
+            git(work, 'fetch', '-q', 'origin')
+            return git(work, 'log', '-1', '--format=%an|%ae|%ad|%s',
+                       '--date=format:%z', f'origin/{branch}')
+
+        # 1. Declared by PRECEDENT_COMMIT_* alone, in a practice SOURCE --
+        #    so the full check includes consumer_shape.
+        work, _ = _engine_commit_fixture(tmp, 'work', 'source', person_git)
+        run_in(work, person, '--sync-pre-staging')
+        to_pre_staging(work, 'list.txt', 'b\n', 'an edit to promote')
+        mark = tmp / 'cs-mark'
+        rc, out = run_in(work, dict(person, CS_MARK=str(mark)), '--promote')
+        cases.append((f'the Promote in a hookless session succeeds (rc={rc}, '
+                      f'{out.strip().splitlines()[-1][:160] if out.strip() else ""!r})',
+                      rc == 0 and 'PROMOTED' in out))
+        got = head_of(work, 'beta')
+        cases.append((f'its merge commit is authored by the declared person, '
+                      f'not git\'s global bot identity (got {got!r})',
+                      got.startswith('Pat Person|pat@example.com|')
+                      and '|Promote pre-staging into beta' in got))
+        cases.append((f'and dated in the declared zone (+0530), not the '
+                      f'ambient TZ (got {got!r})', '|+0530|Promote' in got))
+        lock = head_of(work, 'precedent-promote-lock')
+        cases.append((f'the Promote lock commits are authored the same way '
+                      f'(got {lock!r})',
+                      lock.startswith('Pat Person|pat@example.com|')))
+        ran = mark.read_text(encoding='utf-8') if mark.exists() else ''
+        cases.append((f"Promote's full check ran consumer_shape to a pass in "
+                      f"its linked worktree, in a copy named after the real "
+                      f"checkout (marker: {ran.strip()!r})",
+                      'ran in work' in ran and 'check ran on the batch and '
+                      'passed' in out))
+
+        # 2. THE CONTROL: nobody declared, a shared repository.
+        work2, _ = _engine_commit_fixture(tmp, 'shared', 'consumer', person_git)
+        run_in(work2, ambient, '--sync-pre-staging')
+        to_pre_staging(work2, 'list.txt', 'c\n', 'another edit')
+        rc, out = run_in(work2, ambient, '--promote')
+        got = head_of(work2, 'beta')
+        cases.append((f'control: with nobody declared, the same Promote still '
+                      f'authors as git\'s global identity -- the bot this '
+                      f'fixture set, so case 1 is not passing by accident '
+                      f'(rc={rc}, got {got!r})',
+                      rc == 0 and got.startswith('Claude|noreply@anthropic.com|')))
+
+        # 3. An individual source nobody can be read out of: refused.
+        work3, _ = _engine_commit_fixture(tmp, 'indiv', 'source', person_git)
+        (work3 / 'identity.json').write_text('{"name": "no email here"}\n',
+                                             encoding='utf-8')
+        git(work3, 'add', 'identity.json')
+        git(work3, 'commit', '-q', '-m', 'an unreadable declaration')
+        git(work3, 'push', '-q', 'origin', 'beta')
+        run_in(work3, ambient, '--sync-pre-staging')
+        to_pre_staging(work3, 'list.txt', 'd\n', 'an edit')
+        before = head_of(work3, 'beta')
+        rc, out = run_in(work3, ambient, '--promote')
+        cases.append((f'an individual source with no resolvable author '
+                      f'REFUSES the commit and moves nothing (rc={rc}, '
+                      f'{out.strip()[-160:]!r})',
+                      rc == 1 and 'REFUSED: no commit was made' in out
+                      and 'identity.json' in out
+                      and head_of(work3, 'beta') == before))
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
+def check_history_checks_never_ride_a_reused_pass():
+    """A recorded or shared pass is keyed on the TREE; commit_author and
+    commit_dates judge COMMITS (2026-09-26).
+
+    Two commits can carry one tree with different authors -- the merge a
+    Promote makes has exactly the tree its checked parents had. On
+    2026-09-26 Promote reused another checkout's pass for the same tree in
+    four repositories, "nothing to re-run", and the bot-authored merges it
+    had just made went out with commit_author never having seen them. So a
+    reused pass still runs the two history checks.
+
+    Both ways a pass is reused are built here: this checkout's own record,
+    and a receipt another checkout published to origin. THE CONTROL: the
+    same reuse over a commit the declared person made still passes, and says
+    it reused the pass -- so the failure is the author, and the reuse path
+    is the one being exercised (practice: control-asserts-which-failure)."""
+    import tempfile, shutil as _shutil
+    name = 'History checks never ride a reused pass'
+    author_check = ROOT / 'tools' / 'checks' / 'check_commit_author.py'
+    if not author_check.exists():
+        not_applicable(name, 'tools/checks/check_commit_author.py is absent')
+        return
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+        ambient, person, person_git = _engine_commit_env(tmp)
+        bot_git = dict(ambient, GIT_AUTHOR_NAME='Claude',
+                       GIT_AUTHOR_EMAIL='noreply@anthropic.com')
+        work, bare = _engine_commit_fixture(tmp, 'work', 'consumer', person_git)
+        _shutil.copy2(author_check, work / 'tools' / 'checks' / author_check.name)
+
+        def git(cwd, *args, env=person_git):
+            return subprocess.run(['git', '-C', str(cwd), *args],
+                                  capture_output=True, text=True, env=env)
+
+        def gate(cwd, *extra):
+            p = subprocess.run([sys.executable, 'tools/precedent_push_check.py',
+                                '--tier', 'full', *extra], cwd=cwd,
+                               capture_output=True, text=True, env=person)
+            return p.returncode, p.stdout + p.stderr
+
+        git(work, 'add', '-A')
+        git(work, 'commit', '-q', '-m', 'carry the author check')
+        git(work, 'push', '-q', 'origin', 'beta')
+        git(work, 'checkout', '-q', '-b', 'feature')
+        (work / 'list.txt').write_text('checked\n', encoding='utf-8')
+        git(work, 'commit', '-qam', 'the checked files')
+        rc, out = gate(work)
+        cases.append((f'the fixture tree passes the full check and is recorded '
+                      f'(rc={rc})', rc == 0 and 'recorded for tree' in out))
+        git(work, 'push', '-q', 'origin', 'feature')
+
+        # Same tree, a commit by the bot on top: the local record is reused.
+        git(work, 'commit', '-q', '--allow-empty', '-m', 'bot merge', env=bot_git)
+        rc, out = gate(work, '--gate')
+        cases.append((f'a pass THIS checkout recorded for the tree does not '
+                      f'wave through a bot-authored commit with the same tree '
+                      f'(rc={rc}, {out.strip()[-200:]!r})',
+                      rc == 1 and 'already passed' in out
+                      and 'FAILED -- commit_author' in out
+                      and 'noreply@anthropic.com' in out))
+
+        # THE CONTROL: the same reuse over the person's own commit.
+        git(work, 'reset', '-q', '--hard', 'HEAD~1')
+        git(work, 'commit', '-q', '--allow-empty', '-m', 'person merge')
+        rc, out = gate(work, '--gate')
+        cases.append((f'control: the same reused pass over a commit the '
+                      f'declared person made passes, and says it reused the '
+                      f'files (rc={rc}, {out.strip()[-160:]!r})',
+                      rc == 0 and 'already passed' in out
+                      and 'judge commits rather than files' in out))
+
+        # A receipt another checkout published, reused from a fresh clone.
+        other = tmp / 'other'
+        git(tmp, 'clone', '-q', '-b', 'feature', f'file://{bare}', str(other))
+        git(other, 'commit', '-q', '--allow-empty', '-m', 'bot merge',
+            env=bot_git)
+        rc, out = gate(other, '--gate')
+        cases.append((f'a pass SHARED by another checkout does not wave '
+                      f'through a bot-authored commit either (rc={rc}, '
+                      f'{out.strip()[-200:]!r})',
+                      rc == 1 and 'in another checkout' in out
+                      and 'FAILED -- commit_author' in out))
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
 def check_promote_picks_its_step():
     """Promote picks pre-staging -> staging or staging -> main, and says
     which before anything else (Morgan, 2026-09-26, strength: decided: it
@@ -19027,6 +19386,52 @@ def check_freshness_guard_checks_attached_repositories():
                           f'skips, naming the entry as written (rc={rc})',
                           rc == 0 and "(from '~/ghost')" in err))
 
+            # THE DECLARED BASE WINS FOR AN ATTACHED REPO (2026-09-26). A
+            # practice source is read from main, and its own pre-staging is
+            # ahead of main by design until a Promote. The guard used to let
+            # the person's landing branch (pre-staging) replace the entry's
+            # declared "=main", so a source sitting correctly on main was
+            # "missing N commits from origin/pre-staging" and every tool call
+            # of the session was refused. A stub precedent_branches.py makes
+            # --landing answer pre-staging, the way a real source's does.
+            def tiered(repo_seed, repo):
+                tools = repo_seed / 'tools'
+                tools.mkdir(exist_ok=True)
+                (tools / 'precedent_branches.py').write_text(
+                    'import sys\n'
+                    'if "--landing" in sys.argv: print("pre-staging")\n')
+                git(repo_seed, 'add', 'tools')
+                git(repo_seed, 'commit', '-qm', 'landing stub')
+                git(repo_seed, 'push', '-q', 'origin', 'main')
+                git(repo_seed, 'checkout', '-qb', 'pre-staging')
+                (repo_seed / 'g').write_text('unpromoted\n')
+                git(repo_seed, 'add', 'g')
+                git(repo_seed, 'commit', '-qm', 'unpromoted')
+                git(repo_seed, 'push', '-q', 'origin', 'pre-staging')
+                git(repo_seed, 'checkout', '-q', 'main')
+                git(repo, 'fetch', '-q', 'origin')
+                git(repo, 'merge', '-q', '--ff-only', 'origin/main')
+
+            tiered(other_seed, other)
+            rc, err = run(proj, 'also-declared-main', also=f'{other}=main')
+            cases.append((f'{tag}: an attached source on main is checked '
+                          f'against its DECLARED base, not the landing '
+                          f'branch pre-staging (rc={rc}, '
+                          f'stderr={err.strip()[:90]!r})',
+                          rc == 0 and 'pre-staging' not in err))
+
+            # THE CONTROL: the project dir, with no declared base, still
+            # takes the landing override -- work written there lands on
+            # pre-staging, so a main checkout behind it is still refused.
+            # Without this the case above would pass if the landing override
+            # were deleted outright.
+            proj2_seed, proj2 = make('proj2')
+            tiered(proj2_seed, proj2)
+            rc, err = run(proj2, 'project-landing')
+            cases.append((f'{tag}: the project dir itself is still held to '
+                          f'the landing branch (rc={rc})',
+                          rc == 2 and 'origin/pre-staging' in err))
+
     failed = [n for n, ok in cases if not ok]
     check(f'the freshness guard checks attached repositories '
           f'({len(cases)} stated cases, both copies)',
@@ -19742,6 +20147,158 @@ def check_update_refuses_while_a_branch_is_pinned():
 
     failed = [n for n, ok in cases if not ok]
     check(f'checkin.py update refuses while a non-default branch is pinned '
+          f'({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
+def check_carry_check_never_counts_upstream_deletions():
+    """`checkin.py record`'s carry check never reports a line upstream
+    deleted itself as lost, and still reports a line upstream never had.
+
+    Reproduced 2026-09-26 on a real consumer: 301 "LOST" lines, every one a
+    line BestPractice had deleted between the two syncs. The consumer's base
+    branch takes work by Promote, so it still held the PREVIOUS sync while
+    the manifest named the new one; diffing that committed tree against the
+    new commit alone made every upstream deletion in between look like
+    dropped local work. The session could not confirm them one by one, so
+    it wrote the commit by hand -- the fourth consumer update in a row to
+    step around the guard, which is how a guard stops guarding.
+
+    Three stated cases, each run through the consumer's own vendored copy
+    (see check_update_refuses_while_a_branch_is_pinned for why), and each
+    reading the message rather than the exit code alone:
+      * the incident: committed tree one sync behind the manifest;
+      * a stale committed stamp, so only upstream's own deletion history can
+        explain the line -- the second of the two mechanisms;
+      * a real local line upstream never wrote: still refused, still named.
+    """
+    import tempfile, json as _json, shutil as _shutil
+    src = ROOT / 'tools' / 'checkin.py'
+    if not src.exists():
+        not_applicable('carry check never counts upstream deletions',
+                       'tools/checkin.py is not present in this tree')
+        return
+
+    def _git(d, *a):
+        return subprocess.run(['git', '-C', str(d)] + list(a),
+                              capture_output=True, text=True)
+
+    def _ident(d):
+        _git(d, 'config', 'user.email', 'harness@example.com')
+        _git(d, 'config', 'user.name', 'Harness')
+        _git(d, 'config', 'commit.gpgsign', 'false')
+
+    tools = {n: (ROOT / 'tools' / n).read_text(encoding='utf-8')
+             for n in ('checkin.py', 'precedent_time.py')}
+    # Upstream history: A, then B ADDS "gamma", then C DELETES "beta" and
+    # "gamma" -- upstream's own deletions -- and adds "delta".
+    history = [
+        ('A', 'alpha line one\nbeta line two\n'),
+        ('B', 'alpha line one\nbeta line two\ngamma line three\n'),
+        ('C', 'alpha line one\ndelta line four\n'),
+    ]
+
+    def _upstream(base):
+        up = base / 'upstream'
+        (up / 'tools').mkdir(parents=True)
+        _git(up, 'init', '-q', '-b', 'main'); _ident(up)
+        shas = {}
+        for name, text in history:
+            (up / 'notes.md').write_text(text, encoding='utf-8')
+            for n, t in tools.items():
+                (up / 'tools' / n).write_text(t, encoding='utf-8')
+            _git(up, 'add', '-A'); _git(up, 'commit', '-qm', name)
+            shas[name] = _git(up, 'rev-parse', 'HEAD').stdout.strip()
+        clone = base / 'clone'
+        subprocess.run(['git', 'clone', '-q', str(up), str(clone)],
+                       capture_output=True)
+        return clone, shas
+
+    def _consumer(base, clone, committed_at, committed_stamp, working_commit,
+                  extra_line=''):
+        """A consumer whose origin/main holds the vendored tree mirrored
+        from `committed_at` (plus `extra_line`, a local addition) with a
+        committed manifest stamped `committed_stamp`, and whose working
+        tree has since been updated to the clone's HEAD with the manifest
+        naming `working_commit`."""
+        origin, repo = base / 'origin.git', base / 'consumer'
+        repo.mkdir(parents=True)
+        _git(base, 'init', '-q', '--bare', '-b', 'main', str(origin))
+        _git(repo, 'init', '-q', '-b', 'main'); _ident(repo)
+        _git(repo, 'remote', 'add', 'origin', str(origin))
+        vend = repo / 'process' / 'upstream'
+
+        def _mirror(ref):
+            if vend.exists():
+                _shutil.rmtree(vend)
+            (vend / 'tools').mkdir(parents=True)
+            for rel in ('notes.md', 'tools/checkin.py', 'tools/precedent_time.py'):
+                (vend / rel).write_text(_git(clone, 'show', f'{ref}:{rel}').stdout,
+                                        encoding='utf-8')
+
+        def _manifest(commit):
+            (repo / 'process' / 'manifest.json').write_text(_json.dumps(
+                {'upstream': {'repo': 'x/y', 'branch': 'main', 'commit': commit,
+                              'synced_from': commit}, 'practices': []}),
+                encoding='utf-8')
+
+        (repo / 'precedent.json').write_text('{"base_branch": "main"}\n',
+                                             encoding='utf-8')
+        _mirror(committed_at)
+        if extra_line:
+            with (vend / 'notes.md').open('a', encoding='utf-8') as fh:
+                fh.write(extra_line + '\n')
+        _manifest(committed_stamp)
+        _git(repo, 'add', '-A'); _git(repo, 'commit', '-qm', 'vendored')
+        _git(repo, 'push', '-q', 'origin', 'main')
+        # The update, landed in the working tree but not on origin/main yet.
+        _mirror('HEAD')
+        _manifest(working_commit)
+        return repo
+
+    def _record(repo, clone):
+        script = repo / 'process' / 'upstream' / 'tools' / 'checkin.py'
+        r = subprocess.run([sys.executable, str(script), 'record', str(clone)],
+                           capture_output=True, text=True, cwd=str(repo),
+                           timeout=180)
+        return r.returncode, r.stdout + r.stderr
+
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        base = pathlib.Path(td)
+        clone, sha = _upstream(base / 'up')
+
+        # 1. The incident: origin/main still holds the sync from B, the
+        #    manifest already names C.
+        rc, out = _record(_consumer(base / 'one', clone, sha['B'], sha['B'],
+                                    sha['C']), clone)
+        cases.append(('a committed tree one sync behind the manifest records '
+                      'cleanly', rc == 0 and 'checkin record OK' in out))
+        cases.append(('and names no upstream deletion as LOST',
+                      'LOST' not in out and 'gamma' not in out))
+
+        # 2. A committed tree mirrored from B but stamped A (a hand-written
+        #    stamp gone stale). "gamma" is in no base's tree; only upstream's
+        #    own deletion of it between A and C explains its absence.
+        rc, out = _record(_consumer(base / 'two', clone, sha['B'], sha['A'],
+                                    sha['A']), clone)
+        cases.append(('a stale committed stamp still records cleanly',
+                      rc == 0 and 'checkin record OK' in out))
+        cases.append(('and says it set aside upstream\'s own deletions',
+                      "upstream's own deletions" in out))
+
+        # 3. A real loss: a line nobody upstream ever wrote.
+        rc, out = _record(_consumer(base / 'three', clone, sha['B'], sha['B'],
+                                    sha['C'], extra_line='a local line upstream never had'),
+                          clone)
+        cases.append(('a line upstream never wrote is still refused',
+                      rc != 0 and 'MISSING from the landed upstream' in out))
+        cases.append(('and is the one line named LOST',
+                      'a local line upstream never had' in out
+                      and 'gamma line three' not in out
+                      and 'beta line two' not in out))
+
+    failed = [n for n, ok in cases if not ok]
+    check(f'checkin.py record never counts upstream\'s own deletions as lost '
           f'({len(cases)} stated cases)', not failed, '; '.join(failed))
 
 
@@ -23924,6 +24481,133 @@ def check_refresh_sources_leaves_an_attached_consumer_alone():
           not bad, '; '.join(f"{n} -- {d[:600]}" for n, d in bad))
 
 
+def check_refresh_sources_path_names_the_whole_target():
+    """`--apply --path X` writes into X and nothing else. It used to ADD X to
+    the scan, so refreshing one named set also rewrote every other set beside
+    the checkout and under $HOME -- on 2026-09-26, the session's own source
+    clones, left holding uncommitted engine output nobody had asked for.
+
+    Both worlds planted (practice: checks-plant-their-state): two stale
+    practice sets, one named; only the named one reaches the writers, the
+    other is reported LEFT ALONE. CONTROL: the same fixture with no --path
+    writes both, so the quiet case comes from the scoping (practice:
+    control-asserts-which-failure). Hermetic: the writers are stubbed to
+    record who they were called for, and nothing is fetched."""
+    import contextlib, io, json as _j, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_refresh_sources as prs
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='refresh-path-scope-'))
+
+    def plant(name):
+        repo = tmp / name
+        (repo / 'tools').mkdir(parents=True, exist_ok=True)
+        (repo / 'tools' / 'ENGINE_MANIFEST.json').write_text(_j.dumps(
+            {'kind': 'source', 'source_commit': 'fixture-old'}), encoding='utf-8')
+        return repo.resolve()
+
+    names = ('candidate_dirs', 'head_commit', 'apply_to', 'repair_hooks',
+             'classify_dirt', 'make_current', '_declared_base_branch',
+             'ensure_source_credentials')
+    saved = {n: getattr(prs, n) for n in names}
+    wrote = []
+    try:
+        a, b = plant('named-set'), plant('other-set')
+        prs.candidate_dirs = lambda extra=(): [a, b]
+        prs.head_commit = lambda: ('fixture-tip', 'origin/fixture')
+        prs.ensure_source_credentials = lambda found: []
+        prs.classify_dirt = lambda repo: ([], [])
+        prs.make_current = lambda repo, want: (True, 'fixture')
+        prs._declared_base_branch = lambda repo: 'main'
+        prs.repair_hooks = lambda repo: (wrote.append(pathlib.Path(repo).resolve()),
+                                         (True, 'fixture'))[1]
+        prs.apply_to = lambda e, commit=False: (
+            wrote.append(pathlib.Path(e['repo']).resolve()), [])[1]
+
+        def run(argv):
+            wrote.clear()
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                prs.main(argv)
+            return set(wrote), buf.getvalue()
+
+        got, out = run(['--apply', '--path', str(a)])
+        cases.append(('the set --path names is written', a in got, out[-600:]))
+        cases.append(('...and the set it does not name is not', b not in got,
+                      out[-600:]))
+        cases.append(('...and is reported LEFT ALONE as not named',
+                      'LEFT ALONE: not named' in out, out[-600:]))
+        got, out = run(['--apply'])
+        cases.append(('CONTROL: with no --path both sets are written, so the '
+                      'quiet case above came from the scoping',
+                      a in got and b in got, out[-600:]))
+    finally:
+        for n, f in saved.items():
+            setattr(prs, n, f)
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'refresh --apply --path writes only the repos it names '
+          f'({len(cases)} stated cases)',
+          not bad, '; '.join(f"{n} -- {d[:600]}" for n, d in bad))
+
+
+def check_push_check_installs_gate_packages():
+    """precedent_push_check.py installs the packages the gates import before
+    it runs anything, and stops at once, naming them, when it cannot --
+    rather than letting verify_harness fail minutes later without saying a
+    package was absent (2026-09-14, 2026-09-26). Hermetic: import and install
+    are stubbed, so nothing is fetched (practice: control-asserts-which-failure:
+    the present case never calls the installer)."""
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_push_check as ppc
+    cases, calls = [], []
+    have = {'present'}
+    ok, note = ppc.ensure_gate_packages(('present',), have.__contains__,
+                                        lambda m: calls.append(list(m)) or '')
+    cases.append(('all present: ok, silent, installer never called',
+                  ok and note == '' and not calls, f'{ok} {note!r} {calls}'))
+    ok, note = ppc.ensure_gate_packages(
+        ('present', 'absent'), have.__contains__,
+        lambda m: (calls.append(list(m)), have.update(m))[1] or '')
+    cases.append(('one missing: installs exactly that one and says so',
+                  ok and calls[-1] == ['absent'] and 'installed absent' in note,
+                  f'{ok} {note!r} {calls}'))
+    ok, note = ppc.ensure_gate_packages(('gone',), lambda m: False,
+                                        lambda m: 'no network')
+    cases.append(('install fails: not ok, and the note names the package',
+                  not ok and 'gone' in note and 'pip install gone' in note,
+                  f'{ok} {note!r}'))
+    cases.append(('the list matches the session check\'s row',
+                  ppc.GATE_PACKAGES == ('cmarkgfm', 'markdown'), ''))
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'the push check installs the gate packages or stops naming them '
+          f'({len(cases)} stated cases)',
+          not bad, '; '.join(f"{n} -- {d}" for n, d in bad))
+
+def check_stale_source_paths_accepts_the_universal_pair():
+    """The universal source is `precedent` at `../BestPractice` by design --
+    precedent_bootstrap_source.py writes that pair -- so the stale-path
+    report must not tell anyone to repoint it; `../precedent` names no clone.
+    A real mismatch is still caught (practice: control-asserts-which-failure)."""
+    import json as _j, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_vendor_engine as pve
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='stale-source-paths-'))
+    try:
+        (tmp / 'precedent.json').write_text(_j.dumps({'sources': [
+            {'level': 'universal', 'name': 'precedent', 'path': '../BestPractice'},
+            {'level': 'shared', 'name': 'precedent-shared-writing',
+             'path': '../precedent-shared-writing'},
+            {'level': 'shared', 'name': 'precedent-shared-x',
+             'path': '../precedent-team-x'}]}), encoding='utf-8')
+        got = [n for n, _p, _w in pve.stale_source_paths(tmp)]
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    check('stale_source_paths leaves the universal precedent/../BestPractice '
+          'pair alone and still flags a renamed set',
+          got == ['precedent-shared-x'], f'flagged: {got}')
+
 def check_a_hook_wired_from_elsewhere_is_reported_as_wired():
     """A hook a repo calls in place, from a path of its own, is WIRED --
     reported as wired, and still not vendored
@@ -26622,6 +27306,184 @@ def check_null_frontmatter_is_absent():
           'instead of crashing on int(\'null\')',
           'Traceback' not in out and 'no source_practice_number' in out,
           out[-200:])
+
+
+def check_refresh_wired_settings_is_not_lost_work():
+    """A source clone's .claude/settings.json that differs from its commit
+    only by hook entries the refresh wires in is engine output, not a
+    person's work. On 2026-09-26 all four set clones read as "uncommitted
+    changes" over exactly that, and the archive gate said "Don't archive
+    this session" on every reply about an edit the next session's refresh
+    makes again. The file is also a person's, so the other half matters as
+    much: any edit that is not that exact shape stays theirs.
+
+    Stated cases for the shape test, then both halves through
+    classify_dirt in a real clone, with a control (practice:
+    control-asserts-which-failure)."""
+    import tempfile
+    import precedent_vendor_engine as pve
+    import precedent_refresh_sources as rs
+    cases = []
+    cmd = '$CLAUDE_PROJECT_DIR/.claude/hooks/'
+    base = {'permissions': {'allow': ['Bash(git status)']},
+            'hooks': {'PreToolUse': [{'matcher': 'Bash', 'hooks': [
+                {'type': 'command', 'command': cmd + 'freshness-guard.sh pre-write main'}]}]}}
+
+    def with_hooks(extra_pre=(), new_groups=(), perms=None):
+        d = json.loads(json.dumps(base))
+        d['hooks']['PreToolUse'][0]['hooks'].extend(extra_pre)
+        d['hooks']['PreToolUse'].extend(new_groups)
+        if perms is not None:
+            d['permissions'] = perms
+        return json.dumps(d, indent=2)
+
+    before = json.dumps(base, indent=2)
+    wf = {'type': 'command', 'command': cmd + 'workflow-write-gate.sh'}
+    wired = with_hooks(new_groups=[{'matcher': pve.WORKFLOW_WRITE_MATCHER,
+                                    'hooks': [wf]}])
+    shape = pve.settings_change_is_wiring_only
+    cases.append(('a new group holding a hook HOOK_WIRING lists is wiring',
+                  shape(before, wired), wired))
+    cases.append(('an entry appended to an existing group is wiring',
+                  shape(before, with_hooks(extra_pre=[
+                      {'type': 'command', 'command': cmd + 'doc-lint-gate.sh'}])), ''))
+    cases.append(("a person's permissions edit beside the wiring is NOT",
+                  not shape(before, with_hooks(
+                      new_groups=[{'matcher': 'x', 'hooks': [wf]}],
+                      perms={'allow': ['Bash(*)']})), ''))
+    cases.append(('a hook HOOK_WIRING does not list is NOT',
+                  not shape(before, with_hooks(extra_pre=[
+                      {'type': 'command', 'command': cmd + 'my-own-hook.sh'}])), ''))
+    edited = json.loads(before)
+    edited['hooks']['PreToolUse'][0]['hooks'][0]['command'] += ' --loud'
+    cases.append(('an existing entry changed in place is NOT',
+                  not shape(before, json.dumps(edited)), ''))
+    cases.append(('no change, or unparseable JSON, is NOT',
+                  not shape(before, before) and not shape(before, '{oops'), ''))
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='wired-settings-'))
+    try:
+        def git(*a):
+            return subprocess.run(['git', '-C', str(tmp), *a],
+                                  capture_output=True, text=True)
+        git('init', '--quiet')
+        git('config', 'user.email', 'fixture' + chr(64) + 'example.invalid')
+        git('config', 'user.name', 'Fixture')
+        (tmp / '.claude').mkdir()
+        sp_ = tmp / '.claude' / 'settings.json'
+        sp_.write_text(before + '\n', encoding='utf-8')
+        git('add', '-A')
+        git('commit', '--quiet', '-m', 'first')
+        sp_.write_text(wired + '\n', encoding='utf-8')
+        engine, other = rs.classify_dirt(tmp)
+        cases.append(('classify_dirt: refresh-wired settings.json is engine dirt',
+                      engine == ['.claude/settings.json'] and not other,
+                      f'engine={engine} other={other}'))
+        sp_.write_text(with_hooks(new_groups=[{'matcher': 'x', 'hooks': [wf]}],
+                                  perms={'allow': ['Bash(*)']}) + '\n',
+                       encoding='utf-8')
+        engine, other = rs.classify_dirt(tmp)
+        cases.append(("classify_dirt: a person's edit to it stays theirs",
+                      other == ['.claude/settings.json'] and not engine,
+                      f'engine={engine} other={other}'))
+        sp_.write_text(wired + '\n', encoding='utf-8')
+        saved = pve.HOOK_WIRING
+        try:
+            pve.HOOK_WIRING = {}
+            engine, other = rs.classify_dirt(tmp)
+        finally:
+            pve.HOOK_WIRING = saved
+        cases.append(('CONTROL: with HOOK_WIRING empty the same file is a '
+                      "person's, so the verdict comes from the wiring list",
+                      other == ['.claude/settings.json'] and not engine,
+                      f'engine={engine} other={other}'))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'a settings.json the refresh only wired hooks into is engine output, '
+          f'and any other edit to it is a person\'s ({len(cases)} stated cases)',
+          not bad, '; '.join(f"{n} -- {d[:400]}" for n, d in bad))
+
+
+def check_frontmatter_field_order_fixer():
+    """frontmatter_yaml.reorder_fields: puts a practice's frontmatter into
+    FIELD_ORDER and changes nothing else. On 2026-09-26 it rewrote 49 of 151
+    practices here, so "nothing else" is the property that matters: a folded
+    continuation line, a comment and its field, the alignment padding and
+    the body all have to come through byte for byte.
+
+    Stated cases, each with the shape it covers (practice:
+    checks-plant-their-state), and a control that shows the finding comes
+    from the order and not from the parse (practice:
+    control-asserts-which-failure)."""
+    fy = frontmatter_yaml
+    cases = []
+    body = '## Rule\nDo it.\n\n## Why\nBecause: yes.\nslug: not-a-field\n'
+    messy = ('---\nslug:        fx\ntitle:       T\n'
+             'ships:       []\n'
+             'applies_to:  ["**"]\n'
+             '# says why checked_by is null\n'
+             'checked_by:  null\n'
+             'approved_by: "a long approval folded\n'
+             '   onto a second line"\n'
+             'custom_field: 1\n'
+             'tier:        on-demand\n'
+             '---\n' + body)
+    fixed = fy.reorder_fields(messy)
+    want = ('---\nslug:        fx\ntitle:       T\n'
+            'tier:        on-demand\n'
+            'applies_to:  ["**"]\n'
+            '# says why checked_by is null\n'
+            'checked_by:  null\n'
+            'ships:       []\n'
+            'approved_by: "a long approval folded\n'
+            '   onto a second line"\n'
+            'custom_field: 1\n'
+            '---\n' + body)
+    cases.append(('a misordered file comes out in FIELD_ORDER, a comment '
+                  'travelling with the field below it, a folded value with its '
+                  'key, an unlisted field last, the body untouched',
+                  fixed == want, repr(fixed)))
+    cases.append(('the checker names the first field out of place',
+                  '`applies_to:` comes after `ships:`' in (fy.field_order_problem(messy) or ''),
+                  repr(fy.field_order_problem(messy))))
+    cases.append(('the fixed file reads as in order, and fixing it again is a '
+                  'no-op', fy.field_order_problem(fixed) is None
+                  and fy.reorder_fields(fixed) == fixed, repr(fixed)))
+    cases.append(('an unlisted field is reported by name',
+                  fy.unlisted_fields(messy) == ['custom_field'],
+                  repr(fy.unlisted_fields(messy))))
+    dup = '---\nslug: a\ntier: x\nslug: b\n---\n'
+    cases.append(('a repeated key is reported and left alone -- which copy is '
+                  'meant is a person\'s call',
+                  'more than once' in (fy.field_order_problem(dup) or '')
+                  and fy.reorder_fields(dup) == dup, repr(fy.field_order_problem(dup))))
+    cases.append(('QUIET: a file with no frontmatter is neither reported nor '
+                  'rewritten', fy.field_order_problem(body) is None
+                  and fy.reorder_fields(body) == body, ''))
+    import precedent_move
+    moved = precedent_move._rewrite_frontmatter(
+        fixed, {'strength': 'assented', 'in_force_at': 'elsewhere'})
+    cases.append(('precedent_move inserts a field the file lacked where '
+                  'FIELD_ORDER puts it, not at the end -- appending was one of '
+                  'the ways the order drifted',
+                  fy.field_order_problem(moved.replace('custom_field: 1\n', '')) is None
+                  and 'in_force_at: elsewhere\napproved_by:' in moved, repr(moved)))
+    saved = fy.FIELD_ORDER
+    try:
+        fy.FIELD_ORDER = ('tier', 'slug', 'title', 'applies_to', 'checked_by',
+                          'ships', 'approved_by')
+        control = fy.field_order_problem(want)
+    finally:
+        fy.FIELD_ORDER = saved
+    cases.append(('CONTROL: the same in-order file reads as out of order once '
+                  'FIELD_ORDER says otherwise, so the verdict comes from the '
+                  'constant', bool(control), repr(control)))
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'frontmatter_yaml reorders practice frontmatter into FIELD_ORDER and '
+          f'changes nothing else ({len(cases)} stated cases)',
+          not bad, '; '.join(f"{n} -- {d[:600]}" for n, d in bad))
 
 
 def check_frontmatter_is_real_yaml():
@@ -29891,7 +30753,7 @@ def check_move_tool_lands_then_deduplicates():
         (indiv / 'practices' / 'zz-links.md').write_text(
             practice('zz-links', 'See [`zz-left-behind`](zz-left-behind.md), '
                      '[the rule](zz-left-behind.md#rule), '
-                     '[go-merge](go-merge.md) and `[kept](zz-left-behind.md)`.'),
+                     '[go-update](go-update.md) and `[kept](zz-left-behind.md)`.'),
             encoding='utf-8')
         r = run([tool, '--slug', 'zz-links', '--from', 'individual', '--from-path', str(indiv),
                  '--to', 'team', '--to-path', str(team), '--approved-by', 'Fixture Approver'])
@@ -29902,7 +30764,7 @@ def check_move_tool_lands_then_deduplicates():
                       'and a link inside a code span untouched',
                       r.returncode == 0
                       and 'See `zz-left-behind`, the rule (`zz-left-behind`)' in ltext
-                      and '/practices/go-merge.md)' in ltext
+                      and '/practices/go-update.md)' in ltext
                       and '`[kept](zz-left-behind.md)`' in ltext
                       and str(indiv) not in ltext and 'precedent-individual/blob' not in ltext
                       and 'rewrote a sibling link' in r.stdout,
@@ -34740,6 +35602,7 @@ def main():
     check_all_workflows_disclosed()
     check_example_set()
     check_index_clauses(files)
+    check_build_views_refuses_a_long_index_clause()
     check_rule_is_self_contained(files)
     check_glob_semantics()
     check_symlinked_root_path_matching()
@@ -34848,6 +35711,8 @@ def main():
     check_branch_tiers()
     check_merge_check_gate()
     check_promote_pre_staging()
+    check_engine_commits_state_their_author()
+    check_history_checks_never_ride_a_reused_pass()
     check_promote_picks_its_step()
     check_promote_only_and_tier_branches()
     check_github_ci_setting_names()
@@ -34865,6 +35730,7 @@ def main():
     check_repo_reference_allowlist()
     check_leak_gate_scans_the_consuming_repo()
     check_update_refuses_while_a_branch_is_pinned()
+    check_carry_check_never_counts_upstream_deletions()
     check_bare_sync_warning_ignores_prose_mentions()
     check_leftover_pack_is_flagged_after_migration()
     check_detect_restated_fires()
@@ -34884,6 +35750,9 @@ def main():
     check_vendor_engine_refreshes_agents_md_sections()
     check_retired_branch_name_does_not_ship()
     check_refresh_sources_leaves_an_attached_consumer_alone()
+    check_refresh_sources_path_names_the_whole_target()
+    check_stale_source_paths_accepts_the_universal_pair()
+    check_push_check_installs_gate_packages()
     check_vendor_engine_retires_ci_workflow_files()
     check_workflow_file_outside_vendoring_detects_candidates()
     check_ci_workflow_approved_pins_approval_to_content()
@@ -34897,6 +35766,8 @@ def main():
     check_machine_readable_files_parse()
     check_null_frontmatter_is_absent()
     check_frontmatter_is_real_yaml()
+    check_frontmatter_field_order_fixer()
+    check_refresh_wired_settings_is_not_lost_work()
     check_link_anchors_resolve()
     check_materialized_links_are_placed()
     check_source_supplied_checks_run()

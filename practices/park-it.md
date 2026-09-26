@@ -49,7 +49,7 @@ intent that misses costs exactly the thing [repo-is-memory](repo-is-memory.md)
 exists to prevent -- a real concern nobody raises twice. Where the words
 plainly are the phrase, act on it; where they only sound like it -- "let's
 not worry about that one", "that can wait" -- ask which they mean rather than
-guess, the same way [go-merge](go-merge.md) asks about the object, never the
+guess, the same way [go-update](go-update.md) asks about the object, never the
 phrasing, when several things are genuinely in play.
 
 What `parked` then means, and the two other dispositions an open item can
@@ -90,14 +90,14 @@ It lived for one day as a repo-local practice in Precedent's own tree, with
 a paragraph in its own Detail explaining that it was at the wrong level on
 purpose -- one person's phrase, recorded there only because a session rooted
 in that repository could not reach the private individual set to put it
-anywhere better. **Moved to universal 2026-09-08**, along with `go-merge`,
+anywhere better. **Moved to universal 2026-09-08**, along with `go-update`,
 on Morgan's decision that these are the project's own commands rather than
 one person's habits: *"we should have our own commands we use for people who
 live in our universe."*
 
 **2026-09-16: kept on the literal phrase, as a session's own judgment call,**
 in the conversation where Morgan asked for intent-recognition to widen
-across the command set generally, and for `go-merge` and `weak-yes`
+across the command set generally, and for `go-update` and `weak-yes`
 specifically to gain an ask-if-in-doubt step. This one takes neither change:
 widening it risks a false trigger that never surfaces itself again, which
 neither of those two risks.
@@ -111,7 +111,7 @@ never-raise-it-again guarantee — only the word he says is different. The
 was actually said about the phrase "Park it" while that was still its name.
 
 ## Install
-Nothing mechanical checks that the phrase was *honoured* -- like `go-merge`,
+Nothing mechanical checks that the phrase was *honoured* -- like `go-update`,
 that lives in the conversation rather than in the tree. What a repository
 can check is that the phrase is documented where its own sessions actually
 read, which is what Precedent's own repo-local `check_park_it.py` asserts

@@ -154,7 +154,7 @@ the brief looked at levels where the real rule is about trees.
 `precedent-individual` set: universal cloned beside it on the pinned branch,
 **106 practices and 92 occasion entries** written to its untracked
 `.precedent/SESSION_PRACTICES.md`, and `seeded-prompt-names-its-origin`,
-`spawn-session`, `handoff-is-pasteable` and `go-merge` all present — the four
+`spawn-session`, `handoff-is-pasteable` and `go-update` all present — the four
 that were absent when the session that produced this brief spawned one
 without an origin header. Its committed `AGENTS.md` did not grow: with the
 resolver importable, `sources_for_tracked_block` returned the set's own

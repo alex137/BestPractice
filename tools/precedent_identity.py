@@ -33,8 +33,12 @@ Public interface:
   relayed_authorization(repo, user_config=None) -> {value, accepted, who, source}
   ci_preference(repo, user_config=None)      -> {value, enabled, who, source}
   NoDeclaredIdentity                          raised when nobody is declared
+  commit_env(repo, env=None)                  -> env for a commit the engine makes
+  IdentityRequired                            raised when that commit must not be made
 
-CLI: `precedent_identity.py --relay` prints whether the person this
+CLI: `precedent_identity.py --commit-env [REPO]` prints commit_env()'s
+GIT_AUTHOR_NAME / GIT_AUTHOR_EMAIL / TZ as KEY=VALUE lines for a shell
+caller, exit 3 when it refuses. `precedent_identity.py --relay` prints whether the person this
 repository resolves accepts an authorization relayed from another session,
 and exits non-zero when they do not. Practice: relayed-authorization.
 """
@@ -162,6 +166,74 @@ def declared_identity(repo, user_config=None):
         f'author to be wrong about')
 
 
+class IdentityRequired(Exception):
+    """A commit the engine was about to make here has nobody to author it,
+    in a repository that enforces who does. Raised by commit_env(); the
+    commit must not be made."""
+
+
+def commit_env(repo, env=None):
+    """-> the environment every commit the ENGINE makes in `repo` runs
+    under: the declared person as author, and their zone as TZ.
+
+    WHY EVERY ENGINE COMMIT STATES ITS OWN AUTHOR (2026-09-26). Until then
+    the engine's own merges, lock claims and refresh commits took whatever
+    `git config` and TZ happened to hold, and "happened to hold" depended
+    on a SessionStart hook that only runs when the session is rooted inside
+    a repository that carries it. A session rooted one level up, with four
+    practice sets attached, ran Promote in all four with no hook having
+    run: every merge commit it made was authored by the container's bot,
+    and in the shared sets dated in the repo's fallback zone. The
+    `pre-commit` backstop could not catch them either: `git merge` and
+    `git commit-tree` never run `pre-commit`. The same class of commit had
+    reached published branches about a dozen times before, each time fixed
+    per session or grandfathered per SHA. Stating the author on the command
+    that writes the commit is the fix that does not depend on which
+    directory a session starts in (practice: durable-fix).
+
+    Only the AUTHOR is set. GIT_COMMITTER_* is left as the caller has it:
+    a committer carrying the environment's signing identity is how signed
+    commits verify, and commit-author judges the author alone.
+
+    TZ comes from precedent_time's ladder, the one every other stamp uses,
+    so an author date carries the person's offset (practice:
+    timestamps-carry-offset). Unavailable, TZ is left as it is.
+
+    Nobody declared: in a repository with no identity.json at its root that
+    is the shared-repo case, where commit-author stands down and there is
+    no single person to be wrong about, so the environment is returned
+    unchanged. With an identity.json at the root the repository IS
+    somebody's individual source and enforces its owner on every commit;
+    committing as whoever git happens to name there is exactly the defect,
+    so this raises IdentityRequired instead."""
+    out = dict(os.environ if env is None else env)
+    repo = pathlib.Path(repo)
+    try:
+        ident = declared_identity(repo)
+    except NoDeclaredIdentity as exc:
+        if (repo / 'identity.json').is_file():
+            raise IdentityRequired(
+                f'{repo} is an individual practice source (it has an '
+                f'identity.json) and no author could be resolved for a '
+                f'commit here: {exc}. Refusing to commit as whoever git '
+                f'config names instead') from exc
+        ident = None
+    if ident:
+        if ident.get('name'):
+            out['GIT_AUTHOR_NAME'] = ident['name']
+        out['GIT_AUTHOR_EMAIL'] = ident['email']
+    import sys
+    here = str(pathlib.Path(__file__).resolve().parent)
+    sys.path.insert(0, here)
+    try:
+        import precedent_time
+        out['TZ'] = precedent_time.resolved(repo)[1]
+    except Exception:                                         # noqa: BLE001
+        pass
+    finally:
+        if sys.path and sys.path[0] == here:
+            sys.path.pop(0)
+    return out
 
 
 # practice: relayed-authorization -- the receiving session reads the
@@ -323,6 +395,20 @@ def ci_preference(repo, user_config=None):
 
 def _main(argv):
     import sys
+    if '--commit-env' in argv:
+        # For a shell caller about to make a commit: one KEY=VALUE per line,
+        # only the keys commit_env() decides. Exit 3 when it refuses.
+        rest = argv[argv.index('--commit-env') + 1:]
+        repo = pathlib.Path(rest[0]) if rest else pathlib.Path.cwd()
+        try:
+            env = commit_env(repo, env={})
+        except IdentityRequired as exc:
+            print(f'REFUSED -- {exc}', file=sys.stderr)
+            return 3
+        for key in ('GIT_AUTHOR_NAME', 'GIT_AUTHOR_EMAIL', 'TZ'):
+            if env.get(key):
+                print(f'{key}={env[key]}')
+        return 0
     if '--relay' not in argv:
         print(__doc__.strip())
         return 0

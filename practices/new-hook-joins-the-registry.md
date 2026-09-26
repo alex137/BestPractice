@@ -7,8 +7,8 @@ scope:       engine-dev
 applies_to:  ["templates/harness/claude-code/hooks/**", "templates/harness/claude-code/settings.json", "tools/precedent_bootstrap_source.py", "tools/precedent_vendor_engine.py"]
 occasion:    "adding, renaming or dropping a hook script this repo ships, or changing which hooks a kind of repo runs"
 gates:       ["merge"]
-index_required: false
 index_clause: "a new hook joins its kind's HOOK_WIRING list and template, same commit"
+index_required: false
 checked_by:  "tools/precedent_check.py"
 defines:     []
 status:      active

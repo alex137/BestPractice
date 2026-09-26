@@ -36,7 +36,10 @@ Nothing is written to the repository or its history: the copy is a
 throwaway directory, its removed files are marked skip-worktree in the
 COPY's own index so `git status` there stays as clean as the real one, and
 it sits beside symlinks to this repository's siblings, so a test that looks
-for `$ROOT/../BestPractice` finds it exactly as it does at home.
+for `$ROOT/../BestPractice` finds it exactly as it does at home. Run from a
+linked worktree -- which is where Promote runs it -- the copy gets a git
+directory of its own and the main checkout's name and siblings (see
+consumer_copy).
 
 Why not a scratch clone with those entries committed to its .gitignore,
 which reads more like "a consumer": the commit that adds them is a commit
@@ -166,22 +169,68 @@ def source_only_tools(root, keep):
     return out
 
 
+def _git_dirs(root):
+    """-> (own git dir, common git dir) of `root`, both absolute. They are
+    the same directory in an ordinary checkout and a submodule, and differ
+    in a linked worktree, whose own directory holds only HEAD and the index
+    while objects, refs and config live in the main checkout's."""
+    def ask(flag):
+        out = subprocess.run(['git', '-C', str(root), 'rev-parse',
+                              '--path-format=absolute', flag],
+                             capture_output=True, text=True).stdout.strip()
+        return pathlib.Path(out) if out else None
+    return ask('--absolute-git-dir'), ask('--git-common-dir')
+
+
 def consumer_copy(root, tmp, drop):
     """Copy `root` into `tmp`/<its name>, beside symlinks to each of its
     real siblings, and remove `drop` from the copy. -> the copy's path.
 
-    `.git` is copied as it is, so the copy has the same branch, remotes,
-    history and uncommitted changes as the original -- only the dropped
-    files differ, and each tracked one is marked skip-worktree in the
-    copy's own index so that difference is not itself a change a test can
-    see. A `.git` FILE (a linked worktree or a submodule) points at an
-    index the copy would share with the original, so that shape is refused
-    by the caller before this runs."""
-    dest = pathlib.Path(tmp) / root.name
-    shutil.copytree(root, dest, symlinks=True,
-                    ignore=shutil.ignore_patterns('__pycache__'))
-    for sibling in sorted(root.parent.iterdir()):
-        if sibling.name != root.name:
+    The copy's `.git` is a real directory of its own, so the copy has the
+    same branch, remotes, history and uncommitted changes as the original --
+    only the dropped files differ, and each tracked one is marked
+    skip-worktree in the copy's own index so that difference is not itself
+    a change a test can see.
+
+    A LINKED WORKTREE OR A SUBMODULE (2026-09-26). There `.git` is a FILE
+    pointing at a git directory elsewhere, and copying the file would give
+    the copy the original's index to write skip-worktree bits into. Until
+    this date that shape was refused outright -- and Promote runs the full
+    check in a linked worktree every time, so every Promote that actually
+    ran the suite in a source failed on "could not run", and the only
+    Promotes that passed were the ones reusing an earlier pass. So the git
+    directory is copied into place instead: a worktree's common directory
+    (objects, refs, config) with the worktree's own HEAD and index laid over
+    it, or a submodule's directory with its core.worktree dropped. The copy
+    is named after, and set beside the siblings of, the MAIN checkout -- a
+    Promote's worktree sits alone in a temporary directory, and a test that
+    looks for `$ROOT/../BestPractice` must find it as it does at home."""
+    own, common = _git_dirs(root)
+    linked = (root / '.git').is_file()
+    home = common.parent if linked and own and common and own != common \
+        else root
+    dest = pathlib.Path(tmp) / home.name
+
+    def skip(d, names):
+        out = [n for n in names if n == '__pycache__']
+        if linked and pathlib.Path(d) == root and '.git' in names:
+            out.append('.git')
+        return out
+    shutil.copytree(root, dest, symlinks=True, ignore=skip)
+    if linked:
+        top = common or own
+        shutil.copytree(top, dest / '.git', symlinks=True,
+                        ignore=lambda d, names: (['worktrees'] if
+                                                 pathlib.Path(d) == top
+                                                 else []))
+        if own and own != top:
+            for leaf in ('HEAD', 'index'):
+                if (own / leaf).is_file():
+                    shutil.copy2(own / leaf, dest / '.git' / leaf)
+        subprocess.run(['git', '-C', str(dest), 'config', '--unset',
+                        'core.worktree'], capture_output=True, text=True)
+    for sibling in sorted(home.parent.iterdir()):
+        if sibling.name != home.name:
             try:
                 (pathlib.Path(tmp) / sibling.name).symlink_to(sibling)
             except OSError:
@@ -211,12 +260,6 @@ def run(root):
         print('precedent_consumer_shape: could not run -- this git is older '
               'than 2.31 and would ignore the consumer ignores silently',
               file=sys.stderr)
-        return 2
-    if not (root / '.git').is_dir():
-        print('precedent_consumer_shape: could not run -- .git here is not a '
-              'directory (a linked worktree or a submodule), and a copy of '
-              'this checkout would share its index with the original. Run it '
-              'from the main checkout', file=sys.stderr)
         return 2
     keep = consumer_tools(root)
     if keep is None:

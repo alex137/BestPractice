@@ -38,7 +38,7 @@ the same thing in other words gets the same treatment, and where a command
 authorizes something hard to reverse (a push, a merge, a mark recording how
 convinced he was) and the reading is a genuine judgment call rather than a
 clean one, that is said out loud and confirmed rather than guessed —
-[go-merge](practices/go-merge.md) and [weak-yes](practices/weak-yes.md)
+[go-update](practices/go-update.md) and [weak-yes](practices/weak-yes.md)
 spell out exactly how, below. A few — a full practice audit, a very deep
 check, the fleet sweep — are the deliberate exception, kept to the literal
 ask because what they trigger is too expensive to run on a guess; each
@@ -52,7 +52,7 @@ never to decide whether to carry out what was asked. Do it first and
 propose after. A command you are not carrying out is said in the reply's
 first line, with the reason.
 
-- **"Go update"** and **"Approved"** ([go-merge](practices/go-merge.md)) —
+- **"Go update"** and **"Approved"** ([go-update](practices/go-update.md)) —
   classify first: a direct push, straight to the shared branch, no PR, is now
   the **default**; only a **high-risk** change (touches enforcement/gating
   code, changes a governance or authorization practice, is hard to reverse
@@ -110,7 +110,7 @@ first line, with the reason.
   plain ask for the same shape of answer ("what do I actually need to know
   right now") gets it too — low stakes if the read is wrong, so no
   confirmation step.
-- **"Simple words"** ([plain-words](practices/plain-words.md)) — the same
+- **"Simple please"** ([plain-words](practices/plain-words.md)) — the same
   answer said the way you would say it out loud: short sentences, the concrete
   case before the general principle, no hedging. **It governs the rest of the
   conversation, not just the next reply**, and nothing about the substance
@@ -150,7 +150,7 @@ first line, with the reason.
   on the table in plainer words, a short block each, the cost said as flatly
   as the benefit, then **a named recommendation with its reason** — never a
   survey that leaves the choice sitting there. It governs that one answer, not
-  the conversation, which is what separates it from `Simple words`.
+  the conversation, which is what separates it from `Simple please`.
 - **"Vocabulary"** ([vocabulary](practices/vocabulary.md)) — every standing
   command in force, one plain sentence each, nothing else. **Read the list,
   never recall it**: `python3 tools/precedent_vocabulary.py` collects it from
@@ -274,7 +274,7 @@ plan's premise.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block; `python3 tools/build_views.py --check` exits non-zero on drift. Source: practices/ -- edit the practice file, never this block. -->
 
-## Resident block (~884 of 2000 token budget, 10 of 147 practices (10 universal))
+## Resident block (~884 of 2000 token budget, 10 of 148 practices (10 universal))
 
 **bold-key-phrases.** People don't read; they skim, and bolding makes skimming easy. Bold the key phrases in a document by default, without being asked, scaling with length -- a long paragraph or document is where a skimmer most needs a spine to follow, a short note usually needs little or none.
 
@@ -367,7 +367,7 @@ When a judgment call is needed to keep work moving:
 When a message says "Archive" or "Archive?", or asks whether the session can be archived:
   archive-status-check — check pending; archive if clear, else say what isn't
 When a message says "Go update" or "Approved", or plainly authorizes a merge:
-  go-merge — "Go update"/"Approved": default push; high-risk: sync, branch, PR, merge
+  go-update — "Go update"/"Approved": default push; high-risk: sync, branch, PR, merge
 When a message says "Promote" about branch tiers, or asks to move pre-staging into staging or staging into main:
   promote — pre-staging->staging or staging->main, chosen from the work; says which
 When a message says "Push directly" [to a branch], or says to skip the PR for one change:
@@ -392,7 +392,7 @@ When a person says "Primary branch", or asks which branch is trunk or takes rout
   primary-branch — trunk: the branch regular work pushes to and PRs target
 When a person says "Reduction pass", or an always-loaded surface is near its ceiling:
   reduction-pass — work the menu in order; move, never delete; report what moved
-When a person says "Simple words", or asks to be talked to that way:
+When a person says "Simple please", or asks to be talked to that way:
   plain-words — say it as you would out loud; same substance
 When a person says "Three Things", or plainly asks for this shape of answer:
   three-things — the three that matter now, one bold phrase and two lines each
@@ -404,6 +404,8 @@ When a person says "Vocabulary", or asks what the standing commands are:
   vocabulary — list every command in force; read it, never recall it
 When a person says "Weak yes", or agrees without conviction:
   weak-yes — do it, and record the approval as `assented`
+When a tool, hook, check or gate flags something the person would otherwise have to judge:
+  verdict-not-mechanism — judge what a tool flagged; give the person a verdict and why, never its name
 When about to search a repo, or use a GitHub tool for what the clone holds:
   grep-before-search — grep the clone first; list before search; fewer windows at once
 When adding a file beside others of its kind:

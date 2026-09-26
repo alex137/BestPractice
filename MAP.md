@@ -6,7 +6,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 
 ## The practice catalogue
 
-`practices/` holds 142 practice files (10 resident, 132 on-demand). One file per practice. See [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md) for the design.
+`practices/` holds 143 practice files (10 resident, 133 on-demand). One file per practice. See [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md) for the design.
 
 | Practice | Tier | Occasion / scope |
 |---|---|---|
@@ -65,7 +65,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [generated-edit-goes-upstream](practices/generated-edit-goes-upstream.md) | on-demand | asked to add, change or remove something in a generated file |
 | [github-api-budget](practices/github-api-budget.md) | on-demand | writing or changing anything that calls the GitHub API, or a session is refused with a rate-limit error |
 | [github-setup-disclosed](practices/github-setup-disclosed.md) | on-demand | an install step adds something GitHub-specific, or a first install finishes |
-| [go-merge](practices/go-merge.md) | on-demand | a message says "Go update" or "Approved", or plainly authorizes a merge |
+| [go-update](practices/go-update.md) | on-demand | a message says "Go update" or "Approved", or plainly authorizes a merge |
 | [grep-before-search](practices/grep-before-search.md) | on-demand | about to search a repo, or use a GitHub tool for what the clone holds |
 | [heading-outline](practices/heading-outline.md) | on-demand | adding or re-levelling a heading in any document |
 | [headline-capitalization](practices/headline-capitalization.md) | on-demand | writing or editing a heading in an outward-facing document |
@@ -92,7 +92,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [parallel-artifact-ledger](practices/parallel-artifact-ledger.md) | on-demand | a change must propagate across several parallel artifacts |
 | [park-it](practices/park-it.md) | on-demand | a person says "Drop it" about an open item or a question |
 | [permutation-frontier-column](practices/permutation-frontier-column.md) | on-demand | building a permutation or configuration-sweep table |
-| [plain-words](practices/plain-words.md) | on-demand | a person says "Simple words", or asks to be talked to that way |
+| [plain-words](practices/plain-words.md) | on-demand | a person says "Simple please", or asks to be talked to that way |
 | [pr-template-honest-gates](practices/pr-template-honest-gates.md) | on-demand | writing or filling out a pull-request description |
 | [practice-carries-its-files](practices/practice-carries-its-files.md) | on-demand | writing a practice that owns a file besides its check script and test -- a tool its Rule tells a session to run, a file its test reads -- or moving a practice to another set |
 | [practice-export-loop](practices/practice-export-loop.md) | on-demand | merging a branch that improved a generic practice |
@@ -143,6 +143,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [variant-re-derives](practices/variant-re-derives.md) | on-demand | building a variant of an existing thing |
 | [vendor-rollout-disclosed](practices/vendor-rollout-disclosed.md) | on-demand | committing a shipped practice, hook, template or engine file, before push or merge |
 | [vendor-update-runbook](practices/vendor-update-runbook.md) | on-demand | a message says "Update Vendors", or an upstream update is taken into a vendoring repo |
+| [verdict-not-mechanism](practices/verdict-not-mechanism.md) | on-demand | a tool, hook, check or gate flags something the person would otherwise have to judge |
 | [verify-decomposition](practices/verify-decomposition.md) | on-demand | reporting a computed total or a negative feasibility result |
 | [verify-postcondition](practices/verify-postcondition.md) | resident | after any state-changing operation |
 | [very-deep-check](practices/very-deep-check.md) | on-demand | a person explicitly asks for a "very deep check", or after work that invites drift |
@@ -155,15 +156,16 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 
 ## Withdrawn practices
 
-9 practice file(s) here are **not in force** and are left out of every table above. **The files are kept on purpose** -- a withdrawn rule and the argument against it are worth re-reading, and `retired` is not a synonym for deleted (that is `decommission-deletes-files`, and it is about mechanisms, not rules). Read one in full with `python3 tools/precedent_show.py SLUG`.
+10 practice file(s) here are **not in force** and are left out of every table above. **The files are kept on purpose** -- a withdrawn rule and the argument against it are worth re-reading, and `retired` is not a synonym for deleted (that is `decommission-deletes-files`, and it is about mechanisms, not rules). Read one in full with `python3 tools/precedent_show.py SLUG`.
 
 | Practice | Status | Now in force at | Why it was withdrawn |
 |---|---|---|---|
 | [answer-first-ask-before-long-work](practices/answer-first-ask-before-long-work.md) | deduplicated | [answer-first-ask-before-long-work](practices/answer-first-ask-before-long-work.md) | A session launched an hours-long re-solve while four conceptual questions sat unanswered, then sat on a ninety-minute cold solve after a merge invalidated a cache, before answering a one-line question about the merge itself. |
 | [archive-command](practices/archive-command.md) | deduplicated | [archive-status-check](practices/archive-status-check.md) | **Deduplicated 2026-09-19, folded into `archive-status-check`.** Morgan: *"Note that 'Archive' and 'Archive?' are the same thing. |
 | [brief-it](practices/brief-it.md) | deduplicated | [my-options](practices/my-options.md) | Coined by Morgan, 2026-09-19. |
+| [go-merge](practices/go-merge.md) | deduplicated | [go-update](practices/go-update.md) | Renamed 2026-09-26 on Morgan's `Go update`. |
 | [handoff-is-pasteable](practices/handoff-is-pasteable.md) | deduplicated | [the-boildown](practices/the-boildown.md) | Asked for by Morgan on 2026-09-10, in his own words: instructions should give *"the name of the repo* and the exact text to copy paste in*, and then those instructions should always finish with, reminding me to return to the original session with a message to copy-paste there confirming its success or sharing other issues."* |
-| [merge-authorization-keyword](practices/merge-authorization-keyword.md) | deduplicated | [go-merge](practices/go-merge.md) | **The 2026-09-07 retirement was reversed on 2026-09-08, and this is now a deduplication rather than a withdrawal.** `status: retired` said nobody wanted this rule anywhere. |
+| [merge-authorization-keyword](practices/merge-authorization-keyword.md) | deduplicated | [go-update](practices/go-update.md) | **The 2026-09-07 retirement was reversed on 2026-09-08, and this is now a deduplication rather than a withdrawal.** `status: retired` said nobody wanted this rule anywhere. |
 | [merged-session-offers-a-practice](practices/merged-session-offers-a-practice.md) | deduplicated | [the-boildown](practices/the-boildown.md) | Morgan, 2026-09-14, on the practice engine he had been feeding by hand for weeks: *"I love the methodology of turning what we decide into Practices to be followed or enforced, but it seems like I'm always the one making the suggestions. |
 | [next-steps-after-commit](practices/next-steps-after-commit.md) | deduplicated | [the-boildown](practices/the-boildown.md) | Raised by Morgan as a standing personal preference, rather than in response to a specific missed handoff, and it lived in his individual set from 2026-09-04 to 2026-09-14. |
 | [session-text](practices/session-text.md) | deduplicated | [prompt-please](practices/prompt-please.md) | **Coined by Morgan, 2026-09-11**, in his own words: *"When you give me what I need to do, first look to see if it should be in a different session, and that includes most importantly checking for cross repo issues first. |

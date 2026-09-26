@@ -211,8 +211,9 @@ Conflicts in shared files are EXPECTED. The fast, safe path:
   `reply` gate — this bullet is a pointer, never a second copy to keep in
   step): every
   reply that created, modified or deleted files
-  ends with a "Files touched" list — branch link + post-merge link +
-  one-line description per file. A **deleted** file is listed too: its
+  ends with a "Files touched" list, prefaced `Files touched in
+  owner/repo/branch:` (one preface per repository and branch), then branch
+  link + post-merge link + one-line description per file. A **deleted** file is listed too: its
   path, why it went, and a link to the commit that removed it, since it is
   the one entry with nothing left on the branch to open.
 - **Commits are credited to the human driving the session.** Set the git

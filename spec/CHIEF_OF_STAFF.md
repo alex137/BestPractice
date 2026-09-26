@@ -136,7 +136,7 @@ honest "this session is the right one" answer.
 
 The phrase is Morgan's, proposed 2026-09-13: *"Maybe the phrase is just
 'Chief of Staff'."* It would join
-[go-merge](https://github.com/alex137/BestPractice/blob/staging/practices/go-merge.md),
+[go-update](https://github.com/alex137/BestPractice/blob/staging/practices/go-update.md),
 [park-it](https://github.com/alex137/BestPractice/blob/staging/practices/park-it.md),
 [three-things](https://github.com/alex137/BestPractice/blob/staging/practices/three-things.md),
 [plain-words](https://github.com/alex137/BestPractice/blob/staging/practices/plain-words.md),
@@ -333,7 +333,7 @@ the problem it was created for.
 
 It also **does not merge anything on Morgan's behalf.** A merge
 authorization is his to give in the session that holds the work
-([go-merge](https://github.com/alex137/BestPractice/blob/staging/practices/go-merge.md)),
+([go-update](https://github.com/alex137/BestPractice/blob/staging/practices/go-update.md)),
 and routing him to the right window to say it is the whole job.
 
 One asymmetry is deliberate: **only Chief of Staff spawns sessions.** A tree

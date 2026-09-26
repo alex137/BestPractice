@@ -5,8 +5,8 @@ tier:        on-demand
 severity:    default
 applies_to:  ["**"]
 occasion:    "writing or changing anything that automatically repairs a state it found wrong"
-index_clause: "an auto-repair must never discard work; reporting is not repairing"
 gates:       []
+index_clause: "an auto-repair must never discard work; reporting is not repairing"
 checked_by:  null
 defines:     []
 status:      active
