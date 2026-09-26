@@ -225,7 +225,7 @@ def landing_branch(root, user_config=None):
         # "they have to be able to set it to \"main\" if they want"). It
         # skips staging, never the checks: a push to main is fully checked
         # like one to staging. A repository's own rule about main -- this
-        # one's needs Alex's named go-ahead for a major change -- still
+        # one's needs the person to name main in the request -- still
         # decides whether a session may push there.
         return MAIN, why
     return staging_branch(root), why
