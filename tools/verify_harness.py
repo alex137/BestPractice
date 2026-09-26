@@ -19067,9 +19067,12 @@ def check_tier_branches_are_never_a_pull_requests_source():
     missing staging is rebuilt.
 
     2026-09-26: the pull request of staging into main (#629) was opened
-    FROM staging, and the repository's "automatically delete head
-    branches" setting deleted staging the moment it merged. Nobody here can
-    change that setting, so the source is what changes: the merge gate
+    FROM staging, and staging was deleted right after it merged. The
+    repository's "automatically delete head branches" setting was measured
+    OFF afterwards, so the cause is not established; the "Delete branch"
+    button a merged pull request's page offers for its source is the
+    likeliest. Whatever it was, a tier branch that is never a pull
+    request's source cannot be deleted that way: the merge gate
     refuses a pull request whose head is a tier branch of the same
     repository (a fork's branch of that name is someone else's), and
     `--ensure-tiers --apply` rebuilds a missing staging from the old name

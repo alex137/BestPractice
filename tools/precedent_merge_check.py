@@ -198,7 +198,8 @@ def pull_head(owner, repo, number):
 def tier_source_refusal(head_ref, head_repo, owner, repo, tiers):
     """-> None, or why a pull request must not be merged: it comes FROM a
     tier branch of this same repository, and merging it lets GitHub's
-    auto-delete remove that branch (2026-09-26: a pull request from staging
+    GitHub's "Delete branch" button -- offered on every merged pull
+    request's page for its source -- remove that branch (2026-09-26: a pull request from staging
     into main was merged and staging was deleted). A fork's branch of the
     same name is somebody else's and is not refused."""
     if not head_ref or head_ref not in tiers:
@@ -214,9 +215,9 @@ def tier_source_refusal(head_ref, head_repo, owner, repo, tiers):
     finally:
         sys.path.pop(0)
     return (f'this pull request comes FROM {head_ref}, a tier branch. When it '
-            f'is merged, GitHub\'s "automatically delete head branches" '
-            f'deletes {head_ref} -- which is how staging disappeared on '
-            f'2026-09-26. Open it from a throwaway copy instead:\n'
+            f'is merged, its page offers to delete {head_ref} -- and staging '
+            f'disappeared right after such a merge on 2026-09-26. Open it '
+            f'from a throwaway copy instead:\n'
             f'  git push origin origin/{head_ref}:refs/heads/{copy}\n'
             f'then a pull request from {copy} into the same base, and close '
             f'this one. GitHub deletes the copy; {head_ref} stays.')
