@@ -9,7 +9,7 @@ gates:       ["merge"]
 index_clause: "pre-staging->staging or staging->main, chosen from the work; says which"
 checked_by:  null
 defines:     ["Promote", "pre-staging"]
-command:     {"Promote": "Land this session's own unsaved work on pre-staging first, then move the next tier up -- pre-staging into staging, or staging into main, whichever the work just done needs -- saying which before it starts. The full check runs on the whole batch, and nothing moves unless it passes."}
+command:     {"Promote": "Land this session's own unsaved work on pre-staging first, then move the next tier up -- pre-staging into staging, or staging into main, whichever the work just done needs -- saying which before it starts. The whole batch gets the checks of the branch it is entering -- the full local check going into staging, that plus the GitHub test going into main -- and nothing moves unless they pass."}
 status:      active
 in_force_at: null
 supersedes:  []
@@ -189,6 +189,12 @@ suite once, from a background window, when the batch moves on. He ruled out
 a scheduled promotion in favour of a push a person starts. The plan, with
 the decisions and how firmly each was made, is
 [spec/BRANCH_TIERS_PLAN.md](https://github.com/alex137/BestPractice/blob/staging/spec/BRANCH_TIERS_PLAN.md).
+
+**The one-line summary named the check loosely until 2026-09-26.** It said
+"the full check", and Morgan asked whether that meant the check of the
+branch the work enters. It always did -- the Rule above runs staging's
+checks into staging and main's into main -- so only the summary changed, to
+say so.
 
 ## Install
 Nothing to install beyond the engine: [precedent_branches.py](../tools/precedent_branches.py) ships in
