@@ -594,13 +594,13 @@ def sources_from_repo(repo_path, base_url=None, retries=DEFAULT_RETRIES,
                             'the declared source has no name or no path'))
             continue
         clone_path = (repo_path / rel).resolve()
-        here = repo_path.resolve()
-        if clone_path == here or here in clone_path.parents:
+        if _declared_inside(repo_path, clone_path):
             # The repository itself (BestPractice declares universal at `.`)
             # or a copy vendored inside it (a consumer's
             # precedent/universal). Neither is a clone: the first used to be
             # checked out onto its base branch from here, and the second was
-            # handed to `git clone` as a non-empty target.
+            # handed to `git clone` as a non-empty target. A nested directory
+            # with a .git of its own IS a clone, and is synced as one.
             results.append((name, True, 'declared inside this repository -- '
                                         'nothing to clone or pull'))
             continue
@@ -688,6 +688,18 @@ def sources_from_repo(repo_path, base_url=None, retries=DEFAULT_RETRIES,
                                 branch=branch or _clone_branch(repo_path, level))
         results.append((name, ok, out or 'cloned'))
     return results
+
+
+def _declared_inside(repo_path, clone_path):
+    """True when a declared source path is this repository itself, or a
+    directory inside it with no .git of its own -- a vendored copy. Neither
+    is a clone this tool may sync. precedent_check.py's
+    declared-sources-are-cloned asks the same question."""
+    here = pathlib.Path(repo_path).resolve()
+    p = pathlib.Path(clone_path).resolve()
+    if p == here:
+        return True
+    return here in p.parents and p.exists() and not (p / '.git').exists()
 
 
 def _clone_url(repo_path, level, name, base, repo=''):

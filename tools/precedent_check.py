@@ -3646,7 +3646,10 @@ def _session_start_scripts():
                 cmd = h.get('command') if isinstance(h, dict) else None
                 if isinstance(cmd, str):
                     roots.extend(_script_paths(cmd))
-    if not roots and (ROOT / 'tools' / 'bootstrap.sh').is_file():
+    # joinpath, not the plain slash spelling: a practice set has no
+    # bootstrap.sh, and vendored-engine-file-refs-resolve reads that spelling
+    # as a companion the engine must ship.
+    if not roots and (ROOT / 'tools').joinpath('bootstrap.sh').is_file():
         roots = ['tools/bootstrap.sh']
     seen, queue = [], list(roots)
     while queue:
@@ -3706,12 +3709,16 @@ def _declared_sources_are_cloned(ctx):
         if not rel:
             continue
         p = (ctx.root / rel).resolve()
-        if p != here and here not in p.parents:
+        # Same test as precedent_source_bootstrap._declared_inside: the repo
+        # itself, or a vendored copy inside it, is never cloned.
+        vendored = (p == here or (here in p.parents and p.exists()
+                                  and not (p / '.git').exists()))
+        if not vendored:
             outside.append(str(src.get('name') or rel))
     if not outside:
         raise NotApplicable('precedent.json declares no shared or universal '
-                            'source outside this repo, so nothing needs '
-                            'cloning at session start')
+                            'source that is not this repo or vendored inside '
+                            'it, so nothing needs cloning at session start')
     scripts = _session_start_scripts()
     wired = None
     for s in scripts:

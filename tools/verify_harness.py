@@ -9290,13 +9290,14 @@ def check_precedent_check_fires():
         case('merge-target-is-beta-branch', _plant_mtib)
 
         # declared-sources-are-cloned -- this repo declares three shared sets
-        # beside itself, and tools/bootstrap.sh (reached from
-        # session-start.sh) is what clones them. Planted by deleting that one
-        # line: the finding must name the missing clone step, not just fail.
+        # beside itself, and both .claude/hooks/session-start.sh and the
+        # tools/bootstrap.sh it runs clone them. Planted by deleting that
+        # line from both: the finding must name the missing clone step.
         def _plant_dsac(repo):
-            rewrite(repo, 'tools/bootstrap.sh', lambda t: re.sub(
-                r'\n[^\n]*precedent_source_bootstrap\.py --teams-from[^\n]*', '',
-                t))
+            for rel in ('tools/bootstrap.sh', '.claude/hooks/session-start.sh'):
+                rewrite(repo, rel, lambda t: re.sub(
+                    r'\n[^\n]*precedent_source_bootstrap\.py --teams-from[^\n]*',
+                    '', t))
         case('declared-sources-are-cloned', _plant_dsac)
         cases.append(('declared-sources-are-cloned: the planted finding names '
                       'the missing session-start clone step',
