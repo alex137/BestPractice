@@ -70,9 +70,9 @@ GitHub refuse it under their name.
 
 ## The Owner-Only Settings Every Install Mentions
 
-Four settings only the repository's owner can click, offered at the end of
+Five settings only the repository's owner can click, offered at the end of
 every install as suggestions rather than a gate (click-paths as of
-2026-09-10):
+2026-09-10; the fifth as of 2026-09-26):
 
 1. **Make the repository private** unless it is meant to be public. Decided
    at creation time; awkward to change afterwards. A private repository
@@ -90,6 +90,15 @@ every install as suggestions rather than a gate (click-paths as of
 4. **Allow GitHub Actions to create and approve pull requests** —
    **Settings → Actions → General → Workflow permissions**. Needed only by
    automation that opens pull requests; harmless otherwise.
+5. **Optional: turn Actions off in a repository that needs no GitHub
+   checks** — **Settings → Actions → General → Actions permissions →
+   Disable actions**. In a private repository every run bills minutes, and
+   a workflow file nobody approved (practice:
+   [ci-workflow-approved](../practices/ci-workflow-approved.md)) bills from
+   the moment it lands, whether a session wrote it or someone edited it on
+   GitHub's website. With Actions off, nothing there can run or bill. The
+   local push check is unaffected. A session cannot make this change or
+   even read the setting, so it is always the owner's.
 
 [templates/GETTING_STARTED.md](../templates/GETTING_STARTED.md)'s
 administrator section repeats these so they survive the install

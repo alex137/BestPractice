@@ -8,9 +8,8 @@ Scope: tree. While this repository is mid-restructure, every pull request
 targets `precedent-beta-v01`, never `main`. That is checkable after the
 fact as a graph property: `origin/precedent-beta-v01` must NOT be an
 ancestor of `origin/main`. If it is, the restructuring work has landed on
-`main` -- expected exactly once, when Alex reviews and merges it for real
-(and retires this practice in the same pull request), and otherwise the
-PR #89 mistake happening again.
+`main` -- expected right after a deliberate, named fold-in (see
+_head_moves_beta_past), and otherwise the PR #89 mistake happening again.
 
 WHY THIS LIVES UNDER local/, NOT IN tools/precedent_check.py. It used to
 be one of that module's registered checks, and `precedent_check.py` is
@@ -112,8 +111,9 @@ def find_violations():
         ['git', 'merge-base', '--is-ancestor', beta, main],
         cwd=ROOT).returncode == 0
     if is_ancestor and _head_moves_beta_past(beta, main):
-        # AFTER AN APPROVED FOLD-IN. Morgan folds this branch into `main`
-        # regularly on Alex's go-ahead, and for the moment after each one the
+        # AFTER A DELIBERATE FOLD-IN. Morgan folds this branch into `main`
+        # regularly (no longer on Alex's go-ahead, since 2026-09-26), and for
+        # the moment after each one the
         # branch IS an ancestor of `main` -- until the next commit lands on
         # it, which the earlier fold-in records note clears this. Since
         # 2026-09-25 that next commit cannot land while this fires: the push
@@ -125,10 +125,10 @@ def find_violations():
     if is_ancestor:
         return [f'main: contains origin/{staging} ({beta[:8]}) as an '
                 f'ancestor -- the restructuring work has been merged into '
-                f'main. Expected ONLY once Alex has reviewed and merged '
-                f'{staging} into main for real (in which case retire '
-                f'this practice in the same PR); otherwise this is the PR #89 '
-                f'mistake happening again.']
+                f'main. Expected ONLY right after a deliberate, named merge of '
+                f'{staging} into main, and cleared by the next commit on '
+                f'{staging}; otherwise this is the PR #89 mistake happening '
+                f'again.']
     return []
 
 

@@ -4,9 +4,9 @@ title:       "\"Three Things\" asks for the three most important things to know 
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
-occasion:    "a person says \"Three Things\", or plainly asks for exactly this shape of answer"
+occasion:    "a person says \"Three Things\", or plainly asks for this shape of answer"
 gates:       ["reply"]
-index_clause: "\"Three Things\" -- the three that matter now, one bold phrase and two lines each"
+index_clause: "the three that matter now, one bold phrase and two lines each"
 checked_by:  null
 defines:     ["Three Things"]
 command:     {"Three Things": "Tell you the three most important things you need to know right now, in three short lines."}

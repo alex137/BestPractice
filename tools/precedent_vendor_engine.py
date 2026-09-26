@@ -524,6 +524,10 @@ ENGINE_FILES = [
     # upstream repo can do. See documentation/FOR_DEVELOPERS.md and
     # templates/GETTING_STARTED.md, which now say so.
     'very_deep_check.py',
+    # Its CI FLEET AUDIT section runs this beside it (2026-09-26): every
+    # workflow on every branch, asked of GitHub (practice:
+    # ci-workflow-approved).
+    'ci_fleet_audit.py',
     'parse_check.py',
     'precedent_bootstrap_source.py',
     # THE ONE CHECK THAT LOOKS OUTWARD (2026-09-21). Every other check in
@@ -3809,6 +3813,13 @@ def record_agents_md_sections(dest_root, kind, source_root):
 # rewrites it from the catalogue; a hand edit there is refused), and a line
 # that also names the new branch, which is recording the rename rather than
 # using the old name ("`staging` (named `precedent-beta-v01` until ...)").
+#
+# The generated block is only cleared by a sync if the catalogue itself is
+# clean, and on 2026-09-26 it was not: a shared set's name-the-branch
+# index_clause named precedent-beta-v01, so every sync wrote it back into
+# the same consumer. precedent_check's retired-branch-name-ships reads this
+# table and reports that text in the set that publishes it, which is the
+# only place it can be fixed.
 RETIRED_BRANCH_NAMES = {
     # old name: (new name, date renamed)
     'precedent-beta-v01': ('staging', '2026-09-25'),

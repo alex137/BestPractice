@@ -5,9 +5,9 @@ tier:        on-demand
 severity:    advisory
 scope:       any-adopter
 applies_to:  ["**"]
-occasion:    "a person explicitly asks for a \"very deep check\" across the whole repo, or after work that invites drift"
+occasion:    "a person explicitly asks for a \"very deep check\", or after work that invites drift"
 gates:       []
-index_clause: "read every repo in force against itself, pass by pass; never a routine gate"
+index_clause: "read every repo in force against itself, pass by pass; never routine"
 checked_by:  null
 defines:     ["very deep check"]
 command:     {"Very deep check": "Run a full review of the whole project — slow, occasional, and worth it before showing the work to someone new."}
@@ -1106,6 +1106,41 @@ confidently.
     update"*) from
     [spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md](https://github.com/alex137/BestPractice/blob/staging/spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md)
     item 13.
+
+22. **Read the CI FLEET AUDIT: every workflow on every branch of every
+    repo, as GitHub sees it.**
+    [tools/ci_fleet_audit.py](https://github.com/alex137/BestPractice/blob/staging/tools/ci_fleet_audit.py)
+    asks GitHub, not the clone. Items 18 and 19 read the files in the
+    trees on disk. This one sees what never passes a session's push gate:
+    a workflow edited on GitHub's website, one written through the GitHub
+    API, one sitting on an active side branch (GitHub runs a branch's own
+    workflow files when that branch is pushed), and one in a repo that
+    does not use Precedent. A side branch with no commit in 14 days is
+    counted and not read: it runs nothing until pushed, and a push makes it
+    active for the next run. For each workflow it prints when it runs, whether it is
+    approved at its exact content
+    ([ci-workflow-approved](https://github.com/alex137/BestPractice/blob/staging/practices/ci-workflow-approved.md)),
+    and GitHub's run count over 30 days by event. A schedule shows among a
+    workflow's triggers. It runs only here and by hand, never on a schedule
+    of its own (Morgan, 2026-09-26: "I only want this to run when either
+    manually invoked or as part of a very deep check").
+
+    **Its output stays in the session.** It names other repositories, so it
+    never goes into a repo, an issue or a pull request (Morgan, 2026-09-26,
+    strength: decided: *"its results should go to the session not the
+    GitHub since it references other repos of yours"*).
+
+    **Each FINDING is money spent without anyone deciding to.** Show the
+    person the workflow and when it runs, then approve it in their words,
+    change it, or delete it. A stale side branch that still carries a
+    push-triggered workflow is a finding too: say whether it can be
+    deleted, with the one-click link
+    ([never-delete-a-remote-branch](https://github.com/alex137/BestPractice/blob/staging/practices/never-delete-a-remote-branch.md)).
+
+    **NOT REACHED is not clean.** Inside a session GitHub answers only for
+    the repos attached to it (measured 2026-09-26), so the list of repos
+    not reached is part of the result, and it says what would reach each
+    one.
 
 ### Pass 3 — Does the writing still hold together?
 The coherence read, across every repo in scope. Run the mechanical audits

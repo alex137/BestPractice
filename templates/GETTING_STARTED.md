@@ -293,6 +293,14 @@ Click-paths as of <install date>.
 - **Automation is allowed to open proposals** — **Settings → Actions →
   General → Workflow permissions**, with *Allow GitHub Actions to create
   and approve pull requests* ticked.
+- **Optional: turn GitHub Actions off here, if this project needs no
+  automatic checks on GitHub** — **Settings → Actions → General → Actions
+  permissions → Disable actions**. GitHub Actions is the service that runs
+  checks on GitHub's computers, and in a private repository each run costs
+  minutes from your account. Turned off, a stray check file costs nothing
+  at all. The checks that run on your own machine before every push keep
+  working. Leave it on if this project relies on a check running on
+  GitHub.
 - **A few settings inside Claude itself**, if you work in Claude Code on
   the web. Open [claude.ai/code](https://claude.ai/code), go to the
   environment this project runs in, and add these to its **environment

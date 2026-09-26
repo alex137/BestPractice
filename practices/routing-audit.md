@@ -5,7 +5,7 @@ tier:        on-demand
 severity:    default
 scope:       engine-dev
 applies_to:  ["**"]
-occasion:    "checking whether the practices that should have fired for recent work actually fired"
+occasion:    "checking whether practices that should have fired for recent work did"
 gates:       []
 index_clause: "run the mechanical coverage check now; roll the deep-read slice forward"
 checked_by:  "tools/precedent_check.py"

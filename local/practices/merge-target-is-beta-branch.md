@@ -1,13 +1,13 @@
 ---
 slug:        merge-target-is-beta-branch
-title:       Alex approves only major merges into main; staging needs no sign-off
+title:       Pull requests target staging, never main; no merge needs Alex's sign-off
 tier:        on-demand
 severity:    blocking
 applies_to:  ["**"]
 occasion:    "opening or merging a pull request in this repository"
 index_required: true
 gates:       ["merge"]
-index_clause: "Alex approves only major main merges; staging is unrestricted"
+index_clause: "PRs target staging, never main; main only when named"
 checked_by:  "tools/checks/check_merge_target_is_beta_branch.py"
 defines:     []
 expires:     "when Morgan or Alex says work moves to main -- NOT when the branch is merged into main, which happened on 2026-09-14 (PR #367) and recurs on Morgan's regular merges"
@@ -16,7 +16,7 @@ in_force_at: null
 supersedes:  []
 overrides:   null
 added:       null
-approved_by: "Alex, 2026-09-03 (original rule); approval scope narrowed by Morgan, 2026-09-04"
+approved_by: "Alex, 2026-09-03 (original rule); approval scope narrowed by Morgan, 2026-09-04; Alex's approval for main removed, Alex relayed by Morgan, 2026-09-26"
 ---
 ## Rule
 **The branch was renamed from `precedent-beta-v01` to `staging` on 2026-09-25** ([spec/BRANCH_TIERS_PLAN.md](../../spec/BRANCH_TIERS_PLAN.md); Morgan, with Alex approving, relayed by Morgan). The old name is kept on origin and moved in step by every Promote while installs still pinned to it catch up; everything below means `staging`.
@@ -38,15 +38,15 @@ default just because it is the repository's configured default branch.
 ([spec/BRANCH_TIERS_PLAN.md](../../spec/BRANCH_TIERS_PLAN.md)): Morgan, 2026-09-25: *"the \"high risk\" ones should still go to pre-staging but have a strong, bolded message for me, in the main text as a paragraph and also in The Boildown, that now I need to push pre-staging to staging"* (strength: decided).
 Never `main`, either way.
 
-Merging a PR into `staging` needs no sign-off from Alex: once
-the PR's own deep check (`two-check-levels`) passes, a session may merge
-it directly — that branch is where routine work lands, not a gate he sits
-behind. His approval is reserved for `main`, and specifically for merges
-that carry major changes onto it — the phase-7 fold-in of
-`staging` itself is the paradigm case, but any other merge
-reaching `main` with a non-trivial change needs the same explicit, named
-go-ahead, naming `main` by name. A general "PR and merge it" authorization,
-with no branch named, still defaults to `staging`.
+**No merge needs Alex's sign-off, `main` included** (Morgan, 2026-09-26:
+*"Alex said we no longer need his authorization to post to main so please
+remove that"*, strength: decided; Alex's word relayed by Morgan). Once the
+PR's own deep check (`two-check-levels`) passes, a session may merge a PR
+into `staging` directly. A merge into `main` still needs the person running
+the session to name `main` in that specific request, or a Promote that
+chooses staging into main ([promote](../../practices/promote.md); Morgan,
+2026-09-26, strength: decided); a general "PR and merge it" authorization,
+with no branch named, defaults to `staging`.
 
 **`staging` is staging and `main` is live.** A session working
 here uses `staging` for everything unless the person running it
@@ -77,9 +77,9 @@ practice exists to prevent occurred — the two branches looked
 interchangeable at that moment, and they were not.
 
 ## Why
-`main` is this repository's public, shared default branch, and a major
-change landing there without Alex's review risks exactly the kind of
-incident the Story below describes. `precedent-beta-v01` is the working
+`main` is this repository's public, shared default branch, and a change
+landing there by accident, from a PR that merely had the wrong base, is
+exactly the incident the Story below describes. `precedent-beta-v01` is the working
 branch for the Precedent restructuring (`PRACTICE_ENGINE_PLAN.md`:
 "Precedent is a branch of BestPractice, not a fork" — merging back to
 `main` is `CHANGES_TO_TELL_ALEX.md`'s explicit, deferred phase-7 step, not
@@ -119,6 +119,13 @@ approval gate is for `main`, and only for merges carrying major changes;
 session may merge its own PR there once the deep check passes. This
 narrowing is Morgan's call, not Alex's — the original targeting rule above
 carries his 2026-09-03 approval, this narrowing does not yet.
+
+**Update, 2026-09-26 — Alex's approval for `main` removed.** Morgan:
+*"Alex said we no longer need his authorization to post to main so please
+remove that"* (strength: decided). The targeting rule stays: PRs still go to
+`staging` (or `pre-staging`), and `main` still takes work only by a
+deliberate, named merge. What went is the named go-ahead from Alex that a
+major change reaching `main` used to need.
 
 ## Install
 `tools/precedent_check.py`'s `merge-target-is-beta-branch` check compares

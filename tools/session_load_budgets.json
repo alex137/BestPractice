@@ -52,6 +52,17 @@
     "decided. Raising it is his call, with the reason recorded here."
   ],
   "occasion_index_tokens": 3600,
+  "_occasion_index_fallback_comment": [
+    "RISK INPUT, not a decision (practice: constants-are-risk-inputs). The 3,600",
+    "above binds THIS repository. This registry is not vendored, so a consumer",
+    "with no occasion_index_tokens of its own is capped by the literal fallback",
+    "in tools/build_views.py, 4,000, which nobody decided: it landed in the same",
+    "commit as the 3,600 (826f6e3c) with no reason recorded, and it caps every",
+    "source a consumer resolves together, not one catalogue. All four practice",
+    "sets ran on it as of 2026-09-26. Value left unchanged; the question is",
+    "todo/todo-2026-09-26-consumer-occasion-index-cap-is-an-undecided-fallback.md,",
+    "waiting on Morgan. Leaves this register only by his dated decision."
+  ],
   "resident_block_tokens": 2000,
   "section_review_tokens": 2500,
   "surfaces": {

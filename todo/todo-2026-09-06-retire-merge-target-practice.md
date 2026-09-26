@@ -6,11 +6,11 @@ severity:          null
 status:            open
 disposition:       wait
 remind_on:         null
-blocked_on:        "Alex's review and approval of `precedent-beta-v01` for the real phase-7 merge into `main` — not something to anticipate or do early."
+blocked_on:        "Morgan or Alex saying work moves to `main` (the practice's own expiry since 2026-09-14) -- no longer Alex's approval, which main stopped needing on 2026-09-26."
 batch:             null
 decision:          null
 decision_strength: null
-waiting_on:        "Alex"
+waiting_on:        "Morgan"
 noted:             2026-09-06
 closed:            null
 ---
@@ -160,8 +160,10 @@ closed:            null
 
 ## How It Closes
 
-Not open until: Alex's review and approval of `precedent-beta-v01` for the real phase-7 merge into `main` — not something to anticipate or do early.
+Not open until: Morgan or Alex says work moves to `main`. Alex's approval stopped being part of this on 2026-09-26 (Morgan: *"Alex said we no longer need his authorization to post to main so please remove that"*, strength: decided).
 
 ## Notes
 
 2026-09-16: noted date is a floor, not exact -- this item predates anchor tracking (every anchor was retrofitted 2026-09-06) and its true creation date is unknown. Migrated from TODO.md by tools/todo_migrate.py.
+
+2026-09-26: blocked_on, waiting_on and How It Closes moved off Alex's approval, which `main` no longer needs; the condition is the practice's own expiry, set 2026-09-14.

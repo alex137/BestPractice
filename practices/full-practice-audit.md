@@ -5,9 +5,9 @@ tier:        on-demand
 severity:    advisory
 scope:       any-adopter
 applies_to:  ["**"]
-occasion:    "a person explicitly asks for a full practice audit (or \"practice check\") across the whole catalogue"
+occasion:    "a person explicitly asks for a full practice audit (or \"practice check\")"
 gates:       []
-index_clause: "sweep every source's full catalogue, one practice at a time, on request only"
+index_clause: "every source's catalogue, one practice at a time; on request only"
 checked_by:  null
 defines:     ["full practice audit"]
 command:     {"Practice check": "Go through every rule in force, one at a time, and report on each — the slow, complete version of the routine checks."}

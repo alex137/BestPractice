@@ -4,9 +4,9 @@ title:       "\"Archive\" and \"Archive?\" both check what's outstanding first, 
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
-occasion:    "a message says \"Archive\", with or without a question mark, or otherwise asks whether the session can be archived"
+occasion:    "a message says \"Archive\" or \"Archive?\", or asks whether the session can be archived"
 gates:       ["reply"]
-index_clause: "\"Archive\"/\"Archive?\" -- check pending; archive if clear, else say what isn't"
+index_clause: "check pending; archive if clear, else say what isn't"
 checked_by:  null
 defines:     ["Archive", "Archive?"]
 command:     {"Archive": "Check whether anything from this session is still outstanding -- a merge, something the assistant is waiting on, a recommendation -- and either archive it right then or tell you exactly what's left.", "Archive?": "Check whether anything from this session is still outstanding -- a merge, something the assistant is waiting on, a recommendation -- and either archive it right then or tell you exactly what's left."}

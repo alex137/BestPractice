@@ -4,10 +4,10 @@ title:       A change to what this repo ships states whether and how it reaches 
 tier:        on-demand
 severity:    default
 applies_to:  ["practices/*.md", "templates/**", ".claude/hooks/*.sh"]
-occasion:    "committing a change to content this repo ships to other repos -- a practice file, a hook script, a template, or one of the named engine files in tools/precedent_vendor_engine.py's ENGINE_FILES/CONSUMER_ENGINE_FILES lists -- before it is pushed or merged"
+occasion:    "committing a shipped practice, hook, template or engine file, before push or merge"
 gates:       ["merge", "push"]
 index_required: true
-index_clause: "shipped content changing -- say if it needs to reach consumers, and if it will"
+index_clause: "say whether shipped content must reach consumers, and whether it will"
 checked_by:  null
 defines:     []
 status:      active

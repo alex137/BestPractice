@@ -6,7 +6,7 @@ severity:    default
 applies_to:  ["**"]
 occasion:    "a person says \"Chief of Staff\""
 gates:       ["reply"]
-index_clause: "\"Chief of Staff\" -- on request only; name the window read, link every session"
+index_clause: "on request only; name the window read, link every session"
 checked_by:  null
 defines:     ["Chief of Staff", "the sweeper", "the desk"]
 command:     {"Chief of Staff": "Stop and route this: tell you what every open session is blocked on and what is colliding, with a clickable link to each."}
