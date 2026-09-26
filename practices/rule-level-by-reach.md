@@ -6,8 +6,8 @@ severity:    default
 applies_to:  ["practices/**", "AGENTS.md", "CLAUDE.md", "precedent.json"]
 occasion:    "deciding which practice set a new rule belongs in -- repo-local, shared, individual or universal"
 gates:       ["review"]
-index_required: false
 index_clause: "pick the set by reach -- not by the repo you can write to"
+index_required: false
 checked_by:  null
 defines:     []
 status:      active

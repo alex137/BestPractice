@@ -6,8 +6,8 @@ severity:    default
 applies_to:  ["spec/SPECULATIVE_*.md", "record/SPECULATIVE_*.md"]
 occasion:    "recording exploratory thinking -- an idea nobody has committed to -- as a document"
 gates:       ["merge"]
-index_required: false
 index_clause: "mark it in filename, title, opening block and PR -- four places, or none"
+index_required: false
 checked_by:  "tools/precedent_check.py"
 defines:     ["speculative document"]
 status:      active

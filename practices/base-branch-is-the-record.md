@@ -6,8 +6,8 @@ severity:    default
 applies_to:  ["**"]
 occasion:    "starting work another session may have done, or opening a PR"
 gates:       ["push"]
-index_required: true
 index_clause: "read the base branch before starting and before the PR"
+index_required: true
 checked_by:  null
 defines:     []
 status:      active

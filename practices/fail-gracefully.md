@@ -6,8 +6,8 @@ severity:    default
 applies_to:  ["**"]
 occasion:    "writing code that depends on something outside its own control, handling a part that could not run, or deciding how loudly to report one"
 gates:       ["push"]
-index_required: false
 index_clause: "keep going, never look complete — match the telling to stake and reader"
+index_required: false
 checked_by:  null
 defines:     []
 status:      active

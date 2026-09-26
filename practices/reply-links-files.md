@@ -6,8 +6,8 @@ severity:    default
 applies_to:  ["**"]
 occasion:    "ending a reply that created, modified or deleted files"
 gates:       ["reply"]
-index_required: false
 index_clause: "a reply that touched files ends with a linked Files touched list"
+index_required: false
 checked_by:  null
 defines:     []
 status:      active
