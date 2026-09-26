@@ -20,7 +20,7 @@ strength:    assented
 ## Rule
 **A practice file is published into every repository that adopts the
 catalogue, so a relative link in one only works if the target travels with
-it.** Three things do: **another practice file in the same directory that is
+it.** Four things do, the first three here: **another practice file in the same directory that is
 still in force**, cited the normal way as a markdown link to its own
 `<slug>.md`; **the vendored
 engine files under `../tools/`** that every consumer receives; and **a
@@ -28,7 +28,10 @@ source's own check scripts and their tests under `../tools/checks/`**, which
 materialization copies alongside the practices — the `check_*.py` scripts
 and the `test_*.sh` files under `tests/` — a practice citing the script that
 enforces it is the most common cross-reference a private set makes, and it is
-a correct one.
+a correct one. **A file a practice here declares in `ships:` travels too**
+([practice-carries-its-files](practice-carries-its-files.md)): materialization
+delivers it to the same path in every consumer, so `../tools/<script>` to a
+shipped script is a correct relative link.
 
 **A sibling that is no longer in force does not travel either**, and this is
 the one shape that looks correct from inside the publishing repository. A

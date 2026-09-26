@@ -37,6 +37,7 @@ gates:       []                  # named moments -- see below
 index_clause: "the one line the occasion index shows"   # see below
 index_required: null          # OPTIONAL -- true keeps the index line; see below
 checked_by:  tools/x.py or null
+ships:       []               # OPTIONAL -- files the practice owns besides checked_by and its test; see below
 defines:     []
 command:     null             # OPTIONAL -- the standing phrases this practice defines; see below
 status:      active           # active | deduplicated | retired -- see below
@@ -662,15 +663,73 @@ assumes about its home layout is an assumption about someone else's.
   manager, `build/`, `dist/`, `node_modules/` — and git refuses a plain add
   of an ignored file. On 2026-09-25 exactly this held a test red for days in
   a consuming repository while it passed on every run in its source.
+- **Read no `tools/` file a consumer does not receive.** A consumer gets the
+  vendored engine, `tools/checks/`, and what practices declare in `ships:`
+  (above) — nothing else from the source's `tools/`. A test that copies a
+  source-only script fails there; declare the script in the owning
+  practice's `ships:`.
 - **The source's push check runs the suite a second time shaped like a
   consumer**
   ([tools/precedent_consumer_shape.py](../tools/precedent_consumer_shape.py)
-  — git told to ignore what consumers commonly ignore), so this class of
-  assumption fails at home rather than downstream.
+  — git told to ignore what consumers commonly ignore, in a copy of the
+  source without its own `tools/`), so both classes of assumption fail at
+  home rather than downstream.
 - **In a consumer, a failing materialized test is its source's bug.** The
   generated driver names the source for each one; fix and report it there,
   never note it as pre-existing where it merely showed up
   ([two-check-levels](../practices/two-check-levels.md)).
+
+## `ships` — The Files A Practice Owns Besides Its Check
+
+Optional. A JSON list of repository-relative paths:
+
+```
+ships:       ["tools/create_word_doc.py"]
+```
+
+It names every file the practice owns **besides** its `checked_by` script
+and that script's test, which travel on their own: a tool its Rule tells a
+session to run, a file its shipped test reads, anything a consumer needs for
+the practice to work. Absent, `null` and `[]` all mean "nothing".
+
+**What it does.** [tools/precedent_materialize.py](../tools/precedent_materialize.py)
+copies each entry of every practice it materializes to the **same path** in
+the consuming repository, the way it copies `tools/checks/`: recorded in
+`MANIFEST.json` under `ships`, compared by `--check`, a destination two
+sources both claim refused, a copy the manifest never recorded replaced with
+a notice, a file no practice ships any more reported and left in place.
+Before this field, such a file travelled by "copy it in by hand", which is
+how `create-word-doc`'s test went red in a consumer on 2026-09-26: the test
+copies `tools/create_word_doc.py`, and nothing had delivered it.
+
+**What an entry may not be** (`build_views.ship_path_problem`, the one
+definition every tool asks): absolute, above the repository (`..`), a glob,
+under `practices/` or `tools/checks/` (they travel already), a file every
+repository keeps its own copy of ([`precedent.json`](../precedent.json),
+[`AGENTS.md`](../AGENTS.md), `MANIFEST.json`, a harness `settings.json`), or a vendored engine file.
+
+**Declining one.** A consuming repository that does not want a shipped file
+says so in its own `precedent.json`, with a reason, and the sync records the
+decline in `MANIFEST.json` instead of delivering the file:
+
+```
+"declined_ships": {"tools/create_word_doc.py": "we never export .docx"}
+```
+
+An entry with no reason is refused; one naming a file nothing ships warns as
+stale.
+
+**What holds a source to it** —
+[practice-carries-its-files](../practices/practice-carries-its-files.md):
+its check runs in every repository that publishes practices, and refuses a
+`ships:` entry the source does not carry, a concrete `applies_to` path
+under `tools/` or a `checked_by` script it does not carry, and a shipped test that reads a
+source-only `tools/` file (`$ROOT/tools/...`) nobody declares.
+[tools/precedent_consumer_shape.py](../tools/precedent_consumer_shape.py)
+then runs every shipped test in a copy of the source without its own
+`tools/`, so a dependency the static read missed fails at the source's push.
+[tools/precedent_move.py](../tools/precedent_move.py) refuses a move whose
+destination does not already carry every `ships:` file.
 
 ## `index_clause`
 
