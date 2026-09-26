@@ -184,6 +184,15 @@ CONSUMER_SHAPE_SUITE = ('consumer_shape',
 # commits still carry his zone everywhere; the commit-time backstop in
 # commit-identity.sh is what holds them to it.
 SKIP_IS_FINE_WITHOUT_IDENTITY = {'commit_author', 'commit_dates'}
+# THE CHECKS THAT JUDGE COMMITS, NOT THE TREE. A recorded or shared pass is
+# keyed on the tree, and two commits can carry one tree with different
+# authors: the merge a Promote makes has exactly the tree its checked parents
+# had. So these two run on every gate, reused pass or not -- they take about
+# a second. On 2026-09-26 a Promote reused another checkout's pass for the
+# same tree in four repositories, and the bot-authored merge commits it had
+# just made went out unjudged; one of those repositories' own full sweep
+# failed on its staging afterwards (practice: durable-fix).
+HISTORY_CHECKS = {'commit_author', 'commit_dates'}
 IDENTITY_CHECKS = (
     ('commit_author', ['{engine}/checks/check_commit_author.py'],
      "precedent-individual's commit-identity.yml, retired 2026-09-21"),
@@ -663,9 +672,24 @@ def main(argv):
                     indent=2) + '\n', encoding='utf-8')
     if rec:
         when = f' at {rec["at"]}' if rec.get('at') else ''
+        history = [c for c in checks if c[0] in HISTORY_CHECKS]
         print(f'precedent_push_check: this exact tree already passed the '
               f'{rec.get("tier", tier)} check{when}{where} ({len(checks)} '
-              f'check(s)); nothing to re-run.')
+              f'check(s)); nothing to re-run'
+              + (' but the checks that judge commits rather than files.'
+                 if history else '.'), flush=True)
+        if not history:
+            return 0
+        failed, _missing, total, findings = run(root, history)
+        if failed:
+            for name in failed:
+                for line in findings.get(name, []):
+                    print(f'  {name} | {line}')
+            print(f'\nprecedent_push_check: FAILED -- {", ".join(failed)} '
+                  f'({total:.0f}s). The files passed before, but a commit '
+                  f'here since then did not. Fix the commit and run this '
+                  f'again; do not push past it.')
+            return 1
         return 0
 
     if git(root, 'rev-parse', '--is-shallow-repository') == 'true':

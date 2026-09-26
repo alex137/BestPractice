@@ -424,29 +424,58 @@ def _remote_tip(root, branch):
     return None
 
 
-def _merge_env(root=None):
-    """A merge commit this module makes must never carry `[skip ci]`
-    (plan, hole 3): PRECEDENT_CI_NOW is the cadence hook's own override.
+class CommitRefused(Exception):
+    """A commit this module was about to make has nobody to author it, in a
+    repository that enforces who does (precedent_identity.IdentityRequired).
+    Nothing is committed or pushed; _main says so and exits 1."""
 
-    It is also dated in the committing person's zone -- the repository's
-    fallback only when no person's zone is declared -- never the
-    container's (practice: timestamps-carry-offset). On 2026-09-25 a Promote in an
-    individual source was refused by its own full check: the merge commit
-    this module had just made carried the container's -0400, and that
-    repository enforces its owner's declared zone on every commit. The zone
-    comes from precedent_time.py's ladder, the one every other stamp uses;
-    when that module is not beside this one, the environment is left as it
-    is, as before."""
+
+def _merge_env(root=None):
+    """The environment every commit this module makes runs under.
+
+    A merge commit this module makes must never carry `[skip ci]` (plan,
+    hole 3): PRECEDENT_CI_NOW is the cadence hook's own override.
+
+    It is also AUTHORED by the declared person and dated in their zone,
+    stated on the command itself through precedent_identity.commit_env()
+    -- never left to whatever `git config` and TZ this session happens to
+    hold. Two incidents, one cause. On 2026-09-25 a Promote's merge carried
+    the container's -0400 and was refused by the individual source's own
+    full check, which is when TZ got set here. On 2026-09-26 a session
+    rooted above four attached practice sets, so that no SessionStart hook
+    had configured any of them, ran Promote in all four: every merge and
+    lock commit came out authored by the container's bot, because TZ was
+    set here and the author was not. `git merge` and `git commit-tree` run
+    no `pre-commit` hook, so the global backstop never saw them (practice:
+    durable-fix).
+
+    Where the repository is somebody's individual source and no author
+    resolves, CommitRefused is raised instead of committing as the bot.
+    When precedent_identity is not beside this module (an engine older than
+    the helper), the zone alone is set, as before."""
     env = dict(os.environ, PRECEDENT_CI_NOW='1')
+    repo = pathlib.Path(root or os.environ.get('CLAUDE_PROJECT_DIR') or os.getcwd())
+    here = str(pathlib.Path(__file__).resolve().parent)
+    sys.path.insert(0, here)
     try:
-        sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
-        import precedent_time
-        env['TZ'] = precedent_time.resolved(root)[1]
-    except Exception:
-        pass
+        try:
+            import precedent_identity
+        except ImportError:
+            precedent_identity = None
+        if precedent_identity is not None:
+            try:
+                return precedent_identity.commit_env(repo, env)
+            except precedent_identity.IdentityRequired as exc:
+                raise CommitRefused(str(exc)) from exc
+        try:
+            import precedent_time
+            env['TZ'] = precedent_time.resolved(repo)[1]
+        except Exception:
+            pass
+        return env
     finally:
-        sys.path.pop(0)
-    return env
+        if sys.path and sys.path[0] == here:
+            sys.path.pop(0)
 
 
 def _push_check_tool(root):
@@ -1010,7 +1039,10 @@ def _lock_claim(root, say):
 
 
 def _lock_release(root, held, say):
-    ok, _commit, err = _lock_push(root, held, 'free', 'No Promote is running.')
+    try:
+        ok, _commit, err = _lock_push(root, held, 'free', 'No Promote is running.')
+    except CommitRefused as exc:
+        ok, err = False, str(exc)
     if not ok:
         say(f'NOTE: could not release {LOCK_BRANCH} ({err[:160]}); it frees '
             f'itself after {LOCK_STALE_SECONDS // 60} minutes.')
@@ -1432,4 +1464,9 @@ if __name__ == '__main__':
     if any(a in ('--help', '-h') for a in sys.argv[1:]):
         print((__doc__ or '').strip())
         sys.exit(0)
-    sys.exit(_main(sys.argv[1:]))
+    try:
+        sys.exit(_main(sys.argv[1:]))
+    except CommitRefused as exc:
+        print(f'REFUSED: no commit was made and nothing was pushed -- {exc}',
+              file=sys.stderr)
+        sys.exit(1)

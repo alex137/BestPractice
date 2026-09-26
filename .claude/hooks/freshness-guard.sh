@@ -231,6 +231,39 @@ _also_resolve() {
 # through --verify --quiet, which is silent and exits 1.
 _have_ref() { _git rev-parse --verify -q "$1" >/dev/null 2>&1; }
 
+# THE ONE COMMIT THIS GUARD MAKES STATES ITS OWN AUTHOR (2026-09-26). The
+# diverged-and-clean merge below runs in attached repositories too, which no
+# SessionStart hook of their own configured, so `git config` there can name
+# the container's bot. precedent_identity.py --commit-env prints the declared
+# person and their zone as KEY=VALUE lines, and exits non-zero when this
+# repository is somebody's individual source and nobody resolves -- in which
+# case nothing is merged. No tool or no python3: the lines are empty and the
+# merge runs as it always did. practice: durable-fix
+_commit_env_lines() {
+  local tool="" c out
+  for c in "$ROOT/tools/precedent_identity.py" "$ROOT/process/upstream/tools/precedent_identity.py"; do
+    if [ -f "$c" ]; then tool="$c"; break; fi
+  done
+  [ -n "$tool" ] && command -v python3 >/dev/null 2>&1 || return 0
+  if out="$(python3 "$tool" --commit-env "$ROOT" 2>&1)"; then
+    printf '%s' "$out"
+    return 0
+  fi
+  printf '%s' "$out"
+  return 1
+}
+
+# _git_as_person "<KEY=VALUE lines>" <git args...>
+_git_as_person() {
+  local lines="$1" line
+  shift
+  local -a assigns=()
+  while IFS= read -r line; do
+    [ -n "$line" ] && assigns+=("$line")
+  done <<<"$lines"
+  env ${assigns[@]+"${assigns[@]}"} git -C "$ROOT" "$@"
+}
+
 _in_git() { _git rev-parse --git-dir >/dev/null 2>&1; }
 
 # Is this branch simply absent from origin, rather than origin being
@@ -289,8 +322,24 @@ _landing_base() {
   printf '%s' "$landing"
 }
 
+# AN ATTACHED REPOSITORY'S DECLARED BASE WINS OVER THE LANDING BRANCH. A
+# PRECEDENT_FRESHNESS_ALSO entry spells its base out ("<path>=<base>"), and
+# for an attached practice source that base is where it is READ from -- main,
+# normally. Nothing this session writes lands on it, so the person's landing
+# branch says nothing about it. Letting the landing branch win compared a
+# source clone sitting correctly on main against its own pre-staging, which
+# is ahead of main by design until a Promote, and refused the first tool call
+# of every session that attached a source with unpromoted work (2026-09-26,
+# twice in one session). The project dir keeps the landing override: work
+# written THERE does land on pre-staging.
+BASE_DECLARED=0
+
 _resolve_base() {
   local landing
+  if [ "$BASE_DECLARED" = "1" ] && [ -n "$BASE_ARG" ]; then
+    printf '%s' "$BASE_ARG"
+    return 0
+  fi
   if landing="$(_landing_base)"; then
     printf '%s' "$landing"
     return 0
@@ -453,6 +502,7 @@ _throttle_due() {
 _session_start_one() {
   ROOT="$1"
   BASE_ARG="$2"
+  BASE_DECLARED="${3:-0}"
   _in_git || return 0
   _widen_refspec
 
@@ -526,7 +576,15 @@ _session_start_one() {
         old_sha="$(_git rev-parse HEAD 2>/dev/null)"
         rescue_ref="refs/freshness-guard/pre-merge/${branch}-${old_sha:0:12}"
         [ -n "$old_sha" ] && _git update-ref "$rescue_ref" "$old_sha" >/dev/null 2>&1
-        if _git merge --no-edit "origin/$branch" >/dev/null 2>&1; then
+        local merged=0 refusal=""
+        if refusal="$(_commit_env_lines)"; then
+          _git_as_person "$refusal" merge --no-edit "origin/$branch" >/dev/null 2>&1 && merged=1
+        else
+          merged=2
+        fi
+        if [ "$merged" = "2" ]; then
+          echo "WARN: freshness-guard: '$branch' has diverged from origin/$branch ($ahead local commit(s), $behind remote) and NOT merged: $refusal$(_age_phrase "$branch") Settle it deliberately: git merge origin/$branch." >&2
+        elif [ "$merged" = "1" ]; then
           echo "NOTE: freshness-guard: '$branch' had diverged from origin/$branch ($ahead local commit(s), $behind remote) -- MERGED origin/$branch into it, so both sides are now present and nothing was discarded (your $ahead local commit(s) were kept, never reset away). The pre-merge tip is also at $rescue_ref ($old_sha).$(_age_phrase "$branch")" >&2
         else
           _git merge --abort >/dev/null 2>&1 || true
@@ -598,7 +656,7 @@ mode_session_start() {
     path="${resolved%%$'\t'*}"
     base="${resolved#*$'\t'}"
     echo "NOTE: freshness-guard: also checking attached repository $path (base $base)." >&2
-    _session_start_one "$path" "$base"
+    _session_start_one "$path" "$base" 1
   done <<EOF
 $(_also_entries)
 EOF
@@ -730,7 +788,7 @@ print((d.get("tool_input") or {}).get("command") or "")' 2>/dev/null || true)"
     resolved="$(_also_resolve "$entry")" || continue
     path="${resolved%%$'\t'*}"
     base="${resolved#*$'\t'}"
-    _pre_write_one "$path" "$base" "$sentinel"
+    _pre_write_one "$path" "$base" "$sentinel" 1
   done <<EOF
 $(_also_entries)
 EOF
@@ -748,6 +806,7 @@ _pre_write_one() {
   ROOT="$1"
   BASE_ARG="$2"
   local sentinel="$3"
+  BASE_DECLARED="${4:-0}"
 
   _in_git || return 0
   _widen_refspec
