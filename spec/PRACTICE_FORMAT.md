@@ -722,8 +722,8 @@ stale.
 **What holds a source to it** —
 [practice-carries-its-files](../practices/practice-carries-its-files.md):
 its check runs in every repository that publishes practices, and refuses a
-`ships:` entry the source does not carry, a concrete `applies_to` path or
-`checked_by` script it does not carry, and a shipped test that reads a
+`ships:` entry the source does not carry, a concrete `applies_to` path
+under `tools/` or a `checked_by` script it does not carry, and a shipped test that reads a
 source-only `tools/` file (`$ROOT/tools/...`) nobody declares.
 [tools/precedent_consumer_shape.py](../tools/precedent_consumer_shape.py)
 then runs every shipped test in a copy of the source without its own

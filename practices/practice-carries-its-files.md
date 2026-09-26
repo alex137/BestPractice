@@ -6,7 +6,7 @@ severity:    default
 applies_to:  ["practices/*.md", "tools/checks/tests/*.sh"]
 occasion:    "writing a practice that owns a file besides its check script and test -- a tool its Rule tells a session to run, a file its test reads -- or moving a practice to another set"
 gates:       []
-index_clause: "declare the files a practice owns in `ships:`; a move carries the practice, its check, its test and those files in one commit"
+index_clause: "declare a practice's own files in `ships:`; a move carries them"
 checked_by:  "tools/precedent_check.py"
 defines:     []
 status:      active
@@ -59,8 +59,10 @@ repository to, at its own push:
   not a glob, not under `practices/` or `tools/checks/` (those travel
   already), not an engine file (vendoring owns those), and a file this
   repository actually carries;
-- **every concrete `applies_to` path and the `checked_by` script exist
-  here** — a concrete path a practice fires on is one it owns;
+- **every concrete `applies_to` path under `tools/` and the `checked_by`
+  script exist here** — a script a practice fires on is one it owns (a
+  concrete root file such as `precedent.json` is every repository's own, so
+  it is not asked about);
 - **every `tools/` file outside `tools/checks/` that the practice's shipped
   test reads through its root variable** (`$ROOT/tools/...`,
   `$SET_ROOT/tools/...`) is a vendored engine file or declared in `ships:`

@@ -8744,6 +8744,21 @@ def check_precedent_check_fires():
                          encoding='utf-8')
         case('practice-links-travel', _plant_practice_links,
              setup=_setup_origin)
+
+        # practice: practice-carries-its-files -- a practice promising
+        # consumers a file this repository does not carry.
+        def _plant_ship_missing(repo):
+            f = repo / 'practices' / 'repo-is-memory.md'
+            f.write_text(f.read_text(encoding='utf-8').replace(
+                '\ndefines:', '\nships:       ["tools/not_shipped_here.py"]'
+                '\ndefines:', 1), encoding='utf-8')
+        case('practice-carries-its-files', _plant_ship_missing)
+        if 'practice-carries-its-files' in planted:
+            cases.append(('practice-carries-its-files: the finding names the '
+                          'shipped file the repository does not carry',
+                          'ships `tools/not_shipped_here.py`, which is not in '
+                          'this repository'
+                          in planted['practice-carries-its-files'][1]))
         _plt = planted['practice-links-travel'][1]
         cases.append(("practice-links-travel: a source's own check script is "
                       'not reported as failing to travel',

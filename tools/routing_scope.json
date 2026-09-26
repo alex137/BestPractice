@@ -808,6 +808,14 @@
       ],
       "gates_why": "The export gate fires before a thread ends; a merge is where that is checked."
     },
+    "practice-carries-its-files": {
+      "globs": [
+        "practices/*.md",
+        "tools/checks/tests/*.sh"
+      ],
+      "why": "The path IS the distinguishing condition: the rule is about what a published practice declares and what its shipped test reads, and those live in practices/ and tools/checks/tests/. local/practices/ is out for the reason practice-links-travel's entry gives -- it never travels.",
+      "decided": "2026-09-26, when the practice landed at universal"
+    },
     "practice-links-travel": {
       "globs": [
         "practices/*.md"

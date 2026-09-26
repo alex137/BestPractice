@@ -1403,8 +1403,8 @@ def _test_reads_tools(text):
 @check('practice-carries-its-files', 'tree',
        "every file a practice this repository PUBLISHES depends on is where "
        "a consumer will find it: each `ships:` entry is a legal path that "
-       "exists here; each concrete (non-glob) `applies_to` path and the "
-       "`checked_by` script exist here; and every tools/ file outside "
+       "exists here; each concrete (non-glob) `applies_to` path under tools/ "
+       "and the `checked_by` script exist here; and every tools/ file outside "
        "tools/checks/ that the practice's shipped test reads through its "
        "root is either a vendored engine file or declared in `ships:` by a "
        "practice here",
@@ -1479,17 +1479,22 @@ def _practice_carries_its_files(ctx):
             applies = json.loads(fm.get('applies_to') or '[]')
         except (TypeError, ValueError):
             applies = []
+        # Only a concrete tools/ path: that is a script the practice owns.
+        # A concrete root file (`precedent.json`, `AGENTS.md`) is one every
+        # repository keeps its own copy of, and firing on it was a false
+        # positive on a correct bare source set (the harness caught it on
+        # source-naming, whose applies_to names precedent.json).
         for entry in applies if isinstance(applies, list) else []:
-            if (not isinstance(entry, str) or not entry
+            if (not isinstance(entry, str) or not entry.startswith('tools/')
+                    or entry.startswith('tools/checks/')
                     or any(c in entry for c in '*?[]{}')):
                 continue
             if not (ROOT / entry).exists():
                 out.append(Finding(
                     rel, f'applies_to names `{entry}`, which is not in this '
-                         f'repository -- a concrete path the practice fires on '
-                         f'is one it owns, and it did not come along. Move it '
-                         f'here, or write the entry as a glob if it names a '
-                         f'file consumers carry and this source does not'))
+                         f'repository -- a script the practice fires on is one '
+                         f'it owns, and it did not come along. Move it here '
+                         f'with the practice'))
         cb = str(fm.get('checked_by') or '').strip().strip('"\' ')
         if cb and cb != 'null' and not (ROOT / cb).is_file():
             out.append(Finding(
