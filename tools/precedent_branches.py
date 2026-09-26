@@ -94,10 +94,15 @@ TIERS = (BASIC, FULL)
 SETTING = 'branch_push_checks'
 DEFAULT_TIER = BASIC
 LANDING_SETTING = 'landing_branch'
-# PRE_STAGING for everyone since 2026-09-25, once Alex had heard and
-# approved (relayed by Morgan: "Alex is on top of this and approves").
-# A person who wants to land on staging sets landing_branch there.
-DEFAULT_LANDING = PRE_STAGING
+# The repository's own staging tier -- the conventional route, a pull
+# request into the branch work normally lands on -- for anyone who has not
+# chosen otherwise. The tiered route (pre-staging, then Promote) is a
+# person's opt-in, set as landing_branch "pre-staging" in their own
+# identity.json. Morgan, 2026-09-26 (strength: decided): "This forced
+# pre-staging -> staging -> main should be mandatory for me, but not
+# necessarily anyone else. (We may change that in the future.)" It was
+# PRE_STAGING for everyone from 2026-09-25 until then.
+DEFAULT_LANDING = STAGING
 
 # Same names and values as precedent_identity.py, duplicated rather than
 # imported for the reason that file gives for duplicating them itself: this

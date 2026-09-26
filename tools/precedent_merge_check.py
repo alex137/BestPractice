@@ -177,26 +177,22 @@ def run_in_worktree(root, sha, tier, tool_rel):
                        capture_output=True, text=True)
 
 
-def pull_head(owner, repo, number, timeout=20):
+def pull_head(owner, repo, number):
     """-> (head branch, head repository 'owner/name') of pull request
-    `number`, from GitHub's API, or (None, None) when it cannot be read --
-    no network, no credential where one is needed. A GH_TOKEN or
-    GITHUB_TOKEN is sent when set; a cloud session's proxy supplies one
-    itself."""
-    import urllib.request
-    import os
-    headers = {'Accept': 'application/vnd.github+json'}
-    token = os.environ.get('GH_TOKEN') or os.environ.get('GITHUB_TOKEN')
-    if token:
-        headers['Authorization'] = f'Bearer {token}'
-    url = f'https://api.github.com/repos/{owner}/{repo}/pulls/{number}'
+    `number`, or (None, None) when it cannot be read -- no network, no
+    credential where one is needed. One call, counted and cached by
+    github_budget.py like every other call this engine makes."""
+    sys.path.insert(0, str(HERE))
     try:
-        with urllib.request.urlopen(urllib.request.Request(url, headers=headers),
-                                    timeout=timeout) as r:
-            data = json.load(r)
-        return data['head']['ref'], (data['head'].get('repo') or {}).get('full_name')
-    except Exception:                                          # noqa: BLE001
+        import github_budget
+    except ImportError:
         return None, None
+    finally:
+        sys.path.pop(0)
+    data, err = github_budget.call(f'repos/{owner}/{repo}/pulls/{number}')
+    if err or not isinstance(data, dict) or not isinstance(data.get('head'), dict):
+        return None, None
+    return data['head'].get('ref'), (data['head'].get('repo') or {}).get('full_name')
 
 
 def tier_source_refusal(head_ref, head_repo, owner, repo, tiers):
@@ -209,8 +205,14 @@ def tier_source_refusal(head_ref, head_repo, owner, repo, tiers):
         return None
     if head_repo and head_repo.lower() != f'{owner}/{repo}'.lower():
         return None
-    from datetime import date
-    copy = f'to-main-{date.today().isoformat()}'
+    sys.path.insert(0, str(HERE))
+    try:
+        import precedent_time
+        copy = f'to-main-{precedent_time.today()}'
+    except Exception:                                          # noqa: BLE001
+        copy = 'to-main-copy'
+    finally:
+        sys.path.pop(0)
     return (f'this pull request comes FROM {head_ref}, a tier branch. When it '
             f'is merged, GitHub\'s "automatically delete head branches" '
             f'deletes {head_ref} -- which is how staging disappeared on '

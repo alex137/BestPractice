@@ -16609,8 +16609,11 @@ def check_promote_pre_staging():
             return git(work, 'ls-remote', 'origin', f'refs/heads/{b}').stdout.split('\t')[0]
 
         rc, out = branches('--landing')
-        cases.append(('Go update lands on pre-staging by default',
-                      out.split('\n')[0] == 'pre-staging'))
+        # The tiered route is opt-in since 2026-09-26 (Morgan: "mandatory for
+        # me, but not necessarily anyone else"): with no landing_branch set,
+        # Go update lands on the repository's own staging branch.
+        cases.append(("Go update lands on the repo's staging branch by default "
+                      "-- pre-staging is opt-in", out.split('\n')[0] == 'beta'))
         indiv = tmp / 'indiv'
         indiv.mkdir()
         (tmp / 'config.json').write_text(_json.dumps({'individual': {'path': str(indiv)}}),
