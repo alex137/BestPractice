@@ -177,6 +177,51 @@ def run_in_worktree(root, sha, tier, tool_rel):
                        capture_output=True, text=True)
 
 
+def pull_head(owner, repo, number):
+    """-> (head branch, head repository 'owner/name') of pull request
+    `number`, or (None, None) when it cannot be read -- no network, no
+    credential where one is needed. One call, counted and cached by
+    github_budget.py like every other call this engine makes."""
+    sys.path.insert(0, str(HERE))
+    try:
+        import github_budget
+    except ImportError:
+        return None, None
+    finally:
+        sys.path.pop(0)
+    data, err = github_budget.call(f'repos/{owner}/{repo}/pulls/{number}')
+    if err or not isinstance(data, dict) or not isinstance(data.get('head'), dict):
+        return None, None
+    return data['head'].get('ref'), (data['head'].get('repo') or {}).get('full_name')
+
+
+def tier_source_refusal(head_ref, head_repo, owner, repo, tiers):
+    """-> None, or why a pull request must not be merged: it comes FROM a
+    tier branch of this same repository, and merging it lets GitHub's
+    auto-delete remove that branch (2026-09-26: a pull request from staging
+    into main was merged and staging was deleted). A fork's branch of the
+    same name is somebody else's and is not refused."""
+    if not head_ref or head_ref not in tiers:
+        return None
+    if head_repo and head_repo.lower() != f'{owner}/{repo}'.lower():
+        return None
+    sys.path.insert(0, str(HERE))
+    try:
+        import precedent_time
+        copy = f'to-main-{precedent_time.today()}'
+    except Exception:                                          # noqa: BLE001
+        copy = 'to-main-copy'
+    finally:
+        sys.path.pop(0)
+    return (f'this pull request comes FROM {head_ref}, a tier branch. When it '
+            f'is merged, GitHub\'s "automatically delete head branches" '
+            f'deletes {head_ref} -- which is how staging disappeared on '
+            f'2026-09-26. Open it from a throwaway copy instead:\n'
+            f'  git push origin origin/{head_ref}:refs/heads/{copy}\n'
+            f'then a pull request from {copy} into the same base, and close '
+            f'this one. GitHub deletes the copy; {head_ref} stays.')
+
+
 def _arg(argv, name):
     if name in argv:
         i = argv.index(name)
@@ -214,6 +259,20 @@ def main(argv):
         print('precedent_merge_check: needs --owner, --repo and a numeric '
               '--number, or --head.')
         return 2
+    # A tier branch is never a pull request's source, whether or not this
+    # machine can check the merge itself.
+    if pb:
+        root_guess = find_checkout(search, owner, repo)
+        tiers = pb.tier_branches(root_guess) if root_guess else [
+            pb.MAIN, pb.STAGING, pb.PRE_STAGING, pb.LEGACY_STAGING]
+    else:
+        tiers = ['main', 'staging', 'pre-staging', 'precedent-beta-v01']
+    head_ref, head_repo = pull_head(owner, repo, number)
+    why_not = tier_source_refusal(head_ref, head_repo, owner, repo, tiers)
+    if why_not:
+        print(f'precedent_merge_check: pull request #{number} of '
+              f'{owner}/{repo} REFUSED -- {why_not}')
+        return 1
     root = find_checkout(search, owner, repo)
     if root is None:
         print(f'precedent_merge_check: no checkout of {owner}/{repo} beside '

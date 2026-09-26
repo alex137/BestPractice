@@ -62,8 +62,9 @@ first line, with the reason.
   syncs, says the branch out loud, commits, pushes, opens the pull request,
   and merges — **without asking again.** **Either path ends on the branch on
   `origin`** — the person's landing branch
-  (`python3 tools/precedent_branches.py --landing`: `pre-staging`, unless
-  their `landing_branch` says `staging` or `main`), for the pull request
+  (`python3 tools/precedent_branches.py --landing`: the repository's own
+  staging branch, unless their `landing_branch` says `pre-staging` -- the
+  tiered route, which Morgan's does -- or `main`), for the pull request
   too; never `main` for being the configured default. A high-risk change
   landed on pre-staging gets one plain, unbolded line in The Boildown saying
   how far pre-staging is ahead of staging, with no urgency — a Promote can
@@ -91,7 +92,7 @@ first line, with the reason.
   target it explicitly; say it bare and it defaults to the primary branch
   the work is already on — the person's landing branch
   (`python3 tools/precedent_branches.py --landing`), which is
-  `pre-staging` unless their `landing_branch` says `staging` or `main`; never `main` just because that is the repository's
+  the repository's own staging branch unless their `landing_branch` says `pre-staging` or `main`; never `main` just because that is the repository's
   configured default. Not a standing exemption — it authorizes the change
   in front of it, not every change after it.
 - **"Drop it"** ([park-it](practices/park-it.md)) — write

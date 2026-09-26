@@ -54,8 +54,8 @@ own work has actually been developed and committed against, never a
 repository's configured default branch chosen just because it is
 configured that way. Under the branch tiers that is where this person's
 `Go update` lands, which `python3 tools/precedent_branches.py --landing`
-names -- `pre-staging`, unless the person's `landing_branch` says
-`staging`; for them, where the repository declares a branch -- `base_branch` in its
+names -- `pre-staging` for a person whose `landing_branch` says so (the
+tiered route is opt-in since 2026-09-26); for everyone else, where the repository declares a branch -- `base_branch` in its
 `precedent.json`, or a rule of its own -- the declaration decides it
 ([primary-branch](primary-branch.md)); absent one, it is whichever branch
 the change in front of you is already on.

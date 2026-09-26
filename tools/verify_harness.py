@@ -16345,9 +16345,11 @@ def check_branch_tiers():
             {'base_branch': 'main'}), encoding='utf-8')
         cases.append(('a repo whose base_branch is main, with no staging '
                       'branch yet, promotes into main -- never into a staging '
-                      'branch it does not have', pb.staging_branch(repo) == 'main'
+                      'branch it does not have -- and a person with no '
+                      'landing_branch lands there too (pre-staging is opt-in '
+                      'since 2026-09-26)', pb.staging_branch(repo) == 'main'
                       and tier('staging') == 'full'
-                      and pb.landing_branch(repo, nocfg)[0] == 'pre-staging'))
+                      and pb.landing_branch(repo, nocfg)[0] == 'main'))
 
         def targets(args):
             return pb.push_targets(repo, args)
@@ -16609,8 +16611,11 @@ def check_promote_pre_staging():
             return git(work, 'ls-remote', 'origin', f'refs/heads/{b}').stdout.split('\t')[0]
 
         rc, out = branches('--landing')
-        cases.append(('Go update lands on pre-staging by default',
-                      out.split('\n')[0] == 'pre-staging'))
+        # The tiered route is opt-in since 2026-09-26 (Morgan: "mandatory for
+        # me, but not necessarily anyone else"): with no landing_branch set,
+        # Go update lands on the repository's own staging branch.
+        cases.append(("Go update lands on the repo's staging branch by default "
+                      "-- pre-staging is opt-in", out.split('\n')[0] == 'beta'))
         indiv = tmp / 'indiv'
         indiv.mkdir()
         (tmp / 'config.json').write_text(_json.dumps({'individual': {'path': str(indiv)}}),
@@ -19055,6 +19060,98 @@ def check_leftover_pack_is_flagged_after_migration():
     failed = [n for n, ok in cases if not ok]
     check(f'a leftover pre-migration practice pack is flagged after migration '
           f'({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
+def check_tier_branches_are_never_a_pull_requests_source():
+    """No tier branch is ever the SOURCE of a merged pull request, and a
+    missing staging is rebuilt.
+
+    2026-09-26: the pull request of staging into main (#629) was opened
+    FROM staging, and the repository's "automatically delete head
+    branches" setting deleted staging the moment it merged. Nobody here can
+    change that setting, so the source is what changes: the merge gate
+    refuses a pull request whose head is a tier branch of the same
+    repository (a fork's branch of that name is someone else's), and
+    `--ensure-tiers --apply` rebuilds a missing staging from the old name
+    kept in step with it, else from main -- where it had looked for staging
+    itself and given up."""
+    import tempfile, json as _json
+    name = 'a tier branch is never a pull request source, and a missing staging is rebuilt'
+    tool = ROOT / 'tools' / 'precedent_branches.py'
+    if not tool.exists() or not (ROOT / 'tools' / 'precedent_merge_check.py').exists():
+        not_applicable(name, 'precedent_branches.py or precedent_merge_check.py is absent')
+        return
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_merge_check as pmc
+    finally:
+        sys.path.pop(0)
+    tiers = ['main', 'staging', 'pre-staging', 'precedent-beta-v01']
+    cases = [
+        ('a pull request FROM staging, same repository, is refused',
+         bool(pmc.tier_source_refusal('staging', 'o/r', 'o', 'r', tiers))),
+        ('...and the refusal says how: a throwaway copy',
+         'refs/heads/to-main-' in (pmc.tier_source_refusal('staging', 'o/r', 'o', 'r', tiers) or '')),
+        ('so is one from pre-staging or main',
+         all(pmc.tier_source_refusal(b, 'o/r', 'o', 'r', tiers) for b in ('pre-staging', 'main'))),
+        ("a fork's branch named staging is not refused",
+         pmc.tier_source_refusal('staging', 'someone/r', 'o', 'r', tiers) is None),
+        ('an ordinary working branch is not refused',
+         pmc.tier_source_refusal('claude/x', 'o/r', 'o', 'r', tiers) is None),
+        ('an unreadable head (no network) is not refused -- fail open',
+         pmc.tier_source_refusal(None, None, 'o', 'r', tiers) is None),
+    ]
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+        env = dict(os.environ, PRECEDENT_ALLOW_ANY_AUTHOR='1',
+                   GIT_AUTHOR_NAME='T', GIT_AUTHOR_EMAIL='t@example.com',
+                   GIT_COMMITTER_NAME='T', GIT_COMMITTER_EMAIL='t@example.com',
+                   GIT_CONFIG_GLOBAL=str(tmp / 'gitconfig'),
+                   PRECEDENT_USER_CONFIG=str(tmp / 'no-config.json'))
+
+        def git(cwd, *a):
+            return subprocess.run(['git', '-C', str(cwd), *a],
+                                  capture_output=True, text=True, env=env)
+
+        bare = tmp / 'origin.git'
+        git(tmp, 'init', '-q', '--bare', '-b', 'main', str(bare))
+        work = tmp / 'work'
+        (work / 'tools').mkdir(parents=True)
+        git(tmp, 'init', '-q', '-b', 'main', str(work))
+        for f in ('precedent_branches.py', 'precedent_push_check.py', 'precedent_time.py'):
+            if (ROOT / 'tools' / f).exists():
+                (work / 'tools' / f).write_bytes((ROOT / 'tools' / f).read_bytes())
+        (work / 'precedent.json').write_text(_json.dumps({'base_branch': 'staging'}),
+                                             encoding='utf-8')
+        (work / 'f').write_text('1', encoding='utf-8')
+        git(work, 'add', '-A')
+        git(work, 'commit', '-q', '-m', 'one')
+        git(work, 'remote', 'add', 'origin', f'file://{bare}')
+        git(work, 'push', '-q', 'origin', 'main', 'main:staging', 'main:pre-staging')
+        (work / 'f').write_text('2', encoding='utf-8')
+        git(work, 'commit', '-q', '-am', 'two')
+        git(work, 'push', '-q', 'origin', 'HEAD:staging', 'HEAD:precedent-beta-v01')
+        want = git(work, 'rev-parse', 'HEAD').stdout.strip()
+
+        def tip(b):
+            return git(work, 'ls-remote', 'origin', f'refs/heads/{b}').stdout.split('\t')[0]
+
+        def ensure():
+            return subprocess.run([sys.executable, 'tools/precedent_branches.py',
+                                   '--ensure-tiers', '--apply'], cwd=work,
+                                  capture_output=True, text=True, env=env)
+
+        git(work, 'push', '-q', 'origin', ':staging')
+        r = ensure()
+        cases.append(('a deleted staging is rebuilt from the old name kept in step with it',
+                      tip('staging') == want, (r.stdout + r.stderr)[-300:]))
+        git(work, 'push', '-q', 'origin', ':staging', ':precedent-beta-v01')
+        r = ensure()
+        cases.append(('with no old name either, it is rebuilt from main',
+                      tip('staging') == tip('main') != '', (r.stdout + r.stderr)[-300:]))
+    bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
+    check(f'{name} ({len(cases)} stated cases)', not bad,
+          '; '.join(f'{c} [{d}]' if d else c for c, d in bad))
 
 
 def check_person_zone_wins_in_a_shared_rooted_session():
@@ -33431,6 +33528,7 @@ def main():
     check_commit_identity_copies_are_identical()
     check_identity_reaches_a_repo_that_did_not_exist_yet()
     check_person_zone_wins_in_a_shared_rooted_session()
+    check_tier_branches_are_never_a_pull_requests_source()
     check_repo_reference_allowlist()
     check_leak_gate_scans_the_consuming_repo()
     check_update_refuses_while_a_branch_is_pinned()
