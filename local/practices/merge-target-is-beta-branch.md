@@ -43,8 +43,10 @@ Never `main`, either way.
 remove that"*, strength: decided; Alex's word relayed by Morgan). Once the
 PR's own deep check (`two-check-levels`) passes, a session may merge a PR
 into `staging` directly. A merge into `main` still needs the person running
-the session to name `main` in that specific request; a general "PR and
-merge it" authorization, with no branch named, defaults to `staging`.
+the session to name `main` in that specific request, or a Promote that
+chooses staging into main ([promote](../../practices/promote.md); Morgan,
+2026-09-26, strength: decided); a general "PR and merge it" authorization,
+with no branch named, defaults to `staging`.
 
 **`staging` is staging and `main` is live.** A session working
 here uses `staging` for everything unless the person running it

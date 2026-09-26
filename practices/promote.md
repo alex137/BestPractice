@@ -1,15 +1,15 @@
 ---
 slug:        promote
-title:       "\"Promote\" moves pre-staging into staging, with the full push check on the whole batch"
+title:       "\"Promote\" moves pre-staging into staging, or staging into main, and says which first"
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
-occasion:    "a message says \"Promote\" about branch tiers, or asks to move pre-staging into staging"
+occasion:    "a message says \"Promote\" about branch tiers, or asks to move pre-staging into staging or staging into main"
 gates:       ["merge"]
-index_clause: "pre-staging into staging, fully checked, by merge commit"
+index_clause: "pre-staging->staging or staging->main, chosen from the work; says which"
 checked_by:  null
 defines:     ["Promote", "pre-staging"]
-command:     {"Promote": "Land this session's own unsaved work on pre-staging first, then move everything waiting on pre-staging into staging: the full check runs on the whole batch, and staging moves only if it passes."}
+command:     {"Promote": "Land this session's own unsaved work on pre-staging first, then move the next tier up -- pre-staging into staging, or staging into main, whichever the work just done needs -- saying which before it starts. The full check runs on the whole batch, and nothing moves unless it passes."}
 status:      active
 in_force_at: null
 supersedes:  []
@@ -41,7 +41,30 @@ confirm `origin/pre-staging` carries it. Promote carries that authorization
 itself: nobody is asked a second time. Only then run, in the repository the
 work is in:
 
-    python3 tools/precedent_branches.py --promote
+    python3 tools/precedent_branches.py --promote --work BRANCH
+
+**Promote picks its own step, and says which before anything else.** It
+moves pre-staging into staging, or staging into main, and its first line is
+*"Now promoting from pre-staging to staging"* or *"Now promoting from
+staging to main"*; the reply opens with that same line. The session decides
+from the conversation and hands the tool what it knows (Morgan, 2026-09-26:
+*"Promote should decide based on the context and ... what branch we were
+just working on. If the promotion should be pre-staging to staging or
+staging to main ... it should print that explicitly on the screen"*,
+strength: decided):
+
+- **`--work BRANCH`** -- the branch (or commit) this conversation was just
+  working on. Not on staging yet: pre-staging into staging. Already on
+  staging but not on main: staging into main.
+- **`--to staging` or `--to main`** -- when the person named the step
+  ("promote staging to main"). The name wins.
+- **Neither** -- a bare Promote in a session that did no work of its own.
+  Work waiting on pre-staging goes first; only when there is none does
+  staging move into main.
+
+A Promote that resolves to staging into main is the named go-ahead
+[merge-target-is-beta-branch](https://github.com/alex137/BestPractice/blob/staging/local/practices/merge-target-is-beta-branch.md)
+asks for, since Morgan asked for exactly this; nobody is asked again.
 
 **Waiting for a Promote never keeps a session open.** Work on pre-staging
 is already on `origin`, and any later session can promote it, so a pending
@@ -88,13 +111,21 @@ The command does the whole promotion, and a session adds nothing to it:
    which happened**: "NOT re-run", with when the earlier run passed, or how
    long the run it just did took.
 
+**Staging into main runs the same full check** on staging merged into main
+(standing on an earlier pass of the same files, as above), then pushes a
+throwaway copy of staging, `to-main-DATE`, and stops: the tool never moves
+main. The session opens the pull request from that copy into main, waits
+for its GitHub test -- main's last gate -- and merges it with a merge
+commit. Report the copy, the pull request and the merge, and confirm with a
+fetch that `origin/main` carries staging's tip.
+
 **Main takes staging by a pull request from a throwaway copy, never from
 staging itself.** A merged pull request's page offers to delete its
 source branch, and on 2026-09-26 staging, the source of the pull request
 into main, was deleted right after that merge -- by what, is not
 established ([the gotcha](https://github.com/alex137/BestPractice/blob/staging/gotchas/gotcha-2026-09-26-a-pull-request-from-staging-deletes-staging.md)).
-`git push origin origin/staging:refs/heads/to-main-DATE`, then the pull
-request from that copy; the merge gate refuses one from a tier branch.
+Promote makes that copy itself; the merge gate refuses a pull request
+from a tier branch.
 
 **Report what it printed, plainly**: the commits promoted and whether
 the full check ran or stood from an earlier run, or -- on
@@ -125,7 +156,7 @@ it.
 **Not practice promotion.** Moving a practice *candidate* into the
 catalogue is also called promotion, and a message about a candidate or a
 practice means that step, which has its own tool. This command is about
-branches, and takes no argument.
+branches, never a practice.
 
 ## Why
 Pre-staging exists so that many windows can save in seconds: a push there

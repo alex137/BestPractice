@@ -16,7 +16,8 @@ Alex's sign-off any more, `main` included** (Alex, relayed by Morgan,
 2026-09-26) — once its deep check passes, a session may merge a PR into
 `staging` directly. A general "PR and merge it" authorization, with no
 branch named, still means `staging`; merging into `main` needs the person
-running the session to name `main` explicitly, in that specific request.
+running the session to name `main` explicitly, in that specific request, or
+a Promote that chooses staging into `main`.
 Check the base branch
 explicitly before acting — do not assume `main` just because it is the
 repository's configured default branch, and do not assume the two
@@ -367,8 +368,8 @@ When a message says "Archive" or "Archive?", or asks whether the session can be 
   archive-status-check — check pending; archive if clear, else say what isn't
 When a message says "Go update" or "Approved", or plainly authorizes a merge:
   go-merge — "Go update"/"Approved": default push; high-risk: sync, branch, PR, merge
-When a message says "Promote" about branch tiers, or asks to move pre-staging into staging:
-  promote — pre-staging into staging, fully checked, by merge commit
+When a message says "Promote" about branch tiers, or asks to move pre-staging into staging or staging into main:
+  promote — pre-staging->staging or staging->main, chosen from the work; says which
 When a message says "Push directly" [to a branch], or says to skip the PR for one change:
   push-directly — no PR; with no branch named, the branch already in play
 When a message says "Update Vendors", or an upstream update is taken into a vendoring repo:
