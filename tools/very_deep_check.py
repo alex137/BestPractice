@@ -4392,7 +4392,12 @@ def recent_activity(repo_dir, days):
     # work LANDED, which is the question this section asks. It is also the
     # answer to a different one worth keeping in view -- see the printed
     # section, which names unpushed local work as its own finding.
-    rc, log, _ = _run_git(repo_dir, 'log', '--remotes=origin',
+    # precedent-promote-lock is Promote's lock (tools/precedent_branches.py):
+    # its commits are claims and releases, never work, so neither they nor
+    # the branch are listed here.
+    rc, log, _ = _run_git(repo_dir, 'log',
+                          '--exclude=refs/remotes/origin/precedent-promote-lock',
+                          '--remotes=origin',
                           f'--since={since}', '--date-order',
                           '--format=%h%x00%cs%x00%an%x00%s')
     if rc == 0:
@@ -4420,7 +4425,7 @@ def recent_activity(repo_dir, days):
             if '/' not in parts[0]:
                 continue
             name = parts[0].split('/', 1)[1]
-            if name == 'HEAD':
+            if name in ('HEAD', 'precedent-promote-lock'):
                 continue
             out['branches'].append({'name': name, 'last': parts[1],
                                     'author': parts[2]})

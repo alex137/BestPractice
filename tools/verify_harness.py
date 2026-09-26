@@ -10980,9 +10980,9 @@ def check_precedent_check_fires():
         # rather than assumed from whatever machine happens to run this.
         #
         # And since 2026-09-25 the fixture must BE an individual source: the
-        # check enforces a person's zone only in a repo carrying its own
-        # identity.json (Morgan: "only use the individual one in the
-        # precedent-individual"), and stands down everywhere else.
+        # check audits history only in a repo carrying its own identity.json,
+        # and stands down everywhere else -- a shared repo's history holds
+        # other people's commits.
         def _setup_buenos_aires_dates(repo):
             (repo / 'identity.json').write_text(json.dumps(
                 {'name': _ID_NAME, 'email': _ID_EMAIL, 'timezone': _ID_TZ}),
@@ -15999,10 +15999,17 @@ def check_push_check_gate():
 
     with tempfile.TemporaryDirectory() as td:
         tmp = pathlib.Path(td)
+        # PRECEDENT_USER_CONFIG points at nothing, so no real person's
+        # identity.json reaches the fixture (practice: fixture-owns-its-state).
+        # Without it, a machine whose individual set turns promote_only on
+        # refused the clean push to main below as a promotion-only branch:
+        # red on every such machine, green in CI, which has no individual
+        # source.
         env = dict(os.environ, PRECEDENT_ALLOW_ANY_AUTHOR='1',
                    GIT_AUTHOR_NAME='T', GIT_AUTHOR_EMAIL='t@example.com',
                    GIT_COMMITTER_NAME='T', GIT_COMMITTER_EMAIL='t@example.com',
-                   GIT_CONFIG_GLOBAL=str(tmp / 'gitconfig'))
+                   GIT_CONFIG_GLOBAL=str(tmp / 'gitconfig'),
+                   PRECEDENT_USER_CONFIG=str(tmp / 'no-user-config.json'))
 
         def git(cwd, *a):
             return subprocess.run(['git', '-C', str(cwd), *a],
@@ -16705,6 +16712,47 @@ def check_promote_pre_staging():
                       and git(work, 'log', '-1', '--format=%s',
                               tip('beta')).stdout.strip() == 'other-window'))
 
+        # The Promote lock: a branch that only moves forward, whose newest
+        # commit says who holds it. Every Promote above claimed and released
+        # it, so it reads free now.
+        def lock_subject():
+            git(work, 'fetch', '-q', 'origin')
+            return git(work, 'log', '-1', '--format=%s',
+                       'origin/precedent-promote-lock').stdout.strip()
+        cases.append(('after a Promote the lock branch exists and reads free, '
+                      'with [skip ci] so no workflow runs for it',
+                      lock_subject() == 'free [skip ci]'))
+
+        def hold(age_seconds):
+            when = f'@{int(time.time()) - age_seconds} -0300'
+            made = subprocess.run(
+                ['git', '-C', str(work), 'commit-tree',
+                 '4b825dc642cb6eb9a060e54bf8d69288fbee4904', '-p',
+                 'origin/precedent-promote-lock', '-m',
+                 'held by another window [skip ci]'], capture_output=True,
+                text=True, env=dict(env, GIT_COMMITTER_DATE=when,
+                                    GIT_AUTHOR_DATE=when)).stdout.strip()
+            git(work, 'push', '-q', 'origin',
+                f'{made}:refs/heads/precedent-promote-lock')
+
+        commit_to('pre-staging', 'list.txt', 'V\nb\nc\n', 'waits for the lock')
+        before = tip('beta')
+        hold(60)
+        rc, out = branches('--promote')
+        cases.append(('a Promote that finds the lock freshly held by another '
+                      'window does nothing, says who has it, and says not to '
+                      'Promote again', rc == 0
+                      and 'another window is promoting right now' in out
+                      and 'held by another window' in out
+                      and tip('beta') == before
+                      and lock_subject() == 'held by another window [skip ci]'))
+        hold(3 * 3600)
+        rc, out = branches('--promote')
+        cases.append(('a claim left behind by a window that died is taken over '
+                      'once it is stale, and the Promote goes ahead',
+                      rc == 0 and 'PROMOTED' in out and tip('beta') != before
+                      and lock_subject() == 'free [skip ci]'))
+
         commit_to('pre-staging', 'list.txt', 'X\nb\nc\n', 'pre-staging edits line 1')
         commit_to('beta', 'list.txt', 'Y\nb\nc\n', 'staging edits line 1 too')
         pre_before = tip('pre-staging')
@@ -16913,9 +16961,14 @@ def check_promote_only_and_tier_branches():
         # 2026-09-25: an individual source refused its own Promote because
         # the merge commit this module made carried the container's -0400.
         # PRECEDENT_COMMIT_TZ is the ladder's override rung, so it is cleared
-        # here: the case is about which zone the REPOSITORY declares.
-        saved = {k: os.environ.pop(k) for k in ('PRECEDENT_COMMIT_TZ',)
+        # here: the case is about which zone the REPOSITORY declares. So is
+        # the user-level config: since the evening of 2026-09-25 its
+        # individual source supplies the person's zone (rung 3), and this
+        # machine's own person must not decide the case.
+        saved = {k: os.environ.pop(k) for k in ('PRECEDENT_COMMIT_TZ',
+                                                  'PRECEDENT_USER_CONFIG')
                  if k in os.environ}
+        os.environ['PRECEDENT_USER_CONFIG'] = str(work / 'no-user-config.json')
         old_tz = os.environ.get('TZ')
         try:
             (work / 'identity.json').write_text(_json.dumps(
@@ -16930,6 +16983,7 @@ def check_promote_only_and_tier_branches():
                 os.environ.pop('TZ', None)
             else:
                 os.environ['TZ'] = old_tz
+            os.environ.pop('PRECEDENT_USER_CONFIG', None)
             os.environ.update(saved)
         cases.append(("Promote's merge commits are dated in the zone the "
                       "repository's identity.json declares",
@@ -19003,6 +19057,107 @@ def check_leftover_pack_is_flagged_after_migration():
           f'({len(cases)} stated cases)', not failed, '; '.join(failed))
 
 
+def check_person_zone_wins_in_a_shared_rooted_session():
+    """The person's declared zone wins over a repo's fallback, whichever repo
+    the session is rooted in (Morgan, 2026-09-25: "I meant the repo timezone
+    to be a fallback, in case there is no defined individual timezone
+    defined", strength: decided).
+
+    The failure this pins, measured that day: a session rooted in a shared
+    repo, the person named by PRECEDENT_COMMIT_NAME/EMAIL with no
+    PRECEDENT_COMMIT_TZ, their zone declared only in their individual
+    source's identity.json. commit-identity.sh never read that zone, so the
+    session ran on the repo's New York fallback, and the global backstop it
+    generated enforced no offset at all -- three -0400 commits reached the
+    individual source, one of them a Promote merge, and only the full check
+    noticed.
+
+    The control is the person with no zone: the repo's fallback is applied
+    and nothing is refused, exactly as before."""
+    import tempfile
+    name = "the person's zone wins over a repo's fallback in a shared-rooted session"
+    script = ROOT / '.claude' / 'hooks' / 'commit-identity.sh'
+    if not script.exists():
+        not_applicable(name, '.claude/hooks/commit-identity.sh is not present here')
+        return
+    BA, NY = 'America/Argentina/Buenos_Aires', 'America/New_York'
+    cases = []
+
+    def run(declare_zone):
+        with tempfile.TemporaryDirectory() as td:
+            tmp = pathlib.Path(td)
+            home = tmp / 'home'
+            home.mkdir()
+            indiv = tmp / 'individual'
+            indiv.mkdir()
+            ident = {'name': 'Morgan F', 'email': 'm@example.com'}
+            if declare_zone:
+                ident['timezone'] = BA
+            (indiv / 'identity.json').write_text(json.dumps(ident), encoding='utf-8')
+            cfg = tmp / 'config.json'
+            cfg.write_text(json.dumps({'individual': {'path': str(indiv)}}),
+                           encoding='utf-8')
+            env = dict(os.environ, HOME=str(home), PRECEDENT_USER_CONFIG=str(cfg),
+                       PRECEDENT_COMMIT_NAME='Morgan F',
+                       PRECEDENT_COMMIT_EMAIL='m@example.com',
+                       PRECEDENT_LOCALTIME=str(tmp / 'localtime'), TZ=NY)
+            for k in ('PRECEDENT_ALLOW_ANY_AUTHOR', 'PRECEDENT_COMMIT_TZ'):
+                env.pop(k, None)
+
+            def g(*a, cwd=None, extra=None):
+                return subprocess.run(['git'] + list(a), capture_output=True,
+                                      text=True, env=dict(env, **(extra or {})),
+                                      cwd=str(cwd) if cwd else None, timeout=120)
+
+            shared = tmp / 'shared'
+            shared.mkdir()
+            g('init', '-q', str(shared))
+            (shared / 'precedent.json').write_text(
+                json.dumps({'fallback_timezone': NY}), encoding='utf-8')
+            subprocess.run(['bash', str(script)], capture_output=True, text=True,
+                           env=dict(env, CLAUDE_PROJECT_DIR=str(shared)), timeout=180)
+            local = shared / '.claude' / 'settings.local.json'
+            try:
+                session_tz = json.loads(local.read_text())['env']['TZ']
+            except Exception:
+                session_tz = None
+            other = tmp / 'other'
+            other.mkdir()
+            g('init', '-q', str(other))
+            (other / 'f').write_text('x', encoding='utf-8')
+            g('add', 'f', cwd=other)
+            wrong = g('commit', '-m', 'ny', cwd=other, extra={'TZ': NY})
+            refused = 'declared timezone' in (wrong.stdout + wrong.stderr)
+            right = g('commit', '-q', '-m', 'ba', cwd=other, extra={'TZ': BA})
+            probe = subprocess.run(
+                [sys.executable, '-c',
+                 'import sys; sys.path.insert(0, sys.argv[1]); '
+                 'import precedent_time, precedent_identity; '
+                 'print(precedent_time.resolved(sys.argv[2])[1]); '
+                 'print(precedent_identity.declared_identity(sys.argv[2])["timezone"])',
+                 str(ROOT / 'tools'), str(shared)],
+                capture_output=True, text=True, env=env, timeout=60).stdout.split()
+            return session_tz, refused, right.returncode == 0, probe
+
+    tz, refused, ok, probe = run(declare_zone=True)
+    cases.append(('the session takes the person\'s zone, not the repo\'s New '
+                  'York fallback', tz == BA))
+    cases.append(('the global backstop refuses a New York commit in another repo',
+                  refused))
+    cases.append(('and lets the person\'s own offset through', ok))
+    cases.append(('precedent_time.py stamps the person\'s zone over TZ and the '
+                  'repo fallback', probe[:1] == [BA]))
+    cases.append(('declared_identity() carries the person\'s zone under a '
+                  'name/email override', probe[1:2] == [BA]))
+    tz, refused, ok, probe = run(declare_zone=False)
+    cases.append(('control: with no personal zone the repo fallback applies',
+                  tz == NY and probe[:1] == [NY]))
+    cases.append(('and nothing is refused over a zone nobody declared',
+                  not refused))
+    failed = [c for c, ok_ in cases if not ok_]
+    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
 def check_identity_reaches_a_repo_that_did_not_exist_yet():
     """The commit identity covers repos ATTACHED AFTER the hook ran.
 
@@ -19110,19 +19265,20 @@ def check_identity_reaches_a_repo_that_did_not_exist_yet():
         cases.append(('and the refusal names itself as the global backstop',
                       'GLOBAL backstop' in out))
 
-        # A PERSON'S ZONE BINDS THEIR OWN REPO ONLY (Morgan, 2026-09-25:
-        # "only use the individual one in the precedent-individual"). This
-        # case asserted the opposite until then: a wrong offset refused in
-        # every repository. Now the attached repo, which carries no
-        # identity.json, takes any offset, and the individual source itself,
-        # which does, still refuses one.
+        # THE PERSON'S ZONE, IN EVERY REPO THEY COMMIT TO (Morgan,
+        # 2026-09-25, evening: "I meant the repo timezone to be a fallback,
+        # in case there is no defined individual timezone defined"). That
+        # morning this case had been flipped to let the attached repo take
+        # any offset, and the same day a session wrote -0400 commits into
+        # the individual source with nothing refusing them. Back to the
+        # original assertion: refused here too.
         g('config', 'user.email', 'm@example.com', cwd=later)
         r = subprocess.run(['git', 'commit', '-m', 'tz'], cwd=str(later),
                            capture_output=True, text=True,
                            env=dict(env, TZ='UTC'), timeout=120)
-        cases.append(("a repo that is not the person's individual source is "
-                      "NOT held to their timezone", r.returncode == 0
-                      and 'declared timezone' not in (r.stdout + r.stderr)))
+        cases.append(("a wrong-offset commit is refused in a repo that is "
+                      "not the person's individual source too",
+                      'declared timezone' in (r.stdout + r.stderr)))
         g('config', 'user.name', 'Morgan F', cwd=src)
         g('config', 'user.email', 'm@example.com', cwd=src)
         (src / 'z').write_text('z', encoding='utf-8')
@@ -33274,6 +33430,7 @@ def main():
     check_verify_flags_missing_session_practices_ceiling()
     check_commit_identity_copies_are_identical()
     check_identity_reaches_a_repo_that_did_not_exist_yet()
+    check_person_zone_wins_in_a_shared_rooted_session()
     check_repo_reference_allowlist()
     check_leak_gate_scans_the_consuming_repo()
     check_update_refuses_while_a_branch_is_pinned()

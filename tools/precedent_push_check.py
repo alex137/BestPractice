@@ -179,8 +179,10 @@ CONSUMER_SHAPE_SUITE = ('consumer_shape',
 # is wired, and a person running this list by hand should get everything.
 # Exit 2 ("could not run here") fails in a repo that carries its own
 # identity.json, as it did there; anywhere else it is the expected answer --
-# a person's timezone binds only their own individual source (Morgan,
-# 2026-09-25: "only use the individual one in the precedent-individual").
+# a shared repo's HISTORY is never audited against one person's timezone,
+# since other people's commits live there (Morgan, 2026-09-25). His own new
+# commits still carry his zone everywhere; the commit-time backstop in
+# commit-identity.sh is what holds them to it.
 SKIP_IS_FINE_WITHOUT_IDENTITY = {'commit_author', 'commit_dates'}
 IDENTITY_CHECKS = (
     ('commit_author', ['{engine}/checks/check_commit_author.py'],
