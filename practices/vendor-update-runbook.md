@@ -319,7 +319,7 @@ says so, both from the vendored tree under `process/upstream/`.
    many. **A `LOST` line it prints is a line upstream never had**: carry it
    or pass `--accept-loss` knowingly -- never hand-write `upstream.commit`
    to step around it
-   ([gotcha](../gotchas/gotcha-2026-09-26-the-carry-check-counted-upstream-s-own-deletions-as-lost.md)).
+   ([gotcha](https://github.com/alex137/BestPractice/blob/staging/gotchas/gotcha-2026-09-26-the-carry-check-counted-upstream-s-own-deletions-as-lost.md)).
 
    **Then decide every earlier decline again, in this same change.** Any
    upstream practice this repo once declined or deferred ("a duplicate of
