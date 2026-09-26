@@ -24217,7 +24217,18 @@ def check_ci_fleet_audit_reads_github_not_the_clone():
             f'{o}/contents/precedent.json?ref=main':
                 {'content': b64(json.dumps(cfg))},
             f'{o}/branches?per_page=100':
-                [{'name': 'main'}, {'name': 'stale'}, {'name': 'calm'}],
+                [{'name': 'main'}, {'name': 'stale'}, {'name': 'calm'},
+                 {'name': 'old'}],
+            # 'stale' and 'calm' had commits this week; 'old' has had none
+            # for a month, so it must not be read at all.
+            f'{o}/branches/stale': {'commit': {'commit': {'committer':
+                {'date': '2026-09-24T10:00:00Z'}}}},
+            f'{o}/branches/calm': {'commit': {'commit': {'committer':
+                {'date': '2026-09-25T10:00:00Z'}}}},
+            f'{o}/branches/old': {'commit': {'commit': {'committer':
+                {'date': '2026-08-20T10:00:00Z'}}}},
+            f'{o}/contents/.github/workflows?ref=old': listing(
+                [('side.yml', 'b-side'), ('ghost.yml', 'b-side')]),
             f'{o}/contents/.github/workflows?ref=main': listing(
                 [('ok.yml', 'b-ok'), ('rogue.yml', 'b-rogue'),
                  ('nightly.yml', 'b-cron')]),
@@ -24274,6 +24285,9 @@ def check_ci_fleet_audit_reads_github_not_the_clone():
         ('the totals line counts the findings it printed',
          f'ci_fleet_audit: {n} finding(s) in 1 repo(s) reached; 1 not '
          f'reached.' in out and n == 4),
+        ('a branch with no commit in 14 days is counted, never read',
+         'ghost.yml' not in out and 'branch old' not in out
+         and '1 side branch(es) with no commit in 14 days not read' in rows),
         ('a push trigger limited to tags never fires on a branch push',
          not cfa.push_fires({'push': {'tags': ['v*']}}, 'main')
          and cfa.push_fires({'push': {'branches': ['rel/*']}}, 'rel/1')

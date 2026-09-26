@@ -19,8 +19,11 @@ FOR EACH REPOSITORY IT REACHES:
     pull-request branches, schedules in plain words), and whether it is the
     engine's own copy, approved in precedent.json's github_ci_approved at
     this exact content, edited since, or approved by nobody;
-  * every OTHER branch whose workflow files differ from the default
-    branch's, and whether pushing that branch would run them;
+  * every ACTIVE side branch (a commit in the last 14 days) whose
+    workflow files differ from the default branch's, and whether pushing
+    it would run them. A stale branch runs nothing until someone pushes
+    it, and that push makes it active for the next run, so it is counted
+    and not read;
   * GitHub's own run count per workflow over the last 30 days, by event --
     runs, not minutes: each run bills at least one minute per job in a
     private repository. A scheduled workflow shows its schedule among its
@@ -63,6 +66,11 @@ APPROVED_KEY = 'github_ci_approved'
 WF_DIR = '.github/workflows'
 DAYS = 30
 MAX_BRANCHES = 40
+# A side branch with no commit in this many days is not read: it runs a
+# workflow only when pushed, and a push makes it active again, so the next
+# run reads it then (Morgan, 2026-09-26: "I think we should update this to
+# only check active branches").
+ACTIVE_DAYS = 14
 RUN_PAGES = 3
 
 
@@ -199,8 +207,20 @@ def _runs_words(by_event):
             + (f', the last on {last}' if last else ''))
 
 
+def _branch_date(call, slug, name):
+    """-> 'YYYY-MM-DD' of the branch's newest commit, or None."""
+    data, err = call(f'repos/{slug}/branches/{name}')
+    if err or not isinstance(data, dict):
+        return None
+    c = (data.get('commit') or {}).get('commit') or {}
+    when = (c.get('committer') or {}).get('date') or \
+        (c.get('author') or {}).get('date')
+    return str(when)[:10] if when else None
+
+
 def audit_repo(slug, call=_default_call, days=DAYS,
-               max_branches=MAX_BRANCHES, today=None):
+               max_branches=MAX_BRANCHES, today=None,
+               active_days=ACTIVE_DAYS):
     """-> dict with 'reached', 'rows' [(verdict, text)] and 'note'. Pure over `call`, so a test can plant any GitHub it likes."""
     out = {'slug': slug, 'reached': False, 'rows': [], 'note': ''}
     meta, err = call(f'repos/{slug}')
@@ -285,6 +305,23 @@ def audit_repo(slug, call=_default_call, days=DAYS,
         branches = []
     others = [b.get('name') for b in branches
               if isinstance(b, dict) and b.get('name') != default]
+    cutoff = (today - datetime.timedelta(days=active_days)).isoformat()
+    active, stale = [], 0
+    for name in others:
+        when = _branch_date(call, slug, name)
+        if when is None:
+            rows.append(('UNVERIFIED', f'branch {name}: could not read its '
+                                       f'last commit date'))
+        elif when >= cutoff:
+            active.append(name)
+        else:
+            stale += 1
+    if stale:
+        rows.append(('NOTE', f'{stale} side branch(es) with no commit in '
+                             f'{active_days} days not read: a stale branch '
+                             f'runs nothing until pushed, and a push makes '
+                             f'it active for the next run'))
+    others = active
     if len(others) > max_branches:
         rows.append(('UNVERIFIED', f'{len(others) - max_branches} of '
                                    f'{len(others)} side branches not read '
@@ -411,6 +448,9 @@ def main(argv=None):
                          'beside this checkout')
     ap.add_argument('--days', type=int, default=DAYS)
     ap.add_argument('--max-branches', type=int, default=MAX_BRANCHES)
+    ap.add_argument('--active-days', type=int, default=ACTIVE_DAYS,
+                    help='read a side branch only if it has a commit this '
+                         'recent (default %(default)s)')
     a = ap.parse_args(argv)
     slugs = a.repo or discover()
     if not slugs:
@@ -421,7 +461,8 @@ def main(argv=None):
     for i, slug in enumerate(slugs, 1):
         print(f'[{i}/{len(slugs)}] {slug}', file=sys.stderr, flush=True)
         results.append(audit_repo(slug, days=a.days,
-                                  max_branches=a.max_branches))
+                                  max_branches=a.max_branches,
+                                  active_days=a.active_days))
     render(results, days=a.days)
     try:
         import github_budget
