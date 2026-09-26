@@ -24495,6 +24495,19 @@ def check_ci_fleet_audit_reads_github_not_the_clone():
         ('a branch with no commit in 14 days is counted, never read',
          'ghost.yml' not in out and 'branch old' not in out
          and '1 side branch(es) with no commit in 14 days not read' in rows),
+        # GitHub's runner has no PyYAML (2026-09-26: this check went red
+        # there on the staging-into-main pull request, green in every
+        # session). The line reader must give push_fires the same answers.
+        ('without PyYAML the line reader gives push_fires the same answers',
+         all(cfa.push_fires(cfa._on_plain(t), b) == want for t, b, want in (
+             (rogue, 'main', True), (side, 'stale', True),
+             (quiet, 'calm', False), (cron, 'main', False),
+             (approved, 'main', False),
+             ('on: push\n', 'x', True), ('on: [pull_request, push]\n', 'x', True),
+             ('on:\n  push:\n    tags:\n      - "v*"\n', 'main', False),
+             ('on:\n  push:\n    branches-ignore:\n      - x\n', 'x', False),
+             ('on:\n  push:\n    branches-ignore:\n      - x\n', 'y', True),
+             ('"on":\n  push:\n    branches: [rel/*]\n', 'rel/1', True)))),
         ('a push trigger limited to tags never fires on a branch push',
          not cfa.push_fires({'push': {'tags': ['v*']}}, 'main')
          and cfa.push_fires({'push': {'branches': ['rel/*']}}, 'rel/1')
