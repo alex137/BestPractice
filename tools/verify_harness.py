@@ -24216,6 +24216,39 @@ def check_refresh_sources_path_names_the_whole_target():
           not bad, '; '.join(f"{n} -- {d[:600]}" for n, d in bad))
 
 
+def check_push_check_installs_gate_packages():
+    """precedent_push_check.py installs the packages the gates import before
+    it runs anything, and stops at once, naming them, when it cannot --
+    rather than letting verify_harness fail minutes later without saying a
+    package was absent (2026-09-14, 2026-09-26). Hermetic: import and install
+    are stubbed, so nothing is fetched (practice: control-asserts-which-failure:
+    the present case never calls the installer)."""
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_push_check as ppc
+    cases, calls = [], []
+    have = {'present'}
+    ok, note = ppc.ensure_gate_packages(('present',), have.__contains__,
+                                        lambda m: calls.append(list(m)) or '')
+    cases.append(('all present: ok, silent, installer never called',
+                  ok and note == '' and not calls, f'{ok} {note!r} {calls}'))
+    ok, note = ppc.ensure_gate_packages(
+        ('present', 'absent'), have.__contains__,
+        lambda m: (calls.append(list(m)), have.update(m))[1] or '')
+    cases.append(('one missing: installs exactly that one and says so',
+                  ok and calls[-1] == ['absent'] and 'installed absent' in note,
+                  f'{ok} {note!r} {calls}'))
+    ok, note = ppc.ensure_gate_packages(('gone',), lambda m: False,
+                                        lambda m: 'no network')
+    cases.append(('install fails: not ok, and the note names the package',
+                  not ok and 'gone' in note and 'pip install gone' in note,
+                  f'{ok} {note!r}'))
+    cases.append(('the list matches the session check\'s row',
+                  ppc.GATE_PACKAGES == ('cmarkgfm', 'markdown'), ''))
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'the push check installs the gate packages or stops naming them '
+          f'({len(cases)} stated cases)',
+          not bad, '; '.join(f"{n} -- {d}" for n, d in bad))
+
 def check_stale_source_paths_accepts_the_universal_pair():
     """The universal source is `precedent` at `../BestPractice` by design --
     precedent_bootstrap_source.py writes that pair -- so the stale-path
@@ -35381,6 +35414,7 @@ def main():
     check_refresh_sources_leaves_an_attached_consumer_alone()
     check_refresh_sources_path_names_the_whole_target()
     check_stale_source_paths_accepts_the_universal_pair()
+    check_push_check_installs_gate_packages()
     check_vendor_engine_retires_ci_workflow_files()
     check_workflow_file_outside_vendoring_detects_candidates()
     check_ci_workflow_approved_pins_approval_to_content()

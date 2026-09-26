@@ -577,6 +577,47 @@ def run(root, checks):
     return failed, missing, total, findings
 
 
+# THE PACKAGES THE GATES IMPORT, installed here rather than trusted to a hook
+# (2026-09-26). Only BestPractice's SessionStart hook installs them, and a
+# hook fires only in a session rooted in that repo -- a session rooted above
+# every repo runs none. Without them doc_lint and doc_html degrade quietly,
+# and verify_harness fails its checks after seven minutes naming what each
+# was testing, never what is absent: that cost two full re-runs on
+# 2026-09-14 and one more on 2026-09-26. Same list as
+# precedent_session_check.py's "the packages the gates import" row.
+GATE_PACKAGES = ('cmarkgfm', 'markdown')
+
+
+def _importable(mod):
+    return subprocess.run([sys.executable, '-c', f'import {mod}'],
+                          capture_output=True).returncode == 0
+
+
+def _pip_install(mods):
+    r = subprocess.run([sys.executable, '-m', 'pip', 'install', '--quiet',
+                        *mods], capture_output=True, text=True)
+    tail = (r.stderr or r.stdout or '').strip().splitlines()
+    return tail[-1] if tail else ''
+
+
+def ensure_gate_packages(packages=GATE_PACKAGES, importable=_importable,
+                         install=_pip_install):
+    """-> (ok, note). Installs whichever of `packages` this interpreter cannot
+    import. ok is False only when one is still missing afterwards, so the run
+    stops in seconds naming it instead of failing minutes later without."""
+    missing = [m for m in packages if not importable(m)]
+    if not missing:
+        return True, ''
+    said = install(missing)
+    still = [m for m in missing if not importable(m)]
+    if still:
+        return False, (f'{", ".join(still)} missing and pip could not install '
+                       f'{"it" if len(still) == 1 else "them"}'
+                       f'{f" ({said})" if said else ""} -- run `pip install '
+                       f'{" ".join(still)}`, then this again')
+    return True, f'installed {", ".join(missing)}, which the gates import'
+
+
 def main(argv):
     root_s = git(HERE, 'rev-parse', '--show-toplevel')
     if not root_s:
@@ -638,6 +679,13 @@ def main(argv):
                   '(the fetch did not complete), so the history checks '
                   'cannot run. Run `git fetch --unshallow` and try again.')
             return 1
+
+    ok_pkgs, note = ensure_gate_packages()
+    if note:
+        print(f'precedent_push_check: {"" if ok_pkgs else "FAILED -- "}{note}.',
+              flush=True)
+    if not ok_pkgs:
+        return 1
 
     if tier == FULL:
         print(f'precedent_push_check: {kind} repository {root.name}, '
