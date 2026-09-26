@@ -51,6 +51,11 @@ the batch is promoted.
   `staging`, with the old name kept and moved in step by every Promote; the
   default landing branch is pre-staging for everyone. Alex approved both,
   relayed by Morgan: *"Alex is on top of this and approves"*.
+- **Promote covers both steps since 2026-09-26.** It picks pre-staging into
+  staging or staging into main from the work just done, and prints which
+  before it starts; into main it runs the full check and pushes a throwaway
+  copy for the pull request (Morgan, strength: decided;
+  [practices/promote.md](../practices/promote.md)).
 - **Superseded, 2026-09-25 -- Step 8's behaviour was held for a decision**, because landing any part of
   it alone costs money: "never tag staging" would, today, start a runner on
   every push to staging in a private repo that has `leak-gate.yml`

@@ -17129,6 +17129,135 @@ def check_promote_pre_staging():
     check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
 
+def check_promote_picks_its_step():
+    """Promote picks pre-staging -> staging or staging -> main, and says
+    which before anything else (Morgan, 2026-09-26, strength: decided: it
+    "should decide based on the context and ... what branch we were just
+    working on", and print "Now promoting from pre-staging to staging or now
+    promoting staging to main").
+
+    The cases that matter: waiting work on pre-staging always goes first
+    when nothing says otherwise; staging moves into main only through a
+    throwaway copy, main itself untouched by the script; the work the
+    session names (--work) decides over the tiers' own order; and nothing
+    waiting prints no "Now promoting" line at all."""
+    import tempfile, json as _json, shutil as _shutil
+    name = 'Promote picks pre-staging->staging or staging->main, and says which'
+    tool = ROOT / 'tools' / 'precedent_branches.py'
+    if not tool.exists():
+        not_applicable(name, 'tools/precedent_branches.py is absent')
+        return
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+        env = dict(os.environ, PRECEDENT_ALLOW_ANY_AUTHOR='1',
+                   GIT_AUTHOR_NAME='T', GIT_AUTHOR_EMAIL='t@example.com',
+                   GIT_COMMITTER_NAME='T', GIT_COMMITTER_EMAIL='t@example.com',
+                   GIT_CONFIG_GLOBAL=str(tmp / 'gitconfig'),
+                   PRECEDENT_USER_CONFIG=str(tmp / 'config.json'))
+
+        def git(cwd, *a):
+            return subprocess.run(['git', '-C', str(cwd), *a],
+                                  capture_output=True, text=True, env=env)
+
+        bare = tmp / 'origin.git'
+        git(tmp, 'init', '-q', '--bare', '-b', 'main', str(bare))
+        work = tmp / 'work'
+        (work / 'tools').mkdir(parents=True)
+        git(tmp, 'init', '-q', '-b', 'main', str(work))
+        for f in ('precedent_push_check.py', 'precedent_branches.py'):
+            _shutil.copy2(ROOT / 'tools' / f, work / 'tools' / f)
+        (work / 'tools' / 'ENGINE_MANIFEST.json').write_text(
+            _json.dumps({'kind': 'consumer'}), encoding='utf-8')
+        for t in ('precedent_check', 'leak_gate', 'doc_lint'):
+            (work / 'tools' / f'{t}.py').write_text(
+                'import sys\n'
+                + ('print("precedent_check: 3 passed, 0 violated")\n'
+                   if t == 'precedent_check' else '')
+                + 'sys.exit(0)\n', encoding='utf-8')
+        (work / 'precedent.json').write_text(
+            _json.dumps({'base_branch': 'staging'}), encoding='utf-8')
+        (work / 'list.txt').write_text('a\n', encoding='utf-8')
+        git(work, 'add', '-A')
+        git(work, 'commit', '-q', '-m', 'init')
+        git(work, 'remote', 'add', 'origin', f'file://{bare}')
+        for b in ('main', 'staging', 'pre-staging'):
+            git(work, 'push', '-q', 'origin', f'HEAD:refs/heads/{b}')
+
+        def branches(*a):
+            p = subprocess.run([sys.executable, 'tools/precedent_branches.py', *a],
+                               cwd=work, capture_output=True, text=True, env=env)
+            return p.returncode, p.stdout + p.stderr
+
+        def tip(b):
+            return git(work, 'ls-remote', 'origin', f'refs/heads/{b}').stdout.split('\t')[0]
+
+        def commit_to(branch, path, text):
+            git(work, 'fetch', '-q', 'origin')
+            git(work, 'checkout', '-q', '-B', f'w-{branch}', f'origin/{branch}')
+            (work / path).write_text(text, encoding='utf-8')
+            git(work, 'add', path)
+            git(work, 'commit', '-q', '-m', f'edit {path} on {branch}')
+            git(work, 'push', '-q', 'origin', f'HEAD:refs/heads/{branch}')
+            return git(work, 'rev-parse', 'HEAD').stdout.strip()
+
+        rc, out = branches('--promote')
+        cases.append(('nothing waiting anywhere: nothing to promote, and no '
+                      '"Now promoting" line', rc == 0 and 'nothing to promote' in out
+                      and 'Now promoting' not in out))
+
+        rc, out = branches('--promote', '--to', 'nowhere')
+        cases.append(('an unknown --to is refused with the usage line',
+                      rc == 2 and 'usage:' in out))
+
+        commit_to('pre-staging', 'one.txt', '1\n')
+        rc, out = branches('--promote')
+        cases.append(('work on pre-staging goes first, and the first line says '
+                      'so in those words', rc == 0 and out.startswith(
+                          'Now promoting from pre-staging to staging')
+                      and 'PROMOTED' in out))
+
+        main_before = tip('main')
+        rc, out = branches('--promote')
+        copies = [l.split('\t')[1] for l in git(
+            work, 'ls-remote', 'origin', 'refs/heads/to-main-*').stdout.splitlines()]
+        cases.append(('with pre-staging empty, staging goes into main, said in '
+                      'those words', rc == 0 and out.startswith(
+                          'Now promoting from staging to main')
+                      and 'READY FOR MAIN' in out))
+        cases.append(('into main by a throwaway copy of staging, main itself '
+                      'untouched', tip('main') == main_before and len(copies) == 1
+                      and tip(copies[0].split('refs/heads/', 1)[1]) == tip('staging')))
+        cases.append(('it says the pull request comes from the copy, never from '
+                      'staging', 'Never open it from staging itself' in out))
+
+        # Land the fold-in the way the pull request would.
+        git(work, 'fetch', '-q', 'origin')
+        git(work, 'checkout', '-q', '-B', 'w-main', 'origin/main')
+        git(work, 'merge', '-q', '--no-ff', '-m', 'fold', 'origin/staging')
+        git(work, 'push', '-q', 'origin', 'HEAD:refs/heads/main')
+
+        on_staging = commit_to('staging', 'two.txt', '2\n')
+        commit_to('pre-staging', 'three.txt', '3\n')
+        rc, out = branches('--promote', '--work', on_staging)
+        cases.append(('the work just done decides over the order: on staging '
+                      'and not main, so staging into main even with '
+                      'pre-staging waiting', rc == 0 and out.startswith(
+                          'Now promoting from staging to main')))
+        rc, out = branches('--promote', '--work', 'w-pre-staging')
+        cases.append(('work only on pre-staging goes into staging',
+                      rc == 0 and out.startswith(
+                          'Now promoting from pre-staging to staging')))
+        rc, out = branches('--promote', '--work', 'no-such-thing')
+        cases.append(('a --work it cannot see chooses nothing and says why',
+                      rc == 0 and 'is not a branch or commit' in out
+                      and 'Now promoting' not in out))
+        wts = git(work, 'worktree', 'list').stdout.strip().splitlines()
+        cases.append(('no worktree is left behind', len(wts) == 1))
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
 def check_promote_only_and_tier_branches():
     """Two 2026-09-25 additions to the branch tiers (spec/BRANCH_TIERS_PLAN.md).
 
@@ -34195,6 +34324,7 @@ def main():
     check_branch_tiers()
     check_merge_check_gate()
     check_promote_pre_staging()
+    check_promote_picks_its_step()
     check_promote_only_and_tier_branches()
     check_github_ci_setting_names()
     check_promote_keeps_the_old_name_in_step()
