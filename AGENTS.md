@@ -110,7 +110,7 @@ first line, with the reason.
   plain ask for the same shape of answer ("what do I actually need to know
   right now") gets it too — low stakes if the read is wrong, so no
   confirmation step.
-- **"Simple words"** ([plain-words](practices/plain-words.md)) — the same
+- **"Simple please"** ([plain-words](practices/plain-words.md)) — the same
   answer said the way you would say it out loud: short sentences, the concrete
   case before the general principle, no hedging. **It governs the rest of the
   conversation, not just the next reply**, and nothing about the substance
@@ -150,7 +150,7 @@ first line, with the reason.
   on the table in plainer words, a short block each, the cost said as flatly
   as the benefit, then **a named recommendation with its reason** — never a
   survey that leaves the choice sitting there. It governs that one answer, not
-  the conversation, which is what separates it from `Simple words`.
+  the conversation, which is what separates it from `Simple please`.
 - **"Vocabulary"** ([vocabulary](practices/vocabulary.md)) — every standing
   command in force, one plain sentence each, nothing else. **Read the list,
   never recall it**: `python3 tools/precedent_vocabulary.py` collects it from
@@ -392,7 +392,7 @@ When a person says "Primary branch", or asks which branch is trunk or takes rout
   primary-branch — trunk: the branch regular work pushes to and PRs target
 When a person says "Reduction pass", or an always-loaded surface is near its ceiling:
   reduction-pass — work the menu in order; move, never delete; report what moved
-When a person says "Simple words", or asks to be talked to that way:
+When a person says "Simple please", or asks to be talked to that way:
   plain-words — say it as you would out loud; same substance
 When a person says "Three Things", or plainly asks for this shape of answer:
   three-things — the three that matter now, one bold phrase and two lines each

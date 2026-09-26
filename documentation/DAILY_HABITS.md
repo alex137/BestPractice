@@ -113,7 +113,7 @@ each one saves you a paragraph of explaining:
 | **Prompt Please** | Write up the situation, the problem, your recommended action and why, and hand it back as one prompt ready to paste straight into a new session -- naming which repository to root it in and which others to attach. |
 | **Push directly** | Save the work and push it straight to the branch right now -- no pull request, whatever go-merge's classification would otherwise call for. Name the branch ("push directly to main") to target it explicitly; say it bare and it targets whichever branch the work is already headed toward. |
 | **Reduction pass** | Measure everything a session loads before it starts work, make room by moving things rather than deleting them, and show you exactly what moved and what it saved. |
-| **Simple words** | Drop the formal register and explain it the way somebody would say it out loud — same answer, plainer telling. |
+| **Simple please** | Drop the formal register and explain it the way somebody would say it out loud — same answer, plainer telling. |
 | **Three Things** | Tell you the three most important things you need to know right now, in three short lines. |
 | **Todo reminder** | Write the thing into the open-items file AND mark it as something to remind you about, so later sessions bring it up rather than waiting to be asked. |
 | **Update Vendors** | Pull in the latest version of the shared rules from the project they come from, and publish the result -- the merge is part of the phrase. |
@@ -129,10 +129,10 @@ rebuilt, so it cannot fall behind the AI Assistant. Numbers by:
 precedent_vocabulary.py — or just say **"Vocabulary"** and your AI Assistant
 will read you the current list.*
 
-**"Drop it", "Three Things" and "Simple words" are the three worth learning first.** "Drop
+**"Drop it", "Three Things" and "Simple please" are the three worth learning first.** "Drop
 it" is how you stop being asked about something you've decided not to
 decide. "Three Things" is the one to open with after a few days away. **"Simple
-words" is the one for when an answer is correct and you have read it twice
+please" is the one for when an answer is correct and you have read it twice
 anyway** — it stays in force for the rest of the conversation.
 
 ## Why Any of This Works

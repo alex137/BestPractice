@@ -92,7 +92,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [parallel-artifact-ledger](practices/parallel-artifact-ledger.md) | on-demand | a change must propagate across several parallel artifacts |
 | [park-it](practices/park-it.md) | on-demand | a person says "Drop it" about an open item or a question |
 | [permutation-frontier-column](practices/permutation-frontier-column.md) | on-demand | building a permutation or configuration-sweep table |
-| [plain-words](practices/plain-words.md) | on-demand | a person says "Simple words", or asks to be talked to that way |
+| [plain-words](practices/plain-words.md) | on-demand | a person says "Simple please", or asks to be talked to that way |
 | [pr-template-honest-gates](practices/pr-template-honest-gates.md) | on-demand | writing or filling out a pull-request description |
 | [practice-carries-its-files](practices/practice-carries-its-files.md) | on-demand | writing a practice that owns a file besides its check script and test -- a tool its Rule tells a session to run, a file its test reads -- or moving a practice to another set |
 | [practice-export-loop](practices/practice-export-loop.md) | on-demand | merging a branch that improved a generic practice |
