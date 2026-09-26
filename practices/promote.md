@@ -89,9 +89,10 @@ The command does the whole promotion, and a session adds nothing to it:
    long the run it just did took.
 
 **Main takes staging by a pull request from a throwaway copy, never from
-staging itself.** GitHub's "automatically delete head branches" deletes a
-merged pull request's source branch, and on 2026-09-26 that deleted
-staging ([the gotcha](https://github.com/alex137/BestPractice/blob/staging/gotchas/gotcha-2026-09-26-a-pull-request-from-staging-deletes-staging.md)).
+staging itself.** A merged pull request's page offers to delete its
+source branch, and on 2026-09-26 staging, the source of the pull request
+into main, was deleted right after that merge -- by what, is not
+established ([the gotcha](https://github.com/alex137/BestPractice/blob/staging/gotchas/gotcha-2026-09-26-a-pull-request-from-staging-deletes-staging.md)).
 `git push origin origin/staging:refs/heads/to-main-DATE`, then the pull
 request from that copy; the merge gate refuses one from a tier branch.
 
