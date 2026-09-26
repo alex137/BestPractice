@@ -1115,7 +1115,7 @@ confidently.
     a workflow edited on GitHub's website, one written through the GitHub
     API, one sitting on an active side branch (GitHub runs a branch's own
     workflow files when that branch is pushed), and one in a repo that
-    does not use Precedent. A side branch with no commit in 14 days is
+    does not use Precedent. A side branch with no commit in 7 days is
     counted and not read: it runs nothing until pushed, and a push makes it
     active for the next run. For each workflow it prints when it runs, whether it is
     approved at its exact content
@@ -1680,10 +1680,22 @@ Last because none of it strands an adopter, and none of it is cheap.
   and its verdict, in the same `record/automated-actions.md` the bullet
   above writes, so a path already cleared as deliberate is not re-examined
   from nothing next time.
-- **Branches, both directions, one verdict each.** The *inventory* was
-  already read at step 4 of the order of operations, for a different
-  reason — to stop this run rediscovering work that exists. What is left
-  here is the expensive half: a verdict on each.
+- **Branches, both directions, one verdict each.** **Every branch on the
+  repo's origin, from the oldest to the newest, ends this pass with a
+  written recommendation: delete it, merge it, or cherry-pick a named part
+  and delete the rest.** No branch is left out for being old, far behind,
+  or somebody else's, and "unclear" is only allowed with what would settle
+  it. The branch nobody remembers is the one this bullet exists for. *(2026-09-26: two week-old session branches in a
+  consuming repo each held one commit that never reached `main`, two
+  hundred commits back, and nobody could say what either was for. Morgan:
+  *"I don't even know what that was, or if it's deprecated, or no longer
+  needed, or if it was something useful ... it was completely
+  forgotten."*)* Commits behind is not age: in a busy repo two hundred
+  commits can be a week, so read the date, not the count.
+
+  The *inventory* was already read at step 4 of the order of operations,
+  for a different reason — to stop this run rediscovering work that
+  exists. What is left here is the expensive half: a verdict on each.
   [tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/very_deep_check.py) reports, for this
   checkout and for every source that is its own git checkout (a repo-local
   source inside the parent checkout shares its parent's branches and isn't

@@ -24334,6 +24334,53 @@ def check_ci_workflow_approved_pins_approval_to_content():
           not bad, '; '.join(f'{n} -- {d[:1500]}' for n, d in bad))
 
 
+def check_workflow_write_gate_refuses_api_writes():
+    """practice: ci-workflow-approved, 2026-09-26. A session can write a file
+    straight onto GitHub with a file-write tool, and no push gate sees it.
+    workflow-write-gate.sh refuses that for a workflow file, on both tools,
+    and lets every other file through."""
+    import shutil
+    hook = ROOT / 'templates' / 'harness' / 'claude-code' / 'hooks' / \
+        'workflow-write-gate.sh'
+    cases = []
+    if not shutil.which('jq'):
+        check('workflow-write-gate.sh refuses a workflow written through '
+              'the API -- NOT RUN: no jq here, and the hook fails open '
+              'without it', True, '')
+        return
+
+    def run(payload):
+        p = subprocess.run(['bash', str(hook)], input=json.dumps(payload),
+                           capture_output=True, text=True, timeout=60)
+        return '"deny"' in p.stdout, p.stdout
+
+    denied, out = run({'tool_name': 'mcp__github__create_or_update_file',
+                       'tool_input': {'path': '.github/workflows/new.yml',
+                                      'content': 'on: push'}})
+    cases.append(('create_or_update_file on a workflow is refused, naming '
+                  'the practice', denied and 'ci-workflow-approved' in out
+                  and '.github/workflows/new.yml' in out))
+    denied, out = run({'tool_name': 'mcp__github__push_files',
+                       'tool_input': {'files': [
+                           {'path': 'README.md', 'content': 'x'},
+                           {'path': '.github/workflows/ci.yaml',
+                            'content': 'on: push'}]}})
+    cases.append(('push_files carrying one workflow among other files is '
+                  'refused', denied and '.github/workflows/ci.yaml' in out))
+    denied, _ = run({'tool_name': 'mcp__github__push_files',
+                     'tool_input': {'files': [{'path': 'README.md'},
+                                              {'path': 'docs/workflows.yml'}]}})
+    cases.append(('CONTROL: ordinary files, even one named like a workflow '
+                  'outside .github/workflows, pass', not denied))
+    same = (ROOT / '.claude' / 'hooks' / 'workflow-write-gate.sh')
+    cases.append(("this repo runs the byte-identical copy it ships",
+                  same.is_file() and same.read_bytes() == hook.read_bytes()))
+    bad = [c[0] for c in cases if not c[1]]
+    check(f'workflow-write-gate.sh refuses a workflow written straight onto '
+          f'GitHub and passes everything else ({len(cases)} stated cases)',
+          not bad, '; '.join(bad))
+
+
 def check_session_start_warns_of_unapproved_workflow():
     """practice: ci-workflow-approved, 2026-09-26. templates/bootstrap.sh
     runs the check at session start, because a workflow edited on GitHub's
@@ -24492,9 +24539,9 @@ def check_ci_fleet_audit_reads_github_not_the_clone():
         ('the totals line counts the findings it printed',
          f'ci_fleet_audit: {n} finding(s) in 1 repo(s) reached; 1 not '
          f'reached.' in out and n == 4),
-        ('a branch with no commit in 14 days is counted, never read',
+        ('a branch with no commit in 7 days is counted, never read',
          'ghost.yml' not in out and 'branch old' not in out
-         and '1 side branch(es) with no commit in 14 days not read' in rows),
+         and '1 side branch(es) with no commit in 7 days not read' in rows),
         # GitHub's runner has no PyYAML (2026-09-26: this check went red
         # there on the staging-into-main pull request, green in every
         # session). The line reader must give push_fires the same answers.
@@ -34376,6 +34423,7 @@ def main():
     check_ci_workflow_approved_pins_approval_to_content()
     check_ci_fleet_audit_reads_github_not_the_clone()
     check_session_start_warns_of_unapproved_workflow()
+    check_workflow_write_gate_refuses_api_writes()
     check_very_deep_check_workflow_liveness_scan()
     check_rule_rewrite_detection()
     check_source_shape_is_verified()
