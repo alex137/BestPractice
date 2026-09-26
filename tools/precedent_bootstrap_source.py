@@ -175,7 +175,11 @@ SESSION_HOOKS = ('freshness-guard.sh', 'commit-identity.sh',
                  # Added 2026-09-25 with HOOK_WIRING's `source` list, which
                  # this tuple and the payload below must agree with
                  # (precedent_check.py: new-hook-joins-the-registry).
-                 'seeded-prompt-gate.sh')
+                 'seeded-prompt-gate.sh',
+                 # No workflow file written straight onto GitHub, past the
+                 # push gate that checks its approval (2026-09-26,
+                 # ci-workflow-approved).
+                 'workflow-write-gate.sh')
 # The third hook a set gets, kept out of SESSION_HOOKS because it is the one
 # that is NOT a verbatim copy: it is instantiated from a .template with two
 # placeholders substituted, which is write_session_hook()'s job below.
@@ -623,6 +627,15 @@ def _install_session_hooks(dest, base_branch='main'):
                     'hooks': [
                         {'type': 'command',
                          'command': '$CLAUDE_PROJECT_DIR/.claude/hooks/seeded-prompt-gate.sh'},
+                    ],
+                }, {
+                    # Refuses a workflow file written straight onto GitHub,
+                    # the one route the push gate never sees
+                    # (ci-workflow-approved). Same matcher as HOOK_WIRING.
+                    'matcher': 'mcp__.*__(create_or_update_file|push_files)',
+                    'hooks': [
+                        {'type': 'command',
+                         'command': '$CLAUDE_PROJECT_DIR/.claude/hooks/workflow-write-gate.sh'},
                     ],
                 }],
             },
