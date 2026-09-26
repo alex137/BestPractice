@@ -530,6 +530,18 @@ says so, both from the vendored tree under `process/upstream/`.
     "In the migration and updates, can we put a check explicitly for
     this?"). Until every file passes, step 6 fails and so does every push.
 
+    **The update only changes the branch it lands on, so old side branches
+    keep whatever workflow files they had.** A side branch whose copy of a
+    since-retired workflow still has a push trigger bills again the moment
+    anyone pushes it. Run `python3 tools/ci_fleet_audit.py --repo
+    OWNER/NAME` for this repo and read its side-branch findings. For each
+    one, say whether the branch holds anything unmerged, and hand the
+    person its one-click link to delete it
+    ([never-delete-a-remote-branch](never-delete-a-remote-branch.md)).
+    *(Found 2026-09-26: two stale branches in a consuming repo still
+    carried the retired `bestpractice-docs.yml` with a push trigger, several
+    updates after `main` dropped it.)*
+
     **(h) Give the repo all three branches.** Run
     `python3 tools/precedent_branches.py --ensure-tiers`. It says whether
     origin has `pre-staging` and a `staging` branch of its own; if either is
