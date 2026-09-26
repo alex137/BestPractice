@@ -3,7 +3,7 @@ slug:              todo-2026-09-26-create-word-doc-declares-its-script
 kind:              analysis
 domain:            vendoring
 severity:          null
-status:            open
+status:            done
 disposition:       null
 remind_on:         null
 blocked_on:        "precedent-shared-writing not attached with push this session"
@@ -12,7 +12,7 @@ decision:          null
 decision_strength: null
 waiting_on:        null
 noted:             2026-09-26
-closed:            null
+closed:            2026-09-26
 ---
 ## What
 
@@ -44,3 +44,17 @@ and per-repository registries that must not ship.
 
 `precedent-shared-writing`'s `practices/create-word-doc.md` carries the
 `ships:` line on its routine branch.
+
+## Closed 2026-09-26 — the line is in
+
+`precedent-shared-writing`'s `create-word-doc` carries
+`ships: ["tools/create_word_doc.py"]` on its `pre-staging`
+([fad7f5e](https://github.com/themorgan/precedent-shared-writing/commit/fad7f5e)),
+and its Vendoring paragraph no longer tells consumers to copy the script by
+hand. Morgan, 2026-09-26: "Go ahead on shared writing" (strength: assented).
+Checked before the push, with this repository's `staging` engine against the
+set: `practice-carries-its-files` passes, and fails on the set's previous
+copy of the practice, naming the test's read of the script; the
+consumer-shaped test pass goes from `test_create_word_doc.sh` failing to all
+five passing. It reaches a consumer once the set promotes to its `main` and
+the consumer takes an engine from BestPractice `main` that reads `ships:`.

@@ -17,7 +17,7 @@
 | [`todo-2026-09-06-nine-practices-carry-an-empty-why`](todo-2026-09-06-nine-practices-carry-an-empty-why.md) | Nine practices carry an empty `## Why`. | 20d | wait | nothing but the work. |
 | [`todo-2026-09-06-out-of-chat-notifications`](todo-2026-09-06-out-of-chat-notifications.md) | Out-of-chat change notifications for members. | 20d | wait |  |
 | [`todo-2026-09-06-reduce-github-dependency`](todo-2026-09-06-reduce-github-dependency.md) | Reduce GitHub dependency when ready. | 20d | wait |  |
-| [`todo-2026-09-06-retire-merge-target-practice`](todo-2026-09-06-retire-merge-target-practice.md) | Retire local/practices/merge-target-is-beta-branch.md (and its check at local/tools/checks/check_merge_target_is_beta_br | 20d | wait | Alex's review and approval of `precedent-beta-v01` for the real phase-7 merge in… |
+| [`todo-2026-09-06-retire-merge-target-practice`](todo-2026-09-06-retire-merge-target-practice.md) | Retire local/practices/merge-target-is-beta-branch.md (and its check at local/tools/checks/check_merge_target_is_beta_br | 20d | wait | Morgan or Alex saying work moves to `main` (the practice's own expiry since 2026… |
 | [`todo-2026-09-06-source-repo-consumes-no-catalogue`](todo-2026-09-06-source-repo-consumes-no-catalogue.md) | A source repo consumes no catalogue, so it cannot check itself. | 20d | wait |  |
 | [`todo-2026-09-06-sweep-for-other-places-bestpractice-does-not-follow-its-own-`](todo-2026-09-06-sweep-for-other-places-bestpractice-does-not-follow-its-own-.md) | Sweep for other places BestPractice does not follow its own install instructions. | 20d | wait | nothing but its size and the per-step judgment call about which steps apply to t… |
 | [`todo-2026-09-06-unreachable-practices`](todo-2026-09-06-unreachable-practices.md) | Populate `not_binding` for the practices in force here that do not bind this repo. | 20d | wait | a session that can resolve the private sources — see `attach-private-sources` fo… |
@@ -82,7 +82,6 @@
 | [`todo-2026-09-20-the-load-budget-registry-asserts-loads-nothing-verifies`](todo-2026-09-20-the-load-budget-registry-asserts-loads-nothing-verifies.md) | tools/session_load_budgets.json declares what every session loads, and nothing checks that any of it is loaded. | 6d | wait |  |
 | [`todo-2026-09-22-ported-identity-checks-have-no-planted-harness-cases`](todo-2026-09-22-ported-identity-checks-have-no-planted-harness-cases.md) | `tools/checks/check_commit_author.py` and `check_buenos_aires_dates.py`, ported to this repo from precedent-individual ( | 4d | ask |  |
 | [`todo-2026-09-22-session-practices-slug-can-render-twice`](todo-2026-09-22-session-practices-slug-can-render-twice.md) | tools/precedent_session_practices.py's `collect()` can render the same slug twice in front of a session | 4d | raise |  |
-| [`todo-2026-09-26-create-word-doc-declares-its-script`](todo-2026-09-26-create-word-doc-declares-its-script.md) | `create-word-doc` in `precedent-shared-writing` adds `ships: ["tools/create_word_doc.py"]` to its frontmatter | 0d | wait | precedent-shared-writing not attached with push this session |
 
 ## Verify Before External Use
 

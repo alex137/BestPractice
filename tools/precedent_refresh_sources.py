@@ -30,7 +30,11 @@ WHAT IT DELIBERATELY DOES NOT DO. It never pushes and never opens a pull
 request. `--apply` refreshes the vendored files and regenerates the views,
 and `--commit` will commit that on a branch in the target repo; publishing
 it stays a person's (or a session's) explicit act, per that repo's own
-merge rules, which this tool has no way to know.
+merge rules, which this tool has no way to know. Nor does --apply write
+into a CONSUMER repo unless --path names it: one attached beside this
+checkout is reported and left alone, because its engine and hooks move by
+"Update Vendors" there, which checks and commits them (2026-09-26; the
+story is in main()).
 
 THERE IS NO UNATTENDED PATH, AND THAT IS THE DECISION (2026-09-14). This
 paragraph used to end by naming one -- "the scheduled workflow the source
@@ -892,6 +896,13 @@ def _credential_reminder():
         print(line)
 
 
+def _may_write(entry, asked=()):
+    """True when --apply may write into this repo: any practice set, and a
+    consumer only when --path named it. See main() for why."""
+    return (entry.get('kind') != 'consumer'
+            or pathlib.Path(entry['repo']).resolve() in set(asked))
+
+
 def main(argv):
     if '--help' in argv or '-h' in argv:
         print(__doc__)
@@ -970,6 +981,35 @@ def main(argv):
               f"commit the result on a branch in each); publishing stays your call, "
               f"per each repo's own merge rules.")
         return 1 if '--check' in argv else 0
+
+    # A CONSUMER IS WRITTEN ONLY WHEN IT WAS NAMED (practice:
+    # repair-cannot-discard-work). The SessionStart hook runs --apply over
+    # every repo beside this checkout, and a consumer lands there whenever a
+    # session attaches one to look at it. On 2026-09-26 that happened to
+    # a private consumer: each start wrote five hook files and a
+    # settings.json line into it, overwrote the two hooks its
+    # precedent-individual adapter owns, and committed none of it. The
+    # uncommitted files then stopped this same run's refresh ("uncommitted
+    # changes present that the engine does not own") and made the stop hook
+    # read the container as holding unsaved work, so the session could not be
+    # archived; clearing them by hand lasted until the next resume. The hook
+    # repair was written for practice SETS created before their hooks
+    # existed. A consumer's engine and hooks move by "Update Vendors" in that
+    # repo, which checks and commits what it writes. So a consumer is
+    # reported here as before, and left alone unless --path names it.
+    asked = {pathlib.Path(x).expanduser().resolve() for x in extra}
+    held = [e for e in {id(e): e for e in (*stale, *hookbad)}.values()
+            if not _may_write(e, asked)]
+    for e in held:
+        print(f"\n--- {_label(e['repo'])}\n  LEFT ALONE: a consumer repo -- its "
+              f"engine and hooks move by \"Update Vendors\" there, which checks "
+              f"and commits them. Name it with --path to write into it from here.")
+    stale = [e for e in stale if _may_write(e, asked)]
+    hookbad = [e for e in hookbad if _may_write(e, asked)]
+    if not stale and not hookbad:
+        print("\nprecedent_refresh_sources: nothing written -- every repo "
+              "needing work here is a consumer left alone above.")
+        return 0
 
     failed = False
     skipped = []

@@ -530,6 +530,16 @@ says so, both from the vendored tree under `process/upstream/`.
     "In the migration and updates, can we put a check explicitly for
     this?"). Until every file passes, step 6 fails and so does every push.
 
+    **The update only changes the branch it lands on**, so a side branch
+    keeps whatever workflow files it had. That matters only for an active
+    one: a branch runs a workflow when it is pushed, and a stale branch
+    nobody pushes runs nothing. Run `python3 tools/ci_fleet_audit.py --repo
+    OWNER/NAME` for this repo. It reads only side branches with a commit in
+    the last 14 days and names any whose workflow would run on its next
+    push. For each one, say whether the branch holds anything unmerged, and
+    hand the person its one-click link to delete it
+    ([never-delete-a-remote-branch](never-delete-a-remote-branch.md)).
+
     **(h) Give the repo all three branches.** Run
     `python3 tools/precedent_branches.py --ensure-tiers`. It says whether
     origin has `pre-staging` and a `staging` branch of its own; if either is

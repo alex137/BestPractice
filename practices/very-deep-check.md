@@ -1108,17 +1108,22 @@ confidently.
     item 13.
 
 22. **Read the CI FLEET AUDIT: every workflow on every branch of every
-    repo, as GitHub sees it, and every schedule in one CRON REVIEW.**
+    repo, as GitHub sees it.**
     [tools/ci_fleet_audit.py](https://github.com/alex137/BestPractice/blob/staging/tools/ci_fleet_audit.py)
     asks GitHub, not the clone. Items 18 and 19 read the files in the
     trees on disk. This one sees what never passes a session's push gate:
     a workflow edited on GitHub's website, one written through the GitHub
-    API, one sitting on a side branch (GitHub runs a branch's own workflow
-    files when that branch is pushed), and one in a repo that does not use
-    Precedent. For each workflow it prints when it runs, whether it is
+    API, one sitting on an active side branch (GitHub runs a branch's own
+    workflow files when that branch is pushed), and one in a repo that
+    does not use Precedent. A side branch with no commit in 14 days is
+    counted and not read: it runs nothing until pushed, and a push makes it
+    active for the next run. For each workflow it prints when it runs, whether it is
     approved at its exact content
     ([ci-workflow-approved](https://github.com/alex137/BestPractice/blob/staging/practices/ci-workflow-approved.md)),
-    and GitHub's run count over 30 days by event.
+    and GitHub's run count over 30 days by event. A schedule shows among a
+    workflow's triggers. It runs only here and by hand, never on a schedule
+    of its own (Morgan, 2026-09-26: "I only want this to run when either
+    manually invoked or as part of a very deep check").
 
     **Its output stays in the session.** It names other repositories, so it
     never goes into a repo, an issue or a pull request (Morgan, 2026-09-26,

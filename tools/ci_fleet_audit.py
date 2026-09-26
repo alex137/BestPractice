@@ -19,12 +19,19 @@ FOR EACH REPOSITORY IT REACHES:
     pull-request branches, schedules in plain words), and whether it is the
     engine's own copy, approved in precedent.json's github_ci_approved at
     this exact content, edited since, or approved by nobody;
-  * every OTHER branch whose workflow files differ from the default
-    branch's, and whether pushing that branch would run them;
+  * every ACTIVE side branch (a commit in the last 14 days) whose
+    workflow files differ from the default branch's, and whether pushing
+    it would run them. A stale branch runs nothing until someone pushes
+    it, and that push makes it active for the next run, so it is counted
+    and not read;
   * GitHub's own run count per workflow over the last 30 days, by event --
     runs, not minutes: each run bills at least one minute per job in a
-    private repository;
-  * a CRON REVIEW across the whole fleet, every schedule in one table.
+    private repository. A scheduled workflow shows its schedule among its
+    triggers, like any other; there is no separate schedule table (Morgan,
+    2026-09-26: "I do not want a cron review").
+
+IT RUNS ONLY WHEN ASKED: by hand, or as the very deep check's CI FLEET AUDIT
+section. Nothing schedules it.
 
 IT WRITES NOTHING, ANYWHERE. Output goes to the session that ran it. The
 report names other repositories, so it never goes into a repo, an issue or a
@@ -59,9 +66,12 @@ APPROVED_KEY = 'github_ci_approved'
 WF_DIR = '.github/workflows'
 DAYS = 30
 MAX_BRANCHES = 40
+# A side branch with no commit in this many days is not read: it runs a
+# workflow only when pushed, and a push makes it active again, so the next
+# run reads it then (Morgan, 2026-09-26: "I think we should update this to
+# only check active branches").
+ACTIVE_DAYS = 14
 RUN_PAGES = 3
-WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday',
-            'Friday', 'Saturday']
 
 
 def _default_call(path):
@@ -111,50 +121,6 @@ def push_fires(on, branch):
         return not any(fnmatch.fnmatch(branch, str(g))
                        for g in spec.get('branches-ignore') or [])
     return not ('tags' in spec or 'tags-ignore' in spec)
-
-
-def crons(on):
-    if not isinstance(on, dict):
-        return []
-    spec = on.get('schedule')
-    if not isinstance(spec, list):
-        return []
-    return [str(c.get('cron')) for c in spec
-            if isinstance(c, dict) and c.get('cron')]
-
-
-def cron_words(expr):
-    """-> (plain words, runs per month or None). Only the common shapes are
-    put into words; anything else is shown as written, never guessed at."""
-    f = expr.split()
-    if len(f) != 5:
-        return expr, None
-    mi, hr, dom, mon, dow = f
-    if mi.startswith('*/') and hr == dom == mon == dow == '*':
-        n = int(mi[2:]) if mi[2:].isdigit() else 0
-        return (f'every {n} minutes', 43200 // n) if n else (expr, None)
-    if not mi.isdigit():
-        return expr, None
-    if hr == '*' and dom == mon == dow == '*':
-        return f'every hour at :{int(mi):02d}', 720
-    if hr.startswith('*/') and hr[2:].isdigit() and dom == mon == dow == '*':
-        n = int(hr[2:])
-        return f'every {n} hours at :{int(mi):02d}', 720 // n
-    if not hr.isdigit() or dom != '*' or mon != '*':
-        return expr, None
-    at = f'{int(hr):02d}:{int(mi):02d} UTC'
-    if dow == '*':
-        return f'daily at {at}', 30
-    days = []
-    for part in dow.split(','):
-        if part.isdigit() and int(part) <= 7:
-            days.append(WEEKDAYS[int(part) % 7])
-        elif '-' in part and all(x.isdigit() for x in part.split('-')):
-            a, b = (int(x) for x in part.split('-'))
-            days += [WEEKDAYS[d % 7] for d in range(a, b + 1)]
-        else:
-            return expr, None
-    return f'weekly on {", ".join(days)} at {at}', round(4.3 * len(days))
 
 
 def _content(call, slug, path, ref):
@@ -241,12 +207,22 @@ def _runs_words(by_event):
             + (f', the last on {last}' if last else ''))
 
 
+def _branch_date(call, slug, name):
+    """-> 'YYYY-MM-DD' of the branch's newest commit, or None."""
+    data, err = call(f'repos/{slug}/branches/{name}')
+    if err or not isinstance(data, dict):
+        return None
+    c = (data.get('commit') or {}).get('commit') or {}
+    when = (c.get('committer') or {}).get('date') or \
+        (c.get('author') or {}).get('date')
+    return str(when)[:10] if when else None
+
+
 def audit_repo(slug, call=_default_call, days=DAYS,
-               max_branches=MAX_BRANCHES, today=None):
-    """-> dict with 'reached', 'rows' [(verdict, text)], 'crons' [...],
-    'note'. Pure over `call`, so a test can plant any GitHub it likes."""
-    out = {'slug': slug, 'reached': False, 'rows': [], 'crons': [],
-           'note': ''}
+               max_branches=MAX_BRANCHES, today=None,
+               active_days=ACTIVE_DAYS):
+    """-> dict with 'reached', 'rows' [(verdict, text)] and 'note'. Pure over `call`, so a test can plant any GitHub it likes."""
+    out = {'slug': slug, 'reached': False, 'rows': [], 'note': ''}
     meta, err = call(f'repos/{slug}')
     if err or not isinstance(meta, dict) or 'default_branch' not in meta:
         msg = err or str((meta or {}).get('message', meta))[:200]
@@ -321,10 +297,6 @@ def audit_repo(slug, call=_default_call, days=DAYS,
             status += f' -- and it runs on every push to {default}, so every merge bills a run'
         rows.append((verdict, f'{path} [{default}{state_s}]: {status}. '
                               f'Runs on: {when}. Last {days} days: {ran}.'))
-        for c in crons(on):
-            words, per_month = cron_words(c)
-            out['crons'].append((slug, path, c, words, per_month,
-                                 verdict == 'OK'))
 
     branches, err = call(f'repos/{slug}/branches?per_page=100')
     if err or not isinstance(branches, list):
@@ -333,6 +305,23 @@ def audit_repo(slug, call=_default_call, days=DAYS,
         branches = []
     others = [b.get('name') for b in branches
               if isinstance(b, dict) and b.get('name') != default]
+    cutoff = (today - datetime.timedelta(days=active_days)).isoformat()
+    active, stale = [], 0
+    for name in others:
+        when = _branch_date(call, slug, name)
+        if when is None:
+            rows.append(('UNVERIFIED', f'branch {name}: could not read its '
+                                       f'last commit date'))
+        elif when >= cutoff:
+            active.append(name)
+        else:
+            stale += 1
+    if stale:
+        rows.append(('NOTE', f'{stale} side branch(es) with no commit in '
+                             f'{active_days} days not read: a stale branch '
+                             f'runs nothing until pushed, and a push makes '
+                             f'it active for the next run'))
+    others = active
     if len(others) > max_branches:
         rows.append(('UNVERIFIED', f'{len(others) - max_branches} of '
                                    f'{len(others)} side branches not read '
@@ -440,15 +429,6 @@ def render(results, days=DAYS, out=sys.stdout):
             findings += verdict == 'FINDING'
             w(f'      {verdict:<11} {text}\n')
         w('\n')
-    allcron = [c for r in results for c in r['crons']]
-    w('  CRON REVIEW -- every schedule on a default branch in the fleet\n')
-    if not allcron:
-        w('      none found in the repos reached\n')
-    for slug, path, expr, words, per_month, ok in allcron:
-        freq = f'~{per_month} runs/month' if per_month else 'frequency not put into words'
-        w(f"      {slug} {path}: '{expr}' = {words}, {freq}"
-          f"{'' if ok else ' -- NOT APPROVED'}\n")
-    w('\n')
     if unreached:
         w('  NOT REACHED -- not checked, which is not the same as clean\n')
         for r in unreached:
@@ -468,6 +448,9 @@ def main(argv=None):
                          'beside this checkout')
     ap.add_argument('--days', type=int, default=DAYS)
     ap.add_argument('--max-branches', type=int, default=MAX_BRANCHES)
+    ap.add_argument('--active-days', type=int, default=ACTIVE_DAYS,
+                    help='read a side branch only if it has a commit this '
+                         'recent (default %(default)s)')
     a = ap.parse_args(argv)
     slugs = a.repo or discover()
     if not slugs:
@@ -478,7 +461,8 @@ def main(argv=None):
     for i, slug in enumerate(slugs, 1):
         print(f'[{i}/{len(slugs)}] {slug}', file=sys.stderr, flush=True)
         results.append(audit_repo(slug, days=a.days,
-                                  max_branches=a.max_branches))
+                                  max_branches=a.max_branches,
+                                  active_days=a.active_days))
     render(results, days=a.days)
     try:
         import github_budget
