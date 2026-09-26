@@ -1506,7 +1506,7 @@ def _practice_carries_its_files(ctx):
         if not (name.startswith('check_') and name.endswith('.py')
                 and '/checks/' in cb):
             continue
-        test = ROOT / 'tools' / 'checks' / 'tests' / (
+        test = (ROOT / 'tools').joinpath('checks', 'tests') / (
             'test_' + name[len('check_'):-3] + '.sh')
         if not test.is_file():
             continue
