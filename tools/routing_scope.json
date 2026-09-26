@@ -99,7 +99,7 @@
       "gates": [
         "reply"
       ],
-      "gates_why": "A reply naming a branch as deletable has no file to match on. Morgan, 2026-09-21: the link has to arrive \"always always always\", and the miss was structural -- the path channel cannot see a sentence. The reply gate is the moment the naming happens, and it is the same moment the-boildown's item 5 is written."
+      "gates_why": "A reply naming a branch as deletable has no file to match on. Morgan, 2026-09-21: the link has to arrive \"always always always\", and the miss was structural -- the path channel cannot see a sentence. The reply gate is the moment the naming happens, and it is the same moment the-boildown's item 6 is written."
     },
     "brief-it": {
       "globs": [

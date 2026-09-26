@@ -106,6 +106,12 @@ Before reporting anything fixed, ask **where the fix lives** and say so:
   open an item for the durable fix naming its blocker.
 - **Only in this session?** It is not a fix yet.
 
+**Where the answer goes: [The Boildown](the-boildown.md)'s item 4**, which
+opens with "Root fix:" or "Band-aid:" whenever a reply made or recommended a
+fix, and names the root fix beside every band-aid. Since 2026-09-26 that
+slot is what makes a missing answer visible; this file says how to decide
+which label is true.
+
 Then apply [verify-postcondition](verify-postcondition.md) to the durable
 claim specifically: not *"the command succeeded"* but *"a fresh checkout
 gets this"*.

@@ -215,7 +215,15 @@ asserted here and verified nowhere a set or a consumer could run:
 
 - [`precedent_resolve.py`](../tools/precedent_resolve.py) reports `IN FORCE NOWHERE: <slug> (<source>)` for
   a deduplicated practice whose `in_force_at:` names a slug that no
-  resolved source has active. [`precedent_sync_views.py`](../tools/precedent_sync_views.py) prints the same
+  resolved source has active. The address is **followed**, not just looked
+  up: when it names a slug that is itself a deduplicated stub (a rename
+  leaves one behind), the resolver walks on to wherever that stub forwards,
+  stopping on a cycle. Since 2026-09-26, after renaming `go-merge` to
+  `go-update` left every set's `go-merge` reading in force nowhere.
+  [`precedent_materialize.py`](../tools/precedent_materialize.py) uses the
+  same walk to repoint a link to the stub's file at the live practice, when
+  the run writes it: a consumer never materializes the stub, so the link
+  would otherwise be dead. [`precedent_sync_views.py`](../tools/precedent_sync_views.py) prints the same
   line, on `--check` and on a write.
 - [`precedent_sync_views.py`](../tools/precedent_sync_views.py) also names a **copy-and-delete**: a slug the
   consumer's committed `MANIFEST.json` recorded from one declared source,

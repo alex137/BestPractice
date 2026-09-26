@@ -415,7 +415,7 @@ There are three, and they answer different questions with different evidence:
 | `status:` | Means | Requires |
 |---|---|---|
 | `active` | The rule is in force here. | no `in_force_at:` |
-| `deduplicated` | The **copy** here is redundant. The rule itself is fully in force, from another source or from the engine. | `in_force_at:` naming a slug that **resolves in force**, or the literal `engine` |
+| `deduplicated` | The **copy** here is redundant. The rule itself is fully in force, from another source or from the engine. | `in_force_at:` naming a slug that **resolves in force** (directly, or through another deduplicated stub's own `in_force_at:`), or the literal `engine` |
 | `retired` | Nobody wants this rule anywhere. | `in_force_at: none`, plus a `## Story` line saying why |
 
 **`retired` here is about a RULE, and the file stays.** A practice marked
