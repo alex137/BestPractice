@@ -34,7 +34,7 @@ scope:       any-adopter        # any-adopter | engine-dev -- see "scope" sectio
 applies_to:  ["**"]             # path globs
 occasion:    "prose trigger"
 gates:       []                  # named moments -- see below
-index_clause: "the one line the occasion index shows"   # see below
+index_clause: "the one line the occasion index shows"   # 80 characters at most; see below
 index_required: null          # OPTIONAL -- true keeps the index line; see below
 checked_by:  tools/x.py or null
 ships:       []               # OPTIONAL -- files the practice owns besides checked_by and its test; see below
@@ -777,8 +777,17 @@ The plan's own worked example is not a derived first sentence; it is a
 written clause — *"references are links; ≈ not ~"*. So the clause is
 authored, one per on-demand practice, and
 [`tools/verify_harness.py`](../tools/verify_harness.py) requires it: present,
-under 80 characters, finishing its thought, and reading as a table cell
-rather than a sentence. Derivation stays as a fallback so a newly added
+**80 characters at most**, finishing its thought, and reading as a table cell
+rather than a sentence.
+
+**Count with a tool, never by eye.** Since 2026-09-26
+[`tools/build_views.py`](../tools/build_views.py) refuses to write the views
+when a clause you wrote or changed is over the limit, and names the file and
+its length. That is where a writer finds out. A session had extended one
+clause to 81 characters, and the tool rendered it without a word. The only
+check that knew the limit was the harness, and a push to `pre-staging` does
+not run it. Clauses a practice set already carried over the limit before
+that date are not refused until someone edits them. Derivation stays as a fallback so a newly added
 practice renders something before its clause is written.
 
 This is metadata for a generated view, not practice text — the
