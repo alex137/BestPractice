@@ -38,7 +38,7 @@ renderers, each blind to the other's slug set — the same shape of gap
 ## Why it does not reproduce today
 
 Four slugs are declared at both levels in this repo's own attached sources
-(`go-merge`, `leak-gate-is-background`, `next-steps-after-commit`,
+(`go-update`, `leak-gate-is-background`, `next-steps-after-commit`,
 `practice-links-travel`), and all four avoid the duplicate only because the
 local copy is hand-marked `status: deduplicated` in its frontmatter, which
 [tools/build_views.py](../tools/build_views.py) reads and excludes from the

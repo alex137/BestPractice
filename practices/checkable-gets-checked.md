@@ -6,8 +6,8 @@ severity:    default
 applies_to:  ["practices/**", "PRACTICES.md"]
 occasion:    "writing a new convention or rule"
 gates:       ["review"]
-index_required: false
 index_clause: "attempt a mechanical check before leaving a new practice advisory-only"
+index_required: false
 checked_by:  null
 defines:     []
 status:      active

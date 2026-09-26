@@ -6,8 +6,8 @@ severity:    default
 applies_to:  ["practices/*.md", "local/practices/*.md", "decisions/*.md"]
 occasion:    "recording that someone approved a practice or a decision, or citing their past approval back to them"
 gates:       ["reply"]
-index_required: false
 index_clause: "record `decided` or `assented`; unmarked means unknown, never \"you decided this\""
+index_required: false
 checked_by:  "tools/precedent_check.py"
 defines:     ["decided", "assented"]
 status:      active
@@ -136,7 +136,7 @@ for a session to split hairs about someone's state of mind — which is the
 invention this rule exists to stop.
 
 **Extended 2026-09-16, on Alex's design point and Morgan's decision**, the
-same conversation that revised [go-merge](go-merge.md) and
+same conversation that revised [go-update](go-update.md) and
 [weak-yes](weak-yes.md): a genuinely ambiguous read gets said out loud
 rather than filed silently, per Morgan's *"use your judgment and ASK the
 person if you have doubt."* The clean-case table below is unaffected — this

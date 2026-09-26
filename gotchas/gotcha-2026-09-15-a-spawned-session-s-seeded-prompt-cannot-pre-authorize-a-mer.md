@@ -12,7 +12,7 @@ The symptom.
 
 ## Story
 
-**The symptom.** [go-merge](../practices/go-merge.md) and
+**The symptom.** [go-update](../practices/go-update.md) and
 [spawn-session](../practices/session-text.md) both say a relayed `Go merge`
 travels with a seeded prompt: the receiving session merges without asking
 again, bounded by

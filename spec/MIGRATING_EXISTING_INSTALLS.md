@@ -734,7 +734,16 @@ widening what sessions may run
    harness adapter the universal source installs into `.claude/hooks/` —
    `precedent-universal-catalogue.sh` is for practice sets and a consumer
    declines it in `precedent.json`'s `declined_adapters` with the reason
-   (`hooks-on-disk-are-reachable`); create `process/scrub_blocklist.txt`
+   (`hooks-on-disk-are-reachable`). **Declining it gives up one thing a
+   consumer still needs**: it was, until 2026-09-26, the only session-start
+   step that cloned the shared sets `precedent.json` declares. The
+   template's `tools/bootstrap.sh` carries that step now ("Clone every
+   shared practice set"). A consumer with an edited `tools/bootstrap.sh`
+   must carry that block itself, or declare in `source_clone_elsewhere`
+   what clones its sets instead (`declared-sources-are-cloned` fails it
+   otherwise). Without the step, a declared set is missing from every
+   fresh container and the loader block reads as drifted
+   ([the gotcha](../gotchas/gotcha-2026-09-26-a-declared-shared-set-is-never-cloned-in-a-consumer-s-fresh.md)); create `process/scrub_blocklist.txt`
    if the manifest names one (`scrub-gate`); and, since 2026-09-19, run
    `python3 tools/todo_migrate.py --apply` then `python3
    tools/build_todo_index.py` if `TODO.md` is still the old single-file

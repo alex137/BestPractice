@@ -5,8 +5,8 @@ tier:        on-demand
 severity:    default
 applies_to:  ["**"]
 occasion:    "when fixing anything -- a bug, a stale file, a broken environment"
-index_clause: "prefer the fix that survives a fresh container; name a band-aid as one"
 gates:       ["review", "reply"]
+index_clause: "prefer the fix that survives a fresh container; name a band-aid as one"
 index_required: false
 checked_by:  null
 defines:     []

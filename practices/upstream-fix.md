@@ -110,4 +110,4 @@ Strength: decided.
 ## Install
 No mechanical check. Whether a reply found the real cause is a judgment
 about the problem, not a property a script can see in the diff, the same
-as [go-merge](go-merge.md) and [write-it-up](write-it-up.md).
+as [go-update](go-update.md) and [write-it-up](write-it-up.md).

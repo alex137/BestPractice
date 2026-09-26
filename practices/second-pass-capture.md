@@ -6,8 +6,8 @@ severity:    default
 applies_to:  ["**"]
 occasion:    "finishing substantial work, before the merge capture gate"
 gates:       ["merge"]
-index_required: true
 index_clause: "a separate capture pass after the work, not inside it"
+index_required: true
 checked_by:  null
 defines:     ["capture sweep"]
 status:      active

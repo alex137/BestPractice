@@ -6,8 +6,8 @@ severity:    default
 applies_to:  ["**"]
 occasion:    "a reply hands over text meant to be pasted somewhere else -- a prompt, a commit message, a PR description, a config snippet, a comment for another tool"
 gates:       ["reply"]
-index_required: false
 index_clause: "every fence block says where it goes -- Paste into: X, or not for pasting"
+index_required: false
 checked_by:  null
 defines:     ["fence block"]
 status:      active

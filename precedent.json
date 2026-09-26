@@ -131,6 +131,19 @@
     "Read by tools/precedent_time.py and .claude/hooks/commit-identity.sh.",
     "practice: timestamps-carry-offset, registry-source-of-truth."
   ],
+  "writeup_dir": "spec/",
+  "_writeup_dir_comment": [
+    "Where a 'Write it up' report is committed in this repository (practice:",
+    "write-it-up). Declared by Morgan, 2026-09-26: any session in any repo",
+    "running this layer can write these, so they need one known place rather",
+    "than wherever each session guesses.",
+    "",
+    "spec/ here, and spec/ is also what a repo gets when it omits the key.",
+    "A repo whose spec/ already means something else -- a Ruby project's",
+    "RSpec suite is the common case -- declares its own directory here.",
+    "The person naming another place for one write-up overrides it for that",
+    "write-up only."
+  ],
   "_comment": [
     "The practice sources in force in this repository. Precedent is its own",
     "consumer: the universal set it publishes is the set it runs on.",

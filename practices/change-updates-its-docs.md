@@ -6,8 +6,8 @@ severity:    default
 applies_to:  ["**"]
 occasion:    "changing a mechanism, a workflow or a behaviour that some document describes"
 gates:       ["merge"]
-index_required: false
 index_clause: "update the document that describes it, in the same commit -- never later"
+index_required: false
 checked_by:  null
 defines:     []
 status:      active

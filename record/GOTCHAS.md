@@ -1390,7 +1390,7 @@ repository.
 
 ## 43. <a id="g43"></a>A spawned session's seeded prompt cannot pre-authorize a merge — the classifier refuses the `create_session` call itself
 
-**The symptom.** [go-merge](../practices/go-merge.md) and
+**The symptom.** [go-update](../practices/go-update.md) and
 [session-text](../practices/session-text.md) both say a relayed `Go merge`
 travels with a seeded prompt: the receiving session merges without asking
 again, bounded by

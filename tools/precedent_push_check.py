@@ -8,7 +8,7 @@ ci]` line on the commit, spec/CI_CADENCE_PLAN.md). And since 2026-09-21 a
 practice source runs no CI at all (practice: source-sets-run-no-ci). Every
 one of those decisions was argued on the same premise -- "the local check
 runs before the push, so CI is a second opinion" -- and nothing ran the
-local check. It was a sentence in AGENTS.md and in go-merge's Rule. His
+local check. It was a sentence in AGENTS.md and in go-update's Rule. His
 ask, on being shown that: "it should be the same list of everything we
 used to run (just locally we do it, not via the github ci/cd)."
 
@@ -184,6 +184,15 @@ CONSUMER_SHAPE_SUITE = ('consumer_shape',
 # commits still carry his zone everywhere; the commit-time backstop in
 # commit-identity.sh is what holds them to it.
 SKIP_IS_FINE_WITHOUT_IDENTITY = {'commit_author', 'commit_dates'}
+# THE CHECKS THAT JUDGE COMMITS, NOT THE TREE. A recorded or shared pass is
+# keyed on the tree, and two commits can carry one tree with different
+# authors: the merge a Promote makes has exactly the tree its checked parents
+# had. So these two run on every gate, reused pass or not -- they take about
+# a second. On 2026-09-26 a Promote reused another checkout's pass for the
+# same tree in four repositories, and the bot-authored merge commits it had
+# just made went out unjudged; one of those repositories' own full sweep
+# failed on its staging afterwards (practice: durable-fix).
+HISTORY_CHECKS = {'commit_author', 'commit_dates'}
 IDENTITY_CHECKS = (
     ('commit_author', ['{engine}/checks/check_commit_author.py'],
      "precedent-individual's commit-identity.yml, retired 2026-09-21"),
@@ -577,6 +586,47 @@ def run(root, checks):
     return failed, missing, total, findings
 
 
+# THE PACKAGES THE GATES IMPORT, installed here rather than trusted to a hook
+# (2026-09-26). Only BestPractice's SessionStart hook installs them, and a
+# hook fires only in a session rooted in that repo -- a session rooted above
+# every repo runs none. Without them doc_lint and doc_html degrade quietly,
+# and verify_harness fails its checks after seven minutes naming what each
+# was testing, never what is absent: that cost two full re-runs on
+# 2026-09-14 and one more on 2026-09-26. Same list as
+# precedent_session_check.py's "the packages the gates import" row.
+GATE_PACKAGES = ('cmarkgfm', 'markdown')
+
+
+def _importable(mod):
+    return subprocess.run([sys.executable, '-c', f'import {mod}'],
+                          capture_output=True).returncode == 0
+
+
+def _pip_install(mods):
+    r = subprocess.run([sys.executable, '-m', 'pip', 'install', '--quiet',
+                        *mods], capture_output=True, text=True)
+    tail = (r.stderr or r.stdout or '').strip().splitlines()
+    return tail[-1] if tail else ''
+
+
+def ensure_gate_packages(packages=GATE_PACKAGES, importable=_importable,
+                         install=_pip_install):
+    """-> (ok, note). Installs whichever of `packages` this interpreter cannot
+    import. ok is False only when one is still missing afterwards, so the run
+    stops in seconds naming it instead of failing minutes later without."""
+    missing = [m for m in packages if not importable(m)]
+    if not missing:
+        return True, ''
+    said = install(missing)
+    still = [m for m in missing if not importable(m)]
+    if still:
+        return False, (f'{", ".join(still)} missing and pip could not install '
+                       f'{"it" if len(still) == 1 else "them"}'
+                       f'{f" ({said})" if said else ""} -- run `pip install '
+                       f'{" ".join(still)}`, then this again')
+    return True, f'installed {", ".join(missing)}, which the gates import'
+
+
 def main(argv):
     root_s = git(HERE, 'rev-parse', '--show-toplevel')
     if not root_s:
@@ -622,9 +672,24 @@ def main(argv):
                     indent=2) + '\n', encoding='utf-8')
     if rec:
         when = f' at {rec["at"]}' if rec.get('at') else ''
+        history = [c for c in checks if c[0] in HISTORY_CHECKS]
         print(f'precedent_push_check: this exact tree already passed the '
               f'{rec.get("tier", tier)} check{when}{where} ({len(checks)} '
-              f'check(s)); nothing to re-run.')
+              f'check(s)); nothing to re-run'
+              + (' but the checks that judge commits rather than files.'
+                 if history else '.'), flush=True)
+        if not history:
+            return 0
+        failed, _missing, total, findings = run(root, history)
+        if failed:
+            for name in failed:
+                for line in findings.get(name, []):
+                    print(f'  {name} | {line}')
+            print(f'\nprecedent_push_check: FAILED -- {", ".join(failed)} '
+                  f'({total:.0f}s). The files passed before, but a commit '
+                  f'here since then did not. Fix the commit and run this '
+                  f'again; do not push past it.')
+            return 1
         return 0
 
     if git(root, 'rev-parse', '--is-shallow-repository') == 'true':
@@ -638,6 +703,13 @@ def main(argv):
                   '(the fetch did not complete), so the history checks '
                   'cannot run. Run `git fetch --unshallow` and try again.')
             return 1
+
+    ok_pkgs, note = ensure_gate_packages()
+    if note:
+        print(f'precedent_push_check: {"" if ok_pkgs else "FAILED -- "}{note}.',
+              flush=True)
+    if not ok_pkgs:
+        return 1
 
     if tier == FULL:
         print(f'precedent_push_check: {kind} repository {root.name}, '

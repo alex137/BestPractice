@@ -107,6 +107,7 @@ import sys
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'tools'))
 import split_practices as sp    # noqa: E402
+import frontmatter_yaml         # noqa: E402  (FIELD_ORDER)
 import precedent_time           # noqa: E402  (practice: timestamps-carry-offset)
 
 LEVELS = ('individual', 'shared', 'universal')
@@ -234,9 +235,21 @@ def _rewrite_frontmatter(text, updates):
             continue
         else:
             out.append(line)
+    # A field the file did not have goes where frontmatter_yaml.FIELD_ORDER
+    # puts it, not at the end: appending it was one way the order drifted
+    # (frontmatter-field-order, 2026-09-26). Before the first field the order
+    # puts after it; at the end only when there is none.
+    rank = {k: i for i, k in enumerate(frontmatter_yaml.FIELD_ORDER)}
     for key, value in updates.items():
-        if key not in seen:
-            out.append(f'{key}: {value}')
+        if key in seen:
+            continue
+        at = len(out)
+        for i, line in enumerate(out):
+            m = re.match(r'^([A-Za-z_]+):', line)
+            if m and rank.get(m.group(1), len(rank)) > rank.get(key, len(rank)):
+                at = i
+                break
+        out.insert(at, f'{key}: {value}')
     return '---\n' + '\n'.join(out) + body
 
 

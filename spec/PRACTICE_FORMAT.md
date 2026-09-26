@@ -34,7 +34,7 @@ scope:       any-adopter        # any-adopter | engine-dev -- see "scope" sectio
 applies_to:  ["**"]             # path globs
 occasion:    "prose trigger"
 gates:       []                  # named moments -- see below
-index_clause: "the one line the occasion index shows"   # see below
+index_clause: "the one line the occasion index shows"   # 80 characters at most; see below
 index_required: null          # OPTIONAL -- true keeps the index line; see below
 checked_by:  tools/x.py or null
 ships:       []               # OPTIONAL -- files the practice owns besides checked_by and its test; see below
@@ -49,7 +49,34 @@ added:       null                # see "What's deferred" below
 approved_by: "BestPractice (pre-fork)"
 strength:    null             # OPTIONAL -- decided | assented; see below
 source_practice_number: N        # see "Beyond the plan's example" below
+source_rule_unlabeled: true       # OPTIONAL -- only on practices 47-52; see below
 ---
+
+### Field order — one order, written down in code and checked
+
+**The fields above are listed in the one order a practice file uses.** The
+order itself lives in code, as `FIELD_ORDER` in
+[`tools/frontmatter_yaml.py`](../tools/frontmatter_yaml.py), and this example
+is held to it: `python3 tools/precedent_check.py --only
+frontmatter-field-order` reports any practice out of that order, any field
+the list doesn't name, and this example drifting from the constant. **To
+fix a file, run `python3 tools/frontmatter_yaml.py --fix-order`.** It moves
+whole fields and changes nothing else: values, comments and the padding
+that aligns them stay byte for byte. A new field goes into `FIELD_ORDER`
+and this example in the same change.
+
+Why it is checked: on 2026-09-26 a handoff message told a practice set to
+put the new `ships:` field "under applies_to", and the set followed the
+message rather than this example. That day 49 of 151 practices here were
+out of order, and every set had some. Morgan ruled that this order stands.
+The check is advisory until the sets have taken the engine update and run
+the fixer, so that none of them turns red on an update BestPractice can't
+fix for them.
+
+`source_rule_unlabeled: true` appears only on practices 47-52, which open on
+bare prose in the original numbered catalogue.
+[`split_practices.py`](../tools/split_practices.py)'s rebuild reads it so
+that it doesn't add a `**Rule.**` label those practices never had.
 
 ### `index_required` — who still earns a line in the occasion index
 
@@ -750,8 +777,17 @@ The plan's own worked example is not a derived first sentence; it is a
 written clause — *"references are links; ≈ not ~"*. So the clause is
 authored, one per on-demand practice, and
 [`tools/verify_harness.py`](../tools/verify_harness.py) requires it: present,
-under 80 characters, finishing its thought, and reading as a table cell
-rather than a sentence. Derivation stays as a fallback so a newly added
+**80 characters at most**, finishing its thought, and reading as a table cell
+rather than a sentence.
+
+**Count with a tool, never by eye.** Since 2026-09-26
+[`tools/build_views.py`](../tools/build_views.py) refuses to write the views
+when a clause you wrote or changed is over the limit, and names the file and
+its length. That is where a writer finds out. A session had extended one
+clause to 81 characters, and the tool rendered it without a word. The only
+check that knew the limit was the harness, and a push to `pre-staging` does
+not run it. Clauses a practice set already carried over the limit before
+that date are not refused until someone edits them. Derivation stays as a fallback so a newly added
 practice renders something before its clause is written.
 
 This is metadata for a generated view, not practice text — the

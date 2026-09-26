@@ -28,7 +28,7 @@
   "documents": {
     "documentation/DAILY_HABITS.md": {
       "describes": [
-        "practices/go-merge.md",
+        "practices/go-update.md",
         "practices/park-it.md",
         "practices/three-things.md",
         "practices/vendor-update-runbook.md",

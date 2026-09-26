@@ -6,8 +6,8 @@ severity:    default
 applies_to:  ["SETUP.md", "INSTALL.md", "documentation/*.md", "templates/GETTING_STARTED.md"]
 occasion:    "a setting has no value from the person -- at install, at setup, or in the middle of work"
 gates:       ["reply"]
-index_required: false
 index_clause: "apply the declared default and name it in passing; never ask"
+index_required: false
 checked_by:  null
 defines:     []
 status:      active
@@ -50,6 +50,7 @@ without a question:
 | How to refer to a person who has not said | `they/them` | [declared-pronouns](declared-pronouns.md) |
 | Whether an approval travels to another session | `refused` | `relayed_authorization` in the individual set's `identity.json` |
 | What an open item with no disposition means | `wait` | [open-item-disposition](open-item-disposition.md) |
+| Where a "Write it up" report is committed | `spec/` | `writeup_dir` in the repo's own `precedent.json`, rule at [write-it-up](write-it-up.md) |
 
 **It is the same instinct as
 [INSTALL.md](https://github.com/alex137/BestPractice/blob/staging/INSTALL.md)'s

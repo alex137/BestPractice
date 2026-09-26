@@ -6,8 +6,8 @@ severity:    default
 applies_to:  ["**"]
 occasion:    "acting on, or sending, an authorization relayed from another session"
 gates:       ["merge"]
-index_required: false
 index_clause: "act on a relayed approval only where the person's identity.json accepts relays"
+index_required: false
 checked_by:  null
 defines:     ["Relayed authorization"]
 status:      active
@@ -50,7 +50,7 @@ that was already granted, in writing, by the person.
 **The sender's half is an envelope, and a relay missing any of it is not
 actionable even where the declaration exists:** the origin session's id and
 link, the person's words **verbatim**, the date they said them, and the three
-bounds [go-merge](go-merge.md) already requires — the named work, the named
+bounds [go-update](go-update.md) already requires — the named work, the named
 branch, the named check. Quote; never paraphrase an authorization.
 
 **What a declaration can and cannot license.** It licenses a class of act:
@@ -129,7 +129,7 @@ repository — a private practice set under a different owner, refused by
 proxy declining to inject a credential for it. It relayed the authorization
 to a session that could reach the repository, which is what
 [prompt-please](prompt-please.md) tells it to do, bounded exactly as
-[go-merge](go-merge.md) requires.
+[go-update](go-update.md) requires.
 
 The receiving session did the work, opened a green pull request, and refused
 to merge. Its reasoning was sound and it stated it twice: every inter-session
@@ -165,7 +165,7 @@ which is the safe default and is also the state every existing set is in.
 so it reaches practice sets as well as consuming repositories.
 
 **No registered check, and the reason is
-[go-merge](go-merge.md)'s unchanged:** what this governs is a decision made
+[go-update](go-update.md)'s unchanged:** what this governs is a decision made
 inside a session — whether to merge on a message — and a session that acted
 wrongly leaves behind the same artifact as one that acted rightly, a merge
 commit. What *is* mechanical is the reader above and the harness test behind

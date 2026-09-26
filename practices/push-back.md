@@ -10,11 +10,11 @@ index_clause: "argue a real counter-case before building on a stated stance"
 checked_by:  null
 defines:     []
 status:      active
+in_force_at: null
 supersedes:  []
 overrides:   null
 added:       "2026-09-19"
 approved_by: "pending PR review -- drafted 2026-09-19 by Morgan F, moved from the shared set precedent-team-writing"
-in_force_at: null
 strength: decided
 ---
 ## Rule

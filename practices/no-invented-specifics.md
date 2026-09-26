@@ -6,8 +6,8 @@ severity:    default
 applies_to:  ["**/*.md"]
 occasion:    "writing a sentence that would land better with a specific figure, date, name or source"
 gates:       ["reply"]
-index_required: false
 index_clause: "never manufacture a number, date, name or citation -- write around the gap"
+index_required: false
 checked_by:  null
 defines:     []
 status:      active

@@ -136,7 +136,7 @@ honest "this session is the right one" answer.
 
 The phrase is Morgan's, proposed 2026-09-13: *"Maybe the phrase is just
 'Chief of Staff'."* It would join
-[go-merge](https://github.com/alex137/BestPractice/blob/staging/practices/go-merge.md),
+[go-update](https://github.com/alex137/BestPractice/blob/staging/practices/go-update.md),
 [park-it](https://github.com/alex137/BestPractice/blob/staging/practices/park-it.md),
 [three-things](https://github.com/alex137/BestPractice/blob/staging/practices/three-things.md),
 [plain-words](https://github.com/alex137/BestPractice/blob/staging/practices/plain-words.md),
@@ -333,7 +333,7 @@ the problem it was created for.
 
 It also **does not merge anything on Morgan's behalf.** A merge
 authorization is his to give in the session that holds the work
-([go-merge](https://github.com/alex137/BestPractice/blob/staging/practices/go-merge.md)),
+([go-update](https://github.com/alex137/BestPractice/blob/staging/practices/go-update.md)),
 and routing him to the right window to say it is the whole job.
 
 One asymmetry is deliberate: **only Chief of Staff spawns sessions.** A tree
@@ -373,6 +373,11 @@ Built 2026-09-14, on Morgan's authorization:
   works in any ordinary working session, and preferring the session already in
   front of you is now the rule, because the fleet is re-read from scratch
   either way and a second session only adds its own context to the bill.
+
+- **Promotion Reviews**, added 2026-09-26 as the report's last section: per
+  repository active in the week, what waits on each promotion step and which
+  recent branches are stale, with their unlanded work judged. The rule is in
+  the practice's Detail.
 
 - **The tag namespaces**, [practices/session-tags.md](../practices/session-tags.md) —
   `subject:`, `repo:`, `role:`, `wants:`, applied in the `create_session` call

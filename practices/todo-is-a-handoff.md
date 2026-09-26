@@ -6,8 +6,8 @@ severity:    default
 applies_to:  ["TODO.md", "todo/todo-*.md"]
 occasion:    "writing or triaging an open item"
 gates:       ["merge"]
-index_required: true
 index_clause: "queue only for a stated blocked-on/out-of-scope reason; else just do it"
+index_required: true
 checked_by:  null
 defines:     []
 status:      active

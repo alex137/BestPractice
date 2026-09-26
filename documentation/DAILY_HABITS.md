@@ -103,17 +103,17 @@ each one saves you a paragraph of explaining:
 |---|---|
 | **Archive** | Check whether anything from this session is still outstanding -- a merge, something the assistant is waiting on, a recommendation -- and either archive it right then or tell you exactly what's left. Synonym: Archive? |
 | **Brainstorm** | Think it through with you and write nothing down — no files, no edits, nothing saved — until you say to. |
-| **Chief of Staff** | Stop and route this: tell you what every open session is blocked on and what is colliding, with a clickable link to each. |
+| **Chief of Staff** | Stop and route this: tell you what every open session is blocked on and what is colliding, with a clickable link to each, and end on Promotion Reviews: per repo you worked in this week, what waits to be promoted and which recent branches are stale. |
 | **Drop it** | Mark the open question as parked and drop the subject. It won't be raised again unless you raise it. |
 | **Go update** | Save the work, land it on the shared branch on origin, and tell you which branch it went to — without asking anything further. Synonym: Approved |
 | **My options** | Lay out the real choices in plainer words, the good and the bad of each, and tell you which one it recommends and why -- and when it's about a current issue meant for another session, add that session's id and link, which repository has to be the primary seed root, and which others need to be attached, then hand the whole thing back as one paste-ready block. |
 | **Practice check** | Go through every rule in force, one at a time, and report on each — the slow, complete version of the routine checks. |
 | **Primary branch** | Trunk -- the one shared branch regular work pushes to and pull requests target, as this repository declares it (usually main). |
-| **Promote** | Land this session's own unsaved work on pre-staging first, then move the next tier up -- pre-staging into staging, or staging into main, whichever the work just done needs -- saying which before it starts. The full check runs on the whole batch, and nothing moves unless it passes. |
+| **Promote** | Land this session's own unsaved work on pre-staging first, then move the next tier up -- pre-staging into staging, or staging into main, whichever the work just done needs -- saying which before it starts. The whole batch gets the checks of the branch it is entering -- the full local check going into staging, that plus the GitHub test going into main -- and nothing moves unless they pass. |
 | **Prompt Please** | Write up the situation, the problem, your recommended action and why, and hand it back as one prompt ready to paste straight into a new session -- naming which repository to root it in and which others to attach. |
-| **Push directly** | Save the work and push it straight to the branch right now -- no pull request, whatever go-merge's classification would otherwise call for. Name the branch ("push directly to main") to target it explicitly; say it bare and it targets whichever branch the work is already headed toward. |
+| **Push directly** | Save the work and push it straight to the branch right now -- no pull request, whatever go-update's classification would otherwise call for. Name the branch ("push directly to main") to target it explicitly; say it bare and it targets whichever branch the work is already headed toward. |
 | **Reduction pass** | Measure everything a session loads before it starts work, make room by moving things rather than deleting them, and show you exactly what moved and what it saved. |
-| **Simple words** | Drop the formal register and explain it the way somebody would say it out loud — same answer, plainer telling. |
+| **Simple please** | Drop the formal register and explain it the way somebody would say it out loud — same answer, plainer telling. |
 | **Three Things** | Tell you the three most important things you need to know right now, in three short lines. |
 | **Todo reminder** | Write the thing into the open-items file AND mark it as something to remind you about, so later sessions bring it up rather than waiting to be asked. |
 | **Update Vendors** | Pull in the latest version of the shared rules from the project they come from, and publish the result -- the merge is part of the phrase. |
@@ -121,7 +121,7 @@ each one saves you a paragraph of explaining:
 | **Very deep check** | Run a full review of the whole project — slow, occasional, and worth it before showing the work to someone new. |
 | **Vocabulary** | List every standing phrase this project recognizes, and what each one does. |
 | **Weak yes** | Go ahead with it, and record that you were not convinced. Nobody will ask you why. |
-| **Write it up** | Write a full report on the issue -- what it is, the context that led to it, and the proposed fix -- for a reader with none of this conversation, commit it to the branch you're on, and give the link. |
+| **Write it up** | Write a full report on the issue -- what it is, the context that led to it, the options weighed and the holes found in them, and the fix that survived -- for a reader with none of this conversation, commit it to the repo's write-up folder (spec/ unless the repo says otherwise) on the branch you're on, and give the link. |
 <!--/gen:vocabulary-->
 
 *That table is built from the rules themselves every time this page is
@@ -129,10 +129,10 @@ rebuilt, so it cannot fall behind the AI Assistant. Numbers by:
 precedent_vocabulary.py — or just say **"Vocabulary"** and your AI Assistant
 will read you the current list.*
 
-**"Drop it", "Three Things" and "Simple words" are the three worth learning first.** "Drop
+**"Drop it", "Three Things" and "Simple please" are the three worth learning first.** "Drop
 it" is how you stop being asked about something you've decided not to
 decide. "Three Things" is the one to open with after a few days away. **"Simple
-words" is the one for when an answer is correct and you have read it twice
+please" is the one for when an answer is correct and you have read it twice
 anyway** — it stays in force for the rest of the conversation.
 
 ## Why Any of This Works

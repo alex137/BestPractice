@@ -95,13 +95,13 @@ the line runs through paths and lists.
 ## 8. A Few Standing Phrases Mean Exactly One Thing
 
 Plain English always works, but a short vocabulary saves a paragraph each
-time: **Go update**, **Drop it**, **Three Things**, **Simple words**, **Weak
+time: **Go update**, **Drop it**, **Three Things**, **Simple please**, **Weak
 yes**, and the rest. Each is itself a practice, so its meaning is written
 down and the AI Assistant is guaranteed to recognize it. Say **"Vocabulary"**
 to have the current list read to you.
 
 - Plain: [The Rest of the Vocabulary](DAILY_HABITS.md#the-rest-of-the-vocabulary)
-- Technical: the command practices, starting at [go-merge](../practices/go-merge.md) and [vocabulary](../practices/vocabulary.md)
+- Technical: the command practices, starting at [go-update](../practices/go-update.md) and [vocabulary](../practices/vocabulary.md)
 
 ## 9. What Is Yours Stays Yours, and That Is Enforced
 

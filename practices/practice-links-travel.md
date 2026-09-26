@@ -226,8 +226,8 @@ target's own frontmatter, which is what the check now does.
 **The check's first run against a real private set was a false positive, and
 it blocked the vendor update it was supposed to protect.** 2026-09-14, hours
 after the clause above landed: a session taking this engine into an individual
-set found two of that set's own practices linking `go-merge.md`, which is
-`status: deduplicated` there with `in_force_at: go-merge` — **its own slug**.
+set found two of that set's own practices linking `go-update.md`, which is
+`status: deduplicated` there with `in_force_at: go-update` — **its own slug**.
 The check read "not active" and reported both. The remedy it printed gave the
 game away: *"that rule is in force as `go-merge` — link `go-merge.md`
 instead"*, telling the reader to link the file they had already linked.
@@ -236,9 +236,9 @@ instead"*, telling the reader to link the file they had already linked.
 session was one step from editing two correct files to satisfy a wrong check,
 and it stopped because the remedy made no sense — which is a thin thing to
 have relied on. Settled by measurement rather than argument: a fixture with a
-universal `go-merge` (active) and an individual `go-merge` (deduplicated,
+universal `go-update` (active) and an individual `go-update` (deduplicated,
 `in_force_at` itself) resolves to the universal one, so a consuming repository
-does receive `practices/go-merge.md` and the link was always sound.
+does receive `practices/go-update.md` and the link was always sound.
 
 **The miss, root-caused** ([mistakes-become-rules](mistakes-become-rules.md)):
 the check asked "is this file in force?" when the question is "will a file

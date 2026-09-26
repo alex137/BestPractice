@@ -6,8 +6,8 @@ severity:    default
 applies_to:  ["practices/*.md", "templates/**", ".claude/hooks/*.sh"]
 occasion:    "committing a shipped practice, hook, template or engine file, before push or merge"
 gates:       ["merge", "push"]
-index_required: true
 index_clause: "say whether shipped content must reach consumers, and whether it will"
+index_required: true
 checked_by:  null
 defines:     []
 status:      active

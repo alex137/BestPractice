@@ -10,7 +10,7 @@ index_clause: "one fixed word means \"merge as agreed\"; document it exactly"
 checked_by:  null
 defines:     []
 status:      deduplicated
-in_force_at: go-merge
+in_force_at: go-update
 supersedes:  []
 overrides:   null
 added:       null

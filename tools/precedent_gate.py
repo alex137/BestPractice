@@ -515,6 +515,22 @@ def _print_hard_requirements(root):
                 print(f"- [{src}] DO NOT SAY \"{_ph}\" IN THIS REPLY -- "
                       f"the stop hook will refuse it. This container holds "
                       f"work that exists nowhere else:\n{_verdict}")
+                # The escape the stop hook already honours, said HERE too
+                # (2026-09-26). Printed without it, this line read as
+                # absolute, so a session that had itself called the flagged
+                # files regenerated output still closed on "Don't archive
+                # this session" -- Morgan: if it is regenerated at every
+                # session start, why is it a reason not to archive? The same
+                # gap as 2026-09-23 (reply_check.json's `why`), one rung up:
+                # the check accepted the escape, the instruction hid it.
+                if (r.get('unless_reply_declares_loss') or {}).get('marker'):
+                    print(f"  UNLESS you have looked at each one and it is "
+                          f"meant to be lost (engine output the next refresh "
+                          f"rewrites, say) -- then give each up by name, one "
+                          f"line per checkout, and the archive line is "
+                          f"allowed: **Checkout disposition:** <name> -- "
+                          f"discard (why it is safe to lose). Never for work "
+                          f"you have not read; push anything you would keep.")
 
         # A REQUIREMENT THIS ENGINE CANNOT EVALUATE, named here rather than
         # left silent. A source's reply_check.json is read live; the engine
