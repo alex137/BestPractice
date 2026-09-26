@@ -88,11 +88,25 @@ The command does the whole promotion, and a session adds nothing to it:
    Promote does nothing** and says so -- *"another window is promoting
    right now"* -- and that is the whole report: don't Promote again while
    it runs, and don't suggest it either. A claim left by a window that died
-   frees itself after 20 minutes. The branch is never deleted (a session
+   frees itself after 15 minutes. The branch is never deleted (a session
    can't), and it is not unlanded work or a branch to tidy up.
-1. **Brings pre-staging up to date with staging** when staging has moved on
-   its own (somebody pushed there directly), by a merge. A conflict stops it
-   before anything is pushed.
+1. **Copies down what reached staging or main by another route** -- a
+   direct push to staging, a workflow's bot commit on main, an edit made on
+   GitHub's website -- **once it has had its own tier's checks.** Staging's
+   is the full local check; main's is that plus the GitHub test, where the
+   repository has one installed. A published pass for the exact files
+   counts; for main, so does a GitHub run on the commit itself or on the
+   pull request that brought it in. **Whatever is missing, it runs** --
+   the full check in a throwaway worktree, and for main the GitHub test by
+   its `workflow_dispatch` button, waiting up to 30 minutes for the answer.
+   What passes is merged into pre-staging. **What fails is not copied, and
+   is reported** with the commit and the check: it is live on that tier
+   already, so it is fixed the normal way, on pre-staging. **Merge commits
+   that change no file are not drift** and are left alone -- every
+   ordinary pull request into main leaves two. A conflict stops the sync
+   before anything is pushed. It never pushes to staging or main. When
+   nothing waits to be promoted but main or staging carries such work,
+   Promote still runs this step and says so.
 2. **Makes one merge commit of pre-staging onto staging** -- always a merge
    commit, never a fast-forward, so no pre-staging commit's `[skip ci]`
    line can become staging's head and silence the GitHub test on the pull
@@ -111,7 +125,7 @@ The command does the whole promotion, and a session adds nothing to it:
    which happened**: "NOT re-run", with when the earlier run passed, or how
    long the run it just did took.
 
-**Staging into main runs the same full check** on staging merged into main
+**Staging into main runs step 1 first, then the same full check** on staging merged into main
 (standing on an earlier pass of the same files, as above), then pushes a
 throwaway copy of staging, `to-main-DATE`, and stops: the tool never moves
 main. The session opens the pull request from that copy into main, waits
@@ -181,7 +195,10 @@ Nothing to install beyond the engine: [precedent_branches.py](../tools/precedent
 every kind's engine files. Its behaviour is pinned by [verify_harness.py](https://github.com/alex137/BestPractice/blob/staging/tools/verify_harness.py)'s
 `check_promote_pre_staging` -- a failing batch leaves staging where it was,
 a passing one lands as a merge commit whose second parent is pre-staging,
-and a conflicting direct push to staging stops the sync without pushing.
+and a conflicting direct push to staging stops the sync without pushing;
+and by `check_sync_copies_work_from_above_once_checked` -- work from main or
+staging is copied down only once checked, a failure is reported and never
+copied, and merge commits that change no file are left alone.
 
 `checked_by` is null because the only thing left to check is whether a
 session ran the command when it was asked to, and nothing in a tree

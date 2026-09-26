@@ -19,7 +19,7 @@ FOR EACH REPOSITORY IT REACHES:
     pull-request branches, schedules in plain words), and whether it is the
     engine's own copy, approved in precedent.json's github_ci_approved at
     this exact content, edited since, or approved by nobody;
-  * every ACTIVE side branch (a commit in the last 14 days) whose
+  * every ACTIVE side branch (a commit in the last 7 days) whose
     workflow files differ from the default branch's, and whether pushing
     it would run them. A stale branch runs nothing until someone pushes
     it, and that push makes it active for the next run, so it is counted
@@ -70,8 +70,9 @@ MAX_BRANCHES = 40
 # A side branch with no commit in this many days is not read: it runs a
 # workflow only when pushed, and a push makes it active again, so the next
 # run reads it then (Morgan, 2026-09-26: "I think we should update this to
-# only check active branches").
-ACTIVE_DAYS = 14
+# only check active branches"; and on the window, "I think it should be
+# seven days, not 14 days", strength: decided).
+ACTIVE_DAYS = 7
 RUN_PAGES = 3
 
 

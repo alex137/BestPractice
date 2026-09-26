@@ -16983,9 +16983,15 @@ def check_promote_pre_staging():
 
         commit_to('pre-staging', 'list.txt', 'A\nb\nc\n', 'rename a [skip ci]')
         commit_to('beta', 'other.txt', 'direct\n', 'pushed straight to staging')
+        pre_before = tip('pre-staging')
         rc, out = branches('--sync-pre-staging')
+        cases.append(('a push made straight to staging with no full check on '
+                      'record is held by the quick sync, which names --check',
+                      rc == 0 and 'NOT COPIED YET' in out and '--check' in out
+                      and tip('pre-staging') == pre_before))
+        rc, out = branches('--sync-pre-staging', '--check')
         git(work, 'fetch', '-q', 'origin')
-        cases.append(('a push made straight to staging is merged into pre-staging',
+        cases.append(('a push made straight to staging is checked, then merged into pre-staging',
                       rc == 0 and git(work, 'merge-base', '--is-ancestor',
                                       'origin/beta', 'origin/pre-staging').returncode == 0))
 
@@ -17090,7 +17096,7 @@ def check_promote_pre_staging():
         commit_to('pre-staging', 'list.txt', 'X\nb\nc\n', 'pre-staging edits line 1')
         commit_to('beta', 'list.txt', 'Y\nb\nc\n', 'staging edits line 1 too')
         pre_before = tip('pre-staging')
-        rc, out = branches('--sync-pre-staging')
+        rc, out = branches('--sync-pre-staging', '--check')
         cases.append(('a conflicting direct push to staging stops the sync and '
                       'pushes nothing', rc == 1 and 'does not merge cleanly' in out
                       and tip('pre-staging') == pre_before))
@@ -17519,7 +17525,7 @@ def check_promote_keeps_the_old_name_in_step():
 
         branches('--sync-pre-staging')
         commit_to('precedent-beta-v01', 'old.txt', 'pushed under the old name')
-        rc, out = branches('--sync-pre-staging')
+        rc, out = branches('--sync-pre-staging', '--check')
         git(work, 'fetch', '-q', 'origin')
         cases.append(('work pushed to the old name is merged into pre-staging',
                       rc == 0 and git(work, 'merge-base', '--is-ancestor',
@@ -17530,6 +17536,316 @@ def check_promote_keeps_the_old_name_in_step():
         cases.append(('Promote moves staging, and the old name to the same commit',
                       rc == 0 and tip('staging') == tip('precedent-beta-v01')
                       and 'for installs still pinned to the old name' in out))
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
+def check_sync_copies_work_from_above_once_checked():
+    """What reached staging or main without climbing through pre-staging --
+    a workflow's bot commit on main, a web edit, a direct push -- is copied
+    down into pre-staging, and only once its tier's checks have passed
+    (spec/BRANCH_TIERS_PLAN.md, holes 4 and 5; Morgan, 2026-09-26).
+
+    The failures that matter: a copy of work that failed its checks, which
+    spreads it; a silent refusal, which hides it; and noise about the two
+    merge commits every ordinary pull request into main leaves behind, which
+    trains a person to ignore the note that one day matters."""
+    import tempfile, json as _json, shutil as _shutil
+    name = 'the sync copies work from staging or main down once it has its checks'
+    if not (ROOT / 'tools' / 'precedent_branches.py').exists():
+        not_applicable(name, 'tools/precedent_branches.py is absent')
+        return
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+        env = dict(os.environ, PRECEDENT_ALLOW_ANY_AUTHOR='1',
+                   GIT_AUTHOR_NAME='T', GIT_AUTHOR_EMAIL='t@example.com',
+                   GIT_COMMITTER_NAME='T', GIT_COMMITTER_EMAIL='t@example.com',
+                   GIT_CONFIG_GLOBAL=str(tmp / 'gitconfig'),
+                   PRECEDENT_USER_CONFIG=str(tmp / 'none.json'))
+        env.pop('PRECEDENT_NO_SHARED_PASS', None)
+
+        def git(cwd, *a):
+            return subprocess.run(['git', '-C', str(cwd), *a],
+                                  capture_output=True, text=True, env=env)
+
+        def make(label, base, workflows=False):
+            bare = tmp / f'{label}.git'
+            git(tmp, 'init', '-q', '--bare', '-b', base, str(bare))
+            work = tmp / label
+            (work / 'tools').mkdir(parents=True)
+            git(tmp, 'init', '-q', '-b', base, str(work))
+            for f in ('precedent_push_check.py', 'precedent_branches.py'):
+                _shutil.copy2(ROOT / 'tools' / f, work / 'tools' / f)
+            (work / 'tools' / 'ENGINE_MANIFEST.json').write_text(
+                _json.dumps({'kind': 'consumer'}), encoding='utf-8')
+            for t in ('precedent_check', 'leak_gate', 'doc_lint'):
+                (work / 'tools' / f'{t}.py').write_text(
+                    'import pathlib, sys\n'
+                    'f = pathlib.Path("FAIL")\n'
+                    'body = f.read_text() if f.exists() else ""\n'
+                    + ('print("precedent_check: 3 passed, 0 violated")\n'
+                       'name = ("ci_workflows" if "ci-workflow-approved" in '
+                       'sys.argv else "precedent_check")\n'
+                       if t == 'precedent_check' else f'name = "{t}"\n')
+                    + 'sys.exit(1 if name in body else 0)\n', encoding='utf-8')
+            if workflows:
+                (work / '.github' / 'workflows').mkdir(parents=True)
+                (work / '.github' / 'workflows' / 'light-check.yml').write_text(
+                    'name: Light check\non:\n  pull_request:\n    branches: [main]\n'
+                    '  workflow_dispatch:\njobs: {}\n', encoding='utf-8')
+            (work / 'precedent.json').write_text(_json.dumps({'base_branch': base}),
+                                                 encoding='utf-8')
+            (work / 'list.txt').write_text('a\nb\nc\n', encoding='utf-8')
+            git(work, 'add', '-A')
+            git(work, 'commit', '-q', '-m', 'init')
+            git(work, 'remote', 'add', 'origin', f'file://{bare}')
+            refs = [base] + ([f'{base}:main'] if base != 'main' else [])
+            git(work, 'push', '-q', 'origin', *refs)
+            return work
+
+        def tools(work):
+            def branches(*a):
+                p = subprocess.run([sys.executable, 'tools/precedent_branches.py', *a],
+                                   cwd=work, capture_output=True, text=True, env=env)
+                return p.returncode, p.stdout + p.stderr
+
+            def tip(b):
+                return git(work, 'ls-remote', 'origin',
+                           f'refs/heads/{b}').stdout.split('\t')[0]
+
+            def commit_to(branch, path, text, msg):
+                git(work, 'fetch', '-q', 'origin')
+                git(work, 'checkout', '-q', '-B', f'w-{branch}', f'origin/{branch}')
+                (work / path).write_text(text, encoding='utf-8')
+                git(work, 'add', path)
+                git(work, 'commit', '-q', '-m', msg)
+                git(work, 'push', '-q', 'origin', f'HEAD:refs/heads/{branch}')
+
+            def has(upper):
+                git(work, 'fetch', '-q', 'origin')
+                return git(work, 'merge-base', '--is-ancestor', f'origin/{upper}',
+                           'origin/pre-staging').returncode == 0
+            return branches, tip, commit_to, has
+
+        work = make('tiers', 'staging')
+        branches, tip, commit_to, has = tools(work)
+        branches('--sync-pre-staging')
+
+        # The ordinary route: pre-staging -> staging -> main by merge commits.
+        # Main ends up ahead only by merges whose files pre-staging has.
+        commit_to('pre-staging', 'list.txt', 'A\nb\nc\n', 'ordinary work')
+        git(work, 'fetch', '-q', 'origin')
+        git(work, 'checkout', '-q', '-B', 'st', 'origin/staging')
+        git(work, 'merge', '-q', '--no-ff', '-m', 'Promote', 'origin/pre-staging')
+        git(work, 'push', '-q', 'origin', 'HEAD:refs/heads/staging')
+        git(work, 'checkout', '-q', '-B', 'mn', 'origin/main')
+        git(work, 'merge', '-q', '--no-ff', '-m', 'Merge pull request', 'st')
+        git(work, 'push', '-q', 'origin', 'HEAD:refs/heads/main')
+        # ...and pre-staging moves on past main, so the two tips differ even
+        # though main brings nothing: a plain diff of the tips calls that
+        # drift, and it is not.
+        commit_to('pre-staging', 'later.txt', 'later\n', 'later window work')
+        before = tip('pre-staging')
+        rc, report = branches('--drift')
+        rc2, out = branches('--sync-pre-staging', '--check')
+        cases.append(('merge commits that change no file are not drift: no note, '
+                      'no check, no copy', rc == 0 and report.strip() == ''
+                      and rc2 == 0 and out.strip() == ''
+                      and tip('pre-staging') == before))
+
+        # A bot commit straight onto main, with no check on record.
+        commit_to('main', 'state.json', '{"n": 1}\n', 'bot: weekly sync')
+        rc, report = branches('--drift')
+        cases.append(('the session-start note names main, the count, and '
+                      '"unchecked", with the --check command',
+                      'origin/main is 1 commit(s) ahead' in report
+                      and '(unchecked)' in report and '--check' in report
+                      and 'origin/staging' not in report))
+        rc, out = branches('--sync-pre-staging')
+        cases.append(('the quick sync (Go update) does not copy unchecked work '
+                      'from main, and says why and what to run',
+                      rc == 0 and 'NOT COPIED YET' in out and 'main has 1 commit(s)' in out
+                      and 'no full local check on record' in out
+                      and tip('pre-staging') == before))
+
+        # The same commit once its tree has a full-check receipt on origin.
+        git(work, 'fetch', '-q', 'origin')
+        git(work, 'checkout', '-q', '--detach', 'origin/main')
+        subprocess.run([sys.executable, 'tools/precedent_push_check.py', '--tier', 'full'],
+                       cwd=work, capture_output=True, text=True, env=env)
+        rc, report = branches('--drift')
+        cases.append(('a commit whose tree has a published full-check receipt '
+                      'reads "(checked)"', '(checked)' in report
+                      and '--check' not in report))
+        rc, out = branches('--sync-pre-staging')
+        cases.append(('checked work from main is copied down by the quick sync',
+                      rc == 0 and 'merged main into pre-staging' in out and has('main')))
+
+        # Unchecked again; --check runs the full check, then copies.
+        commit_to('main', 'state.json', '{"n": 2}\n', 'bot: weekly sync again')
+        rc, out = branches('--sync-pre-staging', '--check')
+        cases.append(('with --check, an unchecked commit gets the full check and, '
+                      'passing, is copied down', rc == 0 and has('main')
+                      and 'merged main into pre-staging' in out))
+
+        # A commit on main that fails the full check: not copied, and loud.
+        commit_to('main', 'FAIL', 'precedent_check', 'a web edit that breaks a check')
+        bad = tip('main')
+        before = tip('pre-staging')
+        rc, out = branches('--sync-pre-staging', '--check')
+        cases.append(('a commit on main failing its checks is not copied, and the '
+                      'report names the commit, the tier and the way to fix it',
+                      rc == 0 and tip('pre-staging') == before
+                      and 'NOT COPIED' in out and 'did not pass the main checks' in out
+                      and bad[:12] in out and 'pull request into main' in out
+                      and 'precedent_check' in out))
+        commit_to('main', 'FAIL', '', 'fix the web edit')
+
+        # A conflict: main and pre-staging change the same line.
+        commit_to('pre-staging', 'list.txt', 'X\nb\nc\n', 'pre-staging edits line 1')
+        commit_to('main', 'list.txt', 'Y\nb\nc\n', 'main edits line 1 too')
+        before = tip('pre-staging')
+        rc, out = branches('--sync-pre-staging', '--check')
+        cases.append(('a commit on main that conflicts with pre-staging stops the '
+                      'sync, pushes nothing, and says so', rc == 1
+                      and 'does not merge cleanly' in out and tip('pre-staging') == before))
+        commit_to('pre-staging', 'list.txt', 'Y\nb\nc\n', 'settle line 1')
+
+        # Promote with nothing waiting on pre-staging still brings main down.
+        # Every tier level first, so no step is waiting; then a bot commit.
+        git(work, 'fetch', '-q', 'origin')
+        git(work, 'checkout', '-q', '-B', 'st', 'origin/staging')
+        git(work, 'merge', '-q', '--no-ff', '-m', 'catch staging up', 'origin/pre-staging')
+        git(work, 'push', '-q', 'origin', 'HEAD:refs/heads/staging')
+        git(work, 'checkout', '-q', '-B', 'mn', 'origin/main')
+        git(work, 'merge', '-q', '--no-ff', '-m', 'catch main up', 'st')
+        git(work, 'push', '-q', 'origin', 'HEAD:refs/heads/main')
+        git(work, 'checkout', '-q', '-B', 'st', 'mn')
+        git(work, 'push', '-q', 'origin', 'HEAD:refs/heads/staging')
+        git(work, 'push', '-q', 'origin', 'HEAD:refs/heads/pre-staging')
+        commit_to('main', 'state.json', '{"n": 3}\n', 'bot: a third week')
+        rc, out = branches('--promote')
+        cases.append(('Promote with nothing waiting on pre-staging still checks and '
+                      'copies down what arrived on main', rc == 0
+                      and 'Nothing waits to be promoted' in out and has('main')))
+        wts = git(work, 'worktree', 'list').stdout.strip().splitlines()
+        cases.append(('no worktree is left behind', len(wts) == 1))
+
+        # A repository whose staging tier IS main: main is the staging tier,
+        # so it gets the staging tier's check -- no GitHub test -- even with
+        # a pull-request workflow installed.
+        one = make('one', 'main', workflows=True)
+        branches1, tip1, commit_to1, has1 = tools(one)
+        branches1('--sync-pre-staging')
+        commit_to1('main', 'state.json', '{"n": 1}\n', 'bot commit')
+        rc, out = branches1('--sync-pre-staging', '--check')
+        cases.append(('where main is the staging tier, work on it is copied down '
+                      'on the local check alone', rc == 0 and has1('main')
+                      and 'GitHub test' not in out))
+
+        # No GitHub test installed, main a tier of its own: said out loud.
+        two = make('two', 'staging')
+        branches2, tip2, commit_to2, has2 = tools(two)
+        branches2('--sync-pre-staging')
+        commit_to2('main', 'state.json', '{"n": 1}\n', 'bot commit')
+        import importlib.util as _ilu
+        sys.path.insert(0, str(two / 'tools'))
+        try:
+            # A private copy under its own name: the stand-ins patched onto it
+            # below must never reach a module another check imported.
+            spec = _ilu.spec_from_file_location('_pb_drift_fixture',
+                                                two / 'tools' / 'precedent_branches.py')
+            pb = _ilu.module_from_spec(spec)
+            spec.loader.exec_module(pb)
+            cases.append(("a pull-request workflow into main with a button is read "
+                          "as main's GitHub test, and dispatchable",
+                          pb.github_tests(one, 'HEAD')
+                          == [('.github/workflows/light-check.yml', True)]))
+            wfd = two / '.github' / 'workflows'
+            wfd.mkdir(parents=True)
+            (wfd / 'x.yml').write_text(
+                'name: X\non:\n  # pull_request:\n  #   branches: [main]\n'
+                '  push:\n    branches: [main]\n  workflow_dispatch:\njobs: {}\n',
+                encoding='utf-8')
+            git(two, 'add', '-A')
+            git(two, 'commit', '-q', '-m', 'a workflow with its pull_request trigger commented out')
+            cases.append(('a commented-out pull_request trigger is not a GitHub test',
+                          pb.github_tests(two, 'HEAD') == []))
+            said = []
+            saved = dict(os.environ)
+            os.environ.update({k: v for k, v in env.items()
+                               if k.startswith(('GIT_', 'PRECEDENT_'))})
+            try:
+                git(two, 'fetch', '-q', 'origin')
+                ok, detail = pb._check_tier(two, 'main', tip2('main'), said.append)
+            finally:
+                os.environ.clear()
+                os.environ.update(saved)
+            cases.append(('with no GitHub test installed, main gets the local check '
+                          'and the detail says there is no GitHub test',
+                          ok and 'no GitHub test is installed' in detail))
+
+            # main's GitHub test, read and started through a stand-in for
+            # github_budget.py -- no request leaves this process.
+            class GH:
+                def __init__(self, runs, pulls=(), pr_runs=()):
+                    self.runs, self.pulls, self.pr_runs = list(runs), list(pulls), list(pr_runs)
+                    self.posted = []
+
+                def call(self, path, cache=True):
+                    if '/pulls' in path:
+                        return self.pulls, None
+                    if 'head_sha=HEAD' in path:
+                        return {'workflow_runs': self.pr_runs}, None
+                    return {'workflow_runs': self.runs}, None
+
+                def post(self, path, payload):
+                    self.posted.append((path, payload))
+                    self.runs.append({'path': '.github/workflows/light-check.yml',
+                                      'status': 'completed', 'conclusion': 'success',
+                                      'created_at': '2026-09-26T12:00:00Z'})
+                    return True, None
+            tests = [('.github/workflows/light-check.yml', True)]
+            pb._slug = lambda root: 'o/r'
+            ok_run = {'path': tests[0][0], 'status': 'completed', 'conclusion': 'success',
+                      'created_at': '2026-09-26T10:00:00Z'}
+            st, why = pb.github_test_state(two, 'SHA', tests, GH([]))
+            cases.append(('no run on the commit or its pull request reads "none"',
+                          st == 'none'))
+            st, why = pb.github_test_state(two, 'SHA', tests, GH(
+                [], pulls=[{'number': 7, 'base': {'ref': 'main'},
+                            'head': {'sha': 'HEAD'}}], pr_runs=[ok_run]))
+            cases.append(('a pull-request run on the head that brought the commit '
+                          'in counts, and says which pull request',
+                          st == 'passed' and 'pull request #7' in why))
+            st, why = pb.github_test_state(two, 'SHA', tests, GH(
+                [dict(ok_run, conclusion='failure', html_url='U')]))
+            cases.append(('a failed run reads "failed", with its link', st == 'failed'
+                          and 'U' in why))
+            gh = GH([])
+            pb.GITHUB_POLL_SECONDS = 0
+            pb._remote_tip = lambda root, branch: 'SHA'
+            pb._check = lambda root, wt, tier: (True, 'this exact tree already passed')
+            pb._Worktree = type('W', (), {'__init__': lambda s, *a: None,
+                                          '__enter__': lambda s: None,
+                                          '__exit__': lambda s, *e: False})
+            pb.github_tests = lambda root, sha: tests
+            said = []
+            ok, detail = pb._check_tier(two, 'main', 'SHA', said.append, gh)
+            cases.append(('a commit with no GitHub test run gets one started by its '
+                          'workflow_dispatch trigger on main, and passes on its result',
+                          ok and gh.posted and gh.posted[0][1] == {'ref': 'main'}
+                          and gh.posted[0][0].endswith('/light-check.yml/dispatches')
+                          and any('started the GitHub test' in s for s in said)))
+            gh = GH([])
+            pb.github_tests = lambda root, sha: [(tests[0][0], False)]
+            ok, detail = pb._check_tier(two, 'main', 'SHA', said.append, gh)
+            cases.append(('a GitHub test with no workflow_dispatch trigger cannot be '
+                          'started, and that holds the copy and is said',
+                          not ok and not gh.posted and 'no workflow_dispatch' in detail))
+        finally:
+            sys.path.pop(0)
     failed = [n for n, ok in cases if not ok]
     check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
@@ -24334,6 +24650,53 @@ def check_ci_workflow_approved_pins_approval_to_content():
           not bad, '; '.join(f'{n} -- {d[:1500]}' for n, d in bad))
 
 
+def check_workflow_write_gate_refuses_api_writes():
+    """practice: ci-workflow-approved, 2026-09-26. A session can write a file
+    straight onto GitHub with a file-write tool, and no push gate sees it.
+    workflow-write-gate.sh refuses that for a workflow file, on both tools,
+    and lets every other file through."""
+    import shutil
+    hook = ROOT / 'templates' / 'harness' / 'claude-code' / 'hooks' / \
+        'workflow-write-gate.sh'
+    cases = []
+    if not shutil.which('jq'):
+        check('workflow-write-gate.sh refuses a workflow written through '
+              'the API -- NOT RUN: no jq here, and the hook fails open '
+              'without it', True, '')
+        return
+
+    def run(payload):
+        p = subprocess.run(['bash', str(hook)], input=json.dumps(payload),
+                           capture_output=True, text=True, timeout=60)
+        return '"deny"' in p.stdout, p.stdout
+
+    denied, out = run({'tool_name': 'mcp__github__create_or_update_file',
+                       'tool_input': {'path': '.github/workflows/new.yml',
+                                      'content': 'on: push'}})
+    cases.append(('create_or_update_file on a workflow is refused, naming '
+                  'the practice', denied and 'ci-workflow-approved' in out
+                  and '.github/workflows/new.yml' in out))
+    denied, out = run({'tool_name': 'mcp__github__push_files',
+                       'tool_input': {'files': [
+                           {'path': 'README.md', 'content': 'x'},
+                           {'path': '.github/workflows/ci.yaml',
+                            'content': 'on: push'}]}})
+    cases.append(('push_files carrying one workflow among other files is '
+                  'refused', denied and '.github/workflows/ci.yaml' in out))
+    denied, _ = run({'tool_name': 'mcp__github__push_files',
+                     'tool_input': {'files': [{'path': 'README.md'},
+                                              {'path': 'docs/workflows.yml'}]}})
+    cases.append(('CONTROL: ordinary files, even one named like a workflow '
+                  'outside .github/workflows, pass', not denied))
+    same = (ROOT / '.claude' / 'hooks' / 'workflow-write-gate.sh')
+    cases.append(("this repo runs the byte-identical copy it ships",
+                  same.is_file() and same.read_bytes() == hook.read_bytes()))
+    bad = [c[0] for c in cases if not c[1]]
+    check(f'workflow-write-gate.sh refuses a workflow written straight onto '
+          f'GitHub and passes everything else ({len(cases)} stated cases)',
+          not bad, '; '.join(bad))
+
+
 def check_session_start_warns_of_unapproved_workflow():
     """practice: ci-workflow-approved, 2026-09-26. templates/bootstrap.sh
     runs the check at session start, because a workflow edited on GitHub's
@@ -24492,9 +24855,9 @@ def check_ci_fleet_audit_reads_github_not_the_clone():
         ('the totals line counts the findings it printed',
          f'ci_fleet_audit: {n} finding(s) in 1 repo(s) reached; 1 not '
          f'reached.' in out and n == 4),
-        ('a branch with no commit in 14 days is counted, never read',
+        ('a branch with no commit in 7 days is counted, never read',
          'ghost.yml' not in out and 'branch old' not in out
-         and '1 side branch(es) with no commit in 14 days not read' in rows),
+         and '1 side branch(es) with no commit in 7 days not read' in rows),
         # GitHub's runner has no PyYAML (2026-09-26: this check went red
         # there on the staging-into-main pull request, green in every
         # session). The line reader must give push_fires the same answers.
@@ -34341,6 +34704,7 @@ def main():
     check_promote_only_and_tier_branches()
     check_github_ci_setting_names()
     check_promote_keeps_the_old_name_in_step()
+    check_sync_copies_work_from_above_once_checked()
     check_source_clone_is_pinned_to_a_branch()
     check_generator_wires_every_template_guard_mode()
     check_verify_reports_a_source_wired_for_fewer_moments()
@@ -34376,6 +34740,7 @@ def main():
     check_ci_workflow_approved_pins_approval_to_content()
     check_ci_fleet_audit_reads_github_not_the_clone()
     check_session_start_warns_of_unapproved_workflow()
+    check_workflow_write_gate_refuses_api_writes()
     check_very_deep_check_workflow_liveness_scan()
     check_rule_rewrite_detection()
     check_source_shape_is_verified()

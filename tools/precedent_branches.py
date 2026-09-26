@@ -49,8 +49,10 @@ the same way: `pre-staging` (the default, for everyone, since 2026-09-25),
 before the tiers existed, never somewhere new.
 
 PROMOTE moves pre-staging into staging (plan step 6; Morgan named the
-command, strength: assented). It merges staging into pre-staging first when
-staging has moved on its own, then makes a merge commit of pre-staging onto
+command, strength: assented). It first copies into pre-staging what reached
+staging or main by another route -- once that has had its own tier's
+checks, which it runs where they are missing (plan, holes 4 and 5; see
+DRIFT FROM ABOVE below) -- then makes a merge commit of pre-staging onto
 staging -- always a merge commit, never a fast-forward, so a `[skip ci]`
 line on a pre-staging commit can never become staging's head and silence
 the GitHub test on the pull request into main (plan, hole 3) -- runs the
@@ -72,7 +74,13 @@ CLI:
   precedent_branches.py --tier BRANCH       prints `basic` or `full`
   precedent_branches.py --push ARGS...      the tier a `git push ARGS...` gets
   precedent_branches.py --landing           where `Go update` lands for this person
-  precedent_branches.py --sync-pre-staging  create pre-staging, or merge staging into it
+  precedent_branches.py --sync-pre-staging [--check]
+                                            create pre-staging, or copy into it what
+                                            reached staging or main another way --
+                                            what has had its tier's checks, or with
+                                            --check, whatever passes them once run
+  precedent_branches.py --drift             what staging and main carry that pre-staging
+                                            lacks, checked or not (the session-start note)
   precedent_branches.py --promote [--to staging|main] [--work BRANCH]
                                             pre-staging into staging, or staging into
                                             main, fully checked; says which first
@@ -83,6 +91,7 @@ CLI:
 import json
 import os
 import pathlib
+import re
 import shlex
 import subprocess
 import sys
@@ -490,11 +499,317 @@ def _check(root, wt, tier):
     return p.returncode == 0, (p.stdout + p.stderr).rstrip()
 
 
-def sync_pre_staging(root, say=print):
-    """Make origin's pre-staging exist and contain staging. -> True on
-    success. Creates it at staging's tip when origin has none; merges
-    staging in when staging has moved on its own (plan, hole 2); stops and
-    says so on a conflict, touching nothing."""
+# DRIFT FROM ABOVE (spec/BRANCH_TIERS_PLAN.md, holes 2, 4 and 5). Work is
+# meant to climb the tiers: pre-staging, then staging by Promote, then main
+# by the pull request from staging. Some of it arrives from above instead --
+# a direct push to staging, a workflow's bot commit on main, an edit made
+# on GitHub's website -- and none of that passed through pre-staging, so
+# the windows syncing from there never see it, and the next pull request
+# into main meets it as a conflict. The sync copies it DOWN into
+# pre-staging, and only once the tier it sits on has had its own checks:
+# staging's full local check, and on main that plus the GitHub test.
+#
+# Morgan, 2026-09-26 (strength: decided): "a good point to check to make
+# sure anything that got onto main not through our system [...] had those
+# checks and if not we should do it, including the GitHub CI/CD for main,
+# and also for staging, if it got there through a different route, to make
+# sure it has our staging ones". And on the copy itself, to "whenever the
+# robot adds something to main, copy it back down to the lower branches":
+# "I love it."
+#
+# ONLY A FILE CHANGE COUNTS. Right after an ordinary staging-to-main pull
+# request, main is ahead of pre-staging by two merge commits -- the Promote
+# merge and the pull request's -- whose files pre-staging already has
+# (measured 2026-09-26 in two repositories). The test is whether merging the
+# upper branch in would change a file, not whether the two trees are equal:
+# a plain diff of the tips calls main "different" whenever staging has moved
+# on past it, which on that day was true in this repository too. Morgan, on
+# leaving those merges alone: "yes add that".
+
+# The GitHub test is awaited this long before the sync gives up and says
+# so. A run that is still queued after it is not failed, only not answered.
+GITHUB_TEST_WAIT_SECONDS = 30 * 60
+GITHUB_POLL_SECONDS = 45
+
+
+def _tree(root, rev):
+    return _git(root, 'rev-parse', f'{rev}^{{tree}}')
+
+
+def _brings_nothing(root, lower, upper):
+    """True when merging `upper` into `lower` would change no file: `upper`
+    is already in it, or is ahead only by merges of files it already has."""
+    if _run(root, 'merge-base', '--is-ancestor', upper, lower).returncode == 0:
+        return True
+    p = _run(root, 'merge-tree', '--write-tree', lower, upper)
+    if p.returncode == 0 and p.stdout.split():
+        return p.stdout.split()[0] == _tree(root, lower)
+    if p.returncode == 1:
+        return False            # it conflicts, so it plainly brings something
+    # git before 2.38 has no --write-tree: upper's own changes since the two
+    # parted, which misses only a change both sides made identically.
+    return _run(root, 'diff', '--quiet', f'{lower}...{upper}').returncode == 0
+
+
+def drift(root, lower, upper):
+    """-> the commits on `upper` that bring `lower` a file change, one line
+    each; [] when a merge would change nothing. Merge commits are left out
+    of the list unless nothing else explains the change."""
+    if _brings_nothing(root, lower, upper):
+        return []
+    return _new_commits(root, lower, upper) or (
+        _git(root, 'log', '--oneline', f'{lower}..{upper}') or '').splitlines()
+
+
+def _sibling(name):
+    """Import an engine module that sits beside this one, or None."""
+    try:
+        sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+        return __import__(name)
+    except Exception:
+        return None
+    finally:
+        sys.path.pop(0)
+
+
+def _receipt(root, sha):
+    """-> the full-check receipt published for `sha`'s exact tree, or None.
+    precedent_push_check.py publishes one on the receipt branch for every
+    tree that passes; none means the commit went round the checks, or its
+    receipt aged out (the newest RECEIPTS_KEPT are kept). Both are
+    unchecked."""
+    ppc = _sibling('precedent_push_check')
+    if ppc is None:
+        return None
+    try:
+        home = pathlib.Path(root).resolve()
+        _kind, checks = ppc.plan(home, tier=FULL)
+        if not checks:
+            return None
+        return ppc.shared_pass(home, _tree(root, sha), [ppc.signature(checks)])
+    except Exception:
+        return None
+
+
+def _slug(root):
+    url = _git(root, 'config', '--get', 'remote.origin.url') or ''
+    m = re.search(r'github\.com[:/]+([^/]+)/(.+?)(?:\.git)?/?$', url)
+    return f'{m.group(1)}/{m.group(2)}' if m else None
+
+
+def github_tests(root, sha):
+    """-> [(path, dispatchable)] for each workflow in `sha`'s tree that runs
+    on a pull request into main: main's GitHub test. [] when the repository
+    has none installed (github_ci_workflows disabled, or no workflows).
+
+    Read off the tree rather than a list, as precedent_ci_verified.py reads
+    them, and blind the same way to `paths:` filters and glob branch
+    patterns. A commented-out trigger never counts: the keys are anchored
+    to the start of a line."""
+    out = []
+    names = _git(root, 'ls-tree', '--name-only', f'{sha}:.github/workflows') or ''
+    for name in names.splitlines():
+        if not name.endswith(('.yml', '.yaml')):
+            continue
+        path = f'.github/workflows/{name}'
+        text = _git(root, 'show', f'{sha}:{path}') or ''
+        on = re.search(r'^on:[ \t]*(.*)\n((?:[ \t]+.*\n|[ \t]*#.*\n|\n)*)', text + '\n', re.M)
+        if not on:
+            continue
+        inline, body = on.group(1), on.group(2)
+        pr = re.search(r'^([ \t]+)pull_request:[ \t]*\n((?:\1[ \t]+.*\n|[ \t]*#.*\n|\n)*)',
+                       body, re.M)
+        if pr:
+            filt = re.search(r'^\s*branches:[ \t]*\[(.*?)\]', pr.group(2), re.M)
+            wanted = not filt or MAIN in [b.strip().strip('"\'')
+                                          for b in filt.group(1).split(',')]
+        else:
+            wanted = 'pull_request' in inline
+        if wanted:
+            out.append((path, bool(re.search(r'^[ \t]+workflow_dispatch:', body, re.M))
+                        or 'workflow_dispatch' in inline))
+    return out
+
+
+def _runs_on(gh, slug, sha):
+    data, err = gh.call(f'repos/{slug}/actions/runs?head_sha={sha}&per_page=100',
+                        cache=False)
+    if err or not isinstance(data, dict):
+        return None, err or 'GitHub gave an answer this could not read'
+    return data.get('workflow_runs') or [], None
+
+
+def github_test_state(root, sha, tests, gh=None, via_pulls=True):
+    """-> (state, detail): did main's GitHub test run on `sha` and pass?
+
+    A run counts from either of two places: on the commit itself (a workflow
+    with a push trigger, or a button press, tests a bot commit on its own),
+    or on the head of the pull request that brought the commit in (a
+    pull-request run tests the pull request -- the head merged into main --
+    which is what the ordinary route checks, and not always the final
+    commit's exact tree). The newest run per workflow decides.
+
+    state is one of 'passed', 'failed', 'running', 'none' (never ran) and
+    'unknown' (GitHub could not be asked). Two or three API calls, counted
+    by github_budget.py (practice: github-api-budget); one with
+    `via_pulls` off, which is how a run started on the commit is awaited."""
+    gh = gh or _sibling('github_budget')
+    slug = _slug(root)
+    if gh is None or not slug:
+        return 'unknown', ('no github.com origin could be read here'
+                           if not slug else 'github_budget.py is not beside this file')
+    runs, err = _runs_on(gh, slug, sha)
+    if runs is None:
+        return 'unknown', err
+    pulls = gh.call(f'repos/{slug}/commits/{sha}/pulls', cache=False)[0] \
+        if via_pulls else []
+    for pr in pulls if isinstance(pulls, list) else []:
+        head = (pr.get('head') or {}).get('sha')
+        if (pr.get('base') or {}).get('ref') == MAIN and head and head != sha:
+            more, _err = _runs_on(gh, slug, head)
+            runs = runs + [dict(r, _via=f'pull request #{pr.get("number")}')
+                           for r in more or []]
+    wanted = {p for p, _ in tests}
+    newest = {}
+    for r in runs:
+        path = r.get('path')
+        if path in wanted and (path not in newest or (r.get('created_at') or '')
+                               > (newest[path].get('created_at') or '')):
+            newest[path] = r
+    missing = sorted(wanted - set(newest))
+    bad = sorted(p for p, r in newest.items() if r.get('status') == 'completed'
+                 and r.get('conclusion') != 'success')
+    busy = sorted(p for p, r in newest.items() if r.get('status') != 'completed')
+    if bad:
+        return 'failed', ', '.join(f'{p} ({newest[p].get("conclusion")}, '
+                                   f'{newest[p].get("html_url", "")})' for p in bad)
+    if missing:
+        return 'none', ', '.join(missing) + ' never ran on it'
+    if busy:
+        return 'running', ', '.join(busy) + ' has not finished'
+    return 'passed', ', '.join(f'{p} passed' + (f' on {r["_via"]}' if r.get('_via') else '')
+                               for p, r in sorted(newest.items()))
+
+
+def _run_github_test(root, sha, tests, say, gh=None):
+    """Start main's GitHub test on `sha` with its workflow_dispatch trigger
+    -- a direct commit has no pull request for it to run on -- and wait for
+    the answer. -> (state, detail), as github_test_state.
+
+    A button press runs on the branch's tip, not on a commit, so it is
+    pressed only while main's tip IS `sha`; if main moves meanwhile, the run
+    tested something else, and that is said rather than counted."""
+    gh = gh or _sibling('github_budget')
+    slug = _slug(root)
+    if gh is None or not slug:
+        return 'unknown', 'GitHub cannot be asked from here'
+    stuck = [p for p, dispatchable in tests if not dispatchable]
+    if stuck:
+        return 'none', (', '.join(stuck) + ' has no workflow_dispatch trigger, so '
+                        'it cannot be started on a commit with no pull request')
+    if _remote_tip(root, MAIN) != sha:
+        return 'unknown', f'{MAIN} moved on from {sha[:12]} before its test could start'
+    for path, _ in tests:
+        ok, err = gh.post(f'repos/{slug}/actions/workflows/{path.rsplit("/", 1)[-1]}'
+                          f'/dispatches', {'ref': MAIN})
+        if not ok:
+            return 'unknown', f'could not start {path}: {err}'
+    say(f'started the GitHub test on {MAIN} ({sha[:12]}): '
+        + ', '.join(p for p, _ in tests) + '. Waiting for it '
+        f'(up to {GITHUB_TEST_WAIT_SECONDS // 60} minutes)...')
+    deadline = time.monotonic() + GITHUB_TEST_WAIT_SECONDS
+    while True:
+        time.sleep(GITHUB_POLL_SECONDS)
+        state, detail = github_test_state(root, sha, tests, gh, via_pulls=False)
+        if state in ('passed', 'failed'):
+            return state, detail
+        if time.monotonic() >= deadline:
+            if _remote_tip(root, MAIN) != sha:
+                return 'unknown', (f'{MAIN} moved on from {sha[:12]} while its '
+                                   f'test was starting, so the run tested '
+                                   f'something else')
+            return 'running', (f'{detail}; still no answer after '
+                               f'{GITHUB_TEST_WAIT_SECONDS // 60} minutes')
+
+
+def _gets_github_test(root, branch):
+    """Main's GitHub test belongs to main as a tier of its own. Where main
+    IS the staging tier, Promote pushes into it with no pull request, so the
+    staging tier's local check is its whole bar here too."""
+    return branch == MAIN and staging_branch(root) != MAIN
+
+
+def tier_check_state(root, branch, tip, gh=None):
+    """-> (checked, detail) without running anything: has `tip`, on tier
+    `branch`, had the checks that tier requires? A published full-check
+    receipt for its tree, and on main the GitHub test too where one is
+    installed. Cheap: a fetch of the receipt branch, and on main a few API
+    calls."""
+    rec = _receipt(root, tip)
+    parts = [f'full local check passed at {rec.get("at", "an unrecorded time")}'
+             if rec else 'no full local check on record']
+    ok = bool(rec)
+    if _gets_github_test(root, branch):
+        tests = github_tests(root, tip)
+        if not tests:
+            parts.append('no GitHub test is installed here')
+        else:
+            state, detail = github_test_state(root, tip, tests, gh)
+            parts.append(f'GitHub test {state}: {detail}')
+            ok = ok and state == 'passed'
+    return ok, '; '.join(parts)
+
+
+def _check_tier(root, branch, tip, say, gh=None):
+    """Give `tip`, on tier `branch`, whatever of its tier's checks it lacks,
+    and -> (ok, detail). The full local check (a published receipt makes it
+    instant), then on main the GitHub test: found on the commit or its pull
+    request, else started and awaited."""
+    with _Worktree(root, tip) as wt:
+        t0 = time.monotonic()
+        ok, out = _check(root, wt, FULL)
+        took = time.monotonic() - t0
+    if not ok:
+        return False, f'the full local check failed on {tip[:12]}:\n{out}'
+    reused = any('already passed' in l for l in out.splitlines())
+    local = ('its full local check had already passed' if reused else
+             f'the full local check ran on it and passed, in {took:.0f}s')
+    if not _gets_github_test(root, branch):
+        return True, local
+    tests = github_tests(root, tip)
+    if not tests:
+        return True, (f'{local}; no GitHub test is installed in this repository, '
+                      f'so the local check is the whole check')
+    state, detail = github_test_state(root, tip, tests, gh)
+    if state == 'none':
+        state, detail = _run_github_test(root, tip, tests, say, gh)
+    elif state == 'running':
+        say(f'the GitHub test on {MAIN} ({tip[:12]}) is still running; waiting for it...')
+        deadline = time.monotonic() + GITHUB_TEST_WAIT_SECONDS
+        while state == 'running' and time.monotonic() < deadline:
+            time.sleep(GITHUB_POLL_SECONDS)
+            state, detail = github_test_state(root, tip, tests, gh)
+    if state == 'passed':
+        return True, f'{local}; GitHub test: {detail}'
+    return False, f'{local}, but the GitHub test is {state}: {detail}'
+
+
+def sync_pre_staging(root, say=print, check=False):
+    """Make origin's pre-staging exist and hold what reached staging or main
+    without climbing through it. -> True on success, False when pre-staging
+    could not be brought current (a conflict, a race, a failing basic check
+    on the merge).
+
+    Creates pre-staging at staging's tip when origin has none. Otherwise,
+    for staging (and main, where it is a tier of its own) with a file change
+    pre-staging lacks: its tip must first have had its own tier's checks --
+    tier_check_state. With `check`, anything missing is run (_check_tier);
+    without it, unchecked work is reported and left where it is, because a
+    GitHub test can take many minutes and `Go update` is meant to be quick.
+    Promote runs with `check`. What passes is merged into pre-staging, a
+    basic-tier push; what fails is reported with the commit and the reason,
+    and never copied. A conflict stops the sync and pushes nothing. Nothing
+    here ever pushes to staging or main."""
     staging = staging_branch(root)
     _run(root, 'fetch', '-q', 'origin', staging)
     stip = _remote_tip(root, staging)
@@ -516,12 +831,41 @@ def sync_pre_staging(root, say=print):
         if ltip:
             _run(root, 'fetch', '-q', 'origin', LEGACY_STAGING)
             sources.append((LEGACY_STAGING, ltip))
-    pending = [(b, t) for b, t in sources
-               if _run(root, 'merge-base', '--is-ancestor', t, ptip).returncode != 0]
+    if staging != MAIN:
+        mtip = _remote_tip(root, MAIN)
+        if mtip:
+            _run(root, 'fetch', '-q', 'origin', MAIN)
+            sources.append((MAIN, mtip))
+    pending = [(b, t, c) for b, t in sources for c in [drift(root, ptip, t)] if c]
     if not pending:
         return True
+    ready = []
+    for branch, tip, commits in pending:
+        what = (f'{branch} has {len(commits)} commit(s) with changes '
+                f'{PRE_STAGING} lacks, up to {tip[:12]}')
+        if check:
+            ok, detail = _check_tier(root, branch, tip, say)
+        else:
+            ok, detail = tier_check_state(root, branch, tip)
+        if ok:
+            ready.append((branch, tip))
+            continue
+        if not check:
+            say(f'NOT COPIED YET: {what}, and it has not had all of the '
+                f'{branch} checks ({detail}). Run them and copy it down: '
+                f'python3 tools/precedent_branches.py --sync-pre-staging --check '
+                f'(Promote does the same).')
+        else:
+            say(f'NOT COPIED: {what}, and it did not pass the {branch} checks, so it '
+                f'was not copied into {PRE_STAGING}. It is live on {branch} '
+                f'already; fix it the normal way -- on {PRE_STAGING}, then '
+                f'Promote' + (f', then the pull request into {MAIN}'
+                              if branch == MAIN else '') + '.\n  '
+                + '\n  '.join(commits) + f'\n{detail}')
+    if not ready:
+        return True
     with _Worktree(root, ptip) as wt:
-        for branch, tip in pending:
+        for branch, tip in ready:
             m = _run(wt, 'merge', '--no-ff', '-q', '-m',
                      f'Merge {branch} into {PRE_STAGING}', tip, env=_merge_env(root))
             if m.returncode != 0:
@@ -532,14 +876,40 @@ def sync_pre_staging(root, say=print):
                 return False
         ok, out = _check(root, wt, BASIC)
         if not ok:
-            say(f'the merge of {staging} into {PRE_STAGING} fails the basic check; nothing was pushed.\n{out}')
+            say(f'the merge of {" and ".join(b for b, _ in ready)} into '
+                f'{PRE_STAGING} fails the basic check; nothing was pushed.\n{out}')
             return False
         p = _run(wt, 'push', '-q', 'origin', f'HEAD:refs/heads/{PRE_STAGING}')
         if p.returncode != 0:
             say(f'{PRE_STAGING} moved while this ran; run it again. ({p.stderr.strip()[:200]})')
             return False
-    say(f'merged {" and ".join(b for b, _ in pending)} into {PRE_STAGING}.')
+    say(f'merged {" and ".join(b for b, _ in ready)} into {PRE_STAGING}.')
     return True
+
+
+def drift_report(root, gh=None):
+    """-> [line] for the session-start freshness report: each tier above
+    pre-staging with a file change pre-staging lacks, how many commits, and
+    whether they have had their tier's checks. Silent about merge commits
+    that change no file. Reads origin as last fetched plus the receipt
+    branch; on main with a GitHub test installed, a few API calls."""
+    staging = staging_branch(root)
+    ptip = _git(root, 'rev-parse', '-q', '--verify', f'refs/remotes/origin/{PRE_STAGING}')
+    if not ptip:
+        return []
+    out = []
+    for branch in [staging] + ([MAIN] if staging != MAIN else []):
+        tip = _git(root, 'rev-parse', '-q', '--verify', f'refs/remotes/origin/{branch}')
+        commits = drift(root, ptip, tip) if tip else []
+        if not commits:
+            continue
+        ok, _detail = tier_check_state(root, branch, tip, gh)
+        cmd = ('python3 tools/precedent_branches.py --sync-pre-staging'
+               + ('' if ok else ' --check'))
+        out.append(f'origin/{branch} is {len(commits)} commit(s) ahead of '
+                   f'origin/{PRE_STAGING} with changes it lacks '
+                   f'({"checked" if ok else "unchecked"}). Bring them in: {cmd}')
+    return out
 
 
 # THE PROMOTE LOCK. Two windows promoting at once race: both run the full
@@ -569,8 +939,14 @@ def sync_pre_staging(root, say=print):
 # day took 379 seconds, so 20 minutes is still about three times what a
 # live holder needs. Morgan: "Please update the lock to be 20 minutes
 # unless you disagree" (strength: decided).
+#
+# 15 minutes, down from 20, later on 2026-09-26. 900 seconds is still about
+# two and a half times that slowest 379-second check. An overrun costs one
+# wasted check run, never a commit: the later window's plain push to staging
+# is refused. Morgan: "Let's update that again to 15 minutes ... this should
+# be more than enough" (strength: decided).
 LOCK_BRANCH = 'precedent-promote-lock'
-LOCK_STALE_SECONDS = 20 * 60
+LOCK_STALE_SECONDS = 15 * 60
 _EMPTY_TREE = '4b825dc642cb6eb9a060e54bf8d69288fbee4904'
 
 
@@ -702,13 +1078,24 @@ def promote(root, say=print, to=None, work=None):
     promoting; 1 refused (a failing check, a conflict, a race)."""
     step, why = promotion_step(root, to, work)
     staging = staging_branch(root)
-    if step is None:
+    above = _drifted_from_above(root) if step is None else []
+    if step is None and not above:
         say(f'nothing to promote: {why}.')
         return 0
-    source, dest = (PRE_STAGING, staging) if step == STAGING else (staging, MAIN)
-    # The one line a person reads first: which move this is, in these words.
-    say(f'Now promoting from {source} to {dest} ({why}).')
-    run = _promote_unlocked if step == STAGING else _promote_to_main
+    if step is None:
+        # Nothing climbs, but something arrived from above -- a bot commit
+        # on main, a direct push to staging. Promote is where that gets its
+        # checks and is copied down, so it is not left for a day when
+        # pre-staging happens to have work waiting.
+        say(f'Nothing waits to be promoted ({why}), but {" and ".join(above)} '
+            f'carr{"ies" if len(above) == 1 else "y"} changes {PRE_STAGING} '
+            f'lacks: checking them and copying them down first.')
+        run = lambda r, s: 0 if sync_pre_staging(r, s, check=True) else 1
+    else:
+        source, dest = (PRE_STAGING, staging) if step == STAGING else (staging, MAIN)
+        # The one line a person reads first: which move this is, in these words.
+        say(f'Now promoting from {source} to {dest} ({why}).')
+        run = _promote_unlocked if step == STAGING else _promote_to_main
     state, info = _lock_claim(root, say)
     if state == 'busy':
         say(f'another window is promoting right now ({info}), so this one did '
@@ -724,6 +1111,22 @@ def promote(root, say=print, to=None, work=None):
         return run(root, say)
     finally:
         _lock_release(root, info, say)
+
+
+def _drifted_from_above(root):
+    """-> the tiers above pre-staging whose tips carry a file change
+    pre-staging lacks, as origin last showed them (promotion_step has just
+    fetched all three)."""
+    staging = staging_branch(root)
+    ptip = _remote_tip(root, PRE_STAGING)
+    if not ptip or staging == MAIN:
+        return []
+    out = []
+    for branch in (staging, MAIN):
+        tip = _remote_tip(root, branch)
+        if tip and drift(root, ptip, tip):
+            out.append(branch)
+    return out
 
 
 def _to_main_copy(root):
@@ -752,6 +1155,10 @@ def _promote_to_main(root, say=print):
     that pull request, never by this script. -> 0 ready or nothing to
     promote; 1 refused."""
     staging = staging_branch(root)
+    # What reached main or staging by another route is checked and copied
+    # down first, the same as before the step into staging.
+    if not sync_pre_staging(root, say, check=True):
+        return 1
     _run(root, 'fetch', '-q', 'origin', staging, MAIN)
     stip, mtip = _remote_tip(root, staging), _remote_tip(root, MAIN)
     if not stip or not mtip:
@@ -806,7 +1213,7 @@ def _promote_unlocked(root, say=print):
     """Pre-staging into staging, fully checked. -> 0 promoted or nothing to
     promote; 1 refused (a failing check, a conflict, a race)."""
     staging = staging_branch(root)
-    if not sync_pre_staging(root, say):
+    if not sync_pre_staging(root, say, check=True):
         return 1
     stip, ptip = _remote_tip(root, staging), _remote_tip(root, PRE_STAGING)
     _run(root, 'fetch', '-q', 'origin', staging, PRE_STAGING)
@@ -991,8 +1398,13 @@ def _main(argv):
         print(branch)
         print(why, file=sys.stderr)
         return 0
-    if argv == ['--sync-pre-staging']:
-        return 0 if sync_pre_staging(root) else 1
+    if argv[:1] == ['--sync-pre-staging'] and set(argv[1:]) <= {'--check'}:
+        return 0 if sync_pre_staging(root, check='--check' in argv) else 1
+    if argv == ['--drift']:
+        _run(root, 'fetch', '-q', 'origin', PRE_STAGING, staging_branch(root), MAIN)
+        for line in drift_report(root):
+            print(line)
+        return 0
     if argv[:1] == ['--promote']:
         rest, opts = argv[1:], {}
         while len(rest) >= 2 and rest[0] in ('--to', '--work'):
