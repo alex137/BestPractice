@@ -6,8 +6,8 @@ severity:    default
 applies_to:  ["**"]
 occasion:    "merging a branch"
 gates:       ["merge"]
-index_required: true
 index_clause: "capture follow-on work in the thread that created the need"
+index_required: true
 checked_by:  null
 defines:     ["capture gate"]
 status:      active

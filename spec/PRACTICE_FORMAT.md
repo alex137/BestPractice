@@ -49,7 +49,34 @@ added:       null                # see "What's deferred" below
 approved_by: "BestPractice (pre-fork)"
 strength:    null             # OPTIONAL -- decided | assented; see below
 source_practice_number: N        # see "Beyond the plan's example" below
+source_rule_unlabeled: true       # OPTIONAL -- only on practices 47-52; see below
 ---
+
+### Field order — one order, written down in code and checked
+
+**The fields above are listed in the one order a practice file uses.** The
+order itself lives in code, as `FIELD_ORDER` in
+[`tools/frontmatter_yaml.py`](../tools/frontmatter_yaml.py), and this example
+is held to it: `python3 tools/precedent_check.py --only
+frontmatter-field-order` reports any practice out of that order, any field
+the list doesn't name, and this example drifting from the constant. **To
+fix a file, run `python3 tools/frontmatter_yaml.py --fix-order`.** It moves
+whole fields and changes nothing else: values, comments and the padding
+that aligns them stay byte for byte. A new field goes into `FIELD_ORDER`
+and this example in the same change.
+
+Why it is checked: on 2026-09-26 a handoff message told a practice set to
+put the new `ships:` field "under applies_to", and the set followed the
+message rather than this example. That day 49 of 151 practices here were
+out of order, and every set had some. Morgan ruled that this order stands.
+The check is advisory until the sets have taken the engine update and run
+the fixer, so that none of them turns red on an update BestPractice can't
+fix for them.
+
+`source_rule_unlabeled: true` appears only on practices 47-52, which open on
+bare prose in the original numbered catalogue.
+[`split_practices.py`](../tools/split_practices.py)'s rebuild reads it so
+that it doesn't add a `**Rule.**` label those practices never had.
 
 ### `index_required` — who still earns a line in the occasion index
 

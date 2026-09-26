@@ -8381,6 +8381,16 @@ def check_precedent_check_fires():
                                 body, count=1, flags=re.M), encoding='utf-8')
         case('retired-branch-name-ships', _plant_retired_branch_name)
 
+        # frontmatter-field-order -- ADVISORY by design (see its registration):
+        # a planted misorder reports, and does not fail the run.
+        def _plant_field_order(repo):
+            f = repo / 'practices' / 'name-both-sides-of-ledger.md'
+            body = f.read_text(encoding='utf-8')
+            line = re.search(r'^index_clause:.*\n', body, re.M).group(0)
+            body = body.replace(line, '', 1)
+            f.write_text(body.replace('---\n', '---\n' + line, 1), encoding='utf-8')
+        case('frontmatter-field-order', _plant_field_order, advisory=True)
+
         # generated-edit-goes-upstream -- four shapes in one fixture, told
         # apart by the messages below rather than by the exit status
         # (practice: control-asserts-which-failure). MAP.md loses its
@@ -26776,6 +26786,86 @@ def check_null_frontmatter_is_absent():
           out[-200:])
 
 
+def check_frontmatter_field_order_fixer():
+    """frontmatter_yaml.reorder_fields: puts a practice's frontmatter into
+    FIELD_ORDER and changes nothing else. On 2026-09-26 it rewrote 49 of 151
+    practices here, so "nothing else" is the property that matters: a folded
+    continuation line, a comment and its field, the alignment padding and
+    the body all have to come through byte for byte.
+
+    Stated cases, each with the shape it covers (practice:
+    checks-plant-their-state), and a control that shows the finding comes
+    from the order and not from the parse (practice:
+    control-asserts-which-failure)."""
+    fy = frontmatter_yaml
+    cases = []
+    body = '## Rule\nDo it.\n\n## Why\nBecause: yes.\nslug: not-a-field\n'
+    messy = ('---\nslug:        fx\ntitle:       T\n'
+             'ships:       []\n'
+             'applies_to:  ["**"]\n'
+             '# says why checked_by is null\n'
+             'checked_by:  null\n'
+             'approved_by: "a long approval folded\n'
+             '   onto a second line"\n'
+             'custom_field: 1\n'
+             'tier:        on-demand\n'
+             '---\n' + body)
+    fixed = fy.reorder_fields(messy)
+    want = ('---\nslug:        fx\ntitle:       T\n'
+            'tier:        on-demand\n'
+            'applies_to:  ["**"]\n'
+            '# says why checked_by is null\n'
+            'checked_by:  null\n'
+            'ships:       []\n'
+            'approved_by: "a long approval folded\n'
+            '   onto a second line"\n'
+            'custom_field: 1\n'
+            '---\n' + body)
+    cases.append(('a misordered file comes out in FIELD_ORDER, a comment '
+                  'travelling with the field below it, a folded value with its '
+                  'key, an unlisted field last, the body untouched',
+                  fixed == want, repr(fixed)))
+    cases.append(('the checker names the first field out of place',
+                  '`applies_to:` comes after `ships:`' in (fy.field_order_problem(messy) or ''),
+                  repr(fy.field_order_problem(messy))))
+    cases.append(('the fixed file reads as in order, and fixing it again is a '
+                  'no-op', fy.field_order_problem(fixed) is None
+                  and fy.reorder_fields(fixed) == fixed, repr(fixed)))
+    cases.append(('an unlisted field is reported by name',
+                  fy.unlisted_fields(messy) == ['custom_field'],
+                  repr(fy.unlisted_fields(messy))))
+    dup = '---\nslug: a\ntier: x\nslug: b\n---\n'
+    cases.append(('a repeated key is reported and left alone -- which copy is '
+                  'meant is a person\'s call',
+                  'more than once' in (fy.field_order_problem(dup) or '')
+                  and fy.reorder_fields(dup) == dup, repr(fy.field_order_problem(dup))))
+    cases.append(('QUIET: a file with no frontmatter is neither reported nor '
+                  'rewritten', fy.field_order_problem(body) is None
+                  and fy.reorder_fields(body) == body, ''))
+    import precedent_move
+    moved = precedent_move._rewrite_frontmatter(
+        fixed, {'strength': 'assented', 'in_force_at': 'elsewhere'})
+    cases.append(('precedent_move inserts a field the file lacked where '
+                  'FIELD_ORDER puts it, not at the end -- appending was one of '
+                  'the ways the order drifted',
+                  fy.field_order_problem(moved.replace('custom_field: 1\n', '')) is None
+                  and 'in_force_at: elsewhere\napproved_by:' in moved, repr(moved)))
+    saved = fy.FIELD_ORDER
+    try:
+        fy.FIELD_ORDER = ('tier', 'slug', 'title', 'applies_to', 'checked_by',
+                          'ships', 'approved_by')
+        control = fy.field_order_problem(want)
+    finally:
+        fy.FIELD_ORDER = saved
+    cases.append(('CONTROL: the same in-order file reads as out of order once '
+                  'FIELD_ORDER says otherwise, so the verdict comes from the '
+                  'constant', bool(control), repr(control)))
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'frontmatter_yaml reorders practice frontmatter into FIELD_ORDER and '
+          f'changes nothing else ({len(cases)} stated cases)',
+          not bad, '; '.join(f"{n} -- {d[:600]}" for n, d in bad))
+
+
 def check_frontmatter_is_real_yaml():
     """The fence says YAML, so a real YAML parser has to accept it.
 
@@ -35050,6 +35140,7 @@ def main():
     check_machine_readable_files_parse()
     check_null_frontmatter_is_absent()
     check_frontmatter_is_real_yaml()
+    check_frontmatter_field_order_fixer()
     check_link_anchors_resolve()
     check_materialized_links_are_placed()
     check_source_supplied_checks_run()

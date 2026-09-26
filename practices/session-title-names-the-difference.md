@@ -7,6 +7,7 @@ applies_to:  ["**"]
 occasion:    "creating, renaming or retagging a session"
 gates:       ["reply"]
 index_clause: "title by the differentiator, at creation or once known; never the task alone"
+index_required: true
 checked_by:  null
 defines:     []
 command:     null
@@ -16,7 +17,6 @@ supersedes:  []
 overrides:   null
 added:       "2026-09-17"
 approved_by: "Morgan, 2026-09-17 -- \"This is great, I love it, let's implement this please\"; strength: decided"
-index_required: true
 ---
 ## Rule
 **A session's title is `<repo>: <differentiator>`** — a short tag for the

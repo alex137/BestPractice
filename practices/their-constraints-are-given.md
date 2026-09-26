@@ -11,11 +11,11 @@ checked_by:  null
 defines:     []
 command:     null
 status:      deduplicated
+in_force_at: their-constraints-are-given
 supersedes:  []
 overrides:   null
 added:       "2026-09-21"
 approved_by: "requested by Morgan F, 2026-09-21, after the same argument recurred across sessions"
-in_force_at: their-constraints-are-given
 strength: decided
 ---
 ## Rule

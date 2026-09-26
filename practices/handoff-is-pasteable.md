@@ -5,8 +5,8 @@ tier:        on-demand
 severity:    default
 applies_to:  ["**"]
 occasion:    "asking the person to do something in another session, or pointing them at one"
-index_clause: "any reply that sends them elsewhere ships the words: repo, copy block, way back"
 gates:       ["reply"]
+index_clause: "any reply that sends them elsewhere ships the words: repo, copy block, way back"
 checked_by:  null
 defines:     []
 status:      deduplicated

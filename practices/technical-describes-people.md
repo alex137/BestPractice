@@ -5,8 +5,8 @@ tier:        on-demand
 severity:    default
 applies_to:  ["**"]
 occasion:    "naming or scoping something around a person's skill level"
-index_clause: "a skill level describes a person, never a project, repo or file"
 gates:       []
+index_clause: "a skill level describes a person, never a project, repo or file"
 checked_by:  "tools/precedent_check.py"
 defines:     []
 status:      active

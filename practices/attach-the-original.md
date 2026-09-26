@@ -6,9 +6,9 @@ severity:    default
 scope:       any-adopter
 applies_to:  ["**/*.png", "**/*.jpg", "**/*.jpeg", "**/*.gif", "**/*.webp", "**/*.svg", "**/*.ico", "**/*.pdf", "**/*.zip", "**/*.woff", "**/*.woff2", "**/*.ttf", "**/*.otf", "**/*.mp3", "**/*.mp4", "**/*.mov"]
 occasion:    "asked to include an image, logo or other binary asset the person supplies"
-index_required: true
 gates:       []
 index_clause: "attach the file itself; recreating it from a description is invention"
+index_required: true
 checked_by:  null
 defines:     []
 status:      active

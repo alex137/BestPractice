@@ -998,6 +998,97 @@ def _retired_branch_name_ships(ctx):
 
 
 
+
+# ---- frontmatter-field-order ----------------------------------------------
+# spec/PRACTICE_FORMAT.md sets one order for a practice's frontmatter fields;
+# frontmatter_yaml.FIELD_ORDER is that order written down once, in code.
+_FIX_ORDER_CMD = 'python3 tools/frontmatter_yaml.py --fix-order'
+_SPEC_SHAPE_RE = re.compile(r'^## The Shape\n.*?^```\n---\n(.*?)\n---\n', re.S | re.M)
+
+
+@check('frontmatter-field-order', 'tree',
+       'every practice this repo publishes lists its frontmatter fields in '
+       'the order spec/PRACTICE_FORMAT.md sets (frontmatter_yaml.FIELD_ORDER), '
+       'with no field the spec does not list; where the spec is present, its '
+       'own example lists exactly that order',
+       'whether a field\'s VALUE is right, and a practice another source owns '
+       '(a materialized copy is fixed where it is authored). ADVISORY until the '
+       'practice sets have taken the engine update and run the fixer -- see '
+       'the function\'s own note.',
+       advisory=True, practice_backed=False, binds_publishers=True,
+       selects_on=('practices/*.md', 'spec/PRACTICE_FORMAT.md',
+                   'tools/frontmatter_yaml.py'))
+def _frontmatter_field_order(ctx):
+    """Field order drifts because nothing checked it.
+
+    THE INCIDENT (2026-09-26). When `ships:` rolled out, the handoff message
+    to precedent-shared-writing said to put it "under applies_to". The spec
+    puts it directly after `checked_by:`. The set followed the message and
+    later had to undo the move; Morgan ruled that the spec's order stands.
+    Counted the same day: 49 of 151 practices here out of order, 11 of 33 in
+    precedent-individual, 7 of 44 in precedent-shared-repo-maintenance, 3 of
+    9 in precedent-shared-working-style and 3 of 21 in
+    precedent-shared-writing. One field here, `source_rule_unlabeled`, was
+    in no list at all; split_practices.py reads it, so it joined the spec.
+
+    ADVISORY, deliberately. The sets receive this check through Update
+    Vendors, and a blocking one would turn each of them red on that update
+    with nothing BestPractice can do about it. Advisory, with the fixer named
+    in every finding, lets each set clean up on its own next push. Make it
+    blocking once the sets have taken the update and run the fixer.
+    """
+    try:
+        import frontmatter_yaml as fy
+    except ImportError:
+        raise NotApplicable('frontmatter_yaml.py did not import, so the field '
+                            'order cannot be read')
+    order = getattr(fy, 'FIELD_ORDER', None)
+    if not order:
+        raise NotApplicable('this engine\'s frontmatter_yaml.py predates '
+                            'FIELD_ORDER')
+    out = []
+    spec = ROOT / 'spec' / 'PRACTICE_FORMAT.md'
+    if spec.is_file():
+        m = _SPEC_SHAPE_RE.search(spec.read_text(encoding='utf-8', errors='ignore'))
+        shown = ([k for k, _ in fy._field_blocks(m.group(1))[1]] if m else None)
+        if shown is None:
+            out.append(Finding('spec/PRACTICE_FORMAT.md',
+                               '"The Shape" no longer opens with a fenced '
+                               'frontmatter example this check can read'))
+        elif tuple(shown) != tuple(order):
+            missing = [k for k in order if k not in shown]
+            extra = [k for k in shown if k not in order]
+            out.append(Finding(
+                'spec/PRACTICE_FORMAT.md',
+                f'"The Shape" lists its frontmatter fields differently from '
+                f'frontmatter_yaml.FIELD_ORDER (missing: {missing or "none"}; '
+                f'not in FIELD_ORDER: {extra or "none"}) -- the two are one '
+                f'order and must be changed together'))
+    pdir = ROOT / 'practices'
+    if not pdir.is_dir():
+        return out
+    for path in sorted(pdir.glob('*.md')):
+        rel = str(path.relative_to(ROOT))
+        if _foreign_practice(rel):
+            continue
+        text = path.read_text(encoding='utf-8', errors='ignore')
+        problem = fy.field_order_problem(text)
+        if problem:
+            fixable = fy.reorder_fields(text) != text
+            out.append(Finding(
+                rel, f'frontmatter out of the spec\'s order: {problem} -- '
+                     + (f'run `{_FIX_ORDER_CMD}`, which moves whole fields and '
+                        f'changes nothing else' if fixable else
+                        'the fixer leaves a repeated key alone; keep the copy '
+                        'that is meant and delete the other')))
+        for key in fy.unlisted_fields(text):
+            out.append(Finding(
+                rel, f'carries `{key}:`, a field spec/PRACTICE_FORMAT.md does '
+                     f'not list -- remove it, or add it to the spec and to '
+                     f'FIELD_ORDER in tools/frontmatter_yaml.py upstream in '
+                     f'BestPractice, where the order is defined'))
+    return out
+
 # ---- practice-links-travel -------------------------------------------------
 # A practice file is copied into every repository that adopts the catalogue,
 # so a relative link in one is only real if the target is copied too.

@@ -10,11 +10,11 @@ index_clause: "make small calls yourself; note them; stop only for big ones"
 checked_by:  null
 defines:     []
 status:      active
+in_force_at: null
 supersedes:  []
 overrides:   null
 added:       "2026-09-19"
 approved_by: "pending PR review -- drafted 2026-09-19 by Morgan F, moved from the shared set precedent-team-working-style"
-in_force_at: null
 strength: decided
 ---
 ## Rule
