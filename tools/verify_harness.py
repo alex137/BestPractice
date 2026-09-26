@@ -17220,6 +17220,296 @@ def check_promote_pre_staging():
     check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
 
+def _engine_commit_fixture(tmp, name, kind, git_env):
+    """A repository with an origin, the REAL engine files the engine-commit
+    checks exercise, and stubs for the gates they do not. -> (work, bare).
+    The stubs pass; test_in_copy.sh leaves a marker naming the checkout it
+    ran in when CS_MARK is set, so a caller can prove consumer_shape ran."""
+    import json as _json, shutil as _shutil
+    bare, work = tmp / f'{name}.git', tmp / name
+    subprocess.run(['git', 'init', '-q', '--bare', '-b', 'beta', str(bare)],
+                   env=git_env, capture_output=True)
+    (work / 'tools' / 'checks' / 'tests').mkdir(parents=True)
+    subprocess.run(['git', 'init', '-q', '-b', 'beta', str(work)],
+                   env=git_env, capture_output=True)
+    real = ['precedent_branches.py', 'precedent_push_check.py',
+            'precedent_identity.py', 'precedent_time.py',
+            'precedent_consumer_shape.py']
+    for f in real:
+        _shutil.copy2(ROOT / 'tools' / f, work / 'tools' / f)
+    stubs = {
+        'precedent_check.py': (
+            'import sys\n'
+            'CHECKS = {"x": {"binds_publishers": True}}\n'
+            'if __name__ == "__main__":\n'
+            '    print("precedent_check: 3 passed, 0 violated")\n'),
+        'leak_gate.py': '',
+        'doc_lint.py': '',
+        # consumer_shape imports these two for what a consumer receives.
+        'build_views.py': ('def _engine_tool_paths(): return set()\n'
+                           'def _json_str(v): return v\n'
+                           'def ships_paths(fm): return []\n'),
+        'split_practices.py': 'def _read_practice_file(p): return {}, {}\n',
+    }
+    for f, body in stubs.items():
+        (work / 'tools' / f).write_text(body, encoding='utf-8')
+    (work / 'tools' / 'ENGINE_MANIFEST.json').write_text(_json.dumps(
+        {'kind': kind, 'files': real + list(stubs)}), encoding='utf-8')
+    tests = work / 'tools' / 'checks' / 'tests'
+    (tests / 'run_all.sh').write_text('exit 0\n', encoding='utf-8')
+    (tests / 'test_in_copy.sh').write_text(
+        'top="$(git rev-parse --show-toplevel)" || exit 1\n'
+        'git rev-parse -q --verify HEAD >/dev/null || exit 1\n'
+        '[ -z "$(git status --porcelain --untracked-files=no)" ] || '
+        '{ git status --porcelain; exit 1; }\n'
+        '[ -n "${CS_MARK:-}" ] && echo "ran in $(basename "$top")" >> "$CS_MARK"\n'
+        'exit 0\n', encoding='utf-8')
+    (work / 'precedent.json').write_text(_json.dumps({'base_branch': 'beta'}),
+                                         encoding='utf-8')
+    (work / 'list.txt').write_text('a\n', encoding='utf-8')
+    for args in (['add', '-A'], ['commit', '-q', '-m', 'init'],
+                 ['remote', 'add', 'origin', f'file://{bare}'],
+                 ['push', '-q', 'origin', 'beta']):
+        subprocess.run(['git', '-C', str(work), *args], env=git_env,
+                       capture_output=True, text=True)
+    return work, bare
+
+
+def _engine_commit_env(tmp):
+    """-> (ambient, person, person_git). `ambient` is what a hookless session
+    had on 2026-09-26: git's global identity is the container's bot, no
+    ~/.config/precedent/config.json, and a TZ that is not the person's --
+    and nothing else from this machine (practice: fixture-owns-its-state).
+    `person` is the PRECEDENT_COMMIT_* declaration on top of it;
+    `person_git` authors the fixture's OWN commits as the person, so the
+    only commits that can come out as the bot are the ones the engine made."""
+    gcfg = tmp / 'gitconfig'
+    gcfg.write_text('[user]\n\tname = Claude\n\temail = noreply@anthropic.com\n',
+                    encoding='utf-8')
+    ambient = {k: v for k, v in os.environ.items()
+               if not k.startswith(('GIT_', 'PRECEDENT_', 'CLAUDE_'))
+               and k != 'TZ'}
+    ambient.update(GIT_CONFIG_GLOBAL=str(gcfg), GIT_CONFIG_NOSYSTEM='1',
+                   PRECEDENT_USER_CONFIG=str(tmp / 'no-such-config.json'),
+                   PRECEDENT_ALLOW_ANY_AUTHOR='1', TZ='America/New_York')
+    person = dict(ambient, PRECEDENT_COMMIT_NAME='Pat Person',
+                  PRECEDENT_COMMIT_EMAIL='pat@example.com',
+                  PRECEDENT_COMMIT_TZ='Asia/Kolkata')
+    person_git = dict(ambient, GIT_AUTHOR_NAME='Pat Person',
+                      GIT_AUTHOR_EMAIL='pat@example.com',
+                      GIT_COMMITTER_NAME='Pat Person',
+                      GIT_COMMITTER_EMAIL='pat@example.com')
+    return ambient, person, person_git
+
+
+def check_engine_commits_state_their_author():
+    """Every commit the engine makes states its author (2026-09-26).
+
+    A session rooted above four attached practice sets ran no SessionStart
+    hook, so git kept the container's global identity, and no
+    ~/.config/precedent/config.json existed. PRECEDENT_COMMIT_NAME/EMAIL were
+    in the environment and nothing turned them into git's author: every
+    merge and lock commit Promote made came out as the bot, in all four
+    sets. `git merge` and `git commit-tree` run no `pre-commit`, so the
+    global backstop never saw them. And Promote's full check refused every
+    real run in a source, because consumer_shape would not run in the linked
+    worktree Promote always checks in.
+
+    The fixture reproduces that session exactly -- bot global identity, no
+    user config, a TZ that is not the person's -- and asserts on the commits
+    Promote actually pushed. THE CONTROL: the same Promote with nobody
+    declared still authors as the bot (a shared repo has no person to be
+    wrong about), which proves the fixture's ambient identity really is the
+    bot, so the declared case is not passing by accident. And a repository
+    that IS somebody's individual source, with an identity.json nobody can
+    be read out of, refuses the commit in the tool's own words rather than
+    making it (practice: control-asserts-which-failure)."""
+    import tempfile
+    name = ('Engine commits state their author: Promote in a hookless '
+            'session authors as the declared person, in their zone')
+    need = ['precedent_branches.py', 'precedent_identity.py',
+            'precedent_time.py', 'precedent_consumer_shape.py']
+    absent = [f for f in need if not (ROOT / 'tools' / f).exists()]
+    if absent:
+        not_applicable(name, f'not in this tree: {absent}')
+        return
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+        ambient, person, person_git = _engine_commit_env(tmp)
+
+        def run_in(work, env, *args):
+            p = subprocess.run([sys.executable, 'tools/precedent_branches.py',
+                                *args], cwd=work, capture_output=True,
+                               text=True, env=env)
+            return p.returncode, p.stdout + p.stderr
+
+        def git(work, *args):
+            return subprocess.run(['git', '-C', str(work), *args],
+                                  capture_output=True, text=True,
+                                  env=person_git).stdout.strip()
+
+        def to_pre_staging(work, path, text, msg):
+            git(work, 'fetch', '-q', 'origin')
+            git(work, 'checkout', '-q', '-B', 'w', 'origin/pre-staging')
+            (work / path).write_text(text, encoding='utf-8')
+            git(work, 'add', path)
+            git(work, 'commit', '-q', '-m', msg)
+            git(work, 'push', '-q', 'origin', 'HEAD:refs/heads/pre-staging')
+
+        def head_of(work, branch):
+            git(work, 'fetch', '-q', 'origin')
+            return git(work, 'log', '-1', '--format=%an|%ae|%ad|%s',
+                       '--date=format:%z', f'origin/{branch}')
+
+        # 1. Declared by PRECEDENT_COMMIT_* alone, in a practice SOURCE --
+        #    so the full check includes consumer_shape.
+        work, _ = _engine_commit_fixture(tmp, 'work', 'source', person_git)
+        run_in(work, person, '--sync-pre-staging')
+        to_pre_staging(work, 'list.txt', 'b\n', 'an edit to promote')
+        mark = tmp / 'cs-mark'
+        rc, out = run_in(work, dict(person, CS_MARK=str(mark)), '--promote')
+        cases.append((f'the Promote in a hookless session succeeds (rc={rc}, '
+                      f'{out.strip().splitlines()[-1][:160] if out.strip() else ""!r})',
+                      rc == 0 and 'PROMOTED' in out))
+        got = head_of(work, 'beta')
+        cases.append((f'its merge commit is authored by the declared person, '
+                      f'not git\'s global bot identity (got {got!r})',
+                      got.startswith('Pat Person|pat@example.com|')
+                      and '|Promote pre-staging into beta' in got))
+        cases.append((f'and dated in the declared zone (+0530), not the '
+                      f'ambient TZ (got {got!r})', '|+0530|Promote' in got))
+        lock = head_of(work, 'precedent-promote-lock')
+        cases.append((f'the Promote lock commits are authored the same way '
+                      f'(got {lock!r})',
+                      lock.startswith('Pat Person|pat@example.com|')))
+        ran = mark.read_text(encoding='utf-8') if mark.exists() else ''
+        cases.append((f"Promote's full check ran consumer_shape to a pass in "
+                      f"its linked worktree, in a copy named after the real "
+                      f"checkout (marker: {ran.strip()!r})",
+                      'ran in work' in ran and 'check ran on the batch and '
+                      'passed' in out))
+
+        # 2. THE CONTROL: nobody declared, a shared repository.
+        work2, _ = _engine_commit_fixture(tmp, 'shared', 'consumer', person_git)
+        run_in(work2, ambient, '--sync-pre-staging')
+        to_pre_staging(work2, 'list.txt', 'c\n', 'another edit')
+        rc, out = run_in(work2, ambient, '--promote')
+        got = head_of(work2, 'beta')
+        cases.append((f'control: with nobody declared, the same Promote still '
+                      f'authors as git\'s global identity -- the bot this '
+                      f'fixture set, so case 1 is not passing by accident '
+                      f'(rc={rc}, got {got!r})',
+                      rc == 0 and got.startswith('Claude|noreply@anthropic.com|')))
+
+        # 3. An individual source nobody can be read out of: refused.
+        work3, _ = _engine_commit_fixture(tmp, 'indiv', 'source', person_git)
+        (work3 / 'identity.json').write_text('{"name": "no email here"}\n',
+                                             encoding='utf-8')
+        git(work3, 'add', 'identity.json')
+        git(work3, 'commit', '-q', '-m', 'an unreadable declaration')
+        git(work3, 'push', '-q', 'origin', 'beta')
+        run_in(work3, ambient, '--sync-pre-staging')
+        to_pre_staging(work3, 'list.txt', 'd\n', 'an edit')
+        before = head_of(work3, 'beta')
+        rc, out = run_in(work3, ambient, '--promote')
+        cases.append((f'an individual source with no resolvable author '
+                      f'REFUSES the commit and moves nothing (rc={rc}, '
+                      f'{out.strip()[-160:]!r})',
+                      rc == 1 and 'REFUSED: no commit was made' in out
+                      and 'identity.json' in out
+                      and head_of(work3, 'beta') == before))
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
+def check_history_checks_never_ride_a_reused_pass():
+    """A recorded or shared pass is keyed on the TREE; commit_author and
+    commit_dates judge COMMITS (2026-09-26).
+
+    Two commits can carry one tree with different authors -- the merge a
+    Promote makes has exactly the tree its checked parents had. On
+    2026-09-26 Promote reused another checkout's pass for the same tree in
+    four repositories, "nothing to re-run", and the bot-authored merges it
+    had just made went out with commit_author never having seen them. So a
+    reused pass still runs the two history checks.
+
+    Both ways a pass is reused are built here: this checkout's own record,
+    and a receipt another checkout published to origin. THE CONTROL: the
+    same reuse over a commit the declared person made still passes, and says
+    it reused the pass -- so the failure is the author, and the reuse path
+    is the one being exercised (practice: control-asserts-which-failure)."""
+    import tempfile, shutil as _shutil
+    name = 'History checks never ride a reused pass'
+    author_check = ROOT / 'tools' / 'checks' / 'check_commit_author.py'
+    if not author_check.exists():
+        not_applicable(name, 'tools/checks/check_commit_author.py is absent')
+        return
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+        ambient, person, person_git = _engine_commit_env(tmp)
+        bot_git = dict(ambient, GIT_AUTHOR_NAME='Claude',
+                       GIT_AUTHOR_EMAIL='noreply@anthropic.com')
+        work, bare = _engine_commit_fixture(tmp, 'work', 'consumer', person_git)
+        _shutil.copy2(author_check, work / 'tools' / 'checks' / author_check.name)
+
+        def git(cwd, *args, env=person_git):
+            return subprocess.run(['git', '-C', str(cwd), *args],
+                                  capture_output=True, text=True, env=env)
+
+        def gate(cwd, *extra):
+            p = subprocess.run([sys.executable, 'tools/precedent_push_check.py',
+                                '--tier', 'full', *extra], cwd=cwd,
+                               capture_output=True, text=True, env=person)
+            return p.returncode, p.stdout + p.stderr
+
+        git(work, 'add', '-A')
+        git(work, 'commit', '-q', '-m', 'carry the author check')
+        git(work, 'push', '-q', 'origin', 'beta')
+        git(work, 'checkout', '-q', '-b', 'feature')
+        (work / 'list.txt').write_text('checked\n', encoding='utf-8')
+        git(work, 'commit', '-qam', 'the checked files')
+        rc, out = gate(work)
+        cases.append((f'the fixture tree passes the full check and is recorded '
+                      f'(rc={rc})', rc == 0 and 'recorded for tree' in out))
+        git(work, 'push', '-q', 'origin', 'feature')
+
+        # Same tree, a commit by the bot on top: the local record is reused.
+        git(work, 'commit', '-q', '--allow-empty', '-m', 'bot merge', env=bot_git)
+        rc, out = gate(work, '--gate')
+        cases.append((f'a pass THIS checkout recorded for the tree does not '
+                      f'wave through a bot-authored commit with the same tree '
+                      f'(rc={rc}, {out.strip()[-200:]!r})',
+                      rc == 1 and 'already passed' in out
+                      and 'FAILED -- commit_author' in out
+                      and 'noreply@anthropic.com' in out))
+
+        # THE CONTROL: the same reuse over the person's own commit.
+        git(work, 'reset', '-q', '--hard', 'HEAD~1')
+        git(work, 'commit', '-q', '--allow-empty', '-m', 'person merge')
+        rc, out = gate(work, '--gate')
+        cases.append((f'control: the same reused pass over a commit the '
+                      f'declared person made passes, and says it reused the '
+                      f'files (rc={rc}, {out.strip()[-160:]!r})',
+                      rc == 0 and 'already passed' in out
+                      and 'judge commits rather than files' in out))
+
+        # A receipt another checkout published, reused from a fresh clone.
+        other = tmp / 'other'
+        git(tmp, 'clone', '-q', '-b', 'feature', f'file://{bare}', str(other))
+        git(other, 'commit', '-q', '--allow-empty', '-m', 'bot merge',
+            env=bot_git)
+        rc, out = gate(other, '--gate')
+        cases.append((f'a pass SHARED by another checkout does not wave '
+                      f'through a bot-authored commit either (rc={rc}, '
+                      f'{out.strip()[-200:]!r})',
+                      rc == 1 and 'in another checkout' in out
+                      and 'FAILED -- commit_author' in out))
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
 def check_promote_picks_its_step():
     """Promote picks pre-staging -> staging or staging -> main, and says
     which before anything else (Morgan, 2026-09-26, strength: decided: it
@@ -19095,6 +19385,52 @@ def check_freshness_guard_checks_attached_repositories():
             cases.append((f'{tag}: an expanded path that is still not there '
                           f'skips, naming the entry as written (rc={rc})',
                           rc == 0 and "(from '~/ghost')" in err))
+
+            # THE DECLARED BASE WINS FOR AN ATTACHED REPO (2026-09-26). A
+            # practice source is read from main, and its own pre-staging is
+            # ahead of main by design until a Promote. The guard used to let
+            # the person's landing branch (pre-staging) replace the entry's
+            # declared "=main", so a source sitting correctly on main was
+            # "missing N commits from origin/pre-staging" and every tool call
+            # of the session was refused. A stub precedent_branches.py makes
+            # --landing answer pre-staging, the way a real source's does.
+            def tiered(repo_seed, repo):
+                tools = repo_seed / 'tools'
+                tools.mkdir(exist_ok=True)
+                (tools / 'precedent_branches.py').write_text(
+                    'import sys\n'
+                    'if "--landing" in sys.argv: print("pre-staging")\n')
+                git(repo_seed, 'add', 'tools')
+                git(repo_seed, 'commit', '-qm', 'landing stub')
+                git(repo_seed, 'push', '-q', 'origin', 'main')
+                git(repo_seed, 'checkout', '-qb', 'pre-staging')
+                (repo_seed / 'g').write_text('unpromoted\n')
+                git(repo_seed, 'add', 'g')
+                git(repo_seed, 'commit', '-qm', 'unpromoted')
+                git(repo_seed, 'push', '-q', 'origin', 'pre-staging')
+                git(repo_seed, 'checkout', '-q', 'main')
+                git(repo, 'fetch', '-q', 'origin')
+                git(repo, 'merge', '-q', '--ff-only', 'origin/main')
+
+            tiered(other_seed, other)
+            rc, err = run(proj, 'also-declared-main', also=f'{other}=main')
+            cases.append((f'{tag}: an attached source on main is checked '
+                          f'against its DECLARED base, not the landing '
+                          f'branch pre-staging (rc={rc}, '
+                          f'stderr={err.strip()[:90]!r})',
+                          rc == 0 and 'pre-staging' not in err))
+
+            # THE CONTROL: the project dir, with no declared base, still
+            # takes the landing override -- work written there lands on
+            # pre-staging, so a main checkout behind it is still refused.
+            # Without this the case above would pass if the landing override
+            # were deleted outright.
+            proj2_seed, proj2 = make('proj2')
+            tiered(proj2_seed, proj2)
+            rc, err = run(proj2, 'project-landing')
+            cases.append((f'{tag}: the project dir itself is still held to '
+                          f'the landing branch (rc={rc})',
+                          rc == 2 and 'origin/pre-staging' in err))
 
     failed = [n for n, ok in cases if not ok]
     check(f'the freshness guard checks attached repositories '
@@ -35375,6 +35711,8 @@ def main():
     check_branch_tiers()
     check_merge_check_gate()
     check_promote_pre_staging()
+    check_engine_commits_state_their_author()
+    check_history_checks_never_ride_a_reused_pass()
     check_promote_picks_its_step()
     check_promote_only_and_tier_branches()
     check_github_ci_setting_names()
