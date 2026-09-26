@@ -4,7 +4,7 @@ title:       Tabular documents ship a sortable render from one shared renderer
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
-occasion:    "publishing a document with a multi-column sortable table"
+occasion:    "publishing a sortable multi-column table"
 gates:       []
 index_clause: "ship a sortable render from the one shared renderer"
 checked_by:  null

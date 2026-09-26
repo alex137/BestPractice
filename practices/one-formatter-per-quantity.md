@@ -4,7 +4,7 @@ title:       Every quantity kind prints through one formatter
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
-occasion:    "printing a numeric quantity that will be compared across rows"
+occasion:    "printing a number compared across rows"
 gates:       []
 index_clause: "one formatter per quantity kind, declared in one module"
 checked_by:  null

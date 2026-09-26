@@ -6,7 +6,7 @@ severity:    default
 applies_to:  ["**"]
 occasion:    "a person says \"Reduction pass\", or an always-loaded surface is near its ceiling"
 gates:       []
-index_clause: "\"Reduction pass\" -- work the menu in order, move never delete, report what moved"
+index_clause: "work the menu in order; move, never delete; report what moved"
 checked_by:  null
 defines:     ["Reduction pass"]
 command:     {"Reduction pass": "Measure everything a session loads before it starts work, make room by moving things rather than deleting them, and show you exactly what moved and what it saved."}

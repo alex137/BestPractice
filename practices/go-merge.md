@@ -6,7 +6,7 @@ severity:    default
 applies_to:  ["**"]
 occasion:    "a message says \"Go update\" or \"Approved\", or plainly authorizes a merge"
 gates:       ["merge"]
-index_clause: "\"Go update\"/\"Approved\": default push; high-risk -> sync, branch, PR, merge"
+index_clause: "\"Go update\"/\"Approved\": default push; high-risk: sync, branch, PR, merge"
 checked_by:  null
 defines:     ["Go update", "Approved"]
 command:     {"Go update": "Save the work, land it on the shared branch on origin, and tell you which branch it went to — without asking anything further.", "Approved": "The same as **Go update**: save the work, land it on the shared branch on origin, and tell you which branch it went to."}

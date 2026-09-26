@@ -6,7 +6,7 @@ severity:    default
 applies_to:  ["**"]
 occasion:    "writing a rule that depends on the outside world"
 gates:       []
-index_clause: "a rule about the outside world carries its date, inline"
+index_clause: "it carries its date, inline"
 checked_by:  null
 defines:     []
 status:      active

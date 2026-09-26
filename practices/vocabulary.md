@@ -6,7 +6,7 @@ severity:    default
 applies_to:  ["**"]
 occasion:    "a person says \"Vocabulary\", or asks what the standing commands are"
 gates:       ["reply"]
-index_clause: "\"Vocabulary\" -- list every command in force, read it, never recall it"
+index_clause: "list every command in force; read it, never recall it"
 checked_by:  null
 defines:     ["Vocabulary"]
 command:     {"Vocabulary": "List every standing phrase this project recognizes, and what each one does."}

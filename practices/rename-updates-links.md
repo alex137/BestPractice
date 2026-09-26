@@ -4,9 +4,9 @@ title:       "A rename is not done until every link to the old path is updated"
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
-occasion:    "renaming, moving, or deleting a file other files may link to"
+occasion:    "renaming, moving or deleting a file others may link to"
 gates:       []
-index_clause: "renaming a file means repointing every link to it, in the same commit"
+index_clause: "repoint every link to it in the same commit"
 checked_by:  "tools/precedent_check.py"
 defines:     []
 status:      active

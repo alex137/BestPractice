@@ -4,9 +4,9 @@ title:       "A prompt one session seeds into another says which session sent it
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
-occasion:    "seeding a prompt into another session -- spawning one, or scheduling a message into one"
+occasion:    "seeding or scheduling a prompt into another session"
 gates:       []
-index_clause: "a seeded or scheduled prompt opens by naming the session that sent it"
+index_clause: "it opens by naming the session that sent it"
 checked_by:  null
 defines:     []
 status:      active

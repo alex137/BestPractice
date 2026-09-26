@@ -4,7 +4,7 @@ title:       "\"Prompt Please\" hands back a recommendation, or work this sessio
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
-occasion:    "handing the person work to do, starting work that may touch a repository this session cannot reach, or the person wants to act on a recommendation already given by opening a fresh session"
+occasion:    "handing the person work, starting work in a repo this session cannot reach, or moving advice to a fresh session"
 gates:       ["reply"]
 index_clause: "\"Prompt Please\" -- recommendation or unreachable work, one paste-ready prompt"
 checked_by:  null

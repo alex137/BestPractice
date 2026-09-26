@@ -103,6 +103,9 @@ def _budget(key, default):
 RESIDENT_BUDGET_TOKENS = _budget('resident_block_tokens', 2000)
 # code-cites-practice: session-load-budget -- the generated occasion index
 # grew unbudgeted to 29% of AGENTS.md; see OccasionIndexBudgetExceeded.
+# The 4000 fallback is what a consumer without its own registry row gets, and
+# nobody decided it (practice: constants-are-risk-inputs) -- registered in
+# session_load_budgets.json's _occasion_index_fallback_comment.
 OCCASION_INDEX_BUDGET_TOKENS = _budget('occasion_index_tokens', 4000)
 
 
