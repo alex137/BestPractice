@@ -62,6 +62,7 @@ Built from every practice's `defines:` frontmatter field -- the terms that pract
 | Simple please | [plain-words](practices/plain-words.md) |
 | skipped heading level | [heading-outline](practices/heading-outline.md) |
 | source manifest | [source-naming](practices/source-naming.md) |
+| Spec it out | [write-it-up](practices/write-it-up.md) |
 | speculative document | [speculation-is-marked](practices/speculation-is-marked.md) |
 | subject: | [session-tags](practices/session-tags.md) |
 | the desk | [chief-of-staff](practices/chief-of-staff.md) |

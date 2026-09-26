@@ -1,15 +1,15 @@
 ---
 slug:        write-it-up
-title:       "\"Write it up\" commits a self-contained report on the current issue, with a link"
+title:       "\"Write it up\" (or \"Spec it out\") commits a self-contained report on the current issue, with a link"
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
-occasion:    "a person asks for a write-up of the issue being worked"
+occasion:    "a person says \"Write it up\" or \"Spec it out\", or asks for a write-up of the issue being worked"
 gates:       []
-index_clause: "\"Write it up\": commit a full report of issue and fix, then link it"
+index_clause: "\"Write it up\"/\"Spec it out\": commit a full report of issue and fix, then link it"
 checked_by:  null
-defines:     ["Write it up"]
-command:     {"Write it up": "Write a full report on the issue -- what it is, the context that led to it, the options weighed and the holes found in them, and the fix that survived -- for a reader with none of this conversation, commit it to the repo's write-up folder (spec/ unless the repo says otherwise) on the branch you're on, and give the link."}
+defines:     ["Write it up", "Spec it out"]
+command:     {"Write it up": "Write a full report on the issue -- what it is, the context that led to it, the options weighed and the holes found in them, and the fix that survived -- for a reader with none of this conversation, commit it to the repo's write-up folder (spec/ unless the repo says otherwise) on the branch you're on, and give the link.", "Spec it out": "The same as **Write it up**: a full, self-contained report on the issue and the fix that survived, committed to the write-up folder, with the link."}
 status:      active
 in_force_at: null
 supersedes:  []
@@ -24,11 +24,15 @@ approved_by: "Morgan, 2026-09-18. Extended 2026-09-20, on instruction to
   session, say the seed root and the repos to attach in plain prose in the
   reply, not only inside a report or block meant for someone else to read.
   Extended 2026-09-26: analyze and attack the idea before proposing it, and
-  a declared write-up directory, `writeup_dir`, defaulting to spec/."
+  a declared write-up directory, `writeup_dir`, defaulting to spec/.
+  \"Spec it out\" added as a second word for the same command, 2026-09-26
+  (Morgan: \"'spec it out' should be a synonym of 'write it up'\",
+  strength: decided)."
 strength:    decided
 ---
 ## Rule
-**"Write it up" is the clean form, not the only one** -- "put together a
+**"Write it up" is the clean form, not the only one** -- **"Spec it out"**
+is the same command in other words, equally clean, and so is "put together a
 writeup on this", "document what happened here for whoever picks this up",
 and anything else that plainly asks for the same thing get the same
 treatment. When a person asks for it, about whatever issue, bug, or
@@ -177,6 +181,9 @@ the test suite, which is why the Detail tells such a repo to declare its own
 `writeup_dir` rather than live with the default. The report now records its
 own analysis, not only the result of it, because a reader who was not there
 cannot trust a proposal whose alternatives they never see.
+
+**"Spec it out" became a second word for it on 2026-09-26**, at Morgan's
+ask. It means exactly what "Write it up" means; nothing else changed.
 
 ## Install
 No mechanical check: like [go-update](go-update.md), whether a given reply
