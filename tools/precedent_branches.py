@@ -569,8 +569,14 @@ def sync_pre_staging(root, say=print):
 # day took 379 seconds, so 20 minutes is still about three times what a
 # live holder needs. Morgan: "Please update the lock to be 20 minutes
 # unless you disagree" (strength: decided).
+#
+# 15 minutes, down from 20, later on 2026-09-26. 900 seconds is still about
+# two and a half times that slowest 379-second check. An overrun costs one
+# wasted check run, never a commit: the later window's plain push to staging
+# is refused. Morgan: "Let's update that again to 15 minutes ... this should
+# be more than enough" (strength: decided).
 LOCK_BRANCH = 'precedent-promote-lock'
-LOCK_STALE_SECONDS = 20 * 60
+LOCK_STALE_SECONDS = 15 * 60
 _EMPTY_TREE = '4b825dc642cb6eb9a060e54bf8d69288fbee4904'
 
 
