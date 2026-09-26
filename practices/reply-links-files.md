@@ -15,7 +15,7 @@ in_force_at: null
 supersedes:  []
 overrides:   null
 added:       null
-approved_by: "BestPractice (pre-fork)"
+approved_by: "BestPractice (pre-fork); the owner/repo/branch preface, Morgan, 2026-09-26"
 source_practice_number: 12
 ---
 ## Rule
@@ -26,6 +26,12 @@ to open the work from the chat, not merely learn it exists. **A deleted file
 is listed too** — its path, why it went, and a link to the commit that
 removed it. It is the one entry with nothing to open on the branch, which is
 exactly why a reader will not find it on their own.
+
+**The list opens with where the files are: `Files touched in
+owner/repo/branch:`** -- for example *Files touched in
+alex137/BestPractice/pre-staging:* -- and the entries follow. A reply that
+touched more than one repository or branch gives each its own preface and
+its own list, so every entry sits under the place it lives.
 
 ## Detail
 **A deletion is linked at the commit that made it**, not on the branch: a
@@ -99,6 +105,13 @@ exactly, and the `UserPromptSubmit` hook prints its clause before the reply
 is written. On a harness with no prompt-submit hook -- Codex, Gemini CLI --
 it now arrives through the standing instruction rather than automatically,
 which was weighed and accepted.
+
+**The preface names the place, 2026-09-26.** Morgan: *"Files touched then
+have the username slash repo name slash branch and then the list."* Replies
+that touched several repositories in one turn had shown a flat list, and a
+reader could only tell which repo and branch an entry was on by reading its
+link. The preface says it once, up front. The "in" between the words and the
+path is the session's wording of his ask. Strength: decided.
 
 ## Install
 Convention in

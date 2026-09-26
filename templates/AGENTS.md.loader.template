@@ -237,8 +237,9 @@ Conflicts in shared files are EXPECTED. The fast, safe path:
   Rule of thumb: if a term can be replaced by a plain description of five
   words or fewer, it is jargon.
 - **Reply convention** (practice `reply-links-files`): every reply that created, modified or
-  deleted files ends with a "Files touched" list — branch link + post-merge
-  link + one-line description per file — so the reader can open the work from
+  deleted files ends with a "Files touched" list, prefaced `Files touched in
+  owner/repo/branch:` (one preface per repository and branch), then branch
+  link + post-merge link + one-line description per file — so the reader can open the work from
   the chat. A **deleted** file is listed too: its path, why it went, and a
   link to the commit that removed it, since it is the one entry with nothing
   to open on the branch and the one a reader cannot find any other way (a
