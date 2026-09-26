@@ -88,6 +88,13 @@ The command does the whole promotion, and a session adds nothing to it:
    which happened**: "NOT re-run", with when the earlier run passed, or how
    long the run it just did took.
 
+**Main takes staging by a pull request from a throwaway copy, never from
+staging itself.** GitHub's "automatically delete head branches" deletes a
+merged pull request's source branch, and on 2026-09-26 that deleted
+staging ([the gotcha](https://github.com/alex137/BestPractice/blob/staging/gotchas/gotcha-2026-09-26-a-pull-request-from-staging-deletes-staging.md)).
+`git push origin origin/staging:refs/heads/to-main-DATE`, then the pull
+request from that copy; the merge gate refuses one from a tier branch.
+
 **Report what it printed, plainly**: the commits promoted and whether
 the full check ran or stood from an earlier run, or -- on
 `PROMOTE REFUSED` -- the failing check and the batch it was run on. A

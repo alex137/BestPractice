@@ -94,10 +94,15 @@ TIERS = (BASIC, FULL)
 SETTING = 'branch_push_checks'
 DEFAULT_TIER = BASIC
 LANDING_SETTING = 'landing_branch'
-# PRE_STAGING for everyone since 2026-09-25, once Alex had heard and
-# approved (relayed by Morgan: "Alex is on top of this and approves").
-# A person who wants to land on staging sets landing_branch there.
-DEFAULT_LANDING = PRE_STAGING
+# The repository's own staging tier -- the conventional route, a pull
+# request into the branch work normally lands on -- for anyone who has not
+# chosen otherwise. The tiered route (pre-staging, then Promote) is a
+# person's opt-in, set as landing_branch "pre-staging" in their own
+# identity.json. Morgan, 2026-09-26 (strength: decided): "This forced
+# pre-staging -> staging -> main should be mandatory for me, but not
+# necessarily anyone else. (We may change that in the future.)" It was
+# PRE_STAGING for everyone from 2026-09-25 until then.
+DEFAULT_LANDING = STAGING
 
 # Same names and values as precedent_identity.py, duplicated rather than
 # imported for the reason that file gives for duplicating them itself: this
@@ -301,6 +306,16 @@ def merge_refusal(root, bases, heads, user_config=None):
             f'and say Promote.')
 
 
+def tier_branches(root):
+    """Every branch that is a tier here: main, staging (and its old name)
+    and pre-staging. None of them may ever be the SOURCE of a pull request:
+    GitHub's "automatically delete head branches" deletes the branch a
+    merged pull request came from (2026-09-26, staging, see
+    gotchas/gotcha-2026-09-26-a-pull-request-from-staging-deletes-staging.md)."""
+    return sorted({MAIN, PRE_STAGING, LEGACY_STAGING, STAGING,
+                   staging_branch(root)})
+
+
 def ensure_tiers(root, apply=False, say=print):
     """Make origin carry pre-staging and a real staging branch. -> 0 when
     both exist (or were just made), 1 when something is missing and
@@ -331,7 +346,18 @@ def ensure_tiers(root, apply=False, say=print):
             ' -- run `python3 tools/precedent_branches.py --ensure-tiers --apply`.')
         return 1
     if wants_staging_branch or not _remote_tip(root, staging):
-        src = MAIN if wants_staging_branch else (base_branch(root) or MAIN)
+        # A staging branch that has gone missing is rebuilt from the old
+        # name kept in step with it, else from main. 2026-09-26: GitHub's
+        # auto-delete-head-branches removed staging when a pull request
+        # FROM staging into main was merged, and this looked for staging
+        # itself to rebuild it from, found nothing and gave up. Right after
+        # such a merge, main contains staging exactly.
+        if wants_staging_branch:
+            src = MAIN
+        elif staging != LEGACY_STAGING and _remote_tip(root, LEGACY_STAGING):
+            src = LEGACY_STAGING
+        else:
+            src = MAIN
         tip = _remote_tip(root, STAGING) or _remote_tip(root, src)
         if not tip:
             say(f'origin has no {src} branch, so there is nothing to base '

@@ -264,6 +264,13 @@ Two things in that practice change with it:
 
 ## Installs take their updates from main
 
+**Done, 2026-09-25**, right after the first merge of staging into main
+(#629): `SOURCE_BRANCH` in `tools/precedent_vendor_engine.py` and
+`tools/precedent_refresh_sources.py` reads `main`, and runbook step 1
+repoints an install pinned to staging. Morgan: *"Yes, switch all installs
+to main. ... Let's do it, go ahead, go update"* (strength: decided). Each
+install moves at its own next Update Vendors.
+
 **Every install -- every repository that vendors Precedent, and every
 practice source a session clones -- takes its updates from `main`**, all
 of them at once, not some now and some later. That is the one branch whose

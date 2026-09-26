@@ -7,7 +7,9 @@
   "run_budgets": {
     "_comment": "How many API calls one run of a named tool may make before tools/github_budget.py reports it. NOT a limit the tool enforces on itself -- it prints and carries on (practice: fail-gracefully). The point is that a tool's bill is watched at all: an uncached loop that doubled overnight is invisible without a declared figure to compare against.",
     "very_deep_check.py": 120,
-    "_very_deep_check_note": "Measured 2026-09-14, one full run in this workspace: 45 calls -- the repository-visibility audit over this tree's own references, one liveness call per repo in force, and one `user` probe. 120 leaves room for a larger workspace and for the audit to run per source, without leaving a runaway loop unreported."
+    "_very_deep_check_note": "Measured 2026-09-14, one full run in this workspace: 45 calls -- the repository-visibility audit over this tree's own references, one liveness call per repo in force, and one `user` probe. 120 leaves room for a larger workspace and for the audit to run per source, without leaving a runaway loop unreported.",
+    "precedent_merge_check.py": 2,
+    "_precedent_merge_check_note": "One GET of the pull request per merge, to read its source branch: a tier branch is never merged FROM (2026-09-26, gotchas/gotcha-2026-09-26-a-pull-request-from-staging-deletes-staging.md). 2 leaves room for a retried merge in the same run."
   },
   "unmeasurable": {
     "_comment": "Allowances this project's own sessions CANNOT measure, listed so they are reported as unmeasured rather than omitted as clean. Established 2026-09-14 from inside a Claude Code container: the agent proxy answers 403 `This GitHub API path is not available: sessions are bound to their configured repositories` for /search/* and /graphql before the request reaches GitHub. Every figure here is GitHub's PUBLISHED figure, read 2026-09-14, not a measurement taken here (practice: volatile-rules-carry-dates, no-invented-specifics).",
