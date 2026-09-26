@@ -6,7 +6,7 @@ severity:    default
 applies_to:  ["**"]
 occasion:    "a person says \"Chief of Staff\""
 gates:       ["reply"]
-index_clause: "on request; name the window read, link every session; Promotion Reviews last"
+index_clause: "on request only; name the window read, link each session; Promotion Reviews last"
 checked_by:  null
 defines:     ["Chief of Staff", "the sweeper", "the desk", "Promotion Reviews"]
 command:     {"Chief of Staff": "Stop and route this: tell you what every open session is blocked on and what is colliding, with a clickable link to each, and end on Promotion Reviews: per repo you worked in this week, what waits to be promoted and which recent branches are stale."}

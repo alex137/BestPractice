@@ -9299,6 +9299,22 @@ def check_precedent_check_fires():
             git(repo, 'update-ref', 'refs/remotes/origin/main', c2)
         case('merge-target-is-beta-branch', _plant_mtib)
 
+        # declared-sources-are-cloned -- this repo declares three shared sets
+        # beside itself, and both .claude/hooks/session-start.sh and the
+        # tools/bootstrap.sh it runs clone them. Planted by deleting that
+        # line from both: the finding must name the missing clone step.
+        def _plant_dsac(repo):
+            for rel in ('tools/bootstrap.sh', '.claude/hooks/session-start.sh'):
+                rewrite(repo, rel, lambda t: re.sub(
+                    r'\n[^\n]*precedent_source_bootstrap\.py --teams-from[^\n]*',
+                    '', t))
+        case('declared-sources-are-cloned', _plant_dsac)
+        cases.append(('declared-sources-are-cloned: the planted finding names '
+                      'the missing session-start clone step',
+                      'no session-start step clones them' in
+                      planted.get('declared-sources-are-cloned', (0, ''))[1]
+                      or 'declared-sources-are-cloned' not in ran))
+
         # philosophy-is-not-repo-policy -- a practice whose ## Rule leans on
         # an essay for its authority, which is exactly the drift the
         # philosophy/ copy created the risk of. Planted in the EXPORTED
@@ -17957,6 +17973,34 @@ def check_source_clone_is_pinned_to_a_branch():
                       f'(got {branch_of(clone)!r}, {out!r})',
                       ok and branch_of(clone) == 'main'))
 
+        # Only a clone THIS tool made is moved (CLONE_MARKER). A checkout
+        # the harness or a person made may be a session's working copy: a
+        # practice set declares universal at ../BestPractice, and
+        # BestPractice declares it at `.`, itself.
+        cases.append(('a clone the tool made carries its marker',
+                      psb._is_marked_clone(clone)))
+        foreign = W / 'foreign'
+        git(W, 'clone', '-q', '--branch', 'main', str(src), str(foreign))
+        git(foreign, 'checkout', '-q', 'claude/feature')
+        ok, out = psb._try_sync(url, foreign)
+        cases.append((f'a checkout the tool did NOT make is left on its branch '
+                      f'(got {branch_of(foreign)!r}, {out!r})',
+                      (not ok) and branch_of(foreign) == 'claude/feature'
+                      and 'was not cloned by this tool' in out))
+        itself = W / 'itself'
+        git(W, 'clone', '-q', '--branch', 'main', str(src), str(itself))
+        (itself / 'practices').mkdir()
+        (itself / 'precedent.json').write_text(json.dumps({
+            'base_branch': 'main', 'sources': [
+                {'level': 'universal', 'name': 'precedent', 'path': '.'}]}),
+            encoding='utf-8')
+        git(itself, 'checkout', '-q', 'claude/feature')
+        res = psb.sources_from_repo(itself)
+        cases.append((f'a source declared at `.` does not move the repo itself '
+                      f'(got {branch_of(itself)!r}, {res!r})',
+                      branch_of(itself) == 'claude/feature'
+                      and res and 'declared inside this repository' in res[0][2]))
+
         git(clone, 'checkout', '-q', 'claude/feature')
         (clone / 'rule.md').write_text('work nobody committed\n', encoding='utf-8')
         ok, out = psb._try_sync(url, clone)
@@ -17989,6 +18033,38 @@ def check_source_clone_is_pinned_to_a_branch():
     failed = [n for n, ok in cases if not ok]
     check(f'a source clone is pinned to a branch rather than asking the '
           f'remote ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
+def check_consumer_bootstrap_clones_declared_sources():
+    """templates/bootstrap.sh must clone the shared sets a consumer declares,
+    before it checks the loader block against them.
+
+    Until 2026-09-26 it did not: the only session-start step that cloned
+    declared sources was precedent-universal-catalogue.sh, which consumers
+    decline, so a consumer's declared set was missing from every fresh
+    container and its loader block read as drifted (gotchas/, 2026-09-26).
+    Asserted with precedent_check's own pattern, so the template and the
+    check that fails a repo without the step cannot disagree about what the
+    step looks like. The negative control strips the step and must stop
+    matching."""
+    import precedent_check as pc
+    text = (ROOT / 'templates' / 'bootstrap.sh').read_text(encoding='utf-8')
+    code = '\n'.join(l for l in text.splitlines()
+                     if not l.lstrip().startswith('#'))
+    m = pc._SOURCE_CLONE_RE.search(code)
+    sync = code.find('precedent_sync_views.py --repo . --check')
+    stripped = '\n'.join(l for l in code.splitlines()
+                         if 'precedent_source_bootstrap.py' not in l)
+    cases = [
+        ('the template runs precedent_source_bootstrap.py --sources-from', bool(m)),
+        ('and runs it before the loader-block check',
+         bool(m) and sync != -1 and m.start() < sync),
+        ('negative control: without that line the pattern finds nothing',
+         not pc._SOURCE_CLONE_RE.search(stripped)),
+    ]
+    failed = [n for n, ok in cases if not ok]
+    check(f'the consumer bootstrap template clones declared shared sets '
+          f'({len(cases)} stated cases)', not failed, '; '.join(failed))
 
 
 def check_generator_wires_every_template_guard_mode():
@@ -34868,6 +34944,7 @@ def main():
     check_promote_keeps_the_old_name_in_step()
     check_sync_copies_work_from_above_once_checked()
     check_source_clone_is_pinned_to_a_branch()
+    check_consumer_bootstrap_clones_declared_sources()
     check_generator_wires_every_template_guard_mode()
     check_verify_reports_a_source_wired_for_fewer_moments()
     check_verify_flags_missing_session_practices_ceiling()
