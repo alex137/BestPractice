@@ -725,20 +725,26 @@ def over_long_index_clauses(practices, root):
     practices/ is materialized from other sources, so a clause there is
     never its own to shorten. What is refused is the case this exists for:
     a clause somebody in THIS repo just wrote or edited."""
+    # Authors its practices: a practice set (its manifest says kind
+    # 'source'), or a repo that declares itself a source at `.` -- the
+    # universal catalogue, this engine's own repo. Anything else is not
+    # refused, a copied engine with no manifest included.
     try:
         kind = json.loads((root / 'tools' / 'ENGINE_MANIFEST.json')
                           .read_text(encoding='utf-8')).get('kind')
-    except OSError:
-        kind = 'source'        # no manifest: the repo the engine comes from
-    except ValueError:
-        kind = None
-    if kind != 'source':
-        return []
-    try:
-        base = json.loads((root / 'precedent.json').read_text(
-            encoding='utf-8')).get('base_branch') or 'main'
     except (OSError, ValueError):
-        base = 'main'
+        kind = None
+    try:
+        cfg = json.loads((root / 'precedent.json').read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        cfg = {}
+    declares_itself = any(
+        isinstance(src, dict) and str(src.get('path') or '').strip() in ('.', './')
+        and src.get('level') != 'repo-local'
+        for src in cfg.get('sources') or [])
+    if kind != 'source' and not declares_itself:
+        return []
+    base = cfg.get('base_branch') or 'main'
     ref = f'origin/{base}'
     if subprocess.run(['git', '-C', str(root), 'rev-parse', '--verify', '-q',
                        ref], capture_output=True).returncode != 0:

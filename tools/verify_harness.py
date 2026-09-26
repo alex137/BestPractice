@@ -4162,6 +4162,10 @@ def check_build_views_refuses_a_long_index_clause():
                      encoding='utf-8')
         (root / 'precedent.json').write_text('{"base_branch": "main"}\n',
                                              encoding='utf-8')
+        # A practice set: a repo that authors the practices it ships.
+        (root / 'tools').mkdir()
+        (root / 'tools' / 'ENGINE_MANIFEST.json').write_text(
+            '{"kind": "source"}', encoding='utf-8')
         git(root, 'add', '-A')
         git(root, '-c', 'user.email=f@x', '-c', 'user.name=f', 'commit', '-qm', 'a')
         git(root, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
@@ -4175,7 +4179,6 @@ def check_build_views_refuses_a_long_index_clause():
             [({'tier': 'on-demand', 'index_clause': edited}, {}, f)], root)
         cases.append((f'the same clause edited is refused, with its length '
                       f'(got {got!r})', got == [(f, n + 1)]))
-        (root / 'tools').mkdir()
         (root / 'tools' / 'ENGINE_MANIFEST.json').write_text(
             '{"kind": "consumer"}', encoding='utf-8')
         cases.append(('a consumer is never refused -- its practices are '
