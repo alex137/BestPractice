@@ -4929,6 +4929,12 @@ def _workflow_triggers(path):
         text = path.read_text(encoding='utf-8')
     except OSError:
         return ''
+    return workflow_triggers_text(text)
+
+
+def workflow_triggers_text(text):
+    """_workflow_triggers for text already in hand -- tools/ci_fleet_audit.py
+    reads workflow files through GitHub's API, not from disk."""
     try:
         import yaml
     except ImportError:

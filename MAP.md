@@ -180,6 +180,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [tools/build_views.py](tools/build_views.py) | This file, GLOSSARY.md, and AGENTS.md's loader block — generated views |
 | [tools/catalogue_stats.py](tools/catalogue_stats.py) | The figures about the catalogue that other documents cite, computed rather than hand-typed |
 | [tools/checkin.py](tools/checkin.py) | Drives the periodic check-in (INSTALL.md §4) mechanically |
+| [tools/ci_fleet_audit.py](tools/ci_fleet_audit.py) | Every GitHub Actions workflow on every branch of every reachable repo, asked of GitHub: approval, triggers, schedules, 30 days of runs |
 | [tools/doc_html.py](tools/doc_html.py) | The one sortable-table HTML renderer for repo documents |
 | [tools/doc_lifecycle.py](tools/doc_lifecycle.py) | The document status header — kind, status, supersession — checked across spec/ and record/ |
 | [tools/doc_lint.py](tools/doc_lint.py) | Markdown hygiene checks — strikethrough, links, acronyms |

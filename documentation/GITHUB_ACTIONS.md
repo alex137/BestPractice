@@ -462,6 +462,15 @@ requests** (**Settings → Actions → General → Workflow permissions**), whic
 the supplied Markdown check does not need but anything opening a pull
 request for the project does. *(Click-paths as of 2026-09-10.)*
 
+**Optional: turn Actions off where a repository needs no GitHub check.**
+**Settings → Actions → General → Actions permissions → Disable actions**
+*(as of 2026-09-26)*. Every run in a private repository bills minutes,
+and a workflow nobody approved bills from the moment it lands, however it
+got there: through a session, through the GitHub API, or edited on the
+website. With Actions off, nothing in that repository can run. The local
+push check keeps working. Offer it at the end of an install as optional,
+never as a step the install needs.
+
 ## Make the Check Required
 
 Once the workflow has run successfully at least once, add its **Markdown lint** job to the default branch's ruleset or branch-protection required checks.
