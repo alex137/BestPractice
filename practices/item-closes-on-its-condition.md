@@ -4,10 +4,10 @@ title:       "Work that moves an open item records it there; only its stated con
 tier:        on-demand
 severity:    default
 applies_to:  ["TODO.md", "**/TODO.md"]
-occasion:    "work touches something an open item is about, or a branch is merged"
+occasion:    "work touches an open item's subject, or a branch merges"
 gates:       ["merge"]
 index_required: true
-index_clause: "record what you established into the item; close only on its stated condition"
+index_clause: "record findings in the item; close only on its condition"
 checked_by:  null
 defines:     []
 status:      active

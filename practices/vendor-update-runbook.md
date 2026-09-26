@@ -4,9 +4,9 @@ title:       Taking an upstream update into a vendored tree
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
-occasion:    "a message says \"Update Vendors\", or an upstream update is being taken into a repo that vendors a practice layer"
+occasion:    "a message says \"Update Vendors\", or an upstream update is taken into a vendoring repo"
 gates:       ["merge"]
-index_clause: "\"Update Vendors\" -- source clone first, both layers move separately, then merge"
+index_clause: "source clone first, both layers move separately, then merge"
 checked_by:  null
 defines:     ["Update Vendors"]
 command:     {"Update Vendors": "Pull in the latest version of the shared rules from the project they come from, and publish the result -- the merge is part of the phrase."}

@@ -5,9 +5,9 @@ tier:        on-demand
 severity:    advisory
 scope:       any-adopter
 applies_to:  ["**"]
-occasion:    "a person explicitly asks for a \"very deep check\" across the whole repo, or after work that invites drift"
+occasion:    "a person explicitly asks for a \"very deep check\", or after work that invites drift"
 gates:       []
-index_clause: "read every repo in force against itself, pass by pass; never a routine gate"
+index_clause: "read every repo in force against itself, pass by pass; never routine"
 checked_by:  null
 defines:     ["very deep check"]
 command:     {"Very deep check": "Run a full review of the whole project — slow, occasional, and worth it before showing the work to someone new."}

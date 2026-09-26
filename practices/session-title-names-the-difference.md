@@ -4,9 +4,9 @@ title:       "A session's title names what makes it different, not its category"
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
-occasion:    "naming or renaming a session, at creation or once its differentiator is known"
+occasion:    "creating, renaming or retagging a session"
 gates:       ["reply"]
-index_clause: "title each session by its differentiator, never its task category alone"
+index_clause: "title by the differentiator, at creation or once known; never the task alone"
 checked_by:  null
 defines:     []
 command:     null

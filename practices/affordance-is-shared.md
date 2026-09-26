@@ -6,7 +6,7 @@ severity:    default
 applies_to:  ["**"]
 occasion:    "building a mechanism that makes something discoverable or reachable"
 gates:       []
-index_clause: "name who else the mechanism you just built now serves"
+index_clause: "name who else it now serves"
 checked_by:  null
 defines:     []
 status:      active
