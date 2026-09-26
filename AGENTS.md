@@ -11,16 +11,13 @@ until 2026-09-25) -- or `pre-staging`,
 for a person whose landing branch is pre-staging -- never `main`.
 Alex merged the branch into `main` on 2026-09-14 and Morgan merges it there
 regularly; **that does not retire this rule** — work still lands here, and
-`main` takes it by those merges only (Morgan, 2026-09-14). Merging a PR
-into `staging` needs no sign-off from Alex — once its deep
-check passes, a session may merge it directly; that branch is where
-routine work lands, not a gate he sits behind. Alex's approval is reserved
-for `main`, and specifically for merges carrying major changes onto it —
-the phase-7 fold-in is the paradigm case, but any other merge reaching
-`main` with a non-trivial change needs the same explicit, named go-ahead.
-A general "PR and merge it" authorization, with no branch named, still
-means `staging`; merging into `main` requires Alex naming
-`main` explicitly, in that specific request. Check the base branch
+`main` takes it by those merges only (Morgan, 2026-09-14). **No merge needs
+Alex's sign-off any more, `main` included** (Alex, relayed by Morgan,
+2026-09-26) — once its deep check passes, a session may merge a PR into
+`staging` directly. A general "PR and merge it" authorization, with no
+branch named, still means `staging`; merging into `main` needs the person
+running the session to name `main` explicitly, in that specific request.
+Check the base branch
 explicitly before acting — do not assume `main` just because it is the
 repository's configured default branch, and do not assume the two
 branches are interchangeable even when they happen to sit at the same
@@ -453,7 +450,7 @@ When naming or scoping something around a person's skill level:
 When naming what "run the checks" means in a repo:
   two-check-levels — name a fast check and a full check; say which gates what
 When opening or merging a pull request in this repository:
-  merge-target-is-beta-branch — Alex approves only major main merges; staging is unrestricted
+  merge-target-is-beta-branch — PRs target staging, never main; main only when named
 When printing a number compared across rows:
   one-formatter-per-quantity — one formatter per quantity kind, declared in one module
 When publishing a sortable multi-column table:
