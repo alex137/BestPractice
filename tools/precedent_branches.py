@@ -301,6 +301,16 @@ def merge_refusal(root, bases, heads, user_config=None):
             f'and say Promote.')
 
 
+def tier_branches(root):
+    """Every branch that is a tier here: main, staging (and its old name)
+    and pre-staging. None of them may ever be the SOURCE of a pull request:
+    GitHub's "automatically delete head branches" deletes the branch a
+    merged pull request came from (2026-09-26, staging, see
+    gotchas/gotcha-2026-09-26-a-pull-request-from-staging-deletes-staging.md)."""
+    return sorted({MAIN, PRE_STAGING, LEGACY_STAGING, STAGING,
+                   staging_branch(root)})
+
+
 def ensure_tiers(root, apply=False, say=print):
     """Make origin carry pre-staging and a real staging branch. -> 0 when
     both exist (or were just made), 1 when something is missing and
@@ -331,7 +341,18 @@ def ensure_tiers(root, apply=False, say=print):
             ' -- run `python3 tools/precedent_branches.py --ensure-tiers --apply`.')
         return 1
     if wants_staging_branch or not _remote_tip(root, staging):
-        src = MAIN if wants_staging_branch else (base_branch(root) or MAIN)
+        # A staging branch that has gone missing is rebuilt from the old
+        # name kept in step with it, else from main. 2026-09-26: GitHub's
+        # auto-delete-head-branches removed staging when a pull request
+        # FROM staging into main was merged, and this looked for staging
+        # itself to rebuild it from, found nothing and gave up. Right after
+        # such a merge, main contains staging exactly.
+        if wants_staging_branch:
+            src = MAIN
+        elif staging != LEGACY_STAGING and _remote_tip(root, LEGACY_STAGING):
+            src = LEGACY_STAGING
+        else:
+            src = MAIN
         tip = _remote_tip(root, STAGING) or _remote_tip(root, src)
         if not tip:
             say(f'origin has no {src} branch, so there is nothing to base '
