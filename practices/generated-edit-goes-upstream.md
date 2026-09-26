@@ -159,7 +159,7 @@ names nothing.
 
 **Naming the repo in a URL was the obvious fix and it pulls against a rule
 already in force.** `private-repo-scrub` and
-[tools/precedent_materialize.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/precedent_materialize.py)'s
+[tools/precedent_materialize.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_materialize.py)'s
 `_rewrite_links` both refuse to mint a URL naming a private repository into
 content that ships — *"a relative link that does not resolve is a smaller
 failure than a disclosure that cannot be taken back"* — and the building repo
@@ -189,7 +189,7 @@ whether the check passed or not — so the hatch is loud rather than silent,
 and a reviewer sees the claim being made. `--strict` turns it back into a
 failure. **But nothing in this repository runs `precedent_check.py
 --strict`** — not the deep-check workflow, not any hook, not the deep check
-[AGENTS.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/AGENTS.md)
+[AGENTS.md](https://github.com/alex137/BestPractice/blob/staging/AGENTS.md)
 defines, not any template a dependent repo instantiates (checked across the
 tree, 2026-09-12; the only `--strict` callers there are
 `precedent_resolve.py`'s). So the second bound is available and unused, and
@@ -250,8 +250,8 @@ though the header had named every path-shaped word in it.
 ordinary phrase, so quoting a header — in a fixture, a backlog item, a
 document explaining the rule — puts a real one in a file that has no source,
 and the check correctly reports the file that describes it. Both happened on
-2026-09-11, in [tools/verify_harness.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/verify_harness.py)
-and in [TODO.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/TODO.md),
+2026-09-11, in [tools/verify_harness.py](https://github.com/alex137/BestPractice/blob/staging/tools/verify_harness.py)
+and in [TODO.md](https://github.com/alex137/BestPractice/blob/staging/TODO.md),
 within an hour. **Assemble the marker from pieces rather than spelling it**
 (`'do not ' + 'hand-edit'`), or describe it without quoting a whole comment.
 The check is right in both cases: it cannot tell a header from a sentence
@@ -270,7 +270,7 @@ request being answered in the wrong place — no check can read the
 conversation, which is why the routing half is written as a rule.
 
 The headers themselves are emitted by
-[tools/build_views.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/build_views.py), so
+[tools/build_views.py](https://github.com/alex137/BestPractice/blob/staging/tools/build_views.py), so
 `MAP.md`, `GLOSSARY.md` and every source set's loader block pick the `Source:`
 clause up on their next regeneration rather than needing to be edited — which
 is this rule applied to itself.

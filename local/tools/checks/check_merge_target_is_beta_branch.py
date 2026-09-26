@@ -78,22 +78,55 @@ def _rev_parse(ref):
     return r.stdout.strip() if r.returncode == 0 else None
 
 
+def _head_moves_beta_past(beta, main):
+    head = _rev_parse('HEAD')
+    if not head or head == beta:
+        return False
+    def anc(a, b):
+        return subprocess.run(['git', 'merge-base', '--is-ancestor', a, b],
+                              cwd=ROOT).returncode == 0
+    return anc(beta, head) and not anc(head, main)
+
+
+def _staging():
+    """The staging branch this repo declares -- `staging` since the
+    2026-09-25 rename, `precedent-beta-v01` before it."""
+    import json
+    try:
+        v = json.loads((ROOT / 'precedent.json').read_text(encoding='utf-8')).get('base_branch')
+    except (OSError, ValueError):
+        v = None
+    return v if isinstance(v, str) and v else 'precedent-beta-v01'
+
+
 def find_violations():
+    staging = _staging()
     main = _rev_parse('origin/main')
-    beta = _rev_parse('origin/precedent-beta-v01')
+    beta = _rev_parse(f'origin/{staging}')
     if not main or not beta:
         raise NotApplicable(
-            'origin/main and origin/precedent-beta-v01 must both be fetched '
-            'locally to compare them -- run `git fetch origin main '
-            'precedent-beta-v01` first')
+            f'origin/main and origin/{staging} must both be fetched '
+            f'locally to compare them -- run `git fetch origin main '
+            f'{staging}` first')
     is_ancestor = subprocess.run(
         ['git', 'merge-base', '--is-ancestor', beta, main],
         cwd=ROOT).returncode == 0
+    if is_ancestor and _head_moves_beta_past(beta, main):
+        # AFTER AN APPROVED FOLD-IN. Morgan folds this branch into `main`
+        # regularly on Alex's go-ahead, and for the moment after each one the
+        # branch IS an ancestor of `main` -- until the next commit lands on
+        # it, which the earlier fold-in records note clears this. Since
+        # 2026-09-25 that next commit cannot land while this fires: the push
+        # gate (tools/precedent_push_check.py) runs this check first and
+        # refuses. So the commit in hand is asked the question the push will
+        # answer: if HEAD builds on the branch and is not already in `main`,
+        # pushing it is exactly what moves the branch past `main` again.
+        return []
     if is_ancestor:
-        return [f'main: contains origin/precedent-beta-v01 ({beta[:8]}) as an '
+        return [f'main: contains origin/{staging} ({beta[:8]}) as an '
                 f'ancestor -- the restructuring work has been merged into '
                 f'main. Expected ONLY once Alex has reviewed and merged '
-                f'precedent-beta-v01 into main for real (in which case retire '
+                f'{staging} into main for real (in which case retire '
                 f'this practice in the same PR); otherwise this is the PR #89 '
                 f'mistake happening again.']
     return []

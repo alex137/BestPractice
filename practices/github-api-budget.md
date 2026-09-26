@@ -19,9 +19,9 @@ approved_by: "pending review -- written 2026-09-14 after Morgan reported a GitHu
 ## Rule
 **Every tool that calls the GitHub API knows what it spent, and says so.**
 One counter, in the one place the call is actually made
-([tools/github_budget.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/github_budget.py)),
+([tools/github_budget.py](https://github.com/alex137/BestPractice/blob/staging/tools/github_budget.py)),
 and a per-tool budget it is compared against in one registry
-([tools/github_api_budgets.json](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/github_api_budgets.json)).
+([tools/github_api_budgets.json](https://github.com/alex137/BestPractice/blob/staging/tools/github_api_budgets.json)).
 A tool whose bill grows quietly is how a shared allowance gets spent by
 something nobody was watching.
 
@@ -75,7 +75,7 @@ instrumentation will see it coming. The registry records them so the next
 session reading an opaque refusal has the candidate list in front of it.
 
 **The very deep check reads the budget last, and reports it as a section**
-([very-deep-check](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/very-deep-check.md)). Last, because the run's own spend is
+([very-deep-check](https://github.com/alex137/BestPractice/blob/staging/practices/very-deep-check.md)). Last, because the run's own spend is
 only complete once every section that calls the API has finished — and the
 headroom figure costs nothing extra, because it is read off the headers those
 calls already returned rather than bought with one more.
@@ -88,7 +88,7 @@ that a person sees the finding before anyone sees a refusal. Move it with a
 reason written beside it.
 
 ## Install
-[tools/github_budget.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/github_budget.py)
+[tools/github_budget.py](https://github.com/alex137/BestPractice/blob/staging/tools/github_budget.py)
 is the one place this engine asks GitHub anything: it authenticates, caches
 within a run, counts the calls, and keeps the `X-RateLimit-*` headers per
 pool. It travels with the vendored engine, so a repo that has the check has
@@ -97,7 +97,7 @@ the remedy. Run it on its own —
 alone.
 
 The registry is
-[tools/github_api_budgets.json](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/github_api_budgets.json),
+[tools/github_api_budgets.json](https://github.com/alex137/BestPractice/blob/staging/tools/github_api_budgets.json),
 and it is each repo's own declaration rather than a vendored file: `floors`
 (percent of an allowance that must still be remaining), `run_budgets` (calls
 per run, per tool), `unmeasurable` (allowances nothing here can see, with
@@ -115,7 +115,7 @@ no registry at all is the finding, not a skip. A repo that calls the API
 nowhere gets a named NOT APPLICABLE.
 
 Per-run spend and headroom print as the last section of
-[very-deep-check](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/very-deep-check.md).
+[very-deep-check](https://github.com/alex137/BestPractice/blob/staging/practices/very-deep-check.md).
 
 ## Why
 A rate-limit error arrives as one sentence with no number in it, and every

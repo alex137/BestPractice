@@ -122,22 +122,6 @@ def declared_identity(repo, user_config=None):
                 f'{repo_root / "identity.json"} -- this repository is itself '
                 f'an individual practice source')
 
-    # The override names the person; its zone, when it gives none, is this
-    # repo's own identity.json's -- the same fill commit-identity.sh does.
-    # Found 2026-09-25: once PRECEDENT_COMMIT_TZ left an environment that
-    # kept PRECEDENT_COMMIT_NAME/EMAIL (a person's zone now binds only their
-    # own repo), the individual source itself reported "declares no
-    # timezone" although its identity.json declares one.
-    env_email = os.environ.get('PRECEDENT_COMMIT_EMAIL')
-    if env_email:
-        return {'name': os.environ.get('PRECEDENT_COMMIT_NAME') or '',
-                'email': env_email,
-                'timezone': (os.environ.get('PRECEDENT_COMMIT_TZ')
-                             or (own or {}).get('timezone') or ''),
-                'source': 'PRECEDENT_COMMIT_* environment'}
-    if own:
-        return own
-
     cfg_path = pathlib.Path(user_config) if user_config else pathlib.Path(
         os.environ.get(USER_CONFIG_ENV, str(DEFAULT_USER_CONFIG))).expanduser()
     try:
@@ -145,12 +129,27 @@ def declared_identity(repo, user_config=None):
         indiv_path = (cfg.get('individual') or {}).get('path')
     except (ValueError, OSError, AttributeError):
         indiv_path = None
-    if indiv_path:
-        resolved = _read(
-            pathlib.Path(indiv_path).expanduser() / 'identity.json',
-            f'the individual practice source at {indiv_path}')
-        if resolved:
-            return resolved
+    indiv = (_read(pathlib.Path(indiv_path).expanduser() / 'identity.json',
+                   f'the individual practice source at {indiv_path}')
+             if indiv_path else None)
+
+    # The override names the person; its zone, when it gives none, is the
+    # person's own: this repo's identity.json when this repo is their
+    # individual source, else the individual source's. Morgan, 2026-09-25:
+    # "I meant the repo timezone to be a fallback, in case there is no
+    # defined individual timezone defined" (strength: decided).
+    env_email = os.environ.get('PRECEDENT_COMMIT_EMAIL')
+    if env_email:
+        return {'name': os.environ.get('PRECEDENT_COMMIT_NAME') or '',
+                'email': env_email,
+                'timezone': (os.environ.get('PRECEDENT_COMMIT_TZ')
+                             or (own or {}).get('timezone')
+                             or (indiv or {}).get('timezone') or ''),
+                'source': 'PRECEDENT_COMMIT_* environment'}
+    if own:
+        return own
+    if indiv:
+        return indiv
 
     raise NoDeclaredIdentity(
         f'no identity is declared anywhere this repo can reach: no '
@@ -253,7 +252,17 @@ def ci_preference(repo, user_config=None):
     only for the exact string 'enabled', `who` is the declared name, and
     `source` is the file it was read from.
 
-    ABSENT MEANS DISABLED (practice: declared-default-is-applied). GitHub
+    ABSENT MEANS ENABLED, SINCE 2026-09-25 (spec/BRANCH_TIERS_PLAN.md,
+    practice: declared-default-is-applied). What gets installed changed
+    first: one light check that runs only on a pull request into main, and
+    a leak gate that never runs in a private repo -- about one billed minute
+    per merge into main, and nothing for any other push. Morgan approved
+    that shape ("Perfect") and the default that goes with it ("For new
+    installs, github_ci_workflows defaults to installing that one light
+    check"). A declared "disabled" still installs nothing, and still wins.
+
+    THE EARLIER DEFAULT, AND WHY IT HELD UNTIL THEN. ABSENT MEANT DISABLED
+    (practice: declared-default-is-applied). GitHub
     Actions minutes are metered per PRIVATE repository and billed in
     whole-minute increments per run; a person vendoring Precedent into many
     private repos, committing the way a save button is used, pays for a
@@ -268,7 +277,7 @@ def ci_preference(repo, user_config=None):
     Same resolution order as relayed_authorization(): this repo's own
     identity.json when it IS an individual source, else the one the
     user-level config names. Raises NoDeclaredIdentity when neither
-    resolves -- a caller treats that exactly like a declared 'disabled'.
+    resolves -- a caller treats that exactly like an absent value: enabled.
     """
     def _read(path, where):
         try:
@@ -277,9 +286,12 @@ def ci_preference(repo, user_config=None):
             return None
         if not isinstance(ident, dict) or not ident.get('email'):
             return None
-        value = ident.get('ci_workflows') or ''
+        # `github_ci_workflows` since 2026-09-25 (spec/BRANCH_TIERS_PLAN.md);
+        # the old `ci_workflows` is still read where the new name is absent.
+        value = ident.get('github_ci_workflows',
+                          ident.get('ci_workflows')) or ''
         return {'value': value if isinstance(value, str) else '',
-                'enabled': value == CI_ENABLED,
+                'enabled': value in (CI_ENABLED, ''),
                 'who': ident.get('name') or '',
                 'source': where}
 

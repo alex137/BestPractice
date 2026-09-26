@@ -34,6 +34,11 @@ for either answer. Read what the file actually runs before deciding.
 **This never deletes anything, and never fails a build.** It names a
 finding; a person or a session reads it and decides.
 
+**Whether the file may run at all is a separate, blocking question**, since
+2026-09-25: [ci-workflow-approved](ci-workflow-approved.md) fails any
+workflow file the person has not approved, pinned to its content. This
+practice still asks the other question: is it a leftover?
+
 ## Why
 Two failures this practice exists to keep apart. The first: a retired
 workflow file left on disk keeps costing real money and real confusion
@@ -53,7 +58,7 @@ ever answering it by guessing.
 ## Story
 **Raised by Morgan, 2026-09-20**, mid-incident: a fresh GitHub Actions
 usage-report pull found personal repos still billing real minutes against
-workflow files [spec/CI_WORKFLOW_RETIREMENT_PLAN.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/CI_WORKFLOW_RETIREMENT_PLAN.md)
+workflow files [spec/CI_WORKFLOW_RETIREMENT_PLAN.md](https://github.com/alex137/BestPractice/blob/staging/spec/CI_WORKFLOW_RETIREMENT_PLAN.md)
 had already named as retired. Asked for the engine to auto-delete a
 retired file when safe (built, same session — see that document's Item 1),
 then for something broader: catch it happening at all, and have a very

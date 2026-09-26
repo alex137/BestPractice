@@ -43,7 +43,7 @@ running**, not what to retry.
 **A refusal is never answered with a retry.** The allowance is spent; asking
 again spends more of it and, on the secondary limits, extends the block.
 Find the local answer instead, or wait for the window to reset —
-[tools/github_budget.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/github_budget.py)
+[tools/github_budget.py](https://github.com/alex137/BestPractice/blob/staging/tools/github_budget.py)
 says when that is.
 
 **This does not license searching less.**
@@ -110,7 +110,7 @@ this person.
 
 ## Install
 Nothing to install. The figure behind it is printed by
-[tools/github_budget.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/github_budget.py),
+[tools/github_budget.py](https://github.com/alex137/BestPractice/blob/staging/tools/github_budget.py),
 and the very deep check's GITHUB API BUDGET section reports it every run.
 
 **Deliberately not mechanically checked, and the reason is specific rather

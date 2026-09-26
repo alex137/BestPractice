@@ -1276,6 +1276,13 @@
       "why": "No locus. A standing command phrase fires on something the person said, not on a file being edited; it is reached through the occasion index and the reply gate.",
       "decided": "2026-09-09"
     },
+    "ci-workflow-approved": {
+      "globs": [
+        ".github/workflows/**"
+      ],
+      "why": "Its own applies_to. The moment it matters is a session about to add or edit a workflow file, which is exactly the glob; the push gate runs the check whatever the path channel did, so a miss here costs a refused push, not a billed run.",
+      "decided": "2026-09-25, when the practice landed"
+    },
     "workflow-file-outside-vendoring": {
       "globs": [
         ".github/workflows/**"
@@ -1306,6 +1313,24 @@
       ],
       "why": "the three places a hook's kind is declared -- the shipped hooks, the two kinds' templates, and HOOK_WIRING -- are exactly these files; an edit anywhere else cannot add or drop a hook.",
       "decided": "2026-09-25, with the practice"
+    },
+    "promote": {
+      "globs": [
+        "**"
+      ],
+      "why": "A phrase in a MESSAGE, like go-merge's and push-directly's entries -- no file path reaches it. Routed by the `merge` gate.",
+      "decided": "2026-09-25, when the practice landed",
+      "gates": [
+        "merge"
+      ],
+      "gates_why": "Promote is the merge of pre-staging into staging -- the moment that gate exists for."
+    },
+    "attach-never-clone-individual": {
+      "globs": [
+        "**"
+      ],
+      "why": "No locus, and deliberately `**`. The mistake is a session running `git clone` into the wrong directory right after the repo-attach tool answers, outside every repo's tree; no file in this one is edited when it happens, so a narrower glob would never fire. The occasion index is the channel.",
+      "decided": "2026-09-25, when the practice was written"
     }
   },
   "gates": {

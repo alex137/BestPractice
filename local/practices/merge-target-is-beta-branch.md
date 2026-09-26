@@ -1,13 +1,13 @@
 ---
 slug:        merge-target-is-beta-branch
-title:       Alex approves only major merges into main; precedent-beta-v01 needs no sign-off
+title:       Alex approves only major merges into main; staging needs no sign-off
 tier:        on-demand
 severity:    blocking
 applies_to:  ["**"]
 occasion:    "opening or merging a pull request in this repository"
 index_required: true
 gates:       ["merge"]
-index_clause: "Alex approves only major main merges; precedent-beta-v01 is unrestricted"
+index_clause: "Alex approves only major main merges; staging is unrestricted"
 checked_by:  "tools/checks/check_merge_target_is_beta_branch.py"
 defines:     []
 expires:     "when Morgan or Alex says work moves to main -- NOT when the branch is merged into main, which happened on 2026-09-14 (PR #367) and recurs on Morgan's regular merges"
@@ -19,30 +19,37 @@ added:       null
 approved_by: "Alex, 2026-09-03 (original rule); approval scope narrowed by Morgan, 2026-09-04"
 ---
 ## Rule
+**The branch was renamed from `precedent-beta-v01` to `staging` on 2026-09-25** ([spec/BRANCH_TIERS_PLAN.md](../../spec/BRANCH_TIERS_PLAN.md); Morgan, with Alex approving, relayed by Morgan). The old name is kept on origin and moved in step by every Promote while installs still pinned to it catch up; everything below means `staging`.
+
 Every pull request (PR) opened in this repository targets
-`precedent-beta-v01`, never `main`. Alex merged `precedent-beta-v01` into
+`staging`, never `main`. Alex merged `staging` into
 `main` on 2026-09-14 ([PR #367](https://github.com/alex137/BestPractice/pull/367))
 and Morgan merges it into `main` regularly from then on — **that does not
-end this rule**: work keeps landing on `precedent-beta-v01`, and `main`
+end this rule**: work keeps landing on `staging`, and `main`
 receives it through those merges, never through a PR opened against it
 (Morgan, 2026-09-14: *"work should still land to the precedent-beta-v01
 branch; but I will regularly merge the precedent branch with main"* —
 `strength: decided`). Before opening or merging a PR, confirm
-the base branch is `precedent-beta-v01` — do not assume `main` is the
+the base branch is `staging` — do not assume `main` is the
 default just because it is the repository's configured default branch.
 
-Merging a PR into `precedent-beta-v01` needs no sign-off from Alex: once
+**For a person whose landing branch is pre-staging, a PR targets
+`pre-staging` instead**, and reaches `staging` by a Promote
+([spec/BRANCH_TIERS_PLAN.md](../../spec/BRANCH_TIERS_PLAN.md)): Morgan, 2026-09-25: *"the \"high risk\" ones should still go to pre-staging but have a strong, bolded message for me, in the main text as a paragraph and also in The Boildown, that now I need to push pre-staging to staging"* (strength: decided).
+Never `main`, either way.
+
+Merging a PR into `staging` needs no sign-off from Alex: once
 the PR's own deep check (`two-check-levels`) passes, a session may merge
 it directly — that branch is where routine work lands, not a gate he sits
 behind. His approval is reserved for `main`, and specifically for merges
 that carry major changes onto it — the phase-7 fold-in of
-`precedent-beta-v01` itself is the paradigm case, but any other merge
+`staging` itself is the paradigm case, but any other merge
 reaching `main` with a non-trivial change needs the same explicit, named
 go-ahead, naming `main` by name. A general "PR and merge it" authorization,
-with no branch named, still defaults to `precedent-beta-v01`.
+with no branch named, still defaults to `staging`.
 
-**`precedent-beta-v01` is staging and `main` is live.** A session working
-here uses `precedent-beta-v01` for everything unless the person running it
+**`staging` is staging and `main` is live.** A session working
+here uses `staging` for everything unless the person running it
 says otherwise, and `main` receives only what has been folded in from it.
 **This rule is this repository's alone and is never vendored**: a repository
 that takes updates from here works on its own primary branch, usually
@@ -53,7 +60,7 @@ version with changes will be pushed to main at a later date, think of it
 like a staging server; unless the manager of the session says otherwise;
 but note that this rule doesn't get vendored in anywhere, the primary
 branch of the vendored-in repo should be used, often main."* **Other repos
-take their updates from `precedent-beta-v01` too, for now**, all of them on
+take their updates from `staging` too, for now**, all of them on
 the same branch (Morgan, 2026-09-24, `strength: decided`: *"they should all
 be consistent and following the same one. Maybe later we'll move them all
 to follow main but, for now, they should all follow precedent-beta-v01"*).
@@ -64,7 +71,7 @@ later recorded as `strength: assented`: *"That was more an assent, than a
 decision. I didn't think about it."*
 
 ## Detail
-This holds even when `main` and `precedent-beta-v01` happen to be at the
+This holds even when `main` and `staging` happen to be at the
 same commit, which is exactly the condition under which the incident this
 practice exists to prevent occurred — the two branches looked
 interchangeable at that moment, and they were not.

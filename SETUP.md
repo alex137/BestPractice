@@ -57,7 +57,7 @@ nothing to choose here — this page installs §0, always.
      repository, and local enforcement already covers it. Either way, say
      the default out loud and let them override it. If they want it on
      and answered "no" to the third question, say plainly that it stays
-     off until a source declares `"ci_workflows": "enabled"`
+     off until a source declares `"github_ci_workflows": "enabled"`
      ([documentation/GITHUB_ACTIONS.md](documentation/GITHUB_ACTIONS.md)),
      since there is nowhere else this install can
      record the preference. **What "declares" means, concretely**: this is
@@ -73,7 +73,7 @@ nothing to choose here — this page installs §0, always.
      whole fleet at once.
 3. **Install without further questions.** Clone the public repo
    `https://github.com/alex137/BestPractice` beside the project (a sibling
-   directory, not inside it) **on its `precedent-beta-v01` branch** — the
+   directory, not inside it) **on its `staging` branch** — the
    branch this file lives on; `main` took the same tree on 2026-09-14 but
    everything after that lands here first — and run, from that clone:
 

@@ -36,13 +36,25 @@ Absent a declaration, it is whichever branch the repository's own routine
 work is actually developed and committed against -- never a configured
 default chosen just because it is configured that way.
 
+**Under the branch tiers it is the branch this person's `Go update` lands
+on** ([spec/BRANCH_TIERS_PLAN.md](https://github.com/alex137/BestPractice/blob/staging/spec/BRANCH_TIERS_PLAN.md)):
+`python3 tools/precedent_branches.py --landing` names it -- `pre-staging`
+for everyone since 2026-09-25, unless a person's `landing_branch` says
+staging, the branch the repository declares above, or `main`. Staging and main are then what the
+primary branch is promoted into, never where routine work is pushed.
+Morgan, 2026-09-25: *"we now have a concept called \"primary branch\" -
+that should probably be updated in reference to this"* (strength:
+decided).
+
 **A branch rule belongs to the repository that made it.** A repository that
 stages its work on a branch other than `main` says so in its own files, and
 that rule never travels to the repositories that take updates from it: in
 each of those, the primary branch is whatever *that* repository declares.
 Morgan, 2026-09-24, about the one catalogue repository that does this:
 *"this rule doesn't get vendored in anywhere, the primary branch of the
-vendored-in repo should be used, often main."*
+vendored-in repo should be used, often main."* The tiers are the one
+exception: `pre-staging`, `staging` and `main` are the same three names in
+every repository, so that part travels like any other practice.
 
 ## Why
 "Primary branch" and "trunk" name the same thing, but neither had been

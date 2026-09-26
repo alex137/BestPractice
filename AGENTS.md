@@ -6,18 +6,20 @@
      has its own instantiated AGENTS.md at ITS root. -->
 
 **TEMPORARY, read before opening or merging any pull request (PR) here:
-every PR in this repository targets `precedent-beta-v01`, never `main`.
+every PR in this repository targets `staging` (named `precedent-beta-v01`
+until 2026-09-25) -- or `pre-staging`,
+for a person whose landing branch is pre-staging -- never `main`.
 Alex merged the branch into `main` on 2026-09-14 and Morgan merges it there
 regularly; **that does not retire this rule** — work still lands here, and
 `main` takes it by those merges only (Morgan, 2026-09-14). Merging a PR
-into `precedent-beta-v01` needs no sign-off from Alex — once its deep
+into `staging` needs no sign-off from Alex — once its deep
 check passes, a session may merge it directly; that branch is where
 routine work lands, not a gate he sits behind. Alex's approval is reserved
 for `main`, and specifically for merges carrying major changes onto it —
 the phase-7 fold-in is the paradigm case, but any other merge reaching
 `main` with a non-trivial change needs the same explicit, named go-ahead.
 A general "PR and merge it" authorization, with no branch named, still
-means `precedent-beta-v01`; merging into `main` requires Alex naming
+means `staging`; merging into `main` requires Alex naming
 `main` explicitly, in that specific request. Check the base branch
 explicitly before acting — do not assume `main` just because it is the
 repository's configured default branch, and do not assume the two
@@ -59,9 +61,14 @@ first line, with the reason.
   once live, or you're not confident it's none of those) runs the full chain —
   syncs, says the branch out loud, commits, pushes, opens the pull request,
   and merges — **without asking again.** **Either path ends on the branch on
-  `origin`** — `precedent-beta-v01` here per the rule at the top of this file,
-  never `main` for being the configured default — **and a commit still sitting
-  in the local clone has not done it**: fetch and confirm `origin` carries it
+  `origin`** — the person's landing branch
+  (`python3 tools/precedent_branches.py --landing`: `pre-staging`, unless
+  their `landing_branch` says `staging` or `main`), for the pull request
+  too; never `main` for being the configured default. A high-risk change
+  landed on pre-staging gets one plain, unbolded line in The Boildown saying
+  how far pre-staging is ahead of staging, with no urgency — a Promote can
+  move it whenever it suits. **A commit still sitting
+  in the local clone has not landed anything**: fetch and confirm `origin` carries it
   before the reply says where the work went. Say which path you took, and why,
   in the reply. Unsure which it is? High-risk. A step this session cannot
   perform hands off rather than coming back as a question: the
@@ -82,8 +89,9 @@ first line, with the reason.
   straight to that branch, no PR, whatever `Go update` would otherwise call
   for on this one change. Name the branch ("push directly to main") to
   target it explicitly; say it bare and it defaults to the primary branch
-  the work is already on — `precedent-beta-v01` here, per the rule at the
-  top of this file, never `main` just because that is the repository's
+  the work is already on — the person's landing branch
+  (`python3 tools/precedent_branches.py --landing`), which is
+  `pre-staging` unless their `landing_branch` says `staging` or `main`; never `main` just because that is the repository's
   configured default. Not a standing exemption — it authorizes the change
   in front of it, not every change after it.
 - **"Drop it"** ([park-it](practices/park-it.md)) — write
@@ -181,7 +189,7 @@ asking, and where reading it is a genuine judgment call rather than a clean
 one, say the read out loud and confirm before the shared-branch steps run,
 rather than either guessing silently or holding silently. `Go update` and
 `Weak yes` above spell out what that looks like for each. An authorization
-to merge, in whatever words it arrives, means `precedent-beta-v01` per the
+to merge, in whatever words it arrives, means `staging` per the
 paragraph above, and is not done until a fetch confirms the pushed content
 is actually there ([verify-postcondition](practices/verify-postcondition.md)).
 
@@ -208,6 +216,13 @@ Until one of the two routes works, every personal and team practice in force
 here is **silently absent**, and this repository's rules are the only ones a
 session sees.
 
+**Attach `precedent-individual`, never clone it by hand**
+([attach-never-clone-individual](practices/attach-never-clone-individual.md)):
+the tool's reply says to clone it to `/home/user/`, and the only copy
+anything reads is the one `~/.config/precedent/config.json` names. A shared
+set clones beside this repo, where [precedent.json](precedent.json)
+resolves it.
+
 **Then, before trusting any of this file's "the session-start hook does
 this" claims: run
 [tools/precedent_session_check.py](tools/precedent_session_check.py).** It
@@ -220,7 +235,14 @@ re-runs the hook, the hook declines again, and the row stays red however many
 times you try. A session rooted one directory ABOVE this repo runs NONE of its
 hooks, silently, including the one that writes
 `.precedent/SESSION_PRACTICES.md` — see the gotcha "The session's PRIMARY repo
-does not run its SessionStart hooks either" below.
+does not run its SessionStart hooks either" below. **This is not a
+primary-repo-only problem**: when the session root sits above *every*
+attached repo and none of them is `$CLAUDE_PROJECT_DIR` — the ordinary shape
+of a multi-source session, since a team source resolves as a sibling clone —
+no repo's hooks fire, primary or attached; 2026-09-25 also caught the global
+git identity and the checked-out branch drifting mid-session with no repo
+tool in the loop, in that same topology
+([gotcha-2026-09-25](gotchas/gotcha-2026-09-25-a-session-rooted-above-every-repo-it-touches-gets-hooks-and.md)).
 **Since 2026-09-14 you also get told without asking**: every
 [tools/precedent_gate.py](tools/precedent_gate.py) moment prints any guarantee
 that is down, because a session that skipped this paragraph is exactly the
@@ -253,7 +275,7 @@ plan's premise.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block; `python3 tools/build_views.py --check` exits non-zero on drift. Source: practices/ -- edit the practice file, never this block. -->
 
-## Resident block (~884 of 2000 token budget, 10 of 143 practices (10 universal))
+## Resident block (~884 of 2000 token budget, 10 of 146 practices (10 universal))
 
 **bold-key-phrases.** People don't read; they skim, and bolding makes skimming easy. Bold the key phrases in a document by default, without being asked, scaling with length -- a long paragraph or document is where a skimmer most needs a spine to follow, a short note usually needs little or none.
 
@@ -285,7 +307,7 @@ tool that silently doesn't work, a path that does work) is written down
 **with the story of what failed and why, not just the fix**, in its own
 file — one trap, one file, forever — under `gotchas/gotcha-<date>-<slug>.md`
 (directory and frontmatter shape:
-[spec/OPEN_ITEM_AND_GOTCHA_PLAN.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/OPEN_ITEM_AND_GOTCHA_PLAN.md)
+[spec/OPEN_ITEM_AND_GOTCHA_PLAN.md](https://github.com/alex137/BestPractice/blob/staging/spec/OPEN_ITEM_AND_GOTCHA_PLAN.md)
 Part 2).
 
 **None of that catalogue loads into the instructions file, at any size** —
@@ -333,6 +355,8 @@ cheapest evidence a reader has that somebody did.
 ## Occasion index
 
 ```
+When a .github/workflows/*.yml file is added, edited, or found during an update or migration:
+  ci-workflow-approved — no workflow added or edited without the person's words, pinned by hash
 When a branch has done its job -- a pull request merged, a tidy-up, or a person saying to delete some branches:
   never-delete-a-remote-branch — never attempt a remote branch delete; hand over the one-click link
 When a computation books a transfer between two parties:
@@ -345,6 +369,8 @@ When a message says "Archive", with or without a question mark, or otherwise ask
   archive-status-check — "Archive"/"Archive?" -- check pending; archive if clear, else say what isn't
 When a message says "Go update" or "Approved", or plainly authorizes a merge:
   go-merge — "Go update"/"Approved": default push; high-risk -> sync, branch, PR, merge
+When a message says "Promote" about the branch tiers, or asks to move pre-staging into staging:
+  promote — "Promote" -- pre-staging into staging, fully checked, by a merge commit
 When a message says "Push directly", naming a branch ("push directly to main") or not, or gives a specific instruction to skip the PR for this one change:
   push-directly — "Push directly [to BRANCH]" -- no PR; unnamed defaults to the branch in play
 When a message says "Update Vendors", or an upstream update is being taken into a repo that vendors a practice layer:
@@ -385,6 +411,8 @@ When adding a file to a directory that already holds files of the same kind:
   filename-separator — one word separator per directory and file kind -- never both - and _
 When asked to include an image, logo, or other binary asset the person is supplying, rather than approximate one from a description:
   attach-the-original — attach the file itself -- recreating an original from a description is invention
+When attaching a practice source to a session with the repo-attach tool, or that tool's reply says to clone what it attached:
+  attach-never-clone-individual — attach the individual set, never hand-clone it; shared sets clone beside
 When building a mechanism that makes something discoverable or reachable:
   affordance-is-shared — name who else the mechanism you just built now serves
 When building a permutation or configuration-sweep table:
@@ -426,7 +454,7 @@ When naming or scoping something around a person's skill level:
 When naming what "run the checks" means in a repo:
   two-check-levels — name a fast check and a full check; say which gates what
 When opening or merging a pull request in this repository:
-  merge-target-is-beta-branch — Alex approves only major main merges; precedent-beta-v01 is unrestricted
+  merge-target-is-beta-branch — Alex approves only major main merges; staging is unrestricted
 When printing a numeric quantity that will be compared across rows:
   one-formatter-per-quantity — one formatter per quantity kind, declared in one module
 When publishing a document with a multi-column sortable table:
@@ -578,12 +606,25 @@ place — nothing is ever deleted, and nothing moves.
   `python3 tools/precedent_push_check.py`**, which is also what
   `push-check-gate.sh` runs before any `git push` a session makes. A pass
   is recorded against the tree, so running it first makes the push
-  instant; skipping it makes the push wait for it. **What matters is `0 failed` and
+  instant; skipping it makes the push wait for it. **Which of the two a push
+  gets depends on the branch** ([spec/BRANCH_TIERS_PLAN.md](spec/BRANCH_TIERS_PLAN.md)):
+  a push to `staging` or `main` runs the deep check; a
+  push to any other branch runs the basic tier -- the lint, the leak gate
+  and the commit-author checks, seconds -- unless the person's
+  `branch_push_checks` says `full`. A pull request merged through GitHub
+  gets the same check at its base branch's tier, from `merge-check-gate.sh`.
+  `python3 tools/precedent_branches.py` says what this checkout resolves. **What matters is `0 failed` and
   `0 violated`, never a passed/skipped count** — those grow as checks are
   added, so a figure written down here goes stale by design; see
   [spec/ATTENTION_CEILING.md](spec/ATTENTION_CEILING.md)'s closing section,
   which says the same thing and records the audit that found a hardcoded
   one already wrong. Light check gates a commit; deep check gates a push.
+  **A failing test the deep check ran is not "pre-existing" when a source
+  shipped it**: `tools/checks/tests/run_all.sh` names each failing test's
+  source, and that source is where it gets fixed and reported
+  ([two-check-levels](practices/two-check-levels.md)). A practice source's
+  own push check also runs its tests shaped like a consumer
+  ([tools/precedent_consumer_shape.py](tools/precedent_consumer_shape.py)).
   **`--as-ci` is not decoration**: CI shards the harness across two jobs
   using variables a plain local run never sets, so the bare command
   certifies a shape nobody ships — it hid a crash on 2026-09-21 that turned

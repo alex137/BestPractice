@@ -22,8 +22,9 @@ Three workflows run on this repo itself, in [.github/workflows/](../.github/work
   that broke every re-sync after it) sitting undetected on a branch whose
   merges were all green — neither doc_lint.py nor leak_gate.py could ever
   have caught either, since neither runs the resolver or materializer at
-  all. Runs on every push and pull request, on every branch, same as
-  leak-gate.yml below.
+  all. Since 2026-09-25 it runs only on a pull request into `main` -- this
+  repo's one GitHub test ([spec/BRANCH_TIERS_PLAN.md](../spec/BRANCH_TIERS_PLAN.md));
+  every other push is checked locally by the push check first.
 - **`leak-gate.yml`** — added at phase 2 of the Precedent rewrite
   (`b3bfb54`). Runs [tools/leak_gate.py](../tools/leak_gate.py)'s structural
   layer on every push and every pull request, on every branch (this repo is
@@ -55,7 +56,7 @@ are deleted, and `.github/workflows/bestpractice-docs.yml` is tombstoned in
 it a second time. Under this system's founding assumption every edit
 arrives through a cloud session, never a local checkout and never the
 GitHub web UI, so
-[doc_lint.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/doc_lint.py)
+[doc_lint.py](https://github.com/alex137/BestPractice/blob/staging/tools/doc_lint.py)
 has already run on every change before it is committed. CI was re-checking
 work the session in front of the person had just cleared — a measured 350
 billed minutes over 19 days in one repository, on a workflow that was
@@ -126,7 +127,7 @@ it scans accordingly — full account, including why this has to be a
 job-level runtime check rather than a scoped trigger (GitHub Actions cannot
 read repo config before a trigger fires), in
 [templates/github-actions/README.md](../templates/github-actions/README.md)'s
-"The leak gate template" section. Gated by `ci_workflows`, same as
+"The leak gate template" section. Gated by `github_ci_workflows`, same as
 `doc-lint.yml.template`; `precedent_install.py` and
 `precedent_bootstrap_source.py` both install it automatically once that
 preference is enabled, and "Update Vendors" refreshes an already-installed
@@ -134,7 +135,28 @@ copy the same way it refreshes the other two CI templates.
 
 ## Controlling Actions Minutes
 
-**`precedent_install.py` does not install this workflow by default (2026-09-15).**
+**What a new install gets, since 2026-09-25** ([spec/BRANCH_TIERS_PLAN.md](../spec/BRANCH_TIERS_PLAN.md)):
+one GitHub test and no more. `light-check.yml` runs only on a pull request
+into `main`, about one billed minute per merge into main in a private repo;
+`leak-gate.yml` runs on every push in a public repo, where a push is
+publication, and never in a private one, where its job is skipped before a
+runner starts. Every other push is checked on the person's own machine by
+the push check. **The installer writes these by default**; a declared
+`"github_ci_workflows": "disabled"` still installs nothing. The light check
+is written only where the repo has no `light-check.yml` of its own, and a
+refresh never touches it; `leak-gate.yml` is refreshed like any other
+installed template. The `[skip ci]` line the commit hook adds in a private
+repo stays on as a backstop until every install carries these files.
+
+**A workflow file nobody approved fails every push, since 2026-09-25**
+([ci-workflow-approved](../practices/ci-workflow-approved.md)). Each file
+under `.github/workflows/` is either the engine's own untouched copy or is
+listed in `precedent.json`'s `github_ci_approved`, pinned by sha256 and
+quoting the person. Editing a trigger changes the hash, so the edit needs
+their approval too. The one file the installer writes itself,
+`light-check.yml`, is approved by the install.
+
+**Until 2026-09-25, `precedent_install.py` did not install any workflow by default (from 2026-09-15).**
 GitHub Actions minutes are metered per PRIVATE repository and billed per
 run, rounded up to the minute. Vendoring Precedent into many private repos
 and committing the way a save button gets used means paying for a workflow
@@ -142,13 +164,14 @@ run on every one of those saves, whether the check was wanted or not — and
 that adds up fastest for exactly the person most likely to be running it
 everywhere.
 
-So the installer resolves `"ci_workflows"` from the individual or team
+(Named `ci_workflows` until 2026-09-25; the old name is still read.)
+So the installer resolves `"github_ci_workflows"` from the individual or team
 source it can reach ([tools/precedent_identity.py](../tools/precedent_identity.py)'s
 `ci_preference()`, same resolution order as `relayed_authorization`: the
 repo's own `identity.json` when it IS an individual source, else the one
 the user-level config names) and installs the workflow only when that
-value is exactly `"enabled"`. Nothing declared resolves to disabled — the
-engine's own default, applied silently
+value was exactly `"enabled"`. Nothing declared resolved to disabled — the
+engine's own default at the time, applied silently
 ([declared-default-is-applied](../practices/declared-default-is-applied.md)) —
 and the install log and the project's own `GETTING_STARTED.md` both say so,
 naming the field and where to set it. **This only changes what
@@ -177,7 +200,7 @@ individual's own practice set or dependent project.
   is the actual fix for a repo pushed to constantly, direct to its default
   branch, with no pull request in the loop: however many saves land in one
   window, they cost one run. It is **not** installed by either default —
-  `precedent_install.py` never writes it, and turning `ci_workflows` on
+  `precedent_install.py` never writes it, and turning `github_ci_workflows` on
   does not choose it over the per-push template — because a `schedule:`
   is a clock in somebody else's repository that they never picked (this
   file's own Limits section says the same about an inherited schedule).
@@ -218,7 +241,7 @@ individual's own practice set or dependent project.
   any runner. A branch with an open PR gets checked on each synchronize,
   with `concurrency:` collapsing a burst into one surviving run. Widen the
   branch list
-  (`branches: [main, precedent-beta-v01]`, this repo's own pattern) if the
+  (`branches: [main, staging]`, this repo's own pattern) if the
   repo installing this has more than one routine merge target — each
   template's own header says so at the trigger block. Do not add
   `pull_request:` to a `push:` that still covers every branch: that
@@ -272,7 +295,7 @@ process/upstream/tools/doc_lint.py
 
 If the dependent repository instead copies or adapts the linter into its own tools directory, update the workflow command to use that local path and record the adaptation in `process/manifest.json`.
 
-The same install step, when `ci_workflows` is enabled, also writes
+The same install step, when `github_ci_workflows` is enabled, also writes
 `leak-gate.yml` from
 [leak-gate.yml.template](../templates/github-actions/leak-gate.yml.template) —
 see "The Leak Gate Template" above.
@@ -290,7 +313,7 @@ get it installed automatically; older sets need the copy below, and
 `python3 tools/precedent_bootstrap_source.py --verify <path>` names it as
 missing until it is there.
 
-**A set also gets `leak-gate.yml`**, same tool, same `ci_workflows` gate —
+**A set also gets `leak-gate.yml`**, same tool, same `github_ci_workflows` gate —
 see "The Leak Gate Template" above for why a set is always treated as
 `visibility: private` there.
 

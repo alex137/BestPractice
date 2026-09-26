@@ -8706,7 +8706,7 @@ def check_precedent_check_fires():
                          '[b](https://github.com/alex137/BestPractice/blob/'
                          'main/TODO.md), '
                          '[c](https://github.com/alex137/BestPractice/blob/'
-                         'precedent-beta-v01/no-such-planted-path.md), '
+                         'staging/no-such-planted-path.md), '
                          '[d](../tools/checks/check_not_here.py), '
                          '[e](zzz-withdrawn.md), '
                          '[g](zzz-in-another-set.md), '
@@ -9263,7 +9263,7 @@ def check_precedent_check_fires():
             git(repo, 'add', '-A')
             git(repo, 'commit', '-qm', 'second commit for the plant')
             c2 = git(repo, 'rev-parse', 'HEAD')
-            git(repo, 'update-ref', 'refs/remotes/origin/precedent-beta-v01', c1)
+            git(repo, 'update-ref', 'refs/remotes/origin/staging', c1)
             git(repo, 'update-ref', 'refs/remotes/origin/main', c2)
         case('merge-target-is-beta-branch', _plant_mtib)
 
@@ -9688,6 +9688,37 @@ def check_precedent_check_fires():
                       'something DOES call is reported, because the note is '
                       'what the next reader trusts',
                       _d4_rc == 1 and 'something does call it' in _d4_out))
+
+        # A comment or docstring naming the declined hook is prose, not a
+        # call. Before 2026-09-25 the engine's own commentary about
+        # freshness-guard.sh made a consuming repo's decline read as stale.
+        # The string-literal line is the control: the same path as code
+        # still counts, so the fix did not just stop reading tools/.
+        def _plant_mentions(repo, as_code):
+            ref = _hook_ref(_DECLINED)
+            body = (f'"""Explains {ref}."""\n'
+                    f'# {ref} is declined here\n')
+            if as_code:
+                body += f'HOOK = {ref!r}\n'
+            (repo / 'tools' / 'zzz_mentions.py').write_text(
+                body, encoding='utf-8')
+
+        _d5 = fresh('hooks-decline-mentioned-in-prose')
+        _plant_decline(_d5, reason='we decided against it')
+        _plant_mentions(_d5, as_code=False)
+        _d5_rc, _d5_out = run(_d5, 'hooks-on-disk-are-reachable')
+        cases.append(('hooks-on-disk-are-reachable: an engine comment or '
+                      'docstring naming a declined hook does not make the '
+                      'decline stale',
+                      _d5_rc == 0 and 'something does call it' not in _d5_out))
+
+        _d6 = fresh('hooks-decline-called-from-code')
+        _plant_decline(_d6, reason='we decided against it')
+        _plant_mentions(_d6, as_code=True)
+        _d6_rc, _d6_out = run(_d6, 'hooks-on-disk-are-reachable')
+        cases.append(('hooks-on-disk-are-reachable: ...while the same path as '
+                      'a string literal in engine code still counts as a call',
+                      _d6_rc == 1 and 'something does call it' in _d6_out))
 
         # engine-plus-host-shims -- a host-tree fork of a vendored module
         def _setup_vendored(repo):
@@ -10611,6 +10642,39 @@ def check_precedent_check_fires():
         case('workflow-file-outside-vendoring', _plant_workflow_outside_vendoring,
              setup=_setup_workflow_outside_vendoring, advisory=True)
 
+        # ci-workflow-approved (2026-09-25). Setup gives the fixture a
+        # vendored consumer's shape: a manifest tracking one workflow at its
+        # real hash, so the unplanted tree is the engine's own untouched
+        # copy and passes. The plant adds a workflow nobody approved -- the
+        # incident's shape, a repo-owned check with a push trigger on main.
+        def _setup_ci_workflow_approved(repo):
+            import hashlib
+            wf = repo / '.github' / 'workflows'
+            if wf.is_dir():
+                shutil.rmtree(wf)
+            wf.mkdir(parents=True)
+            body = 'name: Leak gate\n'
+            (wf / 'leak-gate.yml').write_text(body, encoding='utf-8')
+            (repo / 'tools' / 'ENGINE_MANIFEST.json').write_text(json.dumps({
+                'kind': 'consumer',
+                'ci_workflow_files': ['.github/workflows/leak-gate.yml'],
+                'ci_workflows_sha256': {
+                    '.github/workflows/leak-gate.yml':
+                        hashlib.sha256(body.encode()).hexdigest()},
+            }), encoding='utf-8')
+            git(repo, 'add', '-A')
+            git(repo, 'commit', '-qm', 'planted consumer manifest, engine workflow')
+
+        def _plant_ci_workflow_unapproved(repo):
+            (repo / '.github/workflows/light-check.yml').write_text(
+                'name: Light check\non:\n  push:\n    branches: [main]\n',
+                encoding='utf-8')
+            git(repo, 'add', '-A')
+            git(repo, 'commit', '-qm', 'planted unapproved workflow file')
+
+        case('ci-workflow-approved', _plant_ci_workflow_unapproved,
+             setup=_setup_ci_workflow_approved)
+
         # shipped-template-carries-its-script (2026-09-21). The check reads
         # THIS repo's templates/github-actions/ against the REAL
         # CI_WORKFLOW_TEMPLATES/KINDS imported from tools/ -- so the fixture
@@ -10916,9 +10980,9 @@ def check_precedent_check_fires():
         # rather than assumed from whatever machine happens to run this.
         #
         # And since 2026-09-25 the fixture must BE an individual source: the
-        # check enforces a person's zone only in a repo carrying its own
-        # identity.json (Morgan: "only use the individual one in the
-        # precedent-individual"), and stands down everywhere else.
+        # check audits history only in a repo carrying its own identity.json,
+        # and stands down everywhere else -- a shared repo's history holds
+        # other people's commits.
         def _setup_buenos_aires_dates(repo):
             (repo / 'identity.json').write_text(json.dumps(
                 {'name': _ID_NAME, 'email': _ID_EMAIL, 'timezone': _ID_TZ}),
@@ -12445,7 +12509,7 @@ def check_reply_check_requires_a_destination_for_a_fence_block():
             '; '.join(f'{n}: {d}' for n, d in bad_cases))
 
 
-def _beta_watermark_fixture(tmp, git, branch='precedent-beta-v01'):
+def _beta_watermark_fixture(tmp, git, branch='staging'):
     """A bare origin, a seed clone to land commits through, and the WORK
     clone the tool runs in -- which is now the same repository the watermark
     lives in, so it needs a tools/ directory and a .gitignore carrying
@@ -12658,7 +12722,7 @@ def check_beta_watermark_commits_only_when_it_actually_reports_something():
               'PRECEDENT_COMMIT_TIMEZONE', 'PRECEDENT_USER_CONFIG')}
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='beta-watermark-'))
     try:
-        branch = 'precedent-beta-v01'
+        branch = 'staging'
         os.environ['PRECEDENT_COMMIT_EMAIL'] = MINE
         os.environ['PRECEDENT_COMMIT_NAME'] = 'Watermark Owner'
         os.environ['PRECEDENT_COMMIT_TIMEZONE'] = 'UTC'
@@ -12837,7 +12901,7 @@ def check_beta_watermark_never_writes_into_a_busy_or_unpushable_checkout():
               'PRECEDENT_COMMIT_TIMEZONE', 'PRECEDENT_USER_CONFIG')}
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='beta-watermark-busy-'))
     try:
-        branch = 'precedent-beta-v01'
+        branch = 'staging'
         os.environ['PRECEDENT_COMMIT_EMAIL'] = MINE
         os.environ['PRECEDENT_COMMIT_NAME'] = 'Watermark Owner'
         os.environ['PRECEDENT_COMMIT_TIMEZONE'] = 'UTC'
@@ -14003,6 +14067,194 @@ def check_materialize_bridges_loader():
           f'on an empty test set, and warning only about a source driver that '
           f'does not declare itself local, silently once it does)',
           not bad, '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad))
+
+
+def check_shipped_tests_name_their_owner_and_fail_at_home():
+    """A check test a practice source ships runs in every consuming
+    repository, against that repository's tree -- and until 2026-09-25 a
+    failing one there was nobody's. Sessions in consumers reported "fails on
+    the base branch too, not this change" and moved on, and one test stayed
+    red for days: it staged a fixture under vendor/ with a plain `git add`,
+    which a consumer ignoring vendor/ refuses and its home source never did.
+
+    Two halves, each with its own way of regressing:
+
+    * the generated tools/checks/tests/run_all.sh names the source of every
+      failing test, says a shipped one is that source's bug, and tells the
+      repo-local and unknown cases apart -- and stays silent about owners
+      when everything passes (the negative control);
+    * tools/precedent_consumer_shape.py fails, at home, the test that passes
+      in its home layout and not in a consumer's, passes the same test once
+      it stages with `git add -f`, and is wired into a practice source's
+      full push check."""
+    import importlib.util, shutil, tempfile
+    name = ('a shipped test names its owner when it fails in a consumer, '
+            'and a home-only test fails at home')
+    materialize_tool = ROOT / 'tools' / 'precedent_materialize.py'
+    shape_tool = ROOT / 'tools' / 'precedent_consumer_shape.py'
+    push_tool = ROOT / 'tools' / 'precedent_push_check.py'
+    if not (materialize_tool.exists() and shape_tool.exists() and push_tool.exists()):
+        not_applicable(name, 'precedent_materialize.py, precedent_consumer_shape.py '
+                             'or precedent_push_check.py is absent')
+        return
+
+    def load(mod_name, path):
+        spec = importlib.util.spec_from_file_location(mod_name, path)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        return mod
+
+    pm = load('_pm_owner', materialize_tool)
+    pcs = load('_pcs_owner', shape_tool)
+    ppc = load('_ppc_owner', push_tool)
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-shipped-tests-'))
+    # The fixture owns git's configuration: a machine's own global excludes
+    # would otherwise decide whether the "passes at home" premise holds
+    # (practice: fixture-owns-its-state).
+    (tmp / 'gitconfig').write_text('', encoding='utf-8')
+    env = {k: v for k, v in os.environ.items()
+           if not k.startswith('GIT_CONFIG_')}
+    env.update(GIT_CONFIG_GLOBAL=str(tmp / 'gitconfig'),
+               GIT_CONFIG_NOSYSTEM='1', PRECEDENT_ALLOW_ANY_AUTHOR='1',
+               GIT_AUTHOR_NAME='T', GIT_AUTHOR_EMAIL='t@example.com',
+               GIT_COMMITTER_NAME='T', GIT_COMMITTER_EMAIL='t@example.com')
+
+    def write_test(d, fname, body):
+        d.mkdir(parents=True, exist_ok=True)
+        (d / fname).write_text('#!/bin/bash\n' + body + '\n', encoding='utf-8')
+
+    try:
+        # --- half 1: the generated driver names the owner -----------------
+        team, local = tmp / 'team', tmp / 'local-src'
+        write_test(team / 'tools' / 'checks' / 'tests', 'test_bad.sh', 'exit 1')
+        write_test(team / 'tools' / 'checks' / 'tests', 'test_good.sh', 'exit 0')
+        write_test(local / 'tools' / 'checks' / 'tests', 'test_local_bad.sh', 'exit 1')
+        sources = [{'name': 'precedent-team-fixture', 'level': 'shared',
+                    'path': str(team)},
+                   {'name': 'local', 'level': 'repo-local', 'path': str(local)}]
+        plan = pm._plan_checks(sources, None)
+        consumer_tests = tmp / 'consumer' / 'tools' / 'checks' / 'tests'
+        consumer_tests.mkdir(parents=True)
+        for rel_label, filename, _src, data in plan:
+            if rel_label == 'checks/tests':
+                (consumer_tests / filename).write_bytes(data)
+        driver_text = (consumer_tests / 'run_all.sh').read_text(encoding='utf-8')
+        # The table agrees with what the manifest records for each test: the
+        # manifest's checks[] source comes from this same plan entry.
+        table_ok = all(f"{fn}) owner={src};" in driver_text
+                       for rel, fn, src, _d in plan
+                       if rel == 'checks/tests' and fn != 'run_all.sh')
+        cases.append(("the driver's owner table carries every materialized "
+                      "test's source, as MANIFEST.json's checks[] records it",
+                      table_ok))
+        # A test nobody materialized: dropped in by hand, failing.
+        write_test(consumer_tests, 'test_stray.sh', 'exit 1')
+        r = subprocess.run(['bash', 'run_all.sh'], cwd=consumer_tests,
+                           capture_output=True, text=True, env=env)
+        out = r.stdout + r.stderr
+        cases.append(('the driver still exits 1 when a test fails',
+                      r.returncode == 1, f'exit {r.returncode}'))
+        cases.append(('a failing shipped test is named with its source and level',
+                      "FAILED: test_bad.sh -- shipped by source "
+                      "'precedent-team-fixture' (shared level)" in out))
+        cases.append(('the driver says a shipped failure is not to be recorded '
+                      'as pre-existing',
+                      'Never record it here as pre-existing' in out))
+        cases.append(("a repo-local test's failure is this repo's own to fix",
+                      "FAILED: test_local_bad.sh -- this repo's own repo-local "
+                      "source (local/): fix it here" in out))
+        cases.append(('a test no source shipped is called out as such, not '
+                      'pinned on a source',
+                      'FAILED: test_stray.sh -- no source shipped it' in out))
+        cases.append(('a passing test is never named as failed',
+                      'FAILED: test_good.sh' not in out))
+        found = ppc._finding_lines(out.splitlines())
+        cases.append(("the push check's finding extraction carries the owner "
+                      "line, so a refused push shows whose test failed",
+                      any("shipped by source 'precedent-team-fixture'" in l
+                          for l in found)))
+        # Negative control: nothing failing, nothing said about owners.
+        for f in ('test_bad.sh', 'test_local_bad.sh', 'test_stray.sh'):
+            (consumer_tests / f).unlink()
+        r = subprocess.run(['bash', 'run_all.sh'], cwd=consumer_tests,
+                           capture_output=True, text=True, env=env)
+        cases.append(('all passing: exit 0 and no ownership summary at all',
+                      r.returncode == 0 and 'who owns each' not in r.stdout
+                      and 'pre-existing' not in r.stdout))
+
+        # --- half 2: consumer-shaped run fails a home-only test at home ---
+        def source_repo(label, add_cmd):
+            d = tmp / label
+            write_test(d / 'tools' / 'checks' / 'tests', 'test_plant.sh',
+                       'set -e\ns="$(mktemp -d)"\ngit init -q "$s"\n'
+                       'mkdir -p "$s/vendor"\necho x > "$s/vendor/THIRD_PARTY.md"\n'
+                       f'git -C "$s" {add_cmd} vendor/THIRD_PARTY.md\n'
+                       'rm -rf "$s"\necho ok')
+            subprocess.run(['git', 'init', '-q', str(d)], env=env,
+                           capture_output=True)
+            return d
+
+        plain = source_repo('src-plain-add', 'add')
+        forced = source_repo('src-forced-add', 'add -f')
+        home = subprocess.run(['bash', 'test_plant.sh'],
+                              cwd=plain / 'tools' / 'checks' / 'tests',
+                              capture_output=True, text=True, env=env)
+        cases.append(('premise: the plain-add test passes in its home layout',
+                      home.returncode == 0, (home.stdout + home.stderr)[-200:]))
+        r = subprocess.run([sys.executable, str(shape_tool), '--repo', str(plain)],
+                           capture_output=True, text=True, env=env)
+        cases.append(('the consumer-shaped run fails it, naming the test and the '
+                      'cause class',
+                      r.returncode == 1 and 'FAILED: test_plant.sh -- fails where '
+                      'git ignores what a consuming repository typically ignores'
+                      in r.stdout, f'exit {r.returncode}: {r.stdout[-300:]}'))
+        r = subprocess.run([sys.executable, str(shape_tool), '--repo', str(forced)],
+                           capture_output=True, text=True, env=env)
+        cases.append(('the same test staging with `git add -f` passes the '
+                      'consumer-shaped run',
+                      r.returncode == 0 and 'all 1 passed' in r.stdout,
+                      f'exit {r.returncode}: {r.stdout[-300:]}'))
+        bare = tmp / 'no-tests'
+        subprocess.run(['git', 'init', '-q', str(bare)], env=env, capture_output=True)
+        r = subprocess.run([sys.executable, str(shape_tool), '--repo', str(bare)],
+                           capture_output=True, text=True, env=env)
+        cases.append(('a repo with no tests: exit 0, and it says there was '
+                      'nothing to run',
+                      r.returncode == 0 and 'nothing to run' in r.stdout))
+        r = subprocess.run([sys.executable, str(shape_tool), '--repo',
+                            str(tmp / 'team')], capture_output=True, text=True,
+                           env=dict(env, GIT_CEILING_DIRECTORIES=str(tmp)))
+        cases.append(('outside a git checkout: exit 2, said so',
+                      r.returncode == 2 and 'not inside a git checkout' in r.stderr))
+        base = {'GIT_CONFIG_COUNT': '1', 'GIT_CONFIG_KEY_0': 'a.b',
+                'GIT_CONFIG_VALUE_0': 'c'}
+        merged = pcs.consumer_env('/x/ignore', base=base)
+        cases.append(('the ignores are appended to GIT_CONFIG_COUNT entries '
+                      'already set, never replacing them',
+                      merged.get('GIT_CONFIG_COUNT') == '2'
+                      and merged.get('GIT_CONFIG_KEY_0') == 'a.b'
+                      and merged.get('GIT_CONFIG_KEY_1') == 'core.excludesFile'
+                      and merged.get('GIT_CONFIG_VALUE_1') == '/x/ignore'))
+
+        names = {kind: [n for n, _a, _r in ppc.PUSH_CHECKS[kind]]
+                 for kind in ppc.PUSH_CHECKS}
+        cases.append(("a practice source's full push check runs the "
+                      'consumer-shaped suite, right after its own',
+                      'consumer_shape' in names['source']
+                      and names['source'].index('consumer_shape')
+                      == names['source'].index('deep_check') + 1
+                      and 'consumer_shape' not in ppc.BASIC_CHECKS))
+        cases.append(('it ships with the engine every kind vendors',
+                      "'precedent_consumer_shape.py'" in
+                      (ROOT / 'tools' / 'precedent_vendor_engine.py').read_text(
+                          encoding='utf-8')))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
+    check(f'{name} ({len(cases)} stated cases)', not bad,
+          '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad))
 
 
 def check_materialize_carries_harness_adapters():
@@ -15680,6 +15932,28 @@ def check_commit_identity_ci_cadence():
         cases.append(('a repo that does not declare itself private is never '
                       'tagged on a branch either', SKIP not in x))
 
+        # The github_ci_ names (spec/BRANCH_TIERS_PLAN.md): read first, the
+        # old ci_ names still read where they are absent.
+        work, env = _setup('new-name-hours')
+        ident = _json.loads((work / 'identity.json').read_text(encoding='utf-8'))
+        ident['github_ci_every_hours'] = 48
+        (work / 'identity.json').write_text(_json.dumps(ident), encoding='utf-8')
+        subprocess.run(['bash', str(hook)], capture_output=True, text=True,
+                       timeout=120, env=env)
+        _commit(work, env, 'old'); _push(work, env)
+        y = _commit(work, env, 'Y')
+        cases.append(('the personal github_ci_every_hours is read', SKIP in y))
+        work, env = _setup('new-name-repo', repo_cfg={'github_ci_on_branches': False})
+        _branch(work, env)
+        z = _commit(work, env, 'Z')
+        cases.append(("a repo's github_ci_on_branches is read", SKIP in z))
+        work, env = _setup('both-names', repo_cfg={'ci_on_branches': False,
+                                                   'github_ci_on_branches': True})
+        _branch(work, env)
+        zz = _commit(work, env, 'ZZ')
+        cases.append(('where a file carries both names, github_ci_ wins',
+                      SKIP not in zz))
+
     failed = [n for n, ok in cases if not ok]
     check(f'commit-identity applies the CI cadence only when every condition '
           f'holds ({len(cases)} stated cases)', not failed, '; '.join(failed))
@@ -15725,10 +15999,17 @@ def check_push_check_gate():
 
     with tempfile.TemporaryDirectory() as td:
         tmp = pathlib.Path(td)
+        # PRECEDENT_USER_CONFIG points at nothing, so no real person's
+        # identity.json reaches the fixture (practice: fixture-owns-its-state).
+        # Without it, a machine whose individual set turns promote_only on
+        # refused the clean push to main below as a promotion-only branch:
+        # red on every such machine, green in CI, which has no individual
+        # source.
         env = dict(os.environ, PRECEDENT_ALLOW_ANY_AUTHOR='1',
                    GIT_AUTHOR_NAME='T', GIT_AUTHOR_EMAIL='t@example.com',
                    GIT_COMMITTER_NAME='T', GIT_COMMITTER_EMAIL='t@example.com',
-                   GIT_CONFIG_GLOBAL=str(tmp / 'gitconfig'))
+                   GIT_CONFIG_GLOBAL=str(tmp / 'gitconfig'),
+                   PRECEDENT_USER_CONFIG=str(tmp / 'no-user-config.json'))
 
         def git(cwd, *a):
             return subprocess.run(['git', '-C', str(cwd), *a],
@@ -15738,6 +16019,9 @@ def check_push_check_gate():
         (work / 'tools').mkdir(parents=True)
         git(tmp, 'init', '-q', '-b', 'main', str(work))
         _shutil.copy2(tool, work / 'tools' / 'precedent_push_check.py')
+        if (ROOT / 'tools' / 'precedent_branches.py').exists():
+            _shutil.copy2(ROOT / 'tools' / 'precedent_branches.py',
+                          work / 'tools' / 'precedent_branches.py')
         (work / 'tools' / 'ENGINE_MANIFEST.json').write_text(
             _json.dumps({'kind': 'consumer'}), encoding='utf-8')
         # Stand-ins for the three consumer tools: each fails when a tracked
@@ -15752,7 +16036,21 @@ def check_push_check_gate():
                 + ('print("precedent_check: %d passed, 0 violated" % '
                    '(0 if "zero" in body else 3))\n'
                    if t == 'precedent_check' else '')
-                + f'sys.exit(1 if "{t}" in body else 0)\n',
+                # precedent_check.py also answers as the basic tier's
+                # ci_workflows (--only ci-workflow-approved), a check of
+                # its own: fail it only when FAIL names that one.
+                + ('name = ("ci_workflows" if "ci-workflow-approved" in '
+                   'sys.argv else "precedent_check")\n'
+                   if t == 'precedent_check' else f'name = "{t}"\n')
+                + 'fail = name in body\n'
+                # A failure that prints its finding and then pages of noise,
+                # as precedent_check does with every SKIPPED check after its
+                # VIOLATION block.
+                + f'if fail and "noisy" in body:\n'
+                  f'    print("VIOLATION  planted-{t}")\n'
+                  f'    print("    the buried finding")\n'
+                  f'    print("\\n".join(["SKIPPED filler"] * 150))\n'
+                + 'sys.exit(1 if fail else 0)\n',
                 encoding='utf-8')
         # The deep-check driver, when a repo has one, is on the list too.
         drv = work / 'tools' / 'checks' / 'tests' / 'run_all.sh'
@@ -15787,6 +16085,14 @@ def check_push_check_gate():
         denied, out = gate('git push origin main')
         cases.append(('a tree failing one check is refused, and the refusal '
                       'names that check', denied and 'leak_gate' in out))
+        (work / 'FAIL').write_text('leak_gate noisy', encoding='utf-8')
+        git(work, 'commit', '-q', '-am', 'bury the finding under noise')
+        denied, out = gate('git push origin main')
+        cases.append(('a finding printed before pages of noise still reaches '
+                      'the refusal, which shows only the tail',
+                      denied and 'the buried finding' in out))
+        (work / 'FAIL').write_text('leak_gate', encoding='utf-8')
+        git(work, 'commit', '-q', '-am', 'plain leak gate failure again')
         denied, _ = gate('git commit -q -n -m x && git push')
         cases.append(("`git commit -n && git push` is still a push: -n "
                       "belongs to the commit", denied))
@@ -15825,6 +16131,93 @@ def check_push_check_gate():
         cases.append(('a pass recorded for the committed tree is not reused '
                       'over uncommitted edits that fail', denied))
         git(work, 'reset', '-q', '--hard')
+
+        # The branch tiers (spec/BRANCH_TIERS_PLAN.md): precedent_check is
+        # full-only, leak_gate is basic. The environment's own person must
+        # not decide these, so no user config resolves.
+        if (work / 'tools' / 'precedent_branches.py').exists():
+            env['PRECEDENT_USER_CONFIG'] = str(tmp / 'no-config.json')
+            (work / 'FAIL').write_text('precedent_check', encoding='utf-8')
+            git(work, 'add', 'FAIL')
+            git(work, 'commit', '-q', '-m', 'break a full-only check')
+            denied, _ = gate('git push -u origin feature')
+            cases.append(('a push to a working branch gets the basic check: a '
+                          'failing full-only check does not refuse it', not denied))
+            denied, _ = gate('git push origin HEAD:pre-staging')
+            cases.append(('so does a push to pre-staging', not denied))
+            denied, out = gate('git push origin main')
+            cases.append(('the same tree pushed to main is refused by the full '
+                          'check -- the basic pass just recorded does not '
+                          'satisfy it', denied and 'precedent_check' in out))
+            denied, out = gate('git push origin feature main')
+            cases.append(('one push naming a working branch and main is checked '
+                          'fully', denied and 'precedent_check' in out))
+            (work / 'FAIL').write_text('leak_gate', encoding='utf-8')
+            git(work, 'commit', '-q', '-am', 'break the leak gate again')
+            denied, out = gate('git push origin feature')
+            cases.append(('the leak gate runs on a working-branch push too',
+                          denied and 'leak_gate' in out))
+            git(work, 'rm', '-q', 'FAIL')
+            git(work, 'commit', '-q', '-m', 'fix it again')
+            denied, _ = gate('git push origin main')
+            again = subprocess.run(
+                [sys.executable, 'tools/precedent_push_check.py', '--gate',
+                 '--push-command', 'origin feature'],
+                cwd=work, capture_output=True, text=True, env=env).stdout
+            cases.append(('a full pass satisfies a later basic gate on the same '
+                          'tree', not denied and 'already passed' in again))
+            env.pop('PRECEDENT_USER_CONFIG')
+
+        # A pass is shared through origin, so a second checkout -- another
+        # window -- does not re-run the suite on files the first one passed
+        # (Morgan, 2026-09-25). And only exactly those files, at that tier.
+        env['PRECEDENT_USER_CONFIG'] = str(tmp / 'no-config.json')
+        hub = tmp / 'hub.git'
+        git(tmp, 'init', '-q', '--bare', '-b', 'main', str(hub))
+        git(work, 'remote', 'add', 'origin', f'file://{hub}')
+        git(work, 'push', '-q', 'origin', 'HEAD:refs/heads/main')
+
+        def run_check(cwd, *a):
+            return subprocess.run([sys.executable, 'tools/precedent_push_check.py',
+                                   *a], cwd=cwd, capture_output=True, text=True,
+                                  env=env).stdout
+
+        ran = run_check(work, '--tier', 'full')
+        files = git(hub, 'ls-tree', '-r', '--name-only',
+                    'precedent-check-receipts').stdout.split()
+        cases.append(('a full pass is published to origin as a receipt',
+                      'shared with every checkout' in ran
+                      and any(f.startswith('receipts/') for f in files)))
+        other = tmp / 'other'
+        git(tmp, 'clone', '-q', f'file://{hub}', str(other))
+        got = run_check(other, '--gate', '--tier', 'full')
+        cases.append(('another checkout of the same files does not re-run the '
+                      'suite, and says the pass came from elsewhere',
+                      'already passed the full check at' in got
+                      and 'another checkout' in got))
+        msg = git(hub, 'log', '-1', '--format=%B', 'precedent-check-receipts').stdout
+        cases.append(('the receipt branch carries no file of the repository, '
+                      'and its commits skip CI',
+                      bool(files) and all(f == 'ORDER' or f.startswith('receipts/')
+                                          for f in files)
+                      and '[skip ci]' in msg))
+        (other / 'list.txt').write_text('changed\n', encoding='utf-8')
+        git(other, 'add', 'list.txt')
+        git(other, 'commit', '-q', '-m', 'one change')
+        got = run_check(other, '--gate', '--tier', 'full')
+        cases.append(('one changed file and the suite runs again',
+                      'already passed' not in got and 'all passed' in got))
+        (work / 'basic.txt').write_text('b\n', encoding='utf-8')
+        git(work, 'add', 'basic.txt')
+        git(work, 'commit', '-q', '-m', 'basic only')
+        run_check(work, '--tier', 'basic')
+        git(work, 'push', '-q', 'origin', 'HEAD:refs/heads/main')
+        git(other, 'fetch', '-q', 'origin')
+        git(other, 'checkout', '-q', '--detach', 'origin/main')
+        got = run_check(other, '--gate', '--tier', 'full')
+        cases.append(('a shared BASIC pass never satisfies a full gate',
+                      'already passed' not in got and 'all passed' in got))
+        env.pop('PRECEDENT_USER_CONFIG')
 
         # A shallow clone is deepened before anything runs: history checks
         # on a shallow clone skip, and a skip would read as a pass here.
@@ -15871,6 +16264,843 @@ def check_push_check_gate():
                           (hooks / 'pre-push').exists() and p.returncode == 7
                           and 'OWN origin ref-line' in p.stdout))
 
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
+def check_branch_tiers():
+    """The three branch tiers (spec/BRANCH_TIERS_PLAN.md, Morgan, 2026-09-25,
+    strength: decided): a push to staging or main is checked fully; a push
+    to pre-staging or any other branch gets the basic check unless the
+    person's `branch_push_checks` says full. tools/precedent_branches.py
+    holds the rule; this pins what it answers.
+
+    The cases that matter are the ones that would land unchecked work: a
+    push whose destination cannot be read must come out FULL, a typo in the
+    setting must come out FULL, and nothing the setting says may lower
+    staging or main. A branch the repository still calls by its pre-rename
+    name (`base_branch`) is staging and must be full too."""
+    import tempfile, json as _json
+    name = 'branch tiers: staging and main full, other branches basic by default'
+    tool = ROOT / 'tools' / 'precedent_branches.py'
+    if not tool.exists():
+        not_applicable(name, 'tools/precedent_branches.py is absent')
+        return
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_branches as pb
+    finally:
+        sys.path.pop(0)
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+        env = dict(os.environ, GIT_CONFIG_GLOBAL=str(tmp / 'gitconfig'),
+                   GIT_AUTHOR_NAME='T', GIT_AUTHOR_EMAIL='t@example.com',
+                   GIT_COMMITTER_NAME='T', GIT_COMMITTER_EMAIL='t@example.com',
+                   PRECEDENT_ALLOW_ANY_AUTHOR='1')
+        repo = tmp / 'repo'
+        subprocess.run(['git', 'init', '-q', '-b', 'topic', str(repo)],
+                       capture_output=True, env=env)
+        subprocess.run(['git', '-C', str(repo), 'commit', '-q', '--allow-empty',
+                        '-m', 'x'], capture_output=True, env=env)
+        (repo / 'precedent.json').write_text(_json.dumps(
+            {'base_branch': 'precedent-beta-v01'}), encoding='utf-8')
+        nocfg = str(tmp / 'no-config.json')
+        indiv = tmp / 'indiv'
+        indiv.mkdir()
+        cfg = tmp / 'config.json'
+        cfg.write_text(_json.dumps({'individual': {'path': str(indiv)}}),
+                       encoding='utf-8')
+
+        def tier(branch, user_config=nocfg):
+            return pb.tier_for_branch(repo, branch, user_config)[0]
+
+        cases.append(('pre-staging is basic by default', tier('pre-staging') == 'basic'))
+        cases.append(('a working branch is basic by default', tier('claude/x') == 'basic'))
+        cases.append(('main is full', tier('main') == 'full'))
+        cases.append(('staging is full', tier('staging') == 'full'))
+        cases.append(("the repo's declared base_branch (staging before the "
+                      "rename) is full", tier('precedent-beta-v01') == 'full'))
+        cases.append(('staging_branch() names the declared branch until the '
+                      'rename', pb.staging_branch(repo) == 'precedent-beta-v01'))
+
+        (indiv / 'identity.json').write_text(_json.dumps(
+            {'email': 'p@example.com', 'branch_push_checks': 'full'}), encoding='utf-8')
+        cases.append(("the person's identity.json can raise other branches to "
+                      "full", tier('claude/x', str(cfg)) == 'full'))
+        (indiv / 'identity.json').write_text(_json.dumps(
+            {'email': 'p@example.com', 'branch_push_checks': 'bassic'}), encoding='utf-8')
+        cases.append(('a value that is neither basic nor full is checked fully',
+                      tier('claude/x', str(cfg)) == 'full'))
+        (indiv / 'identity.json').write_text(_json.dumps(
+            {'email': 'p@example.com', 'branch_push_checks': 'basic'}), encoding='utf-8')
+        cases.append(('nothing the setting says lowers main',
+                      tier('main', str(cfg)) == 'full'))
+        (repo / 'precedent.json').write_text(_json.dumps(
+            {'base_branch': 'precedent-beta-v01', 'branch_push_checks': 'full'}),
+            encoding='utf-8')
+        cases.append(("a repo's own precedent.json wins over the person",
+                      tier('claude/x', str(cfg)) == 'full'))
+        (repo / 'precedent.json').write_text(_json.dumps(
+            {'base_branch': 'main'}), encoding='utf-8')
+        cases.append(('a repo whose base_branch is main, with no staging '
+                      'branch yet, promotes into main -- never into a staging '
+                      'branch it does not have', pb.staging_branch(repo) == 'main'
+                      and tier('staging') == 'full'
+                      and pb.landing_branch(repo, nocfg)[0] == 'pre-staging'))
+
+        def targets(args):
+            return pb.push_targets(repo, args)
+        cases.append(('`origin pre-staging` writes pre-staging',
+                      targets('origin pre-staging') == ['pre-staging']))
+        cases.append(('`-u origin a b` writes a and b',
+                      targets('-u origin a b') == ['a', 'b']))
+        cases.append(('`origin +x:refs/heads/main` writes main',
+                      targets('origin +x:refs/heads/main') == ['main']))
+        cases.append(('`origin HEAD` writes the current branch',
+                      targets('origin HEAD') == ['topic']))
+        cases.append(('a bare push writes the current branch',
+                      targets('') == ['topic']))
+        cases.append(('`--tags` cannot be read, so it is None',
+                      targets('--tags') is None))
+        cases.append(('a tag refspec is not a branch, so it is None',
+                      targets('origin v1:refs/tags/v1') is None))
+        cases.append(('an unreadable push is checked fully',
+                      pb.tier_for_push(repo, '--all', nocfg)[0] == 'full'))
+        cases.append(('a push naming a working branch and main is checked '
+                      'fully', pb.tier_for_push(repo, 'origin feat main', nocfg)[0] == 'full'))
+        subprocess.run(['git', '-C', str(repo), 'checkout', '-q', '--detach'],
+                       capture_output=True, env=env)
+        cases.append(('a bare push from a detached HEAD cannot be read',
+                      targets('') is None))
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
+def check_merge_check_gate():
+    """A pull request merged through GitHub is a push no push gate sees
+    (spec/BRANCH_TIERS_PLAN.md, hole 1). merge-check-gate.sh runs
+    tools/precedent_merge_check.py before the merge tool: the push check, on
+    the merge GitHub would make, at the tier of the base branch.
+
+    The fixture is a local "origin" carrying refs/pull/N/head and
+    refs/pull/N/merge the way GitHub does. The cases that matter are the
+    ones that would land unchecked work: a pull request into main must get
+    the full check; a base that cannot be matched must get it too; and a
+    base branch sitting at the same commit as main -- exactly how
+    AGENTS.md's merge-target rule began, and how this check's first live
+    run misread a real pull request -- must not be mistaken for the
+    working branch alone."""
+    import tempfile, json as _json, shutil as _shutil
+    name = 'the merge gate checks what a GitHub merge would land, at its base branch\'s tier'
+    hook = ROOT / 'templates' / 'harness' / 'claude-code' / 'hooks' / 'merge-check-gate.sh'
+    engine = ROOT / 'tools' / 'precedent_merge_check.py'
+    if not hook.exists() or not engine.exists():
+        not_applicable(name, 'merge-check-gate.sh or precedent_merge_check.py is absent')
+        return
+    if not _shutil.which('jq'):
+        not_applicable(name, 'no jq on this machine; the gate fails open without it')
+        return
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+        env = dict(os.environ, PRECEDENT_ALLOW_ANY_AUTHOR='1',
+                   GIT_AUTHOR_NAME='T', GIT_AUTHOR_EMAIL='t@example.com',
+                   GIT_COMMITTER_NAME='T', GIT_COMMITTER_EMAIL='t@example.com',
+                   GIT_CONFIG_GLOBAL=str(tmp / 'gitconfig'),
+                   PRECEDENT_USER_CONFIG=str(tmp / 'no-config.json'))
+
+        def git(cwd, *a):
+            return subprocess.run(['git', '-C', str(cwd), *a],
+                                  capture_output=True, text=True, env=env)
+
+        bare = tmp / 'alex' / 'proj.git'
+        bare.parent.mkdir()
+        git(tmp, 'init', '-q', '--bare', '-b', 'main', str(bare))
+        work = tmp / 'work'
+        (work / 'tools').mkdir(parents=True)
+        git(tmp, 'init', '-q', '-b', 'main', str(work))
+        for f in ('precedent_push_check.py', 'precedent_branches.py',
+                  'precedent_merge_check.py'):
+            _shutil.copy2(ROOT / 'tools' / f, work / 'tools' / f)
+        (work / 'tools' / 'ENGINE_MANIFEST.json').write_text(
+            _json.dumps({'kind': 'consumer'}), encoding='utf-8')
+        for t in ('precedent_check', 'leak_gate', 'doc_lint'):
+            (work / 'tools' / f'{t}.py').write_text(
+                'import pathlib, sys\n'
+                'f = pathlib.Path("FAIL")\n'
+                'body = f.read_text() if f.exists() else ""\n'
+                + ('print("precedent_check: 3 passed, 0 violated")\n'
+                   if t == 'precedent_check' else '')
+                # precedent_check.py also answers as the basic tier's
+                # ci_workflows (--only ci-workflow-approved), a check of
+                # its own: fail it only when FAIL names that one.
+                + ('name = ("ci_workflows" if "ci-workflow-approved" in '
+                   'sys.argv else "precedent_check")\n'
+                   if t == 'precedent_check' else f'name = "{t}"\n')
+                + 'sys.exit(1 if name in body else 0)\n',
+                encoding='utf-8')
+        git(work, 'add', '-A')
+        git(work, 'commit', '-q', '-m', 'init')
+        git(work, 'remote', 'add', 'origin', f'file://{bare}')
+        git(work, 'push', '-q', 'origin', 'main')
+        # A base branch of its own, one commit past main.
+        git(work, 'checkout', '-q', '-b', 'fb')
+        (work / 'fb.txt').write_text('fb', encoding='utf-8')
+        git(work, 'add', 'fb.txt')
+        git(work, 'commit', '-q', '-m', 'fb')
+        git(work, 'push', '-q', 'origin', 'fb')
+
+        def pull(number, base, fail):
+            """Publish pull request `number` into `base` whose head plants
+            FAIL=`fail`, with the test merge GitHub would make."""
+            git(work, 'checkout', '-q', '-B', f'head{number}', base)
+            (work / 'FAIL').write_text(fail, encoding='utf-8')
+            git(work, 'add', 'FAIL')
+            git(work, 'commit', '-q', '-m', f'pr {number}')
+            git(work, 'push', '-q', 'origin', f'head{number}:refs/pull/{number}/head')
+            git(work, 'checkout', '-q', '-B', f'merge{number}', base)
+            git(work, 'merge', '-q', '--no-ff', '-m', f'merge {number}', f'head{number}')
+            git(work, 'push', '-q', 'origin', f'merge{number}:refs/pull/{number}/merge')
+            git(work, 'checkout', '-q', 'main')
+
+        pull(7, 'main', 'precedent_check')
+        pull(8, 'fb', 'precedent_check')
+        pull(9, 'fb', 'leak_gate')
+        # 10: a test merge whose first parent is no branch's tip.
+        git(work, 'checkout', '-q', '-b', 'gone', 'main')
+        (work / 'gone.txt').write_text('gone', encoding='utf-8')
+        git(work, 'add', 'gone.txt')
+        git(work, 'commit', '-q', '-m', 'gone')
+        pull(10, 'gone', 'precedent_check')
+        # 11: a working branch sitting at main's own commit, named so that
+        # origin lists it BEFORE main -- the order that made this check's
+        # first live run read a pull request into the staging branch as one
+        # into a working branch.
+        git(work, 'push', '-q', 'origin', 'main:aaa-topic')
+
+        def gate(payload, project=work):
+            p = subprocess.run(['bash', str(hook)], input=_json.dumps(payload),
+                               text=True, capture_output=True, timeout=300,
+                               env=dict(env, CLAUDE_PROJECT_DIR=str(project)))
+            return '"deny"' in p.stdout, p.stdout + p.stderr
+
+        def mcp(number, owner='alex', repo='proj'):
+            return gate({'tool_name': 'mcp__github__merge_pull_request',
+                         'tool_input': {'owner': owner, 'repo': repo,
+                                        'pullNumber': number},
+                         'cwd': str(work)})
+
+        denied, out = mcp(7)
+        cases.append(('a pull request into main gets the full check, and a '
+                      'failing full-only check refuses the merge',
+                      denied and 'merge check REFUSED' in out
+                      and 'precedent_check' in out))
+        denied, out = mcp(8)
+        cases.append(('a pull request into a working branch gets the basic '
+                      'check, so the same failure is let through', not denied))
+        denied, out = mcp(9)
+        cases.append(('the basic check still refuses a failing leak gate',
+                      denied and 'leak_gate' in out))
+        denied, out = mcp(10)
+        cases.append(('a base that matches no branch on origin is checked '
+                      'fully', denied and 'unmatched base' in out))
+        pull(11, 'main', 'precedent_check')
+        denied, out = mcp(11)
+        cases.append(('a base sitting at the same commit as main is checked '
+                      'fully, not read as the working branch alone',
+                      denied and 'precedent_check' in out))
+        denied, out = gate({'tool_name': 'Bash',
+                            'tool_input': {'command': 'gh pr merge 7 --merge'},
+                            'cwd': str(work)})
+        cases.append(('`gh pr merge N` is checked the same way, the repository '
+                      'read from origin', denied and 'precedent_check' in out))
+        denied, out = gate({'tool_name': 'Bash',
+                            'tool_input': {'command': 'echo "gh pr merge 7"'},
+                            'cwd': str(work)})
+        cases.append(('`gh pr merge` quoted inside another command is not a '
+                      'merge', not denied and not out.strip()))
+        denied, out = mcp(7, owner='nobody')
+        cases.append(('no checkout of the repository: let through, and said',
+                      not denied and 'NOTE: merge-check-gate' in out))
+        wts = git(work, 'worktree', 'list').stdout.strip().splitlines()
+        refs = git(work, 'for-each-ref', 'refs/precedent-merge-check').stdout.strip()
+        cases.append(('no worktree and no fetched pull request ref is left '
+                      'behind', len(wts) == 1 and not refs))
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
+def check_promote_pre_staging():
+    """Promote moves pre-staging into staging (spec/BRANCH_TIERS_PLAN.md),
+    and is the one route by which the batch gets its full check.
+
+    The cases that matter would land unchecked work or lose work: a batch
+    failing a full-only check must leave staging exactly where it was; a
+    promotion must be a merge commit, never a fast-forward, so no
+    pre-staging commit's `[skip ci]` line becomes staging's head (hole 3);
+    and pre-staging must pick up what was pushed to staging directly
+    (hole 2) -- by a merge, and not at all when that merge conflicts."""
+    import tempfile, json as _json, shutil as _shutil
+    name = 'Promote: pre-staging into staging, fully checked, by a merge commit'
+    tool = ROOT / 'tools' / 'precedent_branches.py'
+    if not tool.exists():
+        not_applicable(name, 'tools/precedent_branches.py is absent')
+        return
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+        env = dict(os.environ, PRECEDENT_ALLOW_ANY_AUTHOR='1',
+                   GIT_AUTHOR_NAME='T', GIT_AUTHOR_EMAIL='t@example.com',
+                   GIT_COMMITTER_NAME='T', GIT_COMMITTER_EMAIL='t@example.com',
+                   GIT_CONFIG_GLOBAL=str(tmp / 'gitconfig'),
+                   PRECEDENT_USER_CONFIG=str(tmp / 'config.json'))
+
+        def git(cwd, *a):
+            return subprocess.run(['git', '-C', str(cwd), *a],
+                                  capture_output=True, text=True, env=env)
+
+        bare = tmp / 'origin.git'
+        git(tmp, 'init', '-q', '--bare', '-b', 'beta', str(bare))
+        work = tmp / 'work'
+        (work / 'tools').mkdir(parents=True)
+        git(tmp, 'init', '-q', '-b', 'beta', str(work))
+        for f in ('precedent_push_check.py', 'precedent_branches.py'):
+            _shutil.copy2(ROOT / 'tools' / f, work / 'tools' / f)
+        (work / 'tools' / 'ENGINE_MANIFEST.json').write_text(
+            _json.dumps({'kind': 'consumer'}), encoding='utf-8')
+        for t in ('precedent_check', 'leak_gate', 'doc_lint'):
+            (work / 'tools' / f'{t}.py').write_text(
+                'import pathlib, sys\n'
+                'f = pathlib.Path("FAIL")\n'
+                'body = f.read_text() if f.exists() else ""\n'
+                + ('print("precedent_check: 3 passed, 0 violated")\n'
+                   if t == 'precedent_check' else '')
+                # precedent_check.py also answers as the basic tier's
+                # ci_workflows (--only ci-workflow-approved), a check of
+                # its own: fail it only when FAIL names that one.
+                + ('name = ("ci_workflows" if "ci-workflow-approved" in '
+                   'sys.argv else "precedent_check")\n'
+                   if t == 'precedent_check' else f'name = "{t}"\n')
+                # PROMOTE_RACE: a command the stub runs mid-check, standing
+                # in for another window promoting the same batch meanwhile.
+                + ('import os, subprocess\n'
+                   'if os.environ.get("PROMOTE_RACE"):\n'
+                   '    subprocess.run(os.environ["PROMOTE_RACE"], shell=True)\n'
+                   if t == 'precedent_check' else '')
+                + 'sys.exit(1 if name in body else 0)\n',
+                encoding='utf-8')
+        # A repo whose staging still goes by its pre-rename name.
+        (work / 'precedent.json').write_text(_json.dumps({'base_branch': 'beta'}),
+                                             encoding='utf-8')
+        (work / 'list.txt').write_text('a\nb\nc\n', encoding='utf-8')
+        git(work, 'add', '-A')
+        git(work, 'commit', '-q', '-m', 'init')
+        git(work, 'remote', 'add', 'origin', f'file://{bare}')
+        git(work, 'push', '-q', 'origin', 'beta')
+
+        def branches(*a, extra=None):
+            p = subprocess.run([sys.executable, 'tools/precedent_branches.py', *a],
+                               cwd=work, capture_output=True, text=True,
+                               env=dict(env, **(extra or {})))
+            return p.returncode, p.stdout + p.stderr
+
+        def tip(b):
+            return git(work, 'ls-remote', 'origin', f'refs/heads/{b}').stdout.split('\t')[0]
+
+        rc, out = branches('--landing')
+        cases.append(('Go update lands on pre-staging by default',
+                      out.split('\n')[0] == 'pre-staging'))
+        indiv = tmp / 'indiv'
+        indiv.mkdir()
+        (tmp / 'config.json').write_text(_json.dumps({'individual': {'path': str(indiv)}}),
+                                         encoding='utf-8')
+        (indiv / 'identity.json').write_text(_json.dumps(
+            {'email': 'p@example.com', 'landing_branch': 'staging'}), encoding='utf-8')
+        rc, out = branches('--landing')
+        cases.append(("a person's landing_branch can send it to staging (the "
+                      "declared base, still named beta here)",
+                      out.split('\n')[0] == 'beta'))
+        (indiv / 'identity.json').write_text(_json.dumps(
+            {'email': 'p@example.com', 'landing_branch': 'main'}), encoding='utf-8')
+        rc, out = branches('--landing')
+        cases.append(("a person's landing_branch can send it straight to main",
+                      out.split('\n')[0] == 'main'))
+        (indiv / 'identity.json').write_text(_json.dumps(
+            {'email': 'p@example.com', 'landing_branch': 'somewhere'}), encoding='utf-8')
+        rc, out = branches('--landing')
+        cases.append(('an unreadable landing_branch lands on staging, never somewhere new',
+                      out.split('\n')[0] == 'beta'))
+
+        rc, out = branches('--sync-pre-staging')
+        cases.append(('pre-staging is created at staging when origin has none',
+                      rc == 0 and tip('pre-staging') == tip('beta')))
+        rc, out = branches('--promote')
+        cases.append(('nothing on pre-staging: nothing to promote, staging unmoved',
+                      rc == 0 and 'nothing to promote' in out))
+
+        def commit_to(branch, path, text, msg):
+            git(work, 'fetch', '-q', 'origin')
+            git(work, 'checkout', '-q', '-B', f'w-{branch}', f'origin/{branch}')
+            (work / path).write_text(text, encoding='utf-8')
+            git(work, 'add', path)
+            git(work, 'commit', '-q', '-m', msg)
+            git(work, 'push', '-q', 'origin', f'HEAD:refs/heads/{branch}')
+
+        commit_to('pre-staging', 'list.txt', 'A\nb\nc\n', 'rename a [skip ci]')
+        commit_to('beta', 'other.txt', 'direct\n', 'pushed straight to staging')
+        rc, out = branches('--sync-pre-staging')
+        git(work, 'fetch', '-q', 'origin')
+        cases.append(('a push made straight to staging is merged into pre-staging',
+                      rc == 0 and git(work, 'merge-base', '--is-ancestor',
+                                      'origin/beta', 'origin/pre-staging').returncode == 0))
+
+        before = tip('beta')
+        commit_to('pre-staging', 'FAIL', 'precedent_check', 'break a full-only check')
+        rc, out = branches('--promote')
+        cases.append(('a batch failing a full-only check is refused and staging '
+                      'does not move', rc == 1 and 'PROMOTE REFUSED' in out
+                      and 'precedent_check' in out and tip('beta') == before))
+
+        git(work, 'fetch', '-q', 'origin')
+        git(work, 'checkout', '-q', '-B', 'w-fix', 'origin/pre-staging')
+        git(work, 'rm', '-q', 'FAIL')
+        git(work, 'commit', '-q', '-m', 'fix it')
+        git(work, 'push', '-q', 'origin', 'HEAD:refs/heads/pre-staging')
+        rc, out = branches('--promote')
+        git(work, 'fetch', '-q', 'origin')
+        parents = git(work, 'rev-list', '--parents', '-n', '1', 'origin/beta').stdout.split()
+        msg = git(work, 'log', '-1', '--format=%B', 'origin/beta').stdout
+        cases.append(('a passing batch is promoted', rc == 0 and 'PROMOTED' in out))
+        cases.append(('as a merge commit whose second parent is pre-staging',
+                      len(parents) == 3 and parents[2] == tip('pre-staging')))
+        cases.append(("and staging's head carries no [skip ci], though a "
+                      "promoted commit did", '[skip ci]' not in msg))
+        cases.append(('and it says the full check ran, rather than leaving a '
+                      'person to guess', 'check ran on the batch and passed' in out
+                      and 'NOT re-run' not in out))
+
+        # Same files, already fully checked: Promote says it did not re-run
+        # the suite, and when the earlier run was (Morgan, 2026-09-25: "it
+        # should not run the full suite again if nothing has changed").
+        commit_to('pre-staging', 'list.txt', 'Z\nb\nc\n', 'another edit')
+        subprocess.run([sys.executable, 'tools/precedent_push_check.py',
+                        '--tier', 'full'], cwd=work, capture_output=True,
+                       text=True, env=env)
+        rc, out = branches('--promote')
+        cases.append(('a batch whose exact files already passed the full check '
+                      'is promoted without re-running it, and says so, with '
+                      'when it passed', rc == 0 and 'PROMOTED' in out
+                      and 'NOT re-run' in out and 'already passed the full '
+                      'check at' in out))
+
+        # Another window promotes the same batch while this one checks it.
+        # The push is refused, and Promote must say the work is already on
+        # staging -- not send the person round again with "Promote again".
+        commit_to('pre-staging', 'list.txt', 'W\nb\nc\n', 'raced edit')
+        race = tmp / 'race'
+        git(tmp, 'clone', '-q', f'file://{bare}', str(race))
+        rc, out = branches('--promote', extra={'PROMOTE_RACE': (
+            f'git -C {race} fetch -q origin && '
+            f'git -C {race} checkout -q -B r origin/beta && '
+            f'git -C {race} merge -q --no-ff -m other-window origin/pre-staging && '
+            f'git -C {race} push -q origin HEAD:refs/heads/beta')})
+        cases.append(('a batch another window promoted mid-check is reported '
+                      'as already on staging, not as "Promote again"',
+                      rc == 0 and 'another window promoted this batch' in out
+                      and 'Promote again' not in out
+                      and git(work, 'log', '-1', '--format=%s',
+                              tip('beta')).stdout.strip() == 'other-window'))
+
+        # The Promote lock: a branch that only moves forward, whose newest
+        # commit says who holds it. Every Promote above claimed and released
+        # it, so it reads free now.
+        def lock_subject():
+            git(work, 'fetch', '-q', 'origin')
+            return git(work, 'log', '-1', '--format=%s',
+                       'origin/precedent-promote-lock').stdout.strip()
+        cases.append(('after a Promote the lock branch exists and reads free, '
+                      'with [skip ci] so no workflow runs for it',
+                      lock_subject() == 'free [skip ci]'))
+
+        def hold(age_seconds):
+            when = f'@{int(time.time()) - age_seconds} -0300'
+            made = subprocess.run(
+                ['git', '-C', str(work), 'commit-tree',
+                 '4b825dc642cb6eb9a060e54bf8d69288fbee4904', '-p',
+                 'origin/precedent-promote-lock', '-m',
+                 'held by another window [skip ci]'], capture_output=True,
+                text=True, env=dict(env, GIT_COMMITTER_DATE=when,
+                                    GIT_AUTHOR_DATE=when)).stdout.strip()
+            git(work, 'push', '-q', 'origin',
+                f'{made}:refs/heads/precedent-promote-lock')
+
+        commit_to('pre-staging', 'list.txt', 'V\nb\nc\n', 'waits for the lock')
+        before = tip('beta')
+        hold(60)
+        rc, out = branches('--promote')
+        cases.append(('a Promote that finds the lock freshly held by another '
+                      'window does nothing, says who has it, and says not to '
+                      'Promote again', rc == 0
+                      and 'another window is promoting right now' in out
+                      and 'held by another window' in out
+                      and tip('beta') == before
+                      and lock_subject() == 'held by another window [skip ci]'))
+        hold(3 * 3600)
+        rc, out = branches('--promote')
+        cases.append(('a claim left behind by a window that died is taken over '
+                      'once it is stale, and the Promote goes ahead',
+                      rc == 0 and 'PROMOTED' in out and tip('beta') != before
+                      and lock_subject() == 'free [skip ci]'))
+
+        commit_to('pre-staging', 'list.txt', 'X\nb\nc\n', 'pre-staging edits line 1')
+        commit_to('beta', 'list.txt', 'Y\nb\nc\n', 'staging edits line 1 too')
+        pre_before = tip('pre-staging')
+        rc, out = branches('--sync-pre-staging')
+        cases.append(('a conflicting direct push to staging stops the sync and '
+                      'pushes nothing', rc == 1 and 'does not merge cleanly' in out
+                      and tip('pre-staging') == pre_before))
+        wts = git(work, 'worktree', 'list').stdout.strip().splitlines()
+        cases.append(('no worktree is left behind', len(wts) == 1))
+
+        # The Boildown's reminder (precedent_gate.py's _unlanded_work): work
+        # on pre-staging has landed for a person who lands there, and what
+        # it still owes is a Promote.
+        (indiv / 'identity.json').write_text(_json.dumps(
+            {'email': 'p@example.com', 'landing_branch': 'pre-staging'}), encoding='utf-8')
+        git(work, 'fetch', '-q', 'origin')
+        git(work, 'checkout', '-q', '-B', 'w-landed', 'origin/pre-staging')
+        sys.path.insert(0, str(ROOT / 'tools'))
+        saved = os.environ.get('PRECEDENT_USER_CONFIG')
+        os.environ['PRECEDENT_USER_CONFIG'] = str(tmp / 'config.json')
+        try:
+            import precedent_gate as pg
+            got = pg._unlanded_work(work, siblings=False)
+        finally:
+            sys.path.pop(0)
+            if saved is None:
+                os.environ.pop('PRECEDENT_USER_CONFIG', None)
+            else:
+                os.environ['PRECEDENT_USER_CONFIG'] = saved
+        cases.append(("unpromoted work on pre-staging is named gently, as "
+                      "something a Promote can move whenever it suits",
+                      any(l.startswith("this checkout: pre-staging is ")
+                          and 'a Promote can move them' in l
+                          and 'NOT' not in l and 'MUST' not in l
+                          for l in got)))
+        cases.append(("a branch whose commits are all on pre-staging is not "
+                      "called unlanded for lacking them on staging",
+                      not any("'w-landed'" in l for l in got)))
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
+def check_promote_only_and_tier_branches():
+    """Two 2026-09-25 additions to the branch tiers (spec/BRANCH_TIERS_PLAN.md).
+
+    `promote_only`, a per-person opt-in: with it on, staging and main take
+    work only by promotion. That day five changes reached a practice
+    source's main without passing pre-staging, and nothing refused any of
+    them. The cases that matter: it is OFF unless a person turns it on
+    (Morgan asked for it as his own rule, not everyone's), a direct push or
+    an off-tier pull request is refused with the way round named, and the
+    promotion routes themselves -- pre-staging into staging, staging into
+    main -- are never refused. An ambiguous base is not refused either,
+    since two branches at one commit is the normal state right after
+    Promote.
+
+    `--ensure-tiers`, the migration step that gives a repository all three
+    branches. A repo whose staging tier was main gains a real `staging`
+    branch and a `staging_branch` key, and keeps `base_branch` -- which also
+    pins a practice source's session clone -- exactly as it was."""
+    import tempfile, json as _json, shutil as _shutil
+    name = ('promote_only refuses direct pushes and off-tier merges for the '
+            'person who sets it; --ensure-tiers makes staging and pre-staging')
+    tool = ROOT / 'tools' / 'precedent_branches.py'
+    if not tool.exists():
+        not_applicable(name, 'tools/precedent_branches.py is absent')
+        return
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_branches as pb
+    finally:
+        sys.path.pop(0)
+    if not hasattr(pb, 'direct_push_refusal'):
+        check(name, False, 'precedent_branches.py has no direct_push_refusal')
+        return
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+        env = dict(os.environ, PRECEDENT_ALLOW_ANY_AUTHOR='1',
+                   GIT_AUTHOR_NAME='T', GIT_AUTHOR_EMAIL='t@example.com',
+                   GIT_COMMITTER_NAME='T', GIT_COMMITTER_EMAIL='t@example.com',
+                   GIT_CONFIG_GLOBAL=str(tmp / 'gitconfig'),
+                   GIT_CONFIG_NOSYSTEM='1',
+                   PRECEDENT_USER_CONFIG=str(tmp / 'config.json'))
+
+        def git(cwd, *a):
+            return subprocess.run(['git', '-C', str(cwd), *a],
+                                  capture_output=True, text=True, env=env)
+
+        bare = tmp / 'origin.git'
+        git(tmp, 'init', '-q', '--bare', '-b', 'main', str(bare))
+        work = tmp / 'work'
+        (work / 'tools').mkdir(parents=True)
+        git(tmp, 'init', '-q', '-b', 'main', str(work))
+        for f in ('precedent_push_check.py', 'precedent_branches.py'):
+            _shutil.copy2(ROOT / 'tools' / f, work / 'tools' / f)
+        (work / 'tools' / 'ENGINE_MANIFEST.json').write_text(
+            _json.dumps({'kind': 'consumer'}), encoding='utf-8')
+        # A repository whose staging tier is main: the shape every practice
+        # source and most installs had on 2026-09-25.
+        (work / 'precedent.json').write_text(_json.dumps({'base_branch': 'main'}),
+                                             encoding='utf-8')
+        git(work, 'add', '-A')
+        git(work, 'commit', '-q', '-m', 'init')
+        git(work, 'remote', 'add', 'origin', f'file://{bare}')
+        git(work, 'push', '-q', 'origin', 'main')
+
+        indiv = tmp / 'indiv'
+        indiv.mkdir()
+        cfg = tmp / 'config.json'
+        cfg.write_text(_json.dumps({'individual': {'path': str(indiv)}}),
+                       encoding='utf-8')
+
+        def person(**settings):
+            (indiv / 'identity.json').write_text(_json.dumps(
+                {'email': 'p@example.com', **settings}), encoding='utf-8')
+
+        def push_refused(args):
+            return pb.direct_push_refusal(work, args, str(cfg))
+
+        def merge_refused(bases, heads):
+            return pb.merge_refusal(work, bases, heads, str(cfg))
+
+        # --- off unless the person turns it on ---
+        person()
+        cases.append(('off by default: a push to main is not refused',
+                      push_refused('origin main') is None))
+        cases.append(('off by default: a pull request into main from a working '
+                      'branch is not refused',
+                      merge_refused(['main'], ['claude/x']) is None))
+        person(promote_only='yes')
+        cases.append(('only a literal true turns it on', push_refused('origin main') is None))
+
+        # --- on ---
+        person(promote_only=True)
+        why = push_refused('origin main') or ''
+        cases.append(('on: a push to main is refused, naming the setting and the '
+                      'way round', 'promote_only is on' in why
+                      and 'HEAD:pre-staging' in why and 'Promote' in why, why))
+        cases.append(('on: a refspec onto main is refused too',
+                      push_refused('origin HEAD:main') is not None))
+        cases.append(('on: a push to staging is refused',
+                      push_refused('origin staging') is not None))
+        cases.append(('on: a push to pre-staging goes through',
+                      push_refused('origin pre-staging') is None))
+        cases.append(('on: a push to a working branch goes through',
+                      push_refused('origin claude/x') is None))
+        cases.append(('on: pre-staging into staging is the promotion route, '
+                      'never refused', merge_refused(['staging'], ['pre-staging']) is None))
+        cases.append(('on: staging into main is the promotion route, never refused',
+                      merge_refused(['main'], ['staging']) is None))
+        why = merge_refused(['staging'], ['claude/x']) or ''
+        cases.append(('on: a working branch into staging is refused, saying to '
+                      'retarget at pre-staging', 'Retarget it at pre-staging' in why, why))
+        cases.append(('on: pre-staging straight into main is refused (it skips '
+                      'staging)', merge_refused(['main'], ['pre-staging']) is not None))
+        cases.append(('on: an ambiguous base (pre-staging and staging at one '
+                      'commit) is not refused',
+                      merge_refused(['pre-staging', 'staging'], ['claude/x']) is None))
+        (work / 'precedent.json').write_text(_json.dumps(
+            {'base_branch': 'main', 'promote_only': False}), encoding='utf-8')
+        cases.append(("a repository's own precedent.json overrides the person, "
+                      'as every branch setting does', push_refused('origin main') is None))
+        (work / 'precedent.json').write_text(_json.dumps({'base_branch': 'main'}),
+                                             encoding='utf-8')
+
+        # The push gate's own entry point refuses before running anything.
+        p = subprocess.run([sys.executable, 'tools/precedent_push_check.py', '--gate',
+                            '--push-command', 'origin main'], cwd=work,
+                           capture_output=True, text=True, env=env)
+        cases.append(('the push gate refuses a direct push to main, exit 1, with '
+                      'the refusal in its output',
+                      p.returncode == 1 and 'REFUSED' in p.stderr
+                      and 'promote_only is on' in p.stderr,
+                      f'exit {p.returncode}: {(p.stdout + p.stderr)[-300:]}'))
+
+        # --- ensure-tiers ---
+        def branches(*a):
+            q = subprocess.run([sys.executable, 'tools/precedent_branches.py', *a],
+                               cwd=work, capture_output=True, text=True, env=env)
+            return q.returncode, q.stdout + q.stderr
+
+        def tip(b):
+            return git(work, 'ls-remote', 'origin', f'refs/heads/{b}').stdout.split('\t')[0]
+
+        rc, out = branches('--ensure-tiers')
+        cases.append(('report mode on a main-only repo: exit 1, naming what is '
+                      'missing, changing nothing',
+                      rc == 1 and 'missing' in out and not tip('staging')
+                      and not tip('pre-staging'), out[-300:]))
+        rc, out = branches('--ensure-tiers', '--apply')
+        data = _json.loads((work / 'precedent.json').read_text(encoding='utf-8'))
+        cases.append(('--apply creates staging and pre-staging on origin at main',
+                      rc == 0 and tip('staging') == tip('main') == tip('pre-staging')
+                      and bool(tip('main')), out[-300:]))
+        cases.append(('--apply writes staging_branch and leaves base_branch on main',
+                      data.get('staging_branch') == 'staging'
+                      and data.get('base_branch') == 'main'))
+        cases.append(('the staging tier is now the staging branch',
+                      pb.staging_branch(work) == 'staging'))
+        rc, out = branches('--ensure-tiers')
+        cases.append(('a second report finds all three present, exit 0',
+                      rc == 0 and 'all present' in out, out[-200:]))
+
+        # --- Promote's own merge commits carry the repository's zone ---
+        # 2026-09-25: an individual source refused its own Promote because
+        # the merge commit this module made carried the container's -0400.
+        # PRECEDENT_COMMIT_TZ is the ladder's override rung, so it is cleared
+        # here: the case is about which zone the REPOSITORY declares. So is
+        # the user-level config: since the evening of 2026-09-25 its
+        # individual source supplies the person's zone (rung 3), and this
+        # machine's own person must not decide the case.
+        saved = {k: os.environ.pop(k) for k in ('PRECEDENT_COMMIT_TZ',
+                                                  'PRECEDENT_USER_CONFIG')
+                 if k in os.environ}
+        os.environ['PRECEDENT_USER_CONFIG'] = str(work / 'no-user-config.json')
+        old_tz = os.environ.get('TZ')
+        try:
+            (work / 'identity.json').write_text(_json.dumps(
+                {'email': 'p@example.com',
+                 'timezone': 'America/Argentina/Buenos_Aires'}), encoding='utf-8')
+            zone_decl = pb._merge_env(work).get('TZ')
+            (work / 'identity.json').unlink()
+            os.environ['TZ'] = 'Asia/Tokyo'
+            zone_env = pb._merge_env(work).get('TZ')
+        finally:
+            if old_tz is None:
+                os.environ.pop('TZ', None)
+            else:
+                os.environ['TZ'] = old_tz
+            os.environ.pop('PRECEDENT_USER_CONFIG', None)
+            os.environ.update(saved)
+        cases.append(("Promote's merge commits are dated in the zone the "
+                      "repository's identity.json declares",
+                      zone_decl == 'America/Argentina/Buenos_Aires', str(zone_decl)))
+        cases.append(('with no zone declared, they keep the environment TZ, as '
+                      'before', zone_env == 'Asia/Tokyo', str(zone_env)))
+    bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
+    check(f'{name} ({len(cases)} stated cases)', not bad,
+          '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad))
+
+
+def check_promote_keeps_the_old_name_in_step():
+    """precedent-beta-v01 was renamed staging on 2026-09-25, and the old name
+    is kept on origin while installs pinned to it catch up
+    (spec/BRANCH_TIERS_PLAN.md, step 10). Two things keep it safe: a Promote
+    moves the old name along with staging, and work a not-yet-moved session
+    pushes to the old name is merged into pre-staging, never lost."""
+    import tempfile, json as _json, shutil as _shutil
+    name = 'Promote keeps precedent-beta-v01 in step with staging, and loses nothing pushed to it'
+    if not (ROOT / 'tools' / 'precedent_branches.py').exists():
+        not_applicable(name, 'tools/precedent_branches.py is absent')
+        return
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+        env = dict(os.environ, PRECEDENT_ALLOW_ANY_AUTHOR='1',
+                   GIT_AUTHOR_NAME='T', GIT_AUTHOR_EMAIL='t@example.com',
+                   GIT_COMMITTER_NAME='T', GIT_COMMITTER_EMAIL='t@example.com',
+                   GIT_CONFIG_GLOBAL=str(tmp / 'gitconfig'),
+                   PRECEDENT_USER_CONFIG=str(tmp / 'none.json'))
+
+        def git(cwd, *a):
+            return subprocess.run(['git', '-C', str(cwd), *a],
+                                  capture_output=True, text=True, env=env)
+        bare = tmp / 'origin.git'
+        git(tmp, 'init', '-q', '--bare', '-b', 'staging', str(bare))
+        work = tmp / 'work'
+        (work / 'tools').mkdir(parents=True)
+        git(tmp, 'init', '-q', '-b', 'staging', str(work))
+        for f in ('precedent_push_check.py', 'precedent_branches.py'):
+            _shutil.copy2(ROOT / 'tools' / f, work / 'tools' / f)
+        (work / 'tools' / 'ENGINE_MANIFEST.json').write_text(
+            _json.dumps({'kind': 'consumer'}), encoding='utf-8')
+        for t in ('precedent_check', 'leak_gate', 'doc_lint'):
+            (work / 'tools' / f'{t}.py').write_text(
+                ('print("precedent_check: 3 passed, 0 violated")\n'
+                 if t == 'precedent_check' else '') + 'pass\n', encoding='utf-8')
+        (work / 'precedent.json').write_text(_json.dumps({'base_branch': 'staging'}),
+                                             encoding='utf-8')
+        git(work, 'add', '-A')
+        git(work, 'commit', '-q', '-m', 'init')
+        git(work, 'remote', 'add', 'origin', f'file://{bare}')
+        git(work, 'push', '-q', 'origin', 'staging', 'staging:precedent-beta-v01')
+
+        def tip(b):
+            return git(work, 'ls-remote', 'origin', f'refs/heads/{b}').stdout.split('\t')[0]
+
+        def branches(*a):
+            p = subprocess.run([sys.executable, 'tools/precedent_branches.py', *a],
+                               cwd=work, capture_output=True, text=True, env=env)
+            return p.returncode, p.stdout + p.stderr
+
+        def commit_to(branch, path, msg):
+            git(work, 'fetch', '-q', 'origin')
+            git(work, 'checkout', '-q', '-B', f'w-{branch}', f'origin/{branch}')
+            (work / path).write_text(msg, encoding='utf-8')
+            git(work, 'add', path)
+            git(work, 'commit', '-q', '-m', msg)
+            git(work, 'push', '-q', 'origin', f'HEAD:refs/heads/{branch}')
+
+        branches('--sync-pre-staging')
+        commit_to('precedent-beta-v01', 'old.txt', 'pushed under the old name')
+        rc, out = branches('--sync-pre-staging')
+        git(work, 'fetch', '-q', 'origin')
+        cases.append(('work pushed to the old name is merged into pre-staging',
+                      rc == 0 and git(work, 'merge-base', '--is-ancestor',
+                                      'origin/precedent-beta-v01',
+                                      'origin/pre-staging').returncode == 0))
+        commit_to('pre-staging', 'new.txt', 'window work')
+        rc, out = branches('--promote')
+        cases.append(('Promote moves staging, and the old name to the same commit',
+                      rc == 0 and tip('staging') == tip('precedent-beta-v01')
+                      and 'for installs still pinned to the old name' in out))
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
+def check_github_ci_setting_names():
+    """The three GitHub settings are named `github_ci_*` since 2026-09-25
+    (spec/BRANCH_TIERS_PLAN.md); every reader takes the new name first and
+    the old `ci_*` one where it is absent. The failure that matters is
+    silent: a renamed key nobody reads falls back to the default, and for
+    the workflow switch the default decides whether a workflow is installed
+    at all."""
+    import tempfile, json as _json
+    name = 'the github_ci_ setting names are read, and the old ci_ names still are'
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_identity as pi
+    finally:
+        sys.path.pop(0)
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        repo = pathlib.Path(td)
+        nocfg = str(repo / 'none.json')
+
+        def pref(ident):
+            (repo / 'identity.json').write_text(_json.dumps(
+                dict({'name': 'T', 'email': 't@example.com'}, **ident)), encoding='utf-8')
+            return pi.ci_preference(repo, nocfg)['enabled']
+        cases.append(('github_ci_workflows "enabled" is read',
+                      pref({'github_ci_workflows': 'enabled'})))
+        cases.append(('the old ci_workflows is still read',
+                      pref({'ci_workflows': 'enabled'})))
+        cases.append(('where both appear, github_ci_workflows wins',
+                      not pref({'ci_workflows': 'enabled',
+                                'github_ci_workflows': 'disabled'})))
     failed = [n for n, ok in cases if not ok]
     check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
@@ -17827,6 +19057,107 @@ def check_leftover_pack_is_flagged_after_migration():
           f'({len(cases)} stated cases)', not failed, '; '.join(failed))
 
 
+def check_person_zone_wins_in_a_shared_rooted_session():
+    """The person's declared zone wins over a repo's fallback, whichever repo
+    the session is rooted in (Morgan, 2026-09-25: "I meant the repo timezone
+    to be a fallback, in case there is no defined individual timezone
+    defined", strength: decided).
+
+    The failure this pins, measured that day: a session rooted in a shared
+    repo, the person named by PRECEDENT_COMMIT_NAME/EMAIL with no
+    PRECEDENT_COMMIT_TZ, their zone declared only in their individual
+    source's identity.json. commit-identity.sh never read that zone, so the
+    session ran on the repo's New York fallback, and the global backstop it
+    generated enforced no offset at all -- three -0400 commits reached the
+    individual source, one of them a Promote merge, and only the full check
+    noticed.
+
+    The control is the person with no zone: the repo's fallback is applied
+    and nothing is refused, exactly as before."""
+    import tempfile
+    name = "the person's zone wins over a repo's fallback in a shared-rooted session"
+    script = ROOT / '.claude' / 'hooks' / 'commit-identity.sh'
+    if not script.exists():
+        not_applicable(name, '.claude/hooks/commit-identity.sh is not present here')
+        return
+    BA, NY = 'America/Argentina/Buenos_Aires', 'America/New_York'
+    cases = []
+
+    def run(declare_zone):
+        with tempfile.TemporaryDirectory() as td:
+            tmp = pathlib.Path(td)
+            home = tmp / 'home'
+            home.mkdir()
+            indiv = tmp / 'individual'
+            indiv.mkdir()
+            ident = {'name': 'Morgan F', 'email': 'm@example.com'}
+            if declare_zone:
+                ident['timezone'] = BA
+            (indiv / 'identity.json').write_text(json.dumps(ident), encoding='utf-8')
+            cfg = tmp / 'config.json'
+            cfg.write_text(json.dumps({'individual': {'path': str(indiv)}}),
+                           encoding='utf-8')
+            env = dict(os.environ, HOME=str(home), PRECEDENT_USER_CONFIG=str(cfg),
+                       PRECEDENT_COMMIT_NAME='Morgan F',
+                       PRECEDENT_COMMIT_EMAIL='m@example.com',
+                       PRECEDENT_LOCALTIME=str(tmp / 'localtime'), TZ=NY)
+            for k in ('PRECEDENT_ALLOW_ANY_AUTHOR', 'PRECEDENT_COMMIT_TZ'):
+                env.pop(k, None)
+
+            def g(*a, cwd=None, extra=None):
+                return subprocess.run(['git'] + list(a), capture_output=True,
+                                      text=True, env=dict(env, **(extra or {})),
+                                      cwd=str(cwd) if cwd else None, timeout=120)
+
+            shared = tmp / 'shared'
+            shared.mkdir()
+            g('init', '-q', str(shared))
+            (shared / 'precedent.json').write_text(
+                json.dumps({'fallback_timezone': NY}), encoding='utf-8')
+            subprocess.run(['bash', str(script)], capture_output=True, text=True,
+                           env=dict(env, CLAUDE_PROJECT_DIR=str(shared)), timeout=180)
+            local = shared / '.claude' / 'settings.local.json'
+            try:
+                session_tz = json.loads(local.read_text())['env']['TZ']
+            except Exception:
+                session_tz = None
+            other = tmp / 'other'
+            other.mkdir()
+            g('init', '-q', str(other))
+            (other / 'f').write_text('x', encoding='utf-8')
+            g('add', 'f', cwd=other)
+            wrong = g('commit', '-m', 'ny', cwd=other, extra={'TZ': NY})
+            refused = 'declared timezone' in (wrong.stdout + wrong.stderr)
+            right = g('commit', '-q', '-m', 'ba', cwd=other, extra={'TZ': BA})
+            probe = subprocess.run(
+                [sys.executable, '-c',
+                 'import sys; sys.path.insert(0, sys.argv[1]); '
+                 'import precedent_time, precedent_identity; '
+                 'print(precedent_time.resolved(sys.argv[2])[1]); '
+                 'print(precedent_identity.declared_identity(sys.argv[2])["timezone"])',
+                 str(ROOT / 'tools'), str(shared)],
+                capture_output=True, text=True, env=env, timeout=60).stdout.split()
+            return session_tz, refused, right.returncode == 0, probe
+
+    tz, refused, ok, probe = run(declare_zone=True)
+    cases.append(('the session takes the person\'s zone, not the repo\'s New '
+                  'York fallback', tz == BA))
+    cases.append(('the global backstop refuses a New York commit in another repo',
+                  refused))
+    cases.append(('and lets the person\'s own offset through', ok))
+    cases.append(('precedent_time.py stamps the person\'s zone over TZ and the '
+                  'repo fallback', probe[:1] == [BA]))
+    cases.append(('declared_identity() carries the person\'s zone under a '
+                  'name/email override', probe[1:2] == [BA]))
+    tz, refused, ok, probe = run(declare_zone=False)
+    cases.append(('control: with no personal zone the repo fallback applies',
+                  tz == NY and probe[:1] == [NY]))
+    cases.append(('and nothing is refused over a zone nobody declared',
+                  not refused))
+    failed = [c for c, ok_ in cases if not ok_]
+    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
 def check_identity_reaches_a_repo_that_did_not_exist_yet():
     """The commit identity covers repos ATTACHED AFTER the hook ran.
 
@@ -17934,19 +19265,20 @@ def check_identity_reaches_a_repo_that_did_not_exist_yet():
         cases.append(('and the refusal names itself as the global backstop',
                       'GLOBAL backstop' in out))
 
-        # A PERSON'S ZONE BINDS THEIR OWN REPO ONLY (Morgan, 2026-09-25:
-        # "only use the individual one in the precedent-individual"). This
-        # case asserted the opposite until then: a wrong offset refused in
-        # every repository. Now the attached repo, which carries no
-        # identity.json, takes any offset, and the individual source itself,
-        # which does, still refuses one.
+        # THE PERSON'S ZONE, IN EVERY REPO THEY COMMIT TO (Morgan,
+        # 2026-09-25, evening: "I meant the repo timezone to be a fallback,
+        # in case there is no defined individual timezone defined"). That
+        # morning this case had been flipped to let the attached repo take
+        # any offset, and the same day a session wrote -0400 commits into
+        # the individual source with nothing refusing them. Back to the
+        # original assertion: refused here too.
         g('config', 'user.email', 'm@example.com', cwd=later)
         r = subprocess.run(['git', 'commit', '-m', 'tz'], cwd=str(later),
                            capture_output=True, text=True,
                            env=dict(env, TZ='UTC'), timeout=120)
-        cases.append(("a repo that is not the person's individual source is "
-                      "NOT held to their timezone", r.returncode == 0
-                      and 'declared timezone' not in (r.stdout + r.stderr)))
+        cases.append(("a wrong-offset commit is refused in a repo that is "
+                      "not the person's individual source too",
+                      'declared timezone' in (r.stdout + r.stderr)))
         g('config', 'user.name', 'Morgan F', cwd=src)
         g('config', 'user.email', 'm@example.com', cwd=src)
         (src / 'z').write_text('z', encoding='utf-8')
@@ -18293,6 +19625,28 @@ def check_leak_gate_scans_the_consuming_repo():
                       'NOT a pass' in out))
         cases.append(('and names what still guards the export path',
                       'practice_audit' in out))
+
+        # A private repo holding its OWN private blocklist -- the individual
+        # source -- stands down; a public one holding it still fails.
+        (priv / 'leak-blocklist.txt').write_text('secretterm\n', encoding='utf-8')
+        r = subprocess.run(
+            [sys.executable, str(priv / 'process' / 'upstream' / 'tools' / 'leak_gate.py')],
+            capture_output=True, text=True, cwd=str(priv), timeout=300,
+            env=dict(os.environ, PRECEDENT_ALLOW_ANY_AUTHOR='1',
+                     PRECEDENT_LEAK_BLOCKLIST=str(priv / 'leak-blocklist.txt')))
+        out = r.stdout + r.stderr
+        cases.append(('a private repo holding its own blocklist stands down '
+                      'rather than failing', 'NOT APPLICABLE' in out
+                      and 'INSIDE' not in out and r.returncode == 0))
+        (pub / 'leak-blocklist.txt').write_text('secretterm\n', encoding='utf-8')
+        r = subprocess.run(
+            [sys.executable, str(pub / 'process' / 'upstream' / 'tools' / 'leak_gate.py')],
+            capture_output=True, text=True, cwd=str(pub), timeout=300,
+            env=dict(os.environ, PRECEDENT_ALLOW_ANY_AUTHOR='1',
+                     PRECEDENT_LEAK_BLOCKLIST=str(pub / 'leak-blocklist.txt')))
+        out = r.stdout + r.stderr
+        cases.append(('a public repo holding the blocklist still fails, naming '
+                      'it', r.returncode != 0 and 'INSIDE' in out))
 
         # ABSENT visibility must NOT be read as private.
         none = _consumer(tmp / 'none', None)
@@ -21206,6 +22560,250 @@ def check_vendor_engine_refreshes_bootstrap_sh():
           f'({len(cases)} stated cases)',
           not bad, '; '.join(f"{n} -- {d[:800]}" for n, d in bad))
 
+def check_vendor_engine_refreshes_agents_md_sections():
+    """Whatever the AGENTS.md template wrote at install was frozen from then
+    on: refresh rewrote only the generated loader block, so no template fix
+    reached an installed repo and nothing reported the drift -- see
+    precedent_vendor_engine.py's AGENTS_MD_TEMPLATES block (2026-09-25) for
+    the measured case. Also pins RETIRED_BRANCH_NAMES' report.
+
+    THE FIXTURE OWNS ITS UPSTREAM (practice: fixture-owns-its-state), as
+    check_vendor_engine_refreshes_bootstrap_sh's does: one synthetic commit
+    on top of this working tree whose only change is a new, distinctive
+    bullet in the loader template's "### Two check levels" section, so OLD
+    and CUR are known whatever the real template picks up later.
+
+    The discriminating cases are the edited section (never overwritten,
+    --force included, and the report names the exact bullet it lacks), the
+    missing section (reported, never written in, and quiet on the next
+    run), and the untouched neighbours: a rewrite that moved one byte
+    outside its own section would fail them
+    (practice: control-asserts-which-failure)."""
+    import shutil, tempfile
+    import precedent_vendor_engine as pve
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-agents-md-sections-'))
+    cases = []
+    src = 'templates/AGENTS.md.loader.template'
+    key = '### Two check levels'
+    marker = 'FIXTURE BULLET ADDED UPSTREAM'
+    try:
+        base = _ref_including_worktree(ROOT)
+        old = subprocess.run(['git', '-C', str(ROOT), 'show', f'{base}:{src}'],
+                             capture_output=True, check=True).stdout.decode()
+        # Anchored on the NEXT section's heading, not on a bullet's wording,
+        # which changes whenever someone rewords "Two check levels" (it did
+        # on 2026-09-25, the day this fixture landed).
+        anchor = '\n\n### Build-environment gotchas'
+        assert old.count(anchor) == 1, 'template anchor moved; repoint this fixture'
+        added = (f'\n- **{marker}** — a bullet every stale copy of this '
+                 f'section lacks, and nothing else does.')
+        cur = old.replace(anchor, added + anchor)
+
+        with tempfile.TemporaryDirectory(prefix='precedent-fixture-index-') as idx:
+            env = dict(os.environ, GIT_INDEX_FILE=str(pathlib.Path(idx) / 'index'),
+                       GIT_AUTHOR_NAME='fixture', GIT_AUTHOR_EMAIL='fixture@invalid',
+                       GIT_COMMITTER_NAME='fixture', GIT_COMMITTER_EMAIL='fixture@invalid')
+
+            def git(*args, data=None):
+                return subprocess.run(['git', '-C', str(ROOT), *args], input=data,
+                                      capture_output=True, env=env, check=True
+                                      ).stdout.decode().strip()
+            git('read-tree', base)
+            blob = git('hash-object', '-w', '--stdin', data=cur.encode())
+            git('update-index', '--cacheinfo', f'100644,{blob},{src}')
+            ref = git('commit-tree', git('write-tree'), '-p', base, '-m',
+                      'verify_harness: AGENTS.md section fixture (never pushed)')
+
+        engine_bytes = (ROOT / 'tools' / 'precedent_vendor_engine.py').read_bytes()
+        sha = lambda b: hashlib.sha256(b).hexdigest()
+        subs = {'<precedent upstream URL>': pve.SOURCE_REPO, '<default-branch>': 'trunk'}
+        stock_old = pve._instantiate(old, subs)
+        # What a real install leaves: the generated block filled in (here
+        # with a heading and a retired branch name of its own, neither of
+        # which is any section's or report's business) and one section the
+        # repo has made its own.
+        generated = ('<!-- BEGIN GENERATED: precedent-loader -->\n'
+                     '## Resident block\n\nLinks to blob/precedent-beta-v01/x.\n'
+                     '<!-- END GENERATED -->')
+        repo_old = stock_old.replace(
+            '<!-- BEGIN GENERATED: precedent-loader -->\n<!-- END GENERATED -->',
+            generated).replace(
+            '| Open items: analyses, verifications, decisions | `TODO.md` |\n',
+            '| Open items: analyses, verifications, decisions | `TODO.md` |\n'
+            '| A row this repo added | `ours.md` |\n')
+        assert generated in repo_old and 'A row this repo added' in repo_old, \
+            'template shape moved; repoint this fixture'
+
+        def section_of(text, k=key):
+            lines = text.split('\n')
+            spans = [(f, e) for kk, f, e in pve._md_sections(text) if kk == k]
+            return pve._section_text(lines, *spans[0]) if spans else None
+
+        old_sec = section_of(stock_old)
+        cur_sec = pve._instantiate(section_of(cur), subs)
+
+        def make_consumer(name, agents, recorded):
+            consumer = tmp / name
+            (consumer / 'tools').mkdir(parents=True)
+            (consumer / 'tools' / 'precedent_vendor_engine.py').write_bytes(engine_bytes)
+            manifest = {'kind': 'consumer', 'source_commit': 'deadbeef',
+                        'files': ['precedent_vendor_engine.py'],
+                        'sha256': {'precedent_vendor_engine.py': sha(engine_bytes)}}
+            if recorded is not None:
+                manifest['agents_md_sections_sha256'] = recorded
+            (consumer / 'tools' / 'ENGINE_MANIFEST.json').write_text(
+                json.dumps(manifest), encoding='utf-8')
+            (consumer / 'precedent.json').write_text(
+                json.dumps({'base_branch': 'trunk'}), encoding='utf-8')
+            if agents is not None:
+                (consumer / 'AGENTS.md').write_text(agents, encoding='utf-8')
+            return consumer
+
+        def run_refresh(consumer, extra=()):
+            r = subprocess.run(
+                [sys.executable, str(consumer / 'tools' / 'precedent_vendor_engine.py'),
+                 'refresh', str(ROOT), '--from-ref', ref, *extra],
+                capture_output=True, text=True, cwd=str(consumer))
+            return r.returncode, r.stdout + r.stderr
+
+        def recorded_of(consumer):
+            m = json.loads((consumer / 'tools' / 'ENGINE_MANIFEST.json')
+                           .read_text(encoding='utf-8'))
+            return m.get('agents_md_sections_sha256') or {}
+
+        def agents(consumer):
+            return (consumer / 'AGENTS.md').read_text(encoding='utf-8')
+
+        want_after = repo_old.replace(old_sec, cur_sec)
+        assert want_after != repo_old
+
+        # -- A: unedited (matches its recorded baseline), template moved --
+        a = make_consumer('recorded-stale', repo_old,
+                          {key: sha(old_sec.encode())})
+        rc, out = run_refresh(a)
+        cases.append(('an unedited section whose baseline is recorded is '
+                      'rewritten to the current template, and not one byte '
+                      'outside it moves -- the generated block and the '
+                      'section this repo edited included',
+                      rc == 0 and agents(a) == want_after, out[-900:]))
+        cases.append(('...its new baseline is the current section, and the '
+                      'refresh names what it rewrote',
+                      recorded_of(a).get(key) == sha(cur_sec.encode())
+                      and "section(s) up to the current template" in out
+                      and repr(key) in out, out[-900:]))
+
+        # -- B: nothing recorded, identical to a PAST template -- every
+        # install before this date, the one-time catch-up --
+        b = make_consumer('untracked-stale', repo_old, None)
+        rc, out = run_refresh(b)
+        cases.append(('an untracked section identical to a past version of '
+                      'the template is recognised as stock and brought up to date',
+                      rc == 0 and agents(b) == want_after
+                      and recorded_of(b).get(key) == sha(cur_sec.encode()),
+                      out[-900:]))
+        cases.append(('...a section already current, <default-branch> '
+                      'substituted from precedent.json, is recorded as it is',
+                      bool(recorded_of(b).get('## Git / workflow'))
+                      and 'origin/trunk' in agents(b), out[-600:]))
+        cases.append(('...and the section this repo edited, lacking nothing, '
+                      'is left alone, unrecorded and off the list',
+                      'A row this repo added' in agents(b)
+                      and not recorded_of(b).get(
+                          '## Where things are (quick index — check here '
+                          'BEFORE searching the repo)')
+                      and 'AGENTS.md "## Where things are' not in out,
+                      out[-900:]))
+
+        # -- C: edited section, baseline recorded --
+        edited = repo_old.replace(old_sec, old_sec + '\n- A check this repo added.')
+        for name, label, extra in (('edited', '', ()),
+                                   ('edited-forced', ' with --force', ('--force',))):
+            c = make_consumer(name, edited, {key: sha(old_sec.encode())})
+            rc, out = run_refresh(c, extra)
+            cases.append((f'an edited section is never overwritten{label}',
+                          agents(c) == edited, out[-900:]))
+            report = [ln for ln in out.splitlines() if f'{src}:' in ln]
+            cases.append((f'...the refresh still succeeds and reports it '
+                          f'DIVERGED, naming exactly the missing upstream '
+                          f'bullet{label}',
+                          rc == 0 and f'DIVERGED: AGENTS.md "{key}"' in out
+                          and len(report) == 1 and marker in report[0]
+                          and report[0].endswith('-- missing'),
+                          '\n'.join(report) or out[-1200:]))
+            cases.append((f'...its baseline is NOT moved onto the edit{label}',
+                          recorded_of(c).get(key) == sha(old_sec.encode()),
+                          out[-400:]))
+            cases.append((f'...and it is on the Left-for-you list{label}',
+                          f'  - AGENTS.md "{key}": diverged from {src} and lacks 1'
+                          in out, out[-900:]))
+
+        # -- D: the section is missing altogether --
+        lacking = repo_old.replace(old_sec + '\n', '')
+        assert section_of(lacking) is None
+        d = make_consumer('missing-section', lacking, None)
+        rc, out = run_refresh(d)
+        cases.append(('a missing section is reported and put on the list, '
+                      'never written in',
+                      rc == 0 and agents(d) == lacking
+                      and f'MISSING: AGENTS.md has no "{key}" section' in out
+                      and f'  - AGENTS.md "{key}": the template has this section' in out,
+                      out[-900:]))
+        cases.append(('...recorded as absent, so the next refresh says it in '
+                      'one line and leaves it off the list',
+                      key in recorded_of(d) and recorded_of(d)[key] is None,
+                      json.dumps(recorded_of(d))[:400]))
+        rc, out = run_refresh(d)
+        cases.append(('...which it does: a NOTE, no MISSING, no list entry, '
+                      'and the file still untouched',
+                      rc == 0 and agents(d) == lacking and 'MISSING:' not in out
+                      and f'still has no "{key}" section' in out
+                      and f'AGENTS.md "{key}"' not in out, out[-900:]))
+
+        # -- E, CONTROL: edited but carrying the new bullet too --
+        complete = repo_old.replace(old_sec, cur_sec + '\n- Ours.')
+        e = make_consumer('edited-complete', complete, None)
+        rc, out = run_refresh(e)
+        cases.append(('CONTROL: an edited section carrying every template '
+                      'block is left alone and reported as lacking nothing',
+                      rc == 0 and agents(e) == complete
+                      and 'nothing to copy in' in out
+                      and f'AGENTS.md "{key}":' not in out, out[-900:]))
+
+        # -- F: retired branch names -- reported by line, outside the
+        # generated block only, and not on a line recording the rename --
+        named = repo_old.replace(
+            '## Git / workflow\n',
+            '## Git / workflow\n\n- Clone `precedent-beta-v01` for reference.\n'
+            '- `staging` (named `precedent-beta-v01` until 2026-09-25).\n', 1)
+        f = make_consumer('retired-name', named, None)
+        rc, out = run_refresh(f)
+        # Counted in the file as the refresh left it: the scan runs after
+        # the stale "### Two check levels" above it was rewritten.
+        want_line = agents(f).split('\n').index(
+            '- Clone `precedent-beta-v01` for reference.') + 1
+        hit = [ln for ln in out.splitlines() if ln.startswith('RETIRED BRANCH NAME:')]
+        cases.append(('a hand-written line naming a retired branch is '
+                      'reported by line; the generated block and a line '
+                      'recording the rename are not',
+                      rc == 0 and len(hit) == 1
+                      and f'1 line(s)' in hit[0] and f'AGENTS.md:{want_line}.' in hit[0],
+                      '\n'.join(hit) or out[-900:]))
+
+        # -- G, CONTROL: no AGENTS.md -- never created --
+        g = make_consumer('absent', None, None)
+        rc, out = run_refresh(g)
+        cases.append(('CONTROL: a consumer with no AGENTS.md is not given one',
+                      rc == 0 and not (g / 'AGENTS.md').exists(), out[-800:]))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'"Update Vendors" brings an unedited AGENTS.md template section up '
+          f'to date and reports what an edited or missing one lacks, never '
+          f'overwriting it ({len(cases)} stated cases)',
+          not bad, '; '.join(f"{n} -- {d[:800]}" for n, d in bad))
+
 def check_a_hook_wired_from_elsewhere_is_reported_as_wired():
     """A hook a repo calls in place, from a path of its own, is WIRED --
     reported as wired, and still not vendored
@@ -21882,6 +23480,130 @@ def check_vendor_engine_retires_ci_workflow_files():
           f'stated cases)',
           not bad,
           '; '.join(f"{n} -- {d[:800]}" for n, d in bad))
+
+
+def check_ci_workflow_approved_pins_approval_to_content():
+    """THE INCIDENT (practice: ci-workflow-approved), 2026-09-25: a
+    consumer's own light-check.yml billed a minute on every merge to main
+    because a session had put back a push trigger another session removed
+    six days earlier. An advisory check flagged the file on every run and
+    nobody acted. This proves the blocking replacement: a workflow passes
+    only as the engine's untouched copy or with an approval quoting the
+    person, pinned by sha256 -- so an EDIT fails, not just an addition --
+    and that the push gate runs it in the basic tier."""
+    import hashlib, shutil, tempfile
+    import precedent_install as _pi
+    import precedent_push_check as _ppc
+    import precedent_vendor_engine as _pve
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-ci-approved-'))
+    cases = []
+    rel = '.github/workflows/light-check.yml'
+    body = 'name: Light check\non:\n  pull_request:\n    branches: [main]\n'
+    edited = body + '  push:\n    branches: [main]\n'
+    quote = 'Morgan, 2026-09-25: "Please stop it running every time"'
+    sha = hashlib.sha256(body.encode()).hexdigest()
+    py = {n: (ROOT / 'tools' / n).read_bytes()
+          for n in _pve.KINDS['consumer'] if n.endswith('.py')}
+    try:
+        def consumer(name, text=body, approved=None, tracked=None,
+                     manifest=True):
+            # No practices/ci-workflow-approved.md on purpose: the check
+            # binds any repo keeping .github/workflows (binds_when), and a
+            # fixture carrying the practice would hide that gate breaking.
+            c = tmp / name
+            (c / 'tools').mkdir(parents=True)
+            (c / '.github' / 'workflows').mkdir(parents=True)
+            for n, b in py.items():
+                (c / 'tools' / n).write_bytes(b)
+            if text is not None:
+                (c / rel).write_text(text)
+            if manifest:
+                (c / 'tools' / 'ENGINE_MANIFEST.json').write_text(json.dumps(
+                    {'kind': 'consumer', 'source_commit': 'deadbeef',
+                     'files': [], 'sha256': {},
+                     'ci_workflow_files': sorted(tracked or {}),
+                     'ci_workflows_sha256': tracked or {}}))
+            cfg = {'sources': []}
+            if approved is not None:
+                cfg['github_ci_approved'] = approved
+            (c / 'precedent.json').write_text(json.dumps(cfg))
+            r = subprocess.run(
+                [sys.executable, str(c / 'tools' / 'precedent_check.py'),
+                 '--only', 'ci-workflow-approved'],
+                capture_output=True, text=True, cwd=str(c))
+            return r.returncode, r.stdout + r.stderr
+
+        rc, out = consumer('unapproved')
+        cases.append(('a workflow nobody approved is a VIOLATION, and says so',
+                      rc != 0 and 'VIOLATION' in out
+                      and 'has no approval' in out, out[-1500:]))
+        cases.append(('...and the finding names when it runs and the sha to '
+                      'pin', 'pull_request' in out and sha in out, out[-1500:]))
+        good = {rel: {'sha256': sha, 'approved_by': quote}}
+        rc, out = consumer('approved', approved=good)
+        cases.append(('CONTROL: an approval quoting the person, pinned to '
+                      'this content, passes', rc == 0 and '0 violated' in out,
+                      out[-1500:]))
+        rc, out = consumer('edited', text=edited, approved=good)
+        cases.append(('an EDIT after approval (a push trigger put back) fails',
+                      rc != 0 and 'EDITED after it was approved' in out,
+                      out[-1500:]))
+        rc, out = consumer('unquoted', approved={
+            rel: {'sha256': sha, 'approved_by': 'Morgan, 2026-09-25'}})
+        cases.append(('an approval quoting nobody is not an approval',
+                      rc != 0 and 'quotes nobody' in out, out[-1500:]))
+        rc, out = consumer('undated', approved={
+            rel: {'sha256': sha, 'approved_by': 'Morgan: "yes"'}})
+        cases.append(('an undated approval is not an approval',
+                      rc != 0 and 'carries no date' in out, out[-1500:]))
+        rc, out = consumer('tracked', tracked={rel: sha})
+        cases.append(('CONTROL: the engine\'s own untouched copy passes '
+                      'with no approval', rc == 0, out[-1500:]))
+        rc, out = consumer('tracked-edited', text=edited, tracked={rel: sha})
+        cases.append(('an edited engine copy with no approval fails',
+                      rc != 0 and 'has no approval' in out, out[-1500:]))
+        rc, out = consumer('stale', text=None, approved=good)
+        cases.append(('an approval whose file is gone is reported',
+                      rc != 0 and 'no longer exists' in out, out[-1500:]))
+        rc, out = consumer('no-manifest', manifest=False)
+        cases.append(('CONTROL: no manifest (BestPractice\'s shape) is '
+                      'SKIPPED, never a pass or a crash',
+                      rc == 0 and 'SKIPPED' in out, out[-1500:]))
+
+        inst = tmp / 'install'
+        (inst / '.github' / 'workflows').mkdir(parents=True)
+        (inst / rel).write_text(body)
+        (inst / 'precedent.json').write_text(json.dumps({'sources': []}))
+        _pi._approve_installed_workflow(inst, rel, 'light-check.yml.template')
+        entry = json.loads((inst / 'precedent.json').read_text()).get(
+            'github_ci_approved', {}).get(rel, {})
+        cases.append(('an install-only template the installer writes is '
+                      'approved by the install, pinned, naming the template',
+                      entry.get('sha256') == sha
+                      and entry.get('template') == 'light-check.yml.template',
+                      str(entry)))
+
+        for kind in ('consumer', 'source'):
+            names = [n for n, _a, _r in _ppc.PUSH_CHECKS[kind]]
+            cases.append((f'the {kind} push check runs ci_workflows',
+                          'ci_workflows' in names, str(names)))
+        cases.append(('...in the BASIC tier, so a push to any branch runs it',
+                      'ci_workflows' in _ppc.BASIC_CHECKS,
+                      str(_ppc.BASIC_CHECKS)))
+        cases.append(('a consumer\'s own light_check runs before a push, and '
+                      'is optional where the repo has none',
+                      'light_check' in [n for n, _a, _r
+                                        in _ppc.PUSH_CHECKS['consumer']]
+                      and 'light_check' in _ppc.OPTIONAL, ''))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'ci-workflow-approved fails an unapproved or edited workflow, '
+          f'passes a pinned approval or the engine\'s own copy, and runs '
+          f'before every push ({len(cases)} stated cases)',
+          not bad, '; '.join(f'{n} -- {d[:1500]}' for n, d in bad))
 
 
 def check_workflow_file_outside_vendoring_detects_candidates():
@@ -26540,15 +28262,22 @@ def check_installer_produces_a_clean_install():
                       gs[:400]))
         # No individual source resolves here (PRECEDENT_USER_CONFIG points at
         # a file that does not exist), so ci_preference() has nothing to read
-        # and the engine's own default -- disabled -- applies (practice:
-        # declared-default-is-applied). Minutes cost money on a private repo;
-        # nothing declared should not silently opt an adopter into paying for
-        # a workflow they never asked for.
-        cases.append(('nothing declares ci_workflows, so the installer does NOT write the '
-                      'GitHub Actions workflow, and says so in GETTING_STARTED.md',
-                      not (proj / '.github' / 'workflows' / 'bestpractice-docs.yml').exists()
-                      and 'No GitHub Actions workflow was installed' in gs
-                      and 'ci_workflows' in gs,
+        # and the engine's own default applies (practice:
+        # declared-default-is-applied) -- ENABLED since 2026-09-25, because
+        # what it installs is now one light check on pull requests into main,
+        # and a leak gate that never runs in a private repo
+        # (spec/BRANCH_TIERS_PLAN.md).
+        _wfs = proj / '.github' / 'workflows'
+        _lc = (_wfs / 'light-check.yml').read_text(encoding='utf-8') \
+            if (_wfs / 'light-check.yml').exists() else ''
+        _lg = (_wfs / 'leak-gate.yml').read_text(encoding='utf-8') \
+            if (_wfs / 'leak-gate.yml').exists() else ''
+        cases.append(('nothing declares github_ci_workflows, so the installer writes the '
+                      'light check -- pull requests into main only -- and the leak gate, '
+                      'skipped in a private repo, and GETTING_STARTED.md says so',
+                      'branches: [main]' in _lc and '\n  push:' not in _lc
+                      and 'github.event.repository.private != true' in _lg
+                      and 'Before anything reaches `main`' in gs,
                       gs[:600]))
         settings = proj / '.claude' / 'settings.json'
         stext = settings.read_text(encoding='utf-8') if settings.is_file() else ''
@@ -26583,10 +28312,10 @@ def check_installer_produces_a_clean_install():
                       r.stderr[:300]))
 
         # The other direction (practice: control-asserts-which-failure -- a
-        # guard that can only say no is not proven by the no-case alone).
-        # A declared individual source with ci_workflows: enabled should get
-        # the workflow installed, with the concurrency block in it, and
-        # GETTING_STARTED.md should carry the "on" paragraph instead.
+        # default that can only say yes is not proven by the yes-case alone).
+        # Since the default became enabled (2026-09-25), the direction to
+        # prove is a DECLARED "disabled": nothing installed, and
+        # GETTING_STARTED.md says so instead.
         indiv = tmp / 'indiv-ci-on'
         indiv.mkdir()
         (indiv / 'practices').mkdir()
@@ -26615,7 +28344,7 @@ def check_installer_produces_a_clean_install():
             encoding='utf-8')
         (indiv / 'identity.json').write_text(json.dumps({
             'format_version': 1, 'name': 'Dana', 'email': 'dana@example.com',
-            'ci_workflows': 'enabled',
+            'github_ci_workflows': 'disabled',
         }), encoding='utf-8')
         user_cfg = tmp / 'user-config-ci-on.json'
         user_cfg.write_text(json.dumps({'individual': {'path': str(indiv)}}), encoding='utf-8')
@@ -26634,11 +28363,11 @@ def check_installer_produces_a_clean_install():
         # retired 2026-09-21 and the leak gate is what a consumer now gets.
         wf2 = proj2 / '.github' / 'workflows' / 'leak-gate.yml'
         gs2 = (proj2 / 'GETTING_STARTED.md').read_text(encoding='utf-8') if (proj2 / 'GETTING_STARTED.md').is_file() else ''
-        cases.append(('a declared ci_workflows: enabled installs the workflow WITH its '
-                      'concurrency block, and GETTING_STARTED.md carries the "on" paragraph',
-                      r.returncode == 0 and wf2.is_file()
-                      and 'concurrency:' in wf2.read_text(encoding='utf-8')
-                      and 'A leak check runs on every push and pull request' in gs2,
+        cases.append(('a declared github_ci_workflows: disabled installs no workflow, '
+                      'and GETTING_STARTED.md carries the "off" paragraph',
+                      r.returncode == 0 and not wf2.exists()
+                      and not (proj2 / '.github' / 'workflows' / 'light-check.yml').exists()
+                      and 'No GitHub Actions workflow was installed' in gs2,
                       (r.stdout + r.stderr)[-500:]))
         # AND the Markdown lint is NOT a GitHub check any more -- the
         # direction that would otherwise go untested, since every assertion
@@ -31675,6 +33404,7 @@ def main():
     check_source_sets_can_learn_they_are_stale()
     check_loader_tools_are_repo_relocatable()
     check_materialize_bridges_loader()
+    check_shipped_tests_name_their_owner_and_fail_at_home()
     check_materialize_carries_harness_adapters()
     check_show_flags_unreachable_materialized_source()
     check_sync_views_cross_source()
@@ -31688,12 +33418,19 @@ def main():
     check_commit_identity_prevents_the_wrong_offset()
     check_commit_identity_ci_cadence()
     check_push_check_gate()
+    check_branch_tiers()
+    check_merge_check_gate()
+    check_promote_pre_staging()
+    check_promote_only_and_tier_branches()
+    check_github_ci_setting_names()
+    check_promote_keeps_the_old_name_in_step()
     check_source_clone_is_pinned_to_a_branch()
     check_generator_wires_every_template_guard_mode()
     check_verify_reports_a_source_wired_for_fewer_moments()
     check_verify_flags_missing_session_practices_ceiling()
     check_commit_identity_copies_are_identical()
     check_identity_reaches_a_repo_that_did_not_exist_yet()
+    check_person_zone_wins_in_a_shared_rooted_session()
     check_repo_reference_allowlist()
     check_leak_gate_scans_the_consuming_repo()
     check_update_refuses_while_a_branch_is_pinned()
@@ -31713,8 +33450,10 @@ def main():
     check_vendor_engine_wires_a_new_hook_into_an_installed_repo()
     check_vendor_engine_refreshes_ci_workflow_files()
     check_vendor_engine_refreshes_bootstrap_sh()
+    check_vendor_engine_refreshes_agents_md_sections()
     check_vendor_engine_retires_ci_workflow_files()
     check_workflow_file_outside_vendoring_detects_candidates()
+    check_ci_workflow_approved_pins_approval_to_content()
     check_very_deep_check_workflow_liveness_scan()
     check_rule_rewrite_detection()
     check_source_shape_is_verified()

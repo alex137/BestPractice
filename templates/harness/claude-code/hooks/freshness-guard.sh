@@ -270,7 +270,36 @@ _widen_refspec() {
   fi
 }
 
+# THE LANDING BRANCH WINS WHEN IT IS PRE-STAGING (spec/BRANCH_TIERS_PLAN.md,
+# 2026-09-25). A person whose `Go update` lands on pre-staging has every
+# other window's work there, not on staging -- checking against staging
+# would call a branch fresh while it lacks what the other windows pushed a
+# minute ago. precedent_branches.py answers where this person lands; no
+# tool, no python3, or no pre-staging on origin keeps the old answer.
+_landing_base() {
+  local tool="" c landing
+  for c in "$ROOT/tools/precedent_branches.py" "$ROOT/process/upstream/tools/precedent_branches.py"; do
+    if [ -f "$c" ]; then tool="$c"; break; fi
+  done
+  [ -n "$tool" ] || return 1
+  command -v python3 >/dev/null 2>&1 || return 1
+  landing="$(cd "$ROOT" && python3 "$tool" --landing 2>/dev/null | head -n1)"
+  [ "$landing" = "pre-staging" ] || return 1
+  _git ls-remote --exit-code --heads origin pre-staging >/dev/null 2>&1 || return 1
+  printf '%s' "$landing"
+}
+
 _resolve_base() {
+  local landing
+  if landing="$(_landing_base)"; then
+    printf '%s' "$landing"
+    return 0
+  fi
+  _resolve_staging_base
+}
+
+# The staging branch this checkout names -- the base before the tiers.
+_resolve_staging_base() {
   if [ -n "$BASE_ARG" ]; then
     printf '%s' "$BASE_ARG"
     return 0
@@ -529,6 +558,18 @@ _session_start_one() {
           _is_shallow && caveat=" (shallow clone -- the count may be approximate, but the answer is not: fetch deeper if you need the exact number)"
           echo "WARN: freshness-guard: '$branch' is missing $n commit(s) from origin/$base$caveat. This is the stale-base case: the branch can be perfectly in sync with its own remote and still be built on an old base. Bring it up to date deliberately: git merge origin/$base" >&2
         fi
+      fi
+    fi
+    # Pre-staging behind staging: somebody pushed straight to staging
+    # (plan, hole 2). Reported and named, never merged from a hook -- the
+    # same rule this guard keeps for every base merge.
+    local staging
+    if [ "$base" = "pre-staging" ] && staging="$(_resolve_staging_base)" \
+        && [ "$staging" != "pre-staging" ]; then
+      _fetch_base "$staging"
+      if _have_ref "origin/$staging" && _have_ref "origin/pre-staging" \
+          && ! _git merge-base --is-ancestor "origin/$staging" "origin/pre-staging" 2>/dev/null; then
+        echo "NOTE: freshness-guard: origin/pre-staging is missing work pushed straight to origin/$staging. Bring it in: python3 tools/precedent_branches.py --sync-pre-staging" >&2
       fi
     fi
   else

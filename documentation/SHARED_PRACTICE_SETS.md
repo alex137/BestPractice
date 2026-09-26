@@ -108,7 +108,7 @@ set that hedges every rule so nobody has to disagree with it.
 
 Every practice in force is read by every session, before it does anything.
 That budget is real and it is small — see
-[session-load-budget](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/practices/session-load-budget.md),
+[session-load-budget](https://github.com/alex137/BestPractice/blob/staging/practices/session-load-budget.md),
 which declares a ceiling on each always-loaded file and fails the build
 when one is exceeded.
 

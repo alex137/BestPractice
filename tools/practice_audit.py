@@ -433,7 +433,7 @@ def prose_declines(root):
 
 
 LOADER_MARKER = '<!-- BEGIN GENERATED: precedent-loader -->'
-MIGRATION_DOC = ('https://github.com/alex137/BestPractice/blob/precedent-beta-v01/'
+MIGRATION_DOC = ('https://github.com/alex137/BestPractice/blob/staging/'
                  'spec/MIGRATING_EXISTING_INSTALLS.md')
 
 

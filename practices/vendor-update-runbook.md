@@ -34,9 +34,8 @@ request, merge -- without going back for a second authorization. That is step
 
 **This does not lift the gate the chain already runs through**, and it does
 not add one. `Go update` publishes by the repository's usual conventions, and
-those are what decide whether a push may happen at all -- here, the full check
-that gates every push. Step 6 below IS that check, and it sits before the
-merge for that reason: a red check stops this merge exactly as it stops any
+those are what decide whether a push may happen at all. Step 6 below is the
+full check, and it sits before the merge for that reason: a red check stops this merge exactly as it stops any
 other. What the phrase removes is the second question, not the gate. So a
 failing check is reported, with what failed, and nothing is published -- that
 is the sequence working, not a refusal needing permission to stand.
@@ -85,7 +84,7 @@ every step's answer is wrong if the one before it was skipped.
 `process/upstream/` vendored, no universal source in `precedent.json`, no
 generated block in `AGENTS.md` — is not updated, it is migrated, in the
 same change:
-[spec/MIGRATING_EXISTING_INSTALLS.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/MIGRATING_EXISTING_INSTALLS.md).
+[spec/MIGRATING_EXISTING_INSTALLS.md](https://github.com/alex137/BestPractice/blob/staging/spec/MIGRATING_EXISTING_INSTALLS.md).
 `practice_audit.py`, `checkin.py update` and the session-start bootstrap all
 say so when it is. An update that leaves the repo classic has refreshed text
 that no session reads, which is how a consumer took one on 2026-09-23 and
@@ -103,12 +102,15 @@ says so, both from the vendored tree under `process/upstream/`.
    every later step confidently wrong: the diff is against the wrong
    lineage, and "already up to date" is the answer you get.
 
-   **For BestPractice that branch is `precedent-beta-v01`, for every
-   install, for now** (Morgan, 2026-09-24, `strength: decided`: *"they
+   **For BestPractice that branch is `staging`, for every
+   install, for now** -- named `precedent-beta-v01` until 2026-09-25, a name
+   kept on origin and moved in step by every Promote, so an install still
+   pinned to it takes this update from it and is repointed to `staging` in
+   the same update, like one pinned to `main` (Morgan, 2026-09-24, `strength: decided`: *"they
    should all be consistent and following the same one… for now, they
    should all follow precedent-beta-v01"*). An install whose
    `process/manifest.json` records `"branch": "main"` is repointed to
-   `precedent-beta-v01` in this same update, and so is its
+   `staging` in this same update, and so is its
    `tools/ENGINE_MANIFEST.json`. For a few hours on 2026-09-24 this step
    said the opposite, on an approval Morgan later called assent rather than
    a decision; that is how installs ended up split between the two
@@ -132,7 +134,7 @@ says so, both from the vendored tree under `process/upstream/`.
    2026-09-21 it printed `applied.` and exited 0 however many sources it had
    declined, and four of them drifted 17 to 34 commits behind while every
    session start reported success
-   ([todo-2026-09-21-refresh-output-blocks-the-next-pull](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/todo/todo-2026-09-21-refresh-output-blocks-the-next-pull.md)).
+   ([todo-2026-09-21-refresh-output-blocks-the-next-pull](https://github.com/alex137/BestPractice/blob/staging/todo/todo-2026-09-21-refresh-output-blocks-the-next-pull.md)).
 
    **Two things it deliberately does not do.** It never touches a modified
    file the clone's own `ENGINE_MANIFEST.json` does not list — the engine may
@@ -205,7 +207,7 @@ says so, both from the vendored tree under `process/upstream/`.
    were written once, at initial install, and never refreshed: a template fix
    landing after install — the `concurrency:` block `doc-lint.yml.template`
    gained on 2026-09-15, then
-   [spec/CI_MINUTES_PLAN.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/CI_MINUTES_PLAN.md)'s
+   [spec/CI_MINUTES_PLAN.md](https://github.com/alex137/BestPractice/blob/staging/spec/CI_MINUTES_PLAN.md)'s
    Phase C debounce-guard step the very next day — reached an already-installed
    `bestpractice-docs.yml` only if that repo happened to reinstall from
    scratch. A repo vendored before this date has no `ci_workflows_sha256` in
@@ -241,12 +243,30 @@ says so, both from the vendored tree under `process/upstream/`.
    the **Left for you** list for step 10(d). Before this date nothing
    delivered a template change to an installed copy; a real consumer ran
    two days without the session-start freshness check for exactly that
-   reason. Nothing else outside `tools/`, `.claude/hooks/`, the CI workflows
-   and `tools/bootstrap.sh` is touched.
+   reason.
+   **Since 2026-09-25 it also refreshes the sections `AGENTS.md` took from
+   its template, on the same terms, one section at a time.** A section is a
+   `##` or `###` heading and what follows it; the generated loader block is
+   not one, and stays the sync's (step 5). An unedited section — matching
+   the hash recorded under `agents_md_sections_sha256`, or with nothing
+   recorded, identical to that section in some past version of the
+   template — is rewritten to the current template. An edited one is never
+   rewritten, `--force` included: it is reported `DIVERGED` with each
+   bullet, paragraph or table row of the template's section it lacks, down
+   to the missing sentences, and goes on **Left for you**. A section the
+   template has and the file does not is reported `MISSING` once, and never
+   written in. Before this date whatever the template wrote at install was
+   frozen: a template fix reached no installed repo, and nothing said so.
+   The same run lists every line of `AGENTS.md`, `CLAUDE.md` and
+   `tools/bootstrap.sh` that still names a **retired branch**
+   (`precedent-beta-v01`, renamed `staging` on 2026-09-25), outside the
+   generated block. Nothing else outside `tools/`, `.claude/hooks/`, the CI
+   workflows, `tools/bootstrap.sh` and those `AGENTS.md` sections is
+   touched.
    **Since 2026-09-19, check whether this refresh newly vendors
    `tools/todo_migrate.py` or `tools/build_todo_index.py`** — the one-time
    per-item TODO migration tool and its ongoing index generator
-   ([spec/OPEN_ITEM_AND_GOTCHA_PLAN.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/OPEN_ITEM_AND_GOTCHA_PLAN.md)
+   ([spec/OPEN_ITEM_AND_GOTCHA_PLAN.md](https://github.com/alex137/BestPractice/blob/staging/spec/OPEN_ITEM_AND_GOTCHA_PLAN.md)
    Part 4.2). Vendoring the tool is not the same as running it, and nothing
    else says so: this repo shipped both to every consumer on 2026-09-15/16
    and, once source sets turned out to need them too, to every source set
@@ -296,7 +316,7 @@ says so, both from the vendored tree under `process/upstream/`.
    declining it with a reason that fits the current text. A decline that
    lives only in prose (a sync note, a paragraph in `AGENTS.md`) goes into
    the manifest as a `declined` entry
-   ([INSTALL.md §5](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/INSTALL.md#5-the-manifest-schema-processmanifestjson)),
+   ([INSTALL.md §5](https://github.com/alex137/BestPractice/blob/staging/INSTALL.md#5-the-manifest-schema-processmanifestjson)),
    so the next sync does not depend on somebody remembering it. Any other
    hand-written rule an updated practice now touches gets the
    conflicted-file review at the top of this runbook.
@@ -311,7 +331,14 @@ says so, both from the vendored tree under `process/upstream/`.
    generator whose output has not been re-run leaves the repo's committed
    views describing the old engine, and its own `--check` then fails on
    work that is otherwise correct. The bump and its output land together.
-6. **Run this repo's own full check**, not the upstream's.
+6. **Run this repo's own full check**, not the upstream's:
+   `python3 tools/precedent_push_check.py --tier full`. **Run it by hand;
+   the push gate will not.** Under the branch tiers a push to a working
+   branch or to pre-staging gets only the basic check, so the full one first
+   runs at the merge, and a finding there refuses the merge after
+   everything else is done. On 2026-09-25 a vendor update's regenerated
+   AGENTS.md went out with its version header unbumped, and the merge gate
+   was the first thing to notice.
 7. **Check that this environment can still reach its PRIVATE sources**,
    before you call the update done. A vendor update is when a new engine
    file arrives that the environment may not be configured for, and it is
@@ -413,7 +440,7 @@ says so, both from the vendored tree under `process/upstream/`.
     **Never by name alone.** `light-check.yml` is a live check in most
     installs and is not a leftover; the 2026-09-20 sweep deleted nine live
     checks by trusting names
-    ([spec/CI_MINUTES_PLAN.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/CI_MINUTES_PLAN.md)
+    ([spec/CI_MINUTES_PLAN.md](https://github.com/alex137/BestPractice/blob/staging/spec/CI_MINUTES_PLAN.md)
     item 14). A live one is paused first and decommissioned a cycle later,
     as [tools/precedent_decommission.py](../tools/precedent_decommission.py)
     requires.
@@ -425,7 +452,9 @@ says so, both from the vendored tree under `process/upstream/`.
     repo just clones the same set twice, or not at all. Run step 8's tool
     afterwards.
 
-    **(d) Bring a diverged `tools/bootstrap.sh` up to the template.** The
+    **(d) Bring diverged template-written text up to the template:
+    `tools/bootstrap.sh`, `AGENTS.md`'s sections, and retired branch
+    names.** For `tools/bootstrap.sh`: the
     refresh already rewrote an unedited copy (step 3). One it reported
     `DIVERGED` has local edits, and the output lists each block of upstream
     `templates/bootstrap.sh` it lacks, as `templates/bootstrap.sh:LINE
@@ -434,6 +463,23 @@ says so, both from the vendored tree under `process/upstream/`.
     added**, then re-run step 3's refresh: it should report the file as
     carrying every block. Never replace the whole file to get there, and
     never reach for `--force`, which does not touch it anyway.
+
+    **For each `AGENTS.md` section reported `DIVERGED`**, the output names
+    the template line of each block the section lacks, and under a block it
+    has only part of, each sentence it lacks. Read each against what the
+    section already says. Where the repo says the same thing in its own
+    words, leave it — the report compares text, not meaning, so a local
+    rewrite of a template sentence always lists that sentence. Where it
+    does not, copy the template's text in, fill its `<placeholders>` with
+    this repo's real names, and keep every line the repo added. A section
+    reported `MISSING`: copy it in where it belongs if it applies here, or
+    leave it out and say so in the reply — the next refresh notes it in one
+    line and stops listing it. **Each retired branch name** the run lists:
+    change it to the new name on that line, unless the line records the
+    rename on purpose, in which case name the new branch on the same line
+    and the report stops listing it. Upstream keeps the old name working as
+    an alias until no refresh reports one, so this is not an emergency, and
+    it is how the alias gets to retire.
 
     **In the same file, remove a hardcoded git identity.** A literal
     `git config user.name` or `user.email` in `tools/bootstrap.sh` or
@@ -453,7 +499,7 @@ says so, both from the vendored tree under `process/upstream/`.
     means (a) could not run at all. Say so out loud, confirm with the person
     that this update will finish the migration — it is bigger than an
     update — then do
-    [spec/MIGRATING_EXISTING_INSTALLS.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/MIGRATING_EXISTING_INSTALLS.md)
+    [spec/MIGRATING_EXISTING_INSTALLS.md](https://github.com/alex137/BestPractice/blob/staging/spec/MIGRATING_EXISTING_INSTALLS.md)
     from step 7 on, which seeds the engine at `tools/`. Then run step 3's
     refresh and continue from (a). If the person says not now, stop before
     publishing: step 6 fails until it is done.
@@ -467,11 +513,37 @@ says so, both from the vendored tree under `process/upstream/`.
     and variables → Actions). A session cannot delete a secret; never say it
     did.
 
-    **(g) Report all of it in the reply**: what the refresh deleted, what
-    you deleted, what stays and why, and the todo item.
+    **(g) Get the person's approval for every workflow file that stays.**
+    Run `python3 tools/precedent_check.py --only ci-workflow-approved`.
+    Every file it names bills at least a minute per run in a private repo,
+    and nobody has approved it as it stands. For each one, show the person
+    what it runs and **when it triggers**, in one line, and ask. Record the
+    answer in `precedent.json`'s `github_ci_approved`, pinned to the file's
+    sha256 and quoting their words, or delete the file. **Never approve one
+    on the person's behalf**, and never "fix" a trigger to make it pass
+    without asking
+    ([ci-workflow-approved](ci-workflow-approved.md), Morgan, 2026-09-25:
+    "In the migration and updates, can we put a check explicitly for
+    this?"). Until every file passes, step 6 fails and so does every push.
 
-    While here, check `ci_workflows`
-    ([GITHUB_ACTIONS.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/documentation/GITHUB_ACTIONS.md))
+    **(h) Give the repo all three branches.** Run
+    `python3 tools/precedent_branches.py --ensure-tiers`. It says whether
+    origin has `pre-staging` and a `staging` branch of its own; if either is
+    missing, run it again with `--apply`, which creates them and, in a repo
+    whose staging tier was `main`, writes `"staging_branch": "staging"` into
+    `precedent.json` for this update to commit. `base_branch` stays as it
+    is, because it also pins where a practice source's session clone sits.
+    From then on work lands on pre-staging, Promote moves it to staging,
+    and main takes staging by pull request. Morgan, 2026-09-25: *"make sure
+    that all repos with precedent vendored-in have staging and pre-staging
+    branches? That should be part of the migration!"*
+
+    **(i) Report all of it in the reply**: what the refresh deleted, what
+    you deleted, what stays and why, each workflow's approval, the branches
+    step (h) created, and the todo item.
+
+    While here, check `github_ci_workflows` (formerly `ci_workflows`)
+    ([GITHUB_ACTIONS.md](https://github.com/alex137/BestPractice/blob/staging/documentation/GITHUB_ACTIONS.md))
     is set the way the person actually wants, not just inherited from
     whatever an earlier install or migration left.
 11. **Verify by content on the remote**, never by ref equality

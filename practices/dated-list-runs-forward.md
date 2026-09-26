@@ -112,4 +112,4 @@ cost of not firing on lists that are correctly ordered by something other
 than date. It is also blind to whether a date is the RIGHT one: nothing
 mechanical can read the conversation an entry records, so an entry dated
 plausibly and wrongly passes cleanly. Two-direction planted case in
-[`tools/verify_harness.py`](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/verify_harness.py).
+[`tools/verify_harness.py`](https://github.com/alex137/BestPractice/blob/staging/tools/verify_harness.py).

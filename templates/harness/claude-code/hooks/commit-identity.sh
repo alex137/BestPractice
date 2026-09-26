@@ -64,16 +64,21 @@
 # TIMEZONE. Nothing in a GitHub profile says where someone is. So: an
 # explicit override, else the timezone in THIS repository's own
 # identity.json -- which only a person's individual source carries -- else
-# the repo's declared fallback_timezone, else America/New_York.
+# the individual source's identity.json, else the repo's declared
+# fallback_timezone, else America/New_York.
 #
-# A PERSON'S ZONE STAYS IN THEIR OWN REPO (Morgan, 2026-09-25, strength:
-# decided): "the timezone for the commits shouldn't be buenos aires! That is
-# in personal-individual ONLY FOR ME. The default timezone here should be
-# New York, or here should be none, and only use the individual one in the
-# precedent-individual." Until then the individual source's zone (rung 3
-# below) was applied to every session and ENFORCED by the global backstop in
-# every repository on the machine, shared ones included. Rung 3 still
-# supplies the name and email; it no longer supplies the zone.
+# THE PERSON'S ZONE FIRST, THE REPO'S ONLY AS A FALLBACK (Morgan,
+# 2026-09-25, evening, strength: decided): "is there a way to have the
+# individual timezone take precedence, if there is one? I meant the repo
+# timezone to be a fallback, in case there is no defined individual
+# timezone defined." That morning rung 3 had stopped supplying the zone
+# ("only use the individual one in the precedent-individual"), and the
+# same day a BestPractice-rooted session wrote -0400 commits into his
+# individual source: the global backstop below was generated with no zone
+# to enforce, so nothing refused them until a full check did. What the
+# morning change got right stays: his zone is applied to HIS commits, and
+# no shared repo's history is audited against it
+# (check_buenos_aires_dates.py stands down outside an individual source).
 #
 # The fallback is APPLIED but NOT ENFORCED, and the two halves have
 # different reasons:
@@ -144,8 +149,9 @@ if [ -n "${PRECEDENT_COMMIT_EMAIL:-}" ]; then
   declared=1
 fi
 zone="${PRECEDENT_COMMIT_TZ:-}"
-# Where a declared zone came from: `env` (the override, meant everywhere) or
-# `own` (this repo's own identity.json, meant for this repo alone).
+# Where a declared zone came from: `env` (the override), `own` (this repo's
+# own identity.json) or `individual` (the person's individual source). All
+# three are the PERSON's zone, and every one is enforced everywhere.
 zone_from=""
 [ -n "$zone" ] && zone_from=env
 
@@ -164,7 +170,7 @@ print(ident.get('timezone') or '')
 PY
 }
 
-_take_identity() {  # $1 = three lines, $2 = where it came from, $3 = "nozone" to take the name and email only
+_take_identity() {  # $1 = three lines, $2 = where it came from, $3 = where a zone it supplies counts as coming from (default: own)
   local i_name i_email i_zone
   i_name="$(printf '%s\n' "$1" | sed -n '1p')"
   i_email="$(printf '%s\n' "$1" | sed -n '2p')"
@@ -172,9 +178,9 @@ _take_identity() {  # $1 = three lines, $2 = where it came from, $3 = "nozone" t
   if [ -z "$email" ] && [ -n "$i_email" ]; then
     name="$i_name"; email="$i_email"; source="$2"; declared=1
   fi
-  if [ -z "$zone" ] && [ -n "$i_zone" ] && [ "${3:-}" != nozone ]; then
+  if [ -z "$zone" ] && [ -n "$i_zone" ]; then
     zone="$i_zone"
-    zone_from=own
+    zone_from="${3:-own}"
   fi
 }
 
@@ -186,8 +192,8 @@ if [ -z "$email" ] || [ -z "$zone" ]; then
 fi
 
 # --- 3. the individual practice source named by the user-level config --
-# name and email only; its zone is for its own repo (see TIMEZONE above)
-if [ -z "$email" ]; then
+# the person's name, email and zone (see TIMEZONE above)
+if [ -z "$email" ] || [ -z "$zone" ]; then
   cfg="${PRECEDENT_USER_CONFIG:-$HOME/.config/precedent/config.json}"
   if [ -f "$cfg" ] && command -v python3 >/dev/null 2>&1; then
     indiv="$(python3 - "$cfg" <<'PY' 2>/dev/null || true
@@ -201,7 +207,7 @@ PY
 )"
     if [ -n "$indiv" ] && [ -f "$indiv/identity.json" ]; then
       resolved="$(_read_identity_file "$indiv/identity.json" || true)"
-      [ -n "$resolved" ] && _take_identity "$resolved" "the individual practice source's identity.json" nozone
+      [ -n "$resolved" ] && _take_identity "$resolved" "the individual practice source's identity.json" individual
     fi
   fi
 fi
@@ -306,6 +312,13 @@ else
 fi
 # ---- the person's CI cadence (spec/CI_CADENCE_PLAN.md)
 #
+# THE NAMES. Each setting is `github_ci_*` since 2026-09-25 (Morgan: "since
+# those refer only to github's tests, maybe we rename them all to start
+# with github_ci_ instead of ci_", strength: decided,
+# spec/BRANCH_TIERS_PLAN.md). The old `ci_*` name is still read wherever the
+# new one is absent, so nobody's file breaks, and the new one wins where a
+# file carries both.
+#
 # How often GitHub Actions runs in this person's PRIVATE repos: at most once
 # every `ci_every_hours` hours, read from the same identity.json as the
 # name and zone above -- this repository's own, then the individual source's.
@@ -332,11 +345,12 @@ if isinstance(cfg, dict):
         cands.append(os.path.join(path, 'identity.json'))
 for c in cands:
     d = load(c)
-    if isinstance(d, dict) and 'ci_every_hours' in d:
-        v = d['ci_every_hours']
-        ok = isinstance(v, (int, float)) and not isinstance(v, bool) and v >= 0
-        print(repr(v) if ok else 0)
-        raise SystemExit(0)
+    for key in ('github_ci_every_hours', 'ci_every_hours'):
+        if isinstance(d, dict) and key in d:
+            v = d[key]
+            ok = isinstance(v, (int, float)) and not isinstance(v, bool) and v >= 0
+            print(repr(v) if ok else 0)
+            raise SystemExit(0)
 print(0)
 CI_HOURS
 }
@@ -370,9 +384,10 @@ if isinstance(cfg, dict):
         cands.append(os.path.join(path, 'identity.json'))
 for c in cands:
     d = load(c)
-    if isinstance(d, dict) and 'ci_on_branches' in d:
-        print(False if d['ci_on_branches'] is False else True)
-        raise SystemExit(0)
+    for key in ('github_ci_on_branches', 'ci_on_branches'):
+        if isinstance(d, dict) and key in d:
+            print(False if d[key] is False else True)
+            raise SystemExit(0)
 print(True)
 CI_BRANCHES
 }
@@ -582,12 +597,22 @@ def hours_of(v):
     return float(v)
 
 
+def setting(cfg, name):
+    """-> (present, value) for `github_ci_<name>`, else the old `ci_<name>`."""
+    for key in ('github_ci_' + name, 'ci_' + name):
+        if key in cfg:
+            return True, cfg[key]
+    return False, None
+
+
 def on_branches(cfg):
     """-> (bool, where): does CI run on a working branch of this repo?"""
-    if 'ci_on_branches' in cfg:
-        return cfg['ci_on_branches'] is not False, "this repo's precedent.json"
-    if 'ci_every_hours' in cfg and not hours_of(cfg['ci_every_hours']):
-        return True, "this repo's precedent.json (ci_every_hours 0)"
+    has, v = setting(cfg, 'on_branches')
+    if has:
+        return v is not False, "this repo's precedent.json"
+    has, v = setting(cfg, 'every_hours')
+    if has and not hours_of(v):
+        return True, "this repo's precedent.json (github_ci_every_hours 0)"
     return PERSONAL_CI_ON_BRANCHES is not False, 'your identity.json'
 
 
@@ -620,12 +645,13 @@ def decide(msg):
         run, where = on_branches(cfg)
         if run:
             return None
-        return ('[skip ci] -- working branch (ci_on_branches)',
+        return ('[skip ci] -- working branch (github_ci_on_branches)',
                 f'ci-cadence: added [skip ci] -- {head} is not {base}, and '
-                f'{where} sets ci_on_branches to false. To run CI on this '
-                f'commit: PRECEDENT_CI_NOW=1 git commit ...')
-    if 'ci_every_hours' in cfg:
-        hours, where = hours_of(cfg['ci_every_hours']), "this repo's precedent.json"
+                f'{where} sets github_ci_on_branches to false. To run CI on '
+                f'this commit: PRECEDENT_CI_NOW=1 git commit ...')
+    has, v = setting(cfg, 'every_hours')
+    if has:
+        hours, where = hours_of(v), "this repo's precedent.json"
     else:
         hours, where = hours_of(PERSONAL_CI_EVERY_HOURS), 'your identity.json'
     if not hours:
@@ -647,9 +673,9 @@ def decide(msg):
             return None
         if age >= hours * 3600:
             return None
-        return (f'[skip ci] -- CI ran within the last {hours:g}h (ci_every_hours)',
+        return (f'[skip ci] -- CI ran within the last {hours:g}h (github_ci_every_hours)',
                 f'ci-cadence: added [skip ci] -- CI last ran on origin/{base} '
-                f'{age / 3600:.1f}h ago, and {where} sets ci_every_hours to '
+                f'{age / 3600:.1f}h ago, and {where} sets github_ci_every_hours to '
                 f'{hours:g}. To run CI on this commit: PRECEDENT_CI_NOW=1 git commit ...')
     return None
 
@@ -972,14 +998,9 @@ if [ -z "\$email" ] || [ -z "\$name" ]; then
 fi
 
 expected_offset="$expected_offset"
-# A zone declared in a repo's own identity.json binds THAT repo only; this
-# global hook fires in every repository, so it enforces the offset only in
-# one that carries an identity.json itself. An explicit PRECEDENT_COMMIT_TZ
-# override is meant everywhere and is enforced everywhere.
-if [ "$zone_from" = own ]; then
-  _top="\$(git rev-parse --show-toplevel 2>/dev/null || true)"
-  [ -n "\$_top" ] && [ -f "\$_top/identity.json" ] || expected_offset=""
-fi
+# The person's declared zone, enforced in every repository they commit to:
+# it is theirs, not the repo's (see TIMEZONE in commit-identity.sh). Empty
+# when no zone was declared -- a fallback is applied, never enforced.
 if [ -n "\$expected_offset" ] && [ "\$offset" != "\$expected_offset" ]; then
   echo "commit refused: author-date offset is '\$offset', but the declared timezone ($zone) is '\$expected_offset'." >&2
   echo "  TZ=\"$zone\" git commit ..." >&2

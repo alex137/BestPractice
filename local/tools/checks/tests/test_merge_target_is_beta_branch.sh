@@ -53,6 +53,24 @@ if [ "$(run "$D")" != "1" ]; then
 fi
 echo "ok: fires on planted violation"
 
+# --- 1b. right after a fold-in, with the next commit in hand: clean -----
+# The fold-in state from 1, plus one local commit on top of the branch that
+# main does not have -- the commit whose push clears the state. The push
+# gate runs this check before that push, so firing here would deadlock
+# every fold-in (2026-09-25).
+D="$(make_fixture folded)"
+git -C "$D" branch precedent-beta-v01
+git -C "$D" update-ref refs/remotes/origin/main "$(git -C "$D" rev-parse main)"
+git -C "$D" update-ref refs/remotes/origin/precedent-beta-v01 \
+    "$(git -C "$D" rev-parse precedent-beta-v01)"
+git -C "$D" checkout -q precedent-beta-v01
+git -C "$D" commit -q --allow-empty -m "record the fold-in"
+if [ "$(run "$D")" != "0" ]; then
+  echo "FAIL: fired although the commit in hand moves the branch past main again" >&2
+  exit 1
+fi
+echo "ok: clean after a fold-in when the next commit is in hand"
+
 # --- 2. diverged, the normal state: must stay clean --------------------
 D="$(make_fixture diverged)"
 git -C "$D" checkout -q -b precedent-beta-v01

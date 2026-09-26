@@ -67,12 +67,12 @@ about it: the change to reach for is the safer repair, not switching the
 repair off.
 
 ## Story
-[`.claude/hooks/freshness-guard.sh`](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/.claude/hooks/freshness-guard.sh)
+[`.claude/hooks/freshness-guard.sh`](https://github.com/alex137/BestPractice/blob/staging/.claude/hooks/freshness-guard.sh)
 repairs a checkout that has drifted from its remote. On 2026-09-20 the
 mid-session path did that with `git reset --hard`, which destroyed a real
 unpushed commit; it was recovered only because a rescue ref and the reflog
 both happened to still hold it
-([the gotcha](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/gotchas/gotcha-2026-09-20-freshness-guard-s-user-prompt-mode-hard-resets-a-mid-sess.md)).
+([the gotcha](https://github.com/alex137/BestPractice/blob/staging/gotchas/gotcha-2026-09-20-freshness-guard-s-user-prompt-mode-hard-resets-a-mid-sess.md)).
 
 The fix that day cut that path back to a warning -- correct about the
 danger, wrong about the remedy, and it took the escape hatch this rule

@@ -1,0 +1,99 @@
+---
+slug:        ci-workflow-approved
+title:       A workflow file runs only with the person's approval, pinned to its content
+tier:        on-demand
+severity:    default
+applies_to:  [".github/workflows/**"]
+occasion:    "a .github/workflows/*.yml file is added, edited, or found during an update or migration"
+gates:       ["push"]
+index_clause: "no workflow added or edited without the person's words, pinned by hash"
+index_required: true
+checked_by:  "tools/precedent_check.py"
+defines:     []
+status:      active
+in_force_at: null
+supersedes:  []
+overrides:   null
+added:       "2026-09-25"
+approved_by: "Morgan, 2026-09-25 (\"we need to absolutely put a hard stop to this ever happening again ... It's a priority\", strength: decided)"
+---
+## Rule
+**A session never adds a GitHub Actions workflow, or changes when one runs,
+on its own judgment.** Every `.github/workflows/*.yml` file in a repo that
+vendors Precedent is either the engine's own untouched copy, or carries the
+person's approval in `precedent.json`'s `github_ci_approved`, **pinned to
+the file's exact content by sha256**, with their words quoted:
+
+```json
+"github_ci_approved": {
+  ".github/workflows/light-check.yml": {
+    "sha256": "<sha256 of the file>",
+    "approved_by": "Morgan, 2026-09-25: \"Please stop it running every time\""
+  }
+}
+```
+
+**Any edit changes the hash and fails the check until the person approves
+the new content.** That includes a new trigger, a new job, or a trigger put
+back that someone removed. To get approval, show the person the file and say
+when it will run: every run bills at least a minute in a private repository.
+Then record what they said, in their words. **Never write an approval they
+did not give.** If they do not want the file, delete it.
+
+**This check runs on every push** (the push gate's basic tier, seconds), in
+every full check, and at every Update Vendors and migration. A file
+[`precedent_install.py`](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_install.py) writes straight from a shipped template is approved
+by the install, and names the template instead of quoting anyone.
+Re-baselining an edited engine workflow with `record-ci` is an approval
+too, and needs the same words.
+
+## Why
+Cost follows the trigger, and the trigger is one line. A session tuning a
+workflow sees a good reason for that line in front of it. It does not see the
+bill, or the session that removed the same line a week earlier for a reason
+it never read. Advice did not stop it:
+[workflow-file-outside-vendoring](workflow-file-outside-vendoring.md)
+flagged exactly this file on every run, as advisory, and nobody acted.
+
+## Story
+**2026-09-25, a private consuming repo.** Morgan's usage export showed 11
+billed minutes there on a day he expected close to none. All 11 were `push`
+runs on `main` of the repo's own `light-check.yml`: one per merged pull request,
+re-checking a tree that had already been checked. The pull-request runs were
+already being skipped by the working-branch `[skip ci]`. But GitHub writes
+the merge commit, and a merge commit carries no `[skip ci]`.
+
+The file's history is the case for this rule:
+
+- **2026-08-28:** installed with the personal pack, on pull request and on
+  push to `main`.
+- **2026-09-15:** a session removed the push trigger, because it doubled
+  every merged pull request's cost.
+- **2026-09-20:** another session deleted the file over its cost, and the
+  deletion was reverted the same night: it was a live, required check.
+- **2026-09-21:** a third session put the push trigger back while folding
+  the doc lint into it. It copied BestPractice's own docs.yml shape.
+  BestPractice is public, so GitHub bills it nothing. The same shape costs
+  real money in a private repo.
+- **2026-09-25:** one billed minute per merge, until the trigger came off
+  again.
+
+Every step was reasonable where it was made, and each session decided alone
+about something that spends Morgan's money. His words when he saw it: "it
+should NOT be doing that!!!! ... how do we stop future session from just
+adding their own files like this and doing things like this that get out of
+control? It's a priority."
+
+## Install
+Enforced by `_ci_workflow_approved` in
+[tools/precedent_check.py](../tools/precedent_check.py), run by
+[tools/precedent_push_check.py](../tools/precedent_push_check.py) as
+`ci_workflows` in the basic tier, so it runs before every push a session
+makes. It binds any repo that keeps a `.github/workflows/` directory
+(`binds_when`), whether or not the practice text resolved there, and reports
+"not applicable" in BestPractice itself, which has no engine manifest.
+
+**What it cannot see:** whether a quote is genuine, and a workflow added
+through the GitHub API or web editor, which never passes a session's push
+gate. The check running in the repo's own CI, or the next local run,
+catches the second.

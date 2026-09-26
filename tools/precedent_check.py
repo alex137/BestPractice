@@ -3053,6 +3053,51 @@ def _settings_hook_dirs():
     return out
 
 
+def _invocation_text(path, text):
+    """-> the part of a caller file that could actually run a hook.
+
+    A comment is prose, and so is a docstring: engine code that EXPLAINS
+    `.claude/hooks/freshness-guard.sh` does not run it. Reading the whole
+    file made every such mention a call, so a repo that declined the hook
+    was told its decline was stale ("something does call it") by the
+    engine's own commentary. Measured 2026-09-25 in a consuming repo on the
+    engine at 077069e: freshness-guard.sh and stop-git-check.sh, both
+    declined and wired nowhere, both reported, the "callers" being comments
+    in precedent_materialize.py, precedent_vendor_engine.py and this file.
+
+    So a Python caller contributes its string literals only, docstrings
+    excluded, and not a `$CLAUDE_PROJECT_DIR`-rooted one either: in Python
+    that is settings text being written for some settings.json
+    (precedent_bootstrap_source.py writes a NEW set's), and a settings file
+    that really wires a hook is read directly as its own caller. A shell
+    caller loses its whole-line comments. Anything that does not parse is
+    read whole, which is the old behaviour: over-counting a caller costs a
+    missed orphan, never a working hook called dead."""
+    if path.suffix == '.py':
+        try:
+            tree = ast.parse(text)
+        except (SyntaxError, ValueError):        # practice: fail-gracefully
+            return text
+        docs = set()
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.Module, ast.ClassDef, ast.FunctionDef,
+                                 ast.AsyncFunctionDef)) and node.body:
+                first = node.body[0]
+                if (isinstance(first, ast.Expr)
+                        and isinstance(first.value, ast.Constant)
+                        and isinstance(first.value.value, str)):
+                    docs.add(id(first.value))
+        return '\n'.join(
+            n.value for n in ast.walk(tree)
+            if isinstance(n, ast.Constant) and isinstance(n.value, str)
+            and id(n) not in docs
+            and not re.match(r'\s*\$\{?CLAUDE_PROJECT_DIR\b', n.value))
+    if path.suffix == '.json':
+        return text
+    return '\n'.join(line for line in text.splitlines()
+                     if not line.lstrip().startswith('#'))
+
+
 @check('hooks-on-disk-are-reachable', 'tree',
        'every hook file in .claude/hooks/ is reachable from something that '
        'could run it — a settings*.json entry, another hook, or an engine '
@@ -3172,9 +3217,10 @@ def _hooks_on_disk_are_reachable(ctx):
     texts = []
     for c in callers:
         try:
-            texts.append((c, c.read_text(encoding='utf-8', errors='ignore')))
+            raw = c.read_text(encoding='utf-8', errors='ignore')
         except OSError:                          # practice: fail-gracefully
             continue
+        texts.append((c, _invocation_text(c, raw)))
     # practice: code-cites-practice -- checkable-gets-checked. The declared
     # declines, read the same way filename_separator_exempt is: an entry
     # without a reason buys nothing.
@@ -4496,6 +4542,195 @@ def _workflow_file_outside_vendoring(ctx):
             f'either it is gone, or it is now tracked, or it is now a known '
             f'retired entry. A stale exemption is a hole nobody sees '
             f'otherwise; remove the entry once you have confirmed which.'))
+    return findings
+
+
+# The approval record a workflow file needs (practice: ci-workflow-approved).
+GITHUB_CI_APPROVED_KEY = 'github_ci_approved'
+_APPROVAL_DATE = re.compile(r'\b20\d\d-\d\d-\d\d\b')
+_APPROVAL_QUOTE = re.compile(r'"[^"]{3,}"|“[^”]{3,}”')
+
+
+def _approval_problem(entry):
+    """-> None when `entry` is a usable approval, else what is wrong with it.
+    Usable means a sha256, and an approved_by carrying a date and the
+    person's own words in quotes -- or, for a file precedent_install.py
+    wrote straight from a shipped template, the template's name instead of
+    the quote. Nothing here can prove the quote is real; what it can do is
+    make a session that invents one write the invention down, where a
+    reader will see it."""
+    if not isinstance(entry, dict):
+        return 'is not an object with sha256 and approved_by'
+    if not re.fullmatch(r'[0-9a-f]{64}', str(entry.get('sha256') or '')):
+        return 'has no sha256 of the approved content'
+    by = str(entry.get('approved_by') or '')
+    if not _APPROVAL_DATE.search(by):
+        return 'approved_by carries no date (YYYY-MM-DD)'
+    if not (_APPROVAL_QUOTE.search(by) or entry.get('template')):
+        return ('approved_by quotes nobody -- it must carry the person\'s '
+                'own words, in double quotes')
+    return None
+
+
+def _workflow_triggers_plain(text):
+    """_workflow_triggers without PyYAML: the top-level `on:` block read by
+    line -- an inline value (`on: push`, `on: [push, pull_request]`), or
+    each event key under it with the branches or cron it names. The same
+    one-line shape the parsed version gives. '' when there is no `on:`."""
+    import re as _re
+    lines = text.splitlines()
+    start = next((i for i, l in enumerate(lines)
+                  if _re.match(r"""^['"]?on['"]?\s*:""", l)), None)
+    if start is None:
+        return ''
+    inline = lines[start].split(':', 1)[1].split('#', 1)[0].strip()
+    if inline:
+        return inline.strip('[]').replace(' ', '').replace(',', ', ')
+    parts, event, indent, detail = [], None, None, []
+
+    def flush():
+        if event is not None:
+            parts.append(f'{event} {detail}' if detail else event)
+
+    for line in lines[start + 1:]:
+        if not line.strip() or line.lstrip().startswith('#'):
+            continue
+        if not line[0].isspace():
+            break
+        depth = len(line) - len(line.lstrip())
+        key = _re.match(r'^\s*([A-Za-z_][\w-]*)\s*:\s*(.*)$', line)
+        if indent is None:
+            indent = depth
+        if depth == indent and key:
+            flush()
+            event, detail = key.group(1), []
+            continue
+        body = line.split('#', 1)[0].strip()
+        branches = _re.match(r'^branches\s*:\s*\[(.*)\]', body)
+        if branches:
+            detail += [b.strip().strip("'\"") for b in branches.group(1).split(',')
+                       if b.strip()]
+        cron = _re.match(r"""^-\s*cron\s*:\s*['"]?([^'"]+)""", body)
+        if cron:
+            detail.append(cron.group(1).strip())
+    flush()
+    return ', '.join(parts)
+
+
+def _workflow_triggers(path):
+    """-> a one-line summary of a workflow's `on:` keys, for the finding --
+    the person approving needs to see WHEN it runs, since that is what
+    costs. '' when it cannot be read."""
+    try:
+        text = path.read_text(encoding='utf-8')
+    except OSError:
+        return ''
+    try:
+        import yaml
+    except ImportError:
+        # GitHub's runner has no PyYAML, and the finding lost its "It runs
+        # on" there while passing everywhere a session runs (2026-09-25,
+        # the pull request of staging into main). A workflow's `on:` block
+        # is plain enough to read by line, so it is read that way.
+        return _workflow_triggers_plain(text)
+    try:
+        doc = yaml.safe_load(text)
+    except Exception:                                          # noqa: BLE001
+        return ''
+    if not isinstance(doc, dict):
+        return ''
+    on = doc.get('on', doc.get(True))
+    if isinstance(on, str):
+        return on
+    if isinstance(on, list):
+        return ', '.join(map(str, on))
+    if not isinstance(on, dict):
+        return ''
+    parts = []
+    for event, spec in on.items():
+        branches = spec.get('branches') if isinstance(spec, dict) else None
+        cron = ([c.get('cron') for c in spec if isinstance(c, dict)]
+                if isinstance(spec, list) else None)
+        parts.append(f'{event} {branches}' if branches else
+                     f'{event} {cron}' if cron else str(event))
+    return ', '.join(parts)
+
+
+@check('ci-workflow-approved', 'tree',
+       "every .github/workflows/*.yml or *.yaml file is either the "
+       "engine's own copy, untouched since the manifest recorded it, or "
+       "carries the person's approval in precedent.json's "
+       "github_ci_approved, pinned to its exact content by sha256 -- so "
+       "adding a workflow, or editing one (a new trigger, a new job), fails "
+       "until the person approves the new content in their own words",
+       "whether the quoted approval is genuine: it can require the quote "
+       "and a date, and cannot tell a real one from an invented one. "
+       "An engine-tracked file re-baselined with `record-ci` reads as "
+       "untouched. A workflow file added through the GitHub API or web "
+       "editor never passes through a session's push gate, so only this "
+       "check running in CI, or the next local run, sees it. Never "
+       "applies in BestPractice itself, which has no manifest.",
+       binds_when=('.github/workflows',))
+def _ci_workflow_approved(ctx):
+    import hashlib
+
+    manifest = _engine_manifest()
+    if not manifest:
+        raise NotApplicable('no tools/ENGINE_MANIFEST.json -- this repo has '
+                            'never vendored the engine, or is the engine\'s '
+                            'own origin')
+    wf_dir = ctx.root / '.github' / 'workflows'
+    if not wf_dir.is_dir():
+        return []
+    tracked = manifest.get('ci_workflows_sha256') or {}
+    try:
+        cfg = json.loads((ctx.root / 'precedent.json').read_text(
+            encoding='utf-8'))
+        approved = cfg.get(GITHUB_CI_APPROVED_KEY) or {}
+    except (OSError, ValueError, AttributeError):
+        approved = {}
+    if not isinstance(approved, dict):
+        approved = {}
+
+    findings = []
+    for path in sorted(wf_dir.iterdir()):
+        if not (path.is_file() and path.suffix in ('.yml', '.yaml')):
+            continue
+        rel = f'.github/workflows/{path.name}'
+        sha = hashlib.sha256(path.read_bytes()).hexdigest()
+        if tracked.get(rel) == sha:
+            continue
+        entry = approved.get(rel)
+        problem = _approval_problem(entry) if entry is not None else None
+        if entry is not None and problem is None and entry['sha256'] == sha:
+            continue
+        runs = _workflow_triggers(path)
+        runs = f' It runs on: {runs}.' if runs else ''
+        if entry is None:
+            what = ('has no approval -- nobody has said this workflow should '
+                    'exist')
+        elif problem:
+            what = f'has an approval that {problem}'
+        else:
+            what = ('was EDITED after it was approved -- its content no '
+                    'longer matches the approved sha256')
+        findings.append(Finding(
+            rel,
+            f'{what}.{runs} Every run bills at least a minute in a private '
+            f'repository. Show the person the file and when it runs, and '
+            f'ask. If they want it, record their words in precedent.json: '
+            f'"{GITHUB_CI_APPROVED_KEY}": {{"{rel}": {{"sha256": "{sha}", '
+            f'"approved_by": "<Name>, <YYYY-MM-DD>: \\"<their words>\\""}}}}. '
+            f'If not, delete the file. Never write an approval the person '
+            f'did not give (practice: ci-workflow-approved).'))
+    # An approval that outlived its file is a hole nobody sees: bring the
+    # file back byte for byte and it would pass unasked
+    # (practice: checks-carry-a-declared-decline).
+    for rel in sorted(approved):
+        if not (ctx.root / rel).is_file():
+            findings.append(Finding(
+                rel, f'is approved in {GITHUB_CI_APPROVED_KEY} but no longer '
+                     f'exists -- remove the entry'))
     return findings
 
 

@@ -118,7 +118,7 @@ reply gate **prints** — the stop hook writes the practice to stderr after the
 reply has been composed and shown, so for a rule about what a reply must
 CONTAIN it arrives after the only moment it could have been applied, and that
 is written in the hook's own source. Only
-[precedent_reply_check.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/precedent_reply_check.py)
+[precedent_reply_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_reply_check.py)
 refuses a turn, and until this change it enforced one source's closing
 convention and nothing else.
 

@@ -1909,7 +1909,10 @@ TOOLS_DESCRIPTIONS = {
     'philosophy_backlinks.py': "EXPERIMENTAL — reports item-to-item citations in "
         "philosophy/ that run one way only; the return sentence is written by hand, "
         "never generated",
-    'precedent_push_check.py': "Everything GitHub CI used to run on a push, per kind of repository, run locally before it -- `push-check-gate.sh` refuses a push until it passes",
+    'precedent_push_check.py': "Everything GitHub CI used to run on a push, per kind of repository, run locally before it -- `push-check-gate.sh` refuses a push until it passes; a push to a working branch or pre-staging runs its basic tier only",
+    'precedent_branches.py': "The three branch tiers -- which branch is pre-staging, staging and main here, and whether a push to one gets the basic or the full push check (spec/BRANCH_TIERS_PLAN.md)",
+    'precedent_consumer_shape.py': "A practice source's check tests run the way a consuming repository runs them -- with git ignoring what a consumer typically ignores -- so a test that passes only in its home layout fails at home; a source's push check runs it",
+    'precedent_merge_check.py': "The push check on the merge GitHub would make, at its base branch's tier -- `merge-check-gate.sh` runs it before a pull request is merged through GitHub, a push no push gate sees",
     'precedent_paths.py': "The PATH-TRIGGERED channel — matches a touched file against every practice's `applies_to`",
     'precedent_promote.py': "Stage 3 (phase 5) — runs a candidate against the four promotion criteria",
     'precedent_refresh_sources.py': "Reports which attached practice-set sources have a stale vendored engine, and with --apply brings them up to date; also writes the git credential helper into any attached source clone that has none",

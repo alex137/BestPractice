@@ -151,6 +151,16 @@ jobs:
   # the full reasoning.
   leak-gate:
     name: Leak gate (structural)
+    # NEVER IN A PRIVATE REPO (spec/BRANCH_TIERS_PLAN.md, Morgan,
+    # 2026-09-25: "What I'd change the workflow files to" -- "Perfect").
+    # In a private repo tools/leak_gate.py stands down by design -- a push
+    # there publishes nothing -- so every run was a billed minute that
+    # checked nothing. A job whose `if:` is false never gets a runner and
+    # is never billed. `!= true` rather than `== false`: a missing context
+    # still scans, the safe direction. Public repos keep it on every push,
+    # where a push IS publication. The local push check runs the full leak
+    # gate before every push anyway, private blocklist included.
+    if: ${{ github.event.repository.private != true }}
     runs-on: ${{ vars.PRECEDENT_RUNNER || 'ubuntu-latest' }}
     steps:
       # No fetch-depth override -- nothing here walks git history. The scan

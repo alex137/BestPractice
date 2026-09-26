@@ -67,7 +67,7 @@ up to date in the same change.
 practice that changed after it. At the next sync the decision is made
 again against the current file
 ([vendor-update-runbook](vendor-update-runbook.md), step 4), and
-[tools/practice_audit.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/practice_audit.py) fails on a recorded
+[tools/practice_audit.py](https://github.com/alex137/BestPractice/blob/staging/tools/practice_audit.py) fails on a recorded
 decline whose upstream file has changed since.
 
 **Reconsidering is always open. It just comes after the work.** *"I know
@@ -129,7 +129,7 @@ The stale reading got in through three gaps, and each is closed somewhere:
    without looking at that decision again, and upstream's rule changed
    underneath it. Closed by step 4 of
    [vendor-update-runbook](vendor-update-runbook.md) and check 6 of
-   [tools/practice_audit.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/practice_audit.py).
+   [tools/practice_audit.py](https://github.com/alex137/BestPractice/blob/staging/tools/practice_audit.py).
 2. **A precedence clause that ranked an old copy above a newer decision.**
    The installed instructions said the personal pack wins on conflict, and
    the personal copy was the older one. Closed by this practice's
@@ -137,7 +137,7 @@ The stale reading got in through three gaps, and each is closed somewhere:
 3. **No loader, so no command list.** A classic install never gets the
    occasion index, so none of the standing commands reach it. That install
    path was retired on 2026-09-23 and such repos now migrate
-   ([spec/MIGRATING_EXISTING_INSTALLS.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/MIGRATING_EXISTING_INSTALLS.md)).
+   ([spec/MIGRATING_EXISTING_INSTALLS.md](https://github.com/alex137/BestPractice/blob/staging/spec/MIGRATING_EXISTING_INSTALLS.md)).
    After migrating, the index lists every command and this practice
    arrives in the resident block.
 

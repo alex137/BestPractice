@@ -12,6 +12,15 @@
 # run (just locally we do it, not via the github ci/cd)". The list lives in
 # precedent_push_check.py, one place; this file only decides WHEN to run it.
 #
+# WHICH CHECKS, BY BRANCH (spec/BRANCH_TIERS_PLAN.md, 2026-09-25). A push to
+# staging or main runs everything; a push to pre-staging or any other
+# branch runs the basic tier -- markdown lint, leak gate, commit author --
+# in seconds. This hook only hands the push's own arguments over
+# (--push-command); precedent_branches.py decides, and a push whose
+# destination it cannot read is checked fully. An older vendored
+# precedent_push_check.py ignores the flag and runs everything, so a hook
+# refreshed ahead of its engine is slower, never less safe.
+#
 # WHY A CLAUDE CODE HOOK AND NOT .git/hooks/pre-push -- the same answer
 # commit-identity-push-gate.sh beside this gives: `core.hooksPath` is set
 # globally on this machine, and putting one repo's checks into that global
@@ -66,6 +75,10 @@ push_args="$(printf '%s' "$cmd" \
 if printf '%s' "$push_args" | grep -qE '[[:space:]](--dry-run|-n|--delete|-d)([[:space:]]|$)'; then
     exit 0
 fi
+# Everything after `push`: the remote and refspecs that say which branch
+# this push writes to, and so which tier of checks it gets.
+push_rest="$(printf '%s' "$push_args" \
+  | sed -E 's/^git[[:space:]]+(-C[[:space:]]+[^[:space:]]+[[:space:]]+)?push//' || true)"
 
 project_dir="${CLAUDE_PROJECT_DIR:-.}"
 cwd="$(printf '%s' "$input" | jq -r '.cwd // empty' 2>/dev/null || true)"
@@ -114,7 +127,7 @@ else
     echo "NOTE: push-check-gate: no \`timeout\` command here, so a run that outlives the hook's own timeout would be let through unchecked." >&2
 fi
 set +e
-out="$(cd "$top" && ${limit[@]+"${limit[@]}"} python3 "$tool" --gate 2>&1)"
+out="$(cd "$top" && ${limit[@]+"${limit[@]}"} python3 "$tool" --gate --push-command "$push_rest" 2>&1)"
 rc=$?
 set -e
 

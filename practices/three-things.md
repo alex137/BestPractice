@@ -45,7 +45,7 @@ reservation**: the three are still the three most important things, chosen on
 the merits. Never fill the answer with marked items because they are marked,
 and never hand back a marked item that has not moved and does not bear on
 anything in front of them —
-[tools/todo_progress.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/todo_progress.py)
+[tools/todo_progress.py](https://github.com/alex137/BestPractice/blob/staging/tools/todo_progress.py)
 lists them, which is not the same as them mattering today.
 
 **Read before you answer.** The phrase names four inputs, and skipping any of

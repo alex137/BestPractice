@@ -121,7 +121,7 @@ REPO = pathlib.Path(__file__).resolve().parent.parent
 # in upstream_watermark.json, and read from there rather than repeated here
 # as a second literal that could drift from it.
 UPSTREAM_WATERMARK = REPO / 'tools' / 'upstream_watermark.json'
-DEFAULT_BRANCH = 'precedent-beta-v01'
+DEFAULT_BRANCH = 'staging'   # precedent-beta-v01 until 2026-09-25
 
 # practice: filename-separator -- every .json in tools/ uses underscores
 # (upstream_watermark.json, session_load_budgets.json, glossary_terms.json),

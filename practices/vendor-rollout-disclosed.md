@@ -28,9 +28,9 @@ side of the chain, say two things out loud, not one:
 1. **Does this need to reach the repos that vendor this one?** Most edits
    here do not -- a wording fix, a Story section filled in, a spec document,
    this repo's own
-   [MAP.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/MAP.md)
+   [MAP.md](https://github.com/alex137/BestPractice/blob/staging/MAP.md)
    or
-   [TODO.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/TODO.md).
+   [TODO.md](https://github.com/alex137/BestPractice/blob/staging/TODO.md).
    Say "no, self-contained" and move on when that is the honest answer.
    Living under one of the paths above is necessary for a change to matter
    downstream; it is not sufficient.

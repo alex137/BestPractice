@@ -18,7 +18,7 @@ closed:            2026-09-07
 
 - <a id="build-views-stdout-count"></a>**Done 2026-09-07 — `build_views.py`'s summary line reported a different
   practice count than the block it had just written.** Found merging
-  [precedent-beta-v01](https://github.com/alex137/BestPractice/tree/precedent-beta-v01)
+  [precedent-beta-v01](https://github.com/alex137/BestPractice/tree/staging)
   into a feature branch: the regenerated `AGENTS.md` header read *7 of 72
   practices* while the same run printed *resident 7/69* to stdout. The
   committed artifact was the correct half; the line a session reads to

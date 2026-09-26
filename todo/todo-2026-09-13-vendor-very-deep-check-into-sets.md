@@ -23,7 +23,7 @@ closed:            null
     three team sets — and nothing in the set measures it.
 
     **The asymmetry, measured 2026-09-13** against
-    `precedent-team-writing`'s [tools/ENGINE_MANIFEST.json](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/precedent_vendor_engine.py)-written
+    `precedent-team-writing`'s [tools/ENGINE_MANIFEST.json](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_vendor_engine.py)-written
     manifest: 16 engine files vendored. [tools/precedent_check.py](../tools/precedent_check.py)
     is one of them; [tools/very_deep_check.py](../tools/very_deep_check.py) and
     [tools/verify_harness.py](../tools/verify_harness.py) are not. So the

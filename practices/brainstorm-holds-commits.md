@@ -105,7 +105,7 @@ does not say a session may decide, on the person's behalf, that something
 has become a decision.
 
 **Rule compressed 2026-09-21**, in the reduction pass recorded in
-[todo-2026-09-21-resident-cap-was-measured-on-the-wrong-shape.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/todo/todo-2026-09-21-resident-cap-was-measured-on-the-wrong-shape.md).
+[todo-2026-09-21-resident-cap-was-measured-on-the-wrong-shape.md](https://github.com/alex137/BestPractice/blob/staging/todo/todo-2026-09-21-resident-cap-was-measured-on-the-wrong-shape.md).
 221 tokens -> 117, at that point the largest entry in the resident block.
 Nothing was dropped: the dirty-tree reasoning and the list of phrases that
 end a brainstorm moved into `## Detail` above, and *"when in doubt, it is a

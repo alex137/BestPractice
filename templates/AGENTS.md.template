@@ -114,6 +114,15 @@ deliverables and indexes which documents back each part of each one.
   human happens to be watching for the failure, and the whole point is
   that a person only ever attaches the one repo they're actually working
   in; reaching for the others is this session's own job, every time.
+  **Attach <individual-repo-name>, but never clone it by hand** (practice
+  `attach-never-clone-individual`). The attach tool's reply says to clone
+  it to `/home/user/<name>`; ignore that part. The session-start hook
+  clones it to the path `~/.config/precedent/config.json` names (normally
+  `~/precedent-individual`), and that is the only copy anything reads, so
+  edit the individual set there. A hand clone is a second copy nothing
+  loads, and it drifts from the first within the hour. <team-repo-name> is
+  the other way round: its clone lives at the path `precedent.json`
+  resolves, beside this repo, so clone it there if nothing has.
 
 
 ## Git / workflow

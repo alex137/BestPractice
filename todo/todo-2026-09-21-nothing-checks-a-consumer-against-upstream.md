@@ -148,3 +148,18 @@ with no local edits is brought up to the template on `refresh`, and an
 edited one is reported `DIVERGED` with each missing block named. So the
 check reaches an existing consumer on its next "Update Vendors", or, where
 its copy is edited, once somebody copies the named block in.
+
+**The same gap, one file over, closed the same day.** Everything
+`templates/AGENTS.md.loader.template` wrote outside the generated block was
+frozen at install: a refresh rewrote only that block, so a template fix
+reached no installed `AGENTS.md`, and nothing said so. A real consumer
+measured on 2026-09-25 had hand-fixed its own copy of the session-start
+bullet about where the individual set's clone lives; the template itself
+still said nothing about it. The engine now does for each `##`/`###`
+section what it does for `tools/bootstrap.sh` (`AGENTS_MD_TEMPLATES` in
+[precedent_vendor_engine.py](../tools/precedent_vendor_engine.py)): an
+unedited section is rewritten to the template, an edited one is reported
+`DIVERGED` with the bullets and sentences it lacks, and a missing one is
+reported once. The same run lists every hand-written line still naming a
+renamed branch (`RETIRED_BRANCH_NAMES`), which is what lets the
+`precedent-beta-v01` alias retire.

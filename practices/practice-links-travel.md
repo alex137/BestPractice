@@ -181,9 +181,9 @@ applied literally**: this is a rule about how practice files are written, and
 practice files are written here. The individual copy is still standing as of
 this landing — that repository could not be reached from the session that
 landed this one — and deduplicating it is
-[spec/MOVING_PRACTICES.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/MOVING_PRACTICES.md)'s
+[spec/MOVING_PRACTICES.md](https://github.com/alex137/BestPractice/blob/staging/spec/MOVING_PRACTICES.md)'s
 second step, queued in
-[TODO.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/TODO.md)
+[TODO.md](https://github.com/alex137/BestPractice/blob/staging/TODO.md)
 rather than done silently. The text here was written fresh rather than
 carried across, for the same reason: nobody in that session could read the
 original.

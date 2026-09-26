@@ -40,82 +40,51 @@
 # makes a run cheaper; this makes runs not happen. Spend your attention on
 # getting the list right: it should name what your light check actually
 # INSPECTS, and nothing else.
+#
+# SINCE 2026-09-25 THIS FILE CARRIES NO `paths:` FILTER: it runs only on a
+# pull request into main, which is rare enough that skipping one by file
+# type saves little and risks the one check guarding main. See `on:` below.
+#
+# DO NOT CHANGE WHEN THIS RUNS WITHOUT THE PERSON'S APPROVAL (2026-09-25,
+# practice: ci-workflow-approved). The installer pins this file's content in
+# precedent.json's github_ci_approved; any edit changes the hash and fails
+# every push until the person approves the new content, in their own words.
+# A consuming repo's own copy ran on every push to main for four days
+# because one session put back a trigger another had removed.
 name: Light check
 
 on:
-  # pull_request (opened, reopened, ready_for_review) PLUS push scoped to
-  # the branch(es) that actually receive merges.
+  # PULL REQUESTS INTO MAIN, AND NOTHING ELSE (spec/BRANCH_TIERS_PLAN.md,
+  # 2026-09-25). This is a repository's one GitHub test: pre-staging,
+  # staging and working branches are checked by the local push check before
+  # every push, and GitHub's job is only to re-check what is about to reach
+  # main on a clean machine that has none of the session's private sources.
+  # Morgan: "to main, you get all those local tests AND the most important
+  # GitHub test" (strength: decided).
   #
-  # `synchronize` IS DELIBERATELY ABSENT (2026-09-21, and this is the
-  # single largest cost lever in the file). It fires on EVERY push to a
-  # pull-request branch, so a session that commits seven times while
-  # working a PR bills seven runs to check the same tree seven times --
-  # six of them against work superseded minutes later. Measured in a real
-  # consuming repo: 38 runs on one day, 28 the next, 27 the next, on a
-  # workflow that was already one job with `paths:` filters from the day
-  # it was installed. The floor was never the problem there; the trigger
-  # was.
+  # No `paths:` filter: a pull request into main is rare, and the one check
+  # that guards main should not skip a change because of which files it
+  # touched. `synchronize` IS here, unlike the working-branch shape this
+  # file used to have: the pull request into main is staging, which moves
+  # only on a Promote, and the head that merges is the head that must have
+  # been checked.
   #
-  # WHAT THAT TRADES, said plainly: a pull request that goes red when it
-  # opens does not re-check itself as you fix it. You get a check when it
-  # opens, when a draft becomes ready, and when it lands on a named
-  # branch. Under a model where every edit arrives through a session that
-  # already runs the same checks before it commits, the intermediate runs
-  # were re-confirming what the session in front of you had just
-  # confirmed. `workflow_dispatch` is there to re-run one on demand.
+  # THAT REASONING ASSUMES A STAGING TIER. In a repository whose working
+  # branches open their pull requests straight into main, the head moves on
+  # every push, and `synchronize` bills a run for each one. Today the
+  # `[skip ci]` backstop below hides that cost. Such a repository must
+  # re-decide this line -- keep it, or drop it and re-run by hand before
+  # merging -- before that backstop is removed (a consuming repo found the
+  # gap on 2026-09-25, installing this file).
   #
-  # PUT `synchronize` BACK for a check whose value depends on catching a
-  # bad state the moment it is pushed rather than before it merges. THAT IS
-  # NOT HYPOTHETICAL, and the worked case is worth reading before you copy
-  # this file (measured by a consuming repo, 2026-09-21):
-  #
-  #   - A SECRET SCAN WANTS EVERY PUSH. A key pushed mid-branch stays in the
-  #     history after a later commit removes it, so checking only the first
-  #     and last states of a pull request checks the wrong thing. Conflict
-  #     markers and JSON/YAML/Python syntax survive fine at merge time; that
-  #     one does not.
-  #   - A PULL REQUEST CAN HAVE NO `opened` RUN AT ALL. In that repo, 2 of
-  #     the last 30 merged pull requests were checked ONLY by a synchronize
-  #     -- verified against one of them commit by commit, not inferred from
-  #     the aggregate. Dropping synchronize takes those to zero coverage.
-  #
-  #   Their saving from dropping it would have been about 3 billed minutes
-  #   per 30 pull requests. They kept it, and were right to.
-  #
-  # So: measure YOUR ratio before deciding. `synchronize` is expensive on a
-  # repo where a branch takes many pushes and near-free on one where it
-  # takes none, and the same flag is the right call in one and the wrong
-  # call in the other.
-  #
-  # CUSTOMIZE THE BRANCH LIST if this repo's routine merge target is not
-  # just `main`.
+  # The `[skip ci]` line the commit hook adds in a private repo is kept as a
+  # backstop until every install has this file (Morgan, 2026-09-25: "Backstops
+  # are good especially on this issue. We'll keep it until we're 100% sure
+  # all have been updated"). While it is, a pull request whose head carries
+  # it gets no run -- start one by hand with workflow_dispatch.
   pull_request:
-    types: [opened, reopened, ready_for_review]
-    paths:
-      # CUSTOMIZE: what your light check actually inspects. The defaults
-      # below are a starting point for a documentation-shaped repo, NOT a
-      # shipped answer -- a repo whose light check reads Python wants
-      # "**/*.py" here and probably not "**/*.md".
-      #
-      # Leaving this list off entirely is the expensive mistake: the
-      # workflow then runs on every pull-request event in the repository,
-      # including ones that touch nothing it looks at, and each of those is
-      # a billed minute for a guaranteed no-op.
-      - "**/*.md"
-      - "process/upstream/tools/**"
-      - "tools/**"
-      - "local/practices/**"
-      - "practices/**"
-      - ".github/workflows/light-check.yml"
-  push:
     branches: [main]
-    paths:
-      - "**/*.md"
-      - "process/upstream/tools/**"
-      - "tools/**"
-      - "local/practices/**"
-      - "practices/**"
-      - ".github/workflows/light-check.yml"
+    types: [opened, reopened, ready_for_review, synchronize]
   workflow_dispatch:
 
 # A second push on the same branch before this finishes cancels the first,

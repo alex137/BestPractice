@@ -1,6 +1,6 @@
 {
   "format_version": 1,
-  "base_branch": "precedent-beta-v01",
+  "base_branch": "staging",
   "_base_branch_comment": [
     "The branch this repo's own work is measured against: what",
     "'changed files' is relative to, what counts as already-published",
@@ -28,7 +28,9 @@
     "A consumer repo with no pin should",
     "declare its own default here rather than omit the key: an absent",
     "value falls back to origin/HEAD, which is the behaviour this",
-    "exists to stop relying on."
+    "exists to stop relying on.",
+    "",
+    "Renamed from precedent-beta-v01 to staging on 2026-09-25 (spec/BRANCH_TIERS_PLAN.md; Morgan: \"we should always call the staging one staging including renaming that branch to staging in precedent\", strength: decided; Alex approving, relayed by Morgan). precedent-beta-v01 is kept, fast-forwarded to staging by every Promote, so an install still pinned to it updates onto the engine that names staging."
   ],
   "visibility": "public",
   "branch_stale_days": 30,

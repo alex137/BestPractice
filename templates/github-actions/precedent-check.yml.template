@@ -144,10 +144,12 @@ on:
   # push events (a PR's merge commit landing on main is a push to main, not
   # an event on the now-closed PR branch). Nothing here fires twice for
   # the same commit.
+  # Pull requests into main only (spec/BRANCH_TIERS_PLAN.md, 2026-09-25):
+  # every other branch is checked locally before each push, and GitHub's
+  # one test guards what reaches main.
   pull_request:
-    types: [opened, reopened, ready_for_review]
-  push:
     branches: [main]
+    types: [opened, reopened, ready_for_review, synchronize]
   workflow_dispatch:
 
 # No `paths:` filter, for the same reason each check job below gives on its
@@ -182,7 +184,7 @@ permissions:
 # can stand up on their behalf. spec/CI_MINUTES_PLAN.md item 6 has the
 # trade-offs; GITHUB_ACTIONS.md's "Controlling Actions Minutes" is where
 # this variable is documented alongside the levers that need no opt-in at
-# all (ci_workflows disabled by default, branch scoping, one job per run).
+# all (github_ci_workflows disabled by default, branch scoping, one job per run).
 jobs:
   # ONE job. Both checks below are steps in it, not jobs of their own, and
   # there is no debounce job in front of them -- the header arithmetic is

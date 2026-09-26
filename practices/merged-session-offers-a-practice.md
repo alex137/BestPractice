@@ -23,7 +23,7 @@ approved_by: "Morgan F, 2026-09-14 -- he set every condition on it (a merge
 at most ONE bullet to its closing list naming a practice its own work turned
 up.** The bullet says what the rule would be, in one sentence, and at which
 level it would sit; the candidate is raised properly in the same turn with
-[precedent_candidate.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/precedent_candidate.py),
+[precedent_candidate.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_candidate.py),
 so the offer in the reply is a pointer to a real record rather than a remark.
 
 **All four conditions hold, or nothing is said at all.**
@@ -51,15 +51,15 @@ offer. Say that in one line rather than offering it twice.
 
 ## Detail
 **The mechanical half is
-[precedent_close_detect.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/precedent_close_detect.py),
+[precedent_close_detect.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_close_detect.py),
 and it fires on evidence rather than on the occasion.** It measures all four
 conditions from the session's own transcript — the merge from the tool calls
 that performed it, the close from the reply being written, the cap from
 whether a candidate was already offered — and then runs
-[precedent_detect.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/precedent_detect.py)'s
+[precedent_detect.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_detect.py)'s
 Stage-1 signals over material scoped to this session: the person's own
 messages, and commits made since it started. **Only a positive finding
-blocks.** It is not registered in [precedent_check.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/precedent_check.py)'s registry and `checked_by` is null, for the same reason every other reply-gate practice's is: what it checks is a conversation, and no tree-scoped check has ever been able to read one. A session with nothing to offer is never interrupted and is never
+blocks.** It is not registered in [precedent_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_check.py)'s registry and `checked_by` is null, for the same reason every other reply-gate practice's is: what it checks is a conversation, and no tree-scoped check has ever been able to read one. A session with nothing to offer is never interrupted and is never
 asked to say so, which is the difference between this and a closing line
 that has to be written either way.
 
@@ -71,7 +71,7 @@ honest answer to most hits is one line saying it was a one-off.
 **The phrases are declared, never compiled in.** "You can archive this
 session" is one person's closing convention. The engine reads a
 `close_detect.json` from each resolved source, exactly as
-[precedent_reply_check.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/precedent_reply_check.py)
+[precedent_reply_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_reply_check.py)
 reads `reply_check.json`, and a repo whose sources declare none is never
 blocked by this ([rule-level-by-reach](rule-level-by-reach.md)).
 
@@ -103,7 +103,7 @@ be followed or enforced, but it seems like I'm always the one making the
 suggestions. Does the system, as it is now, look for them?"*
 
 **It did not.** The investigation that answered him is written up in
-[spec/PRACTICE_DETECTION.md](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/spec/PRACTICE_DETECTION.md).
+[spec/PRACTICE_DETECTION.md](https://github.com/alex137/BestPractice/blob/staging/spec/PRACTICE_DETECTION.md).
 Stage 1's detector was referenced nowhere outside its own test and two
 generated index tables: no hook called it, no gate cited it, the occasion
 index had no entry pointing at it. The detection practice that should have
@@ -133,7 +133,7 @@ a test.
 
 ## Install
 Nothing to install where the engine is already wired: the Stop hook that
-runs [precedent_reply_check.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/precedent_reply_check.py)
+runs [precedent_reply_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_reply_check.py)
 runs this alongside it. To turn it on for yourself, declare the phrases in a
 `close_detect.json` at the root of whichever source carries your closing
 convention:

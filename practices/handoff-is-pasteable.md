@@ -222,7 +222,7 @@ Nothing to configure. It fires when a reply asks the person to go elsewhere.
 **Mechanically checked: no, and the attempt is recorded rather than left
 unsaid.** What this rule governs is a chat reply or a seeded prompt, and
 neither is a file in any repository, so there is nothing for
-[precedent_check.py](https://github.com/alex137/BestPractice/blob/precedent-beta-v01/tools/precedent_check.py)
+[precedent_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_check.py)
 to read. The reply gate carries it instead: this practice is registered on
 `reply`, so it prints at the moment a handoff is being written rather than
 after it has been sent.

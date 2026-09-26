@@ -247,6 +247,33 @@ def resolved_gate_practices(root, gate):
     return entries, notes, unresolved_level
 
 
+def _branches_module():
+    """tools/precedent_branches.py beside this file, or None."""
+    try:
+        sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+        import precedent_branches
+        return precedent_branches
+    except Exception:                                         # noqa: BLE001
+        return None
+    finally:
+        sys.path.pop(0)
+
+
+def _unpromoted(repo, staging, _git):
+    """-> how many commits origin/pre-staging carries that origin/<staging>
+    does not, when their content differs; 0 otherwise. Content, not just
+    lineage, for the reason _unlanded_work gives below."""
+    if not _git(repo, 'rev-parse', '--verify', '-q', 'refs/remotes/origin/pre-staging'):
+        return 0
+    ahead = _git(repo, 'rev-list', '--count', '--no-merges',
+                 f'origin/{staging}..origin/pre-staging')
+    if not ahead or ahead == '0':
+        return 0
+    if not _git(repo, 'diff', '--name-only', f'origin/{staging}', 'origin/pre-staging'):
+        return 0
+    return int(ahead)
+
+
 def _unlanded_work(root, siblings=True):
     """-> [str] one line per repo in this session whose committed work is not
     on the branch that repo actually merges into. Never raises.
@@ -317,6 +344,34 @@ def _unlanded_work(root, siblings=True):
         if not base:
             ref = _git(repo, 'symbolic-ref', '--quiet', 'refs/remotes/origin/HEAD')
             base = ref.rsplit('/', 1)[-1] if ref else 'main'
+        # The branch tiers (spec/BRANCH_TIERS_PLAN.md): for a person whose
+        # `Go update` lands on pre-staging, work there HAS landed -- what it
+        # still owes is a Promote, reported separately below.
+        staging = base
+        pb = _branches_module()
+        if pb is not None:
+            try:
+                landing, _why = pb.landing_branch(repo)
+                staging = pb.staging_branch(repo)
+            except Exception:                                 # noqa: BLE001
+                landing = base
+            if landing == pb.PRE_STAGING and _git(
+                    repo, 'rev-parse', '--verify', '-q',
+                    f'refs/remotes/origin/{pb.PRE_STAGING}'):
+                base = landing
+            pending = _unpromoted(repo, staging, _git) \
+                if landing == pb.PRE_STAGING else None
+            if pending:
+                name = repo.name if repo.resolve() != pathlib.Path(root).resolve() \
+                    else 'this checkout'
+                # Said gently, on purpose. A pre-staging batch waiting on a
+                # Promote is the normal state of the tiers, not a problem, and
+                # an urgent, bolded nudge every turn had several windows
+                # promoting at once and racing each other (Morgan,
+                # 2026-09-25, strength: decided).
+                out.append(f"{name}: pre-staging is {pending} commit(s) ahead of "
+                           f"'{staging}' -- a Promote can move them whenever "
+                           f"it suits")
         if head == base:
             continue
         ahead = _git(repo, 'rev-list', '--count', f'origin/{base}..HEAD')
@@ -780,6 +835,17 @@ def main():
         except Exception:                                     # noqa: BLE001
             _unlanded = []
         for _line in _unlanded:
+            if 'a Promote can move them' in _line:
+                # Not a hard requirement and not a call to action: one plain
+                # line, so the person knows, with no pressure to act now.
+                # Never an archive blocker either (Morgan, 2026-09-25): the
+                # work is already on origin, and a Promote can run from any
+                # session later.
+                print(f"- For The Boildown, one plain line, not bolded and "
+                      f"without urgency: {_line}. Mention it; do not press "
+                      f"for it, and never let it hold the archive line "
+                      f"(practice: the-boildown).")
+                continue
             print(f"- NOT YET LANDED: {_line}. The Boildown MUST say so and "
                   f"recommend merging it -- do not close a turn leaving this "
                   f"unsaid (practice: the-boildown).")
