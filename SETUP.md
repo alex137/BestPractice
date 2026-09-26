@@ -173,7 +173,15 @@ nothing to choose here — this page installs §0, always.
    4. **Let the automation open proposals** — **Settings → Actions →
       General → Workflow permissions**, ticking *Allow GitHub Actions to
       create and approve pull requests*.
-   5. **Put a few settings into Claude itself**, if they work in Claude
+   5. **Optional: turn GitHub Actions off, if this project needs no
+      automatic checks on GitHub** — **Settings → Actions → General →
+      Actions permissions → Disable actions** (as of 2026-09-26). In a
+      private repository every run costs minutes from their account; with
+      Actions off, a stray check file costs nothing. The checks that run on
+      their own machine before a push keep working. Say that it is
+      optional, and leave it on if the project relies on a check running
+      on GitHub.
+   6. **Put a few settings into Claude itself**, if they work in Claude
       Code on the web. Recommended, not required — but without them,
       every new session re-lives the same three problems: their own
       practices never load, work gets committed under the AI Assistant's
@@ -211,7 +219,7 @@ nothing to choose here — this page installs §0, always.
       [CLOUD_SETUP.md](documentation/CLOUD_SETUP.md); the full list of every variable and
       what each does is [PER_MACHINE_SETUP.md](documentation/PER_MACHINE_SETUP.md).
 
-   Put the same five into `GETTING_STARTED.md` so they are findable after
+   Put the same six into `GETTING_STARTED.md` so they are findable after
    this conversation closes.
 8. **Hand them the keys.** Close by telling them three things: members are
    onboarded by saying **"Add project members"** to the project's agent
