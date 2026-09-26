@@ -309,8 +309,9 @@ def merge_refusal(root, bases, heads, user_config=None):
 def tier_branches(root):
     """Every branch that is a tier here: main, staging (and its old name)
     and pre-staging. None of them may ever be the SOURCE of a pull request:
-    GitHub's "automatically delete head branches" deletes the branch a
-    merged pull request came from (2026-09-26, staging, see
+    A merged pull request's page offers to delete its source branch, and
+    staging was deleted right after a merge of it into main on 2026-09-26,
+    cause not established (see
     gotchas/gotcha-2026-09-26-a-pull-request-from-staging-deletes-staging.md)."""
     return sorted({MAIN, PRE_STAGING, LEGACY_STAGING, STAGING,
                    staging_branch(root)})
@@ -347,9 +348,9 @@ def ensure_tiers(root, apply=False, say=print):
         return 1
     if wants_staging_branch or not _remote_tip(root, staging):
         # A staging branch that has gone missing is rebuilt from the old
-        # name kept in step with it, else from main. 2026-09-26: GitHub's
-        # auto-delete-head-branches removed staging when a pull request
-        # FROM staging into main was merged, and this looked for staging
+        # name kept in step with it, else from main. 2026-09-26:
+        # staging was deleted right after a pull request FROM staging into
+        # main was merged (cause not established), and this looked for staging
         # itself to rebuild it from, found nothing and gave up. Right after
         # such a merge, main contains staging exactly.
         if wants_staging_branch:
