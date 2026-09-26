@@ -4,7 +4,7 @@ title:       State lives in one machine-readable registry; documents derive
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
-occasion:    "tracking state that multiple documents need to agree on"
+occasion:    "tracking state several documents must agree on"
 gates:       []
 index_clause: "state lives in one machine-readable registry; documents derive"
 checked_by:  null

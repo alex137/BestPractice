@@ -6,7 +6,7 @@ severity:    default
 applies_to:  ["todo/todo-*.md"]
 occasion:    "a person says \"Todo reminder\", or asks to be reminded of something"
 gates:       ["reply"]
-index_clause: "\"Todo reminder\" -- write it, set disposition ask and remind_on, never a trigger"
+index_clause: "write it with disposition ask and remind_on; never a trigger"
 checked_by:  null
 defines:     ["Todo reminder"]
 command:     {"Todo reminder": "Write the thing into the open-items file AND mark it as something to remind you about, so later sessions bring it up rather than waiting to be asked."}

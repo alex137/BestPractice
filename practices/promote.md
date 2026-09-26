@@ -4,9 +4,9 @@ title:       "\"Promote\" moves pre-staging into staging, with the full push che
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
-occasion:    "a message says \"Promote\" about the branch tiers, or asks to move pre-staging into staging"
+occasion:    "a message says \"Promote\" about branch tiers, or asks to move pre-staging into staging"
 gates:       ["merge"]
-index_clause: "\"Promote\" -- pre-staging into staging, fully checked, by a merge commit"
+index_clause: "pre-staging into staging, fully checked, by merge commit"
 checked_by:  null
 defines:     ["Promote", "pre-staging"]
 command:     {"Promote": "Land this session's own unsaved work on pre-staging first, then move everything waiting on pre-staging into staging: the full check runs on the whole batch, and staging moves only if it passes."}

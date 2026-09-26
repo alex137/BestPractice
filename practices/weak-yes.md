@@ -4,9 +4,9 @@ title:       "\"Weak yes\" authorizes the work and records that it was not argue
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
-occasion:    "a person says \"Weak yes\", or agrees in words that carry no conviction"
+occasion:    "a person says \"Weak yes\", or agrees without conviction"
 gates:       ["reply"]
-index_clause: "\"Weak yes\" -- do it, and record the approval as `assented`"
+index_clause: "do it, and record the approval as `assented`"
 checked_by:  null
 defines:     ["Weak yes"]
 command:     {"Weak yes": "Go ahead with it, and record that you were not convinced. Nobody will ask you why."}

@@ -4,7 +4,7 @@ title:       "The second-pass capture sweep: production work gets a separate cap
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
-occasion:    "finishing a substantial work-product, before the merge-time capture gate"
+occasion:    "finishing substantial work, before the merge capture gate"
 gates:       ["merge"]
 index_required: true
 index_clause: "a separate capture pass after the work, not inside it"

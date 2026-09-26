@@ -4,9 +4,9 @@ title:       A migration scrubs the old system's vocabulary immediately, not on 
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
-occasion:    "migrating a repo off an old practice system onto Precedent"
+occasion:    "migrating a repo onto Precedent from an old system"
 gates:       []
-index_clause: "scrub the old system's vocabulary the same session, not on request"
+index_clause: "scrub the old vocabulary in the same session, unasked"
 checked_by:  "tools/precedent_check.py"
 defines:     ["retired vocabulary"]
 status:      active

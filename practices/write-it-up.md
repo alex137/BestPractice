@@ -4,9 +4,9 @@ title:       "\"Write it up\" commits a self-contained report on the current iss
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
-occasion:    "a person asks, in whatever words, for a write-up of the issue or bug being worked"
+occasion:    "a person asks for a write-up of the issue being worked"
 gates:       []
-index_clause: "\"Write it up\" -- commit a full report of the issue and fix, then link it"
+index_clause: "\"Write it up\": commit a full report of issue and fix, then link it"
 checked_by:  null
 defines:     ["Write it up"]
 command:     {"Write it up": "Write a full report on the issue -- what it is, the context that led to it, and the proposed fix -- for a reader with none of this conversation, commit it to the branch you're on, and give the link."}

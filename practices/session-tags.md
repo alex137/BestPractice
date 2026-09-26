@@ -4,10 +4,10 @@ title:       "A session is tagged when it is created, in four namespaces"
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
-occasion:    "creating a session, or retagging one"
+occasion:    "creating, renaming or retagging a session"
 gates:       ["reply"]
 index_required: true
-index_clause: "tag a session at creation -- subject, repo, role, wants; never retrofitted"
+index_clause: "tag at creation: subject, repo, role, wants; never retrofitted"
 checked_by:  null
 defines:     ["subject:", "repo:", "role:", "wants:"]
 command:     null
