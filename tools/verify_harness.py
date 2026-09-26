@@ -23325,6 +23325,84 @@ def check_retired_branch_name_does_not_ship():
           not bad, '; '.join(f"{n} -- {d[:600]}" for n, d in bad))
 
 
+def check_refresh_sources_leaves_an_attached_consumer_alone():
+    """precedent_refresh_sources.py --apply, which the SessionStart hook runs
+    over every repo beside this checkout, writes into a CONSUMER only when
+    --path named it. On 2026-09-26 an attached consumer got five hook files
+    and a settings.json line on every start, two adapter-owned hooks
+    overwritten, and nothing committed -- so its own refresh refused to run
+    and the stop hook read the container as holding unsaved work.
+
+    Both worlds planted (practice: checks-plant-their-state): the consumer
+    found by the session-start scan is reported and byte-identical after,
+    and the same fixture with the guard neutered IS written, so the quiet
+    case is shown to come from the guard (practice:
+    control-asserts-which-failure). Hermetic: the scan and the tip are
+    pointed at a temporary directory, and nothing is fetched."""
+    import contextlib, io, json as _j, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_refresh_sources as prs
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='refresh-leaves-consumer-'))
+
+    def plant():
+        repo = tmp / 'consumer'
+        shutil.rmtree(repo, ignore_errors=True)
+        (repo / 'tools').mkdir(parents=True)
+        (repo / '.claude').mkdir()
+        (repo / 'tools' / 'ENGINE_MANIFEST.json').write_text(_j.dumps(
+            {'kind': 'consumer', 'source_commit': 'fixture-tip'}), encoding='utf-8')
+        (repo / '.claude' / 'settings.json').write_text('{}\n', encoding='utf-8')
+        return repo
+
+    def snapshot(repo):
+        return {str(f.relative_to(repo)): f.read_bytes()
+                for f in sorted(repo.rglob('*')) if f.is_file()}
+
+    def run(repo, argv):
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            rc = prs.main(argv)
+        return rc, buf.getvalue()
+
+    saved = (prs.candidate_dirs, prs.head_commit, prs._may_write)
+    try:
+        repo = plant()
+        prs.candidate_dirs = lambda extra=(): [repo, *(pathlib.Path(x).resolve()
+                                                       for x in extra)]
+        prs.head_commit = lambda: ('fixture-tip', 'origin/fixture')
+        before = snapshot(repo)
+        rc, out = run(repo, ['--apply'])
+        cases.append(('an attached consumer the session-start scan finds is '
+                      'reported LEFT ALONE, in the tool\'s own words',
+                      'LEFT ALONE: a consumer repo' in out, out[-600:]))
+        cases.append(('...and not one byte of it changes',
+                      snapshot(repo) == before, out[-600:]))
+        cases.append(('...and the run says it wrote nothing, exiting 0',
+                      rc == 0 and 'nothing written' in out, out[-600:]))
+        cases.append(('a practice set is still one --apply may write into',
+                      prs._may_write({'kind': 'source', 'repo': str(repo)}), ''))
+        cases.append(('a consumer named with --path is one it may write into',
+                      prs._may_write({'kind': 'consumer', 'repo': str(repo)},
+                                     {repo.resolve()}), ''))
+        repo = plant()
+        before = snapshot(repo)
+        prs._may_write = lambda entry, asked=(): True
+        rc, out = run(repo, ['--apply'])
+        cases.append(('CONTROL: with the guard neutered the same consumer IS '
+                      'written, so the quiet case above came from the guard',
+                      snapshot(repo) != before
+                      and 'LEFT ALONE' not in out, out[-600:]))
+    finally:
+        prs.candidate_dirs, prs.head_commit, prs._may_write = saved
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'the session-start refresh never writes into an attached consumer '
+          f'nobody named ({len(cases)} stated cases)',
+          not bad, '; '.join(f"{n} -- {d[:600]}" for n, d in bad))
+
+
 def check_a_hook_wired_from_elsewhere_is_reported_as_wired():
     """A hook a repo calls in place, from a path of its own, is WIRED --
     reported as wired, and still not vendored
@@ -34149,6 +34227,7 @@ def main():
     check_vendor_engine_refreshes_bootstrap_sh()
     check_vendor_engine_refreshes_agents_md_sections()
     check_retired_branch_name_does_not_ship()
+    check_refresh_sources_leaves_an_attached_consumer_alone()
     check_vendor_engine_retires_ci_workflow_files()
     check_workflow_file_outside_vendoring_detects_candidates()
     check_ci_workflow_approved_pins_approval_to_content()
