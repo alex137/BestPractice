@@ -24266,9 +24266,9 @@ def check_ci_fleet_audit_reads_github_not_the_clone():
         ('a workflow GitHub ran this week that is not on main is a FINDING',
          any(v == 'FINDING' and 'gone.yml: not on main' in t
              for v, t in r['rows'])),
-        ('every schedule lands in the CRON REVIEW, in plain words',
-         "'15 3 * * *' = daily at 03:15 UTC, ~30 runs/month -- NOT APPROVED"
-         in out),
+        ('a schedule shows among its workflow\'s triggers, and there is no '
+         'separate cron table', "schedule ['15 3 * * *']" in out
+         and 'CRON' not in out),
         ('a repository it cannot reach is NOT REACHED, never clean',
          not u['reached'] and 'NOT REACHED' in out and 'o/unreached' in out),
         ('the totals line counts the findings it printed',
@@ -24282,7 +24282,7 @@ def check_ci_fleet_audit_reads_github_not_the_clone():
     bad = [c[0] for c in cases if not c[1]]
     check(f'ci_fleet_audit reads GitHub: approved passes, an unapproved '
           f'workflow, a push-triggered side branch and a stray run are '
-          f'findings, crons are listed, the unreachable is named '
+          f'findings, schedules show as triggers, the unreachable is named '
           f'({len(cases)} stated cases)',
           not bad, '; '.join(bad) + ' -- ' + out[-1500:])
 

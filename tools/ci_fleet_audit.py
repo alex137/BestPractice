@@ -23,8 +23,12 @@ FOR EACH REPOSITORY IT REACHES:
     branch's, and whether pushing that branch would run them;
   * GitHub's own run count per workflow over the last 30 days, by event --
     runs, not minutes: each run bills at least one minute per job in a
-    private repository;
-  * a CRON REVIEW across the whole fleet, every schedule in one table.
+    private repository. A scheduled workflow shows its schedule among its
+    triggers, like any other; there is no separate schedule table (Morgan,
+    2026-09-26: "I do not want a cron review").
+
+IT RUNS ONLY WHEN ASKED: by hand, or as the very deep check's CI FLEET AUDIT
+section. Nothing schedules it.
 
 IT WRITES NOTHING, ANYWHERE. Output goes to the session that ran it. The
 report names other repositories, so it never goes into a repo, an issue or a
@@ -60,8 +64,6 @@ WF_DIR = '.github/workflows'
 DAYS = 30
 MAX_BRANCHES = 40
 RUN_PAGES = 3
-WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday',
-            'Friday', 'Saturday']
 
 
 def _default_call(path):
@@ -111,50 +113,6 @@ def push_fires(on, branch):
         return not any(fnmatch.fnmatch(branch, str(g))
                        for g in spec.get('branches-ignore') or [])
     return not ('tags' in spec or 'tags-ignore' in spec)
-
-
-def crons(on):
-    if not isinstance(on, dict):
-        return []
-    spec = on.get('schedule')
-    if not isinstance(spec, list):
-        return []
-    return [str(c.get('cron')) for c in spec
-            if isinstance(c, dict) and c.get('cron')]
-
-
-def cron_words(expr):
-    """-> (plain words, runs per month or None). Only the common shapes are
-    put into words; anything else is shown as written, never guessed at."""
-    f = expr.split()
-    if len(f) != 5:
-        return expr, None
-    mi, hr, dom, mon, dow = f
-    if mi.startswith('*/') and hr == dom == mon == dow == '*':
-        n = int(mi[2:]) if mi[2:].isdigit() else 0
-        return (f'every {n} minutes', 43200 // n) if n else (expr, None)
-    if not mi.isdigit():
-        return expr, None
-    if hr == '*' and dom == mon == dow == '*':
-        return f'every hour at :{int(mi):02d}', 720
-    if hr.startswith('*/') and hr[2:].isdigit() and dom == mon == dow == '*':
-        n = int(hr[2:])
-        return f'every {n} hours at :{int(mi):02d}', 720 // n
-    if not hr.isdigit() or dom != '*' or mon != '*':
-        return expr, None
-    at = f'{int(hr):02d}:{int(mi):02d} UTC'
-    if dow == '*':
-        return f'daily at {at}', 30
-    days = []
-    for part in dow.split(','):
-        if part.isdigit() and int(part) <= 7:
-            days.append(WEEKDAYS[int(part) % 7])
-        elif '-' in part and all(x.isdigit() for x in part.split('-')):
-            a, b = (int(x) for x in part.split('-'))
-            days += [WEEKDAYS[d % 7] for d in range(a, b + 1)]
-        else:
-            return expr, None
-    return f'weekly on {", ".join(days)} at {at}', round(4.3 * len(days))
 
 
 def _content(call, slug, path, ref):
@@ -243,10 +201,8 @@ def _runs_words(by_event):
 
 def audit_repo(slug, call=_default_call, days=DAYS,
                max_branches=MAX_BRANCHES, today=None):
-    """-> dict with 'reached', 'rows' [(verdict, text)], 'crons' [...],
-    'note'. Pure over `call`, so a test can plant any GitHub it likes."""
-    out = {'slug': slug, 'reached': False, 'rows': [], 'crons': [],
-           'note': ''}
+    """-> dict with 'reached', 'rows' [(verdict, text)] and 'note'. Pure over `call`, so a test can plant any GitHub it likes."""
+    out = {'slug': slug, 'reached': False, 'rows': [], 'note': ''}
     meta, err = call(f'repos/{slug}')
     if err or not isinstance(meta, dict) or 'default_branch' not in meta:
         msg = err or str((meta or {}).get('message', meta))[:200]
@@ -321,10 +277,6 @@ def audit_repo(slug, call=_default_call, days=DAYS,
             status += f' -- and it runs on every push to {default}, so every merge bills a run'
         rows.append((verdict, f'{path} [{default}{state_s}]: {status}. '
                               f'Runs on: {when}. Last {days} days: {ran}.'))
-        for c in crons(on):
-            words, per_month = cron_words(c)
-            out['crons'].append((slug, path, c, words, per_month,
-                                 verdict == 'OK'))
 
     branches, err = call(f'repos/{slug}/branches?per_page=100')
     if err or not isinstance(branches, list):
@@ -440,15 +392,6 @@ def render(results, days=DAYS, out=sys.stdout):
             findings += verdict == 'FINDING'
             w(f'      {verdict:<11} {text}\n')
         w('\n')
-    allcron = [c for r in results for c in r['crons']]
-    w('  CRON REVIEW -- every schedule on a default branch in the fleet\n')
-    if not allcron:
-        w('      none found in the repos reached\n')
-    for slug, path, expr, words, per_month, ok in allcron:
-        freq = f'~{per_month} runs/month' if per_month else 'frequency not put into words'
-        w(f"      {slug} {path}: '{expr}' = {words}, {freq}"
-          f"{'' if ok else ' -- NOT APPROVED'}\n")
-    w('\n')
     if unreached:
         w('  NOT REACHED -- not checked, which is not the same as clean\n')
         for r in unreached:
