@@ -62,8 +62,9 @@ by itself: no push gate sees a push made from inside a script.
 
 PROMOTE ALSO MOVES STAGING INTO MAIN, since 2026-09-26, and picks which of
 the two steps to run (promotion_step): the one the session names with --to,
-else the one the work it was just on needs (--work), else pre-staging first
-whenever it has work waiting. It prints "Now promoting from X to Y" before
+else pre-staging first whenever it has work waiting -- including when the
+work the session was just on (--work) waits on staging for main, since both
+steps waiting makes the Promote ambiguous -- else the one --work needs. It prints "Now promoting from X to Y" before
 anything else. Into main it runs the same full check on staging merged into
 main, then pushes a throwaway copy of staging for the pull request into
 main; that pull request's GitHub test is main's last gate, so main itself
@@ -1069,7 +1070,15 @@ def promotion_step(root, to=None, work=None):
             main -> staging into main.
     With neither, the tiers decide: work waiting on pre-staging goes first,
     and only when there is none does staging move into main. A repository
-    whose staging tier IS main has one step only."""
+    whose staging tier IS main has one step only.
+
+    When BOTH steps have work waiting -- pre-staging ahead of staging and
+    staging ahead of main -- an unnamed Promote is ambiguous, and it moves
+    pre-staging into staging even when `work` sits on staging already
+    (Morgan, 2026-09-26, strength: decided: "if my 'promote' is ambiguous
+    and you don't know which of the two types of promotion it should refer
+    to - then choose to do pre-staging to staging"). Only --to main
+    overrides that."""
     staging = staging_branch(root)
     if staging == MAIN:
         return STAGING, f'{MAIN} is the staging tier here, so there is one step'
@@ -1091,6 +1100,11 @@ def promotion_step(root, to=None, work=None):
             return STAGING, (f'the work just done ({work}) is not on {staging} '
                              f'yet, so it moves there first')
         if mtip and not on(mtip):
+            if ptip and stip and _new_commits(root, stip, ptip):
+                return STAGING, (f'the work just done ({work}) waits for '
+                                 f'{MAIN}, but {PRE_STAGING} also has work '
+                                 f'{staging} lacks, so the step is ambiguous '
+                                 f'and {PRE_STAGING} goes first')
             return MAIN, (f'the work just done ({work}) is on {staging} '
                           f'already and not yet on {MAIN}')
     if ptip and stip and _new_commits(root, stip, ptip):
