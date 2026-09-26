@@ -203,7 +203,7 @@ where both appear:
 - **`github_ci_every_hours`** (was `ci_every_hours`) -- still caps how often those opted-in runs happen
   in a private repo. **It never skips the main test.**
 
-## Three holes this has to close
+## Five holes this has to close
 
 **1. A merge through GitHub skips the local gate.** A session that merges a
 pull request with GitHub's merge tool makes no local push, so the push gate
@@ -234,6 +234,60 @@ would get no run. So **Promote always makes a merge commit** (`--no-ff`),
 which the cadence hook never tags, and **the hook never tags a commit on
 staging**. The move from staging to main is a merge, never a squash -- a
 squash message would carry the branch's `[skip ci]` lines with it.
+
+**4. Main moves on its own** (added 2026-09-26). The tiers assumed main
+moves only by the pull request from staging. It does not: a workflow can
+commit straight to main -- one consuming repository has two that do, one
+weekly -- and so can an edit on GitHub's website or a direct push. None of
+that climbs through pre-staging, so the next pull request into main meets
+it as a conflict. **The sync that `Go update` and Promote run first now
+copies main down into pre-staging too**, a basic-tier push like the staging
+sync; the next Promote carries it up to staging. It never pushes to staging
+or main. A repository whose staging tier IS main has nothing to copy.
+
+**5. Work that went round the checks spreads unchecked** (added
+2026-09-26). A bot commit, a web edit or a direct push reaches staging or
+main without the checks that tier requires. **Nothing is copied down until
+it has them**: for staging, the full local check; for main, that plus the
+GitHub test where one is installed. A published full-check receipt for the
+tip's exact tree counts (none means it went round the system, or the
+receipt aged out -- both are unchecked); for main's GitHub test, a run on
+the commit itself or on the pull request that brought it in. Promote runs
+whatever is missing -- the full check in a throwaway worktree, the GitHub
+test by the workflow's `workflow_dispatch` button, which every shipped
+test workflow already carries, so no workflow file changes -- and waits up
+to 30 minutes for the answer. **`Go update` only looks**: it copies what is
+already checked and names `--sync-pre-staging --check` for the rest, since
+a GitHub test can take many minutes and landing on pre-staging is meant to
+be instant. A failure is not copied and is reported with the commit and
+the check: the work is live on that tier already, so skipping the copy
+hides nothing, and the fix goes the normal way -- pre-staging, Promote, the
+pull request into main. Morgan, 2026-09-26: *"a good point to check to make
+sure anything that got onto main not through our system [...] had those
+checks and if not we should do it, including the GitHub CI/CD for main, and
+also for staging, if it got there through a different route"* (strength:
+decided).
+
+**Only a file change is drift.** Right after an ordinary pull request from
+staging into main, main is ahead of pre-staging by two merge commits (the
+Promote merge and the pull request's) whose files pre-staging already has
+-- measured 2026-09-26 in two repositories. The test is whether merging the
+upper branch in would change a file (`git merge-tree`), not whether the
+two tips are equal: a plain diff of the tips calls main different whenever
+pre-staging has moved on past it, which is most of the time. Such merges
+get no check, no copy and no note at session start (Morgan: *"yes add
+that"*). The freshness guard names the rest, per tier, with a count and
+*checked* or *unchecked*: `python3 tools/precedent_branches.py --drift`.
+
+**What 4 and 5 cost.** The local checks bill nothing. Each GitHub test the
+sync starts bills at least one Actions minute in a private repository; a
+public one, like this, bills none. Most private repositories get no GitHub
+test once they have taken the update (`github_ci_workflows` disabled, and
+[ci-workflow-approved](../practices/ci-workflow-approved.md) asks about each
+workflow at every update), and there the expected cost is zero. The API
+calls are counted by [`tools/github_budget.py`](../tools/github_budget.py) against a declared budget of
+60 per run in [`tools/github_api_budgets.json`](../tools/github_api_budgets.json): up to three to read a
+commit's state, and one per poll while a started test runs.
 
 ## Who it binds
 

@@ -230,6 +230,57 @@ def call(path, timeout=TIMEOUT, auth=True, cache=True):
     return result
 
 
+def post(path, payload, timeout=TIMEOUT):
+    """-> (ok, error) for a POST of `payload` as JSON. Never raises.
+
+    Added 2026-09-26 for one caller: precedent_branches.py pressing a
+    workflow's `workflow_dispatch` button, which answers 204 with no body --
+    so success is read off the status code, not off a parse of the body the
+    way call() reads it. Counted, and its rate-limit headers kept, exactly
+    as call() does. The token still travels on STDIN; the body, which holds
+    nothing secret, goes through a temporary file."""
+    value, _var = token()
+    if not value:
+        return False, 'no GitHub token is set here, so nothing can be started'
+    fd, body_path = tempfile.mkstemp(prefix='gh-budget-body-')
+    with os.fdopen(fd, 'w', encoding='utf-8') as f:
+        json.dump(payload, f)
+    headers_fd, headers_path = tempfile.mkstemp(prefix='gh-budget-hdr-')
+    os.close(headers_fd)
+    argv = ['curl', '-s', '-o', os.devnull, '-w', '%{http_code}',
+            '-D', headers_path, '--max-time', str(timeout), '-X', 'POST',
+            '-H', 'Accept: application/vnd.github+json',
+            '-H', 'Content-Type: application/json',
+            '--data-binary', f'@{body_path}', '-K', '-', API + path.lstrip('/')]
+    _SPEND['calls'] += 1
+    try:
+        r = subprocess.run(argv, input=f'header = "Authorization: Bearer {value}"\n',
+                           capture_output=True, text=True, timeout=timeout + 10)
+    except Exception as e:                  # noqa: BLE001 -- reported
+        _SPEND['errors'] += 1
+        return False, f'curl failed: {e}'
+    finally:
+        try:
+            raw = pathlib.Path(headers_path).read_text(errors='ignore')
+            for block in reversed(raw.split('\r\n\r\n')):
+                got = _parse_headers(block)
+                if any(k.startswith('x-ratelimit-') for k in got):
+                    _record_limits(got, path)
+                    break
+        except OSError:
+            pass
+        for leftover in (headers_path, body_path):
+            try:
+                os.unlink(leftover)
+            except OSError:
+                pass
+    code = r.stdout.strip()
+    if r.returncode != 0 or not code.startswith('2'):
+        _SPEND['errors'] += 1
+        return False, f'GitHub answered {code or "nothing"} (curl exit {r.returncode})'
+    return True, None
+
+
 def spend():
     """-> a copy of this process's own call counters."""
     return dict(_SPEND)
