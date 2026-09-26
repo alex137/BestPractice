@@ -8374,6 +8374,13 @@ def check_precedent_check_fires():
                          encoding='utf-8')
         case('catalogue-carries-stories', _plant_catalogue_stories)
 
+        def _plant_retired_branch_name(repo):
+            f = repo / 'practices' / 'name-both-sides-of-ledger.md'
+            body = f.read_text(encoding='utf-8')
+            f.write_text(re.sub(r'^index_clause: "', 'index_clause: "on precedent-beta-v01, ',
+                                body, count=1, flags=re.M), encoding='utf-8')
+        case('retired-branch-name-ships', _plant_retired_branch_name)
+
         # generated-edit-goes-upstream -- four shapes in one fixture, told
         # apart by the messages below rather than by the exit status
         # (practice: control-asserts-which-failure). MAP.md loses its
@@ -22904,6 +22911,98 @@ def check_vendor_engine_refreshes_agents_md_sections():
           f'overwriting it ({len(cases)} stated cases)',
           not bad, '; '.join(f"{n} -- {d[:800]}" for n, d in bad))
 
+def check_retired_branch_name_does_not_ship():
+    """precedent_check's retired-branch-name-ships: a practice whose shipped
+    text names a retired branch is reported where it is authored, because
+    every sync writes that text back into the consumers' generated blocks,
+    which refresh's own retired-name report skips on purpose. Measured
+    2026-09-26: a shared set's name-the-branch index_clause put
+    precedent-beta-v01 back into a consumer's AGENTS.md on every sync.
+
+    Both halves planted (practice: checks-plant-their-state): each shipped
+    place it must catch, each place it must leave alone, and a control that
+    empties the registry and watches the loud cases go quiet, so the
+    finding is shown to come from RETIRED_BRANCH_NAMES and nothing else
+    (practice: control-asserts-which-failure).
+    """
+    import tempfile
+    import precedent_check as pc
+    import precedent_vendor_engine as pve
+    old, (new, _date) = next(iter(pve.RETIRED_BRANCH_NAMES.items()))
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='retired-name-ships-'))
+
+    def practice(slug, tier='on-demand', status='active', clause='x',
+                 rule='Do the thing.', detail='More.', story='It happened.'):
+        return (f'---\nslug:        {slug}\ntitle:       T\ntier:        {tier}\n'
+                f'severity:    default\napplies_to:  []\noccasion:    "doing x"\n'
+                f'gates:       []\nindex_clause: "{clause}"\nchecked_by:  null\n'
+                f'defines:     []\nstatus:      {status}\nsupersedes:  []\n'
+                f'added:       "2026-09-26"\napproved_by: "fixture"\n---\n'
+                f'## Rule\n{rule}\n\n## Detail\n{detail}\n\n## Why\nw\n\n'
+                f'## Story\n{story}\n\n## Install\nNothing.\n')
+
+    files = {
+        'fx-clause': practice('fx-clause', clause=f'name it ({old}, main)'),
+        'fx-resident': practice('fx-resident', tier='resident',
+                                rule=f'Push to `{old}`.'),
+        'fx-both-names': practice('fx-both-names',
+                                  clause=f'`{new}` (named `{old}` until then)'),
+        'fx-history': practice('fx-history', rule=f'Pushed to `{old}` once.',
+                               detail=f'`{old}` was red.',
+                               story=f'It landed on `{old}`.'),
+        'fx-retired': practice('fx-retired', status='deduplicated',
+                               clause=f'name it ({old})'),
+        'fx-longer': practice('fx-longer', clause=f'name it ({old}-archive)'),
+    }
+    pdir = tmp / 'practices'
+    pdir.mkdir(parents=True)
+    for slug, text in files.items():
+        (pdir / f'{slug}.md').write_text(text, encoding='utf-8')
+
+    saved_root, saved_names = pc.ROOT, pve.RETIRED_BRANCH_NAMES
+    try:
+        pc.ROOT = tmp
+        found = {f.where: str(f.detail) for f in pc._retired_branch_name_ships(None)}
+        clause = found.get('practices/fx-clause.md', '')
+        cases.append(('an index_clause naming a retired branch is reported, in '
+                      'the check\'s own words and naming the new branch',
+                      f'its index_clause names {old}, renamed {new}' in clause
+                      and f'name {new} here instead' in clause, repr(found)))
+        cases.append(('a RESIDENT practice\'s Rule naming it is reported -- '
+                      'the resident block carries the whole Rule',
+                      'its ## Rule names' in found.get('practices/fx-resident.md', ''),
+                      repr(found)))
+        cases.append(('QUIET: text that names the new branch beside the old one '
+                      'is recording the rename, not using the old name',
+                      'practices/fx-both-names.md' not in found, repr(found)))
+        cases.append(('QUIET: an on-demand practice\'s Rule, Detail and Story '
+                      'keep their dated history',
+                      'practices/fx-history.md' not in found, repr(found)))
+        cases.append(('QUIET: a practice no longer in force ships nothing',
+                      'practices/fx-retired.md' not in found, repr(found)))
+        cases.append(('QUIET: a longer branch name containing the old one is a '
+                      'different branch',
+                      'practices/fx-longer.md' not in found, repr(found)))
+        pve.RETIRED_BRANCH_NAMES = {}
+        try:
+            pc._retired_branch_name_ships(None)
+            emptied = 'ran'
+        except pc.NotApplicable as e:
+            emptied = str(e)
+        cases.append(('CONTROL: with the registry empty the check says it cannot '
+                      'apply, so the findings above came from it',
+                      'predates RETIRED_BRANCH_NAMES' in emptied, emptied))
+    finally:
+        pc.ROOT, pve.RETIRED_BRANCH_NAMES = saved_root, saved_names
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'a retired branch name is caught in the practice text a sync ships, '
+          f'where it is authored ({len(cases)} stated cases)',
+          not bad, '; '.join(f"{n} -- {d[:600]}" for n, d in bad))
+
+
 def check_a_hook_wired_from_elsewhere_is_reported_as_wired():
     """A hook a repo calls in place, from a path of its own, is WIRED --
     reported as wired, and still not vendored
@@ -33552,6 +33651,7 @@ def main():
     check_vendor_engine_refreshes_ci_workflow_files()
     check_vendor_engine_refreshes_bootstrap_sh()
     check_vendor_engine_refreshes_agents_md_sections()
+    check_retired_branch_name_does_not_ship()
     check_vendor_engine_retires_ci_workflow_files()
     check_workflow_file_outside_vendoring_detects_candidates()
     check_ci_workflow_approved_pins_approval_to_content()
