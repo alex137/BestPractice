@@ -479,7 +479,11 @@ says so, both from the vendored tree under `process/upstream/`.
     rename on purpose, in which case name the new branch on the same line
     and the report stops listing it. Upstream keeps the old name working as
     an alias until no refresh reports one, so this is not an emergency, and
-    it is how the alias gets to retire.
+    it is how the alias gets to retire. The run never lists a line inside
+    the generated block, because the sync rewrites it. If one still names a
+    retired branch after step 5's regeneration, the text came from a practice, and
+    `precedent_check.py --only retired-branch-name-ships`, run in the set
+    that publishes it, names the practice to fix there.
 
     **In the same file, remove a hardcoded git identity.** A literal
     `git config user.name` or `user.email` in `tools/bootstrap.sh` or

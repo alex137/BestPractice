@@ -919,6 +919,84 @@ def _catalogue_carries_stories(ctx):
     return out
 
 
+# ---- retired-branch-name-ships ---------------------------------------------
+# The practice text a sync WRITES into other repositories -- the one-line
+# fields every generated block and the vocabulary render, and a resident
+# practice's whole Rule -- must not name a branch that has been renamed.
+_SHIPPED_FIELDS = ('title', 'occasion', 'index_clause', 'command')
+
+
+@check('retired-branch-name-ships', 'tree',
+       'no active practice in this catalogue names a retired branch '
+       '(precedent_vendor_engine.RETIRED_BRANCH_NAMES) in the text a sync '
+       'writes into other repositories -- its title, occasion, index_clause '
+       'or command, or the Rule of a resident practice -- unless the same '
+       'text also names the branch it became',
+       'a retired name in a Rule or Detail that stays on demand, and every '
+       'Why and Story: those are read one practice at a time, and most of '
+       'the mentions there are dated history that should keep the name it '
+       'had. It also knows only the renames the registry lists.',
+       practice_backed=False, binds_publishers=True,
+       selects_on=('practices/*.md', 'tools/precedent_vendor_engine.py'))
+def _retired_branch_name_ships(ctx):
+    """A retired branch name shipped from a catalogue comes back on every
+    sync, so the consumer-side report cannot be where it is fixed.
+
+    THE INCIDENT (2026-09-26). precedent-beta-v01 was renamed staging on
+    2026-09-25, and refresh started listing each line of a consumer's own
+    AGENTS.md, CLAUDE.md and tools/bootstrap.sh that still named it. It
+    skips the generated block on purpose -- the next sync rewrites that
+    from the catalogue, and a hand edit there is refused. Run against a
+    real consumer the day after, the generated block still named the old
+    branch: a shared set's name-the-branch practice carried it in its
+    index_clause, "name a branch literally (precedent-beta-v01, main)", so
+    the sync that was supposed to clear it wrote it straight back. Nothing
+    reported it anywhere. The fix belongs where the text is authored, so
+    this runs in whichever repo publishes the practice.
+    """
+    try:
+        import precedent_vendor_engine as pve
+    except ImportError:
+        raise NotApplicable('precedent_vendor_engine.py did not import, so '
+                            'the retired branch names cannot be read')
+    retired = getattr(pve, 'RETIRED_BRANCH_NAMES', None)
+    if not retired:
+        raise NotApplicable('this engine predates RETIRED_BRANCH_NAMES')
+    pdir = ROOT / 'practices'
+    if not pdir.is_dir():
+        return []
+
+    def named(name, text):
+        return re.search(rf'(?<![\w-]){re.escape(name)}(?![\w-])', text)
+
+    out = []
+    for path in sorted(pdir.glob('*.md')):
+        rel = str(path.relative_to(ROOT))
+        if _foreign_practice(rel):
+            continue
+        try:
+            fm, sections = sp._read_practice_file(path)
+        except Exception:
+            continue
+        if _practice_status(path.read_text(encoding='utf-8',
+                                           errors='ignore')) != 'active':
+            continue
+        shipped = [(f, str(fm.get(f) or '')) for f in _SHIPPED_FIELDS]
+        if str(fm.get('tier') or '').strip('"') == 'resident':
+            shipped.append(('## Rule', sections.get('rule') or ''))
+        for where, text in shipped:
+            for old, (new, date) in retired.items():
+                for line in text.splitlines():
+                    if named(old, line) and not named(new, line):
+                        out.append(Finding(
+                            rel, f'its {where} names {old}, renamed {new} on '
+                                 f'{date}, and every sync copies that into the '
+                                 f'repos that load this practice -- name {new} '
+                                 f'here instead'))
+                        break
+    return out
+
+
 
 # ---- practice-links-travel -------------------------------------------------
 # A practice file is copied into every repository that adopts the catalogue,
