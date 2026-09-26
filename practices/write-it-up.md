@@ -9,7 +9,7 @@ gates:       []
 index_clause: "\"Write it up\": commit a full report of issue and fix, then link it"
 checked_by:  null
 defines:     ["Write it up"]
-command:     {"Write it up": "Write a full report on the issue -- what it is, the context that led to it, and the proposed fix -- for a reader with none of this conversation, commit it to the branch you're on, and give the link."}
+command:     {"Write it up": "Write a full report on the issue -- what it is, the context that led to it, the options weighed and the holes found in them, and the fix that survived -- for a reader with none of this conversation, commit it to the repo's write-up folder (spec/ unless the repo says otherwise) on the branch you're on, and give the link."}
 status:      active
 in_force_at: null
 supersedes:  []
@@ -22,7 +22,9 @@ approved_by: "Morgan, 2026-09-18. Extended 2026-09-20, on instruction to
   vendoring this one. Extended again 2026-09-20, same instruction to all
   three commands: when the proposed solution belongs in a different
   session, say the seed root and the repos to attach in plain prose in the
-  reply, not only inside a report or block meant for someone else to read."
+  reply, not only inside a report or block meant for someone else to read.
+  Extended 2026-09-26: analyze and attack the idea before proposing it, and
+  a declared write-up directory, `writeup_dir`, defaulting to spec/."
 strength:    decided
 ---
 ## Rule
@@ -36,7 +38,15 @@ situation is currently in front of the session:
    who was not in this conversation** -- so it states, in full, plainly:
    - what the situation or issue is;
    - the context and the sequence of events that led to it;
-   - the proposed solution.
+   - **the analysis, done before any fix is written down as the proposal**:
+     the situation and the possible solutions, weighed against each other.
+     Once one idea looks right, **attack it** -- look for holes, failure
+     cases, what it breaks and what it fails to cover -- then revise and
+     improve it, and attack the revision the same way until it holds. The
+     report records that work: the options considered, the holes found, and
+     how the proposal answers each one;
+   - the proposed solution -- the idea that survived the analysis, not the
+     first one that came to mind.
    - **when the proposed solution would itself change something this repo
      ships to other repos** -- a practice file, a template, a hook, a
      vendored engine file, the same scope
@@ -52,8 +62,10 @@ situation is currently in front of the session:
    a second time for. This is the opposite of a terse summary: completeness
    is the point, not brevity.
 2. Commit that report as a file into the repository and branch the session
-   is currently working in -- never a separate report-tracking repo -- and
-   push it there.
+   is currently working in -- never a separate report-tracking repo -- in
+   the repository's **write-up directory**: `writeup_dir` in its
+   `precedent.json`, **`spec/` when the key is absent**, unless the person
+   names another place for this one. Push it there.
 3. Give the person the link to the committed file on that branch.
 4. **When the proposed solution needs a repository this session cannot
    reach, or plainly belongs in a different session**, say so in the reply
@@ -65,11 +77,29 @@ situation is currently in front of the session:
    gets the person moving on it now.
 
 ## Detail
-**Where the file goes** follows whatever convention the repo already has
-for this kind of document (a `reports/` directory, or wherever else
-write-ups already live); absent one, a plainly named file at the repo root
-is fine. Name it for the issue, not for the date or for "report" --
-[no-version-suffix](no-version-suffix.md).
+**Where the file goes, in order:** the place the person names for this
+write-up; else the repository's declared `writeup_dir` in `precedent.json`;
+else `spec/`. That default is applied, not asked about
+([declared-default-is-applied](declared-default-is-applied.md)), and the
+directory is created if it does not exist yet. Name the file for the issue,
+not for the date or for "report" --
+[no-version-suffix](no-version-suffix.md) -- and in the word separator that
+directory already uses ([filename-separator](filename-separator.md)).
+
+**Declare a different `writeup_dir` when `spec/` already means something
+else in the repository.** The common case is a Ruby project, where `spec/`
+holds the RSpec test suite: a report there would not break the tests, but
+it would sit among them where nobody looks for prose. The same goes for any
+repo whose `spec/` holds generated or machine-read files. One line in
+`precedent.json` (`"writeup_dir": "docs/writeups"`, say) settles it for
+every later write-up in that repository.
+
+**Why a declared directory rather than "wherever write-ups already live".**
+Any session in any repository running this layer can write these, and many
+will. Without one declared place they land wherever each session guesses,
+and the next reader has to search for them. `spec/` is the default because
+it is where this repository already keeps plans, briefs and analyses, which
+are the documents a write-up most resembles.
 
 **The push is part of the command, not a separate ask.** "Write it up"
 authorizes committing and pushing the report to the branch already in use,
@@ -130,6 +160,23 @@ the gap actually surfaced. `Write it up`'s own deliverable stays on this
 branch, but its proposed solution can still point at work that belongs
 elsewhere, and that routing was missing here the same way it was missing
 from the other two. Strength: decided.
+
+**Extended 2026-09-26**, on Morgan's instruction, in two parts. First, the
+analysis step: after the events and before the fix, *"tell it to analyze
+the situation and possible solutions including, once you have an idea, to
+find holes and problems in it, to revise and improve the idea -- before you
+even put it into the document to propose it."* Strength: decided. Second,
+where the file goes, which the rule had left to each session's guess:
+*"I like a folder like spec/ ... maybe that should be a standard we use to
+put them in a spec/ directory, unless directed otherwise? Maybe this is a
+variable defined in the repo, that is set to spec/ by default?"* -- asked as
+a question, answered by the session recommending exactly that, and approved
+with "Go update" in the same message. Strength: decided. Attacking the
+default before it landed turned up one hole: in a Ruby project `spec/` is
+the test suite, which is why the Detail tells such a repo to declare its own
+`writeup_dir` rather than live with the default. The report now records its
+own analysis, not only the result of it, because a reader who was not there
+cannot trust a proposal whose alternatives they never see.
 
 ## Install
 No mechanical check: like [go-merge](go-merge.md), whether a given reply
