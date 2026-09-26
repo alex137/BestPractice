@@ -102,20 +102,20 @@ says so, both from the vendored tree under `process/upstream/`.
    every later step confidently wrong: the diff is against the wrong
    lineage, and "already up to date" is the answer you get.
 
-   **For BestPractice that branch is `staging`, for every
-   install, for now** -- named `precedent-beta-v01` until 2026-09-25, a name
-   kept on origin and moved in step by every Promote, so an install still
-   pinned to it takes this update from it and is repointed to `staging` in
-   the same update, like one pinned to `main` (Morgan, 2026-09-24, `strength: decided`: *"they
-   should all be consistent and following the same one… for now, they
-   should all follow precedent-beta-v01"*). An install whose
-   `process/manifest.json` records `"branch": "main"` is repointed to
-   `staging` in this same update, and so is its
-   `tools/ENGINE_MANIFEST.json`. For a few hours on 2026-09-24 this step
-   said the opposite, on an approval Morgan later called assent rather than
-   a decision; that is how installs ended up split between the two
-   branches. Moving them all to `main` later is his call, made for every
-   install at once.
+   **For BestPractice that branch is `main`, for every install**, since
+   2026-09-25 -- the branch that has passed every local check and the
+   GitHub test (Morgan, 2026-09-25, `strength: decided`: *"Yes, switch all
+   installs to main. ... Let's do it, go ahead, go update"*). An install
+   whose `process/manifest.json` records `"branch": "staging"` -- or
+   `precedent-beta-v01`, staging's name until that morning -- is repointed
+   to `main` in this same update, and so is its `tools/ENGINE_MANIFEST.json`
+   (the refresh writes that one itself). The consequence to know: a change
+   reaches your other repositories only once it is on BestPractice's main,
+   which takes staging by a pull request, and a major one needs Alex's
+   named go-ahead. For one day before that, 2026-09-24, installs had been
+   split between `main` and `precedent-beta-v01` on an approval Morgan
+   later called assent rather than a decision; this move was made for
+   every install at once so that cannot happen again.
 
    **The two vendored layers do not both need this, and knowing which is
    which is the whole point of the step.** The ENGINE is read by blob out of

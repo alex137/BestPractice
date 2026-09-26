@@ -219,19 +219,20 @@ Run once, from BestPractice's own checkout, to vendor a NEW consumer repo
 (status/refresh above then work unchanged, kind auto-detected):
   python3 tools/precedent_vendor_engine.py seed <consumer-repo> --kind consumer
 
-SOURCE_BRANCH is 'staging' -- precedent-beta-v01 until 2026-09-25, when
-the branch was renamed and the old name kept, fast-forwarded to staging by
-every Promote, so an install still pinned to it takes one last update from
-it and then follows staging (spec/BRANCH_TIERS_PLAN.md). It is the branch
-work here lands on once fully checked, and
-every other repo takes its updates from it too, for now, so they all
-follow one branch (Morgan, 2026-09-24, strength: decided: "for now, they
-should all follow precedent-beta-v01"; "maybe later we'll move them all
-to follow main"). It read 'main' for a few hours that day, on an approval
-Morgan later described as assent rather than a decision ("That was more an
-assent, than a decision. I didn't think about it."), which left the
-installs split across two branches. Moving everyone to 'main' later is
-this one line plus runbook step 1, changed in the same PR.
+SOURCE_BRANCH is 'main', for every install at once, since 2026-09-25 --
+the branch whose content has passed every local check AND the GitHub test
+on the pull request into it (spec/BRANCH_TIERS_PLAN.md, "Installs take
+their updates from main"). Morgan, 2026-09-25, after the first merge of staging into main: "Yes, switch all installs to main. ... Let's do it, go ahead, go update" (strength: decided). An install pinned to staging (or to
+precedent-beta-v01, its name until that morning) takes this update from
+main and is repointed there in the same update, per runbook step 1.
+
+The history, because it was tried once before: on 2026-09-24 this read
+'main' for a few hours on an approval Morgan later called assent rather
+than a decision ("That was more an assent, than a decision. I didn't think
+about it."), which left the installs split across two branches, and it went
+back to precedent-beta-v01 ("for now, they should all follow
+precedent-beta-v01"; "maybe later we'll move them all to follow main").
+This is that later move, decided, and for every install at once.
 """
 import collections
 import hashlib
@@ -248,7 +249,7 @@ HERE = pathlib.Path(__file__).resolve()
 ENGINE_DIR = HERE.parent
 ROOT = ENGINE_DIR.parent
 SOURCE_REPO = 'https://github.com/alex137/BestPractice'
-SOURCE_BRANCH = 'staging'  # every install follows it, for now -- see docstring
+SOURCE_BRANCH = 'main'  # every install follows it -- see docstring
 
 ENGINE_FILES = [
     'build_views.py',
