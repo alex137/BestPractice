@@ -3612,6 +3612,153 @@ def _hooks_on_disk_are_reachable(ctx):
     return found
 
 
+_SOURCE_CLONE_RE = re.compile(
+    r'precedent_source_bootstrap\.py\b[^\n]*--(?:sources|teams)-from\b')
+_SCRIPT_PATH_RE = re.compile(r'((?:[\w.-]+/)*[\w.-]+\.sh)\b')
+# `$CLAUDE_PROJECT_DIR/`, `${CLAUDE_PROJECT_DIR:-.}/`, `$P/`: the repo root,
+# however a caller spells it. Dropped before matching, or the variable's own
+# name reads as the first path segment.
+_ROOT_VAR_RE = re.compile(r'\$\{[^}]*\}/|\$\w+/')
+
+
+def _script_paths(text):
+    return _SCRIPT_PATH_RE.findall(_ROOT_VAR_RE.sub('', text))
+
+
+def _session_start_scripts():
+    """-> [Path] every script in this repo that runs at session start: each
+    one a settings*.json SessionStart entry names, and each script those name
+    by path, followed through (session-start.sh execs tools/bootstrap.sh).
+
+    With no SessionStart entry anywhere, the harness-neutral
+    tools/bootstrap.sh stands in: on a harness with no session hook the
+    instructions file is what tells the agent to run it."""
+    roots = []
+    claude = ROOT / '.claude'
+    for sp in sorted(claude.glob('settings*.json')) if claude.is_dir() else []:
+        try:
+            hooks = json.loads(sp.read_text(encoding='utf-8')).get('hooks')
+        except (OSError, ValueError):            # practice: fail-gracefully
+            continue
+        entries = hooks.get('SessionStart') if isinstance(hooks, dict) else None
+        for entry in entries if isinstance(entries, list) else []:
+            for h in (entry.get('hooks') or []) if isinstance(entry, dict) else []:
+                cmd = h.get('command') if isinstance(h, dict) else None
+                if isinstance(cmd, str):
+                    roots.extend(_script_paths(cmd))
+    # joinpath, not the plain slash spelling: a practice set has no
+    # bootstrap.sh, and vendored-engine-file-refs-resolve reads that spelling
+    # as a companion the engine must ship.
+    if not roots and (ROOT / 'tools').joinpath('bootstrap.sh').is_file():
+        roots = ['tools/bootstrap.sh']
+    seen, queue = [], list(roots)
+    while queue:
+        rel = _strip_relative_prefix(queue.pop(0))
+        p = ROOT / rel
+        if p in seen or not p.is_file():
+            continue
+        seen.append(p)
+        try:
+            text = _invocation_text(p, p.read_text(encoding='utf-8',
+                                                   errors='ignore'))
+        except OSError:                          # practice: fail-gracefully
+            continue
+        queue.extend(_script_paths(text))
+    return seen
+
+
+@check('declared-sources-are-cloned', 'tree',
+       'a repo that declares a shared (or universal) practice source at a '
+       'path outside itself wires a session-start step that clones it -- '
+       'tools/precedent_source_bootstrap.py --sources-from, reached from a '
+       'SessionStart hook or tools/bootstrap.sh',
+       'whether that step succeeds: no credential in the environment, or a '
+       'set the credential cannot read, still leaves the set missing, and '
+       'the tool itself says so at session start. It reads comment-stripped '
+       'script text, so a step behind a condition that never holds still '
+       'counts. A source declared inside the repo (a vendored copy) needs no '
+       'clone and is not asked about.',
+       practice_backed=False,
+       selects_on=('.claude/**', 'bootstrap/**', 'tools/bootstrap.sh',
+                   'precedent.json'))
+def _declared_sources_are_cloned(ctx):
+    """A declared set that nothing clones is missing from every fresh
+    container, and nothing says so.
+
+    WHY THIS EXISTS (practice: cite-the-incident). Until 2026-09-26 the only
+    session-start code that cloned declared sources was
+    precedent-universal-catalogue.sh, the hook for practice SETS, and
+    spec/MIGRATING_EXISTING_INSTALLS.md tells every consumer to decline it.
+    templates/bootstrap.sh, which every consumer does run, never had the
+    step. A consumer that declared a shared set on purpose found it missing
+    from every fresh container, and precedent_sync_views.py --check reported
+    36 differences in its loader block that were really one absent
+    directory. Every check here passed throughout."""
+    try:
+        cfg = json.loads((ctx.root / 'precedent.json').read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        raise NotApplicable('no readable precedent.json, so no declared sources')
+    here = ctx.root.resolve()
+    outside = []
+    for src in cfg.get('sources') or []:
+        if not isinstance(src, dict):
+            continue
+        if src.get('level') not in ('shared', 'team', 'universal'):
+            continue
+        rel = str(src.get('path') or '').strip()
+        if not rel:
+            continue
+        p = (ctx.root / rel).resolve()
+        # Same test as precedent_source_bootstrap._declared_inside: the repo
+        # itself, or a vendored copy inside it, is never cloned.
+        vendored = (p == here or (here in p.parents and p.exists()
+                                  and not (p / '.git').exists()))
+        if not vendored:
+            outside.append(str(src.get('name') or rel))
+    if not outside:
+        raise NotApplicable('precedent.json declares no shared or universal '
+                            'source that is not this repo or vendored inside '
+                            'it, so nothing needs cloning at session start')
+    scripts = _session_start_scripts()
+    wired = None
+    for s in scripts:
+        try:
+            text = _invocation_text(s, s.read_text(encoding='utf-8',
+                                                   errors='ignore'))
+        except OSError:                          # practice: fail-gracefully
+            continue
+        if _SOURCE_CLONE_RE.search(text):
+            wired = s
+            break
+    # practice: checks-carry-a-declared-decline. A repo that puts its sets
+    # on disk some other way says so, with the reason, in
+    # precedent.json's `source_clone_elsewhere`.
+    declined = cfg.get('source_clone_elsewhere')
+    if declined is not None:
+        if not str(declined).strip():
+            return [Finding('precedent.json', 'source_clone_elsewhere is set '
+                            'with no reason. The reason is what makes it a '
+                            'decision rather than a silenced check')]
+        if wired is not None:
+            return [Finding('precedent.json', 'source_clone_elsewhere says '
+                            'declared sources are cloned some other way, but '
+                            f'{wired.relative_to(ROOT)} clones them at session '
+                            'start. Drop the stale declaration')]
+        return []
+    if wired is not None:
+        return []
+    looked = (', '.join(str(s.relative_to(ROOT)) for s in scripts)
+              or 'no session-start script at all')
+    return [Finding(
+        'precedent.json',
+        f'declares {", ".join(outside)} outside this repo, and no '
+        f'session-start step clones them (looked in: {looked}). A fresh '
+        f'container will not have them, so their practices are not in force '
+        f'and the loader block reads as drifted. The clone step is in '
+        f'templates/bootstrap.sh since 2026-09-26: take Update Vendors, or '
+        f'add its "Clone every shared practice set" block to tools/bootstrap.sh')]
+
+
 
 @check('new-hook-joins-the-registry', 'tree',
        'every hook script this repo ships (templates/harness/claude-code/'

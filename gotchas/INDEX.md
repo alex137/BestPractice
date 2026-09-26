@@ -132,4 +132,6 @@ Full catalogue, one file per trap. AGENTS.md carries only a pointer to this file
 
 - **A hosted session whose project directory sits ABOVE every repo it touches (`/home/user` holding several sibling clones, none of them `$CLAUDE_PROJECT_DIR`) gets its git state reset mid-session -- the commit identity in `~/.gitconfig` flips back to the container's own bot account with no `git config` command in between, and `HEAD` moves onto the base branch with no repo tool in the loop -- by something outside any repo's own tooling entirely.** [story](gotcha-2026-09-25-a-session-rooted-above-every-repo-it-touches-gets-hooks-and.md)
 
+- **A consumer repo declares a shared practice set in `precedent.json`, on purpose, and **the set is missing from every fresh container**. Nothing at session start says so. `python3 tools/precedent_sync_views.py --check` then reports dozens of differences in the loader block, and they all come from one absent directory. Clone the set by hand beside the repo and they drop to zero.** [story](gotcha-2026-09-26-a-declared-shared-set-is-never-cloned-in-a-consumer-s-fresh.md)
+
 - **Right after a pull request into `main` is merged, `staging` is gone from origin:** [story](gotcha-2026-09-26-a-pull-request-from-staging-deletes-staging.md)
