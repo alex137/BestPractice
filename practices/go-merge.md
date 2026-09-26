@@ -155,9 +155,12 @@ repositories is `main` -- unless the person's `landing_branch` says
 not necessarily anyone else"*, strength: decided), or `main` itself, which skips staging but never
 the checks, and still answers to the repository's own rule about main. **Landing on pre-staging,
 bring it in first**: `python3 tools/precedent_branches.py
---sync-pre-staging` creates it from staging when origin has none, then
-merge `origin/pre-staging` into the work before pushing, so every window
-lands on top of the others. Getting it onto staging is a separate step,
+--sync-pre-staging` creates it from staging when origin has none, and
+copies into it what reached staging or main by another route once that
+has had its tier's checks -- it only looks here, since a GitHub test can
+take many minutes, and names `--check` for anything still unchecked, which
+[promote](promote.md) runs -- then merge `origin/pre-staging` into the work
+before pushing, so every window lands on top of the others. Getting it onto staging is a separate step,
 [promote](promote.md).
 **A commit sitting in the working copy has not satisfied the phrase, and
 neither has a push you only know succeeded because the command said so:**

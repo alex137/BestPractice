@@ -560,16 +560,23 @@ _session_start_one() {
         fi
       fi
     fi
-    # Pre-staging behind staging: somebody pushed straight to staging
-    # (plan, hole 2). Reported and named, never merged from a hook -- the
-    # same rule this guard keeps for every base merge.
-    local staging
-    if [ "$base" = "pre-staging" ] && staging="$(_resolve_staging_base)" \
-        && [ "$staging" != "pre-staging" ]; then
-      _fetch_base "$staging"
-      if _have_ref "origin/$staging" && _have_ref "origin/pre-staging" \
-          && ! _git merge-base --is-ancestor "origin/$staging" "origin/pre-staging" 2>/dev/null; then
-        echo "NOTE: freshness-guard: origin/pre-staging is missing work pushed straight to origin/$staging. Bring it in: python3 tools/precedent_branches.py --sync-pre-staging" >&2
+    # Pre-staging behind a tier above it: somebody pushed straight to
+    # staging, or a workflow or a web edit committed straight to main
+    # (plan, holes 2, 4 and 5). Reported and named, never merged from a
+    # hook -- the same rule this guard keeps for every base merge.
+    # precedent_branches.py --drift says which tier, how many commits,
+    # and whether they have had their tier's checks, and stays silent about
+    # merge commits that change no file -- the two every ordinary pull
+    # request into main leaves behind.
+    if [ "$base" = "pre-staging" ]; then
+      local tool="" c
+      for c in "$ROOT/tools/precedent_branches.py" "$ROOT/process/upstream/tools/precedent_branches.py"; do
+        if [ -f "$c" ]; then tool="$c"; break; fi
+      done
+      if [ -n "$tool" ] && command -v python3 >/dev/null 2>&1; then
+        (cd "$ROOT" && python3 "$tool" --drift 2>/dev/null) | while IFS= read -r line; do
+          [ -n "$line" ] && echo "NOTE: freshness-guard: $line" >&2
+        done
       fi
     fi
   else
