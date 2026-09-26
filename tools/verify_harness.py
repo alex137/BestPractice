@@ -24526,6 +24526,78 @@ def check_vendor_engine_retires_ci_workflow_files():
           '; '.join(f"{n} -- {d[:800]}" for n, d in bad))
 
 
+def check_ledger_accepts_a_row_added_with_its_change():
+    """practice: parallel-artifact-ledger, 2026-09-26. A commit cannot name
+    its own ID, so the ledger check now also accepts a row added IN the
+    commit that changed an adapter. Planted in a scratch history: a row
+    arriving with its change passes; a change with no row, or with a row
+    added only in a later commit, still fails; a row naming the change by
+    ID still passes."""
+    import shutil, tempfile
+    import precedent_check as pc
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-ledger-same-commit-'))
+    member = tmp / 'templates' / 'harness' / 'claude-code'
+    ledger = tmp / 'templates' / 'harness' / 'LEDGER.md'
+    head = ('| Date | Originating change | claude-code | codex | gemini-cli '
+            '| grok-build |\n|---|---|---|---|---|---|\n')
+
+    def g(*a):
+        return subprocess.run(['git', *a], cwd=str(tmp), capture_output=True,
+                              text=True, env=dict(os.environ,
+                              GIT_AUTHOR_NAME='t', GIT_AUTHOR_EMAIL='t@e.invalid',
+                              GIT_COMMITTER_NAME='t',
+                              GIT_COMMITTER_EMAIL='t@e.invalid'))
+
+    def commit(msg, hook_text=None, row=None):
+        if hook_text is not None:
+            (member / 'hook.sh').write_text(hook_text)
+        if row is not None:
+            ledger.write_text(ledger.read_text() + row + '\n')
+        g('add', '-A')
+        g('-c', 'core.hooksPath=/dev/null', 'commit', '-qm', msg)
+        return g('rev-parse', 'HEAD').stdout.strip()
+
+    old_root = pc.ROOT
+    cases = []
+    try:
+        member.mkdir(parents=True)
+        g('init', '-q')
+        ledger.write_text(head)
+        (tmp / 'README').write_text('x')
+        commit('root')                                   # repo root: exempt
+        commit('inception of claude-code', hook_text='v1')  # dir's first: exempt
+        with_row = commit('change with its row', hook_text='v2',
+                          row='| 2026-09-26 | the gate learns v2 | applied | none | none | none |')
+        pc.ROOT = tmp
+        f1 = [str(x) for x in pc._parallel_artifact_ledger(None)]
+        cases.append(('CONTROL: a row added in the same commit as the change '
+                      'passes, with no ID in it', f1 == []))
+        bare = commit('change with no row', hook_text='v3')
+        late = commit('row added later, without the ID',
+                      row='| 2026-09-26 | the gate learns v3 | applied | none | none | none |')
+        f2 = [str(x) for x in pc._parallel_artifact_ledger(None)]
+        cases.append(('a change with no row of its own still fails, even '
+                      'when a later commit adds an ID-less row',
+                      any(bare[:7] in x and 'no row references' in x
+                          for x in f2)))
+        cases.append(('...and the ledger-only commit is not an adapter '
+                      'change', not any(late[:7] in x for x in f2)))
+        commit('pin', row=f'| 2026-09-26 | [`{bare[:7]}`](x) pinned | applied | none | none | none |')
+        f3 = [str(x) for x in pc._parallel_artifact_ledger(None)]
+        cases.append(('a row naming the change by ID still passes, as before',
+                      f3 == []))
+        cases.append(('the same-commit row was the one that passed',
+                      pc._ledger_row_added_by(with_row) is True
+                      and pc._ledger_row_added_by(bare) is False))
+    finally:
+        pc.ROOT = old_root
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [c[0] for c in cases if not c[1]]
+    check(f'the ledger check accepts a row added with its change, and still '
+          f'fails a change with no row ({len(cases)} stated cases)',
+          not bad, '; '.join(bad))
+
+
 def check_ci_workflow_approved_pins_approval_to_content():
     """THE INCIDENT (practice: ci-workflow-approved), 2026-09-25: a
     consumer's own light-check.yml billed a minute on every merge to main
@@ -34738,6 +34810,7 @@ def main():
     check_vendor_engine_retires_ci_workflow_files()
     check_workflow_file_outside_vendoring_detects_candidates()
     check_ci_workflow_approved_pins_approval_to_content()
+    check_ledger_accepts_a_row_added_with_its_change()
     check_ci_fleet_audit_reads_github_not_the_clone()
     check_session_start_warns_of_unapproved_workflow()
     check_workflow_write_gate_refuses_api_writes()

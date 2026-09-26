@@ -6478,6 +6478,32 @@ _LEDGER_MEMBER_DIRS = ('templates/harness/claude-code',
                        'templates/harness/grok-build')
 
 
+def _ledger_row_added_by(full_hash):
+    """-> True when commit `full_hash` itself added a ledger row with an
+    Originating change cell, False when it added none, None when git could
+    not say.
+
+    WHY A ROW NEED NOT NAME ITS OWN COMMIT (2026-09-26). A commit cannot
+    contain its own ID, so a row that names its change by ID can only be
+    written in a SECOND commit. Every adapter change therefore failed the
+    check once, then took a "LEDGER: pin the ... row to its commit" commit
+    and a second full check. A row added in the same commit as the change
+    is that change's row by construction: git records them together. The
+    rule is unchanged -- a change with no row still fails -- and a rebased
+    or squashed commit, whose ID changes, keeps its row. Morgan, 2026-09-26:
+    "Okay, let's build it, go update" (decided)."""
+    r = _git('show', '--format=', '--unified=0', full_hash, '--',
+             'templates/harness/LEDGER.md')
+    if r.returncode != 0:
+        return None
+    added = '\n'.join(line[1:] for line in r.stdout.splitlines()
+                      if line.startswith('+') and not line.startswith('+++'))
+    return any(re.search(r'\b20\d\d-\d\d-\d\d\b', line) and cell.strip()
+               for line, cell in zip(
+                   [l for l in added.splitlines() if l.startswith('|')],
+                   _ledger_change_cells(added)))
+
+
 def _ledger_change_cells(ledger_text):
     r"""The `Originating change` cell of every ledger row -- the one place a
     row's OWN change is named.
@@ -6581,8 +6607,10 @@ def _shallow_boundary_commits():
 @check('parallel-artifact-ledger', 'tree',
        '`templates/harness/LEDGER.md` exists, and every commit that touched '
        'a harness-adapter member (claude-code/, codex/, or gemini-cli/) is '
-       'named in exactly one row\'s `Originating change` cell -- a mention '
-       'in another row\'s prose is a citation, not that commit\'s own row',
+       'named in exactly one row\'s `Originating change` cell, or added its '
+       'own row in the same commit (a commit cannot name its own ID) -- a '
+       'mention in another row\'s prose is a citation, not that commit\'s '
+       'own row',
        'whether a referenced row is actually CORRECT -- the right verdict '
        'per member, not a rubber-stamped one -- only that a row exists for '
        'every commit that changed a member, the "any marked date without a '
@@ -6647,6 +6675,16 @@ def _parallel_artifact_ledger(ctx):
                 continue
             if not any(full_hash[:7] in cell or full_hash in cell
                        for cell in change_cells):
+                arrived = _ledger_row_added_by(full_hash)
+                if arrived:
+                    continue
+                if arrived is None:
+                    findings.append(Unverified(
+                        'templates/harness/LEDGER.md',
+                        f'{full_hash[:7]} ({member_dir}) is named by no row, '
+                        f'and git could not show whether it added one '
+                        f'itself -- not a finding, and not a pass'))
+                    continue
                 findings.append(Finding(
                     'templates/harness/LEDGER.md',
                     f'no row references {full_hash[:7]} ({member_dir}), a '
