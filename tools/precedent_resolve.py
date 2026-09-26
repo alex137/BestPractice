@@ -1068,19 +1068,77 @@ def resolve(sources):
     # why nobody wants the rule) is the publishing set's to keep, and its
     # own check reports it there; repeating it into every consumer's sync
     # would be noise nobody downstream can act on.
+    # The forwarding address is followed, not just looked up: a
+    # deduplication may name a slug that is itself a deduplicated stub one
+    # level down. Renaming go-merge to go-update on 2026-09-26 left a
+    # universal `go-merge` stub forwarding to `go-update`, and an individual
+    # set's own `go-merge`, deduplicated against the universal one, read IN
+    # FORCE NOWHERE in every consumer -- the rule was live the whole time,
+    # one hop further on.
     dangling = []
     for practice in retired:
         if bv.practice_status(practice['fm']) != bv.DEDUPLICATED_STATUS:
             continue
         msg = bv.status_contract_violation(
             practice['fm'], practice.get('sections'),
-            slug_in_force=lambda s: s in resolved)
+            slug_in_force=lambda s: follow_in_force_at(s, resolved, retired) is not None)
         if msg:
             dangling.append({'slug': practice['slug'], 'source': practice['source'],
                              'level': practice['level'], 'file': practice['file'],
                              'why': msg})
     return {'practices': resolved, 'shadowed': shadowed, 'blocked': blocked,
             'missing': missing, 'retired': retired, 'dangling': dangling}
+
+
+def follow_in_force_at(slug, resolved, retired):
+    """-> the slug IN FORCE that `slug` ends on once every deduplication's
+    `in_force_at:` is followed, or None when the chain ends nowhere.
+
+    `resolved` is resolve()'s {slug: practice} in force; `retired` its list
+    of non-active practices. A slug in force is its own answer. Otherwise
+    every DEDUPLICATED practice claiming that slug -- more than one source
+    can carry the same stub, and a set's copy can name the very slug it
+    carries -- is a hop to its own target. Stops on a slug already seen, so
+    a cycle (a -> b -> a, or a set's `go-merge` naming `go-merge`) ends in
+    None rather than a hang; `engine` and `none` are not slugs and end a
+    branch of the walk."""
+    hops = {}
+    for practice in retired:
+        if bv.practice_status(practice['fm']) != bv.DEDUPLICATED_STATUS:
+            continue
+        target = bv._json_str(practice['fm'].get('in_force_at', '')) or ''
+        if target and target not in (bv.IN_FORCE_AT_ENGINE, bv.IN_FORCE_AT_NOWHERE):
+            hops.setdefault(practice['slug'], []).append(target)
+    seen, queue = set(), [slug]
+    while queue:
+        s = queue.pop(0)
+        if s in seen:
+            continue
+        seen.add(s)
+        if s in resolved:
+            return s
+        queue.extend(hops.get(s, ()))
+    return None
+
+
+def forwarding_map(res):
+    """-> {slug: live slug} for every deduplicated slug not itself in force
+    whose `in_force_at:` chain ends on a slug that is. What a link to a
+    renamed or deduplicated practice's file should point at instead
+    (precedent_materialize._rewrite_links), since a consumer materializes
+    only practices in force and never the stub the link names."""
+    resolved, retired = res['practices'], res.get('retired', [])
+    out = {}
+    for practice in retired:
+        slug = practice['slug']
+        if slug in resolved or slug in out:
+            continue
+        if bv.practice_status(practice['fm']) != bv.DEDUPLICATED_STATUS:
+            continue
+        live = follow_in_force_at(slug, resolved, retired)
+        if live is not None:
+            out[slug] = live
+    return out
 
 
 def _is_blocking(practice):

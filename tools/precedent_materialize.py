@@ -212,7 +212,7 @@ _MANAGED_DIRS = ('practices/', 'tools/checks/')
 
 
 def _rewrite_links(data, source_file, out_dir, sibling_slugs=(), planned_out=(),
-                   may_name_source_repo=True):
+                   may_name_source_repo=True, forwards=None, forward_files=None):
     """Repoint one practice file's relative links for its new home.
 
     Returns the rewritten bytes. Any link this cannot place confidently is
@@ -252,7 +252,16 @@ def _rewrite_links(data, source_file, out_dir, sibling_slugs=(), planned_out=(),
     2026-09-06 by a consuming repo's own private-repo-scrub check, on a link
     this rewriter had just created. The link is left as it was written
     instead: a relative link that does not resolve is a smaller failure than
-    a disclosure that cannot be taken back."""
+    a disclosure that cannot be taken back.
+
+    `forwards` ({slug: live slug}, from precedent_resolve.forwarding_map)
+    and `forward_files` ({resolved source path: live slug}) repoint a link
+    to a renamed or deduplicated practice at the practice it forwards to.
+    A consumer materializes only what is in force, so the stub such a link
+    names is never written there: renaming go-merge to go-update on
+    2026-09-26 left every `go-merge.md` citation in the private sets dead in
+    every consumer. Only a live slug this run writes is used, so the new
+    link is a sibling by construction."""
     try:
         text = data.decode('utf-8')
     except UnicodeDecodeError:
@@ -273,6 +282,14 @@ def _rewrite_links(data, source_file, out_dir, sibling_slugs=(), planned_out=(),
             return m.group(0)
         if bare[:-3] in sibling_slugs and bare.endswith('.md') and '/' not in bare:
             return m.group(0)            # a sibling this run is also writing
+        live = None
+        if bare.endswith('.md') and '/' not in bare:
+            live = (forwards or {}).get(bare[:-3])
+        if live is None and forward_files:
+            live = forward_files.get(str((src_dir / bare).resolve()))
+        if live is not None and live in sibling_slugs:
+            anchor_part = ('#' + anchor) if anchor else ''
+            return f'{open_paren}{live}.md{anchor_part}{close}'   # the rule's new home
         cand = dest_dir / bare
         try:
             rel_out = cand.resolve().relative_to(out_root).as_posix()
@@ -1039,6 +1056,13 @@ def _materialize(sources, res, out_dir, dry_run=False, withheld=None,
     # A practice citing the script it ships (`../tools/create_word_doc.py`)
     # keeps its relative link: this run writes that file.
     planned_out.update(dest for dest, *_rest in ships_plan)
+    # A link to a renamed or deduplicated practice points at the stub, which
+    # is not in force and so is never written here; send it on to the live
+    # slug instead, when this run writes that one.
+    forwards = {slug: live for slug, live in pr.forwarding_map(res).items()
+                if live in all_slugs}
+    forward_files = {str(pathlib.Path(p['file']).resolve()): forwards[p['slug']]
+                     for p in res.get('retired', []) if p['slug'] in forwards}
     for slug, (practice, data) in sorted(practice_plan.items()):
         dest = practices_dir / f'{slug}.md'
         # Rewritten, not copied: a practice's relative links are written
@@ -1050,7 +1074,8 @@ def _materialize(sources, res, out_dir, dry_run=False, withheld=None,
         placed = _rewrite_links(data, practice['file'], out_dir,
                                 sibling_slugs=all_slugs,
                                 planned_out=planned_out,
-                                may_name_source_repo=practice['level'] != 'individual')
+                                may_name_source_repo=practice['level'] != 'individual',
+                                forwards=forwards, forward_files=forward_files)
         if not dry_run:
             dest.write_bytes(placed)
         written.append({'slug': slug, 'level': practice['level'],

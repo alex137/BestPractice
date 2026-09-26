@@ -27743,6 +27743,155 @@ def check_materialized_links_are_placed():
           not bad, '; '.join(f"{n} -- {d[:160]}" for n, d in bad))
 
 
+def _renamed_universal_fixture(tmp):
+    """A scratch consumer whose individual source cites a renamed universal
+    practice -- the shape the go-merge -> go-update rename (2026-09-26)
+    broke in every consumer. The universal source carries the live
+    `go-update` and a deduplicated `go-merge` stub forwarding to it; the
+    individual source carries its own `go-merge`, deduplicated against the
+    universal one by the OLD name, and a practice citing `go-merge.md` both
+    as a sibling and by a path into the universal clone. Returns the source
+    list, lowest precedence first, and the consumer directory."""
+    def write(path, slug, status='active', in_force_at=None, rule='x'):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        ifa = f'in_force_at: {in_force_at}\n' if in_force_at else ''
+        path.write_text(
+            f'---\nslug: {slug}\ntitle: Fixture\ntier: on-demand\n'
+            f'severity: default\napplies_to: []\noccasion: "x"\ngates: []\n'
+            f'index_clause: "x"\nchecked_by: null\ndefines: []\n'
+            f'status: {status}\n{ifa}supersedes: []\noverrides: null\n'
+            f'added: 2026-09-26\napproved_by: "harness, 2026-09-26"\n---\n'
+            f'## Rule\n{rule}\n\n## Why\nx\n\n## Story\nx\n\n## Install\nx\n',
+            encoding='utf-8')
+    uni, ind, consumer = tmp / 'uni', tmp / 'ind', tmp / 'consumer'
+    write(uni / 'practices' / 'go-update.md', 'go-update')
+    write(uni / 'practices' / 'go-merge.md', 'go-merge', 'deduplicated', 'go-update')
+    write(ind / 'practices' / 'go-merge.md', 'go-merge', 'deduplicated', 'go-merge')
+    write(ind / 'practices' / 'cites.md', 'cites',
+          rule='Sibling: [go-merge](go-merge.md#rule). '
+               'Path: [stub](../../uni/practices/go-merge.md).')
+    consumer.mkdir()
+    sources = [{'level': 'universal', 'name': 'precedent', 'path': str(uni)},
+               {'level': 'individual', 'name': 'precedent-individual',
+                'path': str(ind)}]
+    return sources, consumer, write
+
+
+def check_in_force_at_chain_is_followed():
+    """A deduplication naming a slug that is itself a deduplicated stub is in
+    force wherever that stub forwards to, not IN FORCE NOWHERE.
+
+    WHY. Renaming go-merge to go-update on 2026-09-26 left a universal
+    `go-merge` stub forwarding to `go-update`. An individual set's own
+    `go-merge`, deduplicated against the universal one by the old name,
+    was checked with a bare membership test against what resolved in force,
+    so every consumer read it IN FORCE NOWHERE while the rule was live one
+    hop on. The walk has to stop on a cycle as well: a set's copy names the
+    very slug it carries, which is a two-node loop the moment the other end
+    is missing."""
+    import shutil, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_resolve as _pr
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-chain-'))
+    cases = []
+    try:
+        sources, _consumer, write = _renamed_universal_fixture(tmp)
+        res = _pr.resolve(sources)
+        cases.append(('an individual deduplication naming a renamed universal '
+                      'stub resolves through it -- nothing dangling',
+                      not res['dangling'], str(res['dangling'])))
+        # getattr, so an engine without the helpers reports named failing
+        # cases rather than a traceback that hides which behaviour broke.
+        follow = getattr(_pr, 'follow_in_force_at', None)
+        fmap = getattr(_pr, 'forwarding_map', None)
+        cases.append(('the chain ends on the live slug',
+                      follow is not None and follow(
+                          'go-merge', res['practices'], res['retired']) == 'go-update',
+                      'follow_in_force_at missing' if follow is None else ''))
+        forwards = fmap(res) if fmap else None
+        cases.append(('forwarding_map names the rename',
+                      forwards == {'go-merge': 'go-update'}, str(forwards)))
+
+        # The control: take the live end away, and the same chain is
+        # dangling again -- following it must not make everything pass.
+        (tmp / 'uni' / 'practices' / 'go-update.md').unlink()
+        res = _pr.resolve(sources)
+        cases.append(('with the live end gone the chain is dangling, not '
+                      'quietly accepted',
+                      any(d['slug'] == 'go-merge' for d in res['dangling']),
+                      str(res['dangling'])))
+
+        # A cycle ends in None rather than a hang.
+        write(tmp / 'uni' / 'practices' / 'loop-a.md', 'loop-a', 'deduplicated', 'loop-b')
+        write(tmp / 'uni' / 'practices' / 'loop-b.md', 'loop-b', 'deduplicated', 'loop-a')
+        res = _pr.resolve(sources)
+        cases.append(('a cycle of deduplications is reported dangling and '
+                      'the walk terminates',
+                      {'loop-a', 'loop-b'} <= {d['slug'] for d in res['dangling']},
+                      str(res['dangling'])))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'a deduplication\'s in_force_at: chain is followed to the rule in '
+          f'force, with a cycle guard ({len(cases)} stated cases)',
+          not bad, '; '.join(f'{n} -- {d[:160]}' for n, d in bad))
+
+
+def check_links_to_renamed_practice_forward():
+    """A materialized link to a renamed or deduplicated practice points at the
+    live practice this run writes, not at a stub the consumer never gets.
+
+    WHY. A consumer materializes only what is in force. After the go-merge
+    -> go-update rename (2026-09-26), every `go-merge.md` citation in the
+    private sets was left as written by _rewrite_links -- and, from an
+    individual source, it may not become a URL either -- so the link was
+    dead in every consumer."""
+    import shutil, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_resolve as _pr, precedent_materialize as _pm
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-fwdlinks-'))
+    cases = []
+    try:
+        sources, consumer, _write = _renamed_universal_fixture(tmp)
+        res = _pr.resolve(sources)
+        _pm.materialize(sources, res, consumer)
+        placed = consumer / 'practices'
+        text = ((placed / 'cites.md').read_text(encoding='utf-8')
+                if (placed / 'cites.md').is_file() else '')
+        cases.append(('the stub itself is not materialized -- the reason the '
+                      'old link was dead',
+                      not (placed / 'go-merge.md').exists()
+                      and (placed / 'go-update.md').is_file(), ''))
+        cases.append(('a sibling link to the renamed slug now names the live '
+                      'one, anchor kept',
+                      '](go-update.md#rule)' in text, text[-300:]))
+        cases.append(('a path into the source clone naming the stub file is '
+                      'sent to the live sibling too',
+                      '](go-update.md)' in text
+                      and 'uni/practices/go-merge.md' not in text, text[-300:]))
+        cases.append(('an individual source still names no repository',
+                      'github.com' not in text, text[-300:]))
+
+        # With the live end not in this run there is nothing to forward to,
+        # so the link is left as written rather than invented.
+        (tmp / 'uni' / 'practices' / 'go-update.md').unlink()
+        res = _pr.resolve(sources)
+        _pm.materialize(sources, res, consumer)
+        text = (placed / 'cites.md').read_text(encoding='utf-8')
+        cases.append(('with no live slug in the run, the link is left alone',
+                      '](go-merge.md#rule)' in text, text[-300:]))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'a materialized link to a renamed practice forwards to the live '
+          f'practice ({len(cases)} stated cases)',
+          not bad, '; '.join(f'{n} -- {d[:160]}' for n, d in bad))
+
+
 def check_source_supplied_checks_run():
     """A `checked_by: tools/checks/check_x.py` claim actually RUNS.
 
@@ -35770,6 +35919,8 @@ def main():
     check_refresh_wired_settings_is_not_lost_work()
     check_link_anchors_resolve()
     check_materialized_links_are_placed()
+    check_in_force_at_chain_is_followed()
+    check_links_to_renamed_practice_forward()
     check_source_supplied_checks_run()
     check_individual_source_bootstrap_self_heals()
     check_stale_render_self_heals()
