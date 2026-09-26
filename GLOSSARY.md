@@ -34,6 +34,7 @@ Built from every practice's `defines:` frontmatter field -- the terms that pract
 | full practice audit | [full-practice-audit](practices/full-practice-audit.md) |
 | generated artifact | [generated-artifact-provenance](practices/generated-artifact-provenance.md) |
 | Go update | [go-update](practices/go-update.md) |
+| Graduate | [promote](practices/promote.md) |
 | headline capitalization | [headline-capitalization](practices/headline-capitalization.md) |
 | light check | [two-check-levels](practices/two-check-levels.md) |
 | merge runbook | [merge-runbook](practices/merge-runbook.md) |

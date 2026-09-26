@@ -368,8 +368,8 @@ When a message says "Archive" or "Archive?", or asks whether the session can be 
   archive-status-check — check pending; archive if clear, else say what isn't
 When a message says "Go update" or "Approved", or plainly authorizes a merge:
   go-update — "Go update"/"Approved": default push; high-risk: sync, branch, PR, merge
-When a message says "Promote" about branch tiers, or asks to move pre-staging into staging or staging into main:
-  promote — pre-staging->staging or staging->main, chosen from the work; says which
+When a message says "Promote" or "Graduate" about branch tiers, or asks to move pre-staging into staging or staging into main:
+  promote — "Promote"/"Graduate": pre-staging->staging or staging->main; says which
 When a message says "Push directly" [to a branch], or says to skip the PR for one change:
   push-directly — no PR; with no branch named, the branch already in play
 When a message says "Update Vendors", or an upstream update is taken into a vendoring repo:

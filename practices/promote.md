@@ -1,15 +1,15 @@
 ---
 slug:        promote
-title:       "\"Promote\" moves pre-staging into staging, or staging into main, and says which first"
+title:       "\"Promote\" (or \"Graduate\") moves pre-staging into staging, or staging into main, and says which first"
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
-occasion:    "a message says \"Promote\" about branch tiers, or asks to move pre-staging into staging or staging into main"
+occasion:    "a message says \"Promote\" or \"Graduate\" about branch tiers, or asks to move pre-staging into staging or staging into main"
 gates:       ["merge"]
-index_clause: "pre-staging->staging or staging->main, chosen from the work; says which"
+index_clause: "\"Promote\"/\"Graduate\": pre-staging->staging or staging->main; says which"
 checked_by:  null
-defines:     ["Promote", "pre-staging"]
-command:     {"Promote": "Land this session's own unsaved work on pre-staging first, then move the next tier up -- pre-staging into staging, or staging into main, whichever the work just done needs -- saying which before it starts. The whole batch gets the checks of the branch it is entering -- the full local check going into staging, that plus the GitHub test going into main -- and nothing moves unless they pass."}
+defines:     ["Promote", "Graduate", "pre-staging"]
+command:     {"Promote": "Land this session's own unsaved work on pre-staging first, then move the next tier up -- pre-staging into staging, or staging into main, whichever the work just done needs -- saying which before it starts. The whole batch gets the checks of the branch it is entering -- the full local check going into staging, that plus the GitHub test going into main -- and nothing moves unless they pass.", "Graduate": "The same as **Promote**: land this session's own unsaved work on pre-staging first, then move the next tier up -- pre-staging into staging, or staging into main -- saying which first, and only if that branch's checks pass."}
 status:      active
 in_force_at: null
 supersedes:  []
@@ -28,14 +28,19 @@ approved_by: "Morgan, 2026-09-25 -- the three branch tiers are his own
   promoted from pre-staging to staging and the full suite of tests ran on
   pre-staging and nothing has changed\", strength: decided). Saving the
   session's own work with Go update before promoting is his rule too
-  (Morgan, 2026-09-25, strength: decided)."
+  (Morgan, 2026-09-25, strength: decided). \"Graduate\" as a second word
+  for the same command is his too (Morgan, 2026-09-26: \"Let's add a new
+  vocab word 'graduate' to be used as a synonym for 'promote'\", strength:
+  decided)."
 strength:    assented
 ---
 ## Rule
-When a message says **"Promote"** about the branch tiers -- the whole
-message, or a clause like "promote pre-staging" -- **first check this
-session's own branch for work that is not on pre-staging yet**: anything
-uncommitted, or committed but not yet landed. **If there is any, run
+When a message says **"Promote"** or **"Graduate"** about the branch
+tiers -- the whole message, or a clause like "promote pre-staging" or
+"graduate staging" -- they are one command, and everything below applies to
+both words: **first check this session's own branch for work that is not
+on pre-staging yet**: anything uncommitted, or committed but not yet
+landed. **If there is any, run
 [Go update](go-update.md) on it first**, which lands it on pre-staging, and
 confirm `origin/pre-staging` carries it. Promote carries that authorization
 itself: nobody is asked a second time. Only then run, in the repository the
@@ -169,8 +174,8 @@ it.
 
 **Not practice promotion.** Moving a practice *candidate* into the
 catalogue is also called promotion, and a message about a candidate or a
-practice means that step, which has its own tool. This command is about
-branches, never a practice.
+practice means that step, which has its own tool -- whichever of the two
+words it uses. This command is about branches, never a practice.
 
 ## Why
 Pre-staging exists so that many windows can save in seconds: a push there
@@ -195,6 +200,11 @@ the decisions and how firmly each was made, is
 branch the work enters. It always did -- the Rule above runs staging's
 checks into staging and main's into main -- so only the summary changed, to
 say so.
+
+**"Graduate" became a second word for it on 2026-09-26**, at Morgan's ask.
+It means exactly what Promote means -- same check, same lock, same choice
+of step -- so nothing in the tooling changed; only this file's trigger and
+the vocabulary list learned the word.
 
 ## Install
 Nothing to install beyond the engine: [precedent_branches.py](../tools/precedent_branches.py) ships in
