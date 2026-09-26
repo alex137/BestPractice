@@ -95,9 +95,15 @@ makes. It binds any repo that keeps a `.github/workflows/` directory
 
 **What the push check cannot see, and what covers it** (2026-09-26):
 
-- **A workflow added through the GitHub API or edited on the website**
-  never passes a session's push. Every session start runs the same check on
-  the fresh clone and prints a loud warning
+- **A session writing a workflow straight onto GitHub** with a file-write
+  tool never passes a push. `workflow-write-gate.sh` refuses that call
+  before it runs and sends the session to a clone and a push
+  ([templates/harness/claude-code/hooks/workflow-write-gate.sh](https://github.com/alex137/BestPractice/blob/staging/templates/harness/claude-code/hooks/workflow-write-gate.sh)).
+  It guards Claude Code sessions only.
+- **A workflow edited on GitHub's website, or written by anything the
+  guard above does not cover,** is caught next time a session opens the
+  repo: every session start runs the same check on the fresh clone and
+  prints a loud warning
   ([templates/bootstrap.sh](https://github.com/alex137/BestPractice/blob/staging/templates/bootstrap.sh)),
   so it is named before the first piece of work.
 - **A workflow on a side branch, one GitHub ran that is no longer on the

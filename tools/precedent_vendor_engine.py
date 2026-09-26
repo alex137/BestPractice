@@ -861,6 +861,9 @@ _SEEDED_PROMPT_MATCHER = ('mcp__.*__(create_session|create_trigger|'
 # The merge gate fires on the GitHub MCP server's merge tool and on Bash,
 # where it looks for `gh pr merge` and exits at once on anything else.
 MERGE_GATE_MATCHER = 'Bash|mcp__.*__merge_pull_request'
+# The workflow-write gate fires on the tools that write a file straight onto
+# GitHub, the one route a push gate never sees (ci-workflow-approved).
+WORKFLOW_WRITE_MATCHER = 'mcp__.*__(create_or_update_file|push_files)'
 HOOK_WIRING = {
     'consumer': (
         ('SessionStart', None, 'session-start.sh', ''),
@@ -885,6 +888,9 @@ HOOK_WIRING = {
         # The same check before a merge through GitHub, which no push gate
         # sees (spec/BRANCH_TIERS_PLAN.md, hole 1).
         ('PreToolUse', MERGE_GATE_MATCHER, 'merge-check-gate.sh', ''),
+        # No workflow file written straight onto GitHub, past the push gate
+        # that checks its approval (2026-09-26).
+        ('PreToolUse', WORKFLOW_WRITE_MATCHER, 'workflow-write-gate.sh', ''),
         ('Stop', None, 'stop-git-check.sh', ''),
         ('Stop', None, 'stop-reply-check.sh', ''),
     ),
@@ -908,6 +914,7 @@ HOOK_WIRING = {
         # only thing that runs its checks before a push (2026-09-25).
         ('PreToolUse', 'Bash', 'push-check-gate.sh', ''),
         ('PreToolUse', MERGE_GATE_MATCHER, 'merge-check-gate.sh', ''),
+        ('PreToolUse', WORKFLOW_WRITE_MATCHER, 'workflow-write-gate.sh', ''),
     ),
 }
 # A hook that needs more than the harness's default time gets its own
