@@ -8,7 +8,7 @@ ci]` line on the commit, spec/CI_CADENCE_PLAN.md). And since 2026-09-21 a
 practice source runs no CI at all (practice: source-sets-run-no-ci). Every
 one of those decisions was argued on the same premise -- "the local check
 runs before the push, so CI is a second opinion" -- and nothing ran the
-local check. It was a sentence in AGENTS.md and in go-merge's Rule. His
+local check. It was a sentence in AGENTS.md and in go-update's Rule. His
 ask, on being shown that: "it should be the same list of everything we
 used to run (just locally we do it, not via the github ci/cd)."
 

@@ -103,13 +103,13 @@ are the documents a write-up most resembles.
 
 **The push is part of the command, not a separate ask.** "Write it up"
 authorizes committing and pushing the report to the branch already in use,
-the same way [go-merge](go-merge.md) authorizes its own chain -- the person
+the same way [go-update](go-update.md) authorizes its own chain -- the person
 should not have to be asked a second time whether the file they just asked
 for should actually be saved. It does **not** by itself authorize opening a
 pull request or merging anything; where the branch reaches its target only
 through a reviewed PR, the report sits on the branch, pushed, linked, and
 waiting there like any other commit, unless the person separately says
-[go-merge](go-merge.md) or names the same intent.
+[go-update](go-update.md) or names the same intent.
 
 **The report is the deliverable, not a chat summary of it.** A reply that
 describes what the report says instead of linking to the committed file has
@@ -179,6 +179,6 @@ own analysis, not only the result of it, because a reader who was not there
 cannot trust a proposal whose alternatives they never see.
 
 ## Install
-No mechanical check: like [go-merge](go-merge.md), whether a given reply
+No mechanical check: like [go-update](go-update.md), whether a given reply
 correctly recognized the request is a judgment about the conversation, not
 a property a script can see in the resulting diff.

@@ -9,7 +9,7 @@ Built from every practice's `defines:` frontmatter field -- the terms that pract
 | allowance pool | [github-api-budget](practices/github-api-budget.md) |
 | always-loaded surface | [session-load-budget](practices/session-load-budget.md) |
 | API budget | [github-api-budget](practices/github-api-budget.md) |
-| Approved | [go-merge](practices/go-merge.md) |
+| Approved | [go-update](practices/go-update.md) |
 | Archive | [archive-status-check](practices/archive-status-check.md) |
 | Archive? | [archive-status-check](practices/archive-status-check.md) |
 | assented | [decision-strength](practices/decision-strength.md) |
@@ -33,7 +33,7 @@ Built from every practice's `defines:` frontmatter field -- the terms that pract
 | filtered branches page | [branch-delete-links](practices/branch-delete-links.md) |
 | full practice audit | [full-practice-audit](practices/full-practice-audit.md) |
 | generated artifact | [generated-artifact-provenance](practices/generated-artifact-provenance.md) |
-| Go update | [go-merge](practices/go-merge.md) |
+| Go update | [go-update](practices/go-update.md) |
 | headline capitalization | [headline-capitalization](practices/headline-capitalization.md) |
 | light check | [two-check-levels](practices/two-check-levels.md) |
 | merge runbook | [merge-runbook](practices/merge-runbook.md) |
@@ -87,7 +87,7 @@ The words the mechanism itself is made of. No single practice owns these, so the
 | **level repo** | Not a term this project uses -- recorded here so nobody coins it twice. The repository behind a source is just "the source", or "the individual set" / "a team set" when the level matters. Naming conventions for those repositories are in source-naming. | [practices/source-naming.md](practices/source-naming.md) |
 | **catalogue** | All the practice files of one source, taken together -- what that source teaches. "The catalogue" with no qualifier means the universal one. A practice can be in the catalogue and not in force, if its status is retired or deduplicated. | [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) |
 | **in force** | A practice actually binds work here, right now. Being present in a catalogue is not enough: a retired or deduplicated practice keeps its file and stops binding, and a source nobody declared is not in force at all even when its repository is sitting on disk. | [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) |
-| **slug** | A practice's permanent identifier -- lowercase words joined by hyphens, matching its filename (`go-merge` is practices/go-merge.md). It is what every other file cites, so it outlives titles and wording, and renaming one means repointing every reference in the same commit. | [practices/rename-updates-links.md](practices/rename-updates-links.md) |
+| **slug** | A practice's permanent identifier -- lowercase words joined by hyphens, matching its filename (`go-update` is practices/go-update.md). It is what every other file cites, so it outlives titles and wording, and renaming one means repointing every reference in the same commit. | [practices/rename-updates-links.md](practices/rename-updates-links.md) |
 | **gate** | A named moment when practices are loaded, rather than a kind of file. Four exist -- merge, review, push, reply -- and a practice lists the ones it fires at. Gates carry the rules no path pattern can reach: "before pushing" is not a file. | [tools/precedent_gate.py](tools/precedent_gate.py) |
 | **resident block** | The handful of practices written into a repository's instructions file in full, so they are read every session without anyone asking. Everything else is on-demand, reached through the occasion index. The block has a token budget, which is what stops it becoming the whole catalogue. | [spec/LOADER.md](spec/LOADER.md) |
 | **occasion index** | The generated list of *when X, read Y* lines -- one per on-demand practice, naming the moment it applies and the one line that gets it opened. It is how a rule reaches a session that had no reason to go looking for it. | [spec/LOADER.md](spec/LOADER.md) |

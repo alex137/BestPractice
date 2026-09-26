@@ -175,7 +175,7 @@ absorbed it. Absent that, the default text says so directly:
 When the person says `Prompt Please` together with `Go update` (or
 `Approved`) -- or anything that plainly gives both in the same breath -- the
 authorization travels with the prompt, bounded exactly as
-[go-merge](go-merge.md) already bound it (and `session-text` bound it
+[go-update](go-update.md) already bound it (and `session-text` bound it
 before this absorbed it): the handed-off work only, the branch that
 repository's own rules say
 routine work lands on, and conditional on that repository's own checks

@@ -41,7 +41,7 @@ but does not put the question back to him.
 
 **This practice is at the wrong level on purpose.** It is one person's
 standing phrase, which belongs in his individual set, exactly as
-`go-merge` does — the same reasoning that retired the universal
+`go-update` does — the same reasoning that retired the universal
 `merge-authorization-keyword` on 2026-09-07. It is repo-local here because a
 session rooted in this repository cannot attach the private sets at all
 (`add_repo` refuses every cross-owner add, measured both directions on

@@ -66,7 +66,7 @@ thing scoped down they will say so.
 ## Why
 A phrase costs two words instead of a paragraph, and it survives the session
 that heard it — which is the argument
-[go-merge](go-merge.md) and [park-it](park-it.md) already made and won here.
+[go-update](go-update.md) and [park-it](park-it.md) already made and won here.
 
 This one is worth having as a phrase rather than left to inference for a
 specific reason: **the person is the only party who knows how convinced they
@@ -86,7 +86,7 @@ rule he had wanted.
 
 **Extended 2026-09-16, on Alex's design point and Morgan's decision.** Alex
 argued the assistant should read for intent rather than scan for the
-keyword; Morgan agreed and named this practice, alongside `go-merge`, as
+keyword; Morgan agreed and named this practice, alongside `go-update`, as
 where the doubt case needs a stated confirmation rather than a silent guess:
 *"apply the same to the ones that are a serious decision such as Go Merge,
 Weak Yes, etc -- and just note that (if the exact phrase isn't used), then
@@ -95,7 +95,7 @@ your "sure, why not" to be a "Weak Yes", tell me if I'm wrong.'"* The example
 is now this file's own.
 
 ## Install
-Nothing mechanical checks that the phrase was honoured; like `go-merge` and
+Nothing mechanical checks that the phrase was honoured; like `go-update` and
 `park-it`, that lives in the conversation. What a repository can check is the
 grammar of the mark it writes, which is
 `python3 tools/precedent_check.py --only decision-strength`.

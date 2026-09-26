@@ -97,7 +97,7 @@ things is another window with a stale view of the same repository — the
 problem it was created for.
 
 **It does not merge on the person's behalf.** A merge authorization is theirs
-to give in the session that holds the work ([go-merge](go-merge.md)), and
+to give in the session that holds the work ([go-update](go-update.md)), and
 routing them to the right window to say it is the whole job.
 
 ### How far back to read, and why it has to be said

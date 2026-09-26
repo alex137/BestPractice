@@ -7834,7 +7834,7 @@ def check_suggested_links_keep_a_dotfiles_leading_dot():
         ('.claude/settings.json', '.claude/settings.json'),
         ('../tools/precedent_check.py', 'tools/precedent_check.py'),
         ('tools/precedent_check.py', 'tools/precedent_check.py'),
-        ('./practices/go-merge.md', 'practices/go-merge.md'),
+        ('./practices/go-update.md', 'practices/go-update.md'),
     ]
     bad = []
     for given, want in cases:
@@ -30290,7 +30290,7 @@ def check_move_tool_lands_then_deduplicates():
         (indiv / 'practices' / 'zz-links.md').write_text(
             practice('zz-links', 'See [`zz-left-behind`](zz-left-behind.md), '
                      '[the rule](zz-left-behind.md#rule), '
-                     '[go-merge](go-merge.md) and `[kept](zz-left-behind.md)`.'),
+                     '[go-update](go-update.md) and `[kept](zz-left-behind.md)`.'),
             encoding='utf-8')
         r = run([tool, '--slug', 'zz-links', '--from', 'individual', '--from-path', str(indiv),
                  '--to', 'team', '--to-path', str(team), '--approved-by', 'Fixture Approver'])
@@ -30301,7 +30301,7 @@ def check_move_tool_lands_then_deduplicates():
                       'and a link inside a code span untouched',
                       r.returncode == 0
                       and 'See `zz-left-behind`, the rule (`zz-left-behind`)' in ltext
-                      and '/practices/go-merge.md)' in ltext
+                      and '/practices/go-update.md)' in ltext
                       and '`[kept](zz-left-behind.md)`' in ltext
                       and str(indiv) not in ltext and 'precedent-individual/blob' not in ltext
                       and 'rewrote a sibling link' in r.stdout,

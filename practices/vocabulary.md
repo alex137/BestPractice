@@ -23,7 +23,7 @@ source_practice_number: null
 When the person says **"Vocabulary"**, begin the answer with one line making
 clear that these are not exact-keyword triggers: a session recognizes the
 phrase, but it also reads plain language for the same intent and triggers on
-that, the way [go-merge](go-merge.md) itself is read (*"sold, ship it"* counts
+that, the way [go-update](go-update.md) itself is read (*"sold, ship it"* counts
 as much as the phrase does). Then list the standing commands in force here --
 each phrase, and one plain sentence saying what it does -- and nothing else
 beyond that opening line. No further preamble, no closing offer, and no
@@ -135,7 +135,7 @@ are the same fact.
 
 ## Story
 **Coined by Morgan, 2026-09-13**, in the same message that added `Approved`
-to [go-merge](go-merge.md) and pushed the merge authorization into spawned
+to [go-update](go-update.md) and pushed the merge authorization into spawned
 sessions: *"maybe we can add in yet another vocabulary word: 'vocabulary' if
 I type it, it then returns a list of the commands we have defined: go merge,
 my options, spawn session, etc."*

@@ -375,7 +375,7 @@ In order. Each step leaves every repository working.
    person's `landing_branch` says staging; **a new `Promote` command** does
    the merge and push to staging, as a new practice file; and
    [primary-branch](../practices/primary-branch.md),
-   [go-merge](../practices/go-merge.md) and
+   [go-update](../practices/go-update.md) and
    [push-directly](../practices/push-directly.md) are rewritten to say so.
    Alex hears about it first.
 7. **The Boildown's "not yet landed" line becomes a Promote reminder**:
@@ -420,7 +420,7 @@ In order. Each step leaves every repository working.
     staging-into-pre-staging merge, Promote's `--no-ff`, and the rename
     transition.
 
-**This is high-risk work** under [go-merge](../practices/go-merge.md): it
+**This is high-risk work** under [go-update](../practices/go-update.md): it
 changes gating code and a governance rule. Each step goes through a pull
 request. It also changes content other repositories vendor, so it reaches
 them only through Update Vendors

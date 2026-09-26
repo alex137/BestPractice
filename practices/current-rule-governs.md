@@ -79,7 +79,7 @@ in the thread. Neither one is a reason to leave the command undone.
 
 **What legitimately stops a command.** A step that was actually refused
 (quote the refusal), a check that is red, or a sentence that really could go
-either way ([go-merge](go-merge.md) says how to say that out loud). An
+either way ([go-update](go-update.md) says how to say that out loud). An
 older rule that said something else is not on that list. Neither is a
 feeling that the person might not have meant it.
 
@@ -154,7 +154,7 @@ was fair. Two of the ways in are checked, though: `precedent_show.py`
 redirects a deduplicated slug, and `practice_audit.py` check 6 fails on a
 decline that the upstream file has moved past.
 
-**Related:** [go-merge](go-merge.md) (the command this was coined over),
+**Related:** [go-update](go-update.md) (the command this was coined over),
 [decision-strength](decision-strength.md) (how hard a reconsideration may
 push), [docs-are-current-state](docs-are-current-state.md) (a document
 states what is true now) and

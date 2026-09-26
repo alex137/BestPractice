@@ -101,7 +101,7 @@ down and the AI Assistant is guaranteed to recognize it. Say **"Vocabulary"**
 to have the current list read to you.
 
 - Plain: [The Rest of the Vocabulary](DAILY_HABITS.md#the-rest-of-the-vocabulary)
-- Technical: the command practices, starting at [go-merge](../practices/go-merge.md) and [vocabulary](../practices/vocabulary.md)
+- Technical: the command practices, starting at [go-update](../practices/go-update.md) and [vocabulary](../practices/vocabulary.md)
 
 ## 9. What Is Yours Stays Yours, and That Is Enforced
 

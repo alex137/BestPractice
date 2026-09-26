@@ -1,6 +1,6 @@
 ---
 slug:        push-directly
-title:       "\"Push directly to [branch]\" -- skip go-merge's judgment call, push straight to that branch, no PR, for this one change"
+title:       "\"Push directly to [branch]\" -- skip go-update's judgment call, push straight to that branch, no PR, for this one change"
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
@@ -9,20 +9,20 @@ gates:       ["merge"]
 index_clause: "no PR; with no branch named, the branch already in play"
 checked_by:  null
 defines:     ["Push directly"]
-command:     {"Push directly": "Save the work and push it straight to the branch right now -- no pull request, whatever go-merge's classification would otherwise call for. Name the branch (\"push directly to main\") to target it explicitly; say it bare and it targets whichever branch the work is already headed toward."}
+command:     {"Push directly": "Save the work and push it straight to the branch right now -- no pull request, whatever go-update's classification would otherwise call for. Name the branch (\"push directly to main\") to target it explicitly; say it bare and it targets whichever branch the work is already headed toward."}
 status:      active
 in_force_at: null
 supersedes:  []
 overrides:   null
 added:       "2026-09-20"
 approved_by: "Morgan, 2026-09-20 -- coined in the same conversation that
-  retired `Go merge` as a trigger of go-merge, asking what plain-English
+  retired `Go merge` as a trigger of go-update, asking what plain-English
   developers say to \"go make it live... but I don't want to merge it,\"
-  then, once told the mechanism already existed as go-merge's own
+  then, once told the mechanism already existed as go-update's own
   direct-instruction override, asking for a standing name for it: \"let's
   define a second and separate phrase... 'push directly' that does
   precisely just that.\" First used to authorize landing this file and
-  go-merge's retirement of `Go merge` together: \"I will forget that
+  go-update's retirement of `Go merge` together: \"I will forget that
   phrase. Please push this one directly.\" Amended the same day,
   2026-09-20, to carry its target inline and default the rest: \"Let's
   update that to be clearer: 'push directly to [main]' in which '[main]'
@@ -37,7 +37,7 @@ strength:    decided
 When the message you are answering says **"Push directly"** -- case-insensitive,
 anywhere in the message, as its own line, a whole sentence, or a clause
 inside a longer one, naming a branch or not -- treat it as
-[go-merge](go-merge.md)'s own direct-instruction override, said in a few
+[go-update](go-update.md)'s own direct-instruction override, said in a few
 words: **sync your local branch, commit the pending work, and push straight
 to the target branch, right now, no pull request** -- whatever `Go
 update`'s push-by-default/high-risk classification would otherwise call for
@@ -72,7 +72,7 @@ that invocation names or defaults to; it does not turn off the high-risk
 classification generally, and `Go update` still asks the question on the
 next change that does not carry this phrase.
 
-Same verification as [go-merge](go-merge.md): the light check still runs
+Same verification as [go-update](go-update.md): the light check still runs
 before the commit and the push check still runs before the push, at the
 tier the target branch gets -- basic for pre-staging, full for staging and
 main -- so this phrase skips the PR wrapper and the classification, never
@@ -83,7 +83,7 @@ fetch before the reply reports it
 the local clone.
 
 **Say the target branch before pushing, every time** -- same reason
-[go-merge](go-merge.md) gives: the failure this catches is silent, not
+[go-update](go-update.md) gives: the failure this catches is silent, not
 loud, and looks identical to a correct push until somebody goes looking.
 Say it whether the phrase named the branch or left it to the default --
 naming it out loud in the reply is what makes the default checkable, not
@@ -91,7 +91,7 @@ just correct.
 
 **A step you cannot perform hands off; it does not come back as a
 question** -- run [prompt-please](prompt-please.md) on the spot, same as
-[go-merge](go-merge.md).
+[go-update](go-update.md).
 
 ## Why
 `Go update`'s Rule already allows overriding its own high-risk/default
@@ -113,17 +113,17 @@ worked on all along.
 
 ## Story
 Coined 2026-09-20, Morgan, in the same conversation that retired `Go
-merge` as a trigger of [go-merge](go-merge.md). He asked what plain-English
+merge` as a trigger of [go-update](go-update.md). He asked what plain-English
 developers say for landing a small change live without a merge, was told
 the general answer ("push directly," as opposed to opening a PR and
-merging), and once he understood the real cost tradeoff go-merge's
+merging), and once he understood the real cost tradeoff go-update's
 push-by-default/high-risk split had just been built around, asked for two
 things in the same breath: fold `Go merge` entirely into `Go update`, and
 give him a plain, separate phrase for "skip the judgment, just push it"
 that he would actually remember to say, rather than "I will forget that
 phrase." He used it to authorize landing this file and `Go merge`'s
 retirement together -- its first invocation, on a change
-[go-merge](go-merge.md)'s own Rule would otherwise classify as high-risk,
+[go-update](go-update.md)'s own Rule would otherwise classify as high-risk,
 since it edits a governance practice directly.
 
 **Amended the same day.** Reading the freshly-coined phrase back, Morgan
@@ -140,7 +140,7 @@ exists to keep a session from blurring.
 
 ## Install
 Nothing mechanical checks that the phrase was honoured, same reason
-[go-merge](go-merge.md) gives: this governs how a chat message is read, not
+[go-update](go-update.md) gives: this governs how a chat message is read, not
 a property of the diff. What is checkable downstream is what
-[go-merge](go-merge.md)'s own Install section names: the push lands on the
+[go-update](go-update.md)'s own Install section names: the push lands on the
 branch named in the reply, with no open pull request wrapping it.

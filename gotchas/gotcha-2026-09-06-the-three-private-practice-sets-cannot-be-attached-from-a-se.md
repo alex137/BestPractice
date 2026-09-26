@@ -75,7 +75,7 @@ The three private practice sets cannot be attached from a session
   writes.
   What it costs when you skip it is not abstract. That 2026-09-07 session
   ran with `individual` and `team` both unresolved, which means the
-  `go-merge` keyword's own definition was unreadable while the user was
+  `go-update` keyword's own definition was unreadable while the user was
   using it — the one thing `.precedent/SESSION_PRACTICES.md` says out loud
   and nothing else in the tree does.
 
