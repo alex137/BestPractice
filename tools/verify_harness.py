@@ -7540,7 +7540,8 @@ def check_update_vendors_survives_an_upstream_deletion():
                      cwd=proj)
         cases.append(('the update that deletes it ends DONE with the deep check run, '
                       'not FAILED', rc == 0 and 'DONE -- nothing left' in out
-                      and 'deep check: passed' in out, out[-2500:]))
+                      and re.search(r'(deep check|check for [\w-]+): passed', out),
+                      out[-2500:]))
         cases.append(('...the file is gone from disk', not (proj / DROPPED).exists(), ''))
         _rc, staged = sh('git', 'diff', '--cached', '--name-status', '--', DROPPED, cwd=proj)
         cases.append(('...and its deletion is staged, so the check judged what the '

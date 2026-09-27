@@ -55,7 +55,7 @@ Morgan 2026-09-27, `strength: decided`: *"I love 3, let's do it"*).
 **This does not lift the gate the chain already runs through**, and it does
 not add one. `Go update` publishes by the repository's usual conventions, and
 those are what decide whether a push may happen at all. Step 6 below is the
-full check, and it sits before the merge for that reason: a red check stops this merge exactly as it stops any
+landing branch's check, and it sits before the merge for that reason: a red check stops this merge exactly as it stops any
 other. What the phrase removes is the second question, not the gate. So a
 failing check is reported, with what failed, and nothing is published -- that
 is the sequence working, not a refusal needing permission to stand.
@@ -409,14 +409,17 @@ says so, both from the vendored tree under `process/upstream/`.
    generator whose output has not been re-run leaves the repo's committed
    views describing the old engine, and its own `--check` then fails on
    work that is otherwise correct. The bump and its output land together.
-6. **Run this repo's own full check**, not the upstream's:
-   `python3 tools/precedent_push_check.py --tier full`. **Run it by hand;
-   the push gate will not.** Under the branch tiers a push to a working
-   branch or to pre-staging gets only the basic check, so the full one first
-   runs at the merge, and a finding there refuses the merge after
-   everything else is done. On 2026-09-25 a vendor update's regenerated
-   AGENTS.md went out with its version header unbumped, and the merge gate
-   was the first thing to notice.
+6. **Run this repo's own check at the tier of the branch it lands on**, not
+   the upstream's -- the one command does, with `--push-command`. Into
+   pre-staging that is the fast checks on what the update changed; **the
+   full check runs at the Promote to staging, not here** (Morgan,
+   2026-09-27, strength: decided: *"The point of pre-staging is to move
+   fast, so I want the 10 minute checks to happen at the staging level,
+   not pre-staging"*; practice
+   [checks-follow-the-tier](checks-follow-the-tier.md)). This step used to
+   ask for the full check by hand, after a regenerated AGENTS.md went out
+   on 2026-09-25 with its version header unbumped; the commit now stamps
+   that header, and pre-staging's own checks refuse stale views.
 7. **Check that this environment can still reach its PRIVATE sources**,
    before you call the update done. A vendor update is when a new engine
    file arrives that the environment may not be configured for, and it is
