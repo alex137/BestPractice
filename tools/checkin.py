@@ -16,7 +16,14 @@ practice set that ships code (practice: source-naming, 2026-09-18): the
 vendored tree is then process/<name>/, the manifest process/manifest_<name>.json,
 and only the directories the set's own precedent-source.json lists under
 `code` are mirrored; its practices resolve live and are never vendored.
-Without --source the universal set is mirrored whole, as always:
+Without --source the universal set is mirrored whole, as always.
+
+Each also takes `--repo PATH`: the consuming repo to act on, instead of the
+repo this file sits in (2026-09-27). It lets the SOURCE clone's current copy
+of this tool update a consumer, which is how tools/precedent_update.py runs
+it -- the consumer's own vendored copy lives inside the very catalogue it is
+updating, so a fix to it would otherwise reach a repo only after that repo
+had already needed it.
 
   status <upstream-clone>   Compare the vendored tree against the clone's
                             working tree: list Added/Modified/Deleted files
@@ -91,6 +98,7 @@ Run:  python3 process/upstream/tools/checkin.py fresh
       python3 process/upstream/tools/checkin.py update ../BestPractice
       python3 process/upstream/tools/checkin.py push   ../BestPractice
       python3 process/upstream/tools/checkin.py record ../BestPractice --note "PR #4"
+      python3 ../BestPractice/tools/checkin.py update ../BestPractice --repo .
 """
 import datetime, filecmp, io, json, os, pathlib, shutil, subprocess, sys, tarfile, tempfile
 
@@ -1314,8 +1322,27 @@ def main():
     return rc
 
 
+def _select_repo(path):
+    """`--repo PATH`: act on that consuming repo rather than the one this
+    file sits in. Rebinds what the module derived from its own location, so
+    it must run before _select_source, which builds on ROOT."""
+    global ROOT, UPSTREAM, MANIFEST
+    repo = pathlib.Path(path).resolve()
+    if not repo.is_dir():
+        sys.exit(f"checkin FAIL: --repo {path}: no such directory")
+    ROOT = repo
+    UPSTREAM = ROOT / 'process' / 'upstream'
+    MANIFEST = ROOT / 'process' / 'manifest.json'
+
+
 def _main():
     args = sys.argv[1:]
+    if '--repo' in args:
+        i = args.index('--repo')
+        if i + 1 >= len(args):
+            sys.exit('checkin FAIL: --repo needs the consuming repo\'s path')
+        _select_repo(args[i + 1])
+        args = args[:i] + args[i + 2:]
     if args and args[0] == 'fresh':
         return fresh()
     if args and args[0] == 'not-vendored':

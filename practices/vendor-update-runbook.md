@@ -9,7 +9,7 @@ gates:       ["merge"]
 index_clause: "source clone first, both layers move separately, then merge"
 checked_by:  null
 defines:     ["Update Vendors"]
-command:     {"Update Vendors": "Pull in the latest version of the shared rules from the project they come from, and publish the result -- the merge is part of the phrase."}
+command:     {"Update Vendors": "Pull in the latest version of the shared rules from the project they come from, by one command that stops only for this repo's own calls, and publish the result -- the merge is part of the phrase."}
 status:      active
 in_force_at: null
 supersedes:  []
@@ -20,7 +20,8 @@ approved_by: "Morgan; amended 2026-09-14, Morgan -- the phrase now carries
   step 1 makes the clone current rather than telling somebody to; amended
   2026-09-23, Morgan (assented) -- a classic install is migrated, not
   updated; amended 2026-09-24, Morgan (decided) -- every update retires
-  the old install's leftovers (step 10)"
+  the old install's leftovers (step 10); amended 2026-09-27, Morgan
+  (decided) -- the sequence is one command, tools/precedent_update.py"
 ---
 ## Rule
 **"Update Vendors" is the phrase that asks for this**, and it authorizes the
@@ -31,6 +32,24 @@ sequence below is done, run [go-update](go-update.md)'s chain on what it
 produced -- say the target branch out loud, commit, push, open the pull
 request, merge -- without going back for a second authorization. That is step
 12, and it is part of the phrase rather than a separate grant.
+
+**The sequence is one command, since 2026-09-27.** From the consuming repo,
+run the BestPractice clone's own copy -- never a vendored one:
+
+    python3 ../BestPractice/tools/precedent_update.py --repo .
+
+It does steps 1, 3, 4, 5, 6 and 10 in order, with no question in between,
+and ends with one of three outcomes. **DONE** (exit 0): nothing is left, so
+commit and go on to steps 11 and 12. **LEFT FOR YOU** (exit 1): the calls
+that belong to this repo, each named with its file and its question -- work
+them under the conflicted-file review below, then run it again. **FAILED**
+(exit 2): a step could not run or the deep check is red, and nothing is
+published. Steps 7 to 9 are still the session's, and so are 11 and 12. The
+numbered steps below say what the command does and why; they are for
+investigating, not a checklist to walk by hand. Where one of them and the
+command disagree, the command is the current code, and the step is what
+needs fixing ([spec/ONE_COMMAND_UPDATE_PLAN.md](https://github.com/alex137/BestPractice/blob/staging/spec/ONE_COMMAND_UPDATE_PLAN.md),
+Morgan 2026-09-27, `strength: decided`: *"I love 3, let's do it"*).
 
 **This does not lift the gate the chain already runs through**, and it does
 not add one. `Go update` publishes by the repository's usual conventions, and
