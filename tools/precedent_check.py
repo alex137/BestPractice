@@ -2041,6 +2041,138 @@ def _generated_artifact_provenance(ctx):
     return out
 
 
+# ---- practice-change-propagates ---------------------------------------------
+# A practice renamed, retired or deduplicated here is only half changed until
+# every citation of it follows. The go-merge -> go-update rename (2026-09-26)
+# landed clean in this repository and left the private sets pointing at the
+# stub, where it surfaced a day later. Every repo that vendors this engine
+# runs this check over its OWN files, so the drift is found where it can be
+# fixed. The finding is narrow on purpose -- a pointer (a link, a
+# precedent_show.py command) or a mention inside a practice's own Rule --
+# because a bare name elsewhere is usually lineage no pattern can tell apart
+# from a live citation; precedent_practice_refs.py lists those for a session
+# to read instead.
+# practice: practice-change-propagates
+def _repo_local_practice_dirs():
+    """Repo-relative `<path>/practices/` for every repo-local source this
+    repository declares -- its own practices, wherever they sit."""
+    try:
+        import precedent_resolve as pr
+        sources = pr.load_config(ROOT)
+    except Exception:                               # practice: fail-gracefully
+        return ['local/practices/']
+    out = []
+    for s in sources:
+        if s.get('level') != 'repo-local':
+            continue
+        try:
+            rel = (ROOT / s['path']).resolve().relative_to(ROOT.resolve())
+        except (ValueError, KeyError, OSError):
+            continue
+        out.append(f'{rel.as_posix()}/practices/')
+    return out
+
+
+@check('practice-change-propagates', 'tree',
+       'no file this repository owns carries a LIVE pointer to a practice in '
+       'force nowhere, or one that now only forwards to a different slug -- a '
+       'markdown link to its file or a `precedent_show.py SLUG` command, '
+       'anywhere outside history, or any mention of it inside an in-force '
+       "practice's own `## Rule` -- and no practice file this repository "
+       'publishes was deleted or renamed away on this branch (retire it in '
+       'place, so its withdrawn name stays readable)',
+       'a bare backticked name outside a Rule section (usually lineage, and '
+       'listed by precedent_practice_refs.py for a session to judge rather '
+       'than refused); a practice whose Rule was REWORDED under the same slug, '
+       'which no pattern can judge; any file this repository received rather '
+       'than wrote -- another source\'s materialized practice, the vendored '
+       'engine, a mirrored upstream tree -- whose citations belong to the '
+       'repository that wrote them; a slug deleted outright before this check '
+       'existed, which left no stub to recognise it by; and records -- '
+       'spec/, todo/, decisions/, gotchas/, record/, Story-style sections -- '
+       'which describe what was true when written.',
+       binds_publishers=True)
+def _practice_change_propagates(ctx):
+    try:
+        import precedent_practice_refs as ppr
+    except Exception as e:                          # practice: fail-gracefully
+        raise NotApplicable(f'tools/precedent_practice_refs.py could not be '
+                            f'imported ({e}), so no citation can be looked up')
+    try:
+        res = ppr.resolved(ROOT)
+    except Exception as e:                          # practice: fail-gracefully
+        raise NotApplicable(f'the declared sources did not resolve ({e}), so '
+                            f'which practices are withdrawn is unknown')
+    out = []
+    if res.get('missing'):
+        # A source that did not resolve may be exactly the one still carrying
+        # a slug that looks withdrawn from here. Judge what did resolve, and
+        # say what did not rather than passing as if the picture were whole.
+        # practice: fail-gracefully
+        out.append(Unverified(
+            '', 'judged without ' + ', '.join(m['name'] for m in res['missing'])
+                + ' -- a practice that looks withdrawn here may be in force '
+                'there, and its citations were not read'))
+    wmap = ppr.withdrawn_map(res)
+    successors = {s: v['successor'] for s, v in wmap.items() if v['successor']}
+    rows = ppr.scan_root(ROOT, set(wmap), successors,
+                         skip=ppr.received_paths(ROOT)) if wmap else []
+    for row in rows:
+        if not ppr.must_fix(row, wmap):
+            continue
+        rel, ln, slug, form, _kind, section, _line = row
+        succ = successors.get(slug)
+        what = {'link': 'links', 'show': 'looks up'}.get(form, 'names')
+        where = (' in its Rule' if form not in ('link', 'show') else '')
+        fix = (f'cite `{succ}`, where that rule is in force now' if succ else
+               'it is in force nowhere -- say in prose what it covered, or '
+               'drop the reference')
+        out.append(Finding(
+            f'{rel}:{ln}',
+            f'{what} `{slug}`{where}, which is `{wmap[slug]["status"]}` -- '
+            f'{fix}. If the line is recording history, say so on it '
+            f'("renamed", "retired", or name `{succ or "the successor"}` '
+            f'beside it) and it stops being read as a live citation'))
+
+    # Deleting a practice file erases the one record that lets this check,
+    # and every reader, tell a withdrawn name from an unrelated word.
+    base = _published_default_branch()
+    if base is not None:
+        dirs = _repo_local_practice_dirs()
+        # practices/ is this repository's own only where nothing
+        # materializes into it. A consuming repo's practices/ is sync output
+        # (MANIFEST.json, now or at the base), where a practice withdrawn
+        # upstream simply stops being written -- not a deletion anybody here
+        # made. Not _publishes_practices(): that reads the engine manifest's
+        # `kind`, and BestPractice itself -- the repository that most needs
+        # this -- vendors no engine and has no such manifest.
+        materializes = (ROOT / 'MANIFEST.json').is_file() or _git(
+            'cat-file', '-e', f'{base}:MANIFEST.json').returncode == 0
+        if (ROOT / 'practices').is_dir() and not materializes:
+            dirs.append('practices/')
+        r = _git('diff', '--name-status', '--find-renames', f'{base}...HEAD',
+                 '--', *[d + '*.md' for d in dirs]) if dirs else None
+        if r is not None and r.returncode == 0:
+            for line in r.stdout.splitlines():
+                parts = line.split('\t')
+                if not parts or parts[0][:1] not in ('D', 'R'):
+                    continue
+                old = parts[1]
+                if _manifest_entry(old) is not None:
+                    continue                    # materialized output, not ours
+                if parts[0].startswith('R') and len(parts) > 2 and \
+                        pathlib.Path(parts[1]).name == pathlib.Path(parts[2]).name:
+                    continue                    # same slug, moved directory
+                out.append(Finding(
+                    old, f'this branch {"deleted" if parts[0] == "D" else "renamed"} '
+                         f'a practice file. Retire it in place instead: keep '
+                         f'the file, set `status:` (deduplicated, superseded or '
+                         f'retired) and `in_force_at:` to where the rule went, '
+                         f'so every citation of `{pathlib.Path(old).stem}` in every '
+                         f'source can still be found and repointed'))
+    return out
+
+
 # ---- generated-edit-goes-upstream ------------------------------------------
 # A "do not hand-edit" header tells a session how its edit will be destroyed.
 # It does not say where the change belongs instead, and a session that cannot

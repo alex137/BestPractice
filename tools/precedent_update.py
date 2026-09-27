@@ -28,7 +28,9 @@ THE STEPS, with no question in between:
      runs a second pass), then the catalogue-pin repoint from THIS copy
   3. the catalogue: checkin.py update, then record -- only where the repo
      vendors one (process/manifest.json)
-  4. the loader views regenerated
+  4. the loader views regenerated, then this repo's own citations of any
+     practice the update withdrew or reworded (a withdrawn one's is a call
+     left for you; a reworded one's is listed to read)
   5. the repo's own deep check (--skip-check to leave it out)
 
 THE REPORT, and the exit code a session acts on:
@@ -47,6 +49,7 @@ commits, pushes or merges. Those stay with the session, under Go update's
 chain, where the authorization already lives.
 """
 import argparse
+import json
 import os
 import pathlib
 import re
@@ -161,6 +164,36 @@ def stage_update(repo, before):
         subprocess.run(['git', '-C', str(repo), 'add', '-A', '--', *ours[i:i + 200]],
                        capture_output=True, text=True)
     return len(ours)
+
+
+def citations(repo):
+    """-> ([(where, why)] to fix, [where] to read), or None when the lookup
+    could not run. Asks the SOURCE clone's copy of the lookup, for the same
+    reason every other step here does: it is the current code."""
+    refs = SOURCE / 'tools' / 'precedent_practice_refs.py'
+    if not refs.is_file():
+        return None
+    r = subprocess.run([sys.executable, str(refs), '--repo', str(repo),
+                        '--withdrawn', '--changed-since', 'HEAD', '--staged',
+                        '--json'], cwd=str(repo), capture_output=True,
+                       text=True, env={**os.environ, 'PYTHONDONTWRITEBYTECODE': '1'})
+    try:
+        data = json.loads(r.stdout)
+    except ValueError:
+        return None
+    fix, read = [], []
+    for h in data.get('hits', []):
+        if h.get('source') != 'this repository' or h.get('kind') != 'live':
+            continue
+        where = f"{h['file']}:{h['line']}"
+        if h.get('must_fix'):
+            succ = data.get('successors', {}).get(h['slug'])
+            fix.append((where, f"cites `{h['slug']}`, which is no longer in force"
+                        + (f" -- cite `{succ}`" if succ else
+                           " anywhere -- say in prose what it covered")))
+        elif data.get('slugs', {}).get(h['slug']) == 'Rule reworded':
+            read.append(where)
+    return fix, read
 
 
 def update(repo, skip_check=False, ref=None):
@@ -282,6 +315,27 @@ def update(repo, skip_check=False, ref=None):
     rep.step('staged', f'{n} path(s) this update wrote or deleted'
              + (f'; {len(before)} already uncommitted before it ran, left as they were'
                 if before else ''))
+
+    # 4b. Citations of what the update withdrew or reworded, in THIS repo's
+    # own files. A consumer is where a renamed practice's old name survives
+    # longest: its AGENTS.md and docs were written against the name it had
+    # then, and nothing the refresh touches rewrites them.
+    # practice: practice-change-propagates
+    cited = citations(repo)
+    if cited is None:
+        rep.step('citations', 'could not be looked up -- run '
+                 'tools/precedent_practice_refs.py --withdrawn before pushing')
+    else:
+        fix, read = cited
+        for where, why in fix:
+            rep.leave(where, why)
+        rep.step('citations',
+                 (f'{len(fix)} live citation(s) of a withdrawn practice to fix '
+                  f'(listed below)' if fix else
+                  'no live citation of a withdrawn practice')
+                 + (f'; {len(read)} citation(s) of a practice this update '
+                    f'reworded -- read each, it may describe the old rule: '
+                    + ', '.join(read) if read else ''))
 
     # 5. The repo's own deep check -- the gate before any push.
     check = repo / 'tools' / 'precedent_push_check.py'

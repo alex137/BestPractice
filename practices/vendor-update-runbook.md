@@ -631,9 +631,22 @@ says so, both from the vendored tree under `process/upstream/`.
     that all repos with precedent vendored-in have staging and pre-staging
     branches? That should be part of the migration!"*
 
-    **(i) Report all of it in the reply**: what the refresh deleted, what
+    **(i) Fix this repo's citations of anything the update withdrew or
+    reworded.** Run `python3 tools/precedent_practice_refs.py --withdrawn
+    --changed-since HEAD --staged` (the one command runs it for you and
+    reports it as `citations`). Each `MUST FIX` line is a link, lookup or
+    Rule mention in this repo's own files naming a practice no longer in
+    force: repoint it to the practice the tool names, or say in prose what
+    it covered. Each `read` line cites a practice whose Rule this update
+    reworded under the same name: read it, and fix it if it now describes
+    the old rule. Citations inside files this repo received -- another
+    source's practices, the vendored engine -- are that source's to fix, and
+    the tool leaves them out
+    ([practice-change-propagates](practice-change-propagates.md)).
+
+    **(j) Report all of it in the reply**: what the refresh deleted, what
     you deleted, what stays and why, each workflow's approval, the branches
-    step (h) created, and the todo item.
+    step (h) created, the citations step (i) fixed, and the todo item.
 
     While here, check `github_ci_workflows` (formerly `ci_workflows`)
     ([GITHUB_ACTIONS.md](https://github.com/alex137/BestPractice/blob/staging/documentation/GITHUB_ACTIONS.md))

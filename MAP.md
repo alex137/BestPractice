@@ -6,7 +6,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 
 ## The practice catalogue
 
-`practices/` holds 143 practice files (10 resident, 133 on-demand). One file per practice. See [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md) for the design.
+`practices/` holds 144 practice files (10 resident, 134 on-demand). One file per practice. See [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md) for the design.
 
 | Practice | Tier | Occasion / scope |
 |---|---|---|
@@ -95,6 +95,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [plain-words](practices/plain-words.md) | on-demand | a person says "Simple please", or asks to be talked to that way |
 | [pr-template-honest-gates](practices/pr-template-honest-gates.md) | on-demand | writing or filling out a pull-request description |
 | [practice-carries-its-files](practices/practice-carries-its-files.md) | on-demand | writing a practice that owns a file besides its check script and test -- a tool its Rule tells a session to run, a file its test reads -- or moving a practice to another set |
+| [practice-change-propagates](practices/practice-change-propagates.md) | on-demand | renaming, retiring, deduplicating, deleting or rewording a practice -- or taking an update that did |
 | [practice-export-loop](practices/practice-export-loop.md) | on-demand | merging a branch that improved a generic practice |
 | [practice-links-travel](practices/practice-links-travel.md) | on-demand | writing or editing a practice file |
 | [primary-branch](practices/primary-branch.md) | on-demand | a person says "Primary branch", or asks which branch is trunk or takes routine pushes and PRs |
@@ -221,6 +222,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [tools/precedent_move.py](tools/precedent_move.py) | Moves an existing practice between levels in the one safe order: lands it at the destination with its text and approval carried, then deduplicates the source copy and regenerates both sets' views; refuses the unsafe states by name |
 | [tools/precedent_owned_paths.py](tools/precedent_owned_paths.py) | Before a pull request: which changed files will wait for a code owner's review, and the plain-words sentence to say to the contributor about it |
 | [tools/precedent_paths.py](tools/precedent_paths.py) | The PATH-TRIGGERED channel — matches a touched file against every practice's `applies_to` |
+| [tools/precedent_practice_refs.py](tools/precedent_practice_refs.py) | Who cites a practice, across this repo and every source it declares -- live citations vs history; the lookup behind practice-change-propagates, the merge moment and Update Vendors |
 | [tools/precedent_promote.py](tools/precedent_promote.py) | Stage 3 (phase 5) — runs a candidate against the four promotion criteria |
 | [tools/precedent_push_check.py](tools/precedent_push_check.py) | Everything GitHub CI used to run on a push, per kind of repository, run locally before it -- `push-check-gate.sh` refuses a push until it passes; a push to a working branch or pre-staging runs its basic tier only |
 | [tools/precedent_refresh_sources.py](tools/precedent_refresh_sources.py) | Reports which attached practice-set sources have a stale vendored engine, and with --apply brings them up to date; also writes the git credential helper into any attached source clone that has none |

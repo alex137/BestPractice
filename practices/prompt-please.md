@@ -145,7 +145,7 @@ requirement and applies it to every reply, not only this one. Named
 explicitly here as a **fence block** to keep it distinct from a "block" of
 prose elsewhere in a reply: prose describing the block instead of being the
 block has not delivered this. [The
-three-things-always shape](handoff-is-pasteable.md) any reply that sends
+three-things-always shape](the-boildown.md) any reply that sends
 someone elsewhere already owes: repository, exact paste text, a way back.
 Nothing split into the surrounding prose, nothing left for the reader to
 assemble.

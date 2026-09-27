@@ -28771,6 +28771,187 @@ def check_links_to_renamed_practice_forward():
           not bad, '; '.join(f'{n} -- {d[:160]}' for n, d in bad))
 
 
+def check_practice_refs_sorts_live_from_history():
+    """precedent_practice_refs.py finds every citation of a renamed practice
+    in a SET, marks the live pointers as must-fix, and leaves history alone.
+
+    WHY. The go-merge -> go-update rename (2026-09-26) landed clean in
+    BestPractice and left `go-merge` cited in the private sets' practices and
+    READMEs; nothing asked anyone to look (practice:
+    practice-change-propagates). The lookup has to tell a live pointer from
+    the record of the rename, or the check built on it either misses the
+    drift or refuses every Story that mentions an old name."""
+    import shutil, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_resolve as _pr
+    ppr = __import__('precedent_practice_refs')
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-refs-'))
+    cases = []
+    try:
+        sources, _consumer, write = _renamed_universal_fixture(tmp)
+        ind = tmp / 'ind'
+        write(ind / 'practices' / 'lineage.md', 'lineage',
+              rule='Say the merge target out loud.')
+        lineage = ind / 'practices' / 'lineage.md'
+        lineage.write_text(
+            lineage.read_text(encoding='utf-8')
+            + '\n## Detail\nThe old `go-merge` said the same.\n'
+              'Renamed from `go-merge` on 2026-09-26.\n'
+              '\n## Story\n[go-merge](go-merge.md) is where it began.\n',
+            encoding='utf-8')
+        (ind / 'README.md').write_text(
+            'Look it up: `python3 tools/precedent_show.py go-merge`.\n',
+            encoding='utf-8')
+        (ind / 'spec').mkdir()
+        (ind / 'spec' / 'plan.md').write_text(
+            'Planned against [go-merge](../practices/go-merge.md).\n',
+            encoding='utf-8')
+        env = dict(os.environ, GIT_AUTHOR_NAME='t', GIT_AUTHOR_EMAIL='t@t',
+                   GIT_COMMITTER_NAME='t', GIT_COMMITTER_EMAIL='t@t')
+        for argv in (['init', '-q'], ['add', '-A'], ['commit', '-qm', 'x']):
+            subprocess.run(['git', '-C', str(ind), *argv], env=env,
+                           capture_output=True, text=True)
+
+        res = _pr.resolve(sources)
+        wmap = ppr.withdrawn_map(res)
+        cases.append(('go-merge is withdrawn, forwarding to go-update',
+                      wmap.get('go-merge', {}).get('successor') == 'go-update',
+                      str(wmap)))
+        succ = {k: v['successor'] for k, v in wmap.items() if v['successor']}
+        rows = ppr.scan_root(ind, set(wmap), succ)
+
+        def tag(rel, text):
+            # By the line's own words, not its number: the fixture's
+            # frontmatter is somebody else's to change.
+            hit = [r for r in rows if r[0] == rel and text in r[6]]
+            if not hit:
+                return 'absent'
+            return 'must-fix' if ppr.must_fix(hit[0], wmap) else hit[0][4]
+
+        cases.append(('a link in an active practice\'s Rule is must-fix',
+                      tag('practices/cites.md', 'Sibling:') == 'must-fix', str(rows)))
+        cases.append(('a precedent_show.py lookup in a README is must-fix',
+                      tag('README.md', 'Look it up') == 'must-fix', str(rows)))
+        cases.append(('a bare mention in Detail is live but only listed, '
+                      'never refused', tag('practices/lineage.md', 'The old') == 'live',
+                      str(rows)))
+        cases.append(('a line narrating the rename is history',
+                      tag('practices/lineage.md', 'Renamed from') == 'history', str(rows)))
+        cases.append(('a link inside ## Story is history',
+                      tag('practices/lineage.md', 'where it began') == 'history', str(rows)))
+        cases.append(('a plan under spec/ is a record, so history',
+                      tag('spec/plan.md', 'Planned against') == 'history', str(rows)))
+        cases.append(('the individual set\'s own go-merge stub is history',
+                      all(r[4] == 'history' for r in rows
+                          if r[0] == 'practices/go-merge.md'), str(rows)))
+
+        # NEGATIVE CONTROL: the same lines naming the live slug are not
+        # citations of a withdrawn practice at all, so the must-fix findings
+        # above were about `go-merge` and nothing else in the fixture.
+        for f in (ind / 'README.md', ind / 'practices' / 'cites.md'):
+            f.write_text(f.read_text(encoding='utf-8')
+                         .replace('go-merge', 'go-update'), encoding='utf-8')
+        rows = ppr.scan_root(ind, set(wmap), succ)
+        cases.append(('repointed to go-update, nothing is must-fix',
+                      not [r for r in rows if ppr.must_fix(r, wmap)],
+                      str([r for r in rows if ppr.must_fix(r, wmap)])))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'the citation lookup finds a renamed practice\'s live pointers and '
+          f'leaves its history alone ({len(cases)} stated cases)',
+          not bad, '; '.join(f'{n} -- {d[:200]}' for n, d in bad))
+
+
+def check_practice_change_propagates_refuses():
+    """The practice-change-propagates check, run as a repository runs it:
+    it refuses a live pointer to a renamed practice and a deleted practice
+    file, names the successor, and clears when each is fixed.
+
+    WHY. A lookup nobody runs fixes nothing; the check is what makes the
+    drift surface in the repository that can repair it -- a private set this
+    session could fetch and not push (practice: practice-change-propagates).
+    Asserts the check's own words, and each refusal has a control showing
+    the same tree, fixed, passes."""
+    import shutil as _shutil, tempfile, json as _json
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+        sources, _consumer, write = _renamed_universal_fixture(tmp)
+        repo = tmp / 'repo'
+        repo.mkdir()
+        subprocess.run(
+            [sys.executable, str(ROOT / 'tools' / 'precedent_vendor_engine.py'),
+             'seed', str(repo), '--kind', 'consumer'],
+            capture_output=True, text=True, timeout=300)
+        # The seed copies the COMMITTED engine; the code under test is this
+        # working tree's (the rename-updates-links fixture found this the hard way).
+        for name in ('precedent_check.py', 'precedent_practice_refs.py'):
+            _shutil.copy2(ROOT / 'tools' / name, repo / 'tools' / name)
+        (repo / 'practices').mkdir(exist_ok=True)
+        _shutil.copy2(ROOT / 'practices' / 'practice-change-propagates.md',
+                      repo / 'practices' / 'practice-change-propagates.md')
+        write(repo / 'practices' / 'old-rule.md', 'old-rule')
+        (repo / 'precedent.json').write_text(_json.dumps({
+            'format_version': 1, 'visibility': 'private',
+            'sources': [{'level': 'universal', 'name': 'precedent',
+                         'path': str(tmp / 'uni')}]}), encoding='utf-8')
+        (repo / 'README.md').write_text(
+            'Before merging, read `python3 tools/precedent_show.py go-merge`.\n',
+            encoding='utf-8')
+        env = dict(os.environ, PRECEDENT_ALLOW_ANY_AUTHOR='1',
+                   PRECEDENT_USER_CONFIG=str(tmp / 'no-user-config.json'),
+                   GIT_AUTHOR_NAME='t', GIT_AUTHOR_EMAIL='t@t',
+                   GIT_COMMITTER_NAME='t', GIT_COMMITTER_EMAIL='t@t')
+
+        def g(*a):
+            return subprocess.run(['git', '-C', str(repo), *a],
+                                  capture_output=True, text=True, env=env)
+        g('init', '-q', '-b', 'main')
+        g('add', '-A'); g('commit', '-qm', 'base')
+        g('update-ref', 'refs/remotes/origin/main', 'HEAD')
+        g('symbolic-ref', 'refs/remotes/origin/HEAD', 'refs/remotes/origin/main')
+
+        def run():
+            r = subprocess.run(
+                [sys.executable, 'tools/precedent_check.py',
+                 '--only', 'practice-change-propagates'],
+                capture_output=True, text=True, cwd=str(repo), env=env,
+                timeout=300)
+            return r.stdout + r.stderr
+
+        out = run()
+        cases.append(('a README lookup of the renamed slug is refused, with '
+                      'the successor named',
+                      'README.md:1: looks up `go-merge`' in out
+                      and 'cite `go-update`' in out, out[-600:]))
+        g('rm', '-q', 'practices/old-rule.md'); g('commit', '-qm', 'drop it')
+        out = run()
+        cases.append(('deleting a practice file is refused',
+                      'practices/old-rule.md: this branch deleted a practice '
+                      'file. Retire it in place' in out, out[-600:]))
+
+        # CONTROLS: fix each, and the same check passes on the same tree.
+        g('revert', '--no-edit', 'HEAD')
+        write(repo / 'practices' / 'old-rule.md', 'old-rule', 'deduplicated',
+              'go-update')
+        (repo / 'README.md').write_text(
+            'Before merging, read `python3 tools/precedent_show.py go-update`.\n',
+            encoding='utf-8')
+        g('add', '-A'); g('commit', '-qm', 'retire in place, repoint')
+        out = run()
+        cases.append(('retired in place and repointed, the check passes',
+                      '1 passed, 0 violated' in out, out[-600:]))
+
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'practice-change-propagates refuses a live pointer to a renamed '
+          f'practice and a deleted practice file, and clears when fixed '
+          f'({len(cases)} stated cases)',
+          not bad, '; '.join(f'{n} -- {d[:300]}' for n, d in bad))
+
+
 def check_source_supplied_checks_run():
     """A `checked_by: tools/checks/check_x.py` claim actually RUNS.
 
@@ -36818,6 +36999,8 @@ def main():
     check_materialized_links_are_placed()
     check_in_force_at_chain_is_followed()
     check_links_to_renamed_practice_forward()
+    check_practice_refs_sorts_live_from_history()
+    check_practice_change_propagates_refuses()
     check_source_supplied_checks_run()
     check_individual_source_bootstrap_self_heals()
     check_stale_render_self_heals()
