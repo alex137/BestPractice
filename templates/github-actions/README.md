@@ -107,11 +107,11 @@ account** — the single largest line on the bill.
 
 **Why replacing a hand-made copy is not the 2026-09-20 sweep.** That sweep
 deleted nine live checks across nine repositories on a guess from their
-filenames, and the checks were lost. Replacing a hand-made light check loses
-nothing: the checks it ran are the local push check's, and the refresh only
-replaces or removes a file git holds with no uncommitted edits, so its old
-content stays in history. Each removal names the scripts the file ran; if one
-is not in the repository's local gate, the fix is to run it there.
+filenames, and the checks were lost. Here the refresh checks first: it lists
+what the old file runs (scripts, test runners, third-party actions), and if
+any of it is not in the repository's local push check, the file is kept and
+the report names what to move there. It also only replaces or removes a file
+git holds with no uncommitted edits, so its old content stays in history.
 
 ## The Markdown lint is NOT here any more
 

@@ -222,8 +222,8 @@ def update(repo, skip_check=False, ref=None):
         elif 'refresh: retired .github/workflows/' in line:
             ran = re.search(r'It ran ([^:]+):', line)
             ci.append('removed ' + line.split('retired ', 1)[1].split(' ', 1)[0]
-                      + (f' (it ran {ran.group(1)}; run that in the local push '
-                         f'check if it does not already)' if ran else ''))
+                      + (f' (it ran {ran.group(1)}, which the local push check '
+                         f'already runs)' if ran else ''))
     if ci:
         rep.step('CI workflows', '; '.join(dict.fromkeys(ci))
                  + ' -- converged to upstream, nothing to ask')

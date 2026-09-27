@@ -44,7 +44,10 @@ did not give.** If they do not want the file, delete it.
 (since 2026-09-27). The engine owns the workflows upstream ships
 (`leak-gate.yml`, `light-check.yml`): each refresh writes them from the
 template over any hand edit, and removes every other workflow that has no
-approval in the person's own words. So a consumer's finding here means the
+approval in the person's own words. **First it checks that nothing needed is
+lost:** a file that runs something the local push check does not (a script, a
+test runner, a third-party action) is kept, and the report names what to move
+into the local check before the next update finishes the job. So a consumer's finding here means the
 refresh has not run since the file changed, or could not touch it (untracked,
 or uncommitted edits). The answer is to run Update Vendors, not to ask the
 person. **Asking about a leftover is the failure here**, because the checks

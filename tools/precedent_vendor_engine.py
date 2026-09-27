@@ -2104,6 +2104,13 @@ CI_WORKFLOWS_SOURCE_DIR = 'templates/github-actions'
 #     declared under local_ci_workflows with a reason
 #     (_remove_unapproved_workflows).
 #
+# NOTHING NEEDED IS LOST (Morgan, 2026-09-27: "it should do a check first to
+# make sure nothing needed is being lost"). Before a file is replaced or
+# removed, _would_lose lists what it runs -- scripts, test runners,
+# third-party actions -- that neither the local push check nor the replacing
+# template runs. If anything is on that list the file is held back, and the
+# report names exactly what to move into the local check first.
+#
 # Each is reported as done. Morgan, 2026-09-27 (strength: decided, relayed
 # verbatim by the session that hit it): "It should definitely definitely use
 # the newer version from upstream ... the point of the yml changes is to stop
@@ -2890,14 +2897,22 @@ def _remove_unapproved_workflows(dest_root, manifest, kind, pd):
                        f'so it goes, but it was not removed: {why}')
             continue
         text = path.read_text(encoding='utf-8', errors='ignore')
+        # A recognised leftover of the old install (the legacy sweep kept it
+        # only because a trigger was still live) is known to be retired, so
+        # what it ran is not needed; anything else is checked first.
+        legacy = LEGACY_CI_WORKFLOWS.get(rel)
+        known_retired = bool(legacy and legacy[1](text))
+        lost = [] if known_retired else _would_lose(dest_root, kind, text)
+        if lost:
+            _held_back(rel, lost, 'removing')
+            continue
         _uses, scripts = _workflow_facts(text)
         reason = ('upstream does not ship it, and github_ci_approved carries '
                   'no approval of it in the person\'s words -- a consumer\'s '
                   'CI converges to upstream (2026-09-27). Its content stays '
                   'in git history'
-                  + (f'. It ran {", ".join(sorted(scripts))}: if the local '
-                     f'push check does not run that, run it there, not in '
-                     f'GitHub' if scripts else ''))
+                  + (f'. It ran {", ".join(sorted(scripts))}: the local push '
+                     f'check runs that already' if scripts else ''))
         if pd is not None:
             done = _retire_one(dest_root, pd, rel, reason, refusals=[])
         else:
@@ -3219,6 +3234,67 @@ def _unsafe_to_replace(dest_root, rel):
     return None
 
 
+# What a workflow can do that nothing local repeats: a test runner, or a
+# third-party action. Scripts are judged by name against the push check.
+_RUNNER_RE = re.compile(
+    r'(?:^|[\s;&|(])(npm|npx|yarn|pnpm|make|pytest|tox|nox|cargo|go|bundle|'
+    r'rake|gradle|gradlew|mvn|dotnet|deno|bun|php|composer|ruby|node)(?=\s|$)',
+    re.M)
+_SH_RE = re.compile(r'([\w./-]*\w)\.sh\b')
+_HARMLESS_ACTIONS = {'actions/checkout', 'actions/setup-python',
+                     'actions/setup-node', 'actions/cache'}
+
+
+def _local_coverage(dest_root, kind):
+    """-> {script basename} the local push check runs in this repo, or None
+    when that cannot be read (then nothing counts as covered). A script an
+    OPTIONAL entry names counts only where this repo has it."""
+    try:
+        sys.path.insert(0, str(ENGINE_DIR))
+        import precedent_push_check as _ppc
+        checks = _ppc.PUSH_CHECKS.get(kind, ())
+    except Exception:                                          # noqa: BLE001
+        return None
+    covered = set()
+    for entry in checks:
+        for tok in entry[1]:
+            tok = str(tok).replace('{engine}', 'tools')
+            name = pathlib.PurePosixPath(tok).name
+            if not name.endswith(('.py', '.sh')):
+                continue
+            if entry[0] in getattr(_ppc, 'OPTIONAL', ()) \
+                    and not (dest_root / tok).is_file():
+                continue
+            covered.add(name)
+    return covered
+
+
+def _would_lose(dest_root, kind, text, also_covered=()):
+    """-> [what `text`, a workflow, runs that neither the local push check
+    nor `also_covered` (the scripts the replacing template runs) does] --
+    empty when replacing or removing it loses nothing. Comments are ignored.
+    Unreadable coverage means every script is reported: holding a file back
+    is the safe mistake (practice: repair-cannot-discard-work)."""
+    code = _code_lines(text)
+    uses, scripts = _workflow_facts(text)
+    scripts |= {pathlib.PurePosixPath(m + '.sh').name for m in _SH_RE.findall(code)}
+    covered = (_local_coverage(dest_root, kind) or set()) | set(also_covered)
+    lost = sorted(s for s in scripts if s not in covered)
+    lost += sorted({f'`{m}`' for m in _RUNNER_RE.findall(code)})
+    lost += sorted(f'the action {u}' for u in uses
+                   if u not in _HARMLESS_ACTIONS)
+    return lost
+
+
+def _held_back(rel, lost, verb):
+    _left(rel, f'not {verb}: it runs {", ".join(lost)}, which the local push '
+               f'check does not run, so {verb} it would stop that running '
+               f'anywhere. Run it locally first -- tools/light_check.py, or a '
+               f'test under tools/checks/tests/ -- or, if it must run in '
+               f'GitHub, record the person\'s approval of a workflow of its '
+               f'own in github_ci_approved. The next update then finishes this')
+
+
 def _drop_ci_approvals(dest_root, rels):
     """Remove precedent.json github_ci_approved entries for `rels` -> [rel
     dropped]. For an engine-owned workflow the manifest's hash is what the
@@ -3311,6 +3387,18 @@ def _refresh_ci_workflow_files(dest_root, kind, ci_workflows_dir, manifest):
                     if why:
                         _left(rel, f'differs from upstream\'s {template} and '
                                    f'was not replaced: {why}')
+                        continue
+                    # A hand-made copy may run something nothing else does;
+                    # check before it goes (Morgan, 2026-09-27: "it should
+                    # do a check first to make sure nothing needed is being
+                    # lost").
+                    lost = _would_lose(
+                        dest_root, kind,
+                        path.read_text(encoding='utf-8', errors='ignore'),
+                        _workflow_facts(src.read_text(encoding='utf-8',
+                                                      errors='ignore'))[1])
+                    if lost:
+                        _held_back(rel, lost, 'replacing')
                         continue
                     replaced.append(rel)
                 else:
