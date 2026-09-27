@@ -149,7 +149,18 @@ def scan_one(repo):
     # not exist yet is exactly the work most likely to be lost, and
     # comparing against one named remote branch cannot see it.
     ok, out = _git(repo, 'rev-list', '--count', 'HEAD', '--not', '--remotes')
+    # Commits that change no file -- a merge, an empty commit -- lose nothing
+    # when the container goes, so they are never reported as work at risk
+    # (Morgan, 2026-09-27, strength: decided). Proven by content: HEAD's
+    # files are identical to its branch on origin.
+    if ok and out.isdigit() and int(out) > 0 and branch and _git(
+            repo, 'diff', '--quiet', f'origin/{branch}', 'HEAD')[0]:
+        out = '0'
     if ok and out.isdigit() and int(out) > 0:
+        ok_real, real = _git(repo, 'rev-list', '--count', '--no-merges', 'HEAD',
+                             '--not', '--remotes', '--', '.')
+        if ok_real and real.isdigit() and int(real) > 0:
+            out = real
         unsafe.append(f'{out} commit(s) on no remote')
         detail['unpushed'] = int(out)
         ok2, subjects = _git(repo, 'log', '--oneline', '-5', 'HEAD', '--not', '--remotes')

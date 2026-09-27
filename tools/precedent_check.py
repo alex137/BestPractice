@@ -5366,9 +5366,6 @@ def _vocabulary_reaches_the_consumer(ctx):
         'precedent_install.py':
             'installs Precedent INTO a project; the project that already '
             'has it does not run it',
-        'precedent_upstream_check.py':
-            'compares this repo against its own origin/main watermark -- a '
-            'fact about the engine\'s repository, not about a consumer',
         'precedent_simulate.py':
             'authoring aid for writing practices here; named in '
             'very-deep-check as the subject of a pass, not as a step a '

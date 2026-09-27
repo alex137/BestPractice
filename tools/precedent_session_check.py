@@ -340,6 +340,16 @@ def checks(offline=False):
     if branch and rc == 0 and not offline:
         _git('fetch', '--quiet', 'origin', branch)
         rc2, behind, _ = _git('rev-list', '--count', f'HEAD..origin/{branch}')
+        # Behind only by commits that change no file is not behind (Morgan,
+        # 2026-09-27, strength: decided); the count read is the real ones.
+        if rc2 == 0 and behind.isdigit() and behind != '0':
+            if _git('diff', '--quiet', 'HEAD', f'origin/{branch}')[0] == 0:
+                behind = '0'
+            else:
+                rc3, real, _ = _git('rev-list', '--count', '--no-merges',
+                                    f'HEAD..origin/{branch}', '--', '.')
+                if rc3 == 0 and real.isdigit() and real != '0':
+                    behind = real
         if rc2 == 0 and behind.isdigit():
             ok = int(behind) == 0
             out.append((f'this checkout is not behind origin/{branch}', ok,
@@ -729,6 +739,25 @@ def _clone_behind(path, fetch=True):
     if len(parts) != 2:
         return 'unverified', f'origin/{branch} comparison returned nothing'
     back, ahead = parts
+    # Commits that change no file are never counted or reported (Morgan,
+    # 2026-09-27, strength: decided): identical files mean current.
+    if (back, ahead) != ('0', '0'):
+        same = subprocess.run(['git', '-C', str(path), 'diff', '--quiet',
+                               f'origin/{branch}', 'HEAD'], capture_output=True)
+        if same.returncode == 0:
+            back, ahead = '0', '0'
+        else:
+            for side, rng in (('back', f'HEAD..origin/{branch}'),
+                              ('ahead', f'origin/{branch}..HEAD')):
+                r = subprocess.run(['git', '-C', str(path), 'rev-list', '--count',
+                                    '--no-merges', rng, '--', '.'],
+                                   capture_output=True, text=True)
+                n = r.stdout.strip()
+                if r.returncode == 0 and n.isdigit() and n != '0':
+                    if side == 'back':
+                        back = n
+                    else:
+                        ahead = n
     bits = []
     if back != '0':
         bits.append(f'{back} commit(s) behind origin/{branch}')

@@ -15,7 +15,7 @@ in_force_at: null
 supersedes:  []
 overrides:   null
 added:       "2026-09-26"
-approved_by: "Morgan, 2026-09-26: \"TELL ME IF YOU RECOMMEND ME LOSING THEM OR NOT, I DON'T KNOW WHAT STOP HOOKS ARE, SO YOU NEED TO EVALUATE THE STOP HOOKS AND MAKE A RECOMMENDATION, AND THE SAME FOR OTHER SIMILAR ISSUES NOT JUST STOP HOOKS.\""
+approved_by: "Morgan, 2026-09-26: \"TELL ME IF YOU RECOMMEND ME LOSING THEM OR NOT, I DON'T KNOW WHAT STOP HOOKS ARE, SO YOU NEED TO EVALUATE THE STOP HOOKS AND MAKE A RECOMMENDATION, AND THE SAME FOR OTHER SIMILAR ISSUES NOT JUST STOP HOOKS.\" Commits that change no file are never mentioned, and ahead/behind counts are of commits that changed files: Morgan, 2026-09-27 -- \"let's have the system stop describing and/or reporting and/or mentioning empty merges\" (strength: decided)."
 strength:    decided
 ---
 ## Rule
@@ -39,6 +39,16 @@ session has everything it needs to look.
 3. **This one really needs you.** Only when the answer turns on something
    the session cannot know, like whether they still want a draft. Ask that
    question in their words.
+
+**A commit that changes no file is never mentioned.** A merge commit, an
+empty sync commit, a branch that differs from another only in commits like
+those: none of it is counted, described or reported to the person, by a
+tool or by a session. When a reply says a branch is ahead of or behind
+another, the number is **the commits that changed files**, and when there
+are none, there is nothing to say. Morgan, 2026-09-27 (strength: decided):
+*"let's have the system stop describing and/or reporting and/or mentioning
+empty merges"*, and on the branch lines, count *"the number of commits
+ahead/behind that made changes to the repo"*.
 
 **When a tool's verdict and the session's disagree, the reply says what the
 session found, not what the tool concluded.** If a fixed sentence the tool

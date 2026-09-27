@@ -138,7 +138,7 @@ closed:            null
       was measured and nothing re-runs it.** The 0-conflict figure was
       right on 2026-09-07 and wrong by 2026-09-08, and it sat here as fact
       for three days. Re-rehearse whenever
-      [tools/precedent_upstream_check.py](../tools/precedent_upstream_check.py)
+      [tools/precedent_upstream_check.py](https://github.com/alex137/BestPractice/blob/83819879ff3de347227bf24c3a67a7546fb07f6e/tools/precedent_upstream_check.py)
       reports `origin/main` has moved — that notice is already printed at
       every session start, and it is the trigger this measurement never
       had. Opening *that branch* as the pull request is what keeps the

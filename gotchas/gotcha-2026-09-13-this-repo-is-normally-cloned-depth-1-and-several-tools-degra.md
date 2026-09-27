@@ -46,7 +46,7 @@ What rewrote it was not established. Several things in this tree fetch with
 an explicit bound and are the obvious candidates —
 [.claude/hooks/freshness-guard.sh](../.claude/hooks/freshness-guard.sh)
 fetches `--depth=200`, and
-[tools/precedent_upstream_check.py](../tools/precedent_upstream_check.py),
+[tools/precedent_upstream_check.py](https://github.com/alex137/BestPractice/blob/83819879ff3de347227bf24c3a67a7546fb07f6e/tools/precedent_upstream_check.py),
 [tools/precedent_engine_freshness.py](../tools/precedent_engine_freshness.py)
 and [tools/precedent_beta_watermark_check.py](../tools/precedent_beta_watermark_check.py)
 each fetch `--depth=50` — but which one fired was not measured, and the

@@ -2,7 +2,8 @@
 """Say whether anyone other than you has pushed to precedent-beta-v01 since
 you were last told, and only that once.
 
-WHY THIS IS NOT tools/precedent_upstream_check.py'S WATERMARK, ADAPTED. That
+WHY THIS WAS NOT THE UPSTREAM-CARRY WATERMARK, ADAPTED (that check and
+its watermark file were retired 2026-09-27). That
 one gates an ACTION: "has `main` been carried onto this branch", and its own
 comment is explicit that it must NOT auto-advance -- a person decides when a
 carry has happened, so the notice keeps repeating until they run `--record`
@@ -11,7 +12,7 @@ someone else moved this branch". There is no action for him to perform to
 make the notice stop -- he has simply been told -- so THIS watermark
 auto-advances the moment it reports, in the same run. A notice that keeps
 firing after it has already been delivered is exactly the failure
-`upstream_watermark.json`'s own header names ("ignored by the second week"),
+the carry watermark's own header named ("ignored by the second week"),
 and the fix here is the mirror image of that file's: advance on report,
 not on request.
 
@@ -85,9 +86,8 @@ Raised by Morgan, 2026-09-18: Alex also pushes to this branch, and Morgan
 wants to know when -- but not in every reply of a session, only once per
 actual change. Two integration points, both calling `check()` /
 `remind()` below rather than duplicating its logic:
-  - `.claude/hooks/session-start.sh` calls this file directly (like
-    `precedent_upstream_check.py`), once per session, and always prints a
-    status line -- "unchanged" included -- the same way that script does.
+  - `.claude/hooks/session-start.sh` calls this file directly, once per
+    session, and always prints a status line -- "unchanged" included.
   - `tools/precedent_gate.py`'s `reply` gate calls `remind()`, which is
     SILENT except on a real alert. A per-turn channel that repeated
     "unchanged" on every reply would be exactly the noise this file exists
@@ -117,14 +117,13 @@ import precedent_time             # noqa: E402
 
 REPO = pathlib.Path(__file__).resolve().parent.parent
 
-# practice: registry-source-of-truth -- the working branch is declared once,
-# in upstream_watermark.json, and read from there rather than repeated here
-# as a second literal that could drift from it.
-UPSTREAM_WATERMARK = REPO / 'tools' / 'upstream_watermark.json'
+# The working branch. It was read from the upstream-carry watermark file
+# until that check was retired on 2026-09-27; its value was this same
+# literal, which the read already fell back to.
 DEFAULT_BRANCH = 'staging'   # precedent-beta-v01 until 2026-09-25
 
 # practice: filename-separator -- every .json in tools/ uses underscores
-# (upstream_watermark.json, session_load_budgets.json, glossary_terms.json),
+# (session_load_budgets.json, glossary_terms.json, ...),
 # so this one does too. It arrived here as beta-branch-watermark.json,
 # carrying the hyphen from the individual source's root where it used to
 # live, and the planted filename-separator case refused it within the hour.
@@ -165,17 +164,13 @@ def _watermark_path(repo):
 
 
 def _working_branch():
-    try:
-        data = json.loads(UPSTREAM_WATERMARK.read_text(encoding='utf-8'))
-    except (OSError, ValueError):
-        return DEFAULT_BRANCH
-    return data.get('working_branch') or DEFAULT_BRANCH
+    return DEFAULT_BRANCH
 
 
 def git(repo, *args, check=False, env=None):
     """Run git in `repo` and return (returncode, stdout). See
-    precedent_upstream_check.py's own `git()` for why the pair matters:
-    `git rev-parse` echoes back an unresolved ref instead of failing loudly.
+    Why the pair matters: `git rev-parse` echoes back an unresolved ref
+    instead of failing loudly.
 
     `env` ADDS to this process's environment rather than replacing it --
     a bare dict handed to subprocess would drop PATH, HOME and the proxy
@@ -472,10 +467,9 @@ def check(root=None, no_fetch=False, no_push=False, user_config=None):
             "this repo's SessionStart hook and reply gate.",
             '',
             'Advances the moment it reports SOMEBODY ELSE\'S commits, and',
-            'only then -- a run that finds none writes nothing here. Unlike',
-            'tools/upstream_watermark.json beside it, which a person moves',
-            'deliberately because it gates an action, this gates a',
-            'notification with nothing left to do once it has been given.',
+            'only then -- a run that finds none writes nothing here. It',
+            'gates a notification, with nothing left to do once it has been',
+            'given, so it advances on report rather than on request.',
         ])
         registry.setdefault('repo', 'alex137/BestPractice')
         registry['branch'] = branch
