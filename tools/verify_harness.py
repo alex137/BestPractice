@@ -6814,6 +6814,223 @@ def check_a_source_set_ships_no_ci_workflow():
             '; '.join(f'{n}: {d}' for n, d in bad))
 
 
+def check_refresh_repoints_a_retired_catalogue_pin():
+    """The engine refresh moves a consumer's catalogue pin off a retired
+    branch by itself, so no session has to hand-edit the file that says
+    which upstream branch the repo tracks.
+
+    2026-09-27: a consumer update stopped with the engine on main and
+    process/manifest.json still on precedent-beta-v01. The edit that finishes
+    the update was held by Claude Code's permission check, and the person was
+    asked to re-make the 2026-09-25 decision (practice:
+    vendor-update-runbook, step 1). Every install on an old pin stops there.
+
+    The negative controls carry the weight: a pin to any other branch is
+    somebody's choice, and a manifest vendoring something other than
+    BestPractice has its own branch names -- neither may be touched.
+    """
+    import inspect, tempfile
+    import precedent_vendor_engine as pve
+
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-catalogue-pin-'))
+
+    def repo_with(name, upstream):
+        repo = tmp / name
+        (repo / 'process').mkdir(parents=True)
+        (repo / 'process' / 'manifest.json').write_text(json.dumps(
+            {'upstream': upstream, 'entries': []}, indent=2) + '\n',
+            encoding='utf-8')
+        return repo
+
+    def pin(repo):
+        return json.loads((repo / 'process' / 'manifest.json').read_text(
+            encoding='utf-8'))['upstream']['branch']
+
+    try:
+        # Named here, not read from pve: an emptied list must fail this.
+        for old in ('precedent-beta-v01', 'staging'):
+            repo = repo_with(old, {'repo': 'https://github.com/alex137/BestPractice.git',
+                                   'branch': old, 'commit': 'abc123'})
+            wrote = pve.repoint_catalogue_pin(repo)
+            m = json.loads((repo / 'process' / 'manifest.json').read_text(
+                encoding='utf-8'))
+            cases.append((f'a catalogue pinned to {old!r} is repointed to '
+                          f'{pve.SOURCE_BRANCH!r}, nothing else in the '
+                          f'manifest changes',
+                          wrote is not None and pin(repo) == pve.SOURCE_BRANCH
+                          and m['upstream']['commit'] == 'abc123'
+                          and m['entries'] == [], json.dumps(m)))
+            cases.append((f'a second run on the repointed {old!r} manifest '
+                          f'writes nothing',
+                          pve.repoint_catalogue_pin(repo) is None, pin(repo)))
+
+        other = repo_with('other-branch', {'repo': 'https://github.com/alex137/BestPractice',
+                                           'branch': 'some-feature'})
+        cases.append(('a pin to any other branch is left alone',
+                      pve.repoint_catalogue_pin(other) is None
+                      and pin(other) == 'some-feature', pin(other)))
+
+        foreign = repo_with('foreign', {'repo': 'https://github.com/someone/their-pack',
+                                        'branch': 'staging'})
+        cases.append(('`staging` in a manifest vendoring something other than '
+                      'BestPractice is left alone',
+                      pve.repoint_catalogue_pin(foreign) is None
+                      and pin(foreign) == 'staging', pin(foreign)))
+
+        cases.append(('a repo with no process/manifest.json is a no-op',
+                      pve.repoint_catalogue_pin(tmp / 'nothing-here') is None, ''))
+
+        # The call has to sit before refresh()'s already-current early exit:
+        # the half-finished update this closes has an engine that is already
+        # current, so a call placed only on the write path never runs there.
+        src = inspect.getsource(pve.refresh)
+        call, early = (src.find('repoint_catalogue_pin(ROOT)'),
+                       src.find('already current with'))
+        cases.append(('refresh() repoints before its already-current early exit',
+                      -1 < call < early, f'call at {call}, early exit at {early}'))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    return (not bad, f'{len(cases)} stated cases',
+            '; '.join(f'{n}: {d}' for n, d in bad))
+
+
+def check_update_vendors_is_one_command():
+    """tools/precedent_update.py runs Update Vendors end to end on a real
+    consumer and ends in one of three outcomes, each asserted by its own
+    words (practice: control-asserts-which-failure).
+
+    The fixture is the state a consumer was really in on 2026-09-27: an
+    engine vendored from main, a catalogue recorded against main, and a pin
+    still naming precedent-beta-v01. That update stopped halfway on a hand
+    edit and a question already answered (spec/ONE_COMMAND_UPDATE_PLAN.md).
+    Here it must finish with nothing asked. The two LEFT FOR YOU cases are
+    the controls that the tool does stop where a repo's own call is needed,
+    and names the file.
+
+    Owns its state (practice: fixture-owns-its-state): HOME and the user
+    config are isolated, or this container's private sources resolve into
+    the fixture and fail its view sync for reasons it never planted.
+    """
+    import tempfile
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-update-'))
+    cases = []
+    ref = _ref_including_worktree(ROOT)
+    env = {**os.environ, 'HOME': str(tmp / 'home'),
+           'PRECEDENT_USER_CONFIG': str(tmp / 'no-user-config.json'),
+           'GIT_AUTHOR_NAME': 't', 'GIT_AUTHOR_EMAIL': 't@t',
+           'GIT_COMMITTER_NAME': 't', 'GIT_COMMITTER_EMAIL': 't@t'}
+    (tmp / 'home').mkdir()
+
+    def sh(*argv, cwd):
+        r = subprocess.run(list(argv), cwd=str(cwd), env=env,
+                           capture_output=True, text=True)
+        return r.returncode, r.stdout + r.stderr
+
+    def consumer(name, catalogue=True):
+        repo = tmp / name
+        repo.mkdir()
+        sh('git', 'init', '-q', '-b', 'main', cwd=repo)
+        (repo / 'precedent.json').write_text(json.dumps({
+            'format_version': 1, 'visibility': 'private', 'base_branch': 'main',
+            'sources': [{'level': 'universal', 'name': 'precedent',
+                         'path': str(ROOT)}]}) + '\n', encoding='utf-8')
+        (repo / 'AGENTS.md').write_text(
+            f'# fixture\n\n{bv.BEGIN_MARKER}\n{bv.END_MARKER}\n', encoding='utf-8')
+        sh(sys.executable, str(ROOT / 'tools' / 'precedent_vendor_engine.py'),
+           'seed', str(repo), '--kind', 'consumer', cwd=repo)
+        if catalogue:
+            _rc, head = sh('git', 'rev-parse', f'origin/{pve_branch}', cwd=ROOT)
+            (repo / 'process').mkdir()
+            (repo / 'process' / 'manifest.json').write_text(json.dumps({
+                'upstream': {'repo': 'https://github.com/alex137/BestPractice',
+                             'vendored_at': 'process/upstream',
+                             'branch': pve_branch, 'commit': head.strip()},
+                'entries': []}, indent=2) + '\n', encoding='utf-8')
+            checkin = [sys.executable, str(ROOT / 'tools' / 'checkin.py')]
+            sh(*checkin, 'update', str(ROOT), '--repo', str(repo), '--force', cwd=repo)
+            m = json.loads((repo / 'process' / 'manifest.json').read_text())
+            m['upstream']['branch'] = 'precedent-beta-v01'   # the retired pin
+            (repo / 'process' / 'manifest.json').write_text(
+                json.dumps(m, indent=2) + '\n', encoding='utf-8')
+        sh('git', 'add', '-A', cwd=repo)
+        sh('git', 'commit', '-qm', 'installed', cwd=repo)
+        # A remote without a push: record's carry check fetches origin.
+        sh('git', 'clone', '-q', '--bare', str(repo), str(tmp / f'{name}.git'), cwd=tmp)
+        sh('git', 'remote', 'add', 'origin', str(tmp / f'{name}.git'), cwd=repo)
+        sh('git', 'fetch', '-q', 'origin', cwd=repo)
+        return repo
+
+    def update(repo, *extra):
+        return sh(sys.executable, str(ROOT / 'tools' / 'precedent_update.py'),
+                  '--repo', str(repo), '--from-ref', ref, '--skip-check', *extra,
+                  cwd=repo)
+
+    import precedent_vendor_engine as _pve
+    pve_branch = _pve.SOURCE_BRANCH
+    try:
+        done = consumer('done')
+        # The fixture's AGENTS.md is bare, so the first run rightly lists the
+        # template's sections as this repo's call. Leaving them out is an
+        # answer, and the refresh remembers it: the second run asks nothing.
+        rc, out = update(done)
+        cases.append(('the first run lists the template sections the repo lacks as '
+                      'its own call: exit 1, LEFT FOR YOU',
+                      rc == 1 and 'LEFT FOR YOU' in out and 'AGENTS.md "' in out,
+                      out[-1500:]))
+        rc, out = update(done)
+        pin = json.loads((done / 'process' / 'manifest.json').read_text())[
+            'upstream']['branch']
+        cases.append(('an install on the retired pin finishes with nothing asked: '
+                      'exit 0 and DONE', rc == 0 and 'DONE -- nothing left' in out,
+                      out[-1500:]))
+        cases.append(('...its catalogue pin now names ' + pve_branch,
+                      pin == pve_branch, pin))
+        cases.append(('...and its loader views were regenerated',
+                      'views: regenerated' in out and bv.BEGIN_MARKER in
+                      (done / 'AGENTS.md').read_text() and
+                      len((done / 'AGENTS.md').read_text()) > 200, out[-600:]))
+
+        edited = consumer('edited-engine')
+        with open(edited / 'tools' / 'precedent_show.py', 'a', encoding='utf-8') as f:
+            f.write('# a local edit\n')
+        rc, out = update(edited)
+        cases.append(('a hand-edited engine file stops it: exit 1, LEFT FOR YOU, '
+                      'naming the file', rc == 1 and 'LEFT FOR YOU' in out
+                      and 'precedent_show.py' in out.split('LEFT FOR YOU', 1)[-1],
+                      out[-1500:]))
+
+        local = consumer('edited-catalogue')
+        target = next(p for p in sorted((local / 'process' / 'upstream' / 'practices')
+                                        .glob('*.md')))
+        with open(target, 'a', encoding='utf-8') as f:
+            f.write('\nA line this repo added.\n')
+        rc, out = update(local)
+        cases.append(('a local change in the vendored catalogue stops it: exit 1, '
+                      'LEFT FOR YOU, naming the file',
+                      rc == 1 and f'process/upstream/practices/{target.name}' in out,
+                      out[-1500:]))
+
+        bare = tmp / 'no-engine'
+        bare.mkdir()
+        rc, out = update(bare)
+        cases.append(('a repo with no vendored engine is sent to the migration, '
+                      'not updated', rc == 1 and 'this is a migration' in out, out[-600:]))
+
+        rc, out = sh(sys.executable, str(ROOT / 'tools' / 'precedent_update.py'),
+                     '--repo', str(ROOT), cwd=ROOT)
+        cases.append(('--repo naming the BestPractice clone itself is refused',
+                      rc == 2 and 'is this BestPractice clone itself' in out, out[-400:]))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    return (not bad, f'{len(cases)} stated cases',
+            '; '.join(f'{n}: {d}' for n, d in bad))
+
+
 def check_legacy_leftovers_retired_by_content():
     """The old install's leftovers leave an install on its next refresh,
     recognised by CONTENT -- tracked or not, hand-paused or not -- and a file
@@ -36025,6 +36242,10 @@ def main():
           *check_a_source_set_ships_no_ci_workflow())
     check('the old install\'s leftovers leave by content, never by name',
           *check_legacy_leftovers_retired_by_content())
+    check('refresh repoints a retired catalogue pin to main, and no other pin',
+          *check_refresh_repoints_a_retired_catalogue_pin())
+    check('Update Vendors runs as one command and stops only for the repo\'s own calls',
+          *check_update_vendors_is_one_command())
     check('the instruction files name only repositories that exist',
           *check_instruction_files_name_repos_that_exist())
     check('a consumer may declare a CI workflow its own and keep it',
