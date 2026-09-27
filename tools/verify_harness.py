@@ -7031,6 +7031,107 @@ def check_update_vendors_is_one_command():
             '; '.join(f'{n}: {d}' for n, d in bad))
 
 
+def check_update_vendors_survives_an_upstream_deletion():
+    """An update that deletes a vendored .py file upstream dropped ends DONE,
+    and the deep check judges the tree the commit will hold.
+
+    2026-09-27, taking main into a real consumer: `checkin.py update` deleted
+    tools/precedent_upstream_check.py and tools/upstream_watermark.json from
+    process/upstream/, both dropped upstream by 0b5f0d650. The deletions sat
+    unstaged, timestamps-carry-offset listed Python files from the index,
+    `--cached` still named the deleted one, and the update came back FAILED
+    on "could not be parsed" for a file that was gone.
+
+    The fixture is that consumer, built the way a real one is: installed by
+    precedent_install.py, with a catalogue vendored at 0b5f0d650's parent, so
+    the update has to delete those two files. Two fixes, each asserted on its
+    own: the check skips an index path missing from disk, and the update
+    stages what it wrote and deleted before the check runs.
+    Owns its state (practice: fixture-owns-its-state).
+    """
+    import tempfile
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-update-deletes-'))
+    cases = []
+    env = dict(os.environ, HOME=str(tmp / 'home'), PRECEDENT_ALLOW_ANY_AUTHOR='1',
+               PRECEDENT_USER_CONFIG=str(tmp / 'no-user-config.json'),
+               GIT_AUTHOR_NAME='Fixture', GIT_AUTHOR_EMAIL='harness@example.com',
+               GIT_COMMITTER_NAME='Fixture', GIT_COMMITTER_EMAIL='harness@example.com')
+    for k in ('CLAUDE_CODE_REMOTE', 'PRECEDENT_LEAK_BLOCKLIST'):
+        env.pop(k, None)
+    (tmp / 'home').mkdir()
+
+    def sh(*argv, cwd):
+        r = subprocess.run(list(argv), cwd=str(cwd), env=env,
+                           capture_output=True, text=True)
+        return r.returncode, r.stdout + r.stderr
+
+    DROPPED = 'process/upstream/tools/precedent_upstream_check.py'
+    try:
+        rc, before_drop = sh('git', 'rev-parse', '--verify', '-q', '0b5f0d650^', cwd=ROOT)
+        before_drop = before_drop.strip()
+        cases.append(('this clone has the history the fixture vendors from '
+                      '(0b5f0d650^; a shallow clone needs --unshallow)',
+                      rc == 0 and bool(before_drop), before_drop))
+        if rc != 0:
+            raise RuntimeError('no history')
+        proj = tmp / 'proj'
+        sh('git', 'init', '-q', '-b', 'main', str(proj), cwd=tmp)
+        (proj / 'README.md').write_text('# Field Notes\n\nA newsletter about birds.\n',
+                                        encoding='utf-8')
+        sh('git', 'add', '-A', cwd=proj)
+        sh('git', 'commit', '-qm', 'before Precedent', cwd=proj)
+        rc, out = sh(sys.executable, str(ROOT / 'tools' / 'precedent_install.py'),
+                     str(proj), '--project-name', 'Field Notes', '--admin', 'dana', cwd=ROOT)
+        cases.append(('the fixture installs', rc == 0, out[-800:]))
+        up = proj / 'process' / 'upstream'
+        up.mkdir(parents=True)
+        arch = subprocess.run(['git', '-C', str(ROOT), 'archive', before_drop],
+                              capture_output=True)
+        subprocess.run(['tar', '-x', '-C', str(up)], input=arch.stdout, check=True)
+        (proj / 'process' / 'manifest.json').write_text(json.dumps({
+            'upstream': {'repo': 'https://github.com/alex137/BestPractice',
+                         'vendored_at': 'process/upstream',
+                         'branch': 'precedent-beta-v01', 'commit': before_drop},
+            'entries': []}, indent=2) + '\n', encoding='utf-8')
+        (proj / 'process' / 'scrub_blocklist.txt').write_text(
+            '# terms private to this project\nfieldnotes-internal\n', encoding='utf-8')
+        sh('git', 'add', '-A', cwd=proj)
+        sh('git', 'commit', '-qm', 'installed, catalogue vendored', cwd=proj)
+        sh('git', 'clone', '-q', '--bare', str(proj), str(tmp / 'origin.git'), cwd=tmp)
+        sh('git', 'remote', 'add', 'origin', str(tmp / 'origin.git'), cwd=proj)
+        sh('git', 'fetch', '-q', 'origin', cwd=proj)
+        cases.append(('the vendored catalogue carries the file upstream later dropped',
+                      (proj / DROPPED).is_file(), DROPPED))
+
+        rc, out = sh(sys.executable, str(ROOT / 'tools' / 'precedent_update.py'),
+                     '--repo', str(proj), '--from-ref', _ref_including_worktree(ROOT),
+                     cwd=proj)
+        cases.append(('the update that deletes it ends DONE with the deep check run, '
+                      'not FAILED', rc == 0 and 'DONE -- nothing left' in out
+                      and 'deep check: passed' in out, out[-2500:]))
+        cases.append(('...the file is gone from disk', not (proj / DROPPED).exists(), ''))
+        _rc, staged = sh('git', 'diff', '--cached', '--name-status', '--', DROPPED, cwd=proj)
+        cases.append(('...and its deletion is staged, so the check judged what the '
+                      'commit will hold', staged.startswith('D'), staged))
+
+        # The check on its own: with the deletion UNSTAGED again, the index
+        # still names the file, and it must not be reported as unparseable.
+        sh('git', 'reset', '-q', cwd=proj)
+        rc, out = sh(sys.executable, 'tools/precedent_check.py', '--only',
+                     'timestamps-carry-offset', cwd=proj)
+        cases.append(('timestamps-carry-offset passes over a deleted, unstaged file '
+                      'instead of calling it unparseable',
+                      rc == 0 and 'could not be parsed' not in out, out[-800:]))
+    except RuntimeError:
+        pass
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    return (not bad, f'{len(cases)} stated cases',
+            '; '.join(f'{n}: {d}' for n, d in bad))
+
+
 def check_legacy_leftovers_retired_by_content():
     """The old install's leftovers leave an install on its next refresh,
     recognised by CONTENT -- tracked or not, hand-paused or not -- and a file
@@ -12075,6 +12176,129 @@ def check_publisher_bound_checks_run_in_a_source_set():
     check(f'a check about published practices binds the publisher and still '
           f'skips a consumer ({len(cases)} stated cases, each asserting the '
           f'printed text)',
+          not bad,
+          '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad))
+
+
+def check_practice_links_travel_skips_a_consumers_repo_local_practices():
+    """A consumer's repo-local practice is never published, so
+    practice-links-travel must not test its links -- and the repair it
+    prints for a practice it DOES test must not be a URL into a repository
+    that is not declared public.
+
+    Found 2026-09-27 in a private consuming repository: after a vendor
+    update its full check reported 20 working links in its own repo-local
+    practices as dead, because the check kept every practice the committed
+    MANIFEST.json did not attribute to ANOTHER source, and `repo-local` is
+    not another source. Each finding advised an absolute URL into that
+    private repository -- the disclosure the practice's own Rule forbids.
+
+    One fixture, three runs, each asserting the printed text rather than an
+    exit status alone (practice: control-asserts-which-failure):
+      1. the repo-local practice with a working relative link is not
+         reported;
+      2. the SAME file, no longer named in the manifest (so this repository
+         publishes it), IS reported -- which is what keeps case 1 from
+         passing because the check never looked;
+      3. that finding's repair is a backticked path under
+         `visibility: private`, and a URL under `visibility: public`.
+    """
+    import tempfile
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='links-travel-local-'))
+    try:
+        # A fixture that owns its state: its own git repo, manifest,
+        # visibility and practices/ (practice: fixture-owns-its-state).
+        fx = tmp / 'consumer'
+        (fx / 'tools').mkdir(parents=True)
+        (fx / 'practices').mkdir()
+        (fx / 'content').mkdir()
+        for name in _source_kind_engine_files():
+            e = ROOT / 'tools' / name
+            if e.is_file():
+                shutil.copy(e, fx / 'tools' / name)
+        shutil.copy(ROOT / 'tools' / 'precedent_check.py',
+                    fx / 'tools' / 'precedent_check.py')
+        # The consumer gate runs a practice-backed check only when its
+        # practice file is here, as it is in every real consumer.
+        shutil.copy(ROOT / 'practices' / 'practice-links-travel.md',
+                    fx / 'practices' / 'practice-links-travel.md')
+        (fx / 'content' / 'LIST.md').write_text('# List\n', encoding='utf-8')
+        (fx / 'practices' / 'fixture-local.md').write_text(
+            '---\nslug:        fixture-local\ntitle:       A repo-local rule\n'
+            'tier:        on-demand\nseverity:    default\n'
+            'applies_to:  ["content/*.md"]\noccasion:    "the fixture runs"\n'
+            'gates:       []\nindex_clause: "the fixture runs"\n'
+            'checked_by:  null\ndefines:     []\nstatus:      active\n'
+            'supersedes:  []\noverrides:   null\nadded:       2026-09-27\n'
+            'approved_by: "fixture"\n---\n'
+            '## Rule\nAdd items to [the list](../content/LIST.md).\n\n'
+            '## Story\nWritten for this control; no incident is claimed.\n',
+            encoding='utf-8')
+        (fx / 'tools' / 'ENGINE_MANIFEST.json').write_text(json.dumps({
+            'kind': 'consumer',
+            'source_repo': 'https://github.com/example/upstream',
+            'source_branch': 'main',
+            'files': ['precedent_check.py'],
+        }), encoding='utf-8')
+        subprocess.run(['git', 'init', '-q'], cwd=fx, capture_output=True)
+        subprocess.run(['git', 'remote', 'add', 'origin',
+                        'https://github.com/example/consumer.git'],
+                       cwd=fx, capture_output=True)
+
+        def run(local_level, visibility):
+            entries = [{'slug': 'practice-links-travel', 'level': 'universal'}]
+            if local_level:
+                entries.append({'slug': 'fixture-local', 'level': local_level})
+            (fx / 'MANIFEST.json').write_text(
+                json.dumps({'practices': entries}), encoding='utf-8')
+            (fx / 'precedent.json').write_text(json.dumps(
+                {'format_version': 1, 'base_branch': 'main',
+                 'visibility': visibility}), encoding='utf-8')
+            env = dict(os.environ, PRECEDENT_ALLOW_ANY_AUTHOR='1')
+            return subprocess.run(
+                [sys.executable, 'tools/precedent_check.py', '--only',
+                 'practice-links-travel'],
+                cwd=fx, capture_output=True, text=True, env=env)
+
+        local = run('repo-local', 'private')
+        cases.append(('a consumer\'s repo-local practice with a working '
+                      'relative link is not reported',
+                      local.returncode == 0 and 'VIOLATION' not in local.stdout
+                      and 'fixture-local.md:' not in local.stdout,
+                      f'rc={local.returncode} ' + local.stdout[-400:]))
+        cases.append(('and the skip says the repo-local practices were left '
+                      'out because they are never published',
+                      'repo-local source' in local.stdout
+                      and 'never published' in local.stdout,
+                      local.stdout[-400:]))
+
+        pub = run(None, 'private')
+        cases.append(('the same link in a practice this repository publishes '
+                      'IS reported (so the case above is the guard, not a '
+                      'check that never looked)',
+                      pub.returncode != 0
+                      and 'fixture-local.md:' in pub.stdout
+                      and 'does not travel' in pub.stdout,
+                      f'rc={pub.returncode} ' + pub.stdout[-400:]))
+        cases.append(('under visibility: private the repair is the backticked '
+                      'path, never a URL into this repository',
+                      '`content/LIST.md`' in pub.stdout
+                      and 'github.com/example/consumer' not in pub.stdout,
+                      pub.stdout[-400:]))
+
+        public = run(None, 'public')
+        cases.append(('under visibility: public the repair is the absolute URL',
+                      'https://github.com/example/consumer/blob/main/'
+                      'content/LIST.md' in public.stdout,
+                      public.stdout[-400:]))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
+    check(f'practice-links-travel skips a consumer\'s repo-local practices '
+          f'and suggests a URL only in a public repository '
+          f'({len(cases)} stated cases, each asserting the printed text)',
           not bad,
           '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad))
 
@@ -17414,24 +17638,42 @@ def check_promote_pre_staging():
             {'email': 'p@example.com', 'landing_branch': 'pre-staging'}), encoding='utf-8')
         git(work, 'fetch', '-q', 'origin')
         git(work, 'checkout', '-q', '-B', 'w-landed', 'origin/pre-staging')
-        sys.path.insert(0, str(ROOT / 'tools'))
-        saved = os.environ.get('PRECEDENT_USER_CONFIG')
-        os.environ['PRECEDENT_USER_CONFIG'] = str(tmp / 'config.json')
-        try:
-            import precedent_gate as pg
-            got = pg._unlanded_work(work, siblings=False)
-        finally:
-            sys.path.pop(0)
-            if saved is None:
-                os.environ.pop('PRECEDENT_USER_CONFIG', None)
-            else:
-                os.environ['PRECEDENT_USER_CONFIG'] = saved
+        def unlanded():
+            sys.path.insert(0, str(ROOT / 'tools'))
+            saved = os.environ.get('PRECEDENT_USER_CONFIG')
+            os.environ['PRECEDENT_USER_CONFIG'] = str(tmp / 'config.json')
+            try:
+                import precedent_gate as pg
+                return pg, pg._unlanded_work(work, siblings=False)
+            finally:
+                sys.path.pop(0)
+                if saved is None:
+                    os.environ.pop('PRECEDENT_USER_CONFIG', None)
+                else:
+                    os.environ['PRECEDENT_USER_CONFIG'] = saved
+        pg, got = unlanded()
         cases.append(("unpromoted work on pre-staging is named gently, as "
                       "something a Promote can move whenever it suits",
                       any(l.startswith("this checkout: pre-staging is ")
                           and 'a Promote can move them' in l
                           and 'NOT' not in l and 'MUST' not in l
                           for l in got)))
+        # While another window holds a fresh Promote lock, the same batch
+        # must never be offered for promoting (Morgan, 2026-09-27: "NEVER
+        # recommend a promote when another session is already doing it").
+        hold(60)
+        pg, got = unlanded()
+        cases.append(("while another window is promoting, the reminder is "
+                      "replaced by a line saying one is already running",
+                      any(pg.PROMOTE_RUNNING_MARK in l
+                          and 'held by another window' in l for l in got)
+                      and not any('a Promote can move them' in l for l in got)))
+        hold(3 * 3600)
+        pg, got = unlanded()
+        cases.append(("a stale claim is not a Promote running: the reminder "
+                      "comes back",
+                      any('a Promote can move them' in l for l in got)
+                      and not any(pg.PROMOTE_RUNNING_MARK in l for l in got)))
         cases.append(("a branch whose commits are all on pre-staging is not "
                       "called unlanded for lacking them on staging",
                       not any("'w-landed'" in l for l in got)))
@@ -36246,6 +36488,8 @@ def main():
           *check_refresh_repoints_a_retired_catalogue_pin())
     check('Update Vendors runs as one command and stops only for the repo\'s own calls',
           *check_update_vendors_is_one_command())
+    check('an update that deletes a vendored file upstream dropped ends DONE',
+          *check_update_vendors_survives_an_upstream_deletion())
     check('the instruction files name only repositories that exist',
           *check_instruction_files_name_repos_that_exist())
     check('a consumer may declare a CI workflow its own and keep it',
@@ -36288,6 +36532,7 @@ def main():
     check_routing_audit_coverage()
     check_parallel_artifact_ledger_fires()
     check_publisher_bound_checks_run_in_a_source_set()
+    check_practice_links_travel_skips_a_consumers_repo_local_practices()
     check_gate_channel()
     check_reply_gate_sees_every_source()
     check_advisory_requirement_never_blocks()
