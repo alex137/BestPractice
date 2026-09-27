@@ -527,6 +527,9 @@ CHANGED_PRACTICE_CHECK = ('changed_practice',
 # changed practice feeds -- never at the rest of the repository:
 #   - a changed Python file compiles;
 #   - a changed shell script parses (bash -n);
+#   - a changed JSON file parses;
+#   - a changed check (tools/checks/check_x.py), or its test, has that
+#     test (tools/checks/tests/test_x.sh) run;
 #   - a changed practice file's generated views (AGENTS.md, MAP.md,
 #     GLOSSARY.md) were regenerated with it -- in a repository whose own
 #     views build_views.py renders, which is BestPractice and a practice set.
@@ -563,6 +566,31 @@ def changed_files_check(root, since):
             if r.returncode != 0:
                 problems.append(f'{rel}: does not parse -- '
                                 f'{(r.stderr or r.stdout).strip()[:300]}')
+        elif rel.endswith('.json'):
+            try:
+                json.loads(path.read_text(encoding='utf-8'))
+            except (ValueError, UnicodeDecodeError) as e:
+                problems.append(f'{rel}: is not valid JSON -- {e}')
+    # A changed check, or a changed test, runs that check's own test: the
+    # pair is tools/checks/check_x.py and tools/checks/tests/test_x.sh.
+    tests = []
+    for rel in files:
+        m = re.match(r'(?:(.*)/)?tools/checks/(?:check_(\w+)\.py|tests/test_(\w+)\.sh)$', rel)
+        if not m:
+            continue
+        base = f'{m.group(1)}/' if m.group(1) else ''
+        test = f'{base}tools/checks/tests/test_{m.group(2) or m.group(3)}.sh'
+        if test not in tests and (root / test).is_file():
+            tests.append(test)
+    for test in tests:
+        try:
+            r = subprocess.run(['bash', test], cwd=root, capture_output=True,
+                               text=True, timeout=600)
+            if r.returncode != 0:
+                tail_ = (r.stdout + r.stderr).strip().splitlines()[-3:]
+                problems.append(f'{test}: failed -- ' + ' | '.join(tail_)[:400])
+        except subprocess.TimeoutExpired:
+            problems.append(f'{test}: did not finish within 10 minutes')
     practice = [f for f in files if f.endswith('.md')
                 and (f.startswith('practices/') or '/practices/' in f)]
     build = root / 'tools' / 'build_views.py'
@@ -577,6 +605,9 @@ def changed_files_check(root, since):
                 f'rewrites. ' + (r.stdout + r.stderr).strip().splitlines()[0][:300])
     for line in problems:
         print(f'  {line}')
+    if tests:
+        print(f'changed_files: ran {len(tests)} test(s) of changed checks: '
+              + ', '.join(tests))
     print(f'changed_files: {len(files)} changed file(s) checked, '
           f'{len(problems)} problem(s).')
     return 1 if problems else 0

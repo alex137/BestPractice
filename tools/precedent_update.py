@@ -33,9 +33,11 @@ THE STEPS, with no question in between:
      MAP.md and GLOSSARY.md too -- then this repo's own citations of any
      practice the update withdrew or reworded (a withdrawn one's is a call
      left for you; a reworded one's is listed to read)
-  5. the repo's own deep check (--skip-check to leave it out), run against
-     a temporary commit of the staged update, undone right after, so it
-     judges the tree the way the push will
+  5. the repo's own check at its landing branch's tier -- into pre-staging,
+     the fast checks on what changed; the full check waits for the Promote
+     (--skip-check to leave it out) -- run against a temporary commit of
+     the staged update, undone right after, so it judges the tree the way
+     the push will
 
 THE REPORT, and the exit code a session acts on:
   0  DONE -- nothing is left. Commit, then run Go update's chain.
@@ -447,17 +449,31 @@ def update(repo, skip_check=False, ref=None):
                     f'reworded -- read each, it may describe the old rule: '
                     + ', '.join(read) if read else ''))
 
-    # 5. The repo's own deep check -- the gate before any push.
+    # 5. The repo's own check, at the tier of the branch the update lands
+    # on -- the gate before any push. Into pre-staging that is the fast
+    # checks on what the update changed; the full check waits for the
+    # Promote to staging (Morgan, 2026-09-27, strength: decided: "The point
+    # of pre-staging is to move fast, so I want the 10 minute checks to
+    # happen at the staging level, not pre-staging." Practice:
+    # checks-follow-the-tier).
     check = repo / 'tools' / 'precedent_push_check.py'
+    try:
+        landing = pb.landing_branch(repo)[0]
+    except Exception:                                          # noqa: BLE001
+        landing = None
+    argv = [sys.executable, str(check)]
+    if landing:
+        argv += ['--push-command', f'origin HEAD:{landing}']
+    label = f'check for {landing}' if landing else 'deep check'
     if skip_check:
-        rep.step('deep check', 'skipped (--skip-check) -- run it before pushing')
+        rep.step(label, 'skipped (--skip-check) -- run it before pushing')
     elif check.is_file():
-        rc, out = judged_as_committed(repo, [sys.executable, str(check)])
+        rc, out = judged_as_committed(repo, argv)
         if rc != 0:
-            return rep.close(f"the deep check is red:\n{tail(out)}")
-        rep.step('deep check', 'passed')
+            return rep.close(f"the {label} is red:\n{tail(out)}")
+        rep.step(label, 'passed')
     else:
-        rep.step('deep check', 'this repo has no tools/precedent_push_check.py')
+        rep.step(label, 'this repo has no tools/precedent_push_check.py')
     return rep.close()
 
 
