@@ -15,7 +15,8 @@ in_force_at: null
 supersedes:  []
 overrides:   null
 added:       "2026-09-25"
-approved_by: "Morgan, 2026-09-25 -- the three branch tiers are his own
+approved_by: "Morgan, 2026-09-27 (decided) -- never recommend a Promote
+  another window is already running; Morgan, 2026-09-25 -- the three branch tiers are his own
   design (\"to prestaging only the most minimal test; to
   staging/precedent-beta-v01 all local tests; and then to main, you get
   all those local tests AND the most important GitHub test\", strength:
@@ -78,6 +79,14 @@ A later Promote carries it on into main.
 A Promote that resolves to staging into main is the named go-ahead
 [merge-target-is-beta-branch](https://github.com/alex137/BestPractice/blob/staging/local/practices/merge-target-is-beta-branch.md)
 asks for, since Morgan asked for exactly this; nobody is asked again.
+
+**Never recommend a Promote that another window is already running.**
+When a Promote finds the lock held, or the reply gate reports one under way,
+no reply suggests promoting that repository again -- not as a next step,
+not as a plain line in The Boildown, not as "try again later". It says, at
+most, that one is running, and which session holds it when that can be told
+(Morgan, 2026-09-27, strength: decided: *"NEVER recommend a promote when
+another session is already doing it!!!"*).
 
 **Waiting for a Promote never keeps a session open.** Work on pre-staging
 is already on `origin`, and any later session can promote it, so a pending

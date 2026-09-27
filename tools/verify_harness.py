@@ -17515,24 +17515,42 @@ def check_promote_pre_staging():
             {'email': 'p@example.com', 'landing_branch': 'pre-staging'}), encoding='utf-8')
         git(work, 'fetch', '-q', 'origin')
         git(work, 'checkout', '-q', '-B', 'w-landed', 'origin/pre-staging')
-        sys.path.insert(0, str(ROOT / 'tools'))
-        saved = os.environ.get('PRECEDENT_USER_CONFIG')
-        os.environ['PRECEDENT_USER_CONFIG'] = str(tmp / 'config.json')
-        try:
-            import precedent_gate as pg
-            got = pg._unlanded_work(work, siblings=False)
-        finally:
-            sys.path.pop(0)
-            if saved is None:
-                os.environ.pop('PRECEDENT_USER_CONFIG', None)
-            else:
-                os.environ['PRECEDENT_USER_CONFIG'] = saved
+        def unlanded():
+            sys.path.insert(0, str(ROOT / 'tools'))
+            saved = os.environ.get('PRECEDENT_USER_CONFIG')
+            os.environ['PRECEDENT_USER_CONFIG'] = str(tmp / 'config.json')
+            try:
+                import precedent_gate as pg
+                return pg, pg._unlanded_work(work, siblings=False)
+            finally:
+                sys.path.pop(0)
+                if saved is None:
+                    os.environ.pop('PRECEDENT_USER_CONFIG', None)
+                else:
+                    os.environ['PRECEDENT_USER_CONFIG'] = saved
+        pg, got = unlanded()
         cases.append(("unpromoted work on pre-staging is named gently, as "
                       "something a Promote can move whenever it suits",
                       any(l.startswith("this checkout: pre-staging is ")
                           and 'a Promote can move them' in l
                           and 'NOT' not in l and 'MUST' not in l
                           for l in got)))
+        # While another window holds a fresh Promote lock, the same batch
+        # must never be offered for promoting (Morgan, 2026-09-27: "NEVER
+        # recommend a promote when another session is already doing it").
+        hold(60)
+        pg, got = unlanded()
+        cases.append(("while another window is promoting, the reminder is "
+                      "replaced by a line saying one is already running",
+                      any(pg.PROMOTE_RUNNING_MARK in l
+                          and 'held by another window' in l for l in got)
+                      and not any('a Promote can move them' in l for l in got)))
+        hold(3 * 3600)
+        pg, got = unlanded()
+        cases.append(("a stale claim is not a Promote running: the reminder "
+                      "comes back",
+                      any('a Promote can move them' in l for l in got)
+                      and not any(pg.PROMOTE_RUNNING_MARK in l for l in got)))
         cases.append(("a branch whose commits are all on pre-staging is not "
                       "called unlanded for lacking them on staging",
                       not any("'w-landed'" in l for l in got)))
