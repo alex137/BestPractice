@@ -108,11 +108,19 @@ says so, both from the vendored tree under `process/upstream/`.
    installs to main. ... Let's do it, go ahead, go update"*). An install
    whose `process/manifest.json` records `"branch": "staging"` -- or
    `precedent-beta-v01`, staging's name until that morning -- is repointed
-   to `main` in this same update, and so is its `tools/ENGINE_MANIFEST.json`
-   (the refresh writes that one itself). The consequence to know: a change
-   reaches your other repositories only once it is on BestPractice's main,
-   which takes staging by a pull request, and a major one needs Alex's
-   named go-ahead. For one day before that, 2026-09-24, installs had been
+   to `main` in this same update, and so is its `tools/ENGINE_MANIFEST.json`.
+   **Step 3's refresh writes both itself, since 2026-09-27: never edit the
+   pin by hand, and never ask whether to.** It is already decided, and a
+   hand edit to the file that says which branch a repo tracks is exactly
+   what a harness permission check holds for a human -- which is how a
+   consumer update stopped halfway that day, engine on `main` and catalogue
+   on `precedent-beta-v01`, asking a question nobody needed to answer. A
+   repo left in that half state is repointed by re-running step 3.
+
+   The consequence to know: a change reaches your other repositories only
+   once it is on BestPractice's main, which takes staging by a Promote or a
+   pull request (no merge there has needed Alex's sign-off since
+   2026-09-26, per [AGENTS.md](https://github.com/alex137/BestPractice/blob/staging/AGENTS.md)). For one day before that, 2026-09-24, installs had been
    split between `main` and `precedent-beta-v01` on an approval Morgan
    later called assent rather than a decision; this move was made for
    every install at once so that cannot happen again.
@@ -294,10 +302,17 @@ says so, both from the vendored tree under `process/upstream/`.
    point — vendoring a commit whose diff you actually reviewed, and
    reproducing a bug against an older engine — never for making a rollout
    tidy.
-4. **Take the catalogue update by the documented route.** Under a branch
-   pin this is the manual mirror, never a tool that resolves the remote's
-   *default* branch — that mirrors the wrong lineage over a pinned tree,
-   which is a wholesale revert wearing an update's clothes.
+4. **Take the catalogue update with `checkin.py update`.** Every install
+   follows `main`, BestPractice's default branch, and step 3 has already
+   repointed a retired pin, so the pin and the default agree and the
+   pinned-branch hold does not fire. **Only a repo deliberately pinned to
+   some other branch** takes the manual mirror instead
+   ([spec/MIGRATING_EXISTING_INSTALLS.md](https://github.com/alex137/BestPractice/blob/staging/spec/MIGRATING_EXISTING_INSTALLS.md)'s
+   "The default-branch gotcha"): a tool resolving the default there would
+   mirror the wrong lineage over the pinned tree, a wholesale revert
+   wearing an update's clothes. Until 2026-09-27 this step said "under a
+   branch pin, the manual mirror" with no exception for `main`, which sent
+   a consumer session looking for a route it did not need.
 
    **`checkin.py record`'s carry check reads the COMMITTED tree on the
    remote, not your working tree**, so restoring a file locally after a
