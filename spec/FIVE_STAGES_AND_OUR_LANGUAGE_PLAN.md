@@ -87,7 +87,7 @@ Each gets one plain line.
 | **source** | Where a set of practices comes from, usually a repository. |
 | **level** | Whether a source is universal, shared, individual, or local to one repository. |
 | **primary branch** | The one shared branch regular work lands on. |
-| **temporary branch** | A session's own working branch on GitHub, the kind named like `claude/<topic>-<random>`. Safe from a lost container, but easy to forget; deleted once merged. |
+| **feature branch** | The short-lived branch one session works on, on GitHub -- the kind named like `claude/<topic>-<random>`. GitHub's own word for it; some teams say "topic branch". It survives a lost container but is easy to forget, and it is deleted once merged. |
 | **pre-staging, staging, main** | The three branch tiers ([spec/BRANCH_TIERS_PLAN.md](BRANCH_TIERS_PLAN.md)). In the stage names below, `main` is called **production**. |
 | **the five stages** | Consider, Act, Booked, Debut, Picked up -- see Part 2. |
 
@@ -127,8 +127,8 @@ still wants his yes.
 | # | Word | Long title | What happens | Where the work ends up |
 |---|---|---|---|---|
 | 1 | **Consider** | Plan | Decide how much planning this needs, then do that much. | Nowhere yet, or a plan |
-| 2 | **Act** | Build | Make the change. | The session's temporary branch on GitHub |
-| 3 | **Booked** | Shared Save | Move it from the temporary branch to pre-staging. After this it **won't be lost**. | pre-staging |
+| 2 | **Act** | Build | Make the change. | The session's feature branch on GitHub |
+| 3 | **Booked** | Shared Save | Move it from the feature branch to pre-staging. After this it **won't be lost**. | pre-staging |
 | 4 | **Debut** | Test Readiness | Move pre-staging into staging, with the full checks. | staging |
 | 5 | **Picked up** *(word still open)* | Production | Move staging into main, with the full checks plus the GitHub test. | main |
 
@@ -182,11 +182,11 @@ never skips a step.**
 
 - If more than one move is possible and the request does not say which,
   **take the lowest**. Morgan: *"If I'm ambiguous, start at the ... lowest
-  one."* If the temporary branch, pre-staging and staging each hold
-  different work, the bare Promote means Booked: the temporary branch into
+  one."* If the feature branch, pre-staging and staging each hold
+  different work, the bare Promote means Booked: the feature branch into
   pre-staging.
 - Asking for a higher stage runs the lower ones first. "Debut" on work still
-  on the temporary branch runs Booked, then Debut, and the read-back says so.
+  on the feature branch runs Booked, then Debut, and the read-back says so.
   (Promote already lands the session's own unsaved work first; this keeps
   that.)
 - A bare Promote never sends finished work back to Consider.
@@ -366,7 +366,7 @@ rarer word is recommended.
 
 **Where Act lives.** First draft: the local clone. Hole: a cloud container is
 reclaimed, and local-only work is lost. Answer: Act lives on the session's
-temporary branch on GitHub. Hole found in that: temporary branches strand
+feature branch on GitHub. Hole found in that: feature branches strand
 work -- `claude/graduate-synonym` (BestPractice) is the live example, and a
 warning had existed for six days. Answer: the archive guard, which blocks
 the archive line instead of only asking for a mention.
@@ -457,7 +457,8 @@ Strength per [practices/decision-strength.md](../practices/decision-strength.md)
 | One-line plan for tiny changes | decided | *"Very, very, very important."* |
 | Optional for everyone, required only for Morgan | decided | *"people can use staging, but they don't have to"* |
 | Step 5's long title is Production | decided | *"let's do that"* (on "production for the last stage") |
-| Act lives on the temporary branch; Booked makes it safe | decided | *"booked is all about moving it from there to pre-staging so ... it won't get lost"* |
+| The session's short-lived branch is called a "feature branch" | decided | *"can we add in the word ... feature branch, to mean the short-lived ... branch just in that session"* |
+| Act lives on the feature branch; Booked makes it safe | decided | *"booked is all about moving it from there to pre-staging so ... it won't get lost"* |
 | Bare Promote: next step not done; lowest when unclear | decided | *"If I'm ambiguous, start at the ... lowest one"* |
 | Booked checks readiness first | decided | *"you need to use your judgment and say, do you think it's ready?"* |
 | Promote stays the one word, step 1 included | decided | *"I want one word to just use everywhere ... promote is good enough"* |
