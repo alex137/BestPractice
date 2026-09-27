@@ -44,12 +44,23 @@ HOST CONFIGURATION (set by the host shim):
             clone that fetches every branch ever pulls
 
 API (call sites wrap an existing memo file; the file name must carry the key):
-  ready(path)   -> True when `path` is on disk: already there, pulled from the
-                   cache, or pulled after waiting on a peer's solve
-  claim(path)   take the solve lease (best effort; released at exit if the
-                solve dies before publish)
-  publish(path) share `path` and release the claim
-  release(path) drop the claim without publishing
+  ready(path, claim=True)
+                -> True when `path` is on disk: already there, pulled from
+                   the cache, or pulled after waiting on a peer's solve.
+                   False means THIS session is the solver: with claim=True
+                   it has taken the solve lease, so peers wait for it. Pass
+                   claim=False for a memo that accumulates across calls and
+                   is never "finished".
+  publish(path, at_exit=False)
+                share `path` and release the claim; `at_exit` defers it to
+                one publish when the process ends, for an accumulating memo
+  claim(path) / release(path)
+                the lease by hand; any claim still held at exit is released,
+                so a solve that dies (or a smoke run that writes no memo)
+                never leaves peers waiting on it
+
+The host's copy of lease_board is the one this module imports
+(`result_cache.lease_board`): configure ITS REPO/REMOTE/BRANCH/DIR.
 
   result_cache.py list | get NAME | stats
 """
@@ -161,9 +172,10 @@ def family(name):
     return re.sub(r"_[0-9a-f]{8,}(?=\.[A-Za-z0-9]+$)", "", name)
 
 
-def ready(path):
+def ready(path, claim=True):
     """True when `path` exists locally, pulling it from the cache or waiting
-    on a peer's in-flight solve if needed."""
+    on a peer's in-flight solve if needed. False means the caller solves:
+    with `claim`, the solve lease is taken here."""
     path = pathlib.Path(path)
     if path.exists():
         return True
@@ -174,7 +186,11 @@ def ready(path):
         print(f"[result-cache] {path.name}: pulled from {REMOTE}/{BRANCH}",
               file=sys.stderr)
         return True
-    return _await_peer(path)
+    if claim and _await_peer(path):
+        return True
+    if claim:
+        globals()["claim"](path)
+    return False
 
 
 def _peer_lease(name):
@@ -245,14 +261,24 @@ def release(path):
 
 
 @atexit.register
-def _release_all():
+def _at_exit_work():
+    for path in sorted(_at_exit):
+        publish(path)
     for name in list(_claims):
         release(name)
 
 
-def publish(path):
-    """Share `path` under its name; keep KEEP entries per family."""
+_at_exit = set()
+
+
+def publish(path, at_exit=False):
+    """Share `path` under its name; keep KEEP entries per family. With
+    `at_exit`, a memo that accumulates across calls is published once, when
+    the process ends, instead of on every write."""
     path = pathlib.Path(path)
+    if at_exit:
+        _at_exit.add(path)
+        return
     try:
         if _off() or not path.exists():
             return

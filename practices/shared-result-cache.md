@@ -74,8 +74,11 @@ of a branch under a lease, which set the storage design.
 
 ## Install
 Vendor [tools/result_cache.py](../tools/result_cache.py) with
-[tools/lease_board.py](../tools/lease_board.py). At each memo site: before
-the existence check call `ready(path)`; before the solve call `claim(path)`;
-after writing the memo call `publish(path)`. The file name must carry the
-key. A host shim sets `REMOTE` and `BRANCH`; skip `publish` in any smoke or
-partial mode that writes no memo.
+[tools/lease_board.py](../tools/lease_board.py). Each memo site gets **two
+calls**: `ready(path)` in place of its existence check — a False answer
+means this session solves, and the solve lease is already taken — and
+`publish(path)` after writing the memo. A memo that accumulates across calls
+passes `claim=False`. The file name must carry the key. A host shim sets
+`REMOTE` and `BRANCH`, and configures the lease board the cache imports; a
+claim left by a solve that dies, or by a smoke run that writes no memo, is
+released at exit.
