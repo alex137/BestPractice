@@ -28,7 +28,8 @@ THE STEPS, with no question in between:
      runs a second pass), then the catalogue-pin repoint from THIS copy
   3. the catalogue: checkin.py update, then record -- only where the repo
      vendors one (process/manifest.json)
-  4. the loader views regenerated, then this repo's own citations of any
+  4. the views regenerated -- the loader block, and in a practice set
+     MAP.md and GLOSSARY.md too -- then this repo's own citations of any
      practice the update withdrew or reworded (a withdrawn one's is a call
      left for you; a reworded one's is listed to read)
   5. the repo's own deep check (--skip-check to leave it out)
@@ -321,8 +322,27 @@ def update(repo, skip_check=False, ref=None):
                                           'recorded'))
 
     # 4. The views. A refresh changes what the loader renders.
+    #
+    # A practice SET renders more than a consumer does: MAP.md and
+    # GLOSSARY.md too, and MAP.md lists every engine file. Its deep check is
+    # `build_views.py --check`, so an update that adds an engine file and
+    # regenerates only the loader block fails its own gate. 2026-09-27: all
+    # four of Morgan's sets stopped on exactly that, one new MAP.md row
+    # each, fixed by hand. A set has no precedent_sync_views.py anyway --
+    # so it gets the full build, the same one its check compares against.
     sync = repo / 'tools' / 'precedent_sync_views.py'
-    if sync.is_file():
+    build = repo / 'tools' / 'build_views.py'
+    try:
+        kind = json.loads((repo / 'tools' / pve.MANIFEST_NAME)
+                          .read_text(encoding='utf-8')).get('kind')
+    except (OSError, ValueError):
+        kind = None
+    if kind == 'source' and build.is_file():
+        rc, out = run([sys.executable, str(build), '--repo', '.'], repo)
+        if rc != 0:
+            return rep.close(f"the view build failed:\n{tail(out)}")
+        rep.step('views', 'regenerated (loader block, MAP.md, GLOSSARY.md)')
+    elif sync.is_file():
         rc, out = run([sys.executable, str(sync), '--repo', str(repo)], repo)
         if rc != 0:
             return rep.close(f"the view sync failed:\n{tail(out)}")
