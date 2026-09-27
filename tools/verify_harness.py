@@ -35970,6 +35970,8 @@ def main():
           *check_a_source_set_ships_no_ci_workflow())
     check('the old install\'s leftovers leave by content, never by name',
           *check_legacy_leftovers_retired_by_content())
+    check('refresh repoints a retired catalogue pin to main, and no other pin',
+          *check_refresh_repoints_a_retired_catalogue_pin())
     check('the instruction files name only repositories that exist',
           *check_instruction_files_name_repos_that_exist())
     check('a consumer may declare a CI workflow its own and keep it',
