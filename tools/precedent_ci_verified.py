@@ -82,7 +82,7 @@ def expected_workflows(root, branch=''):
     any pull-request head), or declares `push:` whose branch filter this
     branch satisfies -- an ABSENT filter meaning every branch. Both shapes
     are live in this repository: deep-check.yml is pull_request plus push on
-    two named branches, leak-gate.yml is push on every branch and no
+    main, leak-gate.yml is push on every branch and no
     pull_request at all.
 
     THE NAIVE VERSION WAS WRONG and its own output caught it: testing for

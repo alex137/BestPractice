@@ -36,8 +36,8 @@ or not that repo runs Claude Code at all.
 protocol (Claude Code's `SessionStart`/`Stop` JSON payload shape), or a
 specific default identity (`Claude <noreply@anthropic.com>`)? If yes, either
 the dependency is genuinely unavoidable and gets named as a Claude Code
-binding explicitly rather than presented as universal (`session-text`'s old
-waking mechanism was this case, before it was removed rather than
+binding explicitly rather than presented as universal (the old
+session-waking mechanism was this case, before it was removed rather than
 labelled), or it belongs behind a guard that degrades gracefully when the
 tool isn't there (`templates/bootstrap.sh`'s own `if [ -f ... ]` pattern
 before calling `commit-identity.sh`).
@@ -100,9 +100,8 @@ one** ([checkable-gets-checked](../../practices/checkable-gets-checked.md)).
 "Does this code assume Claude Code" is a judgment call over arbitrary new
 code, not a fixed pattern a script can grep for reliably — the concrete
 tool names that make a dependency real
-([session-text](../../practices/session-text.md)'s
-own inventory: `ListAgents`, `SendMessage`, `create_trigger`,
-`fire_trigger`, `add_repo`, plus Claude Code's specific hook JSON fields
+(the inventory the retired `session-text` practice kept: `ListAgents`,
+`SendMessage`, `create_trigger`, `fire_trigger`, `add_repo`, plus Claude Code's specific hook JSON fields
 and its default bot identity) drift over time and a stale list gives false
 confidence. What can be checked, and should be if this recurs: a specific
 new dependency, once identified, is exactly what

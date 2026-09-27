@@ -1,16 +1,16 @@
 ---
 slug:        merge-target-is-beta-branch
-title:       Pull requests target staging, never main; no merge needs Alex's sign-off
+title:       Pull requests target the landing branch, never main; main moves only by a Promote
 tier:        on-demand
 severity:    blocking
 applies_to:  ["**"]
 occasion:    "opening or merging a pull request in this repository"
 index_required: true
 gates:       ["merge"]
-index_clause: "PRs target staging, never main; main only when named"
-checked_by:  "tools/checks/check_merge_target_is_beta_branch.py"
+index_clause: "PRs target pre-staging or staging, never main; main moves by a Promote"
+checked_by:  null
 defines:     []
-expires:     "when Morgan or Alex says work moves to main -- NOT when the branch is merged into main, which happened on 2026-09-14 (PR #367) and recurs on Morgan's regular merges"
+expires:     null
 status:      active
 in_force_at: null
 supersedes:  []
@@ -19,56 +19,30 @@ added:       null
 approved_by: "Alex, 2026-09-03 (original rule); approval scope narrowed by Morgan, 2026-09-04; Alex's approval for main removed, Alex relayed by Morgan, 2026-09-26"
 ---
 ## Rule
-**The branch was renamed from `precedent-beta-v01` to `staging` on 2026-09-25** ([spec/BRANCH_TIERS_PLAN.md](../../spec/BRANCH_TIERS_PLAN.md); Morgan, with Alex approving, relayed by Morgan). The old name is kept on origin and moved in step by every Promote while installs still pinned to it catch up; everything below means `staging`.
+**Every pull request (PR) in this repository targets the person's landing
+branch, never `main`**: `pre-staging` for a person whose landing branch is
+`pre-staging`, `staging` otherwise
+(`python3 tools/precedent_branches.py --landing` says which). Work moves on
+from there only by a Promote: `pre-staging` into `staging`, then `staging`
+into `main` ([promote](../../practices/promote.md);
+[spec/BRANCH_TIERS_PLAN.md](../../spec/BRANCH_TIERS_PLAN.md)). **Check the
+base branch explicitly before opening or merging** — never assume `main`
+because it is the repository's configured default branch.
 
-Every pull request (PR) opened in this repository targets
-`staging`, never `main`. Alex merged `staging` into
-`main` on 2026-09-14 ([PR #367](https://github.com/alex137/BestPractice/pull/367))
-and Morgan merges it into `main` regularly from then on — **that does not
-end this rule**: work keeps landing on `staging`, and `main`
-receives it through those merges, never through a PR opened against it
-(Morgan, 2026-09-14: *"work should still land to the precedent-beta-v01
-branch; but I will regularly merge the precedent branch with main"* —
-`strength: decided`). Before opening or merging a PR, confirm
-the base branch is `staging` — do not assume `main` is the
-default just because it is the repository's configured default branch.
+**Merging into `main` needs the person running the session to name `main`
+in that specific request, or a Promote that chooses `staging` into `main`**
+(Morgan, 2026-09-26, strength: decided). A general "PR and merge it", with
+no branch named, means the landing branch. **No merge needs Alex's
+sign-off, `main` included** (Morgan, 2026-09-26: *"Alex said we no longer
+need his authorization to post to main so please remove that"*, strength:
+decided; Alex's word relayed by Morgan). Once a PR's own deep check
+(`two-check-levels`) passes, a session may merge it into the landing branch.
 
-**For a person whose landing branch is pre-staging, a PR targets
-`pre-staging` instead**, and reaches `staging` by a Promote
-([spec/BRANCH_TIERS_PLAN.md](../../spec/BRANCH_TIERS_PLAN.md)): Morgan, 2026-09-25: *"the \"high risk\" ones should still go to pre-staging but have a strong, bolded message for me, in the main text as a paragraph and also in The Boildown, that now I need to push pre-staging to staging"* (strength: decided).
-Never `main`, either way.
-
-**No merge needs Alex's sign-off, `main` included** (Morgan, 2026-09-26:
-*"Alex said we no longer need his authorization to post to main so please
-remove that"*, strength: decided; Alex's word relayed by Morgan). Once the
-PR's own deep check (`two-check-levels`) passes, a session may merge a PR
-into `staging` directly. A merge into `main` still needs the person running
-the session to name `main` in that specific request, or a Promote that
-chooses staging into main ([promote](../../practices/promote.md); Morgan,
-2026-09-26, strength: decided); a general "PR and merge it" authorization,
-with no branch named, defaults to `staging`.
-
-**`staging` is staging and `main` is live.** A session working
-here uses `staging` for everything unless the person running it
-says otherwise, and `main` receives only what has been folded in from it.
-**This rule is this repository's alone and is never vendored**: a repository
-that takes updates from here works on its own primary branch, usually
-`main` ([primary-branch](../../practices/primary-branch.md)). Morgan,
-2026-09-24 (`strength: decided`): *"A session should default to using
-precedent-beta-v01 for everything within that session; only the live
-version with changes will be pushed to main at a later date, think of it
-like a staging server; unless the manager of the session says otherwise;
-but note that this rule doesn't get vendored in anywhere, the primary
-branch of the vendored-in repo should be used, often main."* **Other repos
-take their updates from `staging` too, for now**, all of them on
-the same branch (Morgan, 2026-09-24, `strength: decided`: *"they should all
-be consistent and following the same one. Maybe later we'll move them all
-to follow main but, for now, they should all follow precedent-beta-v01"*).
-That is `SOURCE_BRANCH` in `tools/precedent_vendor_engine.py` and
-`tools/precedent_refresh_sources.py`. Earlier the same day it briefly read
-`main`, on *"Yes, switch other repos to update from main"*, which Morgan
-later recorded as `strength: assented`: *"That was more an assent, than a
-decision. I didn't think about it."*
+**This rule is this repository's alone and is never vendored**: a
+repository that takes updates from here works on its own primary branch,
+usually `main` ([primary-branch](../../practices/primary-branch.md)).
+Consuming repositories vendor from `main` (`SOURCE_BRANCH` in
+`tools/precedent_vendor_engine.py`, since 2026-09-25).
 
 ## Detail
 This holds even when `main` and `staging` happen to be at the
@@ -127,35 +101,35 @@ remove that"* (strength: decided). The targeting rule stays: PRs still go to
 deliberate, named merge. What went is the named go-ahead from Alex that a
 major change reaching `main` used to need.
 
+**Update, 2026-09-27 — the check retired, the rule rewritten for three
+tiers.** After a named Promote of `staging` into `main`, the full check
+reported this practice's violation, as it would after every Promote into
+`main` from then on. Morgan: *"the merge target is no longer beta branch ---
+shouldn't this be deprecated with our new system of pre-staging then staging
+then main?"*, then *"please fix or remove etc and go update that"*
+(strength: decided). The targeting rule is still right and stays; the
+branch-graph check that assumed `main` never contains `staging` is gone, and
+the Rule now names the landing branch and the Promote instead of one beta
+branch. Its old Rule text, and the `precedent-beta-v01` history, are in this
+file's git history.
+
 ## Install
-`tools/precedent_check.py`'s `merge-target-is-beta-branch` check compares
-`origin/main` against `origin/precedent-beta-v01`: if `precedent-beta-v01`
-is an ancestor of `main` — meaning its work has landed there via a merge —
-the check fails, unless this practice has already been retired (see
-below). It reports `NotApplicable` when either ref is not fetched locally,
-since it cannot compare branches it cannot see; run
-`git fetch origin main precedent-beta-v01` first if it skips. It cannot
-catch a PR opened with the wrong base *before* that PR is merged — only
-that a merge already happened. `gates: ["merge"]` surfaces this practice's
-Rule via `python3 tools/precedent_gate.py merge`, which is the check-before
-step.
+**No mechanical check, since 2026-09-27.** The rule is carried by the tools
+that pick a branch: [promote](../../practices/promote.md) and
+[go-update](../../practices/go-update.md) land work on the branch
+`python3 tools/precedent_branches.py --landing` names, and only a Promote
+moves `staging` into `main`. `gates: ["merge"]` surfaces this Rule through
+`python3 tools/precedent_gate.py merge`, which is the check-before step.
 
-**A second, load-bearing gap, disclosed rather than assumed away**:
-because this is a repo-local practice (declared in `precedent.json`,
-`path: "local"`, per `PRACTICE_ENGINE_PLAN.md`'s "Source" section) and this
-repository's own generated `AGENTS.md` loader block stays deliberately
-single-source (`precedent.json`'s own `_comment`: "this repo's own
-session-loading is the universal catalogue alone"), this Rule does **not**
-reach a session through the normal resident/occasion-index channel the way
-a universal practice would. `AGENTS.md`'s hand-authored "Working in this
-repo" section carries the same rule directly, in prose, for exactly that
-reason — belt and suspenders, not redundancy.
+**The check this practice used to carry was retired, not lost.** Its
+branch-graph check failed whenever
+`main` contained all of `staging`. Before the branch tiers that meant a PR
+had merged into `main` by mistake. Under the pre-staging, staging, main
+pipeline it is what every Promote into `main` does on purpose, so the check
+fired after each one until the next commit reached `staging`, and blocked the
+deep check for a state nobody had got wrong. Its record is in
+`process/decommissioned_paths.json`.
 
-**Retirement.** When Morgan or Alex says work moves to `main` — a
-decision, not an event: the merge into `main` already happened on
-2026-09-14 and is repeated regularly, and this rule outlived it on purpose
-— delete this file, delete
-`local/tools/checks/check_merge_target_is_beta_branch.py`, remove the
-pointer from `AGENTS.md`, flip `base_branch` in `precedent.json` and
-rewrite the catalogue's absolute links, in that same PR, not left as later
-cleanup.
+This is a repo-local practice, so it does not reach a session through the
+universal catalogue's occasion index. [AGENTS.md](../../AGENTS.md)'s opening
+paragraph carries the same rule in prose for that reason.

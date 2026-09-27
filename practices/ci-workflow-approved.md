@@ -26,9 +26,9 @@ the file's exact content by sha256**, with their words quoted:
 
 ```json
 "github_ci_approved": {
-  ".github/workflows/light-check.yml": {
+  ".github/workflows/<name>.yml": {
     "sha256": "<sha256 of the file>",
-    "approved_by": "Morgan, 2026-09-25: \"Please stop it running every time\""
+    "approved_by": "<Name>, <YYYY-MM-DD>: \"<their words>\""
   }
 }
 ```
@@ -40,10 +40,30 @@ when it will run: every run bills at least a minute in a private repository.
 Then record what they said, in their words. **Never write an approval they
 did not give.** If they do not want the file, delete it.
 
+**In a consuming repo, Update Vendors settles a leftover without asking**
+(since 2026-09-27). The engine owns the workflows upstream ships
+(`leak-gate.yml`, `light-check.yml`): each refresh writes them from the
+template over any hand edit, and removes every other workflow that has no
+approval in the person's own words. **First it checks that nothing needed is
+lost:** a file that runs something the local push check does not (a script, a
+test runner, a third-party action) is left alone, and flagged loudly: a
+banner in the update's output, a "Left for you" line naming what to move into
+the local check, and an open item in the repo's `todo/`. A declaration under
+`local_ci_workflows` no longer keeps a consumer's workflow; only the person's
+approval does (Morgan, 2026-09-27: "I support if everything's already
+covered, deleting it. If there is something that is not covered, leave it
+alone, but flag it importantly"). So a consumer's finding here means the
+refresh has not run since the file changed, or could not touch it (untracked,
+or uncommitted edits). The answer is to run Update Vendors, not to ask the
+person. **Asking about a leftover is the failure here**, because the checks
+it ran already run locally before every push. Morgan, 2026-09-27 (strength:
+decided): *"Asking creates doubt and confusion when there isn't any."* The
+person's approval is still what keeps a workflow they actually asked for.
+
 **This check runs on every push** (the push gate's basic tier, seconds), in
-every full check, and at every Update Vendors and migration. A file
-[`precedent_install.py`](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_install.py) writes straight from a shipped template is approved
-by the install, and names the template instead of quoting anyone.
+every full check, and at every Update Vendors and migration. A workflow
+written from a shipped template is tracked in `ENGINE_MANIFEST.json`, which
+is what the check reads for it, so it needs no approval entry.
 Re-baselining an edited engine workflow with `record-ci` is an approval
 too, and needs the same words.
 
@@ -84,6 +104,19 @@ should NOT be doing that!!!! ... how do we stop future session from just
 adding their own files like this and doing things like this that get out of
 control? It's a priority."
 
+**2026-09-27, the same repository, on its next Update Vendors.** Its
+hand-made `light-check.yml` still ran on every push to `main` and on every
+pull request, re-running [doc_lint.py](../tools/doc_lint.py) and its own light check, both of which
+its local push check already ran. The update left the file alone, because the
+light check was written at install and never refreshed. This check then
+blocked every push with "show the person the file and ask", and the session
+had to ask. Morgan's answer was that there was nothing to ask: *"the point of
+the yml changes is to stop these extra needless (often hand edited) yml files
+from running, that's why we now run the checks locally etc so it shouldn't
+ask."* The session fixed that one repository by hand. The engine now owns the
+light check, and a consumer's refresh replaces a hand-made copy and removes
+an unapproved workflow on its own.
+
 ## Install
 Enforced by `_ci_workflow_approved` in
 [tools/precedent_check.py](../tools/precedent_check.py), run by
@@ -92,6 +125,11 @@ Enforced by `_ci_workflow_approved` in
 makes. It binds any repo that keeps a `.github/workflows/` directory
 (`binds_when`), whether or not the practice text resolved there, and reports
 "not applicable" in BestPractice itself, which has no engine manifest.
+In a consuming repo the refresh in
+[tools/precedent_vendor_engine.py](../tools/precedent_vendor_engine.py)
+does the settling: `_refresh_ci_workflow_files` writes the shipped
+workflows from their templates, and `_remove_unapproved_workflows` removes
+the rest (`CI_CONVERGES_KINDS`).
 
 **What the push check cannot see, and what covers it** (2026-09-26):
 

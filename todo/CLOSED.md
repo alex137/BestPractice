@@ -4,6 +4,7 @@
 
 | Item | What | Status | Closed |
 |---|---|---|---|
+| [`todo-2026-09-06-retire-merge-target-practice`](todo-2026-09-06-retire-merge-target-practice.md) | Retire local/practices/merge-target-is-beta-branch.md (and its check at local/tools/checks/check_merge_target_is_beta_br | done | 2026-09-27 |
 | [`todo-2026-09-08-upstream-notice-silent-when-rooted-above`](todo-2026-09-08-upstream-notice-silent-when-rooted-above.md) | The upstream-carry notice is silent in exactly the layout this project requires, and nothing reports its absence. | dropped | 2026-09-27 |
 | [`todo-2026-09-26-create-word-doc-declares-its-script`](todo-2026-09-26-create-word-doc-declares-its-script.md) | `create-word-doc` in `precedent-shared-writing` adds `ships: ["tools/create_word_doc.py"]` to its frontmatter | done | 2026-09-26 |
 | [`todo-2026-09-21-a-new-hook-cannot-reach-an-installed-consumer`](todo-2026-09-21-a-new-hook-cannot-reach-an-installed-consumer.md) | Fixed 2026-09-25: a refresh now wires the hooks a repo's kind gets | done | 2026-09-25 |
