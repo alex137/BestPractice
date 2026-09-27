@@ -68,6 +68,7 @@ class Report:
     def __init__(self):
         self.steps = []   # (name, one-line outcome)
         self.left = []    # (what, why)
+        self.loud = []    # workflows left alone -- printed first and last
 
     def step(self, name, outcome):
         self.steps.append((name, outcome))
@@ -77,7 +78,19 @@ class Report:
         if (what, why) not in self.left:
             self.left.append((what, why))
 
+    def _banner(self):
+        # A workflow the update had to leave alone still runs in GitHub, and
+        # the person asked for that to be impossible to miss (Morgan,
+        # 2026-09-27: "flag it importantly ... strong language").
+        bar = '!' * 72
+        print(f"\n{bar}\n{pve.KEPT_LOUD_HEADER}\n{bar}")
+        for line in self.loud:
+            print(f"  {line}")
+        print(bar)
+
     def close(self, failed=None):
+        if self.loud:
+            self._banner()
         print("\n== Update Vendors ==")
         for name, outcome in self.steps:
             print(f"  {name}: {outcome}")
@@ -93,6 +106,8 @@ class Report:
                   "then run this again:")
             for what, why in self.left:
                 print(f"  - {what}: {why}")
+            if self.loud:
+                self._banner()
             return LEFT
         print("\nDONE -- nothing left to decide. Review the staged diff, "
               "commit, then run Go update's chain.")
@@ -247,6 +262,9 @@ def update(repo, skip_check=False, ref=None):
     # A consumer's CI converges to upstream without asking (2026-09-27, see
     # precedent_vendor_engine.CI_CONVERGES_KINDS), so what the refresh
     # replaced or removed is reported here as done, never as a question.
+    rep.loud += [l.strip() for l in out.splitlines()
+                 if l.strip().startswith('LEFT ALONE: ')
+                 and l.strip() not in rep.loud]
     ci = []
     for line in out.splitlines():
         if 'refresh: CI workflow replaced: ' in line:
@@ -255,8 +273,8 @@ def update(repo, skip_check=False, ref=None):
         elif 'refresh: retired .github/workflows/' in line:
             ran = re.search(r'It ran ([^:]+):', line)
             ci.append('removed ' + line.split('retired ', 1)[1].split(' ', 1)[0]
-                      + (f' (it ran {ran.group(1)}; run that in the local push '
-                         f'check if it does not already)' if ran else ''))
+                      + (f' (it ran {ran.group(1)}, which the local push check '
+                         f'already runs)' if ran else ''))
     if ci:
         rep.step('CI workflows', '; '.join(dict.fromkeys(ci))
                  + ' -- converged to upstream, nothing to ask')

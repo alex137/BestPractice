@@ -24,8 +24,8 @@ checkable-gets-checked names as worse than no check at all. What IS
 crisply checkable is the direction of authority: what a rule is allowed
 to lean on.
 
-WHY THIS LIVES UNDER local/, NOT IN tools/precedent_check.py. Same reason
-as check_merge_target_is_beta_branch.py beside it: precedent_check.py is
+WHY THIS LIVES UNDER local/, NOT IN tools/precedent_check.py.
+precedent_check.py is
 vendored verbatim into every consuming repo, and a check about THIS
 repository's philosophy/ directory would be a permanent unfixable finding
 in repos that have no such directory. A repo-local practice's check
@@ -161,8 +161,7 @@ def find_violations():
                 f'{rel}: applies_to names {PHILOSOPHY_DIR}, but practices/ is '
                 f'the catalogue this repo EXPORTS. A rule about this repo\'s '
                 f'own {PHILOSOPHY_DIR}/ is repo-local -- move it to '
-                f'local/practices/, as check_merge_target_is_beta_branch.py '
-                f'had to be moved for the same reason.')
+                f'local/practices/, with its check under local/tools/checks/.')
     return findings
 
 

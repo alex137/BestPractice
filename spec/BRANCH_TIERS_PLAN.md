@@ -134,10 +134,24 @@ The pull request's run tests a change before it lands; the push run tests
 what actually landed. It is the only GitHub test a commit gets when it
 reaches main **without** that pull request: a direct push, an edit on
 github.com, a bot commit, or a pull request merged after main moved on
-under it. Until this, those waited for the next Promote to be tested. After
-an ordinary merge the push run re-tests nearly the same tree, and that is
-accepted: public repositories run GitHub Actions free on standard runners,
-and the check that matters is the one on a commit nothing else tested.
+under it. Until this, those waited for the next Promote to be tested.
+
+**A push whose files already passed is not tested again.** Morgan, the same
+day, on learning that the two runs of a Promote are both GitHub's: *"we're
+very cautious about the minutes. So ... it should not run the second time
+... if it had just run before, and nothing had changed"* (strength:
+decided). The push run's first step asks git whether the pushed commit's
+files are exactly those of a commit this same workflow already passed on,
+with anything else the push brought in already inside that commit, and
+stops there if so. That is the ordinary Promote merge: the pull request's
+head already contains main, so the merge lands the very files its run
+tested. Anything short of certain runs the check -- main moved in between,
+no passing run found, GitHub's API unreachable, a shallow checkout. A
+skipped push still starts a runner for those few seconds; it saves the
+test itself, not the runner. [verify_harness.py](../tools/verify_harness.py)'s
+`check_push_to_main_skips_what_already_passed` runs the step against a real
+git history, with the cases where it must not skip beside the ones where it
+must.
 
 **Private repositories are unchanged.** The consumer template
 ([light-check.yml.template](../templates/github-actions/light-check.yml.template))

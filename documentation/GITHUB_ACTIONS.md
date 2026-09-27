@@ -23,7 +23,8 @@ Three workflows run on this repo itself, in [.github/workflows/](../.github/work
   merges were all green — neither doc_lint.py nor leak_gate.py could ever
   have caught either, since neither runs the resolver or materializer at
   all. It runs on a pull request into `main` (since 2026-09-25) and on every
-  push to `main` (since 2026-09-27) -- this repo's one GitHub test
+  push to `main` (since 2026-09-27), where it stops after a few seconds if
+  those exact files already passed it -- this repo's one GitHub test
   ([spec/BRANCH_TIERS_PLAN.md](../spec/BRANCH_TIERS_PLAN.md)); every other
   push is checked locally by the push check first.
 - **`leak-gate.yml`** — added at phase 2 of the Precedent rewrite
@@ -151,7 +152,9 @@ the push check. **The installer writes these by default**; a declared
 2026-09-27 the engine owns both**: every Update Vendors writes them from the
 templates over any hand-made or hand-edited copy, and removes every other
 workflow upstream does not ship that the person did not approve in their own
-words. It asks nobody (`CI_CONVERGES_KINDS` in
+words. It checks first that nothing needed is lost: a file running anything
+the local push check does not is left alone, under a loud banner, with what to
+move named and an open item written to `todo/`. It asks nobody (`CI_CONVERGES_KINDS` in
 [tools/precedent_vendor_engine.py](../tools/precedent_vendor_engine.py)). The `[skip ci]` line the commit hook adds in a private
 repo stays on as a backstop until every install carries these files.
 
