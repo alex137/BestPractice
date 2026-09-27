@@ -821,6 +821,14 @@
       "why": "The path IS the distinguishing condition: the rule is about what a published practice declares and what its shipped test reads, and those live in practices/ and tools/checks/tests/. local/practices/ is out for the reason practice-links-travel's entry gives -- it never travels.",
       "decided": "2026-09-26, when the practice landed at universal"
     },
+    "practice-change-propagates": {
+      "globs": [
+        "practices/*.md",
+        "local/practices/*.md"
+      ],
+      "why": "The path IS the distinguishing condition: the rule fires when a practice file is renamed, retired, deleted or has its Rule reworded, and every such file is in practices/ or a repo-local source's practices/. Unlike practice-links-travel, local/practices/ is in -- a repo-local practice is cited by this repo's own files, so renaming one strands citations just the same. The consuming-side half (Update Vendors) is reached through vendor-update-runbook, not a path.",
+      "decided": "2026-09-27, when the practice landed at universal"
+    },
     "practice-links-travel": {
       "globs": [
         "practices/*.md"

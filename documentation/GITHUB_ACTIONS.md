@@ -22,9 +22,11 @@ Three workflows run on this repo itself, in [.github/workflows/](../.github/work
   that broke every re-sync after it) sitting undetected on a branch whose
   merges were all green — neither doc_lint.py nor leak_gate.py could ever
   have caught either, since neither runs the resolver or materializer at
-  all. Since 2026-09-25 it runs only on a pull request into `main` -- this
-  repo's one GitHub test ([spec/BRANCH_TIERS_PLAN.md](../spec/BRANCH_TIERS_PLAN.md));
-  every other push is checked locally by the push check first.
+  all. It runs on a pull request into `main` (since 2026-09-25) and on every
+  push to `main` (since 2026-09-27), where it stops after a few seconds if
+  those exact files already passed it -- this repo's one GitHub test
+  ([spec/BRANCH_TIERS_PLAN.md](../spec/BRANCH_TIERS_PLAN.md)); every other
+  push is checked locally by the push check first.
 - **`leak-gate.yml`** — added at phase 2 of the Precedent rewrite
   (`b3bfb54`). Runs [tools/leak_gate.py](../tools/leak_gate.py)'s structural
   layer on every push and every pull request, on every branch (this repo is
@@ -88,11 +90,15 @@ So if that is you, do both of these — not one:
 
 1. **Run it by hand before every commit:**
    `python3 tools/doc_lint.py <the markdown you touched>`.
-2. **Turn the GitHub check on as well.** Copy
-   [light-check.yml.template](../templates/github-actions/light-check.yml.template)
-   to `.github/workflows/light-check.yml`, set its `CUSTOMIZE` command to
-   `python3 tools/doc_lint.py` and its `paths:` to `"**/*.md"`,
-   then enable Actions for the repository at **Settings → Actions**.
+2. **Turn a GitHub check on as well, as a workflow of your own.** Not by
+   editing `light-check.yml`: since 2026-09-27 the engine owns that file, and
+   every Update Vendors writes it back from the template. Add a separate
+   one-job workflow, say `.github/workflows/doc-lint.yml`, running
+   `python3 tools/doc_lint.py` on `"**/*.md"`, and record your approval of it
+   in `precedent.json`'s `github_ci_approved`, in your own words and pinned
+   by sha256 ([ci-workflow-approved](../practices/ci-workflow-approved.md)).
+   An approved workflow is the one kind a refresh keeps. Then enable
+   Actions for the repository at **Settings → Actions**.
 
 **Neither of those is `--strict`, and the flag is not an upgrade of them.**
 `doc_lint.py --strict` promotes the warning classes to failures and refuses
@@ -142,10 +148,14 @@ into `main`, about one billed minute per merge into main in a private repo;
 publication, and never in a private one, where its job is skipped before a
 runner starts. Every other push is checked on the person's own machine by
 the push check. **The installer writes these by default**; a declared
-`"github_ci_workflows": "disabled"` still installs nothing. The light check
-is written only where the repo has no `light-check.yml` of its own, and a
-refresh never touches it; `leak-gate.yml` is refreshed like any other
-installed template. The `[skip ci]` line the commit hook adds in a private
+`"github_ci_workflows": "disabled"` still installs nothing. **Since
+2026-09-27 the engine owns both**: every Update Vendors writes them from the
+templates over any hand-made or hand-edited copy, and removes every other
+workflow upstream does not ship that the person did not approve in their own
+words. It checks first that nothing needed is lost: a file running anything
+the local push check does not is left alone, under a loud banner, with what to
+move named and an open item written to `todo/`. It asks nobody (`CI_CONVERGES_KINDS` in
+[tools/precedent_vendor_engine.py](../tools/precedent_vendor_engine.py)). The `[skip ci]` line the commit hook adds in a private
 repo stays on as a backstop until every install carries these files.
 
 **A workflow file nobody approved fails every push, since 2026-09-25**
@@ -153,8 +163,9 @@ repo stays on as a backstop until every install carries these files.
 under `.github/workflows/` is either the engine's own untouched copy or is
 listed in `precedent.json`'s `github_ci_approved`, pinned by sha256 and
 quoting the person. Editing a trigger changes the hash, so the edit needs
-their approval too. The one file the installer writes itself,
-`light-check.yml`, is approved by the install.
+their approval too. The files the engine ships are tracked in
+`ENGINE_MANIFEST.json` and need no approval entry. In a consuming repo a
+finding here is settled by running Update Vendors, not by asking the person.
 
 **Until 2026-09-25, `precedent_install.py` did not install any workflow by default (from 2026-09-15).**
 GitHub Actions minutes are metered per PRIVATE repository and billed per

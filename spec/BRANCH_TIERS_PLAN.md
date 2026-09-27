@@ -7,7 +7,7 @@ closed:        null
 superseded_by: null
 supersedes:    []
 audience:      contributor
-summary:       "Every repo gets three branches with three levels of checking: pre-staging (seconds -- markdown lint and the leak gate), staging (every local check), main (every local check plus one GitHub test on the pull request into it). Many windows push to pre-staging and never wait; a Promote moves pre-staging to staging and pays the full check once for the whole batch. precedent-beta-v01 becomes staging."
+summary:       "Every repo gets three branches with three levels of checking: pre-staging (seconds -- markdown lint and the leak gate), staging (every local check), main (every local check plus one GitHub test on the pull request into it, and in a public repo on every push to it as well). Many windows push to pre-staging and never wait; a Promote moves pre-staging to staging and pays the full check once for the whole batch. precedent-beta-v01 becomes staging."
 ---
 
 # Three branch tiers -- pre-staging, staging, main
@@ -94,7 +94,7 @@ and approved the same day. The decisions, with how firmly each was made
 | any other branch (a session's own branch, a feature branch) | **basic** | none, unless the person opts in |
 | **pre-staging** | **basic** | none, unless the person opts in |
 | **staging** | **full** | none, unless the person opts in |
-| **main** | **full** | **the full check, on the pull request into main** |
+| **main** | **full** | **the full check, on the pull request into main** -- and, in a public repository, on every push to main too |
 
 **Basic** is the markdown lint on the files the push touches and the leak
 gate over the tree. Measured here on 2026-09-25: the lint under a second, the
@@ -120,6 +120,55 @@ into rarely, so the cost stays small even in a private repository.
 [leak-gate.yml](../.github/workflows/leak-gate.yml) on every push. It is
 free there, and it is the only thing that catches an edit made on github.com
 without going through a session.
+
+### Public repositories test every push to main
+
+**Since 2026-09-27, a public repository also runs main's GitHub test on
+every push to main**, not only on the pull request into it. Morgan: *"all
+pushes to main, on repos that are public, should get the GitHub ci/cd. It
+doesn't matter that the same check happened (on our server) on local before
+that, it's a good double check"*, then *"let's do this change, go update"*
+(strength: decided).
+
+The pull request's run tests a change before it lands; the push run tests
+what actually landed. It is the only GitHub test a commit gets when it
+reaches main **without** that pull request: a direct push, an edit on
+github.com, a bot commit, or a pull request merged after main moved on
+under it. Until this, those waited for the next Promote to be tested.
+
+**A push whose files already passed is not tested again.** Morgan, the same
+day, on learning that the two runs of a Promote are both GitHub's: *"we're
+very cautious about the minutes. So ... it should not run the second time
+... if it had just run before, and nothing had changed"* (strength:
+decided). The push run's first step asks git whether the pushed commit's
+files are exactly those of a commit this same workflow already passed on,
+with anything else the push brought in already inside that commit, and
+stops there if so. That is the ordinary Promote merge: the pull request's
+head already contains main, so the merge lands the very files its run
+tested. Anything short of certain runs the check -- main moved in between,
+no passing run found, GitHub's API unreachable, a shallow checkout. A
+skipped push still starts a runner for those few seconds; it saves the
+test itself, not the runner. [verify_harness.py](../tools/verify_harness.py)'s
+`check_push_to_main_skips_what_already_passed` runs the step against a real
+git history, with the cases where it must not skip beside the ones where it
+must.
+
+**Private repositories are unchanged.** The consumer template
+([light-check.yml.template](../templates/github-actions/light-check.yml.template))
+carries the push trigger everywhere and a job-level condition that skips it
+unless GitHub reports the repository as public. A skipped job gets no
+runner and bills nothing, and a repository that changes visibility follows
+without an edit. This repo's own
+[deep-check.yml](../.github/workflows/deep-check.yml) is public and carries
+the trigger plainly.
+
+**Only new installs get it on their own.** The light check is written at
+install and never refreshed (`CI_INSTALL_ONLY_TEMPLATES` in
+[precedent_vendor_engine.py](../tools/precedent_vendor_engine.py)), since
+many repos run a light check of their own. A public repository installed
+before this date gets it only by an edit to its own `light-check.yml`,
+approved by the person there
+([ci-workflow-approved](../practices/ci-workflow-approved.md)).
 
 ## What a working day looks like
 

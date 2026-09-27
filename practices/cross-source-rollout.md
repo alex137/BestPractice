@@ -33,6 +33,12 @@ name> not attached this session`, naming the specific change and what the
 other source needs to do about it — never a bare "check the other repos"
 reminder.
 
+**A practice's name, status and Rule count as mechanism here, not prose.**
+Renaming, retiring, deduplicating, deleting or rewording a practice is a
+change every other source is exposed to, because they cite it by name:
+[practice-change-propagates](practice-change-propagates.md) is how that
+rollout is done, and its check is what catches one that was missed.
+
 ## Detail
 This is `todo-is-a-handoff` applied to one recurring boundary: the
 four-way split between universal, team, individual, and repo-local
@@ -49,7 +55,11 @@ novel content their own owners write, most of which has nothing to do
 with universal. What transfers here is narrower and specific: a change to
 the *mechanism* a source relies on (an engine tool's behavior, a
 merge/push/deep-check convention, a resolver rule) — not every change to
-this repo's own prose.
+this repo's own prose. **The one exception is the catalogue's own
+identities** (added 2026-09-27): a practice's slug, status and Rule are what
+other sources cite, so changing one is a mechanism change to them, even
+though it is written as prose here. The go-merge rename proved it — the
+sets kept citing the old name for a day, and nothing at merge time asked.
 
 [very-deep-check](https://github.com/alex137/BestPractice/blob/staging/practices/very-deep-check.md) is this same gap seen from the other side, on-demand rather
 than at every merge: run against the checkout plus every attached
