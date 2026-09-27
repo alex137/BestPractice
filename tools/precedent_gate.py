@@ -259,6 +259,11 @@ def _branches_module():
         sys.path.pop(0)
 
 
+# How _unlanded_work marks a repo whose pre-staging batch another window is
+# already promoting; the reply gate turns it into a "say nothing" line.
+PROMOTE_RUNNING_MARK = 'another window is already promoting pre-staging'
+
+
 def _unpromoted(repo, staging, _git):
     """-> how many commits origin/pre-staging carries that origin/<staging>
     does not, when their content differs; 0 otherwise. Content, not just
@@ -366,6 +371,19 @@ def _unlanded_work(root, siblings=True):
             if pending:
                 name = repo.name if repo.resolve() != pathlib.Path(root).resolve() \
                     else 'this checkout'
+                # A Promote already running carries this batch, so the line
+                # would recommend the one thing the person must not do now
+                # (Morgan, 2026-09-27, strength: decided -- see
+                # precedent_branches.promote_in_progress).
+                running = None
+                try:
+                    running = pb.promote_in_progress(repo)
+                except Exception:                             # noqa: BLE001
+                    running = None
+                if running:
+                    out.append(f"{name}: {PROMOTE_RUNNING_MARK} ({running})")
+                    pending = None
+            if pending:
                 # Said gently, on purpose. A pre-staging batch waiting on a
                 # Promote is the normal state of the tiers, not a problem, and
                 # an urgent, bolded nudge every turn had several windows
@@ -862,6 +880,12 @@ def main():
         except Exception:                                     # noqa: BLE001
             _unlanded = []
         for _line in _unlanded:
+            if PROMOTE_RUNNING_MARK in _line:
+                print(f"- {_line}. Do NOT recommend, suggest or mention a "
+                      f"Promote for it in this reply -- not in The Boildown, "
+                      f"not as a plain line. At most say that one is already "
+                      f"running (practice: promote; Morgan, 2026-09-27).")
+                continue
             if 'a Promote can move them' in _line:
                 # Not a hard requirement and not a call to action: one plain
                 # line, so the person knows, with no pressure to act now.

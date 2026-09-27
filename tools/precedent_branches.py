@@ -1000,6 +1000,30 @@ def _lock_state(root):
     return tip, subject, int(stamp) if stamp.isdigit() else 0
 
 
+def promote_in_progress(root):
+    """-> 'held by X, N min ago' while another window holds a fresh Promote
+    lock on this repo, else None. Never raises.
+
+    For anything that would otherwise tell the person a Promote is waiting:
+    while one is already running, suggesting another is wrong. Morgan,
+    2026-09-27 (strength: decided), after the reply gate's per-turn line
+    told him "a Promote can move them" twice while another window was
+    promoting and his own Promote had just done nothing: "NEVER recommend a
+    promote when another session is already doing it!!!" A claim older than
+    LOCK_STALE_SECONDS is not a Promote running -- the next one takes it
+    over -- so it does not count."""
+    try:
+        tip, subject, at = _lock_state(root)
+    except Exception:                                         # noqa: BLE001
+        return None
+    if not tip or not (subject or '').startswith('held by') or not at:
+        return None
+    age = time.time() - at
+    if age >= LOCK_STALE_SECONDS:
+        return None
+    return f'{subject.replace(" [skip ci]", "")}, {int(age // 60)} min ago'
+
+
 def _lock_push(root, parent, subject, body):
     """Commit `subject` on top of `parent` and push it to the lock branch.
     -> (ok, commit, stderr). Never forced."""
