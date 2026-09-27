@@ -272,7 +272,7 @@ plan's premise.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block; `python3 tools/build_views.py --check` exits non-zero on drift. Source: practices/ -- edit the practice file, never this block. -->
 
-## Resident block (~884 of 2000 token budget, 10 of 151 practices (10 universal))
+## Resident block (~884 of 2000 token budget, 10 of 152 practices (10 universal))
 
 **bold-key-phrases.** People don't read; they skim, and bolding makes skimming easy. Bold the key phrases in a document by default, without being asked, scaling with length -- a long paragraph or document is where a skimmer most needs a spine to follow, a short note usually needs little or none.
 
@@ -605,7 +605,10 @@ place — nothing is ever deleted, and nothing moves.
   a push to `staging` or `main` runs the deep check; a
   push to any other branch runs the basic tier -- the lint, the leak gate
   and the commit-author checks, seconds -- unless the person's
-  `branch_push_checks` says `full`. A pull request merged through GitHub
+  `branch_push_checks` says `full`. A push or pull request into
+  `pre-staging` also runs the practice checks on the files it changes,
+  and only those (`precedent_check.py --changed-files-only`, about ten
+  seconds). A pull request merged through GitHub
   gets the same check at its base branch's tier, from `merge-check-gate.sh`.
   `python3 tools/precedent_branches.py` says what this checkout resolves. **What matters is `0 failed` and
   `0 violated`, never a passed/skipped count** — those grow as checks are

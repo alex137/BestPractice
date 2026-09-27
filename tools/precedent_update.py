@@ -33,7 +33,9 @@ THE STEPS, with no question in between:
      MAP.md and GLOSSARY.md too -- then this repo's own citations of any
      practice the update withdrew or reworded (a withdrawn one's is a call
      left for you; a reworded one's is listed to read)
-  5. the repo's own deep check (--skip-check to leave it out)
+  5. the repo's own deep check (--skip-check to leave it out), run against
+     a temporary commit of the staged update, undone right after, so it
+     judges the tree the way the push will
 
 THE REPORT, and the exit code a session acts on:
   0  DONE -- nothing is left. Commit, then run Go update's chain.
@@ -47,7 +49,8 @@ THE REPORT, and the exit code a session acts on:
 
 It stages what it wrote and deleted, so the deep check judges the tree the
 commit will hold, and leaves anything already uncommitted alone. It never
-commits, pushes or merges. Those stay with the session, under Go update's
+leaves a commit behind, and never pushes or merges: the deep check's
+temporary commit is undone before it reports. Those stay with the session, under Go update's
 chain, where the authorization already lives.
 """
 import argparse
@@ -212,6 +215,63 @@ def citations(repo):
         elif data.get('slugs', {}).get(h['slug']) == 'Rule reworded':
             read.append(where)
     return fix, read
+
+
+TEMP_COMMIT_MESSAGE = ('precedent_update: the staged update, committed only so the '
+                       'deep check judges it as committed -- undone right after')
+
+
+def judged_as_committed(repo, argv):
+    """-> (rc, output) of `argv`, run against the tree the commit will hold.
+
+    WHY (2026-09-27, found taking main into a consumer): the deep check
+    judged an update by what was STAGED, and a committed tree is judged
+    differently in two ways. A change-scope check reads `git status`, so
+    every materialized practice the update rewrote -- upstream text the repo
+    cannot edit -- was judged as this repo's own new prose; once committed,
+    nothing is uncommitted and the push never judges it. And a shipped test
+    that clones the repo clones HEAD, so it ran the update's NEW test
+    against the OLD scripts. Both failed an update that passes the moment
+    it is committed.
+
+    So the staged update is committed, the check runs, and the commit is
+    undone with `git reset --soft`, which moves only HEAD: the index and the
+    working tree are left exactly as the check found them, staged work and
+    unstaged edits alike. The commit goes through the repository's own
+    hooks, the way the real one will, and carries the person's zone.
+
+    Nothing staged: nothing to commit, and the check runs as it is. A commit
+    the hooks refuse is the answer the real commit would get, so it is
+    reported, never worked around."""
+    staged = subprocess.run(['git', '-C', str(repo), 'diff', '--cached', '--quiet'],
+                            capture_output=True).returncode != 0
+    if not staged:
+        return run(argv, repo)
+    rc, before = run(['git', '-C', str(repo), 'rev-parse', 'HEAD'], repo)
+    if rc != 0:
+        return run(argv, repo)
+    before = before.strip()
+    env = {**os.environ}
+    try:
+        import precedent_time
+        when = precedent_time.stamp_iso(repo)
+        env['GIT_AUTHOR_DATE'] = env['GIT_COMMITTER_DATE'] = when
+    except Exception:                                          # noqa: BLE001
+        pass
+    c = subprocess.run(['git', '-C', str(repo), 'commit', '-q', '-m',
+                        TEMP_COMMIT_MESSAGE], capture_output=True, text=True,
+                       env=env)
+    if c.returncode != 0:
+        return c.returncode, ('the staged update could not be committed, so '
+                              'the real commit would be refused the same way:\n'
+                              + c.stdout + c.stderr)
+    try:
+        return run(argv, repo)
+    finally:
+        _rc, parent = run(['git', '-C', str(repo), 'rev-parse', 'HEAD~1'], repo)
+        if parent.strip() == before:
+            subprocess.run(['git', '-C', str(repo), 'reset', '-q', '--soft', before],
+                           capture_output=True)
 
 
 def update(repo, skip_check=False, ref=None):
@@ -392,7 +452,7 @@ def update(repo, skip_check=False, ref=None):
     if skip_check:
         rep.step('deep check', 'skipped (--skip-check) -- run it before pushing')
     elif check.is_file():
-        rc, out = run([sys.executable, str(check)], repo)
+        rc, out = judged_as_committed(repo, [sys.executable, str(check)])
         if rc != 0:
             return rep.close(f"the deep check is red:\n{tail(out)}")
         rep.step('deep check', 'passed')
