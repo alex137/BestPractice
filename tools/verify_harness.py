@@ -7150,6 +7150,76 @@ def check_update_judges_the_committed_tree():
     check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
 
+def check_changed_files_only_judges_the_change():
+    """A push into pre-staging runs the practice checks on the files it
+    changes, and only those (Morgan, 2026-09-27, strength: decided: "ONLY for
+    files that changed (or were added) in that session ... NOT for every file
+    in the repo"). Both directions: a change that breaks a document's
+    title/heading match is refused; a change elsewhere passes even while
+    that mismatch sits in the tree, and says it left it to the full check."""
+    import tempfile
+    name = ('the practice checks on a push into pre-staging judge only the '
+            'files it changes')
+    tool = ROOT / 'tools' / 'precedent_check.py'
+    doc = None
+    for f in sorted((ROOT / 'spec').glob('*.md')):
+        text = f.read_text(encoding='utf-8', errors='ignore')
+        m = re.search(r'^title:\s+(.+)$', text, re.M)
+        if text.startswith('---\n') and m and f'\n# {m.group(1).strip()}\n' in text:
+            doc = f.relative_to(ROOT)
+            break
+    if not tool.is_file() or doc is None:
+        not_applicable(name, 'no precedent_check.py, or no spec document with a '
+                       'lifecycle header whose heading matches its title')
+        return
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='changed-files-only-'))
+    wt = tmp / 'wt'
+    env = dict(os.environ, GIT_AUTHOR_NAME='t', GIT_AUTHOR_EMAIL='t@t',
+               GIT_COMMITTER_NAME='t', GIT_COMMITTER_EMAIL='t@t',
+               PRECEDENT_ALLOW_ANY_AUTHOR='1')
+
+    def git(*a):
+        return subprocess.run(['git', '-C', str(wt), '-c', 'core.hooksPath=/dev/null', *a],
+                              capture_output=True, text=True, env=env)
+
+    def run_check(since):
+        p = subprocess.run([sys.executable, 'tools/precedent_check.py', '--full-sweep',
+                            '--range', f'{since}...HEAD', '--changed-files-only'],
+                           cwd=wt, capture_output=True, text=True, env=env)
+        return p.returncode, p.stdout + p.stderr
+
+    def break_heading():
+        path = wt / doc
+        text = path.read_text(encoding='utf-8')
+        title = re.search(r'^title:\s+(.+)$', text, re.M).group(1).strip()
+        path.write_text(text.replace(f'\n# {title}\n', '\n# A heading that is not the title\n', 1),
+                        encoding='utf-8')
+    try:
+        subprocess.run(['git', '-C', str(ROOT), 'worktree', 'add', '-q', '--detach',
+                        str(wt), _ref_including_worktree(ROOT)], capture_output=True)
+        base = git('rev-parse', 'HEAD').stdout.strip()
+        break_heading()
+        git('commit', '-qam', 'break the heading')
+        rc, out = run_check(base)
+        cases.append(('a change that breaks a document\'s heading is refused',
+                      rc == 1 and 'document-status-header' in out, out[-800:]))
+        broken = git('rev-parse', 'HEAD').stdout.strip()
+        with open(wt / 'README.md', 'a', encoding='utf-8') as f:
+            f.write('\nAn unrelated line.\n')
+        git('commit', '-qam', 'touch another file')
+        rc, out = run_check(broken)
+        cases.append(('a change elsewhere passes while the mismatch sits in the tree, '
+                      'and says it left it to the full check',
+                      rc == 0 and 'not judged here' in out, out[-800:]))
+    finally:
+        subprocess.run(['git', '-C', str(ROOT), 'worktree', 'remove', '--force', str(wt)],
+                       capture_output=True)
+        shutil.rmtree(tmp, ignore_errors=True)
+    failed = [f'{n}: {d}' for n, ok, d in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
 def _already_tested_step(text):
     """-> the `run:` script of the step with `id: already` in a workflow's
     text, dedented, or '' when there is none. Read by line, not by PyYAML:
@@ -37369,6 +37439,7 @@ def main():
     check_push_check_gate()
     check_global_backstop_runs_person_fixer()
     check_update_judges_the_committed_tree()
+    check_changed_files_only_judges_the_change()
     check_branch_tiers()
     check_merge_check_gate()
     check_promote_pre_staging()

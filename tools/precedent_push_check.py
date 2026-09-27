@@ -508,6 +508,43 @@ def _promote_only_refusal(root, argv):
     return refusal(root, cmd) if refusal else None
 
 
+# The practice checks, on the files a push into pre-staging CHANGES, and
+# nothing else (Morgan, 2026-09-27, strength: decided: "ONLY for files that
+# changed (or were added) in that session ... NOT for every file in the
+# repo"). pre-staging is where work lands, and its tier was the quick one, so
+# a document whose title and first heading disagreed went straight onto it
+# and was caught only by the next Promote's full check. The practice checks
+# take seconds; the test suite, which is what makes the full check slow,
+# still waits for staging.
+CHANGED_PRACTICE_CHECK = ('changed_practice',
+                          'the practice checks, on the files this push changes')
+
+
+def _changed_since(root, argv):
+    """-> the ref a push's change is measured from, or None. `--changed-since
+    REF` names it (the merge gate passes the pull request's base); otherwise
+    a push whose --push-command writes to pre-staging is measured from
+    origin/pre-staging."""
+    if '--changed-since' in argv:
+        i = argv.index('--changed-since')
+        return argv[i + 1] if i + 1 < len(argv) else None
+    if '--push-command' not in argv:
+        return None
+    i = argv.index('--push-command')
+    cmd = argv[i + 1] if i + 1 < len(argv) else ''
+    try:
+        sys.path.insert(0, str(HERE))
+        import precedent_branches
+    except ImportError:
+        return None
+    finally:
+        sys.path.pop(0)
+    targets = precedent_branches.push_targets(root, cmd) or []
+    if precedent_branches.PRE_STAGING in targets:
+        return f'origin/{precedent_branches.PRE_STAGING}'
+    return None
+
+
 def _tier_from_args(root, argv):
     """-> (tier, why). --tier wins; else --push-command names the push and
     precedent_branches.py decides; else FULL, today's behaviour."""
@@ -640,6 +677,14 @@ def main(argv):
         return 1
     tier, why = _tier_from_args(root, argv)
     kind, checks = plan(root, tier=tier)
+    since = _changed_since(root, argv) if tier == BASIC else None
+    if since and kind is not None:
+        rel = HERE.relative_to(root) if HERE.is_relative_to(root) else HERE
+        checks.append((CHANGED_PRACTICE_CHECK[0],
+                       [sys.executable, str(rel / 'precedent_check.py'),
+                        '--full-sweep', '--range', f'{since}...HEAD',
+                        '--changed-files-only'],
+                       CHANGED_PRACTICE_CHECK[1]))
     if kind is None:
         print(f'precedent_push_check: cannot tell what kind of repository '
               f'{root} is (no ENGINE_MANIFEST.json kind beside this file, and '

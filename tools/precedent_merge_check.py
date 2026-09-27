@@ -146,7 +146,7 @@ def _cleanup_refs(root, number):
                        capture_output=True, text=True)
 
 
-def run_in_worktree(root, sha, tier, tool_rel):
+def run_in_worktree(root, sha, tier, tool_rel, extra=()):
     """-> (returncode, output). The push check, in a throwaway worktree of
     `sha`, carrying over the checkout's recorded pass so an already-checked
     tree is not checked twice."""
@@ -166,8 +166,8 @@ def run_in_worktree(root, sha, tier, tool_rel):
             if src_p.is_file():
                 dst_p.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(src_p, dst_p)
-        p = subprocess.run([sys.executable, tool_rel, '--gate', '--tier', tier],
-                           cwd=wt, capture_output=True, text=True)
+        p = subprocess.run([sys.executable, tool_rel, '--gate', '--tier', tier,
+                            *extra], cwd=wt, capture_output=True, text=True)
         return p.returncode, p.stdout + p.stderr
     finally:
         subprocess.run(['git', '-C', str(root), 'worktree', 'remove', '--force',
@@ -312,7 +312,12 @@ def main(argv):
         print(f'precedent_merge_check: pull request #{number} of '
               f'{owner}/{repo} into {base} -- '
               f'{tier} check of {what} ({sha[:12]}); {why}.', flush=True)
-        rc, out = run_in_worktree(root, sha, tier, tool_rel)
+        # A pull request into pre-staging is judged by the practice checks
+        # on the files it changes (precedent_push_check.CHANGED_PRACTICE_CHECK).
+        extra = ()
+        if tier == 'basic' and pb and pb.PRE_STAGING in bases:
+            extra = ('--changed-since', f'origin/{pb.PRE_STAGING}')
+        rc, out = run_in_worktree(root, sha, tier, tool_rel, extra)
     finally:
         _cleanup_refs(root, number)
     tail = out.rstrip().splitlines()[-TAIL_LINES:]

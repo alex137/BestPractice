@@ -605,7 +605,10 @@ place — nothing is ever deleted, and nothing moves.
   a push to `staging` or `main` runs the deep check; a
   push to any other branch runs the basic tier -- the lint, the leak gate
   and the commit-author checks, seconds -- unless the person's
-  `branch_push_checks` says `full`. A pull request merged through GitHub
+  `branch_push_checks` says `full`. A push or pull request into
+  `pre-staging` also runs the practice checks on the files it changes,
+  and only those (`precedent_check.py --changed-files-only`, about ten
+  seconds). A pull request merged through GitHub
   gets the same check at its base branch's tier, from `merge-check-gate.sh`.
   `python3 tools/precedent_branches.py` says what this checkout resolves. **What matters is `0 failed` and
   `0 violated`, never a passed/skipped count** — those grow as checks are
