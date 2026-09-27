@@ -272,7 +272,7 @@ plan's premise.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block; `python3 tools/build_views.py --check` exits non-zero on drift. Source: practices/ -- edit the practice file, never this block. -->
 
-## Resident block (~884 of 2000 token budget, 10 of 149 practices (10 universal))
+## Resident block (~884 of 2000 token budget, 10 of 151 practices (10 universal))
 
 **bold-key-phrases.** People don't read; they skim, and bolding makes skimming easy. Bold the key phrases in a document by default, without being asked, scaling with length -- a long paragraph or document is where a skimmer most needs a spine to follow, a short note usually needs little or none.
 
@@ -440,6 +440,8 @@ When finishing substantial work, before the merge capture gate:
   second-pass-capture — a separate capture pass after the work, not inside it
 When handing the person work, starting work in a repo this session cannot reach, or moving advice to a fresh session:
   prompt-please — "Prompt Please" -- recommendation or unreachable work, one paste-ready prompt
+When memoizing a heavy solve, or finding a fresh session re-running one another session already ran:
+  shared-result-cache — share code-keyed memos on a cache branch; a peer waits on a leased solve
 When merging a branch:
   capture-gate — capture follow-on work in the thread that created the need
 When migrating a repo onto Precedent from an old system:
@@ -466,6 +468,8 @@ When seeding or scheduling a prompt into another session:
   seeded-prompt-names-its-origin — it opens by naming the session that sent it
 When starting an outward-facing deliverable:
   frame-from-audience-question — build it around the audience's question, not your material
+When starting slow, costly or external work from a snapshot of trunk that another session could start too:
+  lease-in-flight-work — lease work in flight on a branch; the starting tool checks the board first
 When starting work another session may have done, or opening a PR:
   base-branch-is-the-record — read the base branch before starting and before the PR
 When starting work the repository may already cover:
