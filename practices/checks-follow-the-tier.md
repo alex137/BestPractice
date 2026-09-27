@@ -51,8 +51,10 @@ checks, as before -- the leak gate still scans the whole tree, since a
 secret anywhere is this push's to stop. Added on 2026-09-27, and on the
 changed files only: the practice checks
 (`precedent_check.py --changed-files-only`), a compile of each changed
-Python file, a parse of each changed shell script (`bash -n`), and -- when a
-practice file changed -- a check that its generated views (`AGENTS.md`,
+Python file, a parse of each changed shell script (`bash -n`) and of each
+changed JSON file, the own test of each changed check
+(`tools/checks/check_x.py` runs `tools/checks/tests/test_x.sh`), and -- when
+a practice file changed -- a check that its generated views (`AGENTS.md`,
 `MAP.md`, `GLOSSARY.md`) were regenerated with it
 (`precedent_push_check.py --changed-files-check`). A push sends commits that
 already exist, so that last one refuses and names the command that
