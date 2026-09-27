@@ -41,8 +41,10 @@ THE REPORT, and the exit code a session acts on:
   2  FAILED -- a step could not run, or the deep check is red. Named, with
      what was written before it stopped.
 
-It never commits, pushes or merges. Those stay with the session, under Go
-update's chain, where the authorization already lives.
+It stages what it wrote and deleted, so the deep check judges the tree the
+commit will hold, and leaves anything already uncommitted alone. It never
+commits, pushes or merges. Those stay with the session, under Go update's
+chain, where the authorization already lives.
 """
 import argparse
 import os
@@ -88,8 +90,8 @@ class Report:
             for what, why in self.left:
                 print(f"  - {what}: {why}")
             return LEFT
-        print("\nDONE -- nothing left to decide. Review the diff, commit, then "
-              "run Go update's chain.")
+        print("\nDONE -- nothing left to decide. Review the staged diff, "
+              "commit, then run Go update's chain.")
         return DONE
 
 
@@ -126,8 +128,43 @@ def lost_files(out):
             for l in out.splitlines() if l.strip().startswith('LOST from ')]
 
 
+def dirty_paths(repo):
+    """Every path `git status` reports, staged or not, tracked or not. A
+    staged rename lists both its sides."""
+    r = subprocess.run(['git', '-C', str(repo), 'status', '--porcelain=v1', '-z',
+                        '--untracked-files=all'], capture_output=True, text=True)
+    fields, paths, i = r.stdout.split('\0'), set(), 0
+    while i < len(fields):
+        entry = fields[i]
+        i += 1
+        if len(entry) < 4:
+            continue
+        paths.add(entry[3:])
+        if entry[0] in 'RC' and i < len(fields):
+            paths.add(fields[i])
+            i += 1
+    return paths
+
+
+def stage_update(repo, before):
+    """Stage what this run wrote or deleted, and nothing that was already
+    uncommitted when it started. Returns how many paths it staged.
+
+    So the deep check judges the tree the commit will hold. Found
+    2026-09-27 taking main into a consumer: `checkin.py update` deleted two
+    files upstream had dropped, the deletions sat unstaged, and the deep
+    check -- listing files from the index -- failed the update on a file
+    that was gone. A person's own unfinished work is left as it was."""
+    ours = sorted(dirty_paths(repo) - before)
+    for i in range(0, len(ours), 200):
+        subprocess.run(['git', '-C', str(repo), 'add', '-A', '--', *ours[i:i + 200]],
+                       capture_output=True, text=True)
+    return len(ours)
+
+
 def update(repo, skip_check=False, ref=None):
     rep = Report()
+    before = dirty_paths(repo)
     engine_tool = repo / 'tools' / 'precedent_vendor_engine.py'
     if not (repo / 'tools' / pve.MANIFEST_NAME).is_file() or not engine_tool.is_file():
         rep.leave(str(repo), "no vendored loader engine (tools/ENGINE_MANIFEST.json), "
@@ -222,6 +259,12 @@ def update(repo, skip_check=False, ref=None):
         if rc != 0:
             return rep.close(f"the view sync failed:\n{tail(out)}")
         rep.step('views', 'regenerated')
+
+    # Staged before the check, so it judges what the commit will hold.
+    n = stage_update(repo, before)
+    rep.step('staged', f'{n} path(s) this update wrote or deleted'
+             + (f'; {len(before)} already uncommitted before it ran, left as they were'
+                if before else ''))
 
     # 5. The repo's own deep check -- the gate before any push.
     check = repo / 'tools' / 'precedent_push_check.py'
