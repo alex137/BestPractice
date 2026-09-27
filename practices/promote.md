@@ -9,7 +9,7 @@ gates:       ["merge"]
 index_clause: "pre-staging->staging or staging->main, chosen from the work; says which"
 checked_by:  null
 defines:     ["Promote", "pre-staging"]
-command:     {"Promote": "Land this session's own unsaved work on pre-staging first, then move the next tier up -- pre-staging into staging, or staging into main, whichever the work just done needs -- saying which before it starts. The whole batch gets the checks of the branch it is entering -- the full local check going into staging, that plus the GitHub test going into main -- and nothing moves unless they pass."}
+command:     {"Promote": "Land this session's own unsaved work on pre-staging first, then move the next tier up -- pre-staging into staging, or staging into main, whichever the work just done needs, and pre-staging into staging when both have work waiting -- saying which before it starts. The whole batch gets the checks of the branch it is entering -- the full local check going into staging, that plus the GitHub test going into main -- and nothing moves unless they pass."}
 status:      active
 in_force_at: null
 supersedes:  []
@@ -28,7 +28,11 @@ approved_by: "Morgan, 2026-09-25 -- the three branch tiers are his own
   promoted from pre-staging to staging and the full suite of tests ran on
   pre-staging and nothing has changed\", strength: decided). Saving the
   session's own work with Go update before promoting is his rule too
-  (Morgan, 2026-09-25, strength: decided)."
+  (Morgan, 2026-09-25, strength: decided). An ambiguous Promote -- both
+  steps with work waiting -- moves pre-staging into staging (Morgan,
+  2026-09-26: \"if my 'promote' is ambiguous and you don't know which of
+  the two types of promotion it should refer to - then choose to do
+  pre-staging to staging\", strength: decided)."
 strength:    assented
 ---
 ## Rule
@@ -61,6 +65,15 @@ strength: decided):
 - **Neither** -- a bare Promote in a session that did no work of its own.
   Work waiting on pre-staging goes first; only when there is none does
   staging move into main.
+
+**When both steps have work waiting, a Promote is ambiguous, and it moves
+pre-staging into staging.** Pre-staging has commits staging lacks, and
+staging has commits main lacks: unless the person named the step, that is
+pre-staging into staging, even when the work just done is already on
+staging and waiting for main (Morgan, 2026-09-26: *"if my 'promote' is
+ambiguous and you don't know which of the two types of promotion it should
+refer to - then choose to do pre-staging to staging"*, strength: decided).
+A later Promote carries it on into main.
 
 A Promote that resolves to staging into main is the named go-ahead
 [merge-target-is-beta-branch](https://github.com/alex137/BestPractice/blob/staging/local/practices/merge-target-is-beta-branch.md)
