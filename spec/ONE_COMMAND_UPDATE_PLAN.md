@@ -32,6 +32,15 @@ still sent a pinned install to the manual mirror, with no exception for
 engine refresh now does that repoint itself (same day), and step 4 is
 corrected. This plan is about not having the next such bump.
 
+**Status, 2026-09-27: built, all but the last two build steps.**
+[tools/precedent_update.py](../tools/precedent_update.py) runs steps 1 to 4
+and 6 of the shape below, with the three outcomes, and
+[tools/checkin.py](../tools/checkin.py) takes `--repo`. The runbook and the
+"Update Vendors" command now point at it. Still open: moving the
+private-source reach and source-name checks (runbook steps 7 and 8) into the
+tool, and the check that the runbook and the tool agree (build steps 3
+and 5).
+
 **Morgan, 2026-09-27** (`strength: decided`): *"For 3 i love it let's do it"*,
 in answer to "one command for the whole update ... that ends with a short
 'Left for you' list — only the conflicted files."
