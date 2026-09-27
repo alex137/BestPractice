@@ -9,7 +9,7 @@ gates:       ["merge"]
 index_clause: "source clone first, both layers move separately, then merge"
 checked_by:  null
 defines:     ["Update Vendors"]
-command:     {"Update Vendors": "Pull in the latest version of the shared rules from the project they come from, by one command that stops only for this repo's own calls, and publish the result -- the merge is part of the phrase."}
+command:     {"Update Vendors": "Pull in the latest version of the shared rules from the project they come from, stopping only for the decisions that are yours to make, and publish the result -- the merge is part of the phrase."}
 status:      active
 in_force_at: null
 supersedes:  []
