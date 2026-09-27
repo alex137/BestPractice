@@ -8,9 +8,9 @@
     "SessionStart hook and reply gate.",
     "",
     "Advances the moment it reports SOMEBODY ELSE'S commits, and only then --",
-    "a run that finds none writes nothing here. Unlike tools/upstream_watermark.json",
-    "beside it, which a person moves deliberately because it gates an action,",
-    "this gates a notification with nothing left to do once it has been given."
+    "a run that finds none writes nothing here. It gates a notification, with",
+    "nothing left to do once it has been given, so it advances on report rather",
+    "than on request."
   ],
   "repo": "alex137/BestPractice",
   "branch": "staging",

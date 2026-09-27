@@ -3,23 +3,23 @@ slug:              todo-2026-09-08-upstream-notice-silent-when-rooted-above
 kind:              manual
 domain:            null
 severity:          null
-status:            open
+status:            dropped
 disposition:       wait
 remind_on:         null
 blocked_on:        null
 batch:             null
-decision:          null
+decision:          "Moot: the notice it is about was retired 2026-09-27 (Morgan: \"Let's retire upstream moved\")."
 decision_strength: null
 waiting_on:        null
 noted:             2026-09-08
-closed:            null
+closed:            2026-09-27
 ---
 ## What
 
 - <a id="upstream-notice-silent-when-rooted-above"></a>**The upstream-carry
     notice is silent in exactly the layout this project requires, and nothing
     reports its absence.**
-    [tools/precedent_upstream_check.py](../tools/precedent_upstream_check.py)
+    [tools/precedent_upstream_check.py](https://github.com/alex137/BestPractice/blob/83819879ff3de347227bf24c3a67a7546fb07f6e/tools/precedent_upstream_check.py)
     (landed 2026-09-08) says at session start whether Alex has moved `main`
     since the last carry. It rides
     [.claude/hooks/session-start.sh](../.claude/hooks/session-start.sh), so it
@@ -50,3 +50,12 @@ closed:            null
 ## Notes
 
 2026-09-16: migrated from TODO.md by tools/todo_migrate.py.
+
+## Closed
+
+Dropped 2026-09-27, because the notice is gone: `precedent_upstream_check.py`
+was retired along with its session-start line, since main now takes all its
+work from staging by Promote and the notice counted only Promote's own merge
+commits (Morgan: *"Let's retire upstream moved - I think with the new staging
+and pre-staging system we don't need it"*, strength: decided). A notice that
+no longer exists cannot be silent.

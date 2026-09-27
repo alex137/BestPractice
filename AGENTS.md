@@ -577,13 +577,6 @@ place — nothing is ever deleted, and nothing moves.
   subject-specific rather than generic should be challenged before merge —
   and added to the contributor's blocklist, not fixed up here after
   publication.
-- **After carrying anything from `main` onto this branch, run
-  `python3 tools/precedent_upstream_check.py --record --by "PR #NNN"`** and
-  commit [tools/upstream_watermark.json](tools/upstream_watermark.json) with
-  the carry itself. Every session start compares `origin/main` against that
-  watermark and says so out loud; a carry that does not move it makes the
-  notice cry wolf on every session afterwards, which is how a notice stops
-  being read.
 - **Direct edits are fine** for content about this repo itself (README,
   practice wording, engine code); abstracted lessons still only enter via
   a scrubbed check-in from where they were learned.

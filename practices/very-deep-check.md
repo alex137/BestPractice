@@ -1915,13 +1915,14 @@ Last because none of it strands an adopter, and none of it is cheap.
   [spec/VERY_DEEP_CHECK.md](https://github.com/alex137/BestPractice/blob/staging/spec/VERY_DEEP_CHECK.md)'s
   run record, with its reason.
 
-  **A repo that also keeps a carry watermark reads both.** This one does:
-  [tools/precedent_upstream_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_upstream_check.py)
-  answers "has the base moved since somebody last carried from it", which is
-  the session-start notice; this answers "what, specifically, has never come
-  across", which is the thing a person can decide about. The first can read
-  *current* while the second has rows, because a carry records the point it
-  reached, not that everything behind it was taken.
+  **A repo that also keeps a carry watermark reads both.** This one did
+  until 2026-09-27, when its upstream-carry notice was retired: main takes
+  all its work from staging by Promote now, and the drift check in `tools/precedent_branches.py` answers by files what the
+  watermark answered by commits. A watermark answers "has the base moved
+  since somebody last carried from it"; this answers "what, specifically,
+  has never come across", which is the thing a person can decide about. The
+  first can read *current* while the second has rows, because a carry
+  records the point it reached, not that everything behind it was taken.
 
 - **The endgame merge, rehearsed against the whole tree.** A repo whose work
   is pinned to an integration branch is aimed at one merge it has never
@@ -2018,10 +2019,9 @@ authors on rows that had carried none.
 recording is that this repo already had the drift and nobody had counted it.
 The check has rehearsed the endgame merge since 2026-09-07 — it asks what
 happens to *our* files when `precedent-beta-v01` finally lands on `main` —
-and it has never once asked the opposite direction. The session-start notice
-from [tools/precedent_upstream_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_upstream_check.py)
-read *"origin/main is unchanged since the last carry"* the morning this
-landed, which is true and is a different question: **the watermark records
+and it has never once asked the opposite direction. The upstream-carry
+notice at session start (retired 2026-09-27) read *"origin/main is unchanged
+since the last carry"* the morning this landed, which is true and is a different question: **the watermark records
 the point a carry reached, never that everything behind it was taken.** The
 new section, run against this repository the same day, found two commits on
 `main` with no patch-equivalent on the branch — a 2026-09-03 revert touching
@@ -2030,10 +2030,9 @@ is a surprise to anyone who knows the history; **neither was on any list.**
 
 He fixed the shape in the same sentence he asked for the check: *"those
 changes, don't implement automatically, but ask the session user if they want
-to implement them."* It is the same limit
-[precedent_upstream_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_upstream_check.py)
-was built to on 2026-09-08 — *"I don't want it to merge invisibly, I'd like
-to do it in a session when I'm there"* — and stating it twice, about two
+to implement them."* It is the same limit the upstream-carry notice was
+built to on 2026-09-08 — *"I don't want it to merge invisibly, I'd like to
+do it in a session when I'm there"* — and stating it twice, about two
 different mechanisms, is what makes it a property of this repo rather than a
 detail of one tool.
 

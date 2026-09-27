@@ -20,6 +20,16 @@
       "path": "templates/VOICE.md.template",
       "reason": "this project's own voice is now a repo-local practice, templates/local-practices/project-voice.md.template, instantiated at local/practices/project-voice.md instead of a root document -- see that template's own header",
       "decommissioned_at": "2026-09-17"
+    },
+    {
+      "path": "tools/precedent_upstream_check.py",
+      "reason": "Retired 2026-09-27 at Morgan's request (\"Let's retire upstream moved\", strength: decided): main takes all its work from staging by Promote, so the UPSTREAM MOVED notice only counted Promote's own merge commits. The drift check in tools/precedent_branches.py (--sync-pre-staging) answers the real question by files.",
+      "decommissioned_at": "2026-09-27"
+    },
+    {
+      "path": "tools/upstream_watermark.json",
+      "reason": "Retired 2026-09-27 at Morgan's request (\"Let's retire upstream moved\", strength: decided): main takes all its work from staging by Promote, so the UPSTREAM MOVED notice only counted Promote's own merge commits. The drift check in tools/precedent_branches.py (--sync-pre-staging) answers the real question by files.",
+      "decommissioned_at": "2026-09-27"
     }
   ],
   "exempt_files": [
@@ -31,6 +41,12 @@
     "templates/local-practices/project-voice.md.template",
     "tools/very_deep_check.py",
     "evals/routing/answers/c07.review-hop2.json",
-    "evals/routing/answers-v3-pre-enforcement/c07.treatment2.json"
+    "evals/routing/answers-v3-pre-enforcement/c07.treatment2.json",
+    "gotchas/gotcha-2026-09-13-a-git-helper-that-returns-stdout-and-drops-the-exit-code-wil.md",
+    "gotchas/gotcha-2026-09-13-this-repo-is-normally-cloned-depth-1-and-several-tools-degra.md",
+    "record/GOTCHAS.md",
+    "todo/todo-2026-09-06-retire-merge-target-practice.md",
+    "todo/todo-2026-09-08-upstream-notice-silent-when-rooted-above.md",
+    "todo/todo-2026-09-21-watermark-commits-pile-up-where-they-cannot-be-pushed.md"
   ]
 }

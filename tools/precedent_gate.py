@@ -265,8 +265,10 @@ def _unpromoted(repo, staging, _git):
     lineage, for the reason _unlanded_work gives below."""
     if not _git(repo, 'rev-parse', '--verify', '-q', 'refs/remotes/origin/pre-staging'):
         return 0
+    # Only commits that change a file: an empty commit or a merge is never
+    # a batch waiting (Morgan, 2026-09-27, strength: decided).
     ahead = _git(repo, 'rev-list', '--count', '--no-merges',
-                 f'origin/{staging}..origin/pre-staging')
+                 f'origin/{staging}..origin/pre-staging', '--', '.')
     if not ahead or ahead == '0':
         return 0
     if not _git(repo, 'diff', '--name-only', f'origin/{staging}', 'origin/pre-staging'):
@@ -405,6 +407,15 @@ def _unlanded_work(root, siblings=True):
             continue
         name = repo.name if repo.resolve() != pathlib.Path(root).resolve() \
             else 'this checkout'
+        # The number a person reads counts only commits that change a file;
+        # merges and empty commits are never counted (Morgan, 2026-09-27,
+        # strength: decided). The content test above already established
+        # that something real differs, so a zero here means the difference
+        # sits in a merge's own resolution -- fall back to the plain count.
+        real = _git(repo, 'rev-list', '--count', '--no-merges',
+                    f'origin/{base}..HEAD', '--', '.')
+        if real and real != '0':
+            ahead = real
         out.append(f"{name}: {ahead} commit(s) on '{head}' that are NOT on "
                    f"'{base}' -- the branch this repo lands work on")
     return out
