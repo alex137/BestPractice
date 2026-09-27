@@ -155,7 +155,11 @@ repositories is `main` -- unless the person's `landing_branch` says
 `pre-staging`, the tiered route, opt-in per person since 2026-09-26 (Morgan:
 *"This forced pre-staging -> staging -> main should be mandatory for me, but
 not necessarily anyone else"*, strength: decided), or `main` itself, which skips staging but never
-the checks, and still answers to the repository's own rule about main. **Landing on pre-staging,
+the checks, and still answers to the repository's own rule about main. **A person's own
+`landing_branch` always wins; a repository's, in its `precedent.json`, is its default
+for anyone who names none**, and a new install or an Update Vendors writes it as
+`pre-staging` where it is missing (Morgan, 2026-09-27, strength: decided: *"have the
+individual repo take precedence over the others (if it set, use that)"*). **Landing on pre-staging,
 bring it in first**: `python3 tools/precedent_branches.py
 --sync-pre-staging` creates it from staging when origin has none, and
 copies into it what reached staging or main by another route once that
