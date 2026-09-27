@@ -17458,8 +17458,10 @@ def check_push_check_gate():
                 # precedent_check.py also answers as the basic tier's
                 # ci_workflows (--only ci-workflow-approved), a check of
                 # its own: fail it only when FAIL names that one.
+                # ...and as pre-staging's changed_practice (--changed-files-only).
                 + ('name = ("ci_workflows" if "ci-workflow-approved" in '
-                   'sys.argv else "precedent_check")\n'
+                   'sys.argv else "changed_practice" if "--changed-files-only" '
+                   'in sys.argv else "precedent_check")\n'
                    if t == 'precedent_check' else f'name = "{t}"\n')
                 + 'fail = name in body\n'
                 # A failure that prints its finding and then pages of noise,
@@ -17564,6 +17566,18 @@ def check_push_check_gate():
                           'failing full-only check does not refuse it', not denied))
             denied, _ = gate('git push origin HEAD:pre-staging')
             cases.append(('so does a push to pre-staging', not denied))
+            # checks-follow-the-tier: pre-staging also runs the practice
+            # checks on the files the push changes; a working branch does not.
+            (work / 'FAIL').write_text('changed_practice', encoding='utf-8')
+            git(work, 'commit', '-q', '-am', 'break the changed-files practice run')
+            denied, out = gate('git push origin HEAD:pre-staging')
+            cases.append(('a push to pre-staging runs the practice checks on the '
+                          'files it changes, and their failure refuses it',
+                          denied and 'changed_practice' in out))
+            denied, _ = gate('git push -u origin feature')
+            cases.append(('a push to a working branch does not run them', not denied))
+            (work / 'FAIL').write_text('precedent_check', encoding='utf-8')
+            git(work, 'commit', '-q', '-am', 'back to a full-only failure')
             denied, out = gate('git push origin main')
             cases.append(('the same tree pushed to main is refused by the full '
                           'check -- the basic pass just recorded does not '
@@ -17949,8 +17963,10 @@ def check_merge_check_gate():
                 # precedent_check.py also answers as the basic tier's
                 # ci_workflows (--only ci-workflow-approved), a check of
                 # its own: fail it only when FAIL names that one.
+                # ...and as pre-staging's changed_practice (--changed-files-only).
                 + ('name = ("ci_workflows" if "ci-workflow-approved" in '
-                   'sys.argv else "precedent_check")\n'
+                   'sys.argv else "changed_practice" if "--changed-files-only" '
+                   'in sys.argv else "precedent_check")\n'
                    if t == 'precedent_check' else f'name = "{t}"\n')
                 + 'sys.exit(1 if name in body else 0)\n',
                 encoding='utf-8')
@@ -18093,8 +18109,10 @@ def check_promote_pre_staging():
                 # precedent_check.py also answers as the basic tier's
                 # ci_workflows (--only ci-workflow-approved), a check of
                 # its own: fail it only when FAIL names that one.
+                # ...and as pre-staging's changed_practice (--changed-files-only).
                 + ('name = ("ci_workflows" if "ci-workflow-approved" in '
-                   'sys.argv else "precedent_check")\n'
+                   'sys.argv else "changed_practice" if "--changed-files-only" '
+                   'in sys.argv else "precedent_check")\n'
                    if t == 'precedent_check' else f'name = "{t}"\n')
                 # PROMOTE_RACE: a command the stub runs mid-check, standing
                 # in for another window promoting the same batch meanwhile.
