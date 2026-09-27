@@ -30,6 +30,16 @@
       "path": "tools/upstream_watermark.json",
       "reason": "Retired 2026-09-27 at Morgan's request (\"Let's retire upstream moved\", strength: decided): main takes all its work from staging by Promote, so the UPSTREAM MOVED notice only counted Promote's own merge commits. The drift check in tools/precedent_branches.py (--sync-pre-staging) answers the real question by files.",
       "decommissioned_at": "2026-09-27"
+    },
+    {
+      "path": "local/tools/checks/check_merge_target_is_beta_branch.py",
+      "reason": "merge-target-is-beta-branch's branch-graph check assumed main never contains staging; under pre-staging -> staging -> main every Promote into main does exactly that, so it fired after each one. The targeting rule stays, carried by go-update and promote (Morgan, 2026-09-27: \"please fix or remove etc and go update that\")",
+      "decommissioned_at": "2026-09-27"
+    },
+    {
+      "path": "local/tools/checks/tests/test_merge_target_is_beta_branch.sh",
+      "reason": "merge-target-is-beta-branch's branch-graph check assumed main never contains staging; under pre-staging -> staging -> main every Promote into main does exactly that, so it fired after each one. The targeting rule stays, carried by go-update and promote (Morgan, 2026-09-27: \"please fix or remove etc and go update that\")",
+      "decommissioned_at": "2026-09-27"
     }
   ],
   "exempt_files": [
@@ -47,6 +57,9 @@
     "record/GOTCHAS.md",
     "todo/todo-2026-09-06-retire-merge-target-practice.md",
     "todo/todo-2026-09-08-upstream-notice-silent-when-rooted-above.md",
-    "todo/todo-2026-09-21-watermark-commits-pile-up-where-they-cannot-be-pushed.md"
+    "todo/todo-2026-09-21-watermark-commits-pile-up-where-they-cannot-be-pushed.md",
+    "spec/OPEN_ITEM_AND_GOTCHA_PLAN.md",
+    "spec/PRELAUNCH_AUDIT.md",
+    "todo/todo-2026-09-21-pass-2-mechanism-findings.md"
   ]
 }

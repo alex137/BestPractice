@@ -7344,8 +7344,9 @@ def check_update_vendors_converges_consumer_ci():
         return r.returncode, r.stdout + r.stderr
 
     wf = '.github/workflows/'
-    LIGHT, EXTRA, KEPT, DIRTY = (wf + 'light-check.yml', wf + 'nightly.yml',
-                                 wf + 'report.yml', wf + 'scratch.yml')
+    LIGHT, EXTRA, KEPT, DIRTY, NEEDED, DECLARED = (
+        wf + 'light-check.yml', wf + 'nightly.yml', wf + 'report.yml',
+        wf + 'scratch.yml', wf + 'deploy.yml', wf + 'ours.yml')
     template = (ROOT / 'templates' / 'github-actions' /
                 'light-check.yml.template').read_bytes()
     hand_made = ('name: Light check\non:\n  push:\n    branches: [main]\n'
@@ -7367,9 +7368,16 @@ def check_update_vendors_converges_consumer_ci():
                      str(proj), '--project-name', 'Field Notes', '--admin', 'dana',
                      cwd=ROOT)
         cases.append(('the fixture installs', rc == 0, out[-800:]))
-        for rel, text in ((LIGHT, hand_made), (EXTRA, other.format('nightly')),
+        # The repo's own light check exists, as in the real consumer, so
+        # the local push check runs it.
+        (proj / 'tools' / 'light_check.py').write_text(
+            'print("ok")\n', encoding='utf-8')
+        covered = other.replace('tools/report_things.py', 'tools/doc_lint.py')
+        for rel, text in ((LIGHT, hand_made), (EXTRA, covered.format('nightly')),
                           (KEPT, other.format('report')),
-                          (DIRTY, other.format('scratch'))):
+                          (DIRTY, covered.format('scratch')),
+                          (NEEDED, other.format('deploy')),
+                          (DECLARED, covered.format('ours'))):
             (proj / rel).parent.mkdir(parents=True, exist_ok=True)
             (proj / rel).write_text(text, encoding='utf-8')
         cfg = json.loads((proj / 'precedent.json').read_text(encoding='utf-8'))
@@ -7378,6 +7386,9 @@ def check_update_vendors_converges_consumer_ci():
             'approved_by': 'Dana, 2026-09-27: "keep the nightly report"'}}
         # The shape the real consumer was in: its own light check untracked
         # by the manifest, approved the way the old install wrote it.
+        # A declaration under local_ci_workflows no longer keeps a
+        # consumer's workflow (2026-09-27): only the person's approval does.
+        cfg['local_ci_workflows'] = {DECLARED: 'a session said it was ours'}
         cfg['github_ci_approved'][LIGHT] = {
             'sha256': hashlib.sha256((proj / LIGHT).read_bytes()).hexdigest(),
             'approved_by': 'installed by precedent_install.py, 2026-09-25',
@@ -7396,7 +7407,7 @@ def check_update_vendors_converges_consumer_ci():
         mp.write_text(json.dumps(m, indent=2) + '\n', encoding='utf-8')
         sh('git', 'add', '-A', cwd=proj)
         sh('git', 'commit', '-qm', 'installed, with hand-made workflows', cwd=proj)
-        (proj / DIRTY).write_text(other.format('scratch') + '# local edit\n',
+        (proj / DIRTY).write_text(covered.format('scratch') + '# local edit\n',
                                   encoding='utf-8')
         sh('git', 'clone', '-q', '--bare', str(proj), str(tmp / 'origin.git'), cwd=tmp)
         sh('git', 'remote', 'add', 'origin', str(tmp / 'origin.git'), cwd=proj)
@@ -7415,8 +7426,26 @@ def check_update_vendors_converges_consumer_ci():
                       'nothing to ask',
                       'replaced ' + LIGHT in out and 'removed ' + EXTRA in out
                       and 'nothing to ask' in out, out[-2500:]))
-        cases.append(('...and names the script the removed file ran, so it can '
-                      'run locally', 'report_things.py' in out, out[-2500:]))
+        cases.append(('...and says what the removed file ran is already in the '
+                      'local push check', 'doc_lint.py, which the local push '
+                      'check already runs' in out, out[-2500:]))
+        cases.append(('NEGATIVE: a workflow running a script the local check '
+                      'does not run is kept, and the report names the script',
+                      (proj / NEEDED).is_file() and 'report_things.py' in out,
+                      out[-2500:]))
+        cases.append(('...under a loud banner saying it was left alone, before '
+                      'and after the summary',
+                      out.count('GITHUB WORKFLOW LEFT ALONE') >= 2
+                      and 'LEFT ALONE: ' + NEEDED in out, out[-2500:]))
+        todos = sorted((proj / 'todo').glob('todo-*-ci-workflow-left-alone-deploy.md'))
+        cases.append(('...and an open to-do item records it',
+                      len(todos) == 1 and 'status:            open'
+                      in todos[0].read_text(encoding='utf-8')
+                      and NEEDED in todos[0].read_text(encoding='utf-8'),
+                      str(todos)))
+        cases.append(('a workflow declared under local_ci_workflows, running '
+                      'only what the local check runs, is removed like any other',
+                      not (proj / DECLARED).exists(), out[-2500:]))
         cases.append(('NEGATIVE: the workflow the person approved in their own '
                       'words is kept', (proj / KEPT).is_file(), ''))
         cases.append(('NEGATIVE: a workflow with uncommitted edits is kept, '
@@ -7432,9 +7461,10 @@ def check_update_vendors_converges_consumer_ci():
                       and LIGHT not in cfg.get('github_ci_approved', {})
                       and KEPT in cfg.get('github_ci_approved', {}),
                       f"{m.get('ci_workflows_sha256')} {cfg.get('github_ci_approved')}"))
-        # Commit the scratch edit away, so only what the update did is judged.
+        # Take away the two files the update rightly held back, so only what
+        # it did is judged.
         sh('git', 'checkout', '-q', '--', DIRTY, cwd=proj)
-        sh('git', 'rm', '-q', '--', DIRTY, cwd=proj)
+        sh('git', 'rm', '-q', '--', DIRTY, NEEDED, cwd=proj)
         rc, out = sh(sys.executable, 'tools/precedent_check.py', '--only',
                      'ci-workflow-approved', cwd=proj)
         cases.append(('ci-workflow-approved passes afterwards, with no question '
@@ -7602,16 +7632,29 @@ def check_legacy_leftovers_retired_by_content():
         #     the checks run locally, so a live workflow nobody approved is
         #     what the change exists to stop. Committed and clean, so git
         #     history keeps the content.
-        r4c = make('consumer-live', {SYNC: live, DOCS: docs_own},
+        docs_covered = docs_own.replace('tools/our_own_check.py',
+                                        'tools/doc_lint.py')
+        r4c = make('consumer-live', {SYNC: live, DOCS: docs_covered},
                    {'kind': 'consumer'})
         res, left = sweep(r4c)
-        cases.append(('in a consumer, a live unapproved workflow and a '
-                      'hand-authored one under a retired name are removed, '
-                      'and nothing about them is left to ask',
+        cases.append(('in a consumer, a live leftover of the old install and a '
+                      'hand-authored workflow running only what the local '
+                      'push check runs are removed, with nothing left to ask',
                       not (r4c / SYNC).exists() and not (r4c / DOCS).exists()
                       and not left_names(left, SYNC)
                       and not left_names(left, DOCS),
                       f'{res} {left}'))
+        # 4d. NEGATIVE: nothing needed is lost. A workflow running a script
+        #     the local push check does not run is kept, and the report names
+        #     the script (Morgan, 2026-09-27: "it should do a check first to
+        #     make sure nothing needed is being lost").
+        r4d = make('consumer-needed', {DOCS: docs_own}, {'kind': 'consumer'})
+        res, left = sweep(r4d)
+        cases.append(('NEGATIVE: in a consumer, a workflow running a script the '
+                      'local push check does not run is kept, naming it',
+                      (r4d / DOCS).is_file() and any(
+                          'our_own_check.py' in w and 'LEFT ALONE' in w
+                          for w in left_names(left, DOCS)), f'{res} {left}'))
 
         # 4b. NEGATIVE: uncommitted edits are never destroyed.
         r4b = make('dirty', {SYNC: sync_stock}, {'kind': 'consumer'})
@@ -9994,22 +10037,6 @@ def check_precedent_check_fires():
                 '{"not-a-real-practice-zzz": {"last_reviewed": '
                 '"2020-01-01", "commit": "deadbeef"}}\n', encoding='utf-8')
         case('routing-audit', _plant_ra)
-
-        # merge-target-is-beta-branch -- origin/main advanced to include
-        # origin/precedent-beta-v01 as an ancestor (the PR #89 incident,
-        # replayed against the throwaway repo's own two remote-tracking
-        # refs rather than the real ones). The pristine copy has exactly one
-        # commit, so a second is made here to give the two refs a real
-        # ancestor relationship to plant.
-        def _plant_mtib(repo):
-            c1 = git(repo, 'rev-parse', 'HEAD')
-            (repo / 'PLANT_MARKER.txt').write_text('planted\n', encoding='utf-8')
-            git(repo, 'add', '-A')
-            git(repo, 'commit', '-qm', 'second commit for the plant')
-            c2 = git(repo, 'rev-parse', 'HEAD')
-            git(repo, 'update-ref', 'refs/remotes/origin/staging', c1)
-            git(repo, 'update-ref', 'refs/remotes/origin/main', c2)
-        case('merge-target-is-beta-branch', _plant_mtib)
 
         # declared-sources-are-cloned -- this repo declares three shared sets
         # beside itself, and both .claude/hooks/session-start.sh and the
@@ -16629,14 +16656,14 @@ def check_refresh_removes_dropped_engine_files():
             cases.append(('refresh itself retires a stock-shaped legacy '
                           'workflow no manifest ever tracked',
                           not (wf / 'bestpractice-upstream-sync.yml').exists()))
-            # Kept and listed until 2026-09-27. A consumer's CI now converges
-            # to upstream: a workflow of its own that nobody approved goes
-            # too, and the report names the script it ran so that can move
-            # into the local push check (CI_CONVERGES_KINDS).
-            cases.append(('and removes a same-name file of the repo\'s own '
-                          'that nobody approved, naming the script it ran',
-                          not (wf / 'bestpractice-docs.yml').exists()
-                          and 'our_own.py' in out3))
+            # A consumer's CI converges to upstream since 2026-09-27, but a
+            # workflow running something the local push check does not run
+            # is kept until that moves there (CI_CONVERGES_KINDS).
+            cases.append(('and keeps a same-name file of the repo\'s own '
+                          'that runs a script the local check does not, '
+                          'naming it under "Left for you"',
+                          (wf / 'bestpractice-docs.yml').is_file()
+                          and 'Left for you' in out3 and 'our_own.py' in out3))
 
     failed = [n for n, ok in cases if not ok]
     check(f'refresh removes engine files the set no longer includes, and only '
@@ -24751,6 +24778,20 @@ def check_vendor_engine_refreshes_ci_workflow_files():
                       'under Left for you',
                       rc_bd == 0 and (b_dirty / rel).read_bytes() == edited
                       and 'uncommitted edits' in out_bd, out_bd[:800]))
+
+        # -- B, NEGATIVE: a hand edit that runs a script the local push
+        # check does not run is held back, naming the script, so nothing
+        # needed is lost --
+        b_needed = make_consumer(
+            'edited-needed',
+            b'name: hand-edited\njobs:\n  j:\n    steps:\n'
+            b'      - run: python3 tools/our_special.py\n', {rel: stub_hash})
+        rc_bn, out_bn = run_refresh(b_needed)
+        cases.append(('NEGATIVE: a hand edit running a script nothing local '
+                      'runs is kept, and the script is named',
+                      rc_bn == 0 and b'our_special.py' in (b_needed / rel).read_bytes()
+                      and 'our_special.py' in out_bn and 'LEFT ALONE' in out_bn,
+                      out_bn[:800]))
 
         # -- C: no manifest record at all -- a repo vendored before CI
         # workflows were tracked, or a hand-made copy. It used to get a

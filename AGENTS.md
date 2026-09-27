@@ -5,27 +5,20 @@
      (process/upstream/AGENTS.md) this file is inert — the dependent repo
      has its own instantiated AGENTS.md at ITS root. -->
 
-**TEMPORARY, read before opening or merging any pull request (PR) here:
-every PR in this repository targets `staging` (named `precedent-beta-v01`
-until 2026-09-25) -- or `pre-staging`,
-for a person whose landing branch is pre-staging -- never `main`.
-Alex merged the branch into `main` on 2026-09-14 and Morgan merges it there
-regularly; **that does not retire this rule** — work still lands here, and
-`main` takes it by those merges only (Morgan, 2026-09-14). **No merge needs
-Alex's sign-off any more, `main` included** (Alex, relayed by Morgan,
-2026-09-26) — once its deep check passes, a session may merge a PR into
-`staging` directly. A general "PR and merge it" authorization, with no
-branch named, still means `staging`; merging into `main` needs the person
-running the session to name `main` explicitly, in that specific request, or
-a Promote that chooses staging into `main`.
-Check the base branch
-explicitly before acting — do not assume `main` just because it is the
-repository's configured default branch, and do not assume the two
-branches are interchangeable even when they happen to sit at the same
-commit, which is exactly the condition under which this rule's own
-origin incident happened. Full story, the mechanical check, and the
-retirement condition:
-[local/practices/merge-target-is-beta-branch.md](local/practices/merge-target-is-beta-branch.md).**
+**Read before opening or merging any pull request (PR) here: every PR
+targets your landing branch, never `main`** -- `pre-staging` for a person
+whose landing branch is pre-staging, `staging` otherwise
+(`python3 tools/precedent_branches.py --landing` says which). Work reaches
+`staging`, and then `main`, only by a Promote. **No merge needs Alex's
+sign-off, `main` included** (Alex, relayed by Morgan, 2026-09-26) -- once its
+deep check passes, a session may merge a PR into the landing branch. A
+general "PR and merge it" authorization, with no branch named, means the
+landing branch; merging into `main` needs the person running the session to
+name `main` in that specific request, or a Promote that chooses staging into
+`main`. Check the base branch explicitly before acting -- do not assume
+`main` because it is the repository's configured default branch. The rule and
+its story:
+[local/practices/merge-target-is-beta-branch.md](local/practices/merge-target-is-beta-branch.md).
 
 **Precedent commands.** Each of these names a thing a session recognizes by
 what the message is actually asking for, not by scanning it for a keyword —
@@ -458,7 +451,7 @@ When naming or scoping something around a person's skill level:
 When naming what "run the checks" means in a repo:
   two-check-levels — name a fast check and a full check; say which gates what
 When opening or merging a pull request in this repository:
-  merge-target-is-beta-branch — PRs target staging, never main; main only when named
+  merge-target-is-beta-branch — PRs target pre-staging or staging, never main; main moves by a Promote
 When printing a number compared across rows:
   one-formatter-per-quantity — one formatter per quantity kind, declared in one module
 When publishing a sortable multi-column table:

@@ -27,10 +27,11 @@
 # THE 2026-09-20 SWEEP deleted nine live checks across nine repositories on
 # the theory that a filename absent from this tree meant a retired file, and
 # those checks were lost. Replacing a hand-made copy of this file is not that:
-# the checks it ran are the local push check's, so nothing stops running; and
-# the refresh only replaces a file git holds with no uncommitted edits, so
-# the old content stays in history. If a repository's own command is not in
-# its local gate, the fix is to run it there.
+# the refresh first checks that everything the old file ran is in the local
+# push check, and keeps the file, naming what is missing, if anything is not;
+# and it only replaces a file git holds with no uncommitted edits, so the old
+# content stays in history. If a repository's own command is not in its
+# local gate, the fix is to run it there.
 #
 # ONE JOB, NOT TWO. GitHub bills a job for at least one whole minute however
 # fast it finishes, so a second job that exists to DECIDE whether to run the

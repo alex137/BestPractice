@@ -2100,9 +2100,19 @@ CI_WORKFLOWS_SOURCE_DIR = 'templates/github-actions'
 #     (_refresh_ci_workflow_files), and a hand edit is no longer a refusal
 #     (_ci_workflow_drift);
 #   - every other workflow is removed, unless the person approved it in
-#     their own words in precedent.json's github_ci_approved, or it is
-#     declared under local_ci_workflows with a reason
-#     (_remove_unapproved_workflows).
+#     their own words in precedent.json's github_ci_approved
+#     (_remove_unapproved_workflows). A local_ci_workflows declaration no
+#     longer keeps one in a consumer: only the person's approval does.
+#
+# NOTHING NEEDED IS LOST (Morgan, 2026-09-27: "it should do a check first to
+# make sure nothing needed is being lost"). Before a file is replaced or
+# removed, _would_lose lists what it runs -- scripts, test runners,
+# third-party actions -- that neither the local push check nor the replacing
+# template runs. If anything is on that list the file is held back, LOUDLY:
+# a banner at the end of the refresh and of Update Vendors, a "Left for you"
+# line, and an open item in the repo's todo/ (_held_back). Morgan, the same
+# day (strength: decided): "leave it alone, but flag it importantly ...
+# strong language ... make it a to-do so that it's noted".
 #
 # Each is reported as done. Morgan, 2026-09-27 (strength: decided, relayed
 # verbatim by the session that hit it): "It should definitely definitely use
@@ -2325,6 +2335,11 @@ def local_ci_workflows(dest_root):
     nobody has to justify, which is how an exemption stops being read; an
     entry with an empty reason is ignored, exactly as if it were absent,
     and refresh says so rather than honouring it silently.
+
+    NOT IN A CONSUMER, since 2026-09-27 (CI_CONVERGES_KINDS): there only
+    the person's approval in github_ci_approved keeps a workflow, and a
+    declaration is reported as not honoured. What follows holds in a
+    practice source.
 
     A declared file is then: never overwritten, never drift, never
     "untracked" -- and PRINTED ON EVERY RUN with its reason, so the
@@ -2833,8 +2848,8 @@ def _remove_unapproved_workflows(dest_root, manifest, kind, pd):
     """In a kind whose CI converges (CI_CONVERGES_KINDS), remove every
     .github/workflows/*.yml or *.yaml that upstream does not ship to the
     kind, unless the person approved it in their own words in
-    github_ci_approved (pinned to its current content) or the repo declares
-    it under local_ci_workflows with a reason. -> {rel: text} removed.
+    github_ci_approved (pinned to its current content). -> {rel: text}
+    removed. A local_ci_workflows declaration keeps nothing here.
 
     An install-written approval (one that names a `template` instead of
     quoting anyone) is not the person's words, so it keeps nothing here.
@@ -2861,7 +2876,6 @@ def _remove_unapproved_workflows(dest_root, manifest, kind, pd):
                                     'Refresh again once it does')
         return {}
     shipped = {rel for _t, rel in CI_WORKFLOW_TEMPLATES.get(kind, ())}
-    declared = local_ci_workflows(dest_root)
     try:
         approved = json.loads((dest_root / 'precedent.json').read_text(
             encoding='utf-8')).get(GITHUB_CI_APPROVED_KEY) or {}
@@ -2876,8 +2890,12 @@ def _remove_unapproved_workflows(dest_root, manifest, kind, pd):
         rel = f'.github/workflows/{path.name}'
         # A retired name is not skipped: whatever _remove_retired_ci_
         # workflow_files and the legacy sweep left of one is still a
-        # workflow upstream does not ship.
-        if rel in shipped or rel in declared:
+        # workflow upstream does not ship. Nor is a local_ci_workflows
+        # declaration, in a consumer, since 2026-09-27: only the person's own
+        # approval keeps a workflow, and a declared one goes through the same
+        # nothing-lost check as the rest (Morgan: "I support if everything's
+        # already covered, deleting it").
+        if rel in shipped:
             continue
         entry = approved.get(rel)
         if (isinstance(entry, dict) and approval_problem(entry) is None
@@ -2890,14 +2908,22 @@ def _remove_unapproved_workflows(dest_root, manifest, kind, pd):
                        f'so it goes, but it was not removed: {why}')
             continue
         text = path.read_text(encoding='utf-8', errors='ignore')
+        # A recognised leftover of the old install (the legacy sweep kept it
+        # only because a trigger was still live) is known to be retired, so
+        # what it ran is not needed; anything else is checked first.
+        legacy = LEGACY_CI_WORKFLOWS.get(rel)
+        known_retired = bool(legacy and legacy[1](text))
+        lost = [] if known_retired else _would_lose(dest_root, kind, text)
+        if lost:
+            _held_back(dest_root, rel, lost, 'removing')
+            continue
         _uses, scripts = _workflow_facts(text)
         reason = ('upstream does not ship it, and github_ci_approved carries '
                   'no approval of it in the person\'s words -- a consumer\'s '
                   'CI converges to upstream (2026-09-27). Its content stays '
                   'in git history'
-                  + (f'. It ran {", ".join(sorted(scripts))}: if the local '
-                     f'push check does not run that, run it there, not in '
-                     f'GitHub' if scripts else ''))
+                  + (f'. It ran {", ".join(sorted(scripts))}: the local push '
+                     f'check runs that already' if scripts else ''))
         if pd is not None:
             done = _retire_one(dest_root, pd, rel, reason, refusals=[])
         else:
@@ -3156,6 +3182,17 @@ def print_left_for_you():
     """The closing list: what this refresh would not do by itself. Printed
     even when the refresh had nothing else to do, because that is the run a
     session reads as "all clean"."""
+    if _KEPT_LOUD:
+        bar = '!' * 72
+        print(f"\n{bar}\n{KEPT_LOUD_HEADER}\n{bar}")
+        for rel, lost, done, todo in _KEPT_LOUD:
+            print(f"  LEFT ALONE: {rel} still runs in GitHub. It runs "
+                  f"{', '.join(lost)}, which NOTHING in the local push check "
+                  f"runs, so it was NOT {done}. Move that into the local "
+                  f"check, then run Update Vendors again."
+                  + (f" Recorded as {todo}." if todo else ''))
+        print(bar)
+        _KEPT_LOUD.clear()
     if not _LEFT_FOR_YOU:
         return
     print("\nLeft for you -- this refresh would not do these by itself "
@@ -3217,6 +3254,163 @@ def _unsafe_to_replace(dest_root, rel):
         return ('it has uncommitted edits, which exist nowhere else -- commit '
                 'or discard them and the next refresh will do it')
     return None
+
+
+# What a workflow can do that nothing local repeats: a test runner, or a
+# third-party action. Scripts are judged by name against the push check.
+_RUNNER_RE = re.compile(
+    r'(?:^|[\s;&|(])(npm|npx|yarn|pnpm|make|pytest|tox|nox|cargo|go|bundle|'
+    r'rake|gradle|gradlew|mvn|dotnet|deno|bun|php|composer|ruby|node)(?=\s|$)',
+    re.M)
+_SH_RE = re.compile(r'([\w./-]*\w)\.sh\b')
+_HARMLESS_ACTIONS = {'actions/checkout', 'actions/setup-python',
+                     'actions/setup-node', 'actions/cache'}
+
+
+def _local_coverage(dest_root, kind):
+    """-> {script basename} the local push check runs in this repo, or None
+    when that cannot be read (then nothing counts as covered). A script an
+    OPTIONAL entry names counts only where this repo has it."""
+    try:
+        sys.path.insert(0, str(ENGINE_DIR))
+        import precedent_push_check as _ppc
+        checks = _ppc.PUSH_CHECKS.get(kind, ())
+    except Exception:                                          # noqa: BLE001
+        return None
+    covered = set()
+    for entry in checks:
+        for tok in entry[1]:
+            tok = str(tok).replace('{engine}', 'tools')
+            name = pathlib.PurePosixPath(tok).name
+            if not name.endswith(('.py', '.sh')):
+                continue
+            if entry[0] in getattr(_ppc, 'OPTIONAL', ()) \
+                    and not (dest_root / tok).is_file():
+                continue
+            covered.add(name)
+    return covered
+
+
+def _would_lose(dest_root, kind, text, also_covered=()):
+    """-> [what `text`, a workflow, runs that neither the local push check
+    nor `also_covered` (the scripts the replacing template runs) does] --
+    empty when replacing or removing it loses nothing. Comments are ignored.
+    Unreadable coverage means every script is reported: holding a file back
+    is the safe mistake (practice: repair-cannot-discard-work)."""
+    code = _code_lines(text)
+    uses, scripts = _workflow_facts(text)
+    scripts |= {pathlib.PurePosixPath(m + '.sh').name for m in _SH_RE.findall(code)}
+    covered = (_local_coverage(dest_root, kind) or set()) | set(also_covered)
+    lost = sorted(s for s in scripts if s not in covered)
+    lost += sorted({f'`{m}`' for m in _RUNNER_RE.findall(code)})
+    lost += sorted(f'the action {u}' for u in uses
+                   if u not in _HARMLESS_ACTIONS)
+    return lost
+
+
+# Workflows a converging refresh left alone this run, for the loud banner
+# print_left_for_you() opens with: [(rel, what it runs that nothing local
+# does, verb, todo path or None)].
+_KEPT_LOUD = []
+KEPT_LOUD_HEADER = 'IMPORTANT -- GITHUB WORKFLOW LEFT ALONE, NOT CONVERGED TO UPSTREAM'
+
+
+def _today(dest_root):
+    """The person's date, from precedent_time (vendored beside this file), or
+    None when it cannot be read -- never the container's own clock, which is
+    UTC (practice: timestamps-carry-offset)."""
+    try:
+        sys.path.insert(0, str(ENGINE_DIR))
+        import precedent_time as _pt
+        return _pt.today(dest_root)
+    except Exception:                                          # noqa: BLE001
+        return None
+
+
+def _record_kept_workflow_todo(dest_root, rel, lost, verb):
+    """-> the repo-relative path of the open item recording that `rel` was
+    left alone, written now unless an open one for the same file exists.
+    Morgan, 2026-09-27: "make it a to-do so that it's noted. For the future,
+    that that one was left alone." One item per file, however many updates
+    see it; the repo's own session closes it once the command runs locally
+    and the next update finishes the job."""
+    todo = dest_root / 'todo'
+    stem = pathlib.PurePosixPath(rel).stem
+    tail = 'ci-workflow-left-alone-' + re.sub(r'[^a-z0-9]+', '-', stem.lower()).strip('-')
+    if todo.is_dir():
+        for f in sorted(todo.glob(f'todo-*-{tail}.md')):
+            text = f.read_text(encoding='utf-8', errors='ignore')
+            if re.search(r'^status:\s*open\b', text, re.M):
+                return f'todo/{f.name}'
+    day = _today(dest_root)
+    if not day:
+        return None       # no trustworthy date; the banner still says it
+    slug = f'todo-{day}-{tail}'
+    done = 'replaced' if verb == 'replacing' else 'removed'
+    body = f"""---
+slug:              {slug}
+kind:              manual
+domain:            ci
+severity:          notable
+status:            open
+disposition:       ask
+remind_on:         {day}
+blocked_on:        null
+batch:             null
+decision:          null
+decision_strength: null
+waiting_on:        null
+noted:             {day}
+closed:            null
+---
+## What
+
+**`{rel}` was left alone by Update Vendors, and it still runs in GitHub.**
+A consumer's workflows converge to upstream: the ones upstream ships are
+replaced with its templates, and every other one is removed. This one was
+not {done}, because it runs {', '.join(lost)}, which the local push check
+does not run. Taking it away would have stopped that running anywhere.
+
+**To finish it:** run what it runs locally -- in `tools/light_check.py`, or
+as a test under `tools/checks/tests/` -- and the next Update Vendors will
+finish the job. If it has to run in GitHub, record the person's own approval
+of it in `precedent.json`'s `github_ci_approved`, pinned by sha256 (practice:
+ci-workflow-approved). Close this item when either is done.
+
+## Story
+
+Written by Update Vendors on {day}. Morgan, 2026-09-27: "If there is
+something that is not covered, leave it alone, but flag it importantly ...
+Also, make it a to-do so that it's noted."
+"""
+    try:
+        todo.mkdir(exist_ok=True)
+        out = todo / f'{slug}.md'
+        out.write_text(body, encoding='utf-8')
+        index = dest_root / 'tools' / 'build_todo_index.py'
+        if index.is_file():
+            subprocess.run([sys.executable, str(index)], cwd=str(dest_root),
+                           capture_output=True, text=True)
+        return f'todo/{out.name}'
+    except OSError:
+        return None
+
+
+def _held_back(dest_root, rel, lost, verb):
+    """Leave `rel` alone, loudly: a banner at the end of the refresh, a line
+    under "Left for you", and an open item in the repo's todo/. Replaces any
+    quieter message an earlier sweep left about the same file."""
+    _LEFT_FOR_YOU[:] = [(i, w) for i, w in _LEFT_FOR_YOU if i != rel]
+    todo = _record_kept_workflow_todo(dest_root, rel, lost, verb)
+    done = 'replaced' if verb == 'replacing' else 'removed'
+    _KEPT_LOUD.append((rel, lost, done, todo))
+    _left(rel, f'LEFT ALONE, not {done}: it runs {", ".join(lost)}, which the '
+               f'local push check does not run, so {verb} it would stop that '
+               f'running anywhere. It still runs in GitHub. Run it locally '
+               f'first -- tools/light_check.py, or a test under '
+               f'tools/checks/tests/ -- or record the person\'s approval of it '
+               f'in github_ci_approved; the next update then finishes this'
+               + (f'. Recorded as {todo}' if todo else ''))
 
 
 def _drop_ci_approvals(dest_root, rels):
@@ -3291,7 +3485,7 @@ def _refresh_ci_workflow_files(dest_root, kind, ci_workflows_dir, manifest):
         # refusal the declaration exists to retire; updating one would
         # quietly bless whatever the file says today, which is exactly what
         # `record-ci` does and exactly why it is not an escape.
-        if rel in _local:
+        if rel in _local and not converges:
             recorded.pop(rel, None)
             continue
         path = dest_root / rel
@@ -3311,6 +3505,18 @@ def _refresh_ci_workflow_files(dest_root, kind, ci_workflows_dir, manifest):
                     if why:
                         _left(rel, f'differs from upstream\'s {template} and '
                                    f'was not replaced: {why}')
+                        continue
+                    # A hand-made copy may run something nothing else does;
+                    # check before it goes (Morgan, 2026-09-27: "it should
+                    # do a check first to make sure nothing needed is being
+                    # lost").
+                    lost = _would_lose(
+                        dest_root, kind,
+                        path.read_text(encoding='utf-8', errors='ignore'),
+                        _workflow_facts(src.read_text(encoding='utf-8',
+                                                      errors='ignore'))[1])
+                    if lost:
+                        _held_back(dest_root, rel, lost, 'replacing')
                         continue
                     replaced.append(rel)
                 else:
@@ -5207,6 +5413,12 @@ def refresh(clone, force=False, ref=None):
     # and never seen again, while a declaration announces itself for as long
     # as it stands, so nobody inherits an exemption they cannot see.
     for rel, why in sorted(local_ci_workflows(ROOT).items()):
+        if kind in CI_CONVERGES_KINDS:
+            print(f"NOTE: {LOCAL_CI_WORKFLOWS_KEY} declares {rel} ({why}), but "
+                  f"a consumer keeps a workflow only by the person's approval "
+                  f"in {GITHUB_CI_APPROVED_KEY} since 2026-09-27 -- the "
+                  f"declaration was not honoured; remove it from precedent.json.")
+            continue
         print(f"LOCAL (not refreshed, by declaration): {rel} -- {why}")
     if ci_catchup:
         print(f"NOTICE: precedent_vendor_engine refresh: recording a baseline hash "
