@@ -17520,7 +17520,8 @@ def check_promote_picks_its_step():
     The cases that matter: waiting work on pre-staging always goes first
     when nothing says otherwise; staging moves into main only through a
     throwaway copy, main itself untouched by the script; the work the
-    session names (--work) decides over the tiers' own order; and nothing
+    session names (--work) decides over the tiers' own order, except that
+    both steps waiting is ambiguous and goes pre-staging first; and nothing
     waiting prints no "Now promoting" line at all."""
     import tempfile, json as _json, shutil as _shutil
     name = 'Promote picks pre-staging->staging or staging->main, and says which'
@@ -17620,11 +17621,22 @@ def check_promote_picks_its_step():
 
         on_staging = commit_to('staging', 'two.txt', '2\n')
         commit_to('pre-staging', 'three.txt', '3\n')
-        rc, out = branches('--promote', '--work', on_staging)
-        cases.append(('the work just done decides over the order: on staging '
-                      'and not main, so staging into main even with '
-                      'pre-staging waiting', rc == 0 and out.startswith(
+        rc, out = branches('--promote', '--to', 'main', '--work', on_staging)
+        cases.append(('both steps waiting, and the step named: --to main wins',
+                      rc == 0 and out.startswith(
                           'Now promoting from staging to main')))
+        rc, out = branches('--promote', '--work', on_staging)
+        cases.append(('both steps waiting and none named is ambiguous: '
+                      'pre-staging into staging, even with the work just done '
+                      'already on staging (Morgan, 2026-09-26)',
+                      rc == 0 and out.startswith(
+                          'Now promoting from pre-staging to staging')
+                      and 'ambiguous' in out))
+        rc, out = branches('--promote', '--work', on_staging)
+        cases.append(('with pre-staging empty again, the work just done on '
+                      'staging goes into main', rc == 0 and out.startswith(
+                          'Now promoting from staging to main')))
+        commit_to('pre-staging', 'four.txt', '4\n')
         rc, out = branches('--promote', '--work', 'w-pre-staging')
         cases.append(('work only on pre-staging goes into staging',
                       rc == 0 and out.startswith(
