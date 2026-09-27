@@ -35,9 +35,9 @@ own branch, which the freshness guard already covers.
 
 A REMINDER IS WHAT ALREADY FAILED, so this is built to run without being
 remembered: from the session-start bootstrap, and from precedent_gate.py's
-push and merge moments. It PRINTS and never refreshes anything -- the same
-shape precedent_upstream_check.py has had since 2026-09-08, at Morgan's own
-request: "I don't want it to merge invisibly, I'd like to do it in a session
+push and merge moments. It PRINTS and never refreshes anything -- the
+shape the upstream-carry notice had (2026-09-08 to 2026-09-27), at Morgan's
+own request: "I don't want it to merge invisibly, I'd like to do it in a session
 when I'm there."
 
   python3 tools/precedent_engine_freshness.py           # every source, one row each
