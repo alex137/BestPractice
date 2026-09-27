@@ -7031,6 +7031,107 @@ def check_update_vendors_is_one_command():
             '; '.join(f'{n}: {d}' for n, d in bad))
 
 
+def check_update_vendors_survives_an_upstream_deletion():
+    """An update that deletes a vendored .py file upstream dropped ends DONE,
+    and the deep check judges the tree the commit will hold.
+
+    2026-09-27, taking main into a real consumer: `checkin.py update` deleted
+    tools/precedent_upstream_check.py and tools/upstream_watermark.json from
+    process/upstream/, both dropped upstream by 0b5f0d650. The deletions sat
+    unstaged, timestamps-carry-offset listed Python files from the index,
+    `--cached` still named the deleted one, and the update came back FAILED
+    on "could not be parsed" for a file that was gone.
+
+    The fixture is that consumer, built the way a real one is: installed by
+    precedent_install.py, with a catalogue vendored at 0b5f0d650's parent, so
+    the update has to delete those two files. Two fixes, each asserted on its
+    own: the check skips an index path missing from disk, and the update
+    stages what it wrote and deleted before the check runs.
+    Owns its state (practice: fixture-owns-its-state).
+    """
+    import tempfile
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-update-deletes-'))
+    cases = []
+    env = dict(os.environ, HOME=str(tmp / 'home'), PRECEDENT_ALLOW_ANY_AUTHOR='1',
+               PRECEDENT_USER_CONFIG=str(tmp / 'no-user-config.json'),
+               GIT_AUTHOR_NAME='Fixture', GIT_AUTHOR_EMAIL='harness@example.com',
+               GIT_COMMITTER_NAME='Fixture', GIT_COMMITTER_EMAIL='harness@example.com')
+    for k in ('CLAUDE_CODE_REMOTE', 'PRECEDENT_LEAK_BLOCKLIST'):
+        env.pop(k, None)
+    (tmp / 'home').mkdir()
+
+    def sh(*argv, cwd):
+        r = subprocess.run(list(argv), cwd=str(cwd), env=env,
+                           capture_output=True, text=True)
+        return r.returncode, r.stdout + r.stderr
+
+    DROPPED = 'process/upstream/tools/precedent_upstream_check.py'
+    try:
+        rc, before_drop = sh('git', 'rev-parse', '--verify', '-q', '0b5f0d650^', cwd=ROOT)
+        before_drop = before_drop.strip()
+        cases.append(('this clone has the history the fixture vendors from '
+                      '(0b5f0d650^; a shallow clone needs --unshallow)',
+                      rc == 0 and bool(before_drop), before_drop))
+        if rc != 0:
+            raise RuntimeError('no history')
+        proj = tmp / 'proj'
+        sh('git', 'init', '-q', '-b', 'main', str(proj), cwd=tmp)
+        (proj / 'README.md').write_text('# Field Notes\n\nA newsletter about birds.\n',
+                                        encoding='utf-8')
+        sh('git', 'add', '-A', cwd=proj)
+        sh('git', 'commit', '-qm', 'before Precedent', cwd=proj)
+        rc, out = sh(sys.executable, str(ROOT / 'tools' / 'precedent_install.py'),
+                     str(proj), '--project-name', 'Field Notes', '--admin', 'dana', cwd=ROOT)
+        cases.append(('the fixture installs', rc == 0, out[-800:]))
+        up = proj / 'process' / 'upstream'
+        up.mkdir(parents=True)
+        arch = subprocess.run(['git', '-C', str(ROOT), 'archive', before_drop],
+                              capture_output=True)
+        subprocess.run(['tar', '-x', '-C', str(up)], input=arch.stdout, check=True)
+        (proj / 'process' / 'manifest.json').write_text(json.dumps({
+            'upstream': {'repo': 'https://github.com/alex137/BestPractice',
+                         'vendored_at': 'process/upstream',
+                         'branch': 'precedent-beta-v01', 'commit': before_drop},
+            'entries': []}, indent=2) + '\n', encoding='utf-8')
+        (proj / 'process' / 'scrub_blocklist.txt').write_text(
+            '# terms private to this project\nfieldnotes-internal\n', encoding='utf-8')
+        sh('git', 'add', '-A', cwd=proj)
+        sh('git', 'commit', '-qm', 'installed, catalogue vendored', cwd=proj)
+        sh('git', 'clone', '-q', '--bare', str(proj), str(tmp / 'origin.git'), cwd=tmp)
+        sh('git', 'remote', 'add', 'origin', str(tmp / 'origin.git'), cwd=proj)
+        sh('git', 'fetch', '-q', 'origin', cwd=proj)
+        cases.append(('the vendored catalogue carries the file upstream later dropped',
+                      (proj / DROPPED).is_file(), DROPPED))
+
+        rc, out = sh(sys.executable, str(ROOT / 'tools' / 'precedent_update.py'),
+                     '--repo', str(proj), '--from-ref', _ref_including_worktree(ROOT),
+                     cwd=proj)
+        cases.append(('the update that deletes it ends DONE with the deep check run, '
+                      'not FAILED', rc == 0 and 'DONE -- nothing left' in out
+                      and 'deep check: passed' in out, out[-2500:]))
+        cases.append(('...the file is gone from disk', not (proj / DROPPED).exists(), ''))
+        _rc, staged = sh('git', 'diff', '--cached', '--name-status', '--', DROPPED, cwd=proj)
+        cases.append(('...and its deletion is staged, so the check judged what the '
+                      'commit will hold', staged.startswith('D'), staged))
+
+        # The check on its own: with the deletion UNSTAGED again, the index
+        # still names the file, and it must not be reported as unparseable.
+        sh('git', 'reset', '-q', cwd=proj)
+        rc, out = sh(sys.executable, 'tools/precedent_check.py', '--only',
+                     'timestamps-carry-offset', cwd=proj)
+        cases.append(('timestamps-carry-offset passes over a deleted, unstaged file '
+                      'instead of calling it unparseable',
+                      rc == 0 and 'could not be parsed' not in out, out[-800:]))
+    except RuntimeError:
+        pass
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    return (not bad, f'{len(cases)} stated cases',
+            '; '.join(f'{n}: {d}' for n, d in bad))
+
+
 def check_legacy_leftovers_retired_by_content():
     """The old install's leftovers leave an install on its next refresh,
     recognised by CONTENT -- tracked or not, hand-paused or not -- and a file
@@ -36246,6 +36347,8 @@ def main():
           *check_refresh_repoints_a_retired_catalogue_pin())
     check('Update Vendors runs as one command and stops only for the repo\'s own calls',
           *check_update_vendors_is_one_command())
+    check('an update that deletes a vendored file upstream dropped ends DONE',
+          *check_update_vendors_survives_an_upstream_deletion())
     check('the instruction files name only repositories that exist',
           *check_instruction_files_name_repos_that_exist())
     check('a consumer may declare a CI workflow its own and keep it',
