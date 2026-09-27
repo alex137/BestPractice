@@ -611,6 +611,13 @@
       ],
       "gates_why": "The push is when the gate runs and prints, so it is the exact moment a session decides whether to relay what it printed. Carried over unchanged from the individual-level copy this moved from."
     },
+    "lease-in-flight-work": {
+      "globs": [
+        "**"
+      ],
+      "why": "No locus. The work a lease guards is whatever a repository finds costly to start twice -- a submission, a migration, a solve -- and it shares no path. Reached through the occasion index.",
+      "decided": "2026-09-27, when the practice landed"
+    },
     "merge-authorization-keyword": {
       "globs": [
         "**"
@@ -1084,6 +1091,13 @@
         "reply"
       ],
       "gates_why": "The naming decision is made while composing a reply, at creation or the moment the differentiator becomes known -- the same moment session-tags' obligation lands in."
+    },
+    "shared-result-cache": {
+      "globs": [
+        "**"
+      ],
+      "why": "A property of a memoized solve, which lives wherever a repository keeps its models; no common path. Reached through the occasion index, beside slow-steps-report-and-cache.",
+      "decided": "2026-09-27, when the practice landed"
     },
     "slow-steps-report-and-cache": {
       "globs": [
