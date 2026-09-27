@@ -7093,8 +7093,15 @@ def check_update_vendors_survives_an_upstream_deletion():
                          'vendored_at': 'process/upstream',
                          'branch': 'precedent-beta-v01', 'commit': before_drop},
             'entries': []}, indent=2) + '\n', encoding='utf-8')
+        # A term made fresh each run, never written in this file: the
+        # catalogue this fixture vendors includes this very file, so a
+        # literal term here is a blocklist hit on its own source once the
+        # file reaches the branch the update reads (it did, on main,
+        # 2026-09-27), whichever version of the file that branch holds.
+        import uuid
         (proj / 'process' / 'scrub_blocklist.txt').write_text(
-            '# terms private to this project\nfieldnotes-internal\n', encoding='utf-8')
+            f'# terms private to this project\nfieldnotes-{uuid.uuid4().hex}\n',
+            encoding='utf-8')
         sh('git', 'add', '-A', cwd=proj)
         sh('git', 'commit', '-qm', 'installed, catalogue vendored', cwd=proj)
         sh('git', 'clone', '-q', '--bare', str(proj), str(tmp / 'origin.git'), cwd=tmp)
@@ -16454,11 +16461,14 @@ def check_refresh_removes_dropped_engine_files():
             cases.append(('refresh itself retires a stock-shaped legacy '
                           'workflow no manifest ever tracked',
                           not (wf / 'bestpractice-upstream-sync.yml').exists()))
-            cases.append(('and keeps a same-name file of the repo\'s own, '
-                          'listing it under "Left for you"',
-                          (wf / 'bestpractice-docs.yml').is_file()
-                          and 'Left for you' in out3
-                          and 'bestpractice-docs.yml' in out3))
+            # Kept and listed until 2026-09-27. A consumer's CI now converges
+            # to upstream: a workflow of its own that nobody approved goes
+            # too, and the report names the script it ran so that can move
+            # into the local push check (CI_CONVERGES_KINDS).
+            cases.append(('and removes a same-name file of the repo\'s own '
+                          'that nobody approved, naming the script it ran',
+                          not (wf / 'bestpractice-docs.yml').exists()
+                          and 'our_own.py' in out3))
 
     failed = [n for n, ok in cases if not ok]
     check(f'refresh removes engine files the set no longer includes, and only '
@@ -24492,6 +24502,17 @@ def check_vendor_engine_refreshes_ci_workflow_files():
                 json.dumps(manifest), encoding='utf-8')
             if wf_bytes is not None:
                 (consumer / rel).write_bytes(wf_bytes)
+            # A git repo with everything committed, as every real consumer
+            # is: since 2026-09-27 a consumer's refresh replaces a workflow
+            # only when git holds its content (CI_CONVERGES_KINDS).
+            genv = dict(os.environ, GIT_AUTHOR_NAME='t',
+                        GIT_AUTHOR_EMAIL='harness@example.com',
+                        GIT_COMMITTER_NAME='t',
+                        GIT_COMMITTER_EMAIL='harness@example.com')
+            for argv in (['init', '-q'], ['add', '-A'],
+                         ['commit', '-qm', 'base']):
+                subprocess.run(['git', '-C', str(consumer), *argv], env=genv,
+                               capture_output=True)
             return consumer
 
         # Computed once, not the literal 'HEAD': this fixture tests a
@@ -24539,56 +24560,44 @@ def check_vendor_engine_refreshes_ci_workflow_files():
                       'a clean exit)',
                       rc_a == 0 and 'refreshed' in out_a and rel in out_a, out_a[:800]))
 
-        # -- B: differs from the manifest record -- a hand-edit -- refresh
-        # refuses the whole run, same as any other drifted file, and leaves
-        # the file untouched --
+        # -- B: differs from the manifest record -- a hand-edit. Until
+        # 2026-09-27 refresh refused the whole run over it. A consumer's CI
+        # now converges to upstream (CI_CONVERGES_KINDS): the file is
+        # replaced with the template, and the refresh says so --
         b = make_consumer('edited', edited, {rel: stub_hash})
         rc_b, out_b = run_refresh(b)
-        cases.append(('a hand-edited CI workflow file (on-disk bytes no longer match '
-                      'the manifest) makes refresh refuse, naming the FAIL this tool '
-                      'always uses for drift, not a generic error',
-                      rc_b != 0 and 'hand-edited since the last seed/refresh' in out_b,
+        cases.append(('a hand-edited CI workflow file in a consumer is replaced '
+                      'with the current template, not refused',
+                      rc_b == 0 and (b / rel).read_bytes() == real_template
+                      and 'hand-edited since the last seed/refresh' not in out_b,
                       out_b[:800]))
-        cases.append(('...and the file itself is left untouched by the refusal',
-                      (b / rel).read_bytes() == edited, out_b[:400]))
+        cases.append(('...and the refresh says it replaced it',
+                      'CI workflow replaced: ' + rel in out_b, out_b[:800]))
 
-        # -- B, CONTROL: the same hand-edit, with --force, DOES get
-        # overwritten -- proves the refusal above is the drift check firing,
-        # not something incidental to this fixture (control-asserts-which-
-        # failure's negative control) --
-        b_forced = make_consumer('edited-forced', edited, {rel: stub_hash})
-        rc_bf, out_bf = run_refresh(b_forced, extra=('--force',))
-        cases.append(('CONTROL: the same hand-edited file, with --force, is '
-                      'overwritten to the current template rather than refused',
-                      rc_bf == 0 and (b_forced / rel).read_bytes() == real_template,
-                      out_bf[:800]))
+        # -- B, NEGATIVE: the same hand-edit, never committed, is kept: its
+        # content exists nowhere else (practice: repair-cannot-discard-work).
+        b_dirty = make_consumer('edited-dirty', stub, {rel: stub_hash})
+        (b_dirty / rel).write_bytes(edited)
+        rc_bd, out_bd = run_refresh(b_dirty)
+        cases.append(('NEGATIVE: an UNCOMMITTED hand edit is kept, and named '
+                      'under Left for you',
+                      rc_bd == 0 and (b_dirty / rel).read_bytes() == edited
+                      and 'uncommitted edits' in out_bd, out_bd[:800]))
 
-        # -- C: no manifest record at all -- a repo vendored before this
-        # feature existed -- one-time catch-up: baseline hash recorded, but
-        # the file itself is NOT rewritten (unlike the hooks catch-up,
-        # deliberately -- see CI_WORKFLOW_TEMPLATES' own comment on why) --
+        # -- C: no manifest record at all -- a repo vendored before CI
+        # workflows were tracked, or a hand-made copy. It used to get a
+        # baseline and a second refresh; a consumer's is replaced now --
         c = make_consumer('catchup', stub, None)
         rc_c, out_c = run_refresh(c)
-        cases.append(('a CI workflow file with no prior manifest record at all is '
-                      'NOT rewritten on its first refresh after this feature ships',
-                      (c / rel).read_bytes() == stub, out_c[:800]))
-        cases.append(('...but a baseline hash IS recorded for it',
-                      manifest_of(c).get('ci_workflows_sha256', {}).get(rel) == stub_hash,
-                      out_c[:800]))
-        cases.append(('...and refresh prints a one-time catch-up NOTICE naming it, not '
-                      'just a silent write',
-                      rc_c == 0 and 'NOTICE' in out_c and 'baseline' in out_c and rel in out_c,
-                      out_c[:800]))
-
-        # -- C, CONTROL: a SECOND refresh of that same catch-up consumer now
-        # has a baseline to compare against, so it behaves like case A and
-        # rewrites the file to the current template -- proves the first
-        # run's silence was the catch-up rule and not a bug that never picks
-        # the file up at all --
+        cases.append(('an untracked CI workflow file in a consumer is replaced '
+                      'on the first refresh, and tracked',
+                      rc_c == 0 and (c / rel).read_bytes() == real_template
+                      and manifest_of(c).get('ci_workflows_sha256', {}).get(rel)
+                      == real_hash, out_c[:800]))
         rc_c2, out_c2 = run_refresh(c)
-        cases.append(('CONTROL: a second refresh, now that a baseline is recorded, '
-                      'DOES rewrite the file to the current template',
-                      rc_c2 == 0 and (c / rel).read_bytes() == real_template, out_c2[:800]))
+        cases.append(('CONTROL: a second refresh finds nothing to do for it',
+                      rc_c2 == 0 and (c / rel).read_bytes() == real_template
+                      and 'CI workflow replaced' not in out_c2, out_c2[:800]))
 
         # -- D: CI disabled (no workflow file installed at all) -- refresh
         # neither writes nor complains about it --
