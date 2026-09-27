@@ -31404,16 +31404,24 @@ def check_installer_produces_a_clean_install():
         # declared-default-is-applied) -- ENABLED since 2026-09-25, because
         # what it installs is now one light check on pull requests into main,
         # and a leak gate that never runs in a private repo
-        # (spec/BRANCH_TIERS_PLAN.md).
+        # (spec/BRANCH_TIERS_PLAN.md). Since 2026-09-27 the light check also
+        # triggers on a push to main, and its job skips that push unless the
+        # repository is public -- so the push trigger must be scoped to main
+        # and the job must carry that condition.
         _wfs = proj / '.github' / 'workflows'
         _lc = (_wfs / 'light-check.yml').read_text(encoding='utf-8') \
             if (_wfs / 'light-check.yml').exists() else ''
         _lg = (_wfs / 'leak-gate.yml').read_text(encoding='utf-8') \
             if (_wfs / 'leak-gate.yml').exists() else ''
+        _lc_push = re.search(r'^  push:\n((?:    .*\n|\s*#.*\n)*)', _lc, re.M)
         cases.append(('nothing declares github_ci_workflows, so the installer writes the '
-                      'light check -- pull requests into main only -- and the leak gate, '
-                      'skipped in a private repo, and GETTING_STARTED.md says so',
-                      'branches: [main]' in _lc and '\n  push:' not in _lc
+                      'light check -- pull requests into main, and pushes to main in a '
+                      'public repo only -- and the leak gate, skipped in a private repo, '
+                      'and GETTING_STARTED.md says so',
+                      'branches: [main]' in _lc
+                      and bool(_lc_push) and 'branches: [main]' in _lc_push.group(1)
+                      and "github.event_name != 'push' || "
+                          "github.event.repository.private != true" in _lc
                       and 'github.event.repository.private != true' in _lg
                       and 'Before anything reaches `main`' in gs,
                       gs[:600]))

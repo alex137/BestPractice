@@ -56,10 +56,11 @@ on:
   # templates/github-actions/doc-lint.yml.template's header for the
   # measurement, and spec/BILLING_FLOOR.md for why the trigger, not the
   # per-job floor, was the driver in the repo where this was found.
-  # BACK, FOR PULL REQUESTS INTO MAIN ONLY, 2026-09-25 (spec/BRANCH_TIERS_PLAN.md):
+  # BACK, FOR PULL REQUESTS INTO MAIN, 2026-09-25 (spec/BRANCH_TIERS_PLAN.md):
   # this repo's one GitHub test, on the pull request that carries staging
   # into main -- the one place a clean machine without the private sources
-  # can catch what a local run cannot. Every other push is checked locally.
+  # can catch what a local run cannot. Pushes to main joined it on
+  # 2026-09-27 (below); every other push is checked locally.
   pull_request:
     branches: [main]
     types: [opened, reopened, ready_for_review, synchronize]
@@ -88,20 +89,30 @@ on:
   # sec.4 has a dependent repo push its branch HERE from a dual-repo
   # session, because a single-repo session cannot write to this repo at
   # all -- it does not fork.
-  # push:
-  #   branches: [main, precedent-beta-v01]
   #
-  # PAUSED 2026-09-25: both triggers above are commented out, so this runs
-  # only when started by hand. Every one of its three tools now runs before
-  # each push from a session, on our own machine, as part of
-  # tools/precedent_push_check.py (push-check-gate.sh refuses the push until
-  # it passes). Morgan asked that these checks run "on our side, not on
-  # github minutes", and agreed to pausing this one while keeping
-  # leak-gate.yml, which covers changes that never pass through a session
-  # (strength: assented -- "Sure let's follow your recommendation"). Paused
-  # rather than deleted because tools/precedent_decommission.py requires a
-  # cycle to pass before a live workflow's files go (decommission-deletes-
-  # files); delete it with that tool once one has.
+  # EVERY PUSH TO MAIN, TOO, SINCE 2026-09-27 (spec/BRANCH_TIERS_PLAN.md,
+  # "Public repositories test every push to main"). The pull request above
+  # tests a change BEFORE it lands; this tests what actually landed, and it
+  # is the only GitHub test a commit gets when it reaches main without that
+  # pull request -- a direct push, an edit on github.com, a bot commit.
+  # After an ordinary merge it re-tests nearly the same tree, and that is
+  # accepted: this repo is public, so the runs are free. Morgan: "all pushes
+  # to main, on repos that are public, should get the GitHub ci/cd. It
+  # doesn't matter that the same check happened (on our server) on local
+  # before that, it's a good double check" (strength: decided).
+  push:
+    branches: [main]
+  #
+  # WHY PUSHES TO EVERY OTHER BRANCH STILL GET NO RUN: on 2026-09-25 both
+  # triggers were commented out and this ran only when started by hand.
+  # Every one of its three tools runs before each push from a session, on
+  # our own machine, as part of tools/precedent_push_check.py
+  # (push-check-gate.sh refuses the push until it passes). Morgan asked that
+  # these checks run "on our side, not on github minutes", and agreed to
+  # pausing this one while keeping leak-gate.yml, which covers changes that
+  # never pass through a session (strength: assented -- "Sure let's follow
+  # your recommendation"). The pull request into main came back the same
+  # day and pushes to main on 2026-09-27; the rest stays paused.
   workflow_dispatch:
 
 permissions:

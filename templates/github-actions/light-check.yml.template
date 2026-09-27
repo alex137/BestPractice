@@ -54,8 +54,9 @@
 name: Light check
 
 on:
-  # PULL REQUESTS INTO MAIN, AND NOTHING ELSE (spec/BRANCH_TIERS_PLAN.md,
-  # 2026-09-25). This is a repository's one GitHub test: pre-staging,
+  # PULL REQUESTS INTO MAIN (spec/BRANCH_TIERS_PLAN.md, 2026-09-25), and in
+  # a public repository pushes to main too (2026-09-27, below). This is a
+  # repository's one GitHub test: pre-staging,
   # staging and working branches are checked by the local push check before
   # every push, and GitHub's job is only to re-check what is about to reach
   # main on a clean machine that has none of the session's private sources.
@@ -85,6 +86,22 @@ on:
   pull_request:
     branches: [main]
     types: [opened, reopened, ready_for_review, synchronize]
+  # EVERY PUSH TO MAIN, IN A PUBLIC REPOSITORY ONLY (2026-09-27,
+  # spec/BRANCH_TIERS_PLAN.md, "Public repositories test every push to
+  # main"). The pull request above tests a change before it lands; this
+  # tests what actually landed, and it is the only GitHub test a commit gets
+  # when it reaches main without that pull request -- a direct push, an edit
+  # on github.com, a bot commit. Morgan: "all pushes to main, on repos that
+  # are public, should get the GitHub ci/cd. It doesn't matter that the same
+  # check happened (on our server) on local before that, it's a good double
+  # check" (strength: decided).
+  #
+  # The trigger is here in every repository; the job's `if:` below skips it
+  # in a private one. A skipped job never gets a runner, so it bills nothing,
+  # and a repository that changes visibility gets the right behavior
+  # without anyone editing this file.
+  push:
+    branches: [main]
   workflow_dispatch:
 
 # A second push on the same branch before this finishes cancels the first,
@@ -99,6 +116,9 @@ permissions:
 jobs:
   light-check:
     name: Light check
+    # A push to main runs only in a public repository (see `on:` above);
+    # the pull request into main and a run started by hand run everywhere.
+    if: github.event_name != 'push' || github.event.repository.private != true
     runs-on: ${{ vars.PRECEDENT_RUNNER || 'ubuntu-latest' }}
 
     steps:
