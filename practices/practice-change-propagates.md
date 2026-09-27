@@ -105,5 +105,5 @@ repository that vendors them.
 the lookup, vendored with the engine so every repository has it. The check
 is `practice-change-propagates` in
 [tools/precedent_check.py](../tools/precedent_check.py), and
-[tools/precedent_update.py](../tools/precedent_update.py) runs the lookup as
-a step of Update Vendors.
+[tools/precedent_update.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_update.py)
+runs the lookup as a step of Update Vendors.

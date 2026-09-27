@@ -9704,6 +9704,16 @@ def check_precedent_check_fires():
             git(repo, 'commit', '-qm', 'rename, leaving every reference behind')
         case('rename-updates-links', _plant_rename, setup=_setup_rename)
 
+        # practice-change-propagates -- a live lookup of a practice this tree
+        # renamed away. `go-merge` is a deduplicated stub forwarding to
+        # `go-update` here, so a README telling the reader to look it up
+        # sends them to the stub: the go-merge rename's own shape, planted in
+        # the repository that made the rename.
+        case('practice-change-propagates',
+             lambda repo: rewrite(repo, 'README.md', lambda t: t +
+                                  '\nBefore merging, read '
+                                  '`python3 tools/precedent_show.py go-merge`.\n'))
+
         # rename-updates-links, the other direction: a stranded reference the
         # consuming repo CANNOT repoint must leave the check silent, and the
         # identical reference in a file it CAN edit must still fail. Both
