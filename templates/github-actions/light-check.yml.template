@@ -60,8 +60,9 @@
 name: Light check
 
 on:
-  # PULL REQUESTS INTO MAIN, AND NOTHING ELSE (spec/BRANCH_TIERS_PLAN.md,
-  # 2026-09-25). This is a repository's one GitHub test: pre-staging,
+  # PULL REQUESTS INTO MAIN (spec/BRANCH_TIERS_PLAN.md, 2026-09-25), and in
+  # a public repository pushes to main too (2026-09-27, below). This is a
+  # repository's one GitHub test: pre-staging,
   # staging and working branches are checked by the local push check before
   # every push, and GitHub's job is only to re-check what is about to reach
   # main on a clean machine that has none of the session's private sources.
@@ -91,6 +92,29 @@ on:
   pull_request:
     branches: [main]
     types: [opened, reopened, ready_for_review, synchronize]
+  # EVERY PUSH TO MAIN, IN A PUBLIC REPOSITORY ONLY (2026-09-27,
+  # spec/BRANCH_TIERS_PLAN.md, "Public repositories test every push to
+  # main"). The pull request above tests a change before it lands; this
+  # tests what actually landed, and it is the only GitHub test a commit gets
+  # when it reaches main without that pull request -- a direct push, an edit
+  # on github.com, a bot commit. Morgan: "all pushes to main, on repos that
+  # are public, should get the GitHub ci/cd. It doesn't matter that the same
+  # check happened (on our server) on local before that, it's a good double
+  # check" (strength: decided).
+  #
+  # When the pushed files are exactly the ones a run of this workflow
+  # already passed -- the ordinary merge of a pull request whose head held
+  # main -- the skip step below stops after a few seconds instead of
+  # testing them again (Morgan, the same day: "it should not run the second
+  # time ... if it had just run before, and nothing had changed", strength:
+  # decided).
+  #
+  # The trigger is here in every repository; the job's `if:` below skips it
+  # in a private one. A skipped job never gets a runner, so it bills nothing,
+  # and a repository that changes visibility gets the right behavior
+  # without anyone editing this file.
+  push:
+    branches: [main]
   workflow_dispatch:
 
 # A second push on the same branch before this finishes cancels the first,
@@ -101,10 +125,16 @@ concurrency:
 
 permissions:
   contents: read
+  # To look up whether this workflow already passed on the same files (the
+  # skip step below). Read-only.
+  actions: read
 
 jobs:
   light-check:
     name: Light check
+    # A push to main runs only in a public repository (see `on:` above);
+    # the pull request into main and a run started by hand run everywhere.
+    if: github.event_name != 'push' || github.event.repository.private != true
     runs-on: ${{ vars.PRECEDENT_RUNNER || 'ubuntu-latest' }}
 
     steps:
@@ -119,13 +149,66 @@ jobs:
           # a faster checkout would save nothing anyway.
           fetch-depth: 0
 
+      # A PUSH TO MAIN RE-RUNS NOTHING THAT ALREADY PASSED (2026-09-27,
+      # spec/BRANCH_TIERS_PLAN.md). Morgan: "we're very cautious about the
+      # minutes ... it should not run the second time ... if it had just
+      # run before, and nothing had changed" (strength: decided).
+      #
+      # "Nothing changed" is decided by git, exactly: the pushed commit's
+      # files are identical to a commit this same workflow already passed
+      # on, and anything else the push brought in was already inside that
+      # commit. That is the ordinary Promote merge -- the pull request's
+      # head already contains main, so the merge lands the very files its
+      # pull-request run tested. Anything short of certain runs the check:
+      # main moved in between, no passing run found, the API unreachable,
+      # a shallow checkout. A re-run of a push that already passed skips
+      # too; start one by hand (workflow_dispatch) to force it.
+      - name: Skip if these exact files already passed this check
+        id: already
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -u
+          skip=false
+          tested=''
+          tree=$(git rev-parse "$GITHUB_SHA^{tree}" 2>/dev/null) || tree=''
+          parents=$(git rev-list --parents -n 1 "$GITHUB_SHA" 2>/dev/null | cut -s -d' ' -f2-)
+          wf=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" --jq .workflow_id 2>/dev/null) || wf=''
+          if [ -n "$tree" ] && [ -n "$wf" ]; then
+            for x in "$GITHUB_SHA" $parents; do
+              [ "$(git rev-parse "$x^{tree}" 2>/dev/null)" = "$tree" ] || continue
+              covered=true
+              for p in $parents; do
+                [ "$p" = "$x" ] || git merge-base --is-ancestor "$p" "$x" || covered=false
+              done
+              [ "$covered" = true ] || continue
+              n=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/$wf/runs?head_sha=$x&status=success&per_page=1" --jq .total_count 2>/dev/null) || n=0
+              if [ "${n:-0}" -gt 0 ] 2>/dev/null; then
+                skip=true
+                tested=$x
+                break
+              fi
+            done
+          fi
+          echo "skip=$skip" >> "$GITHUB_OUTPUT"
+          if [ "$skip" = true ]; then
+            msg="Skipped: these exact files already passed this check on $tested."
+          else
+            msg="Running: no earlier passing run of this check on these exact files."
+          fi
+          echo "$msg"
+          echo "$msg" >> "$GITHUB_STEP_SUMMARY"
+
       - name: Set up Python
+        if: steps.already.outputs.skip != 'true'
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
 
       - name: Locate the vendored engine
         id: engine
+        if: steps.already.outputs.skip != 'true'
         run: |
           set -eu
           for candidate in \
@@ -146,6 +229,7 @@ jobs:
           exit 1
 
       - name: Run the light check
+        if: steps.already.outputs.skip != 'true'
         run: |
           set -eu
           # The vendored check suite, on a clean machine with none of the
