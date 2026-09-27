@@ -10,7 +10,7 @@ audience:      contributor
 summary:       "Two linked changes. First, a short page of the words this project uses (practice, universal set, individual set, shared set, full set, primary branch, and the stage names), printed as a second list under Vocabulary, plus a cleanup that retires 'team set' for 'shared set' everywhere live. Second, the work ladder: five stages, Consider, Act, Booked, Debut, Picked up (step 5's word still open), each reachable as 'Promote N' or by its word, each read back aloud before it runs. Optional for everyone; required for Morgan through his individual set. Go update becomes step 3's other name."
 ---
 
-# Five stages and our language
+# Five stages and our language -- one ladder for work, one page of words
 
 Morgan approved the direction on 2026-09-27 and asked for this write-up in
 the same message ("Go update"). Nothing here is built yet. A few choices are
