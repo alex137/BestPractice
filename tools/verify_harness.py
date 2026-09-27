@@ -6986,6 +6986,9 @@ def check_update_vendors_is_one_command():
         cases.append(('an install on the retired pin finishes with nothing asked: '
                       'exit 0 and DONE', rc == 0 and 'DONE -- nothing left' in out,
                       out[-1500:]))
+        landing = json.loads((done / 'precedent.json').read_text()).get('landing_branch')
+        cases.append(('...its precedent.json now names pre-staging as the landing '
+                      'branch, since it named none', landing == 'pre-staging', landing))
         cases.append(('...its catalogue pin now names ' + pve_branch,
                       pin == pve_branch, pin))
         cases.append(('...and its loader views were regenerated',
@@ -7012,6 +7015,44 @@ def check_update_vendors_is_one_command():
                       'LEFT FOR YOU, naming the file',
                       rc == 1 and f'process/upstream/practices/{target.name}' in out,
                       out[-1500:]))
+
+        # A practice SET renders MAP.md and GLOSSARY.md too, and its deep
+        # check compares them to a fresh build. 2026-09-27: every set's
+        # update failed that check on one MAP.md row for a new engine file,
+        # because the views step ran only a consumer's sync tool.
+        src = tmp / 'source-set'
+        (src / 'practices').mkdir(parents=True)
+        (src / 'practices' / 'fixture-rule.md').write_text(
+            '---\nslug:        fixture-rule\ntitle:       A fixture rule\n'
+            'tier:        on-demand\nseverity:    default\napplies_to:  []\n'
+            'occasion:    "when a fixture needs a practice"\ngates:       []\n'
+            'index_clause: "a fixture rule"\nchecked_by:  null\ndefines:     []\n'
+            'command:     null\nstatus:      active\nin_force_at: null\n'
+            'supersedes:  []\noverrides:   null\nadded:       "2026-09-27"\n---\n\n'
+            '## Rule\nA fixture rule.\n\n## Detail\nNone.\n\n## Why\nA test.\n\n'
+            '## Story\nNone.\n\n## Install\nNothing.\n', encoding='utf-8')
+        (src / 'precedent.json').write_text(json.dumps(
+            {'format_version': 1, 'base_branch': 'main',
+             'visibility': 'public'}) + '\n', encoding='utf-8')
+        (src / 'AGENTS.md').write_text(
+            f'# fixture\n\n{bv.BEGIN_MARKER}\n{bv.END_MARKER}\n', encoding='utf-8')
+        sh('git', 'init', '-q', '-b', 'main', cwd=src)
+        sh(sys.executable, str(ROOT / 'tools' / 'precedent_vendor_engine.py'),
+           'seed', str(src), '--kind', 'source', cwd=src)
+        sh(sys.executable, 'tools/build_views.py', '--repo', '.', cwd=src)
+        with open(src / 'MAP.md', 'a', encoding='utf-8') as f:
+            f.write('| a row a newer engine would render differently |\n')
+        sh('git', 'add', '-A', cwd=src)
+        sh('git', 'commit', '-qm', 'installed, views stale', cwd=src)
+        rc_before, _ = sh(sys.executable, 'tools/build_views.py', '--repo', '.',
+                          '--check', cwd=src)
+        rc, out = update(src)
+        rc_after, check = sh(sys.executable, 'tools/build_views.py', '--repo', '.',
+                             '--check', cwd=src)
+        cases.append(("a practice set's stale MAP.md is rebuilt by the update, so "
+                      "its deep check's view comparison passes",
+                      rc_before != 0 and rc_after == 0 and rc == 0
+                      and 'MAP.md' in out, (out + check)[-1500:]))
 
         bare = tmp / 'no-engine'
         bare.mkdir()
@@ -17643,6 +17684,36 @@ def check_branch_tiers():
                       'since 2026-09-26)', pb.staging_branch(repo) == 'main'
                       and tier('staging') == 'full'
                       and pb.landing_branch(repo, nocfg)[0] == 'main'))
+
+        # Morgan, 2026-09-27 (strength: decided): the person's own
+        # landing_branch wins; the repo's is the default for everyone who
+        # names none; the built-in default stays staging.
+        ident_before = (indiv / 'identity.json').read_text(encoding='utf-8')
+        (repo / 'precedent.json').write_text(_json.dumps(
+            {'base_branch': 'main', 'landing_branch': 'pre-staging'}),
+            encoding='utf-8')
+        cases.append(("a repo's own landing_branch applies to a person who names none",
+                      pb.landing_branch(repo, str(cfg))[0] == 'pre-staging'))
+        (indiv / 'identity.json').write_text(_json.dumps(
+            {'email': 'p@example.com', 'landing_branch': 'main'}), encoding='utf-8')
+        cases.append(("the person's own landing_branch wins over the repo's",
+                      pb.landing_branch(repo, str(cfg))[0] == 'main'))
+        (indiv / 'identity.json').write_text(ident_before, encoding='utf-8')
+        (repo / 'precedent.json').write_text(_json.dumps(
+            {'base_branch': 'main', 'landing_branch': 'staging'}), encoding='utf-8')
+        kept = not pb.ensure_repo_landing(repo) and pb.precedent_json(repo).get(
+            'landing_branch') == 'staging'
+        (repo / 'precedent.json').write_text(_json.dumps(
+            {'base_branch': 'main'}), encoding='utf-8')
+        wrote = pb.ensure_repo_landing(repo)
+        again = pb.ensure_repo_landing(repo)
+        cases.append(('the repo default is written once, as pre-staging, and never '
+                      'over a value the repo already has',
+                      kept and wrote and not again and
+                      pb.precedent_json(repo).get('landing_branch') == 'pre-staging'
+                      and pb.precedent_json(repo).get('base_branch') == 'main'))
+        (repo / 'precedent.json').write_text(_json.dumps(
+            {'base_branch': 'main'}), encoding='utf-8')
 
         def targets(args):
             return pb.push_targets(repo, args)

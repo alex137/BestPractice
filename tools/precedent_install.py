@@ -65,6 +65,7 @@ sys.path.insert(0, str(ROOT / 'tools'))
 import precedent_time  # noqa: E402  (practice: timestamps-carry-offset)
 import precedent_identity  # noqa: E402
 import precedent_vendor_engine  # noqa: E402
+import precedent_branches  # noqa: E402
 TEMPLATES = ROOT / 'templates'
 UPSTREAM_URL = 'https://github.com/alex137/BestPractice'
 UPSTREAM_DOCS = f'{UPSTREAM_URL}/blob/main'
@@ -192,6 +193,9 @@ def _write_precedent_json(dest, base_branch, visibility, output_paths, teams, fo
             'always written explicitly here.',
         ],
         'sources': sources,
+        precedent_branches.LANDING_SETTING: precedent_branches.REPO_LANDING_DEFAULT,
+        '_' + precedent_branches.LANDING_SETTING + '_comment':
+            precedent_branches.REPO_LANDING_COMMENT,
     }
     if output_paths:
         doc['output_paths'] = output_paths
