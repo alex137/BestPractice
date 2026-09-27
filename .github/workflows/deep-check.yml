@@ -95,11 +95,12 @@ on:
   # tests a change BEFORE it lands; this tests what actually landed, and it
   # is the only GitHub test a commit gets when it reaches main without that
   # pull request -- a direct push, an edit on github.com, a bot commit.
-  # After an ordinary merge it re-tests nearly the same tree, and that is
-  # accepted: this repo is public, so the runs are free. Morgan: "all pushes
-  # to main, on repos that are public, should get the GitHub ci/cd. It
-  # doesn't matter that the same check happened (on our server) on local
-  # before that, it's a good double check" (strength: decided).
+  # Morgan: "all pushes to main, on repos that are public, should get the
+  # GitHub ci/cd. It doesn't matter that the same check happened (on our
+  # server) on local before that, it's a good double check" (strength:
+  # decided). After an ordinary merge the files are exactly the ones the
+  # pull request's run just passed, and the already-tested job below skips
+  # the rest -- the same day's second decision, to save the minutes.
   push:
     branches: [main]
   #
@@ -117,6 +118,9 @@ on:
 
 permissions:
   contents: read
+  # To look up whether this workflow already passed on the same files (the
+  # already-tested job below). Read-only.
+  actions: read
 
 # verify_harness.py's own timing instrumentation (practice:
 # slow-steps-report-and-cache) measured a full local run at 149.9s with one
@@ -131,8 +135,77 @@ permissions:
 # on verify_harness.py's checks, so they run as a third parallel job rather
 # than waiting behind either.
 jobs:
+  # Decides, on a push to main, whether the three jobs below have anything
+  # to do (the step's own comment says how). On a pull request or a run
+  # started by hand it is skipped, and they run as always. If it fails,
+  # they run too: `!cancelled()` lets a failed or skipped decision through.
+  already-tested:
+    name: Already tested?
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    outputs:
+      skip: ${{ steps.already.outputs.skip }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # A PUSH TO MAIN RE-RUNS NOTHING THAT ALREADY PASSED (2026-09-27,
+      # spec/BRANCH_TIERS_PLAN.md). Morgan: "we're very cautious about the
+      # minutes ... it should not run the second time ... if it had just
+      # run before, and nothing had changed" (strength: decided).
+      #
+      # "Nothing changed" is decided by git, exactly: the pushed commit's
+      # files are identical to a commit this same workflow already passed
+      # on, and anything else the push brought in was already inside that
+      # commit. That is the ordinary Promote merge -- the pull request's
+      # head already contains main, so the merge lands the very files its
+      # pull-request run tested. Anything short of certain runs the check:
+      # main moved in between, no passing run found, the API unreachable,
+      # a shallow checkout. A re-run of a push that already passed skips
+      # too; start one by hand (workflow_dispatch) to force it.
+      - name: Skip if these exact files already passed this check
+        id: already
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -u
+          skip=false
+          tested=''
+          tree=$(git rev-parse "$GITHUB_SHA^{tree}" 2>/dev/null) || tree=''
+          parents=$(git rev-list --parents -n 1 "$GITHUB_SHA" 2>/dev/null | cut -s -d' ' -f2-)
+          wf=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" --jq .workflow_id 2>/dev/null) || wf=''
+          if [ -n "$tree" ] && [ -n "$wf" ]; then
+            for x in "$GITHUB_SHA" $parents; do
+              [ "$(git rev-parse "$x^{tree}" 2>/dev/null)" = "$tree" ] || continue
+              covered=true
+              for p in $parents; do
+                [ "$p" = "$x" ] || git merge-base --is-ancestor "$p" "$x" || covered=false
+              done
+              [ "$covered" = true ] || continue
+              n=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/$wf/runs?head_sha=$x&status=success&per_page=1" --jq .total_count 2>/dev/null) || n=0
+              if [ "${n:-0}" -gt 0 ] 2>/dev/null; then
+                skip=true
+                tested=$x
+                break
+              fi
+            done
+          fi
+          echo "skip=$skip" >> "$GITHUB_OUTPUT"
+          if [ "$skip" = true ]; then
+            msg="Skipped: these exact files already passed this check on $tested."
+          else
+            msg="Running: no earlier passing run of this check on these exact files."
+          fi
+          echo "$msg"
+          echo "$msg" >> "$GITHUB_STEP_SUMMARY"
+
   verify-harness-heavy:
     name: verify_harness (check_precedent_check_fires)
+    needs: already-tested
+    if: ${{ !cancelled() && needs.already-tested.outputs.skip != 'true' }}
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
@@ -163,6 +236,8 @@ jobs:
 
   verify-harness-rest:
     name: verify_harness (everything else)
+    needs: already-tested
+    if: ${{ !cancelled() && needs.already-tested.outputs.skip != 'true' }}
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
@@ -185,6 +260,8 @@ jobs:
 
   precedent-check-and-sync:
     name: precedent_check + doc_sync
+    needs: already-tested
+    if: ${{ !cancelled() && needs.already-tested.outputs.skip != 'true' }}
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository

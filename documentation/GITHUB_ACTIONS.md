@@ -23,7 +23,8 @@ Three workflows run on this repo itself, in [.github/workflows/](../.github/work
   merges were all green — neither doc_lint.py nor leak_gate.py could ever
   have caught either, since neither runs the resolver or materializer at
   all. It runs on a pull request into `main` (since 2026-09-25) and on every
-  push to `main` (since 2026-09-27) -- this repo's one GitHub test
+  push to `main` (since 2026-09-27), where it stops after a few seconds if
+  those exact files already passed it -- this repo's one GitHub test
   ([spec/BRANCH_TIERS_PLAN.md](../spec/BRANCH_TIERS_PLAN.md)); every other
   push is checked locally by the push check first.
 - **`leak-gate.yml`** — added at phase 2 of the Precedent rewrite

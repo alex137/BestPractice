@@ -232,8 +232,8 @@ def _substitute(text, subs):
 _CI_PARAGRAPH_ON = (
     "- **Before anything reaches `main`, GitHub checks it once** (the GitHub\n"
     "  Actions workflow `light-check.yml`, on the pull request into `main`). In a\n"
-    "  public repository it checks again after every push to `main`, which is\n"
-    "  free there. Every other push is checked on your own machine before it leaves. In a\n"
+    "  public repository it checks again after a push to `main` that brings\n"
+    "  anything it has not already passed. Every other push is checked on your own machine before it leaves. In a\n"
     "  public repository a leak check (`leak-gate.yml`) also runs on every push\n"
     "  and refuses anything that would publish something private. Neither needs\n"
     "  maintenance. If they don't appear on a pull request's checks, GitHub\n"

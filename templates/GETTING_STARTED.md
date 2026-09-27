@@ -331,8 +331,8 @@ Click-paths as of <install date>.
 
 - **Before anything reaches `main`, GitHub checks it once** (the GitHub
   Actions workflow `light-check.yml`, on the pull request into `main`). In a
-  public repository it checks again after every push to `main`, which is
-  free there. Every other push is checked on your own machine before it leaves. In a
+  public repository it checks again after a push to `main` that brings
+  anything it has not already passed. Every other push is checked on your own machine before it leaves. In a
   public repository a leak check (`leak-gate.yml`) also runs on every push
   and refuses anything that would publish something private. Neither needs
   maintenance. If they don't appear on a pull request's checks, GitHub
