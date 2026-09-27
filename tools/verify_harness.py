@@ -6986,6 +6986,9 @@ def check_update_vendors_is_one_command():
         cases.append(('an install on the retired pin finishes with nothing asked: '
                       'exit 0 and DONE', rc == 0 and 'DONE -- nothing left' in out,
                       out[-1500:]))
+        landing = json.loads((done / 'precedent.json').read_text()).get('landing_branch')
+        cases.append(('...its precedent.json now names pre-staging as the landing '
+                      'branch, since it named none', landing == 'pre-staging', landing))
         cases.append(('...its catalogue pin now names ' + pve_branch,
                       pin == pve_branch, pin))
         cases.append(('...and its loader views were regenerated',
@@ -7013,6 +7016,44 @@ def check_update_vendors_is_one_command():
                       rc == 1 and f'process/upstream/practices/{target.name}' in out,
                       out[-1500:]))
 
+        # A practice SET renders MAP.md and GLOSSARY.md too, and its deep
+        # check compares them to a fresh build. 2026-09-27: every set's
+        # update failed that check on one MAP.md row for a new engine file,
+        # because the views step ran only a consumer's sync tool.
+        src = tmp / 'source-set'
+        (src / 'practices').mkdir(parents=True)
+        (src / 'practices' / 'fixture-rule.md').write_text(
+            '---\nslug:        fixture-rule\ntitle:       A fixture rule\n'
+            'tier:        on-demand\nseverity:    default\napplies_to:  []\n'
+            'occasion:    "when a fixture needs a practice"\ngates:       []\n'
+            'index_clause: "a fixture rule"\nchecked_by:  null\ndefines:     []\n'
+            'command:     null\nstatus:      active\nin_force_at: null\n'
+            'supersedes:  []\noverrides:   null\nadded:       "2026-09-27"\n---\n\n'
+            '## Rule\nA fixture rule.\n\n## Detail\nNone.\n\n## Why\nA test.\n\n'
+            '## Story\nNone.\n\n## Install\nNothing.\n', encoding='utf-8')
+        (src / 'precedent.json').write_text(json.dumps(
+            {'format_version': 1, 'base_branch': 'main',
+             'visibility': 'public'}) + '\n', encoding='utf-8')
+        (src / 'AGENTS.md').write_text(
+            f'# fixture\n\n{bv.BEGIN_MARKER}\n{bv.END_MARKER}\n', encoding='utf-8')
+        sh('git', 'init', '-q', '-b', 'main', cwd=src)
+        sh(sys.executable, str(ROOT / 'tools' / 'precedent_vendor_engine.py'),
+           'seed', str(src), '--kind', 'source', cwd=src)
+        sh(sys.executable, 'tools/build_views.py', '--repo', '.', cwd=src)
+        with open(src / 'MAP.md', 'a', encoding='utf-8') as f:
+            f.write('| a row a newer engine would render differently |\n')
+        sh('git', 'add', '-A', cwd=src)
+        sh('git', 'commit', '-qm', 'installed, views stale', cwd=src)
+        rc_before, _ = sh(sys.executable, 'tools/build_views.py', '--repo', '.',
+                          '--check', cwd=src)
+        rc, out = update(src)
+        rc_after, check = sh(sys.executable, 'tools/build_views.py', '--repo', '.',
+                             '--check', cwd=src)
+        cases.append(("a practice set's stale MAP.md is rebuilt by the update, so "
+                      "its deep check's view comparison passes",
+                      rc_before != 0 and rc_after == 0 and rc == 0
+                      and 'MAP.md' in out, (out + check)[-1500:]))
+
         bare = tmp / 'no-engine'
         bare.mkdir()
         rc, out = update(bare)
@@ -7023,6 +7064,174 @@ def check_update_vendors_is_one_command():
                      '--repo', str(ROOT), cwd=ROOT)
         cases.append(('--repo naming the BestPractice clone itself is refused',
                       rc == 2 and 'is this BestPractice clone itself' in out, out[-400:]))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    return (not bad, f'{len(cases)} stated cases',
+            '; '.join(f'{n}: {d}' for n, d in bad))
+
+
+def _already_tested_step(text):
+    """-> the `run:` script of the step with `id: already` in a workflow's
+    text, dedented, or '' when there is none. Read by line, not by PyYAML:
+    GitHub's runner has none (see workflow_triggers_text)."""
+    lines = text.splitlines()
+    try:
+        at = lines.index('        id: already')
+    except ValueError:
+        return ''
+    try:
+        start = lines.index('        run: |', at) + 1
+    except ValueError:
+        return ''
+    body = []
+    for line in lines[start:]:
+        if line.strip() and not line.startswith(' ' * 10):
+            break
+        body.append(line[10:])
+    return '\n'.join(body).rstrip() + '\n'
+
+
+def check_push_to_main_skips_what_already_passed():
+    """A push to main re-runs main's GitHub test only when its exact files
+    have not already passed that same workflow -- and runs it whenever that
+    is not certain.
+
+    Morgan, 2026-09-27 (strength: decided): the second GitHub run of a
+    Promote "should not run the second time ... if it had just run before,
+    and nothing had changed". The decision is a shell step shipped twice --
+    this repo's deep-check.yml and the consumer light-check template -- so
+    the two copies must be the same text, and the text is run here against
+    a real git history with a stand-in for GitHub's API.
+
+    THE NEGATIVE CASES ARE THE POINT. A skip that fires wrongly is a gate
+    that silently stops gating, so each skip is paired with the same shape
+    where it must run: main moved under the pull request, nothing passed
+    yet, the API unreachable, and identical files that reached main by
+    another route (the other parent is not inside the tested commit).
+    Owns its state (practice: fixture-owns-its-state)."""
+    import tempfile
+    cases = []
+    wf = (ROOT / '.github' / 'workflows' / 'deep-check.yml')
+    tpl = ROOT / 'templates' / 'github-actions' / 'light-check.yml.template'
+    s_wf = _already_tested_step(wf.read_text(encoding='utf-8')) if wf.is_file() else ''
+    s_tpl = _already_tested_step(tpl.read_text(encoding='utf-8'))
+    cases.append(('the consumer template carries the skip step', bool(s_tpl.strip()), ''))
+    if wf.is_file():
+        cases.append(('deep-check.yml carries the same skip step, word for word',
+                      s_wf == s_tpl, ''))
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-already-tested-'))
+    try:
+        repo = tmp / 'repo'
+        env = dict(os.environ, GIT_AUTHOR_NAME='Fixture', GIT_AUTHOR_EMAIL='h@example.com',
+                   GIT_COMMITTER_NAME='Fixture', GIT_COMMITTER_EMAIL='h@example.com',
+                   HOME=str(tmp))
+
+        def git(*a):
+            r = subprocess.run(['git', *a], cwd=str(repo), env=env,
+                               capture_output=True, text=True)
+            if r.returncode:
+                raise RuntimeError(r.stderr)
+            return r.stdout.strip()
+
+        def commit(name, body='x\n', msg=None):
+            (repo / name).write_text(body, encoding='utf-8')
+            git('add', '-A')
+            git('commit', '-qm', msg or name)
+            return git('rev-parse', 'HEAD')
+
+        subprocess.run(['git', 'init', '-q', '-b', 'main', str(repo)], env=env, check=True)
+        commit('a')
+        # 1. The ordinary Promote merge: the head already contains main.
+        git('checkout', '-qb', 'h1')
+        h1 = commit('b')
+        git('checkout', '-q', 'main')
+        git('merge', '-q', '--no-ff', '-m', 'm1', 'h1')
+        m1 = git('rev-parse', 'HEAD')
+        # 2. Main moved under the pull request: the merge lands files the
+        #    head never had.
+        base = m1
+        commit('c')
+        git('checkout', '-qb', 'h2', base)
+        h2 = commit('d')
+        git('checkout', '-q', 'main')
+        git('merge', '-q', '--no-ff', '-m', 'm2', 'h2')
+        m2 = git('rev-parse', 'HEAD')
+        # 3. Identical files by another route: main added `e`, the head added
+        #    the same `e` on its own. Same tree, but main's commit is not
+        #    inside the head, so the head's run never saw main's history.
+        base = m2
+        commit('e', 'same\n')
+        git('checkout', '-qb', 'h3', base)
+        # Its own message, or git would make it the very commit main has
+        # (same parent, tree, author and second) and the case would test
+        # nothing.
+        commit('e', 'same\n', msg='e, added on the head')
+        h3 = commit('f')
+        git('checkout', '-q', 'main')
+        git('merge', '-q', '--no-ff', '-m', 'm3', 'h3')
+        m3 = git('rev-parse', 'HEAD')
+        same_tree = (git('rev-parse', f'{m3}^{{tree}}') == git('rev-parse', f'{h3}^{{tree}}')
+                     and subprocess.run(['git', 'merge-base', '--is-ancestor', 'main^1', h3],
+                                        cwd=str(repo), env=env).returncode != 0)
+        # 4. A direct push: one parent, tested (or not) as itself.
+        c4 = commit('g')
+
+        fake = tmp / 'bin'
+        fake.mkdir()
+        passed = tmp / 'passed.txt'
+        (fake / 'gh').write_text(
+            '#!/bin/sh\n'
+            '[ -n "${FAKE_GH_FAIL:-}" ] && exit 1\n'
+            'case "$2" in\n'
+            '  */actions/runs/*) echo 42 ;;\n'
+            '  */actions/workflows/42/runs*)\n'
+            '    sha=$(printf %s "$2" | sed \'s/.*head_sha=\\([0-9a-f]*\\).*/\\1/\')\n'
+            '    if grep -qx "$sha" "$FAKE_GH_PASSED"; then echo 1; else echo 0; fi ;;\n'
+            '  *) exit 1 ;;\n'
+            'esac\n', encoding='utf-8')
+        os.chmod(fake / 'gh', 0o755)
+        script = tmp / 'step.sh'
+        script.write_text(s_tpl, encoding='utf-8')
+
+        def decide(sha, passed_shas, fail=False):
+            passed.write_text(''.join(s + '\n' for s in passed_shas), encoding='utf-8')
+            out, summ = tmp / 'out', tmp / 'summary'
+            out.write_text('')
+            summ.write_text('')
+            e = dict(env, PATH=f'{fake}:{env.get("PATH", "")}', GITHUB_SHA=sha,
+                     GITHUB_REPOSITORY='o/r', GITHUB_RUN_ID='7',
+                     GITHUB_OUTPUT=str(out), GITHUB_STEP_SUMMARY=str(summ),
+                     FAKE_GH_PASSED=str(passed))
+            if fail:
+                e['FAKE_GH_FAIL'] = '1'
+            r = subprocess.run(['bash', str(script)], cwd=str(repo), env=e,
+                               capture_output=True, text=True)
+            return r.returncode, out.read_text(), summ.read_text()
+
+        rc, out, summ = decide(m1, [h1])
+        cases.append(('a merge whose head already held main, head passed: skips, and says so',
+                      rc == 0 and 'skip=true' in out and h1 in summ, out + summ))
+        rc, out, _ = decide(m1, [])
+        cases.append(('...the same merge with no passing run: runs', 'skip=false' in out, out))
+        rc, out, _ = decide(m1, [h1], fail=True)
+        cases.append(('...the same merge with the API unreachable: runs', 'skip=false' in out, out))
+        rc, out, _ = decide(m2, [h2])
+        cases.append(('main moved under the pull request, head passed: runs',
+                      'skip=false' in out, out))
+        cases.append(('the fixture really has identical files by another route', same_tree, ''))
+        rc, out, _ = decide(m3, [h3])
+        cases.append(('identical files, but main\'s commit is not inside the tested head: runs',
+                      'skip=false' in out, out))
+        rc, out, _ = decide(c4, [c4])
+        cases.append(('a direct push of a commit that already passed: skips',
+                      'skip=true' in out, out))
+        rc, out, _ = decide(c4, [m3])
+        cases.append(('a direct push of new files, its parent passed: runs',
+                      'skip=false' in out, out))
+    except RuntimeError as e:
+        cases.append(('the fixture builds', False, str(e)[-400:]))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
@@ -7093,8 +7302,15 @@ def check_update_vendors_survives_an_upstream_deletion():
                          'vendored_at': 'process/upstream',
                          'branch': 'precedent-beta-v01', 'commit': before_drop},
             'entries': []}, indent=2) + '\n', encoding='utf-8')
+        # A term made fresh each run, never written in this file: the
+        # catalogue this fixture vendors includes this very file, so a
+        # literal term here is a blocklist hit on its own source once the
+        # file reaches the branch the update reads (it did, on main,
+        # 2026-09-27), whichever version of the file that branch holds.
+        import uuid
         (proj / 'process' / 'scrub_blocklist.txt').write_text(
-            '# terms private to this project\nfieldnotes-internal\n', encoding='utf-8')
+            f'# terms private to this project\nfieldnotes-{uuid.uuid4().hex}\n',
+            encoding='utf-8')
         sh('git', 'add', '-A', cwd=proj)
         sh('git', 'commit', '-qm', 'installed, catalogue vendored', cwd=proj)
         sh('git', 'clone', '-q', '--bare', str(proj), str(tmp / 'origin.git'), cwd=tmp)
@@ -7124,6 +7340,176 @@ def check_update_vendors_survives_an_upstream_deletion():
                       rc == 0 and 'could not be parsed' not in out, out[-800:]))
     except RuntimeError:
         pass
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    return (not bad, f'{len(cases)} stated cases',
+            '; '.join(f'{n}: {d}' for n, d in bad))
+
+
+def check_update_vendors_converges_consumer_ci():
+    """A consumer comes out of Update Vendors with upstream's workflows, and
+    nobody is asked.
+
+    2026-09-27, a real consumer: its hand-made light-check.yml ran on every
+    push to main and every pull request, re-running checks its local push
+    gate already ran. The update left it alone (the light check was written
+    at install and never refreshed), and ci-workflow-approved then blocked
+    every push with "show the person the file and ask". Morgan (strength:
+    decided): "It should definitely definitely use the newer version from
+    upstream ... so it shouldn't ask."
+
+    The fixture is that consumer, installed by precedent_install.py, with
+    the installed light check replaced by a hand-made one and three more
+    workflows: one nobody approved (removed), one the person approved in
+    their own words (kept), and one with uncommitted edits (kept, because
+    its content exists nowhere else). Then the real one-command update.
+    Owns its state (practice: fixture-owns-its-state).
+    """
+    import hashlib
+    import tempfile
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-update-ci-'))
+    cases = []
+    env = dict(os.environ, HOME=str(tmp / 'home'), PRECEDENT_ALLOW_ANY_AUTHOR='1',
+               PRECEDENT_USER_CONFIG=str(tmp / 'no-user-config.json'),
+               GIT_AUTHOR_NAME='Fixture', GIT_AUTHOR_EMAIL='harness@example.com',
+               GIT_COMMITTER_NAME='Fixture', GIT_COMMITTER_EMAIL='harness@example.com')
+    for k in ('CLAUDE_CODE_REMOTE', 'PRECEDENT_LEAK_BLOCKLIST'):
+        env.pop(k, None)
+    (tmp / 'home').mkdir()
+
+    def sh(*argv, cwd):
+        r = subprocess.run(list(argv), cwd=str(cwd), env=env,
+                           capture_output=True, text=True)
+        return r.returncode, r.stdout + r.stderr
+
+    wf = '.github/workflows/'
+    LIGHT, EXTRA, KEPT, DIRTY, NEEDED, DECLARED = (
+        wf + 'light-check.yml', wf + 'nightly.yml', wf + 'report.yml',
+        wf + 'scratch.yml', wf + 'deploy.yml', wf + 'ours.yml')
+    template = (ROOT / 'templates' / 'github-actions' /
+                'light-check.yml.template').read_bytes()
+    hand_made = ('name: Light check\non:\n  push:\n    branches: [main]\n'
+                 '  pull_request:\njobs:\n  l:\n    runs-on: ubuntu-latest\n'
+                 '    steps:\n      - uses: actions/checkout@v4\n'
+                 '      - run: python3 tools/doc_lint.py\n'
+                 '      - run: python3 tools/light_check.py\n')
+    other = ('name: {}\non:\n  schedule:\n    - cron: "0 3 * * *"\njobs:\n'
+             '  j:\n    runs-on: ubuntu-latest\n    steps:\n'
+             '      - run: python3 tools/report_things.py\n')
+    try:
+        proj = tmp / 'proj'
+        sh('git', 'init', '-q', '-b', 'main', str(proj), cwd=tmp)
+        (proj / 'README.md').write_text('# Field Notes\n\nA newsletter about birds.\n',
+                                        encoding='utf-8')
+        sh('git', 'add', '-A', cwd=proj)
+        sh('git', 'commit', '-qm', 'before Precedent', cwd=proj)
+        rc, out = sh(sys.executable, str(ROOT / 'tools' / 'precedent_install.py'),
+                     str(proj), '--project-name', 'Field Notes', '--admin', 'dana',
+                     cwd=ROOT)
+        cases.append(('the fixture installs', rc == 0, out[-800:]))
+        # The repo's own light check exists, as in the real consumer, so
+        # the local push check runs it.
+        (proj / 'tools' / 'light_check.py').write_text(
+            'print("ok")\n', encoding='utf-8')
+        covered = other.replace('tools/report_things.py', 'tools/doc_lint.py')
+        for rel, text in ((LIGHT, hand_made), (EXTRA, covered.format('nightly')),
+                          (KEPT, other.format('report')),
+                          (DIRTY, covered.format('scratch')),
+                          (NEEDED, other.format('deploy')),
+                          (DECLARED, covered.format('ours'))):
+            (proj / rel).parent.mkdir(parents=True, exist_ok=True)
+            (proj / rel).write_text(text, encoding='utf-8')
+        cfg = json.loads((proj / 'precedent.json').read_text(encoding='utf-8'))
+        cfg['github_ci_approved'] = {KEPT: {
+            'sha256': hashlib.sha256((proj / KEPT).read_bytes()).hexdigest(),
+            'approved_by': 'Dana, 2026-09-27: "keep the nightly report"'}}
+        # The shape the real consumer was in: its own light check untracked
+        # by the manifest, approved the way the old install wrote it.
+        # A declaration under local_ci_workflows no longer keeps a
+        # consumer's workflow (2026-09-27): only the person's approval does.
+        cfg['local_ci_workflows'] = {DECLARED: 'a session said it was ours'}
+        cfg['github_ci_approved'][LIGHT] = {
+            'sha256': hashlib.sha256((proj / LIGHT).read_bytes()).hexdigest(),
+            'approved_by': 'installed by precedent_install.py, 2026-09-25',
+            'template': 'light-check.yml.template'}
+        (proj / 'precedent.json').write_text(json.dumps(cfg, indent=2) + '\n',
+                                             encoding='utf-8')
+        mp = proj / 'tools' / 'ENGINE_MANIFEST.json'
+        m = json.loads(mp.read_text(encoding='utf-8'))
+        for key in ('ci_workflow_files', 'ci_workflows_sha256'):
+            m.pop(key, None)
+        m['ci_workflow_files'] = [r for r in [wf + 'leak-gate.yml']
+                                  if (proj / r).is_file()]
+        m['ci_workflows_sha256'] = {
+            r: hashlib.sha256((proj / r).read_bytes()).hexdigest()
+            for r in m['ci_workflow_files']}
+        mp.write_text(json.dumps(m, indent=2) + '\n', encoding='utf-8')
+        sh('git', 'add', '-A', cwd=proj)
+        sh('git', 'commit', '-qm', 'installed, with hand-made workflows', cwd=proj)
+        (proj / DIRTY).write_text(covered.format('scratch') + '# local edit\n',
+                                  encoding='utf-8')
+        sh('git', 'clone', '-q', '--bare', str(proj), str(tmp / 'origin.git'), cwd=tmp)
+        sh('git', 'remote', 'add', 'origin', str(tmp / 'origin.git'), cwd=proj)
+        sh('git', 'fetch', '-q', 'origin', cwd=proj)
+
+        rc, out = sh(sys.executable, str(ROOT / 'tools' / 'precedent_update.py'),
+                     '--repo', str(proj), '--from-ref', _ref_including_worktree(ROOT),
+                     '--skip-check', cwd=proj)
+        cases.append(('the update finishes', rc in (0, 1), out[-2500:]))
+        cases.append(('the hand-made light check is now upstream\'s template, '
+                      'unmodified', (proj / LIGHT).read_bytes() == template,
+                      (proj / LIGHT).read_text(encoding='utf-8')[:300]))
+        cases.append(('the workflow nobody approved is gone',
+                      not (proj / EXTRA).exists(), ''))
+        cases.append(('the report says both were done, and that there was '
+                      'nothing to ask',
+                      'replaced ' + LIGHT in out and 'removed ' + EXTRA in out
+                      and 'nothing to ask' in out, out[-2500:]))
+        cases.append(('...and says what the removed file ran is already in the '
+                      'local push check', 'doc_lint.py, which the local push '
+                      'check already runs' in out, out[-2500:]))
+        cases.append(('NEGATIVE: a workflow running a script the local check '
+                      'does not run is kept, and the report names the script',
+                      (proj / NEEDED).is_file() and 'report_things.py' in out,
+                      out[-2500:]))
+        cases.append(('...under a loud banner saying it was left alone, before '
+                      'and after the summary',
+                      out.count('GITHUB WORKFLOW LEFT ALONE') >= 2
+                      and 'LEFT ALONE: ' + NEEDED in out, out[-2500:]))
+        todos = sorted((proj / 'todo').glob('todo-*-ci-workflow-left-alone-deploy.md'))
+        cases.append(('...and an open to-do item records it',
+                      len(todos) == 1 and 'status:            open'
+                      in todos[0].read_text(encoding='utf-8')
+                      and NEEDED in todos[0].read_text(encoding='utf-8'),
+                      str(todos)))
+        cases.append(('a workflow declared under local_ci_workflows, running '
+                      'only what the local check runs, is removed like any other',
+                      not (proj / DECLARED).exists(), out[-2500:]))
+        cases.append(('NEGATIVE: the workflow the person approved in their own '
+                      'words is kept', (proj / KEPT).is_file(), ''))
+        cases.append(('NEGATIVE: a workflow with uncommitted edits is kept, '
+                      'since its content exists nowhere else',
+                      (proj / DIRTY).is_file() and 'local edit' in
+                      (proj / DIRTY).read_text(encoding='utf-8'), ''))
+        m = json.loads(mp.read_text(encoding='utf-8'))
+        cfg = json.loads((proj / 'precedent.json').read_text(encoding='utf-8'))
+        cases.append(('the manifest now tracks the light check, and its stale '
+                      'install approval is gone',
+                      m.get('ci_workflows_sha256', {}).get(LIGHT)
+                      == hashlib.sha256(template).hexdigest()
+                      and LIGHT not in cfg.get('github_ci_approved', {})
+                      and KEPT in cfg.get('github_ci_approved', {}),
+                      f"{m.get('ci_workflows_sha256')} {cfg.get('github_ci_approved')}"))
+        # Take away the two files the update rightly held back, so only what
+        # it did is judged.
+        sh('git', 'checkout', '-q', '--', DIRTY, cwd=proj)
+        sh('git', 'rm', '-q', '--', DIRTY, NEEDED, cwd=proj)
+        rc, out = sh(sys.executable, 'tools/precedent_check.py', '--only',
+                     'ci-workflow-approved', cwd=proj)
+        cases.append(('ci-workflow-approved passes afterwards, with no question '
+                      'for anybody', rc == 0 and '0 violated' in out, out[-1500:]))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
@@ -7260,9 +7646,11 @@ def check_legacy_leftovers_retired_by_content():
                       'only that one', [e['practice'] for e in entries]
                       == ['other'], str(entries)))
 
-        # 3. NEGATIVE: the same name, hand-authored -> kept and reported.
-        r3 = make('own', {DOCS: docs_own}, {'kind': 'consumer'})
-        res, left = sweep(r3)
+        # 3. NEGATIVE: the same name, hand-authored -> kept and reported. In
+        #    a practice SOURCE: in a consumer, CI converges to upstream since
+        #    2026-09-27 and the file goes (case 4c below).
+        r3 = make('own', {DOCS: docs_own}, {'kind': 'source'})
+        res, left = sweep(r3, 'source')
         cases.append(('NEGATIVE: a same-name hand-authored workflow is kept',
                       (r3 / DOCS).is_file(), str(res)))
         cases.append(('and reported under Left for you',
@@ -7272,13 +7660,42 @@ def check_legacy_leftovers_retired_by_content():
         # 4. NEGATIVE: a live trigger is kept, and the report says why.
         live = sync_stock.replace('  workflow_dispatch:', '  push:\n  '
                                   'workflow_dispatch:')
-        r4 = make('live', {SYNC: live}, {'kind': 'consumer'})
-        res, left = sweep(r4)
-        cases.append(('NEGATIVE: a stock-shaped file on a LIVE trigger is kept',
+        r4 = make('live', {SYNC: live}, {'kind': 'source'})
+        res, left = sweep(r4, 'source')
+        cases.append(('NEGATIVE: in a practice source, a stock-shaped file on '
+                      'a LIVE trigger is kept',
                       (r4 / SYNC).is_file(), str(res)))
         cases.append(('and the report names the live trigger',
                       any('still live' in w for w in left_names(left, SYNC)),
                       str(left)))
+
+        # 4c. In a CONSUMER both of those go (2026-09-27, CI_CONVERGES_KINDS):
+        #     the checks run locally, so a live workflow nobody approved is
+        #     what the change exists to stop. Committed and clean, so git
+        #     history keeps the content.
+        docs_covered = docs_own.replace('tools/our_own_check.py',
+                                        'tools/doc_lint.py')
+        r4c = make('consumer-live', {SYNC: live, DOCS: docs_covered},
+                   {'kind': 'consumer'})
+        res, left = sweep(r4c)
+        cases.append(('in a consumer, a live leftover of the old install and a '
+                      'hand-authored workflow running only what the local '
+                      'push check runs are removed, with nothing left to ask',
+                      not (r4c / SYNC).exists() and not (r4c / DOCS).exists()
+                      and not left_names(left, SYNC)
+                      and not left_names(left, DOCS),
+                      f'{res} {left}'))
+        # 4d. NEGATIVE: nothing needed is lost. A workflow running a script
+        #     the local push check does not run is kept, and the report names
+        #     the script (Morgan, 2026-09-27: "it should do a check first to
+        #     make sure nothing needed is being lost").
+        r4d = make('consumer-needed', {DOCS: docs_own}, {'kind': 'consumer'})
+        res, left = sweep(r4d)
+        cases.append(('NEGATIVE: in a consumer, a workflow running a script the '
+                      'local push check does not run is kept, naming it',
+                      (r4d / DOCS).is_file() and any(
+                          'our_own_check.py' in w and 'LEFT ALONE' in w
+                          for w in left_names(left, DOCS)), f'{res} {left}'))
 
         # 4b. NEGATIVE: uncommitted edits are never destroyed.
         r4b = make('dirty', {SYNC: sync_stock}, {'kind': 'consumer'})
@@ -9539,6 +9956,16 @@ def check_precedent_check_fires():
             git(repo, 'commit', '-qm', 'rename, leaving every reference behind')
         case('rename-updates-links', _plant_rename, setup=_setup_rename)
 
+        # practice-change-propagates -- a live lookup of a practice this tree
+        # renamed away. `go-merge` is a deduplicated stub forwarding to
+        # `go-update` here, so a README telling the reader to look it up
+        # sends them to the stub: the go-merge rename's own shape, planted in
+        # the repository that made the rename.
+        case('practice-change-propagates',
+             lambda repo: rewrite(repo, 'README.md', lambda t: t +
+                                  '\nBefore merging, read '
+                                  '`python3 tools/precedent_show.py go-merge`.\n'))
+
         # rename-updates-links, the other direction: a stranded reference the
         # consuming repo CANNOT repoint must leave the check silent, and the
         # identical reference in a file it CAN edit must still fail. Both
@@ -9661,22 +10088,6 @@ def check_precedent_check_fires():
                 '{"not-a-real-practice-zzz": {"last_reviewed": '
                 '"2020-01-01", "commit": "deadbeef"}}\n', encoding='utf-8')
         case('routing-audit', _plant_ra)
-
-        # merge-target-is-beta-branch -- origin/main advanced to include
-        # origin/precedent-beta-v01 as an ancestor (the PR #89 incident,
-        # replayed against the throwaway repo's own two remote-tracking
-        # refs rather than the real ones). The pristine copy has exactly one
-        # commit, so a second is made here to give the two refs a real
-        # ancestor relationship to plant.
-        def _plant_mtib(repo):
-            c1 = git(repo, 'rev-parse', 'HEAD')
-            (repo / 'PLANT_MARKER.txt').write_text('planted\n', encoding='utf-8')
-            git(repo, 'add', '-A')
-            git(repo, 'commit', '-qm', 'second commit for the plant')
-            c2 = git(repo, 'rev-parse', 'HEAD')
-            git(repo, 'update-ref', 'refs/remotes/origin/staging', c1)
-            git(repo, 'update-ref', 'refs/remotes/origin/main', c2)
-        case('merge-target-is-beta-branch', _plant_mtib)
 
         # declared-sources-are-cloned -- this repo declares three shared sets
         # beside itself, and both .claude/hooks/session-start.sh and the
@@ -16296,11 +16707,14 @@ def check_refresh_removes_dropped_engine_files():
             cases.append(('refresh itself retires a stock-shaped legacy '
                           'workflow no manifest ever tracked',
                           not (wf / 'bestpractice-upstream-sync.yml').exists()))
-            cases.append(('and keeps a same-name file of the repo\'s own, '
-                          'listing it under "Left for you"',
+            # A consumer's CI converges to upstream since 2026-09-27, but a
+            # workflow running something the local push check does not run
+            # is kept until that moves there (CI_CONVERGES_KINDS).
+            cases.append(('and keeps a same-name file of the repo\'s own '
+                          'that runs a script the local check does not, '
+                          'naming it under "Left for you"',
                           (wf / 'bestpractice-docs.yml').is_file()
-                          and 'Left for you' in out3
-                          and 'bestpractice-docs.yml' in out3))
+                          and 'Left for you' in out3 and 'our_own.py' in out3))
 
     failed = [n for n, ok in cases if not ok]
     check(f'refresh removes engine files the set no longer includes, and only '
@@ -17125,6 +17539,69 @@ def check_push_check_gate():
     check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
 
+def check_global_backstop_runs_person_fixer():
+    """The commit backstop runs the person's own commit-time fixer --
+    `bootstrap/pre-commit-fix` in their individual source -- before every
+    commit (Morgan, 2026-09-27: a version header a session left unbumped;
+    prevent the miss, don't just catch it sooner). Three things are pinned:
+    the fixer runs; what it stages lands in the SAME commit; and a fixer that
+    fails never refuses the commit, because a fixer is not a gate."""
+    import tempfile, json as _json
+    name = "the commit backstop runs the person's pre-commit fixer and never lets it refuse"
+    ci_hook = ROOT / '.claude' / 'hooks' / 'commit-identity.sh'
+    if not ci_hook.exists():
+        not_applicable(name, '.claude/hooks/commit-identity.sh is absent')
+        return
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+        home, hooks = tmp / 'home', tmp / 'git-hooks'
+        home.mkdir()
+        indiv = tmp / 'indiv'
+        (indiv / 'bootstrap').mkdir(parents=True)
+        (indiv / 'identity.json').write_text(_json.dumps(
+            {'name': 'T', 'email': 't@example.com', 'timezone': 'UTC'}),
+            encoding='utf-8')
+        cfg = tmp / 'config.json'
+        cfg.write_text(_json.dumps({'individual': {'path': str(indiv)}}),
+                       encoding='utf-8')
+        mark = tmp / 'ran'
+        fixer = indiv / 'bootstrap' / 'pre-commit-fix'
+        fixer.write_text('#!/bin/sh\necho ran >> "%s"\necho fixed > FIXED.txt\n'
+                         'git add FIXED.txt\nexit 3\n' % mark, encoding='utf-8')
+        fixer.chmod(0o755)
+        env = dict(os.environ, HOME=str(home), TZ='UTC',
+                   GIT_CONFIG_GLOBAL=str(tmp / 'gitconfig'),
+                   PRECEDENT_USER_CONFIG=str(cfg),
+                   PRECEDENT_GLOBAL_HOOKS=str(hooks),
+                   PRECEDENT_LOCALTIME=str(tmp / 'lt'))
+        env.pop('PRECEDENT_ALLOW_ANY_AUTHOR', None)
+        env.pop('PRECEDENT_COMMIT_TZ', None)
+        work = tmp / 'work'
+        subprocess.run(['git', 'init', '-q', str(work)], capture_output=True, env=env)
+        subprocess.run(['bash', str(ci_hook)], capture_output=True, text=True,
+                       timeout=120, env=dict(env, CLAUDE_PROJECT_DIR=str(work)))
+        cases.append(('the global pre-commit calls the fixer by its resolved path',
+                      str(fixer) in (hooks / 'pre-commit').read_text(encoding='utf-8')
+                      if (hooks / 'pre-commit').exists() else False))
+        (work / 'a.txt').write_text('a\n', encoding='utf-8')
+        subprocess.run(['git', '-C', str(work), 'add', 'a.txt'],
+                       capture_output=True, env=env)
+        c = subprocess.run(['git', '-C', str(work), '-c', 'user.name=T', '-c',
+                            'user.email=t@example.com', 'commit', '-q', '-m', 'x'],
+                           capture_output=True, text=True, env=env)
+        cases.append(('the fixer runs before the commit', mark.exists()))
+        cases.append(('a fixer that exits non-zero does not refuse the commit',
+                      c.returncode == 0))
+        files = subprocess.run(['git', '-C', str(work), 'show', '--name-only',
+                                '--format=', 'HEAD'], capture_output=True,
+                               text=True, env=env).stdout.split()
+        cases.append(('what the fixer stages lands in the same commit',
+                      'FIXED.txt' in files))
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
 def check_branch_tiers():
     """The three branch tiers (spec/BRANCH_TIERS_PLAN.md, Morgan, 2026-09-25,
     strength: decided): a push to staging or main is checked fully; a push
@@ -17207,6 +17684,36 @@ def check_branch_tiers():
                       'since 2026-09-26)', pb.staging_branch(repo) == 'main'
                       and tier('staging') == 'full'
                       and pb.landing_branch(repo, nocfg)[0] == 'main'))
+
+        # Morgan, 2026-09-27 (strength: decided): the person's own
+        # landing_branch wins; the repo's is the default for everyone who
+        # names none; the built-in default stays staging.
+        ident_before = (indiv / 'identity.json').read_text(encoding='utf-8')
+        (repo / 'precedent.json').write_text(_json.dumps(
+            {'base_branch': 'main', 'landing_branch': 'pre-staging'}),
+            encoding='utf-8')
+        cases.append(("a repo's own landing_branch applies to a person who names none",
+                      pb.landing_branch(repo, str(cfg))[0] == 'pre-staging'))
+        (indiv / 'identity.json').write_text(_json.dumps(
+            {'email': 'p@example.com', 'landing_branch': 'main'}), encoding='utf-8')
+        cases.append(("the person's own landing_branch wins over the repo's",
+                      pb.landing_branch(repo, str(cfg))[0] == 'main'))
+        (indiv / 'identity.json').write_text(ident_before, encoding='utf-8')
+        (repo / 'precedent.json').write_text(_json.dumps(
+            {'base_branch': 'main', 'landing_branch': 'staging'}), encoding='utf-8')
+        kept = not pb.ensure_repo_landing(repo) and pb.precedent_json(repo).get(
+            'landing_branch') == 'staging'
+        (repo / 'precedent.json').write_text(_json.dumps(
+            {'base_branch': 'main'}), encoding='utf-8')
+        wrote = pb.ensure_repo_landing(repo)
+        again = pb.ensure_repo_landing(repo)
+        cases.append(('the repo default is written once, as pre-staging, and never '
+                      'over a value the repo already has',
+                      kept and wrote and not again and
+                      pb.precedent_json(repo).get('landing_branch') == 'pre-staging'
+                      and pb.precedent_json(repo).get('base_branch') == 'main'))
+        (repo / 'precedent.json').write_text(_json.dumps(
+            {'base_branch': 'main'}), encoding='utf-8')
 
         def targets(args):
             return pb.push_targets(repo, args)
@@ -24334,6 +24841,17 @@ def check_vendor_engine_refreshes_ci_workflow_files():
                 json.dumps(manifest), encoding='utf-8')
             if wf_bytes is not None:
                 (consumer / rel).write_bytes(wf_bytes)
+            # A git repo with everything committed, as every real consumer
+            # is: since 2026-09-27 a consumer's refresh replaces a workflow
+            # only when git holds its content (CI_CONVERGES_KINDS).
+            genv = dict(os.environ, GIT_AUTHOR_NAME='t',
+                        GIT_AUTHOR_EMAIL='harness@example.com',
+                        GIT_COMMITTER_NAME='t',
+                        GIT_COMMITTER_EMAIL='harness@example.com')
+            for argv in (['init', '-q'], ['add', '-A'],
+                         ['commit', '-qm', 'base']):
+                subprocess.run(['git', '-C', str(consumer), *argv], env=genv,
+                               capture_output=True)
             return consumer
 
         # Computed once, not the literal 'HEAD': this fixture tests a
@@ -24381,56 +24899,58 @@ def check_vendor_engine_refreshes_ci_workflow_files():
                       'a clean exit)',
                       rc_a == 0 and 'refreshed' in out_a and rel in out_a, out_a[:800]))
 
-        # -- B: differs from the manifest record -- a hand-edit -- refresh
-        # refuses the whole run, same as any other drifted file, and leaves
-        # the file untouched --
+        # -- B: differs from the manifest record -- a hand-edit. Until
+        # 2026-09-27 refresh refused the whole run over it. A consumer's CI
+        # now converges to upstream (CI_CONVERGES_KINDS): the file is
+        # replaced with the template, and the refresh says so --
         b = make_consumer('edited', edited, {rel: stub_hash})
         rc_b, out_b = run_refresh(b)
-        cases.append(('a hand-edited CI workflow file (on-disk bytes no longer match '
-                      'the manifest) makes refresh refuse, naming the FAIL this tool '
-                      'always uses for drift, not a generic error',
-                      rc_b != 0 and 'hand-edited since the last seed/refresh' in out_b,
+        cases.append(('a hand-edited CI workflow file in a consumer is replaced '
+                      'with the current template, not refused',
+                      rc_b == 0 and (b / rel).read_bytes() == real_template
+                      and 'hand-edited since the last seed/refresh' not in out_b,
                       out_b[:800]))
-        cases.append(('...and the file itself is left untouched by the refusal',
-                      (b / rel).read_bytes() == edited, out_b[:400]))
+        cases.append(('...and the refresh says it replaced it',
+                      'CI workflow replaced: ' + rel in out_b, out_b[:800]))
 
-        # -- B, CONTROL: the same hand-edit, with --force, DOES get
-        # overwritten -- proves the refusal above is the drift check firing,
-        # not something incidental to this fixture (control-asserts-which-
-        # failure's negative control) --
-        b_forced = make_consumer('edited-forced', edited, {rel: stub_hash})
-        rc_bf, out_bf = run_refresh(b_forced, extra=('--force',))
-        cases.append(('CONTROL: the same hand-edited file, with --force, is '
-                      'overwritten to the current template rather than refused',
-                      rc_bf == 0 and (b_forced / rel).read_bytes() == real_template,
-                      out_bf[:800]))
+        # -- B, NEGATIVE: the same hand-edit, never committed, is kept: its
+        # content exists nowhere else (practice: repair-cannot-discard-work).
+        b_dirty = make_consumer('edited-dirty', stub, {rel: stub_hash})
+        (b_dirty / rel).write_bytes(edited)
+        rc_bd, out_bd = run_refresh(b_dirty)
+        cases.append(('NEGATIVE: an UNCOMMITTED hand edit is kept, and named '
+                      'under Left for you',
+                      rc_bd == 0 and (b_dirty / rel).read_bytes() == edited
+                      and 'uncommitted edits' in out_bd, out_bd[:800]))
 
-        # -- C: no manifest record at all -- a repo vendored before this
-        # feature existed -- one-time catch-up: baseline hash recorded, but
-        # the file itself is NOT rewritten (unlike the hooks catch-up,
-        # deliberately -- see CI_WORKFLOW_TEMPLATES' own comment on why) --
+        # -- B, NEGATIVE: a hand edit that runs a script the local push
+        # check does not run is held back, naming the script, so nothing
+        # needed is lost --
+        b_needed = make_consumer(
+            'edited-needed',
+            b'name: hand-edited\njobs:\n  j:\n    steps:\n'
+            b'      - run: python3 tools/our_special.py\n', {rel: stub_hash})
+        rc_bn, out_bn = run_refresh(b_needed)
+        cases.append(('NEGATIVE: a hand edit running a script nothing local '
+                      'runs is kept, and the script is named',
+                      rc_bn == 0 and b'our_special.py' in (b_needed / rel).read_bytes()
+                      and 'our_special.py' in out_bn and 'LEFT ALONE' in out_bn,
+                      out_bn[:800]))
+
+        # -- C: no manifest record at all -- a repo vendored before CI
+        # workflows were tracked, or a hand-made copy. It used to get a
+        # baseline and a second refresh; a consumer's is replaced now --
         c = make_consumer('catchup', stub, None)
         rc_c, out_c = run_refresh(c)
-        cases.append(('a CI workflow file with no prior manifest record at all is '
-                      'NOT rewritten on its first refresh after this feature ships',
-                      (c / rel).read_bytes() == stub, out_c[:800]))
-        cases.append(('...but a baseline hash IS recorded for it',
-                      manifest_of(c).get('ci_workflows_sha256', {}).get(rel) == stub_hash,
-                      out_c[:800]))
-        cases.append(('...and refresh prints a one-time catch-up NOTICE naming it, not '
-                      'just a silent write',
-                      rc_c == 0 and 'NOTICE' in out_c and 'baseline' in out_c and rel in out_c,
-                      out_c[:800]))
-
-        # -- C, CONTROL: a SECOND refresh of that same catch-up consumer now
-        # has a baseline to compare against, so it behaves like case A and
-        # rewrites the file to the current template -- proves the first
-        # run's silence was the catch-up rule and not a bug that never picks
-        # the file up at all --
+        cases.append(('an untracked CI workflow file in a consumer is replaced '
+                      'on the first refresh, and tracked',
+                      rc_c == 0 and (c / rel).read_bytes() == real_template
+                      and manifest_of(c).get('ci_workflows_sha256', {}).get(rel)
+                      == real_hash, out_c[:800]))
         rc_c2, out_c2 = run_refresh(c)
-        cases.append(('CONTROL: a second refresh, now that a baseline is recorded, '
-                      'DOES rewrite the file to the current template',
-                      rc_c2 == 0 and (c / rel).read_bytes() == real_template, out_c2[:800]))
+        cases.append(('CONTROL: a second refresh finds nothing to do for it',
+                      rc_c2 == 0 and (c / rel).read_bytes() == real_template
+                      and 'CI workflow replaced' not in out_c2, out_c2[:800]))
 
         # -- D: CI disabled (no workflow file installed at all) -- refresh
         # neither writes nor complains about it --
@@ -26010,18 +26530,29 @@ def check_ci_workflow_approved_pins_approval_to_content():
                       'SKIPPED, never a pass or a crash',
                       rc == 0 and 'SKIPPED' in out, out[-1500:]))
 
+        # Since 2026-09-27 the light check is an engine file like the leak
+        # gate: shipped through CI_WORKFLOW_TEMPLATES, tracked in the
+        # manifest the install writes, so it needs no approval entry.
+        cases.append(('the light check ships to consumers as an engine-owned, '
+                      'tracked workflow',
+                      ('light-check.yml.template', rel)
+                      in _pve.CI_WORKFLOW_TEMPLATES['consumer']
+                      and not hasattr(_pve, 'CI_INSTALL_ONLY_TEMPLATES')
+                      and not hasattr(_pi, '_approve_installed_workflow'), ''))
         inst = tmp / 'install'
         (inst / '.github' / 'workflows').mkdir(parents=True)
-        (inst / rel).write_text(body)
-        (inst / 'precedent.json').write_text(json.dumps({'sources': []}))
-        _pi._approve_installed_workflow(inst, rel, 'light-check.yml.template')
-        entry = json.loads((inst / 'precedent.json').read_text()).get(
-            'github_ci_approved', {}).get(rel, {})
-        cases.append(('an install-only template the installer writes is '
-                      'approved by the install, pinned, naming the template',
-                      entry.get('sha256') == sha
-                      and entry.get('template') == 'light-check.yml.template',
-                      str(entry)))
+        (inst / 'tools').mkdir()
+        shutil.copy(ROOT / 'templates' / 'github-actions' /
+                    'light-check.yml.template', inst / rel)
+        (inst / 'tools' / 'ENGINE_MANIFEST.json').write_text(
+            json.dumps({'kind': 'consumer'}))
+        _pve.record_ci_workflow_files(inst, 'consumer')
+        m = json.loads((inst / 'tools' / 'ENGINE_MANIFEST.json').read_text())
+        cases.append(('...and the install records it in the manifest, pinned '
+                      'to the template',
+                      m.get('ci_workflows_sha256', {}).get(rel)
+                      == hashlib.sha256((inst / rel).read_bytes()).hexdigest(),
+                      str(m)))
 
         for kind in ('consumer', 'source'):
             names = [n for n, _a, _r in _ppc.PUSH_CHECKS[kind]]
@@ -28591,6 +29122,187 @@ def check_links_to_renamed_practice_forward():
     check(f'a materialized link to a renamed practice forwards to the live '
           f'practice ({len(cases)} stated cases)',
           not bad, '; '.join(f'{n} -- {d[:160]}' for n, d in bad))
+
+
+def check_practice_refs_sorts_live_from_history():
+    """precedent_practice_refs.py finds every citation of a renamed practice
+    in a SET, marks the live pointers as must-fix, and leaves history alone.
+
+    WHY. The go-merge -> go-update rename (2026-09-26) landed clean in
+    BestPractice and left `go-merge` cited in the private sets' practices and
+    READMEs; nothing asked anyone to look (practice:
+    practice-change-propagates). The lookup has to tell a live pointer from
+    the record of the rename, or the check built on it either misses the
+    drift or refuses every Story that mentions an old name."""
+    import shutil, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_resolve as _pr
+    ppr = __import__('precedent_practice_refs')
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-refs-'))
+    cases = []
+    try:
+        sources, _consumer, write = _renamed_universal_fixture(tmp)
+        ind = tmp / 'ind'
+        write(ind / 'practices' / 'lineage.md', 'lineage',
+              rule='Say the merge target out loud.')
+        lineage = ind / 'practices' / 'lineage.md'
+        lineage.write_text(
+            lineage.read_text(encoding='utf-8')
+            + '\n## Detail\nThe old `go-merge` said the same.\n'
+              'Renamed from `go-merge` on 2026-09-26.\n'
+              '\n## Story\n[go-merge](go-merge.md) is where it began.\n',
+            encoding='utf-8')
+        (ind / 'README.md').write_text(
+            'Look it up: `python3 tools/precedent_show.py go-merge`.\n',
+            encoding='utf-8')
+        (ind / 'spec').mkdir()
+        (ind / 'spec' / 'plan.md').write_text(
+            'Planned against [go-merge](../practices/go-merge.md).\n',
+            encoding='utf-8')
+        env = dict(os.environ, GIT_AUTHOR_NAME='t', GIT_AUTHOR_EMAIL='t@t',
+                   GIT_COMMITTER_NAME='t', GIT_COMMITTER_EMAIL='t@t')
+        for argv in (['init', '-q'], ['add', '-A'], ['commit', '-qm', 'x']):
+            subprocess.run(['git', '-C', str(ind), *argv], env=env,
+                           capture_output=True, text=True)
+
+        res = _pr.resolve(sources)
+        wmap = ppr.withdrawn_map(res)
+        cases.append(('go-merge is withdrawn, forwarding to go-update',
+                      wmap.get('go-merge', {}).get('successor') == 'go-update',
+                      str(wmap)))
+        succ = {k: v['successor'] for k, v in wmap.items() if v['successor']}
+        rows = ppr.scan_root(ind, set(wmap), succ)
+
+        def tag(rel, text):
+            # By the line's own words, not its number: the fixture's
+            # frontmatter is somebody else's to change.
+            hit = [r for r in rows if r[0] == rel and text in r[6]]
+            if not hit:
+                return 'absent'
+            return 'must-fix' if ppr.must_fix(hit[0], wmap) else hit[0][4]
+
+        cases.append(('a link in an active practice\'s Rule is must-fix',
+                      tag('practices/cites.md', 'Sibling:') == 'must-fix', str(rows)))
+        cases.append(('a precedent_show.py lookup in a README is must-fix',
+                      tag('README.md', 'Look it up') == 'must-fix', str(rows)))
+        cases.append(('a bare mention in Detail is live but only listed, '
+                      'never refused', tag('practices/lineage.md', 'The old') == 'live',
+                      str(rows)))
+        cases.append(('a line narrating the rename is history',
+                      tag('practices/lineage.md', 'Renamed from') == 'history', str(rows)))
+        cases.append(('a link inside ## Story is history',
+                      tag('practices/lineage.md', 'where it began') == 'history', str(rows)))
+        cases.append(('a plan under spec/ is a record, so history',
+                      tag('spec/plan.md', 'Planned against') == 'history', str(rows)))
+        cases.append(('the individual set\'s own go-merge stub is history',
+                      all(r[4] == 'history' for r in rows
+                          if r[0] == 'practices/go-merge.md'), str(rows)))
+
+        # NEGATIVE CONTROL: the same lines naming the live slug are not
+        # citations of a withdrawn practice at all, so the must-fix findings
+        # above were about `go-merge` and nothing else in the fixture.
+        for f in (ind / 'README.md', ind / 'practices' / 'cites.md'):
+            f.write_text(f.read_text(encoding='utf-8')
+                         .replace('go-merge', 'go-update'), encoding='utf-8')
+        rows = ppr.scan_root(ind, set(wmap), succ)
+        cases.append(('repointed to go-update, nothing is must-fix',
+                      not [r for r in rows if ppr.must_fix(r, wmap)],
+                      str([r for r in rows if ppr.must_fix(r, wmap)])))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'the citation lookup finds a renamed practice\'s live pointers and '
+          f'leaves its history alone ({len(cases)} stated cases)',
+          not bad, '; '.join(f'{n} -- {d[:200]}' for n, d in bad))
+
+
+def check_practice_change_propagates_refuses():
+    """The practice-change-propagates check, run as a repository runs it:
+    it refuses a live pointer to a renamed practice and a deleted practice
+    file, names the successor, and clears when each is fixed.
+
+    WHY. A lookup nobody runs fixes nothing; the check is what makes the
+    drift surface in the repository that can repair it -- a private set this
+    session could fetch and not push (practice: practice-change-propagates).
+    Asserts the check's own words, and each refusal has a control showing
+    the same tree, fixed, passes."""
+    import shutil as _shutil, tempfile, json as _json
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+        sources, _consumer, write = _renamed_universal_fixture(tmp)
+        repo = tmp / 'repo'
+        repo.mkdir()
+        subprocess.run(
+            [sys.executable, str(ROOT / 'tools' / 'precedent_vendor_engine.py'),
+             'seed', str(repo), '--kind', 'consumer'],
+            capture_output=True, text=True, timeout=300)
+        # The seed copies the COMMITTED engine; the code under test is this
+        # working tree's (the rename-updates-links fixture found this the hard way).
+        for name in ('precedent_check.py', 'precedent_practice_refs.py'):
+            _shutil.copy2(ROOT / 'tools' / name, repo / 'tools' / name)
+        (repo / 'practices').mkdir(exist_ok=True)
+        _shutil.copy2(ROOT / 'practices' / 'practice-change-propagates.md',
+                      repo / 'practices' / 'practice-change-propagates.md')
+        write(repo / 'practices' / 'old-rule.md', 'old-rule')
+        (repo / 'precedent.json').write_text(_json.dumps({
+            'format_version': 1, 'visibility': 'private',
+            'sources': [{'level': 'universal', 'name': 'precedent',
+                         'path': str(tmp / 'uni')}]}), encoding='utf-8')
+        (repo / 'README.md').write_text(
+            'Before merging, read `python3 tools/precedent_show.py go-merge`.\n',
+            encoding='utf-8')
+        env = dict(os.environ, PRECEDENT_ALLOW_ANY_AUTHOR='1',
+                   PRECEDENT_USER_CONFIG=str(tmp / 'no-user-config.json'),
+                   GIT_AUTHOR_NAME='t', GIT_AUTHOR_EMAIL='t@t',
+                   GIT_COMMITTER_NAME='t', GIT_COMMITTER_EMAIL='t@t')
+
+        def g(*a):
+            return subprocess.run(['git', '-C', str(repo), *a],
+                                  capture_output=True, text=True, env=env)
+        g('init', '-q', '-b', 'main')
+        g('add', '-A'); g('commit', '-qm', 'base')
+        g('update-ref', 'refs/remotes/origin/main', 'HEAD')
+        g('symbolic-ref', 'refs/remotes/origin/HEAD', 'refs/remotes/origin/main')
+
+        def run():
+            r = subprocess.run(
+                [sys.executable, 'tools/precedent_check.py',
+                 '--only', 'practice-change-propagates'],
+                capture_output=True, text=True, cwd=str(repo), env=env,
+                timeout=300)
+            return r.stdout + r.stderr
+
+        out = run()
+        cases.append(('a README lookup of the renamed slug is refused, with '
+                      'the successor named',
+                      'README.md:1: looks up `go-merge`' in out
+                      and 'cite `go-update`' in out, out[-600:]))
+        g('rm', '-q', 'practices/old-rule.md'); g('commit', '-qm', 'drop it')
+        out = run()
+        cases.append(('deleting a practice file is refused',
+                      'practices/old-rule.md: this branch deleted a practice '
+                      'file. Retire it in place' in out, out[-600:]))
+
+        # CONTROLS: fix each, and the same check passes on the same tree.
+        g('revert', '--no-edit', 'HEAD')
+        write(repo / 'practices' / 'old-rule.md', 'old-rule', 'deduplicated',
+              'go-update')
+        (repo / 'README.md').write_text(
+            'Before merging, read `python3 tools/precedent_show.py go-update`.\n',
+            encoding='utf-8')
+        g('add', '-A'); g('commit', '-qm', 'retire in place, repoint')
+        out = run()
+        cases.append(('retired in place and repointed, the check passes',
+                      '1 passed, 0 violated' in out, out[-600:]))
+
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'practice-change-propagates refuses a live pointer to a renamed '
+          f'practice and a deleted practice file, and clears when fixed '
+          f'({len(cases)} stated cases)',
+          not bad, '; '.join(f'{n} -- {d[:300]}' for n, d in bad))
 
 
 def check_source_supplied_checks_run():
@@ -31404,16 +32116,24 @@ def check_installer_produces_a_clean_install():
         # declared-default-is-applied) -- ENABLED since 2026-09-25, because
         # what it installs is now one light check on pull requests into main,
         # and a leak gate that never runs in a private repo
-        # (spec/BRANCH_TIERS_PLAN.md).
+        # (spec/BRANCH_TIERS_PLAN.md). Since 2026-09-27 the light check also
+        # triggers on a push to main, and its job skips that push unless the
+        # repository is public -- so the push trigger must be scoped to main
+        # and the job must carry that condition.
         _wfs = proj / '.github' / 'workflows'
         _lc = (_wfs / 'light-check.yml').read_text(encoding='utf-8') \
             if (_wfs / 'light-check.yml').exists() else ''
         _lg = (_wfs / 'leak-gate.yml').read_text(encoding='utf-8') \
             if (_wfs / 'leak-gate.yml').exists() else ''
+        _lc_push = re.search(r'^  push:\n((?:    .*\n|\s*#.*\n)*)', _lc, re.M)
         cases.append(('nothing declares github_ci_workflows, so the installer writes the '
-                      'light check -- pull requests into main only -- and the leak gate, '
-                      'skipped in a private repo, and GETTING_STARTED.md says so',
-                      'branches: [main]' in _lc and '\n  push:' not in _lc
+                      'light check -- pull requests into main, and pushes to main in a '
+                      'public repo only -- and the leak gate, skipped in a private repo, '
+                      'and GETTING_STARTED.md says so',
+                      'branches: [main]' in _lc
+                      and bool(_lc_push) and 'branches: [main]' in _lc_push.group(1)
+                      and "github.event_name != 'push' || "
+                          "github.event.repository.private != true" in _lc
                       and 'github.event.repository.private != true' in _lg
                       and 'Before anything reaches `main`' in gs,
                       gs[:600]))
@@ -36490,6 +37210,10 @@ def main():
           *check_update_vendors_is_one_command())
     check('an update that deletes a vendored file upstream dropped ends DONE',
           *check_update_vendors_survives_an_upstream_deletion())
+    check('a push to main skips main\'s GitHub test only when those exact files already passed it',
+          *check_push_to_main_skips_what_already_passed())
+    check('Update Vendors converges a consumer\'s CI to upstream, and asks nobody',
+          *check_update_vendors_converges_consumer_ci())
     check('the instruction files name only repositories that exist',
           *check_instruction_files_name_repos_that_exist())
     check('a consumer may declare a CI workflow its own and keep it',
@@ -36565,6 +37289,7 @@ def main():
     check_commit_identity_prevents_the_wrong_offset()
     check_commit_identity_ci_cadence()
     check_push_check_gate()
+    check_global_backstop_runs_person_fixer()
     check_branch_tiers()
     check_merge_check_gate()
     check_promote_pre_staging()
@@ -36630,6 +37355,8 @@ def main():
     check_materialized_links_are_placed()
     check_in_force_at_chain_is_followed()
     check_links_to_renamed_practice_forward()
+    check_practice_refs_sorts_live_from_history()
+    check_practice_change_propagates_refuses()
     check_source_supplied_checks_run()
     check_individual_source_bootstrap_self_heals()
     check_stale_render_self_heals()

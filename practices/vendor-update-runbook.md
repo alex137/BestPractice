@@ -80,7 +80,7 @@ version conflict with what upstream now ships, and is it still needed?**
 instead of it**; each one discards the local side in a single step. A
 difference kept on purpose is recorded so the next update does not ask
 again: a `diverged` or `declined` entry in `process/manifest.json`, a
-declared file under `local_ci_workflows` in `precedent.json`, a repo-local
+declared file under `local_ci_workflows` in a practice source's `precedent.json`, a repo-local
 practice with `overrides:`, or a hand-written rule worded as an exception
 to the practice it departs from. **The pull request lists every conflicted
 file with its verdict** — kept, taken from upstream, or merged — and why.
@@ -248,6 +248,28 @@ says so, both from the vendored tree under `process/upstream/`.
    first time this shipped would have discarded that with no warning. Run
    `refresh` again once the baseline is recorded to pick up template changes
    normally from then on.
+   **Since 2026-09-27, in a consuming repo, none of that caution applies,
+   and nothing is asked.** A consumer's CI converges to upstream: the
+   refresh writes `leak-gate.yml` and `light-check.yml` from the current
+   templates over whatever is there, tracked or not, hand-edited or not, and
+   removes every other workflow upstream does not ship, unless the person
+   approved it in their own words in `github_ci_approved`. A declaration
+   under `local_ci_workflows` no longer keeps one in a consumer. **Nothing
+   needed is lost:** a file that runs anything the local push check does not
+   run (a script, a test runner, a third-party action) is **left alone, and
+   flagged loudly**: an `IMPORTANT -- GITHUB WORKFLOW LEFT ALONE` banner
+   before and after the update's summary, a **Left for you** line naming
+   what to move into the local check, and an open item in the repo's
+   `todo/`. Tell the person, in the reply, in those words. The next update
+   finishes it once the command runs locally. Each replacement
+   and removal is printed as done; a file git does not hold, or one with
+   uncommitted edits, is left under **Left for you** so its content is never
+   lost. Morgan, 2026-09-27 (strength: decided): *"It should definitely
+   definitely use the newer version from upstream ... so it shouldn't ask.
+   Asking creates doubt and confusion when there isn't any."* The checks a
+   removed workflow ran belong in the local push check, which runs before
+   every push; the removal line names the scripts it ran. A practice source
+   is unchanged by this.
    **Since 2026-09-24 it also refreshes any file the repo declares under
    `engine_paths` in its own `precedent.json`** — an upstream path mapped to
    a local one, for a file the repo must keep at a path of its own:
@@ -491,11 +513,15 @@ says so, both from the vendored tree under `process/upstream/`.
     **(b) Work that list, item by item.** Read each kept file, hook or
     field. Then either delete it with
     `python3 tools/precedent_decommission.py PATH --reason "..." --apply`,
-    or record why it stays: a CI workflow under `local_ci_workflows` in
-    `precedent.json` with its reason, anything else in the pull request.
-    **Never by name alone.** `light-check.yml` is a live check in most
-    installs and is not a leftover; the 2026-09-20 sweep deleted nine live
-    checks by trusting names
+    or record why it stays: in a practice source, a CI workflow under
+    `local_ci_workflows` in `precedent.json` with its reason (a consumer
+    keeps a workflow only by the person's approval); anything else in the
+    pull request.
+    **Never by name alone.** In a consumer the refresh has already settled
+    every workflow (step 3), so what is left here is a file it could not
+    safely touch. In a practice source, `light-check.yml` and a set's own
+    workflows are live checks, not leftovers; the 2026-09-20 sweep deleted
+    nine live checks by trusting names
     ([spec/CI_MINUTES_PLAN.md](https://github.com/alex137/BestPractice/blob/staging/spec/CI_MINUTES_PLAN.md)
     item 14). A live one is paused first and decommissioned a cycle later,
     as [tools/precedent_decommission.py](../tools/precedent_decommission.py)
@@ -575,8 +601,14 @@ says so, both from the vendored tree under `process/upstream/`.
 
     **(g) Get the person's approval for every workflow file that stays.**
     Run `python3 tools/precedent_check.py --only ci-workflow-approved`.
-    Every file it names bills at least a minute per run in a private repo,
-    and nobody has approved it as it stands. For each one, show the person
+    **In a consuming repo this should already be clean:** step 3 replaced
+    the engine's workflows with the templates and removed every other one
+    nobody approved, without asking. A file it still names is one the
+    refresh left under **Left for you** (untracked, or uncommitted edits):
+    commit or discard the edit and refresh again. Do not ask the person
+    about it. **In a practice source**, every file it names bills at least a
+    minute per run in a private repo, and nobody has approved it as it
+    stands. For each one, show the person
     what it runs and **when it triggers**, in one line, and ask. Record the
     answer in `precedent.json`'s `github_ci_approved`, pinned to the file's
     sha256 and quoting their words, or delete the file. **Never approve one
@@ -608,9 +640,22 @@ says so, both from the vendored tree under `process/upstream/`.
     that all repos with precedent vendored-in have staging and pre-staging
     branches? That should be part of the migration!"*
 
-    **(i) Report all of it in the reply**: what the refresh deleted, what
+    **(i) Fix this repo's citations of anything the update withdrew or
+    reworded.** Run `python3 tools/precedent_practice_refs.py --withdrawn
+    --changed-since HEAD --staged` (the one command runs it for you and
+    reports it as `citations`). Each `MUST FIX` line is a link, lookup or
+    Rule mention in this repo's own files naming a practice no longer in
+    force: repoint it to the practice the tool names, or say in prose what
+    it covered. Each `read` line cites a practice whose Rule this update
+    reworded under the same name: read it, and fix it if it now describes
+    the old rule. Citations inside files this repo received -- another
+    source's practices, the vendored engine -- are that source's to fix, and
+    the tool leaves them out
+    ([practice-change-propagates](practice-change-propagates.md)).
+
+    **(j) Report all of it in the reply**: what the refresh deleted, what
     you deleted, what stays and why, each workflow's approval, the branches
-    step (h) created, and the todo item.
+    step (h) created, the citations step (i) fixed, and the todo item.
 
     While here, check `github_ci_workflows` (formerly `ci_workflows`)
     ([GITHUB_ACTIONS.md](https://github.com/alex137/BestPractice/blob/staging/documentation/GITHUB_ACTIONS.md))

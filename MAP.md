@@ -6,7 +6,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 
 ## The practice catalogue
 
-`practices/` holds 143 practice files (10 resident, 133 on-demand). One file per practice. See [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md) for the design.
+`practices/` holds 146 practice files (10 resident, 136 on-demand). One file per practice. See [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md) for the design.
 
 | Practice | Tier | Occasion / scope |
 |---|---|---|
@@ -75,6 +75,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [layered-practice-packs](practices/layered-practice-packs.md) | on-demand | deciding where a new rule belongs |
 | [lead-with-what-it-is](practices/lead-with-what-it-is.md) | on-demand | writing a README or other project-facing entry document |
 | [leak-gate-is-background](practices/leak-gate-is-background.md) | on-demand | a leak gate, blocklist, or scrub result is in front of you, or you are about to mention one to the person |
+| [lease-in-flight-work](practices/lease-in-flight-work.md) | on-demand | starting slow, costly or external work from a snapshot of trunk that another session could start too |
 | [merge-runbook](practices/merge-runbook.md) | on-demand | merging a branch that touches shared files |
 | [migration-scrubs-vocabulary](practices/migration-scrubs-vocabulary.md) | on-demand | migrating a repo onto Precedent from an old system |
 | [mistakes-become-rules](practices/mistakes-become-rules.md) | on-demand | a defect is fixed -- whether a review found it, the person reported it, or the session hit it itself |
@@ -95,6 +96,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [plain-words](practices/plain-words.md) | on-demand | a person says "Simple please", or asks to be talked to that way |
 | [pr-template-honest-gates](practices/pr-template-honest-gates.md) | on-demand | writing or filling out a pull-request description |
 | [practice-carries-its-files](practices/practice-carries-its-files.md) | on-demand | writing a practice that owns a file besides its check script and test -- a tool its Rule tells a session to run, a file its test reads -- or moving a practice to another set |
+| [practice-change-propagates](practices/practice-change-propagates.md) | on-demand | renaming, retiring, deduplicating, deleting or rewording a practice -- or taking an update that did |
 | [practice-export-loop](practices/practice-export-loop.md) | on-demand | merging a branch that improved a generic practice |
 | [practice-links-travel](practices/practice-links-travel.md) | on-demand | writing or editing a practice file |
 | [primary-branch](practices/primary-branch.md) | on-demand | a person says "Primary branch", or asks which branch is trunk or takes routine pushes and PRs |
@@ -125,6 +127,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [session-spend-follows-the-task](practices/session-spend-follows-the-task.md) | on-demand | creating, renaming or retagging a session |
 | [session-tags](practices/session-tags.md) | on-demand | creating, renaming or retagging a session |
 | [session-title-names-the-difference](practices/session-title-names-the-difference.md) | on-demand | creating, renaming or retagging a session |
+| [shared-result-cache](practices/shared-result-cache.md) | on-demand | memoizing a heavy solve, or finding a fresh session re-running one another session already ran |
 | [slow-steps-report-and-cache](practices/slow-steps-report-and-cache.md) | on-demand | writing or running a gate, audit or solve over a minute |
 | [small-calls](practices/small-calls.md) | on-demand | a judgment call is needed to keep work moving |
 | [source-naming](practices/source-naming.md) | on-demand | importing, creating, or declaring a repository that holds practices |
@@ -191,6 +194,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [tools/full_practice_audit.py](tools/full_practice_audit.py) | The full practice audit — on-demand, whole-catalogue sweep across every source |
 | [tools/github_budget.py](tools/github_budget.py) | What this account has left of GitHub's API allowances and what each tool spent -- read off the X-RateLimit headers of calls already being made, because /rate_limit answers a pristine window from inside a session |
 | [tools/leak_gate.py](tools/leak_gate.py) | The push-time leak gate — structural rules always, private-term blocklist when configured |
+| [tools/lease_board.py](tools/lease_board.py) | The lease board -- work in flight across sessions, one JSON file per lease on a coordination branch, push as the lock |
 | [tools/model_audit.py](tools/model_audit.py) | Runs each computing script's own self-assertions and checks the figures it recites |
 | [tools/move_paths.py](tools/move_paths.py) | Moves tracked files or directories and repoints every reference to them in the same change — relative links, path strings, globs, blob URLs; immutable files reported, never rewritten |
 | [tools/parse_check.py](tools/parse_check.py) | Does every JSON/YAML file in scope still parse — changed files for the deep check, the whole tree for the very deep check |
@@ -221,6 +225,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [tools/precedent_move.py](tools/precedent_move.py) | Moves an existing practice between levels in the one safe order: lands it at the destination with its text and approval carried, then deduplicates the source copy and regenerates both sets' views; refuses the unsafe states by name |
 | [tools/precedent_owned_paths.py](tools/precedent_owned_paths.py) | Before a pull request: which changed files will wait for a code owner's review, and the plain-words sentence to say to the contributor about it |
 | [tools/precedent_paths.py](tools/precedent_paths.py) | The PATH-TRIGGERED channel — matches a touched file against every practice's `applies_to` |
+| [tools/precedent_practice_refs.py](tools/precedent_practice_refs.py) | Who cites a practice, across this repo and every source it declares -- live citations vs history; the lookup behind practice-change-propagates, the merge moment and Update Vendors |
 | [tools/precedent_promote.py](tools/precedent_promote.py) | Stage 3 (phase 5) — runs a candidate against the four promotion criteria |
 | [tools/precedent_push_check.py](tools/precedent_push_check.py) | Everything GitHub CI used to run on a push, per kind of repository, run locally before it -- `push-check-gate.sh` refuses a push until it passes; a push to a working branch or pre-staging runs its basic tier only |
 | [tools/precedent_refresh_sources.py](tools/precedent_refresh_sources.py) | Reports which attached practice-set sources have a stale vendored engine, and with --apply brings them up to date; also writes the git credential helper into any attached source clone that has none |
@@ -240,6 +245,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [tools/precedent_vendor_engine.py](tools/precedent_vendor_engine.py) | Vendors the minimal source-repo engine (this file, precedent_gate/paths/show.py, split_practices.py, a trimmed routing_scope.json) into an individual or team set, and keeps it refreshable |
 | [tools/precedent_vocabulary.py](tools/precedent_vocabulary.py) | Lists every standing command in force -- each phrase and the plain sentence a person reads -- collected from the `command:` field of every practice across every resolved source; answers the "Vocabulary" command and emits the reader-facing table |
 | [tools/resplit_sections.py](tools/resplit_sections.py) | The editorial Rule/Detail/Why/Story/Install split, applied from tools/section_split.json |
+| [tools/result_cache.py](tools/result_cache.py) | The shared result cache -- code-keyed memos on one snapshot branch, a leased cold solve that peers wait for |
 | [tools/routing_audit.py](tools/routing_audit.py) | The routing audit — mechanical coverage check plus a rotating deep-read slice |
 | [tools/routing_eval.py](tools/routing_eval.py) | Measures whether trigger-based loading actually beats carrying the whole catalogue |
 | [tools/routing_eval_synthetic.py](tools/routing_eval_synthetic.py) | Stress-tests the occasion-index channel alone, on hand-written synthetic tasks rather than real commits |

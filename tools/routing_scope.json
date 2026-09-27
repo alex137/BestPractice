@@ -611,6 +611,13 @@
       ],
       "gates_why": "The push is when the gate runs and prints, so it is the exact moment a session decides whether to relay what it printed. Carried over unchanged from the individual-level copy this moved from."
     },
+    "lease-in-flight-work": {
+      "globs": [
+        "**"
+      ],
+      "why": "No locus. The work a lease guards is whatever a repository finds costly to start twice -- a submission, a migration, a solve -- and it shares no path. Reached through the occasion index.",
+      "decided": "2026-09-27, when the practice landed"
+    },
     "merge-authorization-keyword": {
       "globs": [
         "**"
@@ -820,6 +827,14 @@
       ],
       "why": "The path IS the distinguishing condition: the rule is about what a published practice declares and what its shipped test reads, and those live in practices/ and tools/checks/tests/. local/practices/ is out for the reason practice-links-travel's entry gives -- it never travels.",
       "decided": "2026-09-26, when the practice landed at universal"
+    },
+    "practice-change-propagates": {
+      "globs": [
+        "practices/*.md",
+        "local/practices/*.md"
+      ],
+      "why": "The path IS the distinguishing condition: the rule fires when a practice file is renamed, retired, deleted or has its Rule reworded, and every such file is in practices/ or a repo-local source's practices/. Unlike practice-links-travel, local/practices/ is in -- a repo-local practice is cited by this repo's own files, so renaming one strands citations just the same. The consuming-side half (Update Vendors) is reached through vendor-update-runbook, not a path.",
+      "decided": "2026-09-27, when the practice landed at universal"
     },
     "practice-links-travel": {
       "globs": [
@@ -1076,6 +1091,13 @@
         "reply"
       ],
       "gates_why": "The naming decision is made while composing a reply, at creation or the moment the differentiator becomes known -- the same moment session-tags' obligation lands in."
+    },
+    "shared-result-cache": {
+      "globs": [
+        "**"
+      ],
+      "why": "A property of a memoized solve, which lives wherever a repository keeps its models; no common path. Reached through the occasion index, beside slow-steps-report-and-cache.",
+      "decided": "2026-09-27, when the practice landed"
     },
     "slow-steps-report-and-cache": {
       "globs": [

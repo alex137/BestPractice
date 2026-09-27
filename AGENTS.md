@@ -5,27 +5,20 @@
      (process/upstream/AGENTS.md) this file is inert — the dependent repo
      has its own instantiated AGENTS.md at ITS root. -->
 
-**TEMPORARY, read before opening or merging any pull request (PR) here:
-every PR in this repository targets `staging` (named `precedent-beta-v01`
-until 2026-09-25) -- or `pre-staging`,
-for a person whose landing branch is pre-staging -- never `main`.
-Alex merged the branch into `main` on 2026-09-14 and Morgan merges it there
-regularly; **that does not retire this rule** — work still lands here, and
-`main` takes it by those merges only (Morgan, 2026-09-14). **No merge needs
-Alex's sign-off any more, `main` included** (Alex, relayed by Morgan,
-2026-09-26) — once its deep check passes, a session may merge a PR into
-`staging` directly. A general "PR and merge it" authorization, with no
-branch named, still means `staging`; merging into `main` needs the person
-running the session to name `main` explicitly, in that specific request, or
-a Promote that chooses staging into `main`.
-Check the base branch
-explicitly before acting — do not assume `main` just because it is the
-repository's configured default branch, and do not assume the two
-branches are interchangeable even when they happen to sit at the same
-commit, which is exactly the condition under which this rule's own
-origin incident happened. Full story, the mechanical check, and the
-retirement condition:
-[local/practices/merge-target-is-beta-branch.md](local/practices/merge-target-is-beta-branch.md).**
+**Read before opening or merging any pull request (PR) here: every PR
+targets your landing branch, never `main`** -- `pre-staging` for a person
+whose landing branch is pre-staging, `staging` otherwise
+(`python3 tools/precedent_branches.py --landing` says which). Work reaches
+`staging`, and then `main`, only by a Promote. **No merge needs Alex's
+sign-off, `main` included** (Alex, relayed by Morgan, 2026-09-26) -- once its
+deep check passes, a session may merge a PR into the landing branch. A
+general "PR and merge it" authorization, with no branch named, means the
+landing branch; merging into `main` needs the person running the session to
+name `main` in that specific request, or a Promote that chooses staging into
+`main`. Check the base branch explicitly before acting -- do not assume
+`main` because it is the repository's configured default branch. The rule and
+its story:
+[local/practices/merge-target-is-beta-branch.md](local/practices/merge-target-is-beta-branch.md).
 
 **Precedent commands.** Each of these names a thing a session recognizes by
 what the message is actually asking for, not by scanning it for a keyword —
@@ -279,7 +272,7 @@ plan's premise.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block; `python3 tools/build_views.py --check` exits non-zero on drift. Source: practices/ -- edit the practice file, never this block. -->
 
-## Resident block (~884 of 2000 token budget, 10 of 148 practices (10 universal))
+## Resident block (~884 of 2000 token budget, 10 of 151 practices (10 universal))
 
 **bold-key-phrases.** People don't read; they skim, and bolding makes skimming easy. Bold the key phrases in a document by default, without being asked, scaling with length -- a long paragraph or document is where a skimmer most needs a spine to follow, a short note usually needs little or none.
 
@@ -447,6 +440,8 @@ When finishing substantial work, before the merge capture gate:
   second-pass-capture — a separate capture pass after the work, not inside it
 When handing the person work, starting work in a repo this session cannot reach, or moving advice to a fresh session:
   prompt-please — "Prompt Please" -- recommendation or unreachable work, one paste-ready prompt
+When memoizing a heavy solve, or finding a fresh session re-running one another session already ran:
+  shared-result-cache — share code-keyed memos on a cache branch; a peer waits on a leased solve
 When merging a branch:
   capture-gate — capture follow-on work in the thread that created the need
 When migrating a repo onto Precedent from an old system:
@@ -458,7 +453,7 @@ When naming or scoping something around a person's skill level:
 When naming what "run the checks" means in a repo:
   two-check-levels — name a fast check and a full check; say which gates what
 When opening or merging a pull request in this repository:
-  merge-target-is-beta-branch — PRs target staging, never main; main only when named
+  merge-target-is-beta-branch — PRs target pre-staging or staging, never main; main moves by a Promote
 When printing a number compared across rows:
   one-formatter-per-quantity — one formatter per quantity kind, declared in one module
 When publishing a sortable multi-column table:
@@ -473,6 +468,8 @@ When seeding or scheduling a prompt into another session:
   seeded-prompt-names-its-origin — it opens by naming the session that sent it
 When starting an outward-facing deliverable:
   frame-from-audience-question — build it around the audience's question, not your material
+When starting slow, costly or external work from a snapshot of trunk that another session could start too:
+  lease-in-flight-work — lease work in flight on a branch; the starting tool checks the board first
 When starting work another session may have done, or opening a PR:
   base-branch-is-the-record — read the base branch before starting and before the PR
 When starting work the repository may already cover:

@@ -65,6 +65,7 @@ sys.path.insert(0, str(ROOT / 'tools'))
 import precedent_time  # noqa: E402  (practice: timestamps-carry-offset)
 import precedent_identity  # noqa: E402
 import precedent_vendor_engine  # noqa: E402
+import precedent_branches  # noqa: E402
 TEMPLATES = ROOT / 'templates'
 UPSTREAM_URL = 'https://github.com/alex137/BestPractice'
 UPSTREAM_DOCS = f'{UPSTREAM_URL}/blob/main'
@@ -192,6 +193,9 @@ def _write_precedent_json(dest, base_branch, visibility, output_paths, teams, fo
             'always written explicitly here.',
         ],
         'sources': sources,
+        precedent_branches.LANDING_SETTING: precedent_branches.REPO_LANDING_DEFAULT,
+        '_' + precedent_branches.LANDING_SETTING + '_comment':
+            precedent_branches.REPO_LANDING_COMMENT,
     }
     if output_paths:
         doc['output_paths'] = output_paths
@@ -209,7 +213,8 @@ def _ci_preference(dest):
     write the GitHub Actions workflow, and a one-line reason for the log.
     practice: declared-default-is-applied -- nothing here asks; absent
     resolves to the engine's own default, which is enabled since 2026-09-25
-    (the light check on pull requests into main only)."""
+    (the light check on pull requests into main, and on pushes to main in a
+    public repository)."""
     try:
         pref = precedent_identity.ci_preference(dest)
     except precedent_identity.NoDeclaredIdentity:
@@ -230,8 +235,9 @@ def _substitute(text, subs):
 
 _CI_PARAGRAPH_ON = (
     "- **Before anything reaches `main`, GitHub checks it once** (the GitHub\n"
-    "  Actions workflow `light-check.yml`, on the pull request into `main`).\n"
-    "  Every other push is checked on your own machine before it leaves. In a\n"
+    "  Actions workflow `light-check.yml`, on the pull request into `main`). In a\n"
+    "  public repository it checks again after a push to `main` that brings\n"
+    "  anything it has not already passed. Every other push is checked on your own machine before it leaves. In a\n"
     "  public repository a leak check (`leak-gate.yml`) also runs on every push\n"
     "  and refuses anything that would publish something private. Neither needs\n"
     "  maintenance. If they don't appear on a pull request's checks, GitHub\n"
@@ -409,32 +415,6 @@ def _harness(dest, base_branch, force):
     return note, sorted(set(wired))
 
 
-def _approve_installed_workflow(dest, rel, template):
-    """Record an install-only workflow in precedent.json's
-    github_ci_approved, pinned to what was just written. The manifest does
-    not track these (no refresh ever touches them), so without this a fresh
-    install's first push would fail ci-workflow-approved over a file the
-    installer itself wrote. The entry names the template rather than
-    quoting anyone: installing is the person's act, and any later edit
-    changes the hash and needs their words (practice: ci-workflow-approved).
-    """
-    import hashlib
-    path = dest / 'precedent.json'
-    try:
-        cfg = json.loads(path.read_text(encoding='utf-8'))
-    except (OSError, ValueError):
-        return
-    approved = cfg.setdefault('github_ci_approved', {})
-    approved[rel] = {
-        'sha256': hashlib.sha256((dest / rel).read_bytes()).hexdigest(),
-        'approved_by': (f'installed by precedent_install.py, '
-                        f'{precedent_time.today(ROOT)}'),
-        'template': template,
-    }
-    path.write_text(json.dumps(cfg, indent=2, ensure_ascii=False) + '\n',
-                    encoding='utf-8')
-
-
 def _bootstrap_and_ci(dest, ci_enabled, ci_note, force):
     out = []
     tools = dest / 'tools'
@@ -450,22 +430,17 @@ def _bootstrap_and_ci(dest, ci_enabled, ci_note, force):
     # joined it, 2026-09-20, spec/CI_MINUTES_PLAN.md item 12) -- one gate,
     # one loop, so a future consumer-kind template needs no second copy of
     # this block to be written at all.
-    # The light check (CI_INSTALL_ONLY_TEMPLATES) is written only where no
-    # light-check.yml exists, --force or not: an existing one is somebody's
-    # own check, running their own command.
-    for _wf_template, _wf_rel in (
-            *precedent_vendor_engine.CI_WORKFLOW_TEMPLATES['consumer'],
-            *precedent_vendor_engine.CI_INSTALL_ONLY_TEMPLATES['consumer']):
+    # The light check is in that list too since 2026-09-27: the engine owns
+    # it, tracks it in the manifest below, and the next refresh replaces a
+    # hand-made copy this install found already there
+    # (precedent_vendor_engine.CI_CONVERGES_KINDS).
+    for _wf_template, _wf_rel in precedent_vendor_engine.CI_WORKFLOW_TEMPLATES['consumer']:
         wf = dest / _wf_rel
-        _install_only = (_wf_template, _wf_rel) in \
-            precedent_vendor_engine.CI_INSTALL_ONLY_TEMPLATES['consumer']
         if ci_enabled:
             wf.parent.mkdir(parents=True, exist_ok=True)
-            if not wf.exists() or (force and not _install_only):
+            if not wf.exists() or force:
                 shutil.copy2(TEMPLATES / 'github-actions' / _wf_template, wf)
                 out.append(f'{_wf_rel}: written ({ci_note})')
-                if _install_only:
-                    _approve_installed_workflow(dest, _wf_rel, _wf_template)
         else:
             out.append(f'{_wf_rel}: NOT written -- {ci_note}')
     pr = dest / '.github' / 'pull_request_template.md'
