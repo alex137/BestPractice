@@ -8,7 +8,7 @@ they report, and none holds a token that could write
 |---|---|---|
 | [`precedent-check.yml.template`](precedent-check.yml.template) | `.github/workflows/precedent-check.yml` | a practice SET only (its own header says why); a consuming repo skips it. Covers the generated-views drift check too (see below) — there is no separate `views-drift.yml.template` any more. |
 | [`leak-gate.yml.template`](leak-gate.yml.template) | `.github/workflows/leak-gate.yml` | any dependent repository or practice SET, gated by `github_ci_workflows` the same as the row above — see below, its trigger shape is deliberately different from the other three |
-| [`light-check.yml.template`](light-check.yml.template) | `.github/workflows/light-check.yml` | any dependent repository that declares a light check — **never installed automatically**, and never installed without reading the existing file first; see below |
+| [`light-check.yml.template`](light-check.yml.template) | `.github/workflows/light-check.yml` | every dependent repository, gated by `github_ci_workflows` — **engine-owned since 2026-09-27**: each Update Vendors writes it from the template over any hand-made copy; see below |
 
 **Trigger shape, all three (2026-09-19, spec/CI_MINUTES_PLAN.md item 8):**
 `pull_request: [opened, synchronize]` plus `push:` scoped to the branch(es)
@@ -78,44 +78,40 @@ covers what gates a consuming repo instead.
 
 ## The light check template
 
-Copy [`light-check.yml.template`](light-check.yml.template) to
-`.github/workflows/light-check.yml` — **by hand, after reading whatever is
-already there.** The installer does not place it and `github_ci_workflows` does
-not reach it, for the same reason `doc-lint-scheduled.yml.template` is
-never automatic: what it runs is a per-repository decision this repo cannot
-make for you.
+**The engine owns it, and a consumer never edits it** (since 2026-09-27).
+The installer writes it where `github_ci_workflows` allows, it is tracked in
+`ENGINE_MANIFEST.json` like `leak-gate.yml`, and every Update Vendors writes it
+from this template over whatever the consumer has, hand-made or hand-edited.
+The same refresh removes every other workflow upstream does not ship, unless
+the person approved it in their own words in `github_ci_approved`. Nothing is
+asked. Morgan, 2026-09-27: *"the point of the yml changes is to stop these
+extra needless (often hand edited) yml files from running, that's why we now
+run the checks locally etc so it shouldn't ask."*
 
-**Why it exists** ([spec/BILLING_FLOOR.md](../../spec/BILLING_FLOOR.md)).
+**It runs one thing, the vendored check suite, on a pull request into
+main.** A repository's own light check runs in its local push check before
+every push ([two-check-levels](https://github.com/alex137/BestPractice/blob/staging/practices/two-check-levels.md)),
+so GitHub's job is only to re-check what is about to reach `main` on a clean
+machine. Until 2026-09-27 this template carried a `CUSTOMIZE` line and told
+an adopter to copy their old command into it. That advice is what kept
+hand-made copies alive, and it is gone.
+
+**Why a shape exists at all** ([spec/BILLING_FLOOR.md](../../spec/BILLING_FLOOR.md)).
 [two-check-levels](https://github.com/alex137/BestPractice/blob/staging/practices/two-check-levels.md)
 tells every adopter to name a fast check and a full check. This repository
 shipped the **rule** and never shipped a **shape**, so twelve repositories
-each invented their own `light-check.yml` and not one got the one-job or
-`paths:` discipline the other templates here have. Measured on the
-2026-09-01..19 usage export: **609 billed minutes across those twelve,
-23.5% of the whole account** — the single largest line on the bill. A rule
-published without a shape is a rule everybody implements differently and
-expensively.
+each invented their own `light-check.yml` and not one got the one-job
+discipline the other templates here have. Measured on the 2026-09-01..19
+usage export: **609 billed minutes across those twelve, 23.5% of the whole
+account** — the single largest line on the bill.
 
-**It refuses to guess what your light check is,** and that refusal is the
-template's main feature. `two-check-levels` deliberately does not mandate
-the script; those twelve repositories run twelve different things, and at
-least one is a live required check. On 2026-09-20 a sweep deleted nine live
-checks across nine repositories on the theory that a filename absent from
-this tree meant a retired file. So the command is a marked `CUSTOMIZE`
-line, and the instruction is to carry across whatever your existing file
-ran rather than decide afresh.
-
-**Rule out the duplicate first.** If your light check runs the same script
-as `bestpractice-docs.yml` over the same paths on the same triggers, you
-are paying two billing floors for one check, and the fix is to delete one —
-not to template both.
-
-**The `paths:` filter is the only genuinely free lever in the file**, since
-GitHub evaluates it before allocating a runner: a run it skips costs
-nothing, where everything else here only makes a run cheaper. The shipped
-list is a documentation-shaped starting point and is explicitly not an
-answer — a repo whose light check reads Python source wants the Python glob
-there, and probably not the Markdown one.
+**Why replacing a hand-made copy is not the 2026-09-20 sweep.** That sweep
+deleted nine live checks across nine repositories on a guess from their
+filenames, and the checks were lost. Replacing a hand-made light check loses
+nothing: the checks it ran are the local push check's, and the refresh only
+replaces or removes a file git holds with no uncommitted edits, so its old
+content stays in history. Each removal names the scripts the file ran; if one
+is not in the repository's local gate, the fix is to run it there.
 
 ## The Markdown lint is NOT here any more
 

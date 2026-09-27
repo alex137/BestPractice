@@ -98,8 +98,8 @@ a run.
 
 ```json
 "ci_workflow_outside_vendoring_exempt": [
-  {"path": ".github/workflows/light-check.yml",
-   "reason": "this repo's own two-check-levels light check, unrelated to anything Precedent ever templated"}
+  {"path": ".github/workflows/<name>.yml",
+   "reason": "what it runs, and why it has to run in GitHub rather than in the local push check"}
 ]
 ```
 

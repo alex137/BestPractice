@@ -7132,6 +7132,146 @@ def check_update_vendors_survives_an_upstream_deletion():
             '; '.join(f'{n}: {d}' for n, d in bad))
 
 
+def check_update_vendors_converges_consumer_ci():
+    """A consumer comes out of Update Vendors with upstream's workflows, and
+    nobody is asked.
+
+    2026-09-27, a real consumer: its hand-made light-check.yml ran on every
+    push to main and every pull request, re-running checks its local push
+    gate already ran. The update left it alone (the light check was written
+    at install and never refreshed), and ci-workflow-approved then blocked
+    every push with "show the person the file and ask". Morgan (strength:
+    decided): "It should definitely definitely use the newer version from
+    upstream ... so it shouldn't ask."
+
+    The fixture is that consumer, installed by precedent_install.py, with
+    the installed light check replaced by a hand-made one and three more
+    workflows: one nobody approved (removed), one the person approved in
+    their own words (kept), and one with uncommitted edits (kept, because
+    its content exists nowhere else). Then the real one-command update.
+    Owns its state (practice: fixture-owns-its-state).
+    """
+    import hashlib
+    import tempfile
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-update-ci-'))
+    cases = []
+    env = dict(os.environ, HOME=str(tmp / 'home'), PRECEDENT_ALLOW_ANY_AUTHOR='1',
+               PRECEDENT_USER_CONFIG=str(tmp / 'no-user-config.json'),
+               GIT_AUTHOR_NAME='Fixture', GIT_AUTHOR_EMAIL='harness@example.com',
+               GIT_COMMITTER_NAME='Fixture', GIT_COMMITTER_EMAIL='harness@example.com')
+    for k in ('CLAUDE_CODE_REMOTE', 'PRECEDENT_LEAK_BLOCKLIST'):
+        env.pop(k, None)
+    (tmp / 'home').mkdir()
+
+    def sh(*argv, cwd):
+        r = subprocess.run(list(argv), cwd=str(cwd), env=env,
+                           capture_output=True, text=True)
+        return r.returncode, r.stdout + r.stderr
+
+    wf = '.github/workflows/'
+    LIGHT, EXTRA, KEPT, DIRTY = (wf + 'light-check.yml', wf + 'nightly.yml',
+                                 wf + 'report.yml', wf + 'scratch.yml')
+    template = (ROOT / 'templates' / 'github-actions' /
+                'light-check.yml.template').read_bytes()
+    hand_made = ('name: Light check\non:\n  push:\n    branches: [main]\n'
+                 '  pull_request:\njobs:\n  l:\n    runs-on: ubuntu-latest\n'
+                 '    steps:\n      - uses: actions/checkout@v4\n'
+                 '      - run: python3 tools/doc_lint.py\n'
+                 '      - run: python3 tools/light_check.py\n')
+    other = ('name: {}\non:\n  schedule:\n    - cron: "0 3 * * *"\njobs:\n'
+             '  j:\n    runs-on: ubuntu-latest\n    steps:\n'
+             '      - run: python3 tools/report_things.py\n')
+    try:
+        proj = tmp / 'proj'
+        sh('git', 'init', '-q', '-b', 'main', str(proj), cwd=tmp)
+        (proj / 'README.md').write_text('# Field Notes\n\nA newsletter about birds.\n',
+                                        encoding='utf-8')
+        sh('git', 'add', '-A', cwd=proj)
+        sh('git', 'commit', '-qm', 'before Precedent', cwd=proj)
+        rc, out = sh(sys.executable, str(ROOT / 'tools' / 'precedent_install.py'),
+                     str(proj), '--project-name', 'Field Notes', '--admin', 'dana',
+                     cwd=ROOT)
+        cases.append(('the fixture installs', rc == 0, out[-800:]))
+        for rel, text in ((LIGHT, hand_made), (EXTRA, other.format('nightly')),
+                          (KEPT, other.format('report')),
+                          (DIRTY, other.format('scratch'))):
+            (proj / rel).parent.mkdir(parents=True, exist_ok=True)
+            (proj / rel).write_text(text, encoding='utf-8')
+        cfg = json.loads((proj / 'precedent.json').read_text(encoding='utf-8'))
+        cfg['github_ci_approved'] = {KEPT: {
+            'sha256': hashlib.sha256((proj / KEPT).read_bytes()).hexdigest(),
+            'approved_by': 'Dana, 2026-09-27: "keep the nightly report"'}}
+        # The shape the real consumer was in: its own light check untracked
+        # by the manifest, approved the way the old install wrote it.
+        cfg['github_ci_approved'][LIGHT] = {
+            'sha256': hashlib.sha256((proj / LIGHT).read_bytes()).hexdigest(),
+            'approved_by': 'installed by precedent_install.py, 2026-09-25',
+            'template': 'light-check.yml.template'}
+        (proj / 'precedent.json').write_text(json.dumps(cfg, indent=2) + '\n',
+                                             encoding='utf-8')
+        mp = proj / 'tools' / 'ENGINE_MANIFEST.json'
+        m = json.loads(mp.read_text(encoding='utf-8'))
+        for key in ('ci_workflow_files', 'ci_workflows_sha256'):
+            m.pop(key, None)
+        m['ci_workflow_files'] = [r for r in [wf + 'leak-gate.yml']
+                                  if (proj / r).is_file()]
+        m['ci_workflows_sha256'] = {
+            r: hashlib.sha256((proj / r).read_bytes()).hexdigest()
+            for r in m['ci_workflow_files']}
+        mp.write_text(json.dumps(m, indent=2) + '\n', encoding='utf-8')
+        sh('git', 'add', '-A', cwd=proj)
+        sh('git', 'commit', '-qm', 'installed, with hand-made workflows', cwd=proj)
+        (proj / DIRTY).write_text(other.format('scratch') + '# local edit\n',
+                                  encoding='utf-8')
+        sh('git', 'clone', '-q', '--bare', str(proj), str(tmp / 'origin.git'), cwd=tmp)
+        sh('git', 'remote', 'add', 'origin', str(tmp / 'origin.git'), cwd=proj)
+        sh('git', 'fetch', '-q', 'origin', cwd=proj)
+
+        rc, out = sh(sys.executable, str(ROOT / 'tools' / 'precedent_update.py'),
+                     '--repo', str(proj), '--from-ref', _ref_including_worktree(ROOT),
+                     '--skip-check', cwd=proj)
+        cases.append(('the update finishes', rc in (0, 1), out[-2500:]))
+        cases.append(('the hand-made light check is now upstream\'s template, '
+                      'unmodified', (proj / LIGHT).read_bytes() == template,
+                      (proj / LIGHT).read_text(encoding='utf-8')[:300]))
+        cases.append(('the workflow nobody approved is gone',
+                      not (proj / EXTRA).exists(), ''))
+        cases.append(('the report says both were done, and that there was '
+                      'nothing to ask',
+                      'replaced ' + LIGHT in out and 'removed ' + EXTRA in out
+                      and 'nothing to ask' in out, out[-2500:]))
+        cases.append(('...and names the script the removed file ran, so it can '
+                      'run locally', 'report_things.py' in out, out[-2500:]))
+        cases.append(('NEGATIVE: the workflow the person approved in their own '
+                      'words is kept', (proj / KEPT).is_file(), ''))
+        cases.append(('NEGATIVE: a workflow with uncommitted edits is kept, '
+                      'since its content exists nowhere else',
+                      (proj / DIRTY).is_file() and 'local edit' in
+                      (proj / DIRTY).read_text(encoding='utf-8'), ''))
+        m = json.loads(mp.read_text(encoding='utf-8'))
+        cfg = json.loads((proj / 'precedent.json').read_text(encoding='utf-8'))
+        cases.append(('the manifest now tracks the light check, and its stale '
+                      'install approval is gone',
+                      m.get('ci_workflows_sha256', {}).get(LIGHT)
+                      == hashlib.sha256(template).hexdigest()
+                      and LIGHT not in cfg.get('github_ci_approved', {})
+                      and KEPT in cfg.get('github_ci_approved', {}),
+                      f"{m.get('ci_workflows_sha256')} {cfg.get('github_ci_approved')}"))
+        # Commit the scratch edit away, so only what the update did is judged.
+        sh('git', 'checkout', '-q', '--', DIRTY, cwd=proj)
+        sh('git', 'rm', '-q', '--', DIRTY, cwd=proj)
+        rc, out = sh(sys.executable, 'tools/precedent_check.py', '--only',
+                     'ci-workflow-approved', cwd=proj)
+        cases.append(('ci-workflow-approved passes afterwards, with no question '
+                      'for anybody', rc == 0 and '0 violated' in out, out[-1500:]))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    return (not bad, f'{len(cases)} stated cases',
+            '; '.join(f'{n}: {d}' for n, d in bad))
+
+
 def check_legacy_leftovers_retired_by_content():
     """The old install's leftovers leave an install on its next refresh,
     recognised by CONTENT -- tracked or not, hand-paused or not -- and a file
@@ -7260,9 +7400,11 @@ def check_legacy_leftovers_retired_by_content():
                       'only that one', [e['practice'] for e in entries]
                       == ['other'], str(entries)))
 
-        # 3. NEGATIVE: the same name, hand-authored -> kept and reported.
-        r3 = make('own', {DOCS: docs_own}, {'kind': 'consumer'})
-        res, left = sweep(r3)
+        # 3. NEGATIVE: the same name, hand-authored -> kept and reported. In
+        #    a practice SOURCE: in a consumer, CI converges to upstream since
+        #    2026-09-27 and the file goes (case 4c below).
+        r3 = make('own', {DOCS: docs_own}, {'kind': 'source'})
+        res, left = sweep(r3, 'source')
         cases.append(('NEGATIVE: a same-name hand-authored workflow is kept',
                       (r3 / DOCS).is_file(), str(res)))
         cases.append(('and reported under Left for you',
@@ -7272,13 +7414,29 @@ def check_legacy_leftovers_retired_by_content():
         # 4. NEGATIVE: a live trigger is kept, and the report says why.
         live = sync_stock.replace('  workflow_dispatch:', '  push:\n  '
                                   'workflow_dispatch:')
-        r4 = make('live', {SYNC: live}, {'kind': 'consumer'})
-        res, left = sweep(r4)
-        cases.append(('NEGATIVE: a stock-shaped file on a LIVE trigger is kept',
+        r4 = make('live', {SYNC: live}, {'kind': 'source'})
+        res, left = sweep(r4, 'source')
+        cases.append(('NEGATIVE: in a practice source, a stock-shaped file on '
+                      'a LIVE trigger is kept',
                       (r4 / SYNC).is_file(), str(res)))
         cases.append(('and the report names the live trigger',
                       any('still live' in w for w in left_names(left, SYNC)),
                       str(left)))
+
+        # 4c. In a CONSUMER both of those go (2026-09-27, CI_CONVERGES_KINDS):
+        #     the checks run locally, so a live workflow nobody approved is
+        #     what the change exists to stop. Committed and clean, so git
+        #     history keeps the content.
+        r4c = make('consumer-live', {SYNC: live, DOCS: docs_own},
+                   {'kind': 'consumer'})
+        res, left = sweep(r4c)
+        cases.append(('in a consumer, a live unapproved workflow and a '
+                      'hand-authored one under a retired name are removed, '
+                      'and nothing about them is left to ask',
+                      not (r4c / SYNC).exists() and not (r4c / DOCS).exists()
+                      and not left_names(left, SYNC)
+                      and not left_names(left, DOCS),
+                      f'{res} {left}'))
 
         # 4b. NEGATIVE: uncommitted edits are never destroyed.
         r4b = make('dirty', {SYNC: sync_stock}, {'kind': 'consumer'})
@@ -26010,18 +26168,29 @@ def check_ci_workflow_approved_pins_approval_to_content():
                       'SKIPPED, never a pass or a crash',
                       rc == 0 and 'SKIPPED' in out, out[-1500:]))
 
+        # Since 2026-09-27 the light check is an engine file like the leak
+        # gate: shipped through CI_WORKFLOW_TEMPLATES, tracked in the
+        # manifest the install writes, so it needs no approval entry.
+        cases.append(('the light check ships to consumers as an engine-owned, '
+                      'tracked workflow',
+                      ('light-check.yml.template', rel)
+                      in _pve.CI_WORKFLOW_TEMPLATES['consumer']
+                      and not hasattr(_pve, 'CI_INSTALL_ONLY_TEMPLATES')
+                      and not hasattr(_pi, '_approve_installed_workflow'), ''))
         inst = tmp / 'install'
         (inst / '.github' / 'workflows').mkdir(parents=True)
-        (inst / rel).write_text(body)
-        (inst / 'precedent.json').write_text(json.dumps({'sources': []}))
-        _pi._approve_installed_workflow(inst, rel, 'light-check.yml.template')
-        entry = json.loads((inst / 'precedent.json').read_text()).get(
-            'github_ci_approved', {}).get(rel, {})
-        cases.append(('an install-only template the installer writes is '
-                      'approved by the install, pinned, naming the template',
-                      entry.get('sha256') == sha
-                      and entry.get('template') == 'light-check.yml.template',
-                      str(entry)))
+        (inst / 'tools').mkdir()
+        shutil.copy(ROOT / 'templates' / 'github-actions' /
+                    'light-check.yml.template', inst / rel)
+        (inst / 'tools' / 'ENGINE_MANIFEST.json').write_text(
+            json.dumps({'kind': 'consumer'}))
+        _pve.record_ci_workflow_files(inst, 'consumer')
+        m = json.loads((inst / 'tools' / 'ENGINE_MANIFEST.json').read_text())
+        cases.append(('...and the install records it in the manifest, pinned '
+                      'to the template',
+                      m.get('ci_workflows_sha256', {}).get(rel)
+                      == hashlib.sha256((inst / rel).read_bytes()).hexdigest(),
+                      str(m)))
 
         for kind in ('consumer', 'source'):
             names = [n for n, _a, _r in _ppc.PUSH_CHECKS[kind]]
@@ -36490,6 +36659,8 @@ def main():
           *check_update_vendors_is_one_command())
     check('an update that deletes a vendored file upstream dropped ends DONE',
           *check_update_vendors_survives_an_upstream_deletion())
+    check('Update Vendors converges a consumer\'s CI to upstream, and asks nobody',
+          *check_update_vendors_converges_consumer_ci())
     check('the instruction files name only repositories that exist',
           *check_instruction_files_name_repos_that_exist())
     check('a consumer may declare a CI workflow its own and keep it',
