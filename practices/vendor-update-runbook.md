@@ -321,6 +321,15 @@ says so, both from the vendored tree under `process/upstream/`.
    to step around it
    ([gotcha](https://github.com/alex137/BestPractice/blob/staging/gotchas/gotcha-2026-09-26-the-carry-check-counted-upstream-s-own-deletions-as-lost.md)).
 
+   **`record` and `status` read the source clone's COMMITTED tree too**,
+   since 2026-09-27: `origin/<pinned branch>`, never the folder on disk.
+   So a gitignored file a session-start hook wrote into that clone --
+   `.claude/settings.local.json`, `.precedent/` -- can no longer fail
+   them, and `push` never deletes a file git does not track there. **If
+   `record` ever names one of those files, that is a bug to report, not a
+   file to delete**: deleting it only lasts until the next session start
+   writes it back.
+
    **Then decide every earlier decline again, in this same change.** Any
    upstream practice this repo once declined or deferred ("a duplicate of
    our own rule", "not now") was declined as its text stood *then*. For each

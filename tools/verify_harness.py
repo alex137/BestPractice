@@ -26548,6 +26548,144 @@ def check_checkin_update_never_mutates_the_clone():
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+def check_checkin_ignores_files_git_does_not_track_in_the_clone():
+    """`checkin.py` status/record compare against what is COMMITTED on the
+    pinned branch, and push never deletes a file git does not track.
+
+    2026-09-27, a real consumer's Update Vendors: `record` refused because
+    the BestPractice clone held `.claude/settings.local.json` -- gitignored,
+    written there by commit-identity.sh at session start to carry the
+    person's TZ. record walked the clone's FOLDER, so a per-machine file read
+    as "the clone has a file the vendored tree lacks". The session deleted
+    it and re-recorded; the next session start wrote it straight back.
+    `push` carried the same walk the other way and would have unlinked it,
+    along with `.precedent/` and any uncommitted file a person had there.
+
+    The clone also rests on a scratch branch whose commit is NOT what
+    landed, because record wrote the clone's HEAD into the manifest: the
+    upstream commit it stamps must be origin/<pinned branch>, whatever the
+    clone happens to have checked out.
+
+    Negative control (practice: control-asserts-which-failure): run against
+    the checkin.py before this fix, status reports the three stray files as
+    differing, record exits with "is not identical to the vendored tree",
+    and push unlinks all three -- measured 2026-09-27 when this was written.
+    """
+    import tempfile, json as _json
+    if not (ROOT / 'tools' / 'checkin.py').exists():
+        not_applicable('checkin.py ignores files git does not track in the '
+                       'clone', 'tools/checkin.py is not present in this tree')
+        return
+
+    def _git(d, *a):
+        return subprocess.run(['git', '-C', str(d)] + list(a),
+                              capture_output=True, text=True)
+
+    def _ident(d):
+        _git(d, 'config', 'user.email', 'harness@example.com')
+        _git(d, 'config', 'user.name', 'Harness')
+        _git(d, 'config', 'commit.gpgsign', 'false')
+
+    shipped = {
+        'marker.txt': 'upstream content\n',
+        'retired.txt': 'upstream stops vendoring this in the push case\n',
+        '.gitignore': '.claude/settings.local.json\n.precedent/\n',
+        'tools/checkin.py': (ROOT / 'tools' / 'checkin.py').read_text(encoding='utf-8'),
+        'tools/precedent_time.py': (ROOT / 'tools' / 'precedent_time.py'
+                                    ).read_text(encoding='utf-8'),
+        # push() runs the vendored scrub first; this fixture is about the
+        # mirror, so the scrub is a stub that passes.
+        'tools/practice_audit.py': 'raise SystemExit(0)\n',
+    }
+    # What a SessionStart hook writes into every clone it runs in, plus a
+    # person's own uncommitted file. None of it is upstream content.
+    stray = {
+        '.claude/settings.local.json': '{"env": {"TZ": "America/New_York"}}\n',
+        '.precedent/SESSION_PRACTICES.md': 'practices in force this session\n',
+        'notes-in-progress.txt': 'somebody\'s uncommitted work\n',
+    }
+
+    def _write(root, files):
+        for rel, text in files.items():
+            (root / rel).parent.mkdir(parents=True, exist_ok=True)
+            (root / rel).write_text(text, encoding='utf-8')
+
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        base = pathlib.Path(td)
+        up = base / 'up'
+        up.mkdir()
+        _git(up, 'init', '-q', '-b', 'main'); _ident(up)
+        _write(up, shipped)
+        _git(up, 'add', '-A'); _git(up, 'commit', '-qm', 'upstream')
+
+        clone = base / 'clone'
+        subprocess.run(['git', 'clone', '-q', str(up), str(clone)],
+                       capture_output=True)
+        _ident(clone)
+        landed = _git(clone, 'rev-parse', 'origin/main').stdout.strip()
+        _git(clone, 'checkout', '-qb', 'scratch')
+        (clone / 'marker.txt').write_text('scratch, not what landed\n',
+                                          encoding='utf-8')
+        _git(clone, 'commit', '-qam', 'scratch')
+        _write(clone, stray)
+
+        # The consumer is a repo of its own, so checkin.py resolves ROOT to
+        # it and not to whatever repository the temp directory sits in
+        # (practice: fixture-owns-its-state).
+        consumer = base / 'consumer'
+        vend = consumer / 'process' / 'upstream'
+        vend.mkdir(parents=True)
+        _git(consumer, 'init', '-q', '-b', 'main'); _ident(consumer)
+        _write(vend, shipped)
+        manifest = consumer / 'process' / 'manifest.json'
+        manifest.write_text(_json.dumps({'upstream': {
+            'repo': 'x/y', 'branch': 'main', 'commit': landed,
+            'synced_from': landed}, 'entries': []}) + '\n', encoding='utf-8')
+
+        def run(sub, *extra):
+            r = subprocess.run([sys.executable, str(vend / 'tools' / 'checkin.py'),
+                                sub, str(clone), *extra],
+                               capture_output=True, text=True, cwd=str(consumer),
+                               timeout=180)
+            return r.returncode, r.stdout + r.stderr
+
+        rc, out = run('status')
+        cases.append(('status counts no gitignored or uncommitted clone file '
+                      'as a difference', rc == 0 and ' 0 file(s) differ' in out,
+                      out))
+
+        rc, out = run('record', '--note', 'harness fixture')
+        recorded = _json.loads(manifest.read_text(encoding='utf-8')
+                               )['upstream']['commit']
+        cases.append(('record passes with the stray files in the clone',
+                      rc == 0 and 'checkin record OK' in out, out))
+        cases.append(('record stamps origin/<pinned branch>, not the clone\'s '
+                      'HEAD on another branch', recorded == landed,
+                      f'recorded={recorded} landed={landed}'))
+
+        # push: upstream stops vendoring retired.txt. The tracked file must
+        # still go; the three stray files must not.
+        _git(clone, 'checkout', '-q', 'main')
+        (vend / 'retired.txt').unlink()
+        rc, out = run('push')
+        cases.append(('push still deletes a tracked file the vendored tree '
+                      'dropped', rc == 0 and 'checkin push OK' in out
+                      and not (clone / 'retired.txt').exists(), out))
+        survived = [rel for rel, text in stray.items()
+                    if (clone / rel).is_file()
+                    and (clone / rel).read_text(encoding='utf-8') == text]
+        cases.append(('push leaves every file git does not track in the clone '
+                      'untouched', len(survived) == len(stray),
+                      f'survived={survived}\n{out}'))
+        cases.append(('and says it left them alone',
+                      'left 3 file(s) git does not track' in out, out))
+
+    failed = [f'{n}: {d[:400]}' for n, ok, d in cases if not ok]
+    check(f'checkin.py ignores files git does not track in the source clone '
+          f'({len(cases)} stated cases)', not failed, '\n'.join(failed))
+
+
 def check_title_case_leaves_code_and_first_word_alone():
     """Headline capitalization never reaches inside an inline code span, and
     the first WORD after an enumerator is capitalized.
@@ -35967,6 +36105,7 @@ def main():
     check_title_case_never_corrupts_content()
     check_title_case_output_paths_inverts_the_default()
     check_checkin_update_never_mutates_the_clone()
+    check_checkin_ignores_files_git_does_not_track_in_the_clone()
     check_leak_gate_notes_an_uncovered_private_repo()
     check_leak_gate_discovers_the_individual_blocklist()
     check_leak_gate_names_a_stale_blocklist_clone()

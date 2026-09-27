@@ -527,9 +527,15 @@ def fresh():
 
 
 def status(clone):
-    added, modified, deleted = _diff(clone)
+    # A fetch moves remote-tracking refs only; the clone's HEAD, branch and
+    # working tree are untouched. Without it, status would compare against
+    # whatever origin/<branch> was at the last fetch.
+    subprocess.run(['git', '-C', str(clone), 'fetch', 'origin',
+                    _tracked_branch(clone)], capture_output=True, text=True)
+    ref, head = _landed_commit(clone)
+    with tempfile.TemporaryDirectory() as landed_dir:
+        added, modified, deleted = _diff(_tree_at(clone, head, landed_dir))
     recorded = _manifest().get('upstream', {}).get('commit')
-    head = _git(clone, 'rev-parse', 'HEAD')
     for p in added:
         print(f"  A {p}")
     for p in modified:
@@ -537,10 +543,10 @@ def status(clone):
     for p in deleted:
         print(f"  D {p}")
     n = len(added) + len(modified) + len(deleted)
-    print(f"vendored vs clone: {n} file(s) differ "
+    print(f"vendored vs {ref} (committed content only): {n} file(s) differ "
           f"({len(added)} added, {len(modified)} modified, {len(deleted)} deleted)")
     print(f"manifest upstream.commit: {recorded}")
-    print(f"clone HEAD:               {head}"
+    print(f"{ref}:{' ' * max(1, 25 - len(ref))}{head}"
           + ("  (== recorded)" if _same_commit(head, recorded)
              else "  (!= recorded)"))
     return 1 if n else 0
@@ -633,6 +639,35 @@ def _tracked_branch(clone):
     """
     recorded = (_manifest().get('upstream', {}) or {}).get('branch')
     return recorded or _default_branch(clone)
+
+
+def _landed_commit(clone):
+    """-> (ref, commit): what is COMMITTED on the branch this install is
+    pinned to -- `origin/<branch>`, or the local branch when the clone has no
+    remote-tracking copy of it. record() and status() compare against the
+    tree at this commit, extracted by _tree_at(), and never against the
+    clone's working tree.
+
+    The working tree is not upstream content. A SessionStart hook writes
+    per-machine, gitignored files into every clone it runs in --
+    commit-identity.sh's `.claude/settings.local.json` (the person's TZ),
+    precedent_session_practices.py's `.precedent/` -- and _files() walked
+    the folder, so each one read as "the clone has a file the vendored tree
+    lacks" and record refused. 2026-09-27, a real consumer's Update Vendors:
+    the session deleted the file and re-recorded, and the next session start
+    wrote it straight back. Reading the committed tree answers the question
+    record is actually asking -- does the vendored tree match what landed
+    upstream -- for every ignored or uncommitted file, present and future.
+    update() has read its source this way since 2026-09-06.
+    """
+    branch = _tracked_branch(clone)
+    for ref in (f'origin/{branch}', branch):
+        commit = _rev_parse_quiet(clone, ref)
+        if commit:
+            return ref, commit
+    sys.exit(f"checkin FAIL: {clone} has no {branch} or origin/{branch} to "
+             f"compare against. This install records upstream.branch = "
+             f"{branch!r}; fetch that branch in the clone first.")
 
 
 def _pinned_branch_hold(clone, allow=False):
@@ -888,6 +923,21 @@ def push(clone, force=False):
     if subprocess.run([sys.executable, str(audit)]).returncode != 0:
         sys.exit("checkin FAIL: practice_audit (scrub) failed — nothing was copied")
     added, modified, deleted = _diff(clone)
+    # Delete only what git tracks in the clone (practice:
+    # repair-cannot-discard-work). An untracked or gitignored file there is
+    # not upstream content -- a per-machine `.claude/settings.local.json`, a
+    # session's `.precedent/`, a person's uncommitted work -- and the mirror
+    # used to unlink every one of them as "not in the vendored tree". A
+    # failed ls-files leaves `tracked` empty, which deletes nothing.
+    rc, listed = _git_rc(clone, 'ls-files', '-z')
+    tracked = set(listed.split('\0')) if rc == 0 else set()
+    untracked = [p for p in deleted if p.as_posix() not in tracked]
+    deleted = [p for p in deleted if p.as_posix() in tracked]
+    if untracked:
+        print(f"checkin push: left {len(untracked)} file(s) git does not track "
+              f"in {clone} alone: "
+              + ', '.join(p.as_posix() for p in untracked[:5])
+              + (' ...' if len(untracked) > 5 else ''))
     if not (added or modified or deleted):
         print("checkin push: vendored tree and clone already identical — nothing to do.")
         return 0
@@ -970,14 +1020,15 @@ def _committed_tree_bases(clone, base, dep_ref):
     return bases
 
 
-def _upstream_deleted_lines(clone, bases, rel):
-    """-> every line an upstream commit between any of `bases` and the
-    clone's HEAD removed from `rel`. A line in that set that the committed
-    tree has and the landed tree lacks is upstream's own deletion."""
+def _upstream_deleted_lines(clone, bases, rel, tip='HEAD'):
+    """-> every line an upstream commit between any of `bases` and `tip`
+    (the landed commit record() compares against) removed from `rel`. A line
+    in that set that the committed tree has and the landed tree lacks is
+    upstream's own deletion."""
     out = set()
     for b in bases:
         rc, log = _git_rc(clone, 'log', '-p', '--format=', '--no-renames',
-                          f'{b}..HEAD', '--', rel)
+                          f'{b}..{tip}', '--', rel)
         if rc != 0:
             continue
         out.update(l[1:] for l in log.splitlines()
@@ -985,7 +1036,7 @@ def _upstream_deleted_lines(clone, bases, rel):
     return out
 
 
-def _carry_check(clone, accept_loss):
+def _carry_check(clone, accept_loss, landed_root=None, tip='HEAD'):
     """No pending vendored addition may vanish across a check-in cycle.
 
     The failure this kills (2026-08-19, real): the vendored tree carried
@@ -1027,7 +1078,14 @@ def _carry_check(clone, accept_loss):
     which an upstream commit between one of those and the landed HEAD
     deleted is reported as upstream's deletion and not counted. A line
     upstream never wrote still fails the check, exactly as before.
+
+    THE LANDED SIDE IS READ FROM `landed_root`, the committed tree record()
+    extracted at `tip`, never from the clone's working tree -- for the same
+    reason record()'s tree comparison is (see _landed_commit). With neither
+    given it falls back to the clone's working tree and HEAD, which only a
+    direct caller that has no landed commit to name should rely on.
     """
+    landed_root = pathlib.Path(landed_root) if landed_root else clone
     base = _manifest().get('upstream', {}).get('commit')
     if not base:
         return
@@ -1092,17 +1150,17 @@ def _carry_check(clone, accept_loss):
         pending = {l for l in pending if len(l.strip()) > 3}
         if not pending:
             continue
-        landed = (clone / rel).read_text(encoding='utf-8', errors='replace') \
-            if (clone / rel).exists() else ''
+        landed = (landed_root / rel).read_text(encoding='utf-8', errors='replace') \
+            if (landed_root / rel).exists() else ''
         missing = {l for l in pending if l not in landed.splitlines()}
         if missing:
             if landed_all is None:
-                landed_all = '\n'.join((clone / f).read_text(encoding='utf-8', errors='replace')
-                                        for f in _files(clone) if (clone / f).suffix
+                landed_all = '\n'.join((landed_root / f).read_text(encoding='utf-8', errors='replace')
+                                        for f in _files(landed_root) if (landed_root / f).suffix
                                         in ('.md', '.py', '.sh', '.json', '.yml', '.template'))
             missing = {l for l in missing if l not in landed_all}
         if missing:
-            deleted_upstream = _upstream_deleted_lines(clone, bases, rel)
+            deleted_upstream = _upstream_deleted_lines(clone, bases, rel, tip)
             upstream_deleted += len(missing & deleted_upstream)
             missing -= deleted_upstream
         if missing:
@@ -1145,14 +1203,22 @@ def record(clone, note, accept_loss=False):
         print(f"NOTICE: could not fetch origin/{branch} in {clone} "
               f"({fetched.stderr.strip()}) -- recording against whatever that "
               f"clone already has for {branch}, which may be behind.")
-    _carry_check(clone, accept_loss)
-    added, modified, deleted = _diff(clone)
+    # What LANDED is the committed tree on the pinned branch, not the clone's
+    # working tree and not its HEAD, which may sit on any branch (see
+    # _landed_commit). Recording HEAD stamped whatever branch the clone
+    # happened to be on as the upstream commit.
+    ref, head = _landed_commit(clone)
+    with tempfile.TemporaryDirectory() as landed_dir:
+        landed = _tree_at(clone, head, landed_dir)
+        _carry_check(clone, accept_loss, landed, head)
+        added, modified, deleted = _diff(landed)
     if added or modified or deleted:
         for p in added + modified + deleted:
             print(f"  differs: {p}")
-        sys.exit(f"checkin FAIL: clone {branch} is not identical to the vendored tree — "
-                 f"merge/pull upstream first (or push the missing export); nothing recorded")
-    head = _git(clone, 'rev-parse', 'HEAD')
+        sys.exit(f"checkin FAIL: {ref} @ {head[:12]} is not identical to the vendored "
+                 f"tree — merge/pull upstream first (or push the missing export); "
+                 f"nothing recorded. Compared against what is committed there, so a "
+                 f"gitignored or uncommitted file in the clone is never the cause.")
     manifest = _manifest()
     up = manifest.setdefault('upstream', {})
     if SOURCE and 'source' not in manifest:
