@@ -7031,6 +7031,174 @@ def check_update_vendors_is_one_command():
             '; '.join(f'{n}: {d}' for n, d in bad))
 
 
+def _already_tested_step(text):
+    """-> the `run:` script of the step with `id: already` in a workflow's
+    text, dedented, or '' when there is none. Read by line, not by PyYAML:
+    GitHub's runner has none (see workflow_triggers_text)."""
+    lines = text.splitlines()
+    try:
+        at = lines.index('        id: already')
+    except ValueError:
+        return ''
+    try:
+        start = lines.index('        run: |', at) + 1
+    except ValueError:
+        return ''
+    body = []
+    for line in lines[start:]:
+        if line.strip() and not line.startswith(' ' * 10):
+            break
+        body.append(line[10:])
+    return '\n'.join(body).rstrip() + '\n'
+
+
+def check_push_to_main_skips_what_already_passed():
+    """A push to main re-runs main's GitHub test only when its exact files
+    have not already passed that same workflow -- and runs it whenever that
+    is not certain.
+
+    Morgan, 2026-09-27 (strength: decided): the second GitHub run of a
+    Promote "should not run the second time ... if it had just run before,
+    and nothing had changed". The decision is a shell step shipped twice --
+    this repo's deep-check.yml and the consumer light-check template -- so
+    the two copies must be the same text, and the text is run here against
+    a real git history with a stand-in for GitHub's API.
+
+    THE NEGATIVE CASES ARE THE POINT. A skip that fires wrongly is a gate
+    that silently stops gating, so each skip is paired with the same shape
+    where it must run: main moved under the pull request, nothing passed
+    yet, the API unreachable, and identical files that reached main by
+    another route (the other parent is not inside the tested commit).
+    Owns its state (practice: fixture-owns-its-state)."""
+    import tempfile
+    cases = []
+    wf = (ROOT / '.github' / 'workflows' / 'deep-check.yml')
+    tpl = ROOT / 'templates' / 'github-actions' / 'light-check.yml.template'
+    s_wf = _already_tested_step(wf.read_text(encoding='utf-8')) if wf.is_file() else ''
+    s_tpl = _already_tested_step(tpl.read_text(encoding='utf-8'))
+    cases.append(('the consumer template carries the skip step', bool(s_tpl.strip()), ''))
+    if wf.is_file():
+        cases.append(('deep-check.yml carries the same skip step, word for word',
+                      s_wf == s_tpl, ''))
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-already-tested-'))
+    try:
+        repo = tmp / 'repo'
+        env = dict(os.environ, GIT_AUTHOR_NAME='Fixture', GIT_AUTHOR_EMAIL='h@example.com',
+                   GIT_COMMITTER_NAME='Fixture', GIT_COMMITTER_EMAIL='h@example.com',
+                   HOME=str(tmp))
+
+        def git(*a):
+            r = subprocess.run(['git', *a], cwd=str(repo), env=env,
+                               capture_output=True, text=True)
+            if r.returncode:
+                raise RuntimeError(r.stderr)
+            return r.stdout.strip()
+
+        def commit(name, body='x\n', msg=None):
+            (repo / name).write_text(body, encoding='utf-8')
+            git('add', '-A')
+            git('commit', '-qm', msg or name)
+            return git('rev-parse', 'HEAD')
+
+        subprocess.run(['git', 'init', '-q', '-b', 'main', str(repo)], env=env, check=True)
+        commit('a')
+        # 1. The ordinary Promote merge: the head already contains main.
+        git('checkout', '-qb', 'h1')
+        h1 = commit('b')
+        git('checkout', '-q', 'main')
+        git('merge', '-q', '--no-ff', '-m', 'm1', 'h1')
+        m1 = git('rev-parse', 'HEAD')
+        # 2. Main moved under the pull request: the merge lands files the
+        #    head never had.
+        base = m1
+        commit('c')
+        git('checkout', '-qb', 'h2', base)
+        h2 = commit('d')
+        git('checkout', '-q', 'main')
+        git('merge', '-q', '--no-ff', '-m', 'm2', 'h2')
+        m2 = git('rev-parse', 'HEAD')
+        # 3. Identical files by another route: main added `e`, the head added
+        #    the same `e` on its own. Same tree, but main's commit is not
+        #    inside the head, so the head's run never saw main's history.
+        base = m2
+        commit('e', 'same\n')
+        git('checkout', '-qb', 'h3', base)
+        # Its own message, or git would make it the very commit main has
+        # (same parent, tree, author and second) and the case would test
+        # nothing.
+        commit('e', 'same\n', msg='e, added on the head')
+        h3 = commit('f')
+        git('checkout', '-q', 'main')
+        git('merge', '-q', '--no-ff', '-m', 'm3', 'h3')
+        m3 = git('rev-parse', 'HEAD')
+        same_tree = (git('rev-parse', f'{m3}^{{tree}}') == git('rev-parse', f'{h3}^{{tree}}')
+                     and subprocess.run(['git', 'merge-base', '--is-ancestor', 'main^1', h3],
+                                        cwd=str(repo), env=env).returncode != 0)
+        # 4. A direct push: one parent, tested (or not) as itself.
+        c4 = commit('g')
+
+        fake = tmp / 'bin'
+        fake.mkdir()
+        passed = tmp / 'passed.txt'
+        (fake / 'gh').write_text(
+            '#!/bin/sh\n'
+            '[ -n "${FAKE_GH_FAIL:-}" ] && exit 1\n'
+            'case "$2" in\n'
+            '  */actions/runs/*) echo 42 ;;\n'
+            '  */actions/workflows/42/runs*)\n'
+            '    sha=$(printf %s "$2" | sed \'s/.*head_sha=\\([0-9a-f]*\\).*/\\1/\')\n'
+            '    if grep -qx "$sha" "$FAKE_GH_PASSED"; then echo 1; else echo 0; fi ;;\n'
+            '  *) exit 1 ;;\n'
+            'esac\n', encoding='utf-8')
+        os.chmod(fake / 'gh', 0o755)
+        script = tmp / 'step.sh'
+        script.write_text(s_tpl, encoding='utf-8')
+
+        def decide(sha, passed_shas, fail=False):
+            passed.write_text(''.join(s + '\n' for s in passed_shas), encoding='utf-8')
+            out, summ = tmp / 'out', tmp / 'summary'
+            out.write_text('')
+            summ.write_text('')
+            e = dict(env, PATH=f'{fake}:{env.get("PATH", "")}', GITHUB_SHA=sha,
+                     GITHUB_REPOSITORY='o/r', GITHUB_RUN_ID='7',
+                     GITHUB_OUTPUT=str(out), GITHUB_STEP_SUMMARY=str(summ),
+                     FAKE_GH_PASSED=str(passed))
+            if fail:
+                e['FAKE_GH_FAIL'] = '1'
+            r = subprocess.run(['bash', str(script)], cwd=str(repo), env=e,
+                               capture_output=True, text=True)
+            return r.returncode, out.read_text(), summ.read_text()
+
+        rc, out, summ = decide(m1, [h1])
+        cases.append(('a merge whose head already held main, head passed: skips, and says so',
+                      rc == 0 and 'skip=true' in out and h1 in summ, out + summ))
+        rc, out, _ = decide(m1, [])
+        cases.append(('...the same merge with no passing run: runs', 'skip=false' in out, out))
+        rc, out, _ = decide(m1, [h1], fail=True)
+        cases.append(('...the same merge with the API unreachable: runs', 'skip=false' in out, out))
+        rc, out, _ = decide(m2, [h2])
+        cases.append(('main moved under the pull request, head passed: runs',
+                      'skip=false' in out, out))
+        cases.append(('the fixture really has identical files by another route', same_tree, ''))
+        rc, out, _ = decide(m3, [h3])
+        cases.append(('identical files, but main\'s commit is not inside the tested head: runs',
+                      'skip=false' in out, out))
+        rc, out, _ = decide(c4, [c4])
+        cases.append(('a direct push of a commit that already passed: skips',
+                      'skip=true' in out, out))
+        rc, out, _ = decide(c4, [m3])
+        cases.append(('a direct push of new files, its parent passed: runs',
+                      'skip=false' in out, out))
+    except RuntimeError as e:
+        cases.append(('the fixture builds', False, str(e)[-400:]))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    return (not bad, f'{len(cases)} stated cases',
+            '; '.join(f'{n}: {d}' for n, d in bad))
+
+
 def check_update_vendors_survives_an_upstream_deletion():
     """An update that deletes a vendored .py file upstream dropped ends DONE,
     and the deep check judges the tree the commit will hold.
@@ -36676,6 +36844,8 @@ def main():
           *check_update_vendors_is_one_command())
     check('an update that deletes a vendored file upstream dropped ends DONE',
           *check_update_vendors_survives_an_upstream_deletion())
+    check('a push to main skips main\'s GitHub test only when those exact files already passed it',
+          *check_push_to_main_skips_what_already_passed())
     check('Update Vendors converges a consumer\'s CI to upstream, and asks nobody',
           *check_update_vendors_converges_consumer_ci())
     check('the instruction files name only repositories that exist',
