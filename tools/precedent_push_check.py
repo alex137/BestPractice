@@ -520,6 +520,68 @@ CHANGED_PRACTICE_CHECK = ('changed_practice',
                           'the practice checks, on the files this push changes')
 
 
+# The file-level checks on the same changed files (Morgan, 2026-09-27,
+# strength: decided: "these ones only check the individual files and ...
+# the files that need to be generated. Nothing more than that"). Each looks
+# only at a file the push created or changed, or at the generated files a
+# changed practice feeds -- never at the rest of the repository:
+#   - a changed Python file compiles;
+#   - a changed shell script parses (bash -n);
+#   - a changed practice file's generated views (AGENTS.md, MAP.md,
+#     GLOSSARY.md) were regenerated with it -- in a repository whose own
+#     views build_views.py renders, which is BestPractice and a practice set.
+# A push sends commits that already exist, so this can only refuse, never
+# regenerate: it names the command that does.
+CHANGED_FILES_CHECK = ('changed_files',
+                       'the changed files compile or parse, and a changed '
+                       'practice regenerated its views')
+
+
+def _changed_paths(root, since):
+    out = git(root, 'diff', '--name-only', '--diff-filter=AMR', f'{since}...HEAD')
+    return [l for l in (out or '').splitlines() if l.strip()]
+
+
+def changed_files_check(root, since):
+    """-> 0 when every file the change touches is sound, 1 with each
+    problem named. Reads nothing but the changed files, and the views a
+    changed practice feeds."""
+    files = _changed_paths(root, since)
+    problems = []
+    for rel in files:
+        path = root / rel
+        if not path.is_file():
+            continue
+        if rel.endswith('.py'):
+            try:
+                compile(path.read_text(encoding='utf-8'), rel, 'exec')
+            except (SyntaxError, ValueError, UnicodeDecodeError) as e:
+                problems.append(f'{rel}: does not compile -- {e}')
+        elif rel.endswith('.sh'):
+            r = subprocess.run(['bash', '-n', str(path)], capture_output=True,
+                               text=True)
+            if r.returncode != 0:
+                problems.append(f'{rel}: does not parse -- '
+                                f'{(r.stderr or r.stdout).strip()[:300]}')
+    practice = [f for f in files if f.endswith('.md')
+                and (f.startswith('practices/') or '/practices/' in f)]
+    build = root / 'tools' / 'build_views.py'
+    if practice and build.is_file() and repo_kind(HERE) in ('upstream', 'source'):
+        r = subprocess.run([sys.executable, str(build), '--repo', '.', '--check'],
+                           cwd=root, capture_output=True, text=True)
+        if r.returncode != 0:
+            problems.append(
+                f'{practice[0]}{" and others" if len(practice) > 1 else ""} '
+                f'changed, and the generated views were not regenerated with '
+                f'it -- run `python3 tools/build_views.py` and commit what it '
+                f'rewrites. ' + (r.stdout + r.stderr).strip().splitlines()[0][:300])
+    for line in problems:
+        print(f'  {line}')
+    print(f'changed_files: {len(files)} changed file(s) checked, '
+          f'{len(problems)} problem(s).')
+    return 1 if problems else 0
+
+
 def _changed_since(root, argv):
     """-> the ref a push's change is measured from, or None. `--changed-since
     REF` names it (the merge gate passes the pull request's base); otherwise
@@ -677,6 +739,10 @@ def main(argv):
         return 1
     tier, why = _tier_from_args(root, argv)
     kind, checks = plan(root, tier=tier)
+    if '--changed-files-check' in argv:
+        i = argv.index('--changed-files-check')
+        return changed_files_check(root, argv[i + 1] if i + 1 < len(argv)
+                                   else 'origin/pre-staging')
     since = _changed_since(root, argv) if tier == BASIC else None
     if since and kind is not None:
         rel = HERE.relative_to(root) if HERE.is_relative_to(root) else HERE
@@ -685,6 +751,10 @@ def main(argv):
                         '--full-sweep', '--range', f'{since}...HEAD',
                         '--changed-files-only'],
                        CHANGED_PRACTICE_CHECK[1]))
+        checks.append((CHANGED_FILES_CHECK[0],
+                       [sys.executable, str(rel / 'precedent_push_check.py'),
+                        '--changed-files-check', since],
+                       CHANGED_FILES_CHECK[1]))
     if kind is None:
         print(f'precedent_push_check: cannot tell what kind of repository '
               f'{root} is (no ENGINE_MANIFEST.json kind beside this file, and '
