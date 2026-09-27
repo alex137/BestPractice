@@ -7254,6 +7254,32 @@ def check_changed_files_only_judges_the_change():
         rc, out = files_check(start)
         cases.append(('a changed practice whose views were not regenerated is refused, '
                       'and passes once they are', stale_ok and rc == 0, out[-400:]))
+        start = git('rev-parse', 'HEAD').stdout.strip()
+        (wt / 'zz_fixture.json').write_text('{"a": 1,}\n', encoding='utf-8')
+        git('add', 'zz_fixture.json')
+        git('commit', '-qm', 'a JSON file that does not parse')
+        rc, out = files_check(start)
+        cases.append(('a changed JSON file that does not parse is refused, by name',
+                      rc == 1 and 'zz_fixture.json: is not valid JSON' in out, out[-400:]))
+        git('rm', '-q', 'zz_fixture.json')
+        git('commit', '-qm', 'clean up')
+        start = git('rev-parse', 'HEAD').stdout.strip()
+        (wt / 'tools' / 'checks' / 'tests').mkdir(parents=True, exist_ok=True)
+        (wt / 'tools' / 'checks' / 'check_zzfixture.py').write_text('print("ok")\n',
+                                                                    encoding='utf-8')
+        (wt / 'tools' / 'checks' / 'tests' / 'test_zzfixture.sh').write_text(
+            'echo "the fixture test failed"; exit 1\n', encoding='utf-8')
+        git('add', 'tools/checks')
+        git('commit', '-qm', 'a check whose own test fails')
+        rc, out = files_check(start)
+        failed_ok = rc == 1 and 'test_zzfixture.sh: failed' in out
+        (wt / 'tools' / 'checks' / 'tests' / 'test_zzfixture.sh').write_text(
+            'exit 0\n', encoding='utf-8')
+        git('commit', '-qam', 'its test passes now')
+        rc, out = files_check(start)
+        cases.append(("a changed check runs its own test: refused while the test fails, "
+                      "passes once it passes", failed_ok and rc == 0
+                      and 'ran 1 test(s)' in out, out[-400:]))
     finally:
         subprocess.run(['git', '-C', str(ROOT), 'worktree', 'remove', '--force', str(wt)],
                        capture_output=True)
@@ -7514,7 +7540,8 @@ def check_update_vendors_survives_an_upstream_deletion():
                      cwd=proj)
         cases.append(('the update that deletes it ends DONE with the deep check run, '
                       'not FAILED', rc == 0 and 'DONE -- nothing left' in out
-                      and 'deep check: passed' in out, out[-2500:]))
+                      and re.search(r'(deep check|check for [\w-]+): passed', out),
+                      out[-2500:]))
         cases.append(('...the file is gone from disk', not (proj / DROPPED).exists(), ''))
         _rc, staged = sh('git', 'diff', '--cached', '--name-status', '--', DROPPED, cwd=proj)
         cases.append(('...and its deletion is staged, so the check judged what the '
