@@ -615,6 +615,23 @@ def _git(*args, cwd=None):
                           capture_output=True, text=True)
 
 
+def _ls_files_on_disk(*args, root=None):
+    """`git ls-files ARGS`, minus any path no longer on disk.
+
+    `ls-files` reads the INDEX, so a file deleted in the working tree and not
+    yet staged is still listed -- and a check that then reads it reports a
+    file that does not exist as unreadable. Found 2026-09-27 in a consumer
+    taking an update: `checkin.py update` deleted two files upstream had
+    dropped, the deep check ran before anything was staged, and
+    timestamps-carry-offset failed the whole update on "could not be parsed"
+    for a file that was simply gone. The tree a check judges is the one on
+    disk, which is the one the commit will hold once it is staged. lexists,
+    so a symlink that points nowhere is still listed and judged."""
+    base = pathlib.Path(root or ROOT)
+    return [f for f in _git('ls-files', *args, cwd=base).stdout.split()
+            if f and os.path.lexists(base / f)]
+
+
 def _instructions_file():
     """The file a session's harness actually loads. AGENTS.md is the
     convention here; CLAUDE.md @-includes it."""
@@ -639,7 +656,7 @@ class Ctx:
                           or not _git('cat-file', '-e', f'HEAD:{p}').returncode == 0]
             self.base = 'HEAD'
         elif whole_tree:
-            self.changed = _git('ls-files').stdout.split()
+            self.changed = _ls_files_on_disk()
             self.added = []
             self.base = 'HEAD'
         elif rng:
@@ -1842,8 +1859,7 @@ def _filename_separator(ctx):
     # (rename-updates-links). `--exclude-standard` keeps .gitignore'd noise
     # out. Plain `ls-files` was tried first and could not see an uncommitted
     # file at all, which the harness's own planted case caught.
-    for f in _git('ls-files', '--cached', '--others',
-                  '--exclude-standard').stdout.split():
+    for f in _ls_files_on_disk('--cached', '--others', '--exclude-standard'):
         if any(f.startswith(x) for x in _separator_foreign()):
             continue
         path = pathlib.PurePath(f)
@@ -4580,9 +4596,10 @@ def _timestamps_carry_offset(ctx):
     ENGINE = 'tools/precedent_time.py'
 
     out = []
-    files = [f for f in _git('ls-files', '--cached', '--others',
-                             '--exclude-standard', '--', '*.py').stdout.split()
-             if f and f != ENGINE]
+    files = [f for f in _ls_files_on_disk('--cached', '--others',
+                                          '--exclude-standard', '--', '*.py',
+                                          root=ctx.root)
+             if f != ENGINE]
     if not files:
         raise NotApplicable('no tracked Python files in this repository')
 
@@ -8598,7 +8615,7 @@ def _touched_files():
                 base = cand
                 break
     if base is None:
-        return sorted(x for x in _git('ls-files').stdout.split() if x)
+        return sorted(_ls_files_on_disk())
     out = set()
     for args in (['diff', '--name-only', '--diff-filter=d', f'{base}...HEAD'],
                  ['diff', '--name-only', '--diff-filter=d'],
