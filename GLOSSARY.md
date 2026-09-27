@@ -35,6 +35,7 @@ Built from every practice's `defines:` frontmatter field -- the terms that pract
 | generated artifact | [generated-artifact-provenance](practices/generated-artifact-provenance.md) |
 | Go update | [go-update](practices/go-update.md) |
 | headline capitalization | [headline-capitalization](practices/headline-capitalization.md) |
+| lease board | [lease-in-flight-work](practices/lease-in-flight-work.md) |
 | light check | [two-check-levels](practices/two-check-levels.md) |
 | live citation | [practice-change-propagates](practices/practice-change-propagates.md) |
 | merge runbook | [merge-runbook](practices/merge-runbook.md) |
@@ -54,6 +55,7 @@ Built from every practice's `defines:` frontmatter field -- the terms that pract
 | Reduction pass | [reduction-pass](practices/reduction-pass.md) |
 | Relayed authorization | [relayed-authorization](practices/relayed-authorization.md) |
 | repo: | [session-tags](practices/session-tags.md) |
+| result cache | [shared-result-cache](practices/shared-result-cache.md) |
 | retired vocabulary | [migration-scrubs-vocabulary](practices/migration-scrubs-vocabulary.md) |
 | role: | [session-tags](practices/session-tags.md) |
 | routing audit | [routing-audit](practices/routing-audit.md) |
