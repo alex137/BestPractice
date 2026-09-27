@@ -4550,6 +4550,62 @@ def _warn_legacy_status_records(dest):
           "--repo . --against <sibling-source-dirs>")
 
 
+# The catalogue pins the 2026-09-25 move to SOURCE_BRANCH retired. Only
+# these are rewritten: a pin to any other branch is somebody's deliberate
+# choice, and this is not the place to overturn it.
+RETIRED_CATALOGUE_PINS = ('precedent-beta-v01', 'staging')
+
+
+def repoint_catalogue_pin(root):
+    """Rewrite process/manifest.json's `upstream.branch` from a retired pin
+    to SOURCE_BRANCH, and say so. Returns the manifest's path when it wrote.
+
+    Runbook step 1 has said since 2026-09-25 that an install pinned to
+    `staging` or `precedent-beta-v01` is repointed to main "in this same
+    update" -- Morgan, 2026-09-25, strength: decided. The engine half did
+    that by itself (_write_engine_files stamps SOURCE_BRANCH into
+    ENGINE_MANIFEST.json); the catalogue half was left as a hand edit. So
+    every install stopped at the same place: a session had to edit the file
+    that says which upstream branch the repo tracks, Claude Code's own
+    permission check held that edit for a human, and the person was asked
+    to re-make a decision already made. First seen 2026-09-27 in a consumer
+    update, which stopped with the engine on main and the catalogue on
+    precedent-beta-v01.
+
+    WHY HERE AND NOT IN checkin.py: checkin.py reaches a consumer through
+    the vendored catalogue (process/upstream/tools/), the very tree this pin
+    holds back -- a fix there never runs in the repos that need it. This
+    file is refreshed first, on every update, from upstream.
+
+    A manifest whose `upstream.repo` names something other than BestPractice
+    is left alone: `staging` is BestPractice's branch name, not a general
+    one. (practice: vendor-update-runbook)"""
+    path = root / 'process' / 'manifest.json'
+    if not path.is_file():
+        return None
+    try:
+        data = json.loads(path.read_text(encoding='utf-8'))
+    except (ValueError, OSError):
+        return None
+    up = data.get('upstream')
+    if not isinstance(up, dict) or up.get('branch') not in RETIRED_CATALOGUE_PINS:
+        return None
+    repo = str(up.get('repo') or '').rstrip('/')
+    if repo and re.sub(r'\.git$', '', repo.rsplit('/', 1)[-1]).lower() != 'bestpractice':
+        return None
+    old = up['branch']
+    up['branch'] = SOURCE_BRANCH
+    # checkin.py's own write shape, so the diff is the one line.
+    path.write_text(json.dumps(data, indent=2, ensure_ascii=False) + '\n',
+                    encoding='utf-8')
+    print(f"precedent_vendor_engine refresh: repointed the practice catalogue "
+          f"(process/manifest.json upstream.branch) from {old!r} to "
+          f"{SOURCE_BRANCH!r} -- every install follows {SOURCE_BRANCH} since "
+          f"2026-09-25 (vendor-update-runbook step 1). Nothing to decide: "
+          f"`checkin.py update` now takes the catalogue from {SOURCE_BRANCH}.")
+    return path
+
+
 def _warn_catalogue_skew(dest, engine_commit):
     """Say when the engine just moved past the catalogue it runs against.
 
@@ -4589,6 +4645,14 @@ def _warn_catalogue_skew(dest, engine_commit):
     a "not yet", not a "cannot" -- do not read it as the latter and do not
     quietly flip it either; that flip is a decision, and it has an owner.
 
+    2026-09-27: the notice now names `checkin.py update` for a repo pinned
+    to SOURCE_BRANCH, which is not that flip. The hold covers a pin OTHER
+    than the clone's default, and checkin.py's own `_pinned_branch_hold`
+    stops firing by itself once the pin is the default -- which it is for
+    every install since the 2026-09-25 move to main. Sending those installs
+    to the manual mirror sent a consumer session hunting for a route it did
+    not need (2026-09-27). A non-default pin still gets the manual mirror.
+
     Reached a real consumer on 2026-09-06. A refresh took the engine to a
     commit whose `precedent_resolve.py` cites `source-naming` three times,
     while `process/upstream/` still sat 5 commits back and had no
@@ -4618,9 +4682,10 @@ def _warn_catalogue_skew(dest, engine_commit):
           f"at {recorded[:12]}. Engine code can cite practices that "
           f"catalogue does not carry yet -- if a check reports a slug as "
           f"'not a real practice', this skew is why. Take the catalogue "
-          f"update too -- INSTALL.md section 2, which for a repo pinned to "
-          f"a named branch means the manual mirror it describes, NOT "
-          f"`checkin.py update`.")
+          f"update too: `checkin.py update` (INSTALL.md section 2). Only a "
+          f"repo pinned to a branch other than {SOURCE_BRANCH} needs the "
+          f"manual mirror instead, and refresh repoints the retired pins "
+          f"itself.")
 
 
 def refresh(clone, force=False, ref=None):
@@ -4814,12 +4879,19 @@ def refresh(clone, force=False, ref=None):
         agents_pending = _agents_md_pending(agents_plan, manifest)
         _report_agents_md(ROOT, engine_dir / 'templates', agents_plan)
 
+        # Before the early exit, so a repo whose engine is already current
+        # but whose catalogue pin is not -- the state a half-finished update
+        # leaves -- is repointed by a plain re-run.
+        catalogue_repointed = repoint_catalogue_pin(ROOT)
+
         if new_commit == manifest.get('source_commit') and not force \
                 and not set_incomplete and not hooks_incomplete and not ci_incomplete \
                 and not engine_paths_incomplete and not template_pending \
                 and not wiring_pending and not agents_pending:
-            print(f"precedent_vendor_engine refresh: already current with {SOURCE_BRANCH} "
-                  f"@ {new_commit[:12]} -- nothing to do.")
+            print(f"precedent_vendor_engine refresh: engine already current with "
+                  f"{SOURCE_BRANCH} @ {new_commit[:12]} -- "
+                  + ("only the catalogue pin changed (above)." if catalogue_repointed
+                     else "nothing to do."))
             # Reported here too, and this is the case that matters MOST: a
             # session re-running refresh and being told "nothing to do" is
             # exactly the session that would otherwise conclude both halves
@@ -4874,6 +4946,8 @@ def refresh(clone, force=False, ref=None):
 
         self_before = _sha256(HERE) if HERE.is_file() else None
         written = _write_engine_files(dest_tools, engine_dir, new_commit, kind)
+        if catalogue_repointed:
+            written.append(catalogue_repointed)
         # AFTER the write, and using the manifest as it was BEFORE it:
         # _write_engine_files rewrites `files` from the current KINDS list, so
         # by then the dropped name is already gone from the record and there
