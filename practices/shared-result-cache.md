@@ -73,8 +73,8 @@ refusing a push to a custom ref namespace and accepting a forced replacement
 of a branch under a lease, which set the storage design.
 
 ## Install
-Vendor [tools/result_cache.py](../tools/result_cache.py) with
-[tools/lease_board.py](../tools/lease_board.py). Each memo site gets **two
+Vendor [tools/result_cache.py](https://github.com/alex137/bestpractice/blob/staging/tools/result_cache.py) with
+[tools/lease_board.py](https://github.com/alex137/bestpractice/blob/staging/tools/lease_board.py). Each memo site gets **two
 calls**: `ready(path)` in place of its existence check — a False answer
 means this session solves, and the solve lease is already taken — and
 `publish(path)` after writing the memo. A memo that accumulates across calls

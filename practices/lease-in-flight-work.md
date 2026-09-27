@@ -54,7 +54,7 @@ repositories, every one of them names the same board, and the guard
 survives the split. A holder is recorded as `repo:branch`.
 
 **What the practice supplies and what each repository supplies.** The rule
-and the engine ([tools/lease_board.py](../tools/lease_board.py)) are the
+and the engine ([tools/lease_board.py](https://github.com/alex137/bestpractice/blob/staging/tools/lease_board.py)) are the
 same everywhere. Each repository supplies only its **call sites**: what an
 item is (a record, a result, a migration) and which of its commands starts
 the work and which records the outcome. Writing those few lines is adopting
@@ -90,7 +90,7 @@ knowledge, which belongs in git, but a board of leases on work in flight,
 as JSON files on a branch rather than a database file git cannot merge.
 
 ## Install
-Vendor [tools/lease_board.py](../tools/lease_board.py) and write a host shim
+Vendor [tools/lease_board.py](https://github.com/alex137/bestpractice/blob/staging/tools/lease_board.py) and write a host shim
 that sets `REMOTE` (the repository whose work it guards, by URL once work
 spans repositories), `BRANCH` and `DIR`. Wire the call sites: the command
 that starts the work calls `conflicts()` and refuses on a hit, then
