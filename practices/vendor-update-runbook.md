@@ -80,7 +80,7 @@ version conflict with what upstream now ships, and is it still needed?**
 instead of it**; each one discards the local side in a single step. A
 difference kept on purpose is recorded so the next update does not ask
 again: a `diverged` or `declined` entry in `process/manifest.json`, a
-declared file under `local_ci_workflows` in `precedent.json`, a repo-local
+declared file under `local_ci_workflows` in a practice source's `precedent.json`, a repo-local
 practice with `overrides:`, or a hand-written rule worded as an exception
 to the practice it departs from. **The pull request lists every conflicted
 file with its verdict** — kept, taken from upstream, or merged — and why.
@@ -253,12 +253,15 @@ says so, both from the vendored tree under `process/upstream/`.
    refresh writes `leak-gate.yml` and `light-check.yml` from the current
    templates over whatever is there, tracked or not, hand-edited or not, and
    removes every other workflow upstream does not ship, unless the person
-   approved it in their own words in `github_ci_approved` or the repo
-   declares it under `local_ci_workflows` with a reason. **Nothing needed is
-   lost:** a file that runs anything the local push check does not run (a
-   script, a test runner, a third-party action) is kept and listed under
-   **Left for you** with exactly what to move into the local check, and the
-   next update finishes it. Each replacement
+   approved it in their own words in `github_ci_approved`. A declaration
+   under `local_ci_workflows` no longer keeps one in a consumer. **Nothing
+   needed is lost:** a file that runs anything the local push check does not
+   run (a script, a test runner, a third-party action) is **left alone, and
+   flagged loudly**: an `IMPORTANT -- GITHUB WORKFLOW LEFT ALONE` banner
+   before and after the update's summary, a **Left for you** line naming
+   what to move into the local check, and an open item in the repo's
+   `todo/`. Tell the person, in the reply, in those words. The next update
+   finishes it once the command runs locally. Each replacement
    and removal is printed as done; a file git does not hold, or one with
    uncommitted edits, is left under **Left for you** so its content is never
    lost. Morgan, 2026-09-27 (strength: decided): *"It should definitely
@@ -510,8 +513,10 @@ says so, both from the vendored tree under `process/upstream/`.
     **(b) Work that list, item by item.** Read each kept file, hook or
     field. Then either delete it with
     `python3 tools/precedent_decommission.py PATH --reason "..." --apply`,
-    or record why it stays: a CI workflow under `local_ci_workflows` in
-    `precedent.json` with its reason, anything else in the pull request.
+    or record why it stays: in a practice source, a CI workflow under
+    `local_ci_workflows` in `precedent.json` with its reason (a consumer
+    keeps a workflow only by the person's approval); anything else in the
+    pull request.
     **Never by name alone.** In a consumer the refresh has already settled
     every workflow (step 3), so what is left here is a file it could not
     safely touch. In a practice source, `light-check.yml` and a set's own

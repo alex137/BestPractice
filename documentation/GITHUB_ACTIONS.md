@@ -151,7 +151,8 @@ the push check. **The installer writes these by default**; a declared
 templates over any hand-made or hand-edited copy, and removes every other
 workflow upstream does not ship that the person did not approve in their own
 words. It checks first that nothing needed is lost: a file running anything
-the local push check does not is kept, with what to move named. It asks nobody (`CI_CONVERGES_KINDS` in
+the local push check does not is left alone, under a loud banner, with what to
+move named and an open item written to `todo/`. It asks nobody (`CI_CONVERGES_KINDS` in
 [tools/precedent_vendor_engine.py](../tools/precedent_vendor_engine.py)). The `[skip ci]` line the commit hook adds in a private
 repo stays on as a backstop until every install carries these files.
 

@@ -109,8 +109,9 @@ account** — the single largest line on the bill.
 deleted nine live checks across nine repositories on a guess from their
 filenames, and the checks were lost. Here the refresh checks first: it lists
 what the old file runs (scripts, test runners, third-party actions), and if
-any of it is not in the repository's local push check, the file is kept and
-the report names what to move there. It also only replaces or removes a file
+any of it is not in the repository's local push check, the file is left
+alone, under a loud banner, and the report names what to move there and
+writes an open item to `todo/`. It also only replaces or removes a file
 git holds with no uncommitted edits, so its old content stays in history.
 
 ## The Markdown lint is NOT here any more

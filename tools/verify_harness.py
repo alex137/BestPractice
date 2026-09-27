@@ -7176,9 +7176,9 @@ def check_update_vendors_converges_consumer_ci():
         return r.returncode, r.stdout + r.stderr
 
     wf = '.github/workflows/'
-    LIGHT, EXTRA, KEPT, DIRTY, NEEDED = (
+    LIGHT, EXTRA, KEPT, DIRTY, NEEDED, DECLARED = (
         wf + 'light-check.yml', wf + 'nightly.yml', wf + 'report.yml',
-        wf + 'scratch.yml', wf + 'deploy.yml')
+        wf + 'scratch.yml', wf + 'deploy.yml', wf + 'ours.yml')
     template = (ROOT / 'templates' / 'github-actions' /
                 'light-check.yml.template').read_bytes()
     hand_made = ('name: Light check\non:\n  push:\n    branches: [main]\n'
@@ -7208,7 +7208,8 @@ def check_update_vendors_converges_consumer_ci():
         for rel, text in ((LIGHT, hand_made), (EXTRA, covered.format('nightly')),
                           (KEPT, other.format('report')),
                           (DIRTY, covered.format('scratch')),
-                          (NEEDED, other.format('deploy'))):
+                          (NEEDED, other.format('deploy')),
+                          (DECLARED, covered.format('ours'))):
             (proj / rel).parent.mkdir(parents=True, exist_ok=True)
             (proj / rel).write_text(text, encoding='utf-8')
         cfg = json.loads((proj / 'precedent.json').read_text(encoding='utf-8'))
@@ -7217,6 +7218,9 @@ def check_update_vendors_converges_consumer_ci():
             'approved_by': 'Dana, 2026-09-27: "keep the nightly report"'}}
         # The shape the real consumer was in: its own light check untracked
         # by the manifest, approved the way the old install wrote it.
+        # A declaration under local_ci_workflows no longer keeps a
+        # consumer's workflow (2026-09-27): only the person's approval does.
+        cfg['local_ci_workflows'] = {DECLARED: 'a session said it was ours'}
         cfg['github_ci_approved'][LIGHT] = {
             'sha256': hashlib.sha256((proj / LIGHT).read_bytes()).hexdigest(),
             'approved_by': 'installed by precedent_install.py, 2026-09-25',
@@ -7259,8 +7263,21 @@ def check_update_vendors_converges_consumer_ci():
                       'check already runs' in out, out[-2500:]))
         cases.append(('NEGATIVE: a workflow running a script the local check '
                       'does not run is kept, and the report names the script',
-                      (proj / NEEDED).is_file() and 'report_things.py' in out
-                      and 'not removing' in out, out[-2500:]))
+                      (proj / NEEDED).is_file() and 'report_things.py' in out,
+                      out[-2500:]))
+        cases.append(('...under a loud banner saying it was left alone, before '
+                      'and after the summary',
+                      out.count('GITHUB WORKFLOW LEFT ALONE') >= 2
+                      and 'LEFT ALONE: ' + NEEDED in out, out[-2500:]))
+        todos = sorted((proj / 'todo').glob('todo-*-ci-workflow-left-alone-deploy.md'))
+        cases.append(('...and an open to-do item records it',
+                      len(todos) == 1 and 'status:            open'
+                      in todos[0].read_text(encoding='utf-8')
+                      and NEEDED in todos[0].read_text(encoding='utf-8'),
+                      str(todos)))
+        cases.append(('a workflow declared under local_ci_workflows, running '
+                      'only what the local check runs, is removed like any other',
+                      not (proj / DECLARED).exists(), out[-2500:]))
         cases.append(('NEGATIVE: the workflow the person approved in their own '
                       'words is kept', (proj / KEPT).is_file(), ''))
         cases.append(('NEGATIVE: a workflow with uncommitted edits is kept, '
@@ -7468,7 +7485,7 @@ def check_legacy_leftovers_retired_by_content():
         cases.append(('NEGATIVE: in a consumer, a workflow running a script the '
                       'local push check does not run is kept, naming it',
                       (r4d / DOCS).is_file() and any(
-                          'our_own_check.py' in w and 'not removing' in w
+                          'our_own_check.py' in w and 'LEFT ALONE' in w
                           for w in left_names(left, DOCS)), f'{res} {left}'))
 
         # 4b. NEGATIVE: uncommitted edits are never destroyed.
@@ -24605,7 +24622,7 @@ def check_vendor_engine_refreshes_ci_workflow_files():
         cases.append(('NEGATIVE: a hand edit running a script nothing local '
                       'runs is kept, and the script is named',
                       rc_bn == 0 and b'our_special.py' in (b_needed / rel).read_bytes()
-                      and 'our_special.py' in out_bn and 'not replacing' in out_bn,
+                      and 'our_special.py' in out_bn and 'LEFT ALONE' in out_bn,
                       out_bn[:800]))
 
         # -- C: no manifest record at all -- a repo vendored before CI
