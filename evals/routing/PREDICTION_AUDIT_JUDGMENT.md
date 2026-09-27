@@ -1,4 +1,4 @@
-<!-- Last updated: 2026-09-04 (session responding to Morgan's direct request) -->
+<!-- Last updated: 2026-09-27 12:24:01 (Buenos Aires) by Morgan F, to version 1 -->
 
 # Pre-registered prediction for the two new audit mechanisms' judgment quality
 
