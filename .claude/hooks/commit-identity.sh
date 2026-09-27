@@ -713,6 +713,36 @@ CADENCE
   } > "$f" 2>/dev/null && chmod +x "$f" 2>/dev/null || true
 }
 
+# ---- the person's own commit-time fixer
+#
+# The two backstops below REFUSE a commit that is wrong. Some things are
+# better never wrong at all: a step a person must remember before every
+# commit is a step that will one day be forgotten (Morgan, 2026-09-27, on a
+# version header a session left unbumped). So an individual source may ship
+# `bootstrap/pre-commit-fix`, and both backstops run it before every commit,
+# in every repository, from wherever that source is cloned. What it fixes
+# is the person's business -- this hook only calls it, never lets it refuse
+# a commit, and does nothing when it is absent. Resolved the way everything
+# else here finds the individual source: the user-level config, or this
+# repository itself when it IS that source.
+person_fixer=""
+_fix_cfg="${PRECEDENT_USER_CONFIG:-$HOME/.config/precedent/config.json}"
+if [ -f "$_fix_cfg" ] && command -v python3 >/dev/null 2>&1; then
+  _fix_src="$(python3 - "$_fix_cfg" <<'PY' 2>/dev/null || true
+import json, pathlib, sys
+try:
+    cfg = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding='utf-8'))
+except Exception:
+    raise SystemExit(0)
+print((cfg.get('individual') or {}).get('path') or '')
+PY
+)"
+  [ -n "$_fix_src" ] && person_fixer="$_fix_src/bootstrap/pre-commit-fix"
+fi
+if [ -z "$person_fixer" ] && [ -f "$ROOT/identity.json" ]; then
+  person_fixer="$ROOT/bootstrap/pre-commit-fix"
+fi
+
 # ---- the pre-commit backstop
 gp="$(git -C "$ROOT" rev-parse --git-path hooks 2>/dev/null || true)"
 [ -n "$gp" ] || exit 0
@@ -760,6 +790,17 @@ case "\$0" in
   *prepare-commit-msg)
     _cad="\$(dirname "\$0")/precedent-ci-cadence"
     [ -x "\$_cad" ] && "\$_cad" "\$@" || true
+    ;;
+esac
+
+# The person's own commit-time fixer, when their individual source ships one
+# (bootstrap/pre-commit-fix): it FIXES the commit before it is made -- a
+# version header that has to move with the content, say -- and never refuses
+# it. Above the author override, which waives the identity checks only.
+case "\$0" in
+  *pre-commit)
+    _fix="$person_fixer"
+    if [ -n "\$_fix" ] && [ -x "\$_fix" ]; then "\$_fix" || true; fi
     ;;
 esac
 
@@ -971,6 +1012,17 @@ case "\$0" in
   *prepare-commit-msg)
     _cad="\$(dirname "\$0")/precedent-ci-cadence"
     [ -x "\$_cad" ] && "\$_cad" "\$@" || true
+    ;;
+esac
+
+# The person's own commit-time fixer, when their individual source ships one
+# (bootstrap/pre-commit-fix): it FIXES the commit before it is made -- a
+# version header that has to move with the content, say -- and never refuses
+# it. Above the author override, which waives the identity checks only.
+case "\$0" in
+  *pre-commit)
+    _fix="$person_fixer"
+    if [ -n "\$_fix" ] && [ -x "\$_fix" ]; then "\$_fix" || true; fi
     ;;
 esac
 

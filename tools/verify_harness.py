@@ -17498,6 +17498,69 @@ def check_push_check_gate():
     check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
 
+def check_global_backstop_runs_person_fixer():
+    """The commit backstop runs the person's own commit-time fixer --
+    `bootstrap/pre-commit-fix` in their individual source -- before every
+    commit (Morgan, 2026-09-27: a version header a session left unbumped;
+    prevent the miss, don't just catch it sooner). Three things are pinned:
+    the fixer runs; what it stages lands in the SAME commit; and a fixer that
+    fails never refuses the commit, because a fixer is not a gate."""
+    import tempfile, json as _json
+    name = "the commit backstop runs the person's pre-commit fixer and never lets it refuse"
+    ci_hook = ROOT / '.claude' / 'hooks' / 'commit-identity.sh'
+    if not ci_hook.exists():
+        not_applicable(name, '.claude/hooks/commit-identity.sh is absent')
+        return
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+        home, hooks = tmp / 'home', tmp / 'git-hooks'
+        home.mkdir()
+        indiv = tmp / 'indiv'
+        (indiv / 'bootstrap').mkdir(parents=True)
+        (indiv / 'identity.json').write_text(_json.dumps(
+            {'name': 'T', 'email': 't@example.com', 'timezone': 'UTC'}),
+            encoding='utf-8')
+        cfg = tmp / 'config.json'
+        cfg.write_text(_json.dumps({'individual': {'path': str(indiv)}}),
+                       encoding='utf-8')
+        mark = tmp / 'ran'
+        fixer = indiv / 'bootstrap' / 'pre-commit-fix'
+        fixer.write_text('#!/bin/sh\necho ran >> "%s"\necho fixed > FIXED.txt\n'
+                         'git add FIXED.txt\nexit 3\n' % mark, encoding='utf-8')
+        fixer.chmod(0o755)
+        env = dict(os.environ, HOME=str(home), TZ='UTC',
+                   GIT_CONFIG_GLOBAL=str(tmp / 'gitconfig'),
+                   PRECEDENT_USER_CONFIG=str(cfg),
+                   PRECEDENT_GLOBAL_HOOKS=str(hooks),
+                   PRECEDENT_LOCALTIME=str(tmp / 'lt'))
+        env.pop('PRECEDENT_ALLOW_ANY_AUTHOR', None)
+        env.pop('PRECEDENT_COMMIT_TZ', None)
+        work = tmp / 'work'
+        subprocess.run(['git', 'init', '-q', str(work)], capture_output=True, env=env)
+        subprocess.run(['bash', str(ci_hook)], capture_output=True, text=True,
+                       timeout=120, env=dict(env, CLAUDE_PROJECT_DIR=str(work)))
+        cases.append(('the global pre-commit calls the fixer by its resolved path',
+                      str(fixer) in (hooks / 'pre-commit').read_text(encoding='utf-8')
+                      if (hooks / 'pre-commit').exists() else False))
+        (work / 'a.txt').write_text('a\n', encoding='utf-8')
+        subprocess.run(['git', '-C', str(work), 'add', 'a.txt'],
+                       capture_output=True, env=env)
+        c = subprocess.run(['git', '-C', str(work), '-c', 'user.name=T', '-c',
+                            'user.email=t@example.com', 'commit', '-q', '-m', 'x'],
+                           capture_output=True, text=True, env=env)
+        cases.append(('the fixer runs before the commit', mark.exists()))
+        cases.append(('a fixer that exits non-zero does not refuse the commit',
+                      c.returncode == 0))
+        files = subprocess.run(['git', '-C', str(work), 'show', '--name-only',
+                                '--format=', 'HEAD'], capture_output=True,
+                               text=True, env=env).stdout.split()
+        cases.append(('what the fixer stages lands in the same commit',
+                      'FIXED.txt' in files))
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
 def check_branch_tiers():
     """The three branch tiers (spec/BRANCH_TIERS_PLAN.md, Morgan, 2026-09-25,
     strength: decided): a push to staging or main is checked fully; a push
@@ -37155,6 +37218,7 @@ def main():
     check_commit_identity_prevents_the_wrong_offset()
     check_commit_identity_ci_cadence()
     check_push_check_gate()
+    check_global_backstop_runs_person_fixer()
     check_branch_tiers()
     check_merge_check_gate()
     check_promote_pre_staging()
