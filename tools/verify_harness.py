@@ -9853,22 +9853,6 @@ def check_precedent_check_fires():
                 '"2020-01-01", "commit": "deadbeef"}}\n', encoding='utf-8')
         case('routing-audit', _plant_ra)
 
-        # merge-target-is-beta-branch -- origin/main advanced to include
-        # origin/precedent-beta-v01 as an ancestor (the PR #89 incident,
-        # replayed against the throwaway repo's own two remote-tracking
-        # refs rather than the real ones). The pristine copy has exactly one
-        # commit, so a second is made here to give the two refs a real
-        # ancestor relationship to plant.
-        def _plant_mtib(repo):
-            c1 = git(repo, 'rev-parse', 'HEAD')
-            (repo / 'PLANT_MARKER.txt').write_text('planted\n', encoding='utf-8')
-            git(repo, 'add', '-A')
-            git(repo, 'commit', '-qm', 'second commit for the plant')
-            c2 = git(repo, 'rev-parse', 'HEAD')
-            git(repo, 'update-ref', 'refs/remotes/origin/staging', c1)
-            git(repo, 'update-ref', 'refs/remotes/origin/main', c2)
-        case('merge-target-is-beta-branch', _plant_mtib)
-
         # declared-sources-are-cloned -- this repo declares three shared sets
         # beside itself, and both .claude/hooks/session-start.sh and the
         # tools/bootstrap.sh it runs clone them. Planted by deleting that

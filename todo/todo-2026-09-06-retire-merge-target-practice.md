@@ -3,16 +3,16 @@ slug:              todo-2026-09-06-retire-merge-target-practice
 kind:              analysis
 domain:            null
 severity:          null
-status:            open
+status:            done
 disposition:       wait
 remind_on:         null
 blocked_on:        "Morgan or Alex saying work moves to `main` (the practice's own expiry since 2026-09-14) -- no longer Alex's approval, which main stopped needing on 2026-09-26."
 batch:             null
-decision:          null
-decision_strength: null
+decision:          "keep the targeting rule, rewritten for pre-staging -> staging -> main; delete the branch-graph check"
+decision_strength: decided
 waiting_on:        "Morgan"
 noted:             2026-09-06
-closed:            null
+closed:            2026-09-27
 ---
 ## What
 
@@ -167,3 +167,4 @@ Not open until: Morgan or Alex says work moves to `main`. Alex's approval stoppe
 2026-09-16: noted date is a floor, not exact -- this item predates anchor tracking (every anchor was retrofitted 2026-09-06) and its true creation date is unknown. Migrated from TODO.md by tools/todo_migrate.py.
 
 2026-09-26: blocked_on, waiting_on and How It Closes moved off Alex's approval, which `main` no longer needs; the condition is the practice's own expiry, set 2026-09-14.
+- 2026-09-27: resolved, and not by "work moves to main". Under pre-staging -> staging -> main every Promote into main makes main contain staging, which the check read as the PR #89 mistake. Morgan: "the merge target is no longer beta branch --- shouldn't this be deprecated with our new system of pre-staging then staging then main?", then "please fix or remove etc and go update that". The check script and its test are decommissioned; the practice stays, rewritten to name the landing branch and the Promote; AGENTS.md's opening paragraph says the same. base_branch stays staging.
