@@ -20,9 +20,10 @@ approved_by: "Morgan, 2026-09-27 (strength: decided): \"for pre-staging, we shou
 **Each branch tier has one job, and a check goes to the tier whose job it is.**
 
 - **Into `pre-staging`: fast, and only about the change.** A push or pull
-  request there is judged on the files it creates or changes, and nothing
-  else, in seconds. A problem in a file the change did not touch is named
-  and left for the next tier, never held against this push.
+  request there is judged on the files it creates or changes, and on the
+  generated files a changed practice feeds -- **nothing more**, in seconds.
+  A problem in a file the change did not touch is named and left for the
+  next tier, never held against this push.
 - **Into `staging`: thorough.** The full suite, on every file.
 - **Into `main`: thorough, plus GitHub.** The full suite on every file, and
   the repository's GitHub test where it has one.
@@ -44,6 +45,19 @@ the files a session created or edited and nothing a different session put
 there. A check may still READ the rest of the repository to answer, for
 instance to compare one document against another, but it only REPORTS on
 the changed files.
+
+**What `pre-staging` runs today.** The lint, the leak gate and the author
+checks, as before -- the leak gate still scans the whole tree, since a
+secret anywhere is this push's to stop. Added on 2026-09-27, and on the
+changed files only: the practice checks
+(`precedent_check.py --changed-files-only`), a compile of each changed
+Python file, a parse of each changed shell script (`bash -n`), and -- when a
+practice file changed -- a check that its generated views (`AGENTS.md`,
+`MAP.md`, `GLOSSARY.md`) were regenerated with it
+(`precedent_push_check.py --changed-files-check`). A push sends commits that
+already exist, so that last one refuses and names the command that
+regenerates; it never rewrites anything itself. Everything else waits for
+`staging`.
 
 **What moves a check to `pre-staging`:** it is fast (seconds, not minutes)
 and its finding can be pinned to a file. A check that cannot name a file,
