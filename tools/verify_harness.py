@@ -12180,6 +12180,129 @@ def check_publisher_bound_checks_run_in_a_source_set():
           '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad))
 
 
+def check_practice_links_travel_skips_a_consumers_repo_local_practices():
+    """A consumer's repo-local practice is never published, so
+    practice-links-travel must not test its links -- and the repair it
+    prints for a practice it DOES test must not be a URL into a repository
+    that is not declared public.
+
+    Found 2026-09-27 in a private consuming repository: after a vendor
+    update its full check reported 20 working links in its own repo-local
+    practices as dead, because the check kept every practice the committed
+    MANIFEST.json did not attribute to ANOTHER source, and `repo-local` is
+    not another source. Each finding advised an absolute URL into that
+    private repository -- the disclosure the practice's own Rule forbids.
+
+    One fixture, three runs, each asserting the printed text rather than an
+    exit status alone (practice: control-asserts-which-failure):
+      1. the repo-local practice with a working relative link is not
+         reported;
+      2. the SAME file, no longer named in the manifest (so this repository
+         publishes it), IS reported -- which is what keeps case 1 from
+         passing because the check never looked;
+      3. that finding's repair is a backticked path under
+         `visibility: private`, and a URL under `visibility: public`.
+    """
+    import tempfile
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='links-travel-local-'))
+    try:
+        # A fixture that owns its state: its own git repo, manifest,
+        # visibility and practices/ (practice: fixture-owns-its-state).
+        fx = tmp / 'consumer'
+        (fx / 'tools').mkdir(parents=True)
+        (fx / 'practices').mkdir()
+        (fx / 'content').mkdir()
+        for name in _source_kind_engine_files():
+            e = ROOT / 'tools' / name
+            if e.is_file():
+                shutil.copy(e, fx / 'tools' / name)
+        shutil.copy(ROOT / 'tools' / 'precedent_check.py',
+                    fx / 'tools' / 'precedent_check.py')
+        # The consumer gate runs a practice-backed check only when its
+        # practice file is here, as it is in every real consumer.
+        shutil.copy(ROOT / 'practices' / 'practice-links-travel.md',
+                    fx / 'practices' / 'practice-links-travel.md')
+        (fx / 'content' / 'LIST.md').write_text('# List\n', encoding='utf-8')
+        (fx / 'practices' / 'fixture-local.md').write_text(
+            '---\nslug:        fixture-local\ntitle:       A repo-local rule\n'
+            'tier:        on-demand\nseverity:    default\n'
+            'applies_to:  ["content/*.md"]\noccasion:    "the fixture runs"\n'
+            'gates:       []\nindex_clause: "the fixture runs"\n'
+            'checked_by:  null\ndefines:     []\nstatus:      active\n'
+            'supersedes:  []\noverrides:   null\nadded:       2026-09-27\n'
+            'approved_by: "fixture"\n---\n'
+            '## Rule\nAdd items to [the list](../content/LIST.md).\n\n'
+            '## Story\nWritten for this control; no incident is claimed.\n',
+            encoding='utf-8')
+        (fx / 'tools' / 'ENGINE_MANIFEST.json').write_text(json.dumps({
+            'kind': 'consumer',
+            'source_repo': 'https://github.com/example/upstream',
+            'source_branch': 'main',
+            'files': ['precedent_check.py'],
+        }), encoding='utf-8')
+        subprocess.run(['git', 'init', '-q'], cwd=fx, capture_output=True)
+        subprocess.run(['git', 'remote', 'add', 'origin',
+                        'https://github.com/example/consumer.git'],
+                       cwd=fx, capture_output=True)
+
+        def run(local_level, visibility):
+            entries = [{'slug': 'practice-links-travel', 'level': 'universal'}]
+            if local_level:
+                entries.append({'slug': 'fixture-local', 'level': local_level})
+            (fx / 'MANIFEST.json').write_text(
+                json.dumps({'practices': entries}), encoding='utf-8')
+            (fx / 'precedent.json').write_text(json.dumps(
+                {'format_version': 1, 'base_branch': 'main',
+                 'visibility': visibility}), encoding='utf-8')
+            env = dict(os.environ, PRECEDENT_ALLOW_ANY_AUTHOR='1')
+            return subprocess.run(
+                [sys.executable, 'tools/precedent_check.py', '--only',
+                 'practice-links-travel'],
+                cwd=fx, capture_output=True, text=True, env=env)
+
+        local = run('repo-local', 'private')
+        cases.append(('a consumer\'s repo-local practice with a working '
+                      'relative link is not reported',
+                      local.returncode == 0 and 'VIOLATION' not in local.stdout
+                      and 'fixture-local.md:' not in local.stdout,
+                      f'rc={local.returncode} ' + local.stdout[-400:]))
+        cases.append(('and the skip says the repo-local practices were left '
+                      'out because they are never published',
+                      'repo-local source' in local.stdout
+                      and 'never published' in local.stdout,
+                      local.stdout[-400:]))
+
+        pub = run(None, 'private')
+        cases.append(('the same link in a practice this repository publishes '
+                      'IS reported (so the case above is the guard, not a '
+                      'check that never looked)',
+                      pub.returncode != 0
+                      and 'fixture-local.md:' in pub.stdout
+                      and 'does not travel' in pub.stdout,
+                      f'rc={pub.returncode} ' + pub.stdout[-400:]))
+        cases.append(('under visibility: private the repair is the backticked '
+                      'path, never a URL into this repository',
+                      '`content/LIST.md`' in pub.stdout
+                      and 'github.com/example/consumer' not in pub.stdout,
+                      pub.stdout[-400:]))
+
+        public = run(None, 'public')
+        cases.append(('under visibility: public the repair is the absolute URL',
+                      'https://github.com/example/consumer/blob/main/'
+                      'content/LIST.md' in public.stdout,
+                      public.stdout[-400:]))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
+    check(f'practice-links-travel skips a consumer\'s repo-local practices '
+          f'and suggests a URL only in a public repository '
+          f'({len(cases)} stated cases, each asserting the printed text)',
+          not bad,
+          '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad))
+
+
 def check_gate_channel():
     """The gate channel, as stated cases against the real registry.
 
@@ -36409,6 +36532,7 @@ def main():
     check_routing_audit_coverage()
     check_parallel_artifact_ledger_fires()
     check_publisher_bound_checks_run_in_a_source_set()
+    check_practice_links_travel_skips_a_consumers_repo_local_practices()
     check_gate_channel()
     check_reply_gate_sees_every_source()
     check_advisory_requirement_never_blocks()

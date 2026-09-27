@@ -270,6 +270,20 @@ unconditionally. Verified both directions against a scratch copy of
 patched one reports it — the same real link, the same real repository,
 nothing else changed.
 
+**The check read a consumer's repo-local practices as published, found
+2026-09-27.** A private consuming repository took a vendor update and its full
+check reported 20 links in its own repo-local practices as dead — links to its
+to-do list, its glossary and its instructions file, every one of which
+resolved. The check kept every practice the committed manifest did not mark as
+another source's, and a `repo-local` entry is not another source's, so the
+materialized copies were tested as if every consumer received them. None does.
+The printed repair made it worse: an absolute URL into that private repository,
+which is the disclosure this rule's own text forbids for a private source. The
+consuming session rewrote its links to satisfy the check
+rather than wait. Fixed at the source: the check skips a practice whose
+manifest entry is `repo-local`, and suggests a URL only in a repository that
+declares itself public.
+
 ## Install
 [tools/precedent_check.py](../tools/precedent_check.py) enforces it, as a
 tree-scope check over the practice files this repository owns. It reads
@@ -294,4 +308,10 @@ whether or not they travel out of it.
 
 **In a materializing consumer the check reports SKIPPED with its
 reason** — `practices/` there is generated output, and the links have to be
-right in the publishing source or not at all.
+right in the publishing source or not at all. **That includes the consumer's
+own repo-local practices**, which the committed `MANIFEST.json` marks
+`level: repo-local`: a repo-local source is never published, so a link from
+one into the repository's own files is correct, and whether it resolves is
+the Markdown lint's question. **The repair it suggests follows the
+repository's declared `visibility`**: an absolute URL only when
+`precedent.json` says `public`, and the backticked path otherwise.
