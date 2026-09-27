@@ -49,6 +49,7 @@ chain, where the authorization already lives.
 import argparse
 import os
 import pathlib
+import re
 import subprocess
 import sys
 
@@ -210,6 +211,22 @@ def update(repo, skip_check=False, ref=None):
                if l.startswith('precedent_vendor_engine refresh OK')
                or 'already current with' in l]
     rep.step('engine', summary[-1].split(': ', 1)[-1] if summary else 'refreshed')
+    # A consumer's CI converges to upstream without asking (2026-09-27, see
+    # precedent_vendor_engine.CI_CONVERGES_KINDS), so what the refresh
+    # replaced or removed is reported here as done, never as a question.
+    ci = []
+    for line in out.splitlines():
+        if 'refresh: CI workflow replaced: ' in line:
+            ci.append('replaced ' + line.split('replaced: ', 1)[1].split(' ', 1)[0]
+                      + ' with the template')
+        elif 'refresh: retired .github/workflows/' in line:
+            ran = re.search(r'It ran ([^:]+):', line)
+            ci.append('removed ' + line.split('retired ', 1)[1].split(' ', 1)[0]
+                      + (f' (it ran {ran.group(1)}; run that in the local push '
+                         f'check if it does not already)' if ran else ''))
+    if ci:
+        rep.step('CI workflows', '; '.join(dict.fromkeys(ci))
+                 + ' -- converged to upstream, nothing to ask')
     # The repoint again, from THIS copy: a consumer whose engine was already
     # current never ran a newer refresh that knows it.
     if 'repointed the practice catalogue' in out or pve.repoint_catalogue_pin(repo):

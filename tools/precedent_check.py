@@ -5289,7 +5289,10 @@ def workflow_triggers_text(text):
        "carries the person's approval in precedent.json's "
        "github_ci_approved, pinned to its exact content by sha256 -- so "
        "adding a workflow, or editing one (a new trigger, a new job), fails "
-       "until the person approves the new content in their own words",
+       "until the person approves the new content in their own words. In a "
+       "consuming repo the finding sends the session to Update Vendors, "
+       "which writes the shipped workflows from their templates and removes "
+       "any other nobody approved, rather than to the person",
        "whether the quoted approval is genuine: it can require the quote "
        "and a date, and cannot tell a real one from an invented one. "
        "An engine-tracked file re-baselined with `record-ci` reads as "
@@ -5319,6 +5322,17 @@ def _ci_workflow_approved(ctx):
     if not isinstance(approved, dict):
         approved = {}
 
+    # In a consumer the refresh settles every workflow itself, so the
+    # finding sends the session there instead of to the person
+    # (precedent_vendor_engine.CI_CONVERGES_KINDS, 2026-09-27).
+    try:
+        import precedent_vendor_engine as _pve
+        converges = manifest.get('kind') in _pve.CI_CONVERGES_KINDS
+        shipped = {rel for _t, rel in
+                   _pve.CI_WORKFLOW_TEMPLATES.get(manifest.get('kind'), ())}
+    except Exception:                          # practice: fail-gracefully
+        converges, shipped = False, set()
+
     findings = []
     for path in sorted(wf_dir.iterdir()):
         if not (path.is_file() and path.suffix in ('.yml', '.yaml')):
@@ -5341,6 +5355,21 @@ def _ci_workflow_approved(ctx):
         else:
             what = ('was EDITED after it was approved -- its content no '
                     'longer matches the approved sha256')
+        if converges:
+            fix = ('Run Update Vendors: it writes this file from upstream\'s '
+                   'template, unmodified' if rel in shipped else
+                   'Run Update Vendors: it removes a workflow upstream does '
+                   'not ship that nobody approved')
+            findings.append(Finding(
+                rel,
+                f'{what}.{runs} {fix}, and nothing about it is the person\'s '
+                f'to decide -- the checks run locally before every push. If '
+                f'the refresh leaves it under "Left for you", commit or '
+                f'discard its edits and run it again. Keep a workflow only '
+                f'if the person asked for it in their own words, recorded '
+                f'in precedent.json\'s "{GITHUB_CI_APPROVED_KEY}" with its '
+                f'sha256 {sha} (practice: ci-workflow-approved).'))
+            continue
         findings.append(Finding(
             rel,
             f'{what}.{runs} Every run bills at least a minute in a private '

@@ -172,10 +172,13 @@ If that is you, do both of these. Not one:
    `python3 tools/doc_lint.py <the markdown you touched>`. Your harness
    will not remind you and nothing will stop you forgetting.
 2. **Put the GitHub check back on**, because step 1 is a habit and a habit
-   is exactly what the hook exists to replace. Copy
-   [templates/github-actions/light-check.yml.template](../templates/github-actions/light-check.yml.template)
-   to `.github/workflows/light-check.yml`, set its `CUSTOMIZE` command to
-   `python3 tools/doc_lint.py` and its `paths:` list to `"**/*.md"`.
+   is exactly what the hook exists to replace. Add it as a workflow of your
+   own, say `.github/workflows/doc-lint.yml`, running
+   `python3 tools/doc_lint.py` on `"**/*.md"`, and record your approval of it
+   in `precedent.json`'s `github_ci_approved`, in your own words. Do not edit
+   `light-check.yml` for this: since 2026-09-27 every "Update Vendors"
+   writes that file back from upstream's template, and removes any workflow
+   nobody approved.
 3. **Enable Actions for the repository** at **Settings → Actions** if it is
    off. A workflow file sitting in a repository with Actions disabled is a
    check nobody runs, and nothing tells you it is not running.
