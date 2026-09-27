@@ -92,7 +92,7 @@ and approved the same day. The decisions, with how firmly each was made
 | Push to | Checks on our side | GitHub |
 |---|---|---|
 | any other branch (a session's own branch, a feature branch) | **basic** | none, unless the person opts in |
-| **pre-staging** | **basic** | none, unless the person opts in |
+| **pre-staging** | **basic**, plus the practice checks on the files the push changes (since 2026-09-27) | none, unless the person opts in |
 | **staging** | **full** | none, unless the person opts in |
 | **main** | **full** | **the full check, on the pull request into main** -- and, in a public repository, on every push to main too |
 
@@ -169,6 +169,17 @@ many repos run a light check of their own. A public repository installed
 before this date gets it only by an edit to its own `light-check.yml`,
 approved by the person there
 ([ci-workflow-approved](../practices/ci-workflow-approved.md)).
+
+## What each tier checks
+
+**Into `pre-staging`: fast, and only about the change** -- the lint, the
+leak gate, the author checks, and since 2026-09-27 the practice checks,
+judged only on the files the push creates or changes. **Into `staging`:
+the full suite, on every file. Into `main`: the full suite, plus the
+repository's GitHub test.** A new check states its tier when it is added.
+The rule, and why the split is this one:
+[checks-follow-the-tier](../practices/checks-follow-the-tier.md) (Morgan,
+2026-09-27, strength: decided).
 
 ## What a working day looks like
 
