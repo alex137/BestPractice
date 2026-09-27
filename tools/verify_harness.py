@@ -7212,6 +7212,48 @@ def check_changed_files_only_judges_the_change():
         cases.append(('a change elsewhere passes while the mismatch sits in the tree, '
                       'and says it left it to the full check',
                       rc == 0 and 'not judged here' in out, out[-800:]))
+
+        # The file-level checks (checks-follow-the-tier): only the changed
+        # files, and the views a changed practice feeds.
+        def files_check(since):
+            p = subprocess.run([sys.executable, 'tools/precedent_push_check.py',
+                                '--changed-files-check', since],
+                               cwd=wt, capture_output=True, text=True, env=env)
+            return p.returncode, p.stdout + p.stderr
+        start = git('rev-parse', 'HEAD').stdout.strip()
+        rc, out = files_check(start)
+        cases.append(('with nothing changed, the file-level checks pass', rc == 0, out[-400:]))
+        (wt / 'tools' / 'zz_broken_fixture.py').write_text('def broken(:\n', encoding='utf-8')
+        git('add', 'tools/zz_broken_fixture.py')
+        git('commit', '-qm', 'a Python file that does not compile')
+        rc, out = files_check(start)
+        cases.append(('a changed Python file that does not compile is refused, by name',
+                      rc == 1 and 'zz_broken_fixture.py: does not compile' in out, out[-400:]))
+        git('rm', '-q', 'tools/zz_broken_fixture.py')
+        (wt / 'zz_broken_fixture.sh').write_text('if then fi\n', encoding='utf-8')
+        git('add', 'zz_broken_fixture.sh')
+        git('commit', '-qm', 'a shell script that does not parse')
+        start = git('rev-parse', 'HEAD~1').stdout.strip()
+        rc, out = files_check(start)
+        cases.append(('a changed shell script that does not parse is refused, by name',
+                      rc == 1 and 'zz_broken_fixture.sh: does not parse' in out, out[-400:]))
+        git('rm', '-q', 'zz_broken_fixture.sh')
+        git('commit', '-qm', 'clean up')
+        start = git('rev-parse', 'HEAD').stdout.strip()
+        practice = next(iter(sorted((wt / 'practices').glob('*.md'))))
+        # Its occasion, which MAP.md renders -- an edit the views must follow.
+        text = practice.read_text(encoding='utf-8')
+        practice.write_text(re.sub(r'^(occasion:\s+"?)', r'\1when a fixture says so, or ', text,
+                                   count=1, flags=re.M), encoding='utf-8')
+        git('commit', '-qam', 'change a practice without regenerating the views')
+        rc, out = files_check(start)
+        stale_ok = rc == 1 and 'not regenerated' in out
+        subprocess.run([sys.executable, 'tools/build_views.py'], cwd=wt,
+                       capture_output=True, text=True, env=env)
+        git('commit', '-qam', 'regenerate the views')
+        rc, out = files_check(start)
+        cases.append(('a changed practice whose views were not regenerated is refused, '
+                      'and passes once they are', stale_ok and rc == 0, out[-400:]))
     finally:
         subprocess.run(['git', '-C', str(ROOT), 'worktree', 'remove', '--force', str(wt)],
                        capture_output=True)
