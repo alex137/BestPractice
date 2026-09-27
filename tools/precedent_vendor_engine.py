@@ -1313,8 +1313,10 @@ def dependents_of(dest_root, rels, cap=8):
         files = [x for x in dest_root.rglob('*')
                  if x.is_file() and '.git/' not in str(x)]
     # The manifest RECORDS what is vendored, so it names every one of these
-    # by design; reporting it would be reporting the bookkeeping.
-    skip = {MANIFEST_NAME}
+    # by design; reporting it would be reporting the bookkeeping. The
+    # decommission registry is the same: a removal writes the path there a
+    # moment before this runs, so every removal used to warn about itself.
+    skip = {MANIFEST_NAME, 'decommissioned_paths.json'}
     needles = {}
     for rel in rels:
         base = pathlib.PurePosixPath(rel).name
@@ -2085,28 +2087,57 @@ def _write_engine_paths(dest_root, mapping, sources, manifest):
 # LATER refresh, once that baseline exists, can tell "matches what we
 # recorded" from "hand-edited" and act on it.
 CI_WORKFLOWS_SOURCE_DIR = 'templates/github-actions'
-# WRITTEN AT INSTALL, NEVER REFRESHED (2026-09-25, spec/BRANCH_TIERS_PLAN.md).
-# The light check is a repository's one GitHub test, on the pull request into
-# main, and precedent_install.py writes it into a new install when
-# github_ci_workflows allows. It is deliberately NOT in CI_WORKFLOW_TEMPLATES:
-# many installs already run a light-check.yml of their own, written by hand
-# and running their own command (the template's own header says so), and a
-# file on that list is baselined on one refresh and replaced by the template
-# on the next. A file here is written only where none exists, and never
-# touched again.
-CI_INSTALL_ONLY_TEMPLATES = {
-    'consumer': (
-        ('light-check.yml.template', '.github/workflows/light-check.yml'),
-    ),
-    'source': (),
-}
+# A CONSUMER'S CI CONVERGES TO UPSTREAM, AND NOBODY IS ASKED (2026-09-27).
+# Since the branch-tier change (spec/BRANCH_TIERS_PLAN.md) the checks run
+# locally -- the basic tier on a working branch, the full check on staging
+# and main -- and a consumer's one GitHub run is upstream's light check, on a
+# pull request into main. Any other workflow in a consumer, or a hand-edited
+# copy of that one, is what the change exists to stop, so a refresh in a kind
+# named here does not treat it as a decision to protect:
+#
+#   - every file CI_WORKFLOW_TEMPLATES ships to the kind is written from the
+#     current template over whatever is there, tracked or not, edited or not
+#     (_refresh_ci_workflow_files), and a hand edit is no longer a refusal
+#     (_ci_workflow_drift);
+#   - every other workflow is removed, unless the person approved it in
+#     their own words in precedent.json's github_ci_approved, or it is
+#     declared under local_ci_workflows with a reason
+#     (_remove_unapproved_workflows).
+#
+# Each is reported as done. Morgan, 2026-09-27 (strength: decided, relayed
+# verbatim by the session that hit it): "It should definitely definitely use
+# the newer version from upstream ... the point of the yml changes is to stop
+# these extra needless (often hand edited) yml files from running, that's why
+# we now run the checks locally etc so it shouldn't ask. Asking creates doubt
+# and confusion when there isn't any."
+#
+# THE 2026-09-20 SWEEP, and why this is not a repeat of it. That sweep
+# deleted nine live checks on a guess from their filenames, and the checks
+# were lost. Two things differ now. The checks a consumer relies on run in
+# the local push check, so the GitHub copy is a second run of work the push
+# gate already did; where a repository's own command is NOT in its local
+# gate, the fix is to run it there, not to keep a workflow billing minutes
+# for it. And nothing is destroyed: only a file git tracks with no
+# uncommitted edits is replaced or removed, so its content stays in history,
+# and the report names every script it ran.
+#
+# A practice SOURCE is not here: it ships no workflow at all
+# (CI_WORKFLOW_TEMPLATES['source'] is empty) and runs its own on purpose.
+CI_CONVERGES_KINDS = frozenset({'consumer'})
 CI_WORKFLOW_TEMPLATES = {
     # NO WORKFLOW EXISTS SOLELY TO LINT MARKDOWN (2026-09-21). The consumer
     # side used to ship doc-lint.yml.template as bestpractice-docs.yml, and
     # it is retired -- see RETIRED_CI_WORKFLOW_FILES below, which propagates
     # its deletion to every repo that installed it.
+    #
+    # THE LIGHT CHECK IS ENGINE-OWNED SINCE 2026-09-27. It was written once at
+    # install and never refreshed (CI_INSTALL_ONLY_TEMPLATES, 2026-09-25),
+    # because many installs ran a hand-written light-check.yml with their own
+    # command. That is what kept those copies running on every push; see
+    # CI_CONVERGES_KINDS above for the decision that replaced it.
     'consumer': (
         ('leak-gate.yml.template', '.github/workflows/leak-gate.yml'),
+        ('light-check.yml.template', '.github/workflows/light-check.yml'),
     ),
     # A PRACTICE SOURCE RUNS NO CI AT ALL (2026-09-21, Morgan, strength:
     # decided): "the sets don't need CI; maybe we define the default to be
@@ -2313,7 +2344,7 @@ def local_ci_workflows(dest_root):
             if isinstance(rel, str) and str(reason).strip()}
 
 
-def _ci_workflow_drift(dest_root, manifest):
+def _ci_workflow_drift(dest_root, manifest, kind=None):
     """CI-workflow analog of _hook_drift: [(rel, why)] for a vendored CI
     workflow file the manifest's `ci_workflows_sha256` already records a
     hash for, whose on-disk sha256 no longer matches it -- a hand-edit (or
@@ -2326,6 +2357,11 @@ def _ci_workflow_drift(dest_root, manifest):
     the stale tracking itself (_remove_retired_ci_workflow_files, called
     before this function ever runs) rather than refusing the whole run over
     a file whose disappearance a previous, correct fix already caused."""
+    # A kind whose CI converges to upstream has no CI drift to refuse over:
+    # the refresh replaces a hand edit with the template and says so. See
+    # CI_CONVERGES_KINDS.
+    if (kind or manifest.get('kind')) in CI_CONVERGES_KINDS:
+        return []
     drifted = []
     _local = local_ci_workflows(dest_root)
     for rel, recorded_hash in (manifest.get('ci_workflows_sha256') or {}).items():
@@ -2716,10 +2752,13 @@ def _drop_process_manifest_entries(dest_root, rel):
     return touched
 
 
-def _retire_one(dest_root, pd, rel, reason):
+def _retire_one(dest_root, pd, rel, reason, refusals=None):
     """Delete `rel` if precedent_decommission's file refusals allow it, and
-    record it. -> True when deleted."""
-    refusals = pd.file_refusals(dest_root, rel)
+    record it. -> True when deleted. A caller that has already judged the
+    file passes its own `refusals` (_remove_unapproved_workflows, whose whole
+    point is to stop a LIVE workflow, which file_refusals would refuse)."""
+    if refusals is None:
+        refusals = pd.file_refusals(dest_root, rel)
     if refusals:
         _left(rel, 'recognised as a leftover of the old install, but not '
                    'deleted: ' + '; '.join(refusals))
@@ -2788,6 +2827,96 @@ def _retire_legacy_workflows(dest_root, manifest, kind, pd):
         _warn_about_dependents(dest_root, sorted(deleted),
                                'retired as a leftover of the pre-Precedent install')
     return deleted, kept
+
+
+def _remove_unapproved_workflows(dest_root, manifest, kind, pd):
+    """In a kind whose CI converges (CI_CONVERGES_KINDS), remove every
+    .github/workflows/*.yml or *.yaml that upstream does not ship to the
+    kind, unless the person approved it in their own words in
+    github_ci_approved (pinned to its current content) or the repo declares
+    it under local_ci_workflows with a reason. -> {rel: text} removed.
+
+    An install-written approval (one that names a `template` instead of
+    quoting anyone) is not the person's words, so it keeps nothing here.
+    Only a file git holds with no uncommitted edits is removed; anything
+    else is left, with the reason, for the next refresh (practice:
+    repair-cannot-discard-work). Each removal is printed as done, with the
+    scripts the file ran, because the answer for a repository's own
+    command is to run it in the local push check, not to keep the workflow.
+    See CI_CONVERGES_KINDS for the decision and for why this is not the
+    2026-09-20 sweep again."""
+    if kind not in CI_CONVERGES_KINDS:
+        return {}
+    wf_dir = dest_root / '.github' / 'workflows'
+    if not wf_dir.is_dir():
+        return {}
+    try:
+        sys.path.insert(0, str(ENGINE_DIR))
+        import precedent_check as _pc
+        approval_problem = _pc._approval_problem
+    except Exception:                                          # noqa: BLE001
+        _left('.github/workflows/', 'no approval could be judged, because '
+                                    'the vendored precedent_check.py did not '
+                                    'import -- no workflow was removed. '
+                                    'Refresh again once it does')
+        return {}
+    shipped = {rel for _t, rel in CI_WORKFLOW_TEMPLATES.get(kind, ())}
+    declared = local_ci_workflows(dest_root)
+    try:
+        approved = json.loads((dest_root / 'precedent.json').read_text(
+            encoding='utf-8')).get(GITHUB_CI_APPROVED_KEY) or {}
+    except (OSError, ValueError, AttributeError):             # noqa: BLE001
+        approved = {}
+    if not isinstance(approved, dict):
+        approved = {}
+    removed = {}
+    for path in sorted(wf_dir.iterdir()):
+        if not (path.is_file() and path.suffix in ('.yml', '.yaml')):
+            continue
+        rel = f'.github/workflows/{path.name}'
+        # A retired name is not skipped: whatever _remove_retired_ci_
+        # workflow_files and the legacy sweep left of one is still a
+        # workflow upstream does not ship.
+        if rel in shipped or rel in declared:
+            continue
+        entry = approved.get(rel)
+        if (isinstance(entry, dict) and approval_problem(entry) is None
+                and not entry.get('template')
+                and entry.get('sha256') == _sha256(path)):
+            continue                  # the person asked for this one
+        why = _unsafe_to_replace(dest_root, rel)
+        if why:
+            _left(rel, f'upstream does not ship it and nobody approved it, '
+                       f'so it goes, but it was not removed: {why}')
+            continue
+        text = path.read_text(encoding='utf-8', errors='ignore')
+        _uses, scripts = _workflow_facts(text)
+        reason = ('upstream does not ship it, and github_ci_approved carries '
+                  'no approval of it in the person\'s words -- a consumer\'s '
+                  'CI converges to upstream (2026-09-27). Its content stays '
+                  'in git history'
+                  + (f'. It ran {", ".join(sorted(scripts))}: if the local '
+                     f'push check does not run that, run it there, not in '
+                     f'GitHub' if scripts else ''))
+        if pd is not None:
+            done = _retire_one(dest_root, pd, rel, reason, refusals=[])
+        else:
+            ok, _o = _git_read(dest_root, 'rm', '-q', '--', rel)
+            if not ok:
+                path.unlink()
+            print(f"precedent_vendor_engine refresh: retired {rel} -- {reason}.")
+            done = True
+        if done:
+            removed[rel] = text
+    if removed:
+        _drop_ci_approvals(dest_root, sorted(removed))
+        # Anything an earlier sweep left "for you" about a file now gone is
+        # already answered.
+        _LEFT_FOR_YOU[:] = [(i, w) for i, w in _LEFT_FOR_YOU if i not in removed]
+        _warn_about_dependents(dest_root, sorted(removed),
+                               'removed: upstream does not ship it and '
+                               'nobody approved it')
+    return removed
 
 
 def _retire_legacy_hooks(dest_root, manifest, pd):
@@ -2959,7 +3088,7 @@ def hardcoded_identities(dest_root):
     return hits
 
 
-def _orphaned_secrets(dest_root, deleted_texts):
+def _orphaned_secrets(dest_root, deleted_texts, legacy=True):
     """Secrets a just-deleted legacy workflow read that no remaining workflow
     reads, plus the known legacy names when nothing reads them. Only the
     person can delete a repository secret, and a credential with no reader
@@ -2975,7 +3104,7 @@ def _orphaned_secrets(dest_root, deleted_texts):
     for text in deleted_texts.values():
         read_before |= set(_SECRET_RE.findall(text))
     orphaned = (read_before - remaining) - {'GITHUB_TOKEN'}
-    if deleted_texts:
+    if deleted_texts and legacy:
         orphaned |= set(LEGACY_SECRETS) - remaining
     return sorted(orphaned)
 
@@ -2987,6 +3116,7 @@ def retire_legacy_leftovers(dest_root, manifest, kind):
     'secrets': [...]}. Everything it declined lands in _LEFT_FOR_YOU."""
     pd = _decommission_module()
     deleted_wf, _kept = _retire_legacy_workflows(dest_root, manifest, kind, pd)
+    removed_wf = _remove_unapproved_workflows(dest_root, manifest, kind, pd)
     deleted_hooks = _retire_legacy_hooks(dest_root, manifest, pd)
     _remove_retired_config_fields(dest_root)
     for name, path, why in stale_source_paths(dest_root):
@@ -3007,7 +3137,12 @@ def retire_legacy_leftovers(dest_root, manifest, kind):
                      'fallback branch, keeping the rest of the file -- '
                      'commit-identity.sh resolves who is committing, and a '
                      'name written here credits anyone else to that person')
-    secrets = _orphaned_secrets(dest_root, deleted_wf)
+    # The old install's own secret names are raised only when an old-install
+    # workflow went; any removed workflow still names the secrets it alone
+    # read.
+    secrets = sorted(set(_orphaned_secrets(dest_root, deleted_wf))
+                     | set(_orphaned_secrets(dest_root, removed_wf, legacy=False)))
+    deleted_wf = {**deleted_wf, **removed_wf}
     for s in secrets:
         _left(f'secret {s}', 'no remaining workflow reads it -- if it is set '
                              'on this repository, only you can delete it '
@@ -3060,9 +3195,54 @@ def _ci_workflow_incomplete(dest_root, kind, ci_workflows_dir, manifest):
         if rel not in recorded:
             out.append(rel)
             continue
-        if _sha256(path) == recorded[rel] and _sha256(path) != _sha256(src):
+        if _sha256(path) != _sha256(src) and (
+                kind in CI_CONVERGES_KINDS or _sha256(path) == recorded[rel]):
             out.append(rel)
     return out
+
+
+GITHUB_CI_APPROVED_KEY = 'github_ci_approved'
+
+
+def _unsafe_to_replace(dest_root, rel):
+    """-> None when git holds `rel` with no uncommitted edits, so replacing or
+    deleting it destroys nothing -- its content stays in history. Otherwise
+    the reason it is left alone (practice: repair-cannot-discard-work)."""
+    ok, _out = _git_read(dest_root, 'ls-files', '--error-unmatch', '--', rel)
+    if not ok:
+        return ('git does not track it, so this is the only copy -- commit it '
+                'and the next refresh will do it')
+    ok, out = _git_read(dest_root, 'status', '--porcelain', '--', rel)
+    if not ok or out.strip():
+        return ('it has uncommitted edits, which exist nowhere else -- commit '
+                'or discard them and the next refresh will do it')
+    return None
+
+
+def _drop_ci_approvals(dest_root, rels):
+    """Remove precedent.json github_ci_approved entries for `rels` -> [rel
+    dropped]. For an engine-owned workflow the manifest's hash is what the
+    ci-workflow-approved check reads, so an approval left beside it is stale
+    text a reader would take for a live decision. For a removed file it is an
+    approval that outlived its file, which that check reports."""
+    path = dest_root / 'precedent.json'
+    try:
+        cfg = json.loads(path.read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return []
+    approved = cfg.get(GITHUB_CI_APPROVED_KEY)
+    if not isinstance(approved, dict):
+        return []
+    dropped = [r for r in rels if r in approved]
+    if not dropped:
+        return []
+    for r in dropped:
+        del approved[r]
+    if not approved:
+        del cfg[GITHUB_CI_APPROVED_KEY]
+    path.write_text(json.dumps(cfg, indent=2, ensure_ascii=False) + '\n',
+                    encoding='utf-8')
+    return dropped
 
 
 def _refresh_ci_workflow_files(dest_root, kind, ci_workflows_dir, manifest):
@@ -3088,14 +3268,23 @@ def _refresh_ci_workflow_files(dest_root, kind, ci_workflows_dir, manifest):
     hand-edited file outright, the same way --force already treats every
     other drifted file in this tool.
 
-    Returns (refreshed, catchup): rel paths rewritten to the current
-    template, and rel paths whose hash was recorded for the first time."""
+    IN A KIND WHOSE CI CONVERGES (CI_CONVERGES_KINDS) none of that caution
+    applies: a file that differs from the template is replaced whether or
+    not it was ever recorded, and any github_ci_approved entry for it is
+    dropped, because the manifest now vouches for it. The one thing still
+    refused is destroying content git does not hold (_unsafe_to_replace).
+
+    Returns (refreshed, catchup, replaced): rel paths rewritten to the
+    current template, rel paths whose hash was recorded for the first time,
+    and rel paths a converging refresh replaced although they were untracked
+    or hand-edited."""
     if not any((dest_root / rel).is_file()
                for _t, rel in CI_WORKFLOW_TEMPLATES.get(kind, ())):
-        return [], []
+        return [], [], []
+    converges = kind in CI_CONVERGES_KINDS
     recorded = dict(manifest.get('ci_workflows_sha256') or {})
     _local = local_ci_workflows(dest_root)
-    refreshed, catchup = [], []
+    refreshed, catchup, replaced, owned = [], [], [], []
     for template, rel in CI_WORKFLOW_TEMPLATES.get(kind, ()):
         # DECLARED LOCAL: not written, and its recorded hash is DROPPED
         # rather than updated. Leaving a hash behind would re-arm the
@@ -3112,6 +3301,24 @@ def _refresh_ci_workflow_files(dest_root, kind, ci_workflows_dir, manifest):
         if not src.is_file():
             continue                  # this commit predates the template
         template_hash = _sha256(src)
+        if converges:
+            if _sha256(path) != template_hash:
+                was = ('hand-edited since it was recorded'
+                       if rel in recorded and _sha256(path) != recorded[rel]
+                       else 'never tracked' if rel not in recorded else None)
+                if was:
+                    why = _unsafe_to_replace(dest_root, rel)
+                    if why:
+                        _left(rel, f'differs from upstream\'s {template} and '
+                                   f'was not replaced: {why}')
+                        continue
+                    replaced.append(rel)
+                else:
+                    refreshed.append(rel)
+                shutil.copy2(src, path)
+            recorded[rel] = template_hash
+            owned.append(rel)
+            continue
         if rel not in recorded:
             recorded[rel] = _sha256(path)
             catchup.append(rel)
@@ -3120,13 +3327,15 @@ def _refresh_ci_workflow_files(dest_root, kind, ci_workflows_dir, manifest):
             shutil.copy2(src, path)
             recorded[rel] = template_hash
             refreshed.append(rel)
+    if owned:
+        _drop_ci_approvals(dest_root, owned)
     manifest_path = dest_root / 'tools' / MANIFEST_NAME
     live = json.loads(manifest_path.read_text(encoding='utf-8'))
     live['ci_workflow_files'] = sorted(recorded)
     live['ci_workflows_sha256'] = recorded
     manifest_path.write_text(json.dumps(live, indent=2, ensure_ascii=False) + '\n',
                              encoding='utf-8')
-    return refreshed, catchup
+    return refreshed, catchup, replaced
 
 
 # --- Repo-owned files instantiated from a template: tools/bootstrap.sh -----
@@ -4248,7 +4457,7 @@ def status(clone):
     if 'hook_files' not in manifest:
         print(f"  NOTE: this manifest has no hook_files recorded yet -- vendored before hook "
               f"scripts were tracked. `refresh` will pick them up on the next run.")
-    ci_drift = _ci_workflow_drift(ROOT, manifest)
+    ci_drift = _ci_workflow_drift(ROOT, manifest, kind)
     for rel, why in ci_drift:
         print(f"  LOCAL DRIFT: {rel} -- {why}")
     ep_drift = _engine_path_drift(ROOT, manifest)
@@ -4731,7 +4940,7 @@ def refresh(clone, force=False, ref=None):
 
     if not force:
         drift = (_local_drift(dest_tools, manifest) + _hook_drift(ROOT, manifest)
-                 + _ci_workflow_drift(ROOT, manifest)
+                 + _ci_workflow_drift(ROOT, manifest, kind)
                  + _engine_path_drift(ROOT, manifest))
         if drift:
             for name, why in drift:
@@ -4855,11 +5064,11 @@ def refresh(clone, force=False, ref=None):
 
         # CI-workflow analog of set_incomplete/hooks_incomplete, above --
         # see _ci_workflow_incomplete's own docstring for exactly what
-        # counts. No analog of set_orphaned/set_incomplete's REMOVAL side:
-        # a CI workflow this repo no longer vendors is left alone, not
-        # deleted -- deleting somebody's `.github/workflows/*.yml` out from
-        # under them on a routine refresh is a different, larger decision
-        # than this fix makes.
+        # counts. No analog of set_orphaned/set_incomplete's REMOVAL side
+        # here: in a practice source a CI workflow this repo no longer
+        # vendors is left alone, and in a consumer the removal already ran at
+        # the top of this function (_remove_unapproved_workflows, via
+        # retire_legacy_leftovers -- see CI_CONVERGES_KINDS).
         ci_incomplete = _ci_workflow_incomplete(ROOT, kind, engine_dir / 'ci-workflows', manifest)
 
         # tools/bootstrap.sh and anything else TEMPLATE_INSTANCES names. Not
@@ -4962,9 +5171,9 @@ def refresh(clone, force=False, ref=None):
                               engine_dir / 'hooks'):
             written.append(ROOT / '.claude' / 'settings.json')
         written += _write_hook_files(ROOT, engine_dir / 'hooks')
-        ci_refreshed, ci_catchup = _refresh_ci_workflow_files(
+        ci_refreshed, ci_catchup, ci_replaced = _refresh_ci_workflow_files(
             ROOT, kind, engine_dir / 'ci-workflows', manifest)
-        written += [ROOT / rel for rel in ci_refreshed]
+        written += [ROOT / rel for rel in ci_refreshed + ci_replaced]
         template_rewritten = _refresh_template_instances(
             ROOT, kind, engine_dir / 'templates', manifest, template_plan)
         written += [ROOT / rel for rel in template_rewritten]
@@ -4982,6 +5191,10 @@ def refresh(clone, force=False, ref=None):
     if ci_refreshed:
         print(f"precedent_vendor_engine refresh: refreshed {len(ci_refreshed)} CI "
               f"workflow file(s) to the current template ({', '.join(ci_refreshed)}).")
+    for rel in ci_replaced:
+        print(f"precedent_vendor_engine refresh: CI workflow replaced: {rel} "
+              f"was a hand-made or hand-edited copy, and is now upstream's "
+              f"template, unmodified. Its old content stays in git history.")
     if template_rewritten:
         print(f"precedent_vendor_engine refresh: brought {', '.join(template_rewritten)} "
               f"up to the current template -- it carried no local edits.")

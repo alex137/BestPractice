@@ -10,7 +10,7 @@ blocked_on:        null
 batch:             null
 decision:          null
 decision_strength: null
-waiting_on:        "each install's next Update Vendors, where step 10(g) asks Morgan about every workflow file that stays"
+waiting_on:        "each install's next Update Vendors, which since 2026-09-27 replaces the light check with the template and removes every unapproved workflow without asking"
 noted:             2026-09-25
 closed:            null
 ---
@@ -44,3 +44,6 @@ fully solved". The repo that prompted it was fixed the same day. Two others
 billed that day too. One could not be attached from the session that wrote
 this item, so it went out as a handoff; the other is being handled in its
 own session.
+
+## Notes
+- 2026-09-27: a consumer's CI now converges to upstream on Update Vendors, without asking. The engine owns `light-check.yml` and writes it from the template over a hand-made copy, and removes every other workflow nobody approved in their own words (`CI_CONVERGES_KINDS` in `tools/precedent_vendor_engine.py`). Morgan: "Asking creates doubt and confusion when there isn't any." So each install should pass the check right after its next update; this item still closes only when every one does.
