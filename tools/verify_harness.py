@@ -8981,15 +8981,17 @@ def check_precedent_check_fires():
         # planted-case mechanism doing precisely its job, and it is the
         # reason a check without one is refused.
         #
-        # precedent_upstream_check.py is the replacement because it is
-        # unvendored BY DESIGN rather than by omission: it compares this
-        # repo's own main against its carry watermark, a question no other
-        # repository has. A future list change is unlikely to absorb it the
-        # way parse_check.py was absorbed -- but if one ever does, this case
-        # will fail exactly like this one did, which is the point.
+        # precedent_simulate.py is the replacement because it is unvendored
+        # BY DESIGN rather than by omission: an authoring aid for writing
+        # practices here, which no consumer runs (UPSTREAM_ONLY in
+        # precedent_check.py says so). It took over from
+        # the upstream-carry notice's tool when that was retired on
+        # 2026-09-27. A future list change is unlikely to absorb it the way
+        # parse_check.py was absorbed -- but if one ever does, this case will
+        # fail exactly like this one did, which is the point.
         case('vendored-import-refs-resolve',
              lambda repo: rewrite(repo, 'tools/precedent_paths.py',
-                                  lambda t: 'import precedent_upstream_check\n' + t))
+                                  lambda t: 'import precedent_simulate\n' + t))
 
         # generated-artifact-provenance -- a hand-edited generated view
         case('generated-artifact-provenance',
@@ -17647,6 +17649,96 @@ def check_promote_picks_its_step():
                       and 'Now promoting' not in out))
         wts = git(work, 'worktree', 'list').stdout.strip().splitlines()
         cases.append(('no worktree is left behind', len(wts) == 1))
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
+def check_empty_commits_are_never_counted():
+    """A commit that changes no file -- a merge, an empty commit -- is never
+    counted where a person reads a branch count, never blocks a stop, and
+    never makes a Promote think work is waiting.
+
+    Morgan, 2026-09-27 (strength: decided): "let's have the system stop
+    describing and/or reporting and/or mentioning empty merges", and the
+    branch lines count "the number of commits ahead/behind that made changes
+    to the repo". Every Promote into main leaves merge commits pre-staging
+    lacks, so a count by lineage is never zero and never means anything."""
+    import tempfile, shutil as _shutil
+    name = 'commits that change no file are never counted or reported'
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_gate as _pg, precedent_branches as _pb
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+        env = dict(os.environ, GIT_AUTHOR_NAME='T', GIT_AUTHOR_EMAIL='t@example.com',
+                   GIT_COMMITTER_NAME='T', GIT_COMMITTER_EMAIL='t@example.com',
+                   GIT_CONFIG_GLOBAL=str(tmp / 'gitconfig'))
+
+        def git(cwd, *a):
+            return subprocess.run(['git', '-C', str(cwd), *a],
+                                  capture_output=True, text=True, env=env)
+
+        def out(cwd, *a):
+            r = git(cwd, *a)
+            return r.stdout.strip() if r.returncode == 0 else ''
+
+        bare = tmp / 'origin.git'
+        git(tmp, 'init', '-q', '--bare', '-b', 'main', str(bare))
+        work = tmp / 'work'
+        git(tmp, 'init', '-q', '-b', 'main', str(work))
+        (work / 'a.txt').write_text('a\n', encoding='utf-8')
+        git(work, 'add', '-A')
+        git(work, 'commit', '-q', '-m', 'init')
+        git(work, 'remote', 'add', 'origin', f'file://{bare}')
+        for b in ('staging', 'pre-staging'):
+            git(work, 'push', '-q', 'origin', f'HEAD:refs/heads/{b}')
+
+        # pre-staging gains an empty commit and an empty merge.
+        git(work, 'checkout', '-q', '-b', 'pre-staging')
+        git(work, 'commit', '-q', '--allow-empty', '-m', 'empty')
+        git(work, 'checkout', '-q', '-b', 'side', 'HEAD~1')
+        git(work, 'commit', '-q', '--allow-empty', '-m', 'side empty')
+        git(work, 'checkout', '-q', 'pre-staging')
+        git(work, 'merge', '-q', '--no-ff', '-m', 'empty merge', 'side')
+        git(work, 'push', '-q', 'origin', 'pre-staging')
+        git(work, 'fetch', '-q', 'origin')
+
+        cases.append(('an empty commit and an empty merge on pre-staging: the '
+                      'Boildown line counts nothing waiting',
+                      _pg._unpromoted(work, 'staging', out) == 0))
+        cases.append(('and Promote finds nothing waiting to move',
+                      _pb._new_commits(work, 'origin/staging',
+                                       'origin/pre-staging') == []))
+
+        # A stop with only empty commits unpushed is not blocked.
+        hook = ROOT / '.claude' / 'hooks' / 'stop-git-check.sh'
+        git(work, 'checkout', '-q', '-b', 'feature', 'origin/pre-staging')
+        git(work, 'push', '-q', '-u', 'origin', 'feature')
+        git(work, 'commit', '-q', '--allow-empty', '-m', 'nothing')
+
+        def stop():
+            return subprocess.run(['bash', str(hook)], cwd=str(work), input='{}',
+                                  capture_output=True, text=True, env=env)
+        r = stop()
+        cases.append(('only an empty commit unpushed: the stop hook lets the '
+                      'turn end', r.returncode == 0))
+
+        # One real commit among the empty ones counts as exactly one.
+        (work / 'b.txt').write_text('b\n', encoding='utf-8')
+        git(work, 'add', 'b.txt')
+        git(work, 'commit', '-q', '-m', 'real')
+        git(work, 'commit', '-q', '--allow-empty', '-m', 'nothing again')
+        r = stop()
+        cases.append(('one real commit among empty ones: the stop hook blocks '
+                      'and says 1, not 3', r.returncode == 2
+                      and '1 unpushed commit(s)' in r.stderr))
+        git(work, 'push', '-q', 'origin', 'feature:pre-staging')
+        git(work, 'fetch', '-q', 'origin')
+        cases.append(('and the Boildown line counts that one real commit',
+                      _pg._unpromoted(work, 'staging', out) == 1))
+        cases.append(('Promote sees exactly that one commit',
+                      len(_pb._new_commits(work, 'origin/staging',
+                                           'origin/pre-staging')) == 1))
     failed = [n for n, ok in cases if not ok]
     check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
@@ -35875,6 +35967,7 @@ def main():
     check_engine_commits_state_their_author()
     check_history_checks_never_ride_a_reused_pass()
     check_promote_picks_its_step()
+    check_empty_commits_are_never_counted()
     check_promote_only_and_tier_branches()
     check_github_ci_setting_names()
     check_promote_keeps_the_old_name_in_step()
