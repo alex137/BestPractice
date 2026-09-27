@@ -315,6 +315,13 @@ ENGINE_FILES = [
     # NotApplicable by name, so those report SKIPPED with the missing module
     # named -- never ERRORED, and never a silent pass.
     'precedent_check.py',
+    # Who cites a practice, across every source a repo declares (added
+    # 2026-09-27). precedent_check.py's practice-change-propagates check
+    # imports it, and it has to run in the SETS above all: a practice renamed
+    # in BestPractice left `go-merge` citations in the private sets, whose
+    # own sessions are the ones that can fix them. Update Vendors runs it
+    # from the source clone as well. practice: practice-change-propagates
+    'precedent_practice_refs.py',
     # Whether this environment can reach its PRIVATE sources at all, and the
     # credential helper that lets a SessionStart hook clone one without
     # add_repo (added 2026-09-09). In the shared engine rather than the

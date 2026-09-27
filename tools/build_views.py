@@ -2072,6 +2072,7 @@ TOOLS_DESCRIPTIONS = {
     'precedent_branches.py': "The three branch tiers -- which branch is pre-staging, staging and main here, and whether a push to one gets the basic or the full push check (spec/BRANCH_TIERS_PLAN.md)",
     'precedent_consumer_shape.py': "A practice source's check tests run the way a consuming repository runs them -- with git ignoring what a consumer typically ignores, in a copy without the source's own tools/ (only the engine, tools/checks/ and what practices ship) -- so a test that passes only in its home layout fails at home; a source's push check runs it",
     'precedent_merge_check.py': "The push check on the merge GitHub would make, at its base branch's tier -- `merge-check-gate.sh` runs it before a pull request is merged through GitHub, a push no push gate sees",
+    'precedent_practice_refs.py': "Who cites a practice, across this repo and every source it declares -- live citations vs history; the lookup behind practice-change-propagates, the merge moment and Update Vendors",
     'precedent_paths.py': "The PATH-TRIGGERED channel — matches a touched file against every practice's `applies_to`",
     'precedent_promote.py': "Stage 3 (phase 5) — runs a candidate against the four promotion criteria",
     'precedent_update.py': "Update Vendors as one command: run from the BestPractice clone against a consuming repo, it refreshes the engine and catalogue, regenerates the views and runs the deep check, then reports DONE, LEFT FOR YOU (only that repo's own calls) or FAILED (spec/ONE_COMMAND_UPDATE_PLAN.md)",
