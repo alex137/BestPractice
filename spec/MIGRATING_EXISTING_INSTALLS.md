@@ -878,6 +878,14 @@ out from under an earlier migration's own correct-at-the-time step 6.
 
 ## The default-branch gotcha
 
+**Since 2026-09-25 this section does not apply to an ordinary install.**
+Every install follows `main`, which is BestPractice's default branch, so the
+pin and the default are the same branch and `checkin.py update` is the route.
+An install still recording `staging` or `precedent-beta-v01` is repointed to
+`main` by the engine refresh itself (since 2026-09-27), never by hand
+([vendor-update-runbook](../practices/vendor-update-runbook.md) steps 1 and 4). What
+follows is for a repo deliberately pinned to some other branch.
+
 **Still follow the manual steps below.** What changed is *why*, and the
 distinction matters for how long they stay: this used to be a limitation of
 the tool, and is now a deliberate hold while the fix settles.

@@ -163,7 +163,12 @@ first line, with the reason.
   2026-09-14 — its last step runs `Go update`'s chain on what the update
   produced, so nobody is asked a second time for work that is already done and
   already checked. It reverses the sentence that used to sit here; the full
-  check at step 6 still gates the push, as it does for any merge.
+  check at step 6 still gates the push, as it does for any merge. **Since
+  2026-09-27 the sequence is one command**,
+  `python3 ../BestPractice/tools/precedent_update.py --repo .` from the
+  consuming repo: it runs every step that needs no judgment and stops once,
+  listing only this repo's own calls
+  ([spec/ONE_COMMAND_UPDATE_PLAN.md](spec/ONE_COMMAND_UPDATE_PLAN.md)).
 
 The three dispositions an open item can carry are
 [open-item-disposition](practices/open-item-disposition.md)'s; its one line is
