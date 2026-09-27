@@ -9140,6 +9140,28 @@ def main():
                     f"_run_with_coverage_retry's docstring for the incident "
                     f"this closes).")
 
+    # --changed-files-only: judge a push by what it brings, never by the
+    # repository's standing state (Morgan, 2026-09-27, strength: decided:
+    # "let's do it ONLY for files that changed (or were added) in that
+    # session ... NOT for every file in the repo"). Every check still runs;
+    # a finding is kept only when it names a file in the change. The rest --
+    # and any finding that names no file -- wait for the full check, which
+    # a Promote runs on the whole tree.
+    outside_change = 0
+    if '--changed-files-only' in flags:
+        in_change = {c.rstrip('/') for c in ctx.changed}
+        kept_results = []
+        for slug, status, findings, why, uv in results:
+            if status == 'VIOLATION':
+                kept = [f for f in findings
+                        if str(getattr(f, 'where', '') or '').split(':', 1)[0]
+                        in in_change]
+                outside_change += len(findings) - len(kept)
+                status = 'VIOLATION' if kept else 'PASS'
+                findings = kept
+            kept_results.append((slug, status, findings, why, uv))
+        results = kept_results
+
     all_violated = [r for r in results if r[1] == 'VIOLATION']
     skipped = [r for r in results if r[1] == 'SKIPPED']
     errored = [r for r in results if r[1] == 'ERROR']
@@ -9216,6 +9238,17 @@ def main():
           f'advisory findings do not fail the run; an exemption is this repo '
           f'declaring the rule does not bind it, with a reason, in '
           f'precedent.json).')
+    if '--changed-files-only' in flags:
+        if outside_change:
+            print(f'note: --changed-files-only: {outside_change} finding(s) in '
+                  f'files this change does not touch, or naming no file, were '
+                  f'not judged here -- the full check judges them.')
+        if errored:
+            # A check that crashed names no file, so it cannot be this
+            # change's doing; it is reported and left to the full check.
+            print(f'note: --changed-files-only: {len(errored)} check(s) '
+                  f'errored and were not held against this change.')
+        return 1 if violated else 0
     if violated or errored:
         return 1
     if (skipped or unverified) and '--strict' in flags:
