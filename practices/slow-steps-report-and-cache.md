@@ -90,3 +90,5 @@ Memoize the solve under a source-content key with a bypass switch; add a
 progress line with an estimate to anything over a minute; run heavy gates
 sequentially; record measured durations, dated, in the run instructions;
 export the pattern to any other heavy model the moment it appears.
+A memo on a container's disk dies with the container: to share it across
+sessions, see [shared-result-cache](shared-result-cache.md).
