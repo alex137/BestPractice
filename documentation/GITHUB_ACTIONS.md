@@ -22,9 +22,10 @@ Three workflows run on this repo itself, in [.github/workflows/](../.github/work
   that broke every re-sync after it) sitting undetected on a branch whose
   merges were all green — neither doc_lint.py nor leak_gate.py could ever
   have caught either, since neither runs the resolver or materializer at
-  all. Since 2026-09-25 it runs only on a pull request into `main` -- this
-  repo's one GitHub test ([spec/BRANCH_TIERS_PLAN.md](../spec/BRANCH_TIERS_PLAN.md));
-  every other push is checked locally by the push check first.
+  all. It runs on a pull request into `main` (since 2026-09-25) and on every
+  push to `main` (since 2026-09-27) -- this repo's one GitHub test
+  ([spec/BRANCH_TIERS_PLAN.md](../spec/BRANCH_TIERS_PLAN.md)); every other
+  push is checked locally by the push check first.
 - **`leak-gate.yml`** — added at phase 2 of the Precedent rewrite
   (`b3bfb54`). Runs [tools/leak_gate.py](../tools/leak_gate.py)'s structural
   layer on every push and every pull request, on every branch (this repo is

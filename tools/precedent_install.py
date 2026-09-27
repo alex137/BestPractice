@@ -209,7 +209,8 @@ def _ci_preference(dest):
     write the GitHub Actions workflow, and a one-line reason for the log.
     practice: declared-default-is-applied -- nothing here asks; absent
     resolves to the engine's own default, which is enabled since 2026-09-25
-    (the light check on pull requests into main only)."""
+    (the light check on pull requests into main, and on pushes to main in a
+    public repository)."""
     try:
         pref = precedent_identity.ci_preference(dest)
     except precedent_identity.NoDeclaredIdentity:
@@ -230,8 +231,9 @@ def _substitute(text, subs):
 
 _CI_PARAGRAPH_ON = (
     "- **Before anything reaches `main`, GitHub checks it once** (the GitHub\n"
-    "  Actions workflow `light-check.yml`, on the pull request into `main`).\n"
-    "  Every other push is checked on your own machine before it leaves. In a\n"
+    "  Actions workflow `light-check.yml`, on the pull request into `main`). In a\n"
+    "  public repository it checks again after every push to `main`, which is\n"
+    "  free there. Every other push is checked on your own machine before it leaves. In a\n"
     "  public repository a leak check (`leak-gate.yml`) also runs on every push\n"
     "  and refuses anything that would publish something private. Neither needs\n"
     "  maintenance. If they don't appear on a pull request's checks, GitHub\n"
