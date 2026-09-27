@@ -8981,15 +8981,17 @@ def check_precedent_check_fires():
         # planted-case mechanism doing precisely its job, and it is the
         # reason a check without one is refused.
         #
-        # precedent_upstream_check.py is the replacement because it is
-        # unvendored BY DESIGN rather than by omission: it compares this
-        # repo's own main against its carry watermark, a question no other
-        # repository has. A future list change is unlikely to absorb it the
-        # way parse_check.py was absorbed -- but if one ever does, this case
-        # will fail exactly like this one did, which is the point.
+        # precedent_simulate.py is the replacement because it is unvendored
+        # BY DESIGN rather than by omission: an authoring aid for writing
+        # practices here, which no consumer runs (UPSTREAM_ONLY in
+        # precedent_check.py says so). It took over from
+        # the upstream-carry notice's tool when that was retired on
+        # 2026-09-27. A future list change is unlikely to absorb it the way
+        # parse_check.py was absorbed -- but if one ever does, this case will
+        # fail exactly like this one did, which is the point.
         case('vendored-import-refs-resolve',
              lambda repo: rewrite(repo, 'tools/precedent_paths.py',
-                                  lambda t: 'import precedent_upstream_check\n' + t))
+                                  lambda t: 'import precedent_simulate\n' + t))
 
         # generated-artifact-provenance -- a hand-edited generated view
         case('generated-artifact-provenance',
@@ -17647,6 +17649,96 @@ def check_promote_picks_its_step():
                       and 'Now promoting' not in out))
         wts = git(work, 'worktree', 'list').stdout.strip().splitlines()
         cases.append(('no worktree is left behind', len(wts) == 1))
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
+def check_empty_commits_are_never_counted():
+    """A commit that changes no file -- a merge, an empty commit -- is never
+    counted where a person reads a branch count, never blocks a stop, and
+    never makes a Promote think work is waiting.
+
+    Morgan, 2026-09-27 (strength: decided): "let's have the system stop
+    describing and/or reporting and/or mentioning empty merges", and the
+    branch lines count "the number of commits ahead/behind that made changes
+    to the repo". Every Promote into main leaves merge commits pre-staging
+    lacks, so a count by lineage is never zero and never means anything."""
+    import tempfile, shutil as _shutil
+    name = 'commits that change no file are never counted or reported'
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_gate as _pg, precedent_branches as _pb
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+        env = dict(os.environ, GIT_AUTHOR_NAME='T', GIT_AUTHOR_EMAIL='t@example.com',
+                   GIT_COMMITTER_NAME='T', GIT_COMMITTER_EMAIL='t@example.com',
+                   GIT_CONFIG_GLOBAL=str(tmp / 'gitconfig'))
+
+        def git(cwd, *a):
+            return subprocess.run(['git', '-C', str(cwd), *a],
+                                  capture_output=True, text=True, env=env)
+
+        def out(cwd, *a):
+            r = git(cwd, *a)
+            return r.stdout.strip() if r.returncode == 0 else ''
+
+        bare = tmp / 'origin.git'
+        git(tmp, 'init', '-q', '--bare', '-b', 'main', str(bare))
+        work = tmp / 'work'
+        git(tmp, 'init', '-q', '-b', 'main', str(work))
+        (work / 'a.txt').write_text('a\n', encoding='utf-8')
+        git(work, 'add', '-A')
+        git(work, 'commit', '-q', '-m', 'init')
+        git(work, 'remote', 'add', 'origin', f'file://{bare}')
+        for b in ('staging', 'pre-staging'):
+            git(work, 'push', '-q', 'origin', f'HEAD:refs/heads/{b}')
+
+        # pre-staging gains an empty commit and an empty merge.
+        git(work, 'checkout', '-q', '-b', 'pre-staging')
+        git(work, 'commit', '-q', '--allow-empty', '-m', 'empty')
+        git(work, 'checkout', '-q', '-b', 'side', 'HEAD~1')
+        git(work, 'commit', '-q', '--allow-empty', '-m', 'side empty')
+        git(work, 'checkout', '-q', 'pre-staging')
+        git(work, 'merge', '-q', '--no-ff', '-m', 'empty merge', 'side')
+        git(work, 'push', '-q', 'origin', 'pre-staging')
+        git(work, 'fetch', '-q', 'origin')
+
+        cases.append(('an empty commit and an empty merge on pre-staging: the '
+                      'Boildown line counts nothing waiting',
+                      _pg._unpromoted(work, 'staging', out) == 0))
+        cases.append(('and Promote finds nothing waiting to move',
+                      _pb._new_commits(work, 'origin/staging',
+                                       'origin/pre-staging') == []))
+
+        # A stop with only empty commits unpushed is not blocked.
+        hook = ROOT / '.claude' / 'hooks' / 'stop-git-check.sh'
+        git(work, 'checkout', '-q', '-b', 'feature', 'origin/pre-staging')
+        git(work, 'push', '-q', '-u', 'origin', 'feature')
+        git(work, 'commit', '-q', '--allow-empty', '-m', 'nothing')
+
+        def stop():
+            return subprocess.run(['bash', str(hook)], cwd=str(work), input='{}',
+                                  capture_output=True, text=True, env=env)
+        r = stop()
+        cases.append(('only an empty commit unpushed: the stop hook lets the '
+                      'turn end', r.returncode == 0))
+
+        # One real commit among the empty ones counts as exactly one.
+        (work / 'b.txt').write_text('b\n', encoding='utf-8')
+        git(work, 'add', 'b.txt')
+        git(work, 'commit', '-q', '-m', 'real')
+        git(work, 'commit', '-q', '--allow-empty', '-m', 'nothing again')
+        r = stop()
+        cases.append(('one real commit among empty ones: the stop hook blocks '
+                      'and says 1, not 3', r.returncode == 2
+                      and '1 unpushed commit(s)' in r.stderr))
+        git(work, 'push', '-q', 'origin', 'feature:pre-staging')
+        git(work, 'fetch', '-q', 'origin')
+        cases.append(('and the Boildown line counts that one real commit',
+                      _pg._unpromoted(work, 'staging', out) == 1))
+        cases.append(('Promote sees exactly that one commit',
+                      len(_pb._new_commits(work, 'origin/staging',
+                                           'origin/pre-staging')) == 1))
     failed = [n for n, ok in cases if not ok]
     check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
@@ -26546,6 +26638,144 @@ def check_checkin_update_never_mutates_the_clone():
               'has moved' not in out3, out3)
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
+
+
+def check_checkin_ignores_files_git_does_not_track_in_the_clone():
+    """`checkin.py` status/record compare against what is COMMITTED on the
+    pinned branch, and push never deletes a file git does not track.
+
+    2026-09-27, a real consumer's Update Vendors: `record` refused because
+    the BestPractice clone held `.claude/settings.local.json` -- gitignored,
+    written there by commit-identity.sh at session start to carry the
+    person's TZ. record walked the clone's FOLDER, so a per-machine file read
+    as "the clone has a file the vendored tree lacks". The session deleted
+    it and re-recorded; the next session start wrote it straight back.
+    `push` carried the same walk the other way and would have unlinked it,
+    along with `.precedent/` and any uncommitted file a person had there.
+
+    The clone also rests on a scratch branch whose commit is NOT what
+    landed, because record wrote the clone's HEAD into the manifest: the
+    upstream commit it stamps must be origin/<pinned branch>, whatever the
+    clone happens to have checked out.
+
+    Negative control (practice: control-asserts-which-failure): run against
+    the checkin.py before this fix, status reports the three stray files as
+    differing, record exits with "is not identical to the vendored tree",
+    and push unlinks all three -- measured 2026-09-27 when this was written.
+    """
+    import tempfile, json as _json
+    if not (ROOT / 'tools' / 'checkin.py').exists():
+        not_applicable('checkin.py ignores files git does not track in the '
+                       'clone', 'tools/checkin.py is not present in this tree')
+        return
+
+    def _git(d, *a):
+        return subprocess.run(['git', '-C', str(d)] + list(a),
+                              capture_output=True, text=True)
+
+    def _ident(d):
+        _git(d, 'config', 'user.email', 'harness@example.com')
+        _git(d, 'config', 'user.name', 'Harness')
+        _git(d, 'config', 'commit.gpgsign', 'false')
+
+    shipped = {
+        'marker.txt': 'upstream content\n',
+        'retired.txt': 'upstream stops vendoring this in the push case\n',
+        '.gitignore': '.claude/settings.local.json\n.precedent/\n',
+        'tools/checkin.py': (ROOT / 'tools' / 'checkin.py').read_text(encoding='utf-8'),
+        'tools/precedent_time.py': (ROOT / 'tools' / 'precedent_time.py'
+                                    ).read_text(encoding='utf-8'),
+        # push() runs the vendored scrub first; this fixture is about the
+        # mirror, so the scrub is a stub that passes.
+        'tools/practice_audit.py': 'raise SystemExit(0)\n',
+    }
+    # What a SessionStart hook writes into every clone it runs in, plus a
+    # person's own uncommitted file. None of it is upstream content.
+    stray = {
+        '.claude/settings.local.json': '{"env": {"TZ": "America/New_York"}}\n',
+        '.precedent/SESSION_PRACTICES.md': 'practices in force this session\n',
+        'notes-in-progress.txt': 'somebody\'s uncommitted work\n',
+    }
+
+    def _write(root, files):
+        for rel, text in files.items():
+            (root / rel).parent.mkdir(parents=True, exist_ok=True)
+            (root / rel).write_text(text, encoding='utf-8')
+
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        base = pathlib.Path(td)
+        up = base / 'up'
+        up.mkdir()
+        _git(up, 'init', '-q', '-b', 'main'); _ident(up)
+        _write(up, shipped)
+        _git(up, 'add', '-A'); _git(up, 'commit', '-qm', 'upstream')
+
+        clone = base / 'clone'
+        subprocess.run(['git', 'clone', '-q', str(up), str(clone)],
+                       capture_output=True)
+        _ident(clone)
+        landed = _git(clone, 'rev-parse', 'origin/main').stdout.strip()
+        _git(clone, 'checkout', '-qb', 'scratch')
+        (clone / 'marker.txt').write_text('scratch, not what landed\n',
+                                          encoding='utf-8')
+        _git(clone, 'commit', '-qam', 'scratch')
+        _write(clone, stray)
+
+        # The consumer is a repo of its own, so checkin.py resolves ROOT to
+        # it and not to whatever repository the temp directory sits in
+        # (practice: fixture-owns-its-state).
+        consumer = base / 'consumer'
+        vend = consumer / 'process' / 'upstream'
+        vend.mkdir(parents=True)
+        _git(consumer, 'init', '-q', '-b', 'main'); _ident(consumer)
+        _write(vend, shipped)
+        manifest = consumer / 'process' / 'manifest.json'
+        manifest.write_text(_json.dumps({'upstream': {
+            'repo': 'x/y', 'branch': 'main', 'commit': landed,
+            'synced_from': landed}, 'entries': []}) + '\n', encoding='utf-8')
+
+        def run(sub, *extra):
+            r = subprocess.run([sys.executable, str(vend / 'tools' / 'checkin.py'),
+                                sub, str(clone), *extra],
+                               capture_output=True, text=True, cwd=str(consumer),
+                               timeout=180)
+            return r.returncode, r.stdout + r.stderr
+
+        rc, out = run('status')
+        cases.append(('status counts no gitignored or uncommitted clone file '
+                      'as a difference', rc == 0 and ' 0 file(s) differ' in out,
+                      out))
+
+        rc, out = run('record', '--note', 'harness fixture')
+        recorded = _json.loads(manifest.read_text(encoding='utf-8')
+                               )['upstream']['commit']
+        cases.append(('record passes with the stray files in the clone',
+                      rc == 0 and 'checkin record OK' in out, out))
+        cases.append(('record stamps origin/<pinned branch>, not the clone\'s '
+                      'HEAD on another branch', recorded == landed,
+                      f'recorded={recorded} landed={landed}'))
+
+        # push: upstream stops vendoring retired.txt. The tracked file must
+        # still go; the three stray files must not.
+        _git(clone, 'checkout', '-q', 'main')
+        (vend / 'retired.txt').unlink()
+        rc, out = run('push')
+        cases.append(('push still deletes a tracked file the vendored tree '
+                      'dropped', rc == 0 and 'checkin push OK' in out
+                      and not (clone / 'retired.txt').exists(), out))
+        survived = [rel for rel, text in stray.items()
+                    if (clone / rel).is_file()
+                    and (clone / rel).read_text(encoding='utf-8') == text]
+        cases.append(('push leaves every file git does not track in the clone '
+                      'untouched', len(survived) == len(stray),
+                      f'survived={survived}\n{out}'))
+        cases.append(('and says it left them alone',
+                      'left 3 file(s) git does not track' in out, out))
+
+    failed = [f'{n}: {d[:400]}' for n, ok, d in cases if not ok]
+    check(f'checkin.py ignores files git does not track in the source clone '
+          f'({len(cases)} stated cases)', not failed, '\n'.join(failed))
 
 
 def check_title_case_leaves_code_and_first_word_alone():
@@ -35875,6 +36105,7 @@ def main():
     check_engine_commits_state_their_author()
     check_history_checks_never_ride_a_reused_pass()
     check_promote_picks_its_step()
+    check_empty_commits_are_never_counted()
     check_promote_only_and_tier_branches()
     check_github_ci_setting_names()
     check_promote_keeps_the_old_name_in_step()
@@ -35967,6 +36198,7 @@ def main():
     check_title_case_never_corrupts_content()
     check_title_case_output_paths_inverts_the_default()
     check_checkin_update_never_mutates_the_clone()
+    check_checkin_ignores_files_git_does_not_track_in_the_clone()
     check_leak_gate_notes_an_uncovered_private_repo()
     check_leak_gate_discovers_the_individual_blocklist()
     check_leak_gate_names_a_stale_blocklist_clone()

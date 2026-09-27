@@ -51,7 +51,16 @@ if [[ "$in_git" == "1" ]] && [[ -n "$(git remote 2>/dev/null)" ]]; then
   current_branch="$(git branch --show-current)"
   if [[ -n "$current_branch" ]] && git rev-parse -q --verify "origin/$current_branch" >/dev/null 2>&1; then
     unpushed="$(git rev-list "origin/$current_branch..HEAD" --count 2>/dev/null || echo 0)"
+    # Commits that change no file -- a merge, an empty commit -- lose nothing,
+    # so they never block a stop (Morgan, 2026-09-27, strength: decided):
+    # identical files on origin means nothing is at risk. Otherwise the count
+    # a person reads is the commits that change a file, never the merges.
+    if [[ "$unpushed" -gt 0 ]] && git diff --quiet "origin/$current_branch" HEAD 2>/dev/null; then
+      unpushed=0
+    fi
     if [[ "$unpushed" -gt 0 ]]; then
+      real="$(git rev-list --no-merges "origin/$current_branch..HEAD" --count -- . 2>/dev/null || echo 0)"
+      [[ "$real" -gt 0 ]] && unpushed="$real"
       reasons+=("$unpushed unpushed commit(s) on branch '$current_branch'. Push them to the remote before stopping.")
     fi
   fi

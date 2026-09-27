@@ -327,27 +327,25 @@ if [ -f tools/precedent_access_check.py ]; then
     echo "WARN: access check did not run -- whether this session can land work in each repo in force is unknown" >&2
 fi
 
-# Say whether Alex has moved `main` since the last time somebody carried it
-# onto this branch. It PRINTS and stops there: Morgan asked for the reminder
-# in a session he is sitting in rather than a job that merges behind his back
-# ("I don't want it to merge invisibly, I'd like to do it in a session when
-# I'm there", 2026-09-08). The comparison is against
-# tools/upstream_watermark.json, not against git ancestry -- this branch
-# carries `main` rather than merging it, so an ancestry test reports a
-# permanent, meaningless gap. See that file's own comment for the incident.
-# Resolved from this script's own path, not from the working directory or
-# CLAUDE_PROJECT_DIR: when the harness roots a session one directory above
-# the repo, both of those point somewhere else (and that layout is this
-# project's own, since a team source resolves as a sibling clone).
+# The repo this hook lives in, resolved from this script's own path, not
+# from the working directory or CLAUDE_PROJECT_DIR: when the harness roots a
+# session one directory above the repo, both of those point somewhere else
+# (and that layout is this project's own, since a team source resolves as a
+# sibling clone).
+#
+# It used to be resolved for the upstream-carry notice, which said at
+# every session start whether `main` had moved since the last carry. Retired
+# 2026-09-27: main takes all its work from staging by Promote now, so the
+# notice only ever counted Promote's own merge commits -- 548 of them, with
+# nothing on main to carry. The drift check in
+# tools/precedent_branches.py (--sync-pre-staging) asks the real question,
+# by files (Morgan: "Let's retire upstream moved - I think with the new
+# staging and pre-staging system we don't need it", strength: decided).
 _hook_repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd -P)"
-python3 "$_hook_repo/tools/precedent_upstream_check.py" || \
-  echo "WARN: upstream check did not run -- whether main has moved since the last carry is unknown this session" >&2
 
 # AND, IN A REPO THAT VENDORS THE ENGINE, whether that engine has fallen
-# behind upstream (2026-09-21). The check above is this repo's own question
-# -- has `main` moved since the last carry -- and is meaningless in a
-# dependent repo. This one is the dependent repo's question: is the engine
-# it is enforcing with still the engine upstream ships?
+# behind upstream (2026-09-21). This is the dependent repo's question: is
+# the engine it is enforcing with still the engine upstream ships?
 #
 # Nothing could answer that before. Every other check in this system runs
 # inside one repository and compares it against itself, which is why a fix
@@ -368,11 +366,9 @@ python3 "$_hook_repo/tools/precedent_engine_freshness.py" --quiet || \
   echo "WARN: engine freshness did not run -- whether this repo's vendored engine is current is unknown this session" >&2
 
 # Say whether anyone other than Morgan has pushed to `precedent-beta-v01`
-# since he was last told -- Alex also commits here, and unlike the upstream
-# check above, this one auto-advances the moment it reports (see
-# tools/precedent_beta_watermark_check.py's own header for why the two
-# watermarks are not the same shape). Session start always gets a line, the
-# same way the upstream check above always does; the reply gate's own copy
+# since he was last told -- Alex also commits here. It auto-advances the
+# moment it reports (see tools/precedent_beta_watermark_check.py's own
+# header). Session start always gets a line; the reply gate's own copy
 # of this check (tools/precedent_gate.py) stays silent except on a real
 # alert, which is where the "never repeat it every message" half lives.
 python3 "$_hook_repo/tools/precedent_beta_watermark_check.py" || \

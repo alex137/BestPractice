@@ -1050,10 +1050,13 @@ def _lock_release(root, held, say):
 
 
 def _new_commits(root, since, tip):
-    """The non-merge commits on `tip` that `since` lacks, one line each. A
-    merge made only to keep two tiers in step is not work waiting to move."""
-    return (_git(root, 'log', '--oneline', '--no-merges', f'{since}..{tip}')
-            or '').splitlines()
+    """The commits on `tip` that `since` lacks and that change a file, one
+    line each. A merge made only to keep two tiers in step, or an empty
+    commit, is not work waiting to move, and is never counted where a person
+    reads the number (Morgan, 2026-09-27, strength: decided: tell me "the
+    number of commits ahead/behind that made changes to the repo")."""
+    return (_git(root, 'log', '--oneline', '--no-merges', f'{since}..{tip}',
+                 '--', '.') or '').splitlines()
 
 
 def promotion_step(root, to=None, work=None):
@@ -1266,7 +1269,7 @@ def _promote_unlocked(root, say=print):
     if _run(root, 'merge-base', '--is-ancestor', ptip, stip).returncode == 0:
         say(f'nothing to promote: {staging} already has everything on {PRE_STAGING}.')
         return 0
-    batch = (_git(root, 'log', '--oneline', '--no-merges', f'{stip}..{ptip}') or '').splitlines()
+    batch = _new_commits(root, stip, ptip)
     with _Worktree(root, stip) as wt:
         m = _run(wt, 'merge', '--no-ff', '-q', '-m',
                  f'Promote {PRE_STAGING} into {staging} ({len(batch)} commit(s))',
