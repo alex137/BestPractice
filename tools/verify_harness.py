@@ -7072,6 +7072,84 @@ def check_update_vendors_is_one_command():
             '; '.join(f'{n}: {d}' for n, d in bad))
 
 
+def check_update_judges_the_committed_tree():
+    """precedent_update's deep check judges the staged update as it will be
+    committed, then leaves the index and working tree exactly as it found
+    them (2026-09-27: a consumer's update failed its deep check twice on
+    staged-only effects -- a change-scope check reading every materialized
+    practice as the repo's own prose, and a shipped test cloning HEAD -- and
+    passed the moment the same tree was committed)."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_update as pu
+    finally:
+        sys.path.pop(0)
+    name = 'Update Vendors judges the staged update as committed, and undoes the commit'
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='judged-as-committed-'))
+    env_keep = {k: os.environ.get(k) for k in ('GIT_CONFIG_GLOBAL', 'GIT_AUTHOR_NAME',
+                                                'GIT_AUTHOR_EMAIL', 'GIT_COMMITTER_NAME',
+                                                'GIT_COMMITTER_EMAIL', 'PRECEDENT_ALLOW_ANY_AUTHOR')}
+    os.environ.update({'GIT_CONFIG_GLOBAL': str(tmp / 'gitconfig'), 'GIT_AUTHOR_NAME': 't',
+                       'GIT_AUTHOR_EMAIL': 't@t', 'GIT_COMMITTER_NAME': 't',
+                       'GIT_COMMITTER_EMAIL': 't@t', 'PRECEDENT_ALLOW_ANY_AUTHOR': '1'})
+
+    def git(*a):
+        return subprocess.run(['git', '-C', str(repo), *a], capture_output=True, text=True)
+    try:
+        repo = tmp / 'r'
+        subprocess.run(['git', 'init', '-q', '-b', 'main', str(repo)], capture_output=True)
+        (repo / 'a.md').write_text('one\n', encoding='utf-8')
+        (repo / 'b.md').write_text('keep\n', encoding='utf-8')
+        git('add', '-A')
+        git('commit', '-qm', 'base')
+        head = git('rev-parse', 'HEAD').stdout.strip()
+        (repo / 'a.md').write_text('two\n', encoding='utf-8')
+        git('add', 'a.md')
+        (repo / 'b.md').write_text('an unstaged edit\n', encoding='utf-8')
+        probe = [sys.executable, '-c',
+                 'import subprocess,sys;'
+                 'g=lambda *a: subprocess.run(["git",*a],capture_output=True,text=True);'
+                 'ok = g("show","HEAD:a.md").stdout=="two\\n" and '
+                 'g("diff","--cached","--quiet").returncode==0;'
+                 'sys.exit(0 if ok else 1)']
+        rc, out = pu.judged_as_committed(repo, probe)
+        cases.append(('the check sees the staged update committed, with nothing staged',
+                      rc == 0, out[-400:]))
+        cases.append(('...and afterwards HEAD is where it was, the update still staged, '
+                      'the unstaged edit untouched',
+                      git('rev-parse', 'HEAD').stdout.strip() == head
+                      and git('diff', '--cached', '--name-only').stdout.split() == ['a.md']
+                      and (repo / 'b.md').read_text() == 'an unstaged edit\n', ''))
+        rc, out = pu.judged_as_committed(repo, [sys.executable, '-c', 'raise SystemExit(1)'])
+        cases.append(('a red check is reported red, and the commit is still undone',
+                      rc == 1 and git('rev-parse', 'HEAD').stdout.strip() == head
+                      and git('diff', '--cached', '--name-only').stdout.split() == ['a.md'],
+                      out[-400:]))
+        hook = repo / '.git' / 'hooks' / 'pre-commit'
+        hook.write_text('#!/bin/sh\necho refused-by-hook >&2\nexit 1\n', encoding='utf-8')
+        hook.chmod(0o755)
+        rc, out = pu.judged_as_committed(repo, [sys.executable, '-c', 'pass'])
+        cases.append(("a commit the repo's hooks refuse is reported, never worked around",
+                      rc != 0 and 'could not be committed' in out
+                      and git('rev-parse', 'HEAD').stdout.strip() == head, out[-400:]))
+        hook.unlink()
+        git('reset', '-q')
+        rc, out = pu.judged_as_committed(repo, [sys.executable, '-c', 'pass'])
+        cases.append(('with nothing staged the check runs as it is, and nothing is committed',
+                      rc == 0 and git('rev-parse', 'HEAD').stdout.strip() == head, out[-400:]))
+    finally:
+        for k, v in env_keep.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+        shutil.rmtree(tmp, ignore_errors=True)
+    failed = [f'{n}: {d}' for n, ok, d in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
 def _already_tested_step(text):
     """-> the `run:` script of the step with `id: already` in a workflow's
     text, dedented, or '' when there is none. Read by line, not by PyYAML:
@@ -37290,6 +37368,7 @@ def main():
     check_commit_identity_ci_cadence()
     check_push_check_gate()
     check_global_backstop_runs_person_fixer()
+    check_update_judges_the_committed_tree()
     check_branch_tiers()
     check_merge_check_gate()
     check_promote_pre_staging()
