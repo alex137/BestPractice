@@ -43,10 +43,17 @@ then the person's identity.json (this repository's own when it is an
 individual source, else the one ~/.config/precedent/config.json names),
 then the default, `basic`. Nothing it says can lower staging or main.
 
-WHERE `Go update` LANDS is the person's `landing_branch` setting, read
-the same way: `pre-staging` (the default, for everyone, since 2026-09-25),
-`staging`, or `main`. An unreadable value lands on staging, where work landed
-before the tiers existed, never somewhere new.
+WHERE `Go update` LANDS is `landing_branch`: `pre-staging`, `staging` or
+`main`. Read in the OTHER order from `branch_push_checks`: the person's own
+identity.json first, then the repository's precedent.json, then the built-in
+default, `staging` (Morgan, 2026-09-27, strength: decided: "have the
+individual repo take precedence over the others (if it set, use that)").
+Where a person works is theirs to choose; a repository's value is its
+default for everyone who has not. New repositories are written with
+`pre-staging` (precedent_install.py, the document-project template, a new
+practice set), and Update Vendors adds it to one that has none. An
+unreadable value lands on staging, where work landed before the tiers
+existed, never somewhere new.
 
 PROMOTE moves pre-staging into staging (plan step 6; Morgan named the
 command, strength: assented). It first copies into pre-staging what reached
@@ -122,7 +129,10 @@ LANDING_SETTING = 'landing_branch'
 # identity.json. Morgan, 2026-09-26 (strength: decided): "This forced
 # pre-staging -> staging -> main should be mandatory for me, but not
 # necessarily anyone else. (We may change that in the future.)" It was
-# PRE_STAGING for everyone from 2026-09-25 until then.
+# PRE_STAGING for everyone from 2026-09-25 until then. Since 2026-09-27 a
+# repository carries its own default (pre-staging, written at install and
+# by Update Vendors), below the person and above this one: Morgan, "have
+# the Precedent one default to staging".
 DEFAULT_LANDING = STAGING
 
 # Same names and values as precedent_identity.py, duplicated rather than
@@ -143,6 +153,52 @@ def _read_json(path):
 
 def precedent_json(root):
     return _read_json(pathlib.Path(root) / 'precedent.json') or {}
+
+
+# What a repository says when it has not been told otherwise: pre-staging,
+# the tiered route. Written into precedent.json at install, into a new
+# practice set, and by Update Vendors into a repository that has no value of
+# its own (Morgan, 2026-09-27, strength: decided). It sits BELOW the person
+# (landing_branch() reads identity.json first), so it is a default, never an
+# override of somebody's own choice.
+REPO_LANDING_DEFAULT = PRE_STAGING
+REPO_LANDING_COMMENT = [
+    'Where Go update lands for anyone whose own identity.json names no',
+    'landing_branch -- a person\'s own setting always wins. pre-staging is',
+    'the tiered route: work reaches staging and main only by a Promote.',
+    'Change it here for this repository.',
+]
+
+
+def ensure_repo_landing(root):
+    """Give precedent.json a `landing_branch` when it has none. -> True when
+    it wrote one. Never changes a value that is there, and never creates the
+    file: a repository without a precedent.json is not an install."""
+    path = pathlib.Path(root) / 'precedent.json'
+    data = _read_json(path)
+    if not isinstance(data, dict) or LANDING_SETTING in data:
+        return False
+    # Appended as text before the closing brace, so the rest of a
+    # hand-kept file -- its order, its escapes, its comments' wrapping --
+    # comes back byte for byte. A file that does not end in `}` is
+    # rewritten whole instead, which is still valid, only noisier.
+    text = path.read_text(encoding='utf-8')
+    body = text.rstrip()
+    added = (f',\n  "{LANDING_SETTING}": {json.dumps(REPO_LANDING_DEFAULT)},\n'
+             f'  "_{LANDING_SETTING}_comment": [\n'
+             + ',\n'.join('    ' + json.dumps(line) for line in REPO_LANDING_COMMENT)
+             + '\n  ]\n}\n')
+    candidate = body[:-1].rstrip() + added if body.endswith('}') else None
+    try:
+        if candidate is None or json.loads(candidate).get(LANDING_SETTING) \
+                != REPO_LANDING_DEFAULT:
+            raise ValueError
+    except ValueError:
+        data[LANDING_SETTING] = REPO_LANDING_DEFAULT
+        data['_' + LANDING_SETTING + '_comment'] = REPO_LANDING_COMMENT
+        candidate = json.dumps(data, indent=2) + '\n'
+    path.write_text(candidate, encoding='utf-8')
+    return True
 
 
 def base_branch(root):
@@ -228,9 +284,24 @@ def tier_for_branch(root, branch, user_config=None):
     return tier, f'{branch}: {why}'
 
 
+def person_first_setting(root, key, user_config=None):
+    """-> (value, where), the person's identity.json first and the
+    repository's precedent.json second -- the reverse of personal_setting,
+    for a choice that is the person's to make wherever they work."""
+    for path in _identity_files(root, user_config):
+        ident = _read_json(path)
+        if ident and ident.get('email') and key in ident:
+            return ident[key], str(path)
+    repo = precedent_json(root)
+    if key in repo:
+        return repo[key], "this repo's precedent.json"
+    return None, None
+
+
 def landing_branch(root, user_config=None):
-    """-> (branch, why): where this person's `Go update` lands."""
-    value, where = personal_setting(root, LANDING_SETTING, user_config)
+    """-> (branch, why): where this person's `Go update` lands. The person's
+    own setting first, then the repository's, then DEFAULT_LANDING."""
+    value, where = person_first_setting(root, LANDING_SETTING, user_config)
     if value is None:
         tier, why = DEFAULT_LANDING, f'{LANDING_SETTING} is not set; the default is {DEFAULT_LANDING}'
     elif value in (PRE_STAGING, STAGING, MAIN):

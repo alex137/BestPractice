@@ -28,6 +28,7 @@ THE STEPS, with no question in between:
      runs a second pass), then the catalogue-pin repoint from THIS copy
   3. the catalogue: checkin.py update, then record -- only where the repo
      vendors one (process/manifest.json)
+     then, where precedent.json names no landing_branch, pre-staging
   4. the views regenerated -- the loader block, and in a practice set
      MAP.md and GLOSSARY.md too -- then this repo's own citations of any
      practice the update withdrew or reworded (a withdrawn one's is a call
@@ -61,6 +62,7 @@ HERE = pathlib.Path(__file__).resolve()
 SOURCE = HERE.parents[1]
 sys.path.insert(0, str(HERE.parent))
 import precedent_vendor_engine as pve  # noqa: E402
+import precedent_branches as pb  # noqa: E402
 
 DONE, LEFT, FAILED = 0, 1, 2
 
@@ -320,6 +322,16 @@ def update(repo, skip_check=False, ref=None):
         rep.step('catalogue record', next((l for l in out.splitlines()
                                            if l.startswith('checkin record')),
                                           'recorded'))
+
+    # 3b. Where Go update lands, for a repository that has never said.
+    # Morgan, 2026-09-27 (strength: decided): every repository lands on
+    # pre-staging by default, set on its first update after that day; a
+    # person's own identity.json still wins, and a value already here is
+    # never changed.
+    if pb.ensure_repo_landing(repo):
+        rep.step('landing branch', f'{pb.LANDING_SETTING} set to '
+                 f'{pb.REPO_LANDING_DEFAULT} in precedent.json (the repository '
+                 f'default; a person\'s own identity.json still wins)')
 
     # 4. The views. A refresh changes what the loader renders.
     #

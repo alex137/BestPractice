@@ -66,6 +66,13 @@
     "than committed. Do not simply delete the field -- an omission",
     "reads as \"public\" too, but silently and without the choice."
   ],
+  "landing_branch": "pre-staging",
+  "_landing_branch_comment": [
+    "Where Go update lands for anyone whose own identity.json names no",
+    "landing_branch -- a person's own setting always wins. pre-staging is",
+    "the tiered route: work reaches staging and main only by a Promote.",
+    "Change it here for this repository."
+  ],
   "sources": [
     {
       "level": "universal",
