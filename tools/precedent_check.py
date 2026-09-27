@@ -870,8 +870,10 @@ def _practice_status(text):
     return m.group(1).strip() if m else ''
 
 
-def _foreign_practice(rel):
-    """True if a COMMITTED MANIFEST.json says another source owns it.
+def _manifest_entry(rel):
+    """The entry a COMMITTED MANIFEST.json records for this practice, or
+    None when there is no manifest, it will not parse, or it does not name
+    the practice.
 
     Attribution never comes from live source resolution: a bare CI checkout
     can reach neither a team sibling clone nor a private user-level config,
@@ -882,20 +884,29 @@ def _foreign_practice(rel):
     precedent_materialize.py's materialize() always writes it to `out_dir`
     (precedent_sync_views.py calls it with the repo root as `out_dir`), so
     a `practices/MANIFEST.json` path here never matched any real consumer
-    and this function returned False unconditionally, everywhere.
+    and the old lookup returned nothing, everywhere.
     """
     manifest = ROOT / 'MANIFEST.json'
     if not manifest.is_file():
-        return False
+        return None
     try:
         entries = json.loads(manifest.read_text(encoding='utf-8')).get('practices', [])
     except (ValueError, OSError):
-        return False
+        return None
     slug = pathlib.Path(rel).stem
     for entry in entries:
         if entry.get('slug') == slug:
-            return entry.get('level') != 'repo-local'
-    return False
+            return entry
+    return None
+
+
+def _foreign_practice(rel):
+    """True if a COMMITTED MANIFEST.json says another source owns it. A
+    `repo-local` entry is this repository's own, so it is not foreign --
+    see _manifest_entry for why the manifest, and not live resolution, is
+    what decides."""
+    entry = _manifest_entry(rel)
+    return entry is not None and entry.get('level') != 'repo-local'
 
 
 @check('catalogue-carries-stories', 'tree',
@@ -1300,7 +1311,7 @@ def _sibling_not_in_force(pdir, base):
 
 
 @check('practice-links-travel', 'tree',
-       'every link in a practice file THIS repo owns either travels with the '
+       'every link in a practice file THIS repo publishes either travels with the '
        "file (a sibling practice, a vendored engine file, this source's own "
        'tools/checks/ check script or tests/ test, or a file a practice here '
        'declares in `ships:` -- each of which must exist here) or '
@@ -1324,11 +1335,14 @@ def _sibling_not_in_force(pdir, base):
        'nothing a consumer receives is broken by it -- but only that finding '
        'is suppressed, and the travel half above still reports a '
        'non-travelling link in a withdrawn practice. '
-       'It reads practices/ only: local/practices/ is read in place '
-       'here and never materialized, so its links travel nowhere and break '
-       'nothing. It also cannot see a repo-local source in a CONSUMING repo, '
-       'where materialization moves a practice up a directory and changes '
-       'what its relative paths mean.',
+       'It reads practices/ only, and there only the practices this repo '
+       'publishes. A repo-local practice is never published, wherever it '
+       'sits: in a practice set local/practices/ is read in place and never '
+       'materialized, and in a CONSUMING repo materialization copies it into '
+       'practices/ (rewriting its relative links for the move) where the '
+       'committed MANIFEST.json marks it `repo-local` and this check skips '
+       'it. Its links travel nowhere, so whether they resolve is doc_lint\'s '
+       'question, not this one\'s.',
        # Binds a publisher: this is the rule that protects everything a
        # source set publishes, and it skipped in exactly those repos. A team
        # source shipped practices/deep-check.md linking a test driver that
@@ -1342,14 +1356,36 @@ def _practice_links_travel(ctx):
     pdir = ROOT / 'practices'
     if not pdir.is_dir():
         raise NotApplicable('this repo has no practices/ directory')
-    owned = [p for p in sorted(pdir.glob('*.md'))
-             if not _foreign_practice(str(p.relative_to(ROOT)))]
+    # Only a practice this repository PUBLISHES is held to the rule, which
+    # is one the committed manifest does not name at all -- a set's own
+    # practices/. A manifest entry is materialized output, and there are two
+    # kinds: another source's practice (its links are that source's to get
+    # right, and a repair here is overwritten by the next sync), and this
+    # repository's own `repo-local` one. A repo-local source is never
+    # published -- no consumer declares it, nothing vendors it -- so its
+    # materialized copy has nowhere to travel to, and a link from it into
+    # this repository's own files is simply correct. Until 2026-09-27 the
+    # second kind was tested as if it were published: a private consumer's
+    # full check reported 20 working links in its repo-local practices as
+    # dead, and advised rewriting each as a URL into the private repository
+    # itself. doc_lint still checks that those links resolve here.
+    # practice: practice-links-travel
+    owned, repo_local = [], 0
+    for p in sorted(pdir.glob('*.md')):
+        entry = _manifest_entry(str(p.relative_to(ROOT)))
+        if entry is None:
+            owned.append(p)
+        elif entry.get('level') == 'repo-local':
+            repo_local += 1
     if not owned:
         raise NotApplicable(
-            'every practice here is materialized from another source, so '
-            'practices/ is generated output -- these links have to be right '
-            'in the publishing source, and repairing them here would be '
-            'overwritten by the next sync')
+            'every practice here is materialized from another source'
+            + (f' or from this repository\'s own repo-local source '
+               f'({repo_local} of them, never published, so their links '
+               f'travel nowhere)' if repo_local else '')
+            + ', so practices/ is generated output -- a published '
+            'practice\'s links have to be right in the publishing source, '
+            'and repairing them here would be overwritten by the next sync')
     try:
         travel = _travelling_engine_files()
     except Exception as e:                      # practice: fail-gracefully
@@ -1358,6 +1394,11 @@ def _practice_links_travel(ctx):
     branch = _declared_base_branch(ROOT)
     slug = _origin_slug()
     shipped = _declared_ships(owned)
+    try:
+        visibility = json.loads((ROOT / 'precedent.json').read_text(
+            encoding='utf-8')).get('visibility')
+    except (ValueError, OSError):
+        visibility = None
     out = []
     for path in owned:
         rel = str(path.relative_to(ROOT))
@@ -1495,15 +1536,36 @@ def _practice_links_travel(ctx):
                            f'repository that receives the catalogue. '
                            f'{advice}'))
                 continue
-            fix = (f'https://github.com/{slug}/blob/{branch or "<branch>"}/'
-                   f'{_strip_relative_prefix(base)}' if slug
-                   else 'an absolute URL')
+            # The repair depends on who may read the URL. The Rule's own
+            # words: a PUBLIC source links it absolutely, a PRIVATE one drops
+            # the link markup and keeps the backticked path, because a URL
+            # would publish the private repository's name into every
+            # consumer. Undeclared visibility gets the private advice: a
+            # backticked path costs a click, a URL into a private repository
+            # cannot be taken back once a consumer has it.
+            if visibility == 'public':
+                fix = (f'https://github.com/{slug}/blob/'
+                       f'{branch or "<branch>"}/'
+                       f'{_strip_relative_prefix(base)}' if slug
+                       else 'an absolute URL')
+                advice = (f'Link it as {fix}, declare it in the practice\'s '
+                          f'`ships:` if the practice owns it, or drop the '
+                          f'link markup and keep the backticked path')
+            else:
+                why = ('this repository declares `visibility: private`'
+                       if visibility == 'private' else
+                       'this repository declares no `visibility`, so it '
+                       'may be private')
+                advice = (f'Drop the link markup and keep the backticked '
+                          f'path, `{_strip_relative_prefix(base)}`, or '
+                          f'declare it in the practice\'s `ships:` if the '
+                          f'practice owns it. Do not link it by URL: {why}, '
+                          f'and a URL would publish its name into every '
+                          f'consumer')
             out.append(Finding(
                 where, f'`{target}` does not travel with this file -- it is '
                        f'live here and dead in every repository that receives '
-                       f'the catalogue. Link it as {fix}, declare it in the '
-                       f'practice\'s `ships:` if the practice owns it, or '
-                       f'drop the link markup and keep the backticked path'))
+                       f'the catalogue. {advice}'))
     return out
 
 
