@@ -57,6 +57,7 @@ Built from every practice's `defines:` frontmatter field -- the terms that pract
 | Reduction pass | [reduction-pass](practices/reduction-pass.md) |
 | Relayed authorization | [relayed-authorization](practices/relayed-authorization.md) |
 | repo: | [session-tags](practices/session-tags.md) |
+| Response Please | [response-please](practices/response-please.md) |
 | result cache | [shared-result-cache](practices/shared-result-cache.md) |
 | retired vocabulary | [migration-scrubs-vocabulary](practices/migration-scrubs-vocabulary.md) |
 | role: | [session-tags](practices/session-tags.md) |

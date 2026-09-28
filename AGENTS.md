@@ -53,6 +53,9 @@ in [spec/AGENTS_COMMANDS_IN_FULL.md](spec/AGENTS_COMMANDS_IN_FULL.md).
 - **"Prompt Please"** ([prompt-please](practices/prompt-please.md)) — one
   paste-ready block for a new session, never a session-creating tool; no
   merge authorization unless he gave one for this handoff.
+- **"Response Please"** ([response-please](practices/response-please.md))
+  — read a pasted message from another session as if he has not seen it:
+  its key points, your call, then a Prompt Please write-up.
 - **"Upstream fix"** ([upstream-fix](practices/upstream-fix.md)) — does the
   fix remove the cause? If not, fix the root where it lives.
 - **"My options"** ([my-options](practices/my-options.md)) — every real
@@ -103,7 +106,7 @@ practice-file format; [spec/LOADER.md](spec/LOADER.md) the loader.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block; `python3 tools/build_views.py --check` exits non-zero on drift. Source: practices/ -- edit the practice file, never this block. -->
 
-## Resident block (~884 of 2000 token budget, 10 of 159 practices (10 universal))
+## Resident block (~884 of 2000 token budget, 10 of 160 practices (10 universal))
 
 **bold-key-phrases.** People don't read; they skim, and bolding makes skimming easy. Bold the key phrases in a document by default, without being asked, scaling with length -- a long paragraph or document is where a skimmer most needs a spine to follow, a short note usually needs little or none.
 
@@ -317,6 +320,8 @@ When starting work another session may have done, or opening a PR:
   base-branch-is-the-record — read the base branch before starting and before the PR
 When starting work the repository may already cover:
   search-by-purpose — search by purpose and by mechanism before concluding nothing exists
+When the person is about to paste, or has just pasted, a message from another session and wants it read, evaluated, and turned into a decision:
+  response-please — "Response Please" -- key points, your call, then a Prompt Please write-up
 When tracking state several documents must agree on:
   registry-source-of-truth — state lives in one machine-readable registry; documents derive
 When work touches an open item's subject, or a branch merges:
