@@ -27002,6 +27002,288 @@ def check_vendor_engine_refreshes_agents_md_sections():
           f'overwriting it ({len(cases)} stated cases)',
           not bad, '; '.join(f"{n} -- {d[:800]}" for n, d in bad))
 
+
+class _KeptDivergenceFixture:
+    """Shared by the three kept-divergence checks below: a scratch consumer
+    that precedent_update.py can take a whole update into, and synthetic
+    upstream commits on top of this working tree that change one template
+    file -- objects only, no ref, nothing checked out, as the bootstrap.sh
+    fixture above builds them.
+
+    Owns its state (practice: fixture-owns-its-state): HOME and the user
+    config are isolated, as check_update_vendors_is_one_command's are, and
+    precedent.json names its landing branch so no step asks. The consumer's
+    AGENTS.md is the loader template exactly as install instantiates it and
+    its bootstrap.sh is the template, so the only difference an update can
+    find is the one a case plants -- which the CONTROL run asserts."""
+
+    AGENTS_SRC = 'templates/AGENTS.md.loader.template'
+    BOOT_SRC = 'templates/bootstrap.sh'
+
+    def __init__(self, prefix):
+        import tempfile
+        import precedent_vendor_engine as pve
+        self.pve = pve
+        self.tmp = pathlib.Path(tempfile.mkdtemp(prefix=prefix))
+        (self.tmp / 'home').mkdir()
+        self.env = {**os.environ, 'HOME': str(self.tmp / 'home'),
+                    'PRECEDENT_USER_CONFIG': str(self.tmp / 'no-user-config.json'),
+                    'GIT_AUTHOR_NAME': 't', 'GIT_AUTHOR_EMAIL': 't@t',
+                    'GIT_COMMITTER_NAME': 't', 'GIT_COMMITTER_EMAIL': 't@t'}
+        self.base = _ref_including_worktree(ROOT)
+
+    def sh(self, *argv, cwd):
+        r = subprocess.run(list(argv), cwd=str(cwd), env=self.env,
+                           capture_output=True, text=True)
+        return r.returncode, r.stdout + r.stderr
+
+    def template(self, src):
+        return subprocess.run(['git', '-C', str(ROOT), 'show', f'{self.base}:{src}'],
+                              capture_output=True, check=True).stdout
+
+    def upstream_with(self, src, data):
+        """A commit on top of this tree whose only change is `src` := data."""
+        import tempfile
+        with tempfile.TemporaryDirectory(prefix='precedent-fixture-index-') as idx:
+            env = dict(os.environ, GIT_INDEX_FILE=str(pathlib.Path(idx) / 'index'),
+                       GIT_AUTHOR_NAME='fixture', GIT_AUTHOR_EMAIL='fixture@invalid',
+                       GIT_COMMITTER_NAME='fixture', GIT_COMMITTER_EMAIL='fixture@invalid')
+
+            def git(*args, data=None):
+                return subprocess.run(['git', '-C', str(ROOT), *args], input=data,
+                                      capture_output=True, env=env, check=True
+                                      ).stdout.decode().strip()
+            git('read-tree', self.base)
+            mode = git('ls-tree', self.base, '--', src).split()[0]
+            blob = git('hash-object', '-w', '--stdin', data=data)
+            git('update-index', '--cacheinfo', f'{mode},{blob},{src}')
+            return git('commit-tree', git('write-tree'), '-p', self.base, '-m',
+                       'verify_harness: kept-divergence fixture (never pushed)')
+
+    def consumer(self, name, agents=None, boot=None):
+        repo = self.tmp / name
+        repo.mkdir()
+        self.sh('git', 'init', '-q', '-b', 'main', cwd=repo)
+        self.write_config(repo, {
+            'format_version': 1, 'visibility': 'private', 'base_branch': 'main',
+            'landing_branch': 'pre-staging',
+            'sources': [{'level': 'universal', 'name': 'precedent',
+                         'path': str(ROOT)}]})
+        if agents is None:
+            agents = self.pve._instantiate(self.template(self.AGENTS_SRC).decode(),
+                                           self.pve._agents_md_subs(repo))
+        (repo / 'AGENTS.md').write_text(agents, encoding='utf-8')
+        self.sh(sys.executable, str(ROOT / 'tools' / 'precedent_vendor_engine.py'),
+                'seed', str(repo), '--kind', 'consumer', cwd=repo)
+        (repo / 'tools' / 'bootstrap.sh').write_bytes(
+            self.template(self.BOOT_SRC) if boot is None else boot)
+        self.sh('git', 'add', '-A', cwd=repo)
+        self.sh('git', 'commit', '-qm', 'installed', cwd=repo)
+        self.sh('git', 'clone', '-q', '--bare', str(repo), str(self.tmp / f'{name}.git'),
+                cwd=self.tmp)
+        self.sh('git', 'remote', 'add', 'origin', str(self.tmp / f'{name}.git'), cwd=repo)
+        self.sh('git', 'fetch', '-q', 'origin', cwd=repo)
+        return repo
+
+    @staticmethod
+    def write_config(repo, cfg):
+        (repo / 'precedent.json').write_text(json.dumps(cfg, indent=2) + '\n',
+                                             encoding='utf-8')
+
+    def keep(self, repo, item, reason, template_sha):
+        cfg = json.loads((repo / 'precedent.json').read_text(encoding='utf-8'))
+        cfg.setdefault('kept_template_divergences', {})[item] = {
+            'reason': reason, 'template_sha256': template_sha}
+        self.write_config(repo, cfg)
+
+    def update(self, repo, ref=None):
+        return self.sh(sys.executable, str(ROOT / 'tools' / 'precedent_update.py'),
+                       '--repo', str(repo), '--from-ref', ref or self.base,
+                       '--skip-check', cwd=repo)
+
+    def close(self):
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+
+def check_kept_agents_md_divergence_is_recorded():
+    """An AGENTS.md section a repo words its own way ON PURPOSE can be
+    recorded, and then Update Vendors finishes: DONE, exit 0 -- until
+    upstream changes that section, when it is listed again. Before
+    2026-09-28 nothing could record it: three consumers saw the same
+    sections listed as LEFT FOR YOU on every update, one after writing the
+    `diverged` manifest entry the runbook named, which nothing read
+    (precedent_vendor_engine.KEPT_DIVERGENCES_KEY).
+
+    Discriminating cases (practice: control-asserts-which-failure): the
+    recorded section must go quiet (the fix), and must come BACK when the
+    template's text for it moves and when the entry has no reason (the fix
+    is a pinned decision, not a mute button). The CONTROL is the same
+    consumer before anything is planted: DONE, so the exit code each case
+    asserts comes from the planted section and nothing else."""
+    fx = _KeptDivergenceFixture('precedent-kept-agents-md-')
+    pve = fx.pve
+    cases = []
+    key = '### Session start'
+    item = f'AGENTS.md {key}'
+    try:
+        tpl = fx.template(fx.AGENTS_SRC).decode()
+        control = fx.consumer('control')
+        rc, out = fx.update(control)
+        cases.append(('CONTROL: the stock install takes an update with nothing '
+                      'asked: exit 0, DONE', rc == 0 and 'DONE' in out, out[-1200:]))
+
+        subs = pve._agents_md_subs(control)
+        stock = pve._instantiate(tpl, subs)
+        raw = pve._template_sections(tpl)[key][1]
+        sec = pve._instantiate(raw, subs)
+        assert sec in stock, 'template shape moved; repoint this fixture'
+        ours = stock.replace(sec, f'{key}\n\n- This repo starts its sessions '
+                                  f'its own way, written in its own words.')
+        sha_now = pve._sha_text(sec)
+
+        repo = fx.consumer('kept', agents=ours)
+        rc, out = fx.update(repo)
+        cases.append(('an unrecorded reworded section is LEFT FOR YOU, exit 1, '
+                      'and the report prints the hash to record it with',
+                      rc == 1 and f'AGENTS.md "{key}"' in out.split('LEFT FOR YOU')[-1]
+                      and sha_now in out, out[-1500:]))
+
+        fx.keep(repo, item, 'we say this our own way', sha_now)
+        rc, out = fx.update(repo)
+        cases.append(('THE FIX: recorded with a reason against the current '
+                      'template, the next update is DONE, exit 0',
+                      rc == 0 and 'DONE' in out and 'LEFT FOR YOU' not in out,
+                      out[-1500:]))
+        cases.append(('...and says it once, with the reason, as a note',
+                      out.count('kept on purpose: ') == 2   # step line + summary
+                      and 'we say this our own way' in out, out[-1500:]))
+        cases.append(('...and the section is left exactly as the repo wrote it',
+                      'written in its own words' in
+                      (repo / 'AGENTS.md').read_text(encoding='utf-8'), ''))
+
+        moved = tpl.replace(raw, raw + '\n- **FIXTURE BULLET** -- a sentence '
+                                       'upstream added to this section later.')
+        assert moved != tpl
+        rc, out = fx.update(repo, fx.upstream_with(fx.AGENTS_SRC, moved.encode()))
+        cases.append(('once upstream changes that section, it is LEFT FOR YOU '
+                      'again, naming the change and the new hash',
+                      rc == 1 and f'AGENTS.md "{key}"' in out.split('LEFT FOR YOU')[-1]
+                      and 'FIXTURE BULLET' in out and 'has changed since' in out
+                      and pve._sha_text(pve._instantiate(
+                          pve._template_sections(moved)[key][1], subs)) in out,
+                      out[-1500:]))
+
+        bare = fx.consumer('unreasoned', agents=ours)
+        fx.keep(bare, item, '', sha_now)
+        rc, out = fx.update(bare)
+        cases.append(('an entry with no reason is not honoured, and says so',
+                      rc == 1 and 'not honoured' in out, out[-1500:]))
+    finally:
+        fx.close()
+
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'an AGENTS.md section kept on purpose is recorded once and Update '
+          f'Vendors finishes, until upstream changes it ({len(cases)} stated cases)',
+          not bad, '; '.join(f"{n} -- {d[:1500]}" for n, d in bad))
+
+
+def check_kept_bootstrap_divergence_is_recorded():
+    """tools/bootstrap.sh, on the same terms as the AGENTS.md check above.
+    The measured case, 2026-09-28: a consumer's copy was the template plus
+    one package on the pip line, reported LEFT FOR YOU on every update.
+    Recorded against the template's hash it is DONE; when the template
+    changes it is listed again."""
+    fx = _KeptDivergenceFixture('precedent-kept-bootstrap-')
+    pve = fx.pve
+    cases = []
+    rel = 'tools/bootstrap.sh'
+    try:
+        tpl = fx.template(fx.BOOT_SRC)
+        pip = b'pip install --quiet cmarkgfm 2>/dev/null'
+        assert tpl.count(pip) == 1, 'template pip line moved; repoint this fixture'
+        ours = tpl.replace(pip, b'pip install --quiet cmarkgfm pyyaml 2>/dev/null')
+        sha_now = hashlib.sha256(tpl).hexdigest()
+
+        repo = fx.consumer('kept', boot=ours)
+        rc, out = fx.update(repo)
+        cases.append(('CONTROL: unrecorded, the one-line difference is LEFT FOR '
+                      'YOU, exit 1, with the hash to record it with',
+                      rc == 1 and f'{rel}: diverged' in out and sha_now in out,
+                      out[-1500:]))
+
+        fx.keep(repo, rel, 'our scripts import yaml', sha_now)
+        rc, out = fx.update(repo)
+        cases.append(('THE FIX: recorded with a reason, the next update is DONE, '
+                      'exit 0, and names it once as kept on purpose',
+                      rc == 0 and 'DONE' in out and 'LEFT FOR YOU' not in out
+                      and 'our scripts import yaml' in out, out[-1500:]))
+        cases.append(('...and the file keeps its own line',
+                      (repo / rel).read_bytes() == ours, ''))
+
+        tail = b'# A bootstrap that blocks startup'
+        assert tpl.count(tail) == 1, 'template tail moved; repoint this fixture'
+        moved = tpl.replace(tail, b'# FIXTURE BLOCK ADDED UPSTREAM\n'
+                                  b'python3 tools/fixture_probe.py || true\n\n' + tail)
+        rc, out = fx.update(repo, fx.upstream_with(fx.BOOT_SRC, moved))
+        cases.append(('once upstream changes the template, it is LEFT FOR YOU '
+                      'again, naming the new block and the new hash',
+                      rc == 1 and f'{rel}: diverged' in out
+                      and 'FIXTURE BLOCK ADDED UPSTREAM' in out
+                      and hashlib.sha256(moved).hexdigest() in out, out[-1500:]))
+    finally:
+        fx.close()
+
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'a tools/bootstrap.sh kept on purpose is recorded once and Update '
+          f'Vendors finishes, until upstream changes the template '
+          f'({len(cases)} stated cases)',
+          not bad, '; '.join(f"{n} -- {d[:1500]}" for n, d in bad))
+
+
+def check_legacy_bootstrap_shim_is_replaced():
+    """A pre-Precedent tools/bootstrap.sh that only wraps
+    process/upstream/tools/bootstrap.sh runs BestPractice's OWN bootstrap,
+    not the template. It was reported as a diverged copy lacking every
+    template block, and step 10(d) forbade the one correct fix, replacing
+    it. Now a pure shim is replaced with the template, and the report says
+    so; a shim carrying lines of its own is never replaced (practice:
+    repair-cannot-discard-work) -- the NEGATIVE case, which is also what
+    shows the replacement comes from recognising the shim, not from
+    replacing every diverged copy."""
+    fx = _KeptDivergenceFixture('precedent-legacy-shim-')
+    cases = []
+    rel = 'tools/bootstrap.sh'
+    shim = (b'#!/bin/bash\n'
+            b'# Host shim (practice: engine-plus-host-shims): the logic lives\n'
+            b'# in the vendored upstream tree.\n'
+            b'set -euo pipefail\n'
+            b'cd "$(dirname "$0")/.."\n'
+            b'exec bash process/upstream/tools/bootstrap.sh "$@"\n')
+    try:
+        tpl = fx.template(fx.BOOT_SRC)
+        repo = fx.consumer('shim', boot=shim)
+        rc, out = fx.update(repo)
+        cases.append(('a pure legacy shim is replaced with the template',
+                      (repo / rel).read_bytes() == tpl, out[-1500:]))
+        cases.append(('...the update says so, and finishes: exit 0, DONE',
+                      rc == 0 and 'DONE' in out and 'replaced: ' + rel in out
+                      and 'process/upstream/tools/bootstrap.sh' in out, out[-1500:]))
+
+        own = shim.replace(b'exec bash', b'pip install --quiet pyyaml\nexec bash')
+        kept = fx.consumer('shim-with-own-line', boot=own)
+        rc, out = fx.update(kept)
+        cases.append(('NEGATIVE: a shim with a line of its own is left alone, '
+                      'LEFT FOR YOU, and named as the old wrapper',
+                      rc == 1 and (kept / rel).read_bytes() == own
+                      and "the old install's wrapper" in out, out[-1500:]))
+    finally:
+        fx.close()
+
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'a legacy tools/bootstrap.sh shim around upstream\'s own bootstrap is '
+          f'recognised and replaced with the template ({len(cases)} stated cases)',
+          not bad, '; '.join(f"{n} -- {d[:1500]}" for n, d in bad))
+
 def check_retired_branch_name_does_not_ship():
     """precedent_check's retired-branch-name-ships: a practice whose shipped
     text names a retired branch is reported where it is authored, because
@@ -39652,6 +39934,9 @@ def main():
     check_fixtures_own_the_credential_environment()
     check_todo_progress_discriminates()
     check_split_projection_is_costed_and_ordered()
+    check_kept_agents_md_divergence_is_recorded()
+    check_kept_bootstrap_divergence_is_recorded()
+    check_legacy_bootstrap_shim_is_replaced()
     check_duplicated_resident_text_detector()
     check_settled_marker_scan_is_scoped_and_follows_the_split()
     check_session_load_reports_a_file_over_its_own_declared_ceiling()
