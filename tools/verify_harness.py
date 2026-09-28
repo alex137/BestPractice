@@ -37196,6 +37196,229 @@ def check_update_vendors_rehearsal_findings():
     verdict('a fresh install tracks its hooks in ENGINE_MANIFEST.json', cases)
 
 
+def check_update_vendors_reports_dropped_template_wording():
+    """An install-once file still carrying wording its template has since
+    dropped is left for the person, by file and line -- and nothing else is.
+
+    2026-09-28, very deep check: the files an install writes once from a
+    template (the PR template, TODO.md, MAP.md ...) kept old wording -- a
+    "TODO.md updated" checklist line, links to a retired branch -- and no
+    update said so. The report must flag only an exact line an older
+    version of the template carried and the current one does not, so a
+    repo's own lines are never flagged; it must never write the file; and a
+    file precedent.json records as kept on purpose, against the current
+    template, must stop being listed."""
+    import contextlib, inspect, io, tempfile
+    pu, pve, _pr = _update_tools()
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-dropped-wording-'))
+    env = dict(os.environ, GIT_AUTHOR_NAME='F', GIT_AUTHOR_EMAIL='f@example.com',
+               GIT_COMMITTER_NAME='F', GIT_COMMITTER_EMAIL='f@example.com',
+               GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM='1',
+               PRECEDENT_ALLOW_ANY_AUTHOR='1')
+
+    def git(cwd, *args):
+        return subprocess.run(['git', '-C', str(cwd), *args], env=env,
+                              capture_output=True, text=True)
+
+    cases = []
+    saved_source = pu.SOURCE
+    step = getattr(pu, 'dropped_template_lines_step', None)
+    try:
+        src = tmp / 'source'
+        (src / 'templates').mkdir(parents=True)
+        git(tmp, 'init', '-q', str(src))
+        tmpl = src / 'templates' / 'TODO.md.template'
+        tmpl.write_text('# Open items live in this file for now\n'
+                        '## Old\n'
+                        '- [ ] TODO.md updated with the items opened and closed\n'
+                        'See [the plan](https://example.com/blob/old-branch/spec/PLAN.md) for more.\n'
+                        'Every open item is tracked in one place here.\n',
+                        encoding='utf-8')
+        git(src, 'add', '-A')
+        git(src, 'commit', '-qm', 'v1')
+        tmpl.write_text('# Open items live under todo/ now\n'
+                        'See [the plan](https://example.com/blob/staging/spec/PLAN.md) for more.\n'
+                        'Every open item is tracked in one place here.\n',
+                        encoding='utf-8')
+        git(src, 'add', '-A')
+        git(src, 'commit', '-qm', 'v2')
+        rev = git(src, 'rev-parse', 'HEAD').stdout.strip()
+
+        repo = tmp / 'consumer'
+        repo.mkdir()
+        body = ('# Open items live in this file for now\n'
+                '## Old\n'
+                '- [ ] TODO.md updated with the items opened and closed\n'
+                'See [the plan](https://example.com/blob/old-branch/spec/PLAN.md) for more.\n'
+                'Every open item is tracked in one place here.\n'
+                'Our own note about the billing export, written by this repo.\n')
+        (repo / 'TODO.md').write_text(body, encoding='utf-8')
+        pu.SOURCE = src
+
+        if step is None:
+            cases.append(('precedent_update has a dropped-template-wording step',
+                          False, 'dropped_template_lines_step is missing'))
+        else:
+            rep = pu.Report()
+            with contextlib.redirect_stdout(io.StringIO()):
+                step(repo, rep, rev)
+            left = dict(rep.left)
+            cases.append(('a line an older template carried and the current one '
+                          'dropped is left for you, by file and line',
+                          'TODO.md:3' in left and 'is template wording the current '
+                          'template dropped: - [ ] TODO.md updated' in left['TODO.md:3'],
+                          str(rep.left)))
+            cases.append(('...and so is a reworded one, a link to a retired branch',
+                          'TODO.md:4' in left and 'old-branch' in left['TODO.md:4']
+                          and 'TODO.md:1' in left, str(rep.left)))
+            cases.append(('a line the current template still carries, the '
+                          'repo\'s own line, and a too-short heading are not',
+                          sorted(left) == ['TODO.md:1', 'TODO.md:3', 'TODO.md:4'],
+                          str(sorted(left))))
+            cases.append(('the file is only reported, never written',
+                          (repo / 'TODO.md').read_text(encoding='utf-8') == body, ''))
+            cases.append(('the first item says how to record it as kept, with the '
+                          'current template\'s hash',
+                          any(pve.KEPT_DIVERGENCES_KEY in d and hashlib.sha256(
+                              tmpl.read_bytes()).hexdigest() in d
+                              for d in rep.details.get('TODO.md:1', [])),
+                          str(rep.details)))
+
+            sha = hashlib.sha256(tmpl.read_bytes()).hexdigest()
+            (repo / 'precedent.json').write_text(json.dumps({
+                pve.KEPT_DIVERGENCES_KEY: {'TODO.md': {
+                    'reason': 'kept on purpose', 'template_sha256': sha}}}),
+                encoding='utf-8')
+            rep = pu.Report()
+            with contextlib.redirect_stdout(io.StringIO()):
+                step(repo, rep, rev)
+            cases.append(('a file recorded as kept against the current template '
+                          'is said once and not listed',
+                          not rep.left and any(n == 'kept on purpose'
+                                               for n, _o in rep.steps),
+                          str(rep.left)))
+            (repo / 'precedent.json').write_text(json.dumps({
+                pve.KEPT_DIVERGENCES_KEY: {'TODO.md': {
+                    'reason': 'kept on purpose', 'template_sha256': '0' * 64}}}),
+                encoding='utf-8')
+            rep = pu.Report()
+            with contextlib.redirect_stdout(io.StringIO()):
+                step(repo, rep, rev)
+            cases.append(('...and listed again once the template has changed since',
+                          len(rep.left) == 3, str(rep.left)))
+            cases.append(('Update Vendors runs the step',
+                          'dropped_template_lines_step(' in inspect.getsource(pu.update),
+                          ''))
+    except (OSError, ValueError) as e:
+        cases.append((f'fixture could not be built ({e})', False, ''))
+    finally:
+        pu.SOURCE = saved_source
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'Update Vendors reports install-once wording its template dropped '
+          f'({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n}: {d}' for n, d in bad))
+
+
+def check_session_start_hook_runs_bootstrap_locally():
+    """The Claude Code adapter's SessionStart hook runs tools/bootstrap.sh in
+    a local session too, marked PRECEDENT_LOCAL_SESSION=1, and bootstrap.sh
+    then skips only what belongs to a container.
+
+    Until 2026-09-28 the hook exited unless CLAUDE_CODE_REMOTE=true, so a
+    local Claude Code session got none of bootstrap.sh. Morgan approved
+    running it locally, with the package install left out there. Planted: a
+    bootstrap.sh that records it ran and what the variable said; an old one
+    that never reads the variable (not run locally, since it would pip
+    install); and both real bootstrap scripts with a fake pip and a fake
+    commit-identity.sh on the path, run local and remote."""
+    import tempfile
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-local-session-'))
+    hook = ROOT / 'templates' / 'harness' / 'claude-code' / 'hooks' / 'session-start.sh'
+    base = {k: v for k, v in os.environ.items()
+            if k != 'CLAUDE_CODE_REMOTE' and not k.startswith('PRECEDENT_')}
+    base['GIT_CEILING_DIRECTORIES'] = str(tmp)
+    cases = []
+
+    def run(script, cwd, **extra):
+        return subprocess.run(['bash', str(script)], cwd=str(cwd),
+                              env=dict(base, **extra), capture_output=True,
+                              text=True, timeout=60)
+
+    try:
+        proj = tmp / 'proj'
+        (proj / 'tools').mkdir(parents=True)
+        record = tmp / 'ran.txt'
+        (proj / 'tools' / 'bootstrap.sh').write_text(
+            '#!/bin/bash\n'
+            f'echo "ran local=${{PRECEDENT_LOCAL_SESSION:-unset}}" > "{record}"\n',
+            encoding='utf-8')
+        r = run(hook, proj, CLAUDE_PROJECT_DIR=str(proj))
+        got = record.read_text(encoding='utf-8').strip() if record.exists() else ''
+        cases.append(('with CLAUDE_CODE_REMOTE unset the hook runs bootstrap.sh, '
+                      'with PRECEDENT_LOCAL_SESSION=1',
+                      r.returncode == 0 and got == 'ran local=1',
+                      f'rc={r.returncode} record={got!r} {r.stderr[-300:]}'))
+        record.unlink(missing_ok=True)
+        r = run(hook, proj, CLAUDE_PROJECT_DIR=str(proj), CLAUDE_CODE_REMOTE='true')
+        got = record.read_text(encoding='utf-8').strip() if record.exists() else ''
+        cases.append(('...and a remote session runs it without the mark',
+                      r.returncode == 0 and got == 'ran local=unset',
+                      f'rc={r.returncode} record={got!r}'))
+
+        old = tmp / 'old'
+        (old / 'tools').mkdir(parents=True)
+        (old / 'tools' / 'bootstrap.sh').write_text(
+            f'#!/bin/bash\necho ran > "{record}"\n', encoding='utf-8')
+        record.unlink(missing_ok=True)
+        r = run(hook, old, CLAUDE_PROJECT_DIR=str(old))
+        cases.append(('a bootstrap.sh that never reads the variable is not run '
+                      'locally, and the hook says why without failing',
+                      r.returncode == 0 and not record.exists()
+                      and 'predates local sessions' in r.stderr,
+                      f'rc={r.returncode} ran={record.exists()} {r.stderr[-300:]}'))
+        r = run(hook, old, CLAUDE_PROJECT_DIR=str(old), CLAUDE_CODE_REMOTE='true')
+        cases.append(('...but still is on a remote session', record.exists(), ''))
+
+        fakebin = tmp / 'bin'
+        fakebin.mkdir()
+        calls = tmp / 'calls.txt'
+        (fakebin / 'pip').write_text(f'#!/bin/sh\necho pip >> "{calls}"\n',
+                                     encoding='utf-8')
+        os.chmod(fakebin / 'pip', 0o755)
+        path = f'{fakebin}{os.pathsep}{base.get("PATH", "")}'
+        for rel in ('templates/bootstrap.sh', 'tools/bootstrap.sh'):
+            work = tmp / ('w-' + rel.replace('/', '-'))
+            (work / '.claude' / 'hooks').mkdir(parents=True)
+            (work / '.claude' / 'hooks' / 'commit-identity.sh').write_text(
+                f'#!/bin/sh\necho identity >> "{calls}"\n', encoding='utf-8')
+            for local in (True, False):
+                calls.unlink(missing_ok=True)
+                extra = {'PATH': path}
+                if local:
+                    extra['PRECEDENT_LOCAL_SESSION'] = '1'
+                r = run(ROOT / rel, work, **extra)
+                did = calls.read_text(encoding='utf-8').split() if calls.exists() else []
+                if local:
+                    cases.append((f'{rel}, local: no pip install and no '
+                                  f'commit-identity.sh, and one line saying so',
+                                  r.returncode == 0 and did == []
+                                  and 'local session -- skipped pip install' in r.stderr,
+                                  f'rc={r.returncode} calls={did} {r.stderr[-300:]}'))
+                else:
+                    cases.append((f'{rel}, remote: both still run',
+                                  r.returncode == 0 and did == ['pip', 'identity'],
+                                  f'rc={r.returncode} calls={did} {r.stderr[-300:]}'))
+    except (OSError, subprocess.SubprocessError) as e:
+        cases.append((f'fixture could not be built ({e})', False, ''))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'the SessionStart hook runs bootstrap.sh in a local session, minus '
+          f'the container steps ({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n}: {d}' for n, d in bad))
+
+
 def check_move_fixes_mentions_of_the_moved_practice():
     """After a move withdraws the source copy, tools/precedent_move.py fixes
     what still says the practice lives there -- in both sets and in every
@@ -43086,6 +43309,8 @@ def main():
     check_no_engine_tool_hardcodes_a_mirror_path()
     check_installer_produces_a_clean_install()
     check_update_vendors_rehearsal_findings()
+    check_update_vendors_reports_dropped_template_wording()
+    check_session_start_hook_runs_bootstrap_locally()
     check_move_tool_lands_then_deduplicates()
     check_move_tool_covers_every_direction_and_team_removals()
     check_move_withdrawal_from_universal_leaves_universal_green()
