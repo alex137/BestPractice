@@ -14,23 +14,34 @@ docs say it also reads `CLAUDE.md` and `.claude/` (skills, agents, Model
 Context Protocol (MCP) servers, hooks, rules) directly, which is broader
 compatibility than Codex or Gemini CLI claim. **Whether that extends to
 actually firing this repo's `.claude/hooks/*.sh` the way Claude Code's own
-`SessionStart` protocol does is unverified** — "auto-reads" is not the same
-claim as "auto-executes with the same event semantics," and nothing found
-so far distinguishes the two.
+`SessionStart` protocol does was unverified**, and an open bug report
+(Bootstrap, below) now says it does not on Grok Build 1.0.3: hooks
+imported through that compatibility show as loaded and never run.
 
 Wiring the rest:
 
-- **Bootstrap:** Grok Build has its own hook system — lifecycle hooks
-  configured in `.grok/hooks.json`, receiving `$GROK_EVENT`, `$GROK_MESSAGE`
-  and `$GROK_SESSION_ID` in the environment (per `grok inspect`, which
-  lists what Grok discovered: config sources, instructions, skills,
-  plugins, hooks, MCP servers). **The exact event name for "session start"
-  and the JSON shape `.grok/hooks.json` expects are not written down
-  here on purpose** — xAI's docs move fast enough that guessing at the
-  syntax risks shipping something that silently fails to parse. Check
-  `docs.x.ai/build`'s current hooks reference, then wire a session-start
-  hook to `bash tools/bootstrap.sh`, the same harness-neutral script Codex
-  and Gemini CLI both use.
+- **Bootstrap:** Grok Build has its own hook system. What this page said
+  on 2026-09-17 (one `.grok/hooks.json` file, `$GROK_EVENT` and friends in
+  the environment) does not match what a web search quoted from xAI's hooks
+  page on 2026-09-28: events named `SessionStart`, `PreToolUse`,
+  `UserPromptSubmit`, `Stop`, `SessionEnd` and more; hook files in
+  `~/.grok/hooks/*.json` or `<project>/.grok/hooks/*.json`; `GROK_HOOK_EVENT`,
+  `GROK_SESSION_ID` and `GROK_WORKSPACE_ROOT` in the environment; tool
+  events carrying `toolName` and `toolInput` in camelCase; and a
+  `PreToolUse` that blocks only on exit 2 or a top-level
+  `decision: "deny"`, allowing on anything else, a timeout included.
+  **All of that is unverified**: the page itself was not reachable from the
+  session that checked. **And an open bug says project hooks do not fire
+  anyway.**
+  [xai-org/plugin-marketplace#236](https://github.com/xai-org/plugin-marketplace/issues/236),
+  filed 2026-08-13 against Grok Build 1.0.3 and still open on 2026-09-28,
+  reports that only `~/.grok/hooks/*.json` is dispatched: hooks from
+  plugins and from the Claude Code compatibility import show as loaded and
+  trusted, and never run. So nothing here ships a template. Whoever wires
+  a session-start hook to `bash tools/bootstrap.sh` (the script Codex and
+  Gemini CLI both run) should put it in `~/.grok/hooks/`, check the
+  current hooks reference first, and record what they saw in
+  [../LEDGER.md](../LEDGER.md).
 - **Pre-approved commands:** unresearched — not found in what this pass
   covered.
 - **Commit identity and signing:** `tools/bootstrap.sh` calls
@@ -55,8 +66,8 @@ So the fourth member-directory went into
 [`tools/precedent_check.py`](../../../tools/precedent_check.py)'s list,
 every row dated before this adapter existed carries a backfilled cell
 saying so, and the unverified-hooks caveat stayed exactly where it belongs:
-in the Bootstrap bullet above, which still refuses to write down a syntax
-it has not seen work.
+in the Bootstrap bullet above, which since 2026-09-28 quotes the
+documented syntax but still ships no wiring nobody has seen work.
 
 This adapter's row in [../PARALLELS.md](../PARALLELS.md) is the other half:
 what Claude Code does that this harness does not, mechanism by mechanism.
@@ -66,13 +77,15 @@ what Claude Code does that this harness does not, mechanism by mechanism.
 **Read this before assuming your documents are checked.** On 2026-09-21
 Precedent's Markdown lint left GitHub Actions entirely and was replaced by
 `.claude/hooks/doc-lint-gate.sh`, which refuses a `git commit` whose staged
-Markdown fails [doc_lint.py](../../../tools/doc_lint.py). That is a Claude Code mechanism: it needs a
-`PreToolUse` hook, and Grok Build's own lifecycle hooks (`.grok/hooks.json`) may well be able
-to carry it — but the event names and JSON shape are deliberately not written
-down in this adapter, for the reason its Bootstrap section gives, so nothing
-here claims a wiring that has not been run. **If you verify the hooks reference
-and wire a pre-tool event to this script, say so in [../LEDGER.md](../LEDGER.md)**: it would be the
-first hook row in that ledger with a real transfer to a third adapter.
+Markdown fails [doc_lint.py](../../../tools/doc_lint.py). Grok Build
+documents a `PreToolUse` event that could carry it (unverified, see
+Bootstrap above), but not unchanged: the script reads `tool_input.command`,
+and Grok sends `toolInput` in camelCase, so wired as-is the script would
+see no command and let every commit through. It would need a shim that
+renames the field, and, per the open dispatch bug, a home in
+`~/.grok/hooks/`. **If you verify the hooks reference and wire it, say so in
+[../LEDGER.md](../LEDGER.md) and [../PARALLELS.md](../PARALLELS.md).**
+Codex (since 2026-09-28) already runs this gate from its own hooks file.
 
 **So on this adapter, nothing checks your Markdown before it reaches a
 shared branch** — not the hook, and not CI, because the workflow the hook
