@@ -115,7 +115,7 @@ flatten what the argument produced, then make it citable later.
    item answers back in its own prose, so the argument runs in the margins
    of the text itself.
 
-## See Also
+## See also
 
 - [Core Pillars](CORE_PILLARS.md) — the one-page pitch: the core ideas
   this approach argues are unique, specifically taken together.

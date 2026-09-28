@@ -1,9 +1,9 @@
 ---
 slug:            gotcha-2026-09-20-shared-home-layout-still-names-the-pre-rename-team-sets
-status:          live
+status:          retired
 noted:           2026-09-20
 severity:        minor
-retired:         null
+retired:         2026-09-28
 retires_when:    "PRECEDENT_FRESHNESS_ALSO is edited to name the precedent-shared-* paths, and the /home/user sibling clones are renamed or re-cloned to match"
 ---
 
@@ -46,3 +46,7 @@ rename or re-clone the `/home/user/precedent-team-*` directories to their
 `precedent-shared-*` names by hand for its own run, but that fix does not
 persist past the container and does not touch the environment variable
 either way.
+
+## Retired 2026-09-28
+
+Its `retires_when` is met: `PRECEDENT_FRESHNESS_ALSO` names the `precedent-shared-*` paths, and the sibling clones carry those names (very deep check, pass 4).

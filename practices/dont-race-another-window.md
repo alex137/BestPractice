@@ -15,7 +15,7 @@ in_force_at: null
 supersedes:  []
 overrides:   null
 added:       "2026-09-28"
-approved_by: "pending PR review -- moved 2026-09-28 from the shared set precedent-shared-repo-maintenance, Morgan F accepting the session's recommendation to move it (the move: strength assented); the rule itself: Morgan F, 2026-09-11, revised 2026-09-13 to cover a session another session spawned and a window not yet created"
+approved_by: "landed via PR #721 -- moved 2026-09-28 from the shared set precedent-shared-repo-maintenance, Morgan F accepting the session's recommendation to move it (the move: strength assented); the rule itself: Morgan F, 2026-09-11, revised 2026-09-13 to cover a session another session spawned and a window not yet created"
 strength: decided
 ---
 ## Rule

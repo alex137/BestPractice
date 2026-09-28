@@ -382,17 +382,27 @@ RUN_ALL_TAIL = """  esac
 
 status=0
 failed=()
+ran=0
 for t in test_*.sh; do
   # A repo that materialized no tests leaves the glob unexpanded; without
   # this the driver would try to run a file literally named test_*.sh and
   # report a failure that is really an empty set.
   [ -e "$t" ] || continue
+  ran=$((ran + 1))
   echo "--- $t ---"
   if ! bash "$t"; then
     status=1
     failed+=("$t")
   fi
 done
+
+# Say what ran, so silence is never read as a pass (2026-09-28: a fresh
+# install materializes no tests, and this driver used to print nothing).
+if [ "$ran" -eq 0 ]; then
+  echo "run_all: 0 materialized tests -- nothing ran"
+elif [ "$status" -eq 0 ]; then
+  echo "run_all: $ran test(s) run, 0 failed"
+fi
 
 if [ "$status" -ne 0 ]; then
   echo

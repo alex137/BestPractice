@@ -7,7 +7,7 @@ applies_to:  ["**"]
 occasion:    "opening or merging a pull request in this repository"
 index_required: true
 gates:       ["merge"]
-index_clause: "PRs target pre-staging or staging, never main; main moves by a Promote"
+index_clause: "PRs target pre-staging or staging; main moves only by a Promote or when the person names main"
 checked_by:  null
 defines:     []
 expires:     null
@@ -36,7 +36,7 @@ no branch named, means the landing branch. **No merge needs Alex's
 sign-off, `main` included** (Morgan, 2026-09-26: *"Alex said we no longer
 need his authorization to post to main so please remove that"*, strength:
 decided; Alex's word relayed by Morgan). Once a PR's own deep check
-(`two-check-levels`) passes, a session may merge it into the landing branch.
+([two-check-levels](../../practices/two-check-levels.md)) passes, a session may merge it into the landing branch.
 
 **This rule is this repository's alone and is never vendored**: a
 repository that takes updates from here works on its own primary branch,
@@ -53,14 +53,13 @@ interchangeable at that moment, and they were not.
 ## Why
 `main` is this repository's public, shared default branch, and a change
 landing there by accident, from a PR that merely had the wrong base, is
-exactly the incident the Story below describes. `precedent-beta-v01` is the working
-branch for the Precedent restructuring (`PRACTICE_ENGINE_PLAN.md`:
-"Precedent is a branch of BestPractice, not a fork" — merging back to
-`main` is `CHANGES_TO_TELL_ALEX.md`'s explicit, deferred phase-7 step, not
-something any single PR does incidentally), so the day-to-day PRs building
-toward it don't need to wait on Alex one at a time: this repo's own deep
-check (`two-check-levels`) is what gates a push to `precedent-beta-v01`,
-not a human. A branch based off `precedent-beta-v01`'s tip, opened with
+exactly the incident the Story below describes. `staging` (named
+`precedent-beta-v01` until 2026-09-25) is where fully checked work collects
+before a Promote moves it into `main`, and `pre-staging` sits below it for
+anyone who lands there, so day-to-day PRs don't wait on a person one at a
+time: this repo's own deep check (`two-check-levels`) is what gates a push
+to the landing branch, not a human. A branch based off the landing branch's
+tip, opened with
 `base: main`, merges cleanly with no conflict and no warning — git has no
 concept of "the wrong branch," only of mergeable or not — so nothing in
 the mechanics of opening or merging the PR signals the mistake. The only
@@ -130,6 +129,6 @@ fired after each one until the next commit reached `staging`, and blocked the
 deep check for a state nobody had got wrong. Its record is in
 `process/decommissioned_paths.json`.
 
-This is a repo-local practice, so it does not reach a session through the
-universal catalogue's occasion index. [AGENTS.md](../../AGENTS.md)'s opening
-paragraph carries the same rule in prose for that reason.
+It is in AGENTS.md's occasion index (`index_required: true`), and
+[AGENTS.md](../../AGENTS.md)'s opening paragraph carries the rule in prose so
+it is read before any PR.

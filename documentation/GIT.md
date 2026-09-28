@@ -32,8 +32,9 @@ need eight ideas. (Throughout, a "session" is one AI conversation. Every
 git and GitHub word used below is defined in
 [The Words, Defined](#the-words-defined), further down.)
 
-- **The default branch (`main`) is the shared truth.** It is what every new
-  session reads for orientation. Nothing is "real" until it lands there.
+- **`main` is the shared truth, reached in steps.** Work lands on
+  `pre-staging` (or `staging`), and a Promote moves it up; nothing is final
+  until it reaches `main` ([Tier branch](../practices/tier-branch.md)).
 - **Each thread works on its own branch** — a private copy of the repo where
   a session (or a person) can make any number of commits without disturbing
   anyone else. Two threads on two branches never conflict *while working*;
@@ -129,7 +130,7 @@ section covers git's and GitHub's own.
   Making a branch costs nothing; it is a label, not a copy.
 - **`main`** — the branch a repository treats as its shared truth, by
   convention. Also called the **default branch**, because it is what GitHub
-  shows first and what a fresh clone lands on. **In this repository the real
+  shows first and what a fresh clone lands on. **In Precedent's own repository the real
   work happens on `staging` instead**, which is why "the default
   branch" and "the branch we merge into" are not the same sentence here.
 - **`HEAD`** — where your clone is standing right now: the commit you would

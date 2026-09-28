@@ -322,6 +322,17 @@ GUARDS = {'precedent_check': _guard_precedent_check,
           'build_views': _guard_build_views}
 
 
+# A STAND-DOWN IS NOT A PASS, and says so. These tools exit 0 when they had
+# nothing to inspect -- correctly, since failing would punish a state the
+# repo chose -- but the line printed here used to read "passed" regardless,
+# and the receipt recorded the same (very deep check, 2026-09-28). The
+# marker is the tool's own wording; the note replaces "passed".
+STAND_DOWNS = {'leak_gate': ('NOT APPLICABLE', 'stood down -- it inspected '
+                             'nothing (a private repository)'),
+               'doc_lint': ('NOTHING IS BEING GATED', 'stood down -- no '
+                            'Markdown file was in scope')}
+
+
 def git(root, *args):
     p = subprocess.run(['git', '-C', str(root), *args],
                        capture_output=True, text=True)
@@ -407,8 +418,16 @@ def already_passed(root, checks, also=()):
 
 
 def _shared_off(root):
-    return (os.environ.get('PRECEDENT_NO_SHARED_PASS') == '1'
-            or not git(root, 'remote', 'get-url', 'origin'))
+    if (os.environ.get('PRECEDENT_NO_SHARED_PASS') == '1'
+            or not git(root, 'remote', 'get-url', 'origin')):
+        return True
+    # AN EMPTY ORIGIN GETS NO RECEIPT BRANCH (2026-09-28). The first branch
+    # pushed to an empty GitHub repository becomes its default branch, and
+    # on a fresh install the push gate runs before the first `git push` --
+    # so the receipt branch would be the repository's first, and default,
+    # branch. Unreachable is not empty: only a clean, empty answer counts.
+    r = _git_env(root, ['ls-remote', '--heads', 'origin'], 15)
+    return r is not None and r.returncode == 0 and not r.stdout.strip()
 
 
 def _git_env(root, args, timeout, env=None):
@@ -908,6 +927,44 @@ def cheap_first(checks):
         [c for c in checks if c[0] in SLOW_CHECKS]
 
 
+def _run_streaming_stderr(argv, cwd):
+    """subprocess.run(argv, capture_output=True, text=True), except that
+    each line the child writes to stderr is ALSO passed through to this
+    process's stderr as it arrives. Returns the same CompletedProcess, so
+    every guard, stand-down and finding below reads exactly what it read
+    before.
+
+    WHY (practice: slow-steps-report-and-cache; very deep check,
+    2026-09-28). verify_harness prints its progress and time-remaining
+    lines to stderr for about four minutes, and a captured run swallowed
+    every one of them: the person watching saw `[1/5] harness: ...` and
+    then nothing until it finished or failed. Only stderr is streamed --
+    a gate's stdout is its verdict, printed below in the shape this file
+    has always used."""
+    import threading
+    proc = subprocess.Popen(argv, cwd=cwd, stdout=subprocess.PIPE,
+                            stderr=subprocess.PIPE, text=True)
+    out_chunks = []
+    reader = threading.Thread(target=lambda: out_chunks.append(
+        proc.stdout.read()), daemon=True)
+    reader.start()
+    err_lines = []
+    for line in iter(proc.stderr.readline, ''):
+        err_lines.append(line)
+        try:
+            sys.stderr.write(f'      {line}' if line.endswith('\n')
+                             else f'      {line}\n')
+            sys.stderr.flush()
+        except (OSError, ValueError):
+            pass                  # a closed stderr never costs the verdict
+    proc.stderr.close()
+    reader.join()
+    proc.stdout.close()
+    rc = proc.wait()
+    return subprocess.CompletedProcess(argv, rc, ''.join(out_chunks),
+                                       ''.join(err_lines))
+
+
 def run(root, checks, landed=None, reported=None):
     """`landed`: the refs whose findings a working-branch push is not
     refused over (RANGE_JUDGED), or a callable returning them, called only
@@ -946,7 +1003,7 @@ def run(root, checks, landed=None, reported=None):
             continue
         print(f'[{i}/{len(checks)}] {name}: {shown}', flush=True)
         t0 = time.monotonic()
-        p = subprocess.run(argv, cwd=root, capture_output=True, text=True)
+        p = _run_streaming_stderr(argv, root)
         took = time.monotonic() - t0
         guard = GUARDS.get(name)
         why = guard(p.stdout + p.stderr, HERE) if guard and p.returncode == 0 \
@@ -957,6 +1014,10 @@ def run(root, checks, landed=None, reported=None):
                   flush=True)
             continue
         if p.returncode == 0:
+            marker, note = STAND_DOWNS.get(name, (None, None))
+            if marker and marker in p.stdout + p.stderr:
+                print(f'      {note} ({took:.0f}s)', flush=True)
+                continue
             print(f'      passed in {took:.0f}s', flush=True)
             continue
         if (p.returncode == 2 and name in SKIP_IS_FINE_WITHOUT_IDENTITY

@@ -8,7 +8,7 @@ occasion:    ""
 gates:       ["reply"]
 index_clause: "every reply ends with The Boildown, in a fixed order, archive line last"
 checked_by:  null
-defines:     []
+defines:     ["Boildown"]
 status:      active
 in_force_at: null
 supersedes:  ["next-steps-after-commit", "merged-session-offers-a-practice", "handoff-is-pasteable", "closing-items-are-this-thread", "asks-stand-alone", "archive-a-finished-session"]

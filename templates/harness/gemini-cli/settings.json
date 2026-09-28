@@ -1,0 +1,29 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "name": "precedent-bootstrap",
+            "type": "command",
+            "command": "cd \"${GEMINI_PROJECT_DIR:-.}\" && bash tools/bootstrap.sh 1>&2",
+            "timeout": 600000,
+            "description": "Precedent: run tools/bootstrap.sh at session start. Its output goes to stderr because Gemini CLI parses a hook's stdout as JSON."
+          }
+        ]
+      }
+    ],
+    "AfterAgent": [
+      {
+        "hooks": [
+          {
+            "name": "precedent-stop-git-check",
+            "type": "command",
+            "command": "cd \"${GEMINI_PROJECT_DIR:-.}\" && bash .claude/hooks/stop-git-check.sh",
+            "description": "Precedent: refuse to end a turn with uncommitted, untracked or unpushed work. Exit 2 with the reasons on stderr makes Gemini CLI retry the turn with them as the prompt, the same contract as Claude Code's Stop hook."
+          }
+        ]
+      }
+    ]
+  }
+}

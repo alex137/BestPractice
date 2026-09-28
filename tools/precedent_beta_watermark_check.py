@@ -375,6 +375,24 @@ def _identity_args(identity):
     return args, env
 
 
+def _session_trailer():
+    """-> the session-trailer line for a watermark commit.
+
+    practice: session-trailer. Until 2026-09-28 every watermark commit went
+    out with a bare subject line, so a shared set's check_session_trailer.py,
+    run against this repository by the very deep check, found eight of them
+    in its history, the newest that same day. The other trailer-less commits
+    there were sessions forgetting once; this was a tool repeating it on
+    every advance. A hook has no chat link of its own, so the
+    default is the practice's explicit opt-out; PRECEDENT_SESSION_URL hands
+    over a real one, the same way tools/precedent_refresh_sources.py takes
+    it."""
+    url = (os.environ.get('PRECEDENT_SESSION_URL') or '').strip()
+    if url:
+        return f'Session: {url}'
+    return 'Session: none available (tools/precedent_beta_watermark_check.py)'
+
+
 def _commit_and_push(repo, path, message, no_push, branch, identity=None):
     """Commit the watermark in THIS repository, and push unless asked not to.
 
@@ -396,8 +414,8 @@ def _commit_and_push(repo, path, message, no_push, branch, identity=None):
     rel = path.relative_to(pathlib.Path(repo))
     git(repo, 'add', str(rel))
     _id_args, _id_env = _identity_args(identity)
-    code, _ = git(repo, *_id_args, 'commit', '-m', message, '--', str(rel),
-                  env=_id_env)
+    code, _ = git(repo, *_id_args, 'commit', '-m', message,
+                  '-m', _session_trailer(), '--', str(rel), env=_id_env)
     if code != 0:
         return 'nothing to commit'
     if no_push:
@@ -430,7 +448,11 @@ def check(root=None, no_fetch=False, no_push=False, user_config=None):
     watermark_path = _watermark_path(repo)
 
     if not no_fetch:
-        code, _ = git(repo, 'fetch', '--depth=50', 'origin', branch)
+        # --depth only on an already-shallow clone: on a full one it
+        # truncates the history every later check reads (2026-09-28).
+        _, shallow = git(repo, 'rev-parse', '--is-shallow-repository')
+        depth = ['--depth=50'] if str(shallow).strip() == 'true' else []
+        code, _ = git(repo, 'fetch', *depth, 'origin', branch)
         if code != 0:
             return 'unknown', [f'could not fetch origin/{branch} (offline, or '
                                 f'no access) -- this says nothing about who '

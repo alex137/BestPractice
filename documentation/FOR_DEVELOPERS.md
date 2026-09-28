@@ -22,7 +22,7 @@ fetched while you work.
 One path. §1 below is described because installs made that way still
 exist, not because anyone should take it — it was retired 2026-09-23:
 
-- **[INSTALL.md §0](../INSTALL.md#0-installing-directly-onto-the-precedent-loader-new-2026-09-03--read-the-caveat-before-using)**
+- **[INSTALL.md §0](../INSTALL.md#0-installing-directly-onto-the-precedent-loader)**
   — straight onto Precedent's three-source loader: the practice catalogue
   vendored at `precedent/universal/`, the engine at `tools/`, and
   `AGENTS.md`'s generated block (resident practices, occasion index,
@@ -130,7 +130,7 @@ here rather than leaving to be discovered at the link.
   omitting it is not neutral: `title_case.py` falls back to reasoning from
   *Precedent's* directory names, so your whole tree reads as published and
   `headline-capitalization` reports headings you never meant to rewrite.
-  [§0 step 2](../INSTALL.md#0-installing-directly-onto-the-precedent-loader-new-2026-09-03--read-the-caveat-before-using).
+  [§0 step 2](../INSTALL.md#0-installing-directly-onto-the-precedent-loader).
 - **The timezone in `identity.json` is the field that fails silently.**
   Name and email resolve from the GitHub account the session is
   authenticated as, so a half-filled identity looks fine; nothing anywhere
@@ -150,7 +150,7 @@ defines it.
 
 **Not technical, or handing this to someone who isn't?**
 [SETUP.md](../SETUP.md) runs the same install as a conversation: the
-administrator pastes it to their AI Assistant and answers three questions.
+administrator pastes it to their AI Assistant and answers five questions.
 
 ## All Interaction Happens Through Chat or Voice With an AI Assistant
 
@@ -369,7 +369,7 @@ workflow, not its first run on a collaborator's branch.
 
 Every GitHub setting in this section, and what GitHub itself does with a
 CODEOWNERS file, is [GITHUB_SETTINGS.md](GITHUB_SETTINGS.md). The install
-step is [INSTALL.md §0 step 10](../INSTALL.md#0-installing-directly-onto-the-precedent-loader-new-2026-09-03--read-the-caveat-before-using);
+step is [INSTALL.md §0 step 10](../INSTALL.md#0-installing-directly-onto-the-precedent-loader);
 the design, and the three GitHub behaviours it still rests on unverified,
 is [spec/CONTRIBUTOR_ACCESS.md](../spec/CONTRIBUTOR_ACCESS.md);
 [templates/document-project/](../templates/document-project/) is the

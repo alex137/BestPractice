@@ -1,5 +1,5 @@
-# DERIVED from precedent.json (sha256 980af14ea9a5) -- a hash of that
-# file's own content, NOT a commit: an unchanged registry
+# DERIVED from precedent.json (sha256 f96856a815d6) -- a hash of the registry
+# it declares, NOT a commit or the whole file: an unchanged registry
 # regenerates byte-identically, so --check has a stable answer.
 # Recipe: tools/build_codeowners.py
 # Regenerate with: python3 tools/build_codeowners.py

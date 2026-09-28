@@ -192,7 +192,7 @@ carried across, for the same reason: nobody in that session could read the
 original.
 
 **The withdrawn-sibling shape, found 2026-09-14, after it bit the same
-practice file twice.** `themorgan/precedent-individual`'s
+practice file twice.** An individual set's
 `closing-items-are-this-thread.md` linked `half-the-words.md` from its Story;
 `half-the-words` is `status: retired`, superseded by `reply-fits-one-screen`.
 That set's own `precedent_check.py` reported **16 passed, 0 violated both with

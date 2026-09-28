@@ -3,16 +3,16 @@ slug:              todo-2026-09-17-weekly-very-deep-check-trigger-decision
 kind:              manual
 domain:            null
 severity:          null
-status:            open
+status:            dropped
 disposition:       ask
-remind_on:         "2026-09-19"
+remind_on:         null
 blocked_on:        null
 batch:             null
-decision:          null
-decision_strength: null
+decision:          "Not pursued: a person can start a very deep check by name, so a weekly Routine fails crons-are-a-last-resort, and the check is kept to the literal ask because it is expensive."
+decision_strength: assented
 waiting_on:        "Morgan"
 noted:             2026-09-17
-closed:            null
+closed:            2026-09-28
 ---
 ## What
 
@@ -39,3 +39,5 @@ and either the trigger is created, or he decides not to pursue it.
 
 2026-09-17: written on "Todo reminder" — `remind_on` is this Saturday
 (2026-09-19); raise it again then if it's still open.
+
+**Closed 2026-09-28 (dropped).** Not pursued: a person can start a very deep check by name, so a weekly Routine fails crons-are-a-last-resort, and the check is kept to the literal ask because it is expensive. Morgan approved the very deep check's pass-4 recommendation to close it, 2026-09-28 ("Make the changes you recommend"); strength: assented.

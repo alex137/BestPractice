@@ -608,9 +608,33 @@ def ensure_source(level, name, repo_url, clone_path, config_path,
                 _write_config(pathlib.Path(config_path), level, name, clone_path,
                               repo_url=repo_url)
             return True, None
+        if _left_as_it_stands(clone_path, last_output):
+            # A WORKING COPY ON ANOTHER BRANCH IS STILL THE SOURCE. The
+            # refusal in _sync_once protects the checkout from being moved;
+            # it was never meant to take the source out of force, and its
+            # own comment says "Still in force as it stands." Until
+            # 2026-09-28 nothing recorded it, so an individual set the
+            # harness had attached on a session branch -- every attached
+            # repo in a multi-repo cloud session is -- resolved nowhere, and
+            # the caller blamed read access. A deterministic refusal is
+            # also not worth retrying.
+            print(f'precedent_source_bootstrap: {last_output} It is used '
+                  f'as the {level} source exactly as it stands.',
+                  file=sys.stderr)
+            if config_path is not None:
+                _write_config(pathlib.Path(config_path), level, name, clone_path,
+                              repo_url=repo_url)
+            return True, None
         if attempt < attempts:
             sleep(retry_delay)
     return False, last_output
+
+
+def _left_as_it_stands(clone_path, output):
+    """True when _sync_once declined to move a checkout it did not make (see
+    CLONE_MARKER) and that checkout is a practice source on disk."""
+    return ('was not cloned by this tool' in (output or '')
+            and (pathlib.Path(clone_path) / 'practices').is_dir())
 
 
 BASE_URL_ENV = 'PRECEDENT_SOURCE_BASE_URL'

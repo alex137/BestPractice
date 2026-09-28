@@ -26,7 +26,7 @@ A blank `practices/` directory gives you nothing to copy from. This one
 file — real frontmatter, real section headers, in the format Precedent
 actually reads — is faster to edit into your first practice than reading
 the spec cold. See
-[`spec/PRACTICE_FORMAT.md`](https://github.com/alex137/BestPractice/blob/main/spec/PRACTICE_FORMAT.md)
+[`spec/PRACTICE_FORMAT.md`](https://github.com/alex137/BestPractice/blob/staging/spec/PRACTICE_FORMAT.md)
 in Precedent's own repo for what each field means and when a section can be
 left empty.
 
