@@ -6353,13 +6353,64 @@ def branch_report_path_for(repo_root=None):
     return pathlib.Path(repo_root or ROOT) / BRANCH_REPORT_RELPATH
 
 
-def _delete_row_lines(r, path, show_into=False):
+def _leak_matched_branch_names(repo_root, names):
+    """-> the subset of `names` that this repo's leak blocklist matches, or
+    frozenset() when the repo is private (a private repo's tracked files are
+    not a publication, so there is nothing to redact).
+
+    WHY THIS EXISTS (found 2026-09-28, the first very deep check run with
+    the individual source's blocklist resolved). Branch names are chosen by
+    whoever opened the branch, and some name a private project. The branch
+    report and the safe-to-delete embed are TRACKED files, so the run wrote
+    such a name into this public repo and its own push gate refused the
+    result: the leak gate, run over the check's own output. Reading the SAME
+    blocklist the push gate reads, through leak_gate's own loader, keeps the
+    two from disagreeing about what counts as private."""
+    if not bv.repo_is_public(repo_root):
+        return frozenset()
+    try:
+        patterns, _desc, _private = leak_gate.load_blocklist()
+    except SystemExit:
+        # A misconfigured blocklist is the push gate's to report; this
+        # writer redacts nothing it cannot read, and the push gate will
+        # still refuse whatever gets through.
+        return frozenset()
+    return frozenset(n for n in names if any(p.search(n) for p in patterns))
+
+
+def _branch_report_privacy(repo_root, sources, branch_scans):
+    """-> (held_back, redact): what a repo's TRACKED branch report may not
+    carry. `held_back` is the set of `branch_scans` keys for sources
+    `build_views.sources_for_tracked_block()` defers -- the one rule that
+    already keeps their practice text out of the catalogue embed -- and is
+    empty in a private repo. `redact` is every scanned branch name the leak
+    blocklist matches (`_leak_matched_branch_names`)."""
+    held_back = set()
+    if bv.repo_is_public(repo_root):
+        _, deferred, _ = bv.sources_for_tracked_block(repo_root, sources)
+        held_back = {f"{s['level']} source {s['name']}" for s in deferred}
+    names = {r['name'] for sc in branch_scans.values() if sc
+             for key in ('merged', 'merged_elsewhere', 'unmerged')
+             for r in (sc.get(key) or [])}
+    return held_back, _leak_matched_branch_names(repo_root, names)
+
+
+def _redacted_row_line():
+    return ('- *(one branch whose name matches this repo\'s leak blocklist '
+            '-- named in the console output only, never in a tracked file)*')
+
+
+def _delete_row_lines(r, path, show_into=False, redact=frozenset()):
     """-> the bullet + delete-link lines for one merged branch row.
 
     Shared by `_write_branch_report` (every section, every repo) and
     `emit_merged_stale_checkout` (just the checkout's safe-to-delete list,
     for the `--emit` block spec/VERY_DEEP_CHECK.md embeds) so the two
-    never drift into two different renderings of the same row."""
+    never drift into two different renderings of the same row. A name in
+    `redact` (see `_leak_matched_branch_names`) is replaced by a placeholder
+    with no link, since the link would carry the name too."""
+    if r['name'] in redact:
+        return [_redacted_row_line()]
     age = (f"last commit {r['last']}, {r['age_days']} day(s) old"
            if r['last'] else "last commit date unreadable in this clone")
     who = f", last touched by {r['author']}" if r.get('author') else ''
@@ -6381,7 +6432,7 @@ def _delete_row_lines(r, path, show_into=False):
     return lines
 
 
-def _merged_stale_checkout_markdown(scan):
+def _merged_stale_checkout_markdown(scan, redact=frozenset()):
     """-> the merged-and-stale (safe-to-delete) branch list from an
     already-computed `scan_branches()` result, as markdown. Shared by
     `emit_merged_stale_checkout` (its own fresh scan, for `--emit`) and the
@@ -6398,7 +6449,7 @@ def _merged_stale_checkout_markdown(scan):
         return f'(none -- no merged branch is >= {sd} days stale right now)'
     lines = []
     for r in stale:
-        lines.extend(_delete_row_lines(r, path))
+        lines.extend(_delete_row_lines(r, path, redact=redact))
     # What SUCCESS looks like, said once (practice: branch-delete-links). A
     # deleted branch's filtered page reads "no branches matched", which reads
     # as an error to anyone who has not been told otherwise.
@@ -6609,7 +6660,10 @@ def emit_merged_stale_checkout(repo_root=None):
     cannot be a doc_sync-gated invariant. `_update_spec_doc_block()` below
     is what actually keeps spec/VERY_DEEP_CHECK.md current, writing this
     same markdown whenever the checkout's own branch scan runs for real."""
-    return _merged_stale_checkout_markdown(scan_branches(repo_root or ROOT))
+    scan = scan_branches(repo_root or ROOT)
+    names = {r['name'] for r in (scan or {}).get('merged', [])}
+    return _merged_stale_checkout_markdown(
+        scan, redact=_leak_matched_branch_names(repo_root or ROOT, names))
 
 
 SPEC_DOC_RELPATH = pathlib.Path('spec') / 'VERY_DEEP_CHECK.md'
@@ -6649,7 +6703,8 @@ def _update_spec_doc_block(repo_root, name, markdown):
     return False
 
 
-def _write_branch_report(branch_scans, out_path, repo_root):
+def _write_branch_report(branch_scans, out_path, repo_root, held_back=(),
+                         redact=frozenset()):
     """Write `branch_scans` (the same dict the console BRANCHES section
     prints, and --json's 'branches' key) to `out_path` as committable
     Markdown, with a real clickable link on every row.
@@ -6669,7 +6724,16 @@ def _write_branch_report(branch_scans, out_path, repo_root):
     whoever last touched it, not filtered to the person running the check
     (practice: very-deep-check's `_branch_meta` docstring: "you do not
     delete somebody else's branch" is why the author is named, never why a
-    row is dropped)."""
+    row is dropped).
+
+    TWO THINGS ARE KEPT OUT OF THE FILE IN A PUBLIC REPO, and both still
+    print to the console in full. A section in `held_back` -- a source
+    `build_views.sources_for_tracked_block()` defers, the same rule that
+    keeps its practice text out of the catalogue embed -- is replaced by a
+    one-line note: until 2026-09-28 this file carried the PRIVATE individual
+    set's branch names, authors and dates in a world-readable tree. And a
+    branch name in `redact` loses its row text and link (see
+    `_leak_matched_branch_names`)."""
     out_path = pathlib.Path(out_path)
     today = precedent_time.today(repo_root)
     lines = []
@@ -6719,7 +6783,8 @@ def _write_branch_report(branch_scans, out_path, repo_root):
     lines.append('')
 
     def _row(r, path, show_into):
-        lines.extend(_delete_row_lines(r, path, show_into=show_into))
+        lines.extend(_delete_row_lines(r, path, show_into=show_into,
+                                       redact=redact))
 
     def _section(title, rows, empty_note, path, show_into=False):
         lines.append(f'### {title}')
@@ -6738,6 +6803,14 @@ def _write_branch_report(branch_scans, out_path, repo_root):
         if scan is None:
             lines.append('Not its own git checkout, or its integration '
                          'branch could not be resolved -- skipped.')
+            lines.append('')
+            continue
+        if name in held_back:
+            lines.append('Held back from this file: this repo is public, '
+                         'and this source is one its tracked files never '
+                         'describe (the rule `build_views.py` applies to '
+                         'the loader block). The console output of the run '
+                         'lists every branch here in full.')
             lines.append('')
             continue
         path = scan.get('path')
@@ -6772,6 +6845,9 @@ def _write_branch_report(branch_scans, out_path, repo_root):
         lines.append('')
         if scan['unmerged']:
             for r in scan['unmerged']:
+                if r['name'] in redact:
+                    lines.append(_redacted_row_line())
+                    continue
                 ahead = f", {r['ahead']} commit(s) ahead" if r.get('ahead') is not None else ''
                 who = f", last touched by {r['author']}" if r.get('author') else ''
                 age = f", last commit {r['last']}" if r['last'] else ''
@@ -7238,15 +7314,18 @@ def _main(box):
         # Written every time the scan runs, --json included, so the
         # committable list is never behind whatever the console happened to
         # print (practice: very-deep-check, pass 4; repo-is-memory).
+        _held_back, _redact = _branch_report_privacy(
+            repo_root, data['sources'], branch_scans)
         _branch_report_path = _write_branch_report(
             branch_scans, branch_report_path or branch_report_path_for(repo_root),
-            repo_root)
+            repo_root, held_back=_held_back, redact=_redact)
         # This repo's own spec/VERY_DEEP_CHECK.md only, never a checked
         # repo's -- see _update_spec_doc_block's docstring.
         if pathlib.Path(repo_root).resolve() == ROOT.resolve():
             _update_spec_doc_block(
                 repo_root, 'merged-stale-checkout',
-                _merged_stale_checkout_markdown(branch_scans.get('checkout')))
+                _merged_stale_checkout_markdown(branch_scans.get('checkout'),
+                                                redact=_redact))
 
     # THE REPO SIDE of the live-session sweep, gathered here beside the
     # branch scan because it reads the same clones and asks the neighbouring

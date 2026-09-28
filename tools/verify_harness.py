@@ -21318,6 +21318,20 @@ def check_source_clone_is_pinned_to_a_branch():
                       f'(got {branch_of(foreign)!r}, {out!r})',
                       (not ok) and branch_of(foreign) == 'claude/feature'
                       and 'was not cloned by this tool' in out))
+        # ...and is still RECORDED as the source (2026-09-28): the refusal
+        # protects the checkout, it must not take the source out of force.
+        (foreign / 'practices').mkdir(exist_ok=True)
+        cfg = W / 'config.json'
+        ok, out = psb.ensure_source('individual', 'fixture-individual', url,
+                                    foreign, cfg, retries=1, sleep=lambda s: None)
+        recorded = (json.loads(cfg.read_text(encoding='utf-8'))
+                    .get('individual', {}).get('path') if cfg.exists() else None)
+        cases.append((f'an individual checkout left on its branch is still '
+                      f'recorded as the source (ok={ok}, path={recorded!r}, '
+                      f'{out!r})',
+                      ok and recorded is not None
+                      and pathlib.Path(recorded).resolve() == foreign.resolve()
+                      and branch_of(foreign) == 'claude/feature'))
         itself = W / 'itself'
         git(W, 'clone', '-q', '--branch', 'main', str(src), str(itself))
         (itself / 'practices').mkdir()
@@ -31189,6 +31203,106 @@ def check_practice_catalogue_holds_back_private_sources_on_public_repo():
           not bad, '; '.join(f"{n} -- {d[:300]}" for n, d in bad))
 
 
+def check_branch_report_keeps_private_names_out_of_a_public_tree():
+    """The very deep check's tracked branch report (record/stale_branches.md,
+    and the safe-to-delete embed in spec/VERY_DEEP_CHECK.md) never carries a
+    held-back source's branches or a branch name the leak blocklist matches,
+    in a public repo -- and holds nothing back in a private one (practice:
+    very-deep-check; control-asserts-which-failure).
+
+    THE INCIDENT (2026-09-28). The first run with the individual source's
+    blocklist resolved wrote a branch named after a private project into
+    this public repo's record/stale_branches.md, and its own push gate
+    refused the result. The same file had carried the private individual
+    set's branch names, authors and dates since 2026-09-19 -- the
+    disclosure the practice catalogue was fixed for on 2026-09-24, in the
+    file next to it.
+
+    The fixture owns its own tree: a temp repo, a temp blocklist named by
+    the environment variable the push gate reads, and hand-built scan
+    results, so no git history or network is involved."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import very_deep_check as vdc
+    import leak_gate
+
+    SECRET = 'zzfixtureprivateproject-branch'
+    SET_BRANCH = 'claude/zzfixture-private-set-branch'
+    PLAIN = 'claude/zzfixture-plain-branch'
+
+    def row(name, stale=False):
+        return {'name': name, 'last': '2026-09-01', 'age_days': 3,
+                'author': 'Fixture', 'stale': stale}
+
+    def scans(root, ind):
+        return {
+            'checkout': {'path': str(root), 'target': 'staging',
+                         'merged': [row(SECRET, stale=True), row(PLAIN)],
+                         'merged_elsewhere': [],
+                         'unmerged': [dict(row('claude/zz-unmerged'),
+                                           ahead=1, verdict='fixture')]},
+            'individual source fixture-individual': {
+                'path': str(ind), 'target': 'main',
+                'merged': [row(SET_BRANCH)], 'merged_elsewhere': [],
+                'unmerged': []},
+        }
+
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='branch-report-privacy-'))
+    old_env = os.environ.get(leak_gate.BLOCKLIST_ENV)
+    try:
+        bl = tmp / 'blocklist.txt'
+        bl.write_text('zzfixtureprivateproject\n', encoding='utf-8')
+        os.environ[leak_gate.BLOCKLIST_ENV] = str(bl)
+        for vis in ('public', 'private'):
+            root = tmp / vis
+            ind = tmp / (vis + '-individual')
+            for d in (root, ind):
+                d.mkdir()
+            (root / 'precedent.json').write_text(
+                json.dumps({'format_version': 1, 'visibility': vis}),
+                encoding='utf-8')
+            sources = [
+                {'level': 'universal', 'name': 'precedent', 'path': str(root)},
+                {'level': 'individual', 'name': 'fixture-individual',
+                 'path': str(ind)}]
+            sc = scans(root, ind)
+            held, redact = vdc._branch_report_privacy(root, sources, sc)
+            out = vdc._write_branch_report(sc, root / 'report.md', root,
+                                           held_back=held, redact=redact)
+            text = out.read_text(encoding='utf-8')
+            embed = vdc._merged_stale_checkout_markdown(sc['checkout'],
+                                                        redact=redact)
+            if vis == 'public':
+                cases.append(('THE CASE THIS EXISTS FOR: a blocklisted branch '
+                              'name never reaches a public tracked report',
+                              SECRET not in text and SECRET not in embed,
+                              text[:300]))
+                cases.append(('a held-back source\'s branches stay out of it',
+                              SET_BRANCH not in text and 'Held back' in text,
+                              text[-600:]))
+                cases.append(('an ordinary branch is still listed',
+                              PLAIN in text, text[:600]))
+            else:
+                cases.append(('THE DISCRIMINATING CASE: a private repo holds '
+                              'nothing back', SECRET in text
+                              and SET_BRANCH in text and not held
+                              and not redact, text[:300]))
+    finally:
+        if old_env is None:
+            os.environ.pop(leak_gate.BLOCKLIST_ENV, None)
+        else:
+            os.environ[leak_gate.BLOCKLIST_ENV] = old_env
+        import shutil
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'the branch report keeps blocklisted names and held-back sources '
+          f'out of a public repo\'s tracked files, and only there '
+          f'({len(cases)} stated cases)',
+          not bad, '; '.join(f"{n} -- {d[:300]}" for n, d in bad))
+
+
 def check_tools_answer_help_without_writing():
     """`--help` is safe and informative on every tool in tools/.
 
@@ -40918,6 +41032,7 @@ def main():
     check_tools_answer_help_without_writing()
     check_loader_block_covers_every_declared_source()
     check_practice_catalogue_holds_back_private_sources_on_public_repo()
+    check_branch_report_keeps_private_names_out_of_a_public_tree()
     check_title_case_leaves_code_and_first_word_alone()
     check_title_case_honours_repo_declared_internal_paths()
     check_push_gate_judges_only_what_a_working_branch_brings()

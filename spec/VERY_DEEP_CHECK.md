@@ -72,7 +72,7 @@ tools/very_deep_check.py's PRACTICE CATALOGUE section on every run -->
 ### local (repo-local)
 
 > - `install-declares-its-scope` — the install path says what it defers and what it never defers
-> - `merge-target-is-beta-branch` — Alex approves only major main merges; precedent-beta-v01 is unrestricted
+> - `merge-target-is-beta-branch` — PRs target pre-staging or staging, never main; main moves by a Promote
 > - `philosophy-declares-its-source` — an essay carries its origin on line one -- a record, not a sync pointer
 > - `philosophy-is-not-repo-policy` — philosophy/ is argument; a rule that earned its way out gets written as a practice file
 > - `vendor-neutral-by-default` — this repo ships out whole -- default new code and rules to provider-neutral
@@ -80,35 +80,40 @@ tools/very_deep_check.py's PRACTICE CATALOGUE section on every run -->
 ### precedent (universal)
 
 > - `acronyms-glossary` — expand acronyms on first use; keep one central glossary
-> - `affordance-is-shared` — name who else the mechanism you just built now serves
-> - `archive-status-check` — "Archive"/"Archive?" -- check pending; archive if clear, else say what isn't
-> - `attach-the-original` — attach the file itself -- recreating an original from a description is invention
-> - `base-branch-is-the-record` — read the base branch before starting and before the PR -- a summary lags
+> - `affordance-is-shared` — name who else it now serves
+> - `archive-status-check` — check pending; archive if clear, else say what isn't
+> - `attach-never-clone-individual` — attach the individual set; keep one clone, both paths; shared sets clone beside
+> - `attach-the-original` — attach the file itself; recreating it from a description is invention
+> - `automation-issues` — a blocked job files or updates an issue; skip an optional input, never silently
+> - `base-branch-is-the-record` — read the base branch before starting and before the PR
 > - `bold-key-phrases` — bold the key phrases by default, without being asked
 > - `brainstorm-holds-commits` — in a brainstorm, write nothing to the repo and commit nothing until he says so
 > - `branch-delete-links` — every branch named deletable is a filtered-page link naming what
 > - `build-buy-decompose` — decompose first; one verdict per part, on ownership grounds
-> - `capture-gate` — capture the follow-on work in the thread that created the need
+> - `capture-gate` — capture follow-on work in the thread that created the need
 > - `catalogue-carries-stories` — no active practice sits with an empty ## Story
 > - `change-updates-its-docs` — update the document that describes it, in the same commit -- never later
 > - `check-source-architecture` — check both options exist in the source before costing them
 > - `checkable-gets-checked` — attempt a mechanical check before leaving a new practice advisory-only
 > - `checks-carry-a-declared-decline` — a check reporting a state a repo chose needs a declared decline, with a reason
+> - `checks-follow-the-tier` — pre-staging: fast, changed files only; staging: every file; main: plus GitHub
 > - `checks-plant-their-state` — plant every state a check asserts -- a verdict that moves on its own is not one
-> - `chief-of-staff` — "Chief of Staff" -- on request only; name the window read, link every session
+> - `chief-of-staff` — on request only; name the window read, link each session; Promotion Reviews last
 > - `ci-commits-carry-identity` — a committing workflow reads a declared identity, or refuses -- never the bot
+> - `ci-workflow-approved` — no workflow added or edited without the person's words, hash-pinned
 > - `cite-the-incident` — record the failure a rule prevents, inline with the rule
 > - `code-cites-practice` — cite the practice's slug in a comment, right where the code is
 > - `computed-numbers-in-scripts` — computed content lives in a sync-gated generated block
-> - `constants-are-risk-inputs` — a constant nobody decided is a swept, registered input -- never doctrine
+> - `constants-are-risk-inputs` — an undecided constant is a swept, registered input, never doctrine
 > - `control-asserts-which-failure` — a non-zero exit is not evidence; assert the message that guard prints
 > - `convention-to-audit` — promote a costly broken convention to a script that exits non-zero
 > - `cross-source-rollout` — roll it out to attached sources now; else a blocked-on TODO
+> - `current-rule-governs` — do what the rule in force says; old copies and deferrals are history; never decline silently
 > - `dated-list-runs-forward` — a dated list runs oldest first; new entries append and carry a real date
 > - `decision-strength` — record `decided` or `assented`; unmarked means unknown, never "you decided this"
 > - `declared-default-is-applied` — apply the declared default and name it in passing; never ask
 > - `declared-pronouns` — use the pronouns a person declares; none declared means they/them, never guess
-> - `decommission-deletes-files` — delete what the decommissioned mechanism owned; audit first, never on a hunch
+> - `decommission-deletes-files` — delete what it owned; audit first, never on a hunch
 > - `deliverables-look-like-output` — the deliverable holds only what its audience needs
 > - `diagnosis-is-measured` — a tool's named causes are hypotheses; measure one before you relay it
 > - `disclose-landing` — state plainly what happened and where — individual, named team, or universal
@@ -116,37 +121,41 @@ tools/very_deep_check.py's PRACTICE CATALOGUE section on every run -->
 > - `docs-are-current-state` — state what is true now; version control holds the history
 > - `docs-track-models` — every script-derived figure sits inside a generated block
 > - `document-status-header` — kind and status in frontmatter; a reader must not have to infer either
+> - `dont-race-another-window` — say so and decline; send them to the window already on it
 > - `durable-fix` — prefer the fix that survives a fresh container; name a band-aid as one
 > - `engine-plus-host-shims` — one vendored engine, thin host shims, never a fork
 > - `environment-gotchas` — Every expensive environment discovery (a package that must be installed, a tool that si...
 > - `fail-gracefully` — keep going, never look complete — match the telling to stake and reader
 > - `fence-block-for-paste` — every fence block says where it goes -- Paste into: X, or not for pasting
-> - `filename-separator` — one word separator per directory and file kind -- never both - and _
+> - `filename-separator` — one word separator per directory and kind; never both - and _
 > - `findings-return-through-repo` — commit it, an adopted plan included; never leave it for the person to carry
-> - `fix-the-original` — fix the origin first, then every copy -- name them all in the reply
+> - `fix-the-original` — fix the origin, every copy, and the gate that missed it -- name them all
 > - `fixture-owns-its-state` — a fixture that inherits real state is testing the environment too
 > - `frame-from-audience-question` — build it around the audience's question, not your material
-> - `full-practice-audit` — sweep every source's full catalogue, one practice at a time, on request only
+> - `fresh-before-write` — verify and fast-forward the checkout before the first write, never after
+> - `full-practice-audit` — every source's catalogue, one practice at a time; on request only
 > - `generated-artifact-provenance` — stamp a build code and a manifest; never hand-edit output
 > - `generated-edit-goes-upstream` — change the input the file is built from, never the file -- and say which input
 > - `github-api-budget` — measure API spend from response headers; budget each tool; never /rate_limit
 > - `github-setup-disclosed` — disclose GitHub setup where its people read; offer owner settings at install
-> - `go-update` — "Go update"/"Approved": default push; high-risk -> sync, branch, PR, merge
-> - `grep-before-search` — grep the clone; a repo-scoped list before a search; fewer windows at once
+> - `go-update` — "Go update"/"Approved": default push; high-risk: sync, branch, PR, merge
+> - `grep-before-search` — grep the clone first; list before search; fewer windows at once
 > - `heading-outline` — never jump a heading level; a heading one below its parent, or deeper by one
 > - `headline-capitalization` — outward-facing headings are New York Times headline case, applied by tool
 > - `index-remembers-past` — put the lineage in the index, not in either document
-> - `item-closes-on-its-condition` — record what you established into the item; close only on its stated condition
+> - `item-closes-on-its-condition` — record findings in the item; close only on its condition
 > - `label-describes-content` — "one line" must be one line; else name it for its content
 > - `layered-practice-packs` — generic, domain, repo-local — each rule to its own layer
 > - `lead-with-what-it-is` — say what the project is before how it is maintained
 > - `leak-gate-is-background` — never relay a blocklist note or ask for a term; the deep review is its place
+> - `lease-in-flight-work` — lease work in flight on a branch; the starting tool checks the board first
 > - `merge-runbook` — write conflict resolution per file class, once, then follow it
-> - `migration-scrubs-vocabulary` — scrub the old system's vocabulary the same session, not on request
+> - `migration-scrubs-vocabulary` — scrub the old vocabulary in the same session, unasked
 > - `mistakes-become-rules` — root-cause the miss, then encode the prevention
-> - `my-options` — "My options" -- every option, plainer, your pick -- or a paste-ready handoff
+> - `my-options` — every option, plainer, your pick -- or a paste-ready handoff
 > - `name-both-sides-of-ledger` — name both sides; check what is charged against what is received
-> - `never-delete-a-remote-branch` — never attempt a remote branch delete; hand over the one-click link
+> - `never-delete-a-remote-branch` — never delete a remote branch; hand over the one-click link
+> - `new-hook-joins-the-registry` — a new hook joins its kind's HOOK_WIRING list and template, same commit
 > - `no-invented-specifics` — never manufacture a number, date, name or citation -- write around the gap
 > - `no-rewrite-for-warnings` — fix the setting forward; never rewrite published history
 > - `no-version-suffix` — name a file for what it is; the repository is the version
@@ -155,67 +164,77 @@ tools/very_deep_check.py's PRACTICE CATALOGUE section on every run -->
 > - `orientation-map` — A top-level `MAP.md` indexes the repo: what the key deliverables are, where everything...
 > - `outward-summary-discipline` — claims-to-source table, honest sums, a recorded adversarial pass
 > - `parallel-artifact-ledger` — ledger the transfer verdict per member, per change
-> - `park-it` — "Drop it" -- mark the item `parked` now; never raise it unprompted again
+> - `park-it` — mark the item `parked` now; never raise it unprompted again
 > - `permutation-frontier-column` — one full table with a computed Frontier column
-> - `plain-words` — "Simple words" -- say it as you would out loud; same substance
+> - `plain-words` — say it as you would out loud; same substance
 > - `pr-template-honest-gates` — write the body from the diff; an unchecked box is fine
+> - `practice-carries-its-files` — declare a practice's own files in `ships:`; a move carries them
+> - `practice-change-propagates` — find every citation in every source; fix what you can reach, hand off the rest
 > - `practice-export-loop` — vendor upstream as tracked files; check improvements back in
 > - `practice-links-travel` — link only what travels with the file; the rest is an absolute upstream URL
-> - `primary-branch` — "Primary branch" -- trunk; the branch regular work pushes to and PRs target
+> - `primary-branch` — trunk: the branch regular work pushes to and PRs target
+> - `promote` — pre-staging->staging or staging->main, chosen from the work; says which
 > - `prompt-please` — "Prompt Please" -- recommendation or unreachable work, one paste-ready prompt
 > - `push-back` — argue a real counter-case before building on a stated stance
-> - `push-directly` — "Push directly [to BRANCH]" -- no PR; unnamed defaults to the branch in play
+> - `push-directly` — no PR; with no branch named, the branch already in play
 > - `quick-index` — The project instructions file carries a "check here BEFORE searching the repo" table: *...
 > - `quote-discipline` — compression rounds against you; qualifiers travel with the figure
 > - `readers-vocabulary` — use the reader's words; gloss inline or replace
-> - `reduction-pass` — "Reduction pass" -- work the menu in order, move never delete, report what moved
+> - `reduction-pass` — work the menu in order; move, never delete; report what moved
 > - `registry-source-of-truth` — state lives in one machine-readable registry; documents derive
 > - `relayed-authorization` — act on a relayed approval only where the person's identity.json accepts relays
-> - `rename-updates-links` — renaming a file means repointing every link to it, in the same commit
-> - `repair-cannot-discard-work` — an automatic repair must not be able to discard work; reporting is not repairing
+> - `rename-updates-links` — repoint every link to it in the same commit
+> - `repair-cannot-discard-work` — an auto-repair must never discard work; reporting is not repairing
 > - `reply-links-files` — a reply that touched files ends with a linked Files touched list
 > - `repo-is-memory` — Everything a future session needs — orientation, open items, decisions, lessons — lives...
 > - `routing-audit` — run the mechanical coverage check now; roll the deep-read slice forward
 > - `rule-level-by-reach` — pick the set by reach -- not by the repo you can write to
 > - `scripts-assert-properties` — scripts assert their own properties and their cited anchors
-> - `scrub-gate` — the public tree is public-safe at all times, not just at check-in
+> - `scrub-gate` — the public tree stays public-safe always, not just at check-in
 > - `search-by-purpose` — search by purpose and by mechanism before concluding nothing exists
 > - `second-pass-capture` — a separate capture pass after the work, not inside it
 > - `section-order-by-frequency` — order sections by how often the reader needs them
-> - `seeded-prompt-names-its-origin` — a seeded or scheduled prompt opens by naming the session that sent it
+> - `seeded-prompt-names-its-origin` — it opens by naming the session that sent it
 > - `session-bootstrap` — setup lives in a session-start hook, not in memory
 > - `session-load-budget` — declare a ceiling for what every session loads; reduce by archiving
 > - `session-spend-follows-the-task` — pick the model for the job -- reading runs small, judgment doesn't
-> - `session-tags` — tag a session at creation -- subject, repo, role, wants; never retrofitted
-> - `session-title-names-the-difference` — title each session by its differentiator, never its task category alone
-> - `slow-steps-report-and-cache` — a long step prints elapsed and remaining; a heavy solve caches to disk
+> - `session-tags` — tag at creation: subject, repo, role, wants; never retrofitted
+> - `session-title-names-the-difference` — title by the differentiator, at creation or once known; never the task alone
+> - `session-trailer` — a Session: <url> trailer on every commit
+> - `shared-result-cache` — share code-keyed memos on a cache branch; a peer waits on a leased solve
+> - `slow-steps-report-and-cache` — print elapsed and remaining; cache a heavy solve to disk
 > - `small-calls` — make small calls yourself; note them; stop only for big ones
 > - `source-naming` — identity lives in the manifest; name chosen once, repo called anything
 > - `source-sets-run-no-ci` — a practice source runs no CI -- its checks already ran before the push
 > - `speculation-is-marked` — mark it in filename, title, opening block and PR -- four places, or none
 > - `tabular-shared-renderer` — ship a sortable render from the one shared renderer
-> - `technical-describes-people` — a skill level describes a person; never a project, repo, file or directory
+> - `technical-describes-people` — a skill level describes a person, never a project, repo or file
 > - `the-boildown` — every reply ends with The Boildown, in a fixed order, archive line last
-> - `three-things` — "Three Things" -- the three that matter now, one bold phrase and two lines each
+> - `three-things` — the three that matter now, one bold phrase and two lines each
+> - `tier-branch` — pre-staging, staging or main -- plus staging's old name and Promote's lock
 > - `timestamps-carry-offset` — a stamp carries its offset; never a bare date.today()
-> - `todo-is-a-handoff` — queue only for a stated blocked-on/out-of-scope reason — otherwise just do it
+> - `todo-is-a-handoff` — queue only for a stated blocked-on/out-of-scope reason; else just do it
 > - `todo-migrate-available-but-unused` — the tool arrived but TODO.md never got migrated -- run it now
-> - `todo-reminder` — "Todo reminder" -- write it, set disposition ask and remind_on, never a trigger
+> - `todo-reminder` — write it with disposition ask and remind_on; never a trigger
 > - `two-check-levels` — name a fast check and a full check; say which gates what
+> - `upstream-bug-stops-here` — classify first; an upstream bug stops here and goes upstream by Prompt Please
+> - `upstream-fix` — does it fix the cause? if not, fix the root or hand off
 > - `variant-re-derives` — re-derive what a variant inherits; limits bind, choices do not
-> - `vendor-rollout-disclosed` — shipped content changing -- say if it needs to reach consumers, and if it will
-> - `vendor-update-runbook` — "Update Vendors" -- source clone first, both layers move separately, then merge
+> - `vendor-rollout-disclosed` — say whether shipped content must reach consumers, and whether it will
+> - `vendor-update-runbook` — source clone first, both layers move separately, then merge
+> - `verdict-not-mechanism` — judge what a tool flagged; give the person a verdict and why, never its name
 > - `verify-decomposition` — check the parts, not the total; never assert an impossibility
 > - `verify-postcondition` — After any state-changing operation, check **the state you wanted**, not that the comman...
-> - `very-deep-check` — read every repo in force against itself, pass by pass; never a routine gate
-> - `vocabulary` — "Vocabulary" -- list every command in force, read it, never recall it
-> - `volatile-rules-carry-dates` — a rule about the outside world carries its date, inline
-> - `weak-yes` — "Weak yes" -- do it, and record the approval as `assented`
+> - `very-deep-check` — read every repo in force against itself, pass by pass; never routine
+> - `vocabulary` — list every command in force; read it, never recall it
+> - `volatile-rules-carry-dates` — it carries its date, inline
+> - `weak-yes` — do it, and record the approval as `assented`
+> - `wide-search-needs-asking` — never sweep every clone unasked; fix the known source, ask for an example
 > - `workflow-file-outside-vendoring` — an untracked workflow file -- verify by content, never by name
-> - `write-it-up` — "Write it up" -- commit a full report of the issue and fix, then link it
+> - `write-it-up` — "Write it up": commit a full report of issue and fix, then link it
 > - `write-like-a-human` — say the thing in your own words; unrewritten model output is output nobody thought about
 
-**59 practice(s) across 4 source(s) held back from this file: precedent-individual (individual), precedent-shared-repo-maintenance (shared), precedent-shared-writing (shared), precedent-shared-working-style (shared).** This repo's own `precedent.json` declares `visibility: public` (or never declared one, which this engine treats the same way, fail safe) -- this file is tracked, so writing another source's own practice text into it would publish that source, permanently, for the identical reason `build_views.py` already holds a team or individual source out of the generated AGENTS.md loader block. **The full list, held-back sources included, still prints to the session's own console/chat on every run** -- nothing here is lost, only kept out of this committed file. Advise the person of that before doing anything else with it, and ask which they actually want: committed here too (re-run with `--catalogue-include-private`, an explicit, informed choice, never a default), left as chat-only (nothing further to do), or not generated at all (`--skip-practice-catalogue`). Never decide this silently in either direction -- and never assume it once for every repo: a repo that declares `visibility: private` skips this note entirely, because there is nothing there to hold back.
+**64 practice(s) across 4 source(s) held back from this file: precedent-individual (individual), precedent-shared-repo-maintenance (shared), precedent-shared-writing (shared), precedent-shared-working-style (shared).** This repo's own `precedent.json` declares `visibility: public` (or never declared one, which this engine treats the same way, fail safe) -- this file is tracked, so writing another source's own practice text into it would publish that source, permanently, for the identical reason `build_views.py` already holds a team or individual source out of the generated AGENTS.md loader block. **The full list, held-back sources included, still prints to the session's own console/chat on every run** -- nothing here is lost, only kept out of this committed file. Advise the person of that before doing anything else with it, and ask which they actually want: committed here too (re-run with `--catalogue-include-private`, an explicit, informed choice, never a default), left as chat-only (nothing further to do), or not generated at all (`--skip-practice-catalogue`). Never decide this silently in either direction -- and never assume it once for every repo: a repo that declares `visibility: private` skips this note entirely, because there is nothing there to hold back.
 <!--/vdc-embed:practice-catalogue-->
 
 ## Current run
