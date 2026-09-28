@@ -52,7 +52,9 @@ THE REPORT, and the exit code a session acts on:
      what was written before it stopped.
 
 It stages what it wrote and deleted, so the deep check judges the tree the
-commit will hold, and leaves anything already uncommitted alone. It never
+commit will hold, and leaves anything already uncommitted alone -- save the
+pinned engine a source refresh wrote ahead of it, which is the update's own
+and is staged as such when every file matches the manifest. It never
 leaves a commit behind, and never merges. The one thing it pushes is a
 missing branch tier (pre-staging or staging), made at a commit origin
 already has; the deep check's temporary commit is undone before it
@@ -191,6 +193,41 @@ def stage_update(repo, before):
         subprocess.run(['git', '-C', str(repo), 'add', '-A', '--', *ours[i:i + 200]],
                        capture_output=True, text=True)
     return len(ours)
+
+
+def adopt_engine_output(repo, before, pinned):
+    """-> the paths in `before` that are this update's own output, written
+    ahead of it, to stage as the update's; [] when any is not.
+
+    Found 2026-09-27 on all four of Morgan's sets: a source refresh run
+    first (precedent_refresh_sources.py) had already written the pinned
+    engine into each repo, so the refresh here said "already current",
+    stage_update left the two changed files as someone else's, and the
+    report said DONE on an update that would have committed nothing. They
+    are the update's when the manifest -- uncommitted -- names the pinned
+    commit and every uncommitted file it tracks hashes to what it records;
+    a single mismatch means someone else's edit is in the mix, and then
+    nothing is taken."""
+    rel = f'tools/{pve.MANIFEST_NAME}'
+    if rel not in before or not pinned:
+        return []
+    try:
+        m = json.loads((repo / rel).read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return []
+    if m.get('source_commit') != pinned:
+        return []
+    tracked = {f'tools/{n}': h for n, h in (m.get('sha256') or {}).items()}
+    tracked.update({f'{pve.HOOK_DEST_DIR}/{n}': h
+                    for n, h in (m.get('hooks_sha256') or {}).items()})
+    tracked.update(m.get('engine_paths_sha256') or {})
+    ours = [rel]
+    for path in sorted(before & set(tracked)):
+        f = repo / path
+        if not f.is_file() or pve._sha256(f) != tracked[path]:
+            return []
+        ours.append(path)
+    return ours
 
 
 def citations(repo):
@@ -465,6 +502,12 @@ def update(repo, skip_check=False, ref=None):
     tiers_step(repo, rep)
 
     # Staged before the check, so it judges what the commit will hold.
+    adopted = adopt_engine_output(repo, before, head.strip())
+    if adopted:
+        before = before - set(adopted)
+        rep.step('engine, written ahead', f'{len(adopted)} uncommitted path(s) '
+                 f'already held the pinned engine (a source refresh ran first); '
+                 f'staged as this update\'s: ' + ', '.join(adopted))
     n = stage_update(repo, before)
     rep.step('staged', f'{n} path(s) this update wrote or deleted'
              + (f'; {len(before)} already uncommitted before it ran, left as they were'
