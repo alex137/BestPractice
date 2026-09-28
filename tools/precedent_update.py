@@ -36,7 +36,10 @@ THE STEPS, with no question in between:
      section 2, step 0) and the commit recorded in CATALOGUE_SYNC.json
      beside it; and where there is neither, a line saying so
      then a root VOICE.md or STYLEGUIDE.md left for you to convert, and
-     any line templates/gitignore.template gained appended to .gitignore
+     any line templates/gitignore.template gained appended to .gitignore,
+     and each line of an install-once file (the PR template, TODO.md, MAP.md
+     ...) that is still, verbatim, wording its template has since dropped,
+     left for you -- reported, never rewritten
      then, where precedent.json names no landing_branch, pre-staging
   4. the views regenerated -- the loader block, and in a practice set
      MAP.md and GLOSSARY.md too -- then manifest baselines moved for files
@@ -346,6 +349,126 @@ def gitignore_step(repo, rep, rev):
     elif added:
         rep.step('.gitignore', f'{len(added)} line(s) the template now carries '
                  f'appended: ' + ', '.join(added))
+
+
+# The files an install writes ONCE from a template and never looks at again,
+# each with the template it came from. .gitignore is gitignore_step's;
+# AGENTS.md and tools/bootstrap.sh are the engine refresh's, which already
+# compares them to their templates' history (precedent_vendor_engine's
+# AGENTS_MD_TEMPLATES and TEMPLATE_INSTANCES), so they are not here twice.
+INSTALL_ONCE_TEMPLATES = (
+    ('.github/pull_request_template.md', 'templates/pull_request_template.md.template'),
+    ('TODO.md', 'templates/TODO.md.template'),
+    ('MAP.md', 'templates/MAP.md.template'),
+    ('GLOSSARY.md', 'templates/GLOSSARY.md.template'),
+    ('GETTING_STARTED.md', 'templates/GETTING_STARTED.md'),
+    ('README.md', 'templates/README_AGENT_ENTRY.md.template'),
+    ('local/practices/project-voice.md',
+     'templates/local-practices/project-voice.md.template'),
+    ('local/practices/project-visual-identity.md',
+     'templates/local-practices/project-visual-identity.md.template'),
+)
+# Per file, so a TODO.md still in the old checkbox format does not bury the
+# rest of the report; the count of the rest is said.
+DROPPED_LINES_SHOWN = 10
+
+
+def _substantive(line):
+    """A line worth matching: three words or more. A heading, a rule, a
+    fence or a table divider is too generic to say where it came from."""
+    return len(re.findall(r'[A-Za-z]{2,}', line)) >= 3
+
+
+def _template_lines_ever(rev, rel):
+    """-> {stripped line} every version of `rel` reachable from `rev` in the
+    source clone ever carried: the lines its commits added, `--follow`ed
+    through renames. A shallow clone sees less, which only flags less."""
+    r = subprocess.run(['git', '-C', str(SOURCE), 'log', '--follow', '-p',
+                        '-U0', '--format=', '--no-color', '--no-ext-diff',
+                        rev, '--', rel], capture_output=True, text=True,
+                       errors='replace')
+    out, in_hunk = set(), False
+    for line in r.stdout.splitlines() if r.returncode == 0 else []:
+        if line.startswith('diff --git '):
+            in_hunk = False
+        elif line.startswith('@@'):
+            in_hunk = True
+        elif in_hunk and line.startswith('+'):
+            out.add(line[1:].strip())
+    return out
+
+
+def dropped_template_lines(repo, rev):
+    """-> [(consumer_rel, template_rel, template_sha256, [(line_no, text)])]
+    for each install-once file still carrying, verbatim, a line an OLDER
+    version of its template had and the current one (at `rev`) does not.
+
+    A REPORT, never a write. These files are the repo's own from the moment
+    they are written, so a line the repo wrote itself is never flagged: only
+    an exact match of a line upstream's own history carried and has since
+    dropped or reworded. 2026-09-28: a real consumer's pull request template
+    still asked for "TODO.md updated", and links in its install-once files
+    still pointed at a branch that had been retired, with nothing saying so.
+
+    Not agents-md-history: that record is keyed by AGENTS.md section and
+    built inside the refresh's scratch directory; this needs every line a
+    template ever carried, which one `git log -p` per template gives."""
+    import hashlib
+    found = []
+    for rel, tmpl in INSTALL_ONCE_TEMPLATES:
+        target = repo / rel
+        if not rev or not target.is_file():
+            continue
+        current = _source_text(rev, tmpl)
+        if current is None:
+            continue
+        now = {l.strip() for l in current.splitlines()}
+        gone = {l for l in _template_lines_ever(rev, tmpl) - now if _substantive(l)}
+        if not gone:
+            continue
+        try:
+            text = target.read_text(encoding='utf-8')
+        except (OSError, UnicodeDecodeError):
+            continue
+        hits = [(n, l.strip()) for n, l in enumerate(text.splitlines(), 1)
+                if l.strip() in gone]
+        if hits:
+            found.append((rel, tmpl, hashlib.sha256(current.encode('utf-8')).hexdigest(),
+                          hits))
+    return found
+
+
+def dropped_template_lines_step(repo, rep, rev):
+    """Put each line dropped_template_lines finds on the Left-for-you list.
+    A file precedent.json's kept_template_divergences records as kept on
+    purpose, against the current template's text, is said once and not
+    listed -- the same declaration the engine honours for tools/bootstrap.sh,
+    so a repo that keeps an old line deliberately can still finish."""
+    for rel, tmpl, sha, hits in dropped_template_lines(repo, rev):
+        verdict, reason = pve._kept_divergence(repo, rel, sha)
+        if verdict == 'kept':
+            rep.step('kept on purpose', f'{rel} keeps wording {tmpl} dropped, '
+                     f'as precedent.json records -- "{reason}"')
+            continue
+        for n, line in hits[:DROPPED_LINES_SHOWN]:
+            shown = line if len(line) <= 160 else line[:157] + '...'
+            rep.leave(f'{rel}:{n}', f'is template wording the current template '
+                      f'dropped: {shown}')
+        first = f'{rel}:{hits[0][0]}'
+        more = len(hits) - DROPPED_LINES_SHOWN
+        if more > 0:
+            rep.leave(f'{rel} (more)', f'{more} more line(s) the current {tmpl} '
+                      f'dropped -- compare the file with it')
+        note = [f'bring it in line with {tmpl}, or drop the line; kept on '
+                f'purpose? record "{rel}" in precedent.json\'s '
+                f'{pve.KEPT_DIVERGENCES_KEY} with a reason and template_sha256 '
+                f'{sha}']
+        if verdict == 'stale':
+            note.insert(0, f'recorded as kept ("{reason}"), but {tmpl} has '
+                        f'changed since -- read it again')
+        elif verdict == 'unreasoned':
+            note.insert(0, 'recorded as kept with no reason, so not honoured')
+        rep.details.setdefault(first, []).extend(note)
 
 
 def unbudgeted_engine_tools(repo, rev):
@@ -1160,11 +1283,13 @@ def update(repo, skip_check=False, ref=None):
                                                 or p == f'{rel}/{CATALOGUE_SYNC_NAME}')}
 
     # After the templates have moved: what they replaced that an update
-    # cannot convert for the repo, and the install-once file an update can
-    # bring forward on its own.
+    # cannot convert for the repo, the install-once file an update can
+    # bring forward on its own, and the install-once files it can only
+    # report on, since each is the repo's own once written.
     for old, why in legacy_root_docs(repo):
         rep.leave(old, why)
     gitignore_step(repo, rep, head.strip() if head_ok else None)
+    dropped_template_lines_step(repo, rep, head.strip() if head_ok else None)
 
     # 3b. Where Go update lands, for a repository that has never said.
     # Morgan, 2026-09-27 (strength: decided): every repository lands on
