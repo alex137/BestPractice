@@ -29115,6 +29115,331 @@ def check_title_case_honours_repo_declared_internal_paths():
           '(11 stated cases)', not bad, '; '.join(bad))
 
 
+def _push_gate_fixture(tmp, real_modules=()):
+    """A consumer-shaped repository with a bare origin, for the push-check
+    cases below. The basic tier's checks are stand-ins, except the modules
+    named in `real_modules` ('*' for every one), copied from this engine,
+    and the leak gate and lint, which always pass. The author check is a
+    full-history stand-in, the shape an older vendored copy has, flagging
+    every commit by 'Mallory'; the workflow check flags every workflow file
+    that APPROVED does not name, in precedent_check's own output shape.
+    -> (work, env, git)."""
+    import json as _json, shutil as _shutil
+    env = dict(os.environ, PRECEDENT_ALLOW_ANY_AUTHOR='1',
+               GIT_AUTHOR_NAME='T', GIT_AUTHOR_EMAIL='t@example.com',
+               GIT_COMMITTER_NAME='T', GIT_COMMITTER_EMAIL='t@example.com',
+               GIT_CONFIG_GLOBAL=str(tmp / 'gitconfig'), GIT_CONFIG_NOSYSTEM='1',
+               PRECEDENT_USER_CONFIG=str(tmp / 'no-user-config.json'),
+               PRECEDENT_NO_SHARED_PASS='1')
+
+    def git(cwd, *a, **kw):
+        return subprocess.run(['git', '-C', str(cwd), *a], capture_output=True,
+                              text=True, env=dict(env, **kw))
+
+    origin, work = tmp / 'origin.git', tmp / 'work'
+    git(tmp, 'init', '-q', '--bare', '-b', 'main', str(origin))
+    git(tmp, 'init', '-q', '-b', 'main', str(work))
+    git(work, 'remote', 'add', 'origin', str(origin))
+    tools = work / 'tools'
+    (tools / 'checks').mkdir(parents=True)
+    if real_modules == '*':
+        real_modules = tuple(p.stem for p in (ROOT / 'tools').glob('*.py')
+                             if p.name != 'verify_harness.py')
+    for m in ('precedent_push_check', 'precedent_branches', *real_modules):
+        _shutil.copy2(ROOT / 'tools' / f'{m}.py', tools / f'{m}.py')
+    (tools / 'ENGINE_MANIFEST.json').write_text(
+        _json.dumps({'kind': 'consumer'}), encoding='utf-8')
+    for t in ('leak_gate', 'doc_lint'):
+        (tools / f'{t}.py').write_text('import sys\nsys.exit(0)\n', encoding='utf-8')
+    if 'precedent_check' not in real_modules:
+        (tools / 'precedent_check.py').write_text(
+            'import pathlib, sys\n'
+            'if __name__ == "__main__":\n'
+            '    bad = []\n'
+            '    if "ci-workflow-approved" in sys.argv:\n'
+            '        ok = pathlib.Path("APPROVED").read_text().split() '
+            'if pathlib.Path("APPROVED").exists() else []\n'
+            '        wf = pathlib.Path(".github/workflows")\n'
+            '        bad = sorted(f"{p}" for p in wf.glob("*.yml") '
+            'if p.name not in ok) if wf.is_dir() else []\n'
+            '    if bad:\n'
+            '        print("\\nVIOLATION  ci-workflow-approved")\n'
+            '        for b in bad:\n'
+            '            print(f"    {b}: has no approval")\n'
+            '        print("  the rule:")\n'
+            '        print("    a workflow needs the person\'s words")\n'
+            '    print("\\nprecedent_check: %d passed, %d violated" '
+            '% (0 if bad else 1, 1 if bad else 0))\n'
+            '    sys.exit(1 if bad else 0)\n', encoding='utf-8')
+    (tools / 'checks' / 'check_commit_author.py').write_text(
+        '#!/usr/bin/env python3\n'
+        '"""Stand-in: every commit reachable from HEAD, as older copies read."""\n'
+        '# practice: commit-author\n'
+        'import subprocess, sys\n'
+        'log = subprocess.run(["git", "log", "--format=%H|%an"], '
+        'capture_output=True, text=True).stdout.split()\n'
+        'bad = [l.split("|")[0] for l in log if l.endswith("|Mallory")]\n'
+        'if bad:\n'
+        '    print("VIOLATION: commit-author")\n'
+        '    for sha in bad:\n'
+        '        print(f"  commit {sha[:12]}: author is \'Mallory\', expected \'T\'")\n'
+        '    print("\\nthe rule:\\n  commits carry the declared author")\n'
+        '    sys.exit(1)\n', encoding='utf-8')
+    git(work, 'add', '-A')
+    git(work, 'commit', '-q', '-m', 'init')
+    return work, env, git
+
+
+def check_push_gate_judges_only_what_a_working_branch_brings():
+    """A push to a working branch is refused over what it brings, never over
+    findings already on origin's tier branches.
+
+    2026-09-28, a consumer: the push gate's basic tier refused a push of a
+    claude/* branch -- commit_author over two old commits already on main,
+    ci_workflows over a workflow already on main -- and the Stop hook
+    refused to end the turn with the commit unpushed. The session could
+    neither push nor stop until the person answered, and nothing the push
+    could do would have fixed either finding."""
+    import tempfile
+    name = ('a working-branch push is judged on what it brings; findings '
+            'already on a tier branch are reported, not blocking')
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+        work, env, git = _push_gate_fixture(tmp)
+
+        def push_check(dest):
+            p = subprocess.run([sys.executable, 'tools/precedent_push_check.py',
+                                '--gate', '--push-command', f'origin {dest}'],
+                               cwd=work, capture_output=True, text=True, env=env,
+                               timeout=300)
+            return p.returncode, p.stdout + p.stderr
+
+        (work / 'm.txt').write_text('old\n', encoding='utf-8')
+        git(work, 'add', '-A')
+        git(work, 'commit', '-q', '-m', 'an old commit by someone else',
+            GIT_AUTHOR_NAME='Mallory', GIT_AUTHOR_EMAIL='m@example.com')
+        (work / '.github' / 'workflows').mkdir(parents=True)
+        (work / '.github' / 'workflows' / 'old.yml').write_text('on: push\n',
+                                                               encoding='utf-8')
+        git(work, 'add', '-A')
+        git(work, 'commit', '-q', '-m', 'an old unapproved workflow')
+        git(work, 'push', '-q', 'origin', 'main')
+        git(work, 'checkout', '-q', '-b', 'claude/fix')
+        (work / 'fix.txt').write_text('fix\n', encoding='utf-8')
+        git(work, 'add', '-A')
+        git(work, 'commit', '-q', '-m', 'the session\'s own fix')
+
+        rc, out = push_check('claude/fix')
+        cases.append(('a claude/* branch bringing a clean commit onto main\'s '
+                      'old findings is let through, and says what it found'
+                      f' (exit {rc}: {out.strip().splitlines()[-1:]})',
+                      rc == 0 and 'reported, not blocking' in out
+                      and 'commit_author' in out and 'ci_workflows' in out))
+        rc, _ = push_check('main')
+        cases.append(('the same findings still refuse a push to main, a tier '
+                      'branch', rc == 1))
+
+        (work / '.github' / 'workflows' / 'new.yml').write_text(
+            'on: push\n', encoding='utf-8')
+        git(work, 'add', '-A')
+        git(work, 'commit', '-q', '-m', 'a new unapproved workflow')
+        rc, out = push_check('claude/fix')
+        cases.append(('a workflow the branch itself adds still refuses it, '
+                      'naming that file', rc == 1 and 'new.yml' in out))
+        git(work, 'reset', '-q', '--hard', 'HEAD~1')
+
+        (work / 'm2.txt').write_text('new\n', encoding='utf-8')
+        git(work, 'add', '-A')
+        git(work, 'commit', '-q', '-m', 'a new commit by someone else',
+            GIT_AUTHOR_NAME='Mallory', GIT_AUTHOR_EMAIL='m@example.com')
+        new = git(work, 'rev-parse', 'HEAD').stdout.strip()
+        rc, out = push_check('claude/fix')
+        cases.append(('a wrong-author commit the branch brings still refuses '
+                      'it, naming that commit', rc == 1 and new[:12] in out))
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
+def check_push_check_honours_not_binding():
+    """precedent_push_check.py honours a repo's `not_binding` exactly as
+    precedent_check.py does, by asking precedent_check's own
+    load_exemptions().
+
+    2026-09-28, a consumer: its precedent.json declared commit-author not
+    binding, precedent_check reported it EXEMPT, and the push check ran
+    tools/checks/check_commit_author.py directly anyway and refused a push
+    over two old commits already on main."""
+    import tempfile, json as _json
+    name = 'the push check honours not_binding the way precedent_check does'
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+        # The real engine modules, so the exemption is read by
+        # precedent_check itself.
+        work, env, git = _push_gate_fixture(tmp, real_modules='*')
+        (work / 'm.txt').write_text('x\n', encoding='utf-8')
+        git(work, 'add', '-A')
+        git(work, 'commit', '-q', '-m', 'a commit by someone else',
+            GIT_AUTHOR_NAME='Mallory', GIT_AUTHOR_EMAIL='m@example.com')
+
+        def push_check():
+            p = subprocess.run([sys.executable, 'tools/precedent_push_check.py',
+                                '--tier', 'basic'], cwd=work, capture_output=True,
+                               text=True, env=env, timeout=300)
+            return p.returncode, p.stdout + p.stderr
+
+        rc, out = push_check()
+        cases.append(('with no exemption the author check still refuses',
+                      rc == 1 and 'commit_author' in out))
+        reason = 'many people commit here, so no one author binds it'
+        (work / 'precedent.json').write_text(_json.dumps(
+            {'not_binding': [{'slug': 'commit-author', 'reason': reason}]}),
+            encoding='utf-8')
+        git(work, 'add', '-A')
+        git(work, 'commit', '-q', '-m', 'declare commit-author not binding')
+        pc = subprocess.run([sys.executable, '-c',
+                             'import sys; sys.path.insert(0, "tools"); '
+                             'import precedent_check as pc; '
+                             'print(sorted(pc.load_exemptions()[0]))'],
+                            cwd=work, capture_output=True, text=True, env=env)
+        cases.append(("precedent_check's own load_exemptions() reads it as "
+                      "exempt (the fixture is real)",
+                      "['commit-author']" in pc.stdout))
+        rc, out = push_check()
+        cases.append((f'declared not binding, the push check skips it, says '
+                      f'EXEMPT with the reason, and passes (exit {rc})',
+                      rc == 0 and 'EXEMPT' in out and reason in out))
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
+def check_merge_gate_waits_for_a_current_merge_ref():
+    """The merge gate judges GitHub's test merge only once its second parent
+    is the pull request's current head.
+
+    2026-09-28, measured: a session pushed a fix to a pull request's head
+    and merged at once. The gate judged refs/pull/N/merge as it stood before
+    the push -- the old head, still carrying the bug -- refused, and called
+    it "the merge GitHub would make". A minute later the merge ref had the
+    new head as its second parent and the same merge passed. The GitHub
+    head lookup is stubbed; the refs live in a bare origin."""
+    import tempfile, io, contextlib
+    name = ('the merge gate never judges a test merge of an older head as '
+            'the current one')
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_merge_check as pmc
+        import github_budget
+    finally:
+        sys.path.pop(0)
+    cases = []
+    saved_env = dict(os.environ)
+    saved_call, saved_sleep = github_budget.call, getattr(pmc, '_sleep', None)
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+        env = dict(os.environ, PRECEDENT_ALLOW_ANY_AUTHOR='1',
+                   GIT_AUTHOR_NAME='T', GIT_AUTHOR_EMAIL='t@example.com',
+                   GIT_COMMITTER_NAME='T', GIT_COMMITTER_EMAIL='t@example.com',
+                   GIT_CONFIG_GLOBAL=str(tmp / 'gitconfig'), GIT_CONFIG_NOSYSTEM='1',
+                   PRECEDENT_USER_CONFIG=str(tmp / 'no-user-config.json'))
+
+        def git(cwd, *a):
+            return subprocess.run(['git', '-C', str(cwd), *a], capture_output=True,
+                                  text=True, env=env).stdout.strip()
+
+        origin = tmp / 'o' / 'r.git'
+        origin.parent.mkdir()
+        git(tmp, 'init', '-q', '--bare', '-b', 'main', str(origin))
+        src = tmp / 'src'
+        git(tmp, 'init', '-q', '-b', 'main', str(src))
+        (src / 'tools').mkdir()
+        # The push check this gate runs: fails while BUG is in the tree.
+        (src / 'tools' / 'precedent_push_check.py').write_text(
+            'import pathlib, sys\n'
+            'bug = pathlib.Path("BUG").exists()\n'
+            'print("precedent_push_check: FAILED -- BUG is here" if bug '
+            'else "precedent_push_check: all passed")\n'
+            'sys.exit(1 if bug else 0)\n', encoding='utf-8')
+        git(src, 'add', '-A')
+        git(src, 'commit', '-q', '-m', 'base')
+        base = git(src, 'rev-parse', 'HEAD')
+        git(src, 'checkout', '-q', '-b', 'feature')
+        (src / 'BUG').write_text('x\n', encoding='utf-8')
+        git(src, 'add', '-A')
+        git(src, 'commit', '-q', '-m', 'the change, with its bug')
+        old = git(src, 'rev-parse', 'HEAD')
+        git(src, 'rm', '-q', 'BUG')
+        git(src, 'commit', '-q', '-m', 'fix the bug')
+        new = git(src, 'rev-parse', 'HEAD')
+
+        def test_merge(head):
+            tree = git(src, 'rev-parse', f'{head}^{{tree}}')
+            return git(src, 'commit-tree', tree, '-p', base, '-p', head, '-m', 'merge')
+        merge_old, merge_new = test_merge(old), test_merge(new)
+        git(src, 'push', '-q', str(origin), 'main', f'{new}:refs/heads/feature',
+            f'{new}:refs/pull/7/head', f'{merge_old}:refs/pull/7/merge',
+            f'{merge_new}:refs/heads/merge-new-keep')
+        checkout = tmp / 'checkout'
+        git(tmp, 'clone', '-q', str(origin), str(checkout))
+
+        def stub_call(path, *a, **kw):
+            return ({'head': {'ref': 'feature', 'sha': new,
+                              'repo': {'full_name': 'o/r'}},
+                     'base': {'ref': 'main'}}, None)
+
+        def run(catches_up):
+            git(src, 'push', '-q', '-f', str(origin), f'{merge_old}:refs/pull/7/merge')
+            slept = []
+
+            def stub_sleep(_s):
+                slept.append(_s)
+                if catches_up and len(slept) == 1:
+                    git(src, 'push', '-q', '-f', str(origin),
+                        f'{merge_new}:refs/pull/7/merge')
+            pmc._sleep = stub_sleep
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                rc = pmc.main(['--owner', 'o', '--repo', 'r', '--number', '7',
+                               '--search', str(checkout)])
+            return rc, buf.getvalue()
+
+        try:
+            os.environ.update({k: env[k] for k in (
+                'GIT_CONFIG_GLOBAL', 'GIT_CONFIG_NOSYSTEM', 'PRECEDENT_USER_CONFIG',
+                'PRECEDENT_ALLOW_ANY_AUTHOR')})
+            github_budget.call = stub_call
+            rc, out = run(catches_up=True)
+            cases.append((f'a stale test merge is waited out, and the rebuilt '
+                          f'one is judged and passes (exit {rc})',
+                          rc == 0 and merge_new[:12] in out
+                          and merge_old[:12] not in out))
+            rc, out = run(catches_up=False)
+            cases.append((f'a test merge that never catches up is not judged; '
+                          f'the current head is, and the output says so (exit {rc})',
+                          rc == 0 and 'older head' in out and new[:12] in out
+                          and merge_old[:12] not in out))
+            git(src, 'push', '-q', '-f', str(origin), f'{merge_new}:refs/pull/7/merge')
+            slept = []
+            pmc._sleep = slept.append
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                rc = pmc.main(['--owner', 'o', '--repo', 'r', '--number', '7',
+                               '--search', str(checkout)])
+            cases.append(('a current test merge is judged at once, with no wait',
+                          rc == 0 and not slept and merge_new[:12] in buf.getvalue()))
+        except Exception as e:                                # noqa: BLE001
+            cases.append((f'the gate raised {type(e).__name__}: {e}', False))
+        finally:
+            os.environ.clear()
+            os.environ.update(saved_env)
+            github_budget.call = saved_call
+            if saved_sleep is not None:
+                pmc._sleep = saved_sleep
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
 def check_loader_block_covers_every_declared_source():
     """The loader block renders every PUBLISHABLE source `precedent.json`
     declares -- and never a private one in a public repo.
@@ -38484,6 +38809,9 @@ def main():
     check_practice_catalogue_holds_back_private_sources_on_public_repo()
     check_title_case_leaves_code_and_first_word_alone()
     check_title_case_honours_repo_declared_internal_paths()
+    check_push_gate_judges_only_what_a_working_branch_brings()
+    check_push_check_honours_not_binding()
+    check_merge_gate_waits_for_a_current_merge_ref()
     check_title_case_never_corrupts_content()
     check_title_case_output_paths_inverts_the_default()
     check_checkin_update_never_mutates_the_clone()

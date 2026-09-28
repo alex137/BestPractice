@@ -116,8 +116,10 @@ import hashlib
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
+import tempfile
 import time
 from pathlib import Path
 
@@ -219,6 +221,20 @@ OPTIONAL = {'deep_check', 'commit_author', 'commit_dates', 'light_check'}
 BASIC_CHECKS = {'doc_lint', 'leak_gate', 'commit_author', 'commit_dates',
                 'ci_workflows', 'light_check'}
 BASIC, FULL = 'basic', 'full'
+# A PUSH TO A WORKING BRANCH IS JUDGED ON WHAT IT BRINGS (2026-09-28). A
+# consumer session could not push its claude/* branch: commit_author refused
+# over two old commits already on main, ci_workflows over a workflow file
+# already on main, and the Stop hook refused to end the turn with the commit
+# unpushed -- neither step could move until the person answered. Nothing
+# about that push could fix either finding; main's history is published and
+# is not rewritten. So on a push whose every destination is a working
+# branch (no tier), a finding in these checks that is already on a tier
+# branch on origin -- a commit that branch contains, or a finding the same
+# check prints at the commit this push forked from -- is printed and does
+# not refuse. A finding the push brings still refuses, and a push to a tier
+# branch is judged exactly as before.
+RANGE_JUDGED = {'commit_author', 'commit_dates', 'ci_workflows'}
+COMMIT_IN_FINDING = re.compile(r'\bcommit ([0-9a-f]{7,40})\b')
 PUSH_CHECKS = {
     'upstream': (
         ('verify_harness', ['{engine}/verify_harness.py', '--as-ci'],
@@ -663,7 +679,154 @@ def _tier_from_args(root, argv):
 
 
 
-def run(root, checks):
+def _practice_of(script):
+    """-> the slug a check script names in its `# practice: SLUG` line, or
+    None. Every script under tools/checks/ carries one."""
+    try:
+        with open(script, encoding='utf-8') as fh:
+            for _n, line in zip(range(40), fh):
+                m = re.match(r'#\s*practice:\s*([\w-]+)\s*$', line)
+                if m:
+                    return m.group(1)
+    except OSError:
+        pass
+    return None
+
+
+_NOT_BINDING = None
+
+
+def not_binding():
+    """-> {slug: reason} this repository declares does not bind it, as
+    precedent_check.load_exemptions() answers it -- the same function, so
+    the two tools cannot disagree about what is exempt. A `severity:
+    blocking` practice is never in it. {} when it cannot be read, which
+    exempts nothing.
+
+    2026-09-28: a consumer declared commit-author not binding, and
+    precedent_check reported it EXEMPT, while this file ran the check script
+    directly and refused a push over two old commits already on main."""
+    global _NOT_BINDING
+    if _NOT_BINDING is None:
+        sys.path.insert(0, str(HERE))
+        try:
+            import precedent_check
+            _NOT_BINDING = precedent_check.load_exemptions()[0]
+        except (Exception, SystemExit) as e:      # practice: fail-gracefully
+            print(f'precedent_push_check: NOTE -- could not read this repo\'s '
+                  f'`not_binding` ({e}), so no check is exempted.', flush=True)
+            _NOT_BINDING = {}
+        finally:
+            sys.path.pop(0)
+    return _NOT_BINDING
+
+
+def working_branch_push(root, argv):
+    """-> True when --push-command names a push whose every destination is
+    a working branch, none of them a tier branch."""
+    if '--push-command' not in argv:
+        return False
+    i = argv.index('--push-command')
+    cmd = argv[i + 1] if i + 1 < len(argv) else ''
+    sys.path.insert(0, str(HERE))
+    try:
+        import precedent_branches as pb
+        targets = pb.push_targets(root, cmd)
+        return bool(targets) and not set(targets) & set(pb.tier_branches(root))
+    except Exception:                             # practice: fail-gracefully
+        return False
+    finally:
+        sys.path.pop(0)
+
+
+def landed_refs(root):
+    """-> the tier branches of origin as local refs, fetched first where
+    origin answers: what "already landed" means for a working-branch push.
+    Offline, whatever this checkout last fetched."""
+    sys.path.insert(0, str(HERE))
+    try:
+        import precedent_branches as pb
+        tiers = pb.tier_branches(root)
+    except Exception:                             # practice: fail-gracefully
+        return []
+    finally:
+        sys.path.pop(0)
+    ls = _git_env(root, ['ls-remote', '--heads', 'origin'], 30)
+    if ls is not None and ls.returncode == 0:
+        present = [b for b in tiers if f'\trefs/heads/{b}' in ls.stdout]
+        if present:
+            _git_env(root, ['fetch', '-q', '--no-tags', 'origin',
+                            *(f'+refs/heads/{b}:refs/remotes/origin/{b}'
+                              for b in present)], 60)
+    return [f'refs/remotes/origin/{b}' for b in tiers
+            if git(root, 'rev-parse', '-q', '--verify', f'refs/remotes/origin/{b}')]
+
+
+def violation_lines(out):
+    """The finding lines under each VIOLATION header of a check's output, up
+    to its rule text -- the shape both a check script and precedent_check
+    print. [] when there is no such header."""
+    picked, inside = [], False
+    for line in out:
+        s = line.strip()
+        if re.match(r'VIOLATION\b', s):
+            inside = True
+        elif inside and (not s or s.startswith('the rule:')
+                         or s.startswith('precedent_check:')
+                         or re.match(r'(ADVISORY|ERROR|SKIPPED|EXEMPT|NOTE|'
+                                     r'COULD NOT VERIFY)\b', s)):
+            inside = False
+        elif inside:
+            picked.append(s)
+    return picked
+
+
+def _output_at(root, rev, argv):
+    """The output lines of `argv`, run in a throwaway worktree of `rev`."""
+    tmp = Path(tempfile.mkdtemp(prefix='precedent-push-base-'))
+    wt = tmp / 'tree'
+    try:
+        add = _git_env(root, ['worktree', 'add', '-q', '--detach', str(wt), rev], 60)
+        if add is None or add.returncode != 0 or not (wt / argv[1]).is_file():
+            return []
+        p = subprocess.run(argv, cwd=wt, capture_output=True, text=True)
+        return (p.stdout + p.stderr).splitlines()
+    finally:
+        _git_env(root, ['worktree', 'remove', '--force', str(wt)], 60)
+        shutil.rmtree(tmp, ignore_errors=True)
+        _git_env(root, ['worktree', 'prune'], 30)
+
+
+def already_landed(root, argv, out, landed):
+    """-> the findings of a failed check when EVERY one of them is already on
+    a landed branch, else None. A finding naming a commit is landed when a
+    landed branch contains that commit; any other is landed when the same
+    check prints the same line at the commit this push forked from. A check
+    that printed no finding lines is never excused."""
+    found = violation_lines(out)
+    if not found or not landed:
+        return None
+    left = []
+    for line in found:
+        m = COMMIT_IN_FINDING.search(line)
+        sha = m and git(root, 'rev-parse', '-q', '--verify', f'{m.group(1)}^{{commit}}')
+        if sha and any(_git_env(root, ['merge-base', '--is-ancestor', sha, ref], 30)
+                       .returncode == 0 for ref in landed):
+            continue
+        left.append(line)
+    if left:
+        bases = [b for b in (git(root, 'merge-base', 'HEAD', ref) for ref in landed) if b]
+        fork = (git(root, 'merge-base', '--independent', *bases) or '').split()
+        at_fork = set(violation_lines(_output_at(root, fork[0], argv))) if fork else set()
+        left = [line for line in left if line not in at_fork]
+    return None if left else found
+
+
+def run(root, checks, landed=None, reported=None):
+    """`landed`: the refs whose findings a working-branch push is not
+    refused over (RANGE_JUDGED), or a callable returning them, called only
+    when one of those checks fails; `reported` collects the checks that
+    failed only on such findings."""
     failed, missing, findings = [], [], {}
     started = time.monotonic()
     for i, (name, argv, replaces) in enumerate(checks, 1):
@@ -672,6 +835,13 @@ def run(root, checks):
         if not script.is_file() and name in OPTIONAL:
             print(f'[{i}/{len(checks)}] {name}: not here -- this repo has no '
                   f'{argv[1]}', flush=True)
+            continue
+        slug = _practice_of(script) if script.is_file() and \
+            'checks' in Path(argv[1]).parts else None
+        if slug and slug in not_binding():
+            print(f'[{i}/{len(checks)}] {name}: EXEMPT -- this repo declares '
+                  f'{slug} not binding in precedent.json: '
+                  f'{not_binding()[slug]}', flush=True)
             continue
         if not script.is_file():
             # A check whose tool this repo does not carry cannot be run, and
@@ -700,8 +870,21 @@ def run(root, checks):
             print(f'      stood aside in {took:.0f}s -- not an individual '
                   f'source, so there is no person to hold it to', flush=True)
             continue
-        failed.append(name)
         out = (p.stdout + p.stderr).rstrip().splitlines()
+        refs = (landed() if callable(landed) else landed) \
+            if landed and name in RANGE_JUDGED else None
+        prior = already_landed(root, argv, out, refs) if refs else None
+        if prior:
+            if reported is not None:
+                reported.append(name)
+            print(f'      found {len(prior)} thing(s) in {took:.0f}s, every one '
+                  f'already on {", ".join(r.rsplit("/", 1)[-1] for r in refs)} '
+                  f'on origin -- this push to a working branch brings none of '
+                  f'them, so they are reported, not blocking:', flush=True)
+            for line in prior:
+                print(f'      | {line}')
+            continue
+        failed.append(name)
         found = _finding_lines(out)
         findings[name] = found
         if found:
@@ -804,6 +987,14 @@ def main(argv):
         return 0
 
     also = [plan(root, tier=FULL)[1]] if tier == BASIC else []
+    landed, reported = None, []
+    if tier == BASIC and working_branch_push(root, argv):
+        memo = []
+
+        def landed():
+            if not memo:
+                memo.append(landed_refs(root))
+            return memo[0]
     rec = already_passed(root, checks, also) if '--gate' in argv else None
     where = ''
     if '--gate' in argv and not rec:
@@ -826,7 +1017,7 @@ def main(argv):
                  if history else '.'), flush=True)
         if not history:
             return 0
-        failed, _missing, total, findings = run(root, history)
+        failed, _missing, total, findings = run(root, history, landed)
         if failed:
             for name in failed:
                 for line in findings.get(name, []):
@@ -865,7 +1056,7 @@ def main(argv):
         print(f'precedent_push_check: {kind} repository {root.name}, the '
               f'basic check, {len(checks)} check(s) ({why}). Staging and main '
               f'get everything.', flush=True)
-    failed, missing, total, findings = run(root, checks)
+    failed, missing, total, findings = run(root, checks, landed, reported)
     tree = clean_tree(root)
     if failed:
         # Said again at the very end, because the end is what every caller
@@ -882,6 +1073,14 @@ def main(argv):
               f'could not run here -- this repo does not carry the tool. '
               f'Refresh the vendored engine to get it.')
     path = record_path(root)
+    if reported:
+        # Not recorded: the pass stood only because this push goes to a
+        # working branch, and a record is reused by pushes that go elsewhere.
+        print(f'\nprecedent_push_check: passed in {total:.0f}s for this push '
+              f'to a working branch; {", ".join(reported)} found only what is '
+              f'already on origin\'s tier branches (above). NOT recorded as a '
+              f'pass, since a push to a tier branch judges those findings.')
+        return 0
     if tree and path:
         rec = {'tree': tree, 'checks': signature(checks), 'kind': kind,
                'tier': tier, 'at': time.strftime('%Y-%m-%dT%H:%M:%S%z')}
