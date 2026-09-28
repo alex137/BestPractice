@@ -6650,6 +6650,11 @@ def _published_default_branch():
     return None
 
 
+PINNED_PERMALINK_RE = re.compile(
+    r'https?://(?:github\.com/[^/\s]+/[^/\s]+/(?:blob|tree|raw)/'
+    r'|raw\.githubusercontent\.com/[^/\s]+/[^/\s]+/)[0-9a-f]{40}/[^\s)\]>"\'`]*')
+
+
 @check('rename-updates-links', 'tree',
        'no tracked file still references a path this branch renamed away '
        'or deleted',
@@ -6662,7 +6667,8 @@ def _published_default_branch():
        'a materialized practice or check, or the generated loader block, '
        'each of which is overwritten by its own next sync. It also says '
        'nothing about a file the decommissioning registry exempts -- the record OF a deletion naming what went is not a reference left behind '
-       'by one.')
+       'by one -- or about a path inside a permalink pinned to a 40-hex '
+       'commit, which cites the file as it was and cannot go stale.')
 def _rename_updates_links(ctx):
     base = _published_default_branch()
     if base is None:
@@ -6804,7 +6810,11 @@ def _rename_updates_links(ctx):
                     continue
                 if in_generated:
                     continue
-                if old in line:
+                # A permalink pinned to a commit names the file as it was at
+                # that commit, which is the right way to cite a file that no
+                # longer exists -- it cannot go stale. A link to a branch can,
+                # and still counts.
+                if old in line and old in PINNED_PERMALINK_RE.sub('', line):
                     where = f'renamed to {new_path}' if new_path else 'deleted'
                     out.append(Finding(
                         f'{rel}:{i}',

@@ -2,7 +2,7 @@
 #
 # Claude Code adapter: never work on, or write to, a stale checkout.
 #
-# practice: session-bootstrap
+# practice: session-bootstrap, fresh-before-write
 #
 # Install wherever this harness's settings.json wires its hooks FROM, and
 # wire it twice there -- once as SessionStart, once as PreToolUse. That is
@@ -13,9 +13,9 @@
 # which is a header lying about its own location (practice: fix-the-original,
 # reported 2026-09-14 from precedent-individual).
 # The rule it implements -- verify and fast-forward the checkout before a
-# session's first write, never after -- is not yet a universal practice
-# here: promoting one is a separate, reviewed step. This is the mechanism,
-# installed ahead of that.
+# session's first write, never after -- is the universal practice
+# fresh-before-write since 2026-09-28 (practices/fresh-before-write.md);
+# this mechanism shipped ahead of the rule, from 2026-09-06.
 #
 # Two modes, wired as two different hooks in a project's own
 # .claude/settings.json (see this adapter's own settings.json for the
