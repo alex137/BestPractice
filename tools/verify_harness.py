@@ -15309,6 +15309,67 @@ def check_compaction_offer_owed_printed_at_turn_start():
           '; '.join(f'{n} ({d})' for n, d in bad))
 
 
+def check_killed_promote_releases_its_lock():
+    """A Promote killed by SIGTERM still releases its lock.
+
+    2026-09-28: a Promote run under a 590-second command limit was killed
+    mid-check, and its claim on precedent-promote-lock sat on origin for the
+    full stale window, so the same session's retry did nothing. try/finally
+    never runs on SIGTERM unless something turns the signal into an
+    exception. The fixture stubs everything around the lock: the step, the
+    claim, and a run that blocks, so the only thing under test is whether
+    the release still happens when the process is killed.
+    """
+    import tempfile
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-lock-kill-'))
+    cases = []
+    try:
+        marker = tmp / 'released'
+        started = tmp / 'started'
+        script = tmp / 'run.py'
+        script.write_text(f"""
+import sys, time, pathlib
+sys.path.insert(0, {str(ROOT / 'tools')!r})
+import precedent_branches as pb
+pb.promotion_step = lambda root, to, work: (pb.STAGING, 'fixture')
+pb.staging_branch = lambda root: pb.STAGING
+pb._drifted_from_above = lambda root: []
+pb._lock_claim = lambda root, say: ('held', 'fixture-commit')
+pb._lock_release = lambda root, held, say: pathlib.Path({str(marker)!r}).write_text(held)
+def _run(root, say):
+    pathlib.Path({str(started)!r}).write_text('1')
+    time.sleep(60)
+    return 0
+pb._promote_unlocked = _run
+sys.exit(pb.promote('.', say=lambda *a: None))
+""", encoding='utf-8')
+        for sig_name in ('SIGTERM', 'SIGHUP'):
+            import signal as _signal
+            for f in (marker, started):
+                f.unlink(missing_ok=True)
+            proc = subprocess.Popen([sys.executable, str(script)], cwd=str(tmp))
+            deadline = time.time() + 20
+            while not started.exists() and time.time() < deadline:
+                time.sleep(0.05)
+            proc.send_signal(getattr(_signal, sig_name))
+            try:
+                proc.wait(timeout=20)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+            cases.append((f'a Promote killed by {sig_name} mid-run releases '
+                          f'the lock it holds',
+                          marker.exists() and marker.read_text() == 'fixture-commit',
+                          f'exit {proc.returncode}, released={marker.exists()}'))
+            cases.append((f'...and exits non-zero, so nothing reads the kill '
+                          f'as a finished Promote ({sig_name})',
+                          proc.returncode not in (0, None), f'exit {proc.returncode}'))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'a killed Promote releases its lock ({len(cases)} stated cases)',
+          not bad, '; '.join(f'{n} ({d})' for n, d in bad))
+
+
 def check_trivial_checkin_exempts_the_boildown_gate():
     """practices/the-boildown.md names one fixed template for a turn where
     nothing happened that is visible, or non-trivial, to the person --
@@ -38292,6 +38353,7 @@ def main():
     check_contradiction_requirement_blocks()
     check_compaction_offer_fires_on_context_growth()
     check_compaction_offer_owed_printed_at_turn_start()
+    check_killed_promote_releases_its_lock()
     check('the archive line is refused when the container holds '
           'only-copy work',
           *check_archive_line_is_refused_when_the_container_holds_only_copy_work())
