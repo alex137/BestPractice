@@ -34178,6 +34178,41 @@ def check_session_load_reports_a_file_over_its_own_declared_ceiling():
           not bad, '; '.join(f"{n} -- {d[:400]}" for n, d in bad))
 
 
+def check_headroom_notice_watches_the_resident_block():
+    """headroom_notice() also speaks when the generated resident block is
+    near its own allocation, not only when a whole file nears its ceiling
+    (very deep check, 2026-09-28: an individual set's block sat at ~539 of
+    550 tokens, the file far from its ceiling, and nothing said so until a
+    practice edit would have failed to build). Discriminating case: a block
+    at 98% of its budget inside a file with no ceiling pressure at all."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import session_load_trend as slt
+    real = slt.registry
+    slt.registry = lambda: {'headroom_floor_pct': 5, 'surfaces': {}}
+    cases = []
+    try:
+        for used, want in ((539, True), (440, False)):
+            d = pathlib.Path(tempfile.mkdtemp())
+            try:
+                (d / 'AGENTS.md').write_text(
+                    f'# x\n\n## Resident block (~{used} of 550 token budget, '
+                    f'4 of 17 practices)\n\nbody\n', encoding='utf-8')
+                note = slt.headroom_notice(root=d)
+            finally:
+                shutil.rmtree(d, ignore_errors=True)
+            said = bool(note) and 'resident block' in note
+            cases.append((f'a block at {used} of 550 is '
+                          + ('reported' if want else 'left quiet'),
+                          said == want, repr(note)))
+    finally:
+        slt.registry = real
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'the headroom notice watches the resident block\'s own budget '
+          f'({len(cases)} stated cases)',
+          not bad, '; '.join(f"{n} -- {d[:300]}" for n, d in bad))
+
+
 def check_a_registry_file_can_be_a_checks_own_opt_in():
     """`binds_when` lifts the practice-file gate for a repo that kept the
     registry carrying the rule (practice: control-asserts-which-failure).
@@ -43074,6 +43109,7 @@ def main():
     check_duplicated_resident_text_detector()
     check_settled_marker_scan_is_scoped_and_follows_the_split()
     check_session_load_reports_a_file_over_its_own_declared_ceiling()
+    check_headroom_notice_watches_the_resident_block()
     check_a_registry_file_can_be_a_checks_own_opt_in()
     check_environment_gotchas_follows_a_split_index()
     check('Update Vendors judges a section 0 catalogue against its own sync commit',
