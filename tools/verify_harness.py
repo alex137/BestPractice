@@ -15675,6 +15675,53 @@ def check_beta_watermark_never_writes_into_a_busy_or_unpushable_checkout():
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+def check_container_check_lists_commands_still_running():
+    """tools/precedent_container_safe.py lists every shell the session's
+    agent started that is still running (2026-09-28: two wait loops ran five
+    hours after their script finished, because `pgrep -f` matched the
+    loop's own command line, while this tool called the container clean).
+    Planted process tables, no real processes. Discriminating cases: the
+    check's own ancestor shell, the agent's non-shell children and another
+    person's terminal are never listed; with no agent above it, nothing is
+    listed rather than guessed."""
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_container_safe as pcs
+    WRAP = ("/bin/bash -c source /root/.claude/shell-snapshots/s.sh && eval "
+            "'until ! pgrep -f scratchpad/x/runcases.py >/dev/null; do sleep 5; "
+            "done' < /dev/null && pwd -P")
+    rows = [
+        (1, 0, '06:00:00', '/sbin/init'),
+        (100, 1, '06:00:00', '/opt/claude-code/bin/claude --output-format=stream-json'),
+        (200, 100, '05:12:32', WRAP),
+        (201, 200, '00:00:03', 'sleep 5'),
+        (300, 100, '00:00:01', '/bin/bash -c python3 tools/precedent_container_safe.py'),
+        (301, 300, '00:00:01', 'python3 tools/precedent_container_safe.py'),
+        (400, 100, '06:00:00', 'node /opt/mcp/server.js'),
+        (500, 1, '03:00:00', '-zsh'),
+    ]
+    cases = []
+    got = pcs.still_running(rows, me=301)
+    cases.append(('THE CASE THIS EXISTS FOR: the stray wait loop is listed, '
+                  'with what it runs', [r['pid'] for r in got] == [200]
+                  and 'pgrep -f scratchpad/x/runcases.py' in got[0]['command']
+                  and got[0]['elapsed'] == '05:12:32', repr(got)))
+    cases.append(('the shell running the check itself is never listed',
+                  all(r['pid'] != 300 for r in got), repr(got)))
+    cases.append(("the agent's own non-shell children and another terminal "
+                  'are never listed', all(r['pid'] not in (400, 500) for r in got),
+                  repr(got)))
+    human = [(1, 0, '1:00', '/sbin/init'), (10, 1, '1:00', 'tmux'),
+             (11, 10, '1:00', '-zsh'), (12, 11, '0:01', 'python3 x.py'),
+             (13, 10, '1:00', '-zsh')]
+    cases.append(("run from a person's own terminal, with no agent above it, "
+                  'nothing is listed', pcs.still_running(human, me=12) == [],
+                  repr(pcs.still_running(human, me=12))))
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'the container check lists commands still running '
+          f'({len(cases)} stated cases)',
+          not bad, '; '.join(f"{n} -- {d[:300]}" for n, d in bad))
+
+
 def check_archive_line_is_refused_when_the_container_holds_only_copy_work():
     """`require_container_safe_if_says` refuses a reply that tells the person
     they can archive while this container holds work that exists nowhere else.
@@ -43838,6 +43885,7 @@ def main():
     check_compaction_offer_fires_on_context_growth()
     check_compaction_offer_owed_printed_at_turn_start()
     check_killed_promote_releases_its_lock()
+    check_container_check_lists_commands_still_running()
     check('the archive line is refused when the container holds '
           'only-copy work',
           *check_archive_line_is_refused_when_the_container_holds_only_copy_work())

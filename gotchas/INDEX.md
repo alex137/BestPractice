@@ -138,4 +138,6 @@ Full catalogue, one file per trap. AGENTS.md carries only a pointer to this file
 
 - **The first tool call of a session is refused, and so is every call after it except plain `git` commands:** [story](gotcha-2026-09-26-the-freshness-guard-held-attached-source-clones-to-pre-stagin.md)
 
+- **A shell loop written to wait for a script to finish never ends, though the script finished long ago: `until ! pgrep -f scratchpad/x/runcases.py >/dev/null; do sleep 5; done`. It sits in the process list, waking every five seconds, for as long as the container lives.** [story](gotcha-2026-09-28-a-wait-loop-on-pgrep-f-finds-itself-and-never-ends.md)
+
 - **A tool that lists every past version of a file from `git log --raw`, `git log -p` or `git log --name-only` misses a version, and a copy of the file that is byte-identical to that version is treated as locally edited. Update Vendors reports a consumer's untouched `tools/bootstrap.sh` as DIVERGED and never updates it.** [story](gotcha-2026-09-28-git-log-skips-merge-commits-so-a-version-made-in-a-merge-is-in.md)
