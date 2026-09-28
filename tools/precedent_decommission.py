@@ -73,6 +73,29 @@ searched. Before this, only FILE basenames were counted, so a retired
 directory's bare-word basename was searched as if it were distinctive and
 matched the word across the whole repo (5,606 lines in the origin case).
 
+Two more narrowings came out of a real classic-layout migration rehearsal
+(2026-09-28), where decommissioning `process/personal` in a consuming repo
+could never reach CLEAR: 141 blockers, every one of them the ordinary word
+"personal" in text the repo does not write, and no flag to get past them.
+
+  * A DIRECTORY's basename is searched as `base/`, never the bare word. A
+    file's basename carries its extension and reads as a name; a directory
+    called `personal` or `legacy` is a dictionary word, and a bare-word
+    search on it matches prose (a loader template's "for a personal repo")
+    rather than references. `personal/README.md` and `personal/` still
+    match; "personal access token" does not. A TOP-LEVEL directory's path
+    is its bare name, so its path search gets the same `name/` form.
+  * Files another tool writes are not scanned: every path
+    tools/ENGINE_MANIFEST.json records (`files`, and `hook_files` under
+    .claude/hooks/) and every path the materializer's root MANIFEST.json
+    records (practices, checks, adapters, shipped files). The next refresh
+    or sync overwrites whatever was changed in them, so a reference inside
+    one is not this repo's to repoint -- the same reasoning as the
+    process/upstream/ mirror, and the same set precedent_check.py's
+    migration-scrubs-vocabulary already skips. The report says how many
+    were skipped and how many of them mention the path, so the skip is
+    visible rather than silent.
+
 WHAT IT IS BLIND TO. A reference built by string concatenation at runtime,
 a path named only in something this repo does not track (a GitHub branch
 protection rule, a webhook, another repo's config), and a file that nothing
@@ -124,6 +147,41 @@ GENERIC_BASENAMES = {
 # repo's to repoint. The registry itself names every decommissioned path by
 # design -- scanning it would make every decommissioning block on its own record.
 SCAN_SKIP_PREFIXES = ('process/upstream/', '.git/')
+
+
+def generated_elsewhere(root):
+    """Tracked paths another tool writes into this repo and overwrites on
+    its next run -> set of repo-relative paths. Empty in a repo with neither
+    manifest (BestPractice itself vendors nothing into itself). An
+    unreadable manifest contributes nothing: it errs toward scanning more,
+    which can only block, never clear."""
+    root = pathlib.Path(root)
+    out = set()
+
+    def _load(rel):
+        try:
+            data = json.loads((root / rel).read_text(encoding='utf-8'))
+        except (OSError, ValueError):
+            return {}
+        return data if isinstance(data, dict) else {}
+
+    eng = _load('tools/ENGINE_MANIFEST.json')
+    if eng:
+        out.add('tools/ENGINE_MANIFEST.json')
+        out.update(f'tools/{n}' for n in eng.get('files') or []
+                   if isinstance(n, str))
+        out.update(f'.claude/hooks/{n}' for n in eng.get('hook_files') or []
+                   if isinstance(n, str))
+    mat = _load('MANIFEST.json')
+    if str(mat.get('generated_by', '')).endswith('precedent_materialize.py'):
+        for p in mat.get('practices') or []:
+            if isinstance(p, dict) and isinstance(p.get('slug'), str):
+                out.add(f"practices/{p['slug']}.md")
+        for key in ('checks', 'adapters', 'ships'):
+            for e in mat.get(key) or []:
+                if isinstance(e, dict) and isinstance(e.get('path'), str):
+                    out.add(e['path'])
+    return out
 
 
 def _git(*args, cwd=None):
@@ -234,6 +292,7 @@ def _searchable_names(paths):
     """(needle, kind) pairs to search for, plus the basenames skipped as too
     generic to be honest about."""
     tracked = tracked_files()
+    tracked_set = set(tracked)
     basename_counts = {}
     segment_counts = {}
     for f in tracked:
@@ -251,7 +310,14 @@ def _searchable_names(paths):
         seg_name_counts[name] = seg_name_counts.get(name, 0) + 1
     needles, skipped = [], []
     for p in paths:
-        needles.append((p, 'path'))
+        is_dir = p not in tracked_set and any(
+            f.startswith(p.rstrip('/') + '/') for f in tracked)
+        # A top-level directory's path IS its bare name, so it gets the
+        # same `base/` treatment as a basename (module docstring, "A
+        # DIRECTORY's basename"); a nested one keeps its full path, which
+        # already reads as a name.
+        top_dir = is_dir and '/' not in p.rstrip('/')
+        needles.append((p.rstrip('/') + '/' if top_dir else p, 'path'))
         base = os.path.basename(p.rstrip('/'))
         if base in GENERIC_BASENAMES or len(base) < 5:
             skipped.append(base)
@@ -264,8 +330,10 @@ def _searchable_names(paths):
             # retired `x/legacy/` beside a kept `y/legacy/`): a hit on the
             # bare name cannot be attributed to this path either.
             skipped.append(base)
-        elif base != p:
-            needles.append((base, 'basename'))
+        elif base != p.rstrip('/'):
+            # A directory's name is searched as `base/` (module docstring,
+            # "A DIRECTORY's basename"): the bare word is prose, not a name.
+            needles.append((base + '/' if is_dir else base, 'basename'))
     return needles, skipped
 
 
@@ -282,7 +350,10 @@ def _mentions(needle, line):
         if i < 0:
             return False
         end = i + len(needle)
-        if end >= len(line) or not _NAME_CONTINUES.match(line[end]):
+        # A needle ending in `/` is a directory prefix: what follows it is a
+        # path INSIDE the directory, never a longer name.
+        if (needle.endswith('/') or end >= len(line)
+                or not _NAME_CONTINUES.match(line[end])):
             return True
         start = i + 1
 
@@ -290,18 +361,30 @@ def _mentions(needle, line):
 def find_references(paths, exempt):
     """Tracked files still mentioning any of `paths` (or a distinctive
     basename), excluding the paths themselves and everything declared
-    exempt. Returns (hits, skipped_basenames)."""
+    exempt. Returns (hits, skipped_basenames, (generated_hits, n_generated)):
+    the last pair is the files another tool writes that mention a needle,
+    and how many such files there are -- evidence, never a blocker."""
     tracked = tracked_files()
     removed = set()
     for p in paths:
         removed.update(_targets_under(p, tracked))
         removed.add(p)
     needles, skipped = _searchable_names(paths)
-    hits = []
+    generated = generated_elsewhere(ROOT)
+    hits, generated_hits = [], []
     for rel in tracked:
         if rel in removed or rel == REGISTRY:
             continue
         if rel.startswith(SCAN_SKIP_PREFIXES) or _exempt(rel, exempt):
+            continue
+        if rel in generated:
+            try:
+                text = (ROOT / rel).read_text(encoding='utf-8', errors='ignore')
+            except OSError:
+                continue
+            if any(_mentions(n, line) for line in text.splitlines()
+                   for n, _k in needles):
+                generated_hits.append(rel)
             continue
         f = ROOT / rel
         if not f.is_file():
@@ -315,7 +398,7 @@ def find_references(paths, exempt):
                 if _mentions(needle, line):
                     hits.append((rel, i, needle, kind, line.strip()[:110]))
                     break
-    return hits, skipped
+    return hits, skipped, (generated_hits, len(generated & set(tracked)))
 
 
 _ON_BLOCK = re.compile(r'^on:\s*(.*)$')
@@ -401,8 +484,8 @@ def audit(path, exempt, siblings=()):
 
     # Everything going in this invocation, so a mutual reference between
     # two paths being decommissioned together is not read as a survivor.
-    hits, skipped = find_references([rel] + [s.rstrip('/') for s in siblings],
-                                    exempt)
+    hits, skipped, (gen_hits, n_gen) = find_references(
+        [rel] + [s.rstrip('/') for s in siblings], exempt)
     for h in hits:
         blockers.append(
             f'{h[0]}:{h[1]} still references {h[2]!r} (by {h[3]}) -- '
@@ -411,6 +494,13 @@ def audit(path, exempt, siblings=()):
     if skipped:
         evidence.append(f'basename search skipped as too generic or '
                         f'ambiguous: {", ".join(sorted(set(skipped)))}')
+    if n_gen:
+        shown = ', '.join(gen_hits[:5]) + (' ...' if len(gen_hits) > 5 else '')
+        evidence.append(
+            f'{n_gen} file(s) another tool writes (vendored engine, '
+            f'materialized practices) not scanned -- a refresh or sync '
+            f'overwrites them; {len(gen_hits)} mention it'
+            + (f': {shown}' if gen_hits else ''))
 
     for t in targets:
         blockers += _live_refusal(ROOT, t)

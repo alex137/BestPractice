@@ -8071,7 +8071,13 @@ def _todo_migrate_available_but_unused(ctx):
         return []
     if not (ROOT / 'TODO.md').exists():
         return []
-    if (ROOT / 'todo').is_dir():
+    # At least one migrated ITEM, not the directory alone (2026-09-28). A
+    # classic-layout migration rehearsal ran todo_migrate.py, which failed,
+    # then build_todo_index.py, which wrote todo/TODO.md and todo/CLOSED.md
+    # over an empty directory -- and this check went green with zero items
+    # migrated and every old bullet still sitting in TODO.md. An index with
+    # nothing to index is not evidence the migration ran.
+    if any((ROOT / 'todo').glob('todo-*.md')):
         return []
     text = ctx.read('TODO.md')
     if TODO_STUB_HEADING_RE.match(text):
@@ -8089,7 +8095,7 @@ def _todo_migrate_available_but_unused(ctx):
         return []
     return [Finding('TODO.md',
         'tools/todo_migrate.py is vendored into this repo but TODO.md is '
-        'still the old single-file format and no todo/ directory exists '
+        'still the old single-file format and no todo/todo-*.md item exists '
         '-- run `python3 tools/todo_migrate.py --source todo.md --apply` then `python3 '
         'tools/build_todo_index.py` (practices/vendor-update-runbook.md)')]
 

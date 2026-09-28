@@ -18341,6 +18341,174 @@ def check_refresh_removes_dropped_engine_files():
           f'those ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
 
+
+def check_decommission_skips_generated_files_and_prose():
+    """THE INCIDENT (2026-09-28, a classic-layout migration rehearsal in a
+    real consumer). Decommissioning `process/personal` could never reach
+    CLEAR: the basename pass searched the bare word `personal` and matched
+    ordinary English in the loader-generated AGENTS.md, the vendored engine
+    (whose own docstring names `process/personal`) and every materialized
+    practice -- 141 blockers, none of them the repo's to repoint, and the
+    tool has no flag to skip one by design.
+
+    Two fixes, each with its negative control, because the audit is only
+    worth running while it still refuses a real reference:
+      * a directory's basename is searched as `base/`, so prose no longer
+        matches but `personal/README.md` in a hand-written doc still blocks;
+      * files tools/ENGINE_MANIFEST.json (files, hook_files) or the
+        materializer's MANIFEST.json record are reported, not scanned, while
+        a hand-authored practice the manifest does not list still blocks."""
+    import tempfile, shutil as _shutil, json as _json
+    tool = ROOT / 'tools' / 'precedent_decommission.py'
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-decom-gen-'))
+    cases = []
+    try:
+        repo = tmp / 'consumer'
+        genv = dict(os.environ, GIT_AUTHOR_NAME='t',
+                    GIT_AUTHOR_EMAIL='harness@example.com',
+                    GIT_COMMITTER_NAME='t',
+                    GIT_COMMITTER_EMAIL='harness@example.com')
+
+        def git(*a):
+            return subprocess.run(['git', '-C', str(repo), *a],
+                                  capture_output=True, text=True, env=genv)
+
+        def w(rel, text):
+            f = repo / rel
+            f.parent.mkdir(parents=True, exist_ok=True)
+            f.write_text(text, encoding='utf-8')
+
+        repo.mkdir()
+        git('init', '-q')
+        w('process/personal/README.md', 'the retired personal pack\n')
+        w('tools/engine_x.py',
+          '"""Retires process/personal/README.md on refresh."""\n')
+        w('.claude/hooks/h.sh', '# reads process/personal when present\n')
+        w('tools/ENGINE_MANIFEST.json', _json.dumps(
+            {'kind': 'consumer', 'files': ['engine_x.py'],
+             'hook_files': ['h.sh']}))
+        w('practices/p1.md', 'Older installs kept a process/personal tree.\n')
+        w('MANIFEST.json', _json.dumps(
+            {'generated_by': 'tools/precedent_materialize.py',
+             'practices': [{'slug': 'p1'}], 'checks': [], 'adapters': []}))
+        w('AGENTS.md', 'Give the GitHub steps for a personal repo, and a '
+                       'personal welcome message. We archive nothing.\n')
+        w('archive/old.md', 'a retired top-level directory\n')
+        # The real references -- negative controls.
+        w('docs/guide.md', 'See personal/README.md for the old layout.\n'
+                           'And archive/old.md for the one before.\n')
+        w('practices/own.md', 'We still read process/personal at start.\n')
+        git('add', '-A')
+        git('commit', '-qm', 'fixture')
+
+        def run(target='process/personal'):
+            r = subprocess.run([sys.executable, str(tool), target],
+                               capture_output=True, text=True, cwd=str(repo),
+                               timeout=120)
+            return r.returncode, r.stdout + r.stderr
+
+        rc, out = run()
+        cases.append(('prose using the word in AGENTS.md does not block',
+                      'AGENTS.md:' not in out, out[-1500:]))
+        cases.append(('the vendored engine file, hook and materialized '
+                      'practice do not block',
+                      not any(f'{x}:' in out for x in
+                              ('tools/engine_x.py', '.claude/hooks/h.sh',
+                               'practices/p1.md')), out[-1500:]))
+        cases.append(('and the report says they were skipped, and that 3 '
+                      'of them mention it',
+                      'not scanned' in out and '3 mention it' in out,
+                      out[-1500:]))
+        cases.append(('a hand-written doc naming personal/README.md still '
+                      'blocks (by basename)',
+                      rc == 1 and 'docs/guide.md:1' in out, out[-1500:]))
+        cases.append(('a practice the materializer never wrote still blocks',
+                      'practices/own.md:1' in out, out[-1500:]))
+        rc_a, out_a = run('archive')
+        cases.append(('a TOP-LEVEL directory is searched as `archive/`: the '
+                      'verb in AGENTS.md does not block, the path in a doc '
+                      'does', rc_a == 1 and 'AGENTS.md:' not in out_a
+                      and 'docs/guide.md:2' in out_a, out_a[-1500:]))
+
+        (repo / 'docs' / 'guide.md').unlink()
+        (repo / 'practices' / 'own.md').unlink()
+        git('add', '-A')
+        git('commit', '-qm', 'repoint the real references')
+        rc2, out2 = run()
+        rc3, out3 = run('archive')
+        cases.append(('with the real references gone, the audit is CLEAR',
+                      rc2 == 0 and 'CLEAR' in out2
+                      and rc3 == 0 and 'CLEAR' in out3,
+                      out2[-1000:] + out3[-1000:]))
+    finally:
+        _shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'decommission audit skips generated files and prose, and still '
+          f'refuses a real reference ({len(cases)} stated cases)',
+          not bad, '; '.join(f'{n} -- {d[:800]}' for n, d in bad))
+
+
+def check_todo_migrate_needs_a_migrated_item():
+    """THE INCIDENT (2026-09-28, the same migration rehearsal as the case
+    above). todo_migrate.py failed, build_todo_index.py then wrote its index
+    over an empty todo/, and todo-migrate-available-but-unused went green:
+    it asked only whether todo/ existed. Zero items had moved and every
+    old-format bullet was still in TODO.md.
+
+    Unit-level: the subject is one tree check's verdict over three layouts,
+    and a whole pipeline run would only add minutes to reach it."""
+    import tempfile, shutil as _shutil, json as _json
+    import precedent_check as pc
+    if not hasattr(pc, '_todo_migrate_available_but_unused'):
+        not_applicable('todo-migrate needs a migrated item',
+                       'the check is not present in this precedent_check.py')
+        return
+
+    class _Ctx:
+        def read(self, rel):
+            try:
+                return (pc.ROOT / rel).read_text(encoding='utf-8')
+            except OSError:
+                return ''
+
+    old_root, old_manifest = pc.ROOT, pc._ENGINE_MANIFEST
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-todo-mig-'))
+    cases = []
+    try:
+        (tmp / 'tools').mkdir()
+        (tmp / 'tools' / 'todo_migrate.py').write_text('# vendored\n')
+        (tmp / 'tools' / 'ENGINE_MANIFEST.json').write_text(
+            _json.dumps({'kind': 'consumer'}))
+        (tmp / 'TODO.md').write_text(
+            '# Repo TODO\n\n- [ ] **An old-format item, never migrated.**\n')
+        (tmp / 'todo').mkdir()
+        (tmp / 'todo' / 'TODO.md').write_text('# Open items\n\n(none)\n')
+        (tmp / 'todo' / 'CLOSED.md').write_text('# Closed items\n')
+        pc.ROOT, pc._ENGINE_MANIFEST = tmp, None
+
+        def verdict():
+            return [str(f) for f in pc._todo_migrate_available_but_unused(_Ctx())]
+
+        cases.append(('a todo/ holding only the generated index, with the '
+                      'old bullets still in TODO.md, fires',
+                      bool(verdict()), verdict()))
+        (tmp / 'todo' / 'todo-2026-09-28-an-item.md').write_text('# item\n')
+        cases.append(('CONTROL: one migrated todo/todo-*.md item clears it',
+                      verdict() == [], verdict()))
+        (tmp / 'todo' / 'todo-2026-09-28-an-item.md').unlink()
+        (tmp / 'TODO.md').write_text('# TODO has moved\n\nSee todo/.\n')
+        cases.append(('CONTROL: TODO.md as the redirect stub clears it',
+                      verdict() == [], verdict()))
+    finally:
+        pc.ROOT, pc._ENGINE_MANIFEST = old_root, old_manifest
+        _shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'todo-migrate-available-but-unused wants a migrated item, not an '
+          f'empty todo/ ({len(cases)} stated cases)',
+          not bad, '; '.join(f'{n} -- {d}' for n, d in bad))
+
 def check_retirement_record_is_not_a_stranded_link():
     """The document explaining a deletion may name what it deleted.
 
@@ -40951,6 +41119,8 @@ def main():
     check_commit_identity_derives_declared_timezone()
     check_superseded_source_says_so()
     check_refresh_removes_dropped_engine_files()
+    check_decommission_skips_generated_files_and_prose()
+    check_todo_migrate_needs_a_migrated_item()
     check_refresh_survives_an_upstream_rename()
     check_retirement_record_is_not_a_stranded_link()
     check_commit_identity_prevents_the_wrong_offset()
