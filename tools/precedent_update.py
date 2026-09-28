@@ -25,16 +25,20 @@ engine refresh, the catalogue update (checkin.py --repo), the pin repoint.
 THE STEPS, with no question in between:
   1. the source clone fetches the branch every install follows
   2. the engine refresh (the consumer's own copy, which replaces itself and
-     runs a second pass), then the catalogue-pin repoint from THIS copy
+     runs a second pass), then the catalogue-pin repoint and the renamed
+     precedent-team-* -> precedent-shared-* sources from THIS copy
   3. the catalogue: checkin.py update, then record, where the repo vendors
      one under process/ (process/manifest.json); for a section 0 install,
      its universal source's practices/ replaced wholesale (INSTALL.md
      section 2, step 0); and where there is neither, a line saying so
      then, where precedent.json names no landing_branch, pre-staging
   4. the views regenerated -- the loader block, and in a practice set
-     MAP.md and GLOSSARY.md too -- then this repo's own citations of any
-     practice the update withdrew or reworded (a withdrawn one's is a call
-     left for you; a reworded one's is listed to read)
+     MAP.md and GLOSSARY.md too -- then manifest baselines moved for files
+     now identical to upstream, a missing headroom_floor_pct defaulted,
+     each file still naming one the refresh deleted left for you, and this
+     repo's own citations of any practice the update withdrew or reworded
+     (a withdrawn one's is a call left for you; a reworded one's is listed
+     to read)
   4a. any missing branch tier made on origin: staging from pre-staging,
      pre-staging from staging, both from main when neither exists
   5. the repo's own check at its landing branch's tier -- into pre-staging,
@@ -91,8 +95,15 @@ def rebaseline_vendored_entries(repo):
     this repo (2026-09-28, a consumer's doc-lint entry at
     process/upstream/tools/doc_lint.py). The pre-staging check does not run
     the audit, so the update said done and the Promote would have gone red.
-    Only those entries are touched: a file outside the tree that drifted is
-    still an unexported local change, and still fails."""
+
+    A synced entry OUTSIDE the tree is re-recorded on one condition only:
+    its file is now byte-for-byte its upstream_path in the vendored tree.
+    That is a file the update itself replaced with the current template --
+    2026-09-28, a consumer's .claude/hooks/session-start.sh, identical to
+    process/upstream/templates/harness/claude-code/hooks/session-start.sh
+    and still carrying the old hash. Any other drift outside the tree is
+    still an unexported local change, and still fails (practice:
+    registry-source-of-truth)."""
     import hashlib
     mf = repo / 'process' / 'manifest.json'
     try:
@@ -105,12 +116,16 @@ def rebaseline_vendored_entries(repo):
     done = []
     for e in data.get('entries') or []:
         rel = str(e.get('local_path') or '')
-        if (e.get('status') != 'synced' or e.get('granularity', 'file') != 'file'
-                or not rel.startswith(tree)):
+        if e.get('status') != 'synced' or e.get('granularity', 'file') != 'file':
             continue
         f = repo / rel
-        if not f.is_file():
+        if not rel or not f.is_file():
             continue
+        if not rel.startswith(tree):
+            up = str(e.get('upstream_path') or '')
+            if not up or not (repo / tree / up).is_file() \
+                    or (repo / tree / up).read_bytes() != f.read_bytes():
+                continue
         cur = hashlib.sha256(f.read_bytes()).hexdigest()
         if e.get('local_sha256') and e['local_sha256'] != cur:
             e['local_sha256'] = cur
@@ -119,6 +134,131 @@ def rebaseline_vendored_entries(repo):
         mf.write_text(json.dumps(data, indent=2, ensure_ascii=False) + '\n',
                       encoding='utf-8')
     return done
+
+
+HEADROOM_FLOOR_DEFAULT = 5
+
+
+def ensure_headroom_floor(repo):
+    """Give tools/session_load_budgets.json the `headroom_floor_pct` the
+    session-load-budget check now requires of any registry that declares
+    ceilings. -> True when it wrote one.
+
+    The check is full-tier only, so an update into pre-staging passed and
+    the Promote to staging went red on a key nothing had ever written
+    (2026-09-28, a consumer's update). 5 is the value BestPractice declares
+    and precedent_bootstrap_source.py seeds. A value already there, `false`
+    included -- a deliberate decline -- is never touched (practice:
+    session-load-budget)."""
+    path = repo / 'tools' / 'session_load_budgets.json'
+    try:
+        text = path.read_text(encoding='utf-8')
+        data = json.loads(text)
+    except (OSError, ValueError):
+        return False
+    if not isinstance(data, dict) or not data.get('surfaces') \
+            or 'headroom_floor_pct' in data:
+        return False
+    # Inserted as the first key, as text, so the rest of the file comes back
+    # byte for byte; rewritten whole only if that does not parse to the
+    # same registry plus the one key.
+    new = re.sub(r'^\s*\{', '{\n  "headroom_floor_pct": %d,' % HEADROOM_FLOOR_DEFAULT,
+                 text, count=1)
+    try:
+        ok = json.loads(new) == {**data, 'headroom_floor_pct': HEADROOM_FLOOR_DEFAULT}
+    except ValueError:
+        ok = False
+    if not ok:
+        new = json.dumps({'headroom_floor_pct': HEADROOM_FLOOR_DEFAULT, **data},
+                         indent=2, ensure_ascii=False) + '\n'
+    path.write_text(new, encoding='utf-8')
+    return True
+
+
+# precedent_resolve.check_source_manifest's refusal, as the view sync prints it.
+SOURCE_NAME_MISMATCH = re.compile(
+    r"the source at (?P<path>\S+) calls itself '(?P<own>[^']+)' in its \S+, "
+    r"but this repository declares it as '(?P<declared>[^']+)'")
+_REPOINTED = re.compile(r"repointed precedent\.json source '([^']+)' to '([^']+)'")
+
+
+def renamed_sources_step(repo, rep, engine_out):
+    """Repoint every precedent-team-* source to its precedent-shared-* name,
+    path and level, from THIS copy of the engine -- a consumer whose own
+    engine predates the repoint still gets it -- and report it as done.
+
+    2026-09-28: the refresh listed the renamed sets under Left for you, and
+    the view sync then stopped the update on the resolver's name check
+    before any report was printed. The rename is fixed and known, so it is a
+    step, never a question. Whatever an older engine's first pass left on
+    the list about a source now repointed is already answered, and is
+    dropped."""
+    done = [(m.group(1), m.group(2)) for m in _REPOINTED.finditer(engine_out)]
+    for old, new, old_path, new_path, kept in pve.repoint_renamed_sources(repo):
+        if (old, old_path) != (new, new_path):
+            done.append((old, new))
+        if kept:
+            rep.leave(f'precedent.json source {new!r} at {old_path}',
+                      f'its clone is still at {old_path} and nothing is at '
+                      f'{pve.renamed_set_path(old_path)} yet, so the path was '
+                      f'left alone -- clone the set there (or rename the '
+                      f'directory), then run this again')
+    if not done:
+        return
+    olds = {o for o, _n in done}
+    rep.left = [(w, y) for w, y in rep.left
+                if not any(w.startswith(f'precedent.json source {o!r}') for o in olds)]
+    rep.step('shared sets', 'precedent.json repointed from the old '
+             'precedent-team-* names (name, path and level team -> shared): '
+             + ', '.join(f'{o} -> {n}' for o, n in dict(done).items())
+             + ' -- nothing to decide')
+
+
+# The engine's WARN for a file that still names one it just deleted
+# (precedent_vendor_engine._warn_about_dependents).
+_MENTION = re.compile(r"^WARN: precedent_vendor_engine: (?P<gone>\S+) was .+?, "
+                      r"and (?P<path>\S+?):(?P<line>\d+) still names it -- ")
+
+
+def retired_mentions(repo, engine_out):
+    """-> [(where, gone)] for each file that still names something the
+    engine refresh deleted, and still does now that the rest of the update
+    has run.
+
+    The engine only WARNs about these, on stderr, and says nothing refuses
+    over a mention. The pre-staging check agreed; the full check at the
+    Promote to staging did not, and refused on them (practice:
+    rename-updates-links; 2026-09-28: a retired bestpractice-docs.yml still
+    named in a consumer's docs). So each one goes on Left for you, inside
+    the update.
+    Read from the WARN lines rather than asked of the engine because the
+    deletion usually happens in the first pass, which is the consumer's own
+    older copy. A file this repo receives rather than writes -- the
+    vendored tree, practices/, tools/checks/ -- is skipped: the check skips
+    it too, and the next sync overwrites it."""
+    try:
+        tree = str(json.loads((repo / 'process' / 'manifest.json').read_text(
+            encoding='utf-8')).get('upstream', {}).get('vendored_at')
+            or 'process/upstream')
+    except (OSError, ValueError, AttributeError):
+        tree = 'process/upstream'
+    received = (tree.rstrip('/') + '/', 'practices/', 'tools/checks/')
+    out = []
+    for line in engine_out.splitlines():
+        m = _MENTION.match(line.strip())
+        if not m or m.group('path').startswith(received):
+            continue
+        gone, path = m.group('gone'), m.group('path')
+        try:
+            text = (repo / path).read_text(encoding='utf-8')
+        except (OSError, UnicodeDecodeError):
+            continue
+        base = pathlib.PurePosixPath(gone).name
+        hit = next((n for n, l in enumerate(text.splitlines(), 1)
+                    if gone in l or base in l), None)
+        if hit is not None and (f'{path}:{hit}', gone) not in out:
+            out.append((f'{path}:{hit}', gone))
+    return out
 
 
 def universal_catalogue_path(repo):
@@ -586,9 +726,11 @@ def update(repo, skip_check=False, ref=None):
 
     # 1. The source clone. Both halves read committed refs, never its
     # working tree, so a fetch is what makes them current.
+    # With an explicit refspec, so a single-branch clone of the source gets
+    # an origin/<branch> to read, not only a FETCH_HEAD.
     if ref is None:
         rc, out = run(['git', '-C', str(SOURCE), 'fetch', 'origin',
-                       pve.SOURCE_BRANCH], SOURCE)
+                       pve.tracking_refspec(pve.SOURCE_BRANCH)], SOURCE)
         if rc != 0:
             return rep.close(f"could not fetch origin/{pve.SOURCE_BRANCH} in "
                              f"{SOURCE}:\n{tail(out)}")
@@ -623,6 +765,7 @@ def update(repo, skip_check=False, ref=None):
             rep.step('engine', 'refused: a vendored file was edited here')
             return rep.close()
         return rep.close(f"the engine refresh failed:\n{tail(out)}")
+    engine_out = out
     details = diverged_details(out)
     for item in left_block(out):
         what, _, why = item.partition(': ')
@@ -656,6 +799,7 @@ def update(repo, skip_check=False, ref=None):
     if 'repointed the practice catalogue' in out or pve.repoint_catalogue_pin(repo):
         rep.step('catalogue pin', f'repointed to {pve.SOURCE_BRANCH} '
                  f'(decided 2026-09-25; nothing to ask)')
+    renamed_sources_step(repo, rep, out)
 
     # 3. The catalogue, where there is one, by the source clone's checkin.py.
     if (repo / 'process' / 'manifest.json').is_file():
@@ -692,11 +836,6 @@ def update(repo, skip_check=False, ref=None):
         rep.step('catalogue record', next((l for l in out.splitlines()
                                            if l.startswith('checkin record')),
                                           'recorded'))
-        rebased = rebaseline_vendored_entries(repo)
-        if rebased:
-            rep.step('manifest baselines', 're-recorded for files inside the '
-                     'vendored tree, which the mirror just rewrote: '
-                     + ', '.join(rebased))
     else:
         # INSTALL.md section 2, step 0: a section 0 install vendors the
         # universal catalogue at its universal source's own path
@@ -743,8 +882,33 @@ def update(repo, skip_check=False, ref=None):
     elif sync.is_file():
         rc, out = run([sys.executable, str(sync), '--repo', str(repo)], repo)
         if rc != 0:
+            # A declared source whose clone answers to another name is a
+            # call about this repo's own precedent.json, so it is left for
+            # the person by name rather than failing the run on a traceback
+            # tail. The renamed shared sets never get here any more
+            # (renamed_sources_step); anything else that does is named.
+            m = SOURCE_NAME_MISMATCH.search(out)
+            if m:
+                rep.leave(f'precedent.json source {m.group("declared")!r}',
+                          f'the clone at {m.group("path")} calls itself '
+                          f'{m.group("own")!r} -- declare it by that name, or '
+                          f'point `path` at the right clone; the views cannot '
+                          f'be regenerated until the two agree')
+                rep.step('views', 'not regenerated: a declared source answers '
+                         'to another name')
+                return rep.close()
             return rep.close(f"the view sync failed:\n{tail(out)}")
         rep.step('views', 'regenerated')
+
+    # After the views, because the view sync writes harness adapters too.
+    rebased = rebaseline_vendored_entries(repo)
+    if rebased:
+        rep.step('manifest baselines', 're-recorded for files this update '
+                 'rewrote to exactly what upstream ships: ' + ', '.join(rebased))
+    if ensure_headroom_floor(repo):
+        rep.step('session-load budget', f'headroom_floor_pct set to '
+                 f'{HEADROOM_FLOOR_DEFAULT} in tools/session_load_budgets.json '
+                 f'(the default; the full check requires the key)')
 
     # 4a. The branch tiers. Every repository works through pre-staging ->
     # staging -> main, so a missing tier is made here rather than reported
@@ -768,7 +932,15 @@ def update(repo, skip_check=False, ref=None):
              + (f'; {len(before)} already uncommitted before it ran, left as they were'
                 if before else ''))
 
-    # 4b. Citations of what the update withdrew or reworded, in THIS repo's
+    # 4b. Files that still name what the refresh deleted: the full check's
+    # rename-updates-links refuses each one at the Promote, so they are
+    # worked here (retired_mentions).
+    for where, gone in retired_mentions(repo, engine_out):
+        rep.leave(where, f'still names {gone}, which this update deleted -- '
+                  f'repoint or remove the mention; the full check '
+                  f'(rename-updates-links) refuses it at the Promote to staging')
+
+    # Citations of what the update withdrew or reworded, in THIS repo's
     # own files. A consumer is where a renamed practice's old name survives
     # longest: its AGENTS.md and docs were written against the name it had
     # then, and nothing the refresh touches rewrites them.

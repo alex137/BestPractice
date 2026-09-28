@@ -7912,6 +7912,287 @@ def check_update_vendors_second_consumer_findings():
     return (not failed, f'{len(cases)} stated cases', '; '.join(failed))
 
 
+def _update_tools():
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_update as pu
+        import precedent_vendor_engine as pve
+        import precedent_resolve as pr
+    finally:
+        sys.path.pop(0)
+    return pu, pve, pr
+
+
+def check_update_vendors_repoints_renamed_shared_sets():
+    """Update Vendors repoints a precedent-team-* source to its
+    precedent-shared-* name, path and level itself, and says so.
+
+    2026-09-28, a consumer: the refresh listed the renamed sets under Left
+    for you, then the view sync refused on the resolver's name check ("calls
+    itself precedent-shared-repo-maintenance ... declares it as
+    precedent-team-repo-maintenance") and the run stopped. Plants a
+    hand-kept precedent.json, a clone at the new path, a clone left only at
+    the old path, and the resolver's own refusal text, which a mismatch the
+    rename does not cover is still reported by."""
+    import tempfile
+    pu, pve, pr = _update_tools()
+    step = getattr(pu, 'renamed_sources_step', None)
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-renamed-sets-'))
+    try:
+        repo = tmp / 'consumer'
+        repo.mkdir()
+        (tmp / 'precedent-shared-rm').mkdir()
+        (tmp / 'precedent-shared-rm' / 'precedent-source.json').write_text(
+            json.dumps({'name': 'precedent-shared-rm', 'level': 'shared'}))
+        (tmp / 'precedent-team-ws').mkdir()        # cloned only at the old path
+        (tmp / 'precedent-team-own').mkdir()       # still named so by its author
+        (tmp / 'precedent-team-own' / 'precedent-source.json').write_text(
+            json.dumps({'name': 'precedent-team-own', 'level': 'shared'}))
+        text = ('{\n  "_comment": ["kept as written"],\n  "sources": [\n'
+                '    {"level": "universal", "name": "precedent", "path": "../BestPractice"},\n'
+                '    {"level": "team", "name": "precedent-team-rm",\n'
+                '     "path": "../precedent-team-rm"},\n'
+                '    {"level": "team", "name": "precedent-team-own", "path": "../precedent-team-own"},\n'
+                '    {"level": "team", "name": "precedent-team-ws", "path": "../precedent-team-ws"}\n'
+                '  ]\n}\n')
+        (repo / 'precedent.json').write_text(text)
+        rep = pu.Report()
+        rep.leave("precedent.json source 'precedent-team-rm' at ../precedent-team-rm",
+                  'names a precedent-team-* set, renamed precedent-shared-*')
+        if step is None:
+            cases.append(('precedent_update has renamed_sources_step()', False))
+        else:
+            import io, contextlib
+            with contextlib.redirect_stdout(io.StringIO()):
+                step(repo, rep, '')
+            after = (repo / 'precedent.json').read_text()
+            srcs = {s['name']: s for s in json.loads(after)['sources']}
+            rm = srcs.get('precedent-shared-rm', {})
+            cases.append(('the renamed set gets its new name, path and level',
+                          rm.get('path') == '../precedent-shared-rm'
+                          and rm.get('level') == 'shared'))
+            ws = srcs.get('precedent-shared-ws', {})
+            cases.append(('a set cloned only at the old path is renamed, its path kept',
+                          ws.get('path') == '../precedent-team-ws'
+                          and ws.get('level') == 'shared'))
+            cases.append(('NEGATIVE: a set whose own manifest keeps the old name is left alone',
+                          srcs.get('precedent-team-own', {}).get('level') == 'team'))
+            cases.append(('...and the kept path is left for the person, with where to clone',
+                          any('precedent-shared-ws' in w and '../precedent-shared-ws' in y
+                              for w, y in rep.left)))
+            cases.append(('the stale Left-for-you line about the old name is dropped',
+                          not any("'precedent-team-rm'" in w for w, _y in rep.left)))
+            cases.append(('the report says what was repointed',
+                          any('precedent-team-rm -> precedent-shared-rm' in o
+                              for _n, o in rep.steps)))
+            cases.append(('a hand-kept file keeps its own layout',
+                          '"_comment": ["kept as written"]' in after
+                          and '     "path": "../precedent-shared-rm"},' in after))
+            cases.append(('the resolver accepts the repointed declaration',
+                          pr.check_source_manifest({'path': str(tmp / 'precedent-shared-rm'),
+                                                    'name': 'precedent-shared-rm',
+                                                    'level': rm.get('level')}) is not None))
+        try:
+            pr.check_source_manifest({'path': str(tmp / 'precedent-shared-rm'),
+                                      'name': 'something-else', 'level': 'shared'})
+            said = ''
+        except pr.ResolveError as e:
+            said = f'precedent_sync_views FAIL: {e}'
+        pat = getattr(pu, 'SOURCE_NAME_MISMATCH', None)
+        m = pat.search(said) if pat is not None else None
+        cases.append(('any other name mismatch is recognised from the sync\'s own words',
+                      bool(m) and m.group('declared') == 'something-else'
+                      and m.group('own') == 'precedent-shared-rm'))
+    except (OSError, ValueError, KeyError) as e:
+        cases.append((f'fixture could not be built ({e})', False))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    failed = [n for n, ok in cases if not ok]
+    check('Update Vendors repoints renamed precedent-team-* sources itself',
+          not failed, f'{len(cases)} stated cases', '; '.join(failed))
+
+
+def check_update_vendors_rebaselines_a_file_now_identical_to_upstream():
+    """A synced manifest entry OUTSIDE the vendored tree whose file the
+    update replaced with exactly upstream's copy gets its baseline moved.
+
+    2026-09-28, a consumer: .claude/hooks/session-start.sh was rewritten to
+    the current template, byte for byte process/upstream/templates/harness/
+    claude-code/hooks/session-start.sh, and its entry kept the old hash, so
+    practice_audit reported DRIFT at the Promote. One that differs from
+    upstream still reads as drift."""
+    import hashlib, tempfile
+    pu, _pve, _pr = _update_tools()
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-rebaseline-'))
+    try:
+        up = 'templates/harness/claude-code/hooks/session-start.sh'
+        (tmp / 'process' / 'upstream' / pathlib.Path(up).parent).mkdir(parents=True)
+        (tmp / 'process' / 'upstream' / up).write_text('#!/bin/sh\n# new template\n')
+        (tmp / '.claude' / 'hooks').mkdir(parents=True)
+        (tmp / '.claude' / 'hooks' / 'session-start.sh').write_text('#!/bin/sh\n# new template\n')
+        (tmp / 'process' / 'upstream' / 'templates' / 'x.md').write_text('upstream x\n')
+        (tmp / 'X.md').write_text('edited here\n')
+        (tmp / 'process' / 'manifest.json').write_text(json.dumps({
+            'upstream': {'vendored_at': 'process/upstream'},
+            'entries': [
+                {'practice': 'session-start', 'status': 'synced', 'granularity': 'file',
+                 'local_path': '.claude/hooks/session-start.sh', 'upstream_path': up,
+                 'local_sha256': 'old'},
+                {'practice': 'x', 'status': 'synced', 'granularity': 'file',
+                 'local_path': 'X.md', 'upstream_path': 'templates/x.md',
+                 'local_sha256': 'old'}]}))
+        done = pu.rebaseline_vendored_entries(tmp)
+        entries = json.loads((tmp / 'process' / 'manifest.json').read_text())['entries']
+        cases.append(('a file now identical to its upstream_path is re-baselined',
+                      done == ['.claude/hooks/session-start.sh'] and entries[0]['local_sha256']
+                      == hashlib.sha256(b'#!/bin/sh\n# new template\n').hexdigest()))
+        cases.append(('...and one that differs from upstream still reads as drift',
+                      entries[1]['local_sha256'] == 'old'))
+    except (OSError, ValueError, KeyError) as e:
+        cases.append((f'fixture could not be built ({e})', False))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    failed = [n for n, ok in cases if not ok]
+    check('Update Vendors moves the baseline of a file it made identical to upstream',
+          not failed, f'{len(cases)} stated cases', '; '.join(failed))
+
+
+def check_update_vendors_defaults_headroom_floor():
+    """Update Vendors writes headroom_floor_pct (5) into a
+    session_load_budgets.json that declares ceilings without it, which the
+    full check's session-load-budget now refuses (2026-09-28, a consumer's
+    Promote). A value already there -- `false` too -- is left alone."""
+    import tempfile
+    pu, _pve, _pr = _update_tools()
+    ensure = getattr(pu, 'ensure_headroom_floor', None)
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-headroom-'))
+    try:
+        (tmp / 'tools').mkdir()
+        reg = tmp / 'tools' / 'session_load_budgets.json'
+        text = '{\n  "_comment": ["mine"],\n  "surfaces": {"AGENTS.md": {"ceiling": 900}}\n}\n'
+        reg.write_text(text)
+        wrote = ensure(tmp) if ensure else None
+        data = json.loads(reg.read_text())
+        cases.append(('a registry with ceilings and no floor gets the default 5',
+                      wrote is True and data.get('headroom_floor_pct') == 5))
+        cases.append(('...keeping the rest of the file as written',
+                      reg.read_text().endswith(text[1:])))
+        reg.write_text('{"headroom_floor_pct": false, "surfaces": {"AGENTS.md": {"ceiling": 9}}}\n')
+        cases.append(('a deliberate `false` is left alone',
+                      bool(ensure) and ensure(tmp) is False
+                      and json.loads(reg.read_text())['headroom_floor_pct'] is False))
+    except (OSError, ValueError, KeyError, TypeError) as e:
+        cases.append((f'fixture could not be built ({e})', False))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    failed = [n for n, ok in cases if not ok]
+    check('Update Vendors defaults a missing headroom_floor_pct',
+          not failed, f'{len(cases)} stated cases', '; '.join(failed))
+
+
+def check_engine_fetch_reaches_main_in_a_single_branch_clone():
+    """The engine refresh finds origin/main in a source clone taken with
+    `git clone --single-branch --branch precedent-beta-v01`.
+
+    A bare `git fetch origin main` there writes only FETCH_HEAD, because the
+    clone's refspec covers the one branch it was cloned at, and the second
+    refresh pass failed "has no main (neither origin/main nor a local branch
+    of that name)" (2026-09-28, a consumer). Built from a local origin; no
+    network."""
+    import tempfile
+    _pu, pve, _pr = _update_tools()
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-single-branch-'))
+    env = dict(os.environ, GIT_AUTHOR_NAME='F', GIT_AUTHOR_EMAIL='f@example.com',
+               GIT_COMMITTER_NAME='F', GIT_COMMITTER_EMAIL='f@example.com',
+               GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM='1')
+
+    def git(*a):
+        return subprocess.run(['git', *a], env=env, capture_output=True,
+                              text=True, check=True).stdout.strip()
+    got = None
+    try:
+        o = tmp / 'origin'
+        git('init', '-q', '-b', 'precedent-beta-v01', str(o))
+        (o / 'README').write_text('beta\n')
+        git('-C', str(o), 'add', '-A')
+        git('-C', str(o), 'commit', '-qm', 'beta')
+        git('-C', str(o), 'checkout', '-qb', pve.SOURCE_BRANCH)
+        (o / 'tools').mkdir()
+        (o / 'tools' / pve.HERE.name).write_text('# the vendoring tool\n')
+        git('-C', str(o), 'add', '-A')
+        git('-C', str(o), 'commit', '-qm', 'main')
+        main = git('-C', str(o), 'rev-parse', 'HEAD')
+        c = tmp / 'clone'
+        git('clone', '-q', '--depth', '1', '--single-branch', '--branch',
+            'precedent-beta-v01', o.as_uri(), str(c))
+        cases.append(('the fixture is a single-branch clone with no origin/main',
+                      subprocess.run(['git', '-C', str(c), 'rev-parse', '--verify', '-q',
+                                      f'origin/{pve.SOURCE_BRANCH}'], env=env,
+                                     capture_output=True).returncode != 0))
+        import io, contextlib
+        try:
+            with contextlib.redirect_stderr(io.StringIO()):
+                got, engine_dir = pve._source_tools_at(c, fetch=True)
+            shutil.rmtree(engine_dir, ignore_errors=True)
+        except SystemExit:
+            got = None
+        cases.append(('the refresh fetch lands origin/main and reads it', got == main))
+    except (OSError, subprocess.CalledProcessError) as e:
+        cases.append((f'fixture could not be built ({e})', False))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    failed = [n for n, ok in cases if not ok]
+    check('the engine refresh fetch reaches main in a single-branch source clone',
+          not failed, f'{len(cases)} stated cases', '; '.join(failed))
+
+
+def check_update_vendors_leaves_mentions_of_a_deleted_file():
+    """Every file that still names something the engine refresh deleted is
+    put on Update Vendors' Left for you.
+
+    2026-09-28, a consumer: the refresh deleted a retired
+    bestpractice-docs.yml and only WARNed about a doc still naming it; the
+    pre-staging check passed and the full check refused on
+    rename-updates-links at the Promote. The WARN is produced by the
+    engine's own function, so the two cannot drift apart; a mention inside
+    the vendored tree, and one already gone by report time, are not left."""
+    import io, contextlib, tempfile
+    pu, pve, _pr = _update_tools()
+    mentions = getattr(pu, 'retired_mentions', None)
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-mentions-'))
+    env = dict(os.environ, GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM='1')
+    try:
+        wf = '.github/workflows/bestpractice-docs.yml'
+        (tmp / 'docs').mkdir()
+        (tmp / 'docs' / 'CI.md').write_text('# CI\n\nDocs build in `' + wf + '`.\n')
+        (tmp / 'docs' / 'OLD.md').write_text('bestpractice-docs.yml ran here.\n')
+        (tmp / 'process' / 'upstream').mkdir(parents=True)
+        (tmp / 'process' / 'upstream' / 'STORY.md').write_text(wf + ' was retired.\n')
+        subprocess.run(['git', 'init', '-q', str(tmp)], env=env, check=True)
+        subprocess.run(['git', '-C', str(tmp), 'add', '-A'], env=env, check=True)
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err):
+            pve._warn_about_dependents(tmp, [wf], 'retired from this kind\'s CI workflow set')
+        (tmp / 'docs' / 'OLD.md').write_text('nothing about it now\n')
+        got = mentions(tmp, err.getvalue()) if mentions else None
+        cases.append(('a doc still naming the deleted workflow is left, at its line',
+                      bool(got) and ('docs/CI.md:3', wf) in got))
+        cases.append(('a mention inside the vendored tree, or one gone since, is not',
+                      bool(got) and [w for w, _g in got] == ['docs/CI.md:3']))
+    except (OSError, subprocess.CalledProcessError) as e:
+        cases.append((f'fixture could not be built ({e})', False))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    failed = [n for n, ok in cases if not ok]
+    check('Update Vendors leaves each mention of a file the refresh deleted',
+          not failed, f'{len(cases)} stated cases', '; '.join(failed))
+
+
 def check_run_all_warns_when_checks_are_uncommitted():
     """The generated run_all.sh says, on a failure, when tools/checks/ has
     uncommitted changes -- and only then.
@@ -8410,7 +8691,7 @@ def check_legacy_leftovers_retired_by_content():
     and `light-check.yml`, which is on no list at all."""
     import precedent_vendor_engine as pve
     import practice_audit as pa
-    import tempfile
+    import contextlib, io, tempfile
 
     cases = []
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-legacy-'))
@@ -8645,11 +8926,18 @@ def check_legacy_leftovers_retired_by_content():
                                 'git config user.name "A Person"\n'
                                 'git config --global user.email "$email"\n'},
                   {'kind': 'consumer'})
-        _res, left = sweep(r7)
+        with contextlib.redirect_stdout(io.StringIO()):
+            _res, left = sweep(r7)
         flagged = [i for i, _w in left if i.startswith('precedent.json source')]
-        cases.append(('a stale ../precedent-team-* source path is reported',
-                      any('precedent-team-writing' in i for i in flagged),
-                      str(flagged)))
+        # Repointed, not reported, since 2026-09-28: the rename is fixed, and
+        # nothing is cloned at the old path here to make the move unsafe.
+        paths7 = [s['path'] for s in json.loads(
+            (r7 / 'precedent.json').read_text(encoding='utf-8'))['sources']]
+        cases.append(('a stale ../precedent-team-* source path is repointed',
+                      paths7 == ['../precedent-shared-writing',
+                                 '../precedent-shared-working-style']
+                      and not any('writing' in i for i in flagged),
+                      f'{paths7} {flagged}'))
         cases.append(('NEGATIVE: a current ../precedent-shared-* path is not',
                       not any('working-style' in i for i in flagged),
                       str(flagged)))
@@ -38474,6 +38762,11 @@ def main():
     check_pretooluse_hook_fires()
     check_not_binding_actually_exempts_a_check()
     check_mirrored_prefixes_answers_both_install_models()
+    check_update_vendors_repoints_renamed_shared_sets()
+    check_update_vendors_rebaselines_a_file_now_identical_to_upstream()
+    check_update_vendors_defaults_headroom_floor()
+    check_engine_fetch_reaches_main_in_a_single_branch_clone()
+    check_update_vendors_leaves_mentions_of_a_deleted_file()
     check_no_engine_tool_hardcodes_a_mirror_path()
     check_installer_produces_a_clean_install()
     check_move_tool_lands_then_deduplicates()
