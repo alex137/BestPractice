@@ -538,10 +538,13 @@ says so, both from the vendored tree under `process/upstream/`.
 
     **(c) Fix stale source paths.** Each source in `precedent.json` whose
     path is not its current name gets both corrected — the practice sets
-    were renamed `precedent-team-*` → `precedent-shared-*`. The refresh
-    lists each one. GitHub redirects the old name, so nothing fails: the
-    repo just clones the same set twice, or not at all. Run step 8's tool
-    afterwards.
+    were renamed `precedent-team-*` → `precedent-shared-*`. Since
+    2026-09-28 the refresh makes that repoint itself (name, path, and level
+    `team` → `shared`) and says so; it lists only a set whose clone still
+    sits at the old path with nothing at the new one, which you clone or
+    move before running it again, and any other mismatch. GitHub redirects
+    the old name, so nothing fails: the repo just clones the same set
+    twice, or not at all. Run step 8's tool afterwards.
 
     **(d) Bring diverged template-written text up to the template:
     `tools/bootstrap.sh`, `AGENTS.md`'s sections, and retired branch

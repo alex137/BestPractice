@@ -3096,6 +3096,124 @@ def stale_source_paths(dest_root):
     return out
 
 
+TEAM_SET_PREFIX, SHARED_SET_PREFIX = 'precedent-team-', 'precedent-shared-'
+
+
+def renamed_set_path(path):
+    """`../precedent-team-x` -> `../precedent-shared-x`; any other path as
+    it is."""
+    p = pathlib.PurePosixPath(path)
+    if not p.name.startswith(TEAM_SET_PREFIX):
+        return path
+    return str(p.with_name(SHARED_SET_PREFIX + p.name[len(TEAM_SET_PREFIX):]))
+
+
+def repoint_renamed_sources(dest_root):
+    """Rewrite each precedent.json source still declared under a
+    precedent-team-* name or path to its precedent-shared-* one, level
+    `team` -> `shared` with it. -> [(old_name, new_name, old_path, new_path,
+    kept)], where `kept` is True when the path was left as it was.
+
+    The rename is fixed and known, so there is nothing to ask. Listing it
+    for the person was not enough: a set's own precedent-source.json
+    carries its new name, the resolver refuses a clone that answers to a
+    different name than the one declared, and the view sync stopped a
+    consumer's update on exactly that (2026-09-28: "calls itself
+    precedent-shared-repo-maintenance ... declares it as
+    precedent-team-repo-maintenance").
+
+    The PATH moves only when that is safe right now: when something is
+    already at the new path, or nothing is at the old one. A clone still
+    sitting at the old path with nothing at the new is left where it is --
+    repointing would make the set missing, and the sync refuses to write
+    from an incomplete source set -- and the caller says so.
+
+    A clone whose own precedent-source.json still answers to the old name
+    (or to any name but the new one) is left entirely alone: names are the
+    author's since 2026-09-18, so a set may still be called
+    precedent-team-something on purpose, and renaming its declaration would
+    cause the very refusal this exists to prevent. Like stale_source_paths,
+    only sibling (`../`) paths are considered. (practice:
+    vendor-update-runbook, "Fix stale source paths")"""
+    root = pathlib.Path(dest_root)
+    path = root / 'precedent.json'
+    try:
+        text = path.read_text(encoding='utf-8')
+        cfg = json.loads(text)
+    except (OSError, ValueError):
+        return []
+    sources = cfg.get('sources') if isinstance(cfg, dict) else None
+    if not isinstance(sources, list):
+        return []
+    done, swaps, relevelled = [], [], []
+    for s in sources:
+        if not isinstance(s, dict):
+            continue
+        name, where = str(s.get('name') or ''), str(s.get('path') or '')
+        if not where.startswith('../'):
+            continue
+        base = pathlib.PurePosixPath(where).name
+        if not (name.startswith(TEAM_SET_PREFIX) or base.startswith(TEAM_SET_PREFIX)):
+            continue
+        new_name = (SHARED_SET_PREFIX + name[len(TEAM_SET_PREFIX):]
+                    if name.startswith(TEAM_SET_PREFIX) else name)
+        moved = renamed_set_path(where)
+        own = None                  # what the clone calls itself, if it says
+        for p in dict.fromkeys((moved, where)):   # precedent_resolve.SOURCE_MANIFEST
+            try:
+                own = json.loads((root / p / 'precedent-source.json').read_text(
+                    encoding='utf-8')).get('name')
+                break
+            except (OSError, ValueError, AttributeError):
+                continue
+        if own and own != new_name:
+            continue
+        new_path, kept = where, False
+        if moved != where:
+            if (root / moved).exists() or not (root / where).exists():
+                new_path = moved
+            else:
+                kept = True
+        for key, old, new in (('name', name, new_name), ('path', where, new_path)):
+            if old != new:
+                s[key] = new
+                swaps.append((json.dumps(old), json.dumps(new)))
+        if s.get('level') == 'team':
+            s['level'] = 'shared'
+            relevelled.append(new_name)
+        if (new_name, new_path) != (name, where) or kept:
+            done.append((name, new_name, where, new_path, kept))
+    if not swaps and not relevelled:
+        return done
+    # Each old string swapped for the new one where it stands, so a
+    # hand-kept file keeps its layout and its comments; only when that does
+    # not give back exactly the intended object is the file rewritten whole.
+    new_text = text
+    for old, new in swaps:
+        new_text = new_text.replace(old, new)
+    for n in relevelled:
+        # The level inside the one object that names this source.
+        m = re.search(r'"name"\s*:\s*' + re.escape(json.dumps(n)), new_text)
+        if not m:
+            continue
+        lo = new_text.rfind('{', 0, m.start())
+        hi = new_text.find('}', m.end())
+        if lo < 0 or hi < 0:
+            continue
+        new_text = (new_text[:lo] + re.sub(r'("level"\s*:\s*)"team"', r'\1"shared"',
+                                           new_text[lo:hi], count=1)
+                    + new_text[hi:])
+    try:
+        ok = json.loads(new_text) == cfg
+    except ValueError:
+        ok = False
+    if not ok:
+        new_text = json.dumps(cfg, indent=2, ensure_ascii=False) + '\n'
+    if new_text != text:
+        path.write_text(new_text, encoding='utf-8')
+    return done
+
+
 _IDENTITY_RE = re.compile(
     r'git\s+config\s+(?:--(?:global|local)\s+)?user\.(?:name|email)\s+'
     r'["\']?[^"\'$\s-]')
@@ -3153,7 +3271,23 @@ def retire_legacy_leftovers(dest_root, manifest, kind):
     removed_wf = _remove_unapproved_workflows(dest_root, manifest, kind, pd)
     deleted_hooks = _retire_legacy_hooks(dest_root, manifest, pd)
     _remove_retired_config_fields(dest_root)
+    handled = set()
+    for old, new, old_path, new_path, kept in repoint_renamed_sources(dest_root):
+        handled.add(new)
+        if (old, old_path) != (new, new_path):
+            print(f"precedent_vendor_engine refresh: repointed precedent.json "
+                  f"source {old!r} to {new!r} (path {new_path}, level shared) "
+                  f"-- the precedent-team-* sets were renamed "
+                  f"precedent-shared-*, so there is nothing to decide.")
+        if kept:
+            _left(f'precedent.json source {new!r} at {old_path}',
+                  f'its clone is still at {old_path} and nothing is at '
+                  f'{renamed_set_path(old_path)} yet, so the path was left '
+                  f'alone -- clone the set there (or rename the directory), '
+                  f'then run this again')
     for name, path, why in stale_source_paths(dest_root):
+        if name in handled:
+            continue
         _left(f'precedent.json source {name!r} at {path}',
               f'{why} -- repoint it to the current name (vendor-update-runbook, '
               f'"Retire legacy leftovers")')
@@ -4584,6 +4718,14 @@ def _git(cwd, *args):
                           capture_output=True, text=True).stdout.strip()
 
 
+def tracking_refspec(branch):
+    """The refspec that fetches `branch` INTO origin/<branch>, whatever the
+    clone's configured refspec says. A single-branch clone's covers only the
+    branch it was cloned at, so `fetch origin main` there updates FETCH_HEAD
+    and nothing a later `origin/main` lookup can find."""
+    return f'+refs/heads/{branch}:refs/remotes/origin/{branch}'
+
+
 def _git_read(cwd, *args):
     """Run git and return (ok, stdout) so a caller can tell empty output apart
     from a failed command."""
@@ -4977,8 +5119,13 @@ def _source_tools_at(clone, kind=DEFAULT_KIND, ref=None, fetch=True):
     # has no SOURCE_BRANCH, is a supported case -- the _rev fallback below
     # handles it, and a hard failure here would break vendoring from a local
     # clone that is already up to date.
+    # The refspec is explicit because a bare `fetch origin <branch>` writes
+    # only FETCH_HEAD in a single-branch clone (`clone --branch X
+    # --depth 1`), whose configured refspec covers X alone -- so
+    # origin/<branch> never appeared and the second pass failed "has no
+    # main" on a clone that had just fetched it (2026-09-28).
     if fetch:
-        _git(clone, 'fetch', '--quiet', 'origin', SOURCE_BRANCH)
+        _git(clone, 'fetch', '--quiet', 'origin', tracking_refspec(SOURCE_BRANCH))
     # `ref`, when given, names the exact commit to read (seed() passes this
     # checkout's own HEAD -- it is not vendoring from a branch at all).
     # Otherwise: origin/<branch> first, then a local branch of that name --
