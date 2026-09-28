@@ -581,8 +581,8 @@ says so, both from the vendored tree under `process/upstream/`.
     ```
 
     From then on the refresh prints one `KEPT ON PURPOSE` line with the
-    reason, leaves it off **Left for you**, and
-    [precedent_update.py](../tools/precedent_update.py) can end DONE. The hash pins the decision to the template text it was made
+    reason, leaves it off **Left for you**, and `precedent_update.py` can
+    end DONE. The hash pins the decision to the template text it was made
     against: when upstream changes that text, the item is listed again in
     full, with the new hash to record if it is still kept. An entry with no
     reason is not honoured. A `diverged` entry in `process/manifest.json`
