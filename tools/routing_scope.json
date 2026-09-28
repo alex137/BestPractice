@@ -1232,6 +1232,25 @@
       "why": "Fires once, when a repo names its check levels. Nothing recurring to trigger on.",
       "decided": "phase 4 routing pass"
     },
+    "upstream-bug-stops-here": {
+      "globs": [
+        "process/upstream/**",
+        "precedent/universal/**",
+        "tools/*.py",
+        "tools/checks/**",
+        "practices/**",
+        ".claude/hooks/**",
+        "tools/bootstrap.sh",
+        ".github/workflows/light-check.yml",
+        ".github/workflows/leak-gate.yml"
+      ],
+      "why": "The paths where a copy of another repository's file usually lives: the vendored upstream tree, a declared universal source path, the engine and check scripts, practices, hooks, the bootstrap script and the two shipped workflows. The distinguishing condition is who wrote the file, which no glob can express, so these are where the edit that should stop tends to start; a session that owns the file says so and carries on.",
+      "decided": "2026-09-28, when the practice landed",
+      "gates": [
+        "review"
+      ],
+      "gates_why": "`review` is the moment a fix is chosen, before the edit, which is the only moment this rule can still stop a local patch to an upstream bug."
+    },
     "upstream-fix": {
       "globs": [
         "**"
