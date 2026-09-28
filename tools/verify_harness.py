@@ -15223,6 +15223,92 @@ def check_compaction_offer_fires_on_context_growth():
           '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad_cases))
 
 
+def check_compaction_offer_owed_printed_at_turn_start():
+    """The turn-start reply gate says whether the compact offer is owed.
+
+    2026-09-28: the Boildown's compact offer is advisory, and the stop hook
+    drops an unmet advisory requirement without a word, while the turn-start
+    print told sessions to leave the line out until the stop hook asked. A
+    session ran from about 80,000 tokens to about 783,000 without one compact
+    line. Morgan: "you have not told me ever to compact this session." The
+    gate now reads the transcript reply-gate.sh passes it and prints the
+    answer. Each case owns its transcript (practice: fixture-owns-its-state).
+    """
+    import tempfile
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-compact-owed-'))
+    cases = []
+    try:
+        fx = tmp / 'repo'
+        (fx / 'practices').mkdir(parents=True)
+        (fx / 'precedent.json').write_text(json.dumps({'sources': [
+            {'level': 'universal', 'name': 'precedent', 'path': '.'}]}), encoding='utf-8')
+        (fx / 'reply_check.json').write_text(json.dumps([{
+            'practice': 'fixture-compaction',
+            'require_one_of': ['Now is a good time to compact the session'],
+            'require_when_context_grew_tokens': 100000,
+            'advisory': True,
+        }]), encoding='utf-8')
+        subprocess.run(['git', 'init', '-q', str(fx)], capture_output=True)
+
+        def transcript(name, turns):
+            path = tmp / name
+            path.write_text(''.join(json.dumps({
+                'type': 'assistant',
+                'message': {'usage': {'input_tokens': 2,
+                                      'cache_creation_input_tokens': 0,
+                                      'cache_read_input_tokens': max(c - 2, 0)},
+                            'content': [{'type': 'text', 'text': t}]}}) + '\n'
+                for c, t in turns), encoding='utf-8')
+            return path
+
+        def run(path):
+            # Through the hook itself, so the payload-to-env hand-off is what
+            # is tested, not only the gate's reading of the variable.
+            hook = ROOT / 'templates' / 'harness' / 'claude-code' / 'hooks' / 'reply-gate.sh'
+            (fx / 'tools').mkdir(exist_ok=True)
+            for f in ROOT.joinpath('tools').glob('*.py'):
+                dst = fx / 'tools' / f.name
+                if not dst.exists():
+                    dst.symlink_to(f)
+            payload = json.dumps({'transcript_path': str(path)}) if path else ''
+            return subprocess.run(
+                ['bash', str(hook)], input=payload, capture_output=True,
+                text=True, cwd=str(fx),
+                env={**os.environ, 'CLAUDE_PROJECT_DIR': str(fx),
+                     'PRECEDENT_USER_CONFIG': str(tmp / 'no-such-config.json')})
+
+        owed = run(transcript('owed.jsonl', [
+            (96000, 'Opening.'), (150000, 'Middle.'), (205000, 'Done.')]))
+        cases.append(('a grown session is told the offer is OWED, with the '
+                      'sentence to say', 'OWED IN THIS REPLY' in owed.stdout
+                      and 'Now is a good time to compact the session' in owed.stdout,
+                      owed.stdout[-400:]))
+        short = run(transcript('short.jsonl', [(96000, 'Opening.'), (120000, 'Done.')]))
+        cases.append(('a short session hears nothing about compacting',
+                      'good time to compact' not in short.stdout, short.stdout[-400:]))
+        said = run(transcript('said.jsonl', [
+            (96000, 'Opening.'),
+            (205000, 'Now is a good time to compact the session.'),
+            (250000, 'More.')]))
+        cases.append(('once said, it is not owed again until another increment',
+                      'good time to compact' not in said.stdout, said.stdout[-400:]))
+        blind = run(None)
+        cases.append(('no transcript: it says it could not tell, and never '
+                      'defers to the stop hook', 'could not be worked out'
+                      in blind.stdout and 'stop hook is the thing'
+                      not in blind.stdout, blind.stdout[-400:]))
+        cases.append(('the hook exits 0 every time -- a non-zero '
+                      'UserPromptSubmit exit eats the message',
+                      all(r.returncode == 0 for r in (owed, short, said, blind)),
+                      ''))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'the turn-start gate says when the compact offer is owed '
+          f'({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n} ({d})' for n, d in bad))
+
+
 def check_trivial_checkin_exempts_the_boildown_gate():
     """practices/the-boildown.md names one fixed template for a turn where
     nothing happened that is visible, or non-trivial, to the person --
@@ -38205,6 +38291,7 @@ def main():
     check_advisory_requirement_never_blocks()
     check_contradiction_requirement_blocks()
     check_compaction_offer_fires_on_context_growth()
+    check_compaction_offer_owed_printed_at_turn_start()
     check('the archive line is refused when the container holds '
           'only-copy work',
           *check_archive_line_is_refused_when_the_container_holds_only_copy_work())

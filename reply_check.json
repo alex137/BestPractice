@@ -8,12 +8,12 @@
  {
   "practice": "the-boildown",
   "require_one_of": [
-   "This is a cheap point to compact",
-   "Not a cheap point to compact"
+   "Now is a good time to compact the session",
+   "This is a cheap point to compact"
   ],
   "require_when_context_grew_tokens": 100000,
   "advisory": true,
-  "why": "so a long session hears the offer instead of the rule quietly not firing for hours -- absorbed 2026-09-15 from session-spend-follows-the-task, which kept only its unrelated model-choice guidance. Downgraded to advisory 2026-09-17 (Morgan, direct instruction): give the reviewed, honest answer -- one of the two sentences, whichever actually applies -- but it is a recommendation, and an absent one must never refuse the turn."
+  "why": "so a long session hears the offer instead of the rule quietly not firing for hours -- absorbed 2026-09-15 from session-spend-follows-the-task, which kept only its unrelated model-choice guidance. Downgraded to advisory 2026-09-17 (Morgan, direct instruction): give the reviewed, honest answer -- one of the two sentences, whichever actually applies -- but it is a recommendation, and an absent one must never refuse the turn. 2026-09-28 (Morgan, strength: decided): the negative sentence dropped -- \"only tell me when I need to compact\" -- and the older positive wording still counts; the turn-start reply gate now prints whether the offer is owed, because an unmet advisory requirement is never shown to the session and so it never fired: \"you have not told me ever to compact this session.\""
  },
  {
   "practice": "the-boildown",
