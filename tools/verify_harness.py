@@ -7064,6 +7064,25 @@ def check_update_vendors_is_one_command():
         cases.append(('a repo with no vendored engine is sent to the migration, '
                       'not updated', rc == 1 and 'this is a migration' in out, out[-600:]))
 
+        # ...and a repo to be migrated still gets its branch tiers from here
+        # (Morgan, 2026-09-27: "when migrating check for these and create them").
+        classic = tmp / 'classic'
+        classic.mkdir()
+        sh('git', 'init', '-q', '-b', 'main', cwd=classic)
+        (classic / 'README.md').write_text('# classic install\n', encoding='utf-8')
+        sh('git', 'add', '-A', cwd=classic)
+        sh('git', 'commit', '-qm', 'classic', cwd=classic)
+        sh('git', 'clone', '-q', '--bare', str(classic), str(tmp / 'classic.git'), cwd=tmp)
+        sh('git', 'remote', 'add', 'origin', str(tmp / 'classic.git'), cwd=classic)
+        sh('git', 'fetch', '-q', 'origin', cwd=classic)
+        rc, out = update(classic)
+        _rc, heads = sh('git', 'ls-remote', '--heads', 'origin', cwd=classic)
+        cases.append(('a repo still to be migrated is sent to the migration AND leaves '
+                      'with staging and pre-staging on origin',
+                      rc == 1 and 'this is a migration' in out
+                      and 'refs/heads/staging' in heads
+                      and 'refs/heads/pre-staging' in heads, (out + heads)[-800:]))
+
         rc, out = sh(sys.executable, str(ROOT / 'tools' / 'precedent_update.py'),
                      '--repo', str(ROOT), cwd=ROOT)
         cases.append(('--repo naming the BestPractice clone itself is refused',
